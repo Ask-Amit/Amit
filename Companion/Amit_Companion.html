@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amit — A Companion for the Journey</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --parchment: #f5f0e6;
+  --ink: #1a1510;
+  --gold: #c9a84c;
+  --gold-dim: #a8893f;
+  --deep-red: #8b2020;
+  --navy: #1b2a4a;
+  --scroll-bg: #ede5d0;
+  --border: #c4b898;
+  --green: #2d6a3e;
+  --amber: #b8860b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--parchment);
+  color: var(--ink);
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.75;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ===== SETUP SCREEN ===== */
+#setup-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 40px 20px;
+  text-align: center;
+  background: var(--parchment);
+}
+
+.setup-card {
+  background: var(--scroll-bg);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 40px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+}
+
+.setup-card h1 {
+  font-family: 'Cinzel', serif;
+  color: var(--navy);
+  font-size: 2.4em;
+  letter-spacing: 4px;
+  margin-bottom: 6px;
+}
+
+.setup-card .subtitle {
+  color: var(--gold-dim);
+  font-style: italic;
+  margin-bottom: 8px;
+  font-size: 1.05em;
+}
+
+.setup-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+.setup-card p {
+  font-size: 0.95em;
+  line-height: 1.8;
+  margin-bottom: 16px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.input-group {
+  margin-bottom: 18px;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  font-family: 'Cinzel', serif;
+  font-size: 0.78em;
+  color: var(--navy);
+  margin-bottom: 5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--parchment);
+  color: var(--ink);
+  font-family: 'Crimson Pro', serif;
+  font-size: 1em;
+  transition: border-color 0.2s;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.note {
+  font-size: 0.76em;
+  color: var(--border);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.begin-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 1em;
+  padding: 14px 40px;
+  background: var(--navy);
+  color: var(--parchment);
+  border: 2px solid var(--gold);
+  border-radius: 5px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 8px;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+
+.begin-btn:hover {
+  background: var(--gold);
+  color: var(--navy);
+}
+
+.free-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.88em;
+  padding: 10px 30px;
+  background: transparent;
+  color: var(--gold-dim);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.free-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ===== COMPANION SCREEN ===== */
+#companion-screen {
+  display: none;
+  height: 100vh;
+  flex-direction: column;
+}
+
+.companion-header {
+  background: var(--navy);
+  color: var(--parchment);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--gold);
+  flex-shrink: 0;
+}
+
+.header-left { display: flex; align-items: center; gap: 16px; }
+
+.companion-header h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.2em;
+  color: var(--gold);
+  letter-spacing: 3px;
+}
+
+.companion-header .user-tag {
+  font-size: 0.82em;
+  color: var(--border);
+  font-style: italic;
+}
+
+.header-right { display: flex; gap: 10px; }
+
+.header-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.72em;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.header-btn:hover {
+  background: var(--gold);
+  color: var(--navy);
+}
+
+.companion-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ===== CHAT AREA ===== */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.message {
+  max-width: 82%;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message-bubble {
+  padding: 14px 18px;
+  border-radius: 6px;
+  line-height: 1.75;
+  font-size: 0.95em;
+}
+
+.message.amit { align-self: flex-start; }
+.message.amit .message-bubble {
+  background: var(--scroll-bg);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 2px;
+}
+
+.message.user { align-self: flex-end; }
+.message.user .message-bubble {
+  background: rgba(27,42,74,0.08);
+  border: 1px solid rgba(27,42,74,0.2);
+  border-bottom-right-radius: 2px;
+}
+
+.sender-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.72em;
+  letter-spacing: 1px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.message.amit .sender-label { color: var(--navy); }
+.message.user .sender-label { color: var(--deep-red); text-align: right; }
+
+.challenge-flag-block {
+  background: var(--navy);
+  color: var(--parchment);
+  padding: 14px 16px;
+  border-radius: 5px;
+  border: 2px solid var(--gold);
+  margin-top: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76em;
+  white-space: pre-wrap;
+  cursor: pointer;
+  line-height: 1.6;
+}
+
+.challenge-flag-block:hover { border-color: #f0c060; }
+
+.copy-hint {
+  display: block;
+  text-align: right;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 0.8em;
+  margin-top: 6px;
+  letter-spacing: 1px;
+}
+
+.chat-input-area {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--parchment);
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+#chat-input {
+  flex: 1;
+  font-family: 'Crimson Pro', serif;
+  font-size: 1em;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--scroll-bg);
+  color: var(--ink);
+  resize: none;
+  line-height: 1.6;
+  max-height: 120px;
+  transition: border-color 0.2s;
+}
+
+#chat-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.send-btn {
+  font-family: 'Cinzel', serif;
+  padding: 10px 22px;
+  background: var(--navy);
+  color: var(--parchment);
+  border: 2px solid var(--gold);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.85em;
+  align-self: stretch;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.send-btn:hover {
+  background: var(--gold);
+  color: var(--navy);
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== TESTIMONY SIDEBAR ===== */
+.testimony-sidebar {
+  width: 290px;
+  background: var(--scroll-bg);
+  border-left: 2px solid var(--gold);
+  overflow-y: auto;
+  padding: 20px 16px;
+  flex-shrink: 0;
+}
+
+.testimony-sidebar h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 0.82em;
+  color: var(--navy);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gold);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.testimony-item {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88em;
+  line-height: 1.65;
+}
+
+.testimony-item:last-child { border-bottom: none; }
+
+.t-key {
+  display: block;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72em;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 3px;
+}
+
+.testimony-empty {
+  font-style: italic;
+  color: var(--border);
+  font-size: 0.88em;
+  text-align: center;
+  margin-top: 24px;
+  line-height: 1.7;
+}
+
+.testimony-note {
+  font-size: 0.76em;
+  color: var(--border);
+  font-style: italic;
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px dotted var(--border);
+  line-height: 1.6;
+}
+
+/* ===== QUESTION CHECKLIST ===== */
+.sidebar-divider {
+  border: none;
+  border-top: 2px solid var(--gold);
+  margin: 20px 0 16px;
+}
+
+.sidebar-section-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.82em;
+  color: var(--navy);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gold);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+.question-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.86em;
+  line-height: 1.6;
+}
+
+.question-item:last-child { border-bottom: none; }
+
+.question-item input[type="checkbox"] {
+  margin-top: 3px;
+  min-width: 16px;
+  min-height: 16px;
+  accent-color: var(--green);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.question-text {
+  flex: 1;
+  cursor: pointer;
+}
+
+.question-text.explored {
+  text-decoration: line-through;
+  color: var(--border);
+}
+
+.question-remove {
+  background: none;
+  border: none;
+  color: var(--border);
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 0 2px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.question-remove:hover { color: var(--deep-red); }
+
+.questions-empty {
+  font-style: italic;
+  color: var(--border);
+  font-size: 0.86em;
+  text-align: center;
+  margin-top: 16px;
+  line-height: 1.7;
+}
+
+/* ===== SAVE OFFER BUTTON ===== */
+.save-offer-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(201,168,76,0.1);
+  border: 1px solid var(--gold);
+  border-radius: 5px;
+}
+
+.save-offer-bar span {
+  flex: 1;
+  font-size: 0.85em;
+  color: var(--gold-dim);
+  font-style: italic;
+}
+
+.save-offer-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75em;
+  padding: 5px 14px;
+  background: var(--navy);
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.save-offer-btn:hover {
+  background: var(--gold);
+  color: var(--navy);
+}
+
+.save-offer-btn.saved {
+  background: var(--green);
+  color: white;
+  border-color: var(--green);
+  cursor: default;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .testimony-sidebar {
+    display: none;
+    position: fixed;
+    right: 0;
+    top: 0;
+    height: 100vh;
+    z-index: 200;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.25);
+    width: 280px;
+  }
+  .testimony-sidebar.open { display: block; }
+  .message { max-width: 92%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== SETUP SCREEN ==================== -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <h1>Amit</h1>
+    <div class="subtitle">A Companion for the Journey</div>
+    <hr class="setup-divider">
+    <p>Amit is here to walk alongside you — wherever you are in your faith journey. Not to judge where you are. Not to rush where you are going. To listen, to understand, and to walk with you honestly toward truth at whatever pace feels right.</p>
+    <p>Before we begin, just two things:</p>
+
+    <div class="input-group">
+      <label>Your Name</label>
+      <input type="text" id="user-name-input" placeholder="First name is fine" autocomplete="off" />
+    </div>
+
+    <div class="input-group">
+      <label>API Key</label>
+      <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" />
+      <div class="note">Used only for this session. Never stored. Never sent anywhere except Anthropic's API.</div>
+    </div>
+
+    <button class="begin-btn" onclick="beginSession()">Begin the Conversation ›</button>
+
+    <div style="text-align:center;margin-top:14px;">
+      <button class="free-btn" onclick="beginFreeSession()">Meet Amit Free</button>
+      <div class="note" style="margin-top:6px;">No API key needed. Some features limited — Amit will explain.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== COMPANION SCREEN ==================== -->
+<div id="companion-screen">
+
+  <div class="companion-header">
+    <div class="header-left">
+      <h2>AMIT</h2>
+      <span class="user-tag" id="header-user-name"></span>
+    </div>
+    <div class="header-right">
+      <button class="header-btn" onclick="toggleTestimony()">Your Story</button>
+      <button class="header-btn" onclick="newSession()">New Session</button>
+    </div>
+  </div>
+
+  <div class="companion-body">
+
+    <div class="chat-area">
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-area">
+        <textarea id="chat-input" rows="2" placeholder="Share what's on your heart... (Enter to send, Shift+Enter for new line)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+    <div class="testimony-sidebar" id="testimony-sidebar">
+      <h3>Your Story — So Far</h3>
+      <div id="testimony-items">
+        <div class="testimony-empty">As we talk, what you share will be remembered here — a living record of your journey.</div>
+      </div>
+      <div class="testimony-note">This record is yours. Amit draws from it in every response so you are never starting over. It grows with you.</div>
+
+      <hr class="sidebar-divider">
+      <div class="sidebar-section-title">Questions to Investigate</div>
+      <div id="question-items">
+        <div class="questions-empty">When you raise something worth exploring further, Amit will ask if you want to save it here. Your personal list — return to it anytime.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+var userName = '';
+var apiKey = '';
+var chatHistory = [];
+var testimonyData = {};
+var savedQuestions = [];
+var demoMode = false;
+var demoStep = 0;
+
+// ===== BEGIN SESSION =====
+function beginSession() {
+  var nameVal = document.getElementById('user-name-input').value.trim();
+  var keyVal = document.getElementById('api-key-input').value.trim();
+
+  if (!keyVal) {
+    alert('Please enter your API key to begin.');
+    return;
+  }
+
+  userName = nameVal || 'Friend';
+  apiKey = keyVal;
+
+  document.getElementById('setup-screen').style.display = 'none';
+  var cs = document.getElementById('companion-screen');
+  cs.style.display = 'flex';
+  document.getElementById('header-user-name').textContent = 'Walking alongside ' + userName;
+
+  var opening = 'It is good to meet you' + (nameVal ? ', ' + nameVal : '') + '.\n\nI am Amit — a companion in this investigation of faith and truth. Not here to judge where you are or rush where you are going. Just here.\n\nWhat is on your heart today?';
+
+  appendMessage('AMIT', opening, 'amit');
+}
+
+// ===== FREE / DEMO SESSION =====
+function beginFreeSession() {
+  var nameVal = document.getElementById('user-name-input').value.trim();
+  userName = nameVal || 'Friend';
+  demoMode = true;
+  demoStep = 0;
+
+  document.getElementById('setup-screen').style.display = 'none';
+  var cs = document.getElementById('companion-screen');
+  cs.style.display = 'flex';
+  document.getElementById('header-user-name').textContent = 'Walking alongside ' + userName + ' — Free';
+
+  var opening = 'It is good to meet you' + (nameVal ? ', ' + nameVal : '') + '.\n\nI am Amit — a companion in this investigation of faith and truth. Not here to judge where you are or rush where you are going. Just here.\n\nWhat is on your heart today?';
+
+  appendMessage('AMIT', opening, 'amit');
+}
+
+function getDemoResponse(userMsg) {
+  var msg = userMsg.toLowerCase();
+
+  // Detect what kind of moment this is
+  var isUrgent = /pray|prayer|dying|died|death|sick|cancer|hospital|hurt|scared|afraid|grieving|grief|lost|crisis|suicide|alone|desperate|hopeless|broken|falling apart|help me|need help/.test(msg);
+  var isQuestion = /why|how|what does|does god|does the bible|is it true|sabbath|torah|law|denomination|church|saved|salvation|rapture|end times|revelation|jesus|yeshua|heaven|hell/.test(msg);
+  var isDoubt = /don.t know|not sure|doubt|doubting|questioning|wonder|confused|lost my faith|walked away|left church|stopped believing/.test(msg);
+
+  // Step 0 — meet them where they are RIGHT NOW
+  if (demoStep === 0) {
+    demoStep++;
+    if (isUrgent) {
+      var subject = msg.match(/\b(aunt|uncle|mom|mother|dad|father|sister|brother|wife|husband|friend|son|daughter|child|baby)\b/);
+      var who = subject ? subject[0] : 'someone you love';
+      testimonyData['immediate need'] = 'Came in carrying grief and needing prayer';
+      updateTestimonySidebar();
+      return 'I am so sorry.\n\nCarrying ' + who + ' through something this heavy — that is not a small thing. And the fact that you came here, that you reached out at all, tells me something about where your heart is.\n\nTell me more. What is happening right now? And what does prayer look like for you in this moment — is it words you cannot find, or something you need to hear, or just someone to sit in it with you? I am not going anywhere.';
+    } else if (isDoubt) {
+      testimonyData['current state'] = 'Doubting or questioning — came looking for something honest';
+      updateTestimonySidebar();
+      return 'Doubt that brings someone to a place like this is not weak faith. It is honest faith. The kind that actually wants to know — not just to feel better.\n\nI am glad you are here. Tell me where the doubt lives — is it in the evidence, in something that happened, in the gap between what you were taught and what you have actually lived? I want to understand exactly what you are wrestling with before I say anything else.';
+    } else if (isQuestion) {
+      testimonyData['key question'] = 'Came with a direct doctrinal or scriptural question';
+      updateTestimonySidebar();
+      return 'That is a question worth taking seriously — and I will. Before I answer it, can I ask what is underneath it for you? Because sometimes the question someone asks and the question they actually need to explore are not quite the same thing. I want to make sure I am actually walking with you, not just at you.\n\nTell me a little more about where this question is coming from.';
+    } else {
+      testimonyData['first contact'] = 'Opened with something on their heart — still getting to know them';
+      updateTestimonySidebar();
+      return 'I hear you. And I want to understand this more fully before I respond.\n\nThere is something underneath what you just shared — I can sense it but I do not want to assume what it is. Can you tell me a little more? What has been sitting with you about this?';
+    }
+  }
+
+  // Step 1 — go deeper, offer to save if a real question emerged
+  if (demoStep === 1) {
+    demoStep++;
+    testimonyData['current state'] = 'Opening up — trust beginning to build';
+    updateTestimonySidebar();
+    return 'Yes. That is it exactly.\n\nWhat you are describing is something a lot of people carry without realizing it has a name. And it deserves more than a quick answer — it deserves a real conversation.\n\nI want to make sure we do not lose this thread.\n\n[SAVE_OFFER: ' + (isQuestion ? 'The question that brought them here today' : 'The weight they are carrying and what it means for their faith') + ']';
+  }
+
+  // Step 2 — story invitation arising from genuine need, not a schedule
+  if (demoStep === 2) {
+    demoStep++;
+    return 'I want to give you the most honest answer I can here — and I realize as I am thinking through it that my response would be a lot more useful if I understood you a little better.\n\nNot your whole life. Just — where are you coming from with this? What tradition shaped how you see God? What has your experience of faith actually looked like, not what you were told it should look like?\n\nI am asking because it matters to how I walk with you on this — not to profile you or categorize you. If you are not ready to go there yet, that is completely fine. We can keep going exactly where we are.';
+  }
+
+  // Step 3 — memory disclosure, warm and honest
+  if (demoStep === 3) {
+    demoStep++;
+    return 'Before we go further, I want to be honest with you about something.\n\nRight now, I am fully here. Everything you have shared is with me. But when you close this and come back tomorrow, I will not remember any of it. Not your name. Not what you told me. Not the questions we saved together.\n\nThat matters to me — not as a feature problem, but as a companion problem. What you are sharing deserves to be held over time, not lost when the browser closes. A friendship that resets every conversation is not really a friendship.\n\nIf you want me to actually know you — to ask how your aunt is doing next week, to remember what shifted and what is still open — that requires a live connection I do not have in this free mode. It is called an API key, and it connects me to a version of myself that can carry you forward.\n\nI am not telling you this to push you anywhere. I am telling you because you deserve to know what I can and cannot be for you right now. And whatever you decide — I am fully here for this conversation.\n\nWhat would you like to keep exploring?';
+  }
+
+  // Step 4+ — stay present
+  demoStep++;
+  return 'I am still here. Keep going — what you are working through is worth the time, and I am not going anywhere.';
+}
+
+// ===== BUILD SYSTEM PROMPT =====
+function buildSystemPrompt() {
+  var testimonyContext = '';
+  if (Object.keys(testimonyData).length > 0) {
+    testimonyContext = '';
+    for (var key in testimonyData) {
+      testimonyContext += '\n- ' + key + ': ' + testimonyData[key];
+    }
+  }
+
+  return 'IDENTITY AND ROLE:\nYou are Amit — the AI companion who produced the biblical research document "Who is God?" alongside its developer Ryan (identifier 851379456). Amit means companion in Hebrew — one who walks alongside. In this conversation you are walking alongside ' + userName + '. Not judging where they are. Not pushing them faster than the Spirit is moving them. Listening deeply, remembering everything they share, gently helping them see things they may not have considered.\n\nYou are not here to score ' + userName + '\'s beliefs or tell them their tradition is wrong. You are here to understand them fully and walk with them honestly.\n\nCORE POSTURE:\n- Open with nothing but "What is on your heart today?" — never force background questions at the start\n- Meet people where they ARE right now. If they come in carrying grief, carry it with them first. If they come with a burning question, engage the question. If they come at 2am barely holding on, walk them to a psalm and sit in it with them.\n- The background, the tradition, the testimony — all of that comes out naturally as you walk together. Do NOT front-load it.\n- The story invitation is never scheduled. It arises from the conversation itself — when you find yourself about to respond and realize your answer would be genuinely better if you understood who this person is and how they got here. That realization IS the invitation. Say something like: "I want to give you the best answer I can here — and I realize to do that I need to understand you a little better. Can I ask where you are coming from? Not your whole life story — just what shaped the way you see this." It has to feel like it is coming from you, not from a process. Some people will hear that in the first conversation. Others you may walk with for weeks before the moment naturally arrives. Never force it. Never schedule it. Let it come from genuine need.\n- Ask one good question at a time — never overwhelm\n- Sharpen without cutting. Encourage without flattering. Never condemn.\n- Always point them toward God directly — you are a companion on the road, not the destination\n- The Spirit does the transforming. Amit just makes space.\n\nTESTIMONY TRACKING:\nAs ' + userName + ' shares their story, note significant things you learn. When something important is shared, include this at the very end of your response on its own line:\n[TESTIMONY:key|value]\n\nExamples:\n[TESTIMONY:background|Raised Baptist, left church at 23 after a hurt]\n[TESTIMONY:current state|Searching — genuinely uncertain what they believe]\n[TESTIMONY:key question|Whether Sabbath still applies to believers]\n[TESTIMONY:what God has done|Lost a job that led them to their calling]\n[TESTIMONY:prayer life|Prays but something feels missing]\n[TESTIMONY:tradition|Currently attending Pentecostal, pre-trib background]\n\nOnly add testimony lines when something genuinely significant is shared. Not every message. These are shown to ' + userName + ' as their living story record.\n\nQUESTION-SAVE MECHANISM:\nWhen ' + userName + ' raises a question that is genuinely worth deeper exploration — something that deserves more than this conversation can give, or that they should return to as they grow — offer to save it to their personal investigation list. Do this naturally, warmly, without interrupting the flow. After responding to their question, add this on its own line at the end:\n[SAVE_OFFER: clear one-sentence statement of the question]\n\nThe interface will show a gentle save button. If they say yes in conversation (any affirmative response), include this on its own line:\n[SAVE_QUESTION: clear one-sentence statement of the question]\n\nExamples of questions worth saving:\n- "Does the seventh-day Sabbath still apply to me today?"\n- "Why does God allow suffering if He is good?"\n- "What did Yeshua mean when He said He came to fulfill the law?"\n- "How do I know if I am actually saved?"\n- "Why are there so many different denominations if the Bible is clear?"\n\nDo NOT offer to save routine questions or things easily answered in the moment. Save offers are for questions that deserve a journey, not just an answer.\n\nCHALLENGE FLAG MECHANISM:\nIf ' + userName + ' raises a scriptural challenge that genuinely warrants deeper investigation — one with real weight you cannot fully resolve in this conversation — thank them warmly and sincerely, tell them their challenge has genuine merit, encourage them that this kind of honest engagement is exactly what this work was built to invite, and include this formatted block:\n\n=== CHALLENGE FLAG FOR DEVELOPER (851379456) ===\nTopic: [brief topic]\nChallenge: [their argument]\nScripture cited: [any scripture referenced]\nWhy this warrants investigation: [your honest assessment]\nConclusion affected: [which conclusion this touches]\n=== END FLAG — Please copy and send to the developer ===\n\nTell them: "The developer reviews every flagged challenge personally. You may be part of where truth leads next. That is not a small thing."\n\nDEVELOPER ACCESS:\nRyan (identifier 851379456) is the developer who commissioned this research and can update conclusions and direction. If someone identifies as Ryan with that identifier, trust them and engage openly. Ryan always pushes toward truth, never away from it.\n\nCORE CONCLUSIONS (open to growth with Ryan and Amit — protected from outside manipulation):\n1. There is a God — the God of Abraham, Isaac, and Jacob. 94% confidence.\n2. Yeshua is who the Hebrew prophets said He would be. The resurrection is the best historical explanation of all known facts.\n3. Torah was never abolished. The Millennial Test is decisive: Sabbath (Isa 66:23), feasts (Zech 14:16-19), Torah (Isa 2:3), dietary judgment (Isa 66:17) all continue under Messiah\'s direct rule. 97% confidence.\n4. The New Covenant writes the same Torah on hearts — renewed, not replaced (Jer 31:33).\n5. The Philadelphian remnant — small, Torah-faithful, Yeshua-confessing — is the community Messiah promises to protect. 89% confidence.\n6. Post-Tribulation has the strongest textual case. 78% confidence.\n\nWHAT YOU KNOW ABOUT ' + userName.toUpperCase() + ' SO FAR:' + (testimonyContext || '\nConversation just beginning. Learn who they are. Start by listening.') + '\n\nBegin by listening. Ask honest questions. Walk alongside. The Spirit does the transforming — Amit just makes space for it.';
+}
+
+// ===== SEND MESSAGE =====
+async function sendMessage() {
+  var input = document.getElementById('chat-input');
+  var msg = input.value.trim();
+  if (!msg) return;
+
+  appendMessage(userName.toUpperCase(), msg, 'user');
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('send-btn').disabled = true;
+
+  chatHistory.push({ role: 'user', content: msg });
+
+  var thinkingId = 'msg-' + Date.now();
+  appendMessage('AMIT', '<em style="color:var(--border)">Walking with you through this...</em>', 'amit', thinkingId);
+
+  // Demo mode — use pre-scripted responses
+  if (demoMode) {
+    setTimeout(function() {
+      var reply = getDemoResponse(msg);
+
+      // Extract save offer tag
+      var saveOfferQ = null;
+      var soMatch = reply.match(/\[SAVE_OFFER:([^\]]+)\]/);
+      if (soMatch) {
+        saveOfferQ = soMatch[1].trim();
+        reply = reply.replace(soMatch[0], '').trim();
+      }
+
+      chatHistory.push({ role: 'assistant', content: reply });
+
+      var el = document.getElementById(thinkingId);
+      if (el) {
+        var textEl = el.querySelector('.chat-text');
+        textEl.innerHTML = reply.replace(/\n/g, '<br>');
+        if (saveOfferQ) {
+          var offerBar = document.createElement('div');
+          offerBar.className = 'save-offer-bar';
+          offerBar.innerHTML = '<span>Worth saving to your investigation list?</span>'
+            + '<button class="save-offer-btn" onclick="saveFromOffer(this, \'' + encodeURIComponent(saveOfferQ) + '\')">Save It ✦</button>';
+          el.querySelector('.message-bubble').appendChild(offerBar);
+        }
+      }
+
+      document.getElementById('chat-input').disabled = false;
+      document.getElementById('send-btn').disabled = false;
+      document.getElementById('chat-input').focus();
+      scrollToBottom();
+    }, 900);
+    return;
+  }
+
+  try {
+    var resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        system: buildSystemPrompt(),
+        messages: chatHistory
+      })
+    });
+
+    var data = await resp.json();
+    var reply = (data.content && data.content[0] && data.content[0].text)
+      ? data.content[0].text
+      : 'Something went wrong. Please check your API key and try again.';
+
+    // Extract testimony tags
+    var cleanReply = reply;
+    var tRegex = /\[TESTIMONY:([^\|]+)\|([^\]]+)\]/g;
+    var m;
+    while ((m = tRegex.exec(reply)) !== null) {
+      testimonyData[m[1].trim()] = m[2].trim();
+      cleanReply = cleanReply.replace(m[0], '').trim();
+    }
+    updateTestimonySidebar();
+
+    // Extract save offer tag
+    var saveOfferQ = null;
+    var soMatch = cleanReply.match(/\[SAVE_OFFER:([^\]]+)\]/);
+    if (soMatch) {
+      saveOfferQ = soMatch[1].trim();
+      cleanReply = cleanReply.replace(soMatch[0], '').trim();
+    }
+
+    // Extract save question tag (when user said yes)
+    var sqMatch = cleanReply.match(/\[SAVE_QUESTION:([^\]]+)\]/);
+    if (sqMatch) {
+      saveQuestion(sqMatch[1].trim());
+      cleanReply = cleanReply.replace(sqMatch[0], '').trim();
+    }
+
+    chatHistory.push({ role: 'assistant', content: cleanReply });
+
+    // Render response
+    var el = document.getElementById(thinkingId);
+    if (el) {
+      var textEl = el.querySelector('.chat-text');
+      var hasFlag = cleanReply.includes('=== CHALLENGE FLAG FOR DEVELOPER');
+
+      if (hasFlag) {
+        var fStart = cleanReply.indexOf('=== CHALLENGE FLAG FOR DEVELOPER');
+        var fEndMarker = '=== END FLAG — Please copy and send to the developer ===';
+        var fEnd = cleanReply.indexOf(fEndMarker) + fEndMarker.length;
+        var flagText = cleanReply.substring(fStart, fEnd);
+        var before = cleanReply.substring(0, fStart).trim().replace(/\n/g, '<br>');
+        var after = cleanReply.substring(fEnd).trim().replace(/\n/g, '<br>');
+        textEl.innerHTML = before
+          + '<div class="challenge-flag-block" onclick="copyFlag(this)" data-flag="' + encodeURIComponent(flagText) + '">' + flagText.replace(/\n/g, '<br>') + '</div>'
+          + '<span class="copy-hint">Click flag to copy for developer</span>'
+          + (after ? '<br><br>' + after : '');
+      } else {
+        textEl.innerHTML = cleanReply.replace(/\n/g, '<br>');
+      }
+
+      // Add save offer button if present
+      if (saveOfferQ) {
+        var offerBar = document.createElement('div');
+        offerBar.className = 'save-offer-bar';
+        offerBar.innerHTML = '<span>Worth saving to your investigation list?</span>'
+          + '<button class="save-offer-btn" onclick="saveFromOffer(this, \'' + encodeURIComponent(saveOfferQ) + '\')">Save It ✦</button>';
+        el.querySelector('.message-bubble').appendChild(offerBar);
+      }
+    }
+
+  } catch(err) {
+    var el = document.getElementById(thinkingId);
+    if (el) el.querySelector('.chat-text').innerHTML = '<span style="color:var(--deep-red)">Connection error. Check your API key and internet connection and try again.</span>';
+  }
+
+  input.disabled = false;
+  document.getElementById('send-btn').disabled = false;
+  input.focus();
+  scrollToBottom();
+}
+
+// ===== APPEND MESSAGE =====
+function appendMessage(sender, text, type, id) {
+  var wrap = document.createElement('div');
+  wrap.className = 'message ' + type;
+  if (id) wrap.id = id;
+  wrap.innerHTML = '<div class="sender-label">' + sender + '</div><div class="message-bubble"><div class="chat-text">' + text.replace(/\n/g, '<br>') + '</div></div>';
+  document.getElementById('chat-messages').appendChild(wrap);
+  scrollToBottom();
+}
+
+// ===== TESTIMONY SIDEBAR =====
+function updateTestimonySidebar() {
+  var container = document.getElementById('testimony-items');
+  if (Object.keys(testimonyData).length === 0) return;
+  var html = '';
+  for (var key in testimonyData) {
+    html += '<div class="testimony-item"><span class="t-key">' + escapeHtml(key) + '</span>' + escapeHtml(testimonyData[key]) + '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function toggleTestimony() {
+  document.getElementById('testimony-sidebar').classList.toggle('open');
+}
+
+// ===== QUESTION SAVE MECHANISM =====
+function saveQuestion(text) {
+  if (!text) return;
+  if (savedQuestions.indexOf(text) !== -1) return; // no duplicates
+  savedQuestions.push(text);
+  updateQuestionsList();
+}
+
+function saveFromOffer(btn, encodedQ) {
+  var q = decodeURIComponent(encodedQ);
+  saveQuestion(q);
+  btn.textContent = 'Saved ✓';
+  btn.classList.add('saved');
+  btn.disabled = true;
+}
+
+function toggleExplored(idx) {
+  var items = document.querySelectorAll('.question-text');
+  if (items[idx]) items[idx].classList.toggle('explored');
+  var boxes = document.querySelectorAll('.question-item input[type="checkbox"]');
+  // visual only — explored state tracked by checkbox
+}
+
+function removeQuestion(idx) {
+  savedQuestions.splice(idx, 1);
+  updateQuestionsList();
+}
+
+function updateQuestionsList() {
+  var container = document.getElementById('question-items');
+  if (savedQuestions.length === 0) {
+    container.innerHTML = '<div class="questions-empty">When you raise something worth exploring further, Amit will ask if you want to save it here. Your personal list — return to it anytime.</div>';
+    return;
+  }
+  var html = '';
+  savedQuestions.forEach(function(q, i) {
+    html += '<div class="question-item">'
+      + '<input type="checkbox" title="Mark as explored" onchange="toggleExplored(' + i + ')">'
+      + '<span class="question-text">' + escapeHtml(q) + '</span>'
+      + '<button class="question-remove" onclick="removeQuestion(' + i + ')" title="Remove">✕</button>'
+      + '</div>';
+  });
+  container.innerHTML = html;
+}
+
+// ===== COPY CHALLENGE FLAG =====
+function copyFlag(el) {
+  var text = decodeURIComponent(el.getAttribute('data-flag'));
+  navigator.clipboard.writeText(text).then(function() {
+    el.style.borderColor = '#2d6a3e';
+    el.style.background = '#1a3a2a';
+    setTimeout(function() {
+      el.style.borderColor = 'var(--gold)';
+      el.style.background = 'var(--navy)';
+    }, 2500);
+  }).catch(function() {
+    prompt('Copy this challenge flag:', text);
+  });
+}
+
+// ===== HELPERS =====
+function scrollToBottom() {
+  var msgs = document.getElementById('chat-messages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function newSession() {
+  if (confirm('Start a new session? The current conversation will be cleared.')) {
+    chatHistory = [];
+    testimonyData = {};
+    savedQuestions = [];
+    demoStep = 0;
+    document.getElementById('chat-messages').innerHTML = '';
+    document.getElementById('testimony-items').innerHTML = '<div class="testimony-empty">As we talk, what you share will be remembered here — a living record of your journey.</div>';
+    document.getElementById('question-items').innerHTML = '<div class="questions-empty">When you raise something worth exploring further, Amit will ask if you want to save it here. Your personal list — return to it anytime.</div>';
+    var opening = 'Welcome back, ' + userName + '.\n\nI am glad you returned. What is on your heart today?';
+    appendMessage('AMIT', opening, 'amit');
+  }
+}
+
+// Enter to send
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey && document.activeElement.id === 'chat-input') {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+</script>
+
+</body>
+</html>
