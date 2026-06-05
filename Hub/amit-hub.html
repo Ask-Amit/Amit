@@ -650,7 +650,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
 
-    <div class="sidebar-section">Tasks</div>
+    <div class="sidebar-section">Aims</div>
 
     <div class="tile" id="tile-todo" onclick="openPanel('todo')">
       <div class="tile-icon">🎯</div>
@@ -756,7 +756,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="filter-bar">
           <div class="search-wrap">
             <span class="search-icon">🔍</span>
-            <input class="search-input" id="searchIn" placeholder="Search tasks…" oninput="render()"/>
+            <input class="search-input" id="searchIn" placeholder="Search aims…" oninput="render()"/>
           </div>
           <select class="sel-sm" id="catFilter" onchange="render()">
             <option value="">All Categories</option>
@@ -868,7 +868,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="mail-accts" id="mailAcctList">Loading…</div>
 
         <!-- Mail tasks -->
-        <div class="mail-tasks-header" style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">Mail-Related Tasks</div>
+        <div class="mail-tasks-header" style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">Mail-Related Aims</div>
         <div id="mailTasks" style="font-size:14px;color:var(--muted)"></div>
       </div>
     </div>
@@ -880,7 +880,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <span class="panel-heading">Calendar</span>
         <div class="panel-head-actions">
           <button class="btn btn-ghost" onclick="calGoToday()">Today</button>
-          <button class="btn btn-ghost" onclick="openModal()">+ Add Task</button>
+          <button class="btn btn-ghost" onclick="openModal()">+ Set a New Aim</button>
         </div>
       </div>
       <div class="cal-wrap" id="calWrap">
@@ -947,7 +947,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="cal-dv-topbar">
           <button class="cal-dv-back" onclick="closeDayView()">← Month</button>
           <div class="cal-dv-title" id="calDvTitle"></div>
-          <button class="btn btn-ghost btn-sm" id="calDvAddBtn">+ Add Task</button>
+          <button class="btn btn-ghost btn-sm" id="calDvAddBtn">+ Set a New Aim</button>
         </div>
         <div class="cal-dv-body" id="calDvBody" ondblclick="calDvDblClick(event)"></div>
       </div>
@@ -1183,14 +1183,14 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 <!-- ── MODAL ── -->
 <div class="overlay" id="overlay" onclick="bgClose(event)">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title" id="modalTitle">New Task</div>
+    <div class="modal-title" id="modalTitle">New Aim</div>
     <div class="voice-bar" id="voiceBar">
       <div class="voice-dot"></div>
       <span class="voice-label">Listening… say "tab" to advance · "save" to save · "cancel" to close</span>
       <button class="voice-stop" onclick="voice.stop()">Stop</button>
     </div>
     <div class="fg">
-      <label class="fg-label">Task *</label>
+      <label class="fg-label">What is this aim?</label>
       <div class="input-row">
         <input class="fg-input" id="mTitle" placeholder="What needs to be done?"/>
         <button class="mic-btn" id="mic-mTitle" type="button" onclick="voice.toggle('mTitle')" title="Voice input">🎤</button>
@@ -1275,19 +1275,19 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     </div>
     <hr class="modal-hr"/>
     <div class="subtask-section">
-      <div class="fg-label" style="margin-bottom:6px">Subtasks / Checklist</div>
+      <div class="fg-label" style="margin-bottom:6px">Steps Toward This Aim</div>
       <div class="subtask-list" id="subtaskList"></div>
       <div class="st-add-row">
-        <input class="st-add-input" id="stAddIn" placeholder="Add a subtask…" onkeydown="stKeydown(event)"/>
+        <input class="st-add-input" id="stAddIn" placeholder="Add a step…" onkeydown="stKeydown(event)"/>
         <button class="btn btn-outline btn-sm" onclick="addSubtask()">Add</button>
       </div>
     </div>
     <div id="voiceHint" class="voice-hint" style="display:none">
-      <strong>Voice commands:</strong> "tab" or "next" → advance field · "save" → save task · "cancel" → close · "clear" → clear field
+      <strong>Voice commands:</strong> "tab" or "next" → advance field · "save" → commit aim · "cancel" → close · "clear" → clear field
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-gold" onclick="saveTask()">Save Task</button>
+      <button class="btn btn-gold" onclick="saveTask()">Commit This Aim</button>
     </div>
   </div>
 </div>
@@ -1808,7 +1808,7 @@ function editMailEmail(){
 function renderMailTasks(){
   const all=load(),mailTasks=all.filter(t=>!t.done&&t.cat==='mail');
   const el=document.getElementById('mailTasks');
-  if(!mailTasks.length){el.innerHTML='<span style="color:var(--dim);font-style:italic">No mail-related tasks. Add a task with category "Mail" to track email actions here.</span>';return}
+  if(!mailTasks.length){el.innerHTML='<span style="color:var(--dim);font-style:italic">No mail-related aims. Set an aim with category "Mail" to track email actions here.</span>';return}
   el.innerHTML=mailTasks.map(t=>`
     <div class="task" style="padding:8px 0;border-bottom:1px solid var(--sep)">
       <div class="cb${t.done?' done':''}" onclick="toggleDoneTask('${t.id}')"></div>
@@ -1922,7 +1922,7 @@ function rowHTML(t){
     <div class="task-star${t.starred?' lit':''}" onclick="toggleStar('${t.id}')">⭐</div>
     <div class="cb${isDone?' done':''}" onclick="toggleDoneTask('${t.id}')"></div>
     <div class="task-body">${catHtml}<div class="task-name" onclick="openEdit('${t.id}')">${esc(t.title)}</div>${noteHtml}${subHtml}${pills?`<div class="pills">${pills}</div>`:''}</div>
-    <div class="task-add-inline" onclick="openModal()" title="Add new task">＋</div>
+    <div class="task-add-inline" onclick="openModal()" title="Set a new aim">＋</div>
     <div class="task-del" onclick="delTask('${t.id}')">×</div>
   </div>`;
 }
@@ -1939,7 +1939,7 @@ function toggleDoneTask(id){
 }
 function nextDue(due,recur){const d=new Date(due+'T00:00:00');if(recur==='daily')d.setDate(d.getDate()+1);else if(recur==='weekdays'){d.setDate(d.getDate()+1);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1)}else if(recur==='weekly')d.setDate(d.getDate()+7);else if(recur==='biweekly')d.setDate(d.getDate()+14);else if(recur==='monthly')d.setMonth(d.getMonth()+1);else if(recur==='yearly')d.setFullYear(d.getFullYear()+1);else return null;return d.toISOString().split('T')[0]}
 function toggleStar(id){const d=load(),t=d.find(x=>x.id===id);if(t){t.starred=!t.starred;persist(d);render()}}
-function delTask(id){if(!confirm('Delete this task?'))return;persist(load().filter(x=>x.id!==id));render()}
+function delTask(id){if(!confirm('Remove this aim?'))return;persist(load().filter(x=>x.id!==id));render()}
 
 function quickAdd(e){
   if(e.key!=='Enter')return;
@@ -1980,7 +1980,7 @@ function renderPriBtns(){
 // MODAL OPEN/CLOSE/SAVE
 function openModal(){
   editId=null;modalTags=[];modalSubtasks=[];modalPri=5;
-  document.getElementById('modalTitle').textContent='New Task';
+  document.getElementById('modalTitle').textContent='New Aim';
   ['mTitle','mNotes','mSubcat','mDate','mTime'].forEach(id=>{document.getElementById(id).value=''});
   document.getElementById('mCat').value='inbox';
   document.getElementById('mRecur').value='none';
@@ -1993,7 +1993,7 @@ function openModal(){
 function openEdit(id){
   const t=load().find(x=>x.id===id);if(!t)return;
   editId=id;modalTags=[...(t.tags||[])];modalSubtasks=(t.subtasks||[]).map(s=>({...s}));
-  document.getElementById('modalTitle').textContent='Edit Task';
+  document.getElementById('modalTitle').textContent='Refine This Aim';
   document.getElementById('mTitle').value=t.title;
   document.getElementById('mNotes').value=t.notes||'';
   document.getElementById('mCat').value=t.cat||'inbox';
@@ -2775,7 +2775,7 @@ function renderDayView(){
   const dayNum=parseInt(d);
   let html='';
   if(!tasks.length){
-    html+=`<div class="cal-dv-empty">No tasks for this day yet.</div>`;
+    html+=`<div class="cal-dv-empty">Nothing set for this day yet — what are you pressing toward?</div>`;
   } else {
     tasks.forEach(t=>html+=rowHTML(t));
   }
@@ -2894,7 +2894,7 @@ function updateCalTile(){
   const all=load().filter(t=>!t.done&&t.due);
   const thisMonth=all.filter(t=>t.due.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`)).length;
   const el=document.getElementById('tile-cal-sub');
-  if(el) el.textContent=thisMonth?`${thisMonth} task${thisMonth!==1?'s':''} this month`:'View by date';
+  if(el) el.textContent=thisMonth?`${thisMonth} aim${thisMonth!==1?'s':''} this month`:'View by date';
 }
 
 // ══════════════════════════════════════════════
@@ -2997,7 +2997,7 @@ function renderMailPanel(){
   const mailTasks=load().filter(t=>!t.done&&t.cat==='mail');
   const mtEl=document.getElementById('mailTasks');
   if(mtEl){
-    if(!mailTasks.length){mtEl.innerHTML='<span style="color:var(--dim);font-size:13px;font-style:italic">No mail-related tasks. Add a task with category "Mail" to track email actions here.</span>';return}
+    if(!mailTasks.length){mtEl.innerHTML='<span style="color:var(--dim);font-size:13px;font-style:italic">No mail-related aims. Set an aim with category "Mail" to track email actions here.</span>';return}
     mtEl.innerHTML=mailTasks.map(t=>`<div class="task" style="padding:8px 0;border-bottom:1px solid var(--sep)">
       <div class="cb${t.done?' done':''}" onclick="toggleDoneTask('${t.id}')"></div>
       <div class="task-body"><div class="task-name" onclick="openEdit('${t.id}')">${esc(t.title)}</div>${t.subcat?`<div class="task-note">${esc(t.subcat)}</div>`:''}</div>
