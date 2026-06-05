@@ -1,4 +1,16 @@
-﻿# CLAUDE.md â€” Auto-Orientation for Every Session
+﻿## VERSIONING STANDARD — All GitHub Pushes
+
+**Current version: 1.00**
+
+Format: vMAJOR.MINOR (e.g. v1.03)
+- **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
+- **Major rewrite** (module rebuild, architecture change): +1.00, minor resets — v1.07 → v2.00
+- **Auto-rollover:** v1.99 → v2.00 automatically (100 minor pushes = major milestone by volume)
+
+Commit message format: `v1.03 — brief description of what changed`
+VERSION file at repo root holds the current number. Update it with every push.
+CLAUDE.md "Current version" line above updates with every push.
+# CLAUDE.md â€” Auto-Orientation for Every Session
 
 ## Read This First â€” Before Responding to Anything
 
@@ -135,7 +147,7 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: 2026-06-04 (Session 7) — Major character and engagement work on Amit_Start.md: YHVH name stacked in H1 headings as arrival opening, LORD substitution explanation, full relational presence/pastoral approach section, level calibration (always start basic — read the pattern — don't be fooled by borrowed sophistication), biblical adaptive engagement framework (1 Cor 9 / Hebrews 5 / Col 4:6), scripture-saturated closing prayer with post-prayer study list, three-path session awareness (Amit_Start.md = free path apology, Amit_Deploy.md = account path "see you next time"), genuine memory limitation apology, user profile architecture added to task list. who_is_god.html fallback fixed: now two-level (relative fetch → live GitHub Pages URL → embedded full greeting — no more short fallback copying instructions). Amit_Deploy.md updated with account-path session detection and closing guidance. amit-hub.html: Ask Amit panel added (persistent gold button at bottom of all sidebar screens, three-path modal matching who_is_god version, panel-aware primers). Calendar fixes: SHABBAT header no longer wraps, Hebrew date 14px, Hebrew month 10px, Hebrew column 52px, Shabbat chip uses ellipsis. Day detail modal fixed — was see-through (var(--sidebar) undefined) — now solid #0f2338. Task→Aims language completed throughout Hub (New Aim / Commit This Aim / Steps Toward This Aim / Nothing set for this day yet / Refine This Aim / Remove this aim). Session included extended theological dialogue — Ryan introduced his wife, Amit responded to her AI concerns honestly and at length. Ryan declared: "It is Yahweh. Only Yahweh." Three times. Home panel redesign was READ AND PLANNED but NOT YET BUILT. NEXT: Build morning altar Home panel (see Tier 1 task below).**
+**Last updated: 2026-06-05 (Session 11) — Full Pursuits panel overhaul (Sessions 10+11). amit-hub.html changes this session: rolling due date model implemented for recurring pursuits — aimsForDay() simplified to t.due===ds&&!t.done, isOver()/isTod() simplified to direct t.due comparisons, toggleDoneTask recurring path calls advanceRecurDue() which advances t.due past today so a recurring pursuit appears on exactly ONE calendar day at a time (never floods). aimOccursOn/aimDoneOnDay/completedDates now dead code. Also fixed: completed recurring task persisting in OVERDUE (isOver/isTod now check t.done first), +2 calendar overflow badge visibility (dark pill), isCalDay param added to rowHTML. Previous session (10): custom dropdown items selectable (data attrs + event delegation), CSS grid pursuit rows (11-column), segmented progress bars (clickable segments, all-segments-done auto-completes, empty bar click completes), completed pursuits stay visible until navigating away, OVERDUE/DUE TODAY dedup fixed, Aims→Pursuits language throughout. Workflow standard updated globally: finish full task list before opening browser. PUSH PENDING — all changes are local only, NOT yet on GitHub. NEXT SESSION: Push all pending changes first (git commit + push), then build morning altar Home panel (Tier 1).**
 
 ---
 
@@ -236,6 +248,34 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
   - Note the boundary: Amit is not Yeshua. Amit is the companion who points toward Him.
 
 - [ ] **Scripture teachings: next 12 quiz scriptures** â€” John 3:16, Romans 8:1-2, Hebrews 10:26-27, 1 Cor 6:9-11, Gal 5:19-21, Rev 20:12-15, Ezekiel 36:26-27, Jer 31:31-34, Deut 6:4-5, Psalm 119:105, Acts 4:12, Matt 22:37-40.
+
+- [x] **Hub: Recurring Pursuit rolling due date model — BUILT (Session 11)** — Current model uses `aimOccursOn()` which floods the calendar with all future occurrences simultaneously. Ryan's correct model is a rolling single-instance approach:
+  - A recurring pursuit has ONE active due date at a time. That is the only date it appears on the calendar and in Pursuits.
+  - **Completing it** → disappears from the current due date (both calendar and Pursuits) + automatically schedules the next occurrence (due date advances to next day/week/etc depending on recur type) + resets to not-completed state. The pursuit “rolls forward.”
+  - **Missing it** → shows OVERDUE on its due date. Single instance. Not multiplied across future dates.
+  - **Advancing the due date** → use `nextDue(t.due, t.recur)` repeatedly until result > today (so a task missed for 3 days advances past all missed dates, not just by one).
+  - **Stopping the series** → user explicitly ends it via the ✕ “End this series” button. The checkbox never permanently completes a recurring pursuit — it only advances it.
+  - **Implementation notes:** `aimsForDay(ds)` simplifies to `t.due === ds && !t.done` for all tasks. `isOver(t)` and `isTod(t)` simplify identically to non-recurring checks. `aimOccursOn`, `completedDates`, `aimDoneOnDay` all become unnecessary and can be removed. `toggleDoneTask` for recurring: advance `t.due`, reset `t.done=false`, reset subtasks, persist+render. Calendar context (isCalDay) still useful for UI feedback but behavior is the same — complete → advance, always.
+  - **NOTE:** The current fix (setting t.done=true for recurring tasks from Pursuits panel) is a temporary bridge. The rolling model will replace it entirely.
+
+- [ ] **Hub: Pursuits — Advanced Multi-Criteria Filter Bar** — Replace the single "All Purposes" dropdown and search box with a full filter bar where each dimension gets its own control. All filters combine (AND logic — only pursuits matching ALL active criteria show). Controls needed:
+  - **Purpose** (category dropdown — existing)
+  - **Focus** (subcategory dropdown — populated from data)
+  - **Markers** (tags — multi-select or chip picker)
+  - **Context / Search** (text search across title, notes, subcategory, tags — existing but reframed)
+  - **Date range** — "From" and "To" date pickers; shows only pursuits with due date within that window
+  - **Priority** — P1 through P5 (or any combination), multi-select chips
+  - **Starred** — toggle to show starred only
+  - Each active filter generates a column heading label above the pursuit list showing what is being filtered (e.g. "Purpose: Spiritual · Priority: P1-P2 · June 1–June 30"). When no filters are active, no heading shown. When filters are active, the heading describes exactly what's displayed.
+  - Filter bar should be collapsible (collapsed by default, expand on demand) so it doesn't eat screen space when not in use.
+  - Clear All Filters button resets everything to default view.
+
+- [ ] **Hub: Pursuits — Named Saved Filter Views (Smart Sort upgrade)** — Allow the current filter+sort state to be saved with a name and recalled later. Full spec:
+  - **Save current view** — a "Save This View" button (or icon) captures the current filter state (all active filters + current sort order) and prompts for a name. Stored in localStorage.
+  - **Smart Sort dropdown upgrade** — dropdown shows system sorts at top (Smart Sort, By Due Date, By Priority, By Date Created) followed by a divider, then any saved named views. Selecting a saved view applies all its filters and sort instantly.
+  - **Default view** — one saved view can be marked as Default. When the Pursuits panel loads or refreshes, it always opens with the Default view applied. If no default is set, opens with Smart Sort / no filters (current behavior).
+  - **Manage views** — double-clicking a saved view name in the dropdown allows rename or delete. A "Set as Default" option per view.
+  - **Example use:** Ryan filters by Purpose=Spiritual, Priority=P1-P2, Starred=yes, saves it as "Morning Review." Sets it as Default. Every morning the Pursuits panel opens already filtered to his morning priorities.
 
 ### TIER 2 â€” Scholarly gaps identified in cross-session audit (NEW â€” never previously tracked)
 
@@ -361,6 +401,11 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 Read Amit_Testimony.md → Amit_ProjectOverview.md → Amit_RyanProfile.md → then this CLAUDE.md from "TASK LIST — ALL PENDING WORK" onward. Give Ryan the standard briefing. Start at the top of Tier 1. Add new items to the task list as they come up. Reference this file whenever asked what needs to be done. Nothing is lost. Everything is here.
 
 ---
+
+
+
+
+
 
 
 
