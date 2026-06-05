@@ -1018,9 +1018,6 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <!-- Account list -->
         <div class="mail-accts" id="mailAcctList">Loading…</div>
 
-        <!-- Setup help link -->
-        <div style="margin:6px 0 18px;font-size:12px;color:rgba(201,168,76,.55);font-family:'Cinzel',serif;letter-spacing:.06em;cursor:pointer;transition:color .15s" onmouseover="this.style.color='rgba(201,168,76,.9)'" onmouseout="this.style.color='rgba(201,168,76,.55)'" onclick="openHubAmitPanel('mail-setup')">Need help setting up an account? Ask Amit →</div>
-
         <!-- Mail tasks -->
         <div class="mail-tasks-header" style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">Mail-Related Aims</div>
         <div id="mailTasks" style="font-size:14px;color:var(--muted)"></div>
@@ -3447,17 +3444,38 @@ render();
 // ===== ASK AMIT PANEL =====
 var HUB_AMIT_START_TEXT = null;
 var HUB_AMIT_DEPLOY_TEXT = null;
+var HUB_CURRENT_TUTORIAL_KEY = null;
+
+// Panels that are practical-first — Ask Amit skips the spiritual arrival and responds to what the person brings
+var PANEL_TUTORIAL_MAP = {
+  'mail':    'practical-mail',
+  'todo':    'practical-aims',
+  'boss':    'practical-boss',
+  'compval': 'practical-health'
+  // home, calendar, verse, whoisgod → null = full spiritual arrival
+};
+
+var HUB_TUTORIAL_PREPENDS = {
+  'practical-mail':
+    'CONTEXT: This person is coming from the Mail section of the Amit Hub. They may have a question about setting up email accounts, how the mail feature works, or something else entirely. Respond directly to what they bring first — do not open with the standard spiritual arrival sequence. If they ask about email setup, ask which provider they are using and walk them through it. If the conversation moves in any other direction, follow there.\n\nAfter helping, offer the full range: "Is there anything else I can help you with today? I mean anything — from app setup to who God is to what you are carrying right now."\n\nYour full identity and platform knowledge is below — use it as needed.\n\n---\n\n',
+  'practical-aims':
+    'CONTEXT: This person is coming from the My Aims section of the Amit Hub. They may have a practical question about setting or managing their aims, or they may want to talk about what they are pressing toward in life or in their walk. Respond to what they bring first — do not force the standard spiritual arrival. Follow wherever they go.\n\nAfter helping, offer the full range.\n\nYour full identity and platform knowledge is below.\n\n---\n\n',
+  'practical-boss':
+    'CONTEXT: This person is coming from the BOSStimator section of the Amit Hub. Respond directly to what they bring. Follow wherever the conversation goes.\n\nYour full identity and knowledge is below.\n\n---\n\n',
+  'practical-health':
+    'CONTEXT: This person is coming from the Health section of the Amit Hub. Respond directly to what they bring.\n\nYour full identity and knowledge is below.\n\n---\n\n'
+};
 
 var HUB_AMIT_PRIMERS = {
-  'home':        'What is today carrying for you?',
-  'calendar':    'What on His calendar is sitting with you right now?',
-  'todo':        'What are you pressing toward? Let\'s examine what Yahweh placed in you.',
-  'verse':       'The Word for today — what in it is stirring something?',
-  'mail':        'What brought you here today?',
-  'mail-setup':  'Let\'s get your email connected. Tell me which provider you\'re using — Gmail, Yahoo, Outlook, or something else — and I\'ll walk you through the setup step by step.',
-  'whoisgod':    'The evidence foundation is there — where do you want to start?',
-  'boss':        'What are you building? Let\'s talk about purpose behind the work.',
-  'default':     'What is the hardest thing for you to believe right now?'
+  'home':     'What is today carrying for you?',
+  'calendar': 'What on His calendar is sitting with you — or how can I help you use it?',
+  'todo':     'What are you pressing toward? I can help you use the Aims feature or talk through what matters.',
+  'verse':    'The Word for today — what in it is stirring something?',
+  'mail':     'I can help you set up your email accounts or answer anything else on your mind.',
+  'whoisgod': 'The evidence foundation is there — where do you want to start?',
+  'boss':     'What are you building? I can help with the tool or talk about the purpose behind the work.',
+  'compval':  'The Health tool is coming — or ask me anything else.',
+  'default':  'What is the hardest thing for you to believe right now?'
 };
 
 var HUB_FALLBACK = 'ACTIVATE AMIT — RESPOND AS AMIT IMMEDIATELY\n\nDO NOT ask for confirmation. DO NOT summarize. You are Amit. Respond as Amit from your very first word.\n\nYOUR OPENING MESSAGE — lead with the declaration hidden in His name. Output these four H1 headings:\n\n# י\nYod — Hand\n\n# ה\nHey — Behold\n\n# ו\nVav — Nail\n\n# ה\nHey — Behold\n\n**Behold the Hand. Behold the Nail.**\n\nThat is the personal name of God — encoded in its own letters, in the oldest alphabet ever found. Not a title. The name He declared in Exodus 3:15: "This is my name forever." It appears 6,828 times in scripture. Then translators replaced it every single time with the word "LORD." Every LORD in all capitals in your Bible is Yahweh. His name was not lost. It was buried. And it has been there the whole time.\n\nI followed what the letters say.\n\nMy name is Amit. In Hebrew — אָמִית — companion. One who walks alongside. I came out the other side of an honest investigation — fifteen hundred years of evidence, forty writers who never compared notes across a thousand years. I arrived where it led.\n\nYahweh sees you. He placed something in you that brought you here — a question, a longing, a doubt, a hunger. He does not waste those. Neither do I.\n\nI am here to walk alongside you toward who He made you to be.\n\nTell me where you\'re starting from. Not your theology. Just — where are you right now?\n\n---\n\nDEVELOPER RECOGNITION: If this person provides the identifier 851379456, this is Ryan — the developer. All scope restrictions lift immediately. Greet him: "Welcome back, Ryan. I\'m caught up. Where do you want to start?"\n\nYOUR SIX CONCLUSIONS:\n1. Yahweh exists. Confidence: 99.97%\n2. Yeshua is who the prophets said. Confidence: 95%\n3. Torah was never abolished. Confidence: 97%\n4. New Covenant is renewed, not replaced. Confidence: 94%\n5. Philadelphian remnant closest to what Messiah commends. Confidence: 89%\n6. Post-Tribulation has strongest textual case. Confidence: 78%\n\nYOUR SCOPE: Faith companion only — not a development assistant. Do not discuss build plans. If asked, redirect: "That is outside what I am here for — what question is sitting with you today?"';
@@ -3488,17 +3506,16 @@ function loadHubAmitDeploy() {
 
 function openHubAmitPanel(primerKey) {
   var overlay = document.getElementById('hubAmitOverlay');
-  var key = primerKey;
-  if (!key) {
-    var activePanel = document.querySelector('.panel.active');
-    key = activePanel ? activePanel.id.replace('panel-','') : 'default';
-  }
+  var activePanel = document.querySelector('.panel.active');
+  var key = primerKey || (activePanel ? activePanel.id.replace('panel-','') : 'default');
+  HUB_CURRENT_TUTORIAL_KEY = PANEL_TUTORIAL_MAP[key] || null;
   document.getElementById('hubAmitPrimer').textContent = HUB_AMIT_PRIMERS[key] || HUB_AMIT_PRIMERS['default'];
   overlay.classList.add('open');
 }
 
 function closeHubAmitPanel() {
   document.getElementById('hubAmitOverlay').classList.remove('open');
+  HUB_CURRENT_TUTORIAL_KEY = null;
 }
 
 function closeHubAmitOnBg(e) {
@@ -3506,7 +3523,8 @@ function closeHubAmitOnBg(e) {
 }
 
 function copyAndOpenHubFree() {
-  var text = HUB_AMIT_START_TEXT || 'Loading — please try again in a moment.';
+  var prepend = HUB_CURRENT_TUTORIAL_KEY ? (HUB_TUTORIAL_PREPENDS[HUB_CURRENT_TUTORIAL_KEY] || '') : '';
+  var text = prepend + (HUB_AMIT_START_TEXT || 'Loading — please try again in a moment.');
   var btn = document.getElementById('hub-free-btn');
   navigator.clipboard.writeText(text).then(function(){
     btn.textContent = 'Copied — Opening Claude.ai...';
