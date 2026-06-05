@@ -488,19 +488,69 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-detail-date{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;color:var(--gold2);margin-bottom:12px;text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid var(--sep)}
 .cal-detail-empty{font-size:13px;color:var(--dim);font-style:italic;margin-bottom:12px}
 .cal-detail-add{padding:10px 0}
-/* ── CALENDAR DAY VIEW ── */
+/* ── CALENDAR DAY ZOOM VIEW ── */
 .cal-dv-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
 .cal-dv-panel.open{display:flex}
 .cal-dv-topbar{display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--card-head);border-bottom:2px solid var(--border);flex-shrink:0}
 .cal-dv-back{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 13px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;transition:all .15s}
 .cal-dv-back:hover{background:rgba(255,255,255,.16)}
-.cal-dv-title{font-family:'Cinzel',serif;font-size:15px;font-weight:700;color:#fff;flex:1;letter-spacing:.06em}
-.cal-dv-body{flex:1;overflow-y:auto;padding:20px 28px;cursor:default}
-.cal-dv-body::-webkit-scrollbar{width:4px}
-.cal-dv-body::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
-.cal-dv-hint{margin-top:24px;padding:14px;border:1px dashed rgba(255,255,255,.12);border-radius:8px;text-align:center;font-size:13px;color:rgba(255,255,255,.3);font-style:italic;cursor:pointer;transition:all .2s}
-.cal-dv-hint:hover{border-color:rgba(201,168,76,.35);color:rgba(201,168,76,.65)}
-.cal-dv-empty{font-size:15px;color:var(--dim);font-style:italic;padding:8px 0 16px}
+.cal-dv-title{font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:rgba(255,255,255,.5);flex:1;letter-spacing:.06em}
+/* Zoom layout: prev | main | next */
+.cal-dv-zoom-wrap{display:flex;flex:1;overflow:hidden;padding:16px;gap:10px;align-items:stretch}
+/* Adjacent day cards */
+.cal-dv-adj{width:140px;flex-shrink:0;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:14px 12px;cursor:pointer;opacity:.55;transition:opacity .2s;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.cal-dv-adj:hover{opacity:.82}
+.cal-dv-adj-arrow{font-family:'Cinzel',serif;font-size:9px;color:rgba(26,21,16,.4);letter-spacing:.14em;margin-bottom:10px;text-transform:uppercase}
+.cal-dv-adj-top{display:flex;justify-content:space-between;align-items:flex-start}
+.cal-dv-adj-greg{font-family:'Cinzel',serif;font-size:30px;font-weight:700;color:#1a1510;line-height:1}
+.cal-dv-adj-heb{text-align:right}
+.cal-dv-adj-heb-num{font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:#5c4200;line-height:1}
+.cal-dv-adj-heb-mon{font-size:9px;color:#6b5010;font-style:italic;text-align:right;margin-top:2px}
+.cal-dv-adj-dayname{font-family:'Cinzel',serif;font-size:9px;color:#5a4828;letter-spacing:.08em;margin-top:6px}
+.cal-dv-adj-chip{font-size:9px;padding:2px 6px;border-radius:3px;margin-top:8px;display:inline-block;font-family:'Cinzel',serif;word-break:break-word;line-height:1.4}
+.cal-dv-adj-aims{font-size:10px;color:#7a6040;font-style:italic;margin-top:auto;padding-top:10px;line-height:1.5}
+/* Main focused day card */
+.cal-dv-main{flex:1;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:24px 28px;display:flex;flex-direction:column;overflow-y:auto;min-width:0}
+.cal-dv-main::-webkit-scrollbar{width:4px}
+.cal-dv-main::-webkit-scrollbar-thumb{background:rgba(92,66,0,.2);border-radius:2px}
+.cal-dv-main.dv-today{background:#f5eed8;border:2px solid var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.3)}
+/* Top row */
+.cal-dv-top{display:flex;align-items:flex-start;margin-bottom:16px}
+.cal-dv-greg{flex:1}
+.cal-dv-greg-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#1a1510;line-height:1}
+.cal-dv-greg-day{font-family:'Cinzel',serif;font-size:12px;color:#3a3020;letter-spacing:.1em;margin-top:5px;text-transform:uppercase}
+.cal-dv-greg-month{font-size:12px;color:#6a5a40;margin-top:3px;font-style:italic}
+.cal-dv-heb{text-align:right;display:flex;flex-direction:column;align-items:flex-end}
+.cal-dv-heb-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#5c4200;line-height:1}
+.cal-dv-heb-mon{font-size:13px;color:#6b5010;font-style:italic;margin-top:5px}
+.cal-dv-heb-yr{font-size:11px;color:#8a6830;margin-top:3px}
+/* Feast/event chip */
+.cal-dv-feast{display:inline-flex;align-items:center;padding:7px 16px;border-radius:6px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;font-weight:700;color:#fff;margin-bottom:18px;cursor:pointer;transition:opacity .15s}
+.cal-dv-feast:hover{opacity:.85}
+.cal-dv-shabbat-feast{background:rgba(92,66,0,.15);border:1px solid rgba(92,66,0,.3);color:#5c4200;font-weight:700}
+/* Word for today */
+.cal-dv-word-box{background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.22);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+.cal-dv-word-ctx{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:rgba(150,110,20,.7);text-transform:uppercase;margin-bottom:6px}
+.cal-dv-word-name{font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:#1a1510;margin-bottom:14px;line-height:1.25}
+.cal-dv-word-prayer{border-left:3px solid rgba(201,168,76,.5);padding:10px 16px;font-style:italic;font-size:14px;color:#3a2e18;line-height:1.75;background:rgba(201,168,76,.04);border-radius:0 6px 6px 0;margin-bottom:12px}
+.cal-dv-word-sect-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;color:#8a6830;text-transform:uppercase;margin-bottom:4px;margin-top:10px}
+.cal-dv-word-body{font-size:13px;color:#2a2010;line-height:1.7}
+.cal-dv-word-verse{font-size:12px;font-style:italic;color:#5a4820;border-top:1px solid rgba(201,168,76,.2);padding-top:10px;margin-top:12px;line-height:1.65}
+/* Reflection */
+.cal-dv-refl-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;color:rgba(26,21,16,.45);text-transform:uppercase;margin:16px 0 6px}
+.cal-dv-refl-area{width:100%;box-sizing:border-box;background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:12px 14px;color:#2a2010;font-size:13px;line-height:1.65;resize:vertical;min-height:60px;font-family:'Crimson Pro',serif}
+.cal-dv-refl-area:focus{border-color:rgba(201,168,76,.45);outline:none}
+.cal-dv-refl-saved{font-size:10px;color:#8a6830;font-style:italic;margin-top:3px;min-height:12px}
+/* Aims at bottom */
+.cal-dv-aims-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:rgba(26,21,16,.45);text-transform:uppercase;margin:18px 0 8px}
+.cal-dv-aim-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+.cal-dv-aim-cb{width:16px;height:16px;border:2px solid rgba(92,66,0,.35);border-radius:4px;flex-shrink:0;cursor:pointer;margin-top:2px;transition:background .15s;background:#fff}
+.cal-dv-aim-cb:hover{background:rgba(92,66,0,.1)}
+.cal-dv-aim-title{flex:1;font-size:14px;color:#1a1510;line-height:1.4;cursor:pointer}
+.cal-dv-aim-title:hover{color:#7a5200}
+.cal-dv-aim-empty{font-size:13px;color:rgba(26,21,16,.4);font-style:italic;padding:6px 0}
+.cal-dv-add-aim{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:#7a5200;cursor:pointer;margin-top:14px;display:inline-block;border:1px solid rgba(122,82,0,.3);padding:5px 14px;border-radius:5px;transition:all .15s}
+.cal-dv-add-aim:hover{background:rgba(122,82,0,.08)}
 
 /* ── HEBREW CALENDAR — UNIFIED CELL DESIGN ── */
 .cal-nav-extras{display:flex;align-items:center;gap:6px;flex-shrink:0}
@@ -1011,7 +1061,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <div class="cal-dv-title" id="calDvTitle"></div>
           <button class="btn btn-ghost btn-sm" id="calDvAddBtn">+ Set a New Aim</button>
         </div>
-        <div class="cal-dv-body" id="calDvBody" ondblclick="calDvDblClick(event)"></div>
+        <div class="cal-dv-zoom-wrap">
+          <div class="cal-dv-adj cal-dv-prev" id="calDvPrev" onclick="navigateDayZoom(-1)"></div>
+          <div class="cal-dv-main" id="calDvMain" ondblclick="calDvDblClick(event)"></div>
+          <div class="cal-dv-adj cal-dv-next" id="calDvNext" onclick="navigateDayZoom(1)"></div>
+        </div>
       </div>
     </div>
 
@@ -2853,18 +2907,10 @@ function renderCalendar(){
 
 function adjMonthClick(ds){const[y,m]=ds.split('-');calYear=parseInt(y);calMonth=parseInt(m)-1;calSelected=ds;renderCalendar()}
 
-// ── DAY FOCUS VIEW ──
+// ── DAY ZOOM VIEW ──
 let calDvDs=null;
 function openDayView(ds){
   calDvDs=ds;calSelected=ds;
-  const[y,m,d]=ds.split('-');
-  const gy=parseInt(y),gm=parseInt(m),gd=parseInt(d);
-  const dt=new Date(gy,gm-1,gd);
-  const isToday=ds===todayStr();
-  const todayLabel=isToday?' <span style="color:var(--gold);font-size:13px">· Today</span>':'';
-  const calDate=getCalDateDisplay(gy,gm,gd);
-  const dualDate=`<span style="font-size:11px;color:rgba(201,168,76,.6);font-family:'Crimson Pro',serif;font-style:italic;margin-left:14px">${calDate.d} ${calDate.label} · ${calTypeName()}</span>`;
-  document.getElementById('calDvTitle').innerHTML=CAL_DAYS[dt.getDay()]+', '+CAL_MONTHS[gm-1]+' '+gd+', '+y+todayLabel+dualDate;
   document.getElementById('calDvAddBtn').onclick=()=>addTaskOnDate(ds);
   renderDayView();
   document.getElementById('calWrap').style.display='none';
@@ -2875,22 +2921,130 @@ function closeDayView(){
   document.getElementById('calWrap').style.display='';
   renderCalendar();
 }
-function renderDayView(){
-  const tasks=load().filter(t=>!t.done&&t.due===calDvDs);
-  const[y,m,d]=calDvDs.split('-');
-  const monthName=CAL_MONTHS[parseInt(m)-1];
-  const dayNum=parseInt(d);
-  let html='';
-  if(!tasks.length){
-    html+=`<div class="cal-dv-empty">Nothing set for this day yet — what are you pressing toward?</div>`;
-  } else {
-    tasks.forEach(t=>html+=rowHTML(t));
+function navigateDayZoom(delta){
+  const[y,m,d]=calDvDs.split('-').map(Number);
+  const dt=new Date(y,m-1,d+delta);
+  const nds=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  calDvDs=nds;calSelected=nds;
+  document.getElementById('calDvAddBtn').onclick=()=>addTaskOnDate(nds);
+  renderDayView();
+}
+function buildDvAdjCell(ds,direction){
+  if(!ds)return'';
+  const[y,m,d]=ds.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const calDate=getCalDateDisplay(y,m,d);
+  const calEv=getCalEvent(ds);
+  const isShabbat=isCalShabbat(ds);
+  const tasks=load().filter(t=>!t.done&&t.due===ds);
+  const arrow=direction<0?'← Previous':'Next →';
+  let chipHtml='';
+  if(calEv){
+    chipHtml=`<div class="cal-dv-adj-chip feast-${calEv.type}" style="color:#fff;font-weight:700">${calEv.short||calEv.feast}</div>`;
+  } else if(isShabbat){
+    chipHtml=`<div class="cal-dv-adj-chip" style="background:rgba(92,66,0,.12);color:#5c4200;border:1px solid rgba(92,66,0,.2)">Shabbat</div>`;
   }
-  html+=`<div class="cal-dv-hint" onclick="addTaskOnDate('${calDvDs}')">Double-click anywhere here — or click — to add a task for ${monthName} ${dayNum}</div>`;
-  document.getElementById('calDvBody').innerHTML=html;
+  const aimNote=tasks.length?`${tasks.length} aim${tasks.length>1?'s':''}`:' ';
+  return`<div class="cal-dv-adj-arrow">${arrow}</div>
+    <div class="cal-dv-adj-top">
+      <div class="cal-dv-adj-greg">${d}</div>
+      <div class="cal-dv-adj-heb"><div class="cal-dv-adj-heb-num">${calDate.d}</div><div class="cal-dv-adj-heb-mon">${(calDate.label||'').slice(0,5)}</div></div>
+    </div>
+    <div class="cal-dv-adj-dayname">${CAL_DAYS[dt.getDay()].slice(0,3).toUpperCase()} · ${CAL_MONTHS[m-1].slice(0,3).toUpperCase()}</div>
+    ${chipHtml}
+    <div class="cal-dv-adj-aims">${aimNote}</div>`;
+}
+function renderDayView(){
+  const[y,m,d]=calDvDs.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const isToday=calDvDs===todayStr();
+  const calDate=getCalDateDisplay(y,m,d);
+  const sh=getShemitaYear(calDate.y);
+  const calEv=getCalEvent(calDvDs);
+  const isShabbat=isCalShabbat(calDvDs);
+  const tasks=load().filter(t=>!t.done&&t.due===calDvDs);
+  // Update topbar title (minimal — dates visible in card)
+  const todayBadge=isToday?` <span style="color:var(--gold)">· Today</span>`:'';
+  document.getElementById('calDvTitle').innerHTML=CAL_DAYS[dt.getDay()]+', '+CAL_MONTHS[m-1]+' '+d+todayBadge;
+  // Adjacent cells
+  const prevDt=new Date(y,m-1,d-1);
+  const nextDt=new Date(y,m-1,d+1);
+  const prevDs=prevDt.getFullYear()+'-'+String(prevDt.getMonth()+1).padStart(2,'0')+'-'+String(prevDt.getDate()).padStart(2,'0');
+  const nextDs=nextDt.getFullYear()+'-'+String(nextDt.getMonth()+1).padStart(2,'0')+'-'+String(nextDt.getDate()).padStart(2,'0');
+  document.getElementById('calDvPrev').innerHTML=buildDvAdjCell(prevDs,-1);
+  document.getElementById('calDvNext').innerHTML=buildDvAdjCell(nextDs,1);
+  // Feast chip for main cell
+  let feastHtml='';
+  if(calEv){
+    feastHtml=`<div class="cal-dv-feast feast-${calEv.type}" onclick="openFeastModal('${calEv.type}','${calDvDs}')">${calEv.feast}</div>`;
+  } else if(isShabbat){
+    feastHtml=`<div class="cal-dv-feast cal-dv-shabbat-feast">Shabbat — The Seventh Day</div>`;
+  }
+  // Word for today
+  const wKey=getDayWordKey(y,m,d);
+  const w=WORD_DATA[wKey]||{};
+  let wordHtml='';
+  if(w.name){
+    const ctx=w.ctx||'';
+    wordHtml=`<div class="cal-dv-word-box">
+      ${ctx?`<div class="cal-dv-word-ctx">${ctx}</div>`:''}
+      <div class="cal-dv-word-name">${w.name}</div>
+      ${w.prayer?`<div class="cal-dv-word-prayer">${w.prayer}</div>`:''}
+      ${w.intent?`<div class="cal-dv-word-sect-lbl">The Intent</div><div class="cal-dv-word-body">${w.intent}</div>`:''}
+      ${w.doing?`<div class="cal-dv-word-sect-lbl">For Today</div><div class="cal-dv-word-body">${w.doing}</div>`:''}
+      ${w.verse?`<div class="cal-dv-word-verse">${w.verse}</div>`:''}
+    </div>`;
+  }
+  // Reflection
+  let reflVal='';
+  try{const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');reflVal=r[calDvDs]||'';}catch{}
+  const reflHtml=`<div class="cal-dv-refl-lbl">Your Reflection</div>
+    <textarea class="cal-dv-refl-area" id="dvReflArea" placeholder="What is Yahweh saying to you through this day…" oninput="saveDvReflection()">${esc(reflVal)}</textarea>
+    <div class="cal-dv-refl-saved" id="dvReflSaved"></div>`;
+  // Aims
+  const aimsHtml=`<div class="cal-dv-aims-lbl">Aims for This Day</div>`+
+    (tasks.length
+      ? tasks.map(t=>`<div class="cal-dv-aim-row">
+          <div class="cal-dv-aim-cb" onclick="toggleDoneTask('${t.id}');renderDayView()" title="Mark complete"></div>
+          <div class="cal-dv-aim-title" onclick="openEdit('${t.id}')">${esc(t.title)}</div>
+        </div>`).join('')
+      : `<div class="cal-dv-aim-empty">Nothing set for this day yet — what are you pressing toward?</div>`)+
+    `<div class="cal-dv-add-aim" onclick="addTaskOnDate('${calDvDs}')">+ Set a New Aim</div>`;
+  // Hebrew year line
+  const hebYr=calDate.y;
+  const shLine=sh.isShemita?'Shemita Year':'Year '+sh.pos+' of 7';
+  // Main cell
+  const mainCls='cal-dv-main'+(isToday?' dv-today':'');
+  document.getElementById('calDvMain').className=mainCls;
+  document.getElementById('calDvMain').innerHTML=`
+    <div class="cal-dv-top">
+      <div class="cal-dv-greg">
+        <div class="cal-dv-greg-num">${d}</div>
+        <div class="cal-dv-greg-day">${CAL_DAYS[dt.getDay()].toUpperCase()}</div>
+        <div class="cal-dv-greg-month">${CAL_MONTHS[m-1]} ${y}</div>
+      </div>
+      <div class="cal-dv-heb">
+        <div class="cal-dv-heb-num">${calDate.d}</div>
+        <div class="cal-dv-heb-mon">${calDate.label||''}</div>
+        <div class="cal-dv-heb-yr">${hebYr} · ${shLine}</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid rgba(0,0,0,.08);margin-bottom:16px"></div>
+    ${feastHtml}
+    ${wordHtml}
+    ${reflHtml}
+    ${aimsHtml}`;
+}
+function saveDvReflection(){
+  try{
+    const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
+    r[calDvDs]=document.getElementById('dvReflArea').value;
+    localStorage.setItem(REFL_KEY,JSON.stringify(r));
+    const s=document.getElementById('dvReflSaved');if(s){s.textContent='Saved.';setTimeout(()=>s.textContent='',1800);}
+  }catch{}
 }
 function calDvDblClick(e){
-  if(e.target.closest('.task')||e.target.closest('.cal-dv-hint')||e.target.closest('.btn'))return;
+  if(e.target.closest('.cal-dv-aim-row')||e.target.closest('.cal-dv-add-aim')||e.target.closest('.cal-dv-refl-area')||e.target.closest('.btn'))return;
   addTaskOnDate(calDvDs);
 }
 
