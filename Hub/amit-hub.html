@@ -294,9 +294,9 @@ header{
 .home-word-excerpt{font-size:13px;font-style:italic;color:#999;line-height:1.55}
 /* ── CALENDAR WORD CHIPS ── */
 .cal-heb-word{cursor:pointer}
-.cal-heb-scripture{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.06em;padding:2px 5px;border-radius:3px;background:rgba(140,90,10,.14);color:#7a5200;border:1px solid rgba(140,90,10,.28);cursor:pointer;margin-top:2px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cal-heb-omer{font-family:'Cinzel',serif;font-size:8px;padding:2px 5px;border-radius:3px;background:rgba(20,110,50,.13);color:#1e6e38;border:1px solid rgba(20,110,50,.28);cursor:pointer;margin-top:2px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cal-heb-daily{font-family:'Cinzel',serif;font-size:8px;padding:2px 4px;border-radius:3px;background:rgba(40,70,130,.12);color:#2a4878;border:1px solid rgba(40,70,130,.22);cursor:pointer;margin-top:2px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-heb-scripture{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.04em;padding:2px 5px;border-radius:3px;background:rgba(140,90,10,.14);color:#7a5200;border:1px solid rgba(140,90,10,.28);cursor:pointer;margin-top:2px;line-height:1.4;word-break:break-word}
+.cal-heb-omer{font-family:'Cinzel',serif;font-size:8px;padding:2px 5px;border-radius:3px;background:rgba(20,110,50,.13);color:#1e6e38;border:1px solid rgba(20,110,50,.28);cursor:pointer;margin-top:2px;line-height:1.4;word-break:break-word}
+.cal-heb-daily{font-family:'Cinzel',serif;font-size:8px;padding:2px 4px;border-radius:3px;background:rgba(40,70,130,.12);color:#2a4878;border:1px solid rgba(40,70,130,.22);cursor:pointer;margin-top:2px;line-height:1.4;word-break:break-word}
 /* ── DAY WORD MODAL ── */
 .day-word-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s}
 .day-word-modal.open{opacity:1;pointer-events:all}
@@ -517,10 +517,12 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-type-note{font-size:11px;color:rgba(201,168,76,.45);font-style:italic;white-space:nowrap}
 /* Shabbat DOW header */
 .cal-dow-shabbat{color:var(--gold)!important;font-weight:700!important;letter-spacing:.05em!important;white-space:nowrap}
-/* Unified dual-column cells — Gregorian LEFT, Hebrew RIGHT */
-.cal-cell{display:flex!important;flex-direction:row!important;gap:3px;align-items:flex-start}
+/* Unified dual-column cells — Gregorian LEFT, Hebrew RIGHT, Aims BOTTOM */
+.cal-cell{display:flex!important;flex-direction:column!important;gap:0}
+.cal-cell-top{display:flex;flex-direction:row;gap:3px;align-items:flex-start;flex:1}
 .cal-cell-greg{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-.cal-cell-heb{width:52px;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.cal-cell-heb{width:80px;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.cal-cell-aims{display:flex;flex-wrap:wrap;gap:2px;padding-top:5px;margin-top:auto;min-height:0}
 /* Hebrew date number — dark gold readable on cream */
 .cal-heb-num{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:#5c4200;text-align:right;line-height:1}
 .cal-today .cal-heb-num{color:#7a5800}
@@ -528,7 +530,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-heb-mon{font-size:10px;color:#6b5010;text-align:right;font-style:italic;line-height:1.3}
 .cal-adj .cal-heb-mon{color:rgba(107,80,16,.3)}
 /* Hebrew indicators (Shabbat, feast) — right-aligned in Hebrew column */
-.cal-heb-ind{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.04em;padding:2px 4px;border-radius:3px;text-align:center;line-height:1.35;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:auto;cursor:default}
+.cal-heb-ind{font-family:'Cinzel',serif;font-size:8.5px;letter-spacing:.03em;padding:2px 4px;border-radius:3px;text-align:center;line-height:1.35;width:100%;word-break:break-word;margin-top:auto;cursor:default}
 .cal-heb-shabbat-lbl{color:#5c4200;font-weight:700;background:rgba(92,66,0,.14);border:1px solid rgba(92,66,0,.28)}
 .cal-heb-feast-ind{color:#fff;font-weight:700;cursor:pointer;transition:opacity .12s}
 .cal-heb-feast-ind:hover{opacity:.82}
@@ -2680,17 +2682,17 @@ const FEAST_SHORT={pesach:'Passover',matzot:'Matzot',firstfr:'Firstfruits',shavu
 
 // Short names for word chips in calendar cells
 const WORD_SHORT={
-  pesach:'The Hallel',matzot:'Unleavened Bread',firstfr:'Firstfruits',
-  shavuot:'The Spirit Falls',trumpet:'The Shofar',kippur:'Kol Nidre',
+  pesach:'The Hallel',matzot:'Matzot',firstfr:'Firstfruits',
+  shavuot:'The Spirit',trumpet:'The Shofar',kippur:'Kol Nidre',
   sukkot:'The Booth',atzeret:'Eighth Day',
-  'nisan-1':'1 Nisan · Sacred Year','nisan-10':'10 Nisan · The Lamb',
-  'tammuz-17':'17 Tammuz','av-9':'9 Av · Tisha B\'Av',
-  'kippur-eve':'Kol Nidre Eve','cheshvan-17':'17 Cheshvan','tevet-10':'10 Tevet · Siege',
-  'rosh-chodesh':'Rosh Chodesh',shabbat:'Shabbat · Kiddush','shabbat-eve':'Kabbalat Shabbat',
+  'nisan-1':'1 Nisan','nisan-10':'10 Nisan',
+  'tammuz-17':'17 Tammuz','av-9':'Tisha B\'Av',
+  'kippur-eve':'Kol Nidre','cheshvan-17':'17 Cheshvan','tevet-10':'10 Tevet',
+  'rosh-chodesh':'Rosh Chodesh',shabbat:'Kiddush','shabbat-eve':'Erev Shabbat',
   'days-of-awe':'Days of Awe',elul:'Elul · Return','elul-late':'Elul · Prepare',
-  'omer-1':'Omer · The Tomb','omer-2':'Omer · Emmaus','omer-3':'Omer · Kingdom',
-  'omer-4':'Omer · Commission','omer-5':'Omer · Ascension','omer-6':'Omer · Lifted Up','omer-7':'Omer · Tarry',
-  d0:'Modeh Ani',d1:'The Shema',d2:'The Amidah',d3:'Shir Shel Yom',d4:'Torah Study',d5:'Kabbalat Shabbat',d6:'Shabbat'
+  'omer-1':'The Tomb','omer-2':'The Road','omer-3':'The Kingdom',
+  'omer-4':'The Call','omer-5':'Ascension','omer-6':'Lifted Up','omer-7':'Tarry',
+  d0:'Modeh Ani',d1:'The Shema',d2:'The Amidah',d3:'Day\'s Psalm',d4:'Torah Study',d5:'Erev Shabbat',d6:'Shabbat'
 };
 
 // Returns the primary WORD_DATA key for any Gregorian date
@@ -2785,8 +2787,11 @@ function buildCalCell(ds,dayNum,isAdj){
     </div>`;
   }
   return`<div class="${cls}" onclick="${onclick}" ${ondblclick}>
-    <div class="cal-cell-greg"><div class="cal-day-num">${dayNum}</div>${chips}</div>
-    ${calCol}
+    <div class="cal-cell-top">
+      <div class="cal-cell-greg"><div class="cal-day-num">${dayNum}</div></div>
+      ${calCol}
+    </div>
+    ${chips?`<div class="cal-cell-aims">${chips}</div>`:''}
   </div>`;
 }
 
