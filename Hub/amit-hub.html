@@ -219,6 +219,7 @@ header{
 .sec-crit{background:rgba(155,89,182,.2);color:#d7aeff;border-left:4px solid var(--crit-c)}
 .sec-star{background:rgba(241,196,15,.15);color:#ffe566;border-left:4px solid var(--star-c)}
 .sec-up{background:rgba(255,255,255,.05);color:#aac4e0;border-left:4px solid rgba(170,196,224,.4)}
+.sec-just-done{background:rgba(39,174,96,.1);color:#6fcf97;border-left:4px solid rgba(39,174,96,.5)}
 .task{display:grid;grid-template-columns:12px 14px 80px 72px 52px 1fr 72px 32px 88px 16px 16px;align-items:center;gap:0 5px;padding:6px 12px;border-bottom:1px solid var(--sep);transition:background .12s;min-width:0}
 .task:last-child{border-bottom:none}
 .task:hover{background:rgba(255,255,255,.04)}
@@ -239,6 +240,8 @@ header{
 .task-name:hover{color:var(--gold2)}
 .task.is-done .task-name{text-decoration:line-through;color:var(--dim)}
 .task-prog{width:100%;height:5px;border-radius:3px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);overflow:hidden}
+.task-prog-empty{cursor:pointer;transition:background .15s,border-color .15s}
+.task-prog-empty:hover{background:rgba(201,168,76,.18);border-color:rgba(201,168,76,.45)}
 .task-prog-fill{height:100%;border-radius:3px;background:var(--gold);opacity:.75;transition:width .3s}
 .task.is-done .task-prog-fill{background:#6fcf97;opacity:.9}
 .task-prog-segs{width:100%;display:flex;gap:2px;height:8px;align-items:center}
@@ -523,7 +526,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-chip-orange{background:rgba(210,110,30,.75);border-left:3px solid #e67e22}
 .cal-chip-yellow{background:rgba(180,145,30,.75);border-left:3px solid #f1c40f}
 .cal-chip-green {background:rgba(35,155,80,.75);border-left:3px solid #27ae60}
-.cal-chip-more  {font-size:10px;color:rgba(255,255,255,.55);padding:1px 5px;cursor:default}
+.cal-chip-more  {font-size:10px;color:#fff;background:rgba(0,0,0,.42);border-radius:3px;padding:1px 6px;cursor:default;font-weight:600;white-space:nowrap}
 @keyframes slideL{from{transform:translateX(3%);opacity:0}to{transform:none;opacity:1}}
 @keyframes slideR{from{transform:translateX(-3%);opacity:0}to{transform:none;opacity:1}}
 .cal-grid.anim-l{animation:slideL .22s ease}
@@ -823,7 +826,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="tile" id="tile-todo" onclick="openPanel('todo')">
       <div class="tile-icon">🎯</div>
       <div class="tile-info">
-        <div class="tile-name">Your Pursuits</div>
+        <div class="tile-name">Pursuits</div>
         <div class="tile-sub" id="tile-todo-sub">Loading…</div>
       </div>
       <div class="tile-badge tb-red" id="tile-todo-badge" style="display:none">0</div>
@@ -940,7 +943,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="panel" id="panel-todo">
       <div class="panel-head">
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
-        <span class="panel-heading">Your Pursuits</span>
+        <span class="panel-heading">Pursuits</span>
         <div class="panel-head-actions">
           <button class="btn btn-ghost" onclick="openModal()">+ Add Pursuit</button>
         </div>
@@ -1836,22 +1839,10 @@ function aimDoneOnDay(t,ds){
   return(t.completedDates||[]).includes(ds);
 }
 function aimsForDay(ds){
-  return load().filter(t=>{
-    if(!t.recur||t.recur==='none')return!t.done&&t.due===ds;
-    return aimOccursOn(t,ds)&&!aimDoneOnDay(t,ds);
-  });
+  return load().filter(t=>!t.done&&t.due===ds);
 }
-function isOver(t){
-  if(!t.due)return false;
-  if(!t.recur||t.recur==='none')return!t.done&&t.due<todayStr();
-  const yest=new Date();yest.setDate(yest.getDate()-1);
-  const yd=yest.toISOString().split('T')[0];
-  return aimOccursOn(t,yd)&&!aimDoneOnDay(t,yd);
-}
-function isTod(t){
-  if(!t.recur||t.recur==='none')return!t.done&&t.due===todayStr();
-  return aimOccursOn(t,todayStr())&&!aimDoneOnDay(t,todayStr());
-}
+function isOver(t){return!t.done&&!!t.due&&t.due<todayStr();}
+function isTod(t){return!t.done&&t.due===todayStr();}
 function isCrit(t){return!t.done&&migrateOldPri(t.pri)<=2}
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(s){if(!s)return'';const[,m,d]=s.split('-');return MONTHS[+m-1]+' '+parseInt(d)}
@@ -1862,6 +1853,7 @@ function fmtTime(s){if(!s)return'';let[h,mn]=s.split(':').map(Number);const ap=h
 // ══════════════════════════════════════════════
 let curPanel='home';
 function openPanel(id){
+  if(id!=='todo'&&_newlyDoneIds.size>0) _newlyDoneIds.clear();
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
   const panel=document.getElementById('panel-'+id);
@@ -2172,11 +2164,12 @@ function render(){
   const q=(document.getElementById('searchIn').value||'').trim().toLowerCase();
   if(q) filtered=filtered.filter(t=>t.title.toLowerCase().includes(q)||(t.notes&&t.notes.toLowerCase().includes(q))||(t.subcat&&t.subcat.toLowerCase().includes(q))||(t.tags&&t.tags.some(tg=>tg.toLowerCase().includes(q))));
   filtered=sortTasks(filtered,document.getElementById('sortSel').value);
+  filtered=filtered.filter(t=>!_newlyDoneIds.has(t.id));
   const justDoneTasks=all.filter(t=>_newlyDoneIds.has(t.id));
   let html='';
   if(justDoneTasks.length){
-    html+='<div class="just-done-banner">✓ Just Completed</div>';
-    justDoneTasks.forEach(t=>html+=rowHTML(t));
+    html+='<div class="sec-lbl sec-just-done">✓ Done This Session</div>';
+    justDoneTasks.forEach(t=>html+=rowHTML(t,true));
   }
   if(curTab==='done'){
     if(filtered.length){html+='<div style="padding:6px 22px 2px;font-family:\'Cinzel\',serif;font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase">Completed — most recent first</div>';filtered.forEach(t=>html+=rowHTML(t,true))}
@@ -2216,7 +2209,7 @@ function sortTasks(arr,sort){
 }
 
 function renderGrouped(filtered){
-  const ov=filtered.filter(isOver),td=filtered.filter(isTod),cr=filtered.filter(t=>!isOver(t)&&!isTod(t)&&isCrit(t)),st=filtered.filter(t=>!isOver(t)&&!isTod(t)&&!isCrit(t)&&t.starred),rest=filtered.filter(t=>!isOver(t)&&!isTod(t)&&!isCrit(t)&&!t.starred);
+  const ov=filtered.filter(isOver),td=filtered.filter(t=>isTod(t)&&!isOver(t)),cr=filtered.filter(t=>!isOver(t)&&!isTod(t)&&isCrit(t)),st=filtered.filter(t=>!isOver(t)&&!isTod(t)&&!isCrit(t)&&t.starred),rest=filtered.filter(t=>!isOver(t)&&!isTod(t)&&!isCrit(t)&&!t.starred);
   let h='';
   if(ov.length){h+=`<div class="sec-lbl sec-overdue">⚠ Overdue</div>`;ov.forEach(t=>h+=rowHTML(t))}
   if(td.length){h+=`<div class="sec-lbl sec-today">▶ Due Today</div>`;td.forEach(t=>h+=rowHTML(t))}
@@ -2231,10 +2224,12 @@ function rowProgHtml(t,isDone){
   const n=steps.length;
   const done=steps.filter(s=>s.done).length;
   if(isDone){
+    if(n===0)return`<div class="task-prog" title="Complete"><div class="task-prog-fill" style="width:100%"></div></div>`;
+    if(n<=8){const segs=Array.from({length:n},()=>`<div class="task-seg done"></div>`).join('');return`<div class="task-prog-segs" title="All ${n} steps complete">${segs}</div>`;}
     return`<div class="task-prog" title="Complete"><div class="task-prog-fill" style="width:100%"></div></div>`;
   }
   if(n===0){
-    return`<div class="task-prog" title="Not started — no steps defined yet"></div>`;
+    return`<div class="task-prog task-prog-empty" onclick="event.stopPropagation();clickBarComplete('${t.id}')" title="Click to mark complete"></div>`;
   }
   if(n<=8){
     const segs=Array.from({length:n},(_,i)=>`<div class="task-seg${steps[i]&&steps[i].done?' done':''}" data-idx="${i}" title="${esc((steps[i]&&steps[i].title)||'Step '+(i+1))}"></div>`).join('');
@@ -2243,9 +2238,9 @@ function rowProgHtml(t,isDone){
   const pct=Math.round(done/n*100);
   return`<div class="task-prog" title="${done} of ${n} steps (${pct}%)"><div class="task-prog-fill" style="width:${pct}%"></div></div>`;
 }
-function rowHTML(t,forceComplete){
+function rowHTML(t,forceComplete,isCalDay){
   const _rowDate=_calRowDs||todayStr();
-  const isDone=forceComplete||((t.recur&&t.recur!=='none')?aimDoneOnDay(t,_rowDate):t.done);
+  const isDone=forceComplete||t.done;
   const catItem=getCatList().find(c=>c.val===t.cat);
   const catLabel=(t.cat&&t.cat!=='inbox')?(catItem?catItem.label:(CAT_LABELS[t.cat]||t.cat)):'';
   let datePill='';
@@ -2264,17 +2259,15 @@ function rowHTML(t,forceComplete){
   const recurPill=(t.recur&&t.recur!=='none')?`<span class="pill p-recur">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
   const oid=`'${t.id}'`;
   const isPending=_pendingCompleteIds.has(t.id);
-  const isJustDone=_newlyDoneIds.has(t.id);
   let rowCls='task';
-  if(isDone||isJustDone)rowCls+=' is-done';
+  if(isDone)rowCls+=' is-done';
   if(isPending)rowCls+=' task-pending-complete';
-  if(isJustDone)rowCls+=' task-just-done';
   return`<div class="${rowCls}" data-id="${t.id}" ondblclick="event.stopPropagation();openEdit(${oid})" onmouseleave="rowMouseLeave('${t.id}')">
     <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar(${oid})">⭐</div>
-    <div class="cb${isDone||isJustDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask(${oid},'${_rowDate}')"></div>
+    <div class="cb${isDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask(${oid},'${_rowDate}',${isCalDay?1:0})"></div>
     <div class="task-col-cat" onclick="openEdit(${oid})">${catLabel?`<span class="cat-badge" title="${esc(catLabel)}">${esc(catLabel)}</span>`:''}</div>
     <div class="task-col-sub" onclick="openEdit(${oid})">${t.subcat?`<span class="subcat-label" title="${esc(t.subcat)}">${esc(t.subcat)}</span>`:''}</div>
-    <div class="task-col-prog">${rowProgHtml(t,isDone||isJustDone)}</div>
+    <div class="task-col-prog">${rowProgHtml(t,isDone)}</div>
     <div class="task-name" onclick="openEdit(${oid})">${esc(t.title)}</div>
     <div class="task-col-date" onclick="openEdit(${oid})">${datePill}</div>
     <div class="task-col-pri" onclick="openEdit(${oid})">${priPill}</div>
@@ -2284,6 +2277,12 @@ function rowHTML(t,forceComplete){
   </div>`;
 }
 
+function clickBarComplete(id){
+  const data=load();
+  const t=data.find(x=>x.id===id);
+  if(!t||t.done)return;
+  finalizeTaskComplete(id);
+}
 function toggleSegStep(e,id){
   e.stopPropagation();
   const seg=e.target.closest('.task-seg');
@@ -2295,9 +2294,12 @@ function toggleSegStep(e,id){
   t.subtasks[idx].done=!t.subtasks[idx].done;
   persist(data);
   const allDone=t.subtasks.length>0&&t.subtasks.every(s=>s.done);
-  if(allDone){_pendingCompleteIds.add(id);}
-  else{_pendingCompleteIds.delete(id);}
-  render();
+  if(allDone){
+    finalizeTaskComplete(id);
+  }else{
+    _pendingCompleteIds.delete(id);
+    render();
+  }
 }
 function rowMouseLeave(id){
   if(_pendingCompleteIds.has(id)){
@@ -2311,17 +2313,23 @@ function finalizeTaskComplete(id){
   if(!t)return;
   t.done=true;
   t.completedAt=Date.now();
+  if(t.subtasks)t.subtasks.forEach(s=>s.done=true);
+  _pendingCompleteIds.delete(id);
   persist(data);
   _newlyDoneIds.add(id);
   render();
-  setTimeout(()=>{_newlyDoneIds.delete(id);render();},2500);
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function toggleDoneSection(el){const l=document.getElementById('doneList'),c=document.getElementById('doneChev'),o=l.style.display==='none';l.style.display=o?'block':'none';c.classList.toggle('open',o)}
 
 // TASK ACTIONS
 let _calRowDs=null; // date context for calendar-day aim rows
-function toggleDoneTask(id,ds){
+function advanceRecurDue(due,recur){
+  const today=todayStr();let d=due||today,safety=0;
+  do{d=nextDue(d,recur);if(!d||++safety>400)return null;}while(d<=today);
+  return d;
+}
+function toggleDoneTask(id,ds,isCalDay){
   ds=ds||todayStr();
   const d=load(),t=d.find(x=>x.id===id);if(!t)return;
   if(t.done){
@@ -2329,15 +2337,20 @@ function toggleDoneTask(id,ds){
     t.done=false;t.completedAt=null;
     if(t.subtasks)t.subtasks.forEach(s=>s.done=false);
     _pendingCompleteIds.delete(id);
-  }else if(!t.recur||t.recur==='none'){
-    t.done=true;t.completedAt=Date.now();
+    persist(d);render();
+  }else if(t.recur&&t.recur!=='none'){
+    // Recurring: complete this occurrence, advance due date to next future occurrence
+    const next=advanceRecurDue(t.due,t.recur);
+    if(next){t.due=next;}else{t.done=true;t.completedAt=Date.now();}
+    if(t.subtasks)t.subtasks.forEach(s=>s.done=false);
+    _pendingCompleteIds.delete(id);
+    persist(d);render();
   }else{
-    t.completedDates=t.completedDates||[];
-    const idx=t.completedDates.indexOf(ds);
-    if(idx===-1)t.completedDates.push(ds);
-    else{t.completedDates.splice(idx,1);if(t.subtasks)t.subtasks.forEach(s=>s.done=false);}
+    // Non-recurring: permanent completion
+    if(t.subtasks)t.subtasks.forEach(s=>s.done=true);
+    persist(d);
+    finalizeTaskComplete(id);
   }
-  persist(d);render();
 }
 function nextDue(due,recur){const d=new Date(due+'T00:00:00');if(recur==='daily')d.setDate(d.getDate()+1);else if(recur==='weekdays'){d.setDate(d.getDate()+1);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1)}else if(recur==='weekly')d.setDate(d.getDate()+7);else if(recur==='biweekly')d.setDate(d.getDate()+14);else if(recur==='monthly')d.setMonth(d.getMonth()+1);else if(recur==='yearly')d.setFullYear(d.getFullYear()+1);else return null;return d.toISOString().split('T')[0]}
 function toggleStar(id){const d=load(),t=d.find(x=>x.id===id);if(t){t.starred=!t.starred;persist(d);render()}}
@@ -3475,7 +3488,7 @@ function renderDayView(){
           const recurChip=t.recur&&t.recur!=='none'?`<span style="font-size:10px;opacity:.6;margin-left:6px">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
           const endBtn=t.recur&&t.recur!=='none'?`<div class="cal-dv-aim-end" onclick="event.stopPropagation();delTask('${t.id}')" title="End this series">✕</div>`:'';
           return`<div class="cal-dv-aim-row">
-            <div class="cal-dv-aim-cb" onclick="toggleDoneTask('${t.id}','${calDvDs}');renderDayView()" title="Mark complete"></div>
+            <div class="cal-dv-aim-cb" onclick="toggleDoneTask('${t.id}','${calDvDs}',1);renderDayView()" title="Mark complete"></div>
             <div class="cal-dv-aim-title" onclick="openEdit('${t.id}')">${esc(t.title)}${recurChip}</div>
             ${endBtn}
           </div>`;
@@ -3637,7 +3650,7 @@ function renderCalDay(ds){
   if(!tasks.length){
     html+=`<div class="cal-detail-empty">${isPast?'No Pursuits were due this day.':'No Pursuits set for this day.'}</div>`;
   }else{
-    tasks.forEach(t=>html+=rowHTML(t));
+    tasks.forEach(t=>html+=rowHTML(t,false,1));
   }
   html+=`<div class="cal-detail-add"><button class="btn btn-ghost" style="width:100%" onclick="addTaskOnDate('${ds}')">+ Add Pursuit for ${CAL_MONTHS[m-1]} ${d}</button></div>`;
   el.innerHTML=html;
