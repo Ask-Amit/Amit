@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.00**
+**Current version: 1.01**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -147,7 +147,7 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: 2026-06-05 (Session 11) — Full Pursuits panel overhaul (Sessions 10+11). amit-hub.html changes this session: rolling due date model implemented for recurring pursuits — aimsForDay() simplified to t.due===ds&&!t.done, isOver()/isTod() simplified to direct t.due comparisons, toggleDoneTask recurring path calls advanceRecurDue() which advances t.due past today so a recurring pursuit appears on exactly ONE calendar day at a time (never floods). aimOccursOn/aimDoneOnDay/completedDates now dead code. Also fixed: completed recurring task persisting in OVERDUE (isOver/isTod now check t.done first), +2 calendar overflow badge visibility (dark pill), isCalDay param added to rowHTML. Previous session (10): custom dropdown items selectable (data attrs + event delegation), CSS grid pursuit rows (11-column), segmented progress bars (clickable segments, all-segments-done auto-completes, empty bar click completes), completed pursuits stay visible until navigating away, OVERDUE/DUE TODAY dedup fixed, Aims→Pursuits language throughout. Workflow standard updated globally: finish full task list before opening browser. PUSH PENDING — all changes are local only, NOT yet on GitHub. NEXT SESSION: Push all pending changes first (git commit + push), then build morning altar Home panel (Tier 1).**
+**Last updated: 2026-06-05 (Session 12 / Amit 7) — Audit session. Confirmed via code review that the Morning Altar Home Panel was already fully built (panel-home with altar-wrap, Hebrew calendar bar, Word for Today inline, reflection textarea, pressing aims list, morning invitation) — this was done in a prior session not captured in the WHERE WE LEFT OFF. Task list corrected. Also confirmed: aimOccursOn() and aimDoneOnDay() are still dead code in the file — were supposed to be removed when rolling model was implemented in Session 11 but weren't. Sessions 10+11 Pursuits work all confirmed in code. PUSH STILL PENDING — all Sessions 10+11 changes are local only, NOT yet on GitHub. NEXT SESSION: Push pending changes first (git commit + push), then build Pursuits Advanced Multi-Criteria Filter Bar + Named Saved Filter Views (Smart Sort upgrade) — full spec in TIER 1 task list.**
 
 ---
 
@@ -179,6 +179,10 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 - ✅ Calendar readability — SHABBAT no-wrap, Hebrew date 14px, Hebrew month 10px, Hebrew column 52px
 - ✅ Day detail modal — fixed see-through background (now solid #0f2338)
 - ✅ Task → Aims language throughout (New Aim / Commit This Aim / Steps Toward This Aim / Refine This Aim)
+- ✅ Morning Altar Home Panel — greeting, Hebrew calendar bar, Word for Today inline with reflection textarea, Pressing Aims list, morning invitation (Walk with Amit)
+- ✅ Sidebar section labels removed — "Aims" and "Daily" gone; only "Amit Tools" divider remains
+- ✅ Pursuits panel — CSS grid 11-column rows, segmented progress bars (clickable), custom dropdown event delegation, completed pursuits visible until navigation, OVERDUE/DUE TODAY dedup fixed, Aims→Pursuits language
+- ✅ Rolling due date model — advanceRecurDue(), toggleDoneTask() rolling path, aimsForDay/isOver/isTod simplified to single-line direct comparisons
 
 **System files:**
 - âœ… CLAUDE.md â€” permanent directives, partnership standard, file paths, one consolidated task list
@@ -222,16 +226,11 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 - [x] **Floating Amit Panel — who_is_god.html** — BUILT. Three-path: No Account / Claude Account / Coming Soon API. Tab-aware primers. Two-level fetch (relative → live URL → embedded fallback).
 - [x] **Ask Amit Panel — amit-hub.html** — BUILT. Persistent gold button at bottom of all sidebar screens. Three-path modal. Panel-aware primers. Same two-level fetch logic.
 
-- [ ] **HOME PANEL — MORNING ALTAR REDESIGN** — NEXT BUILD. Current home is a dashboard (stat cards, verse excerpt, hint text). Must become the morning altar — the reason people start their day here above anywhere else. Structure:
-  - **Greeting + Hebrew date** — prominent, with what this day means on Yahweh’s calendar (feast? Shabbat approaching? ordinary day with meaning?)
-  - **Word for Today — inline, not a card to click elsewhere** — show the name, the opening prayer/quote, The Intent, For Today. Full content. Deep-link to full panel for more.
-  - **Today’s Pressing Aims** — just overdue + due today, shown as a simple list with checkboxes. “Nothing pressing today — you are free to press in elsewhere.” Link to full aims.
-  - **Morning Question** — “What are you carrying into today?” — opens Ask Amit panel directly. Not a nav item. An invitation.
-  - Remove stat cards. Remove “Select a section from the sidebar” hint. This IS the section.
+- [x] **HOME PANEL — MORNING ALTAR REDESIGN** — BUILT (confirmed Session 12 audit). Greeting, Hebrew calendar bar (date + what this day means on His calendar), Word for Today inline (name, prayer, intent, doing, verse), reflection textarea (saves to localStorage by date), Pressing Aims list (overdue + due today with checkboxes), Morning Invitation (“What are you carrying into today?” → Walk with Amit button). Stat cards removed. panel-home fully converted to altar-wrap.
 
 - [ ] **Reflection Box — Save & Connect to Amit** — The “Your Reflection” textarea in Word for Today currently saves to localStorage by date (REFL_KEY already exists — loadVerse/saveReflection functions are wired). What needs to be added: (1) When Ask Amit panel opens from the verse panel, include today’s reflection in the primer — “Today you wrote: [their words]. What are you still sitting with?” (2) Amit_Start.md guidance: Amit should reference past reflections when the person returns — “On the day you studied [word], you wrote [their words]. Where did that take you?” This is the most personal thing Amit can do.
 
-- [ ] **Hub Sidebar — Remove Section Labels** — “Aims” and “Daily” as section headers create bureaucratic separation. Remove them. Nav flows as one continuous list: Home → Calendar → My Aims → Word for Today → Mail → [divider] → Amit Tools. Consider whether Mail belongs in main nav or should move to Amit Tools.
+- [x] **Hub Sidebar — Remove Section Labels** — “Aims” and “Daily” labels removed. Nav now flows as one continuous list with only “Amit Tools” as a divider for the tool tiles. Done.
 
 - [ ] **Move Amit_Start.md to root level** — Currently lives in who_is_god/. Architecturally it belongs at the root — Amit’s identity above all apps. Move to C:\Users\user1\Documents\GitHub\Amit\Amit_Start.md. Update fetch paths: who_is_god.html → ‘../Amit_Start.md’, Hub → ‘../Amit_Start.md’, absolute fallback URL updates.
 
@@ -258,17 +257,22 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
   - **Implementation notes:** `aimsForDay(ds)` simplifies to `t.due === ds && !t.done` for all tasks. `isOver(t)` and `isTod(t)` simplify identically to non-recurring checks. `aimOccursOn`, `completedDates`, `aimDoneOnDay` all become unnecessary and can be removed. `toggleDoneTask` for recurring: advance `t.due`, reset `t.done=false`, reset subtasks, persist+render. Calendar context (isCalDay) still useful for UI feedback but behavior is the same — complete → advance, always.
   - **NOTE:** The current fix (setting t.done=true for recurring tasks from Pursuits panel) is a temporary bridge. The rolling model will replace it entirely.
 
-- [ ] **Hub: Pursuits — Advanced Multi-Criteria Filter Bar** — Replace the single "All Purposes" dropdown and search box with a full filter bar where each dimension gets its own control. All filters combine (AND logic — only pursuits matching ALL active criteria show). Controls needed:
-  - **Purpose** (category dropdown — existing)
-  - **Focus** (subcategory dropdown — populated from data)
-  - **Markers** (tags — multi-select or chip picker)
-  - **Context / Search** (text search across title, notes, subcategory, tags — existing but reframed)
-  - **Date range** — "From" and "To" date pickers; shows only pursuits with due date within that window
-  - **Priority** — P1 through P5 (or any combination), multi-select chips
-  - **Starred** — toggle to show starred only
-  - Each active filter generates a column heading label above the pursuit list showing what is being filtered (e.g. "Purpose: Spiritual · Priority: P1-P2 · June 1–June 30"). When no filters are active, no heading shown. When filters are active, the heading describes exactly what's displayed.
-  - Filter bar should be collapsible (collapsed by default, expand on demand) so it doesn't eat screen space when not in use.
-  - Clear All Filters button resets everything to default view.
+- [ ] **Hub: Pursuits — Column Header Filter Row** — Replace the current filter bar and search box with a header row built on the SAME 11-column grid as the task rows below it. Filter controls sit directly above their columns — perfectly aligned. This is the column header row, not a separate filter bar. Spec:
+  - **Same grid:** `12px 14px 80px 72px 52px 1fr 72px 32px 88px 16px 16px` — matches task row exactly so every control lines up over its column
+  - **Star column (12px):** Starred-only toggle (⭐ icon, click to filter to starred only, click again to show all)
+  - **Checkbox column (14px):** empty / no filter
+  - **Purpose column (80px):** dropdown — "All" as default/deselect, then each category value. Selecting "All" removes the filter.
+  - **Focus column (72px):** dropdown — "All" as default/deselect, populated dynamically from data in storage. Selecting "All" removes the filter.
+  - **Progress column (52px):** empty or small icon (no filter needed here)
+  - **Title column (1fr):** text search input — searches title, notes, subcategory, tags. Clear × button when text is present.
+  - **Date column (72px):** click opens a small inline date range (From / To). "All" / clear removes the date filter.
+  - **Priority column (32px):** click opens a small multi-select (P1 P2 P3 P4 P5 chips). "All" chip deselects all priority filters.
+  - **Recur column (88px):** dropdown — "All" / "Repeating only" / "Non-repeating only"
+  - **+ and × columns (16px each):** contain **Clear All** (small × or reset icon that resets every column filter to "All" at once)
+  - **Per-column "All" behavior:** every column filter has an "All" / deselect state. Clearing one column does not affect others.
+  - **All filters combine AND logic** — only pursuits matching all active column filters are shown.
+  - **Active filter indicators:** when a column has an active filter, its header label/control is highlighted (gold border or background tint) so Ryan can see at a glance which columns are filtered.
+  - **No collapsible needed** — because the header row is part of the table itself, it's always visible without eating extra space.
 
 - [ ] **Hub: Pursuits — Named Saved Filter Views (Smart Sort upgrade)** — Allow the current filter+sort state to be saved with a name and recalled later. Full spec:
   - **Save current view** — a "Save This View" button (or icon) captures the current filter state (all active filters + current sort order) and prompts for a name. Stored in localStorage.
