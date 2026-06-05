@@ -219,30 +219,30 @@ header{
 .sec-crit{background:rgba(155,89,182,.2);color:#d7aeff;border-left:4px solid var(--crit-c)}
 .sec-star{background:rgba(241,196,15,.15);color:#ffe566;border-left:4px solid var(--star-c)}
 .sec-up{background:rgba(255,255,255,.05);color:#aac4e0;border-left:4px solid rgba(170,196,224,.4)}
-.task{display:flex;align-items:flex-start;gap:9px;padding:10px 22px;border-bottom:1px solid var(--sep);transition:background .12s}
+.task{display:flex;align-items:center;gap:8px;padding:7px 16px;border-bottom:1px solid var(--sep);transition:background .12s}
 .task:last-child{border-bottom:none}
 .task:hover{background:rgba(255,255,255,.04)}
-.task-star{width:16px;flex-shrink:0;margin-top:3px;font-size:13px;cursor:pointer;color:var(--star-c);opacity:.25;transition:opacity .15s;user-select:none}
+.task-star{width:14px;flex-shrink:0;font-size:12px;cursor:pointer;color:var(--star-c);opacity:.25;transition:opacity .15s;user-select:none;line-height:1}
 .task-star:hover,.task-star.lit{opacity:1}
-.cb{width:17px;height:17px;flex-shrink:0;margin-top:2px;border:2px solid rgba(201,168,76,.45);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cb{width:15px;height:15px;flex-shrink:0;border:2px solid rgba(201,168,76,.45);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .cb:hover{border-color:var(--gold);background:rgba(201,168,76,.1)}
 .cb.done{background:var(--done-c);border-color:var(--done-c)}
-.cb.done::after{content:'✓';color:#fff;font-size:10px;font-weight:bold}
-.task-body{flex:1;min-width:0;cursor:pointer}
-.task-cat{display:flex;align-items:center;gap:5px;margin-bottom:4px;flex-wrap:wrap}
-.cat-badge{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border-radius:10px;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.3);color:var(--gold);white-space:nowrap}
-.subcat-label{font-size:11px;color:var(--muted)}
-.cat-arrow{font-size:10px;color:var(--dim)}
-.task-name{font-size:16px;color:#fff;line-height:1.38;cursor:pointer;font-weight:500}
+.cb.done::after{content:'✓';color:#fff;font-size:9px;font-weight:bold}
+.task-body{flex:1;min-width:0;cursor:pointer;display:flex;align-items:center;gap:7px;overflow:hidden}
+.task-cat{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.cat-badge{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.3);color:var(--gold);white-space:nowrap}
+.subcat-label{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px}
+.cat-arrow{font-size:9px;color:var(--dim)}
+.task-name{font-size:14px;color:#fff;line-height:1.3;cursor:pointer;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:60px}
 .task-name:hover{color:var(--gold2)}
 .task.is-done .task-name{text-decoration:line-through;color:var(--dim)}
-.task-note{font-size:12px;color:var(--muted);font-style:italic;margin-top:3px;line-height:1.35}
-.sub-progress{display:flex;align-items:center;gap:7px;margin-top:5px}
+.task-note{display:none}
+.sub-progress{display:none}
 .sub-bar-wrap{flex:1;height:3px;background:rgba(255,255,255,.1);border-radius:2px;max-width:90px}
 .sub-bar{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
 .sub-count{font-size:11px;color:var(--muted)}
-.pills{display:flex;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap}
-.pill{font-size:10px;font-family:'Cinzel',serif;letter-spacing:.06em;padding:2px 7px;border-radius:10px;white-space:nowrap}
+.pills{display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:nowrap}
+.pill{font-size:9px;font-family:'Cinzel',serif;letter-spacing:.04em;padding:2px 6px;border-radius:10px;white-space:nowrap}
 .p-overdue{color:#f1948a;background:rgba(231,76,60,.2);border:1px solid rgba(231,76,60,.4)}
 .p-today{color:#f0b27a;background:rgba(230,126,34,.2);border:1px solid rgba(230,126,34,.4)}
 .p-date{color:var(--muted);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14)}
@@ -2211,22 +2211,29 @@ function rowHTML(t){
   const _rowDate=_calRowDs||todayStr();
   const isDone=(t.recur&&t.recur!=='none')?aimDoneOnDay(t,_rowDate):t.done;
   let catHtml='';
-  if(t.cat&&t.cat!=='inbox'){const cl=CAT_LABELS[t.cat]||t.cat;catHtml=`<div class="task-cat"><span class="cat-badge">${cl}</span>${t.subcat?`<span class="cat-arrow">›</span><span class="subcat-label">${esc(t.subcat)}</span>`:''}</div>`}
-  let subHtml='';
-  if(t.subtasks&&t.subtasks.length){const dc=t.subtasks.filter(s=>s.done).length,tot=t.subtasks.length,pct=Math.round(dc/tot*100);subHtml=`<div class="sub-progress"><div class="sub-bar-wrap"><div class="sub-bar" style="width:${pct}%"></div></div><span class="sub-count">${dc}/${tot}</span></div>`}
-  const noteHtml=t.notes?`<div class="task-note">${esc(t.notes.split('\n')[0])}</div>`:'';
+  if(t.cat&&t.cat!=='inbox'){
+    const catItem=getCatList().find(c=>c.val===t.cat);
+    const cl=catItem?catItem.label:(CAT_LABELS[t.cat]||t.cat);
+    catHtml=`<div class="task-cat"><span class="cat-badge">${cl}</span>${t.subcat?`<span class="cat-arrow">›</span><span class="subcat-label">${esc(t.subcat)}</span>`:''}</div>`;
+  }
   let pills='';
-  if(t.due&&!isDone){if(isOver(t))pills+=`<span class="pill p-overdue">Overdue · ${fmtDate(t.due)}</span>`;else if(isTod(t))pills+=`<span class="pill p-today">Due Today${t.dueTime?' · '+fmtTime(t.dueTime):''}</span>`;else pills+=`<span class="pill p-date">${fmtDate(t.due)}${t.dueTime?' · '+fmtTime(t.dueTime):''}</span>`}
-  else if(t.due&&isDone) pills+=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
-  if(isDone&&t.completedAt){const cd=new Date(t.completedAt);pills+=`<span class="pill" style="color:#6fcf97;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3)">✓ ${cd.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</span>`}
+  if(t.due&&!isDone){
+    if(isOver(t))pills+=`<span class="pill p-overdue">Overdue · ${fmtDate(t.due)}</span>`;
+    else if(isTod(t))pills+=`<span class="pill p-today">Today</span>`;
+    else pills+=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
+  } else if(t.due&&isDone){
+    pills+=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
+  }
+  if(isDone&&t.completedAt){const cd=new Date(t.completedAt);pills+=`<span class="pill" style="color:#6fcf97;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3)">✓ ${cd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`}
   const pn=migrateOldPri(t.pri);
   if(pn!==5){const pc=PRI_COL[pn]||'p-p8';pills+=`<span class="pill ${pc}">P${pn}</span>`}
-  if(t.recur&&t.recur!=='none') pills+=`<span class="pill p-recur">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`;
-  if(t.tags) t.tags.forEach(tg=>{pills+=`<span class="pill p-tag">${esc(tg)}</span>`});
-  return`<div class="task${isDone?' is-done':''}" ondblclick="openEdit('${t.id}')">
+  if(t.recur&&t.recur!=='none')pills+=`<span class="pill p-recur">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`;
+  const stepsDone=t.subtasks?(t.subtasks.filter(s=>s.done).length+'/'+t.subtasks.length):null;
+  if(stepsDone&&t.subtasks.length)pills+=`<span class="pill" style="color:var(--muted);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)">${stepsDone}</span>`;
+  return`<div class="task${isDone?' is-done':''}" ondblclick="event.stopPropagation();openEdit('${t.id}')">
     <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar('${t.id}')">⭐</div>
     <div class="cb${isDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask('${t.id}','${_rowDate}')"></div>
-    <div class="task-body" onclick="openEdit('${t.id}')">${catHtml}<div class="task-name">${esc(t.title)}</div>${noteHtml}${subHtml}${pills?`<div class="pills">${pills}</div>`:''}</div>
+    <div class="task-body" onclick="openEdit('${t.id}')">${catHtml}<div class="task-name">${esc(t.title)}</div>${pills?`<div class="pills">${pills}</div>`:''}</div>
     <div class="task-add-inline" onclick="event.stopPropagation();openModal()" title="Set a new Pursuit">＋</div>
     <div class="task-del" onclick="event.stopPropagation();delTask('${t.id}')">×</div>
   </div>`;
