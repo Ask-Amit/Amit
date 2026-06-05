@@ -1387,7 +1387,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <input type="hidden" id="mCat" value="inbox"/>
             <div class="cdrop-list" id="catList">
               <div class="cdrop-search"><input id="catSearch" placeholder="Search…" oninput="renderCdrop('cat')" onclick="event.stopPropagation()"/></div>
-              <div id="catItems"></div>
+              <div id="catItems" onclick="cdropItemClick(event,'cat')" ondblclick="cdropItemDblClick(event,'cat')"></div>
               <div class="cdrop-add" onclick="promptAddCdrop('cat')">＋ Add new category…</div>
             </div>
           </div>
@@ -1405,7 +1405,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <input type="hidden" id="mSubcat" value=""/>
             <div class="cdrop-list" id="subcatList">
               <div class="cdrop-search"><input id="subcatSearch" placeholder="Search or type new…" oninput="renderCdrop('subcat')" onclick="event.stopPropagation()"/></div>
-              <div id="subcatItems"></div>
+              <div id="subcatItems" onclick="cdropItemClick(event,'subcat')" ondblclick="cdropItemDblClick(event,'subcat')"></div>
               <div class="cdrop-add" id="subcatAddBtn" onclick="promptAddCdrop('subcat')" style="display:none">＋ Add this as a new focus…</div>
             </div>
           </div>
@@ -2366,17 +2366,29 @@ function renderCdrop(which){
   let html='';
   if(which==='cat'){
     const items=getCatList().filter(i=>!q||i.label.toLowerCase().includes(q));
-    html=items.map(i=>`<div class="cdrop-item${i.val===cur?' active':''}" onclick="pickCdrop('cat',${JSON.stringify(i.val)},${JSON.stringify(i.label)})" ondblclick="manageCdropItem('cat',${JSON.stringify(i.val)},${JSON.stringify(i.label)},${i.isDefault})" title="Double-click to rename or delete"><span class="cdrop-item-dot"></span>${esc(i.label)}</div>`).join('');
+    html=items.map(i=>`<div class="cdrop-item${i.val===cur?' active':''}" data-val="${esc(i.val)}" data-label="${esc(i.label)}" data-isdef="${i.isDefault}" title="Double-click to rename or delete"><span class="cdrop-item-dot"></span>${esc(i.label)}</div>`).join('');
   } else {
     const cat=document.getElementById('mCat').value;
     const items=getFocusList(cat).filter(i=>!q||i.toLowerCase().includes(q));
     const defs=CDROP_FOCUS_DEFAULTS[cat]||[];
-    html=items.map(i=>`<div class="cdrop-item${i===cur?' active':''}" onclick="pickCdrop('subcat',${JSON.stringify(i)},${JSON.stringify(i)})" ondblclick="manageCdropItem('subcat',${JSON.stringify(i)},${JSON.stringify(i)},${defs.some(d=>d.toLowerCase()===i.toLowerCase())})" title="Double-click to rename or delete"><span class="cdrop-item-dot"></span>${esc(i)}</div>`).join('');
+    html=items.map(i=>`<div class="cdrop-item${i===cur?' active':''}" data-val="${esc(i)}" data-label="${esc(i)}" data-isdef="${defs.some(d=>d.toLowerCase()===i.toLowerCase())}" title="Double-click to rename or delete"><span class="cdrop-item-dot"></span>${esc(i)}</div>`).join('');
     const addBtn=document.getElementById('subcatAddBtn');
     if(addBtn){const show=q&&!items.some(i=>i.toLowerCase()===q);addBtn.style.display=show?'block':'none';if(show)addBtn.textContent=`＋ Add "${document.getElementById('subcatSearch').value.trim()}" as a new focus…`;}
   }
   if(!html)html=`<div class="cdrop-empty">No matches — type to add new</div>`;
   document.getElementById(which+'Items').innerHTML=html;
+}
+function cdropItemClick(e,which){
+  e.stopPropagation();
+  const item=e.target.closest('.cdrop-item');
+  if(!item)return;
+  pickCdrop(which,item.dataset.val,item.dataset.label||item.dataset.val);
+}
+function cdropItemDblClick(e,which){
+  e.stopPropagation();
+  const item=e.target.closest('.cdrop-item');
+  if(!item)return;
+  manageCdropItem(which,item.dataset.val,item.dataset.label||item.dataset.val,item.dataset.isdef==='true');
 }
 function pickCdrop(which,val,label){
   const hid=document.getElementById('m'+which.charAt(0).toUpperCase()+which.slice(1));
