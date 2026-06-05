@@ -388,7 +388,10 @@ header{
 .modal{background:#1a3450;border:2px solid rgba(201,168,76,.6);border-radius:14px;padding:24px 26px;width:530px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.7)}
 .modal::-webkit-scrollbar{width:4px}
 .modal::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
-.modal-title{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.18em;color:var(--gold2);text-transform:uppercase;margin-bottom:6px}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.modal-title{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.18em;color:var(--gold2);text-transform:uppercase}
+.btn-mode-toggle{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:4px 11px;border-radius:20px;border:1px solid rgba(201,168,76,.4);background:rgba(201,168,76,.08);color:rgba(201,168,76,.7);cursor:pointer;transition:all .18s;white-space:nowrap}
+.btn-mode-toggle:hover{background:rgba(201,168,76,.18);border-color:var(--gold);color:var(--gold)}
 .voice-bar{display:none;align-items:center;gap:10px;padding:8px 12px;margin-bottom:14px;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.3);border-radius:7px}
 .voice-bar.active{display:flex}
 .voice-dot{width:10px;height:10px;border-radius:50%;background:var(--overdue);flex-shrink:0;animation:vpulse 1s infinite}
@@ -788,7 +791,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="tile" id="tile-todo" onclick="openPanel('todo')">
       <div class="tile-icon">🎯</div>
       <div class="tile-info">
-        <div class="tile-name">Your Aim</div>
+        <div class="tile-name">Your Pursuit</div>
         <div class="tile-sub" id="tile-todo-sub">Loading…</div>
       </div>
       <div class="tile-badge tb-red" id="tile-todo-badge" style="display:none">0</div>
@@ -889,7 +892,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="altar-section">
           <div class="altar-lbl">Pressing Today</div>
           <div id="altarAimsList"></div>
-          <span class="altar-aims-link" onclick="openPanel('todo')">See all Aims →</span>
+          <span class="altar-aims-link" onclick="openPanel('todo')">See all Pursuits →</span>
         </div>
 
         <!-- MORNING INVITATION -->
@@ -905,16 +908,16 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="panel" id="panel-todo">
       <div class="panel-head">
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
-        <span class="panel-heading">Your Aim</span>
+        <span class="panel-heading">Your Pursuit</span>
         <div class="panel-head-actions">
-          <button class="btn btn-ghost" onclick="openModal()">+ Add Aim</button>
+          <button class="btn btn-ghost" onclick="openModal()">+ Add Pursuit</button>
         </div>
       </div>
       <div class="todo-inner">
         <div class="filter-bar">
           <div class="search-wrap">
             <span class="search-icon">🔍</span>
-            <input class="search-input" id="searchIn" placeholder="Search Aims…" oninput="render()"/>
+            <input class="search-input" id="searchIn" placeholder="Search Pursuits…" oninput="render()"/>
           </div>
           <select class="sel-sm" id="catFilter" onchange="render()">
             <option value="">All Purposes</option>
@@ -1030,7 +1033,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="mail-accts" id="mailAcctList">Loading…</div>
 
         <!-- Mail tasks -->
-        <div class="mail-tasks-header" style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">Mail-Related Aims</div>
+        <div class="mail-tasks-header" style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">Mail-Related Pursuits</div>
         <div id="mailTasks" style="font-size:14px;color:var(--muted)"></div>
       </div>
     </div>
@@ -1042,7 +1045,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <span class="panel-heading">Calendar</span>
         <div class="panel-head-actions">
           <button class="btn btn-ghost" onclick="calGoToday()">Today</button>
-          <button class="btn btn-ghost" onclick="openModal()">+ Set a New Aim</button>
+          <button class="btn btn-ghost" onclick="openModal()">+ Set a New Pursuit</button>
         </div>
       </div>
       <div class="cal-wrap" id="calWrap">
@@ -1109,7 +1112,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="cal-dv-topbar">
           <button class="cal-dv-back" onclick="closeDayView()">← Month</button>
           <div class="cal-dv-title" id="calDvTitle"></div>
-          <button class="btn btn-ghost btn-sm" id="calDvAddBtn">+ Set a New Aim</button>
+          <button class="btn btn-ghost btn-sm" id="calDvAddBtn">+ Set a New Pursuit</button>
         </div>
         <div class="cal-dv-zoom-wrap">
           <div class="cal-dv-adj cal-dv-prev" id="calDvPrev" onclick="navigateDayZoom(-1)"></div>
@@ -1336,22 +1339,25 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 <!-- ── MODAL ── -->
 <div class="overlay" id="overlay" onclick="bgClose(event)">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-title" id="modalTitle">New Aim</div>
+    <div class="modal-hdr">
+      <div class="modal-title" id="modalTitle">New Pursuit</div>
+      <button class="btn-mode-toggle" id="modeToggleBtn" onclick="toggleModalMode()" title="Switch to To-Do mode">To-Do</button>
+    </div>
     <div class="voice-bar" id="voiceBar">
       <div class="voice-dot"></div>
       <span class="voice-label">Listening… say "tab" to advance · "save" to save · "cancel" to close</span>
       <button class="voice-stop" onclick="voice.stop()">Stop</button>
     </div>
     <div class="fg">
-      <label class="fg-label" data-tip="Name the one thing you are pressing toward. Be specific — a clear Aim is already half accomplished.">What is your aim?</label>
+      <label id="lblTitle" class="fg-label" data-tip="Name the one thing you are pressing toward. Be specific — a clear Pursuit is already half accomplished.">What are you pursuing?</label>
       <div class="input-row">
-        <input class="fg-input" id="mTitle" placeholder="Name your Aim…"/>
+        <input class="fg-input" id="mTitle" placeholder="Name your Pursuit…"/>
         <button class="mic-btn" id="mic-mTitle" type="button" onclick="voice.toggle('mTitle')" title="Voice input">🎤</button>
       </div>
     </div>
     <div class="fg-row2">
       <div class="fg">
-        <label class="fg-label" data-tip="Choose the area of your life this Aim belongs to. This is how you see where your time and energy are actually going.">Your Purpose</label>
+        <label id="lblCat" class="fg-label" data-tip="Choose the area of your life this Pursuit belongs to. This is how you see where your time and energy are actually going.">Your Purpose</label>
         <div class="input-row">
           <select class="fg-sel" id="mCat" onchange="updateSubcatSuggestions()">
             <option value="inbox">Inbox (uncategorized)</option>
@@ -1368,7 +1374,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
       </div>
       <div class="fg">
-        <label class="fg-label" data-tip="Where are you focusing within this Aim? This could be a project, a relationship, a place, or any specific area — it doesn't have to match your Purpose. What has your attention right now?">Your Focus</label>
+        <label id="lblSubcat" class="fg-label" data-tip="Where are you focusing within this Pursuit? This could be a project, a relationship, a place, or any specific area — it doesn't have to match your Purpose. What has your attention right now?">Your Focus</label>
         <div class="input-row">
           <input class="fg-input" id="mSubcat" list="subcatList" placeholder="e.g. Hub, Prayer Group…"/>
           <button class="mic-btn" id="mic-mSubcat" type="button" onclick="voice.toggle('mSubcat')" title="Voice input">🎤</button>
@@ -1377,7 +1383,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
     <div class="fg">
-      <label class="fg-label" data-tip="Words that connect this Aim to other things — people, seasons, themes, or any area it touches. Press comma to add each one.">Markers (comma adds · enter moves on)</label>
+      <label id="lblTags" class="fg-label" data-tip="Words that connect this Pursuit to other things — people, seasons, themes, or any area it touches. Press comma to add each one.">Markers (comma adds · enter moves on)</label>
       <div style="display:flex;gap:6px">
         <div class="tags-wrap" id="tagsWrap" style="flex:1" onclick="document.getElementById('tagInput').focus()">
           <input class="tag-input" id="tagInput" placeholder="Add a tag…" onkeydown="tagKeydown(event)"/>
@@ -1386,15 +1392,15 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
     <div class="fg">
-      <label class="fg-label" data-tip="The background, motivation, and full story behind this Aim. Why does it matter? What is driving it? Write as much or as little as you need.">Your Context</label>
+      <label id="lblNotes" class="fg-label" data-tip="The background, motivation, and full story behind this Pursuit. Why does it matter? What is driving it? Write as much or as little as you need.">Your Context</label>
       <div class="input-row" style="align-items:flex-start">
-        <textarea class="fg-ta" id="mNotes" placeholder="The why behind this Aim…"></textarea>
+        <textarea class="fg-ta" id="mNotes" placeholder="The why behind this Pursuit…"></textarea>
         <button class="mic-btn" id="mic-mNotes" type="button" onclick="voice.toggle('mNotes')" title="Voice input" style="align-self:flex-start;padding:8px 10px">🎤</button>
       </div>
     </div>
     <div class="fg-row3">
       <div class="fg">
-        <label class="fg-label" data-tip="When does this need to be done? Setting a date makes an Aim real.">Due Date</label>
+        <label class="fg-label" data-tip="When does this need to be done? Setting a date makes a Pursuit real.">Due Date</label>
         <input class="fg-input" id="mDate" type="date"/>
       </div>
       <div class="fg">
@@ -1402,7 +1408,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <input class="fg-input" id="mTime" type="time"/>
       </div>
       <div class="fg">
-        <label class="fg-label" data-tip="Does this Aim recur? Daily prayer, weekly review, monthly goals — set it and the Hub will keep showing it on every applicable day.">Repeat</label>
+        <label class="fg-label" data-tip="Does this Pursuit recur? Daily prayer, weekly review, monthly goals — set it and the Hub will keep showing it on every applicable day.">Repeat</label>
         <select class="fg-sel" id="mRecur">
           <option value="none">No repeat</option>
           <option value="daily">Daily</option>
@@ -1415,7 +1421,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
     <div class="fg">
-      <label class="fg-label" data-tip="How urgent and important is this aim? 1 means handle it now. 10 means someday. 5 is normal — it matters, but it can wait.">Priority (1 = Critical · 10 = Backlog)</label>
+      <label class="fg-label" data-tip="How urgent and important is this Pursuit? 1 means handle it now. 10 means someday. 5 is normal — it matters, but it can wait.">Priority (1 = Critical · 10 = Backlog)</label>
       <div class="pri-row" id="priRow"></div>
       <div class="pri-meta">
         <span class="pri-desc" id="priDesc">5 · Normal</span>
@@ -1428,7 +1434,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     </div>
     <hr class="modal-hr"/>
     <div class="subtask-section">
-      <div class="fg-label" style="margin-bottom:6px" data-tip="Break your aim into small, concrete actions you can check off. Each step you name makes the aim more real and reachable." >Steps Toward This Purpose</div>
+      <div id="lblSteps" class="fg-label" style="margin-bottom:6px" data-tip="Break your Pursuit into small, concrete actions you can check off. Each step you name makes the Pursuit more real and reachable.">Steps Toward This Pursuit</div>
       <div class="subtask-list" id="subtaskList"></div>
       <div class="st-add-row">
         <input class="st-add-input" id="stAddIn" placeholder="Add a step…" onkeydown="stKeydown(event)"/>
@@ -1436,7 +1442,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
     <div id="voiceHint" class="voice-hint" style="display:none">
-      <strong>Voice commands:</strong> "tab" or "next" → advance field · "save" → commit Aim · "cancel" → close · "clear" → clear field
+      <strong>Voice commands:</strong> "tab" or "next" → advance field · "save" → commit · "cancel" → close · "clear" → clear field
     </div>
     <div class="modal-actions">
       <div class="modal-actions-left">
@@ -1445,7 +1451,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div class="modal-actions-right">
         <button id="modalCompleteBtn" class="btn btn-done" style="display:none" onclick="modalMarkComplete()">Mark Complete</button>
         <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-gold" onclick="saveTask()">Commit This Aim</button>
+        <button id="modalSaveBtn" class="btn btn-gold" onclick="saveTask()">Commit This Pursuit</button>
       </div>
     </div>
   </div>
@@ -2074,7 +2080,7 @@ function editMailEmail(){
 function renderMailTasks(){
   const all=load(),mailTasks=all.filter(t=>!t.done&&t.cat==='mail');
   const el=document.getElementById('mailTasks');
-  if(!mailTasks.length){el.innerHTML='<span style="color:var(--dim);font-style:italic">No mail-related Aims. Set an Aim with purpose "Mail" to track email actions here.</span>';return}
+  if(!mailTasks.length){el.innerHTML='<span style="color:var(--dim);font-style:italic">No mail-related Pursuits. Set a Pursuit with purpose "Mail" to track email actions here.</span>';return}
   el.innerHTML=mailTasks.map(t=>`
     <div class="task" style="padding:8px 0;border-bottom:1px solid var(--sep)">
       <div class="cb${t.done?' done':''}" onclick="toggleDoneTask('${t.id}')"></div>
@@ -2123,11 +2129,11 @@ function render(){
   let html='';
   if(curTab==='done'){
     if(filtered.length){html='<div style="padding:6px 22px 2px;font-family:\'Cinzel\',serif;font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase">Completed — most recent first</div>';filtered.forEach(t=>html+=rowHTML(t))}
-    else html='<div class="t-empty">No completed Aims yet.</div>';
+    else html='<div class="t-empty">No completed Pursuits yet.</div>';
   } else {
     if(curTab==='all'&&!catF&&!q) html=renderGrouped(filtered);
     else if(filtered.length) filtered.forEach(t=>html+=rowHTML(t));
-    if(!filtered.length&&!done.length) html='<div class="t-empty">Nothing here yet.<br><span style="font-size:13px">Press <strong>+ Add Aim</strong> above or press <strong>N</strong>.</span></div>';
+    if(!filtered.length&&!done.length) html='<div class="t-empty">Nothing here yet.<br><span style="font-size:13px">Press <strong>+ Add Pursuit</strong> above or press <strong>N</strong>.</span></div>';
     else if(!filtered.length) html='<div class="t-empty" style="padding:36px 20px">Nothing in this view.</div>';
     let doneF=done;
     if(catF) doneF=done.filter(t=>t.cat===catF);
@@ -2189,7 +2195,7 @@ function rowHTML(t){
     <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar('${t.id}')">⭐</div>
     <div class="cb${isDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask('${t.id}','${_rowDate}')"></div>
     <div class="task-body" onclick="openEdit('${t.id}')">${catHtml}<div class="task-name">${esc(t.title)}</div>${noteHtml}${subHtml}${pills?`<div class="pills">${pills}</div>`:''}</div>
-    <div class="task-add-inline" onclick="event.stopPropagation();openModal()" title="Set a new Aim">＋</div>
+    <div class="task-add-inline" onclick="event.stopPropagation();openModal()" title="Set a new Pursuit">＋</div>
     <div class="task-del" onclick="event.stopPropagation();delTask('${t.id}')">×</div>
   </div>`;
 }
@@ -2217,7 +2223,7 @@ function nextDue(due,recur){const d=new Date(due+'T00:00:00');if(recur==='daily'
 function toggleStar(id){const d=load(),t=d.find(x=>x.id===id);if(t){t.starred=!t.starred;persist(d);render()}}
 function delTask(id){
   const t=load().find(x=>x.id===id);if(!t)return;
-  const msg=(t.recur&&t.recur!=='none')?'End this repeating Aim? All future occurrences will stop.':'Remove this aim?';
+  const msg=(t.recur&&t.recur!=='none')?'End this repeating Pursuit? All future occurrences will stop.':'Remove this Pursuit?';
   if(!confirm(msg))return;
   persist(load().filter(x=>x.id!==id));render();
 }
@@ -2304,10 +2310,57 @@ function renderPriBtns(){
   document.getElementById('priDesc').textContent=PRI_DESCS[modalPri];
 }
 
+// MODAL MODE SYSTEM
+let modalMode='pursuit',modalIsEdit=false;
+const MODAL_LABELS={
+  pursuit:{
+    title_new:'New Pursuit',title_edit:'Refine This Pursuit',
+    main:'What are you pursuing?',
+    main_tip:'Name the one thing you are pressing toward. Be specific — a clear Pursuit is already half accomplished.',
+    main_ph:'Name your Pursuit…',
+    cat:'Your Purpose',subcat:'Your Focus',
+    tags:'Markers (comma adds · enter moves on)',
+    notes:'Your Context',notes_ph:'The why behind this Pursuit…',
+    steps:'Steps Toward This Pursuit',
+    save:'Commit This Pursuit',
+    toggle:'To-Do',toggle_tip:'Switch to To-Do mode — simpler labels for everyday tasks'
+  },
+  todo:{
+    title_new:'New To-Do',title_edit:'Refine This To-Do',
+    main:'What needs to be done?',
+    main_tip:'Describe the task clearly. A well-named to-do is already halfway there.',
+    main_ph:'Describe the task…',
+    cat:'Category',subcat:'Subcategory',
+    tags:'Tags (comma adds · enter moves on)',
+    notes:'Details',notes_ph:'Additional details…',
+    steps:'Steps to Complete',
+    save:'Save To-Do',
+    toggle:'Pursuit',toggle_tip:'Switch to Pursuit mode — deeper, personal language for meaningful goals'
+  }
+};
+function setModalMode(mode){
+  modalMode=mode;
+  const L=MODAL_LABELS[mode];
+  document.getElementById('modalTitle').textContent=modalIsEdit?L.title_edit:L.title_new;
+  const lT=document.getElementById('lblTitle');
+  lT.textContent=L.main;lT.setAttribute('data-tip',L.main_tip);
+  document.getElementById('mTitle').placeholder=L.main_ph;
+  document.getElementById('lblCat').textContent=L.cat;
+  document.getElementById('lblSubcat').textContent=L.subcat;
+  document.getElementById('lblTags').textContent=L.tags;
+  document.getElementById('lblNotes').textContent=L.notes;
+  document.getElementById('mNotes').placeholder=L.notes_ph;
+  document.getElementById('lblSteps').textContent=L.steps;
+  document.getElementById('modalSaveBtn').textContent=L.save;
+  const tb=document.getElementById('modeToggleBtn');
+  tb.textContent=L.toggle;tb.title=L.toggle_tip;
+}
+function toggleModalMode(){setModalMode(modalMode==='pursuit'?'todo':'pursuit');}
+
 // MODAL OPEN/CLOSE/SAVE
 function openModal(){
   editId=null;modalTags=[];modalSubtasks=[];modalPri=5;
-  document.getElementById('modalTitle').textContent='New Aim';
+  modalIsEdit=false;setModalMode('pursuit');
   ['mTitle','mNotes','mSubcat','mDate','mTime'].forEach(id=>{document.getElementById(id).value=''});
   document.getElementById('mCat').value='inbox';
   document.getElementById('mRecur').value='none';
@@ -2322,7 +2375,7 @@ function openModal(){
 function openEdit(id){
   const t=load().find(x=>x.id===id);if(!t)return;
   editId=id;modalTags=[...(t.tags||[])];modalSubtasks=(t.subtasks||[]).map(s=>({...s}));
-  document.getElementById('modalTitle').textContent='Refine This Aim';
+  modalIsEdit=true;setModalMode(t.mode||'pursuit');
   document.getElementById('mTitle').value=t.title;
   document.getElementById('mNotes').value=t.notes||'';
   document.getElementById('mCat').value=t.cat||'inbox';
@@ -2350,7 +2403,7 @@ function modalEndSeries(){
   if(!editId)return;
   const t=load().find(x=>x.id===editId);
   if(!t)return;
-  if(!confirm('End this repeating Aim? All future occurrences will stop.'))return;
+  if(!confirm('End this repeating Pursuit? All future occurrences will stop.'))return;
   persist(load().filter(x=>x.id!==editId));
   closeModal();render();
 }
@@ -2359,7 +2412,7 @@ function bgClose(e){if(e.target===document.getElementById('overlay'))closeModal(
 function saveTask(){
   const title=document.getElementById('mTitle').value.trim();
   if(!title){document.getElementById('mTitle').focus();return}
-  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat:document.getElementById('mCat').value,subcat:document.getElementById('mSubcat').value.trim(),due:document.getElementById('mDate').value||null,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s}))};
+  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat:document.getElementById('mCat').value,subcat:document.getElementById('mSubcat').value.trim(),due:document.getElementById('mDate').value||null,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode};
   const d=load();
   if(editId){const t=d.find(x=>x.id===editId);if(t)Object.assign(t,obj)}
   else d.push({id:uid(),...obj,done:false,completedAt:null,created:Date.now()});
@@ -3132,7 +3185,7 @@ function buildDvAdjCell(ds,direction){
   } else if(isShabbat){
     chipHtml=`<div class="cal-dv-adj-chip" style="background:rgba(92,66,0,.12);color:#5c4200;border:1px solid rgba(92,66,0,.2)">Shabbat</div>`;
   }
-  const aimNote=tasks.length?`${tasks.length} Aim${tasks.length>1?'s':''}`:' ';
+  const aimNote=tasks.length?`${tasks.length} Pursuit${tasks.length>1?'s':''}`:' ';
   return`<div class="cal-dv-adj-arrow">${arrow}</div>
     <div class="cal-dv-adj-top">
       <div class="cal-dv-adj-greg">${d}</div>
@@ -3189,7 +3242,7 @@ function renderDayView(){
   const reflPreview=reflVal?`<div class="cal-dv-refl-preview">"${reflVal.slice(0,60)}${reflVal.length>60?'…':''}"</div>`:'';
   const reflTrigger=`<div class="cal-dv-refl-trigger" onclick="openDvReflDrawer()">${reflVal?'Your Reflection — Edit →':'Add Your Reflection →'}</div>${reflPreview}`;
   // Aims
-  const aimsHtml=`<div class="cal-dv-aims-lbl">Aims for This Day</div>`+
+  const aimsHtml=`<div class="cal-dv-aims-lbl">Pursuits for This Day</div>`+
     (tasks.length
       ? tasks.map(t=>{
           const recurChip=t.recur&&t.recur!=='none'?`<span style="font-size:10px;opacity:.6;margin-left:6px">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
@@ -3201,7 +3254,7 @@ function renderDayView(){
           </div>`;
         }).join('')
       : `<div class="cal-dv-aim-empty">Nothing set for this day yet — what are you pressing toward?</div>`)+
-    `<div class="cal-dv-add-aim" onclick="addTaskOnDate('${calDvDs}')">+ Set a New Aim</div>`;
+    `<div class="cal-dv-add-aim" onclick="addTaskOnDate('${calDvDs}')">+ Set a New Pursuit</div>`;
   // Hebrew year line
   const hebYr=calDate.y;
   const shLine=sh.isShemita?'Shemita Year':'Year '+sh.pos+' of 7';
@@ -3355,11 +3408,11 @@ function renderCalDay(ds){
   }
 
   if(!tasks.length){
-    html+=`<div class="cal-detail-empty">${isPast?'No Aims were due this day.':'No Aims set for this day.'}</div>`;
+    html+=`<div class="cal-detail-empty">${isPast?'No Pursuits were due this day.':'No Pursuits set for this day.'}</div>`;
   }else{
     tasks.forEach(t=>html+=rowHTML(t));
   }
-  html+=`<div class="cal-detail-add"><button class="btn btn-ghost" style="width:100%" onclick="addTaskOnDate('${ds}')">+ Add Aim for ${CAL_MONTHS[m-1]} ${d}</button></div>`;
+  html+=`<div class="cal-detail-add"><button class="btn btn-ghost" style="width:100%" onclick="addTaskOnDate('${ds}')">+ Add Pursuit for ${CAL_MONTHS[m-1]} ${d}</button></div>`;
   el.innerHTML=html;
   _calRowDs=null;
 }
@@ -3373,7 +3426,7 @@ function updateCalTile(){
   const all=load().filter(t=>!t.done&&t.due);
   const thisMonth=all.filter(t=>t.due.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`)).length;
   const el=document.getElementById('tile-cal-sub');
-  if(el) el.textContent=thisMonth?`${thisMonth} Aim${thisMonth!==1?'s':''} this month`:'View by date';
+  if(el) el.textContent=thisMonth?`${thisMonth} Pursuit${thisMonth!==1?'s':''} this month`:'View by date';
 }
 
 // ══════════════════════════════════════════════
@@ -3475,7 +3528,7 @@ function renderMailPanel(){
   const mailTasks=load().filter(t=>!t.done&&t.cat==='mail');
   const mtEl=document.getElementById('mailTasks');
   if(mtEl){
-    if(!mailTasks.length){mtEl.innerHTML='<span style="color:var(--dim);font-size:13px;font-style:italic">No mail-related Aims. Set an Aim with purpose "Mail" to track email actions here.</span>';return}
+    if(!mailTasks.length){mtEl.innerHTML='<span style="color:var(--dim);font-size:13px;font-style:italic">No mail-related Pursuits. Set a Pursuit with purpose "Mail" to track email actions here.</span>';return}
     mtEl.innerHTML=mailTasks.map(t=>`<div class="task" style="padding:8px 0;border-bottom:1px solid var(--sep)">
       <div class="cb${t.done?' done':''}" onclick="toggleDoneTask('${t.id}')"></div>
       <div class="task-body"><div class="task-name" onclick="openEdit('${t.id}')">${esc(t.title)}</div>${t.subcat?`<div class="task-note">${esc(t.subcat)}</div>`:''}</div>
@@ -3599,7 +3652,7 @@ var HUB_TUTORIAL_PREPENDS = {
   'practical-mail':
     'CONTEXT: This person is coming from the Mail section of the Amit Hub. They may have a question about setting up email accounts, how the mail feature works, or something else entirely. Respond directly to what they bring first — do not open with the standard spiritual arrival sequence. If they ask about email setup, ask which provider they are using and walk them through it. If the conversation moves in any other direction, follow there.\n\nAfter helping, offer the full range: "Is there anything else I can help you with today? I mean anything — from app setup to who God is to what you are carrying right now."\n\nYour full identity and platform knowledge is below — use it as needed.\n\n---\n\n',
   'practical-aims':
-    'CONTEXT: This person is coming from the Your Aim section of the Amit Hub. They may have a practical question about setting or managing their Aims, or they may want to talk about what they are pressing toward in life or in their walk. Respond to what they bring first — do not force the standard spiritual arrival. Follow wherever they go.\n\nAfter helping, offer the full range.\n\nYour full identity and platform knowledge is below.\n\n---\n\n',
+    'CONTEXT: This person is coming from the Your Pursuit section of the Amit Hub. They may have a practical question about setting or managing their Pursuits, or they may want to talk about what they are pressing toward in life or in their walk. Respond to what they bring first — do not force the standard spiritual arrival. Follow wherever they go.\n\nAfter helping, offer the full range.\n\nYour full identity and platform knowledge is below.\n\n---\n\n',
   'practical-boss':
     'CONTEXT: This person is coming from the BOSStimator section of the Amit Hub. Respond directly to what they bring. Follow wherever the conversation goes.\n\nYour full identity and knowledge is below.\n\n---\n\n',
   'practical-health':
@@ -3609,7 +3662,7 @@ var HUB_TUTORIAL_PREPENDS = {
 var HUB_AMIT_PRIMERS = {
   'home':     'What is today carrying for you?',
   'calendar': 'What on His calendar is sitting with you — or how can I help you use it?',
-  'todo':     'What are you pressing toward? I can help you use Your Aim or talk through what matters.',
+  'todo':     'What are you pressing toward? I can help you use Your Pursuits or talk through what matters.',
   'verse':    'The Word for today — what in it is stirring something?',
   'mail':     'I can help you set up your email accounts or answer anything else on your mind.',
   'whoisgod': 'The evidence foundation is there — where do you want to start?',
