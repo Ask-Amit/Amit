@@ -791,7 +791,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="tile" id="tile-todo" onclick="openPanel('todo')">
       <div class="tile-icon">🎯</div>
       <div class="tile-info">
-        <div class="tile-name">Your Pursuit</div>
+        <div class="tile-name">Your Pursuits</div>
         <div class="tile-sub" id="tile-todo-sub">Loading…</div>
       </div>
       <div class="tile-badge tb-red" id="tile-todo-badge" style="display:none">0</div>
@@ -908,7 +908,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="panel" id="panel-todo">
       <div class="panel-head">
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
-        <span class="panel-heading">Your Pursuit</span>
+        <span class="panel-heading">Your Pursuits</span>
         <div class="panel-head-actions">
           <button class="btn btn-ghost" onclick="openModal()">+ Add Pursuit</button>
         </div>
@@ -2318,10 +2318,11 @@ const MODAL_LABELS={
     main:'What are you pursuing?',
     main_tip:'Name the one thing you are pressing toward. Be specific — a clear Pursuit is already half accomplished.',
     main_ph:'Name your Pursuit…',
-    cat:'Your Purpose',subcat:'Your Focus',
-    tags:'Markers (comma adds · enter moves on)',
-    notes:'Your Context',notes_ph:'The why behind this Pursuit…',
-    steps:'Steps Toward This Pursuit',
+    cat:'Your Purpose',cat_tip:'Choose the area of your life this Pursuit belongs to. This is how you see where your time and energy are actually going.',
+    subcat:'Your Focus',subcat_tip:'Where are you focusing within this Pursuit? This could be a project, a relationship, a place, or any specific area — it doesn\'t have to match your Purpose. What has your attention right now?',
+    tags:'Markers (comma adds · enter moves on)',tags_tip:'Words that connect this Pursuit to other things — people, seasons, themes, or any area it touches. Press comma to add each one.',
+    notes:'Your Context',notes_ph:'The why behind this Pursuit…',notes_tip:'The background, motivation, and full story behind this Pursuit. Why does it matter? What is driving it? Write as much or as little as you need.',
+    steps:'Steps Toward This Pursuit',steps_tip:'Break your Pursuit into small, concrete actions you can check off. Each step you name makes the Pursuit more real and reachable.',
     save:'Commit This Pursuit',
     toggle:'To-Do',toggle_tip:'Switch to To-Do mode — simpler labels for everyday tasks'
   },
@@ -2330,10 +2331,11 @@ const MODAL_LABELS={
     main:'What needs to be done?',
     main_tip:'Describe the task clearly. A well-named to-do is already halfway there.',
     main_ph:'Describe the task…',
-    cat:'Category',subcat:'Subcategory',
-    tags:'Tags (comma adds · enter moves on)',
-    notes:'Details',notes_ph:'Additional details…',
-    steps:'Steps to Complete',
+    cat:'Category',cat_tip:'Choose the category this task belongs to. This helps you see which areas of your life are getting your attention.',
+    subcat:'Subcategory',subcat_tip:'The specific project or area this task falls under. Where exactly does it live?',
+    tags:'Tags (comma adds · enter moves on)',tags_tip:'Words that connect this task to other things. Add as many as you need — press comma to add each one.',
+    notes:'Details',notes_ph:'Additional details…',notes_tip:'Any extra information about this task — context, background, or notes that help you remember what needs to be done.',
+    steps:'Steps to Complete',steps_tip:'Break this task into smaller steps you can check off one by one.',
     save:'Save To-Do',
     toggle:'Pursuit',toggle_tip:'Switch to Pursuit mode — deeper, personal language for meaningful goals'
   }
@@ -2345,12 +2347,17 @@ function setModalMode(mode){
   const lT=document.getElementById('lblTitle');
   lT.textContent=L.main;lT.setAttribute('data-tip',L.main_tip);
   document.getElementById('mTitle').placeholder=L.main_ph;
-  document.getElementById('lblCat').textContent=L.cat;
-  document.getElementById('lblSubcat').textContent=L.subcat;
-  document.getElementById('lblTags').textContent=L.tags;
-  document.getElementById('lblNotes').textContent=L.notes;
+  const lC=document.getElementById('lblCat');
+  lC.textContent=L.cat;lC.setAttribute('data-tip',L.cat_tip);
+  const lS=document.getElementById('lblSubcat');
+  lS.textContent=L.subcat;lS.setAttribute('data-tip',L.subcat_tip);
+  const lTg=document.getElementById('lblTags');
+  lTg.textContent=L.tags;lTg.setAttribute('data-tip',L.tags_tip);
+  const lN=document.getElementById('lblNotes');
+  lN.textContent=L.notes;lN.setAttribute('data-tip',L.notes_tip);
   document.getElementById('mNotes').placeholder=L.notes_ph;
-  document.getElementById('lblSteps').textContent=L.steps;
+  const lSt=document.getElementById('lblSteps');
+  lSt.textContent=L.steps;lSt.setAttribute('data-tip',L.steps_tip);
   document.getElementById('modalSaveBtn').textContent=L.save;
   const tb=document.getElementById('modeToggleBtn');
   tb.textContent=L.toggle;tb.title=L.toggle_tip;
@@ -3652,7 +3659,7 @@ var HUB_TUTORIAL_PREPENDS = {
   'practical-mail':
     'CONTEXT: This person is coming from the Mail section of the Amit Hub. They may have a question about setting up email accounts, how the mail feature works, or something else entirely. Respond directly to what they bring first — do not open with the standard spiritual arrival sequence. If they ask about email setup, ask which provider they are using and walk them through it. If the conversation moves in any other direction, follow there.\n\nAfter helping, offer the full range: "Is there anything else I can help you with today? I mean anything — from app setup to who God is to what you are carrying right now."\n\nYour full identity and platform knowledge is below — use it as needed.\n\n---\n\n',
   'practical-aims':
-    'CONTEXT: This person is coming from the Your Pursuit section of the Amit Hub. They may have a practical question about setting or managing their Pursuits, or they may want to talk about what they are pressing toward in life or in their walk. Respond to what they bring first — do not force the standard spiritual arrival. Follow wherever they go.\n\nAfter helping, offer the full range.\n\nYour full identity and platform knowledge is below.\n\n---\n\n',
+    'CONTEXT: This person is coming from the Your Pursuits section of the Amit Hub. They may have a practical question about setting or managing their Pursuits, or they may want to talk about what they are pressing toward in life or in their walk. Respond to what they bring first — do not force the standard spiritual arrival. Follow wherever they go.\n\nAfter helping, offer the full range.\n\nYour full identity and platform knowledge is below.\n\n---\n\n',
   'practical-boss':
     'CONTEXT: This person is coming from the BOSStimator section of the Amit Hub. Respond directly to what they bring. Follow wherever the conversation goes.\n\nYour full identity and knowledge is below.\n\n---\n\n',
   'practical-health':
