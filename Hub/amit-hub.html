@@ -1001,6 +1001,10 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <label class="fg-label">Email Address</label>
             <input class="fg-input" id="mailNewEmail" type="email" placeholder="you@example.com"/>
           </div>
+          <div class="fg" id="mailSlotWrap" style="display:none">
+            <label class="fg-label">Account Slot &nbsp;<span style="color:var(--dim);font-weight:400;font-size:11px">0 = primary account · 1 = second Gmail · 2 = third…</span></label>
+            <input class="fg-input" id="mailNewSlot" type="number" min="0" max="9" value="0" style="width:90px"/>
+          </div>
           <div class="fg" id="mailCustomUrlWrap" style="display:none">
             <label class="fg-label">Inbox URL</label>
             <input class="fg-input" id="mailNewUrl" placeholder="https://webmail.yourprovider.com/inbox"/>
@@ -3312,12 +3316,11 @@ function renderMailPanel(){
   }
   el.innerHTML=accts.map(a=>{
     const p=PROVIDERS[a.provider]||PROVIDERS.other;
-    const iurl=a.customUrl||p.url;
-    const curl=a.customUrl||p.compose||p.url;
+    const{iurl,curl}=getMailUrls(a);
     return`<div class="mail-acct-row">
       <div class="mail-prov-badge" style="background:${p.bg};color:${p.color};font-family:'Cinzel',serif;font-weight:700">${p.abbr}</div>
       <div class="mail-acct-info">
-        <div class="mail-acct-name">${esc(a.name)} <span style="font-family:'Crimson Pro',serif;font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0">(${esc(p.name)})</span></div>
+        <div class="mail-acct-name">${esc(a.name)} <span style="font-family:'Crimson Pro',serif;font-size:10px;color:var(--dim);font-weight:400;letter-spacing:0">(${esc(p.name)}${(a.provider==='gmail'||a.provider==='proton')&&a.slot?` · slot ${a.slot}`:''})</span></div>
         <div class="mail-acct-email">${esc(a.email)}</div>
       </div>
       <div class="mail-acct-btns">
@@ -3354,21 +3357,43 @@ function toggleMailForm(){
 function closeMailForm(){
   document.getElementById('mailAddForm').classList.remove('open');
   ['mailNewName','mailNewEmail','mailNewUrl'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mailNewSlot').value='0';
   document.getElementById('mailNewProvider').value='gmail';
   document.getElementById('mailCustomUrlWrap').style.display='none';
+  document.getElementById('mailSlotWrap').style.display='none';
 }
 function onMailProviderChange(){
   const v=document.getElementById('mailNewProvider').value;
   document.getElementById('mailCustomUrlWrap').style.display=v==='other'?'block':'none';
+  document.getElementById('mailSlotWrap').style.display=(v==='gmail'||v==='proton')?'block':'none';
+}
+function getMailUrls(a){
+  const p=PROVIDERS[a.provider]||PROVIDERS.other;
+  if(a.customUrl)return{iurl:a.customUrl,curl:a.customUrl};
+  const slot=parseInt(a.slot||0,10);
+  if(a.provider==='gmail'){
+    return{
+      iurl:`https://mail.google.com/mail/u/${slot}/#inbox`,
+      curl:`https://mail.google.com/mail/u/${slot}/?view=cm&fs=1&tf=1`
+    };
+  }
+  if(a.provider==='proton'){
+    return{
+      iurl:`https://mail.proton.me/u/${slot}/inbox`,
+      curl:`https://mail.proton.me/u/${slot}/inbox`
+    };
+  }
+  return{iurl:p.url,curl:p.compose||p.url};
 }
 function saveMailAccount(){
   const name=document.getElementById('mailNewName').value.trim();
   const email=document.getElementById('mailNewEmail').value.trim();
   const provider=document.getElementById('mailNewProvider').value;
   const customUrl=document.getElementById('mailNewUrl').value.trim();
+  const slot=parseInt(document.getElementById('mailNewSlot').value||'0',10);
   if(!name||!email){alert('Please enter a name and email address.');return}
   const accts=loadMailAccounts();
-  accts.push({id:uid(),name,email,provider,customUrl:customUrl||''});
+  accts.push({id:uid(),name,email,provider,customUrl:customUrl||'',slot});
   saveMailAccounts(accts);
   closeMailForm();
   renderMailPanel();
