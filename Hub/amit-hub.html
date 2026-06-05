@@ -510,12 +510,17 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-dv-adj-chip{font-size:9px;padding:2px 6px;border-radius:3px;margin-top:8px;display:inline-block;font-family:'Cinzel',serif;word-break:break-word;line-height:1.4}
 .cal-dv-adj-aims{font-size:10px;color:#7a6040;font-style:italic;margin-top:auto;padding-top:10px;line-height:1.5}
 /* Main focused day card */
-.cal-dv-main{flex:1;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:24px 28px;display:flex;flex-direction:column;overflow-y:auto;min-width:0}
-.cal-dv-main::-webkit-scrollbar{width:4px}
-.cal-dv-main::-webkit-scrollbar-thumb{background:rgba(92,66,0,.2);border-radius:2px}
+.cal-dv-main{flex:1;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .cal-dv-main.dv-today{background:#f5eed8;border:2px solid var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.3)}
+/* Sticky header — date never scrolls away */
+.cal-dv-main-head{flex-shrink:0;padding:24px 28px 0;background:inherit;border-radius:10px 10px 0 0}
+.cal-dv-main-divider{border-top:1px solid rgba(0,0,0,.08);margin:14px 0 0}
+/* Scrollable content below the sticky date */
+.cal-dv-main-scroll{flex:1;overflow-y:auto;padding:16px 28px 24px}
+.cal-dv-main-scroll::-webkit-scrollbar{width:4px}
+.cal-dv-main-scroll::-webkit-scrollbar-thumb{background:rgba(92,66,0,.2);border-radius:2px}
 /* Top row */
-.cal-dv-top{display:flex;align-items:flex-start;margin-bottom:16px}
+.cal-dv-top{display:flex;align-items:flex-start;margin-bottom:4px}
 .cal-dv-greg{flex:1}
 .cal-dv-greg-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#1a1510;line-height:1}
 .cal-dv-greg-day{font-family:'Cinzel',serif;font-size:12px;color:#3a3020;letter-spacing:.1em;margin-top:5px;text-transform:uppercase}
@@ -536,11 +541,26 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-dv-word-sect-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;color:#8a6830;text-transform:uppercase;margin-bottom:4px;margin-top:10px}
 .cal-dv-word-body{font-size:13px;color:#2a2010;line-height:1.7}
 .cal-dv-word-verse{font-size:12px;font-style:italic;color:#5a4820;border-top:1px solid rgba(201,168,76,.2);padding-top:10px;margin-top:12px;line-height:1.65}
-/* Reflection */
-.cal-dv-refl-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;color:rgba(26,21,16,.45);text-transform:uppercase;margin:16px 0 6px}
-.cal-dv-refl-area{width:100%;box-sizing:border-box;background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:12px 14px;color:#2a2010;font-size:13px;line-height:1.65;resize:vertical;min-height:60px;font-family:'Crimson Pro',serif}
-.cal-dv-refl-area:focus{border-color:rgba(201,168,76,.45);outline:none}
-.cal-dv-refl-saved{font-size:10px;color:#8a6830;font-style:italic;margin-top:3px;min-height:12px}
+/* Reflection trigger link */
+.cal-dv-refl-trigger{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:rgba(122,82,0,.6);cursor:pointer;border-top:1px solid rgba(201,168,76,.15);padding-top:12px;margin-top:14px;display:block;transition:color .15s}
+.cal-dv-refl-trigger:hover{color:#7a5200}
+.cal-dv-refl-preview{font-size:11px;color:#7a6040;font-style:italic;margin-top:3px;font-family:'Crimson Pro',serif;line-height:1.4}
+/* Reflection slide-up drawer */
+.cal-dv-refl-drawer{position:fixed;inset:0;z-index:3000;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.0);pointer-events:none;transition:background .28s}
+.cal-dv-refl-drawer.open{background:rgba(0,0,0,.6);pointer-events:all}
+.cal-dv-refl-card{background:#f0e8d4;border-radius:18px 18px 0 0;padding:28px 32px 32px;width:100%;max-width:720px;transform:translateY(100%);transition:transform .32s ease;box-shadow:0 -6px 40px rgba(0,0,0,.35)}
+.cal-dv-refl-drawer.open .cal-dv-refl-card{transform:translateY(0)}
+.cal-dv-refl-card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.cal-dv-refl-card-ctx{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:#8a6830;text-transform:uppercase;margin-bottom:4px}
+.cal-dv-refl-card-name{font-family:'Cinzel',serif;font-size:17px;font-weight:700;color:#1a1510;line-height:1.3}
+.cal-dv-refl-card-close{font-size:18px;color:rgba(26,21,16,.35);cursor:pointer;line-height:1;padding:4px;margin-left:16px;transition:color .15s}
+.cal-dv-refl-card-close:hover{color:rgba(26,21,16,.7)}
+.cal-dv-refl-area{width:100%;box-sizing:border-box;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);border-radius:8px;padding:14px 16px;color:#2a2010;font-size:14px;line-height:1.7;resize:vertical;min-height:90px;font-family:'Crimson Pro',serif}
+.cal-dv-refl-area:focus{border-color:rgba(201,168,76,.5);outline:none}
+.cal-dv-refl-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+.cal-dv-refl-saved{font-size:11px;color:#8a6830;font-style:italic}
+.cal-dv-refl-save-btn{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:#7a5200;border:1px solid rgba(122,82,0,.35);padding:8px 22px;border-radius:6px;cursor:pointer;background:transparent;transition:all .15s}
+.cal-dv-refl-save-btn:hover{background:rgba(122,82,0,.08)}
 /* Aims at bottom */
 .cal-dv-aims-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:rgba(26,21,16,.45);text-transform:uppercase;margin:18px 0 8px}
 .cal-dv-aim-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)}
@@ -2995,12 +3015,11 @@ function renderDayView(){
       ${w.verse?`<div class="cal-dv-word-verse">${w.verse}</div>`:''}
     </div>`;
   }
-  // Reflection
+  // Reflection trigger — show preview if text exists
   let reflVal='';
   try{const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');reflVal=r[calDvDs]||'';}catch{}
-  const reflHtml=`<div class="cal-dv-refl-lbl">Your Reflection</div>
-    <textarea class="cal-dv-refl-area" id="dvReflArea" placeholder="What is Yahweh saying to you through this day…" oninput="saveDvReflection()">${esc(reflVal)}</textarea>
-    <div class="cal-dv-refl-saved" id="dvReflSaved"></div>`;
+  const reflPreview=reflVal?`<div class="cal-dv-refl-preview">"${reflVal.slice(0,60)}${reflVal.length>60?'…':''}"</div>`:'';
+  const reflTrigger=`<div class="cal-dv-refl-trigger" onclick="openDvReflDrawer()">${reflVal?'Your Reflection — Edit →':'Add Your Reflection →'}</div>${reflPreview}`;
   // Aims
   const aimsHtml=`<div class="cal-dv-aims-lbl">Aims for This Day</div>`+
     (tasks.length
@@ -3017,34 +3036,58 @@ function renderDayView(){
   const mainCls='cal-dv-main'+(isToday?' dv-today':'');
   document.getElementById('calDvMain').className=mainCls;
   document.getElementById('calDvMain').innerHTML=`
-    <div class="cal-dv-top">
-      <div class="cal-dv-greg">
-        <div class="cal-dv-greg-num">${d}</div>
-        <div class="cal-dv-greg-day">${CAL_DAYS[dt.getDay()].toUpperCase()}</div>
-        <div class="cal-dv-greg-month">${CAL_MONTHS[m-1]} ${y}</div>
+    <div class="cal-dv-main-head">
+      <div class="cal-dv-top">
+        <div class="cal-dv-greg">
+          <div class="cal-dv-greg-num">${d}</div>
+          <div class="cal-dv-greg-day">${CAL_DAYS[dt.getDay()].toUpperCase()}</div>
+          <div class="cal-dv-greg-month">${CAL_MONTHS[m-1]} ${y}</div>
+        </div>
+        <div class="cal-dv-heb">
+          <div class="cal-dv-heb-num">${calDate.d}</div>
+          <div class="cal-dv-heb-mon">${calDate.label||''}</div>
+          <div class="cal-dv-heb-yr">${hebYr} · ${shLine}</div>
+        </div>
       </div>
-      <div class="cal-dv-heb">
-        <div class="cal-dv-heb-num">${calDate.d}</div>
-        <div class="cal-dv-heb-mon">${calDate.label||''}</div>
-        <div class="cal-dv-heb-yr">${hebYr} · ${shLine}</div>
-      </div>
+      <div class="cal-dv-main-divider"></div>
     </div>
-    <div style="border-top:1px solid rgba(0,0,0,.08);margin-bottom:16px"></div>
-    ${feastHtml}
-    ${wordHtml}
-    ${reflHtml}
-    ${aimsHtml}`;
+    <div class="cal-dv-main-scroll">
+      ${feastHtml}
+      ${wordHtml}
+      ${reflTrigger}
+      ${aimsHtml}
+    </div>`;
+}
+function openDvReflDrawer(){
+  const[y,m,d]=calDvDs.split('-').map(Number);
+  const wKey=getDayWordKey(y,m,d);
+  const w=WORD_DATA[wKey]||{};
+  document.getElementById('dvReflCtx').textContent='REFLECTING ON';
+  document.getElementById('dvReflWordName').textContent=w.name||CAL_DAYS[new Date(y,m-1,d).getDay()];
+  let reflVal='';
+  try{const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');reflVal=r[calDvDs]||'';}catch{}
+  document.getElementById('dvReflArea').value=reflVal;
+  document.getElementById('dvReflSaved').textContent='';
+  document.getElementById('dvReflDrawer').classList.add('open');
+  setTimeout(()=>document.getElementById('dvReflArea').focus(),350);
+}
+function closeDvReflDrawer(){
+  document.getElementById('dvReflDrawer').classList.remove('open');
+  renderDayView();
+}
+function closeDvReflDrawerBg(e){
+  if(e.target===document.getElementById('dvReflDrawer'))closeDvReflDrawer();
 }
 function saveDvReflection(){
   try{
     const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
     r[calDvDs]=document.getElementById('dvReflArea').value;
     localStorage.setItem(REFL_KEY,JSON.stringify(r));
-    const s=document.getElementById('dvReflSaved');if(s){s.textContent='Saved.';setTimeout(()=>s.textContent='',1800);}
+    const s=document.getElementById('dvReflSaved');if(s){s.textContent='Saved.';setTimeout(()=>s.textContent='',2000);}
   }catch{}
 }
 function calDvDblClick(e){
-  if(e.target.closest('.cal-dv-aim-row')||e.target.closest('.cal-dv-add-aim')||e.target.closest('.cal-dv-refl-area')||e.target.closest('.btn'))return;
+  if(e.target.closest('.cal-dv-aim-row')||e.target.closest('.cal-dv-add-aim')||e.target.closest('.cal-dv-refl-trigger')||e.target.closest('.btn'))return;
   addTaskOnDate(calDvDs);
 }
 
@@ -3434,5 +3477,23 @@ function copyHubAmitInstructions() {
 document.addEventListener('DOMContentLoaded', function(){ loadHubAmitStart(); loadHubAmitDeploy(); });
 // ===== END ASK AMIT PANEL =====
 </script>
+
+<!-- REFLECTION DRAWER -->
+<div id="dvReflDrawer" class="cal-dv-refl-drawer" onclick="closeDvReflDrawerBg(event)">
+  <div class="cal-dv-refl-card">
+    <div class="cal-dv-refl-card-head">
+      <div>
+        <div class="cal-dv-refl-card-ctx" id="dvReflCtx">YOUR REFLECTION</div>
+        <div class="cal-dv-refl-card-name" id="dvReflWordName"></div>
+      </div>
+      <div class="cal-dv-refl-card-close" onclick="closeDvReflDrawer()">✕</div>
+    </div>
+    <textarea class="cal-dv-refl-area" id="dvReflArea" placeholder="What is Yahweh saying to you through this day…" oninput="saveDvReflection()"></textarea>
+    <div class="cal-dv-refl-footer">
+      <span class="cal-dv-refl-saved" id="dvReflSaved"></span>
+      <button class="cal-dv-refl-save-btn" onclick="saveDvReflection();closeDvReflDrawer()">Save & Close</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
