@@ -219,28 +219,32 @@ header{
 .sec-crit{background:rgba(155,89,182,.2);color:#d7aeff;border-left:4px solid var(--crit-c)}
 .sec-star{background:rgba(241,196,15,.15);color:#ffe566;border-left:4px solid var(--star-c)}
 .sec-up{background:rgba(255,255,255,.05);color:#aac4e0;border-left:4px solid rgba(170,196,224,.4)}
-.task{display:flex;align-items:center;gap:8px;padding:7px 16px;border-bottom:1px solid var(--sep);transition:background .12s}
+.task{display:grid;grid-template-columns:12px 14px 80px 72px 52px 1fr 72px 32px 88px 16px 16px;align-items:center;gap:0 5px;padding:6px 12px;border-bottom:1px solid var(--sep);transition:background .12s;min-width:0}
 .task:last-child{border-bottom:none}
 .task:hover{background:rgba(255,255,255,.04)}
-.task-star{width:14px;flex-shrink:0;font-size:12px;cursor:pointer;color:var(--star-c);opacity:.25;transition:opacity .15s;user-select:none;line-height:1}
+.task-star{font-size:11px;cursor:pointer;color:var(--star-c);opacity:.25;transition:opacity .15s;user-select:none;line-height:1;text-align:center}
 .task-star:hover,.task-star.lit{opacity:1}
-.cb{width:15px;height:15px;flex-shrink:0;border:2px solid rgba(201,168,76,.45);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cb{width:14px;height:14px;border:2px solid rgba(201,168,76,.45);border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .cb:hover{border-color:var(--gold);background:rgba(201,168,76,.1)}
 .cb.done{background:var(--done-c);border-color:var(--done-c)}
 .cb.done::after{content:'✓';color:#fff;font-size:9px;font-weight:bold}
-.task-body{flex:1;min-width:0;cursor:pointer;display:flex;align-items:center;gap:7px;overflow:hidden}
-.task-cat{display:flex;align-items:center;gap:4px;flex-shrink:0}
-.cat-badge{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.3);color:var(--gold);white-space:nowrap}
-.subcat-label{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px}
-.cat-arrow{font-size:9px;color:var(--dim)}
-.task-name{font-size:14px;color:#fff;line-height:1.3;cursor:pointer;font-weight:500;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:60px}
+.task-col-cat{overflow:hidden;display:flex;align-items:center;cursor:pointer;min-width:0}
+.task-col-sub{overflow:hidden;display:flex;align-items:center;cursor:pointer;min-width:0}
+.task-col-prog{display:flex;align-items:center;cursor:pointer}
+.task-col-date,.task-col-recur{display:flex;align-items:center;overflow:hidden;cursor:pointer}
+.task-col-pri{display:flex;align-items:center;justify-content:center;cursor:pointer}
+.cat-badge{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:10px;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.3);color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.subcat-label{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.task-name{font-size:14px;color:#fff;line-height:1.3;cursor:pointer;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .task-name:hover{color:var(--gold2)}
 .task.is-done .task-name{text-decoration:line-through;color:var(--dim)}
-.task-note{display:none}
-.sub-progress{display:none}
-.sub-bar-wrap{flex:1;height:3px;background:rgba(255,255,255,.1);border-radius:2px;max-width:90px}
-.sub-bar{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
-.sub-count{font-size:11px;color:var(--muted)}
+.task-prog{width:100%;height:5px;border-radius:3px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);overflow:hidden}
+.task-prog-fill{height:100%;border-radius:3px;background:var(--gold);opacity:.75;transition:width .3s}
+.task.is-done .task-prog-fill{background:#6fcf97;opacity:.9}
+.task-prog-segs{width:100%;display:flex;gap:2px;height:8px;align-items:center}
+.task-seg{flex:1;height:6px;border-radius:2px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);transition:background .2s,border-color .2s}
+.task-seg.done{background:rgba(201,168,76,.55);border-color:rgba(201,168,76,.35)}
+.task.is-done .task-seg{background:rgba(39,174,96,.5);border-color:rgba(39,174,96,.3)}
 .pills{display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:nowrap}
 .pill{font-size:9px;font-family:'Cinzel',serif;letter-spacing:.04em;padding:2px 6px;border-radius:10px;white-space:nowrap}
 .p-overdue{color:#f1948a;background:rgba(231,76,60,.2);border:1px solid rgba(231,76,60,.4)}
@@ -970,7 +974,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
         <div class="task-wrap" id="taskWrap"></div>
         <div class="quick-add">
-          <input class="quick-input" id="quickIn" placeholder="Quick add to Inbox — press Enter…" onkeydown="quickAdd(event)"/>
+          <input class="quick-input" id="quickIn" placeholder="Quick add to Pursuit — press Enter…" onkeydown="quickAdd(event)"/>
           <button class="btn btn-ghost" onclick="openModalFromQuick()">Details</button>
         </div>
       </div>
@@ -2207,35 +2211,55 @@ function renderGrouped(filtered){
   return h;
 }
 
+function rowProgHtml(t,isDone){
+  const steps=t.subtasks||[];
+  const n=steps.length;
+  const done=steps.filter(s=>s.done).length;
+  if(isDone){
+    return`<div class="task-prog" title="Complete"><div class="task-prog-fill" style="width:100%"></div></div>`;
+  }
+  if(n===0){
+    return`<div class="task-prog" title="Not started — no steps defined yet"></div>`;
+  }
+  if(n<=8){
+    const segs=Array.from({length:n},(_,i)=>`<div class="task-seg${i<done?' done':''}"></div>`).join('');
+    return`<div class="task-prog-segs" title="${done} of ${n} steps done">${segs}</div>`;
+  }
+  const pct=Math.round(done/n*100);
+  return`<div class="task-prog" title="${done} of ${n} steps (${pct}%)"><div class="task-prog-fill" style="width:${pct}%"></div></div>`;
+}
 function rowHTML(t){
   const _rowDate=_calRowDs||todayStr();
   const isDone=(t.recur&&t.recur!=='none')?aimDoneOnDay(t,_rowDate):t.done;
-  let catHtml='';
-  if(t.cat&&t.cat!=='inbox'){
-    const catItem=getCatList().find(c=>c.val===t.cat);
-    const cl=catItem?catItem.label:(CAT_LABELS[t.cat]||t.cat);
-    catHtml=`<div class="task-cat"><span class="cat-badge">${cl}</span>${t.subcat?`<span class="cat-arrow">›</span><span class="subcat-label">${esc(t.subcat)}</span>`:''}</div>`;
+  const catItem=getCatList().find(c=>c.val===t.cat);
+  const catLabel=(t.cat&&t.cat!=='inbox')?(catItem?catItem.label:(CAT_LABELS[t.cat]||t.cat)):'';
+  let datePill='';
+  if(t.due){
+    if(!isDone){
+      if(isOver(t))datePill=`<span class="pill p-overdue">${fmtDate(t.due)}</span>`;
+      else if(isTod(t))datePill=`<span class="pill p-today">Today</span>`;
+      else datePill=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
+    } else datePill=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
+  } else if(isDone&&t.completedAt){
+    const cd=new Date(t.completedAt);
+    datePill=`<span class="pill" style="color:#6fcf97;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3)">✓ ${cd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`;
   }
-  let pills='';
-  if(t.due&&!isDone){
-    if(isOver(t))pills+=`<span class="pill p-overdue">Overdue · ${fmtDate(t.due)}</span>`;
-    else if(isTod(t))pills+=`<span class="pill p-today">Today</span>`;
-    else pills+=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
-  } else if(t.due&&isDone){
-    pills+=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
-  }
-  if(isDone&&t.completedAt){const cd=new Date(t.completedAt);pills+=`<span class="pill" style="color:#6fcf97;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3)">✓ ${cd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`}
   const pn=migrateOldPri(t.pri);
-  if(pn!==5){const pc=PRI_COL[pn]||'p-p8';pills+=`<span class="pill ${pc}">P${pn}</span>`}
-  if(t.recur&&t.recur!=='none')pills+=`<span class="pill p-recur">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`;
-  const stepsDone=t.subtasks?(t.subtasks.filter(s=>s.done).length+'/'+t.subtasks.length):null;
-  if(stepsDone&&t.subtasks.length)pills+=`<span class="pill" style="color:var(--muted);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)">${stepsDone}</span>`;
-  return`<div class="task${isDone?' is-done':''}" ondblclick="event.stopPropagation();openEdit('${t.id}')">
-    <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar('${t.id}')">⭐</div>
-    <div class="cb${isDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask('${t.id}','${_rowDate}')"></div>
-    <div class="task-body" onclick="openEdit('${t.id}')">${catHtml}<div class="task-name">${esc(t.title)}</div>${pills?`<div class="pills">${pills}</div>`:''}</div>
+  const priPill=(pn!==5)?`<span class="pill ${PRI_COL[pn]||'p-p8'}">P${pn}</span>`:'';
+  const recurPill=(t.recur&&t.recur!=='none')?`<span class="pill p-recur">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
+  const oid=`'${t.id}'`;
+  return`<div class="task${isDone?' is-done':''}" ondblclick="event.stopPropagation();openEdit(${oid})">
+    <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar(${oid})">⭐</div>
+    <div class="cb${isDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask(${oid},'${_rowDate}')"></div>
+    <div class="task-col-cat" onclick="openEdit(${oid})">${catLabel?`<span class="cat-badge" title="${esc(catLabel)}">${esc(catLabel)}</span>`:''}</div>
+    <div class="task-col-sub" onclick="openEdit(${oid})">${t.subcat?`<span class="subcat-label" title="${esc(t.subcat)}">${esc(t.subcat)}</span>`:''}</div>
+    <div class="task-col-prog" onclick="openEdit(${oid})">${rowProgHtml(t,isDone)}</div>
+    <div class="task-name" onclick="openEdit(${oid})">${esc(t.title)}</div>
+    <div class="task-col-date" onclick="openEdit(${oid})">${datePill}</div>
+    <div class="task-col-pri" onclick="openEdit(${oid})">${priPill}</div>
+    <div class="task-col-recur" onclick="openEdit(${oid})">${recurPill}</div>
     <div class="task-add-inline" onclick="event.stopPropagation();openModal()" title="Set a new Pursuit">＋</div>
-    <div class="task-del" onclick="event.stopPropagation();delTask('${t.id}')">×</div>
+    <div class="task-del" onclick="event.stopPropagation();delTask(${oid})">×</div>
   </div>`;
 }
 
