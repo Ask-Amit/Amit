@@ -262,6 +262,14 @@ header{
 .task-add-inline{color:var(--dim);cursor:pointer;font-size:15px;flex-shrink:0;padding:1px 5px;border-radius:3px;transition:all .15s;opacity:0;font-weight:400;line-height:1}
 .task:hover .task-add-inline{opacity:1}
 .task-add-inline:hover{color:var(--gold);background:rgba(201,168,76,.12);opacity:1}
+.task-pending-complete .cb{animation:pulse-done 1s ease-in-out infinite;border-color:var(--gold)!important;background:rgba(201,168,76,.15)!important}
+@keyframes pulse-done{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.5)}60%{box-shadow:0 0 0 6px rgba(201,168,76,0)}}
+.task-pending-complete .task-seg.done{background:rgba(201,168,76,.9)!important;border-color:var(--gold)!important}
+.task-just-done{background:rgba(39,174,96,.08)!important;border-left:3px solid #6fcf97}
+.task-just-done .task-name{text-decoration:line-through;color:var(--dim)}
+.task-just-done .cb{background:#6fcf97!important;border-color:#6fcf97!important;animation:none!important}
+.task-just-done .cb::after{content:'✓';color:#fff;font-size:9px;font-weight:bold;display:flex;align-items:center;justify-content:center}
+.just-done-banner{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.18em;color:#6fcf97;text-transform:uppercase;padding:8px 14px 4px;opacity:.8}
 .quick-add{display:flex;gap:8px;padding:12px 22px;background:rgba(0,0,0,.25);border-top:1px solid rgba(201,168,76,.2);flex-shrink:0}
 .quick-input{flex:1;background:rgba(0,0,0,.35);border:1px solid rgba(201,168,76,.28);border-radius:7px;padding:8px 12px;color:#fff;font-family:'Crimson Pro',serif;font-size:14px;outline:none;transition:border-color .2s}
 .quick-input::placeholder{color:var(--dim)}
@@ -2131,13 +2139,15 @@ function renderMailTasks(){
 // TABS (TO-DO)
 // ══════════════════════════════════════════════
 let curTab='all';
+const _pendingCompleteIds=new Set();
+const _newlyDoneIds=new Set();
 function setTab(el,f){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');curTab=f;render()}
 
 // ══════════════════════════════════════════════
 // RENDER (TO-DO)
 // ══════════════════════════════════════════════
 function render(){
-  const all=load(),active=all.filter(t=>!t.done),done=all.filter(t=>t.done);
+  const all=load(),active=all.filter(t=>!t.done||_newlyDoneIds.has(t.id)),done=all.filter(t=>t.done&&!_newlyDoneIds.has(t.id));
   document.getElementById('bAll').textContent=active.length;
   document.getElementById('bDay').textContent=active.filter(t=>t.myDay).length;
   document.getElementById('bInbox').textContent=active.filter(t=>!t.cat||t.cat==='inbox').length;
@@ -2162,15 +2172,20 @@ function render(){
   const q=(document.getElementById('searchIn').value||'').trim().toLowerCase();
   if(q) filtered=filtered.filter(t=>t.title.toLowerCase().includes(q)||(t.notes&&t.notes.toLowerCase().includes(q))||(t.subcat&&t.subcat.toLowerCase().includes(q))||(t.tags&&t.tags.some(tg=>tg.toLowerCase().includes(q))));
   filtered=sortTasks(filtered,document.getElementById('sortSel').value);
+  const justDoneTasks=all.filter(t=>_newlyDoneIds.has(t.id));
   let html='';
+  if(justDoneTasks.length){
+    html+='<div class="just-done-banner">✓ Just Completed</div>';
+    justDoneTasks.forEach(t=>html+=rowHTML(t));
+  }
   if(curTab==='done'){
-    if(filtered.length){html='<div style="padding:6px 22px 2px;font-family:\'Cinzel\',serif;font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase">Completed — most recent first</div>';filtered.forEach(t=>html+=rowHTML(t))}
-    else html='<div class="t-empty">No completed Pursuits yet.</div>';
+    if(filtered.length){html+='<div style="padding:6px 22px 2px;font-family:\'Cinzel\',serif;font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase">Completed — most recent first</div>';filtered.forEach(t=>html+=rowHTML(t))}
+    else html+='<div class="t-empty">No completed Pursuits yet.</div>';
   } else {
-    if(curTab==='all'&&!catF&&!q) html=renderGrouped(filtered);
+    if(curTab==='all'&&!catF&&!q) html+=renderGrouped(filtered);
     else if(filtered.length) filtered.forEach(t=>html+=rowHTML(t));
-    if(!filtered.length&&!done.length) html='<div class="t-empty">Nothing here yet.<br><span style="font-size:13px">Press <strong>+ Add Pursuit</strong> above or press <strong>N</strong>.</span></div>';
-    else if(!filtered.length) html='<div class="t-empty" style="padding:36px 20px">Nothing in this view.</div>';
+    if(!filtered.length&&!done.length&&!justDoneTasks.length) html+='<div class="t-empty">Nothing here yet.<br><span style="font-size:13px">Press <strong>+ Add Pursuit</strong> above or press <strong>N</strong>.</span></div>';
+    else if(!filtered.length&&!justDoneTasks.length) html+='<div class="t-empty" style="padding:36px 20px">Nothing in this view.</div>';
     let doneF=done;
     if(catF) doneF=done.filter(t=>t.cat===catF);
     if(q) doneF=doneF.filter(t=>t.title.toLowerCase().includes(q));
@@ -2222,8 +2237,8 @@ function rowProgHtml(t,isDone){
     return`<div class="task-prog" title="Not started — no steps defined yet"></div>`;
   }
   if(n<=8){
-    const segs=Array.from({length:n},(_,i)=>`<div class="task-seg${i<done?' done':''}"></div>`).join('');
-    return`<div class="task-prog-segs" title="${done} of ${n} steps done">${segs}</div>`;
+    const segs=Array.from({length:n},(_,i)=>`<div class="task-seg${steps[i]&&steps[i].done?' done':''}" data-idx="${i}" title="${esc((steps[i]&&steps[i].title)||'Step '+(i+1))}"></div>`).join('');
+    return`<div class="task-prog-segs" onclick="toggleSegStep(event,'${t.id}')" title="${done} of ${n} steps done">${segs}</div>`;
   }
   const pct=Math.round(done/n*100);
   return`<div class="task-prog" title="${done} of ${n} steps (${pct}%)"><div class="task-prog-fill" style="width:${pct}%"></div></div>`;
@@ -2248,12 +2263,18 @@ function rowHTML(t){
   const priPill=(pn!==5)?`<span class="pill ${PRI_COL[pn]||'p-p8'}">P${pn}</span>`:'';
   const recurPill=(t.recur&&t.recur!=='none')?`<span class="pill p-recur">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
   const oid=`'${t.id}'`;
-  return`<div class="task${isDone?' is-done':''}" ondblclick="event.stopPropagation();openEdit(${oid})">
+  const isPending=_pendingCompleteIds.has(t.id);
+  const isJustDone=_newlyDoneIds.has(t.id);
+  let rowCls='task';
+  if(isDone||isJustDone)rowCls+=' is-done';
+  if(isPending)rowCls+=' task-pending-complete';
+  if(isJustDone)rowCls+=' task-just-done';
+  return`<div class="${rowCls}" data-id="${t.id}" ondblclick="event.stopPropagation();openEdit(${oid})" onmouseleave="rowMouseLeave('${t.id}')">
     <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar(${oid})">⭐</div>
-    <div class="cb${isDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask(${oid},'${_rowDate}')"></div>
+    <div class="cb${isDone||isJustDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask(${oid},'${_rowDate}')"></div>
     <div class="task-col-cat" onclick="openEdit(${oid})">${catLabel?`<span class="cat-badge" title="${esc(catLabel)}">${esc(catLabel)}</span>`:''}</div>
     <div class="task-col-sub" onclick="openEdit(${oid})">${t.subcat?`<span class="subcat-label" title="${esc(t.subcat)}">${esc(t.subcat)}</span>`:''}</div>
-    <div class="task-col-prog" onclick="openEdit(${oid})">${rowProgHtml(t,isDone)}</div>
+    <div class="task-col-prog">${rowProgHtml(t,isDone||isJustDone)}</div>
     <div class="task-name" onclick="openEdit(${oid})">${esc(t.title)}</div>
     <div class="task-col-date" onclick="openEdit(${oid})">${datePill}</div>
     <div class="task-col-pri" onclick="openEdit(${oid})">${priPill}</div>
@@ -2263,6 +2284,38 @@ function rowHTML(t){
   </div>`;
 }
 
+function toggleSegStep(e,id){
+  e.stopPropagation();
+  const seg=e.target.closest('.task-seg');
+  if(!seg)return;
+  const idx=parseInt(seg.dataset.idx);
+  const data=load();
+  const t=data.find(x=>x.id===id);
+  if(!t||!t.subtasks||t.subtasks[idx]===undefined)return;
+  t.subtasks[idx].done=!t.subtasks[idx].done;
+  persist(data);
+  const allDone=t.subtasks.length>0&&t.subtasks.every(s=>s.done);
+  if(allDone){_pendingCompleteIds.add(id);}
+  else{_pendingCompleteIds.delete(id);}
+  render();
+}
+function rowMouseLeave(id){
+  if(_pendingCompleteIds.has(id)){
+    _pendingCompleteIds.delete(id);
+    finalizeTaskComplete(id);
+  }
+}
+function finalizeTaskComplete(id){
+  const data=load();
+  const t=data.find(x=>x.id===id);
+  if(!t)return;
+  t.done=true;
+  t.completedAt=Date.now();
+  persist(data);
+  _newlyDoneIds.add(id);
+  render();
+  setTimeout(()=>{_newlyDoneIds.delete(id);render();},2500);
+}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function toggleDoneSection(el){const l=document.getElementById('doneList'),c=document.getElementById('doneChev'),o=l.style.display==='none';l.style.display=o?'block':'none';c.classList.toggle('open',o)}
 
