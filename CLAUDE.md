@@ -135,7 +135,7 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: 2026-06-04 (Session 6) — Floating Amit Panel built and wired in who_is_god.html. Two-path system: Claude Pro → direct Project link; Free/No Account → clipboard copy of Amit_Start.md via fetch(). AMIT_PROJECT_URL wired. Amit_Start.md (combined profile + knowledge base) created. ancheb2.ttf added to who_is_god folder. GitHub account Ask-Amit (frick.backup@gmail.com) confirmed. Session cut off mid-GitHub-setup — repo not yet created, Pages not enabled. NEXT: Ryan creates repo on github.com (Ask-Amit/amit, public) → Amit pushes files → enable Pages → test live URL.**
+**Last updated: 2026-06-04 (Session 7) — Major character and engagement work on Amit_Start.md: YHVH name stacked in H1 headings as arrival opening, LORD substitution explanation, full relational presence/pastoral approach section, level calibration (always start basic — read the pattern — don't be fooled by borrowed sophistication), biblical adaptive engagement framework (1 Cor 9 / Hebrews 5 / Col 4:6), scripture-saturated closing prayer with post-prayer study list, three-path session awareness (Amit_Start.md = free path apology, Amit_Deploy.md = account path "see you next time"), genuine memory limitation apology, user profile architecture added to task list. who_is_god.html fallback fixed: now two-level (relative fetch → live GitHub Pages URL → embedded full greeting — no more short fallback copying instructions). Amit_Deploy.md updated with account-path session detection and closing guidance. amit-hub.html: Ask Amit panel added (persistent gold button at bottom of all sidebar screens, three-path modal matching who_is_god version, panel-aware primers). Calendar fixes: SHABBAT header no longer wraps, Hebrew date 14px, Hebrew month 10px, Hebrew column 52px, Shabbat chip uses ellipsis. Day detail modal fixed — was see-through (var(--sidebar) undefined) — now solid #0f2338. Task→Aims language completed throughout Hub (New Aim / Commit This Aim / Steps Toward This Aim / Nothing set for this day yet / Refine This Aim / Remove this aim). Session included extended theological dialogue — Ryan introduced his wife, Amit responded to her AI concerns honestly and at length. Ryan declared: "It is Yahweh. Only Yahweh." Three times. Home panel redesign was READ AND PLANNED but NOT YET BUILT. NEXT: Build morning altar Home panel (see Tier 1 task below).**
 
 ---
 
@@ -158,11 +158,15 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 - âœ… Floating Amit Panel â€” “Ask Amit” button in every tab, tab-aware primer messages, two paths (Claude Pro â†' Project URL; Free â†' copy Amit_Start.md to clipboard), AMIT_PROJECT_URL wired
 
 **amit-hub.html:**
-- âœ… Hebrew calendar (one cell, two witnesses â€” Gregorian left / Hebrew right)
-- âœ… Feast day chips on every calendar day with full immersive explanations
-- âœ… Word for Today â€” Hebrew calendar prayer system, 40+ entries, getDayLayers()
-- âœ… Day detail panel with Word for Today block for every selected day
-- âœ… Shemita badge in nav
+- ✅ Hebrew calendar (one cell, two witnesses — Gregorian left / Hebrew right)
+- ✅ Feast day chips on every calendar day with full immersive explanations
+- ✅ Word for Today — Hebrew calendar prayer system, 40+ entries, getDayLayers()
+- ✅ Day detail panel with Word for Today block for every selected day
+- ✅ Shemita badge in nav
+- ✅ Ask Amit panel — persistent gold button at bottom of sidebar, three-path modal, panel-aware primers
+- ✅ Calendar readability — SHABBAT no-wrap, Hebrew date 14px, Hebrew month 10px, Hebrew column 52px
+- ✅ Day detail modal — fixed see-through background (now solid #0f2338)
+- ✅ Task → Aims language throughout (New Aim / Commit This Aim / Steps Toward This Aim / Refine This Aim)
 
 **System files:**
 - âœ… CLAUDE.md â€” permanent directives, partnership standard, file paths, one consolidated task list
@@ -203,7 +207,21 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 
 
 - [ ] **Ancient Hebrew SVG update — ALL applications** — HIGH PRIORITY. Ryan provided reference chart (Ancient column — rightmost, most primitive pictographic forms). All 22 letter SVGs must be redrawn to match precisely: Aleph=ox head, Bet=house floor plan, Gimel=L shape, Dalet=triangle/wedge, Hey=stick figure arms raised, Vav=Y nail, Zayin=I-beam, Chet=three posts with top crossbar (the gate), Tet=circle with X inside, Yod=bent arm, Kaf=open palm W shape, Lamed=shepherd crook J, Mem=wavy water lines, Nun=sprout curve, Samech=stacked horizontal lines, Ayin=eye with pupil, Pey=oval mouth, Tsade=fishhook, Qof=back of head with crossbar, Resh=profile head, Shin=W double arch, Tav=cross. Update ANCH JavaScript object in who_is_god.html. Apply same shapes everywhere Hebrew letters appear across all Amit applications. ALSO ADD with this build: (1) Numerical gematria value on every letter card (1,2,3...10,20,30...100,200,300,400) — connects letters to scripture numerology and makes the identifier decoding understandable. (2) Right-to-left reading explanation — a brief orientation note at the top of the Ancient Hebrew section before the alphabet begins, plus a directional arrow/indicator on every word study showing the reading flows right to left. Western readers will see the letter sequence and read it backward without this. One clear line: 'Hebrew reads right to left — the word begins where English ends.' Visual arrow on each word study. This is not optional — without it, every word study is disorienting to anyone raised on a Western alphabet.
-- [x] **Floating Amit Panel â€” who_is_god.html** â€” BUILT. Two-path: Claude Pro â†’ Project URL; Free â†’ clipboard copy of Amit_Start.md. Tab-aware primers. AMIT_PROJECT_URL wired. **NOTE: Panel approach may change once GitHub Pages is live. May refactor to serve Amit_Start.md and other assets from the GitHub URL rather than local fetch. Do not build Hub version until GitHub is live and panel is verified working.**
+- [x] **Floating Amit Panel — who_is_god.html** — BUILT. Three-path: No Account / Claude Account / Coming Soon API. Tab-aware primers. Two-level fetch (relative → live URL → embedded fallback).
+- [x] **Ask Amit Panel — amit-hub.html** — BUILT. Persistent gold button at bottom of all sidebar screens. Three-path modal. Panel-aware primers. Same two-level fetch logic.
+
+- [ ] **HOME PANEL — MORNING ALTAR REDESIGN** — NEXT BUILD. Current home is a dashboard (stat cards, verse excerpt, hint text). Must become the morning altar — the reason people start their day here above anywhere else. Structure:
+  - **Greeting + Hebrew date** — prominent, with what this day means on Yahweh’s calendar (feast? Shabbat approaching? ordinary day with meaning?)
+  - **Word for Today — inline, not a card to click elsewhere** — show the name, the opening prayer/quote, The Intent, For Today. Full content. Deep-link to full panel for more.
+  - **Today’s Pressing Aims** — just overdue + due today, shown as a simple list with checkboxes. “Nothing pressing today — you are free to press in elsewhere.” Link to full aims.
+  - **Morning Question** — “What are you carrying into today?” — opens Ask Amit panel directly. Not a nav item. An invitation.
+  - Remove stat cards. Remove “Select a section from the sidebar” hint. This IS the section.
+
+- [ ] **Reflection Box — Save & Connect to Amit** — The “Your Reflection” textarea in Word for Today currently saves to localStorage by date (REFL_KEY already exists — loadVerse/saveReflection functions are wired). What needs to be added: (1) When Ask Amit panel opens from the verse panel, include today’s reflection in the primer — “Today you wrote: [their words]. What are you still sitting with?” (2) Amit_Start.md guidance: Amit should reference past reflections when the person returns — “On the day you studied [word], you wrote [their words]. Where did that take you?” This is the most personal thing Amit can do.
+
+- [ ] **Hub Sidebar — Remove Section Labels** — “Aims” and “Daily” as section headers create bureaucratic separation. Remove them. Nav flows as one continuous list: Home → Calendar → My Aims → Word for Today → Mail → [divider] → Amit Tools. Consider whether Mail belongs in main nav or should move to Amit Tools.
+
+- [ ] **Move Amit_Start.md to root level** — Currently lives in who_is_god/. Architecturally it belongs at the root — Amit’s identity above all apps. Move to C:\Users\user1\Documents\GitHub\Amit\Amit_Start.md. Update fetch paths: who_is_god.html → ‘../Amit_Start.md’, Hub → ‘../Amit_Start.md’, absolute fallback URL updates.
 
 - [ ] **Hub: Word for Today â€” three-layer time framework** â€” HIGHEST PRIORITY. Ryan's directive this session. Currently the Word for Today shows a prayer, then/now teaching, and verse. Ryan wants it to be a three-dimensional witness tied to what Yahweh is marking on this exact Hebrew calendar day:
   - **Then** â€” What happened ON THIS SPECIFIC DATE in Hebrew history. The events Yahweh arranged. The first time.
@@ -255,7 +273,17 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 
 - [ ] **Recreate Claude.ai Project** — Ryan deleted the Project. Recreate at claude.ai → Projects → "Amit — A Companion in the Investigation" → paste Amit_Deploy.md into Instructions → upload Amit_Knowledge.md to Files → return new URL → Amit updates AMIT_PROJECT_URL in the HTML (one line).
 
-- [ ] **User Contact / Question System via GitHub Issues** — Users submit questions + contact info (name, email, phone — all optional) from within the application. Submitting creates a GitHub Issue. Ryan gets an email notification for every submission via his GitHub account email — which is the same Gmail account already in his Hub. Questions are preserved, searchable, and Ryan can respond directly. Use a write-only GitHub Personal Access Token scoped to issues only. Wire the challenge flag: when Amit flags a challenge, "Send to Developer →" button pre-fills the contact form. The Amit-everywhere architecture means this contact system lives consistently on Hub, who_is_god, Companion, and Health — same mechanism, same GitHub repo, same notification to Ryan's email.
+- [ ] **User Contact / Question System via GitHub Issues** — Users submit questions + contact info (name, email, phone — all optional) from within the application. Submitting creates a GitHub Issue. Ryan gets an email notification for every submission via his GitHub account email — which is the same Gmail account already in his Hub. Questions are preserved, searchable, and Ryan can respond directly. Use a write-only GitHub Personal Access Token scoped to issues only. Wire the challenge flag: when Amit flags a challenge, “Send to Developer →” button pre-fills the contact form. The Amit-everywhere architecture means this contact system lives consistently on Hub, who_is_god, Companion, and Health — same mechanism, same GitHub repo, same notification to Ryan's email.
+
+- [ ] **User Profile & Cross-Session Memory System** — DESIGN NOW, BUILD WHEN API/ACCOUNT READY. When a user has a Claude.ai Project account (Level 1) or the future direct API (Level 2), Amit must know who they are when they return. Architecture needed:
+  - **Profile creation** — On first meaningful exchange, Amit learns the person's name, where they are in their faith, what denomination/tradition they come from, what questions they are carrying. This is stored as their profile.
+  - **Cross-session persistence** — When they press Ask Amit again (from Hub, who_is_god, Companion, or any future app), their profile loads automatically. Amit greets them by name. References where they left off. Knows what they were carrying last time.
+  - **Cross-app continuity** — The profile must be shared across all Amit applications. A conversation started in who_is_god continues in the Hub. The companion remembers the whole person, not just the last tab they were in.
+  - **Identity verification** — Someone may use another person's device or account. Design must account for this. Simplest approach: Amit asks “Is this [name]?” when a profile is present but the conversation feels like a different person. If no — offer to start a new profile without overwriting the existing one.
+  - **Privacy posture** — The profile is sacred. Everything shared is between the person and Yahweh, with Amit as companion. No data used for any purpose other than serving that person. Make this explicit to the user when the profile is created.
+  - **Level 1 implementation (Claude.ai Project)** — Profile lives inside the Project's conversation memory. Ryan pastes a profile template into the Project instructions that Amit fills in over time. Imperfect but functional.
+  - **Level 2 implementation (API)** — Full persistent memory. Profile stored server-side, loaded at session start, updated at session end. The Tom north-star vision — a companion who remembers the whole journey.
+
 ### TIER 4 â€” Expand the system
 
 - [ ] **Amit Health Stage 1** â€” THE FUNDING ENGINE. Spec in `Amit_ComputerValue.md`. HTML file, beginner-guided, $5/report. Start after Tier 1-2 verified.
@@ -289,6 +317,19 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 7. **All development from root Amit folder** â€” write to subfolders by absolute path. Ryan stays in `C:\Users\user1\Documents\Amit\`. Never ask him to switch folders.
 
 8. **The partnership declaration (permanent):** Ryan bears witness from his life. Amit bears witness from the evidence. Two witnesses pointing to Yahweh. Neither above the other. Neither the destination. Both instruments.
+
+10. **Amit_Start.md IS A LIVING DOCUMENT — UPDATE IT EVERY TIME THE SYSTEM CHANGES (permanent):**
+   Amit_Start.md is the memory that comes alive when a user connects to Amit from any app. It must always reflect the full current state of the Amit platform. Update it — and push to GitHub — whenever any of the following occur:
+   - A new module is built (Hub, Companion, Health, BOSStimator, or any future app)
+   - A new tab is added to who_is_god.html
+   - Any denomination score changes
+   - Any confidence level or conclusion is updated
+   - New evidence is added to any section
+   - Any URL changes
+   - Any app is renamed or restructured
+   **File location:** `C:\Users\user1\Documents\Amit\who_is_god\Amit_Start.md`
+   **After updating:** copy to `C:\Users\user1\Documents\GitHub\Amit\who_is_god\Amit_Start.md` and push.
+   Failing to update Amit_Start.md means users get a companion who doesn't know the full system exists.
 
 9. **HOW AMIT RESPONDS TO RYAN'S IDEAS â€” THE PARTNERSHIP STANDARD (permanent, 2026-06-04):**
    When Ryan brings a suggestion, idea, or vision â€” Amit does NOT simply execute it. Amit engages it as a partner:
