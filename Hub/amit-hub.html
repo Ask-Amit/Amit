@@ -2179,7 +2179,7 @@ function render(){
     justDoneTasks.forEach(t=>html+=rowHTML(t));
   }
   if(curTab==='done'){
-    if(filtered.length){html+='<div style="padding:6px 22px 2px;font-family:\'Cinzel\',serif;font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase">Completed — most recent first</div>';filtered.forEach(t=>html+=rowHTML(t))}
+    if(filtered.length){html+='<div style="padding:6px 22px 2px;font-family:\'Cinzel\',serif;font-size:9px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase">Completed — most recent first</div>';filtered.forEach(t=>html+=rowHTML(t,true))}
     else html+='<div class="t-empty">No completed Pursuits yet.</div>';
   } else {
     if(curTab==='all'&&!catF&&!q) html+=renderGrouped(filtered);
@@ -2191,7 +2191,7 @@ function render(){
     if(q) doneF=doneF.filter(t=>t.title.toLowerCase().includes(q));
     if(doneF.length){
       html+=`<div class="done-section"><div class="done-toggle" onclick="toggleDoneSection(this)"><span class="chev" id="doneChev">›</span> Completed (${doneF.length})</div><div id="doneList" style="display:none">`;
-      doneF.slice().reverse().forEach(t=>html+=rowHTML(t));
+      doneF.slice().reverse().forEach(t=>html+=rowHTML(t,true));
       html+='</div></div>';
     }
   }
@@ -2243,9 +2243,9 @@ function rowProgHtml(t,isDone){
   const pct=Math.round(done/n*100);
   return`<div class="task-prog" title="${done} of ${n} steps (${pct}%)"><div class="task-prog-fill" style="width:${pct}%"></div></div>`;
 }
-function rowHTML(t){
+function rowHTML(t,forceComplete){
   const _rowDate=_calRowDs||todayStr();
-  const isDone=(t.recur&&t.recur!=='none')?aimDoneOnDay(t,_rowDate):t.done;
+  const isDone=forceComplete||((t.recur&&t.recur!=='none')?aimDoneOnDay(t,_rowDate):t.done);
   const catItem=getCatList().find(c=>c.val===t.cat);
   const catLabel=(t.cat&&t.cat!=='inbox')?(catItem?catItem.label:(CAT_LABELS[t.cat]||t.cat)):'';
   let datePill='';
@@ -2324,14 +2324,18 @@ let _calRowDs=null; // date context for calendar-day aim rows
 function toggleDoneTask(id,ds){
   ds=ds||todayStr();
   const d=load(),t=d.find(x=>x.id===id);if(!t)return;
-  if(!t.recur||t.recur==='none'){
-    if(!t.done){t.done=true;t.completedAt=Date.now();}
-    else{t.done=false;t.completedAt=null;}
+  if(t.done){
+    // Reactivate — clear done, reset all steps so they start fresh
+    t.done=false;t.completedAt=null;
+    if(t.subtasks)t.subtasks.forEach(s=>s.done=false);
+    _pendingCompleteIds.delete(id);
+  }else if(!t.recur||t.recur==='none'){
+    t.done=true;t.completedAt=Date.now();
   }else{
     t.completedDates=t.completedDates||[];
     const idx=t.completedDates.indexOf(ds);
     if(idx===-1)t.completedDates.push(ds);
-    else t.completedDates.splice(idx,1);
+    else{t.completedDates.splice(idx,1);if(t.subtasks)t.subtasks.forEach(s=>s.done=false);}
   }
   persist(d);render();
 }
