@@ -128,6 +128,30 @@ App researches current market value of each component on the day the report is r
 
 ---
 
+## The QR Code — Permanent Key to the Complete Record
+
+The QR code is not just identity verification. It is the permanent link to everything: machine specs, every diagnostic result (passed and failed — good, bad, and ugly), health score, valuation range, the verification photo, the timestamp, the builder's certification ID. One scan by any buyer at any point in the machine's future gives the full picture. The machine speaks for itself.
+
+**How it works in Stage 1 (no server required):**
+- After certification is complete, Amit generates a static HTML report file containing the full results
+- That file is saved to `/reports/` on GitHub Pages: `https://ask-amit.github.io/Amit/reports/[PCV-ID].html`
+- A QR code is generated client-side using qrcode.js or qr-creator (lightweight JavaScript libraries, zero server needed) pointing to that permanent URL
+- The QR code prints with the certification and physically attaches to the machine
+- Any buyer, at any point, scans and sees the complete record
+
+**What the QR code links to:**
+- Machine identification (PCV-ID, hardware fingerprint, build classification)
+- Full component breakdown (CPU, GPU, RAM, storage, motherboard — ages and condition)
+- Every diagnostic result — not just a summary score, but the actual output of each test
+- Health score with component breakdown
+- Valuation range with methodology shown
+- The verification photo (builder + machine + generated code)
+- Certification timestamp and builder information
+- Any subsequent buyer verifications appended to the chain
+
+**Why showing the bad matters:**
+A certification that only shows what passed is a sales document. A certification that shows what passed, what failed, what was flagged, and what was inconclusive is a trust document. Buyers who see Amit report a minor issue honestly will trust the certification far more than one that only shows green checkmarks. The credibility of the whole system depends on Amit never hiding the ugly.
+
 ## Unique Build ID System (PCV-ID)
 
 Format example: **PCV-2026-RYZ9-RTX3070-K240-X1TB-A7X3**
