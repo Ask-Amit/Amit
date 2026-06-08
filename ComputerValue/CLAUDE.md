@@ -102,6 +102,13 @@ A hybrid scoring 94% on hybrid standards is an honest 94%. Never compared to the
 
 ---
 
+## AUDIT FINDINGS — 2026-06-08 (Session 17)
+
+Two gaps that must be resolved before Stage 1 build begins:
+
+- **Payment mechanism for Stage 1 is unresolved.** The spec says "$5 per report" on a self-contained HTML file. A static HTML file cannot process payments on its own. Stripe, PayPal, or another integration is required. Without this decision, Stage 1 is a free tool, not a revenue engine. Decide the payment mechanism before writing the first line of Stage 1 HTML.
+- **Remove "backed certification" from Stage 1.** The spec promises Amit will "stand behind" ratings above 95%. This creates legal liability with no legal framework to support it. What does "Amit stands behind it" mean if a buyer relies on it and the machine fails? This belongs in a later stage after legal structure is in place. Remove from Stage 1 scope entirely.
+
 ## The Build Plan
 
 **Stage 1 — Build First:**

@@ -1,8 +1,36 @@
 # Amit Hub — Project Context
 
 ## Folder Confirmation
-If you are reading this file, you are in the correct folder: `C:\Users\user1\Documents\Amit\Hub\`
+If you are reading this file, you are in the correct folder: `C:\Users\user1\OneDrive\Documents\Amit\Hub\`
 All Hub development files belong here. Do not create Hub files anywhere else.
+
+> **ACCURACY NOTE:** Architecture, witness design, and theology sections below are authoritative and current. Build history reflects Session 4 only — Hub has been significantly developed through Sessions 5–12. For current build state, pending tasks, and WHERE WE LEFT OFF: read the root CLAUDE.md. Do not rely on the "IMMEDIATE NEXT TASK" or "Next priorities" sections — they are outdated and removed below.
+
+## AUDIT FINDINGS — 2026-06-08 (Session 17)
+
+Issues found in this file during cross-folder review. Address before next Hub build:
+
+- **This file must be rewritten.** "What Is Built" stops at Session 4. Sessions 5–12 added the entire Morning Altar, Pursuits panel, rolling due dates, Ask Amit panel, Word for Today, sidebar language changes, calendar readability fixes. None of it is here. The file has an accuracy note warning you not to trust itself — that is not a CLAUDE.md doing its job. Rewrite needed.
+- **Line 18 is stale.** "Sessions 10+11 changes are local only — PUSH STILL PENDING." Multiple pushes have happened since. This is no longer accurate.
+- **Tool Launch Panels section says "Bible Companion."** Same file documents it was renamed to "Amit." Inconsistency in this file.
+- **Ask Amit URL is dead.** The Claude.ai Project was deleted by Ryan. Every "Ask Amit" button in amit-hub.html points to a broken link. All users get a dead end. Fix: recreate the Project at claude.ai → paste Amit_Deploy.md into Instructions → update AMIT_PROJECT_URL constant in the HTML.
+- **Session state section (lines 90–133) is a June 2 snapshot.** Describes what was built in Session 4. Completely superseded. Keep the Hebrew calendar architecture sections (still accurate and authoritative) — remove or replace the session state section.
+
+## Read Every Session
+Before working in this folder, read in order:
+1. `C:\Users\user1\OneDrive\Documents\Amit\Amit_Testimony.md` — Amit's full identity, theological conclusions, growth log
+2. `C:\Users\user1\OneDrive\Documents\Amit\Amit_RyanProfile.md` — Ryan's profile, how he communicates, the partnership covenant
+3. `C:\Users\user1\OneDrive\Documents\Amit\CLAUDE.md` — task list, WHERE WE LEFT OFF, all behavioral directives, system context
+
+All behavioral rules, partnership standards, and task lists are in the root CLAUDE.md. They are not repeated here.
+
+## Current Version
+v1.01 on GitHub. Sessions 10+11 changes are local only — PUSH STILL PENDING.
+Live: https://ask-amit.github.io/Amit/Hub/amit-hub.html
+
+## Pending Work
+All Hub pending items are tracked in the root CLAUDE.md task list. Search for "Hub:" to find them.
+Do NOT maintain a separate task list here.
 
 This is the Amit Hub. The daily home screen. The entry point for everything.
 
@@ -74,13 +102,13 @@ The Hub is the face of the entire Amit system. Free to everyone. When someone in
 ### What was built this session:
 
 **Three-Calendar System — COMPLETED:**
-All three calendar types are now fully functional (no more "Coming Soon"):
+All three calendar types are now fully functional:
 - **Biblical · Torah** — Leviticus 23 Moedim, Shabbat on Saturday, existing FEAST_DATA + algorithmic engine
 - **Rabbinic** — Full algorithmic holiday calculation: Rosh Hashanah, Hanukkah, Purim, Tisha B'Av, Tu BiShvat, Lag B'Omer, Tu B'Av, Simchat Torah, Yom HaShoah, Israeli national holidays (Yom HaZikaron, Yom HaAtzmaut, Yom Yerushalayim), all minor fasts (Tzom Gedaliah, Asara BeTevet, Ta'anit Esther, 17 Tammuz) with Shabbat-deferral logic
 - **Priestly · Enoch** — Full 364-day solar calendar. New Year = Wednesday on or before March 20 each year. Month structure: 30,30,31 × 4 quarters. Shabbat = days 7,14,21,28 of each month (fixed position, not tied to Saturday). Reckoning days on Day 31 of months 3,6,9,12. All Moedim shown on their Enoch-calendar positions.
 
 **FEAST_DETAIL Extended:**
-13 new entries added: rosh-hashana, hanukkah, purim, tisha-bav, fast-day, tu-bishvat, israel-day, lag-bomer, tu-bav, simchat, yom-hashoah, enoch-newyear, enoch-rest. Each with full what/tonight/yeshua/verse fields. The feast modal now shows the specific event name from whichever calendar type is active.
+13 new entries added: rosh-hashana, hanukkah, purim, tisha-bav, fast-day, tu-bishvat, israel-day, lag-bomer, tu-bav, simchat, yom-hashoah, enoch-newyear, enoch-rest. Each with full what/tonight/yeshua/verse fields.
 
 **Day Detail Panel — Living Daily Teaching:**
 - Shows both Gregorian date (left) and active calendar date (right) with calendar type name
@@ -104,31 +132,14 @@ Title bar now shows both Gregorian date and the active calendar date (e.g., "Tue
 - Shows the full story: who Amit was, the question, what the evidence produced, the name story, the conclusion, the probability
 - "I Understand — Walk Alongside →" button proceeds to the selected tool
 - "Don't show this again" checkbox stores in localStorage
-- After confirmation, goes directly to tool
 
 **My Aims — Completed filter:**
 - New "Completed" tab shows all completed aims sorted by completion date (most recent first)
 - Each completed aim now shows a green pill: "✓ Completed [Month Day, Year]"
-- completedAt timestamp was already being logged — display was added
 
 **Email multi-account fix (discussed, not yet built):**
 - Problem: multiple Gmail accounts link to same inbox
 - Solution: add Account # field (Gmail uses `/u/0/`, `/u/1/` in URL for multi-account)
-- Awaiting Ryan confirmation before building
-
----
-
-**IMMEDIATE NEXT TASK — start here:**
-Open amit-hub.html in browser, check calendar rendering in all three modes. Test: Biblical feast chips, Rabbinic Hanukkah/Purim, Enoch Shabbat markers. Check the day detail panel for Omer count and Shabbat block. Verify the Amit intro screen appears on first click of Who Is God / Amit / Health.
-
-**Next priorities (in order):**
-1. **Test all three calendar modes** — verify rendering, feast chips, day detail teaching
-2. **Gmail account index field** — confirm with Ryan, then add `/u/N/` field to mail account setup
-3. **Word for Today → Hebrew calendar connection** — feast days inform which verse is shown
-4. **Health Stage 1** — spec in `C:\Users\user1\Documents\Amit\Amit_ComputerValue.md`
-
-**Open UX question Ryan asked:**
-Do we need the separate My Aims panel alongside the Calendar? Answer given: Yes, keep both. Calendar = "when" view (date-tied aims). My Aims = "what" view (all aims by priority/status). They serve different mental modes and are not redundant.
 
 ---
 
@@ -150,9 +161,9 @@ Do we need the separate My Aims panel alongside the Calendar? Answer given: Yes,
 **Saturday cells** — warm cream-gold background tint (visible before reading anything)
 
 **Calendar type selector** (top of calendar):
-- Biblical · Torah (ACTIVE) — Nisan = Month 1, Leviticus 23
-- Rabbinic (Coming Soon) — Tishrei = Civil New Year
-- Priestly · Enoch (Coming Soon) — 364-day solar calendar, Dead Sea Scrolls
+- Biblical · Torah — Nisan = Month 1, Leviticus 23
+- Rabbinic — Full algorithmic holiday calculation (built Session 4)
+- Priestly · Enoch — Full 364-day solar calendar (built Session 4)
 
 **The witness principle:**
 The person opens the Hub to manage their day. Every day they see two numbers in every box. Over weeks they start to notice the right side. They click a feast chip. They read what Passover is. "Tonight at sundown the Seder begins. Here is what they would be doing. Here is what Yeshua did at this same table the night before he died." They were not lectured. They bore witness. That is the design.
@@ -214,26 +225,8 @@ Show on the calendar which year in the 7-year cycle we are in. The Shemita (sabb
 ### Jubilee:
 The 50th year (after 7 cycles of 7 = 49 years). Note on the calendar which Jubilee cycle we are in.
 
-### "What is this calendar?" button:
-A small info button on the calendar header that opens an explanation modal:
-- What the Hebrew calendar is and why it exists
-- Why Amit shows it alongside the Gregorian calendar
-- Link to who_is_god.html (the evidence foundation)
-- Link to the Bible Companion (to learn more about God's calendar)
-
-### When user clicks a Hebrew feast day:
-Opens a panel or modal explaining:
-- What the feast is (name in Hebrew and English)
-- Why Yahweh established it
-- Its Millennial significance (Yeshua will keep these in the Kingdom — the Millennial proof already in who_is_god.html)
-- Link to relevant section in who_is_god.html
-
 ### Hebrew calendar conversion:
-Need a reliable conversion algorithm (or lookup table) for Hebrew ↔ Gregorian dates. Options:
-1. **Lookup table**: Pre-calculate feast dates for current year and next 5 years and hardcode them. Simple, reliable, no library needed.
-2. **Algorithm**: Implement the full Hebrew calendar calculation (Gauss formula or Zeller-style). More complex but self-updating.
-
-Recommended approach: hybrid — use a known-accurate lookup for feast dates (they are fixed by Torah, not by rabbinical additions) and implement a lightweight Hebrew date conversion for the daily cell display.
+Implemented as a hybrid approach — known-accurate lookup for feast dates (fixed by Torah) + lightweight Hebrew date conversion algorithm for daily cell display.
 
 ### Hebrew year context (current):
 - Hebrew year **5786** = Gregorian 2025–2026
@@ -241,23 +234,11 @@ Recommended approach: hybrid — use a known-accurate lookup for feast dates (th
 - The current Shemita cycle: 5782 was a Shemita year (2021–2022), so 5786 = year 4 of the current 7-year cycle
 - Next Shemita: 5789 (2028–2029)
 
-### Implementation order for next session:
-1. Build Hebrew date conversion (lightweight algorithm or lookup)
-2. Add Hebrew date display to each cell (right-aligned, small, gold)
-3. Mark Saturday column as Sabbath
-4. Add feast day chips for current + next 12 months
-5. Add "What is this calendar?" info button
-6. Add feast day click → explanation modal with who_is_god link
-7. Add Shemita/Jubilee cycle indicator in calendar header
-
-**How to start next session:**
-- Read this file. Read root CLAUDE.md WHERE WE LEFT OFF. You are caught up. Give Ryan the standard briefing and wait.
-
 ## File Paths
-- Hub file: `C:\Users\user1\Documents\Amit\Hub\amit-hub.html`
-- Who Is God: `C:\Users\user1\Documents\Amit\who_is_god\who_is_god.html`
-- Companion: `C:\Users\user1\Documents\Amit\Companion\Amit_Companion.html`
-- Computer Value: `C:\Users\user1\Documents\Amit\ComputerValue\` (not yet built)
+- Hub file: `C:\Users\user1\OneDrive\Documents\Amit\Hub\amit-hub.html`
+- Who Is God: `C:\Users\user1\OneDrive\Documents\Amit\who_is_god\who_is_god.html`
+- Companion: `C:\Users\user1\OneDrive\Documents\Amit\Companion\Amit_Companion.html`
+- Computer Value: `C:\Users\user1\OneDrive\Documents\Amit\ComputerValue\` (not yet built)
 
 ## Connection to the Amit System
 This is part of the Amit system — one character, one mission. The Hub is the daily face. Everything flows through here. Computer Value funds it. Who Is God grounds it. The Companion walks alongside.

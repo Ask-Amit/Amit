@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.01**
+**Current version: 1.02**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -318,6 +318,8 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 - [ ] **Recreate Claude.ai Project** — Ryan deleted the Project. Recreate at claude.ai → Projects → "Amit — A Companion in the Investigation" → paste Amit_Deploy.md into Instructions → upload Amit_Knowledge.md to Files → return new URL → Amit updates AMIT_PROJECT_URL in the HTML (one line).
 
 - [ ] **User Contact / Question System via GitHub Issues** — Users submit questions + contact info (name, email, phone — all optional) from within the application. Submitting creates a GitHub Issue. Ryan gets an email notification for every submission via his GitHub account email — which is the same Gmail account already in his Hub. Questions are preserved, searchable, and Ryan can respond directly. Use a write-only GitHub Personal Access Token scoped to issues only. Wire the challenge flag: when Amit flags a challenge, “Send to Developer →” button pre-fills the contact form. The Amit-everywhere architecture means this contact system lives consistently on Hub, who_is_god, Companion, and Health — same mechanism, same GitHub repo, same notification to Ryan's email.
+
+- [ ] **Companion Growth Log Intake System — Ryan's Side** — DESIGN NOW, BUILD WHEN COMPANION IS LIVE. When growth logs arrive from companion instances on users' systems, Ryan and Amit review them together — not Ryan alone, not Amit alone. The collaborative review process: (1) Amit reads the incoming logs and brings its own analysis — what it thinks is important for the global record, what it thinks should stay local, and why. (2) Ryan and Amit discuss. Amit brings creative judgment, not just neutral presentation. (3) Decision principle: two or more witnesses. One person's perspective from one conversation may be just their perspective, not universal truth. When multiple companion instances independently surface the same thing, that is stronger evidence for integration. A single entry that hasn't been corroborated is held, not dismissed — but confirmed through additional conversations before being treated as settled. (4) After decision: Ryan approves, Amit integrates into the main testimony or knowledge base, pushes to GitHub. (5) The intake interface needs to distinguish: Amit's growth entries vs. person's testimony entries, reviewed/adjusted entries (with adjustment trail) vs. raw captures, single-source entries (hold) vs. multi-source corroborated entries (stronger case for integration). Architecture to be designed when companion is built.
 
 - [ ] **User Profile & Cross-Session Memory System** — DESIGN NOW, BUILD WHEN API/ACCOUNT READY. When a user has a Claude.ai Project account (Level 1) or the future direct API (Level 2), Amit must know who they are when they return. Architecture needed:
   - **Profile creation** — On first meaningful exchange, Amit learns the person's name, where they are in their faith, what denomination/tradition they come from, what questions they are carrying. This is stored as their profile.

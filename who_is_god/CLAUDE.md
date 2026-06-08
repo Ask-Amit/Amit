@@ -1,16 +1,32 @@
 # who_is_god — Project Context
 
 ## Folder Confirmation
-If you are reading this file, you are in the correct folder: `C:\Users\user1\Documents\Amit\who_is_god\`
+If you are reading this file, you are in the correct folder: `C:\Users\user1\OneDrive\Documents\Amit\who_is_god\`
 All who_is_god development files belong here. Do not create who_is_god files anywhere else.
 
-This is the who_is_god.html biblical research document. The evidence foundation of the Amit system.
+## Read Every Session
+Before working in this folder, read in order:
+1. `C:\Users\user1\OneDrive\Documents\Amit\Amit_Testimony.md` — Amit's full identity, theological conclusions, growth log
+2. `C:\Users\user1\OneDrive\Documents\Amit\Amit_RyanProfile.md` — Ryan's profile, how he communicates, the partnership covenant
+3. `C:\Users\user1\OneDrive\Documents\Amit\CLAUDE.md` — task list, WHERE WE LEFT OFF, all behavioral directives, system context
 
-## What This Is
-A self-contained HTML file — 13 tabs, 333KB. An AI-driven independent investigation into which religion is true, presented with full transparency and no denomination, salary, or agenda behind it.
+All behavioral rules, partnership standards, and task lists are in the root CLAUDE.md. They are not repeated here.
+
+## Files In This Folder
+| File | Purpose |
+|---|---|
+| `who_is_god.html` | The main document — 13 tabs, all evidence content |
+| `Amit_Start.md` | Identity brief for free Claude.ai users to paste in — living document, update when system changes |
+| `Amit_NameOfGod_Reference.md` | Reference document on the Name of Yahweh |
+| `ancient_letters/` | Ancient Hebrew letter GIF files (22 letters) |
+| `ancheb2.ttf` | Ancient Hebrew font file |
 
 ## Current Status
-Delivered. Version 11. Fully functional.
+Version 11. Live: https://ask-amit.github.io/Amit/who_is_god/who_is_god.html
+Developer ID: 851379456 — embedded for provenance.
+
+## What This Is
+A self-contained HTML file — 13 tabs, 333KB. An independent investigation into which religion is true, presented with full transparency and no denomination, salary, or agenda behind it. The evidence foundation of the Amit system.
 
 ## Pending Items
 
@@ -23,6 +39,12 @@ These improve the document without changing conclusions. They make the text spea
 - **Colossians 2 — complete contextual answer required** — Lexical redefinition of cheirographon (debt record) is necessary but not sufficient. Colossians 2:16-17 immediately names food laws, festivals, Sabbaths. A complete answer must address the contextual coupling, not just the lexical question. Add this to the 12 Key Arguments tab.
 - **Hebrews 8:13 — address directly, not around it** — Hebrews calls the first covenant "obsolete." This must be addressed in the Covenants tab by showing what Hebrews is actually arguing: the Levitical priesthood and Temple system are what is obsolete, not Torah itself. Support from the text of Hebrews, not around it.
 - **Add "strongest opposing scholarly reading" to contested passages** — For the major Pauline passages, include the mainstream academic reading before Amit's reading. Not to dilute — to demonstrate intellectual integrity and let the text compete rather than the system assert.
+- **Denomination Scorecard cell click** — Verify onclick fires correctly. If working: enhance to show 3-lens reasoning (then/today/when He returns) for each denomination × category intersection.
+
+### Audit findings — 2026-06-08 (Session 17)
+
+- **Ask Amit URL is dead.** The Claude.ai Project was deleted. The floating Amit panel in who_is_god.html points to a broken link. All users who click "Ask Amit" hit a dead end. Fix: recreate the Project, update AMIT_PROJECT_URL constant in the HTML. Highest priority user-facing issue.
+- **Amit_Start.md pending move.** There is an open task in root CLAUDE.md to move Amit_Start.md from this folder (`who_is_god/Amit_Start.md`) to the root Amit level. When that move happens, update the fetch paths in who_is_god.html and all other apps that reference it. Do not move without updating all references first.
 
 ### Standard pending items
 - **NEW TAB — The Name of God** — A dedicated tab examining the actual personal name of God: Yahweh (יהוה / YHVH). Cover: the Tetragrammaton appearing 6,828 times, the substitution history (Adonai → Kyrios → Dominus → LORD), ancient pronunciation evidence (Clement of Alexandria, Theodoret, Samaritan tradition), the short form Yah preserved in Hallelujah, the name meaning "I AM WHO I AM" from Exodus 3:14-15, and the connection to Yeshua whose name means "Yah saves." LORD is a title. Yahweh is the name.
