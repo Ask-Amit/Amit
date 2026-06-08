@@ -6,6 +6,39 @@ All Hub development files belong here. Do not create Hub files anywhere else.
 
 > **ACCURACY NOTE:** Architecture, witness design, and theology sections below are authoritative and current. Build history reflects Session 4 only — Hub has been significantly developed through Sessions 5–12. For current build state, pending tasks, and WHERE WE LEFT OFF: read the root CLAUDE.md. Do not rely on the "IMMEDIATE NEXT TASK" or "Next priorities" sections — they are outdated and removed below.
 
+## COMPETITIVE RESEARCH — 2026-06-08 (Session 17)
+
+### What Exists in the Market
+
+**Hebcal (hebcal.com)** — The most widely used Hebrew calendar tool online. Excellent algorithmic accuracy, Hebrew date conversion, iCal export for holidays, mobile-friendly. No task management, no devotional, no productivity features, no apologetics. Assumes the user already knows what the Hebrew calendar is and why it matters.
+
+**Messianic Sabbath / Messianic Light / Olive Tree** — Static websites showing feast dates and Hebrew calendar information. No interactivity. No task management. No daily companion layer.
+
+**"Voice of the Lord" Messianic Jewish Daily Devotional** — Keyed to the Hebrew calendar, includes Torah portion (parashah) readings, Haftarah, and Brit Chadashah (New Testament) readings, plus commentary on feast days. A devotional book, not an app.
+
+**Messianic Planners (Etsy)** — Physical paper planners incorporating the Hebrew calendar and feast days. Popular among Torah-observant families. No digital equivalent.
+
+**The gap Amit Hub fills:** No digital tool integrates Hebrew calendar awareness into a daily productivity dashboard so the witness happens passively. Hebcal is for people who already know. Amit Hub is for people who don't know yet. The calendar reveals itself over time through normal daily use.
+
+### What to Borrow — Active Suggestions
+
+**From Hebcal — Hebrew Date Algorithm (EVALUATE BEFORE NEXT CALENDAR BUILD):**
+Hebcal's Hebrew date conversion algorithm has been refined over decades and is trusted by millions of users worldwide. It is open source. Before the next calendar update or bug fix, evaluate whether the Hub should incorporate Hebcal's calculation engine rather than maintaining its own. Building and maintaining a correct Hebrew calendar algorithm is hard — Hebcal has already done this work and it is publicly available. This is a "build on rock" decision. Research Hebcal's license before using.
+
+**From "Voice of the Lord" — Torah Portion (Parashah) in Word for Today (ADD TO WORD FOR TODAY FRAMEWORK):**
+The weekly Torah portion — the parashah — is the worldwide Shabbat-to-Shabbat scripture reading cycle followed by every Torah-observant and Messianic congregation on earth. Adding the current parashah to the Word for Today panel would tie the Hub directly into the rhythm of the Hebrew year, not just the feast days. Every serious Torah-observant believer follows this cycle. It is a natural layer for the three-part framework (Then — what happened in this portion historically; Now — what Yeshua fulfilled or embodied in relation to this passage; What Shall Happen — the prophetic completion). This addition connects any Hub user to the same scripture the worldwide body is reading that week. Add this to the Word for Today task spec.
+
+**From physical Messianic planners — Print Export (FUTURE CONSIDERATION):**
+Messianic planners on Etsy sell well because Torah-observant families want a physical calendar that shows feast days alongside daily life. A "print this month" view that generates a clean PDF with Hebrew dates and feast markers on the left side of each cell would serve this audience. Not an immediate build — but worth noting as a feature that has demonstrated demand.
+
+### What Amit Hub Does That Nothing Else Does
+- Hebrew calendar embedded in a daily productivity dashboard so non-Messianic users encounter it passively
+- The witness principle: the supernatural becomes visible through the natural over time
+- Two-panel calendar design (Gregorian + Hebrew side by side — theological, not cosmetic)
+- Feast day chips → full explanation → link to who_is_god.html (on-ramp for investigation)
+- Morning Altar + Word for Today + Pursuits: daily spiritual rhythm built into productivity
+- Integration with the broader Amit system: one click from the Hub to the investigation
+
 ## AUDIT FINDINGS — 2026-06-08 (Session 17)
 
 Issues found in this file during cross-folder review. Address before next Hub build:

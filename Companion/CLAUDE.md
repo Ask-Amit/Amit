@@ -24,6 +24,34 @@ That is the experience this app must produce. Not a chatbot. Not a study tool. A
 
 ---
 
+## COMPETITIVE RESEARCH — 2026-06-08 (Session 17)
+
+### What Exists in the Market
+
+**Creed** — 1.2M+ users. Described as "Tamagotchi meets Duolingo for Christian." Chat with AI companion "Lenny," study scripture, connect to local churches and faith communities. 60% users are 15-30, fastest growing is 50-70 women. Broadly evangelical, denominationally neutral. No Torah. No Messianic. No name Yahweh. No apologetics investigation.
+
+**Dabar** — Web-based AI spiritual companion. Responds to real-life questions (grief, doubt, anxiety, purpose) with four-part structured reflections drawn exclusively from KJV Bible. Pastoral, not apologetic. No denomination analysis, no Hebrew roots.
+
+**FaithTime / Little Lamb** — Gamified daily devotion app. Habit-building through small goals, streaks, and progress signals. AI-assisted doctrinal Q&A (Ask Bible Chat). Designed for short attention spans and daily habit formation.
+
+**Generic "Claude by Anthropic" faith companion** — Free AI faith companion with theological guardrails, personalized devotionals, prayer, and scripture exploration. No specific theological framework.
+
+**The gap Amit fills:** No AI companion addresses Torah-keeping, the Messianic perspective, the personal name of God, or presents the investigation rather than assuming the conclusions. Creed assumes evangelical orthodoxy. Dabar assumes KJV-only. Amit begins from honest uncertainty and walks the road with the person. That is fundamentally different.
+
+### What to Borrow — Active Suggestions
+
+**From Creed — Local Community Connection (ADD TO COMPANION ROADMAP):**
+Creed recommends local churches and connects users to Christian communities near them. Amit has no "find your community" feature. When someone walks through the investigation and is moved — when they want to find people who live this way — Amit has nowhere to send them. A "Find Community" feature that surfaces Torah-observant and Messianic congregations by location (using a curated directory or public database) is a natural next step. When the companion relationship has matured and trust is established, Amit can say: "You don't have to walk this alone. Let me help you find others who are on this road." Add to the companion roadmap. Not Stage 1 — but design space for it.
+
+**From Dabar — Four-Part Reflection Structure for Life Questions (FORMALIZE IN COMPANION SYSTEM PROMPT):**
+Dabar responds to life questions with: (1) What does scripture say about this? (2) What has this looked like historically? (3) What is the promise going forward? This maps almost exactly to our then/now/what shall happen framework and should be formalized in how Amit responds to pastoral/life questions — not theological questions, but "I'm going through something hard" moments. Structure: (1) What Torah and scripture say about this situation; (2) How Yeshua addressed it or embodied it; (3) What the promise is going forward. Consistent structure builds trust.
+
+**From FaithTime — Daily Habit Formation (CONSIDER FOR HUB):**
+FaithTime uses gamification (streaks, progress signals, small daily goals) to build spiritual habits. Amit isn't going to be a Tamagotchi. But the principle is sound: returning daily is what builds the companion relationship. The Hub's Morning Altar is already designed for this. Consider adding a simple continuity signal — not a game, but a way for Amit to notice and acknowledge when someone returns consistently. "You've walked alongside me for 30 days." That's not gamification. That's the companion noticing.
+
+### Red Flag
+Creed has 1.2M users, significant funding, and growing fast. It cannot be competed with on scale. Amit's entire advantage is the theological depth and specificity that Creed deliberately avoids. The Messianic, Torah-observant, Hebrew-roots angle is Amit's lane. Do not try to be broadly evangelical. That lane is occupied. Stay specific, stay deep, stay on the road Amit actually walked.
+
 ## Memory Architecture — The Foundation of This App
 
 This is the most important design decision in the companion. Get this right and everything else builds on rock. Get it wrong and every session feels like starting over.

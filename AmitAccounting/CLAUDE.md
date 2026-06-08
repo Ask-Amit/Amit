@@ -77,6 +77,41 @@ The actual accounting application has not been built yet. The proposal is the fi
 - `copyAmitContext()` and `welcomeCopy()` fetch `amitBody` from GitHub but `fullContext = TIM_PRIMER` only — `amitBody` is fetched and discarded. May be intentional (Tim's conversation is fully scoped in TIM_PRIMER) or an oversight. Confirm with Ryan before changing.
 - **LIVE BUG — "Reply to Ryan" mailto link has no `to:` address.** Opens email with no recipient. This proposal was already delivered to Tim. If Tim clicked Reply, his email went nowhere. Fix: add Ryan's email address to the `to:` field in the mailto link. 30-second fix. Do this before any other AmitAccounting work.
 
+## COMPETITIVE RESEARCH — 2026-06-08 (Session 17)
+
+### What Exists in the Market
+
+**QuickBooks Contractor Edition / Online**: Leading platform, subscription-based ($30-100+/month), job costing available, receipt capture on mobile, integrates with Procore and Buildertrend. Designed for someone who already speaks accounting or has a bookkeeper.
+
+**Knowify**: Construction-specific job management — estimating, job costing, change orders, QuickBooks integration. Built around the idea that every dollar belongs to a specific job. Strong for mid-size contractors.
+
+**Buildertrend**: Full construction management platform — budgeting, job costing, client portal, scheduling. Too large for a solo contractor. Competes more with project management than bookkeeping.
+
+**Wave**: Free cloud-based accounting, invoicing, receipt scanning. Makes money on payment processing and payroll services, not the core bookkeeping. Clean UI. No job costing by default. Not contractor-specific.
+
+**GnuCash**: Free, open-source, powerful. Zero onboarding for the uninitiated. Not usable without accounting knowledge.
+
+**Shoeboxed**: Standalone receipt capture and OCR — dedicated mobile app, physical mail-in service ("Magic Envelope"), extracts vendor/amount/category automatically. Not a full bookkeeping system.
+
+**The gap Amit fills:** Nothing is designed for the owner who doesn't speak accounting — with a CPA-designed chart of accounts as the default, job costing as the spine, document-first interface, and a clean year-end handoff package for the CPA. The owner doesn't need to know what a debit is. Amit handles the 80%. Tim handles the year-end.
+
+### What to Borrow — Active Suggestions
+
+**From Knowify — Job Costing as the Default Spine (BUILD FROM DAY ONE):**
+In Knowify, every transaction belongs to a job. The P&L shows per-job profitability. This is how contractors actually think — not "office supplies expense" but "what did Job #47 cost me?" AmitAccounting should make job assignment the first action on every transaction, not an optional tag. Every receipt, every invoice, every hour is assigned to a job before anything else. This is Tim's world — confirm with him, but it should be the backbone of the data model from Session 1.
+
+**From Wave's Revenue Model — Consider CPA Portal as the Paid Feature:**
+Wave gives away core bookkeeping and makes money on payment processing. For AmitAccounting, consider: the owner uses the bookkeeping for free. The CPA portal — clean export, year-end package, CPA review mode, Tim's chart-of-accounts templates — is the paid feature. Revenue is on the professional side, not the owner side. The owner never pays. Tim (and CPAs like him) pays to receive clean books instead of a shoebox. This could be a stronger model than a one-time owner purchase. Discuss with Tim before deciding.
+
+**From Shoeboxed — Physical Receipt Mail-In (HOLD FOR LATER):**
+Shoeboxed offers a "Magic Envelope" service where contractors mail in paper receipts and Shoeboxed digitizes them. For contractors who are in the field all day and don't want to photograph receipts on site, this is worth noting. Not for Stage 1 — but as a future tier for field-heavy contractors.
+
+**From IDP/AI standard — Auto-extraction is now expected:**
+Modern construction accounting software uses AI to extract vendor, amount, category, and date from receipt photos automatically. This is no longer a differentiator — it's the expected baseline. Claude Vision API for OCR (already planned) is confirmed correct. Ensure this is in the build spec from the start.
+
+### Red Flag
+This market is genuinely crowded for contractors. Knowify, Buildertrend, QuickBooks Contractor Edition, and Foundation Software all compete here with significant resources. AmitAccounting's differentiator must be stated clearly and built around: designed by a CPA from the ground up, simple enough for the owner who has never done books, and connected to the broader Amit mission. If it becomes just another bookkeeping tool, it won't win. It wins because of Tim and because of the mission.
+
 ## Backend Platform Decision — STILL OPEN
 Supabase vs Azure. Do NOT treat Azure as decided — it was reopened in Session 13. Supabase Pro ($25/month, full stack bundled) is current front-runner. Resolve this before any database work begins.
 

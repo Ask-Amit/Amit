@@ -102,6 +102,34 @@ A hybrid scoring 94% on hybrid standards is an honest 94%. Never compared to the
 
 ---
 
+## COMPETITIVE RESEARCH — 2026-06-08 (Session 17)
+
+### What Exists in the Market
+
+**Performance benchmarks** (PassMark, UserBenchmark, CrystalDiskInfo): Tell you how fast or healthy a machine is. No certification document. No builder record. No permanent ID. No valuation.
+
+**Marketplaces** (Swappa, BackMarket): Human-moderated listings. Swappa requires sellers to verify device possession via a photo with a unique code. PayPal payment — not true escrow. No hardware fingerprint comparison. No builder reputation score.
+
+**Microsoft PC Health Check**: Checks Windows 11 compatibility and basic health. No certification. No valuation. No record that travels with the machine.
+
+**The gap Amit fills:** Nothing in the market does guided certification + permanent verifiable hardware record + builder reputation + fingerprint-matched escrow. The field is split between benchmarks (performance) and marketplaces (listing verification). Amit Computer Value is the combination that doesn't exist.
+
+### What to Borrow — Active Suggestions
+
+**From Swappa — Physical Possession Verification Photo (ADD TO STAGE 1):**
+Swappa requires sellers to photograph their device turned on, next to a piece of paper with a unique code Swappa generates. Low-tech, no AI required, and it proves the machine exists in that person's hands at the moment of certification. Amit should do the same: at the end of the certification, Amit generates a one-time verification code. The builder photographs the machine showing that code. The photo gets embedded in the certification report with a timestamp. No one can certify a machine they don't physically possess.
+
+Why this matters for Stage 1: This adds fraud resistance at zero infrastructure cost. No server. No AI. Just a generated code and a required photo. Do this before writing the first line of Stage 1 HTML — it changes the certification output design.
+
+**From modern AI tools — Auto-extraction (STAGE 2, already planned):**
+Modern tools use IDP/AI to extract vendor, amount, category, and date from receipt and invoice photos automatically. Our Stage 2 Claude Vision API plan is confirmed correct by the market. This is now the expected standard, not a differentiator. Make sure it's in Stage 2.
+
+### What Amit Does That Nothing Else Does
+- Expertise-level progression (beginner to expert, adapts across builds)
+- The encouraging companion voice throughout — same character as who_is_god.html
+- The Amit thread at completion: one quiet sentence pointing somewhere with even stronger evidence
+- Permanent hardware history chain (each sale adds a link, machine has a verifiable history)
+
 ## AUDIT FINDINGS — 2026-06-08 (Session 17)
 
 Two gaps that must be resolved before Stage 1 build begins:
