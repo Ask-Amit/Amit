@@ -194,14 +194,34 @@ Tamper detection: screenshots timestamped and hardware-matched. Report cryptogra
 
 ---
 
-## Escrow Payment System (Future)
+## Escrow Payment System (Stage 4 — Future)
 
-- Buyer deposits funds — held in escrow by Amit Computer Value
-- Seller certifies before handoff — machine gets PCV-ID
-- At handoff, buyer certifies same machine within 12-hour window (or at seller's location)
-- Hardware fingerprint matches + photos match → funds release automatically
-- Mismatch → funds held, dispute opened, Amit has all evidence
-- Clean certification + verified match = transaction final, no buyer's remorse claims
+**The full transaction flow:**
+
+1. **Builder completes the build** → runs certification → receives PCV-ID and full report
+2. **Certification becomes the listing** — not a document attached to the listing, but the listing itself. What the system measured is what's advertised. No gap between claim and reality because they are the same document. The builder cannot embellish — the hardware fingerprint is the truth.
+3. **Buyer reviews the certification** → decides to purchase → commits funds to escrow. Funds are held — builder knows the sale is real before the machine changes hands.
+4. **Buyer runs their scan** — independently, as a separate unit evaluation. System compares both scans only after both are complete. Neither party sees the other's raw results before the comparison.
+5. **Match confirmed** → funds release automatically to builder → final certification attached to hardware → transaction complete. Both builder score and buyer score updated.
+6. **No match** → funds held → dispute opened automatically → builder must take machine back, accepts reduced builder score, forfeits payment, or some combination. The system already has the evidence from both scans — no arbitration needed, only evidence review.
+
+**What this protects:**
+- Builder: buyer funds are committed before the scan — builder is protected from a buyer who completes the scan and then walks away from a verified match
+- Buyer: funds don't release until the machine is confirmed as the same machine — buyer cannot be defrauded
+- Neither party trusts the other. Both trust the system.
+
+**Two delivery scenarios — same mechanism:**
+- In person: buyer scans at seller's location, match confirmed, funds release, machine goes home
+- Shipped: funds held in escrow, buyer has a verification window after receiving (24-hour default, configurable), buyer scans, match confirmed, funds release
+
+**Dispute resolution built in:**
+Disputes don't need a human arbitrator. The system already has two independently-generated hardware fingerprints, timestamped screenshots, and the comparison result. The evidence is the resolution.
+
+**Builder reputation consequence:**
+A mismatch is not just a failed transaction — it is a permanent mark on the builder's public score. The builder score is visible to every future buyer who scans any machine they've ever certified. One mismatch is a warning. A pattern is disqualifying. The market self-regulates.
+
+**Certification chain — permanent hardware history:**
+Every verified transaction adds a link. First sale: builder cert + buyer cert, matched, final certification attached. Second sale: new buyer scans, compared to the existing chain. Third sale: same. The PCV-ID becomes a permanent history that travels with the machine through every owner — not a snapshot, a chain. The older and cleaner the chain, the more valuable the record. This is what distinguishes Amit Computer Value from any existing tool: the system generates the history through the verification itself.
 
 ---
 
