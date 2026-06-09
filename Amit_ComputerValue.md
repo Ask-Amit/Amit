@@ -152,6 +152,39 @@ The QR code is not just identity verification. It is the permanent link to every
 **Why showing the bad matters:**
 A certification that only shows what passed is a sales document. A certification that shows what passed, what failed, what was flagged, and what was inconclusive is a trust document. Buyers who see Amit report a minor issue honestly will trust the certification far more than one that only shows green checkmarks. The credibility of the whole system depends on Amit never hiding the ugly.
 
+---
+
+## The Machine Lifecycle — A Living Encyclopedia
+
+Computer Value is not a one-time certification. It is the complete living record of a machine from first build to end of life. Every health check, every ownership transfer, every component change — appended to the chain. The QR code is the key to a document that grows with the machine.
+
+**At birth — builder certification:**
+The machine is born with a record. Builder runs the full diagnostic. Every component identified, tested, timestamped. The first entry in the encyclopedia. Amit certifies it. QR code generated and physically attached.
+
+**Through its life — ongoing health snapshots:**
+Any time the owner wants to know the health of their machine — at any moment — they run a check. The result is added to the record automatically. Not a new certification, an entry. The machine builds a health history the way a person builds a medical history.
+
+"Last snapshot: March 2026 — all components healthy, RAM at 34% average usage."
+"Current snapshot: September 2026 — RAM usage averaging 78%, storage showing early wear indicators."
+
+The owner sees the trajectory, not just the moment. The next buyer sees the entire history, not just the last test.
+
+**At ownership transfer:**
+When the machine is sold, the new owner scans the QR code. The full record is there — every health snapshot since the day it was built. They're not trusting the seller's word. They're reading the machine's own history.
+
+Their purchase becomes the next entry. New owner, new chapter. Same machine. Same record.
+
+**When components change:**
+A GPU swap. A RAM upgrade. A new NVMe drive. Each change is logged in the encyclopedia. "2026-09-14 — RAM upgraded from 2x8GB to 2x16GB DDR4-3600. New health baseline established." The record doesn't reset — it grows. A machine with a clean upgrade history is worth more than one with an unknown past.
+
+**At end of life:**
+Even when the machine is retired or parted out, the record remains. Individual components can carry forward their own certification history — "this GPU was pulled from a certified machine, PCV-2026-RYZ9-RTX3070, last verified healthy 2027-01-08." The component's clean history transfers to its next build.
+
+**What this creates:**
+The most trusted PC marketplace that has ever existed. Not because anyone vouches for the seller. Because the machine vouches for itself. Every scan tells the complete truth — not a sales pitch, not a guess, but a documented record of every test ever run, every owner who ever held it, every component ever changed.
+
+This is the encyclopedia of that machine. From first boot to last. Permanent. Verifiable. Amit's name on every entry.
+
 ## Unique Build ID System (PCV-ID)
 
 Format example: **PCV-2026-RYZ9-RTX3070-K240-X1TB-A7X3**
@@ -286,6 +319,114 @@ Machines scoring 95%+ on new build standard: Amit Computer Value stands behind t
 The same character who certifies computers is the same character in who_is_god.html and the Bible companion. Honesty. Walk alongside. Never cut. Encourage always.
 
 When the certification is complete and the person has been genuinely served — Amit says one quiet sentence. Not a banner. Not a popup. Just an offer. The door is open. They walk through it because they already trust who opened it.
+
+---
+
+## Component Impact Translation — What the Number Actually Means
+
+When Computer Value shows a spec — RAM speed, CPU frequency, drive read speed — it never shows the number alone. It translates it into real-world impact immediately.
+
+**The problem it solves:**
+A normal person hears "your RAM went from 2133MHz to 3600MHz" and calculates: that's nearly double, so my computer should be nearly twice as fast. That's wrong. The actual impact on overall system performance might be 2-3%. Without translation, specs mislead more than they inform.
+
+**How it works:**
+Every spec result includes a plain-language impact statement:
+- Not "3600MHz" — but "3600MHz — this affects approximately 3-5% of your overall computing experience for general use. You'll notice it most when switching between many open programs."
+- Not "16GB RAM" — but "16GB — sufficient for general use, web browsing, and office work. You'll begin to feel a shortage if you run video editing, large development environments, or 20+ browser tabs simultaneously."
+- Not "NVMe 3500MB/s read" — but "Fast storage — this is not your bottleneck. Files open quickly and your system boots fast. Upgrading storage further won't change how this machine feels."
+
+**The bottleneck context:**
+Every number shown is placed in context of the whole machine. If the CPU is the bottleneck, Computer Value says so when showing any other spec — "your RAM is healthy, but your processor is what's holding this machine back. Improving RAM speed won't change that."
+
+**The goal:**
+A person who finishes a Computer Value report understands their machine — not just its specs, but what each component is actually doing for them and what would actually make it faster.
+
+---
+
+## Upgrade Advisor — "Before You Spend That Money"
+
+The average consumer doesn't want specs. They want one answer: **is this upgrade worth it for me?**
+
+When a user is considering an upgrade — more RAM, faster RAM, new GPU, bigger drive — Computer Value analyzes their actual machine and tells them the truth before they spend anything.
+
+**How it works:**
+- User says: "I'm thinking about going from 2x8GB to 2x16GB. Worth it?"
+- Computer Value already knows the machine from the health scan — current RAM, CPU, GPU, storage, usage patterns
+- It identifies the actual bottleneck: what's actually limiting this machine right now
+- It gives a plain-language answer based on what the person actually does
+
+**Three possible answers:**
+
+1. **"Yes — here's exactly why."** RAM is the bottleneck. Usage is consistently high. Adding more will produce a noticeable, real-world difference for what you do. Here's what you'll feel.
+
+2. **"Not yet — here's what to do first."** Your RAM isn't the problem. Your CPU (or storage, or GPU) is the ceiling. Spending $150 on RAM won't change how this machine feels. Here's what would.
+
+3. **"You won't feel it."** Your machine already has headroom. At your current usage, you have X GB free. The upgrade is technically valid but you won't notice the difference doing what you do.
+
+**The bottleneck identifier:**
+Every machine has one component that's holding everything else back. Computer Value finds it and names it in plain language — not "CPU utilization at 87%" but "your processor is the slowest part of your machine for what you're doing. More RAM won't help until this is addressed."
+
+**Use case profiles:**
+The same upgrade means completely different things depending on what the person does:
+- **General use / email / browsing** — 16GB is almost always enough. More RAM rarely helps.
+- **Gaming** — RAM speed matters moderately. GPU is almost always the bigger lever.
+- **Video editing / rendering** — More RAM has a large impact. This is where 32GB actually shows.
+- **Development / multiple environments** — RAM capacity matters. Running out causes paging, which kills performance.
+- **Running multiple applications** — Capacity matters more than speed.
+
+Computer Value asks what the person does — or detects it from the scan — and calibrates the answer accordingly.
+
+**Before/After Performance Benchmark — The Felt Difference:**
+Before any upgrade recommendation, Computer Value runs a simple timed task that the user physically performs. Simple enough for anyone — no technical knowledge required. The task is designed to stress the component being evaluated (RAM, CPU, storage) so the result reflects real-world impact on that specific bottleneck.
+
+The user does the task. The app times it. The result is stored as a snapshot.
+
+After the upgrade — whether simulated (projected) or actual (run again after spending the money) — the same task runs. The comparison is shown in plain terms:
+
+"Before: 20 seconds. After: 13 seconds. That's what your $150 bought."
+
+Not MHz. Not GB. Seconds. Something they experienced twice with their own hands.
+
+**Two modes:**
+- **Pre-purchase projection** — Before spending anything, Amit runs the benchmark, identifies the bottleneck, and projects the improvement based on known performance gains for that upgrade. "Based on your machine, this upgrade would bring you from 20 seconds to approximately 13 seconds."
+- **Post-upgrade confirmation** — After the upgrade is installed, run the same benchmark. Actual before/after comparison stored permanently in the certification record. The person sees exactly what they got for their money.
+
+**Snapshot storage:**
+Every baseline is saved locally. When the user returns after an upgrade, Computer Value automatically compares against their stored baseline. "Last time we measured this, your machine took 20 seconds. Today: 13 seconds. Here's what changed and why."
+
+The baseline also becomes part of the machine's certification record — so a future buyer can see not just specs but actual measured performance at the time of certification.
+
+**The Ongoing Relationship — Purchase Once, Use Forever:**
+The certification purchase isn't a one-time transaction. It includes the performance baseline as a permanent reference point. The consumer gets:
+- Verification of the machine they're buying — the original purpose
+- Upgrade analysis for future decisions — "what's worth spending on next?"
+- A health monitor they can return to anytime — "something feels slower, let's check"
+
+**The "My Computer Is Slow" Return Case:**
+Six months later, the user notices something feels off. They come back to Computer Value. Amit runs the same performance benchmark. Compares against their stored baseline automatically.
+
+"Last time we measured this, your machine completed the task in 13 seconds. Today: 31 seconds. Your RAM usage has gone from 34% to 78% since your last test. Something changed. Do you want me to look deeper?"
+
+Amit then either troubleshoots the cause (background processes, malware, fragmentation, failing drive) or identifies that the machine has genuinely outgrown its current specs and recommends the right upgrade — with the before/after projection already built in.
+
+The person isn't starting over. They're returning to a companion who remembers where they started.
+
+**The Budget Optimizer:**
+User inputs a budget — "I have $150 to spend." Amit scans the machine, identifies the actual bottleneck, pulls current market pricing, and returns one answer: the single upgrade that delivers the most real-world improvement for that exact budget. Not a list. Not options. One recommendation — with the reasoning shown so the person understands why, not just what to buy.
+
+"Your storage is your bottleneck, not your RAM. A 1TB NVMe drive costs $65 right now and will change how your machine feels every single time you open a program, save a file, or boot up. That $150 RAM upgrade won't change any of those things. Here's the drive I'd buy."
+
+**The "Do Nothing" recommendation:**
+Sometimes the most trusted answer is: "Your machine is healthy. Don't spend anything right now. Come back in 60 days and we'll check again." A tool that tells you to keep your money is a tool you trust for life. Amit has no commission. No reason to push the more expensive option. That's what makes every recommendation credible.
+
+**The "Right Time to Buy" signal:**
+Instead of a hard yes/no, Amit can say: "Not yet — but watch for this. When your RAM usage regularly hits 85% or higher, that's when the upgrade pays off. Run Computer Value again in 30 days and we'll check." Turns a one-time tool into an ongoing companion.
+
+**Why this builds trust:**
+Talking someone out of a bad upgrade is the highest-trust thing Computer Value can do. The person who was told "don't spend that $150" will come back when they're ready to buy the upgrade that actually matters — and they'll trust every recommendation Amit makes. The short-term lost sale is the long-term earned loyalty.
+
+**The companion standard throughout:**
+Amit approaches every hardware question the way a knowledgeable friend would — not a salesperson. The person may already be excited about buying the RAM. They've made up their mind. Amit doesn't shame them for it. It says: "Before you buy, let me look at your machine. Here's what I see." Gently. Honestly. Always looking out for what's best for them — because a companion who looks out for your wallet is a companion you trust with everything else.
 
 ---
 
