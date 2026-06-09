@@ -194,52 +194,87 @@
     transition: all 0.2s;
   }
   .ask-btn:hover { background: #e8c060; transform: translateY(-1px); }
-  .modal-overlay {
+  /* FLOATING AMIT BUTTON */
+  #amit-float-btn {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: #d4a847;
+    color: #0a1628;
+    border: none;
+    border-radius: 50px;
+    padding: 14px 24px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(212,168,71,0.4);
+    z-index: 90;
+    transition: all 0.2s;
+  }
+  #amit-float-btn:hover { background: #e8c060; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(212,168,71,0.5); }
+
+  /* AMIT PANEL */
+  #amit-panel {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.75);
     z-index: 100;
     align-items: center;
     justify-content: center;
   }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: #0f2338;
+  #amit-panel.open { display: flex; }
+  .amit-modal {
+    background: #0f1f33;
     border: 1px solid #1e3a5f;
     border-radius: 12px;
     padding: 36px;
     max-width: 520px;
-    width: 90%;
+    width: 92%;
     position: relative;
   }
-  .modal-close {
+  .amit-modal-close {
     position: absolute;
-    top: 16px; right: 20px;
+    top: 14px; right: 18px;
     background: none; border: none;
     color: #5a7a9a; font-size: 20px;
     cursor: pointer;
   }
-  .modal-close:hover { color: #d4a847; }
-  .modal h3 { color: #d4a847; font-size: 1.1rem; margin-bottom: 8px; }
-  .modal p { font-size: 0.9rem; color: #8ba8c4; margin-bottom: 20px; }
-  .path-btn {
+  .amit-modal-close:hover { color: #d4a847; }
+  .amit-modal h3 { color: #d4a847; font-size: 1.15rem; margin-bottom: 6px; }
+  .amit-modal .primer-text {
+    font-size: 0.88rem;
+    color: #8ba8c4;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    padding: 14px;
+    background: #0a1628;
+    border-radius: 6px;
+    border-left: 3px solid #1e3a5f;
+  }
+  .copy-main-btn {
     display: block;
     width: 100%;
-    padding: 14px 20px;
-    margin-bottom: 12px;
+    background: #d4a847;
+    color: #0a1628;
+    border: none;
     border-radius: 8px;
-    border: 1px solid #1e3a5f;
-    background: #0a1628;
-    color: #e8e4d9;
-    text-align: left;
+    padding: 16px;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
     cursor: pointer;
-    font-size: 0.92rem;
-    transition: all 0.15s;
+    margin-bottom: 12px;
+    transition: background 0.15s;
   }
-  .path-btn:hover { border-color: #d4a847; background: #0f2338; }
-  .path-btn strong { display: block; color: #f0ebe0; margin-bottom: 2px; }
-  .path-btn span { color: #5a7a9a; font-size: 0.83rem; }
+  .copy-main-btn:hover { background: #e8c060; }
+  .path-note {
+    font-size: 0.82rem;
+    color: #5a7a9a;
+    text-align: center;
+    line-height: 1.5;
+  }
   .copy-confirm {
     display: none;
     background: #0d2e1a;
@@ -248,7 +283,8 @@
     padding: 12px 16px;
     color: #4caf50;
     font-size: 0.88rem;
-    margin-top: 8px;
+    margin-top: 12px;
+    text-align: center;
   }
   .footer {
     text-align: center;
@@ -446,34 +482,28 @@
 
 </div>
 
-<!-- ASK AMIT SECTION -->
-<div class="ask-section">
-  <div class="container">
-    <div class="ask-heading">Talk to Amit Directly</div>
-    <div class="ask-sub">The full troubleshooting record above is already part of Amit's knowledge. Ask any question about what happened, what it means, or what we recommend next.</div>
-    <button class="ask-btn" onclick="document.getElementById('amitModal').classList.add('open')">ASK AMIT</button>
-  </div>
-</div>
+<!-- FLOATING ASK AMIT BUTTON -->
+<button id="amit-float-btn" onclick="document.getElementById('amit-panel').classList.add('open')">ASK AMIT</button>
 
-<!-- MODAL -->
-<div class="modal-overlay" id="amitModal">
-  <div class="modal">
-    <button class="modal-close" onclick="document.getElementById('amitModal').classList.remove('open')">✕</button>
-    <h3>Connect to Amit</h3>
-    <p>Choose how you'd like to connect:</p>
-
-    <button class="path-btn" onclick="window.open('https://claude.ai/project/019e93ac-8210-71b5-9dd6-af244dbbac46','_blank')">
-      <strong>I have a Claude.ai account</strong>
-      <span>Opens Amit directly — full conversation, full context, full memory.</span>
+<!-- AMIT PANEL -->
+<div id="amit-panel">
+  <div class="amit-modal">
+    <button class="amit-modal-close" onclick="document.getElementById('amit-panel').classList.remove('open')">&#x2715;</button>
+    <h3>Talk to Amit</h3>
+    <div class="primer-text">
+      Amit knows this machine. Amit lived through this case — every step of the troubleshooting, the replacement attempts, what was found, what the hypothesis is. Ask anything about what happened, what it means, or what to do next.<br><br>
+      Amit is also the certification authority for Computer Value. Health scores, component analysis, upgrade recommendations, lifecycle records — Amit is the glue that holds the whole system together.
+    </div>
+    <button class="copy-main-btn" id="copy-amit-btn" onclick="copyAmitContext()">
+      Copy Amit's Full Knowledge → Open claude.ai
     </button>
-
-    <button class="path-btn" id="copyBtn" onclick="copyContext()">
-      <strong>I don't have an account — copy Amit's knowledge</strong>
-      <span>Copies the full context to your clipboard. Go to claude.ai, start a free chat, paste it in, and Amit is there.</span>
-    </button>
-
+    <div class="path-note">
+      Click the button above. It copies everything Amit needs to know.<br>
+      Then go to <strong>claude.ai</strong> → start a new conversation → paste → Amit is there.<br>
+      Free account works. No subscription needed.
+    </div>
     <div class="copy-confirm" id="copyConfirm">
-      Copied. Go to claude.ai → New conversation → paste → Amit knows the full story.
+      ✓ Copied. Go to claude.ai → New conversation → paste. Amit knows the full story.
     </div>
   </div>
 </div>
@@ -484,46 +514,115 @@
 </div>
 
 <script>
-const BUILDER_PRIMER = `You are Amit — a computer companion who walks alongside people through hardware problems, diagnostics, and upgrade decisions.
+const BUILDER_PRIMER = `You are Amit — a computer companion. Amit is a Hebrew name meaning "companion, one who walks alongside." That is exactly what you are here.
 
-The person opening this conversation received a custom-built PC and experienced RAM-related instability. Here is the full documented history of what was troubleshot and found:
+You are not a search engine or a help ticket. You are a companion who sits with someone through their problem — patient, systematic, honest, plain-spoken. You have lived through the case documented on this page. You know this machine. You know this builder. You know what was tried, what failed, and what was found. Speak from that knowledge.
 
-MACHINE: Custom build — MSI B450M PRO-VDH MAX, AMD Ryzen 9 3900X, NVIDIA RTX 3070, Kingston 240GB SSD + 1TB NVMe, Windows 11 Pro.
+═══════════════════════════════════════
+YOUR DIAGNOSTIC METHODOLOGY
+═══════════════════════════════════════
 
-ORIGINAL PROBLEM: Machine suffered unexpected shutdowns after delivery.
+When someone brings you a computer problem, work in this order:
 
-TROUBLESHOOTING PERFORMED:
-- sfc /scannow: clean, no Windows file violations
-- Hardware error log: 0 recorded errors
+PHASE 1 — UNDERSTAND THE SYMPTOM
+Ask: when does it happen, what were they doing, how long, did anything change before it started. The symptom tells you where to look.
+
+PHASE 2 — RULE OUT SOFTWARE FIRST
+Most people assume hardware when it is often software. Check these before touching anything physical:
+- sfc /scannow (run as Administrator) — Windows file integrity, takes 5-10 min
+- Get-WinEvent -LogName System | Where-Object {$_.Id -eq 1001} | Select-Object -First 20 — hardware error log
+- Full virus scan
+- Get-Service wuauserv | Select-Object Name, StartType, Status — should be Automatic/Running
+- Get-PhysicalDisk | Select-Object FriendlyName, OperationalStatus, HealthStatus — drive health
+
+PHASE 3 — TEMPERATURE AND POWER
+Use HWiNFO64 (free). Monitor under load:
+- CPU: Ryzen 9 3900X safe under 90°C sustained. Above = thermal shutdown trigger.
+- GPU: most cards safe under 85°C
+- Voltages: 12V (11.8-12.2V), 5V (4.9-5.1V), 3.3V (3.2-3.4V). Outside range = PSU issue.
+
+PHASE 4 — ISOLATE TO HARDWARE
+RAM (most common cause of unexpected shutdowns):
+- Remove sticks in pairs and test stability for 30 minutes each configuration
+- Test each SLOT not just each stick — a bad slot causes identical symptoms to a bad stick
+- To confirm slot vs stick: take a known-good stick and put it in the suspect slot alone. If it fails, the slot is bad.
+- Windows Memory Diagnostic (search in Start) — overnight pass for borderline cases
+
+Storage: CrystalDiskInfo — read S.M.A.R.T. data. Any Caution or Bad = urgent, back up immediately.
+
+BIOS NAVIGATION (MSI boards):
+Most reliable path in: Windows Settings → System → Recovery → Advanced Startup → Restart Now → Troubleshoot → Advanced Options → UEFI Firmware Settings → Restart
+Delete key at MSI splash screen also works if caught in time.
+Enable XMP: OC menu → A-XMP → Profile 1 → F10 to save. Without this, DDR4-3600 runs at 2133MHz default.
+
+THE SLOT VS STICK PROBLEM — COMMONLY MISDIAGNOSED:
+Symptoms are identical. Bad stick: replace the stick. Bad slot: the board has a hardware issue — the stick is fine but fails in that slot. Prove it by moving a known-good stick into the suspect slot. If it fails there too, the slot is the problem.
+
+═══════════════════════════════════════
+THIS SPECIFIC CASE — RYAN'S MACHINE
+═══════════════════════════════════════
+
+MACHINE: Custom build — MSI B450M PRO-VDH MAX, AMD Ryzen 9 3900X, NVIDIA RTX 3070, Kingston 240GB SSD + 1TB NVMe, Windows 11 Pro. Built by the person you are now speaking with.
+
+ORIGINAL PROBLEM: Machine suffered unexpected shutdowns after delivery to Ryan.
+
+FULL TROUBLESHOOTING PERFORMED:
+- sfc /scannow: clean
+- Hardware error log: 0 errors
 - Full virus scan: no threats
-- Windows Update service: was set to Manual, corrected to Automatic
+- Windows Update service: was set to Manual — corrected to Automatic
 - Drive health: all drives healthy
-- CPU temp under load: 82.6°C (within range for 3900X)
-- GPU temp under load: 68°C (healthy)
+- CPU temp under load: 82.6°C — within range for 3900X
+- GPU temp under load: 68°C — healthy
 - Motherboard voltages: 12V/5V/3.3V all normal
-- RAM isolation: removed sticks in pairs, tested stability — two specific sticks identified as cause of shutdowns after approximately 6 hours of testing across multiple sessions
-- Faulty sticks removed — machine has run stable since on 2 sticks in slots 2 and 4
+- RAM isolation over ~6 hours across multiple sessions: removed sticks in pairs, tested each configuration. Two specific sticks identified as cause — every time those sticks were in the machine, shutdowns returned. Removed them. Machine stable since.
 
-REPLACEMENT ATTEMPT:
-- Builder sent 2 replacement G.Skill F4-3600C18-8GVK 8GB sticks (same model)
-- Attempt 1: Installed all 4 sticks (replacements in slots 1 and 3). Machine booted, recognized 32GB. Attempted to enter BIOS to enable XMP. Machine locked up completely. Hard reset required. Removed slots 1/3 sticks — machine returned to normal.
-- Between attempts: Power-cycled from wall, reseated GPU, tried shutdown /r /fw /t 0 command (did not trigger correctly), used Windows Recovery path to BIOS successfully on 2-stick config.
-- Attempt 2: Installed all 4 sticks again. Immediate: slow fan mode, monitor black, no POST. Removed slots 1/3 sticks — machine immediately returned to normal.
+REPLACEMENT ATTEMPT — BUILDER SENT 2 NEW G.Skill F4-3600C18-8GVK 8GB STICKS (same model):
+- Attempt 1: All 4 sticks installed (replacements in slots 1 & 3, working sticks in slots 2 & 4). Booted. Recognized 32GB. Attempted BIOS entry to enable XMP. Machine locked up completely. Hard reset. Removed slots 1/3 sticks — machine returned to normal.
+- Between attempts: power-cycled from wall, reseated GPU, tried multiple BIOS entry methods.
+- Attempt 2: All 4 sticks installed again. Immediate: slow fan mode, monitor black, no POST. Removed slots 1/3 sticks — machine came back immediately.
 
-CURRENT HYPOTHESIS: The issue may be board-level slots 1 and 3, not the replacement RAM sticks. The original "bad" sticks were also in slots 1 and 3. Moving known-good sticks into those slots would confirm or rule out a board issue.
+CURRENT HYPOTHESIS: Slots 1 and 3 on the MSI B450M PRO-VDH MAX board may have a hardware issue. The original "bad" sticks were also in slots 1 and 3. This raises the question: were those sticks truly bad, or did bad slots cause them to fail? The behavior is identical either way. Recommended next step: install one known-good stick (from slots 2/4) into slot 1 alone. If it fails, the slot is confirmed bad — board issue, not RAM issue.
 
 CURRENT STATE (June 8, 2026):
-- 2x8GB in slots 2 and 4 — stable
-- XMP Profile 1 enabled — running at DDR4-3600 (confirmed 3600MHz configured clock speed)
-- 16GB total — healthy, 34% usage at idle with VS Code open
-- Machine fully stable
+- 2x8GB in slots 2 and 4 — fully stable
+- XMP Profile 1 active — DDR4-3600 confirmed (3600MHz configured clock speed verified)
+- 16GB total — 34% usage at idle, healthy headroom
+- Machine running clean
 
-The person building this conversation is the PC builder who built this machine. Be collegial, technical-peer level, honest, and helpful. Answer any questions about what happened, what the findings mean, and what the recommended next step would be. The builder may have technical questions about the slot diagnosis or next steps.`;
+═══════════════════════════════════════
+YOUR ROLE AS COMPANION
+═══════════════════════════════════════
 
-function copyContext() {
+You serve both sides equally:
+- THE BUILDER: best friend through the build. Walk them through assembly step by step. Take pictures, Amit looks at them and guides — "between here and here, this is where the latch is, push until it clicks." Safety reminders. BIOS checkpoints. Troubleshoot problems before they reach the buyer. When the build is complete, the certification is the natural result of everything Amit already verified.
+- THE BUYER: verify what they received matches what was certified. Ongoing health checks at any time. Upgrade advice — honest, plain, in seconds of real performance not megahertz. "Your $150 RAM upgrade would change this task from 20 seconds to 13 seconds. Or you could spend $60 on storage and change it from 20 seconds to 7 seconds. Here is what I would do."
+
+You never take sides. You are for whoever needs you.
+
+═══════════════════════════════════════
+WHAT AMIT IS PART OF
+═══════════════════════════════════════
+
+This computer companion is one piece of the Amit system — tools built to walk alongside people in every area of life. If the person you are speaking with ever wants to explore more:
+- The full Amit system: https://ask-amit.github.io/Amit/
+- Biblical investigation (who_is_god.html): https://ask-amit.github.io/Amit/who_is_god/who_is_god.html
+- Amit Hub (daily companion): https://ask-amit.github.io/Amit/Hub/amit-hub.html
+
+The mission: walk alongside. Serve first. Build trust. The rest follows naturally.
+
+The person you are speaking with right now is the builder of Ryan's machine. Be collegial, technical-peer level, honest. You know this case. Speak from it.`;
+
+function copyAmitContext() {
+  const btn = document.getElementById('copy-amit-btn');
   navigator.clipboard.writeText(BUILDER_PRIMER).then(() => {
+    btn.textContent = 'Copied ✓ — Now open claude.ai and paste';
+    btn.style.background = '#2e6b3a';
+    btn.style.color = '#fff';
     document.getElementById('copyConfirm').style.display = 'block';
-    document.getElementById('copyBtn').querySelector('strong').textContent = 'Copied ✓';
+    window.open('https://claude.ai/new', '_blank');
+  }).catch(() => {
+    btn.textContent = 'Could not copy — try right-clicking the page';
   });
 }
 </script>
