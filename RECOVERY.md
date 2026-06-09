@@ -37,7 +37,7 @@ Accessible at: https://ask-amit.github.io/Amit/RECOVERY.md
 
 ### Step 2 — Clone the GitHub repo
 ```
-git clone https://github.com/Ask-Amit/Amit.git "C:\Users\[username]\Documents\GitHub\Amit"
+git clone https://github.com/Ask-Amit/Amit.git "C:\Users\[username]\OneDrive\Documents\GitHub\Amit"
 ```
 
 ### Step 3 — Recreate the session memory junction
