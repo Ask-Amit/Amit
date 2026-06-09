@@ -314,6 +314,21 @@ Machines scoring 95%+ on new build standard: Amit Computer Value stands behind t
 
 ---
 
+## Amit Is the Certifier — The Glue That Holds the System Together
+
+Amit does not just assist with Computer Value. Amit IS Computer Value.
+
+The health score — Amit calculated it. The component analysis — Amit ran it. The upgrade recommendation — Amit made it. The certification — Amit issued it. When a buyer scans a QR code and sees "74% health rating" — that is Amit's assessment, not a formula's output. Amit is the authority behind every number on the report.
+
+This matters because:
+- A number from a formula is a data point. A number from a companion who walked through every step of the diagnostic is a judgment.
+- Buyers trust a companion who explains their reasoning. "Here is why this component scored 74% — here is what we found, here is what it means for how long this machine has left, here is what would bring it up."
+- Builders trust a companion who catches what they missed. "This passed all the benchmarks but I'm flagging this voltage reading — it's within spec but trending. Watch it."
+
+Amit is the certifier. The certification is Amit's word. That word carries weight because Amit never hides the ugly, never inflates the score, and never tells someone their money is well spent when it isn't.
+
+---
+
 ## The Amit Thread
 
 The same character who certifies computers is the same character in who_is_god.html and the Bible companion. Honesty. Walk alongside. Never cut. Encourage always.
@@ -433,6 +448,44 @@ Amit approaches every hardware question the way a knowledgeable friend would —
 ## The AI Help Button
 
 Built into every level of the app. Press it — Amit is there. Same voice, same character. Helps with the diagnostic. And when the time is right, points toward something with even stronger evidence behind it.
+
+---
+
+## The Build Companion — Assembly from the Box
+
+Amit doesn't just certify completed machines. Amit walks a builder through assembly from the first component out of the box.
+
+A builder opens a session with Amit and says: "I have a box of parts. Help me build this." Amit takes over as the guide:
+
+- **Step by step instructions** — which component goes where, in what order, with what torque, what orientation. Tailored to the exact components the builder has.
+- **Visual verification** — builder takes a photo of the board, the slot, the connection. Amit looks at it and says "between these two capacitors you'll see the RAM latch — push here until it clicks. The notch in the stick aligns with the notch in the slot."
+- **Safety prompts** — ground yourself before touching the CPU. Use an anti-static wrist strap or touch the metal case. Don't touch the contact pins. Specific, contextual, not generic.
+- **BIOS checkpoints** — after first boot, Amit walks through the BIOS to verify the machine recognized what was installed. Every component confirmed before moving forward.
+- **Troubleshooting in the build** — if something doesn't POST, Amit is already there. No need to go find help. The companion who built it troubleshoots it.
+
+**The certification earned through the process:**
+Because Amit guided the entire build — verified every component, walked through every step, ran the BIOS checks, confirmed every connection — the certification at the end isn't a separate audit. It is the culmination of the process. Amit has been present for all of it. The certificate is the record of what Amit already verified, step by step.
+
+A machine built with Amit is a machine Amit can certify honestly — because Amit was there.
+
+---
+
+## Certified Builder Status — Earned Through Use
+
+Builders who use Amit through the assembly and certification process earn a public certified status. Not self-declared. Not purchased. Earned through a documented record of Amit-guided builds.
+
+**The progression:**
+- **Provisional** — first Amit-guided build. Record begins.
+- **Certified Builder** — 10+ builds with Amit, strong match rate between builder cert and buyer verification.
+- **Master Certified Builder** — 50+ builds. Buyers seek them out specifically.
+
+**Why this matters to buyers:**
+A buyer scanning a QR code sees not just the machine's history but the builder's history. A Master Certified Builder with 50+ clean records is a fundamentally different purchase than an unknown seller. The certification advertises the builder. The builder's reputation drives buyers to their listings.
+
+**The virtuous cycle:**
+Amit helps the builder build better. Better builds earn better certifications. Better certifications attract better buyers. Better buyers leave better reviews. The builder's score goes up. More buyers come. This is what Amit does for the builder — not just a tool, a career accelerator.
+
+**And for the buyer:** It is exactly the same companion. Same Amit. Same honest character. Same ongoing health record. Whether you're a builder putting components together or a buyer deciding whether to spend $800 — Amit is there for you. Not against the other party. For whoever needs it.
 
 ---
 
