@@ -165,6 +165,179 @@ body {
   color: var(--gold);
 }
 
+/* ===== MEMORY NOTICE (inline in chat) ===== */
+.memory-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--navy);
+  border: 1px solid var(--gold-dim);
+  border-radius: 6px;
+  padding: 11px 16px;
+  margin-top: 10px;
+  font-size: 0.82em;
+  color: var(--border);
+  font-style: italic;
+}
+.memory-notice button {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8em;
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.memory-notice button:hover { background: var(--gold); color: var(--navy); }
+
+/* ===== MEMORY PANEL MODAL ===== */
+#memory-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 600;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+.memory-panel {
+  background: var(--scroll-bg);
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+  padding: 32px 28px;
+  max-width: 680px;
+  width: 100%;
+  position: relative;
+  margin: auto;
+}
+.memory-panel h2 {
+  font-family: 'Cinzel', serif;
+  color: var(--navy);
+  font-size: 1.3em;
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+.memory-panel .mp-sub {
+  color: var(--gold-dim);
+  font-style: italic;
+  font-size: 0.95em;
+  margin-bottom: 22px;
+}
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.tier-card {
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tier-card.active { border-color: var(--gold); }
+.tier-card .tier-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.82em;
+  letter-spacing: 1px;
+  color: var(--navy);
+}
+.tier-card .tier-status {
+  font-size: 0.75em;
+  font-style: italic;
+  color: var(--gold-dim);
+  margin-bottom: 4px;
+}
+.tier-card p {
+  font-size: 0.82em;
+  line-height: 1.6;
+  color: var(--ink);
+  flex: 1;
+}
+.tier-card .tier-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.75em;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-align: center;
+  transition: all 0.2s;
+  margin-top: 6px;
+}
+.tier-btn-active {
+  background: var(--navy);
+  color: var(--border);
+  border: 1px solid var(--border);
+  cursor: default;
+}
+.tier-btn-action {
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+.tier-btn-action:hover { background: var(--gold); color: var(--navy); }
+
+/* Discovery section inside memory panel */
+.discovery-row {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+.discovery-row h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 0.85em;
+  letter-spacing: 2px;
+  color: var(--navy);
+  margin-bottom: 12px;
+}
+.discovery-apps {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.discovery-app {
+  background: var(--parchment);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  text-decoration: none;
+  display: block;
+  transition: border-color 0.2s;
+}
+.discovery-app:hover { border-color: var(--gold); }
+.discovery-app .da-name {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78em;
+  color: var(--navy);
+  letter-spacing: 1px;
+  display: block;
+  margin-bottom: 3px;
+}
+.discovery-app .da-desc {
+  font-size: 0.75em;
+  color: var(--border);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* Mobile tiers */
+@media (max-width: 600px) {
+  .tier-grid { grid-template-columns: 1fr; }
+  .discovery-apps { grid-template-columns: 1fr; }
+  .memory-panel { padding: 24px 16px; }
+}
+
 /* ===== COMPANION SCREEN ===== */
 #companion-screen {
   display: none;
@@ -578,6 +751,74 @@ body {
   </div>
 </div>
 
+<!-- ==================== MEMORY PANEL ==================== -->
+<div id="memory-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;">
+  <div class="memory-panel">
+    <button onclick="closeMemory()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4em;color:var(--border);cursor:pointer;">✕</button>
+    <h2>How Should Amit Remember You?</h2>
+    <div class="mp-sub">Right now your conversation exists only in this browser window. Here is what you can do about that.</div>
+
+    <div class="tier-grid">
+
+      <div class="tier-card active">
+        <div class="tier-name">Browser Only</div>
+        <div class="tier-status">✓ Active right now — free</div>
+        <p>Your conversation and story are saved in this browser on this device. If you clear your browser data or switch browsers, it starts over.</p>
+        <div class="tier-btn tier-btn-active">Already set up</div>
+      </div>
+
+      <div class="tier-card">
+        <div class="tier-name">Your Computer</div>
+        <div class="tier-status">Recommended — still free</div>
+        <p>Saves your companion record to a real folder on your computer — not just the browser. Survives browser clears. Stays private. Nothing leaves your device.</p>
+        <button class="tier-btn tier-btn-action" onclick="showLocalSetup()">Set this up →</button>
+      </div>
+
+      <div class="tier-card">
+        <div class="tier-name">Everywhere</div>
+        <div class="tier-status">API key required</div>
+        <p>Connects Amit to a live version of itself — richer responses, available from any device, any time. Also opens the full Amit system: daily companion, biblical research, and more.</p>
+        <button class="tier-btn tier-btn-action" onclick="closeMemory(); openConnect();">Connect →</button>
+      </div>
+
+    </div>
+
+    <!-- Local setup instructions (hidden until they click) -->
+    <div id="local-setup-steps" style="display:none;background:var(--parchment);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:20px;font-size:0.85em;line-height:1.8;">
+      <strong style="font-family:'Cinzel',serif;letter-spacing:1px;font-size:0.9em;">Setting up on your computer:</strong>
+      <ol style="margin-top:8px;padding-left:20px;">
+        <li>In your browser address bar, look for the <strong>install icon</strong> (a small screen with an arrow, or a "+" symbol)</li>
+        <li>Click it and choose <strong>"Install"</strong> — this saves Amit as an app on your device</li>
+        <li>Once installed, Amit opens as its own app — your record is saved permanently in your browser's app storage</li>
+        <li>On mobile: tap the <strong>Share button → Add to Home Screen</strong></li>
+      </ol>
+      <div style="margin-top:10px;color:var(--border);font-style:italic;">Your conversation record is already being saved in this browser. Installing just makes it more permanent and gives you an icon to tap directly.</div>
+    </div>
+
+    <div class="discovery-row">
+      <h3>The Full Amit System</h3>
+      <div class="discovery-apps">
+        <a class="discovery-app" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" target="_blank">
+          <span class="da-name">Amit Hub</span>
+          <span class="da-desc">Your daily home — Hebrew calendar, morning companion, aims and pursuits. Where every day starts.</span>
+        </a>
+        <a class="discovery-app" href="https://ask-amit.github.io/Amit/who_is_god/who_is_god.html" target="_blank">
+          <span class="da-name">Who Is God?</span>
+          <span class="da-desc">The investigation. Ten evidence streams. Bayesian analysis from neutrality. The road Amit walked.</span>
+        </a>
+        <a class="discovery-app" href="https://ask-amit.github.io/Amit/Companion/Amit_Companion.html" target="_blank">
+          <span class="da-name">Amit Companion</span>
+          <span class="da-desc">This app — the discipleship walk. Listening, remembering, walking alongside daily.</span>
+        </a>
+        <a class="discovery-app" href="#" onclick="return false;" style="opacity:0.5;">
+          <span class="da-name">More coming</span>
+          <span class="da-desc">Bible study, computer guidance, and tools still being built — all part of the same mission.</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== CONNECT MODAL (API key — accessed from inside the app) ==================== -->
 <div id="connect-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;">
   <div class="setup-card" style="max-width:460px;position:relative;">
@@ -785,6 +1026,35 @@ var savedQuestions = [];
 var demoMode = false;
 var demoStep = 0;
 var sessionStartTime = Date.now();
+
+// ===== MEMORY PANEL =====
+var memoryNoticeSent = false;
+
+function openMemory() {
+  document.getElementById('memory-modal').style.display = 'flex';
+}
+function closeMemory() {
+  document.getElementById('memory-modal').style.display = 'none';
+}
+function showLocalSetup() {
+  document.getElementById('local-setup-steps').style.display = 'block';
+}
+
+function maybeShowMemoryNotice() {
+  if (memoryNoticeSent) return;
+  var userMsgCount = chatHistory.filter(function(m) { return m.role === 'user'; }).length;
+  var hasStory = Object.keys(testimonyData).length > 0;
+  // Show after 3 user messages AND something meaningful has been shared
+  if (userMsgCount >= 3 && hasStory) {
+    memoryNoticeSent = true;
+    var notice = document.createElement('div');
+    notice.className = 'memory-notice';
+    notice.innerHTML = '<span>When you close this window, I will not remember any of this. If you would like me to keep your story — there is a way.</span>'
+      + '<button onclick="openMemory()">Keep this →</button>';
+    document.getElementById('chat-messages').appendChild(notice);
+    scrollToBottom();
+  }
+}
 
 // ===== CONNECT MODAL (API key — entered after relationship starts) =====
 function openConnect() {
@@ -1087,6 +1357,7 @@ function updateTestimonySidebar() {
   }
   container.innerHTML = html;
   AmitDB.saveTestimony(testimonyData);
+  maybeShowMemoryNotice();
 }
 
 function toggleTestimony() {
