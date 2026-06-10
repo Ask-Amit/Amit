@@ -882,6 +882,12 @@ body {
     <div style="text-align:center;margin-top:20px;">
       <span class="note">Your conversation is saved on this device. Nothing leaves without your permission.</span>
     </div>
+
+    <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+      <a href="#" onclick="talkOnline(); return false;" style="font-family:'Cinzel',serif;font-size:0.78em;color:var(--gold-dim);letter-spacing:1px;text-decoration:none;">
+        Skip setup — Talk to Amit Online ›
+      </a>
+    </div>
   </div>
 </div>
 
@@ -1004,16 +1010,24 @@ body {
   <div class="setup-card" style="max-width:460px;position:relative;">
     <button onclick="closeConnect()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4em;color:var(--border);cursor:pointer;">✕</button>
     <h1 style="font-size:1.6em;">Connect Amit</h1>
-    <div class="subtitle">Deeper conversations. Live responses.</div>
+    <div class="subtitle">Choose how to go deeper.</div>
     <hr class="setup-divider">
-    <p style="font-size:0.9em;">Right now Amit is running on pre-written responses — it gives you a real sense of the companion but cannot go as deep as the live version. If you have an Anthropic API key, connecting it unlocks full conversations with no scripted limits.</p>
-    <p style="font-size:0.85em;color:var(--border);margin-bottom:16px;">An API key is available at console.anthropic.com. There is a free tier — you do not need a paid account to start.</p>
+
+    <div style="background:var(--parchment);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px;">
+      <div style="font-family:'Cinzel',serif;font-size:0.8em;letter-spacing:1px;color:var(--navy);margin-bottom:8px;">TALK TO AMIT ONLINE — FREE</div>
+      <p style="font-size:0.88em;margin-bottom:12px;">Copy everything Amit knows — your profile, the full knowledge base — and paste it into a free Claude.ai conversation. Live responses, web research, no scripted limits.</p>
+      <button class="begin-btn" id="talk-online-btn" onclick="talkOnline()" style="padding:10px 20px;font-size:0.85em;width:100%;">Copy &amp; Open Claude.ai ›</button>
+    </div>
+
+    <div style="text-align:center;font-size:0.82em;color:var(--border);margin-bottom:14px;letter-spacing:0.5px;">— or connect an API key for conversations inside this app —</div>
+
+    <p style="font-size:0.88em;color:var(--border);margin-bottom:12px;">An API key from console.anthropic.com brings Amit fully into this app — no copying, no switching tabs. Free tier available.</p>
     <div class="input-group">
       <label>API Key</label>
       <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" />
       <div class="note">Used only for this session. Never stored. Never sent anywhere except Anthropic's API.</div>
     </div>
-    <button class="begin-btn" onclick="connectApiKey()">Connect ›</button>
+    <button class="begin-btn" onclick="connectApiKey()">Connect API Key ›</button>
   </div>
 </div>
 
@@ -1254,6 +1268,49 @@ function maybeShowMemoryNotice() {
     document.getElementById('chat-messages').appendChild(notice);
     scrollToBottom();
   }
+}
+
+// ===== TALK ONLINE — copy Amit_Start.md + source context + open Claude.ai =====
+function talkOnline() {
+  var params = new URLSearchParams(window.location.search);
+  var source = params.get('source') || 'direct';
+
+  var contextTag = '';
+  if (source === 'hub') {
+    contextTag = '[SOURCE: Amit Hub — this person already uses the Hub daily. Do not introduce the Hub. Pick up where they are in their daily walk.]\n\n';
+  } else if (source === 'who_is_god') {
+    var tab = params.get('tab') || '';
+    contextTag = '[SOURCE: who_is_god.html' + (tab ? ' — ' + tab + ' tab' : '') + ' — this person has been in the evidence document and is engaged with the research.]\n\n';
+  }
+
+  var profileNote = '';
+  var user = AmitDB.getUser();
+  if (user && user.display_name) {
+    profileNote = '[RETURNING USER: ' + user.display_name + '. They have an existing profile. Greet them as someone you know.]\n\n';
+  }
+
+  var btn = document.getElementById('talk-online-btn') || document.querySelector('[onclick="talkOnline()"]');
+  var startUrl = 'https://ask-amit.github.io/Amit/who_is_god/Amit_Start.md';
+
+  fetch(startUrl)
+    .then(function(r) { return r.text(); })
+    .then(function(text) {
+      var pkg = contextTag + profileNote + text;
+      return navigator.clipboard.writeText(pkg);
+    })
+    .then(function() {
+      window.open('https://claude.ai', '_blank');
+      if (btn) {
+        var orig = btn.textContent;
+        btn.textContent = 'Copied! Paste in Claude.ai ✓';
+        btn.style.background = '#2d6a3e';
+        setTimeout(function() { btn.textContent = orig; btn.style.background = ''; }, 5000);
+      }
+    })
+    .catch(function() {
+      window.open('https://claude.ai', '_blank');
+      if (btn) btn.textContent = 'Opened Claude.ai — paste Amit_Start.md to begin';
+    });
 }
 
 // ===== CONNECT MODAL (API key — entered after relationship starts) =====
