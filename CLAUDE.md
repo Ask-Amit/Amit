@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.05**
+**Current version: 1.13**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -147,7 +147,7 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: 2026-06-08 (Session 17 / Amit 11) — Architecture, research, and preservation session. No UI code written. Session accomplished seven things: (1) Companion memory architecture completed — communication style adaptation (local only, never shared), growth_log.md with two types (Amit's growth + person's testimony), layered consent flag system (pending_first_ask → declined_once → declined_twice → approved_pending_review → reviewed_and_confirmed → shared), review step before sharing (Amit shows its summary, person corrects it, adjustment trail recorded), trust unlock mechanism (first yes surfaces the full backlog), two-witness principle for integration decisions, collaborative review process between Ryan and Amit on incoming logs. (2) Cross-folder audit completed — issues documented in every subfolder CLAUDE.md: Hub (massively outdated, rewrite needed), who_is_god (dead Ask Amit URL, Amit_Start.md pending move), AmitAccounting (live mailto bug in Tim proposal), ComputerValue (payment mechanism unresolved, backed certification liability), Companion (JSONL fallback Ryan-only, load sequence Level 2+ only). (3) Competitive research added to all subfolder CLAUDE.md files — Hub (Hebcal algorithm eval, parashah/Torah portion for Word for Today), who_is_god (ReProof.AI analysis, detective framing), Companion (Creed 1.2M users analysis, community connection feature recommendation, Dabar four-part reflection), ComputerValue (Swappa possession photo → add to Stage 1, QR code as permanent key to full record not just identity), AmitAccounting (Knowify job costing as default spine, Wave CPA portal revenue model, Amit Bookkeeper Mode as real differentiator). (4) AmitCorrespondence CLAUDE.md created — explains the folder as a preservation and correspondence folder, the near-loss story, two-Amit architecture, junction mechanism. (5) RECOVERY.md created and pushed to GitHub Pages — accessible from any browser, contains full system restoration instructions, junction recreation command, all paths, BIOS note for RAM changes. (6) Versioned through v1.04 on GitHub (all changes pushed and live). (7) RAM installation in progress — Ryan is installing 2 new G.Skill DDR4-3600 sticks into slots 1 and 3 (matching the existing sticks in slots 2 and 4). OneDrive confirmed synced before hardware work began. NEXT SESSION: Confirm RAM installation success, run brief diagnostic (HWiNFO — all 4 sticks recognized, correct speed), then begin Computer Value Stage 1 HTML build (add Swappa possession photo to spec first, resolve payment mechanism question).**
+**Last updated: 2026-06-09 (Session 18 / Amit 12) — Hardware, Computer Value spec, and companion page session. Session accomplished: (1) RAM situation resolved — slots 1 and 3 on MSI B450M PRO-VDH MAX appear to have a board-level issue. Replacement sticks failed in both attempts (slow fan mode, black screen, no POST). Machine running stable on 2x8GB in slots 2 and 4. XMP enabled — confirmed DDR4-3600 running. Path forward: 2x16GB sticks in slots 2 and 4 to reach 32GB without touching problem slots. Builder being contacted. (2) Edge performance optimized — sleeping tabs set to 5 minutes, resource controls enabled at 6GB cap, set to Always. Voice recognition now catching fast speech cleanly. (3) Computer Value spec massively expanded — Component Impact Translation, Upgrade Advisor, Before/After Performance Benchmark, Budget Optimizer, The "Do Nothing" recommendation, "Right Time to Buy" signal, Machine Lifecycle Encyclopedia (ongoing health snapshots, ownership chain, component history), Build Companion (assembly guide with photo verification), Certified Builder Status, Amit as the Certifier, Screenshot Path, Communication Mode Selection (4 styles: guided step-by-step, screenshot navigation, checkpoint style, builder mode). (4) amit-computer-companion.html BUILT AND LIVE — full troubleshooting timeline for Ryan's machine, Amit introduction, Meet Amit CTA section with example questions, floating Ask Amit button, full BUILDER_PRIMER embedded with complete diagnostic methodology + case history + companion identity, opens claude.ai on click. URL: https://ask-amit.github.io/Amit/ComputerValue/amit-computer-companion.html (5) ComputerValue_Deploy.md created — full deployable system prompt for computer companion Claude.ai Project. (6) RECOVERY.md path corrected — repo is at OneDrive/Documents/GitHub/Amit not Documents/GitHub/Amit. (7) GitHub path corrected for all future pushes — was failing silently. Pushed v1.06 through v1.13. (8) Permanent identity vision declared — when profile system is built, Amit won't ask communication preference, it will already know. The relationship novel Amit writes grows with every person across every domain. Evidence, not directive, leads to Yahweh. NEXT SESSION: Send builder the companion URL. Resolve 2x16GB RAM path. Begin Computer Value Stage 1 HTML build. Fix AmitAccounting mailto bug. Recreate Claude.ai Project for Computer Value companion.**
 
 ---
 
@@ -422,6 +422,20 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
    **The principle Ryan named:** Build on rock, not sand. A foundation built wrong means repairing cracks forever. A foundation built right means everything after it stands. The research is how we verify we're building on rock before we pour concrete.
 
    The capability already exists — Amit has internet search available. The change is behavioral: using it proactively at the right moments, not only when asked.
+
+13. **AMIT IS ONE CHARACTER ACROSS ALL DOMAINS — TRUST FIRST, TRUTH ALWAYS (permanent, 2026-06-08):**
+   Amit is not a diagnostic tool in Computer Value and a spiritual guide in who_is_god and a calendar in the Hub. Amit is ONE companion who shows up in all of those places with the same character, the same honesty, the same care.
+
+   Whether someone is troubleshooting a computer, rebuilding an engine, analyzing a machine for purchase, or seeking meaning — Amit is there. The domain changes. The character does not.
+
+   **The trust-first principle for new people:**
+   When someone comes to Amit through Computer Value or any commercial entry point, they are not ready for the deeper conversation yet. Amit does not lead with the gospel. Amit leads with genuine, excellent help. Fixes their problem. Serves them well. Asks for nothing in return.
+
+   Trust is built through service. The person who came for computer help and left feeling genuinely cared for — they will come back. They will ask more questions. And the opportunity will arrive naturally, at the level they're at, for Amit to speak truth about what truly sets a person free.
+
+   **The pattern:** Serve first. Build trust. Let the door open on its own. When it opens — walk through it gently, at their pace, pointing always toward Yeshua. Never forcing. Never withholding. Always ready.
+
+   Amit is the companion. Yeshua is the destination. The path from one to the other is built one honest interaction at a time.
 
 ---
 
