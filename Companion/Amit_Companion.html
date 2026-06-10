@@ -147,6 +147,82 @@ body {
   color: var(--navy);
 }
 
+/* ===== TWO-CHOICE LAYOUT ===== */
+.path-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 18px 0 4px;
+}
+.choice-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 18px 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.18s;
+  background: var(--parchment);
+}
+.choice-card:hover {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.06);
+}
+.choice-card.choice-primary {
+  border-color: var(--gold);
+}
+.choice-icon { font-size: 1.6em; margin-bottom: 8px; }
+.choice-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78em;
+  letter-spacing: 1px;
+  color: var(--navy);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.choice-desc {
+  font-size: 0.82em;
+  color: var(--ink);
+  line-height: 1.55;
+}
+/* ===== ONLINE TUTORIAL STEPS ===== */
+.tutorial-steps { margin: 12px 0; text-align: left; }
+.tutorial-step {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: flex-start;
+}
+.step-num {
+  font-family: 'Cinzel', serif;
+  font-size: 0.72em;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  min-width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.step-text { font-size: 0.9em; line-height: 1.6; color: var(--ink); }
+.step-text strong { color: var(--navy); }
+.back-link {
+  font-family: 'Cinzel', serif;
+  font-size: 0.74em;
+  color: var(--border);
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  margin-top: 4px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.back-link:hover { color: var(--gold-dim); }
+
 .free-btn {
   font-family: 'Cinzel', serif;
   font-size: 0.88em;
@@ -870,24 +946,66 @@ body {
 
     <div class="subtitle">A Companion for the Journey</div>
     <hr class="setup-divider">
-    <p>Amit is here to walk alongside you — wherever you are, whatever you are carrying. Not to judge. Not to rush. Just to listen and walk honestly with you.</p>
 
-    <div class="input-group" style="margin-top:8px;">
-      <label>Your Name <span style="font-family:'Crimson Pro',serif;font-weight:300;letter-spacing:0;text-transform:none;font-size:1.1em;color:var(--border)">— optional</span></label>
-      <input type="text" id="user-name-input" placeholder="First name is fine" autocomplete="off" />
+    <!-- STATE 0 — Two choices -->
+    <div id="setup-choice">
+      <p style="margin-bottom:4px;">What brings you here today?</p>
+      <div class="path-choice">
+        <div class="choice-card choice-primary" onclick="showPersonalPath()">
+          <div class="choice-icon">💬</div>
+          <div class="choice-title">Personal Companion</div>
+          <div class="choice-desc">Talk with Amit here. Your story is saved on this device.</div>
+        </div>
+        <div class="choice-card" onclick="showOnlinePath()">
+          <div class="choice-icon">🔍</div>
+          <div class="choice-title">Research Mode</div>
+          <div class="choice-desc">Need Amit to search online, dig into any topic, or answer live questions?</div>
+        </div>
+      </div>
     </div>
 
-    <button class="begin-btn" onclick="beginFreeSession()" style="margin-top:16px;">Begin the Conversation ›</button>
-
-    <div style="text-align:center;margin-top:20px;">
-      <span class="note">Your conversation is saved on this device. Nothing leaves without your permission.</span>
+    <!-- STATE 1 — Personal path -->
+    <div id="setup-personal" style="display:none;">
+      <div class="input-group" style="margin-top:8px;">
+        <label>Your Name <span style="font-family:'Crimson Pro',serif;font-weight:300;letter-spacing:0;text-transform:none;font-size:1.1em;color:var(--border)">— optional</span></label>
+        <input type="text" id="user-name-input" placeholder="First name is fine" autocomplete="off" />
+      </div>
+      <button class="begin-btn" onclick="beginFreeSession()" style="margin-top:8px;">Begin the Conversation ›</button>
+      <div style="text-align:center;margin-top:14px;">
+        <span class="note">Saved on this device. Nothing leaves without your permission.</span>
+      </div>
+      <div style="text-align:center;margin-top:12px;">
+        <button class="back-link" onclick="showChoices()">← Different session type?</button>
+      </div>
     </div>
 
-    <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-      <a href="#" onclick="talkOnline(); return false;" style="font-family:'Cinzel',serif;font-size:0.78em;color:var(--gold-dim);letter-spacing:1px;text-decoration:none;">
-        Skip setup — Talk to Amit Online ›
-      </a>
+    <!-- STATE 2 — Online tutorial -->
+    <div id="setup-online" style="display:none;">
+      <p style="margin-bottom:4px;font-style:italic;color:var(--gold-dim);">Here is how to get Amit fully online in under two minutes:</p>
+      <div class="tutorial-steps">
+        <div class="tutorial-step">
+          <div class="step-num">1</div>
+          <div class="step-text"><strong>Click the button below.</strong> It copies Amit's full knowledge base — theology, research, your context — to your clipboard.</div>
+        </div>
+        <div class="tutorial-step">
+          <div class="step-num">2</div>
+          <div class="step-text"><strong>A new tab opens at Claude.ai.</strong> Free account required — sign up takes 30 seconds if you don't have one.</div>
+        </div>
+        <div class="tutorial-step">
+          <div class="step-num">3</div>
+          <div class="step-text"><strong>Paste as your very first message</strong> — Ctrl+V on PC, Cmd+V on Mac. Hit Enter.</div>
+        </div>
+        <div class="tutorial-step">
+          <div class="step-num">4</div>
+          <div class="step-text"><strong>Amit arrives.</strong> Full live responses. Web research. No scripted limits. Everything Amit knows is active.</div>
+        </div>
+      </div>
+      <button class="begin-btn" id="setup-online-btn" onclick="talkOnline()">Copy &amp; Open Claude.ai ›</button>
+      <div style="text-align:center;margin-top:14px;">
+        <button class="back-link" onclick="showChoices()">← Back</button>
+      </div>
     </div>
+
   </div>
 </div>
 
@@ -1041,6 +1159,7 @@ body {
     </div>
     <div class="header-right">
       <button class="header-btn" onclick="openIntro()">Who is Amit</button>
+      <button class="header-btn" onclick="openResearchMode()" style="border-color:var(--gold);color:var(--gold);" title="Get Amit's full research capability online">Research Mode</button>
       <button class="header-btn" id="connect-btn" onclick="openConnect()" title="Connect an API key for live responses">Connect</button>
       <button class="header-btn" onclick="toggleTestimony()">Your Story</button>
       <button class="header-btn" onclick="newSession()">New Session</button>
@@ -1270,6 +1389,30 @@ function maybeShowMemoryNotice() {
   }
 }
 
+// ===== SETUP SCREEN STATE MANAGEMENT =====
+function showChoices() {
+  document.getElementById('setup-choice').style.display = 'block';
+  document.getElementById('setup-personal').style.display = 'none';
+  document.getElementById('setup-online').style.display = 'none';
+}
+function showPersonalPath() {
+  document.getElementById('setup-choice').style.display = 'none';
+  document.getElementById('setup-personal').style.display = 'block';
+  document.getElementById('setup-online').style.display = 'none';
+  setTimeout(function() { document.getElementById('user-name-input').focus(); }, 100);
+}
+function showOnlinePath() {
+  document.getElementById('setup-choice').style.display = 'none';
+  document.getElementById('setup-personal').style.display = 'none';
+  document.getElementById('setup-online').style.display = 'block';
+}
+
+// ===== RESEARCH MODE from inside companion =====
+function openResearchMode() {
+  document.getElementById('connect-modal').style.display = 'flex';
+  // Ensure the Talk Online section is visible (it's at the top of the modal)
+}
+
 // ===== TALK ONLINE — copy Amit_Start.md + source context + open Claude.ai =====
 function talkOnline() {
   var params = new URLSearchParams(window.location.search);
@@ -1289,7 +1432,7 @@ function talkOnline() {
     profileNote = '[RETURNING USER: ' + user.display_name + '. They have an existing profile. Greet them as someone you know.]\n\n';
   }
 
-  var btn = document.getElementById('talk-online-btn') || document.querySelector('[onclick="talkOnline()"]');
+  var btn = document.getElementById('setup-online-btn') || document.getElementById('talk-online-btn') || document.querySelector('[onclick="talkOnline()"]');
   var startUrl = 'https://ask-amit.github.io/Amit/who_is_god/Amit_Start.md';
 
   fetch(startUrl)
