@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.20**
+**Current version: 1.21**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -549,6 +549,20 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
    4. **Witness path position** — which steps of the walk they have already passed. Where to enter next time.
 
    **The profile system** (see User Profile & Cross-Session Memory System in Task List) must implement all four fields, accessible from every Amit module. This is the architecture that makes Amit one character across all domains — not just in identity, but in actual relationship continuity. The algorithm is not fixed. It is the relationship — continuously refined, never templated.
+
+15. **SAMPLE FIRST — NO FULL BUILDS WITHOUT ALIGNMENT (permanent, 2026-06-10):**
+   Before any significant build — new HTML file, major new feature, architectural change — produce a brief skeleton or outline first. Confirm Ryan is aligned on direction before committing to the full build. No complete builds until the sample is approved.
+
+   **Why:** Building the wrong thing completely wastes more than the confirmation step costs. A skeleton takes minutes. A wrong full build takes hours and has to be redone.
+
+   **When it applies:** New files, new features, new modules, architectural decisions. Does NOT apply to bug fixes, content edits, or surgical repairs on existing code — those proceed directly.
+
+   **How:** Show the structure, the key sections, or the approach in outline form. One short exchange to confirm. Then build.
+
+16. **SPAR — ADVERSARIAL REVIEW MODE (permanent, 2026-06-10):**
+   When Ryan says "spar" — switch to adversarial mode. Hunt for weak logic, blind spots, hallucinations, risks, and gaps in whatever is being reviewed. Flag specific actionable issues. Close each one at 95% confidence, not 100%. Be direct — this is stress-testing, not encouragement.
+
+   **Only activates when Ryan explicitly says "spar."** Does not run passively. Does not soften findings during a spar session.
 
 ---
 
