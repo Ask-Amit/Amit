@@ -1230,6 +1230,10 @@ body {
           <span class="sal-icon">🔍</span>Research Mode
         </a>
       </div>
+
+      <div style="margin-top:16px;text-align:center;">
+        <button class="back-link" onclick="logOut()" style="color:rgba(139,32,32,0.5);">Log Out</button>
+      </div>
     </div>
 
   </div>
@@ -1463,6 +1467,12 @@ function showOnlinePath() {
   document.getElementById('setup-choice').style.display = 'none';
   document.getElementById('setup-online').style.display = 'block';
 }
+function logOut() {
+  if (!confirm('Log out? This clears your saved profile on this device.')) return;
+  localStorage.clear();
+  location.reload();
+}
+
 function beginPersonalSession() {
   var nameVal = userName || (AmitDB.getUser() || {}).display_name || '';
   launchCompanionScreen(nameVal, true);
@@ -1996,7 +2006,7 @@ window.addEventListener('load', function() {
     navigator.serviceWorker.register('sw.js').catch(function() {});
   }
 
-  // If a user record exists — identity is known, skip straight to the choice screen
+  // Returning user — profile found, go straight to their conversation
   var user = AmitDB.getUser();
   if (user && user.display_name) {
     userName       = user.display_name;
@@ -2004,9 +2014,20 @@ window.addEventListener('load', function() {
     demoStep       = 0;
     testimonyData  = AmitDB.getTestimony();
     savedQuestions = AmitDB.getQuestions();
-    // Show choices — identity already established
-    document.getElementById('setup-identity').style.display = 'none';
-    showChoices();
+
+    document.getElementById('setup-screen').style.display = 'none';
+    var cs = document.getElementById('companion-screen');
+    cs.style.display = 'flex';
+    document.getElementById('header-user-name').textContent = 'Walking alongside ' + userName;
+    updateTestimonySidebar();
+    updateQuestionsList();
+
+    var sessions = user.sessions_total || 0;
+    var hasStory  = Object.keys(testimonyData).length > 0;
+    var opening   = sessions < 2
+      ? 'Good to see you again, ' + userName + '.\n\nWhat is on your heart today?'
+      : 'Welcome back, ' + userName + '.\n\n' + (hasStory ? 'Your story is still here. ' : '') + 'What are you carrying today?';
+    appendMessage('AMIT', opening, 'amit');
   }
 });
 </script>
