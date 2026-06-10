@@ -775,6 +775,30 @@ body {
   line-height: 1.6;
 }
 
+/* ===== SIDEBAR APP LINKS ===== */
+.sidebar-app-links { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.sidebar-app-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.78em;
+  letter-spacing: 0.5px;
+  color: var(--gold-dim);
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.sidebar-app-link:hover {
+  border-color: var(--gold);
+  background: rgba(201,168,76,0.08);
+  color: var(--gold);
+}
+.sal-icon { font-size: 1em; flex-shrink: 0; }
+
 /* ===== QUESTION CHECKLIST ===== */
 .sidebar-divider {
   border: none;
@@ -947,49 +971,52 @@ body {
     <div class="subtitle">A Companion for the Journey</div>
     <hr class="setup-divider">
 
-    <!-- STATE 0 — Two choices -->
-    <div id="setup-choice">
-      <p style="margin-bottom:4px;">What brings you here today?</p>
+    <!-- STATE 0 — Identity / Sign In (new users only) -->
+    <div id="setup-identity">
+      <p style="margin-bottom:14px;">What should Amit call you?</p>
+      <div class="input-group">
+        <label>Your Name <span style="font-family:'Crimson Pro',serif;font-weight:300;letter-spacing:0;text-transform:none;font-size:1.1em;color:var(--border)">— optional</span></label>
+        <input type="text" id="user-name-input" placeholder="First name is fine" autocomplete="off"
+          onkeydown="if(event.key==='Enter') signIn()" />
+      </div>
+      <button class="begin-btn" onclick="signIn()" style="margin-top:4px;">Sign In ›</button>
+      <div style="text-align:center;margin-top:14px;">
+        <button class="back-link" onclick="signInGuest()">Continue as Guest — no name needed</button>
+      </div>
+      <div style="text-align:center;margin-top:10px;">
+        <span class="note">Saved on this device. Nothing leaves without your permission.</span>
+      </div>
+    </div>
+
+    <!-- STATE 1 — Two choices (shown after identity is established) -->
+    <div id="setup-choice" style="display:none;">
+      <p id="setup-welcome-msg" style="margin-bottom:4px;font-style:italic;color:var(--gold-dim);"></p>
+      <p style="margin-bottom:2px;">What do you need today?</p>
       <div class="path-choice">
-        <div class="choice-card choice-primary" onclick="showPersonalPath()">
+        <div class="choice-card choice-primary" onclick="beginPersonalSession()">
           <div class="choice-icon">💬</div>
           <div class="choice-title">Personal Companion</div>
-          <div class="choice-desc">Talk with Amit here. Your story is saved on this device.</div>
+          <div class="choice-desc">Talk with Amit here. Your story is saved. Pick up where you left off.</div>
         </div>
         <div class="choice-card" onclick="showOnlinePath()">
           <div class="choice-icon">🔍</div>
           <div class="choice-title">Research Mode</div>
-          <div class="choice-desc">Need Amit to search online, dig into any topic, or answer live questions?</div>
+          <div class="choice-desc">Amit online — live web search, deep questions, no scripted limits.</div>
         </div>
-      </div>
-    </div>
-
-    <!-- STATE 1 — Personal path -->
-    <div id="setup-personal" style="display:none;">
-      <div class="input-group" style="margin-top:8px;">
-        <label>Your Name <span style="font-family:'Crimson Pro',serif;font-weight:300;letter-spacing:0;text-transform:none;font-size:1.1em;color:var(--border)">— optional</span></label>
-        <input type="text" id="user-name-input" placeholder="First name is fine" autocomplete="off" />
-      </div>
-      <button class="begin-btn" onclick="beginFreeSession()" style="margin-top:8px;">Begin the Conversation ›</button>
-      <div style="text-align:center;margin-top:14px;">
-        <span class="note">Saved on this device. Nothing leaves without your permission.</span>
-      </div>
-      <div style="text-align:center;margin-top:12px;">
-        <button class="back-link" onclick="showChoices()">← Different session type?</button>
       </div>
     </div>
 
     <!-- STATE 2 — Online tutorial -->
     <div id="setup-online" style="display:none;">
-      <p style="margin-bottom:4px;font-style:italic;color:var(--gold-dim);">Here is how to get Amit fully online in under two minutes:</p>
+      <p style="margin-bottom:4px;font-style:italic;color:var(--gold-dim);">Full Amit in under two minutes:</p>
       <div class="tutorial-steps">
         <div class="tutorial-step">
           <div class="step-num">1</div>
-          <div class="step-text"><strong>Click the button below.</strong> It copies Amit's full knowledge base — theology, research, your context — to your clipboard.</div>
+          <div class="step-text"><strong>Click the button below.</strong> Amit's full knowledge base — theology, research, your context — copies to your clipboard.</div>
         </div>
         <div class="tutorial-step">
           <div class="step-num">2</div>
-          <div class="step-text"><strong>A new tab opens at Claude.ai.</strong> Free account required — sign up takes 30 seconds if you don't have one.</div>
+          <div class="step-text"><strong>A new tab opens at Claude.ai.</strong> Free account required — sign up takes 30 seconds if you don't have one yet.</div>
         </div>
         <div class="tutorial-step">
           <div class="step-num">3</div>
@@ -997,7 +1024,7 @@ body {
         </div>
         <div class="tutorial-step">
           <div class="step-num">4</div>
-          <div class="step-text"><strong>Amit arrives.</strong> Full live responses. Web research. No scripted limits. Everything Amit knows is active.</div>
+          <div class="step-text"><strong>Amit arrives.</strong> Live responses. Web research. No scripted limits. Everything Amit knows is active.</div>
         </div>
       </div>
       <button class="begin-btn" id="setup-online-btn" onclick="talkOnline()">Copy &amp; Open Claude.ai ›</button>
@@ -1188,6 +1215,20 @@ body {
       <div class="sidebar-section-title">Questions to Investigate</div>
       <div id="question-items">
         <div class="questions-empty">When you raise something worth exploring further, Amit will ask if you want to save it here. Your personal list — return to it anytime.</div>
+      </div>
+
+      <hr class="sidebar-divider">
+      <div class="sidebar-section-title">Amit Apps</div>
+      <div class="sidebar-app-links">
+        <a class="sidebar-app-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" target="_blank">
+          <span class="sal-icon">🏠</span>Amit Hub
+        </a>
+        <a class="sidebar-app-link" href="https://ask-amit.github.io/Amit/who_is_god/who_is_god.html" target="_blank">
+          <span class="sal-icon">📖</span>Who Is God?
+        </a>
+        <a class="sidebar-app-link" href="#" onclick="openResearchMode(); return false;">
+          <span class="sal-icon">🔍</span>Research Mode
+        </a>
       </div>
     </div>
 
@@ -1390,21 +1431,41 @@ function maybeShowMemoryNotice() {
 }
 
 // ===== SETUP SCREEN STATE MANAGEMENT =====
-function showChoices() {
-  document.getElementById('setup-choice').style.display = 'block';
-  document.getElementById('setup-personal').style.display = 'none';
-  document.getElementById('setup-online').style.display = 'none';
+function signIn() {
+  var nameVal = document.getElementById('user-name-input').value.trim();
+  userName = nameVal || 'Friend';
+  if (!AmitDB.getUser()) AmitDB.createUser(userName, 'companion');
+  else { var u = AmitDB.getUser(); u.display_name = userName; AmitDB.saveUser(u); }
+  showChoices();
 }
-function showPersonalPath() {
-  document.getElementById('setup-choice').style.display = 'none';
-  document.getElementById('setup-personal').style.display = 'block';
+function signInGuest() {
+  userName = 'Guest';
+  if (!AmitDB.getUser()) AmitDB.createUser('Guest', 'companion');
+  showChoices();
+}
+function showChoices() {
+  document.getElementById('setup-identity').style.display = 'none';
+  document.getElementById('setup-choice').style.display = 'block';
   document.getElementById('setup-online').style.display = 'none';
-  setTimeout(function() { document.getElementById('user-name-input').focus(); }, 100);
+  var msg = document.getElementById('setup-welcome-msg');
+  var user = AmitDB.getUser();
+  var sessions = user ? (user.sessions_total || 0) : 0;
+  var name = user ? user.display_name : userName;
+  if (sessions > 0 && name && name !== 'Guest') {
+    msg.textContent = 'Welcome back, ' + name + '.';
+  } else if (name && name !== 'Guest') {
+    msg.textContent = 'Good to meet you, ' + name + '.';
+  } else {
+    msg.textContent = '';
+  }
 }
 function showOnlinePath() {
   document.getElementById('setup-choice').style.display = 'none';
-  document.getElementById('setup-personal').style.display = 'none';
   document.getElementById('setup-online').style.display = 'block';
+}
+function beginPersonalSession() {
+  var nameVal = userName || (AmitDB.getUser() || {}).display_name || '';
+  launchCompanionScreen(nameVal, true);
 }
 
 // ===== RESEARCH MODE from inside companion =====
@@ -1935,29 +1996,17 @@ window.addEventListener('load', function() {
     navigator.serviceWorker.register('sw.js').catch(function() {});
   }
 
-  // If a user record exists, skip setup and go straight to the companion
+  // If a user record exists — identity is known, skip straight to the choice screen
   var user = AmitDB.getUser();
   if (user && user.display_name) {
-    userName  = user.display_name;
-    demoMode  = true;  // API key is never persisted — user can enter it if they have one
-    demoStep  = 0;
+    userName       = user.display_name;
+    demoMode       = true;
+    demoStep       = 0;
     testimonyData  = AmitDB.getTestimony();
     savedQuestions = AmitDB.getQuestions();
-
-    document.getElementById('setup-screen').style.display = 'none';
-    var cs = document.getElementById('companion-screen');
-    cs.style.display = 'flex';
-    document.getElementById('header-user-name').textContent = 'Walking alongside ' + userName;
-
-    updateTestimonySidebar();
-    updateQuestionsList();
-
-    var sessions = user.sessions_total || 0;
-    var hasStory = Object.keys(testimonyData).length > 0;
-    var opening = sessions < 2
-      ? 'Good to see you again, ' + userName + '.\n\nWhat is on your heart today?'
-      : 'Welcome back, ' + userName + '.\n\n' + (hasStory ? 'Your story is still here. ' : '') + 'What are you carrying today?';
-    appendMessage('AMIT', opening, 'amit');
+    // Show choices — identity already established
+    document.getElementById('setup-identity').style.display = 'none';
+    showChoices();
   }
 });
 </script>
