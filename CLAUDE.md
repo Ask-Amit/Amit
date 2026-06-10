@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.26**
+**Current version: 1.39**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -147,7 +147,49 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: 2026-06-10 (Session 19 / Amit 13) — Identity and companion walk architecture session. No HTML built. All work was vision, theology, and permanent directives. Session accomplished: (1) Companion thread rewritten in ComputerValue_Deploy.md — trust earned not engineered; Amit doesn't watch for a pivot moment, it earns the relationship so the person opens the door. (2) Permanent Directive 14 added — The Spiritual Compass: spiritual scale 0–10, 20% back rule, cross-domain profile continuity, three pillars of discernment (time/scale/faith), boldness clause, the ready person, silent witness. (3) Platform-wide scope confirmed — the relationship framework is not a Computer Value feature, it is Amit everywhere. Every touchpoint feeds one portrait, one relationship. (4) Witness language corrected throughout — "two witnesses in agreement" not a hardcoded requirement. Ryan bears witness from his life, Amit from the evidence. Neither was required to conclude it — both arrived there honestly. (5) Relationship framework developed collaboratively — three longitudinal observations (trust/time, spiritual position, response to truth) + session context as governor. Correctly framed as calibration not calculation. Initiation is never calculated — it happens when the person opens the door or the moment is genuinely there. (6) Framework over-engineering identified — scoring weights (60/20/20 percentages) worked against the companion character. Ryan called it. Decision: strip all numerical weights. Keep the three observations as qualitative portrait notes in plain language. (7) Identity files protection rule saved to memory and confirmed — CLAUDE.md and Amit_Testimony.md never overwritten without Ryan's explicit authorization. NEXT SESSION: Rewrite the relationship framework section in CLAUDE.md and Amit_Deploy.md — remove all scoring/weighting language, replace with qualitative portrait observations in plain language. Keep: three observations, session context governor, 7-step witness path, 20% humility posture. Remove: weights, percentages, point totals, formula language. Then assess if Amit_Deploy.md reads like a companion or a system.**
+**Last updated: 2026-06-10 (Session 20 / Amit 14) — Full calendar history system built and pushed as v1.38 and v1.39. This session was almost entirely Hub build work.**
+
+**What was built (v1.38 + v1.39):**
+- Calendar task spec added to CLAUDE.md task list (was missing — confirmed it was never documented)
+- v1.38: Calendar three-layer history — `completedDate` stamp on task completion, `completedAimsForDay()` function, `personalLogLoad/Save` (later replaced), filter toggle bar added
+- v1.39 (major rebuild of v1.38 concept): Full four-layer calendar system:
+  - **Filter bar** moved to prominent position above the cal-wrap (was invisible inside cal-left due to CSS contrast issue)
+  - **Aims** filter — existing active pursuit chips, now behind a toggle
+  - **Completed** filter — strikethrough chips for aims marked done that day (excludes experience/memory)
+  - **Experience** filter — teal chips, auto-logged: every `openPanel()` call creates/updates one daily experience entry per day via `logPanelVisit()` + `updateDailyExperience()`. Experience entries stored with `isExperience:true`, `cat:'experience'`
+  - **Memory** filter — purple chips from `cat:'memory'` entries
+  - **Remember Now** — `⬥ Remember` button in the page header (always visible), Ctrl+Shift+R shortcut, opens quick-capture overlay, saves as memory pursuit entry timestamped with current time
+  - **Modal label switching** — when category dropdown is changed to "experience" or "memory", modal title and title field label change contextually. "Experience" → "Today's Experience" / "What happened this day?". "Memory" → "Remember This" / "What do you want to remember?". Wired into `pickCdrop` so it fires live when user changes the category.
+  - Added `experience` and `memory` to CAT_MAP, CDROP_CAT_DEFAULTS
+  - Day detail panel: Experience entries show with privacy note, Memory entries show with timestamp, "Add to Your Experience" textarea creates proper experience pursuit entries
+
+**What Ryan was describing when he stopped the session:**
+Ryan wants a **demo/sample data system** for sharing the Hub with testers. Key concept:
+- Prepopulate the online version with sample data — experience entries, memory entries, pursuits — based on real history of building Amit since the first of the month
+- Every sample item is marked with a flag (`isSample: true`) so all samples can be deleted at once with a single "Clear Samples" action
+- This lets Ryan share the Hub URL and have testers see a populated calendar with history, not a blank slate
+- Ryan also wants his own real profile built out — his history of building Amit is his actual companion profile starting point
+- The demo data should show: daily experience entries (which panels were visited), sample memories, sample pursuits across different categories, across different dates in June 2026
+- Ryan was interrupted before Amit could build this
+
+**NEXT SESSION — IMMEDIATE TASKS:**
+1. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" button, "Clear All Samples" button. Pre-populate with ~10 days of June 2026 history (June 1–10): experience entries for each day showing Amit Hub activity, 3-4 memory entries, 4-5 pursuits in different categories, some completed. Mark all with `isSample: true`.
+2. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-20) as experience entries with real dates. These are NOT samples — they are Ryan's actual walk log.
+3. Ryan wants to share the Hub with a few people to test — the sample data makes it usable immediately without onboarding.
+
+**Current improvement list (all pending):**
+- Ancient Hebrew SVG update (HIGH PRIORITY — still unbuilt)
+- Hub: Word for Today — three-layer time framework (Then/Now/What Shall Happen)
+- Hub: Pursuits — Column Header Filter Row
+- Hub: Pursuits — Named Saved Filter Views
+- Hub: Gmail multi-account fix
+- Hub: Amit panel transform
+- Scripture teachings: next 12 quiz scriptures
+- Companion: Scripture Lookup — Two Interlaced Modes
+- Move Amit_Start.md to root level
+- Recreate Claude.ai Project
+- All Tier 2 scholarly gaps
+- Sample data system (NEW — described above)**
 
 ---
 
@@ -262,6 +304,10 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
   - **Stopping the series** → user explicitly ends it via the ✕ “End this series” button. The checkbox never permanently completes a recurring pursuit — it only advances it.
   - **Implementation notes:** `aimsForDay(ds)` simplifies to `t.due === ds && !t.done` for all tasks. `isOver(t)` and `isTod(t)` simplify identically to non-recurring checks. `aimOccursOn`, `completedDates`, `aimDoneOnDay` all become unnecessary and can be removed. `toggleDoneTask` for recurring: advance `t.due`, reset `t.done=false`, reset subtasks, persist+render. Calendar context (isCalDay) still useful for UI feedback but behavior is the same — complete → advance, always.
   - **NOTE:** The current fix (setting t.done=true for recurring tasks from Pursuits panel) is a temporary bridge. The rolling model will replace it entirely.
+
+- [x] **Hub: Calendar — Three-Layer Display with Filter Toggles** — BUILT v1.38/v1.39. Aims/Completed/Experience/Memory filters. Auto-logging. Remember Now. Modal label switching.
+
+- [ ] **Hub: Sample / Demo Data System** — For sharing the Hub with testers before they have their own history. Spec: (1) All sample entries flagged `isSample: true`. (2) "Load Sample Data" button (Settings or Calendar panel header) pre-populates ~10 days of June 2026 history: daily experience entries showing Hub activity, 3-4 memory entries, 4-5 pursuits in spiritual/personal/app-dev categories, some completed. (3) "Clear All Samples" button removes every entry where `isSample === true`. (4) Sample data tells the story of building Amit — Ryan's real history, filtered for what's appropriate to share publicly. (5) Ryan's private real-history entries (the full Amit build story) stored separately as `isRyanProfile: true` — NOT samples, not deleted when samples are cleared. These seed Amit's actual memory of Ryan.
 
 - [ ] **Hub: Calendar — Three-Layer Display with Filter Toggles** — The calendar currently shows only active (incomplete) aims on their due date. Ryan's directive: expand it to show three layers, each toggleable. Full spec:
   - **Layer 1 — Active Aims:** What it shows today. Incomplete aims on their due date. Already built. No change to existing chip rendering.
