@@ -571,6 +571,21 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-chip-yellow{background:rgba(180,145,30,.75);border-left:3px solid #f1c40f}
 .cal-chip-green {background:rgba(35,155,80,.75);border-left:3px solid #27ae60}
 .cal-chip-more  {font-size:10px;color:#fff;background:rgba(0,0,0,.42);border-radius:3px;padding:1px 6px;cursor:default;font-weight:600;white-space:nowrap}
+.cal-chip-done  {background:rgba(50,50,50,.55);border-left:3px solid rgba(111,207,151,.5);color:rgba(240,232,208,.45);text-decoration:line-through}
+.cal-log-dot    {font-size:9px;color:rgba(100,160,255,.7);padding:1px 4px;cursor:default}
+/* Calendar layer filter bar */
+.cal-filter-bar{display:flex;gap:4px;padding:5px 0 6px;flex-shrink:0}
+.cal-filter-btn{background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--dim);font-family:'Cinzel',serif;font-size:9px;letter-spacing:.08em;padding:3px 10px;border-radius:6px;cursor:pointer;transition:all .18s}
+.cal-filter-btn:hover{color:var(--muted)}
+.cal-filter-btn.active{background:rgba(201,168,76,.15);color:var(--gold);border-color:rgba(201,168,76,.4)}
+/* Day detail completed + personal log */
+.cal-section-lbl{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin:12px 0 5px}
+.cal-done-row{display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.cal-done-check{color:rgba(111,207,151,.7);font-size:11px;flex-shrink:0}
+.cal-done-title{font-size:12px;color:rgba(240,232,208,.4);text-decoration:line-through;line-height:1.4}
+.cal-dv-log-section{margin-top:10px}
+.cal-dv-log-area{width:100%;min-height:70px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:rgba(240,232,208,.8);font-size:12px;padding:8px 10px;resize:vertical;font-family:inherit;line-height:1.5;box-sizing:border-box}
+.cal-dv-log-area:focus{outline:none;border-color:rgba(201,168,76,.4)}
 @keyframes slideL{from{transform:translateX(3%);opacity:0}to{transform:none;opacity:1}}
 @keyframes slideR{from{transform:translateX(-3%);opacity:0}to{transform:none;opacity:1}}
 .cal-grid.anim-l{animation:slideL .22s ease}
@@ -1189,6 +1204,12 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           </div>
           <!-- Overdue banner -->
           <div id="calOverdueBanner" style="display:none" class="cal-overdue-banner"></div>
+          <!-- Layer filter toggles -->
+          <div class="cal-filter-bar" id="calFilterBar">
+            <button class="cal-filter-btn active" id="cfb-active" onclick="toggleCalFilter('active')">Active</button>
+            <button class="cal-filter-btn" id="cfb-completed" onclick="toggleCalFilter('completed')">Completed</button>
+            <button class="cal-filter-btn" id="cfb-personal" onclick="toggleCalFilter('personal')">Personal</button>
+          </div>
           <!-- Day-of-week header — Sat highlighted as Shabbat -->
           <div class="cal-dow-row">
             <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
@@ -1895,6 +1916,7 @@ const RECUR_MAP={'none':'none','does not repeat':'none','no repeat':'none','dail
 // ══════════════════════════════════════════════
 const KEY='amit_todos_v2';
 const REFL_KEY='amit_reflections';
+const LOG_KEY='amit_personal_log';
 const MAIL_KEY='amit_mail_email';
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'[]');d.forEach(t=>{t.pri=migrateOldPri(t.pri)});return d}catch{return[]}}
 function persist(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
@@ -1907,6 +1929,25 @@ function migrateOldPri(p){const m={'critical':1,'high':3,'normal':5,'low':8};ret
 function todayStr(){return new Date().toISOString().split('T')[0]}
 function aimsForDay(ds){
   return load().filter(t=>!t.done&&t.due===ds);
+}
+function completedAimsForDay(ds){
+  return load().filter(t=>t.done&&t.completedDate===ds);
+}
+function personalLogLoad(){try{return JSON.parse(localStorage.getItem(LOG_KEY)||'{}')}catch{return{}}}
+function personalLogSave(ds,text){try{const l=personalLogLoad();if(text.trim())l[ds]=text;else delete l[ds];localStorage.setItem(LOG_KEY,JSON.stringify(l))}catch{}}
+function toggleCalFilter(layer){
+  calFilters[layer]=!calFilters[layer];
+  const btn=document.getElementById('cfb-'+layer);
+  if(btn)btn.classList.toggle('active',calFilters[layer]);
+  renderCalendar();
+}
+function saveCalLog(ds){
+  const el=document.getElementById('calLogArea_'+ds);
+  if(!el)return;
+  personalLogSave(ds,el.value);
+  renderCalendar();
+  const s=document.getElementById('calLogSaved_'+ds);
+  if(s){s.textContent='Saved.';setTimeout(()=>s.textContent='',2000);}
 }
 function isOver(t){return!t.done&&!!t.due&&t.due<todayStr();}
 function isTod(t){return!t.done&&t.due===todayStr();}
@@ -2646,6 +2687,7 @@ function finalizeTaskComplete(id){
   if(!t)return;
   t.done=true;
   t.completedAt=Date.now();
+  t.completedDate=todayStr();
   if(t.subtasks)t.subtasks.forEach(s=>s.done=true);
   _pendingCompleteIds.delete(id);
   persist(data);
@@ -2667,14 +2709,14 @@ function toggleDoneTask(id,ds,isCalDay){
   const d=load(),t=d.find(x=>x.id===id);if(!t)return;
   if(t.done){
     // Reactivate — clear done, reset all steps so they start fresh
-    t.done=false;t.completedAt=null;
+    t.done=false;t.completedAt=null;t.completedDate=null;
     if(t.subtasks)t.subtasks.forEach(s=>s.done=false);
     _pendingCompleteIds.delete(id);
     persist(d);render();
   }else if(t.recur&&t.recur!=='none'){
     // Recurring: complete this occurrence, advance due date to next future occurrence
     const next=advanceRecurDue(t.due,t.recur);
-    if(next){t.due=next;}else{t.done=true;t.completedAt=Date.now();}
+    if(next){t.due=next;}else{t.done=true;t.completedAt=Date.now();t.completedDate=todayStr();}
     if(t.subtasks)t.subtasks.forEach(s=>s.done=false);
     _pendingCompleteIds.delete(id);
     persist(d);render();
@@ -3368,6 +3410,7 @@ function getShemitaYear(hebrewYear){const pos=((hebrewYear-5782)%7+7)%7+1;return
 // ══════════════════════════════════════════════
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), calSelected=todayStr();
 let calActiveSide='greg'; // 'greg' | 'heb'
+let calFilters={active:true,completed:false,personal:false};
 
 const CAL_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const CAL_DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -3633,10 +3676,23 @@ function buildCalCell(ds,dayNum,isAdj){
   const onclick=isAdj?`adjMonthClick('${ds}')`:`selectCalDay('${ds}')`;
   const ondblclick=isAdj?'':`ondblclick="event.stopPropagation();openDayView('${ds}')"`;
   let chips='';
-  tasks.slice(0,2).forEach(t=>{
-    chips+=`<div class="cal-chip ${calChipCls(t,isPast,isToday)}" onclick="event.stopPropagation();openEdit('${t.id}')" title="${esc(t.title)}">${esc(t.title.length>13?t.title.slice(0,13)+'…':t.title)}</div>`;
-  });
-  if(tasks.length>2)chips+=`<div class="cal-chip-more">+${tasks.length-2}</div>`;
+  if(calFilters.active){
+    tasks.slice(0,2).forEach(t=>{
+      chips+=`<div class="cal-chip ${calChipCls(t,isPast,isToday)}" onclick="event.stopPropagation();openEdit('${t.id}')" title="${esc(t.title)}">${esc(t.title.length>13?t.title.slice(0,13)+'…':t.title)}</div>`;
+    });
+    if(tasks.length>2)chips+=`<div class="cal-chip-more">+${tasks.length-2}</div>`;
+  }
+  if(calFilters.completed&&!isAdj){
+    const done=completedAimsForDay(ds);
+    done.slice(0,2).forEach(t=>{
+      chips+=`<div class="cal-chip cal-chip-done" onclick="event.stopPropagation();openEdit('${t.id}')" title="${esc(t.title)}">✓ ${esc(t.title.length>11?t.title.slice(0,11)+'…':t.title)}</div>`;
+    });
+    if(done.length>2)chips+=`<div class="cal-chip-more">+${done.length-2}</div>`;
+  }
+  if(calFilters.personal&&!isAdj){
+    const log=personalLogLoad();
+    if(log[ds])chips+=`<div class="cal-log-dot" title="Personal log entry">◉</div>`;
+  }
   let calCol='';
   if(!isAdj){
     let ind='';
@@ -3991,6 +4047,26 @@ function renderCalDay(ds){
     tasks.forEach(t=>html+=rowHTML(t,false,1));
   }
   html+=`<div class="cal-detail-add"><button class="btn btn-ghost" style="width:100%" onclick="addTaskOnDate('${ds}')">+ Add Pursuit for ${CAL_MONTHS[m-1]} ${d}</button></div>`;
+  // Completed aims
+  if(calFilters.completed){
+    const doneTasks=completedAimsForDay(ds);
+    if(doneTasks.length){
+      html+=`<div class="cal-section-lbl">Completed</div>`;
+      doneTasks.forEach(t=>{
+        html+=`<div class="cal-done-row"><span class="cal-done-check">✓</span><span class="cal-done-title">${esc(t.title)}</span></div>`;
+      });
+    }
+  }
+  // Personal log
+  const logVal=esc(personalLogLoad()[ds]||'');
+  html+=`<div class="cal-dv-log-section">
+    <div class="cal-section-lbl">Personal Log</div>
+    <textarea class="cal-dv-log-area" id="calLogArea_${ds}" placeholder="What happened this day?">${logVal}</textarea>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+      <button class="btn btn-ghost btn-sm" onclick="saveCalLog('${ds}')">Save Entry</button>
+      <span id="calLogSaved_${ds}" style="font-size:11px;color:#6fcf97"></span>
+    </div>
+  </div>`;
   el.innerHTML=html;
   _calRowDs=null;
 }

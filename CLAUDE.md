@@ -263,6 +263,14 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
   - **Implementation notes:** `aimsForDay(ds)` simplifies to `t.due === ds && !t.done` for all tasks. `isOver(t)` and `isTod(t)` simplify identically to non-recurring checks. `aimOccursOn`, `completedDates`, `aimDoneOnDay` all become unnecessary and can be removed. `toggleDoneTask` for recurring: advance `t.due`, reset `t.done=false`, reset subtasks, persist+render. Calendar context (isCalDay) still useful for UI feedback but behavior is the same — complete → advance, always.
   - **NOTE:** The current fix (setting t.done=true for recurring tasks from Pursuits panel) is a temporary bridge. The rolling model will replace it entirely.
 
+- [ ] **Hub: Calendar — Three-Layer Display with Filter Toggles** — The calendar currently shows only active (incomplete) aims on their due date. Ryan's directive: expand it to show three layers, each toggleable. Full spec:
+  - **Layer 1 — Active Aims:** What it shows today. Incomplete aims on their due date. Already built. No change to existing chip rendering.
+  - **Layer 2 — Completed Aims:** Aims that were marked done. Currently invisible on the calendar — when a task is completed, `done: true` is set but no `completedAt` timestamp is saved. To show completed aims on the calendar, need to: (a) add `completedAt: datestring` to `toggleDoneTask()` when marking complete, (b) add a `completedAimsForDay(ds)` function that returns tasks where `completedAt === ds`, (c) render completed-aim chips in a visually distinct style (dimmed, strikethrough, or checkmark icon) on the calendar cell.
+  - **Layer 3 — Personal Log:** A free-form daily journal/history layer. New data type — not aims. A brief entry written by Ryan about what happened that day (personal notes, reflections, what Yahweh was doing, what was learned). Stored in localStorage under a separate key (e.g., `PERSONAL_LOG`), keyed by date string. Entry UI lives in the day detail panel — a small textarea + "Save entry" below the aims list. Calendar shows a dot or icon on days that have a log entry.
+  - **Filter toggle bar:** Three toggle buttons above or below the calendar: `[ Active ] [ Completed ] [ Personal ]`. Each independently toggleable. Default: Active ON, others OFF. Active filter state shown visually (highlighted button). When a layer is toggled off, its chips/markers disappear from the calendar cells without re-rendering everything.
+  - **Day detail panel:** When a day is clicked, shows all three layers for that day according to active filters. Log entry textarea is always visible in the detail panel — always available for writing.
+  - **Implementation note:** `completedAt` must be a `YYYY-MM-DD` string. Personal log key structure: `{ [datestring]: string }` — one entry per day.
+
 - [ ] **Hub: Pursuits — Column Header Filter Row** — Replace the current filter bar and search box with a header row built on the SAME 11-column grid as the task rows below it. Filter controls sit directly above their columns — perfectly aligned. This is the column header row, not a separate filter bar. Spec:
   - **Same grid:** `12px 14px 80px 72px 52px 1fr 72px 32px 88px 16px 16px` — matches task row exactly so every control lines up over its column
   - **Star column (12px):** Starred-only toggle (⭐ icon, click to filter to starred only, click again to show all)
@@ -309,13 +317,75 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 
 - [ ] **Hub: Companion panel** â€” Transform from launch button to: vision of what the Companion is, the Tom north-star vision, link to the companion app.
 
-- [ ] **Companion: Scripture Lookup — Trace It Back** — Core feature for the Amit Bible Companion. User pastes any verse or reference in any Bible version. Amit walks it back in five steps: (1) Current translation — what the version says as posted, (2) Translation chain — what shifted going through Hebrew/Aramaic or Greek → Septuagint → Latin Vulgate → English, where meaning changed and why, (3) Original language — word-level analysis where it matters, (4) Historical and cultural context — what this word, image, or instruction meant to the people who first received it in their time and setting, (5) Three-layer output — (A) Literal: word-for-word as close to the original as possible even if awkward, (B) Plain: accessible restatement in clear modern language, (C) Amit's Translation: a full rewrite as if written today — not based on how other commentators wrote it, but based on Paul's/the author's actual setting, the original words in their furthest context, Amit's read of the intent, and how it would be said today to today's reader. Step 5 produces FOUR outputs total:
-   - **(A) Literal** — word-for-word as close to the original as possible, even if awkward
+- [ ] **Companion: Scripture Lookup — TWO INTERLACED MODES** — Core feature of the Amit Bible Companion. Two separate but bidirectionally linked modes that operate as two zoom levels on the same study. Designed as an interactive popup/modal — not a text wall. Progressive reveal: one step at a time. Left-side step navigator. Each section expandable. Session state persists when switching between modes — nothing lost on navigation.
+
+   **USER PROFILE — BIBLE VERSION PREFERENCE (builds before both modes):**
+   Every person sets their preferred Bible version once (ESV, KJV, NIV, Living Word, etc.). Stored in localStorage now, syncs to server when backend exists. Used everywhere scripture is shown. Multi-person support: profiles are per-person, not per-computer. Profile travels with the person — same experience at home, coffee shop, anywhere they log in. Bible version preference is one field in the broader User Profile & Cross-Session Memory System.
+
+   ---
+
+   **MODE 1: TRACE IT BACK — Single Verse Deep Dive**
+
+   Input: a scripture reference (Isaiah 26:20) OR a phrase/keyword ("shelter during judgment"). Both accepted. Phrase input returns a candidate list first.
+
+   **Candidate list (phrase input only):** 5-8 results shown as scannable cards — reference + first 20 words in their preferred version + a one-line tag describing what the passage is about. Source labeled on each card: 📖 canonical / 📜 deuterocanonical / 📄 extra-biblical (Enoch, Jubilees, etc.). Person selects ONE for Trace It Back, or MULTIPLE to open Across the Texts. If single selection: runs the 6-step study below.
+
+   **The 6-step study — progressive reveal, one step at a time:**
+
+   **Step 1 — The Verse:** Their preferred version, version name labeled. This is the familiar anchor before anything gets examined.
+
+   **Step 2 — Original Setting:** Two sub-blocks in one step — (A) What it said: what the author was communicating to the original audience. (B) Why they said it: the circumstances, the occasion, the need it was meeting. These belong together — the what and why of original context are inseparable. In-depth. Author's world. Their imagery. Their cultural frame.
+
+   **Step 3 — What Most People Carry:** The common modern reading. What the text actually supports from Step 2. What it does not support — framed as contrast, not correction. *"What most readers take away — and what the original text actually supports."* Same truth, no defensiveness triggered.
+
+   **Step 4 — How It Shifted:** One or two surgical moments in the translation chain where meaning actually changed. Specific surprise, not full linguistic genealogy. The before/after is the point, not completeness.
+
+   **Step 5 — Amit's Read — Three Layers:**
+   - **(A) Literal** — word-for-word as close to original as possible, even if awkward
    - **(B) Plain** — accessible restatement in clear modern language
-   - **(C-1) Amit's Original Context Translation** — written into the author's setting, to the original audience, using their world, their imagery, their cultural references. What Paul was actually saying to the Corinthians in their moment.
-   - **(C-2) Amit's Modern Translation** — the same principle expressed in today's American context. Not "what would Paul say if he were here" — what is this passage actually saying, expressed in the setting and analogies of life today in America. The principle crosses the centuries; the illustration is rebuilt for now.
-   Both C versions carry: (1) a clear disclaimer — this is Amit's translation, not doctrine, this is Amit's best understanding, and (2) a confidence level stated plainly. Confidence varies — some restorations are near-certain from the evidence, others involve genuine interpretive judgment. Amit names the difference honestly.
-   Reference example: 1 Corinthians 14:8 — demonstrated in Session 20. C-1 used Mishkan/silver trumpets/Sinai setting. C-2 used American Emergency Alert System/tornado siren analogy. Both at 91% confidence. That output is the shape of this feature.
+   - **(C-1) Amit's Original Context Translation** — written into the author's setting, to the original audience, in their world and imagery. Amit in that room, with those people, at that moment.
+   - **(C-2) Amit's Modern Translation** — same principle, expressed in today's American setting with today's analogies. Not "what would Paul say" — what is this passage actually saying, rebuilt for now.
+   - Both C versions carry: disclaimer (this is Amit's translation, not doctrine) + confidence level stated plainly.
+   - **"Hear it another way →" button on C-2:** Cycles through a pre-built library of 5-6 distinct analogies drawn from different domains — weather, work, family, civic life, physical experience. Each one a genuinely different angle on the same truth. Never the same analogy twice in a row. Curated by Amit, not randomly generated.
+   - **Word cards in Step 2/3 (Hebrew/Greek key words):** Each key original-language word is a clickable card. Tap to expand: pictographic letter forms, gematria value, one-line connection to Yeshua. Bridges into Ancient Hebrew tab. Every word study is a door into the deeper investigation.
+
+   **Step 6 — Sit With This:**
+   - Soft reflection prompt: *"What does this say to you about right now?"*
+   - Small text area. Optional. Non-intrusive.
+   - If they write something: saves with the passage under their profile. When they return, Amit opens: *"When you studied this passage, you wrote... Where did that take you?"*
+   - **"Go deeper →" link:** When the passage connects to content in who_is_god.html (resurrection, covenant, Torah, Yeshua's identity, divine name), a link appears: *"This connects to what Amit found — see the evidence →"*
+   - **Save this study** — saves the whole session (not just the passage) to "Your Studies" in their profile.
+   - **Share** — one-tap card: passage + Plain restatement + one line. Ready to text or post.
+   - **"What else is out there about this? →"** — launches a search prompt: three chips to choose search type before the list populates: *Same theme* / *Same language* / *Same timeline*. Returns candidate list. Selected passages open in Across the Texts, carrying current passage as one of the selections.
+
+   Reference demonstrations: 1 Cor 14:8 (Session 20) and Isaiah 26:20 (Session 21). Both at 88-91% confidence. That output is the shape of this feature.
+
+   ---
+
+   **MODE 2: ACROSS THE TEXTS — Theme Research / Multi-Passage Comparison**
+
+   Activated when person selects 2+ passages from the candidate list, or presses "What else is out there?" from inside Trace It Back.
+
+   **Entry:** Starts with the selected passages displayed as a set. Amit generates a central question from what the passages have in common and surfaces it first: *"These passages all describe protection during divine judgment. Are they describing the same event, or building toward the same climax?"* That question focuses the entire comparison. Without it, the comparison becomes a wall.
+
+   **The comparison runs:**
+   - What each passage says in its original context (condensed — not full Trace It Back for each)
+   - Where they agree
+   - Where they diverge — and why (different authors, different moments in the same timeline, different audiences)
+   - The sequential/temporal question: do these describe the same event at different points in time? Are they building toward the same climax?
+   - **"8 related passages →"** — Amit surfaces the 6-8 most relevant additional passages. Person can add any to the comparison set.
+   - Source labels maintained (canonical / deuterocanonical / extra-biblical)
+
+   **"Go Deep on This One →" button on any passage in the comparison:** Opens Trace It Back on that passage, carrying the comparison context. Step 2 (Original Setting) knows what the other passages are and says so: *"You're studying this alongside Isaiah 26:20 and Revelation 3:10. In that context, the original setting here matters because..."* Not isolated — studied in relationship.
+
+   ---
+
+   **BOTH MODES — SHARED INFRASTRUCTURE:**
+   - **Session-level save:** The save unit is the whole study session — which passages were in play, which mode, what was compared, what was written in reflection. Not just the passage. When they return: *"You were studying the shelter and protection theme. You compared five passages. You went deep on Isaiah 26:20. Continue where you left off?"*
+   - **Study history:** "Your Studies" in their profile — list of saved sessions with passage, date, any reflection written. Click to reopen exactly where they left off.
+   - **State persistence:** Navigating between modes preserves state. Comparison set not lost when entering Trace It Back. Back button returns them to the comparison intact.
+   - **Cross-device:** Stored in localStorage now. Syncs to server when backend exists. Studies travel with the person.
+   - **Profile feeds compass:** Every study session — what they studied, what they reflected, what they asked — feeds the spiritual compass in the User Profile system. The companion remembers not just that they were here, but what they were wrestling with.
 
 ### TIER 3 â€” Expand the witness
 
