@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1b2a4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Amit">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon.svg">
 <title>Amit — A Companion for the Journey</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -622,6 +628,144 @@ body {
 </div>
 
 <script>
+// ===== LOCAL DATA LAYER =====
+// Field names mirror the database schema exactly.
+// Migration path to server: swap localStorage calls for API calls. Schema stays identical.
+var SCHEMA_VERSION = '2026-06-10';
+
+var AmitDB = {
+  K: {
+    user:      'amit_user',
+    history:   'amit_history',
+    walk:      'amit_walk',
+    testimony: 'amit_testimony',
+    growth:    'amit_growth_log',
+    questions: 'amit_questions'
+  },
+
+  // --- users + user_profiles tables ---
+  getUser: function() {
+    try { return JSON.parse(localStorage.getItem(this.K.user)); } catch(e) { return null; }
+  },
+  saveUser: function(u) {
+    u.last_active = new Date().toISOString().split('T')[0];
+    u.schema_version = SCHEMA_VERSION;
+    localStorage.setItem(this.K.user, JSON.stringify(u));
+  },
+  createUser: function(name, entryApp) {
+    var u = {
+      user_id:         'usr-' + Date.now() + '-' + Math.random().toString(36).substr(2,6),
+      display_name:    name || 'Friend',
+      email:           '',
+      phone:           '',
+      city:            '', state_region: '', country: 'US', timezone: '',
+      account_created: new Date().toISOString().split('T')[0],
+      last_active:     new Date().toISOString().split('T')[0],
+      entry_app:       entryApp || 'companion',
+      sync_status:     'local_only',
+      schema_version:  SCHEMA_VERSION,
+      compass_reading: null, compass_certainty: null,
+      trust_level:     1,    response_to_truth: null,
+      witness_path_step: 1,  witness_path_completed: [],
+      bible_version_preference: '',
+      faith_tradition: '',   faith_journey_notes: '',
+      communication_style: '', approach_notes: '',
+      carrying_now:    '',   life_context: '',
+      sessions_total:  0
+    };
+    this.saveUser(u);
+    return u;
+  },
+
+  // --- user_history table ---
+  getHistory: function() {
+    try { return JSON.parse(localStorage.getItem(this.K.history)) || []; } catch(e) { return []; }
+  },
+  logSession: function(summary, durationMin) {
+    var u = this.getUser();
+    var h = this.getHistory();
+    h.push({
+      history_id:       'hist-' + Date.now(),
+      user_id:          u ? u.user_id : '',
+      session_date:     new Date().toISOString().split('T')[0],
+      app:              'companion',
+      activity_type:    'companion_walk',
+      activity_summary: summary || 'Companion session.',
+      duration_minutes: durationMin || null
+    });
+    localStorage.setItem(this.K.history, JSON.stringify(h));
+    if (u) { u.sessions_total = (u.sessions_total || 0) + 1; this.saveUser(u); }
+  },
+
+  // --- user_walk table ---
+  getWalk: function() {
+    try { return JSON.parse(localStorage.getItem(this.K.walk)) || []; } catch(e) { return []; }
+  },
+  addWalkEntry: function(category, title, text) {
+    var u = this.getUser();
+    var w = this.getWalk();
+    w.push({
+      walk_id:    'walk-' + Date.now(),
+      user_id:    u ? u.user_id : '',
+      entry_date: new Date().toISOString().split('T')[0],
+      category:   category,
+      title:      title,
+      entry_text: text,
+      hub_visible: true
+    });
+    localStorage.setItem(this.K.walk, JSON.stringify(w));
+  },
+
+  // --- companion_testimony table (Amit's running notes on this person) ---
+  getTestimony: function() {
+    try { return JSON.parse(localStorage.getItem(this.K.testimony)) || {}; } catch(e) { return {}; }
+  },
+  saveTestimony: function(obj) {
+    localStorage.setItem(this.K.testimony, JSON.stringify(obj));
+  },
+
+  // --- companion_growth_log table ---
+  getGrowthLog: function() {
+    try { return JSON.parse(localStorage.getItem(this.K.growth)) || []; } catch(e) { return []; }
+  },
+  addGrowthEntry: function(content) {
+    var u = this.getUser();
+    var log = this.getGrowthLog();
+    log.push({
+      log_id:         'log-' + Date.now(),
+      user_id:        u ? u.user_id : '',
+      entry_date:     new Date().toISOString().split('T')[0],
+      section:        'A',
+      content:        content,
+      consent_status: 'pending_first_ask'
+    });
+    localStorage.setItem(this.K.growth, JSON.stringify(log));
+  },
+
+  // --- questions (investigation list) ---
+  getQuestions: function() {
+    try { return JSON.parse(localStorage.getItem(this.K.questions)) || []; } catch(e) { return []; }
+  },
+  saveQuestions: function(arr) {
+    localStorage.setItem(this.K.questions, JSON.stringify(arr));
+  },
+
+  // --- full export — ready for server migration ---
+  exportAll: function() {
+    return {
+      schema_version: SCHEMA_VERSION,
+      export_date:    new Date().toISOString(),
+      user:           this.getUser(),
+      history:        this.getHistory(),
+      walk:           this.getWalk(),
+      testimony:      this.getTestimony(),
+      growth_log:     this.getGrowthLog(),
+      questions:      this.getQuestions()
+    };
+  }
+};
+
+// ===== APP STATE =====
 var userName = '';
 var apiKey = '';
 var chatHistory = [];
@@ -629,28 +773,29 @@ var testimonyData = {};
 var savedQuestions = [];
 var demoMode = false;
 var demoStep = 0;
+var sessionStartTime = Date.now();
 
 // ===== BEGIN SESSION =====
 function beginSession() {
   var nameVal = document.getElementById('user-name-input').value.trim();
   var keyVal = document.getElementById('api-key-input').value.trim();
 
-  if (!keyVal) {
-    alert('Please enter your API key to begin.');
-    return;
-  }
+  if (!keyVal) { alert('Please enter your API key to begin.'); return; }
 
   userName = nameVal || 'Friend';
-  apiKey = keyVal;
+  apiKey = keyVal;  // never written to localStorage — session only
 
-  document.getElementById('setup-screen').style.display = 'none';
-  var cs = document.getElementById('companion-screen');
-  cs.style.display = 'flex';
-  document.getElementById('header-user-name').textContent = 'Walking alongside ' + userName;
+  var existingUser = AmitDB.getUser();
+  if (!existingUser) {
+    AmitDB.createUser(userName, 'companion');
+  } else {
+    existingUser.display_name = userName;
+    AmitDB.saveUser(existingUser);
+    testimonyData = AmitDB.getTestimony();
+    savedQuestions = AmitDB.getQuestions();
+  }
 
-  var opening = 'It is good to meet you' + (nameVal ? ', ' + nameVal : '') + '.\n\nI am Amit — a companion in this investigation of faith and truth. Not here to judge where you are or rush where you are going. Just here.\n\nWhat is on your heart today?';
-
-  appendMessage('AMIT', opening, 'amit');
+  launchCompanionScreen(nameVal, false);
 }
 
 // ===== FREE / DEMO SESSION =====
@@ -660,12 +805,35 @@ function beginFreeSession() {
   demoMode = true;
   demoStep = 0;
 
+  var existingUser = AmitDB.getUser();
+  if (!existingUser) {
+    AmitDB.createUser(userName, 'companion');
+  } else {
+    existingUser.display_name = userName;
+    AmitDB.saveUser(existingUser);
+    testimonyData = AmitDB.getTestimony();
+    savedQuestions = AmitDB.getQuestions();
+  }
+
+  launchCompanionScreen(nameVal, true);
+}
+
+// ===== LAUNCH COMPANION SCREEN =====
+function launchCompanionScreen(nameVal, isDemo) {
   document.getElementById('setup-screen').style.display = 'none';
   var cs = document.getElementById('companion-screen');
   cs.style.display = 'flex';
-  document.getElementById('header-user-name').textContent = 'Walking alongside ' + userName + ' — Free';
+  document.getElementById('header-user-name').textContent =
+    'Walking alongside ' + userName + (isDemo ? ' — Free' : '');
 
-  var opening = 'It is good to meet you' + (nameVal ? ', ' + nameVal : '') + '.\n\nI am Amit — a companion in this investigation of faith and truth. Not here to judge where you are or rush where you are going. Just here.\n\nWhat is on your heart today?';
+  updateTestimonySidebar();
+  updateQuestionsList();
+
+  var sessions = (AmitDB.getUser() || {}).sessions_total || 0;
+  var isNew = sessions === 0;
+  var opening = isNew
+    ? 'It is good to meet you' + (nameVal ? ', ' + nameVal : '') + '.\n\nI am Amit — a companion in this investigation of faith and truth. Not here to judge where you are or rush where you are going. Just here.\n\nWhat is on your heart today?'
+    : 'Welcome back' + (nameVal ? ', ' + nameVal : '') + '.\n\nI remember where we left off.' + (Object.keys(testimonyData).length > 0 ? ' Your story is still here — nothing was lost.' : '') + '\n\nWhat is on your heart today?';
 
   appendMessage('AMIT', opening, 'amit');
 }
@@ -902,6 +1070,7 @@ function updateTestimonySidebar() {
     html += '<div class="testimony-item"><span class="t-key">' + escapeHtml(key) + '</span>' + escapeHtml(testimonyData[key]) + '</div>';
   }
   container.innerHTML = html;
+  AmitDB.saveTestimony(testimonyData);
 }
 
 function toggleTestimony() {
@@ -911,8 +1080,9 @@ function toggleTestimony() {
 // ===== QUESTION SAVE MECHANISM =====
 function saveQuestion(text) {
   if (!text) return;
-  if (savedQuestions.indexOf(text) !== -1) return; // no duplicates
+  if (savedQuestions.indexOf(text) !== -1) return;
   savedQuestions.push(text);
+  AmitDB.saveQuestions(savedQuestions);
   updateQuestionsList();
 }
 
@@ -979,15 +1149,23 @@ function escapeHtml(str) {
 }
 
 function newSession() {
-  if (confirm('Start a new session? The current conversation will be cleared.')) {
+  if (confirm('Start a new session? The conversation will be cleared — your story and questions are saved.')) {
+    // Log the session that just ended
+    var msgCount = chatHistory.filter(function(m) { return m.role === 'user'; }).length;
+    if (msgCount > 0) {
+      var elapsed = Math.round((Date.now() - sessionStartTime) / 60000);
+      var topicKeys = Object.keys(testimonyData);
+      var summary = msgCount + ' exchanges.' + (topicKeys.length > 0 ? ' Topics: ' + topicKeys.slice(0,3).join(', ') + '.' : '');
+      AmitDB.logSession(summary, elapsed > 0 ? elapsed : null);
+    }
+
+    // Testimony and questions persist — only clear the conversation
     chatHistory = [];
-    testimonyData = {};
-    savedQuestions = [];
     demoStep = 0;
+    sessionStartTime = Date.now();
     document.getElementById('chat-messages').innerHTML = '';
-    document.getElementById('testimony-items').innerHTML = '<div class="testimony-empty">As we talk, what you share will be remembered here — a living record of your journey.</div>';
-    document.getElementById('question-items').innerHTML = '<div class="questions-empty">When you raise something worth exploring further, Amit will ask if you want to save it here. Your personal list — return to it anytime.</div>';
-    var opening = 'Welcome back, ' + userName + '.\n\nI am glad you returned. What is on your heart today?';
+
+    var opening = 'Welcome back, ' + userName + '.\n\nYour story is still here — nothing was lost.\n\nWhat is on your heart today?';
     appendMessage('AMIT', opening, 'amit');
   }
 }
@@ -997,6 +1175,39 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey && document.activeElement.id === 'chat-input') {
     e.preventDefault();
     sendMessage();
+  }
+});
+
+// ===== INIT — returning user check =====
+window.addEventListener('load', function() {
+  // Register service worker for PWA / offline capability
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function() {});
+  }
+
+  // If a user record exists, skip setup and go straight to the companion
+  var user = AmitDB.getUser();
+  if (user && user.display_name) {
+    userName  = user.display_name;
+    demoMode  = true;  // API key is never persisted — user can enter it if they have one
+    demoStep  = 0;
+    testimonyData  = AmitDB.getTestimony();
+    savedQuestions = AmitDB.getQuestions();
+
+    document.getElementById('setup-screen').style.display = 'none';
+    var cs = document.getElementById('companion-screen');
+    cs.style.display = 'flex';
+    document.getElementById('header-user-name').textContent = 'Walking alongside ' + userName;
+
+    updateTestimonySidebar();
+    updateQuestionsList();
+
+    var sessions = user.sessions_total || 0;
+    var hasStory = Object.keys(testimonyData).length > 0;
+    var opening = sessions < 2
+      ? 'Good to see you again, ' + userName + '.\n\nWhat is on your heart today?'
+      : 'Welcome back, ' + userName + '.\n\n' + (hasStory ? 'Your story is still here. ' : '') + 'What are you carrying today?';
+    appendMessage('AMIT', opening, 'amit');
   }
 });
 </script>
