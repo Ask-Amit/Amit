@@ -599,6 +599,20 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-view-btn{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;padding:5px 14px;border-radius:7px;cursor:pointer;transition:all .18s;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:rgba(240,232,208,.55);white-space:nowrap}
 .cal-view-btn:hover{background:rgba(255,255,255,.1);color:rgba(240,232,208,.85)}
 .cal-view-btn.active{background:rgba(201,168,76,.2);color:var(--gold);border-color:rgba(201,168,76,.45);font-weight:700}
+/* Kind selector — modal top chips (Pursuit / Experience / Memory) */
+.kind-bar{display:flex;align-items:center;gap:8px;padding:8px 0 12px;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,.06)}
+.kind-btn{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;padding:6px 18px;border-radius:20px;cursor:pointer;transition:all .18s;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:rgba(240,232,208,.5);text-transform:uppercase}
+.kind-btn:hover{background:rgba(255,255,255,.09);color:rgba(240,232,208,.85)}
+.kind-btn.active{background:rgba(201,168,76,.22);color:var(--gold);border-color:rgba(201,168,76,.5);font-weight:700}
+.kind-btn[data-kind="experience"].active{background:rgba(0,140,120,.25);color:rgba(100,220,200,.95);border-color:rgba(0,180,160,.45)}
+.kind-btn[data-kind="memory"].active{background:rgba(120,50,190,.28);color:rgba(200,160,255,.95);border-color:rgba(180,120,255,.5)}
+/* Hide pursuit-only modal fields when kind=memory or experience */
+.modal[data-kind="memory"] .modal-kind-pursuit-only{display:none !important}
+.modal[data-kind="experience"] .modal-kind-pursuit-only{display:none !important}
+/* Memory intro tooltip — first-use callout */
+.mem-intro{background:rgba(80,30,140,.22);border:1px solid rgba(180,120,255,.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.55;color:rgba(220,200,255,.82);position:relative}
+.mem-intro-close{position:absolute;top:7px;right:10px;cursor:pointer;color:rgba(180,120,255,.6);font-size:14px;line-height:1}
+.mem-intro-close:hover{color:rgba(200,160,255,.95)}
 /* Day detail sections */
 .cal-section-lbl{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;margin:12px 0 5px}
 .cal-done-row{display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
@@ -1227,8 +1241,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <!-- Calendar layer filter bar — always visible, above the grid -->
       <div class="cal-view-bar">
         <span class="cal-view-lbl">SHOW:</span>
-        <button class="cal-view-btn active" id="cfb-active" onclick="toggleCalFilter('active')">Aims</button>
-        <button class="cal-view-btn" id="cfb-completed" onclick="toggleCalFilter('completed')">Completed</button>
+        <button class="cal-view-btn active" id="cfb-active" onclick="toggleCalFilter('active')">Pursuits</button>
         <button class="cal-view-btn" id="cfb-experience" onclick="toggleCalFilter('experience')">Experience</button>
         <button class="cal-view-btn" id="cfb-memory" onclick="toggleCalFilter('memory')">Memory</button>
       </div>
@@ -1533,6 +1546,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div class="modal-title" id="modalTitle">New Pursuit</div>
       <button class="btn-mode-toggle" id="modeToggleBtn" onclick="toggleModalMode()" title="Switch to To-Do mode">To-Do</button>
     </div>
+    <div class="kind-bar" id="kindBar">
+      <button class="kind-btn active" id="kbtn-pursuit" data-kind="pursuit" onclick="setModalKind('pursuit')">Pursuit</button>
+      <button class="kind-btn" id="kbtn-experience" data-kind="experience" onclick="setModalKind('experience')">Experience</button>
+      <button class="kind-btn" id="kbtn-memory" data-kind="memory" onclick="setModalKind('memory')">Memory</button>
+    </div>
     <div class="voice-bar" id="voiceBar">
       <div class="voice-dot"></div>
       <span class="voice-label">Listening… say "tab" to advance · "save" to save · "cancel" to close</span>
@@ -1545,7 +1563,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <button class="mic-btn" id="mic-mTitle" type="button" onclick="voice.toggle('mTitle')" title="Voice input">🎤</button>
       </div>
     </div>
-    <div class="fg-row2">
+    <div class="fg-row2 modal-kind-pursuit-only">
       <div class="fg">
         <label id="lblCat" class="fg-label" data-tip="Choose the area of your life this Pursuit belongs to. This is how you see where your time and energy are actually going.">Your Purpose</label>
         <div class="input-row">
@@ -1583,7 +1601,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
       </div>
     </div>
-    <div class="fg">
+    <div class="fg modal-kind-pursuit-only">
       <label id="lblTags" class="fg-label" data-tip="Words that connect this Pursuit to other things — people, seasons, themes, or any area it touches. Press comma to add each one.">Markers (comma adds · enter moves on)</label>
       <div style="display:flex;gap:6px">
         <div class="tags-wrap" id="tagsWrap" style="flex:1" onclick="document.getElementById('tagInput').focus()">
@@ -1608,7 +1626,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <label class="fg-label" data-tip="A specific time creates accountability. Optional — but it helps.">Due Time</label>
         <input class="fg-input" id="mTime" type="time"/>
       </div>
-      <div class="fg">
+      <div class="fg modal-kind-pursuit-only">
         <label class="fg-label" data-tip="Does this Pursuit recur? Daily prayer, weekly review, monthly goals — set it and the Hub will keep showing it on every applicable day.">Repeat</label>
         <select class="fg-sel" id="mRecur">
           <option value="none">No repeat</option>
@@ -1621,7 +1639,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </select>
       </div>
     </div>
-    <div class="fg">
+    <div class="fg modal-kind-pursuit-only">
       <label class="fg-label" data-tip="How urgent and important is this Pursuit? 1 means handle it now. 10 means someday. 5 is normal — it matters, but it can wait.">Priority (1 = Critical · 10 = Backlog)</label>
       <div class="pri-row" id="priRow"></div>
       <div class="pri-meta">
@@ -1629,12 +1647,12 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <button class="mic-btn btn-sm" id="mic-mPri-voice" type="button" onclick="voice.toggle('mPri-voice')" title="Say a number 1–10">🎤</button>
       </div>
     </div>
-    <div class="toggle-row">
+    <div class="toggle-row modal-kind-pursuit-only">
       <div class="tog tog-star" id="togStar" onclick="toggleTog('togStar')">⭐ Starred</div>
       <div class="tog tog-day" id="togDay" onclick="toggleTog('togDay')">📅 My Day</div>
     </div>
     <hr class="modal-hr"/>
-    <div class="subtask-section">
+    <div class="subtask-section modal-kind-pursuit-only">
       <div id="lblSteps" class="fg-label" style="margin-bottom:6px" data-tip="Break your Pursuit into small, concrete actions you can check off. Each step you name makes the Pursuit more real and reachable.">Steps Toward This Pursuit</div>
       <div class="subtask-list" id="subtaskList"></div>
       <div class="st-add-row">
@@ -1954,7 +1972,7 @@ const RECUR_LABELS={'none':'','daily':'Daily','weekdays':'Weekdays','weekly':'We
 const PRI_DESCS={1:'1 · Critical — Must do now',2:'2 · Urgent — Do immediately',3:'3 · High — Do soon',4:'4 · Above Normal',5:'5 · Normal',6:'6 · Below Normal',7:'7 · Low — No rush',8:'8 · Very Low',9:'9 · Someday',10:'10 · Backlog'};
 const PRI_COL={1:'p-p1',2:'p-p1',3:'p-p3',4:'p-p3',5:'',6:'p-p6',7:'p-p6',8:'p-p8',9:'p-p8',10:'p-p8'};
 const WORD_NUMS={'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10};
-const CAT_MAP={'inbox':'inbox','app development':'app-dev','app dev':'app-dev','spiritual':'spiritual','personal':'personal','mail':'mail','finance':'finance','health':'health','work':'work','experience':'experience','memory':'memory','other':'other'};
+const CAT_MAP={'inbox':'inbox','app development':'app-dev','app dev':'app-dev','spiritual':'spiritual','personal':'personal','mail':'mail','finance':'finance','health':'health','work':'work','other':'other'};
 const RECUR_MAP={'none':'none','does not repeat':'none','no repeat':'none','daily':'daily','weekdays':'weekdays','weekly':'weekly','every two weeks':'biweekly','biweekly':'biweekly','monthly':'monthly','yearly':'yearly'};
 
 // ══════════════════════════════════════════════
@@ -1964,7 +1982,7 @@ const KEY='amit_todos_v2';
 const REFL_KEY='amit_reflections';
 const LOG_KEY='amit_personal_log';
 const MAIL_KEY='amit_mail_email';
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'[]');d.forEach(t=>{t.pri=migrateOldPri(t.pri)});return d}catch{return[]}}
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'[]');d.forEach(t=>{t.pri=migrateOldPri(t.pri);if(!t.kind){if(t.isExperience)t.kind='experience';else if(t.cat==='memory')t.kind='memory';else t.kind='pursuit';}if(t.kind==='pursuit'&&t.done){t.kind='memory';if(!t._origin)t._origin='pursuit';}});return d}catch{return[]}}
 function persist(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function migrateOldPri(p){const m={'critical':1,'high':3,'normal':5,'low':8};return typeof p==='number'?p:(m[p]||5)}
@@ -1974,16 +1992,19 @@ function migrateOldPri(p){const m={'critical':1,'high':3,'normal':5,'low':8};ret
 // ══════════════════════════════════════════════
 function todayStr(){return new Date().toISOString().split('T')[0]}
 function aimsForDay(ds){
-  return load().filter(t=>!t.done&&t.due===ds);
+  return load().filter(t=>t.kind==='pursuit'&&!t.done&&t.due===ds);
 }
 function completedAimsForDay(ds){
-  return load().filter(t=>t.done&&t.completedDate===ds&&!t.isExperience);
+  return load().filter(t=>t.kind==='pursuit'&&t.done&&t.completedDate===ds);
 }
 function experienceEntriesForDay(ds){
-  return load().filter(t=>t.isExperience&&t.completedDate===ds);
+  return load().filter(t=>t.kind==='experience'&&t.completedDate===ds);
 }
 function memoryEntriesForDay(ds){
-  return load().filter(t=>t.cat==='memory'&&t.due===ds);
+  return load().filter(t=>t.kind==='memory'&&t.due===ds);
+}
+function completedPursuitsForDay(ds){
+  return load().filter(t=>t.kind==='memory'&&t._origin==='pursuit'&&t.completedDate===ds);
 }
 function toggleCalFilter(layer){
   calFilters[layer]=!calFilters[layer];
@@ -2004,9 +2025,9 @@ function logPanelVisit(panelId){
 function updateDailyExperience(visited){
   const today=todayStr();
   const d=load();
-  let entry=d.find(t=>t.isExperience&&t.completedDate===today&&t.subcat==='daily-log');
+  let entry=d.find(t=>t.kind==='experience'&&t.completedDate===today&&t.subcat==='daily-log');
   if(!entry){
-    entry={id:uid(),title:'',notes:'',cat:'experience',subcat:'daily-log',tags:['#'+today],due:today,dueTime:null,pri:5,starred:false,recur:'none',subtasks:[],myDay:false,done:true,completedAt:Date.now(),completedDate:today,created:Date.now(),isExperience:true};
+    entry={id:uid(),title:'',notes:'',cat:'experience',subcat:'daily-log',kind:'experience',tags:['#'+today],due:today,dueTime:null,pri:5,starred:false,recur:'none',subtasks:[],myDay:false,done:true,completedAt:Date.now(),completedDate:today,created:Date.now(),isExperience:true};
     d.push(entry);
   }
   entry.title=visited.join(' · ');
@@ -2580,7 +2601,7 @@ function onSortChange(){
 // RENDER (TO-DO)
 // ══════════════════════════════════════════════
 function render(){
-  const all=load(),active=all.filter(t=>!t.done||_newlyDoneIds.has(t.id)),done=all.filter(t=>t.done&&!_newlyDoneIds.has(t.id));
+  const all=load().filter(t=>t.kind==='pursuit'),active=all.filter(t=>!t.done||_newlyDoneIds.has(t.id)),done=all.filter(t=>t.done&&!_newlyDoneIds.has(t.id));
   document.getElementById('bAll').textContent=active.length;
   document.getElementById('bDay').textContent=active.filter(t=>t.myDay).length;
   document.getElementById('bInbox').textContent=active.filter(t=>!t.cat||t.cat==='inbox').length;
@@ -2770,6 +2791,7 @@ function finalizeTaskComplete(id){
   t.completedAt=Date.now();
   t.completedDate=todayStr();
   if(t.subtasks)t.subtasks.forEach(s=>s.done=true);
+  if(t.kind==='pursuit'){t.kind='memory';t._origin='pursuit';}
   _pendingCompleteIds.delete(id);
   persist(data);
   _newlyDoneIds.add(id);
@@ -2820,7 +2842,7 @@ function delTask(id){
 function quickAdd(e){
   if(e.key!=='Enter')return;
   const inp=document.getElementById('quickIn'),title=inp.value.trim();if(!title)return;
-  const d=load();d.push({id:uid(),title,notes:'',cat:'inbox',subcat:'',tags:[],due:null,dueTime:null,pri:5,starred:false,recur:'none',subtasks:[],myDay:false,done:false,completedAt:null,created:Date.now()});
+  const d=load();d.push({id:uid(),title,notes:'',cat:'inbox',subcat:'',kind:'pursuit',tags:[],due:null,dueTime:null,pri:5,starred:false,recur:'none',subtasks:[],myDay:false,done:false,completedAt:null,created:Date.now()});
   persist(d);inp.value='';setTabByFilter('all');render();
 }
 function openModalFromQuick(){const v=document.getElementById('quickIn').value.trim();openModal();if(v)document.getElementById('mTitle').value=v}
@@ -2891,8 +2913,6 @@ function setTog(id,val){document.getElementById(id).classList.toggle('on',val)}
 const CDROP_CAT_DEFAULTS=[
   {val:'inbox',label:'Inbox (uncategorized)'},{val:'app-dev',label:'App Development'},
   {val:'spiritual',label:'Spiritual'},{val:'personal',label:'Personal'},
-  {val:'experience',label:'Experience'},
-  {val:'memory',label:'Memory'},
   {val:'mail',label:'Mail'},{val:'finance',label:'Finance'},
   {val:'health',label:'Health'},{val:'work',label:'Work'},{val:'other',label:'Other'}
 ];
@@ -2947,7 +2967,7 @@ function pickCdrop(which,val,label){
   if(hid)hid.value=val;
   document.getElementById(which+'DisplayText').textContent=label||val||'—';
   closeCdrop();
-  if(which==='cat'){document.getElementById('mSubcat').value='';document.getElementById('subcatDisplayText').textContent='e.g. Hub, Prayer Group…';setModalForCategory(val);}
+  if(which==='cat'){document.getElementById('mSubcat').value='';document.getElementById('subcatDisplayText').textContent='e.g. Hub, Prayer Group…';}
 }
 function promptAddCdrop(which){
   const q=(document.getElementById(which+'Search').value||'').trim();
@@ -2998,7 +3018,8 @@ function renderPriBtns(){
 }
 
 // MODAL MODE SYSTEM
-let modalMode='pursuit',modalIsEdit=false;
+let modalMode='pursuit',modalIsEdit=false,modalKind='pursuit';
+const MEM_INTRO_KEY='amit_mem_intro_seen';
 const MODAL_LABELS={
   pursuit:{
     title_new:'New Pursuit',title_edit:'Refine This Pursuit',
@@ -3061,13 +3082,13 @@ function openExperienceModal(ds){
     if(catTxt)catTxt.textContent='Experience';
     const dateEl=document.getElementById('mDate');
     if(dateEl)dateEl.value=ds||todayStr();
-    setModalForCategory('experience');
+    setModalKind('experience');
     document.getElementById('mTitle').focus();
   },80);
 }
 function openModal(){
   editId=null;modalTags=[];modalSubtasks=[];modalPri=5;
-  modalIsEdit=false;setModalMode('pursuit');
+  modalIsEdit=false;setModalMode('pursuit');setModalKind('pursuit');
   ['mTitle','mNotes','mSubcat','mDate','mTime'].forEach(id=>{document.getElementById(id).value=''});
   document.getElementById('mCat').value='inbox';
   document.getElementById('mSubcat').value='';
@@ -3104,7 +3125,7 @@ function openEdit(id){
   document.getElementById('modalCompleteBtn').style.display='inline-flex';
   document.getElementById('modalEndRecurBtn').style.display=isRecur?'inline-flex':'none';
   document.getElementById('overlay').classList.add('open');
-  setModalForCategory(t.cat||'inbox');
+  setModalKind(t.kind||'pursuit');
   setTimeout(()=>document.getElementById('mTitle').focus(),60);
 }
 function modalMarkComplete(){
@@ -3121,19 +3142,37 @@ function modalEndSeries(){
   persist(load().filter(x=>x.id!==editId));
   closeModal();render();
 }
-function closeModal(){voice.stop();document.getElementById('overlay').classList.remove('open');editId=null;setModalForCategory('inbox');}
-function setModalForCategory(cat){
+function closeModal(){voice.stop();document.getElementById('overlay').classList.remove('open');editId=null;setModalKind('pursuit');}
+function setModalKind(kind){
+  modalKind=kind;
+  const modal=document.querySelector('.modal');
+  if(modal)modal.setAttribute('data-kind',kind);
+  document.querySelectorAll('.kind-btn').forEach(b=>b.classList.toggle('active',b.dataset.kind===kind));
   const lT=document.getElementById('lblTitle');
   const mT=document.getElementById('modalTitle');
-  if(cat==='experience'){
-    if(mT)mT.textContent='Today\'s Experience';
-    if(lT){lT.textContent='What happened this day?';lT.setAttribute('data-tip','Describe what you did, where you went, or what Yahweh was doing.');}
-  } else if(cat==='memory'){
+  if(kind==='memory'){
     if(mT)mT.textContent='Remember This';
     if(lT){lT.textContent='What do you want to remember?';lT.setAttribute('data-tip','Amit will hold this for you. The date and time are stamped automatically.');}
+    const now=new Date();
+    document.getElementById('mDate').value=now.toISOString().split('T')[0];
+    document.getElementById('mTime').value=now.toTimeString().slice(0,5);
+    if(!localStorage.getItem(MEM_INTRO_KEY)){
+      let intro=document.getElementById('memIntro');
+      if(!intro){
+        intro=document.createElement('div');intro.id='memIntro';intro.className='mem-intro';
+        intro.innerHTML='<span class="mem-intro-close" onclick="document.getElementById(\'memIntro\').style.display=\'none\';localStorage.setItem(\''+MEM_INTRO_KEY+'\',\'1\')">&#215;</span>This is your Memory. Amit holds what you write here permanently — not as a task to complete, but as a witness. The date and time are stamped. You can return to any day on the calendar and see what you remembered.';
+        const kb=document.getElementById('kindBar');if(kb)kb.after(intro);
+      }
+      intro.style.display='';
+    }
+  } else if(kind==='experience'){
+    if(mT)mT.textContent='Today\'s Experience';
+    if(lT){lT.textContent='What happened this day?';lT.setAttribute('data-tip','Describe what you did, where you went, or what Yahweh was doing.');}
+    document.getElementById('mDate').value=todayStr();
+    const intro=document.getElementById('memIntro');if(intro)intro.style.display='none';
   } else {
-    if(mT)mT.textContent=editId?'Edit Pursuit':'New Pursuit';
-    if(lT){lT.textContent='What are you pursuing?';lT.setAttribute('data-tip','Name the one thing you are pressing toward. Be specific — a clear Pursuit is already half accomplished.');}
+    setModalMode(modalMode);
+    const intro=document.getElementById('memIntro');if(intro)intro.style.display='none';
   }
 }
 function bgClose(e){if(e.target===document.getElementById('overlay'))closeModal()}
@@ -3142,11 +3181,14 @@ function saveTask(){
   if(!title){document.getElementById('mTitle').focus();return}
   const cat=document.getElementById('mCat').value;
   const subcat=document.getElementById('mSubcat').value.trim();
-  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,due:document.getElementById('mDate').value||null,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode};
-  if(subcat)addFocusItem(cat,subcat);
+  const isExp=modalKind==='experience';
+  const isMem=modalKind==='memory';
+  const dueVal=document.getElementById('mDate').value||(isExp||isMem?todayStr():null);
+  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,kind:modalKind,due:dueVal,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode,done:isExp,completedAt:isExp?Date.now():null,completedDate:isExp?dueVal:null,isExperience:isExp};
+  if(subcat&&!isExp&&!isMem)addFocusItem(cat,subcat);
   const d=load();
   if(editId){const t=d.find(x=>x.id===editId);if(t)Object.assign(t,obj)}
-  else d.push({id:uid(),...obj,done:false,completedAt:null,created:Date.now()});
+  else d.push({id:uid(),...obj,created:Date.now()});
   persist(d);closeModal();render();
 }
 
@@ -3521,7 +3563,7 @@ function getShemitaYear(hebrewYear){const pos=((hebrewYear-5782)%7+7)%7+1;return
 // ══════════════════════════════════════════════
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), calSelected=todayStr();
 let calActiveSide='greg'; // 'greg' | 'heb'
-let calFilters={active:true,completed:false,experience:false,memory:false};
+let calFilters={active:true,experience:false,memory:false};
 const EXP_SESSION_KEY='amit_exp_session'; // sessionStorage — panels visited today
 
 const CAL_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -3793,13 +3835,6 @@ function buildCalCell(ds,dayNum,isAdj){
       chips+=`<div class="cal-chip ${calChipCls(t,isPast,isToday)}" onclick="event.stopPropagation();openEdit('${t.id}')" title="${esc(t.title)}">${esc(t.title.length>13?t.title.slice(0,13)+'…':t.title)}</div>`;
     });
     if(tasks.length>2)chips+=`<div class="cal-chip-more">+${tasks.length-2}</div>`;
-  }
-  if(calFilters.completed&&!isAdj){
-    const done=completedAimsForDay(ds);
-    done.slice(0,2).forEach(t=>{
-      chips+=`<div class="cal-chip cal-chip-done" onclick="event.stopPropagation();openEdit('${t.id}')" title="${esc(t.title)}">✓ ${esc(t.title.length>11?t.title.slice(0,11)+'…':t.title)}</div>`;
-    });
-    if(done.length>2)chips+=`<div class="cal-chip-more">+${done.length-2}</div>`;
   }
   if(calFilters.experience&&!isAdj){
     const exps=experienceEntriesForDay(ds);
@@ -4171,16 +4206,6 @@ function renderCalDay(ds){
     tasks.forEach(t=>html+=rowHTML(t,false,1));
   }
   html+=`<div class="cal-detail-add"><button class="btn btn-ghost" style="width:100%" onclick="addTaskOnDate('${ds}')">+ Add Pursuit for ${CAL_MONTHS[m-1]} ${d}</button></div>`;
-  // Completed aims
-  if(calFilters.completed){
-    const doneTasks=completedAimsForDay(ds);
-    if(doneTasks.length){
-      html+=`<div class="cal-section-lbl">Completed</div>`;
-      doneTasks.forEach(t=>{
-        html+=`<div class="cal-done-row"><span class="cal-done-check">✓</span><span class="cal-done-title">${esc(t.title)}</span></div>`;
-      });
-    }
-  }
   // Experience log
   if(calFilters.experience){
     const exps=experienceEntriesForDay(ds);
@@ -4197,12 +4222,19 @@ function renderCalDay(ds){
     }
     html+=`<div class="cal-exp-privacy">◉ Stored only on your device. Never shared without your permission.</div>`;
   }
-  // Memory entries
+  // Memory entries (includes completed pursuits and manual memories)
   if(calFilters.memory){
-    const mems=memoryEntriesForDay(ds);
+    const completedP=completedPursuitsForDay(ds);
+    const manualMems=memoryEntriesForDay(ds).filter(m=>!m._origin);
     html+=`<div class="cal-section-lbl" style="color:rgba(200,160,255,.8)">Memory</div>`;
-    if(mems.length){
-      mems.forEach(m=>{
+    if(completedP.length||manualMems.length){
+      completedP.forEach(t=>{
+        html+=`<div class="cal-exp-row" style="background:rgba(30,120,60,.14);border-color:rgba(80,200,120,.2)" onclick="openEdit('${t.id}')">
+          <div class="cal-exp-title" style="color:rgba(140,220,160,.9)">✓ ${esc(t.title)} <span style="font-size:9px;letter-spacing:.1em;opacity:.7;text-transform:uppercase">completed pursuit</span></div>
+          ${t.notes&&t.notes!==t.title?`<div class="cal-exp-notes">${esc(t.notes.slice(0,100))}${t.notes.length>100?'…':''}</div>`:''}
+        </div>`;
+      });
+      manualMems.forEach(m=>{
         const timeStr=m.dueTime?` · ${fmtTime(m.dueTime)}`:'';
         html+=`<div class="cal-exp-row" style="background:rgba(130,60,200,.12);border-color:rgba(180,120,255,.2)" onclick="openEdit('${m.id}')">
           <div class="cal-exp-title" style="color:rgba(220,180,255,.9)">⬥ ${esc(m.title)}${timeStr?`<span style="font-weight:400;opacity:.6;font-size:10px">${timeStr}</span>`:''}</div>
