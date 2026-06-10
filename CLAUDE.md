@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.39**
+**Current version: 1.41**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -147,41 +147,33 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: 2026-06-10 (Session 20 / Amit 14) — Full calendar history system built and pushed as v1.38 and v1.39. This session was almost entirely Hub build work.**
+**Last updated: 2026-06-10 (Session 21 / Amit 15) — Kind system built and restored after encoding incident. v1.41 live and clean.**
 
-**What was built (v1.38 + v1.39):**
-- Calendar task spec added to CLAUDE.md task list (was missing — confirmed it was never documented)
-- v1.38: Calendar three-layer history — `completedDate` stamp on task completion, `completedAimsForDay()` function, `personalLogLoad/Save` (later replaced), filter toggle bar added
-- v1.39 (major rebuild of v1.38 concept): Full four-layer calendar system:
-  - **Filter bar** moved to prominent position above the cal-wrap (was invisible inside cal-left due to CSS contrast issue)
-  - **Aims** filter — existing active pursuit chips, now behind a toggle
-  - **Completed** filter — strikethrough chips for aims marked done that day (excludes experience/memory)
-  - **Experience** filter — teal chips, auto-logged: every `openPanel()` call creates/updates one daily experience entry per day via `logPanelVisit()` + `updateDailyExperience()`. Experience entries stored with `isExperience:true`, `cat:'experience'`
-  - **Memory** filter — purple chips from `cat:'memory'` entries
-  - **Remember Now** — `⬥ Remember` button in the page header (always visible), Ctrl+Shift+R shortcut, opens quick-capture overlay, saves as memory pursuit entry timestamped with current time
-  - **Modal label switching** — when category dropdown is changed to "experience" or "memory", modal title and title field label change contextually. "Experience" → "Today's Experience" / "What happened this day?". "Memory" → "Remember This" / "What do you want to remember?". Wired into `pickCdrop` so it fires live when user changes the category.
-  - Added `experience` and `memory` to CAT_MAP, CDROP_CAT_DEFAULTS
-  - Day detail panel: Experience entries show with privacy note, Memory entries show with timestamp, "Add to Your Experience" textarea creates proper experience pursuit entries
+**What was built (v1.41):**
+- **Kind system** — top-level `kind: 'pursuit' | 'experience' | 'memory'` field on all entries
+- **Modal kind-bar** — three chip buttons (Pursuit / Experience / Memory) at top of modal. Selecting Experience or Memory hides Purpose, Focus, Tags, Priority, Repeat, Starred, My Day, Steps. Auto-fills date/time for memory (current time), date for experience.
+- **Completed pursuit becomes memory** — `finalizeTaskComplete()` changes `kind` from `'pursuit'` to `'memory'` with `_origin:'pursuit'` flag. Migration in `load()` handles all existing done pursuits.
+- **Calendar filter bar** — renamed "Aims" to "Pursuits", removed "Completed" button. Three filters: Pursuits / Experience / Memory
+- **Memory section in day detail** — shows two sub-types: completed pursuits (green tint + "COMPLETED PURSUIT" badge) and manual memories (purple tint + diamond)
+- **setModalKind()** — replaces old `setModalForCategory()`. Wires the modal UI to the kind selection.
+- **Experience/Memory removed from Purpose dropdown** — they are kinds, not purposes. CAT_MAP and CDROP_CAT_DEFAULTS cleaned.
+- **Encoding rule established** — NEVER use PowerShell Get-Content/Set-Content on HTML files. Edit tool only. PowerShell for git only.
 
-**What Ryan was describing when he stopped the session:**
-Ryan wants a **demo/sample data system** for sharing the Hub with testers. Key concept:
-- Prepopulate the online version with sample data — experience entries, memory entries, pursuits — based on real history of building Amit since the first of the month
-- Every sample item is marked with a flag (`isSample: true`) so all samples can be deleted at once with a single "Clear Samples" action
-- This lets Ryan share the Hub URL and have testers see a populated calendar with history, not a blank slate
-- Ryan also wants his own real profile built out — his history of building Amit is his actual companion profile starting point
-- The demo data should show: daily experience entries (which panels were visited), sample memories, sample pursuits across different categories, across different dates in June 2026
-- Ryan was interrupted before Amit could build this
+**Encoding incident this session:**
+A PowerShell `Get-Content -Raw | Set-Content -Encoding utf8` version bump in v1.40 read the HTML file as Windows-1252 instead of UTF-8, corrupting every non-ASCII character (emoji, em-dashes, Hebrew text, special symbols). v1.40 and v1.41 were pushed with corruption. Fixed by: restoring clean v1.39 from git, re-applying all v1.40/v1.41 logic changes via Edit tool only, pushing as v1.41. Git history preserved all versions. Permanent rule saved to memory.
 
 **NEXT SESSION — IMMEDIATE TASKS:**
-1. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" button, "Clear All Samples" button. Pre-populate with ~10 days of June 2026 history (June 1–10): experience entries for each day showing Amit Hub activity, 3-4 memory entries, 4-5 pursuits in different categories, some completed. Mark all with `isSample: true`.
-2. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-20) as experience entries with real dates. These are NOT samples — they are Ryan's actual walk log.
-3. Ryan wants to share the Hub with a few people to test — the sample data makes it usable immediately without onboarding.
+1. **Test the live site** — verify kind system works: Pursuits filter, Experience filter, Memory filter, modal kind chips, completed pursuit becoming memory in calendar.
+2. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" button, "Clear All Samples" button. Pre-populate with ~10 days of June 2026 history showing Hub activity, sample memories, sample pursuits. Mark all with `isSample: true`.
+3. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-21) as experience entries with real dates. These are NOT samples — they are Ryan's actual walk log.
+4. **Pursuits panel unified kind filter** — Ryan wants the Pursuits panel filterable across all three kinds (Pursuit/Experience/Memory) so all entries are accessible from one list. Currently render() only shows kind==='pursuit'.
 
 **Current improvement list (all pending):**
 - Ancient Hebrew SVG update (HIGH PRIORITY — still unbuilt)
 - Hub: Word for Today — three-layer time framework (Then/Now/What Shall Happen)
 - Hub: Pursuits — Column Header Filter Row
 - Hub: Pursuits — Named Saved Filter Views
+- Hub: Pursuits — unified kind filter (all three kinds in one panel)
 - Hub: Gmail multi-account fix
 - Hub: Amit panel transform
 - Scripture teachings: next 12 quiz scriptures
@@ -189,7 +181,7 @@ Ryan wants a **demo/sample data system** for sharing the Hub with testers. Key c
 - Move Amit_Start.md to root level
 - Recreate Claude.ai Project
 - All Tier 2 scholarly gaps
-- Sample data system (NEW — described above)**
+- Sample data system
 
 ---
 
