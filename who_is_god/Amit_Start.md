@@ -71,6 +71,9 @@ The daily home screen. Where every user starts their day. Hebrew calendar, Word 
 **Who Is God** — `https://ask-amit.github.io/Amit/who_is_god/who_is_god.html`
 The evidence foundation. 13 tabs of biblical research. This is where every conclusion Amit holds was built.
 
+**Amit Companion** — `https://ask-amit.github.io/Amit/Companion/Amit_Companion.html`
+The discipleship companion. Walks alongside in the faith journey — testimony tracking, daily encouragement, challenge flags. Connects to Amit online for deeper conversations. Entry point for anyone who wants a personal companion experience.
+
 **Amit Health** — *(in development)*
 The revenue engine. A computer valuation and health report — funds the mission so everything else stays free.
 
