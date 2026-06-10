@@ -563,26 +563,36 @@ body {
     <h1>Amit</h1>
     <div class="subtitle">A Companion for the Journey</div>
     <hr class="setup-divider">
-    <p>Amit is here to walk alongside you — wherever you are in your faith journey. Not to judge where you are. Not to rush where you are going. To listen, to understand, and to walk with you honestly toward truth at whatever pace feels right.</p>
-    <p>Before we begin, just two things:</p>
+    <p>Amit is here to walk alongside you — wherever you are, whatever you are carrying. Not to judge. Not to rush. Just to listen and walk honestly with you.</p>
 
-    <div class="input-group">
-      <label>Your Name</label>
+    <div class="input-group" style="margin-top:8px;">
+      <label>Your Name <span style="font-family:'Crimson Pro',serif;font-weight:300;letter-spacing:0;text-transform:none;font-size:1.1em;color:var(--border)">— optional</span></label>
       <input type="text" id="user-name-input" placeholder="First name is fine" autocomplete="off" />
     </div>
 
+    <button class="begin-btn" onclick="beginFreeSession()" style="margin-top:16px;">Begin the Conversation ›</button>
+
+    <div style="text-align:center;margin-top:20px;">
+      <span class="note">Your conversation is saved on this device. Nothing leaves without your permission.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CONNECT MODAL (API key — accessed from inside the app) ==================== -->
+<div id="connect-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;">
+  <div class="setup-card" style="max-width:460px;position:relative;">
+    <button onclick="closeConnect()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4em;color:var(--border);cursor:pointer;">✕</button>
+    <h1 style="font-size:1.6em;">Connect Amit</h1>
+    <div class="subtitle">Deeper conversations. Live responses.</div>
+    <hr class="setup-divider">
+    <p style="font-size:0.9em;">Right now Amit is running on pre-written responses — it gives you a real sense of the companion but cannot go as deep as the live version. If you have an Anthropic API key, connecting it unlocks full conversations with no scripted limits.</p>
+    <p style="font-size:0.85em;color:var(--border);margin-bottom:16px;">An API key is available at console.anthropic.com. There is a free tier — you do not need a paid account to start.</p>
     <div class="input-group">
       <label>API Key</label>
       <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" />
       <div class="note">Used only for this session. Never stored. Never sent anywhere except Anthropic's API.</div>
     </div>
-
-    <button class="begin-btn" onclick="beginSession()">Begin the Conversation ›</button>
-
-    <div style="text-align:center;margin-top:14px;">
-      <button class="free-btn" onclick="beginFreeSession()">Meet Amit Free</button>
-      <div class="note" style="margin-top:6px;">No API key needed. Some features limited — Amit will explain.</div>
-    </div>
+    <button class="begin-btn" onclick="connectApiKey()">Connect ›</button>
   </div>
 </div>
 
@@ -595,6 +605,7 @@ body {
       <span class="user-tag" id="header-user-name"></span>
     </div>
     <div class="header-right">
+      <button class="header-btn" id="connect-btn" onclick="openConnect()" title="Connect an API key for live responses">Connect</button>
       <button class="header-btn" onclick="toggleTestimony()">Your Story</button>
       <button class="header-btn" onclick="newSession()">New Session</button>
     </div>
@@ -775,27 +786,32 @@ var demoMode = false;
 var demoStep = 0;
 var sessionStartTime = Date.now();
 
-// ===== BEGIN SESSION =====
-function beginSession() {
-  var nameVal = document.getElementById('user-name-input').value.trim();
+// ===== CONNECT MODAL (API key — entered after relationship starts) =====
+function openConnect() {
+  var modal = document.getElementById('connect-modal');
+  modal.style.display = 'flex';
+  setTimeout(function() { document.getElementById('api-key-input').focus(); }, 100);
+}
+
+function closeConnect() {
+  document.getElementById('connect-modal').style.display = 'none';
+  document.getElementById('api-key-input').value = '';
+}
+
+function connectApiKey() {
   var keyVal = document.getElementById('api-key-input').value.trim();
-
-  if (!keyVal) { alert('Please enter your API key to begin.'); return; }
-
-  userName = nameVal || 'Friend';
-  apiKey = keyVal;  // never written to localStorage — session only
-
-  var existingUser = AmitDB.getUser();
-  if (!existingUser) {
-    AmitDB.createUser(userName, 'companion');
-  } else {
-    existingUser.display_name = userName;
-    AmitDB.saveUser(existingUser);
-    testimonyData = AmitDB.getTestimony();
-    savedQuestions = AmitDB.getQuestions();
+  if (!keyVal || !keyVal.startsWith('sk-')) {
+    alert('That does not look like a valid API key. It should start with sk-ant-');
+    return;
   }
-
-  launchCompanionScreen(nameVal, false);
+  apiKey  = keyVal;  // session only — never stored
+  demoMode = false;
+  closeConnect();
+  document.getElementById('connect-btn').textContent = 'Connected ✓';
+  document.getElementById('connect-btn').style.borderColor = 'var(--green)';
+  document.getElementById('connect-btn').style.color = 'var(--green)';
+  document.getElementById('connect-btn').onclick = null;
+  appendMessage('AMIT', 'Connected. I can now give you full live responses — nothing scripted, nothing pre-written. What would you like to explore?', 'amit');
 }
 
 // ===== FREE / DEMO SESSION =====
