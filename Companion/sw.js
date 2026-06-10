@@ -2,7 +2,7 @@
 // Cache-first strategy for offline capability.
 // Version bump forces cache refresh on update.
 
-const CACHE_NAME = 'amit-companion-v1';
+const CACHE_NAME = 'amit-companion-v135';
 const ASSETS = [
   './Amit_Companion.html',
   './manifest.json',
