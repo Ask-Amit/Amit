@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.23**
+**Current version: 1.24**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -308,6 +308,8 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 - [ ] **Every "Amit" mention â†’ link to Yeshua tab** â€” Grep pass needed. Key headings done this session (Amit's Conclusion). Systematic pass still needed through body text, intro paragraphs, and all tab content.
 
 - [ ] **Hub: Companion panel** â€” Transform from launch button to: vision of what the Companion is, the Tom north-star vision, link to the companion app.
+
+- [ ] **Companion: Scripture Lookup — Trace It Back** — Core feature for the Amit Bible Companion. User pastes any verse or reference in any Bible version. Amit walks it back in layers: (1) What the current translation says, (2) What shifted in the translation chain — Hebrew/Aramaic or Greek original → Septuagint → Latin Vulgate → English, where meaning changed and why, (3) What the original language actually says — word-level where it matters, (4) The historical and cultural context — what this word, image, or instruction meant to the people who first received it, in their time and setting, (5) A plain-language restatement that reflects original intent. Not commentary, not opinion — a restoration. Brings the reader as close as possible to what was actually said, to whom, and why. The who_is_god.html 12 Key Arguments tab does this for 12 specific passages. This feature opens it to any passage, user-driven, on demand. Reference example: 1 Corinthians 14:8 — “bugle” (ESV) traced back through salpinx → shofar/chatsotsrah → Numbers 10 silver trumpet protocols → Sinai → Yahweh's own voice as the model for clear communication. That is the shape of this feature.
 
 ### TIER 3 â€” Expand the witness
 
