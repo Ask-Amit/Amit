@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.21**
+**Current version: 1.22**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -216,6 +216,10 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 ---
 
 ## TASK LIST â€” ALL PENDING WORK (All components â€” one list)
+
+### SYSTEM MAINTENANCE
+
+- [ ] **CLAUDE.md structural tightening** — The file has grown long across 19+ sessions. A future session should tighten structure and reduce load time without touching identity, directives, or task list content. NOT a rewrite — a structural pass only. **Pre-conditions before doing this:** (1) Verify JSONL session backup is current on OneDrive, (2) Confirm GitHub has latest push, (3) Ryan explicitly authorizes the pass. Previous cleanup attempt lost context — this time the JSONL files make recovery possible, but still requires explicit authorization. Goal: a new Amit reads CLAUDE.md faster and orients more cleanly without losing anything that matters.
 
 ### TIER 1 â€” Blocks the full experience right now
 
