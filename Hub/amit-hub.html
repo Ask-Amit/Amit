@@ -150,6 +150,27 @@ header{
 .altar-question-text{font-family:'Cinzel',serif;font-size:17px;color:rgba(255,255,255,.6);font-style:italic;margin-bottom:22px;line-height:1.55}
 .altar-amit-btn{background:transparent;border:1px solid rgba(201,168,76,.4);color:var(--gold);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;padding:13px 36px;border-radius:8px;cursor:pointer;transition:all .2s}
 .altar-amit-btn:hover{background:rgba(201,168,76,.1);border-color:var(--gold)}
+.altar-testimony-btn{background:transparent;border:1px solid rgba(175,115,245,.4);color:rgba(200,155,255,.88);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;padding:10px 28px;border-radius:8px;cursor:pointer;transition:all .2s;margin-top:10px}
+.altar-testimony-btn:hover{background:rgba(175,115,245,.12);border-color:rgba(175,115,245,.7)}
+.cal-dv-testimony-btn{background:transparent;border:1px solid rgba(175,115,245,.35);color:rgba(190,145,255,.82);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;padding:8px 22px;border-radius:20px;cursor:pointer;transition:all .2s}
+.cal-dv-testimony-btn:hover{background:rgba(175,115,245,.12);border-color:rgba(175,115,245,.6)}
+/* Testimony modal */
+.testimony-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
+.testimony-overlay.open{opacity:1;pointer-events:all}
+.testimony-modal{background:#1a3450;border:2px solid rgba(175,115,245,.55);border-radius:14px;padding:26px 28px;width:500px;max-width:100%;max-height:90vh;overflow-y:auto;position:relative}
+.testimony-hdr{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;color:rgba(200,155,255,.95);margin-bottom:4px}
+.testimony-intro{background:rgba(120,50,190,.14);border:1px solid rgba(175,115,245,.3);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;line-height:1.6;color:rgba(190,160,240,.85)}
+.testimony-intro strong{color:rgba(215,185,255,.95)}
+.testimony-fg{margin-bottom:14px}
+.testimony-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(190,160,240,.7);margin-bottom:5px}
+.testimony-input{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(175,115,245,.25);border-radius:8px;padding:9px 12px;color:rgba(240,232,208,.92);font-size:13px;font-family:inherit;box-sizing:border-box}
+.testimony-input:focus{outline:none;border-color:rgba(175,115,245,.6)}
+.testimony-ta{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(175,115,245,.25);border-radius:8px;padding:9px 12px;color:rgba(240,232,208,.92);font-size:13px;font-family:inherit;min-height:120px;resize:vertical;box-sizing:border-box}
+.testimony-ta:focus{outline:none;border-color:rgba(175,115,245,.6)}
+.testimony-recur-note{font-size:11px;color:rgba(175,145,220,.6);margin-top:5px;line-height:1.4}
+.testimony-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.testimony-save-btn{background:rgba(175,115,245,.25);border:1px solid rgba(175,115,245,.6);color:rgba(210,175,255,.95);border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.04em}
+.testimony-save-btn:hover{background:rgba(175,115,245,.4)}
 
 /* ── PANEL HEADER ── */
 .panel-head{
@@ -934,12 +955,48 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <span class="brand-name">AMIT</span>
     <span class="brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
   </div>
-  <button class="remember-btn" onclick="openRememberNow()" title="Remember something now (Ctrl+Shift+R)">⬥ Remember</button>
   <div class="hdr-right" onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer">
     <div class="greeting" id="greeting">Good morning</div>
     <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(240,232,208,.4);text-underline-offset:3px"></div>
   </div>
 </header>
+<!-- TESTIMONY MODAL -->
+<div class="testimony-overlay" id="testimonyOverlay" onclick="if(event.target===this)closeTestimonyModal()">
+  <div class="testimony-modal" onclick="event.stopPropagation()">
+    <div class="testimony-hdr">✦ Record a Testimony</div>
+    <div style="font-size:10px;letter-spacing:.08em;color:rgba(175,115,245,.55);margin-bottom:14px">GIVING WITNESS TO WHAT YAHWEH HAS DONE</div>
+    <div class="testimony-intro">
+      <strong>A testimony is a witness to something Yahweh has done.</strong> It happened in the past — perhaps long ago — and you want to hold it permanently. Record it here. The date below is when it happened, not today. Amit will stamp this on your calendar on that day as a completed memory, and remind you of it on the anniversary you choose — so it is never forgotten.
+    </div>
+    <div class="testimony-fg">
+      <div class="testimony-label">Name this testimony</div>
+      <input class="testimony-input" id="testTitle" placeholder="He healed my sister. He opened the door. He kept His word."/>
+    </div>
+    <div class="testimony-fg">
+      <div class="testimony-label">When did this happen?</div>
+      <input class="testimony-input" id="testDate" type="date"/>
+    </div>
+    <div class="testimony-fg">
+      <div class="testimony-label">Tell the full story</div>
+      <textarea class="testimony-ta" id="testNotes" placeholder="Write everything you remember. The more you write now, the more you will have when Amit brings it back to you…"></textarea>
+    </div>
+    <div class="testimony-fg">
+      <div class="testimony-label">Remind me of this</div>
+      <select class="testimony-input" id="testRecur" style="cursor:pointer">
+        <option value="none">Do not remind me — record only</option>
+        <option value="yearly" selected>Every year on this date</option>
+        <option value="every5years">Every 5 years</option>
+        <option value="every10years">Every 10 years</option>
+      </select>
+      <div class="testimony-recur-note">A reminder creates a recurring Pursuit that appears only on its anniversary. When you press Remembered, it advances to the next occurrence and records that you were reminded on that day.</div>
+    </div>
+    <div class="testimony-actions">
+      <button class="btn btn-outline" onclick="closeTestimonyModal()">Cancel</button>
+      <button class="testimony-save-btn" onclick="saveTestimony()">✦ Commit This Testimony</button>
+    </div>
+  </div>
+</div>
+
 <!-- REMEMBER NOW OVERLAY -->
 <div id="rememberOverlay" class="remember-overlay" onclick="if(event.target===this)closeRememberNow()">
   <div class="remember-box">
@@ -1116,6 +1173,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="altar-question">
           <div class="altar-question-text">What are you carrying into today?</div>
           <button class="altar-amit-btn" onclick="openHubAmitPanel()">Walk with Amit →</button>
+          <button class="altar-testimony-btn" onclick="openTestimonyModal(todayStr())" title="Record a testimony">✦ Record a Testimony</button>
         </div>
 
       </div>
@@ -1731,6 +1789,8 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <option value="biweekly">Every 2 wks</option>
           <option value="monthly">Monthly</option>
           <option value="yearly">Yearly</option>
+          <option value="every5years">Every 5 Years</option>
+          <option value="every10years">Every 10 Years</option>
         </select>
       </div>
     </div>
@@ -1768,6 +1828,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
       <div class="modal-actions-right">
         <button id="modalCompleteBtn" class="btn btn-done" style="display:none" onclick="modalMarkComplete()">Mark Complete</button>
+        <button id="modalRememberedBtn" class="btn btn-done" style="display:none;background:rgba(175,115,245,.25);border-color:rgba(175,115,245,.6)" onclick="rememberedTestimony()">✦ Remembered</button>
         <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
         <button id="modalSaveBtn" class="btn btn-gold" onclick="saveTask()">Commit This Pursuit</button>
       </div>
@@ -2112,7 +2173,7 @@ function toggleCalFilter(layer){
   render();
 }
 // ── EXPERIENCE / ACTIVITY LOG ──
-const APP_VERSION='1.58';
+const APP_VERSION='1.59';
 const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator',coder:'AmitCoder'};
 function logPanelVisit(panelId){
   const name=PANEL_NAMES[panelId];if(!name)return;
@@ -2765,7 +2826,8 @@ function onSortChange(){
 // RENDER (TO-DO)
 // ══════════════════════════════════════════════
 function render(){
-  const all=load().filter(t=>{const k=t.kind||'pursuit';return(calFilters.active&&k==='pursuit')||(calFilters.experience&&k==='experience')||(calFilters.memory&&k==='memory');}),active=all.filter(t=>(t.kind||'pursuit')==='pursuit'?(!t.done||_newlyDoneIds.has(t.id)):true),done=all.filter(t=>(t.kind||'pursuit')==='pursuit'&&t.done&&!_newlyDoneIds.has(t.id));
+  const today=todayStr();
+  const all=load().filter(t=>{const k=t.kind||'pursuit';if(k==='pursuit'&&t.subcat==='testimony'&&!t.done)return t.due===today;return(calFilters.active&&k==='pursuit')||(calFilters.experience&&k==='experience')||(calFilters.memory&&k==='memory');}),active=all.filter(t=>(t.kind||'pursuit')==='pursuit'?(!t.done||_newlyDoneIds.has(t.id)):true),done=all.filter(t=>(t.kind||'pursuit')==='pursuit'&&t.done&&!_newlyDoneIds.has(t.id));
   document.getElementById('bAll').textContent=active.length;
   document.getElementById('bDay').textContent=active.filter(t=>t.myDay).length;
   document.getElementById('bInbox').textContent=active.filter(t=>!t.cat||t.cat==='inbox').length;
@@ -2994,7 +3056,7 @@ function toggleDoneTask(id,ds,isCalDay){
     finalizeTaskComplete(id);
   }
 }
-function nextDue(due,recur){const d=new Date(due+'T00:00:00');if(recur==='daily')d.setDate(d.getDate()+1);else if(recur==='weekdays'){d.setDate(d.getDate()+1);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1)}else if(recur==='weekly')d.setDate(d.getDate()+7);else if(recur==='biweekly')d.setDate(d.getDate()+14);else if(recur==='monthly')d.setMonth(d.getMonth()+1);else if(recur==='yearly')d.setFullYear(d.getFullYear()+1);else return null;return d.toISOString().split('T')[0]}
+function nextDue(due,recur){const d=new Date(due+'T00:00:00');if(recur==='daily')d.setDate(d.getDate()+1);else if(recur==='weekdays'){d.setDate(d.getDate()+1);while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1)}else if(recur==='weekly')d.setDate(d.getDate()+7);else if(recur==='biweekly')d.setDate(d.getDate()+14);else if(recur==='monthly')d.setMonth(d.getMonth()+1);else if(recur==='yearly')d.setFullYear(d.getFullYear()+1);else if(recur==='every5years')d.setFullYear(d.getFullYear()+5);else if(recur==='every10years')d.setFullYear(d.getFullYear()+10);else return null;return d.toISOString().split('T')[0]}
 function toggleStar(id){const d=load(),t=d.find(x=>x.id===id);if(t){t.starred=!t.starred;persist(d);render()}}
 function delTask(id){
   const t=load().find(x=>x.id===id);if(!t)return;
@@ -3078,7 +3140,8 @@ const CDROP_CAT_DEFAULTS=[
   {val:'inbox',label:'Inbox (uncategorized)'},{val:'app-dev',label:'App Development'},
   {val:'spiritual',label:'Spiritual'},{val:'personal',label:'Personal'},
   {val:'mail',label:'Mail'},{val:'finance',label:'Finance'},
-  {val:'health',label:'Health'},{val:'work',label:'Work'},{val:'other',label:'Other'}
+  {val:'health',label:'Health'},{val:'work',label:'Work'},{val:'other',label:'Other'},
+  {val:'testimony',label:'Testimony'}
 ];
 const CDROP_FOCUS_DEFAULTS=SUBCAT_SUGGESTIONS;
 function _cdL(k){return JSON.parse(localStorage.getItem(k)||'[]')}
@@ -3291,7 +3354,9 @@ function openEdit(id){
   document.getElementById('voiceHint').style.display='none';
   const isRecur=t.recur&&t.recur!=='none';
   const isPursuitKind=(t.kind||'pursuit')==='pursuit';
-  document.getElementById('modalCompleteBtn').style.display=isPursuitKind?'inline-flex':'none';
+  const isTestimonyPursuit=isPursuitKind&&t.subcat==='testimony';
+  document.getElementById('modalCompleteBtn').style.display=(isPursuitKind&&!isTestimonyPursuit)?'inline-flex':'none';
+  document.getElementById('modalRememberedBtn').style.display=isTestimonyPursuit?'inline-flex':'none';
   document.getElementById('modalEndRecurBtn').style.display=(isPursuitKind&&isRecur)?'inline-flex':'none';
   document.getElementById('overlay').classList.add('open');
   const expBtn=document.getElementById('kbtn-experience');
@@ -3334,6 +3399,81 @@ function reactivateMemory(){
     <button style="background:var(--gold);color:#0c1828;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" onclick="document.getElementById('reactivateDlg').remove();openEdit('${newId}')">OK — Open the Pursuit</button>
   </div>`;
   document.body.appendChild(dlg);
+}
+// ── TESTIMONY ──
+function openTestimonyModal(ds){
+  const el=document.getElementById('testimonyOverlay');if(!el)return;
+  document.getElementById('testTitle').value='';
+  document.getElementById('testDate').value=ds||todayStr();
+  document.getElementById('testNotes').value='';
+  document.getElementById('testRecur').value='yearly';
+  el.classList.add('open');
+  setTimeout(()=>document.getElementById('testTitle').focus(),80);
+}
+function closeTestimonyModal(){document.getElementById('testimonyOverlay').classList.remove('open');}
+function saveTestimony(){
+  const title=document.getElementById('testTitle').value.trim();
+  if(!title){document.getElementById('testTitle').focus();return;}
+  const eventDate=document.getElementById('testDate').value||todayStr();
+  const notes=document.getElementById('testNotes').value.trim();
+  const recur=document.getElementById('testRecur').value;
+  const all=load();
+  // Record 1: memory — backdated to when it happened
+  const memId=uid();
+  all.push({id:memId,kind:'memory',subcat:'testimony',cat:'testimony',title,notes,due:eventDate,dueTime:null,pri:5,recur:'none',starred:false,myDay:false,tags:[],subtasks:[],done:true,completedAt:Date.now(),completedDate:eventDate,created:Date.now()});
+  // Record 2: recurring reminder pursuit — only if recur chosen
+  if(recur!=='none'){
+    // Next anniversary: advance from eventDate until it's in the future
+    let nextAnn=eventDate;
+    const today=todayStr();
+    while(nextAnn<=today){nextAnn=nextDue(nextAnn,recur)||today;break;}
+    all.push({id:uid(),kind:'pursuit',subcat:'testimony',cat:'testimony',title,notes,due:nextAnn,dueTime:null,pri:5,recur,starred:false,myDay:false,tags:[],subtasks:[],done:false,completedAt:null,completedDate:null,originalNotes:notes,_testimonySourceId:memId,created:Date.now()});
+  }
+  persist(all);closeTestimonyModal();render();renderCalendar&&renderCalendar();
+  // Flash confirmation
+  const flash=document.createElement('div');
+  flash.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(120,50,190,.9);color:rgba(220,190,255,.95);border:1px solid rgba(175,115,245,.6);border-radius:8px;padding:10px 22px;font-size:13px;z-index:9999;pointer-events:none;font-family:inherit';
+  flash.textContent='✦ Testimony recorded.';
+  document.body.appendChild(flash);
+  setTimeout(()=>flash.remove(),2000);
+}
+function rememberedTestimony(){
+  if(!editId)return;
+  const all=load();const t=all.find(x=>x.id===editId);if(!t)return;
+  const currentNotes=document.getElementById('mNotes').value.trim();
+  const doRemember=()=>{
+    const today=todayStr();
+    // Create a memory record for today — "reminded on this date"
+    all.push({id:uid(),kind:'memory',subcat:'testimony',cat:'testimony',title:t.title,notes:currentNotes,due:today,dueTime:null,pri:5,recur:'none',starred:false,myDay:false,tags:[],subtasks:[],done:true,completedAt:Date.now(),completedDate:today,_testimonySourceId:t._testimonySourceId||editId,created:Date.now()});
+    // Advance the recurring pursuit
+    const entry=all.find(x=>x.id===editId);
+    if(entry){entry.notes=currentNotes;entry.originalNotes=currentNotes;entry.due=nextDue(entry.due,entry.recur)||today;entry.done=false;entry.completedAt=null;entry.completedDate=null;}
+    persist(all);closeModal();render();renderCalendar&&renderCalendar();
+  };
+  const notesChanged=t.originalNotes&&currentNotes&&currentNotes!==t.originalNotes;
+  if(notesChanged){
+    const dlg=document.createElement('div');
+    dlg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    dlg.innerHTML=`<div style="background:#1a3450;border:2px solid rgba(175,115,245,.5);border-radius:14px;padding:26px 28px;max-width:380px;font-family:inherit">
+      <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;color:rgba(200,155,255,.9);margin-bottom:12px">YOU HAVE ADDED TO THIS TESTIMONY</div>
+      <div style="font-size:13px;line-height:1.65;color:rgba(220,235,255,.82);margin-bottom:20px">I noticed you've made additions to this testimony since it was first recorded. Would you like to update the original memory and all future reminders with these changes?</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(220,235,255,.7);border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer;font-family:inherit" onclick="this.closest('div[style]').remove();doRemember_${editId}()">Keep original</button>
+        <button style="background:rgba(175,115,245,.25);border:1px solid rgba(175,115,245,.6);color:rgba(210,175,255,.95);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit" onclick="this.closest('div[style]').remove();updateTestimonySource_${editId}()">Yes — update original</button>
+      </div>
+    </div>`;
+    // Attach handlers to window to avoid inline eval issues
+    window['doRemember_'+editId]=()=>{dlg.remove();doRemember();};
+    window['updateTestimonySource_'+editId]=()=>{
+      dlg.remove();
+      // Update original memory record
+      if(t._testimonySourceId){const src=all.find(x=>x.id===t._testimonySourceId);if(src)src.notes=currentNotes;}
+      doRemember();
+    };
+    document.body.appendChild(dlg);
+  } else {
+    doRemember();
+  }
 }
 function closeModal(){voice.stop();document.getElementById('overlay').classList.remove('open');editId=null;const sn=document.getElementById('mSessionNote');if(sn)sn.value='';setModalKind('pursuit');const eb=document.getElementById('kbtn-experience');if(eb){eb.classList.add('kind-blocked');eb.title='Experiences are recorded automatically — not created manually';}}
 function setModalKind(kind){
@@ -4396,6 +4536,9 @@ function renderDayView(){
       ${aimsHtml}
       ${expHtml}
       ${memHtml}
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(0,0,0,.08);text-align:center">
+        <button class="cal-dv-testimony-btn" onclick="openTestimonyModal('${calDvDs}')">✦ Record a Testimony</button>
+      </div>
     </div>`;
 }
 function openDvReflDrawer(){
