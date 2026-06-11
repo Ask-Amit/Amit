@@ -98,6 +98,10 @@ header{
 
 /* ── MORNING ALTAR — HOME PANEL ── */
 .altar-wrap{display:flex;flex-direction:column;flex:1;overflow-y:auto}
+.altar-date-nav{display:flex;align-items:center;justify-content:space-between;padding:7px 40px;background:rgba(201,168,76,.06);border-bottom:1px solid rgba(201,168,76,.12)}
+.altar-date-nav-lbl{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:rgba(240,232,208,.6)}
+.altar-nav-btn{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.65);background:none;border:1px solid rgba(201,168,76,.25);border-radius:5px;padding:4px 12px;cursor:pointer;transition:all .15s}
+.altar-nav-btn:hover{color:var(--gold);border-color:rgba(201,168,76,.55)}
 .altar-wrap::-webkit-scrollbar{width:3px}
 .altar-wrap::-webkit-scrollbar-thumb{background:rgba(201,168,76,.2);border-radius:2px}
 /* Greeting */
@@ -938,7 +942,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 
   <!-- ── SIDEBAR TILES ── -->
   <nav class="sidebar">
-    <div class="tile active" id="tile-home" onclick="openPanel('home')">
+    <div class="tile active" id="tile-home" onclick="homePanelDate=todayStr();openPanel('home')">
       <div class="tile-icon">🏠</div>
       <div class="tile-info">
         <div class="tile-name">Home</div>
@@ -1024,6 +1028,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="panel active" id="panel-home">
       <div class="altar-wrap">
 
+        <!-- DATE NAVIGATION — shows when viewing a non-today date -->
+        <div class="altar-date-nav" id="altarDateNav" style="display:none">
+          <button class="altar-nav-btn" onclick="openPanel('calendar')">← Calendar</button>
+          <span class="altar-date-nav-lbl" id="altarNavDateLbl"></span>
+          <button class="altar-nav-btn" onclick="openHomeForDate(todayStr())">← Today</button>
+        </div>
+
         <!-- GREETING -->
         <div class="altar-greeting">
           <div class="altar-name" id="altarGreeting">Good morning</div>
@@ -1056,9 +1067,21 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 
         <!-- PRESSING AIMS -->
         <div class="altar-section">
-          <div class="altar-lbl">Pressing Today</div>
+          <div class="altar-lbl" id="altarAimsLbl">Pressing Today</div>
           <div id="altarAimsList"></div>
           <span class="altar-aims-link" onclick="openPanel('todo')">See all Pursuits →</span>
+        </div>
+
+        <!-- EXPERIENCE FOR DATE -->
+        <div class="altar-section" id="altarExpSection" style="display:none">
+          <div class="altar-lbl" style="color:rgba(100,220,200,.85)">Experience</div>
+          <div id="altarExpList"></div>
+        </div>
+
+        <!-- MEMORIES FOR DATE -->
+        <div class="altar-section" id="altarMemSection" style="display:none">
+          <div class="altar-lbl" style="color:rgba(200,160,255,.85)">Memory</div>
+          <div id="altarMemList"></div>
         </div>
 
         <!-- MORNING INVITATION -->
@@ -2254,24 +2277,53 @@ function saveReflection(){
 // HOME PANEL UPDATE
 // ══════════════════════════════════════════════
 function updateHome(){
+  const isToday=homePanelDate===todayStr();
   const n=new Date();
   const h=n.getHours();
-  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
   const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const MONS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const _name=getUserName();const gEl=document.getElementById('altarGreeting');if(gEl)gEl.textContent=_name?sal+', '+_name:sal;
-  const dEl=document.getElementById('altarGregDate');if(dEl)dEl.textContent=DAYS[n.getDay()]+', '+MONS[n.getMonth()]+' '+n.getDate()+', '+n.getFullYear()+' · '+n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 
-  // Hebrew date
-  const gy=n.getFullYear(),gm=n.getMonth()+1,gd=n.getDate();
+  // Date nav bar
+  const navEl=document.getElementById('altarDateNav');
+  const navLbl=document.getElementById('altarNavDateLbl');
+  if(navEl)navEl.style.display=isToday?'none':'flex';
+  if(navLbl&&!isToday){
+    const[py,pm,pd]=homePanelDate.split('-').map(Number);
+    const pDate=new Date(py,pm-1,pd);
+    const diff=Math.round((new Date(py,pm-1,pd)-new Date(todayStr().split('-').map((v,i)=>i===1?v-1:Number(v))))/86400000);
+    navLbl.textContent=DAYS[pDate.getDay()]+', '+MONS[pDate.getMonth()]+' '+pd+', '+py;
+  }
+
+  // Greeting — context-aware
+  const _name=getUserName();
+  const gEl=document.getElementById('altarGreeting');
+  if(gEl){
+    if(isToday){const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';gEl.textContent=_name?sal+', '+_name:sal;}
+    else{
+      const[py,pm,pd]=homePanelDate.split('-').map(Number);
+      const pDate=new Date(py,pm-1,pd);
+      const isPast=homePanelDate<todayStr();
+      gEl.textContent=(isPast?'Looking back on ':'Looking ahead to ')+DAYS[pDate.getDay()];
+    }
+  }
+
+  // Gregorian date display
+  const dEl=document.getElementById('altarGregDate');
+  if(dEl){
+    if(isToday){dEl.textContent=DAYS[n.getDay()]+', '+MONS[n.getMonth()]+' '+n.getDate()+', '+n.getFullYear()+' · '+n.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
+    else{const[py,pm,pd]=homePanelDate.split('-').map(Number);dEl.textContent=DAYS[new Date(py,pm-1,pd).getDay()]+', '+MONS[pm-1]+' '+pd+', '+py;}
+  }
+
+  // Hebrew date — always use homePanelDate
+  const[gy,gm,gd]=homePanelDate.split('-').map(Number);
   const heb=gregToHeb(gy,gm,gd);
   const hebEl=document.getElementById('altarHebDate');if(hebEl)hebEl.textContent=heb.d+' '+HEB_MONTH_NAMES[heb.m]+' · Hebrew';
   const sh=getShemitaYear(heb.y);
   const hebYEl=document.getElementById('altarHebYear');if(hebYEl)hebYEl.textContent=heb.y+(sh.isShemita?' · Shemita Year':' · Year '+sh.pos+' of 7');
 
   // What this day means on His calendar
-  const dow=n.getDay(),ds=todayStr();
-  const feast=FEAST_DATA[ds];
+  const dow=new Date(gy,gm-1,gd).getDay();
+  const feast=FEAST_DATA[homePanelDate];
   let meaning='',isFeast=false;
   if(feast){meaning=feast.feast+(feast.desc?' — '+feast.desc:'');isFeast=true}
   else if(dow===6){meaning='Shabbat — The Seventh Day. Yahweh rested and called it holy. So do we.';isFeast=true}
@@ -2281,8 +2333,10 @@ function updateHome(){
   const mEl=document.getElementById('altarCalMeaning');
   if(mEl){mEl.textContent=meaning;mEl.className='altar-cal-meaning'+(isFeast?' altar-cal-feast':'');}
 
-  // Word for Today — full inline
-  const{w,up}=getDayWord();
+  // Word for Today — keyed to homePanelDate
+  let w,up;
+  if(isToday){const r=getDayWord();w=r.w;up=r.up;}
+  else{const key=getDayWordKey(gy,gm,gd);w=WORD_DATA[key]||WORD_DATA['d'+dow]||{};up=null;}
   let ctx=w.ctx||'';
   if(up){ctx=up.daysUntil===1?'Tonight · '+up.name+' Begins':up.daysUntil+' Days Until '+up.name+' · Preparation';}
   const cEl=document.getElementById('altarWordCtx');if(cEl)cEl.textContent=ctx;
@@ -2294,19 +2348,51 @@ function updateHome(){
   if(doEl)doEl.innerHTML=w.doing?`<div class="altar-doing-lbl">For Today</div><div class="altar-doing-body">${w.doing}</div>`:'';
   const vEl=document.getElementById('altarVerse');if(vEl){vEl.textContent=w.verse||'';vEl.style.display=w.verse?'':'none';}
 
-  // Load today's reflection
-  try{const refls=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');const rEl=document.getElementById('altarRefl');if(rEl)rEl.value=refls[todayStr()]||'';}catch{}
+  // Reflection — keyed to homePanelDate
+  try{const refls=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');const rEl=document.getElementById('altarRefl');if(rEl)rEl.value=refls[homePanelDate]||'';}catch{}
 
-  // Pressing aims
-  const all=load(),pressing=all.filter(t=>!t.done&&(isOver(t)||isTod(t)));
+  // Pressing aims — show date's aims
+  const all=load();
+  const aimsLbl=document.getElementById('altarAimsLbl');
   const aEl=document.getElementById('altarAimsList');
-  if(aEl){
-    if(!pressing.length){aEl.innerHTML='<div class="altar-aim-empty">Nothing pressing today — you are free to press in elsewhere.</div>';}
-    else{aEl.innerHTML=pressing.slice(0,5).map(t=>{
-      const over=isOver(t);
-      return`<div class="altar-aim-row"><div class="altar-aim-cb" onclick="toggleDoneTask('${t.id}');updateHome()" title="Mark complete"></div><div class="altar-aim-title" onclick="openEdit('${t.id}')">${esc(t.title)}</div>${over?'<div class="altar-aim-tag">overdue</div>':''}</div>`;
-    }).join('');}
+  if(isToday){
+    const pressing=all.filter(t=>t.kind==='pursuit'&&!t.done&&(isOver(t)||isTod(t)));
+    if(aimsLbl)aimsLbl.textContent='Pressing Today';
+    if(aEl){
+      if(!pressing.length){aEl.innerHTML='<div class="altar-aim-empty">Nothing pressing today — you are free to press in elsewhere.</div>';}
+      else{aEl.innerHTML=pressing.slice(0,5).map(t=>{
+        const over=isOver(t);
+        return`<div class="altar-aim-row"><div class="altar-aim-cb" onclick="toggleDoneTask('${t.id}');updateHome()" title="Mark complete"></div><div class="altar-aim-title" onclick="openEdit('${t.id}')">${esc(t.title)}</div>${over?'<div class="altar-aim-tag">overdue</div>':''}</div>`;
+      }).join('');}
+    }
+  } else {
+    const dayAims=all.filter(t=>t.kind==='pursuit'&&t.due===homePanelDate);
+    if(aimsLbl)aimsLbl.textContent='Pursuits';
+    if(aEl){
+      if(!dayAims.length){aEl.innerHTML='<div class="altar-aim-empty">No pursuits on this day.</div>';}
+      else{aEl.innerHTML=dayAims.map(t=>{
+        const done=!!t.done;
+        return`<div class="altar-aim-row"${done?' style="opacity:.5"':''}><div class="altar-aim-cb" style="${done?'background:rgba(80,200,120,.3);border-color:rgba(80,200,120,.5)':''}"></div><div class="altar-aim-title" onclick="openEdit('${t.id}')">${done?'<s>':''}${esc(t.title)}${done?'</s>':''}</div></div>`;
+      }).join('');}
+    }
   }
+
+  // Experience section
+  const expSec=document.getElementById('altarExpSection');
+  const expList=document.getElementById('altarExpList');
+  const exps=all.filter(t=>t.kind==='experience'&&t.completedDate===homePanelDate);
+  if(expSec)expSec.style.display=exps.length?'':'none';
+  if(expList)expList.innerHTML=exps.map(e=>`<div class="altar-aim-row" onclick="openEdit('${e.id}')" style="cursor:pointer"><div class="altar-aim-title">◎ ${esc(e.title||'Experience')}</div>${e.notes?`<div style="font-size:11px;color:rgba(240,232,208,.45);margin-top:3px">${esc(e.notes.slice(0,100))}…</div>`:''}</div>`).join('');
+
+  // Memory section
+  const memSec=document.getElementById('altarMemSection');
+  const memList=document.getElementById('altarMemList');
+  const mems=all.filter(t=>t.kind==='memory'&&(t.due===homePanelDate||t.completedDate===homePanelDate));
+  if(memSec)memSec.style.display=mems.length?'':'none';
+  if(memList)memList.innerHTML=mems.map(m=>{
+    const isOriginPursuit=m._origin==='pursuit';
+    return`<div class="altar-aim-row" onclick="openEdit('${m.id}')" style="cursor:pointer"><div class="altar-aim-title">${isOriginPursuit?'✓ ':'◆ '}${esc(m.title||'Memory')}</div>${isOriginPursuit?'<div class="altar-aim-tag" style="background:rgba(40,160,80,.15);color:rgba(80,200,120,.8);border-color:rgba(60,180,80,.3)">completed pursuit</div>':''}</div>`;
+  }).join('');
 
   // Sidebar tile badge
   const ov=all.filter(t=>!t.done&&isOver(t)).length,td=all.filter(t=>!t.done&&isTod(t)).length;
@@ -2322,7 +2408,7 @@ function updateHome(){
 function saveAltarReflection(){
   try{
     const refls=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
-    refls[todayStr()]=document.getElementById('altarRefl').value;
+    refls[homePanelDate]=document.getElementById('altarRefl').value;
     localStorage.setItem(REFL_KEY,JSON.stringify(refls));
     const s=document.getElementById('altarReflSaved');if(s){s.textContent='Saved.';setTimeout(()=>s.textContent='',1800);}
   }catch{}
@@ -3623,6 +3709,9 @@ let calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), calSelecte
 let calActiveSide='greg'; // 'greg' | 'heb'
 let calFilters={active:true,experience:false,memory:false};
 const EXP_SESSION_KEY='amit_exp_session'; // sessionStorage — panels visited today
+let homePanelDate=todayStr();
+function openHomeForDate(ds){homePanelDate=ds;openPanel('home');}
+
 
 const CAL_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const CAL_DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -3696,7 +3785,7 @@ function renderHebCalendar(){
 }
 
 function selectHebDay(ds){calSelected=ds;renderCalendar();renderCalDay(ds)}
-function selectCalDay(ds){calSelected=ds;renderCalendar();renderCalDay(ds)}
+function selectCalDay(ds){calSelected=ds;renderCalendar();openHomeForDate(ds);}
 
 let calType='biblical'; // 'biblical' | 'rabbinic' | 'enoch'
 const CAL_TYPE_NOTES={
@@ -4003,11 +4092,9 @@ function adjMonthClick(ds){const[y,m]=ds.split('-');calYear=parseInt(y);calMonth
 // ── DAY ZOOM VIEW ──
 let calDvDs=null;
 function openDayView(ds){
-  calDvDs=ds;calSelected=ds;
-  document.getElementById('calDvAddBtn').onclick=()=>addTaskOnDate(ds);
-  renderDayView();
-  document.getElementById('calWrap').style.display='none';
-  document.getElementById('calDayView').classList.add('open');
+  calSelected=ds;
+  renderCalendar();
+  openHomeForDate(ds);
 }
 function closeDayView(){
   document.getElementById('calDayView').classList.remove('open');
