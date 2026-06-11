@@ -640,10 +640,10 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-done-row{display:flex;align-items:baseline;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .cal-done-check{color:rgba(111,207,151,.7);font-size:11px;flex-shrink:0}
 .cal-done-title{font-size:12px;color:rgba(240,232,208,.4);text-decoration:line-through;line-height:1.4}
-.cal-exp-row{padding:7px 10px;background:rgba(30,120,160,.12);border:1px solid rgba(100,200,220,.2);border-radius:6px;margin-bottom:5px;cursor:pointer;transition:background .15s}
-.cal-exp-row:hover{background:rgba(30,120,160,.22)}
-.cal-exp-title{font-size:12px;color:rgba(180,230,245,.9);font-weight:600;margin-bottom:3px}
-.cal-exp-notes{font-size:11px;color:rgba(180,230,245,.55);line-height:1.4}
+.cal-exp-row{padding:7px 10px;background:rgba(14,90,130,.15);border:1px solid rgba(14,100,150,.3);border-radius:6px;margin-bottom:5px;cursor:pointer;transition:background .15s}
+.cal-exp-row:hover{background:rgba(14,90,130,.25)}
+.cal-exp-title{font-size:12px;color:rgba(8,75,115,.92);font-weight:600;margin-bottom:3px}
+.cal-exp-notes{font-size:11px;color:rgba(8,75,115,.65);line-height:1.4}
 .cal-exp-privacy{font-size:10px;color:rgba(100,200,220,.4);font-style:italic;margin:6px 0 10px;padding:5px 8px;border:1px solid rgba(100,200,220,.15);border-radius:5px}
 .cal-dv-log-section{margin-top:10px}
 .cal-dv-log-area{width:100%;min-height:70px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:rgba(240,232,208,.8);font-size:12px;padding:8px 10px;resize:vertical;font-family:inherit;line-height:1.5;box-sizing:border-box}
@@ -4188,7 +4188,7 @@ function renderDayView(){
   const reflPreview=reflVal?`<div class="cal-dv-refl-preview">"${reflVal.slice(0,60)}${reflVal.length>60?'…':''}"</div>`:'';
   const reflTrigger=`<div class="cal-dv-refl-trigger" onclick="openDvReflDrawer()">${reflVal?'Your Reflection — Edit →':'Add Your Reflection →'}</div>${reflPreview}`;
   // Aims
-  const aimsHtml=`<div class="cal-dv-aims-lbl">Pursuits for This Day</div>`+
+  const aimsHtml=calFilters.active?`<div class="cal-dv-aims-lbl">Pursuits for This Day</div>`+
     (tasks.length
       ? tasks.map(t=>{
           const recurChip=t.recur&&t.recur!=='none'?`<span style="font-size:10px;opacity:.6;margin-left:6px">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
@@ -4200,21 +4200,21 @@ function renderDayView(){
           </div>`;
         }).join('')
       : `<div class="cal-dv-aim-empty">Nothing set for this day yet — what are you pressing toward?</div>`)+
-    `<div class="cal-dv-add-aim" onclick="addTaskOnDate('${calDvDs}')">+ Set a New Pursuit</div>`;
-  // Experience section — all experiences for this day
-  const dvExps=load().filter(t=>t.kind==='experience'&&(t.completedDate===calDvDs||t.due===calDvDs));
-  const expHtml=dvExps.length?`<div class="cal-dv-aims-lbl" style="color:rgba(100,200,220,.8);margin-top:14px">Your Experience</div>`+
+    `<div class="cal-dv-add-aim" onclick="addTaskOnDate('${calDvDs}')">+ Set a New Pursuit</div>` : ``;
+  // Experience section — filtered by calFilters.experience
+  const dvExps=calFilters.experience?load().filter(t=>t.kind==='experience'&&(t.completedDate===calDvDs||t.due===calDvDs)):[];
+  const expHtml=dvExps.length?`<div class="cal-dv-aims-lbl" style="color:rgba(10,90,130,.75);margin-top:14px">Your Experience</div>`+
     dvExps.map(e=>`<div class="cal-exp-row" onclick="openEdit('${e.id}')">
       <div class="cal-exp-title">◎ ${esc(e.title||'Experience Entry')}</div>
       ${e.notes?`<div class="cal-exp-notes">${esc(e.notes.slice(0,120))}${e.notes.length>120?'…':''}</div>`:''}
     </div>`).join(''):``;
-  // Memory section — ALL memories for this day (manual + completed pursuits), no _origin filter
-  const dvMems=load().filter(t=>t.kind==='memory'&&(t.due===calDvDs||t.completedDate===calDvDs));
-  const memHtml=dvMems.length?`<div class="cal-dv-aims-lbl" style="color:rgba(200,160,255,.8);margin-top:14px">Memory</div>`+
+  // Memory section — filtered by calFilters.memory, no _origin filter
+  const dvMems=calFilters.memory?load().filter(t=>t.kind==='memory'&&(t.due===calDvDs||t.completedDate===calDvDs)):[];
+  const memHtml=dvMems.length?`<div class="cal-dv-aims-lbl" style="color:rgba(90,30,160,.7);margin-top:14px">Memory</div>`+
     dvMems.map(m=>{
       const isCompPursuit=m._origin==='pursuit';
-      return`<div class="cal-exp-row" style="${isCompPursuit?'background:rgba(30,120,60,.14);border-color:rgba(80,200,120,.2)':'background:rgba(130,60,200,.12);border-color:rgba(180,120,255,.2)'}" onclick="openEdit('${m.id}')">
-        <div class="cal-exp-title" style="color:${isCompPursuit?'rgba(140,220,160,.9)':'rgba(220,180,255,.9)'}">
+      return`<div class="cal-exp-row" style="${isCompPursuit?'background:rgba(20,100,50,.18);border-color:rgba(20,120,60,.35)':'background:rgba(90,30,180,.15);border-color:rgba(110,50,200,.3)'}" onclick="openEdit('${m.id}')">
+        <div class="cal-exp-title" style="color:${isCompPursuit?'rgba(8,100,40,.9)':'rgba(80,25,155,.9)'}">
           ${isCompPursuit?'✓':'⬥'} ${esc(m.title)}
           ${isCompPursuit?`<span style="font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.08em;margin-left:6px">completed pursuit</span>`:''}
         </div>
