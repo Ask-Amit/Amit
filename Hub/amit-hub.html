@@ -4196,25 +4196,26 @@ function renderDayView(){
         }).join('')
       : `<div class="cal-dv-aim-empty">Nothing set for this day yet — what are you pressing toward?</div>`)+
     `<div class="cal-dv-add-aim" onclick="addTaskOnDate('${calDvDs}')">+ Set a New Pursuit</div>`;
-  // Experience section
-  const dvExps=experienceEntriesForDay(calDvDs);
+  // Experience section — all experiences for this day
+  const dvExps=load().filter(t=>t.kind==='experience'&&(t.completedDate===calDvDs||t.due===calDvDs));
   const expHtml=dvExps.length?`<div class="cal-dv-aims-lbl" style="color:rgba(100,200,220,.8);margin-top:14px">Your Experience</div>`+
     dvExps.map(e=>`<div class="cal-exp-row" onclick="openEdit('${e.id}')">
       <div class="cal-exp-title">◎ ${esc(e.title||'Experience Entry')}</div>
       ${e.notes?`<div class="cal-exp-notes">${esc(e.notes.slice(0,120))}${e.notes.length>120?'…':''}</div>`:''}
     </div>`).join(''):``;
-  // Memory section
-  const dvCompP=completedPursuitsForDay(calDvDs);
-  const dvMems=memoryEntriesForDay(calDvDs).filter(m=>!m._origin);
-  const memHtml=(dvCompP.length||dvMems.length)?`<div class="cal-dv-aims-lbl" style="color:rgba(200,160,255,.8);margin-top:14px">Memory</div>`+
-    dvCompP.map(t=>`<div class="cal-exp-row" style="background:rgba(30,120,60,.14);border-color:rgba(80,200,120,.2)" onclick="openEdit('${t.id}')">
-      <div class="cal-exp-title" style="color:rgba(140,220,160,.9)">✓ ${esc(t.title)} <span style="font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.08em">completed pursuit</span></div>
-      ${t.notes?`<div class="cal-exp-notes">${esc(t.notes.slice(0,100))}</div>`:''}
-    </div>`).join('')+
-    dvMems.map(m=>`<div class="cal-exp-row" style="background:rgba(130,60,200,.12);border-color:rgba(180,120,255,.2)" onclick="openEdit('${m.id}')">
-      <div class="cal-exp-title" style="color:rgba(220,180,255,.9)">⬥ ${esc(m.title)}</div>
-      ${m.notes?`<div class="cal-exp-notes">${esc(m.notes.slice(0,100))}</div>`:''}
-    </div>`).join(''):``;
+  // Memory section — ALL memories for this day (manual + completed pursuits), no _origin filter
+  const dvMems=load().filter(t=>t.kind==='memory'&&(t.due===calDvDs||t.completedDate===calDvDs));
+  const memHtml=dvMems.length?`<div class="cal-dv-aims-lbl" style="color:rgba(200,160,255,.8);margin-top:14px">Memory</div>`+
+    dvMems.map(m=>{
+      const isCompPursuit=m._origin==='pursuit';
+      return`<div class="cal-exp-row" style="${isCompPursuit?'background:rgba(30,120,60,.14);border-color:rgba(80,200,120,.2)':'background:rgba(130,60,200,.12);border-color:rgba(180,120,255,.2)'}" onclick="openEdit('${m.id}')">
+        <div class="cal-exp-title" style="color:${isCompPursuit?'rgba(140,220,160,.9)':'rgba(220,180,255,.9)'}">
+          ${isCompPursuit?'✓':'⬥'} ${esc(m.title)}
+          ${isCompPursuit?`<span style="font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.08em;margin-left:6px">completed pursuit</span>`:''}
+        </div>
+        ${m.notes?`<div class="cal-exp-notes">${esc(m.notes.slice(0,100))}</div>`:''}
+      </div>`;
+    }).join(''):``;
   // Hebrew year line
   const hebYr=calDate.y;
   const shLine=sh.isShemita?'Shemita Year':'Year '+sh.pos+' of 7';
