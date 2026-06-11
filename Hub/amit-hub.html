@@ -605,6 +605,18 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-chip-done  {background:rgba(50,50,50,.55);border-left:3px solid rgba(111,207,151,.5);color:rgba(240,232,208,.45);text-decoration:line-through}
 .cal-chip-exp   {background:rgba(30,120,160,.65);border-left:3px solid rgba(100,200,220,.8);color:#d0f0ff;font-weight:600}
 .cal-chip-mem   {background:rgba(120,50,190,.65);border-left:3px solid rgba(180,120,255,.8);color:#ead0ff;font-weight:600}
+/* Calendar cell summary badges */
+.cal-cell-badges{display:flex;justify-content:space-between;align-items:center;padding:3px 4px 3px;margin-top:auto;gap:2px;min-height:22px}
+.cal-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;cursor:pointer;min-width:22px;text-align:center;transition:opacity .12s;line-height:1.4}
+.cal-badge:hover{opacity:.78}
+.cal-badge-empty{min-width:22px;visibility:hidden}
+.cal-badge-pursuit{background:rgba(180,140,15,.82);color:#2a1e00;border:1px solid rgba(201,168,76,.7)}
+.cal-badge-exp{background:rgba(0,155,135,.18);color:rgba(0,130,110,.95);border:1px solid rgba(0,172,152,.5);font-size:11px}
+.cal-badge-mem{background:rgba(130,60,200,.15);color:rgba(100,35,175,.95);border:1px solid rgba(175,115,245,.45)}
+/* Pursuits panel quick-filter banner */
+.pqf-banner{display:flex;justify-content:space-between;align-items:center;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:6px 12px;margin:0 0 8px;font-size:12px;color:var(--gold)}
+.pqf-banner-btn{background:none;border:1px solid rgba(201,168,76,.4);color:var(--gold);border-radius:4px;padding:2px 9px;cursor:pointer;font-size:11px;font-family:'Cinzel',serif;letter-spacing:.05em}
+.pqf-banner-btn:hover{background:rgba(201,168,76,.15)}
 /* Remember Now button — header */
 .remember-btn{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;padding:5px 13px;border-radius:20px;border:1px solid rgba(180,120,255,.4);background:rgba(120,50,190,.15);color:rgba(200,160,255,.85);cursor:pointer;transition:all .18s;white-space:nowrap;margin-right:14px}
 .remember-btn:hover{background:rgba(120,50,190,.3);border-color:rgba(180,120,255,.7);color:rgba(220,190,255,1)}
@@ -2199,7 +2211,7 @@ function toggleCalFilter(layer){
   render();
 }
 // ── EXPERIENCE / ACTIVITY LOG ──
-const APP_VERSION='1.61';
+const APP_VERSION='1.62';
 const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator',coder:'AmitCoder'};
 function logPanelVisit(panelId){
   const name=PANEL_NAMES[panelId];if(!name)return;
@@ -2853,7 +2865,7 @@ function onSortChange(){
 // ══════════════════════════════════════════════
 function render(){
   const today=todayStr();
-  const all=load().filter(t=>{const k=t.kind||'pursuit';if(k==='pursuit'&&t.subcat==='testimony'&&!t.done)return t.due===today;return(calFilters.active&&k==='pursuit')||(calFilters.experience&&k==='experience')||(calFilters.memory&&k==='memory');}),active=all.filter(t=>(t.kind||'pursuit')==='pursuit'?(!t.done||_newlyDoneIds.has(t.id)):true),done=all.filter(t=>(t.kind||'pursuit')==='pursuit'&&t.done&&!_newlyDoneIds.has(t.id));
+  const all=load().filter(t=>{const k=t.kind||'pursuit';if(pursuitQuickFilter.date&&k===pursuitQuickFilter.kind)return true;if(k==='pursuit'&&t.subcat==='testimony'&&!t.done)return t.due===today;return(calFilters.active&&k==='pursuit')||(calFilters.experience&&k==='experience')||(calFilters.memory&&k==='memory');}),active=all.filter(t=>(t.kind||'pursuit')==='pursuit'?(!t.done||_newlyDoneIds.has(t.id)):true),done=all.filter(t=>(t.kind||'pursuit')==='pursuit'&&t.done&&!_newlyDoneIds.has(t.id));
   document.getElementById('bAll').textContent=active.length;
   document.getElementById('bDay').textContent=active.filter(t=>t.myDay).length;
   document.getElementById('bInbox').textContent=active.filter(t=>!t.cat||t.cat==='inbox').length;
@@ -2886,10 +2898,24 @@ function render(){
   if(recF==='yes') filtered=filtered.filter(t=>t.recur&&t.recur!=='none');
   else if(recF==='no') filtered=filtered.filter(t=>!t.recur||t.recur==='none');
   if(_starFilterActive) filtered=filtered.filter(t=>t.starred);
+  if(pursuitQuickFilter.date){
+    const qd=pursuitQuickFilter.date,qk=pursuitQuickFilter.kind;
+    filtered=filtered.filter(t=>{
+      const k=t.kind||'pursuit';
+      if(k!==qk)return false;
+      if(k==='experience')return t.completedDate===qd;
+      if(k==='memory')return t.due===qd||t.completedDate===qd;
+      return t.due===qd;
+    });
+  }
   filtered=sortTasks(filtered,document.getElementById('sortSel').value);
   filtered=filtered.filter(t=>!_newlyDoneIds.has(t.id));
   const justDoneTasks=all.filter(t=>_newlyDoneIds.has(t.id));
   let html='';
+  if(pursuitQuickFilter.date){
+    const kindLabel={pursuit:'Pursuits',experience:'Experiences',memory:'Memories'}[pursuitQuickFilter.kind]||pursuitQuickFilter.kind;
+    html+=`<div class="pqf-banner"><span>Showing ${kindLabel} · ${pursuitQuickFilter.date}</span><button class="pqf-banner-btn" onclick="clearPursuitQuickFilter()">× Clear</button></div>`;
+  }
   if(justDoneTasks.length){
     html+='<div class="sec-lbl sec-just-done">✓ Done This Session</div>';
     justDoneTasks.forEach(t=>html+=rowHTML(t,true));
@@ -4023,6 +4049,7 @@ function getShemitaYear(hebrewYear){const pos=((hebrewYear-5782)%7+7)%7+1;return
 let calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), calSelected=todayStr();
 let calActiveSide='greg'; // 'greg' | 'heb'
 let calFilters={active:true,experience:false,memory:false};
+let pursuitQuickFilter={date:null,kind:null};
 const EXP_SESSION_KEY='amit_exp_session'; // sessionStorage — panels visited today
 let homePanelDate=todayStr();
 function openHomeForDate(ds){homePanelDate=ds;openPanel('home');}
@@ -4285,35 +4312,24 @@ function buildCalCell(ds,dayNum,isAdj){
   if(isShabbat&&!isAdj)cls+=' cal-shabbat-day';
   const onclick=isAdj?`adjMonthClick('${ds}')`:`selectCalDay('${ds}')`;
   const ondblclick=isAdj?'':`ondblclick="event.stopPropagation();openDayView('${ds}')"`;
-  let chips='';
-  if(calFilters.active){
-    tasks.slice(0,2).forEach(t=>{
-      chips+=`<div class="cal-chip ${calChipCls(t,isPast,isToday)}" onclick="event.stopPropagation();openEdit('${t.id}')" title="${esc(t.title)}">${esc(t.title.length>13?t.title.slice(0,13)+'…':t.title)}</div>`;
-    });
-    if(tasks.length>2)chips+=`<div class="cal-chip-more">+${tasks.length-2}</div>`;
-  }
-  if(calFilters.experience&&!isAdj){
-    const exps=experienceEntriesForDay(ds);
-    if(exps.length){
-      const firstTitle=exps[0].title.length>12?exps[0].title.slice(0,12)+'…':exps[0].title;
-      const expClickFn=exps.length===1?`openEdit('${exps[0].id}')`:`selectCalDay('${ds}')`;
-      chips+=`<div class="cal-chip cal-chip-exp" onclick="event.stopPropagation();${expClickFn}" title="Experience — click to open">◎ ${esc(firstTitle)}</div>`;
-      if(exps.length>1)chips+=`<div class="cal-chip-more">+${exps.length-1}</div>`;
-    }
-  }
-  if(calFilters.memory&&!isAdj){
-    const mems=memoryEntriesForDay(ds);
-    if(mems.length){
-      const firstTitle=mems[0].title.length>11?mems[0].title.slice(0,11)+'…':mems[0].title;
-      chips+=`<div class="cal-chip cal-chip-mem" onclick="event.stopPropagation();openEdit('${mems[0].id}')" title="${esc(mems[0].title)}">⬥ ${esc(firstTitle)}</div>`;
-      if(mems.length>1)chips+=`<div class="cal-chip-more">+${mems.length-1}</div>`;
+  // Three summary badges: pursuit (gold left), experience (teal center), memory (purple right)
+  let badges='';
+  if(!isAdj){
+    const pCount=calFilters.active?tasks.length:0;
+    const eCount=calFilters.experience?experienceEntriesForDay(ds).length:0;
+    const mCount=calFilters.memory?memoryEntriesForDay(ds).length:0;
+    if(pCount||eCount||mCount){
+      const pB=pCount?`<div class="cal-badge cal-badge-pursuit" onclick="event.stopPropagation();openPursuitFilter('${ds}','pursuit')" title="${pCount} Pursuit${pCount>1?'s':''}">${pCount}</div>`:`<div class="cal-badge-empty"></div>`;
+      const eB=eCount?`<div class="cal-badge cal-badge-exp" onclick="event.stopPropagation();openPursuitFilter('${ds}','experience')" title="${eCount} Experience${eCount>1?'s':''}">◎</div>`:`<div class="cal-badge-empty"></div>`;
+      const mB=mCount?`<div class="cal-badge cal-badge-mem" onclick="event.stopPropagation();openPursuitFilter('${ds}','memory')" title="${mCount} Memor${mCount>1?'ies':'y'}">${mCount}</div>`:`<div class="cal-badge-empty"></div>`;
+      badges=`<div class="cal-cell-badges">${pB}${eB}${mB}</div>`;
     }
   }
   let calCol='';
   if(!isAdj){
     let ind='';
     const _wKey=getDayWordKey(gy,gm,gd);
-    const _wOnclick=`event.stopPropagation();openDayWord('${ds}')`;
+    const _wOnclick=`event.stopPropagation();openPanel('verse')`;
     if(calEv){
       ind=`<div class="cal-heb-ind cal-heb-feast-ind feast-${calEv.type}" onclick="${_wOnclick}">${calEv.short||calEv.feast}</div>`;
     } else if(isShabbat){
@@ -4337,7 +4353,7 @@ function buildCalCell(ds,dayNum,isAdj){
       <div class="cal-cell-greg"><div class="cal-day-num">${dayNum}</div>${todayBadgeCell}</div>
       ${calCol}
     </div>
-    ${chips?`<div class="cal-cell-aims">${chips}</div>`:''}
+    ${badges}
   </div>`;
 }
 
@@ -4398,6 +4414,8 @@ function renderCalendar(){
 }
 
 function adjMonthClick(ds){const[y,m]=ds.split('-');calYear=parseInt(y);calMonth=parseInt(m)-1;calSelected=ds;renderCalendar()}
+function openPursuitFilter(ds,kind){pursuitQuickFilter={date:ds,kind:kind};openPanel('todo');render()}
+function clearPursuitQuickFilter(){pursuitQuickFilter={date:null,kind:null};render()}
 
 // ── DAY ZOOM VIEW ──
 let calDvDs=null;
