@@ -620,6 +620,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .kind-btn:hover{background:rgba(255,255,255,.09);color:rgba(240,232,208,.85)}
 .kind-btn.active{background:rgba(201,168,76,.22);color:var(--gold);border-color:rgba(201,168,76,.5);font-weight:700}
 .kind-btn[data-kind="experience"].active{background:rgba(0,140,120,.25);color:rgba(100,220,200,.95);border-color:rgba(0,180,160,.45)}
+.kind-btn.kind-blocked{opacity:.32;cursor:not-allowed;pointer-events:none}
 .kind-btn[data-kind="memory"].active{background:rgba(120,50,190,.28);color:rgba(200,160,255,.95);border-color:rgba(180,120,255,.5)}
 /* Hide pursuit-only modal fields when kind=memory or experience */
 .modal[data-kind="memory"] .modal-kind-pursuit-only{display:none !important}
@@ -3207,6 +3208,8 @@ function openModal(){
   document.getElementById('voiceHint').style.display='none';
   document.getElementById('modalCompleteBtn').style.display='none';
   document.getElementById('modalEndRecurBtn').style.display='none';
+  document.getElementById('kbtn-experience').classList.add('kind-blocked');
+  document.getElementById('kbtn-experience').title='Experiences are recorded automatically — not created manually';
   document.getElementById('overlay').classList.add('open');
   setTimeout(()=>document.getElementById('mTitle').focus(),60);
 }
@@ -3233,6 +3236,13 @@ function openEdit(id){
   document.getElementById('modalCompleteBtn').style.display=isPursuitKind?'inline-flex':'none';
   document.getElementById('modalEndRecurBtn').style.display=(isPursuitKind&&isRecur)?'inline-flex':'none';
   document.getElementById('overlay').classList.add('open');
+  const expBtn=document.getElementById('kbtn-experience');
+  if((t.kind||'pursuit')==='experience'){
+    expBtn.classList.remove('kind-blocked');expBtn.title='';
+  } else {
+    expBtn.classList.add('kind-blocked');
+    expBtn.title='Experiences are recorded automatically — not created manually';
+  }
   setModalKind(t.kind||'pursuit');
   setTimeout(()=>document.getElementById('mTitle').focus(),60);
 }
@@ -3250,7 +3260,7 @@ function modalEndSeries(){
   persist(load().filter(x=>x.id!==editId));
   closeModal();render();
 }
-function closeModal(){voice.stop();document.getElementById('overlay').classList.remove('open');editId=null;setModalKind('pursuit');}
+function closeModal(){voice.stop();document.getElementById('overlay').classList.remove('open');editId=null;setModalKind('pursuit');const eb=document.getElementById('kbtn-experience');if(eb){eb.classList.add('kind-blocked');eb.title='Experiences are recorded automatically — not created manually';}}
 function setModalKind(kind){
   modalKind=kind;
   const modal=document.querySelector('.modal');
