@@ -797,6 +797,31 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 /* Aims at bottom */
 .cal-dv-aims-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:rgba(26,21,16,.45);text-transform:uppercase;margin:18px 0 8px}
 .cal-dv-aim-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+/* Day view redesign — two-column sections */
+.dv-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+.dv-section{border-radius:8px;overflow:hidden;margin-bottom:12px}
+.dv-sh{padding:7px 14px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;font-weight:700;text-transform:uppercase}
+.dv-sb{padding:8px 12px}
+.dv-section-pursuit{border:1.5px solid rgba(160,120,0,.3)}
+.dv-section-pursuit .dv-sh{background:rgba(180,140,10,.14);color:rgba(100,65,0,.9);border-bottom:1px solid rgba(160,120,0,.2)}
+.dv-section-exp{border:1.5px solid rgba(0,140,120,.3)}
+.dv-section-exp .dv-sh{background:rgba(0,155,135,.12);color:rgba(0,90,76,.9);border-bottom:1px solid rgba(0,140,120,.2)}
+.dv-section-mem{border:1.5px solid rgba(130,60,200,.3)}
+.dv-section-mem .dv-sh{background:rgba(130,60,200,.1);color:rgba(70,0,140,.9);border-bottom:1px solid rgba(130,60,200,.2)}
+.dv-aim-row{display:flex;align-items:center;gap:8px;padding:6px 0 6px 8px;border-bottom:1px solid rgba(160,120,0,.1);border-left:3px solid rgba(180,140,10,.65)}
+.dv-aim-row:last-child{border-bottom:none}
+.dv-aim-title{flex:1;font-size:12px;color:rgba(70,48,0,.9);font-weight:600;cursor:pointer}
+.dv-aim-title:hover{color:rgba(120,85,0,.95)}
+.dv-aim-empty{font-size:11px;color:rgba(100,75,0,.45);font-style:italic;padding:6px 0}
+.dv-exp-row{padding:5px 0;border-bottom:1px solid rgba(0,140,120,.12);cursor:pointer}
+.dv-exp-row:last-child{border-bottom:none}
+.dv-exp-title{font-size:12px;color:rgba(0,78,65,.9);font-weight:600;margin-bottom:2px}
+.dv-exp-notes{font-size:10px;color:rgba(0,78,65,.6);line-height:1.4}
+.dv-mem-row{padding:5px 0;border-bottom:1px solid rgba(130,60,200,.12);cursor:pointer}
+.dv-mem-row:last-child{border-bottom:none}
+.dv-mem-title{font-size:12px;color:rgba(65,0,130,.9);font-weight:600;margin-bottom:2px}
+.dv-mem-notes{font-size:10px;color:rgba(65,0,130,.55);line-height:1.4}
+.dv-mem-badge{font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:rgba(130,60,200,.55);margin-left:6px;font-weight:400}
 .cal-dv-aim-cb{width:16px;height:16px;border:2px solid rgba(92,66,0,.35);border-radius:4px;flex-shrink:0;cursor:pointer;margin-top:2px;transition:background .15s;background:#fff}
 .cal-dv-aim-cb:hover{background:rgba(92,66,0,.1)}
 .cal-dv-aim-title{flex:1;font-size:14px;color:#1a1510;line-height:1.4;cursor:pointer}
@@ -1436,7 +1461,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="cal-dv-topbar">
           <button class="cal-dv-back" onclick="closeDayView()">← Month</button>
           <div class="cal-dv-title" id="calDvTitle"></div>
-          <button class="btn btn-ghost btn-sm" id="calDvAddBtn">+ Set a New Pursuit</button>
+          <div id="calDvAddBtn" style="display:none"></div>
         </div>
         <div class="cal-dv-zoom-wrap">
           <div class="cal-dv-adj cal-dv-prev" id="calDvPrev" onclick="navigateDayZoom(-1)"></div>
@@ -2174,7 +2199,7 @@ function toggleCalFilter(layer){
   render();
 }
 // ── EXPERIENCE / ACTIVITY LOG ──
-const APP_VERSION='1.60';
+const APP_VERSION='1.61';
 const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator',coder:'AmitCoder'};
 function logPanelVisit(panelId){
   const name=PANEL_NAMES[panelId];if(!name)return;
@@ -4467,41 +4492,41 @@ function renderDayView(){
   try{const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');reflVal=r[calDvDs]||'';}catch{}
   const reflPreview=reflVal?`<div class="cal-dv-refl-preview">"${reflVal.slice(0,60)}${reflVal.length>60?'…':''}"</div>`:'';
   const reflTrigger=`<div class="cal-dv-refl-trigger" onclick="openDvReflDrawer()">${reflVal?'Your Reflection — Edit →':'Add Your Reflection →'}</div>${reflPreview}`;
-  // Aims
-  const aimsHtml=calFilters.active?`<div class="cal-dv-aims-lbl">Pursuits for This Day</div>`+
-    (tasks.length
+  // Pursuits section
+  const pursuitSection=calFilters.active?`<div class="dv-section dv-section-pursuit">
+    <div class="dv-sh">Pursuits</div>
+    <div class="dv-sb">${tasks.length
       ? tasks.map(t=>{
-          const recurChip=t.recur&&t.recur!=='none'?`<span style="font-size:10px;opacity:.6;margin-left:6px">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
+          const recurChip=t.recur&&t.recur!=='none'?`<span style="font-size:9px;opacity:.55;margin-left:5px">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
           const endBtn=t.recur&&t.recur!=='none'?`<div class="cal-dv-aim-end" onclick="event.stopPropagation();delTask('${t.id}')" title="End this series">✕</div>`:'';
-          return`<div class="cal-dv-aim-row">
-            <div class="cal-dv-aim-cb" onclick="toggleDoneTask('${t.id}','${calDvDs}',1);renderDayView()" title="Mark complete"></div>
-            <div class="cal-dv-aim-title" onclick="openEdit('${t.id}')">${esc(t.title)}${recurChip}</div>
+          return`<div class="dv-aim-row">
+            <div class="cal-dv-aim-cb" onclick="event.stopPropagation();toggleDoneTask('${t.id}','${calDvDs}',1);renderDayView()" title="Mark complete"></div>
+            <div class="dv-aim-title" onclick="openEdit('${t.id}')">${esc(t.title)}${recurChip}</div>
             ${endBtn}
           </div>`;
         }).join('')
-      : `<div class="cal-dv-aim-empty">Nothing set for this day yet — what are you pressing toward?</div>`)+
-    `<div class="cal-dv-add-aim" onclick="addTaskOnDate('${calDvDs}')">+ Set a New Pursuit</div>` : ``;
-  // Experience section — filtered by calFilters.experience
+      : `<div class="dv-aim-empty">Nothing set for this day yet.</div>`}
+    </div>
+  </div>`:``;
+  // Experience section
   const dvExps=calFilters.experience?load().filter(t=>t.kind==='experience'&&(t.completedDate===calDvDs||t.due===calDvDs)):[];
-  const expHtml=dvExps.length?`<div class="cal-dv-aims-lbl" style="color:rgba(0,100,150,.7);margin-top:14px">Your Experience</div>`+
-    dvExps.map(e=>`<div class="cal-exp-row" onclick="openEdit('${e.id}')">
-      <div class="cal-exp-title">◎ ${esc(e.title||'Experience Entry')}</div>
-      ${e.notes?`<div class="cal-exp-notes">${esc(e.notes.slice(0,120))}${e.notes.length>120?'…':''}</div>`:''}
-      ${e.sessionNote?`<div class="cal-exp-notes" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,120,150,.2);color:rgba(0,80,120,.75)">📝 ${esc(e.sessionNote)}</div>`:''}
-    </div>`).join(''):``;
-  // Memory section — filtered by calFilters.memory, no _origin filter
+  const expSection=dvExps.length?`<div class="dv-section dv-section-exp">
+    <div class="dv-sh">Experience</div>
+    <div class="dv-sb">${dvExps.map(e=>`<div class="dv-exp-row" onclick="openEdit('${e.id}')">
+      <div class="dv-exp-title">◎ ${esc(e.title||'Experience Entry')}</div>
+      ${e.notes?`<div class="dv-exp-notes">${esc(e.notes.slice(0,100))}${e.notes.length>100?'…':''}</div>`:''}
+      ${e.sessionNote?`<div class="dv-exp-notes" style="margin-top:3px;opacity:.75">📝 ${esc(e.sessionNote)}</div>`:''}
+    </div>`).join('')}</div>
+  </div>`:``;
+  // Memory section — all purple regardless of origin
   const dvMems=calFilters.memory?load().filter(t=>t.kind==='memory'&&(t.due===calDvDs||t.completedDate===calDvDs)):[];
-  const memHtml=dvMems.length?`<div class="cal-dv-aims-lbl" style="color:rgba(80,20,150,.65);margin-top:14px">Memory</div>`+
-    dvMems.map(m=>{
-      const isCompPursuit=m._origin==='pursuit';
-      return`<div class="cal-exp-row" style="${isCompPursuit?'background:rgba(210,248,225,.92);border-color:rgba(0,160,80,.4);border-left:3px solid rgba(0,160,80,.65)':'background:rgba(232,218,252,.92);border-color:rgba(130,60,210,.4);border-left:3px solid rgba(130,60,210,.65)'}" onclick="openEdit('${m.id}')">
-        <div class="cal-exp-title" style="color:${isCompPursuit?'rgba(0,80,30,.9)':'rgba(60,0,120,.9)'}">
-          ${isCompPursuit?'✓':'⬥'} ${esc(m.title)}
-          ${isCompPursuit?`<span style="font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.08em;margin-left:6px">completed pursuit</span>`:''}
-        </div>
-        ${m.notes?`<div class="cal-exp-notes">${esc(m.notes.slice(0,100))}</div>`:''}
-      </div>`;
-    }).join(''):``;
+  const memSection=dvMems.length?`<div class="dv-section dv-section-mem">
+    <div class="dv-sh">Memory</div>
+    <div class="dv-sb">${dvMems.map(m=>`<div class="dv-mem-row" onclick="openEdit('${m.id}')">
+      <div class="dv-mem-title">⬥ ${esc(m.title)}${m.subcat==='testimony'?`<span class="dv-mem-badge">testimony</span>`:m._origin==='pursuit'?`<span class="dv-mem-badge">completed pursuit</span>`:''}</div>
+      ${m.notes?`<div class="dv-mem-notes">${esc(m.notes.slice(0,90))}${m.notes.length>90?'…':''}</div>`:''}
+    </div>`).join('')}</div>
+  </div>`:``;
   // Hebrew year line
   const hebYr=calDate.y;
   const shLine=sh.isShemita?'Shemita Year':'Year '+sh.pos+' of 7';
@@ -4528,10 +4553,11 @@ function renderDayView(){
       ${feastHtml}
       ${wordHtml}
       ${reflTrigger}
-      ${aimsHtml}
-      ${expHtml}
-      ${memHtml}
-      <div style="margin-top:18px;padding-top:14px;border-top:1px solid rgba(0,0,0,.08);text-align:center">
+      <div class="dv-cols">
+        <div>${pursuitSection}</div>
+        <div>${expSection}${memSection}</div>
+      </div>
+      <div style="margin-top:4px;padding-top:12px;border-top:1px solid rgba(0,0,0,.08);text-align:center">
         <button class="cal-dv-testimony-btn" onclick="openTestimonyModal('${calDvDs}')">✦ Record a Testimony</button>
       </div>
     </div>`;
