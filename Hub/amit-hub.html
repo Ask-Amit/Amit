@@ -616,6 +616,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 /* Hide pursuit-only modal fields when kind=memory or experience */
 .modal[data-kind="memory"] .modal-kind-pursuit-only{display:none !important}
 .modal[data-kind="experience"] .modal-kind-pursuit-only{display:none !important}
+/* Hide exp/mem-only fields when kind=pursuit */
+.modal[data-kind="pursuit"] .modal-kind-exp-mem-only{display:none !important}
+/* Taller notes textarea for experience/memory — full story fits */
+.modal[data-kind="memory"] #mNotes,.modal[data-kind="experience"] #mNotes{min-height:150px}
+/* COMPLETE badge */
+.complete-badge-row{padding:6px 0 2px}
+.complete-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:rgba(80,200,120,.9);background:rgba(40,160,80,.12);border:1px solid rgba(60,180,80,.3);border-radius:6px;padding:6px 14px}
 /* Memory intro tooltip — first-use callout */
 .mem-intro{background:rgba(80,30,140,.22);border:1px solid rgba(180,120,255,.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.55;color:rgba(220,200,255,.82);position:relative}
 .mem-intro-close{position:absolute;top:7px;right:10px;cursor:pointer;color:rgba(180,120,255,.6);font-size:14px;line-height:1}
@@ -1570,7 +1577,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <button class="mic-btn" id="mic-mTitle" type="button" onclick="voice.toggle('mTitle')" title="Voice input">🎤</button>
       </div>
     </div>
-    <div class="fg-row2 modal-kind-pursuit-only">
+    <div class="fg-row2">
       <div class="fg">
         <label id="lblCat" class="fg-label" data-tip="Choose the area of your life this Pursuit belongs to. This is how you see where your time and energy are actually going.">Your Purpose</label>
         <div class="input-row">
@@ -1608,7 +1615,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
       </div>
     </div>
-    <div class="fg modal-kind-pursuit-only">
+    <div class="fg">
       <label id="lblTags" class="fg-label" data-tip="Words that connect this Pursuit to other things — people, seasons, themes, or any area it touches. Press comma to add each one.">Markers (comma adds · enter moves on)</label>
       <div style="display:flex;gap:6px">
         <div class="tags-wrap" id="tagsWrap" style="flex:1" onclick="document.getElementById('tagInput').focus()">
@@ -1626,11 +1633,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     </div>
     <div class="fg-row3">
       <div class="fg">
-        <label class="fg-label" data-tip="When does this need to be done? Setting a date makes a Pursuit real.">Due Date</label>
+        <label id="lblDate" class="fg-label" data-tip="When does this need to be done? Setting a date makes a Pursuit real.">Due Date</label>
         <input class="fg-input" id="mDate" type="date"/>
       </div>
       <div class="fg">
-        <label class="fg-label" data-tip="A specific time creates accountability. Optional — but it helps.">Due Time</label>
+        <label id="lblTime" class="fg-label" data-tip="A specific time creates accountability. Optional — but it helps.">Due Time</label>
         <input class="fg-input" id="mTime" type="time"/>
       </div>
       <div class="fg modal-kind-pursuit-only">
@@ -1645,6 +1652,9 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <option value="yearly">Yearly</option>
         </select>
       </div>
+    </div>
+    <div class="complete-badge-row modal-kind-exp-mem-only">
+      <div class="complete-badge" id="completeBadge">✓ Recorded as Complete — this happened in the past</div>
     </div>
     <div class="fg modal-kind-pursuit-only">
       <label class="fg-label" data-tip="How urgent and important is this Pursuit? 1 means handle it now. 10 means someday. 5 is normal — it matters, but it can wait.">Priority (1 = Critical · 10 = Backlog)</label>
@@ -3129,8 +3139,9 @@ function openEdit(id){
   document.getElementById('subcatDisplayText').textContent=t.subcat||'e.g. Hub, Prayer Group…';
   document.getElementById('voiceHint').style.display='none';
   const isRecur=t.recur&&t.recur!=='none';
-  document.getElementById('modalCompleteBtn').style.display='inline-flex';
-  document.getElementById('modalEndRecurBtn').style.display=isRecur?'inline-flex':'none';
+  const isPursuitKind=(t.kind||'pursuit')==='pursuit';
+  document.getElementById('modalCompleteBtn').style.display=isPursuitKind?'inline-flex':'none';
+  document.getElementById('modalEndRecurBtn').style.display=(isPursuitKind&&isRecur)?'inline-flex':'none';
   document.getElementById('overlay').classList.add('open');
   setModalKind(t.kind||'pursuit');
   setTimeout(()=>document.getElementById('mTitle').focus(),60);
@@ -3157,29 +3168,66 @@ function setModalKind(kind){
   document.querySelectorAll('.kind-btn').forEach(b=>b.classList.toggle('active',b.dataset.kind===kind));
   const lT=document.getElementById('lblTitle');
   const mT=document.getElementById('modalTitle');
+  const lCat=document.getElementById('lblCat');
+  const lSub=document.getElementById('lblSubcat');
+  const lTags=document.getElementById('lblTags');
+  const lNotes=document.getElementById('lblNotes');
+  const lDate=document.getElementById('lblDate');
+  const lTime=document.getElementById('lblTime');
+  const saveBtn=document.getElementById('modalSaveBtn');
+  const completeBtn=document.getElementById('modalCompleteBtn');
+  const recurBtn=document.getElementById('modalEndRecurBtn');
+  const intro=document.getElementById('memIntro');
   if(kind==='memory'){
-    if(mT)mT.textContent='Remember This';
-    if(lT){lT.textContent='What do you want to remember?';lT.setAttribute('data-tip','Amit will hold this for you. The date and time are stamped automatically.');}
+    if(mT)mT.textContent='Your Memory';
+    if(lT){lT.textContent='What do you want to remember?';lT.setAttribute('data-tip','A memory you carry — something that happened, something worth holding. Amit stores it on the date it occurred.');}
+    if(lCat)lCat.textContent='Area of Life';
+    if(lSub)lSub.textContent='Your Focus';
+    if(lTags)lTags.textContent='Markers (comma adds · enter moves on)';
+    if(lNotes){lNotes.textContent='The Full Memory';lNotes.setAttribute('data-tip','Write the complete memory — what happened, what was said, what you felt, what it meant. This is your testimony.');}
+    const notesTa=document.getElementById('mNotes');if(notesTa)notesTa.placeholder='Write the full memory. Every detail worth holding — what happened, what was said, what you felt, what it meant…';
+    if(lDate)lDate.textContent='When it happened';
+    if(lTime)lTime.textContent='What time';
+    if(saveBtn)saveBtn.textContent='Save Memory';
+    if(completeBtn)completeBtn.style.display='none';
+    if(recurBtn)recurBtn.style.display='none';
     const now=new Date();
-    document.getElementById('mDate').value=now.toISOString().split('T')[0];
-    document.getElementById('mTime').value=now.toTimeString().slice(0,5);
+    if(!modalIsEdit){document.getElementById('mDate').value=now.toISOString().split('T')[0];document.getElementById('mTime').value=now.toTimeString().slice(0,5);}
     if(!localStorage.getItem(MEM_INTRO_KEY)){
-      let intro=document.getElementById('memIntro');
-      if(!intro){
-        intro=document.createElement('div');intro.id='memIntro';intro.className='mem-intro';
-        intro.innerHTML='<span class="mem-intro-close" onclick="document.getElementById(\'memIntro\').style.display=\'none\';localStorage.setItem(\''+MEM_INTRO_KEY+'\',\'1\')">&#215;</span>This is your Memory. Amit holds what you write here permanently — not as a task to complete, but as a witness. The date and time are stamped. You can return to any day on the calendar and see what you remembered.';
-        const kb=document.getElementById('kindBar');if(kb)kb.after(intro);
+      let intro2=document.getElementById('memIntro');
+      if(!intro2){
+        intro2=document.createElement('div');intro2.id='memIntro';intro2.className='mem-intro';
+        intro2.innerHTML='<span class="mem-intro-close" onclick="document.getElementById(\'memIntro\').style.display=\'none\';localStorage.setItem(\''+MEM_INTRO_KEY+'\',\'1\')">&#215;</span>This is your Memory. Amit holds what you write here permanently — not as a task to complete, but as a witness. The date and time are stamped. You can return to any day on the calendar and see what you remembered.';
+        const kb=document.getElementById('kindBar');if(kb)kb.after(intro2);
       }
-      intro.style.display='';
+      intro2.style.display='';
     }
+    if(intro&&intro.id!=='memIntro')intro.style.display='none';
   } else if(kind==='experience'){
-    if(mT)mT.textContent='Today\'s Experience';
-    if(lT){lT.textContent='What happened this day?';lT.setAttribute('data-tip','Describe what you did, where you went, or what Yahweh was doing.');}
-    document.getElementById('mDate').value=todayStr();
-    const intro=document.getElementById('memIntro');if(intro)intro.style.display='none';
+    if(mT)mT.textContent='Daily Experience';
+    if(lT){lT.textContent='Name this experience';lT.setAttribute('data-tip','A title for what happened this day — Amit logs this automatically, and you can refine it.');}
+    if(lCat)lCat.textContent='Area of Life';
+    if(lSub)lSub.textContent='Your Focus';
+    if(lTags)lTags.textContent='Markers (comma adds · enter moves on)';
+    if(lNotes){lNotes.textContent='Tell the Story';lNotes.setAttribute('data-tip','What happened this day? Where did you go? What did Yahweh do? Write the full account — this is your personal history.');}
+    const notesTa=document.getElementById('mNotes');if(notesTa)notesTa.placeholder='What happened this day? Where were you? What did Yahweh do? Write the full account…';
+    if(lDate)lDate.textContent='When it happened';
+    if(lTime)lTime.textContent='What time';
+    if(saveBtn)saveBtn.textContent='Save Experience';
+    if(completeBtn)completeBtn.style.display='none';
+    if(recurBtn)recurBtn.style.display='none';
+    if(!modalIsEdit)document.getElementById('mDate').value=todayStr();
+    if(intro)intro.style.display='none';
   } else {
+    if(lCat)lCat.textContent='Your Purpose';
+    if(lSub)lSub.textContent='Your Focus';
+    if(lTags)lTags.textContent='Markers (comma adds · enter moves on)';
+    if(lNotes){lNotes.textContent='Your Context';lNotes.setAttribute('data-tip','The background, motivation, and full story behind this Pursuit. Why does it matter? What is driving it?');}
+    const notesTa=document.getElementById('mNotes');if(notesTa)notesTa.placeholder='The why behind this Pursuit…';
+    if(lDate)lDate.textContent='Due Date';
+    if(lTime)lTime.textContent='Due Time';
     setModalMode(modalMode);
-    const intro=document.getElementById('memIntro');if(intro)intro.style.display='none';
+    if(intro)intro.style.display='none';
   }
 }
 function bgClose(e){if(e.target===document.getElementById('overlay'))closeModal()}
@@ -3191,7 +3239,8 @@ function saveTask(){
   const isExp=modalKind==='experience';
   const isMem=modalKind==='memory';
   const dueVal=document.getElementById('mDate').value||(isExp||isMem?todayStr():null);
-  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,kind:modalKind,due:dueVal,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode,done:isExp,completedAt:isExp?Date.now():null,completedDate:isExp?dueVal:null,isExperience:isExp};
+  const isDone=isExp||isMem;
+  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,kind:modalKind,due:dueVal,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode,done:isDone,completedAt:isDone?Date.now():null,completedDate:isDone?dueVal:null,isExperience:isExp};
   if(subcat&&!isExp&&!isMem)addFocusItem(cat,subcat);
   const d=load();
   if(editId){const t=d.find(x=>x.id===editId);if(t)Object.assign(t,obj)}
