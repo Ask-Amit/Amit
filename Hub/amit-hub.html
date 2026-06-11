@@ -1019,6 +1019,14 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
 
+    <div class="tile" id="tile-coder" onclick="openPanel('coder')">
+      <div class="tile-icon">⌨️</div>
+      <div class="tile-info">
+        <div class="tile-name">AmitCoder</div>
+        <div class="tile-sub">Session history</div>
+      </div>
+    </div>
+
     <!-- ── ASK AMIT — always visible at bottom ── -->
     <div class="ask-amit-wrap">
       <div class="ask-amit-tile" onclick="openHubAmitPanel()">
@@ -1520,6 +1528,24 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
 
+    <!-- CODER PANEL -->
+    <div class="panel" id="panel-coder">
+      <div class="panel-head">
+        <button class="back-btn" onclick="openPanel('home')">← Home</button>
+        <span class="panel-heading">AmitCoder</span>
+      </div>
+      <div class="launch-wrap">
+        <div class="launch-icon">⌨️</div>
+        <div class="launch-title">AmitCoder</div>
+        <div class="launch-desc" style="max-width:340px;line-height:1.6">
+          This is the space where your coding history will live.<br><br>
+          Session logs, version milestones, and the full back-and-forth of every build session — searchable, reviewable, and linked to your daily experience entries.<br><br>
+          When complete, it will pull from Claude Code session files so you can open any day and see exactly what was built and what Amit said during that session.
+        </div>
+        <div class="launch-coming">Coming Soon — In Development</div>
+      </div>
+    </div>
+
     <!-- BOSS PANEL -->
     <div class="panel" id="panel-boss">
       <div class="panel-head">
@@ -1665,6 +1691,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div class="input-row" style="align-items:flex-start">
         <textarea class="fg-ta" id="mNotes" placeholder="The why behind this Pursuit…"></textarea>
         <button class="mic-btn" id="mic-mNotes" type="button" onclick="voice.toggle('mNotes')" title="Voice input" style="align-self:flex-start;padding:8px 10px">🎤</button>
+      </div>
+    </div>
+    <div class="fg modal-kind-experience-only" id="sessionNoteWrap" style="display:none">
+      <label class="fg-label" data-tip="Optional — add a quick note about what actually happened this session. One line is enough.">Session Note <span style="opacity:.5;font-weight:400;font-size:10px">(optional)</span></label>
+      <div class="input-row" style="align-items:flex-start">
+        <textarea class="fg-ta" id="mSessionNote" placeholder="e.g. Fixed color scheme, added filter pills, rewired calendar click…" style="min-height:56px"></textarea>
+        <button class="mic-btn" id="mic-mSessionNote" type="button" onclick="voice.toggle('mSessionNote')" title="Voice input" style="align-self:flex-start;padding:8px 10px">🎤</button>
       </div>
     </div>
     <div class="fg-row3">
@@ -2066,8 +2099,8 @@ function toggleCalFilter(layer){
   render();
 }
 // ── EXPERIENCE / ACTIVITY LOG ──
-const APP_VERSION='1.56';
-const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator'};
+const APP_VERSION='1.57';
+const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator',coder:'AmitCoder'};
 function logPanelVisit(panelId){
   const name=PANEL_NAMES[panelId];if(!name)return;
   let visited=[];try{visited=JSON.parse(sessionStorage.getItem(EXP_SESSION_KEY)||'[]')}catch{}
@@ -3230,6 +3263,7 @@ function openEdit(id){
   modalIsEdit=true;setModalMode(t.mode||'pursuit');
   document.getElementById('mTitle').value=t.title;
   document.getElementById('mNotes').value=t.notes||'';
+  document.getElementById('mSessionNote').value=t.sessionNote||'';
   document.getElementById('mCat').value=t.cat||'inbox';
   document.getElementById('mSubcat').value=t.subcat||'';
   document.getElementById('mDate').value=t.due||'';
@@ -3271,7 +3305,7 @@ function modalEndSeries(){
   persist(load().filter(x=>x.id!==editId));
   closeModal();render();
 }
-function closeModal(){voice.stop();document.getElementById('overlay').classList.remove('open');editId=null;setModalKind('pursuit');const eb=document.getElementById('kbtn-experience');if(eb){eb.classList.add('kind-blocked');eb.title='Experiences are recorded automatically — not created manually';}}
+function closeModal(){voice.stop();document.getElementById('overlay').classList.remove('open');editId=null;const sn=document.getElementById('mSessionNote');if(sn)sn.value='';setModalKind('pursuit');const eb=document.getElementById('kbtn-experience');if(eb){eb.classList.add('kind-blocked');eb.title='Experiences are recorded automatically — not created manually';}}
 function setModalKind(kind){
   modalKind=kind;
   const modal=document.querySelector('.modal');
@@ -3341,7 +3375,9 @@ function setModalKind(kind){
       }
       expIntro.style.display='';
     }
+    const snw=document.getElementById('sessionNoteWrap');if(snw)snw.style.display='';
   } else {
+    const snw=document.getElementById('sessionNoteWrap');if(snw)snw.style.display='none';
     if(lCat)lCat.textContent='Your Purpose';
     if(lSub)lSub.textContent='Your Focus';
     if(lTags)lTags.textContent='Markers (comma adds · enter moves on)';
@@ -3364,7 +3400,8 @@ function saveTask(){
   const isMem=modalKind==='memory';
   const dueVal=document.getElementById('mDate').value||(isExp||isMem?todayStr():null);
   const isDone=isExp||isMem;
-  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,kind:modalKind,due:dueVal,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode,done:isDone,completedAt:isDone?Date.now():null,completedDate:isDone?dueVal:null,isExperience:isExp};
+  const sessionNote=document.getElementById('mSessionNote').value.trim();
+  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,kind:modalKind,due:dueVal,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode,done:isDone,completedAt:isDone?Date.now():null,completedDate:isDone?dueVal:null,isExperience:isExp,...(isExp&&sessionNote?{sessionNote}:{})};
   if(subcat&&!isExp&&!isMem)addFocusItem(cat,subcat);
   const d=load();
   if(editId){const t=d.find(x=>x.id===editId);if(t)Object.assign(t,obj)}
@@ -4239,6 +4276,7 @@ function renderDayView(){
     dvExps.map(e=>`<div class="cal-exp-row" onclick="openEdit('${e.id}')">
       <div class="cal-exp-title">◎ ${esc(e.title||'Experience Entry')}</div>
       ${e.notes?`<div class="cal-exp-notes">${esc(e.notes.slice(0,120))}${e.notes.length>120?'…':''}</div>`:''}
+      ${e.sessionNote?`<div class="cal-exp-notes" style="margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,120,150,.2);color:rgba(0,80,120,.75)">📝 ${esc(e.sessionNote)}</div>`:''}
     </div>`).join(''):``;
   // Memory section — filtered by calFilters.memory, no _origin filter
   const dvMems=calFilters.memory?load().filter(t=>t.kind==='memory'&&(t.due===calDvDs||t.completedDate===calDvDs)):[];
