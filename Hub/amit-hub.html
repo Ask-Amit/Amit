@@ -448,7 +448,7 @@ header{
 /* ── MODAL ── */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;align-items:center;justify-content:center;padding:16px}
 .overlay.open{display:flex}
-.modal{background:#1a3450;border:2px solid rgba(201,168,76,.6);border-radius:14px;padding:24px 26px;width:530px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.7)}
+.modal{background:#1a3450;border:2px solid rgba(201,168,76,.6);border-radius:14px;padding:24px 26px;width:530px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.7);position:relative}
 .modal::-webkit-scrollbar{width:4px}
 .modal::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
 .modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
@@ -622,6 +622,16 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .kind-btn.active{background:rgba(201,168,76,.22);color:var(--gold);border-color:rgba(201,168,76,.5);font-weight:700}
 .kind-btn[data-kind="experience"].active{background:rgba(0,140,120,.25);color:rgba(100,220,200,.95);border-color:rgba(0,180,160,.45)}
 .kind-btn.kind-blocked{opacity:.32;cursor:not-allowed;pointer-events:none}
+.kind-locked-badge{padding:5px 16px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;display:none}
+.kind-locked-badge.exp-locked{color:rgba(0,200,180,.88);border:1px solid rgba(0,172,152,.45);background:rgba(0,172,152,.12)}
+.kind-locked-badge.mem-locked{color:rgba(200,155,255,.88);border:1px solid rgba(175,115,245,.45);background:rgba(175,115,245,.12)}
+.modal-stamp{position:absolute;top:82px;right:18px;transform:rotate(-12deg);padding:7px 11px;border-radius:7px;font-weight:800;font-size:10px;letter-spacing:.1em;text-transform:uppercase;line-height:1.55;text-align:center;pointer-events:none;z-index:10;max-width:110px;display:none}
+.modal-stamp.stamp-exp{border:2.5px solid rgba(0,172,152,.8);color:rgba(0,200,175,.9);background:rgba(0,172,152,.07)}
+.modal-stamp.stamp-mem{border:2.5px solid rgba(175,115,245,.8);color:rgba(195,145,255,.9);background:rgba(175,115,245,.07)}
+.modal[data-kind="experience"] .fg-row3,.modal[data-kind="memory"] .fg-row3{display:none!important}
+.complete-badge-row{display:none!important}
+.btn-reactivate{background:rgba(175,115,245,.12);color:rgba(195,145,255,.9);border:1px solid rgba(175,115,245,.4);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer;font-family:inherit;letter-spacing:.03em}
+.btn-reactivate:hover{background:rgba(175,115,245,.22)}
 .kind-btn[data-kind="memory"].active{background:rgba(120,50,190,.28);color:rgba(200,160,255,.95);border-color:rgba(180,120,255,.5)}
 /* Hide pursuit-only modal fields when kind=memory or experience */
 .modal[data-kind="memory"] .modal-kind-pursuit-only{display:none !important}
@@ -1626,7 +1636,9 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <button class="kind-btn active" id="kbtn-pursuit" data-kind="pursuit" onclick="setModalKind('pursuit')">Pursuit</button>
       <button class="kind-btn" id="kbtn-experience" data-kind="experience" onclick="setModalKind('experience')">Experience</button>
       <button class="kind-btn" id="kbtn-memory" data-kind="memory" onclick="setModalKind('memory')">Memory</button>
+      <div id="kindLockedBadge" class="kind-locked-badge"></div>
     </div>
+    <div id="modalStamp" class="modal-stamp"></div>
     <div class="voice-bar" id="voiceBar">
       <div class="voice-dot"></div>
       <span class="voice-label">Listening… say "tab" to advance · "save" to save · "cancel" to close</span>
@@ -1752,6 +1764,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="modal-actions">
       <div class="modal-actions-left">
         <button id="modalEndRecurBtn" class="btn btn-danger" style="display:none" onclick="modalEndSeries()">End All Recurring</button>
+        <button id="modalReactivateBtn" class="btn-reactivate" style="display:none" onclick="reactivateMemory()">↺ Reactivate as Pursuit</button>
       </div>
       <div class="modal-actions-right">
         <button id="modalCompleteBtn" class="btn btn-done" style="display:none" onclick="modalMarkComplete()">Mark Complete</button>
@@ -2099,7 +2112,7 @@ function toggleCalFilter(layer){
   render();
 }
 // ── EXPERIENCE / ACTIVITY LOG ──
-const APP_VERSION='1.57';
+const APP_VERSION='1.58';
 const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator',coder:'AmitCoder'};
 function logPanelVisit(panelId){
   const name=PANEL_NAMES[panelId];if(!name)return;
@@ -3305,6 +3318,23 @@ function modalEndSeries(){
   persist(load().filter(x=>x.id!==editId));
   closeModal();render();
 }
+function reactivateMemory(){
+  if(!editId)return;
+  const all=load();const t=all.find(x=>x.id===editId);if(!t)return;
+  const newId=uid();
+  const np={...t,id:newId,kind:'pursuit',done:false,completedAt:null,completedDate:null,due:todayStr(),created:Date.now(),_reactivatedFrom:editId};
+  delete np.isExperience;delete np._origin;delete np.sessionNote;delete np.appVersion;
+  all.push(np);persist(all);closeModal();render();
+  const dlg=document.createElement('div');
+  dlg.id='reactivateDlg';
+  dlg.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  dlg.innerHTML=`<div style="background:#1a3450;border:2px solid rgba(201,168,76,.6);border-radius:14px;padding:28px 30px;max-width:360px;text-align:center;font-family:inherit">
+    <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;color:var(--gold);margin-bottom:12px">PURSUIT REACTIVATED</div>
+    <div style="font-size:13px;line-height:1.65;color:rgba(220,235,255,.82);margin-bottom:20px">A new Pursuit has been created from this Memory, scheduled for today. The original Memory is preserved. Review and adjust the Pursuit before saving.</div>
+    <button style="background:var(--gold);color:#0c1828;border:none;border-radius:8px;padding:9px 22px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit" onclick="document.getElementById('reactivateDlg').remove();openEdit('${newId}')">OK — Open the Pursuit</button>
+  </div>`;
+  document.body.appendChild(dlg);
+}
 function closeModal(){voice.stop();document.getElementById('overlay').classList.remove('open');editId=null;const sn=document.getElementById('mSessionNote');if(sn)sn.value='';setModalKind('pursuit');const eb=document.getElementById('kbtn-experience');if(eb){eb.classList.add('kind-blocked');eb.title='Experiences are recorded automatically — not created manually';}}
 function setModalKind(kind){
   modalKind=kind;
@@ -3343,13 +3373,32 @@ function setModalKind(kind){
       let intro2=document.getElementById('memIntro');
       if(!intro2){
         intro2=document.createElement('div');intro2.id='memIntro';intro2.className='mem-intro';
-        intro2.innerHTML='<span class="mem-intro-close" onclick="document.getElementById(\'memIntro\').style.display=\'none\';localStorage.setItem(\''+MEM_INTRO_KEY+'\',\'1\')">&#215;</span>This is your Memory. Amit holds what you write here permanently — not as a task to complete, but as a witness. The date and time are stamped. You can return to any day on the calendar and see what you remembered.';
+        intro2.innerHTML='<span class="mem-intro-close" onclick="document.getElementById(\'memIntro\').style.display=\'none\';localStorage.setItem(\''+MEM_INTRO_KEY+'\',\'1\')">&#215;</span><strong style="color:rgba(220,180,255,.95)">Every Pursuit completed becomes a Memory.</strong> When you mark something done, it does not disappear — it moves here. This is where your accomplished work lives permanently, as a witness to what you have pressed through and finished. You can return to any day on the calendar and see what was completed on that day.';
         const kb=document.getElementById('kindBar');if(kb)kb.after(intro2);
       }
       intro2.style.display='';
     }
     if(intro&&intro.id!=='memIntro')intro.style.display='none';
     const ei=document.getElementById('expIntro');if(ei)ei.style.display='none';
+    // Lock kind bar — memory cannot be changed
+    document.getElementById('kbtn-pursuit').style.display='none';
+    document.getElementById('kbtn-memory').style.display='none';
+    document.getElementById('kbtn-experience').style.display='none';
+    const klbM=document.getElementById('kindLockedBadge');
+    if(klbM){klbM.className='kind-locked-badge mem-locked';klbM.textContent='Memory';klbM.style.display='inline-flex';}
+    // Hide mode toggle
+    const mtbM=document.getElementById('modeToggleBtn');if(mtbM)mtbM.style.display='none';
+    // Show completion stamp
+    const stampM=document.getElementById('modalStamp');
+    if(stampM){
+      const dv=document.getElementById('mDate').value;const tv=document.getElementById('mTime').value;
+      let ds='';if(dv){const[yr,mo,dy]=dv.split('-');ds=new Date(+yr,+mo-1,+dy).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+      stampM.className='modal-stamp stamp-mem';
+      stampM.innerHTML='Completed<br>'+(ds||'This day')+(tv?'<br>'+tv:'');
+      stampM.style.display='block';
+    }
+    // Show reactivate button only when editing an existing memory
+    const rebM=document.getElementById('modalReactivateBtn');if(rebM)rebM.style.display=modalIsEdit?'inline-flex':'none';
   } else if(kind==='experience'){
     if(mT)mT.textContent='Daily Experience';
     if(lT){lT.textContent='Name this experience';lT.setAttribute('data-tip','A title for what happened this day — Amit logs this automatically, and you can refine it.');}
@@ -3376,6 +3425,24 @@ function setModalKind(kind){
       expIntro.style.display='';
     }
     const snw=document.getElementById('sessionNoteWrap');if(snw)snw.style.display='';
+    // Lock kind bar — experience cannot be changed
+    document.getElementById('kbtn-pursuit').style.display='none';
+    document.getElementById('kbtn-memory').style.display='none';
+    document.getElementById('kbtn-experience').style.display='none';
+    const klbE=document.getElementById('kindLockedBadge');
+    if(klbE){klbE.className='kind-locked-badge exp-locked';klbE.textContent='Daily Experience';klbE.style.display='inline-flex';}
+    // Hide mode toggle — not applicable for experience
+    const mtbE=document.getElementById('modeToggleBtn');if(mtbE)mtbE.style.display='none';
+    // Show completion stamp
+    const stampE=document.getElementById('modalStamp');
+    if(stampE){
+      const dv=document.getElementById('mDate').value;const tv=document.getElementById('mTime').value;
+      let ds='';if(dv){const[yr,mo,dy]=dv.split('-');ds=new Date(+yr,+mo-1,+dy).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
+      stampE.className='modal-stamp stamp-exp';
+      stampE.innerHTML='Recorded<br>'+(ds||'Today')+(tv?'<br>'+tv:'');
+      stampE.style.display='block';
+    }
+    const rebE=document.getElementById('modalReactivateBtn');if(rebE)rebE.style.display='none';
   } else {
     const snw=document.getElementById('sessionNoteWrap');if(snw)snw.style.display='none';
     if(lCat)lCat.textContent='Your Purpose';
@@ -3388,6 +3455,15 @@ function setModalKind(kind){
     setModalMode(modalMode);
     if(intro)intro.style.display='none';
     const ei2=document.getElementById('expIntro');if(ei2)ei2.style.display='none';
+    // Restore kind bar
+    document.getElementById('kbtn-pursuit').style.display='';
+    document.getElementById('kbtn-memory').style.display='';
+    const klbP=document.getElementById('kindLockedBadge');if(klbP)klbP.style.display='none';
+    // Restore mode toggle
+    const mtbP=document.getElementById('modeToggleBtn');if(mtbP)mtbP.style.display='';
+    // Hide stamp and reactivate
+    const stampP=document.getElementById('modalStamp');if(stampP)stampP.style.display='none';
+    const rebP=document.getElementById('modalReactivateBtn');if(rebP)rebP.style.display='none';
   }
 }
 function bgClose(e){if(e.target===document.getElementById('overlay'))closeModal()}
