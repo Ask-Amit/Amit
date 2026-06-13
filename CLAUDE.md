@@ -161,9 +161,12 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 - `nextDue()` handles: daily/weekdays/weekly/biweekly/monthly/yearly/every5years/every10years.
 
 **NEXT SESSION — IMMEDIATE TASKS:**
-1. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" / "Clear All Samples" buttons. ~10 days June 2026 history.
-2. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-21) as experience entries with real dates. NOT samples.
-3. **Feast day/psalm chip click** → Word for Today tab (wire this up in calDayView and calendar cells).
+1. **Recreate Claude.ai Project** — New Project with updated Amit_Deploy.md (now includes integrity standard + compass system). Old Project was deleted. Critical before tester distribution.
+2. **Hub: Ask Amit panel — bidirectional framing** — Update panel description and primer text to reflect that challenge goes both directions. Amit challenges you, you challenge Amit.
+3. **Compass → User Profile spec** — Ryan's trailing thought ("we still need to figure out how we can look at...") was unfinished. Surface this at session start: what does the visibility/feedback mechanism look like for the compass scores across conversations?
+4. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" / "Clear All Samples" buttons. ~10 days June 2026 history.
+5. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-21) as experience entries with real dates. NOT samples.
+6. **Feast day/psalm chip click** → Word for Today tab (wire this up in calDayView and calendar cells).
 
 **Current improvement list (all pending):**
 - Ancient Hebrew SVG update (HIGH PRIORITY — still unbuilt)
