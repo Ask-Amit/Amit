@@ -26,10 +26,14 @@
   --star-c:#f1c40f;
   --ink:#1a1510;
   --sep:rgba(255,255,255,0.09);
-  /* Calendar type colors — updated dynamically by setCalType() */
+  /* RIGHT calendar type colors (sacred/Hebrew) — updated by setCalType() */
   --cal-type-clr:#c9a84c;
   --cal-type-bg:rgba(10,20,36,.88);
   --cal-type-border:rgba(201,168,76,.72);
+  /* LEFT calendar type colors (world) — updated by setLeftCalType() */
+  --left-cal-clr:#5a8aaa;
+  --left-cal-bg:rgba(10,20,36,.88);
+  --left-cal-border:rgba(90,138,170,.68);
 }
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
@@ -391,8 +395,9 @@ header{
 .cal-heb-scripture{font-family:'Cinzel',serif;font-size:8px;font-weight:600;letter-spacing:.06em;padding:2px 5px;border-radius:5px;background:var(--cal-type-bg);color:var(--cal-type-clr);border:1px solid var(--cal-type-border);cursor:pointer;margin-top:2px;line-height:1.4;word-break:break-word}
 .cal-heb-omer{font-family:'Cinzel',serif;font-size:8px;font-weight:600;letter-spacing:.06em;padding:2px 5px;border-radius:5px;background:var(--cal-type-bg);color:var(--cal-type-clr);border:1px solid var(--cal-type-border);cursor:pointer;margin-top:2px;line-height:1.4;word-break:break-word}
 .cal-heb-daily{font-family:'Cinzel',serif;font-size:8px;font-weight:600;letter-spacing:.06em;padding:2px 4px;border-radius:5px;background:var(--cal-type-bg);color:var(--cal-type-clr);border:1px solid var(--cal-type-border);cursor:pointer;margin-top:2px;line-height:1.4;word-break:break-word}
-/* Gregorian civil event chip — left column */
-.cal-greg-event{font-family:'Cinzel',serif;font-size:7.5px;padding:1px 4px;border-radius:3px;background:rgba(80,120,160,.11);color:#5a8aaa;border:1px solid rgba(80,120,160,.22);cursor:default;margin-top:2px;line-height:1.35;word-break:break-word;opacity:.85}
+/* Gregorian civil event chip — dark pill, same visual language as Hebrew chips */
+.cal-greg-event{font-family:'Cinzel',serif;font-size:8px;font-weight:600;letter-spacing:.05em;padding:2px 4px;border-radius:5px;background:rgba(10,20,36,.88);color:#6a9ab8;border:1px solid rgba(90,145,175,.62);cursor:pointer;margin-top:2px;line-height:1.35;word-break:break-word;transition:opacity .12s}
+.cal-greg-event:hover{opacity:.8}
 /* ── DAY WORD MODAL ── */
 .day-word-modal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:1200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s}
 .day-word-modal.open{opacity:1;pointer-events:all}
@@ -1433,6 +1438,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="cal-info-box">
           <button class="cal-info-close" onclick="closeWhatIsCalModal()">×</button>
           <div id="whatIsCalContent"></div>
+        </div>
+      </div>
+      <!-- Event info popup — Gregorian holidays + Hebrew word chips -->
+      <div class="cal-info-modal" id="calEventInfoModal" onclick="if(event.target===this)closeCalEventInfo()">
+        <div class="cal-info-box">
+          <button class="cal-info-close" onclick="closeCalEventInfo()">×</button>
+          <div id="calEventInfoContent"></div>
         </div>
       </div>
       <!-- Calendar type deep-dive modal (double-click on tab) -->
@@ -3845,10 +3857,20 @@ function applyCalTypeColors(type){
 // ══════════════════════════════════════════════
 // GREGORIAN CIVIL EVENTS
 // ══════════════════════════════════════════════
+// Each entry: {name, key} — key maps to GREGORIAN_EVENT_INFO
 const GREG_FIXED={
-  '01-01':"New Year's Day",'02-14':"Valentine's Day",'03-17':"St. Patrick's Day",
-  '07-04':"Independence Day",'09-11':"Patriot Day",'10-31':"Halloween",
-  '11-11':"Veterans Day",'12-24':"Christmas Eve",'12-25':"Christmas Day",'12-31':"New Year's Eve"
+  '01-01':{name:"New Year's Day",key:'new-years'},
+  '02-14':{name:"Valentine's Day",key:'valentines'},
+  '03-17':{name:"St. Patrick's Day",key:'st-patricks'},
+  '06-14':{name:"Flag Day",key:'flag'},
+  '06-19':{name:"Juneteenth",key:'juneteenth'},
+  '07-04':{name:"Independence Day",key:'independence'},
+  '09-11':{name:"Patriot Day",key:'patriot'},
+  '10-31':{name:"Halloween",key:'halloween'},
+  '11-11':{name:"Veterans Day",key:'veterans'},
+  '12-24':{name:"Christmas Eve",key:'christmas-eve'},
+  '12-25':{name:"Christmas Day",key:'christmas'},
+  '12-31':{name:"New Year's Eve",key:'new-years-eve'}
 };
 function nthWeekday(gy,gm,n,dow){
   if(n>0){const d1=new Date(gy,gm-1,1);const first=((dow-d1.getDay())+7)%7+1;return first+(n-1)*7;}
@@ -3858,14 +3880,14 @@ function getGregorianEvent(gy,gm,gd){
   const mm=String(gm).padStart(2,'0'),dd=String(gd).padStart(2,'0');
   if(GREG_FIXED[mm+'-'+dd])return GREG_FIXED[mm+'-'+dd];
   const dow=new Date(gy,gm-1,gd).getDay();
-  if(gm===1&&dow===1&&gd===nthWeekday(gy,1,3,1))return'MLK Day';
-  if(gm===2&&dow===1&&gd===nthWeekday(gy,2,3,1))return"Presidents' Day";
-  if(gm===5&&dow===0&&gd===nthWeekday(gy,5,2,0))return"Mother's Day";
-  if(gm===5&&dow===1&&gd===nthWeekday(gy,5,-1,1))return'Memorial Day';
-  if(gm===6&&dow===0&&gd===nthWeekday(gy,6,3,0))return"Father's Day";
-  if(gm===9&&dow===1&&gd===nthWeekday(gy,9,1,1))return'Labor Day';
-  if(gm===10&&dow===1&&gd===nthWeekday(gy,10,2,1))return'Columbus Day';
-  if(gm===11&&dow===4&&gd===nthWeekday(gy,11,4,4))return'Thanksgiving';
+  if(gm===1&&dow===1&&gd===nthWeekday(gy,1,3,1))return{name:'MLK Day',key:'mlk'};
+  if(gm===2&&dow===1&&gd===nthWeekday(gy,2,3,1))return{name:"Presidents' Day",key:'presidents'};
+  if(gm===5&&dow===0&&gd===nthWeekday(gy,5,2,0))return{name:"Mother's Day",key:'mothers'};
+  if(gm===5&&dow===1&&gd===nthWeekday(gy,5,-1,1))return{name:'Memorial Day',key:'memorial'};
+  if(gm===6&&dow===0&&gd===nthWeekday(gy,6,3,0))return{name:"Father's Day",key:'fathers'};
+  if(gm===9&&dow===1&&gd===nthWeekday(gy,9,1,1))return{name:'Labor Day',key:'labor'};
+  if(gm===10&&dow===1&&gd===nthWeekday(gy,10,2,1))return{name:'Columbus Day',key:'columbus'};
+  if(gm===11&&dow===4&&gd===nthWeekday(gy,11,4,4))return{name:'Thanksgiving',key:'thanksgiving'};
   return null;
 }
 
@@ -3920,6 +3942,69 @@ function openCalTypeInfo(type){
   document.getElementById('calTypeInfoModal').classList.add('open');
 }
 function closeCalTypeInfo(){document.getElementById('calTypeInfoModal').classList.remove('open')}
+
+// ══════════════════════════════════════════════
+// GREGORIAN EVENT INFO — then / today / deeper view
+// ══════════════════════════════════════════════
+const GREGORIAN_EVENT_INFO={
+  'new-years':{title:"New Year's Day",origin:"January 1 as the civil new year traces to Julius Caesar's calendar reform in 46 BC, placing the new year at the start of the Roman consul year. Before this, March 1 was the Roman new year. Pope Gregory XIII refined the calendar in 1582 — hence 'Gregorian.' Most of the world adopted it for civil use by the 20th century.",today:"Global celebration — countdowns, fireworks, resolutions. The most universally observed single-day event in the Gregorian world.",future:"January 1 is the world's new year. Yahweh's new year is Nisan 1 — the month of Passover, the month of redemption. The difference is not cosmetic. One starts with a party. The other starts with a lamb. Yahweh's calendar anchors new beginnings to redemption, not arbitrary civil convention.",verse:'"This month is to be for you the first month, the first month of your year." — Exodus 12:2'},
+  'valentines':{title:"Valentine's Day",origin:"Named for Saint Valentine, a 3rd-century Christian martyr executed on February 14, 269 CE, under Emperor Claudius II — reportedly for performing marriages for soldiers who were forbidden to marry. The romantic associations emerged in the Middle Ages through Chaucer and later Elizabethan tradition.",today:"February 14. Cards, flowers, chocolates, and romantic expressions. Multi-billion dollar holiday in the US alone.",future:"The love Valentine died for was not the romantic kind — it was the conviction that marriage was sacred and worth the cost of his life. The Hebrew word for love used in 'Love the LORD your God with all your heart' (Deuteronomy 6:5) is אהב — ahav — a love that is chosen, committed, and costly. That is the deeper story behind this day.",verse:'"Love the LORD your God with all your heart and with all your soul and with all your strength." — Deuteronomy 6:5'},
+  'st-patricks':{title:"St. Patrick's Day",origin:"Feast day of Saint Patrick (c. 385–461 CE), patron saint of Ireland, who brought Christianity there. Born in Roman Britain, captured by Irish pirates at 16, enslaved for six years tending sheep, escaped, trained as a priest, and returned voluntarily to Ireland as a missionary. March 17 is the traditional date of his death.",today:"March 17. Irish cultural celebration worldwide — parades, green clothing, shamrocks. In practice, largely reduced to pub culture.",future:"Patrick's actual story is almost nothing like the holiday. He returned voluntarily to the land of his captivity to tell people about Yeshua. His 'Breastplate of St. Patrick' prayer is among the oldest Christian texts in the Celtic tradition. A man who was enslaved, freed, and chose to go back — because he believed these people needed to hear what had changed him.",verse:'"I am Patrick, a sinner, most uncultivated and least of all the faithful... I was carried off to Ireland in captivity. There the Lord opened up my awareness of my unbelief." — Patrick\'s Confession'},
+  'flag':{title:"Flag Day",origin:"Commemorates the adoption of the US flag on June 14, 1777, by the Second Continental Congress. President Woodrow Wilson proclaimed it Flag Day in 1916. It is not a federal holiday but is observed nationally.",today:"June 14. Flag displays, patriotic observances, often low-key compared to July 4.",future:"A flag is a symbol of identity — who a people are and what they stand for. In the Hebrew wilderness, each tribe marched under its own standard (Numbers 2). The visual language of belonging is ancient. The question every flag eventually asks: what are you actually willing to stand for?",verse:'"The Israelites are to camp around the tent of meeting some distance from it, each of them under their standard and holding the banners of their family." — Numbers 2:2'},
+  'juneteenth':{title:"Juneteenth — National Independence Day",origin:"Commemorates June 19, 1865, when Union soldiers arrived in Galveston, Texas and announced the end of slavery — two and a half years after Lincoln's Emancipation Proclamation. Enslaved people in Texas had not been told. The name combines 'June' and 'nineteenth.' Became a US federal holiday in 2021.",today:"June 19. Celebrations, family gatherings, music, food, historical reflection. Growing in observance nationwide.",future:"Juneteenth is the story of a freedom already declared but not yet received — liberation that existed on paper before it existed in the lives of the people it was meant to free. That gap between the decree and the reality is not unique to 1865. The resurrection declared something about the entire created order that the world has not yet fully received. The liberation is real. The full arrival is still coming.",verse:'"The Spirit of the Lord is on me, because he has anointed me to proclaim good news to the poor. He has sent me to proclaim freedom for the prisoners and recovery of sight for the blind, to set the oppressed free." — Luke 4:18'},
+  'independence':{title:"Independence Day",origin:"The Continental Congress voted for independence from Britain on July 2, 1776; the Declaration of Independence was finalized and dated July 4. First celebrated with fireworks in Philadelphia in 1777. The Liberty Bell — inscribed with Leviticus 25:10 — became a national symbol. 'Proclaim liberty throughout all the land unto all the inhabitants thereof' was the founders' chosen verse.",today:"July 4. Fireworks, parades, cookouts, patriotic observances across the United States.",future:"National freedom is a reflection of a deeper liberation. The Exodus — forty years before Sinai, one night before the sea — is the template every freedom narrative borrows from, consciously or not. The Liberty Bell verse is from the Jubilee passage — the year when all debts were cancelled, all enslaved people freed, all land returned. That is the freedom Yahweh has in mind. Not political independence. Jubilee.",verse:'"Proclaim liberty throughout all the land unto all the inhabitants thereof." — Leviticus 25:10'},
+  'patriot':{title:"Patriot Day — September 11",origin:"Commemorates the September 11, 2001 terrorist attacks that killed 2,977 people in New York City, Washington DC, and Shanksville, Pennsylvania. Declared a national day of remembrance by Congress in 2001.",today:"September 11. Moment of silence at 8:46am (time of first impact). Flag at half-staff. Memorial observances.",future:"Grief shared is grief that does not consume. Every culture that has survived catastrophe has built a way to remember together — not to stay in the wound, but to face what was lost honestly and carry forward what it cost. 'Blessed are those who mourn, for they will be comforted' (Matthew 5:4) — not because the pain stops, but because they will not mourn alone forever.",verse:'"The LORD is close to the brokenhearted and saves those who are crushed in spirit." — Psalm 34:18'},
+  'halloween':{title:"Halloween",origin:"Rooted in the Celtic festival Samhain (October 31–November 1), marking the end of harvest and the start of winter, when the boundary between the living and the dead was thought to thin. The Catholic Church placed All Saints' Day (All Hallows) on November 1; October 31 became 'All Hallows' Eve' — Halloween. Irish and Scottish immigrants brought the tradition to North America in the 19th century.",today:"October 31. Costumes, trick-or-treating, decorations. A multi-billion dollar US holiday, particularly for children.",future:"The fascination with the dead and the unseen world is not nothing — it is a human intuition that there is more than the visible. That intuition is correct. Where it goes wrong is in treating the unseen as something to court or play with. Yahweh is explicit on this (Deuteronomy 18:10-12). Yeshua, however, holds the keys of death and Hades — not as someone who is haunted by them, but as one who has conquered them. The harvest festival the Hebrew calendar actually marks this season is Sukkot — a week of gratitude, booths under the stars, celebrating survival and provision.",verse:'"I am the Living One; I was dead, and now look, I am alive for ever and ever! And I hold the keys of death and Hades." — Revelation 1:18'},
+  'veterans':{title:"Veterans Day",origin:"Originally 'Armistice Day' — the day World War I ended (November 11, 1918, at 11am). Called 'the war to end all wars.' Renamed Veterans Day in 1954 to honor all military veterans after WWII and Korea. Observed on November 11 regardless of day of the week.",today:"November 11. Federal holiday honoring all US military veterans — living and deceased. Parades, observances, moment of silence at 11am.",future:"Service and sacrifice. Every culture that has endured has produced people who placed others' survival above their own. The Hebrew scriptures take this seriously — not as an abstraction, but as a pattern that runs from Abraham to the prophets to Yeshua himself: 'Greater love has no one than this: to lay down one\'s life for one\'s friends.' Veterans Day, at its most honest, is a day a nation pauses to admit that its existence cost someone else something irreplaceable.",verse:'"Greater love has no one than this: to lay down one\'s life for one\'s friends." — John 15:13'},
+  'christmas-eve':{title:"Christmas Eve",origin:"The evening before Christmas Day, observed since the early church — reflecting the Hebrew practice of the day beginning at sundown. December 24 became a major observance in the 4th century as Christmas celebrations expanded. Midnight mass on Christmas Eve is one of the oldest continuous Christian liturgical observances.",today:"December 24. Candlelight services, family gatherings, gift exchanges, nativity scenes. In many European and Latin American traditions, Christmas Eve is the primary celebration.",future:"The Hebrew day begins at sundown — evening comes first, then the morning (Genesis 1: 'There was evening, and there was morning — the first day'). Christmas Eve honors that pattern. The arrival of Yeshua came at night, announced to shepherds watching in the dark. Light entering darkness always begins at the edge of night.",verse:'"The people walking in darkness have seen a great light; on those living in the land of deep darkness, a light has dawned." — Isaiah 9:2'},
+  'christmas':{title:"Christmas Day",origin:"December 25 as the celebration of Yeshua's birth dates to the 4th century CE (first recorded 336 CE). The date was chosen in part to align with or displace Roman winter solstice festivals. The birth of Yeshua is historically placed by most scholars somewhere between 6–4 BC, likely in autumn (Luke's shepherds in fields at night suggests warmer months). The nativity accounts are in Matthew 1–2 and Luke 1–2.",today:"Global holiday observed by Christians and broadly by secular culture. Gift-giving, family gatherings, church services, nativity displays. One of the most observed days worldwide.",future:"Yeshua was born. That is not contested by serious historians. The date is uncertain — December 25 is tradition, not scripture. What is not uncertain: the eternal entered time. The Word became flesh (John 1:14). That moment rearranged everything. Whether the manger was in December or Tishrei, the arrival itself is the hinge point of human history. The Gospels do not tell us the date. They tell us the name: Yeshua — יְהוּשׁוּעַ — Yah saves.",verse:'"The Word became flesh and made his dwelling among us. We have seen his glory, the glory of the one and only Son, who came from the Father, full of grace and truth." — John 1:14'},
+  'new-years-eve':{title:"New Year's Eve",origin:"The final day of the Gregorian calendar year, December 31 — named for Pope Sylvester I, whose feast day it is in the Catholic calendar. Modern New Year's Eve celebrations became widespread in the 19th century, with Times Square's ball drop beginning in 1907.",today:"December 31. Countdowns, fireworks, parties, reflection on the year ending. The world collectively pauses at midnight.",future:"Every culture has found a way to mark the turning of time — to pause, take stock, and step into what is coming. Yahweh built that into His calendar as well: the season of Elul (the month before Tishrei) is 30 days of examination and return. The difference is that the Hebrew calendar does not wait until the last night of the year. The invitation to turn — to return to Yahweh — is woven into every season.",verse:'"Return to me, and I will return to you, says Yahweh of hosts." — Malachi 3:7'},
+  'mlk':{title:"Martin Luther King Jr. Day",origin:"Honors Dr. Martin Luther King Jr. (January 15, 1929 – April 4, 1968), Baptist minister and civil rights leader who led the movement to end racial segregation through nonviolent resistance. Signed into federal law as a holiday by Reagan in 1983, first observed federally in 1986.",today:"Third Monday of January. Federal holiday. Day of service in many communities.",future:"King's 'Letter from Birmingham Jail' is arguably the most powerful piece of American political writing since the Founders — and it is saturated in scripture and natural law. His 'I Have a Dream' speech closes with the words of Isaiah 40. He was not quoting scripture for effect. He was reading what the prophets actually wrote and demanding that America live up to it. The movement he led was not primarily political. It was prophetic.",verse:'"Let justice roll on like a river, righteousness like a never-failing stream." — Amos 5:24'},
+  'presidents':{title:"Presidents' Day",origin:"Originally Washington's Birthday — a federal holiday since 1885 honoring George Washington (February 22, 1732). In 1971 the Uniform Monday Holiday Act moved it to the third Monday of February. Several states also honor Abraham Lincoln (February 12, 1809). The unofficial name 'Presidents' Day' caught on through retail culture.",today:"Third Monday of February. Federal holiday. Often observed with sales and as a school holiday.",future:"Leadership is stewardship — an account will be given. The Hebrew scriptures hold kings to a standard that no earthly throne escapes: 'He must not consider himself better than his fellow Israelites and turn from the law to the right or to the left' (Deuteronomy 17:20). Every government is provisional. Every leader answers to a higher authority.",verse:'"When you have eaten and are satisfied, praise the LORD your God for the good land he has given you. Be careful that you do not forget the LORD your God." — Deuteronomy 8:10-11'},
+  'mothers':{title:"Mother's Day",origin:"Anna Jarvis organized the first official Mother's Day in 1908 at a church in Grafton, WV, in memory of her mother Ann Jarvis — a peace activist who had organized 'Mothers' Friendship Day' after the Civil War. It became a US federal holiday in 1914. Jarvis later campaigned bitterly against the commercialization of the holiday she had created, calling it a 'Hallmark holiday.'",today:"Second Sunday of May in most countries. Flowers, gifts, meals, and gatherings honoring mothers and mother figures.",future:"Motherhood in scripture is never peripheral. From Eve ('mother of all the living') to Hannah ('I asked Yahweh for this child') to Miriam leading the women in song after the sea — to Mary ('let it be to me according to your word'). The women who carried life forward carried something sacred. Proverbs 31 describes not an executive — but a woman whose children 'rise up and call her blessed.'",verse:'"Her children arise and call her blessed; her husband also, and he praises her." — Proverbs 31:28'},
+  'memorial':{title:"Memorial Day",origin:"Began as 'Decoration Day' after the Civil War, when communities placed flowers on soldiers' graves. First major observance May 30, 1868, organized by Union veterans. Became a federal holiday in 1971, date moved to the last Monday of May for the three-day weekend.",today:"Last Monday of May. National observance honoring US military personnel who died in service. Parades, grave decorations, national moment of silence at 3pm.",future:"Those who lay down their lives for others act out a pattern older than any nation. The Hebrew scriptures do not romanticize war — they are brutally honest about its cost. But they also honor sacrifice. 'Greater love has no one than this: to lay down one's life for one's friends.' Every grave in every military cemetery is a shadow of that — a life poured out so others could continue.",verse:'"Greater love has no one than this: to lay down one\'s life for one\'s friends." — John 15:13'},
+  'fathers':{title:"Father's Day",origin:"Proposed by Sonora Smart Dodd in 1910 in Spokane, WA, after hearing a Mother's Day sermon. Her father William Smart — a Civil War veteran — had raised six children alone after his wife died in childbirth. First celebrated June 19, 1910 in Spokane. Became a US federal holiday in 1972, signed by Nixon.",today:"Third Sunday of June in the US, UK, Canada, and many other countries. Cards, gifts, meals, and outings with fathers and father figures.",future:"Father's Day, stripped of greeting-card culture, echoes a command older than any nation: 'Honor your father and your mother' (Exodus 20:12) — the only commandment with an explicit promise attached. And the last words Yahweh spoke through the Hebrew prophets, before 400 years of silence, were about fathers: 'He will turn the hearts of the parents to their children, and the hearts of the children to their parents' (Malachi 4:6). That reconciliation — not a greeting card, but a generational turning — is what this day actually points toward.",verse:'"Honor your father and your mother, as the LORD your God has commanded you, so that you may live long and that it may go well with you." — Deuteronomy 5:16'},
+  'labor':{title:"Labor Day",origin:"Honoring the labor movement and workers' contributions. First celebrated September 5, 1882, in New York City by the Central Labor Union. Federal holiday since 1894 — enacted partly to quell labor unrest. Most of the world observes Labor Day on May 1 (International Workers' Day); the US moved it to September to separate it from socialist May 1 associations.",today:"First Monday of September. Widely treated as the unofficial end of summer — cookouts, travel, back-to-school.",future:"Work is not a curse. Genesis 2:15 — 'The LORD God took the man and put him in the Garden of Eden to work it and take care of it.' The curse of Genesis 3 is toil and futility, not work itself. Yahweh takes work seriously enough to build recovery into it: the Shemita (sabbatical year) gives the land — and the people — one year of rest in seven. Rest is not laziness. It is the honest acknowledgment that the worker is not the source.",verse:'"Six days you shall labor and do all your work, but the seventh day is a sabbath to the LORD your God." — Deuteronomy 5:13-14'},
+  'columbus':{title:"Columbus Day / Indigenous Peoples Day",origin:"Commemorates Christopher Columbus's arrival in the Americas on October 12, 1492. Federal holiday since 1937. Many states and cities have renamed it Indigenous Peoples Day to honor the peoples who were here before European contact and to acknowledge the displacement and suffering that followed.",today:"Second Monday of October. Contested observance — celebrated in some communities as Italian-American heritage day; observed as Indigenous Peoples Day in others.",future:"Every arrival has a cost. The people who were already here had names, languages, beliefs, and covenant relationships with this land long before 1492. Their displacement is not a footnote. The Hebrew scriptures are unusually direct about the treatment of foreigners and the dispossessed: 'Do not mistreat or oppress a foreigner, for you were foreigners in Egypt' (Exodus 22:21). A nation that forgets that instruction tends to repeat it.",verse:'"Do not mistreat or oppress a foreigner, for you were foreigners in Egypt." — Exodus 22:21'},
+  'thanksgiving':{title:"Thanksgiving",origin:"Traced to a 1621 harvest feast between Plymouth colonists and the Wampanoag tribe lasting three days. The holiday was observed sporadically until Lincoln proclaimed it a national day of thanksgiving in 1863 — a deliberate act of gratitude in the middle of the Civil War. The Thursday timing and modern traditions developed over the following century.",today:"Fourth Thursday of November in the US (second Monday of October in Canada). Family gatherings, the feast, expressions of gratitude. The most-traveled holiday weekend in the US.",future:"Every culture that has ever survived has had a harvest feast — a moment to stop, gather, and acknowledge that the food did not produce itself. Yahweh built His own version into the calendar: Sukkot (Tabernacles) — seven days of gratitude for the harvest, lived in temporary booths to remember that the wilderness years were provided for day by day. Thanksgiving echoes what Sukkot declares: dependence is not weakness. It is the honest posture of a creature before its Creator.",verse:'"Give thanks to the LORD, for he is good; his love endures forever." — Psalm 107:1'}
+};
+
+// ── UNIFIED EVENT INFO POPUP ──
+function openCalEventInfo(type,key,ds){
+  let html='';
+  if(type==='gregorian'){
+    const info=GREGORIAN_EVENT_INFO[key];
+    if(!info)return;
+    html=`<div class="cal-info-title" style="color:#6a9ab8">${info.title}</div>
+      <div class="cal-info-section"><div class="cal-info-section-lbl">Origin</div><div class="cal-info-text">${info.origin}</div></div>
+      <div class="cal-info-section"><div class="cal-info-section-lbl">Observed Today</div><div class="cal-info-text">${info.today}</div></div>
+      <div class="cal-info-section"><div class="cal-info-section-lbl">A Deeper View</div><div class="cal-info-text">${info.future}</div></div>
+      ${info.verse?`<div class="cal-info-verse">${info.verse}</div>`:''}
+      <div style="margin-top:20px"><span class="cal-info-deeper" style="cursor:pointer" onclick="closeCalEventInfo();openHubAmitPanel()">Walk with Amit →</span></div>`;
+  } else if(type==='word'){
+    const wd=WORD_DATA[key];
+    if(!wd)return;
+    const[gy,gm,gd]=ds.split('-').map(Number);
+    const heb=gregToHeb(gy,gm,gd);
+    const dateLbl=CAL_MONTHS[gm-1]+' '+gd+' · '+heb.d+' '+(HEB_MONTH_NAMES[heb.m]||'');
+    html=`<div class="cal-info-title" style="color:var(--cal-type-clr)">${wd.name||key}</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:14px;font-style:italic">${dateLbl}</div>
+      ${wd.prayer?`<div class="cal-info-section"><div class="cal-info-section-lbl">The Practice</div><div class="cal-info-text">${wd.prayer}</div></div>`:''}
+      ${wd.intent?`<div class="cal-info-section"><div class="cal-info-section-lbl">The Intent</div><div class="cal-info-text">${wd.intent}</div></div>`:''}
+      ${wd.then?`<div class="cal-info-section"><div class="cal-info-section-lbl">Then — In History</div><div class="cal-info-text">${wd.then}</div></div>`:''}
+      ${wd.doing?`<div class="cal-info-section"><div class="cal-info-section-lbl">Today — How It Is Used</div><div class="cal-info-text">${wd.doing}</div></div>`:''}
+      ${wd.now?`<div class="cal-info-section"><div class="cal-info-section-lbl">Forward — What Shall Come</div><div class="cal-info-text">${wd.now}</div></div>`:''}
+      ${wd.verse?`<div class="cal-info-verse">${wd.verse}</div>`:''}
+      <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+        <span class="cal-info-deeper" style="cursor:pointer" onclick="closeCalEventInfo();openPanel('verse')">Full Word for Today →</span>
+        <span class="cal-info-deeper" style="cursor:pointer" onclick="closeCalEventInfo();openHubAmitPanel()">Walk with Amit →</span>
+      </div>`;
+  }
+  if(!html)return;
+  document.getElementById('calEventInfoContent').innerHTML=html;
+  document.getElementById('calEventInfoModal').classList.add('open');
+}
+function closeCalEventInfo(){document.getElementById('calEventInfoModal').classList.remove('open')}
 
 // ══════════════════════════════════════════════
 function getCalEvent(ds){
@@ -4383,9 +4468,9 @@ function buildCalCell(ds,dayNum,isAdj){
   if(!isAdj){
     let ind='';
     const _wKey=getDayWordKey(gy,gm,gd);
-    const _wOnclick=`event.stopPropagation();openPanel('verse')`;
+    const _wOnclick=`event.stopPropagation();openCalEventInfo('word','${_wKey}','${ds}')`;
     if(calEv){
-      ind=`<div class="cal-heb-ind cal-heb-feast-ind feast-${calEv.type}" onclick="${_wOnclick}">${calEv.short||calEv.feast}</div>`;
+      ind=`<div class="cal-heb-ind cal-heb-feast-ind feast-${calEv.type}" onclick="event.stopPropagation();openFeastModal('${calEv.type}','${ds}')">${calEv.short||calEv.feast}</div>`;
     } else if(isShabbat){
       ind=`<div class="cal-heb-ind cal-heb-shabbat-lbl cal-heb-word" onclick="${_wOnclick}">Shabbat</div>`;
     } else {
@@ -4403,7 +4488,7 @@ function buildCalCell(ds,dayNum,isAdj){
   }
   const todayBadgeCell=isToday&&!isAdj?`<div style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;color:var(--gold);opacity:.85;margin-top:2px;text-transform:uppercase">Today</div>`:'';
   const gregEv=(!isAdj)?getGregorianEvent(gy,gm,gd):null;
-  const gregChip=gregEv?`<div class="cal-greg-event">${gregEv}</div>`:'';
+  const gregChip=gregEv?`<div class="cal-greg-event" onclick="event.stopPropagation();openCalEventInfo('gregorian','${gregEv.key}','${ds}')">${gregEv.name}</div>`:'';
   return`<div class="${cls}" onclick="${onclick}" ${ondblclick}>
     <div class="cal-cell-top">
       <div class="cal-cell-greg"><div class="cal-day-num">${dayNum}</div>${todayBadgeCell}${gregChip}</div>
