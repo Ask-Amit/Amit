@@ -67,8 +67,12 @@ header{
   padding:10px 11px;border-radius:9px;cursor:pointer;
   border:1px solid transparent;
   transition:all .18s;user-select:none;
-  position:relative;
+  position:relative;overflow:hidden;
 }
+.tile-today-ribbon{position:absolute;top:9px;right:-16px;width:58px;background:var(--gold);color:#1a0800;font-family:'Cinzel',serif;font-size:7px;font-weight:700;letter-spacing:.1em;text-align:center;padding:2px 0;transform:rotate(28deg);display:none;pointer-events:none;z-index:1}
+.tile-today-ribbon.visible{display:block}
+.tile-month-ribbon{position:absolute;top:9px;right:-20px;width:68px;background:rgba(201,168,76,.55);color:#fff;font-family:'Cinzel',serif;font-size:6px;font-weight:700;letter-spacing:.08em;text-align:center;padding:2px 0;transform:rotate(28deg);display:none;pointer-events:none;z-index:1}
+.tile-month-ribbon.visible{display:block}
 .tile:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
 .tile.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
 .tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
@@ -740,11 +744,17 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-dv-main-scroll::-webkit-scrollbar-thumb{background:rgba(92,66,0,.2);border-radius:2px}
 /* Top row */
 .cal-dv-top{display:flex;align-items:flex-start;margin-bottom:4px}
-.cal-dv-greg{flex:1}
+.cal-dv-greg{flex:0 0 auto}
 .cal-dv-greg-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#1a1510;line-height:1}
 .cal-dv-greg-day{font-family:'Cinzel',serif;font-size:12px;color:#3a3020;letter-spacing:.1em;margin-top:5px;text-transform:uppercase}
 .cal-dv-greg-month{font-size:12px;color:#6a5a40;margin-top:3px;font-style:italic}
-.cal-dv-heb{text-align:right;display:flex;flex-direction:column;align-items:flex-end}
+.cal-dv-heb{text-align:right;display:flex;flex-direction:column;align-items:flex-end;flex:0 0 auto}
+/* Word for Today — center header column */
+.cal-dv-word-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 24px;cursor:pointer;min-width:0}
+.cal-dv-wc-name{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:#3a2800;letter-spacing:.04em;line-height:1.3;margin-bottom:7px}
+.cal-dv-wc-brief{font-size:11px;color:#6a5030;font-style:italic;line-height:1.55;max-width:320px;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.cal-dv-wc-btn{background:transparent;border:1px solid rgba(92,66,0,.3);color:#5c4200;padding:5px 16px;border-radius:5px;cursor:pointer;font-size:10px;font-family:'Cinzel',serif;letter-spacing:.06em;transition:all .15s}
+.cal-dv-wc-btn:hover{background:rgba(92,66,0,.08);border-color:rgba(92,66,0,.55)}
 .cal-dv-heb-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#5c4200;line-height:1}
 .cal-dv-heb-mon{font-size:13px;color:#6b5010;font-style:italic;margin-top:5px}
 .cal-dv-heb-yr{font-size:11px;color:#8a6830;margin-top:3px}
@@ -1058,20 +1068,22 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 
   <!-- ── SIDEBAR TILES ── -->
   <nav class="sidebar">
-    <div class="tile active" id="tile-home" onclick="homePanelDate=todayStr();openPanel('home')">
-      <div class="tile-icon">🏠</div>
+    <div class="tile active" id="tile-home" onclick="homePanelDate=todayStr();calDvDs=todayStr();openPanel('home')" ondblclick="event.stopPropagation();openPanel('calendar')">
+      <div class="tile-icon">☀️</div>
       <div class="tile-info">
-        <div class="tile-name">Home</div>
-        <div class="tile-sub">Overview</div>
+        <div class="tile-name" id="tile-home-name">—</div>
+        <div class="tile-sub" id="tile-home-sub">—</div>
       </div>
+      <div class="tile-today-ribbon" id="tile-home-ribbon">Today</div>
     </div>
 
     <div class="tile" id="tile-calendar" onclick="openPanel('calendar')">
       <div class="tile-icon">📅</div>
       <div class="tile-info">
-        <div class="tile-name">Calendar</div>
+        <div class="tile-name" id="tile-cal-name">Calendar</div>
         <div class="tile-sub" id="tile-cal-sub">View by date</div>
       </div>
+      <div class="tile-month-ribbon" id="tile-cal-ribbon">This Month</div>
     </div>
 
     <div class="tile" id="tile-todo" onclick="openPanel('todo')">
@@ -1148,73 +1160,14 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   <!-- ── MAIN CONTENT AREA ── -->
   <div class="main-area">
 
-    <!-- HOME PANEL — MORNING ALTAR -->
+    <!-- HOME PANEL — DAY VIEW -->
     <div class="panel active" id="panel-home">
-      <div class="altar-wrap">
-
-        <!-- DATE NAVIGATION — shows when viewing a non-today date -->
-        <div class="altar-date-nav" id="altarDateNav" style="display:none">
-          <button class="altar-nav-btn" onclick="openPanel('calendar')">← Calendar</button>
-          <span class="altar-date-nav-lbl" id="altarNavDateLbl"></span>
-          <button class="altar-nav-btn" onclick="openHomeForDate(todayStr())">← Today</button>
+      <div class="cal-dv-panel open" id="calDayView">
+        <div class="cal-dv-zoom-wrap">
+          <div class="cal-dv-adj cal-dv-prev" id="calDvPrev" onclick="navigateDayZoom(-1)"></div>
+          <div class="cal-dv-main" id="calDvMain" ondblclick="calDvDblClick(event)"></div>
+          <div class="cal-dv-adj cal-dv-next" id="calDvNext" onclick="navigateDayZoom(1)"></div>
         </div>
-
-        <!-- GREETING -->
-        <div class="altar-greeting">
-          <div class="altar-name" id="altarGreeting">Good morning</div>
-          <div class="altar-greg-date" id="altarGregDate"></div>
-        </div>
-
-        <!-- HIS CALENDAR TODAY -->
-        <div class="altar-cal-bar">
-          <div class="altar-heb-pill">
-            <div class="altar-heb-date" id="altarHebDate">Loading…</div>
-            <div class="altar-heb-year" id="altarHebYear"></div>
-          </div>
-          <div class="altar-cal-meaning" id="altarCalMeaning"></div>
-        </div>
-
-        <!-- THE WORD FOR TODAY — ALTAR CENTERPIECE -->
-        <div class="altar-section">
-          <div class="altar-lbl">The Word for Today</div>
-          <div class="altar-word-ctx" id="altarWordCtx"></div>
-          <div class="altar-word-name" id="altarWordName">Loading…</div>
-          <div class="altar-prayer" id="altarPrayer"></div>
-          <div id="altarIntent"></div>
-          <div id="altarDoing"></div>
-          <div class="altar-word-verse" id="altarVerse" style="display:none"></div>
-          <div class="altar-refl-lbl">Your Reflection Today</div>
-          <textarea class="altar-refl-area" id="altarRefl" placeholder="What is Yahweh saying to you through this…" oninput="saveAltarReflection()"></textarea>
-          <div class="altar-refl-saved" id="altarReflSaved"></div>
-          <span class="altar-deeper" onclick="openPanel('verse')">Go deeper into the Word →</span>
-        </div>
-
-        <!-- PRESSING AIMS -->
-        <div class="altar-section">
-          <div class="altar-lbl" id="altarAimsLbl">Pressing Today</div>
-          <div id="altarAimsList"></div>
-          <span class="altar-aims-link" onclick="openPanel('todo')">See all Pursuits →</span>
-        </div>
-
-        <!-- EXPERIENCE FOR DATE -->
-        <div class="altar-section" id="altarExpSection" style="display:none">
-          <div class="altar-lbl" style="color:rgba(100,220,200,.85)">Experience</div>
-          <div id="altarExpList"></div>
-        </div>
-
-        <!-- MEMORIES FOR DATE -->
-        <div class="altar-section" id="altarMemSection" style="display:none">
-          <div class="altar-lbl" style="color:rgba(200,160,255,.85)">Memory</div>
-          <div id="altarMemList"></div>
-        </div>
-
-        <!-- MORNING INVITATION -->
-        <div class="altar-question">
-          <div class="altar-question-text">What are you carrying into today?</div>
-          <button class="altar-amit-btn" onclick="openHubAmitPanel()">Walk with Amit →</button>
-          <button class="altar-testimony-btn" onclick="openTestimonyModal(todayStr())" title="Record a testimony">✦ Record a Testimony</button>
-        </div>
-
       </div>
     </div>
 
@@ -1465,19 +1418,6 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="cal-info-box">
           <button class="cal-info-close" onclick="closeWhatIsCalModal()">×</button>
           <div id="whatIsCalContent"></div>
-        </div>
-      </div>
-      <!-- DAY FOCUS VIEW (replaces cal-wrap on double-click) -->
-      <div class="cal-dv-panel" id="calDayView">
-        <div class="cal-dv-topbar" style="display:none">
-          <button class="cal-dv-back" onclick="closeDayView()">← Month</button>
-          <div class="cal-dv-title" id="calDvTitle"></div>
-          <div id="calDvAddBtn" style="display:none"></div>
-        </div>
-        <div class="cal-dv-zoom-wrap">
-          <div class="cal-dv-adj cal-dv-prev" id="calDvPrev" onclick="navigateDayZoom(-1)"></div>
-          <div class="cal-dv-main" id="calDvMain" ondblclick="calDvDblClick(event)"></div>
-          <div class="cal-dv-adj cal-dv-next" id="calDvNext" onclick="navigateDayZoom(1)"></div>
         </div>
       </div>
     </div>
@@ -2287,7 +2227,7 @@ function openPanel(id){
   }
   if(id==='mail') renderMailPanel();
   if(id==='calendar') renderCalendar();
-  if(id==='home'){updateHome();document.getElementById('tile-home').classList.add('active')}
+  if(id==='home'){calDvDs=homePanelDate||todayStr();renderDayView();}
   logPanelVisit(id);
 }
 
@@ -2307,7 +2247,7 @@ function submitAmitName(){
   if(!v)return;
   setUserName(v);
   document.getElementById('amitNameModal').classList.remove('open');
-  tick();updateHome();
+  tick();if(curPanel==='home')renderDayView();
 }
 function showAmitStory(){
   document.getElementById('amitNamePanel1').classList.add('hidden');
@@ -2932,7 +2872,7 @@ function render(){
     }
   }
   document.getElementById('taskWrap').innerHTML=html;
-  updateHome();
+  if(curPanel==='home')renderDayView();
 }
 
 function sortTasks(arr,sort){
@@ -4044,7 +3984,7 @@ let calActiveSide='greg'; // 'greg' | 'heb'
 let calFilters={active:true,experience:false,memory:false};
 const EXP_SESSION_KEY='amit_exp_session'; // sessionStorage — panels visited today
 let homePanelDate=todayStr();
-function openHomeForDate(ds){homePanelDate=ds;openPanel('home');}
+function openHomeForDate(ds){homePanelDate=ds;calDvDs=ds;openPanel('home');}
 
 
 const CAL_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -4350,8 +4290,6 @@ function buildCalCell(ds,dayNum,isAdj){
 }
 
 function renderCalendar(){
-  // If day view is open, refresh it instead of the grid
-  if(document.getElementById('calDayView').classList.contains('open')){renderDayView();return}
   const today=todayStr();
   const firstDow=new Date(calYear,calMonth,1).getDay();
   const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
@@ -4417,25 +4355,19 @@ function openPursuitFilter(ds,kind){
 }
 
 // ── DAY ZOOM VIEW ──
-let calDvDs=null;
+let calDvDs=todayStr();
 function openDayView(ds){
-  calDvDs=ds;calSelected=ds;
-  document.getElementById('calDvAddBtn').onclick=()=>addTaskOnDate(ds);
-  renderDayView();
-  document.getElementById('calWrap').style.display='none';
-  document.getElementById('calDayView').classList.add('open');
+  homePanelDate=ds;calDvDs=ds;calSelected=ds;
+  openPanel('home');
 }
 function closeDayView(){
-  document.getElementById('calDayView').classList.remove('open');
-  document.getElementById('calWrap').style.display='';
-  renderCalendar();
+  openPanel('calendar');
 }
 function navigateDayZoom(delta){
   const[y,m,d]=calDvDs.split('-').map(Number);
   const dt=new Date(y,m-1,d+delta);
   const nds=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-  calDvDs=nds;calSelected=nds;
-  document.getElementById('calDvAddBtn').onclick=()=>addTaskOnDate(nds);
+  calDvDs=nds;calSelected=nds;homePanelDate=nds;
   renderDayView();
 }
 function buildDvAdjCell(ds,direction){
@@ -4472,9 +4404,6 @@ function renderDayView(){
   const calEv=getCalEvent(calDvDs);
   const isShabbat=isCalShabbat(calDvDs);
   const tasks=aimsForDay(calDvDs);
-  // Update topbar title (minimal — dates visible in card)
-  const todayBadge=isToday?` <span style="color:var(--gold)">· Today</span>`:'';
-  document.getElementById('calDvTitle').innerHTML=CAL_DAYS[dt.getDay()]+', '+CAL_MONTHS[m-1]+' '+d+todayBadge;
   // Adjacent cells
   const prevDt=new Date(y,m-1,d-1);
   const nextDt=new Date(y,m-1,d+1);
@@ -4489,21 +4418,26 @@ function renderDayView(){
   } else if(isShabbat){
     feastHtml=`<div class="cal-dv-feast cal-dv-shabbat-feast">Shabbat — The Seventh Day</div>`;
   }
-  // Word for today
+  // Word for today — brief teaser in header center
   const wKey=getDayWordKey(y,m,d);
   const w=WORD_DATA[wKey]||{};
-  let wordHtml='';
+  let wordCenterHtml='';
   if(w.name){
-    const ctx=w.ctx||'';
-    wordHtml=`<div class="cal-dv-word-box">
-      ${ctx?`<div class="cal-dv-word-ctx">${ctx}</div>`:''}
-      <div class="cal-dv-word-name">${w.name}</div>
-      ${w.prayer?`<div class="cal-dv-word-prayer">${w.prayer}</div>`:''}
-      ${w.intent?`<div class="cal-dv-word-sect-lbl">The Intent</div><div class="cal-dv-word-body">${w.intent}</div>`:''}
-      ${w.doing?`<div class="cal-dv-word-sect-lbl">For Today</div><div class="cal-dv-word-body">${w.doing}</div>`:''}
-      ${w.verse?`<div class="cal-dv-word-verse">${w.verse}</div>`:''}
+    const briefSrc=w.prayer||w.intent||'';
+    const brief=briefSrc?briefSrc.slice(0,130)+(briefSrc.length>130?'…':''):'';
+    wordCenterHtml=`<div class="cal-dv-word-center" ondblclick="event.stopPropagation();openPanel('verse')">
+      <div class="cal-dv-wc-name">${w.name}</div>
+      ${brief?`<div class="cal-dv-wc-brief">${brief}</div>`:''}
+      <button class="cal-dv-wc-btn" onclick="event.stopPropagation();openPanel('verse')">Go Deeper →</button>
     </div>`;
   }
+  // Update Home tile — date as name, day of week as sub, ribbon for today
+  const homeNameEl=document.getElementById('tile-home-name');
+  if(homeNameEl) homeNameEl.textContent=CAL_MONTHS[m-1].slice(0,3)+' '+d+', '+y;
+  const homeSubEl=document.getElementById('tile-home-sub');
+  if(homeSubEl) homeSubEl.textContent=CAL_DAYS[dt.getDay()];
+  const homeRibbon=document.getElementById('tile-home-ribbon');
+  if(homeRibbon) homeRibbon.classList.toggle('visible',isToday);
   // Reflection trigger — show preview if text exists
   let reflVal='';
   try{const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');reflVal=r[calDvDs]||'';}catch{}
@@ -4557,6 +4491,7 @@ function renderDayView(){
           <div class="cal-dv-greg-day">${CAL_DAYS[dt.getDay()].toUpperCase()}</div>
           <div class="cal-dv-greg-month">${CAL_MONTHS[m-1]} ${y}</div>
         </div>
+        ${wordCenterHtml}
         <div class="cal-dv-heb">
           <div class="cal-dv-heb-num">${calDate.d}</div>
           <div class="cal-dv-heb-mon">${calDate.label||''}</div>
@@ -4567,7 +4502,6 @@ function renderDayView(){
     </div>
     <div class="cal-dv-main-scroll">
       ${feastHtml}
-      ${wordHtml}
       ${reflTrigger}
       <div class="dv-cols">
         <div>${pursuitSection}</div>
@@ -4575,7 +4509,7 @@ function renderDayView(){
       </div>
       <div style="margin-top:4px;padding-top:12px;border-top:1px solid rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between">
         <button class="cal-dv-testimony-btn" onclick="openTestimonyModal('${calDvDs}')">✦ Record a Testimony</button>
-        <button class="cal-dv-month-return" onclick="closeDayView()" title="Return to month view">↩ Month</button>
+        <button class="cal-dv-month-return" onclick="closeDayView()" title="Return to calendar">← Calendar</button>
       </div>
     </div>`;
 }
@@ -4766,10 +4700,16 @@ function addTaskOnDate(ds){
 }
 
 function updateCalTile(){
+  const now=new Date();
+  const isCurrentMonth=calYear===now.getFullYear()&&calMonth===now.getMonth();
   const all=load().filter(t=>!t.done&&t.due);
   const thisMonth=all.filter(t=>t.due.startsWith(`${calYear}-${String(calMonth+1).padStart(2,'0')}`)).length;
-  const el=document.getElementById('tile-cal-sub');
-  if(el) el.textContent=thisMonth?`${thisMonth} Pursuit${thisMonth!==1?'s':''} this month`:'View by date';
+  const nameEl=document.getElementById('tile-cal-name');
+  if(nameEl) nameEl.textContent=CAL_MONTHS[calMonth];
+  const subEl=document.getElementById('tile-cal-sub');
+  if(subEl) subEl.textContent=thisMonth?`${thisMonth} Pursuit${thisMonth!==1?'s':''} this month`:String(calYear);
+  const ribbon=document.getElementById('tile-cal-ribbon');
+  if(ribbon) ribbon.classList.toggle('visible',isCurrentMonth);
 }
 
 // ══════════════════════════════════════════════
@@ -5003,7 +4943,8 @@ window.amitAddTask=function(title,cat,subcat,pri){
 // ══════════════════════════════════════════════
 tick();setInterval(tick,15000);
 loadVerse();
-updateHome();
+renderDayView();
+updateCalTile();
 render();
 populateSortViews();
 
