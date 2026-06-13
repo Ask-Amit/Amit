@@ -162,11 +162,14 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **NEXT SESSION — IMMEDIATE TASKS:**
 1. **Recreate Claude.ai Project** — New Project with updated Amit_Deploy.md (now includes integrity standard + compass system). Old Project was deleted. Critical before tester distribution.
-2. **Hub: Ask Amit panel — bidirectional framing** — Update panel description and primer text to reflect that challenge goes both directions. Amit challenges you, you challenge Amit.
+2. **Hub: Ask Amit panel — fix pre-canned openers** — Current panel starts with primer questions that feel like forced scripts. Ryan's feedback: makes it hard to just ask what you want right out of the gate. Fix: open like an invitation, not a form. Remove the panel-specific suggested questions. Replace with one open line that gets out of the way. Also update for bidirectional framing (Amit challenges you, you challenge Amit).
 3. **Compass → User Profile spec** — Ryan's trailing thought ("we still need to figure out how we can look at...") was unfinished. Surface this at session start: what does the visibility/feedback mechanism look like for the compass scores across conversations?
 4. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" / "Clear All Samples" buttons. ~10 days June 2026 history.
 5. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-21) as experience entries with real dates. NOT samples.
 6. **Feast day/psalm chip click** → Word for Today tab (wire this up in calDayView and calendar cells).
+
+**ARCHITECTURE — SITTING ON (do not build yet):**
+- Standalone Amit app using Hub's localStorage schema so data is already in Hub format when they connect. Key insight: portal and Hub share the same domain (ask-amit.github.io) so localStorage is already shared — no wiring needed at the storage layer. The unsolved piece is conversation write-back (requires API layer). Ryan is sitting on whether standalone should be a lighter experience or identical to Hub. Surface this when API layer becomes active.
 
 **Current improvement list (all pending):**
 - Ancient Hebrew SVG update (HIGH PRIORITY — still unbuilt)
