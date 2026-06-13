@@ -26,10 +26,10 @@
   --star-c:#f1c40f;
   --ink:#1a1510;
   --sep:rgba(255,255,255,0.09);
-  /* RIGHT calendar type colors (sacred/Hebrew) — updated by setCalType() */
-  --cal-type-clr:#c9a84c;
+  /* RIGHT calendar type colors (sacred/Hebrew) — updated by toggleSacred() */
+  --cal-type-clr:#c8913a;
   --cal-type-bg:rgba(10,20,36,.88);
-  --cal-type-border:rgba(201,168,76,.72);
+  --cal-type-border:rgba(200,145,58,.68);
   /* LEFT calendar type colors (world) — updated by setLeftCalType() */
   --left-cal-clr:#5a8aaa;
   --left-cal-bg:rgba(10,20,36,.88);
@@ -877,17 +877,23 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-type-tabs{display:flex;gap:5px;background:rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:3px}
 .cal-type-tab{background:transparent;border:1px solid transparent;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.08em;padding:4px 11px;border-radius:6px;cursor:pointer;transition:all .18s;white-space:nowrap;font-weight:600;title-attr:attr(title)}
 .cal-type-tab:hover{opacity:1;filter:brightness(1.2)}
-/* Biblical — gold */
-#ctab-biblical{color:rgba(201,168,76,.75);border-color:rgba(201,168,76,.28)}
-#ctab-biblical.active{background:rgba(201,168,76,.18);color:#c9a84c;border-color:rgba(201,168,76,.7);box-shadow:0 0 6px rgba(201,168,76,.2)}
-/* Rabbinic — sky blue */
-#ctab-rabbinic{color:rgba(91,163,208,.75);border-color:rgba(91,163,208,.28)}
-#ctab-rabbinic.active{background:rgba(91,163,208,.16);color:#5ba3d0;border-color:rgba(91,163,208,.7);box-shadow:0 0 6px rgba(91,163,208,.2)}
-/* Priestly · Enoch — lavender */
-#ctab-enoch{color:rgba(155,123,200,.75);border-color:rgba(155,123,200,.28)}
-#ctab-enoch.active{background:rgba(155,123,200,.16);color:#9b7bc8;border-color:rgba(155,123,200,.7);box-shadow:0 0 6px rgba(155,123,200,.2)}
+.cal-type-group{display:flex;align-items:center;gap:5px}
+.cal-type-sep{color:rgba(255,255,255,.2);font-size:18px;line-height:1;margin:0 4px;flex-shrink:0;user-select:none}
+/* Gregorian — steel blue */
+#ctab-greg{color:rgba(106,154,184,.75);border-color:rgba(106,154,184,.28)}
+#ctab-greg.active{background:rgba(106,154,184,.18);color:#6a9ab8;border-color:rgba(106,154,184,.7);box-shadow:0 0 6px rgba(106,154,184,.2)}
+/* Biblical — amber */
+#ctab-biblical{color:rgba(200,145,58,.75);border-color:rgba(200,145,58,.28)}
+#ctab-biblical.active{background:rgba(200,145,58,.18);color:#c8913a;border-color:rgba(200,145,58,.7);box-shadow:0 0 6px rgba(200,145,58,.2)}
+/* Rabbinic — teal-cyan */
+#ctab-rabbinic{color:rgba(74,154,160,.75);border-color:rgba(74,154,160,.28)}
+#ctab-rabbinic.active{background:rgba(74,154,160,.18);color:#4a9aa0;border-color:rgba(74,154,160,.7);box-shadow:0 0 6px rgba(74,154,160,.2)}
+/* Priestly · Enoch — muted rose */
+#ctab-enoch{color:rgba(160,104,136,.75);border-color:rgba(160,104,136,.28)}
+#ctab-enoch.active{background:rgba(160,104,136,.18);color:#a06888;border-color:rgba(160,104,136,.7);box-shadow:0 0 6px rgba(160,104,136,.2)}
 .cal-type-tab-hint{font-size:8px;opacity:.55;font-family:'Crimson Pro',serif;font-style:italic;margin-left:2px;letter-spacing:0}
 .cal-type-note{font-size:11px;color:var(--cal-type-clr);opacity:.7;font-style:italic;white-space:nowrap;transition:color .3s}
+.cal-overlap-note{font-size:8px;font-family:'Cinzel',serif;font-weight:600;letter-spacing:.05em;padding:2px 4px;border-radius:4px;background:rgba(10,20,36,.9);color:rgba(255,200,140,.9);border:1px solid rgba(255,180,80,.4);cursor:pointer;margin-top:2px;line-height:1.4;text-align:right;width:100%;word-break:break-word}
 /* Shabbat DOW header */
 .cal-dow-shabbat{color:var(--gold)!important;font-weight:700!important;letter-spacing:.05em!important;white-space:nowrap}
 /* Unified dual-column cells — Gregorian LEFT, Hebrew RIGHT, Aims BOTTOM */
@@ -1395,13 +1401,22 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           </div>
           <!-- Calendar type selector -->
           <div class="cal-type-bar">
-            <span class="cal-type-lbl">Showing:</span>
-            <div class="cal-type-tabs">
-              <button class="cal-type-tab active" id="ctab-biblical" onclick="setCalType('biblical')" ondblclick="event.stopPropagation();openCalTypeInfo('biblical')" title="Double-click for details">Biblical · Torah</button>
-              <button class="cal-type-tab" id="ctab-rabbinic" onclick="setCalType('rabbinic')" ondblclick="event.stopPropagation();openCalTypeInfo('rabbinic')" title="Double-click for details">Rabbinic</button>
-              <button class="cal-type-tab" id="ctab-enoch" onclick="setCalType('enoch')" ondblclick="event.stopPropagation();openCalTypeInfo('enoch')" title="Double-click for details">Priestly · Enoch</button>
+            <div class="cal-type-group">
+              <span class="cal-type-lbl">World</span>
+              <div class="cal-type-tabs">
+                <button class="cal-type-tab active" id="ctab-greg" onclick="toggleGreg()" title="Toggle Gregorian civil events">Gregorian</button>
+              </div>
             </div>
-            <span class="cal-type-note" id="calTypeNote">Nisan = Month 1 · Leviticus 23</span>
+            <span class="cal-type-sep">│</span>
+            <div class="cal-type-group">
+              <span class="cal-type-lbl">Sacred</span>
+              <div class="cal-type-tabs">
+                <button class="cal-type-tab active" id="ctab-biblical" onclick="toggleSacred('biblical')" ondblclick="event.stopPropagation();openCalTypeInfo('biblical')" title="Double-click for details">Biblical · Torah</button>
+                <button class="cal-type-tab" id="ctab-rabbinic" onclick="toggleSacred('rabbinic')" ondblclick="event.stopPropagation();openCalTypeInfo('rabbinic')" title="Double-click for details">Rabbinic</button>
+                <button class="cal-type-tab" id="ctab-enoch" onclick="toggleSacred('enoch')" ondblclick="event.stopPropagation();openCalTypeInfo('enoch')" title="Double-click for details">Priestly · Enoch</button>
+              </div>
+            </div>
+            <span class="cal-type-note" id="calTypeNote">Nisan = Month 1 · Leviticus 23 · Feasts & Shabbat</span>
           </div>
           <!-- Overdue banner -->
           <div id="calOverdueBanner" style="display:none" class="cal-overdue-banner"></div>
@@ -3843,9 +3858,9 @@ function getEnochEvent(e){
 // CALENDAR TYPE COLORS
 // ══════════════════════════════════════════════
 const CAL_TYPE_COLORS={
-  biblical:{clr:'#c9a84c',bg:'rgba(10,20,36,.88)',border:'rgba(201,168,76,.72)'},
-  rabbinic:{clr:'#5ba3d0',bg:'rgba(10,20,36,.88)',border:'rgba(91,163,208,.68)'},
-  enoch:{clr:'#9b7bc8',bg:'rgba(10,20,36,.88)',border:'rgba(155,123,200,.68)'}
+  biblical:{clr:'#c8913a',bg:'rgba(10,20,36,.88)',border:'rgba(200,145,58,.68)'},
+  rabbinic:{clr:'#4a9aa0',bg:'rgba(10,20,36,.88)',border:'rgba(74,154,160,.65)'},
+  enoch:{clr:'#a06888',bg:'rgba(10,20,36,.88)',border:'rgba(160,104,136,.65)'}
 };
 function applyCalTypeColors(type){
   const c=CAL_TYPE_COLORS[type]||CAL_TYPE_COLORS.biblical;
@@ -4007,24 +4022,27 @@ function openCalEventInfo(type,key,ds){
 function closeCalEventInfo(){document.getElementById('calEventInfoModal').classList.remove('open')}
 
 // ══════════════════════════════════════════════
-function getCalEvent(ds){
-  if(calType==='biblical')return FEAST_DATA[ds]||null;
+function getCalEvent(ds,type){
+  type=type||calType;
+  if(type==='biblical')return FEAST_DATA[ds]||null;
   const[gy,gm,gd]=ds.split('-').map(Number);
-  if(calType==='rabbinic'){
+  if(type==='rabbinic'){
     const heb=gregToHeb(gy,gm,gd);
     const dow=new Date(gy,gm-1,gd).getDay();
     return getRabbinicEvent(heb,dow);
   }
-  if(calType==='enoch'){const e=gregToEnoch(gy,gm,gd);return getEnochEvent(e)}
+  if(type==='enoch'){const e=gregToEnoch(gy,gm,gd);return getEnochEvent(e)}
   return null;
 }
-function isCalShabbat(ds){
+function isCalShabbat(ds,type){
+  type=type||calType;
   const[gy,gm,gd]=ds.split('-').map(Number);
-  if(calType==='enoch'){const e=gregToEnoch(gy,gm,gd);return isEnochShabbat(e)}
+  if(type==='enoch'){const e=gregToEnoch(gy,gm,gd);return isEnochShabbat(e)}
   return new Date(gy,gm-1,gd).getDay()===6;
 }
-function getCalDateDisplay(gy,gm,gd){
-  if(calType==='enoch'){
+function getCalDateDisplay(gy,gm,gd,type){
+  type=type||calType;
+  if(type==='enoch'){
     const e=gregToEnoch(gy,gm,gd);
     if(!e)return{d:'?',label:'',y:'',show:false,isRest:false};
     return{d:e.day,label:ENOCH_MONTH_NAMES[e.month]||'',y:e.year,show:e.day===1||e.day===15||e.isRest,isRest:e.isRest};
@@ -4267,25 +4285,71 @@ function renderHebCalendar(){
 function selectHebDay(ds){calSelected=ds;renderCalendar();renderCalDay(ds)}
 function selectCalDay(ds){calSelected=ds;renderCalendar();renderCalDay(ds)}
 
-let calType='biblical'; // 'biblical' | 'rabbinic' | 'enoch'
+let calType='biblical'; // primary — always first item in sacredActive
+let sacredActive=new Set(['biblical']); // always 1+ members
+let gregVisible=true; // Gregorian civil events toggle
+
 const CAL_TYPE_NOTES={
   biblical:'Nisan = Month 1 · Leviticus 23 · Feasts & Shabbat',
   rabbinic:'Tishrei Civil New Year · All Holidays · Israeli National Days',
   enoch:'364-Day Solar · Fixed Weekday Feasts · Priestly · Dead Sea Scrolls'
 };
-function setCalType(type){
-  calType=type;
-  applyCalTypeColors(type);
-  ['biblical','rabbinic','enoch'].forEach(t=>{
-    const el=document.getElementById('ctab-'+t);
-    if(el)el.classList.toggle('active',t===type);
-  });
+
+function loadCalPrefs(){
+  try{
+    const p=JSON.parse(localStorage.getItem('amit_calPrefs')||'{}');
+    if(typeof p.greg==='boolean')gregVisible=p.greg;
+    if(Array.isArray(p.sacred)&&p.sacred.length>0){
+      const valid=p.sacred.filter(t=>['biblical','rabbinic','enoch'].includes(t));
+      if(valid.length>0)sacredActive=new Set(valid);
+    }
+    calType=[...sacredActive][0];
+  }catch(e){}
+  applyCalTypeColors(calType);
+  updateSacredTabs();
+  const gregBtn=document.getElementById('ctab-greg');
+  if(gregBtn)gregBtn.classList.toggle('active',gregVisible);
   const note=document.getElementById('calTypeNote');
-  if(note)note.textContent=CAL_TYPE_NOTES[type]||'';
-  const satHdr=document.getElementById('calDowSat');
-  if(satHdr)satHdr.textContent=type==='enoch'?'Sat':'Shabbat';
+  if(note)note.textContent=[...sacredActive].map(t=>CAL_TYPE_NOTES[t]||'').filter(Boolean).join(' · ');
+}
+function saveCalPrefs(){
+  try{localStorage.setItem('amit_calPrefs',JSON.stringify({greg:gregVisible,sacred:[...sacredActive]}))}catch(e){}
+}
+function toggleGreg(){
+  gregVisible=!gregVisible;
+  const btn=document.getElementById('ctab-greg');
+  if(btn)btn.classList.toggle('active',gregVisible);
+  saveCalPrefs();
   renderCalendar();
 }
+function toggleSacred(type){
+  if(sacredActive.has(type)){
+    if(sacredActive.size===1)return;
+    sacredActive.delete(type);
+  } else {
+    sacredActive.add(type);
+  }
+  calType=[...sacredActive][0];
+  applyCalTypeColors(calType);
+  updateSacredTabs();
+  updateCalTypeNote();
+  const satHdr=document.getElementById('calDowSat');
+  if(satHdr)satHdr.textContent=(sacredActive.has('enoch')&&sacredActive.size===1)?'Sat':'Shabbat';
+  saveCalPrefs();
+  renderCalendar();
+}
+function updateSacredTabs(){
+  ['biblical','rabbinic','enoch'].forEach(t=>{
+    const el=document.getElementById('ctab-'+t);
+    if(el)el.classList.toggle('active',sacredActive.has(t));
+  });
+}
+function updateCalTypeNote(){
+  const notes=[...sacredActive].map(t=>CAL_TYPE_NOTES[t]||'').filter(Boolean);
+  const note=document.getElementById('calTypeNote');
+  if(note)note.textContent=notes.join(' · ');
+}
+function setCalType(type){toggleSacred(type)} // backward compat
 
 // ── FEAST MODAL ──
 function openFeastModal(type,ds){
@@ -4439,11 +4503,10 @@ function buildCalCell(ds,dayNum,isAdj){
   const isToday=ds===today;
   const isSel=ds===calSelected&&!isAdj;
   const isPast=ds<today;
-  const isShabbat=isCalShabbat(ds);
-  const calEv=getCalEvent(ds);
-  const calDate=getCalDateDisplay(gy,gm,gd);
-  const showMon=calDate.show||!!calEv||isToday;
-  const monLabel=(calDate.label||'').slice(0,5);
+  const isShabbat=!isAdj&&[...sacredActive].some(t=>isCalShabbat(ds,t));
+  const calDate=getCalDateDisplay(gy,gm,gd,calType);
+  const showMon=calDate.show||isToday||(!isAdj&&[...sacredActive].some(t=>getCalEvent(ds,t)));
+  const monLabel=(calDate.label||'').slice(0,6);
   let cls='cal-cell';
   if(isAdj)cls+=' cal-adj';
   if(isToday&&!isAdj)cls+=' cal-today';
@@ -4466,28 +4529,38 @@ function buildCalCell(ds,dayNum,isAdj){
   }
   let calCol='';
   if(!isAdj){
-    let ind='';
     const _wKey=getDayWordKey(gy,gm,gd);
     const _wOnclick=`event.stopPropagation();openCalEventInfo('word','${_wKey}','${ds}')`;
-    if(calEv){
-      ind=`<div class="cal-heb-ind cal-heb-feast-ind feast-${calEv.type}" onclick="event.stopPropagation();openFeastModal('${calEv.type}','${ds}')">${calEv.short||calEv.feast}</div>`;
-    } else if(isShabbat){
-      ind=`<div class="cal-heb-ind cal-heb-shabbat-lbl cal-heb-word" onclick="${_wOnclick}">Shabbat</div>`;
-    } else {
+    let chips='';
+    let shabbatShown=false;
+    const feastCount=[...sacredActive].filter(t=>getCalEvent(ds,t)).length;
+    for(const sType of sacredActive){
+      const C=CAL_TYPE_COLORS[sType];
+      const cs=`color:${C.clr};background:${C.bg};border:1px solid ${C.border}`;
+      const ev=getCalEvent(ds,sType);
+      const shab=isCalShabbat(ds,sType);
+      if(ev){
+        chips+=`<div class="cal-heb-ind" style="${cs};cursor:pointer;font-weight:700" onclick="event.stopPropagation();openFeastModal('${ev.type}','${ds}')">${ev.short||ev.feast}</div>`;
+      } else if(shab&&!shabbatShown){
+        shabbatShown=true;
+        chips+=`<div class="cal-heb-ind cal-heb-shabbat-lbl" style="${cs};cursor:pointer" onclick="${_wOnclick}">Shabbat</div>`;
+      }
+    }
+    if(!feastCount&&!shabbatShown){
       const _wShort=WORD_SHORT[_wKey]||'';
-      const _isSpecial=['nisan-1','nisan-10','tammuz-17','av-9','kippur-eve','cheshvan-17','tevet-10','rosh-chodesh','days-of-awe','elul','elul-late'].includes(_wKey);
-      const _isOmer=_wKey.startsWith('omer-');
-      const _cls=_isSpecial?'cal-heb-scripture':_isOmer?'cal-heb-omer':'cal-heb-daily';
-      if(_wShort)ind=`<div class="cal-heb-ind ${_cls}" onclick="${_wOnclick}">${_wShort}</div>`;
+      if(_wShort){const C=CAL_TYPE_COLORS[calType];const cs=`color:${C.clr};background:${C.bg};border:1px solid ${C.border}`;chips+=`<div class="cal-heb-ind" style="${cs};cursor:pointer" onclick="${_wOnclick}">${_wShort}</div>`;}
+    }
+    if(feastCount>1&&sacredActive.size>1){
+      chips+=`<div class="cal-overlap-note" onclick="event.stopPropagation();openCalendarOverlap('${ds}')">Why different? →</div>`;
     }
     calCol=`<div class="cal-cell-heb">
       <div class="cal-heb-num">${calDate.d}</div>
       ${showMon?`<div class="cal-heb-mon">${monLabel}</div>`:''}
-      ${ind}
+      ${chips}
     </div>`;
   }
   const todayBadgeCell=isToday&&!isAdj?`<div style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;color:var(--gold);opacity:.85;margin-top:2px;text-transform:uppercase">Today</div>`:'';
-  const gregEv=(!isAdj)?getGregorianEvent(gy,gm,gd):null;
+  const gregEv=(!isAdj&&gregVisible)?getGregorianEvent(gy,gm,gd):null;
   const gregChip=gregEv?`<div class="cal-greg-event" onclick="event.stopPropagation();openCalEventInfo('gregorian','${gregEv.key}','${ds}')">${gregEv.name}</div>`:'';
   return`<div class="${cls}" onclick="${onclick}" ${ondblclick}>
     <div class="cal-cell-top">
@@ -4496,6 +4569,25 @@ function buildCalCell(ds,dayNum,isAdj){
     </div>
     ${badges}
   </div>`;
+}
+
+function openCalendarOverlap(ds){
+  const typeNames={biblical:'Biblical · Torah',rabbinic:'Rabbinic',enoch:'Priestly · Enoch'};
+  const names=[...sacredActive].map(t=>typeNames[t]||t).join(' + ');
+  document.getElementById('calEventInfoContent').innerHTML=`
+    <div class="cal-info-title" style="color:rgba(255,200,140,.9)">Calendar Overlap — ${ds}</div>
+    <div class="cal-info-section">
+      <div class="cal-info-section-lbl">What You Are Seeing</div>
+      <div class="cal-info-text">You have <strong>${names}</strong> active simultaneously. These calendar systems calculate feast dates differently — some are lunar-solar, others purely solar. The same Gregorian date can fall on different sacred dates in each.</div>
+    </div>
+    <div class="cal-info-section">
+      <div class="cal-info-section-lbl">Why It Matters</div>
+      <div class="cal-info-text">This is not an error — it is a legitimate historical debate. Scholars disagree on which calendar Yeshua used at the Last Supper. The Synoptic Gospels describe a Passover meal; John appears to place the crucifixion on Preparation Day. The Priestly · Enoch calendar may resolve the apparent contradiction: if Yeshua used the Essene solar calendar for the Seder (Tuesday evening), there is no conflict with the Temple Passover slaughter (Thursday). Two witnesses. Different clocks. Both honest.</div>
+    </div>
+    <div style="margin-top:16px">
+      <span class="cal-info-deeper" style="cursor:pointer" onclick="closeCalEventInfo();openHubAmitPanel()">Ask Amit to walk through this →</span>
+    </div>`;
+  document.getElementById('calEventInfoModal').classList.add('open');
 }
 
 function renderCalendar(){
@@ -5151,7 +5243,7 @@ window.amitAddTask=function(title,cat,subcat,pri){
 // INIT
 // ══════════════════════════════════════════════
 tick();setInterval(tick,15000);
-applyCalTypeColors('biblical'); // set initial CSS vars before first render
+loadCalPrefs(); // restore saved calendar filter state and apply colors
 loadVerse();
 renderDayView();
 updateCalTile();
