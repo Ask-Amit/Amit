@@ -4626,11 +4626,16 @@ function saveCalPrefs(){
   try{localStorage.setItem('amit_calPrefs',JSON.stringify({greg:gregVisible,sacred:[...sacredActive]}))}catch(e){}
 }
 function toggleGreg(){
+  const wasSacred=!gregVisible;
   gregVisible=!gregVisible;
   const btn=document.getElementById('ctab-greg');
   if(btn)btn.classList.toggle('active',gregVisible);
   saveCalPrefs();
   renderCalendar();
+  // Auto-show guide when entering sacred mode (Gregorian turned OFF)
+  if(!gregVisible&&!wasSacred&&calGuideAutoShowEnabled()){
+    setTimeout(openCalGuide,180);
+  }
 }
 function toggleSacred(type){
   if(sacredActive.has(type)){
@@ -5161,66 +5166,83 @@ function renderTorahAlivePanel(){
     </div>
   </div>`;
 }
+function calGuideAutoShowEnabled(){
+  try{return localStorage.getItem('amit_calGuideAutoShow')!=='off';}catch(e){return true;}
+}
+function setCalGuideAutoShow(on){
+  try{localStorage.setItem('amit_calGuideAutoShow',on?'on':'off');}catch(e){}
+  const el=document.getElementById('calGuideAutoToggle');
+  if(el){el.textContent=on?'✓ Auto-display ON — turn off':'✗ Auto-display OFF — turn on';el.style.color=on?'rgba(201,168,76,.75)':'rgba(240,232,208,.35)';}
+}
 function openCalGuide(){
   const pipRow=Array.from({length:7},(_,i)=>{
     const filled=i<4;const isLast=i===6;
-    return`<div style="width:8px;height:8px;border-radius:50%;background:${filled?'#c8913a':'rgba(58,38,0,.22)'};opacity:${filled?'.7':'.38'};${isLast?'outline:1.5px solid #c8913a;outline-offset:1.5px;':''}display:inline-block;margin-right:3px"></div>`;
+    return`<div style="width:10px;height:10px;border-radius:50%;background:${filled?'#c8a050':'rgba(240,232,208,.18)'};opacity:${filled?'1':'.5'};${isLast?'outline:1.5px solid #c8a050;outline-offset:2px;':''}display:inline-block;margin-right:4px"></div>`;
   }).join('');
+  const autoOn=calGuideAutoShowEnabled();
   document.getElementById('calEventInfoContent').innerHTML=`
-    <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:rgba(201,168,76,.9);letter-spacing:.12em;margin-bottom:4px">HOW TO READ THIS CALENDAR</div>
-    <div style="font-size:11px;color:rgba(201,168,76,.5);font-family:'Crimson Pro',serif;font-style:italic;margin-bottom:14px">Yahweh's time — revealed through daily use</div>
+    <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:rgba(201,168,76,.95);letter-spacing:.12em;margin-bottom:4px">HOW TO READ THIS CALENDAR</div>
+    <div style="font-size:12px;color:rgba(240,232,208,.6);font-family:'Crimson Pro',serif;font-style:italic;margin-bottom:14px">Yahweh's time — revealed through daily use</div>
     <div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:12px 14px;margin-bottom:16px;cursor:pointer" onclick="closeCalEventInfo();if(gregVisible){toggleGreg();}renderCalendar()">
-      <div style="font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.18em;color:rgba(201,168,76,.85);text-transform:uppercase;margin-bottom:5px">Step 1 — Activate the Torah Calendar</div>
-      <div style="font-size:12px;color:rgba(240,232,208,.85);line-height:1.65">Click <strong>[Gregorian]</strong> in the calendar filter bar above to turn it OFF. The calendar will transform — cells come alive with the Hebrew month, feast banners, season colors, and daily symbols. <em>Click here to do it now →</em></div>
+      <div style="font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.18em;color:rgba(201,168,76,.9);text-transform:uppercase;margin-bottom:5px">Step 1 — Activate the Torah Calendar</div>
+      <div style="font-size:12px;color:rgba(240,232,208,.9);line-height:1.65">Click <strong style="color:#e8c870">[Gregorian]</strong> in the calendar filter bar above to turn it OFF. The calendar will transform — cells come alive with the Hebrew month, feast banners, season colors, and daily symbols. <em style="color:rgba(201,168,76,.75)">Click here to do it now →</em></div>
     </div>
     <div class="cal-info-section">
-      <div class="cal-info-section-lbl">What Each Cell Shows</div>
+      <div class="cal-info-section-lbl" style="color:rgba(201,168,76,.8);font-size:10px;letter-spacing:.18em;font-weight:700">WHAT EACH CELL SHOWS</div>
       <div class="cal-info-text">
-        <table style="width:100%;border-collapse:collapse;font-size:11px;line-height:1.7">
-          <tr><td style="width:56px;padding:4px 10px 4px 0;vertical-align:top">
-            <div style="font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:#3a2600;line-height:1">28</div>
-            <div style="font-size:6.5px;color:rgba(58,38,0,.45);letter-spacing:.06em;text-transform:uppercase;font-family:'Cinzel',serif">Sivan</div>
-          </td><td style="vertical-align:top;padding:4px 0"><strong>Large number + month name (main display)</strong> — the Hebrew calendar day. This is the sacred count. The day Yahweh marks.</td></tr>
-          <tr><td style="padding:4px 10px 4px 0;vertical-align:top"><div style="font-size:8px;color:rgba(80,60,20,.5);font-family:system-ui">Jun 13</div></td>
-          <td style="vertical-align:top;padding:4px 0"><strong>Small text (top corner)</strong> — the Gregorian date. Secondary. For daily reference only.</td></tr>
-          <tr><td style="padding:4px 10px 4px 0;vertical-align:top"><div style="font-size:10px;color:#6a4f0c;opacity:.5">✦</div></td>
-          <td style="vertical-align:top;padding:4px 0"><strong>✦ glyph (Saturday)</strong> — Shabbat. The seventh day Yahweh declared holy at creation (Gen 2:2). Every week. Never earned.</td></tr>
-          <tr><td style="padding:4px 10px 4px 0;vertical-align:top"><div style="font-size:7px;font-family:'Cinzel',serif;font-weight:700;background:#8B0000;color:#ffd080;padding:2px 4px;border-radius:3px;text-transform:uppercase;letter-spacing:.08em">PASSOVER</div></td>
-          <td style="vertical-align:top;padding:4px 0"><strong>Colored banner (top of cell)</strong> — one of Yahweh's appointed times (Moedim). Click it to learn what it is and how it points to Yeshua.</td></tr>
-          <tr><td style="padding:4px 10px 4px 0;vertical-align:top"><div style="font-size:6.5px;color:#5a4008;font-style:italic;font-family:'Crimson Pro',serif">Omer 17<br>Tiferet</div></td>
-          <td style="vertical-align:top;padding:4px 0"><strong>Omer count</strong> — shown during the 49 days from Passover to Shavuot. Each day has a quality (Sefirot theme) for the journey.</td></tr>
-          <tr><td style="padding:4px 10px 4px 0;vertical-align:top">${pipRow}</td>
-          <td style="vertical-align:top;padding:4px 0"><strong>7 dots (first of each month)</strong> — the Shemita cycle. Yahweh built a 7-year rest rhythm into time. Filled = years passed. Ringed dot = the Shemita (rest) year. Click the dots to learn more.</td></tr>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:1.75;color:rgba(240,232,208,.88)">
+          <tr><td style="width:60px;padding:5px 12px 5px 0;vertical-align:middle">
+            <div style="font-family:'Cinzel',serif;font-size:22px;font-weight:700;color:#e8d4a0;line-height:1">28</div>
+            <div style="font-size:8px;color:rgba(240,220,160,.55);letter-spacing:.08em;text-transform:uppercase;font-family:'Cinzel',serif;margin-top:2px">Sivan</div>
+          </td><td style="vertical-align:middle;padding:5px 0"><strong style="color:#e8c870">Large number + month name</strong> — the Hebrew calendar day. The sacred count. The day Yahweh marks.</td></tr>
+          <tr><td style="padding:5px 12px 5px 0;vertical-align:middle"><div style="font-size:9px;color:rgba(240,232,208,.55);font-family:system-ui;white-space:nowrap">Jun 13</div></td>
+          <td style="vertical-align:middle;padding:5px 0"><strong style="color:#e8c870">Small corner text</strong> — the Gregorian date. Secondary. For daily reference only.</td></tr>
+          <tr><td style="padding:5px 12px 5px 0;vertical-align:middle"><div style="font-size:16px;color:rgba(201,168,76,.7)">✦</div></td>
+          <td style="vertical-align:middle;padding:5px 0"><strong style="color:#e8c870">✦ glyph (Saturday)</strong> — Shabbat. The seventh day Yahweh declared holy at creation (Gen 2:2). Every week. Never earned.</td></tr>
+          <tr><td style="padding:5px 12px 5px 0;vertical-align:middle"><div style="font-size:8px;font-family:'Cinzel',serif;font-weight:700;background:#8B0000;color:#ffd080;padding:3px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap">PASSOVER</div></td>
+          <td style="vertical-align:middle;padding:5px 0"><strong style="color:#e8c870">Colored banner</strong> — one of Yahweh's appointed times (Moedim). Click it to learn what it is and how it points to Yeshua.</td></tr>
+          <tr><td style="padding:5px 12px 5px 0;vertical-align:middle"><div style="font-size:8px;color:rgba(201,168,76,.7);font-style:italic;font-family:'Crimson Pro',serif;line-height:1.4">Omer 17<br>Tiferet</div></td>
+          <td style="vertical-align:middle;padding:5px 0"><strong style="color:#e8c870">Omer count</strong> — shown during the 49 days from Passover to Shavuot. Each day carries a spiritual quality for the journey.</td></tr>
+          <tr><td style="padding:5px 12px 5px 0;vertical-align:middle">${pipRow}</td>
+          <td style="vertical-align:middle;padding:5px 0"><strong style="color:#e8c870">7 dots (first of each month)</strong> — the Shemita cycle. Yahweh built a 7-year rest rhythm into time. Filled = years passed. Ringed = the rest year. Click them to learn more.</td></tr>
         </table>
       </div>
     </div>
     <div class="cal-info-section">
-      <div class="cal-info-section-lbl">The Border Colors — Each Month Has a Season</div>
-      <div class="cal-info-text">
-        <div style="display:grid;grid-template-columns:6px auto 6px auto;gap:6px 14px;align-items:center;font-size:11px;line-height:1.5">
-          <div style="height:24px;background:#c8902a;border-radius:3px"></div><div><strong>Gold</strong> — Nisan · Iyar — Passover · Redemption</div>
-          <div style="height:24px;background:#6478c8;border-radius:3px"></div><div><strong>Blue</strong> — Sivan — Shavuot · Receiving</div>
-          <div style="height:24px;background:#b45038;border-radius:3px"></div><div><strong>Dark red</strong> — Tammuz · Av — Mourning season</div>
-          <div style="height:24px;background:#509870;border-radius:3px"></div><div><strong>Green</strong> — Elul — Return · Prepare the heart</div>
-          <div style="height:24px;background:#8c50c8;border-radius:3px"></div><div><strong>Royal purple</strong> — Tishrei — Fall feasts · Holy season</div>
-          <div style="height:24px;background:#3c78be;border-radius:3px"></div><div><strong>Blue</strong> — Kislev — Hanukkah · Light in darkness</div>
-          <div style="height:24px;background:#b464c0;border-radius:3px"></div><div><strong>Lavender</strong> — Adar — Purim · Joy</div>
-          <div style="height:24px;background:rgba(120,120,140,.45);border-radius:3px"></div><div><strong>Neutral</strong> — Cheshvan — Plain month · No Moedim</div>
-        </div>
+      <div class="cal-info-section-lbl" style="color:rgba(201,168,76,.8);font-size:10px;letter-spacing:.18em;font-weight:700">THE LEFT EDGE — WHICH CALENDAR IS ACTIVE</div>
+      <div class="cal-info-text" style="color:rgba(240,232,208,.88);font-size:12px;line-height:1.7;margin-bottom:10px">The colored bar on the left edge of each cell shows which sacred calendar you are currently viewing. Change it with the selector above the calendar grid.</div>
+      <div style="display:grid;grid-template-columns:18px 1fr;gap:8px 14px;align-items:center;font-size:12px;line-height:1.5;color:rgba(240,232,208,.88)">
+        <div style="height:28px;width:14px;background:#c8902a;border-radius:3px"></div><div><strong style="color:#e8c870">Gold / Amber</strong> — Biblical Torah calendar (Leviticus 23 feasts, Aviv barley new year)</div>
+        <div style="height:28px;width:14px;background:#1a7078;border-radius:3px"></div><div><strong style="color:#e8c870">Teal</strong> — Rabbinic calendar (Tishrei new year, all rabbinic holidays)</div>
+        <div style="height:28px;width:14px;background:#c05080;border-radius:3px"></div><div><strong style="color:#e8c870">Rose</strong> — Priestly / Enoch calendar (364-day solar year, priestly divisions)</div>
+      </div>
+      <div class="cal-info-section-lbl" style="color:rgba(201,168,76,.8);font-size:10px;letter-spacing:.18em;font-weight:700;margin-top:14px">SEASON GLOW — EACH MONTH HAS A TONE</div>
+      <div style="display:grid;grid-template-columns:18px 1fr 18px 1fr;gap:8px 14px;align-items:center;font-size:11px;line-height:1.5;color:rgba(240,232,208,.8);margin-top:6px">
+        <div style="height:22px;width:14px;background:#c8902a;border-radius:3px"></div><div><strong style="color:#e8d090">Gold</strong> — Nisan · Iyar — Passover · Redemption</div>
+        <div style="height:22px;width:14px;background:#6478c8;border-radius:3px"></div><div><strong style="color:#e8d090">Blue</strong> — Sivan — Shavuot · Receiving</div>
+        <div style="height:22px;width:14px;background:#b45038;border-radius:3px"></div><div><strong style="color:#e8d090">Dark red</strong> — Tammuz · Av — Mourning</div>
+        <div style="height:22px;width:14px;background:#509870;border-radius:3px"></div><div><strong style="color:#e8d090">Green</strong> — Elul — Return · Prepare</div>
+        <div style="height:22px;width:14px;background:#8c50c8;border-radius:3px"></div><div><strong style="color:#e8d090">Purple</strong> — Tishrei — Fall feasts</div>
+        <div style="height:22px;width:14px;background:#3c78be;border-radius:3px"></div><div><strong style="color:#e8d090">Blue</strong> — Kislev — Hanukkah</div>
+        <div style="height:22px;width:14px;background:#b464c0;border-radius:3px"></div><div><strong style="color:#e8d090">Lavender</strong> — Adar — Purim · Joy</div>
+        <div style="height:22px;width:14px;background:rgba(180,180,200,.4);border-radius:3px"></div><div><strong style="color:#e8d090">Neutral</strong> — Cheshvan — No Moedim</div>
       </div>
     </div>
     <div class="cal-info-section">
-      <div class="cal-info-section-lbl">How to Walk With This Calendar Each Day</div>
-      <div class="cal-info-text" style="line-height:1.9;font-size:12px">
-        <strong style="color:rgba(201,168,76,.8)">1.</strong> Click today on the calendar<br>
-        <strong style="color:rgba(201,168,76,.8)">2.</strong> Read the <em style="color:rgba(201,168,76,.7)">Torah Walk</em> section on the right — what this day invites you into<br>
-        <strong style="color:rgba(201,168,76,.8)">3.</strong> Ask: what is this day asking of me? Is there something to receive? Something to rest from?<br>
-        <strong style="color:rgba(201,168,76,.8)">4.</strong> Click <em style="color:rgba(201,168,76,.7)">"Walk through this with Amit →"</em> to go deeper with a companion<br><br>
-        <span style="font-size:11px;color:rgba(201,168,76,.5)">Torah is not a list of rules. It is Yahweh's instruction for living in rhythm with Him. Walking with Torah means learning to see time the way He does — not earning anything, but receiving what He already built into creation.</span>
+      <div class="cal-info-section-lbl" style="color:rgba(201,168,76,.8);font-size:10px;letter-spacing:.18em;font-weight:700">HOW TO WALK WITH THIS CALENDAR EACH DAY</div>
+      <div class="cal-info-text" style="line-height:2;font-size:12px;color:rgba(240,232,208,.88)">
+        <strong style="color:#e8c870">1.</strong> Click today on the calendar<br>
+        <strong style="color:#e8c870">2.</strong> Read the <em style="color:rgba(201,168,76,.85)">Torah Walk</em> section on the right — what this day invites you into<br>
+        <strong style="color:#e8c870">3.</strong> Ask: what is this day asking of me? Something to receive? Something to rest from?<br>
+        <strong style="color:#e8c870">4.</strong> Click <em style="color:rgba(201,168,76,.85)">"Walk through this with Amit →"</em> to go deeper with a companion<br>
       </div>
+      <div style="margin-top:10px;font-size:11px;color:rgba(240,232,208,.45);line-height:1.7;font-style:italic">Torah is not a list of rules. It is Yahweh's instruction for living in rhythm with Him — not earning anything, but receiving what He already built into creation.</div>
     </div>
     <div style="margin-top:20px;text-align:center">
       <button onclick="closeCalEventInfo();selectCalDay(todayStr());renderCalDay(todayStr())" style="background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.6);color:#c8a050;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;padding:10px 28px;border-radius:6px;cursor:pointer;text-transform:uppercase;transition:background .2s" onmouseover="this.style.background='rgba(201,168,76,.32)'" onmouseout="this.style.background='rgba(201,168,76,.2)'">Walk With Me Today →</button>
+    </div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07);text-align:center">
+      <button id="calGuideAutoToggle" onclick="setCalGuideAutoShow(localStorage.getItem('amit_calGuideAutoShow')==='off')" style="background:none;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:5px 16px;font-size:10px;letter-spacing:.08em;cursor:pointer;font-family:'Cinzel',serif;transition:all .2s;color:${autoOn?'rgba(201,168,76,.75)':'rgba(240,232,208,.35)'}">${autoOn?'✓ Auto-display ON — tap to turn off':'✗ Auto-display OFF — tap to turn on'}</button>
     </div>`;
   document.getElementById('calEventInfoModal').classList.add('open');
 }
