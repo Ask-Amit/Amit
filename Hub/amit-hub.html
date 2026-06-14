@@ -2269,7 +2269,7 @@ function toggleCalFilter(layer){
   render();
 }
 // ── EXPERIENCE / ACTIVITY LOG ──
-const APP_VERSION='1.81';
+const APP_VERSION='1.82';
 const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator',coder:'AmitCoder'};
 function logPanelVisit(panelId){
   const name=PANEL_NAMES[panelId];if(!name)return;
@@ -4879,11 +4879,12 @@ function buildCalCell(ds,dayNum,isAdj){
   const todayBadgeCell=isToday&&!isAdj?`<div style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;color:var(--gold);opacity:.85;margin-top:2px;text-transform:uppercase">Today</div>`:'';
   const gregEv=(!isAdj&&gregVisible)?getGregorianEvent(gy,gm,gd):null;
   const gregChip=gregEv?`<div class="cal-greg-event" onclick="event.stopPropagation();openCalEventInfo('gregorian','${gregEv.key}','${ds}')">${gregEv.name}</div>`:'';
-  // ── Living elements visible even in mixed mode ──
+  // ── Living elements visible even in mixed mode (border = active calendar type color) ──
   const heb2=!isAdj?gregToHeb(gy,gm,gd):null;
   const season2=heb2?HEB_MONTH_SEASON[heb2.m]:null;
-  const cellSeasonStyle=season2?`border-left:5px solid ${season2.accent};box-shadow:inset 0 0 16px ${season2.glow};`:'';
-  const shabbGlyph2=isShabbat&&!isAdj?`<div style="position:absolute;top:3px;left:${season2?'11':'5'}px;font-size:8px;opacity:.4;pointer-events:none;color:#6a4f0c;z-index:2;line-height:1">✦</div>`:'';
+  const typeClr2=(CAL_TYPE_COLORS[calType]||CAL_TYPE_COLORS.biblical).clr;
+  const cellSeasonStyle=!isAdj?`border-left:5px solid ${typeClr2};${season2?`box-shadow:inset 0 0 14px ${season2.glow};`:''}`:'' ;
+  const shabbGlyph2=isShabbat&&!isAdj?`<div style="position:absolute;top:3px;left:11px;font-size:8px;opacity:.4;pointer-events:none;color:#6a4f0c;z-index:2;line-height:1">✦</div>`:'';
   return`<div class="${cls}" onclick="${onclick}" ${ondblclick} style="${cellSeasonStyle}position:relative;overflow:visible">
     ${shabbGlyph2}
     <div class="cal-cell-top">
@@ -4969,10 +4970,11 @@ function buildSacredCell(ds,dayNum,isAdj,gy,gm,gd,cls,onclick,ondblclick,badges)
   const isToday=ds===todayStr();
   const dotw=new Date(gy,gm-1,gd).getDay();
 
-  // ── Season accent bar — left border colored by Hebrew month
+  // ── Season accent bar — uses active calendar TYPE color (one filter = one color)
   const season=(!isAdj&&HEB_MONTH_SEASON[hebM])||null;
-  const seasonBar=season?`<div class="cal-sacred-season-bar" style="background:${season.accent}"></div>`:'';
-  const cellGlow=season&&!isAdj?`box-shadow:inset 0 0 18px ${season.glow};`:'';
+  const typeClr=(CAL_TYPE_COLORS[calType]||CAL_TYPE_COLORS.biblical).clr;
+  const seasonBar=!isAdj?`<div class="cal-sacred-season-bar" style="background:${typeClr}"></div>`:'';
+  const cellGlow=season&&!isAdj?`box-shadow:inset 0 0 16px ${season.glow};`:'';
 
   // ── Hebrew gematric letter watermark — faded behind the cell
   const gemLetter=!isAdj?(HEB_GEMATRIA[hebD]||''):'';
@@ -5038,7 +5040,7 @@ function buildSacredCell(ds,dayNum,isAdj,gy,gm,gd,cls,onclick,ondblclick,badges)
       ${seasonBar}${letterWm}${shabbatGlyph}${roshDot}
       <div class="cal-sacred-greg-ref"><span class="cal-sacred-greg-lbl">${CAL_MONTHS[gm-1].slice(0,3)} ${dayNum}</span></div>
       ${feastBanner}
-      <div class="cal-sacred-heb-lbl">${!isAdj?(calDate.label||'').slice(0,6):''}</div>
+      ${showMon&&!isAdj?`<div class="cal-sacred-heb-lbl">${(calDate.label||'').slice(0,6)}</div>`:''}
       <div class="cal-sacred-heb-num">${calDate.d}</div>
       ${chips}
       ${omerLine}
