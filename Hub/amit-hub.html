@@ -1465,7 +1465,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <button class="cal-nav-btn" onclick="nextMonth()">►</button>
             <div class="cal-nav-extras">
               <div class="cal-shemita-badge" id="calShemitaBadge"></div>
-              <button class="cal-what-btn" onclick="openCalGuide()" title="How to read this calendar" style="background:rgba(201,168,76,.18);color:#c8a050;border-color:rgba(201,168,76,.5);font-size:10px;letter-spacing:.08em;padding:4px 10px;font-family:'Cinzel',serif">Guide</button>
+              <button onclick="openCalGuide()" title="How to read this calendar — colors, symbols, and how to walk with it daily" style="background:rgba(201,168,76,.22);border:1px solid rgba(201,168,76,.6);color:#c8a050;font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.12em;padding:5px 13px;border-radius:5px;cursor:pointer;text-transform:uppercase;white-space:nowrap;transition:background .18s" onmouseover="this.style.background='rgba(201,168,76,.38)'" onmouseout="this.style.background='rgba(201,168,76,.22)'">☰ How to Read This</button>
               <button class="cal-what-btn" onclick="openWhatIsCalModal()" title="About Yahweh's calendar">?</button>
             </div>
           </div>
@@ -2269,7 +2269,7 @@ function toggleCalFilter(layer){
   render();
 }
 // ── EXPERIENCE / ACTIVITY LOG ──
-const APP_VERSION='1.80';
+const APP_VERSION='1.81';
 const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator',coder:'AmitCoder'};
 function logPanelVisit(panelId){
   const name=PANEL_NAMES[panelId];if(!name)return;
@@ -4657,7 +4657,12 @@ function updateSacredTabs(){
 function updateCalTypeNote(){
   const notes=[...sacredActive].map(t=>CAL_TYPE_NOTES[t]||'').filter(Boolean);
   const note=document.getElementById('calTypeNote');
-  if(note)note.textContent=notes.join(' · ');
+  if(!note)return;
+  if(gregVisible){
+    note.innerHTML=notes.join(' · ')+'&nbsp;&nbsp;<span style="cursor:pointer;color:rgba(201,168,76,.8);text-decoration:underline;font-weight:600" onclick="toggleGreg();renderCalendar()" title="Click to see the Torah calendar fully alive">→ Click [Gregorian] above to see the Torah calendar come alive</span>';
+  } else {
+    note.textContent=notes.join(' · ');
+  }
 }
 function setCalType(type){toggleSacred(type)} // backward compat
 
@@ -4874,7 +4879,13 @@ function buildCalCell(ds,dayNum,isAdj){
   const todayBadgeCell=isToday&&!isAdj?`<div style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;color:var(--gold);opacity:.85;margin-top:2px;text-transform:uppercase">Today</div>`:'';
   const gregEv=(!isAdj&&gregVisible)?getGregorianEvent(gy,gm,gd):null;
   const gregChip=gregEv?`<div class="cal-greg-event" onclick="event.stopPropagation();openCalEventInfo('gregorian','${gregEv.key}','${ds}')">${gregEv.name}</div>`:'';
-  return`<div class="${cls}" onclick="${onclick}" ${ondblclick}>
+  // ── Living elements visible even in mixed mode ──
+  const heb2=!isAdj?gregToHeb(gy,gm,gd):null;
+  const season2=heb2?HEB_MONTH_SEASON[heb2.m]:null;
+  const cellSeasonStyle=season2?`border-left:5px solid ${season2.accent};box-shadow:inset 0 0 16px ${season2.glow};`:'';
+  const shabbGlyph2=isShabbat&&!isAdj?`<div style="position:absolute;top:3px;left:${season2?'11':'5'}px;font-size:8px;opacity:.4;pointer-events:none;color:#6a4f0c;z-index:2;line-height:1">✦</div>`:'';
+  return`<div class="${cls}" onclick="${onclick}" ${ondblclick} style="${cellSeasonStyle}position:relative;overflow:visible">
+    ${shabbGlyph2}
     <div class="cal-cell-top">
       <div class="cal-cell-greg"><div class="cal-day-num">${dayNum}</div>${todayBadgeCell}${gregChip}</div>
       ${calCol}
@@ -5155,7 +5166,11 @@ function openCalGuide(){
   }).join('');
   document.getElementById('calEventInfoContent').innerHTML=`
     <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:rgba(201,168,76,.9);letter-spacing:.12em;margin-bottom:4px">HOW TO READ THIS CALENDAR</div>
-    <div style="font-size:11px;color:rgba(201,168,76,.5);font-family:'Crimson Pro',serif;font-style:italic;margin-bottom:16px">Yahweh's time — revealed through daily use</div>
+    <div style="font-size:11px;color:rgba(201,168,76,.5);font-family:'Crimson Pro',serif;font-style:italic;margin-bottom:14px">Yahweh's time — revealed through daily use</div>
+    <div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:12px 14px;margin-bottom:16px;cursor:pointer" onclick="closeCalEventInfo();if(gregVisible){toggleGreg();}renderCalendar()">
+      <div style="font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.18em;color:rgba(201,168,76,.85);text-transform:uppercase;margin-bottom:5px">Step 1 — Activate the Torah Calendar</div>
+      <div style="font-size:12px;color:rgba(240,232,208,.85);line-height:1.65">Click <strong>[Gregorian]</strong> in the calendar filter bar above to turn it OFF. The calendar will transform — cells come alive with the Hebrew month, feast banners, season colors, and daily symbols. <em>Click here to do it now →</em></div>
+    </div>
     <div class="cal-info-section">
       <div class="cal-info-section-lbl">What Each Cell Shows</div>
       <div class="cal-info-text">
