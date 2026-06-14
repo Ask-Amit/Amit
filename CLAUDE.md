@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.65**
+**Current version: 1.81**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -148,9 +148,9 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: Session 25 / Amit 19 — v1.65 live.**
+**Last updated: Session 28 — v1.81 pushed.**
 
-**Full build history → `Amit_BuildLog.md` — last entry: Session 25 / v1.65**
+**Full build history → `Amit_BuildLog.md` — last entry: Session 28**
 
 **Architecture notes (hold these):**
 - `calDayView` = double-click zoom view within Calendar panel. Single click = `selectCalDay` → `renderCalDay` (right-side panel within calendar). These are separate from the Home panel.
@@ -159,14 +159,18 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 - Testimony pursuits: filtered in `render()` — only shown if `t.due === todayStr()`. All other filters bypass this rule.
 - `_testimonySourceId` links testimony pursuit to its source memory. `_reactivatedFrom` links reactivated pursuit to its source memory.
 - `nextDue()` handles: daily/weekdays/weekly/biweekly/monthly/yearly/every5years/every10years.
+- **Multi-calendar architecture (v1.73):** `sacredActive` = Set of active sacred types (always 1+). `calType` = `[...sacredActive][0]` (primary). `gregVisible` = boolean. All state persists to `localStorage.amit_calPrefs`. `getCalEvent/isCalShabbat/getCalDateDisplay` accept optional `type` param. Two color families: personal data (gold/teal/purple) vs calendar layer (steel blue / amber / teal-cyan / rose). Feast chips render per-calendar; Shabbat/word chips once from primary.
+- **Living calendar cells (v1.79-v1.81):** `buildSacredCell()` = full sacred mode (Gregorian OFF). Season accent bars, Hebrew gematric letter watermarks, feast banners, Omer sefirot, Shemita 7-pip tracks, Jubilee badges. `buildCalCell()` = mixed mode (Gregorian ON) — also gets season bars + Shabbat ✦ glyph. Torah Walk companion in `renderCalDay()` — non-legalistic invitation for every day type. Guide modal (`openCalGuide()`) with color legend + one-click mode activation.
+- **MODE SYNC DIRECTIVE (Session 28):** The calendar mode (which sacred type is active) must drive ALL content — cells, right panel, day detail, Home panel Word for Today. If user is in Rabbinic-only mode, the right panel, Torah Walk, and the morning Home panel all surface Rabbinic content for that day. Mode = state. State = coherent everywhere. This is the next architecture directive to implement.
 
 **NEXT SESSION — IMMEDIATE TASKS:**
-1. **Recreate Claude.ai Project** — New Project with updated Amit_Deploy.md (now includes integrity standard + compass system). Old Project was deleted. Critical before tester distribution.
-2. **Hub: Ask Amit panel — fix pre-canned openers** — Current panel starts with primer questions that feel like forced scripts. Ryan's feedback: makes it hard to just ask what you want right out of the gate. Fix: open like an invitation, not a form. Remove the panel-specific suggested questions. Replace with one open line that gets out of the way. Also update for bidirectional framing (Amit challenges you, you challenge Amit).
-3. **Compass → User Profile spec** — Ryan's trailing thought ("we still need to figure out how we can look at...") was unfinished. Surface this at session start: what does the visibility/feedback mechanism look like for the compass scores across conversations?
-4. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" / "Clear All Samples" buttons. ~10 days June 2026 history.
-5. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-21) as experience entries with real dates. NOT samples.
-6. **Feast day/psalm chip click** → Word for Today tab (wire this up in calDayView and calendar cells).
+1. **Mode-coherent content (Session 28 directive)** — Whatever calendar mode is active (Biblical, Rabbinic, Priestly/Enoch, or mixed) must drive all content in the right panel and day detail. The Torah Walk companion, Shabbat teaching, and feast details should reflect the active calendar type. The mode persists; the content follows the mode.
+2. **Recreate Claude.ai Project** — New Project with updated Amit_Deploy.md. Old Project was deleted. Critical before tester distribution.
+3. **Hub: Ask Amit panel — fix pre-canned openers** — Open like an invitation, not a form. Remove primer questions. Replace with one open line. Add bidirectional framing.
+4. **Compass write-back + User Profile persistence — THE CORE BUILD (Session 26 directive)** — Profile must be writable, persistent, callable across sessions. Full spec → `Companion/Companion_UserProfile_Spec.md`
+5. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" / "Clear All Samples" buttons. ~10 days June 2026 history.
+6. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-21) as experience entries with real dates. NOT samples.
+7. **Feast day/psalm chip click** → Word for Today tab (wire this up in calDayView and calendar cells).
 
 **ARCHITECTURE — SITTING ON (do not build yet):**
 - Standalone Amit app using Hub's localStorage schema so data is already in Hub format when they connect. Key insight: portal and Hub share the same domain (ask-amit.github.io) so localStorage is already shared — no wiring needed at the storage layer. The unsolved piece is conversation write-back (requires API layer). Ryan is sitting on whether standalone should be a lighter experience or identical to Hub. Surface this when API layer becomes active.
