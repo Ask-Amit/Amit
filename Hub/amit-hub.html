@@ -5117,7 +5117,16 @@ function renderCalendar(){
   const nextM=calMonth===11?0:calMonth+1;
   const nextY=calMonth===11?calYear+1:calYear;
 
-  document.getElementById('calMonthTitle').textContent=CAL_MONTHS[calMonth]+' '+calYear;
+  if(!gregVisible){
+    const hebFirst=gregToHeb(calYear,calMonth+1,1);
+    const hebLast=gregToHeb(calYear,calMonth+1,daysInMonth);
+    const title=hebFirst.m!==hebLast.m
+      ?HEB_MONTH_NAMES[hebFirst.m]+' · '+HEB_MONTH_NAMES[hebLast.m]+' '+hebFirst.y
+      :HEB_MONTH_NAMES[hebFirst.m]+' '+hebFirst.y;
+    document.getElementById('calMonthTitle').textContent=title;
+  } else {
+    document.getElementById('calMonthTitle').textContent=CAL_MONTHS[calMonth]+' '+calYear;
+  }
 
   // Overdue banner
   const tasks=load().filter(t=>!t.done);
