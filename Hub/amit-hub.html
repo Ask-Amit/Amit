@@ -409,6 +409,18 @@ header{
 .cal-today .cal-sacred-heb-num{color:#7a5200}
 .cal-adj .cal-sacred-heb-num{color:rgba(58,38,0,.2)}
 .cal-sacred-mon{font-size:9px;color:#6a4f0c;font-style:italic;font-family:'Crimson Pro',serif;margin-top:-2px}
+/* ── LIVING SACRED CELL LAYERS ── */
+.cal-sacred-season-bar{position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:4px 0 0 4px;pointer-events:none;z-index:1}
+.cal-sacred-letter-wm{position:absolute;bottom:-2px;right:2px;font-size:34px;line-height:1;opacity:.055;pointer-events:none;direction:rtl;font-family:'Crimson Pro',serif;color:#3a2600;user-select:none;z-index:0}
+.cal-today .cal-sacred-letter-wm{opacity:.1;color:#7a5200}
+.cal-adj .cal-sacred-letter-wm{opacity:.025}
+.cal-sacred-feast-banner{width:100%;text-align:center;font-family:'Cinzel',serif;font-size:6px;font-weight:700;letter-spacing:.12em;padding:2px 3px;border-radius:3px;text-transform:uppercase;margin-bottom:3px;line-height:1.3;position:relative;z-index:2}
+.cal-sacred-omer-line{font-size:6.5px;color:#5a4008;font-family:'Crimson Pro',serif;font-style:italic;letter-spacing:.03em;margin-top:2px;line-height:1.3;position:relative;z-index:2}
+.cal-sacred-shabbat-glyph{position:absolute;top:3px;left:5px;font-size:8px;opacity:.45;pointer-events:none;z-index:2;line-height:1;color:#6a4f0c}
+.cal-sacred-rosh-dot{position:absolute;top:5px;left:6px;width:5px;height:5px;border-radius:50%;background:var(--cal-type-clr);opacity:.5;pointer-events:none;z-index:2}
+.cal-sacred-cycle-badge{font-size:5.5px;font-family:'Cinzel',serif;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--cal-type-clr);opacity:.72;margin-top:2px;line-height:1.4;position:relative;z-index:2}
+.cal-sacred-shemita-ring{display:inline-flex;gap:2px;align-items:center;margin-top:3px;position:relative;z-index:2;cursor:pointer}
+.cal-sacred-shemita-pip{width:5px;height:5px;border-radius:50%;flex-shrink:0;transition:opacity .15s}
 /* ── TORAH ALIVE PANEL (right panel, sacred mode) ── */
 .torah-alive-panel{display:flex;flex-direction:column;height:100%;overflow:hidden;background:linear-gradient(180deg,rgba(8,18,34,1),rgba(5,12,24,1))}
 .torah-alive-header{padding:16px 18px 12px;border-bottom:1px solid rgba(201,168,76,.2);flex-shrink:0}
@@ -2254,7 +2266,7 @@ function toggleCalFilter(layer){
   render();
 }
 // ── EXPERIENCE / ACTIVITY LOG ──
-const APP_VERSION='1.71';
+const APP_VERSION='1.79';
 const PANEL_NAMES={home:'Morning Altar',todo:'Pursuits',calendar:'Calendar',mail:'Mail',whoisgod:'Who Is God',health:'Health',bossestimator:'BOSStimator',coder:'AmitCoder'};
 function logPanelVisit(panelId){
   const name=PANEL_NAMES[panelId];if(!name)return;
@@ -3807,6 +3819,40 @@ function jdToHeb(jd){const j=Math.floor(jd);let y=Math.floor((j-HEB_EPOCH)/365.2
 function gregToHeb(gy,gm,gd){return jdToHeb(gToJD(gy,gm,gd))}
 const HEB_MONTH_NAMES=['','Nisan','Iyar','Sivan','Tammuz','Av','Elul','Tishrei','Cheshvan','Kislev','Tevet','Shevat','Adar','Adar II'];
 
+// ── SACRED CELL LIVING DATA ───────────────────────────────────────────────
+// Hebrew gematric day numbers (right-to-left display in cells)
+const HEB_GEMATRIA={
+  1:'א',2:'ב',3:'ג',4:'ד',5:'ה',6:'ו',7:'ז',8:'ח',9:'ט',10:'י',
+  11:'יא',12:'יב',13:'יג',14:'יד',15:'טו',16:'טז',17:'יז',18:'יח',19:'יט',
+  20:'כ',21:'כא',22:'כב',23:'כג',24:'כד',25:'כה',26:'כו',27:'כז',28:'כח',29:'כט',30:'ל'
+};
+// Season border color per Hebrew month — each month has its own feel
+const HEB_MONTH_SEASON={
+  1:{accent:'rgba(220,160,40,.65)',glow:'rgba(220,160,40,.12)'},   // Nisan — Passover gold
+  2:{accent:'rgba(120,180,80,.55)',glow:'rgba(120,180,80,.1)'},    // Iyar — omer green
+  3:{accent:'rgba(100,120,200,.55)',glow:'rgba(100,120,200,.1)'},  // Sivan — Shavuot blue
+  4:{accent:'rgba(180,80,60,.55)',glow:'rgba(180,80,60,.1)'},      // Tammuz — mourning red
+  5:{accent:'rgba(140,50,40,.65)',glow:'rgba(140,50,40,.12)'},     // Av — Tisha B\'Av deep red
+  6:{accent:'rgba(80,160,110,.5)',glow:'rgba(80,160,110,.09)'},    // Elul — return green
+  7:{accent:'rgba(140,80,200,.6)',glow:'rgba(140,80,200,.12)'},    // Tishrei — feasts royal
+  8:{accent:'rgba(120,120,140,.35)',glow:'rgba(0,0,0,0)'},         // Cheshvan — plain
+  9:{accent:'rgba(60,120,190,.5)',glow:'rgba(60,120,190,.09)'},    // Kislev — Hanukkah blue
+  10:{accent:'rgba(80,100,140,.4)',glow:'rgba(80,100,140,.08)'},   // Tevet — siege blue-grey
+  11:{accent:'rgba(100,170,110,.45)',glow:'rgba(100,170,110,.08)'},// Shevat — trees green
+  12:{accent:'rgba(180,100,190,.55)',glow:'rgba(180,100,190,.1)'}, // Adar — Purim purple
+  13:{accent:'rgba(180,100,190,.55)',glow:'rgba(180,100,190,.1)'}  // Adar II
+};
+// Feast visual colors (cell banner + glow when feast day)
+const FEAST_CELL_COLORS={
+  passover:{banner:'#8B0000',text:'#ffd080',glow:'rgba(139,0,0,.12)'},
+  unleavened:{banner:'#6B3A00',text:'#ffe0a0',glow:'rgba(107,58,0,.1)'},
+  firstfruits:{banner:'#2d6b2d',text:'#c8ffc8',glow:'rgba(45,107,45,.1)'},
+  shavuot:{banner:'#1a3a8a',text:'#b0d0ff',glow:'rgba(26,58,138,.12)'},
+  trumpets:{banner:'#4a3a00',text:'#ffe88a',glow:'rgba(74,58,0,.12)'},
+  atonement:{banner:'#1a1a3a',text:'#d0d0ff',glow:'rgba(26,26,58,.15)'},
+  sukkot:{banner:'#3a5a1a',text:'#d4ffa0',glow:'rgba(58,90,26,.1)'},
+  shemini:{banner:'#2a4a2a',text:'#c8f0c8',glow:'rgba(42,74,42,.1)'}
+};
 // ── TORAH PORTION (PARASHAH) — 5786 cycle ─────────────────────────────────
 // Each entry: Shabbat date of the reading → {name, ref, verse, bridge, deeper}
 // bridge = ONE sentence connecting the portion directly to Yeshua
@@ -4902,8 +4948,64 @@ function getUpcomingCalendarEvents(fromDs,days){
 }
 function buildSacredCell(ds,dayNum,isAdj,gy,gm,gd,cls,onclick,ondblclick,badges){
   const calDate=getCalDateDisplay(gy,gm,gd,calType);
+  const heb=!isAdj?gregToHeb(gy,gm,gd):null;
+  const hebM=heb?heb.m:0,hebD=heb?heb.d:0,hebY=heb?heb.y:0;
   const _wKey=getDayWordKey(gy,gm,gd);
   const _wOnclick=`event.stopPropagation();openCalEventInfo('word','${_wKey}','${ds}')`;
+  const isToday=ds===todayStr();
+  const dotw=new Date(gy,gm-1,gd).getDay();
+
+  // ── Season accent bar — left border colored by Hebrew month
+  const season=(!isAdj&&HEB_MONTH_SEASON[hebM])||null;
+  const seasonBar=season?`<div class="cal-sacred-season-bar" style="background:${season.accent}"></div>`:'';
+  const cellGlow=season&&!isAdj?`box-shadow:inset 0 0 18px ${season.glow};`:'';
+
+  // ── Hebrew gematric letter watermark — faded behind the cell
+  const gemLetter=!isAdj?(HEB_GEMATRIA[hebD]||''):'';
+  const letterWm=gemLetter?`<div class="cal-sacred-letter-wm">${gemLetter}</div>`:'';
+
+  // ── Shabbat gold glyph (Saturday column)
+  const isShabbatDay=dotw===6;
+  const shabbatGlyph=(!isAdj&&isShabbatDay)?`<div class="cal-sacred-shabbat-glyph">✦</div>`:'';
+
+  // ── Rosh Chodesh dot (1st of Hebrew month, not Shabbat)
+  const roshDot=(!isAdj&&hebD===1&&!isShabbatDay)?`<div class="cal-sacred-rosh-dot"></div>`:'';
+
+  // ── Omer count (uses the full JD-based function)
+  const SEFIROT_SHORT=['Chesed','Gevurah','Tiferet','Netzach','Hod','Yesod','Malkhut'];
+  const omerN=!isAdj?getOmerDay(gy,gm,gd):0;
+  const omerLine=omerN>0?`<div class="cal-sacred-omer-line">Omer ${omerN} · ${SEFIROT_SHORT[Math.floor((omerN-1)/7)]||''}</div>`:'';
+
+  // ── Feast banner at top of cell when it's an appointed time
+  let feastBanner='';
+  if(!isAdj){
+    const pFeast=getCalEvent(ds,calType);
+    if(pFeast){
+      const fc=FEAST_CELL_COLORS[pFeast.type]||{banner:'#4a3a00',text:'#ffe88a'};
+      feastBanner=`<div class="cal-sacred-feast-banner" style="background:${fc.banner};color:${fc.text}">${pFeast.short||pFeast.feast}</div>`;
+    }
+  }
+
+  // ── Shemita/Jubilee cycle indicator (only on Rosh Chodesh to avoid noise on every cell)
+  let cycleBadge='';
+  if(!isAdj&&hebD===1){
+    const cy=getJubileeCycles(hebY);
+    if(cy.isJubilee){
+      cycleBadge=`<div class="cal-sacred-cycle-badge" style="color:var(--cal-type-clr)">✦ JUBILEE ✦</div>`;
+    } else if(cy.isShemita){
+      cycleBadge=`<div class="cal-sacred-cycle-badge">SHEMITA — LAND RESTS</div>`;
+    } else {
+      // 7-pip track showing position in Shemita cycle
+      const pips=Array.from({length:7},(_,i)=>{
+        const filled=i<cy.shemPos;
+        const isLast=i===6;
+        return`<div class="cal-sacred-shemita-pip" style="background:${filled?'var(--cal-type-clr)':'rgba(58,38,0,.18)'};opacity:${filled?'.62':'.32'};${isLast?'outline:1.5px solid var(--cal-type-clr);outline-offset:1.5px;':''}"></div>`;
+      }).join('');
+      cycleBadge=`<div class="cal-sacred-shemita-ring" onclick="event.stopPropagation();openShemitaInfo()" title="Shemita cycle · Year ${cy.shemPos} of 7">${pips}</div>`;
+    }
+  }
+
+  // ── Chips: feast / Shabbat word / regular word (existing logic, preserved)
   let chips='';let shabbatShown=false;
   const feastCount=[...sacredActive].filter(t=>getCalEvent(ds,t)).length;
   for(const sType of sacredActive){
@@ -4914,13 +5016,19 @@ function buildSacredCell(ds,dayNum,isAdj,gy,gm,gd,cls,onclick,ondblclick,badges)
   }
   if(!feastCount&&!shabbatShown){const _wShort=WORD_SHORT[_wKey]||'';if(_wShort){const C=CAL_TYPE_COLORS[calType];const cs=`color:${C.clr};background:${C.bg};border:1px solid ${C.border}`;chips+=`<div class="cal-heb-ind" style="${cs};cursor:pointer" onclick="${_wOnclick}">${_wShort}</div>`;}}
   if(feastCount>1&&sacredActive.size>1)chips+=`<div class="cal-overlap-note" onclick="event.stopPropagation();openCalendarOverlap('${ds}')">Why different? →</div>`;
-  const showMon=calDate.show||ds===todayStr()||(!isAdj&&[...sacredActive].some(t=>getCalEvent(ds,t)));
-  return`<div class="${cls} cal-cell-sacred-mode" onclick="${onclick}" ${ondblclick}>
-    <div class="cal-sacred-top">
+
+  const showMon=calDate.show||isToday||(!isAdj&&[...sacredActive].some(t=>getCalEvent(ds,t)));
+
+  return`<div class="${cls} cal-cell-sacred-mode" onclick="${onclick}" ${ondblclick} style="${cellGlow}">
+    <div class="cal-sacred-top" style="position:relative;overflow:hidden;flex:1;display:flex;flex-direction:column;padding:5px 6px 4px;">
+      ${seasonBar}${letterWm}${shabbatGlyph}${roshDot}
       <div class="cal-sacred-greg-ref">${dayNum}</div>
+      ${feastBanner}
       <div class="cal-sacred-heb-num">${calDate.d}</div>
       ${showMon?`<div class="cal-sacred-mon">${(calDate.label||'').slice(0,6)}</div>`:''}
       ${chips}
+      ${omerLine}
+      ${cycleBadge}
     </div>
     ${badges}
   </div>`;
@@ -5447,6 +5555,53 @@ function renderCalDay(ds){
         <span style="font-size:11px;color:rgba(200,230,200,.6)">The 49-day bridge from Passover (the Lamb's sacrifice) to Shavuot (the giving of the Spirit). Tonight: "Today is Day ${omerDay} of the Omer." The week's quality: <em>${weekTheme}</em>.<br>
         Yeshua rose on Firstfruits (Day 1). He appeared for 40 days. On Day 50 — Shavuot — the Spirit fell on 120 in Jerusalem and 3,000 came to faith. The Omer count is the heartbeat of the resurrection season.</span>
       </div>
+    </div>`;
+  }
+
+  // ── Torah Walk companion — daily invitation, never demand
+  {
+    const hebRaw=gregToHeb(y,m,d);
+    const cy=getJubileeCycles(hebRaw.y);
+    const SEFIROT_FULL=['Chesed — Lovingkindness','Gevurah — Strength','Tiferet — Beauty','Netzach — Endurance','Hod — Splendor','Yesod — Foundation','Malkhut — Kingdom'];
+    let wTitle='Walking in Torah';
+    let wBody='';
+    let wColor='rgba(201,168,76,.75)';
+    let wBorder='rgba(201,168,76,.25)';
+    let wBg='rgba(201,168,76,.05)';
+
+    if(cy.isJubilee){
+      wTitle='Jubilee Year — יוֹבֵל — Liberty Proclaimed';
+      wColor='rgba(180,140,220,.85)';wBorder='rgba(180,140,220,.3)';wBg='rgba(180,140,220,.05)';
+      wBody=`Every 49 years Yahweh cancelled debts, freed slaves, and returned all land to its original owner. Not because people earned it — because He built liberty into time itself. Isaiah 61:2 — "the year of the LORD's favor" — the verse Yeshua read in His hometown synagogue (Luke 4:19). He IS the Jubilee. Every cancellation of debt in the physical points to what He did at the cross.`;
+    } else if(cy.isShemita){
+      wTitle=`Shemita Year — שמיטה — The Land Rests · Year ${cy.shemPos} of 7`;
+      wColor='rgba(120,180,80,.8)';wBorder='rgba(120,180,80,.28)';wBg='rgba(120,180,80,.05)';
+      wBody=`The Shemita is not about restriction — it is about trust. For one full year, Israel stopped working the land and ate what grew on its own. Yahweh said: "I will command my blessing" (Lev 25:21). The Shemita is a full year of walking by faith, not effort. Legalism cannot produce Shemita obedience — only trust can.`;
+    } else if(isShabbat){
+      wTitle='Shabbat — What Torah Invites';
+      wColor='rgba(201,168,76,.8)';wBorder='rgba(201,168,76,.3)';wBg='rgba(201,168,76,.06)';
+      wBody=`Rest is not earned by a good week — it is declared. Yahweh did not rest on the seventh day because He was tired. He rested because the work was complete (Gen 2:2). This is the difference between Torah and legalism: legalism turns Shabbat into a performance. Torah receives Shabbat as a gift already given. Yeshua is our Sabbath rest (Heb 4:10) — the rest is already done. <span style="opacity:.7">Next step: what can you set down before sundown?</span>`;
+    } else if(calEv){
+      const fd=FEAST_DETAIL[calEv.type]||{};
+      wTitle=`${calEv.feast} — A Rehearsal, Not an Exam`;
+      wColor='rgba(220,160,80,.8)';wBorder='rgba(220,160,80,.28)';wBg='rgba(220,160,80,.05)';
+      wBody=`${fd.what||'This is one of Yahweh\'s Moedim — His appointed times.'} These feasts were not given as burdens — they were given as rehearsals. Yahweh designed them so you would recognize the fulfillment when it came. ${fd.yeshua||''} <span style="opacity:.7">The feast is not the destination — it is the arrow that points to it.</span>`;
+    } else if(omerDay>0){
+      wTitle=`Counting the Omer — Day ${omerDay} · ${SEFIROT_FULL[Math.floor((omerDay-1)/7)]||''}`;
+      wColor='rgba(100,200,100,.75)';wBorder='rgba(100,200,100,.25)';wBg='rgba(100,200,100,.04)';
+      wBody=`The Omer is not about earning Shavuot. Yahweh delivered Israel from Egypt first — then walked them 49 days to receive the Torah. Deliverance came before instruction. Grace before law. This week's quality: <em>${SEFIROT_FULL[Math.floor((omerDay-1)/7)]||''}</em>. Not a test — an invitation. Where is Yahweh inviting you to grow in this quality today?`;
+    } else {
+      const monthName=HEB_MONTH_NAMES[hebRaw.m]||'';
+      const monthSig=HEB_MONTH_SIGNIFICANCE[hebRaw.m]||'';
+      const shemLabel=cy.shemPos===6?` The Shemita year approaches (${cy.nextShem-3760}) — a season of preparing to trust.`:cy.shemPos===7?` This is a Shemita year — trusting Yahweh's provision over your own effort.`:'';
+      wTitle=`${monthName} — Walking Through Yahweh's Time`;
+      wBody=`${monthSig||`You are in ${monthName}, month ${hebRaw.m} of the Hebrew year. Every month on this calendar was designed by Yahweh. Walking with Torah means learning to see time the way He does — not by Rome's calendar, but by creation's rhythm: moon, sun, appointed times.`}${shemLabel} <span style="opacity:.7">Shemita: Year ${cy.shemPos} of 7. Last rest year: ${cy.lastShem-3760}. Next: ${cy.nextShem-3760}.</span>`;
+    }
+
+    html+=`<div style="margin-bottom:10px;padding:9px 12px;background:${wBg};border:1px solid ${wBorder};border-left:3px solid ${wColor};border-radius:0 7px 7px 0;cursor:pointer" onclick="openHubAmitPanel()">
+      <div style="font-family:'Cinzel',serif;font-size:8px;letter-spacing:.16em;color:${wColor};text-transform:uppercase;margin-bottom:5px">${wTitle}</div>
+      <div style="font-size:11.5px;color:rgba(240,232,208,.8);line-height:1.65">${wBody}</div>
+      <div style="margin-top:7px;font-size:9.5px;color:rgba(201,168,76,.4);font-family:'Crimson Pro',serif;font-style:italic">Walk through this with Amit →</div>
     </div>`;
   }
 
