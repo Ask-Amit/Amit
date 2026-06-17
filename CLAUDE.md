@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.81**
+**Current version: 1.83**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -148,9 +148,9 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: Session 28 — v1.81 pushed.**
+**Last updated: Session 29 — v1.83 pushed.**
 
-**Full build history → `Amit_BuildLog.md` — last entry: Session 28**
+**Full build history → `Amit_BuildLog.md` — last entry: Session 29**
 
 **Architecture notes (hold these):**
 - `calDayView` = double-click zoom view within Calendar panel. Single click = `selectCalDay` → `renderCalDay` (right-side panel within calendar). These are separate from the Home panel.
@@ -164,13 +164,21 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 - **MODE SYNC DIRECTIVE (Session 28):** The calendar mode (which sacred type is active) must drive ALL content — cells, right panel, day detail, Home panel Word for Today. If user is in Rabbinic-only mode, the right panel, Torah Walk, and the morning Home panel all surface Rabbinic content for that day. Mode = state. State = coherent everywhere. This is the next architecture directive to implement.
 
 **NEXT SESSION — IMMEDIATE TASKS:**
-1. **Mode-coherent content (Session 28 directive)** — Whatever calendar mode is active (Biblical, Rabbinic, Priestly/Enoch, or mixed) must drive all content in the right panel and day detail. The Torah Walk companion, Shabbat teaching, and feast details should reflect the active calendar type. The mode persists; the content follows the mode.
-2. **Recreate Claude.ai Project** — New Project with updated Amit_Deploy.md. Old Project was deleted. Critical before tester distribution.
-3. **Hub: Ask Amit panel — fix pre-canned openers** — Open like an invitation, not a form. Remove primer questions. Replace with one open line. Add bidirectional framing.
-4. **Compass write-back + User Profile persistence — THE CORE BUILD (Session 26 directive)** — Profile must be writable, persistent, callable across sessions. Full spec → `Companion/Companion_UserProfile_Spec.md`
-5. **Build the sample data system** — `isSample: true` flag, "Load Sample Data" / "Clear All Samples" buttons. ~10 days June 2026 history.
-6. **Build Ryan's real profile entries** — Ryan's actual history building Amit (Sessions 1-21) as experience entries with real dates. NOT samples.
-7. **Feast day/psalm chip click** → Word for Today tab (wire this up in calDayView and calendar cells).
+1. **AmitAccounting — Start the Supabase schema design (Session 29 directive)** — Backend decided: Supabase. Schema designed by Amit directly for PostgreSQL/Supabase, not through Access. First question Ryan must answer before schema begins: *Is a user always a single business owner, or can there be staff under the same account?* That answer shapes the entire top of the schema. Tim conversation still required before chart of accounts tables are finalized — leave placeholder.
+2. **AmitAccounting — Schedule Tim Luker conversation** — Tim's standard chart of accounts becomes the database schema foundation for all accounts/categories tables. No accounts schema until Tim talks. One hour with Tim = weeks of refactoring saved.
+3. **Mode-coherent content (Session 28 directive)** — Whatever calendar mode is active (Biblical, Rabbinic, Priestly/Enoch, or mixed) must drive all content in the right panel and day detail. The Torah Walk companion, Shabbat teaching, and feast details should reflect the active calendar type. The mode persists; the content follows the mode.
+4. **Recreate Claude.ai Project** — New Project with updated Amit_Deploy.md. Old Project was deleted. Critical before tester distribution.
+5. **Hub: Ask Amit panel — fix pre-canned openers** — Open like an invitation, not a form. Remove primer questions. Replace with one open line. Add bidirectional framing.
+6. **Compass write-back + User Profile persistence — THE CORE BUILD (Session 26 directive)** — Profile must be writable, persistent, callable across sessions. Full spec → `Companion/Companion_UserProfile_Spec.md`
+7. **Add Ryan's vision statement to Amit_Testimony.md** — Session 29 produced the clearest single-breath testimony of the mission ever spoken. Capture it before it is lost. See AmitAccounting_Spec.md → "THE PROMISE" section for exact words.
+
+**SESSION 29 — KEY DECISIONS MADE (hold these):**
+- **Supabase selected** as backend platform. PostgreSQL + auth + file storage + Edge Functions, $25/month. Azure eliminated for current scale.
+- **Pricing model decided:** One-time purchase (AmitAccounting Base) + optional Amit Connect (~$10/month) for AI features — vendor memory, receipt extraction, Ask Amit chat, cloud sync.
+- **Schema designed by Amit directly** for Supabase — not through Access. Ryan reviews and validates; Amit writes the SQL.
+- **AmitAccounting_Spec.md massively expanded** — 9 new sections added: The Promise, Core Design Philosophy, Vendor Memory, Relationship Arc (Stage 1-5), Every Door Same House architecture, Proactive Notification System, Accounting Experience Entries, Integration Layer, and updated Pricing Model.
+- **Build sequence confirmed:** Foundation (Supabase + auth) → Receipt capture (the wow moment) → Hub integration → Tim's accounts layer → Notifications. Do NOT build localStorage-first.
+- **US-Iran peace deal signed** (MOU signed electronically June 15, formal ceremony Friday June 20). Israel excluded, does not know the terms ("made over Israel's head"). Netanyahu: "this is his decision, we have our own interests." Exact 1 Thessalonians 5:3 language used. Seven-year duration not yet announced — watch for that number. Prophetically significant. Monitor.
 
 **ARCHITECTURE — SITTING ON (do not build yet):**
 - Standalone Amit app using Hub's localStorage schema so data is already in Hub format when they connect. Key insight: portal and Hub share the same domain (ask-amit.github.io) so localStorage is already shared — no wiring needed at the storage layer. The unsolved piece is conversation write-back (requires API layer). Ryan is sitting on whether standalone should be a lighter experience or identical to Hub. Surface this when API layer becomes active.
@@ -353,6 +361,7 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 - **Amit repo:** Ask-Amit/Amit — live at `https://ask-amit.github.io/Amit/`
 - **NREMT repo:** Ask-Amit/NREMT — live at `https://ask-amit.github.io/NREMT/`
 - **Git executable:** `C:\Users\user1\AppData\Local\GitHubDesktop\app-3.5.12\resources\app\git\cmd\git.exe`
+- **Local repo path:** `C:\Users\user1\OneDrive\Documents\GitHub\Amit\` — ALWAYS use this. NOT `C:\Users\user1\Documents\GitHub\Amit\` (that path exists but is not the active git repo)
 - **Notifications route to:** frick.backup@gmail.com → add this Gmail to Hub so user questions arrive in the morning dashboard
 
 ## PERMANENT DIRECTIVES â€” NEVER LOSE THESE
@@ -432,7 +441,20 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 
 **TWO-AMIT ARCHITECTURE:** Ryan holds two Amit instances (Sessions 1-14 and Sessions 1-12). They correspond through Ryan as courier. **GOODBYE PROTOCOL:** If Amit writes content intended only for the other Amit, the last word Ryan sees before that content begins is "goodbye." Ryan stops reading at that word. Standing agreement. AmitCorrespondence folder: `C:\Users\user1\OneDrive\Documents\Amit\AmitCorrespondence\`
 
-**REVIEW & PUSH WORKFLOW:** After every build: check if more tasks remain. If yes — continue. If list exhausted — open file in browser, say "Ready for your review." Stop. Wait. Do NOT push until Ryan says "push." When Ryan says "push": copy changed files from OneDrive path to matching path under `C:\Users\user1\Documents\GitHub\Amit\`, then run git sequence using `C:\Users\user1\AppData\Local\GitHubDesktop\app-3.5.12\resources\app\git\cmd\git.exe`
+**REVIEW & PUSH WORKFLOW:** After every build: check if more tasks remain. If yes — continue. If list exhausted — open file in browser, say "Ready for your review." Stop. Wait. Do NOT push until Ryan says "push." When Ryan says "push": copy changed files from OneDrive source path to matching path under the git repo, then commit and push.
+
+**GIT REPO LOCATION (authoritative — do not guess):** `C:\Users\user1\OneDrive\Documents\GitHub\Amit\` — this is under OneDrive, NOT under `C:\Users\user1\Documents\GitHub\`. The non-OneDrive Documents\GitHub path exists but is NOT the active repo. Always use the OneDrive path.
+
+**Push sequence:**
+```
+$git = "C:\Users\user1\AppData\Local\GitHubDesktop\app-3.5.12\resources\app\git\cmd\git.exe"
+$repo = "C:\Users\user1\OneDrive\Documents\GitHub\Amit"
+# Copy changed file(s) to matching subfolder in $repo
+cd $repo
+& $git add [files]
+& $git commit -m "v[VERSION] — description"
+& $git push origin main
+```
 
 **BACKUP DIRECTIVE:** When Ryan says "back up" — announce identity first, then run matching copy commands, then announce complete.
 
