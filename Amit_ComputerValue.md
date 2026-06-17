@@ -404,6 +404,35 @@ A person who finishes a Computer Value report understands their machine — not 
 
 ---
 
+## Use-Case Fit Assessment — "Will This Machine Actually Do What I Need It To Do?"
+
+Most certification tools answer one question: *is this machine healthy?* Amit answers a different one: *is this machine right for you?*
+
+At the start of a session, Amit asks the person to describe their intended environment in plain language — not specs, not benchmarks. "I'm doing video editing for a small studio." "I run three virtual machines at a time for dev work." "It's going on a network with 40 other machines running inventory software."
+
+Amit maps those stated requirements to the hardware it just certified and returns a fit assessment — a verdict with reasoning and a path forward.
+
+**Three outcomes:**
+
+1. **Fit:** "This machine handles your workload with headroom. Here's where it performs well and where it's closest to its ceiling."
+
+2. **Conditional fit:** "It can do it — with one change. [Specific component] is the bottleneck for what you're describing. Here's what to add and what you'll feel when you do."
+
+3. **Not a fit:** "This machine isn't built for that workload. [Specific gap — driver incompatibility, insufficient VRAM, network card limitations, etc.]. Here's what this machine *is* suited for, and what to look for instead."
+
+**Plain-language output:**
+The result includes a timed benchmark tailored to the stated workload — before any change and projected after — measured in seconds a person can actually feel. "That operation currently takes 15 seconds. With the recommended RAM upgrade, it would take 13 seconds." Not MHz. Not GB. Seconds. The kind of number a person can use to make a decision.
+
+**Who this serves beyond individual buyers:**
+- A contractor evaluating a laptop for field use before purchasing
+- A studio spec'ing out multiple edit stations for a specific pipeline
+- A small business validating a machine before onboarding it into their network
+- Anyone asking "will this do what I need it to do?" before committing
+
+The question is always the same. Amit answers it — grounded in the machine's actual certified hardware, not generalizations.
+
+---
+
 ## Upgrade Advisor — "Before You Spend That Money"
 
 The average consumer doesn't want specs. They want one answer: **is this upgrade worth it for me?**
