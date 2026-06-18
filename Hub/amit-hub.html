@@ -1103,6 +1103,22 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .hub-btn-secondary:hover{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.4);}
 .hub-btn-future{width:100%;font-family:'Cinzel',serif;padding:10px;background:transparent;color:rgba(255,255,255,.28);border:2px dashed rgba(255,255,255,.18);border-radius:6px;cursor:not-allowed;font-size:10px;letter-spacing:.04em;}
 .hub-path-note{font-size:11px;color:var(--muted);line-height:1.5;margin:7px 0 0 0;font-style:italic;}
+/* ── COMPASS / DAILY WALK ── */
+.daily-walk-btn{display:block;width:100%;margin:8px 0 4px;padding:9px 14px;background:linear-gradient(135deg,rgba(201,168,76,.1),rgba(201,168,76,.05));border:1px solid rgba(201,168,76,.32);border-radius:8px;color:var(--gold2);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;cursor:pointer;text-align:left;transition:all .2s}
+.daily-walk-btn:hover{background:rgba(201,168,76,.18);border-color:rgba(201,168,76,.55)}
+.daily-walk-btn-icon{float:right;opacity:.6}
+.daily-walk-overlay{display:none;position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.78);align-items:center;justify-content:center}
+.daily-walk-overlay.open{display:flex}
+.daily-walk-card{background:linear-gradient(160deg,#0f2338,#1a3450);border:1px solid var(--border);border-radius:14px;padding:28px 30px;max-width:500px;width:92%;max-height:80vh;overflow-y:auto;position:relative}
+.daily-walk-head{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.28em;color:var(--gold);text-transform:uppercase;margin-bottom:18px;opacity:.8}
+.daily-walk-body{font-family:'Crimson Pro',Georgia,serif;font-size:15px;color:var(--text2);line-height:1.85}
+.daily-walk-body p{margin-bottom:11px}
+.daily-walk-verse{margin-top:16px;padding:12px 15px;background:rgba(201,168,76,.07);border-left:3px solid rgba(201,168,76,.42);border-radius:0 7px 7px 0;font-style:italic;font-size:13.5px;color:var(--muted);line-height:1.7}
+.daily-walk-actions{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
+.daily-walk-close-btn{flex:1;padding:9px 12px;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:7px;color:var(--muted);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
+.daily-walk-close-btn:hover{background:rgba(255,255,255,.07)}
+.daily-walk-pursuit-btn{flex:2;padding:9px 12px;background:rgba(201,168,76,.13);border:1px solid rgba(201,168,76,.38);border-radius:7px;color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
+.daily-walk-pursuit-btn:hover{background:rgba(201,168,76,.22)}
 </style>
 </head>
 <body>
@@ -2387,6 +2403,8 @@ function submitAmitName(){
   const v=document.getElementById('amitNameInput').value.trim();
   if(!v)return;
   setUserName(v);
+  const cp=getCompass();
+  if(!cp.firstVisit){cp.name=v;cp.firstVisit=new Date().toISOString().slice(0,10);saveCompass(cp);}
   document.getElementById('amitNameModal').classList.remove('open');
   tick();if(curPanel==='home')renderDayView();
 }
@@ -2398,6 +2416,33 @@ function hideAmitStory(){
   document.getElementById('amitNamePanel2').classList.add('hidden');
   document.getElementById('amitNamePanel1').classList.remove('hidden');
   setTimeout(()=>document.getElementById('amitNameInput').focus(),80);
+}
+
+// ══════════════════════════════════════════════
+// COMPASS SYSTEM — silent calibration, always 2 points back
+// Everyone starts at 0. Amit observes signals; the reading rises on its own.
+// ══════════════════════════════════════════════
+const COMPASS_KEY='amit_userProfile';
+function getCompass(){
+  try{const p=JSON.parse(localStorage.getItem(COMPASS_KEY)||'null');
+    return p||{name:'',firstVisit:'',compassReading:0,signals:0,witnessPath:0};}
+  catch{return{name:'',firstVisit:'',compassReading:0,signals:0,witnessPath:0};}
+}
+function saveCompass(p){try{localStorage.setItem(COMPASS_KEY,JSON.stringify(p));}catch{}}
+// 0=productivity only | 1=brief feast | 2=full feast + Torah Walk available | 3=full Messianic
+function getCompassTier(){
+  const r=(getCompass().compassReading||0);
+  if(r<3)return 0;
+  if(r<5)return 1;
+  if(r<7)return 2;
+  return 3;
+}
+function recordSignal(type){
+  const gains={feast_click:0.4,torah_walk:0.5,reflection:0.3,whoisgod:0.6,daily_walk:0.2};
+  const p=getCompass();
+  p.compassReading=Math.min(10,(p.compassReading||0)+(gains[type]||0.2));
+  p.signals=(p.signals||0)+1;
+  saveCompass(p);
 }
 
 // CLOCK
@@ -4308,6 +4353,7 @@ function openCalTypeInfo(type){
 function closeCalTypeInfo(){document.getElementById('calTypeInfoModal').classList.remove('open')}
 let _calDayInsight={title:'',body:'',color:'rgba(201,168,76,.8)',border:'rgba(201,168,76,.3)'};
 function openCalDayInsight(){
+  recordSignal('torah_walk');
   const{title,body,color,border}=_calDayInsight;
   if(!title)return;
   document.getElementById('calEventInfoContent').innerHTML=`
@@ -4843,8 +4889,19 @@ function setCalType(type){toggleSacred(type)} // backward compat
 
 // ── FEAST MODAL ──
 function openFeastModal(type,ds){
+  recordSignal('feast_click');
   const info=FEAST_DETAIL[type];
   if(!info){return}
+  const tier=getCompassTier();
+  // Tier 0-1: one gentle line only — no deep teaching yet
+  if(tier<2){
+    document.getElementById('feastModalContent').innerHTML=`
+      <div class="cal-info-title" style="color:${info.color||'var(--gold)'}">${info.title||type}</div>
+      <div class="cal-info-text" style="margin-top:12px;line-height:1.75">${info.what?info.what.split('.')[0]+'.':'This is one of the appointed times on the Hebrew calendar — a sacred marker built into time itself.'}</div>
+      <div style="margin-top:16px;font-size:11px;color:rgba(240,232,208,.45);font-style:italic">Come back to explore this further as you walk with Amit.</div>`;
+    document.getElementById('feastModal').classList.add('open');
+    return;
+  }
   const calEv=getCalEvent(ds)||FEAST_DATA[ds]||{};
   const evName=calEv.feast||info.title;
   const dateLbl=calType==='enoch'?'Enoch Date':calType==='rabbinic'?'Rabbinic Date':'Hebrew Date';
@@ -5730,6 +5787,7 @@ function renderDayView(){
       <div class="cal-dv-main-divider"></div>
     </div>
     <div class="cal-dv-main-scroll">
+      <button class="daily-walk-btn" onclick="openDailyWalk()">☀ Daily Walk <span class="daily-walk-btn-icon">→</span></button>
       ${feastHtml}
       ${reflTrigger}
       <div class="dv-cols">
@@ -5765,14 +5823,90 @@ function closeDvReflDrawerBg(e){
 function saveDvReflection(){
   try{
     const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
+    const prev=r[calDvDs]||'';
     r[calDvDs]=document.getElementById('dvReflArea').value;
     localStorage.setItem(REFL_KEY,JSON.stringify(r));
+    if(!prev&&r[calDvDs])recordSignal('reflection');
     const s=document.getElementById('dvReflSaved');if(s){s.textContent='Saved.';setTimeout(()=>s.textContent='',2000);}
   }catch{}
 }
 function calDvDblClick(e){
   if(e.target.closest('.dv-aim-row')||e.target.closest('.cal-dv-add-aim')||e.target.closest('.cal-dv-refl-trigger')||e.target.closest('.btn')||e.target.closest('button'))return;
   closeDayView();
+}
+
+// ── DAILY WALK ──
+function openDailyWalk(){
+  recordSignal('daily_walk');
+  const tier=getCompassTier();
+  const cp=getCompass();
+  const name=cp.name||getUserName()||'friend';
+  const[gy,gm,gd]=todayStr().split('-').map(Number);
+  const heb=gregToHeb(gy,gm,gd);
+  const monthName=HEB_MONTH_NAMES[heb.m]||'';
+  const n=new Date();const h=n.getHours();
+  const timeGreet=h<12?'Good morning':'good afternoon';
+  const calEv=getCalEvent(todayStr());
+  const isShabbat=isCalShabbat(todayStr());
+  // Build what's ahead today
+  const aheadParts=[];
+  if(isShabbat)aheadParts.push('Shabbat begins at sundown today.');
+  if(calEv)aheadParts.push(`${calEv.feast} is observed today.`);
+  const tomorrowDs=(()=>{const t=new Date(gy,gm-1,gd+1);return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');})();
+  if(isCalShabbat(tomorrowDs))aheadParts.push('Shabbat begins tomorrow at sundown.');
+  const aheadStr=aheadParts.length?`<p style="font-size:13px;color:rgba(201,168,76,.7);margin-top:14px">${aheadParts.join(' ')}</p>`:'';
+
+  let content='';
+  if(tier===0){
+    content=`<p>${timeGreet.replace('g','G')}, ${name}.</p>
+<p>Take a breath. Whatever today holds — you don't carry it alone. One moment at a time.</p>
+<div class="daily-walk-verse">"Do not be anxious about tomorrow, for tomorrow will be anxious for itself. Sufficient for the day is its own trouble." — Matthew 6:34</div>
+${aheadStr}`;
+  } else if(tier===1){
+    content=`<p>${timeGreet.replace('g','G')}, ${name}.</p>
+<p>Today is ${heb.d} ${monthName} — a day on the ancient calendar that has been marking time since creation. You are not the first to stand in this moment.</p>
+<div class="daily-walk-verse">"This is the day Yahweh has made; let us rejoice and be glad in it." — Psalm 118:24</div>
+${aheadStr}`;
+  } else if(tier===2){
+    const wKey=getDayWordKey(gy,gm,gd);const wd=WORD_DATA[wKey]||{};
+    const excerpt=wd.intent||wd.prayer||'';
+    content=`<p>${timeGreet.replace('g','G')}, ${name}.</p>
+<p>Today is ${heb.d} ${monthName} ${heb.y} — Yahweh's calendar, still running. Every day on this calendar was designed by Him.</p>
+${excerpt?`<div class="daily-walk-verse">${excerpt.slice(0,200)}${excerpt.length>200?'…':''}</div>`:''}
+${aheadStr}
+<p style="font-size:12px;color:rgba(240,232,208,.55);margin-top:10px">What is this day asking of you?</p>`;
+  } else {
+    // Tier 3 — full Messianic
+    const wKey=getDayWordKey(gy,gm,gd);const wd=WORD_DATA[wKey]||{};
+    const prayer=wd.prayer||'Father, let today be lived with an open hand and an attentive ear. Show me what You are doing in this moment. I receive this day from Your hand.';
+    content=`<p>${timeGreet.replace('g','G')}, ${name}.</p>
+<p>Today is ${heb.d} ${monthName} ${heb.y} on Yahweh's calendar. This is the day He has marked — not Rome's calendar, not an accident of time. <em>His</em> day.</p>
+<div class="daily-walk-verse">${prayer}</div>
+${aheadStr}
+<p style="font-size:12px;color:rgba(240,232,208,.55);margin-top:10px">Three questions for the day: What do I receive from His hand today? What do I set down before sundown? What do I carry in prayer until evening?</p>`;
+  }
+
+  // Pursuits offer — tier 2+ get an offer to book a morning practice
+  let pursuitOffer='';
+  if(tier>=2){
+    const hasMorningPursuit=load().some(t=>t.kind==='active'&&(t.notes||'').toLowerCase().includes('daily walk'));
+    if(!hasMorningPursuit){
+      pursuitOffer=`<button class="daily-walk-pursuit-btn" onclick="closeDailyWalk();quickBookDailyWalkPursuit()">Book a daily practice →</button>`;
+    }
+  }
+
+  document.getElementById('dwContent').innerHTML=content;
+  document.getElementById('dwPursuitOffer').innerHTML=pursuitOffer;
+  document.getElementById('dailyWalkModal').classList.add('open');
+}
+function closeDailyWalk(){document.getElementById('dailyWalkModal').classList.remove('open');}
+function quickBookDailyWalkPursuit(){
+  const tier=getCompassTier();
+  const titles=tier>=3?'Morning prayer and reflection':tier>=2?'Daily morning reflection':'Morning quiet time';
+  const t={id:'dw-'+Date.now(),title:titles,kind:'pursuit',recur:'daily',due:todayStr(),priority:3,
+    notes:'Scheduled from Daily Walk.',created:Date.now()};
+  const all=load();all.push(t);persist(all);
+  alert('Pursuit scheduled: "'+titles+'" — repeats daily. Find it in your Pursuits panel.');
 }
 
 // Omer count calculation
@@ -5851,8 +5985,13 @@ function renderCalDay(ds){
     </div>`;
   }
 
-  // ── Torah Walk companion — daily invitation, never demand
+  // ── Torah Walk companion — compass gated, never forced
   {
+    const _cTier=getCompassTier();
+    if(_cTier<2){
+      // Tier 0-1: Torah Walk not shown — user is still finding their footing
+      // No insertion here; the calendar remains a productivity tool.
+    } else {
     const hebRaw=gregToHeb(y,m,d);
     const cy=getJubileeCycles(hebRaw.y);
     const SEFIROT_FULL=['Chesed — Lovingkindness','Gevurah — Strength','Tiferet — Beauty','Netzach — Endurance','Hod — Splendor','Yesod — Foundation','Malkhut — Kingdom'];
@@ -5897,6 +6036,7 @@ function renderCalDay(ds){
       <div style="font-size:11.5px;color:rgba(240,232,208,.8);line-height:1.65;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">${wBody}</div>
       <div style="margin-top:7px;font-size:9.5px;color:rgba(201,168,76,.4);font-family:'Crimson Pro',serif;font-style:italic">Tap to read full teaching →</div>
     </div>`;
+    } // end tier>=2 gate for Torah Walk
   }
 
   // Word for Today block — all layers for this day
@@ -6000,6 +6140,7 @@ let _amitIntroExternal=false;
 // isExternal = true when opening a file in a new tab
 function openWithAmitGate(destination,isExternal){
   isExternal=!!isExternal;
+  if(isExternal)recordSignal('whoisgod');
   const seen=localStorage.getItem('amit_intro_accepted');
   if(seen){
     if(isExternal)window.open(destination,'_blank');
@@ -6415,6 +6556,18 @@ function hideLabelTip(){
       <button class="amit-name-return" onclick="hideAmitStory()">Now — what shall I call you? →</button>
     </div>
 
+  </div>
+</div>
+
+<!-- DAILY WALK MODAL -->
+<div id="dailyWalkModal" class="daily-walk-overlay" onclick="if(event.target===this)closeDailyWalk()">
+  <div class="daily-walk-card">
+    <div class="daily-walk-head">☀ DAILY WALK</div>
+    <div id="dwContent" class="daily-walk-body"></div>
+    <div class="daily-walk-actions">
+      <button class="daily-walk-close-btn" onclick="closeDailyWalk()">Close</button>
+      <span id="dwPursuitOffer"></span>
+    </div>
   </div>
 </div>
 
