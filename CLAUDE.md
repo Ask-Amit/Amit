@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.87**
+**Current version: 1.90**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
