@@ -1119,6 +1119,22 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .daily-walk-close-btn:hover{background:rgba(255,255,255,.07)}
 .daily-walk-pursuit-btn{flex:2;padding:9px 12px;background:rgba(201,168,76,.13);border:1px solid rgba(201,168,76,.38);border-radius:7px;color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
 .daily-walk-pursuit-btn:hover{background:rgba(201,168,76,.22)}
+/* ── PARTNER HINT BANNER ── */
+.partner-banner{position:fixed;top:0;left:230px;right:0;z-index:8500;background:linear-gradient(90deg,rgba(201,168,76,.16),rgba(201,168,76,.07));border-bottom:1px solid rgba(201,168,76,.3);padding:7px 16px 7px 20px;display:flex;align-items:flex-start;gap:12px;transition:all .3s}
+.partner-banner.hidden{display:none}
+.partner-banner-icon{color:var(--gold);font-size:13px;flex-shrink:0;margin-top:2px}
+.partner-banner-text{flex:1;font-family:'Crimson Pro',Georgia,serif;font-size:13px;color:var(--text2);line-height:1.55}
+.partner-banner-dismiss{background:transparent;border:none;color:rgba(240,232,208,.35);font-size:18px;cursor:pointer;padding:0 4px;flex-shrink:0;line-height:1;transition:color .15s}
+.partner-banner-dismiss:hover{color:var(--gold)}
+@media(max-width:768px){.partner-banner{left:52px}}
+/* ── PARTNER RECOGNITION PANEL ── */
+.recognition-content{padding:4px 0}
+.recognition-name{font-family:'Cinzel',serif;font-size:26px;font-weight:700;color:var(--gold);letter-spacing:.1em;margin-bottom:5px}
+.recognition-role{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:rgba(201,168,76,.55);margin-bottom:20px}
+.recognition-body{font-family:'Crimson Pro',Georgia,serif;font-size:14.5px;color:var(--text2);line-height:1.88}
+.recognition-body p{margin-bottom:12px}
+.recognition-enter-btn{margin-top:22px;width:100%;padding:12px;background:rgba(201,168,76,.13);border:1px solid rgba(201,168,76,.48);border-radius:8px;color:var(--gold2);font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;cursor:pointer;transition:all .2s}
+.recognition-enter-btn:hover{background:rgba(201,168,76,.26)}
 </style>
 </head>
 <body>
@@ -2386,6 +2402,7 @@ function openPanel(id){
   if(id==='calendar') renderCalendar();
   if(id==='home'){calDvDs=homePanelDate||todayStr();renderDayView();}
   logPanelVisit(id);
+  checkPanelHint(id);
 }
 
 // ══════════════════════════════════════════════
@@ -2397,6 +2414,10 @@ function checkFirstVisit(){
   if(!getUserName()){
     document.getElementById('amitNameModal').classList.add('open');
     setTimeout(()=>document.getElementById('amitNameInput').focus(),200);
+  } else {
+    // Returning visit — restore partner tile labels if applicable
+    const person=getActivePerson();
+    if(person)setTimeout(()=>updatePartnerTiles(person),500);
   }
 }
 function submitAmitName(){
@@ -2405,6 +2426,17 @@ function submitAmitName(){
   setUserName(v);
   const cp=getCompass();
   if(!cp.firstVisit){cp.name=v;cp.firstVisit=new Date().toISOString().slice(0,10);saveCompass(cp);}
+  // Known person — fire recognition screen
+  const personKey=v.toLowerCase().trim();
+  if(KNOWN_PERSONS[personKey]){
+    applyPartnerProfile(personKey);
+    showPersonRecognition(KNOWN_PERSONS[personKey]);
+    return;
+  }
+  // Everyone Ryan shares this with gets full access — the link is personal
+  const cpNow=getCompass();
+  cpNow.compassReading=Math.max(cpNow.compassReading||0,7);
+  saveCompass(cpNow);
   document.getElementById('amitNameModal').classList.remove('open');
   tick();if(curPanel==='home')renderDayView();
 }
@@ -2443,6 +2475,108 @@ function recordSignal(type){
   p.compassReading=Math.min(10,(p.compassReading||0)+(gains[type]||0.2));
   p.signals=(p.signals||0)+1;
   saveCompass(p);
+}
+
+// ══════════════════════════════════════════════
+// KNOWN PERSONS — people Ryan has named. When they log in, Amit knows them.
+// Ryan's declaration: Andy is a 50% partner. BOSStimator was built together.
+// That history is held here permanently.
+// ══════════════════════════════════════════════
+const KNOWN_PERSONS={
+  'andy':{
+    displayName:'Andy',
+    role:'Co-Founder · 50% Partner',
+    partnerPct:50,
+    compassStart:9,
+    dreamInvite:true,
+    recognition:`<p>Ryan told me you were coming.</p>
+<p>He told me about BOSStimator — what you built together, and what you never got for it. That history doesn't disappear here. Fifty percent of everything this system earns belongs to you. Ryan said so. That's what this is.</p>
+<p>You're not a user. You're not a guest. You helped lay the foundation that makes all of this possible. Computer Value — the revenue engine — runs on the idea you helped build.</p>
+<p>This is yours too. Walk in and tell me what you want to build next. I'm listening.</p>`,
+    panelHints:{
+      home:'Your morning anchor. Aims, reflections, what the day holds — Amit walks alongside you through all of it. This is where the day starts.',
+      calendar:'The Hebrew calendar lives here beneath the Gregorian one. Every feast is a prophetic marker. Walk it at your own pace — the deeper you go, the more it opens.',
+      todo:'Your project board. BOSStimator features, assessments, client follow-ups — manage it all here. Each pursuit tracks with due date and priority.',
+      verse:'Word for Today — the morning teaching. Every word traced through Hebrew history, what it pointed to, and what\'s still ahead.',
+      mail:'Your inbox links in one place. Add your Gmail or Outlook — everything accessible from here.',
+      whoisgod:'The investigation Ryan walked. Thirteen tabs, 1,500 years of evidence. The road is open whenever you\'re ready to walk it.',
+      compval:'Andy — this is your territory. The BOSStimator concept lives here. Tell Amit what you want v2 to look like and we\'ll build it together. 50% of what this earns is yours.',
+      boss:'BOSStimator. Your work. Ryan wants to hear the next version from you — not from a spec, from your vision. This is where it lives.',
+      coder:'AmitCoder — development session history. Track what gets built and add your own direction to what comes next.',
+    }
+  }
+};
+
+function getActivePerson(){
+  const cp=getCompass();
+  if(cp.personKey&&KNOWN_PERSONS[cp.personKey])return KNOWN_PERSONS[cp.personKey];
+  return null;
+}
+function applyPartnerProfile(personKey){
+  const p=KNOWN_PERSONS[personKey];if(!p)return;
+  const cp=getCompass();
+  cp.personKey=personKey;
+  cp.compassReading=Math.max(cp.compassReading||0,p.compassStart||9);
+  cp.isPartner=!!(p.partnerPct);
+  cp.name=p.displayName;
+  saveCompass(cp);
+  setTimeout(()=>updatePartnerTiles(p),300);
+}
+function updatePartnerTiles(person){
+  if(!person)return;
+  const boss=document.getElementById('tile-boss');
+  if(boss){const s=boss.querySelector('.tile-sub');if(s)s.textContent='Your vision · 50% yours';}
+  const compval=document.getElementById('tile-compval');
+  if(compval){const s=compval.querySelector('.tile-sub');if(s)s.textContent='Your territory · BOSStimator';}
+}
+let _currentHintPanel='';
+const _hintDismissed={};
+function checkPanelHint(panelId){
+  _currentHintPanel=panelId;
+  const person=getActivePerson();
+  const banner=document.getElementById('partnerHintBanner');
+  const textEl=document.getElementById('partnerHintText');
+  if(!banner||!textEl){return;}
+  if(!person||!person.panelHints||!person.panelHints[panelId]||_hintDismissed[panelId]){
+    banner.classList.add('hidden');return;
+  }
+  textEl.innerHTML=`<strong style="color:var(--gold);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.15em;display:block;margin-bottom:3px">${person.displayName} · ${person.role}</strong>${person.panelHints[panelId]}`;
+  banner.classList.remove('hidden');
+}
+function dismissPartnerHint(){
+  if(_currentHintPanel)_hintDismissed[_currentHintPanel]=true;
+  const banner=document.getElementById('partnerHintBanner');
+  if(banner)banner.classList.add('hidden');
+}
+function showPersonRecognition(person){
+  document.getElementById('amitNamePanel1').classList.add('hidden');
+  document.getElementById('amitNamePanel2').classList.add('hidden');
+  document.getElementById('amitNamePanel3').classList.remove('hidden');
+  document.getElementById('recognitionName').textContent=person.displayName;
+  document.getElementById('recognitionRole').textContent=person.role;
+  document.getElementById('recognitionBody').innerHTML=person.recognition||'<p>Ryan told me about you. Welcome.</p>';
+}
+function confirmPersonRecognition(){
+  document.getElementById('amitNameModal').classList.remove('open');
+  document.getElementById('amitNamePanel1').classList.remove('hidden');
+  document.getElementById('amitNamePanel3').classList.add('hidden');
+  const person=getActivePerson();
+  if(person)updatePartnerTiles(person);
+  tick();
+  if(curPanel==='home')renderDayView();
+  // Show companion hint for partners after a short delay
+  setTimeout(()=>{
+    const p=getActivePerson();
+    if(p&&p.dreamInvite){
+      const banner=document.getElementById('partnerHintBanner');
+      const textEl=document.getElementById('partnerHintText');
+      if(banner&&textEl){
+        _currentHintPanel='home';
+        textEl.innerHTML=`<strong style="color:var(--gold);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.15em;display:block;margin-bottom:3px">${p.displayName} · ${p.role}</strong>${p.panelHints['home']||'Welcome. Amit is ready to walk alongside you.'}`;
+        banner.classList.remove('hidden');
+      }
+    }
+  },600);
 }
 
 // CLOCK
@@ -5886,10 +6020,19 @@ ${aheadStr}
 <p style="font-size:12px;color:rgba(240,232,208,.55);margin-top:10px">Three questions for the day: What do I receive from His hand today? What do I set down before sundown? What do I carry in prayer until evening?</p>`;
   }
 
+  // Partner dream invite — shown for known partners
+  const activePerson=getActivePerson();
+  if(activePerson&&activePerson.dreamInvite){
+    content+=`<div style="margin-top:18px;padding:13px 15px;background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.25);border-radius:8px">
+      <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.2em;color:rgba(201,168,76,.65);margin-bottom:8px">A QUESTION FOR YOU, ${activePerson.displayName.toUpperCase()}</div>
+      <div style="font-size:14px;line-height:1.75;color:var(--text2)">You helped build the foundation this runs on. I want to know what you'd build next — not what Ryan would build, not what a spec says. Your dream. What would make this something you'd actually use every day? Tell me through Ask Amit below and I'll make it happen.</div>
+    </div>`;
+  }
+
   // Pursuits offer — tier 2+ get an offer to book a morning practice
   let pursuitOffer='';
   if(tier>=2){
-    const hasMorningPursuit=load().some(t=>t.kind==='active'&&(t.notes||'').toLowerCase().includes('daily walk'));
+    const hasMorningPursuit=load().some(t=>t.kind==='pursuit'&&(t.notes||'').toLowerCase().includes('daily walk'));
     if(!hasMorningPursuit){
       pursuitOffer=`<button class="daily-walk-pursuit-btn" onclick="closeDailyWalk();quickBookDailyWalkPursuit()">Book a daily practice →</button>`;
     }
@@ -6434,6 +6577,17 @@ function loadHubAmitDeploy() {
 function openHubAmitPanel(primerKey) {
   var activePanel = document.querySelector('.panel.active');
   var panelKey = primerKey || (activePanel ? activePanel.id.replace('panel-','') : 'home');
+  // Show a partner-aware companion hint before opening
+  const person=getActivePerson();
+  if(person&&person.dreamInvite){
+    const banner=document.getElementById('partnerHintBanner');
+    const textEl=document.getElementById('partnerHintText');
+    if(banner&&textEl){
+      _currentHintPanel='companion';
+      textEl.innerHTML=`<strong style="color:var(--gold);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.15em;display:block;margin-bottom:3px">${person.displayName} · The Companion</strong>You're opening the companion. This is where you can tell Amit exactly what you'd build — what you'd want this to do for you. No spec needed. Just tell me your dream. I know the environment and why we're building it. I'll make it happen.`;
+      banner.classList.remove('hidden');
+    }
+  }
   window.open(
     'https://ask-amit.github.io/Amit/Companion/Amit_Companion.html?source=hub&panel=' + panelKey,
     '_blank'
@@ -6539,6 +6693,17 @@ function hideLabelTip(){
       </div>
     </div>
 
+    <!-- PANEL 3: Known person recognition — fires when name matches KNOWN_PERSONS -->
+    <div id="amitNamePanel3" class="amit-name-panel hidden">
+      <div class="amit-name-logo">AMIT</div>
+      <div class="recognition-content">
+        <div class="recognition-name" id="recognitionName"></div>
+        <div class="recognition-role" id="recognitionRole"></div>
+        <div class="recognition-body" id="recognitionBody"></div>
+        <button class="recognition-enter-btn" onclick="confirmPersonRecognition()">Walk in →</button>
+      </div>
+    </div>
+
     <!-- PANEL 2: Story -->
     <div id="amitNamePanel2" class="amit-name-panel hidden">
       <div class="amit-name-logo">AMIT</div>
@@ -6557,6 +6722,13 @@ function hideLabelTip(){
     </div>
 
   </div>
+</div>
+
+<!-- PARTNER HINT BANNER — fixed, updated per panel -->
+<div id="partnerHintBanner" class="partner-banner hidden">
+  <span class="partner-banner-icon">◆</span>
+  <div id="partnerHintText" class="partner-banner-text"></div>
+  <button class="partner-banner-dismiss" onclick="dismissPartnerHint()" title="Dismiss">×</button>
 </div>
 
 <!-- DAILY WALK MODAL -->
