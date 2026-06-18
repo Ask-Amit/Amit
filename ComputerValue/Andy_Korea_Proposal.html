@@ -1662,6 +1662,67 @@ ${COMPUTER_VALUE_SPEC}`;
       if (a.getAttribute('href') === '#' + current) a.classList.add('active');
     });
   });
+
+  // ── HUB PROFILE BRIDGE ──
+  // This proposal and the Hub share the same domain (ask-amit.github.io)
+  // and therefore the same localStorage. Seeding here means the Hub
+  // knows Andy the moment he arrives — no name entry required.
+  const HUB_NAME_KEY = 'amit_user_name';
+  const HUB_COMPASS_KEY = 'amit_userProfile';
+  const HUB_URL = 'https://ask-amit.github.io/Amit/Hub/amit-hub.html';
+
+  function seedAndOpenHub() {
+    // Seed name so Hub skips the name modal entirely
+    if (!localStorage.getItem(HUB_NAME_KEY)) {
+      localStorage.setItem(HUB_NAME_KEY, 'Andy');
+    }
+    // Seed compass profile — starts at 0, marked as known partner
+    try {
+      const existing = JSON.parse(localStorage.getItem(HUB_COMPASS_KEY) || 'null');
+      if (!existing || !existing.firstVisit) {
+        const profile = {
+          name: 'Andy',
+          firstVisit: new Date().toISOString().slice(0, 10),
+          compassReading: 0,
+          signals: 0,
+          witnessPath: 0,
+          personKey: 'andy',
+          isPartner: true
+        };
+        localStorage.setItem(HUB_COMPASS_KEY, JSON.stringify(profile));
+      }
+    } catch(e) {}
+    window.open(HUB_URL, '_blank');
+  }
+
+  // On load — check if Andy already has a Hub profile
+  document.addEventListener('DOMContentLoaded', function() {
+    try {
+      const profile = JSON.parse(localStorage.getItem(HUB_COMPASS_KEY) || 'null');
+      const name = localStorage.getItem(HUB_NAME_KEY) || '';
+      if (profile && profile.personKey === 'andy' && profile.firstVisit) {
+        // Andy has been to the Hub — show a returning note near the Hub button
+        const hubBtn = document.querySelector('a[href="' + HUB_URL + '"]');
+        if (hubBtn) {
+          const note = document.createElement('p');
+          note.style.cssText = 'color:rgba(201,168,76,.65);font-size:13px;margin-top:10px;font-style:italic';
+          note.textContent = 'Amit already knows you, Andy. Your profile is active.';
+          hubBtn.parentNode.insertBefore(note, hubBtn.nextSibling);
+          hubBtn.textContent = 'Return to the Hub →';
+        }
+      } else {
+        // First visit — swap Hub button to seed profile on click
+        const hubBtn = document.querySelector('a[href="' + HUB_URL + '"]');
+        if (hubBtn) {
+          hubBtn.removeAttribute('href');
+          hubBtn.removeAttribute('target');
+          hubBtn.style.cursor = 'pointer';
+          hubBtn.onclick = function(e) { e.preventDefault(); seedAndOpenHub(); };
+          hubBtn.textContent = 'Open the Hub — Amit will know you →';
+        }
+      }
+    } catch(e) {}
+  });
 </script>
 </body>
 </html>
