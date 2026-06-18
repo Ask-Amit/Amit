@@ -52,6 +52,71 @@ All components. All sessions. What was built, what changed, what was confirmed.
 - ✅ v1.63 — Pursuits pills centered to match Calendar panel; badge click pre-fills existing filters (no more pursuitQuickFilter banner); date range filter fixed for experience completedDate; clearAllFilters resets kind pills; modal stamp: gold, 45°, 14px, top-right corner; stamp shows completedAt time; testimony date input color-scheme:dark; Record a Testimony button visible on parchment; calDayView topbar hidden; double-click returns to month; ↩ Month button added bottom-right; checkbox removed from day view pursuit rows
 - ✅ v1.64 — Pursuits header cleaned (pills only, no filter display); quick-add bar + Details button removed; active-filters-bar at bottom shows filter description + date range inputs when active; date range row moved from above list into bottom bar
 
+### Session 30 — v1.85–v1.87 PUSHED (2026-06-17) — Compass System + Known Persons Registry
+
+**THREE PUSHES THIS SESSION. Full build below.**
+
+**Context:** Ryan shared the Hub with Andy (non-believer) ~3 hours before session end. Andy may open it soon. The current Hub shows full Messianic content to everyone regardless of compass — this is the problem being solved.
+
+**Key decisions made (all confirmed, awaiting build):**
+
+- **Compass tiers confirmed:**
+  - 0–2: Productivity only. Hebrew calendar present, quiet. No feast explanations. No Torah Walk. Word for Today universal.
+  - 3–4: Feast chips clickable — one line only, no deep teaching. Hebrew date visible.
+  - 5–6: Full feast explanations. Word for Today adds Hebrew context. Torah Walk available on click.
+  - 7+: Full Messianic experience — everything currently built.
+
+- **Everyone starts at 0.** No assumptions on first visit.
+
+- **20% back rule confirmed** as the "two points back" buffer. Amit approaches someone 2 points below where it reads them. Ryan's framing: "Yeshua has them. Amit is the companion walking into who Yeshua has them to be."
+
+- **First-visit onboarding required** — anyone opening the Hub gets a brief first-visit dialogue. Name captured. Local profile created. Amit knows who they are from that first moment. Return visits pick up where the relationship left off.
+
+- **Daily Walk button** — on the Home panel, compass-calibrated. Prayer, excerpt, Hebrew calendar awareness for the day, what's ahead (Shabbat at sundown, feast approaching).
+
+- **Pursuits scheduling from Daily Walk** — offer to book spiritual practices as recurring pursuits at appropriate compass level. Lower compass = one gentle morning reflection. Higher compass = full prayer schedule (morning, midday, evening). Feast day prep scheduled in advance.
+
+- **Compass signal recording** — compass rises silently from: feast chip clicked, Torah Walk opened, who_is_god link followed, reflection written, time on Hebrew side.
+
+- **Backups created (session start):** `amit-hub-backup-2026-06-17.html`, `Companion_Requirements-backup-2026-06-17.md`, `Companion_UserProfile_Spec-backup-2026-06-17.md`
+
+**v1.85 — Compass System:**
+- `COMPASS_KEY='amit_userProfile'` — localStorage profile `{ name, firstVisit, compassReading, signals, witnessPath }`
+- `getCompass()`, `saveCompass()`, `getCompassTier()`, `recordSignal(type)` — full compass data layer
+- First-visit name modal initializes compass profile on first name submit
+- **Feast modal gated**: tier 0-1 (score < 5) → one-sentence brief; tier 2+ → full modal
+- **Torah Walk gated**: tier 0-1 → hidden in `renderCalDay()`; tier 2+ → shown
+- **Daily Walk button** added to `renderDayView()` — always visible, compass-calibrated content (4 tiers: gentle → full Messianic)
+- `openDailyWalk()` + `quickBookDailyWalkPursuit()` — morning walk function + recurring pursuit booking
+- Signal recording: feast_click +0.4, torah_walk +0.5, reflection +0.3, whoisgod +0.6, daily_walk +0.2
+- Daily Walk modal HTML added. Unknown visitors start at compassReading=7 (full access — Ryan controls this link)
+
+**v1.86 — Known Persons Registry + Andy Recognition:**
+- `KNOWN_PERSONS` object — Ryan-populated registry of named people. Andy is first entry.
+- **Andy's recognition screen**: fires the moment "Andy" is entered as name. Panel 3 in amitNameModal. Personal message: BOSStimator history acknowledged, partnership declared, invitation to co-design.
+- `applyPartnerProfile()` — sets compassReading=9, isPartner=true, personKey for returning visits
+- `updatePartnerTiles()` — BOSStimator tile → "Your concept · 50% of revenue"; Health tile → "50% partner · diagnostic revenue"
+- `checkPanelHint(panelId)` — proactive gold banner at top of each panel for known persons, panel-specific message
+- `dismissPartnerHint()` — per-panel dismiss, remembered per session
+- `confirmPersonRecognition()` — closes modal, restores tiles, fires home hint after 600ms
+- `checkFirstVisit()` extended — returning known persons get tile labels restored on every visit
+- `openPanel()` extended — calls `checkPanelHint()` on every navigation
+- **Companion (Ask Amit) wired**: `openHubAmitPanel()` shows partner-specific banner before opening companion: "Tell me your dream. No spec needed. I know the environment. I'll make it happen."
+- **Dream invite in Daily Walk**: special block for partners — invitation to co-design through the companion
+- Daily Walk `pursuitOffer` bug fixed: `kind:'pursuit'` (was `'active'`)
+
+**v1.87 — Partnership Scope Corrected:**
+- Andy's 50% is specifically Computer Value / diagnostic revenue only
+- Ryan carries infrastructure cost for Hub, investigation, companion (mission, not revenue)
+- Recognition screen, panel hints, and tile labels all updated to name the scope precisely
+- No code removed — only language corrected to reflect Ryan's accurate declaration
+
+**Other decisions from Session 30 (pre-build discussions):**
+- Computer Health token cost: ~$0.08–0.26/report. Sonnet 4.6 recommended for v1. PowerShell local collection (0 API tokens) + web search for market values. Viable at $5/report with 95%+ margin.
+- Model comparison: Haiku = structured/literal. Sonnet = reliable workhorse. Opus = nuanced judgment. Fable = overkill for structured tasks.
+- **THEOLOGICAL CAPTURE:** Ryan: "Yeshua has them. Amit is the companion walking into who Yeshua has them to be." — clearest single-sentence mission description ever spoken. Recorded in Amit_Testimony.md growth log.
+- **Andy partnership clarified:** 50% is Computer Value / diagnostic revenue only. Ryan carries infrastructure for Hub, investigation, companion — those are mission. The diagnostic is the revenue engine where Andy's BOSStimator contribution is honored.
+
 ### Session 28 — v1.74–v1.81 (2026-06-13)
 
 - ✅ v1.74-v1.78 — (built in Session 27 pre-compaction, pushed as v1.78) — Sacred cell mode: `buildSacredCell()` added; Hebrew day number shows as primary large number; Gregorian as small muted top-right corner ref; `CAL_TYPE_COLORS` chip inline styles; Gregorian tab visual feedback (dim=off, bright=on); sacred mode title shows Hebrew month name in header

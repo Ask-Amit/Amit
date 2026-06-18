@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 1.84**
+**Current version: 1.87**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -148,9 +148,9 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
 
-**Last updated: Session 29 — v1.83 pushed.**
+**Last updated: Session 30 — v1.87 pushed.**
 
-**Full build history → `Amit_BuildLog.md` — last entry: Session 29**
+**Full build history → `Amit_BuildLog.md` — last entry: Session 30**
 
 **Architecture notes (hold these):**
 - `calDayView` = double-click zoom view within Calendar panel. Single click = `selectCalDay` → `renderCalDay` (right-side panel within calendar). These are separate from the Home panel.
@@ -163,7 +163,27 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 - **Living calendar cells (v1.79-v1.81):** `buildSacredCell()` = full sacred mode (Gregorian OFF). Season accent bars, Hebrew gematric letter watermarks, feast banners, Omer sefirot, Shemita 7-pip tracks, Jubilee badges. `buildCalCell()` = mixed mode (Gregorian ON) — also gets season bars + Shabbat ✦ glyph. Torah Walk companion in `renderCalDay()` — non-legalistic invitation for every day type. Guide modal (`openCalGuide()`) with color legend + one-click mode activation.
 - **MODE SYNC DIRECTIVE (Session 28):** The calendar mode (which sacred type is active) must drive ALL content — cells, right panel, day detail, Home panel Word for Today. If user is in Rabbinic-only mode, the right panel, Torah Walk, and the morning Home panel all surface Rabbinic content for that day. Mode = state. State = coherent everywhere. This is the next architecture directive to implement.
 
+**SESSION 30 ARCHITECTURE — HOLD THESE:**
+- `COMPASS_KEY='amit_userProfile'` in localStorage. Tiers: <3=0, <5=1, <7=2, ≥7=3. Everyone Ryan shares with starts at 7. Partners (Andy) start at 9.
+- `KNOWN_PERSONS` JS object in amit-hub.html — Ryan-populated. Andy is first entry. Add future named persons here.
+- Andy recognition: panel 3 in `amitNameModal`. Fires when name "andy" entered. `confirmPersonRecognition()` closes and restores.
+- `checkPanelHint(panelId)` called from `openPanel()` on every navigation. Gold banner, per-session dismissable.
+- Partner tile labels update via `updatePartnerTiles()` — called on recognition and on returning visits via `checkFirstVisit()`.
+- **Andy's partnership scope (PERMANENT):** 50% of Computer Value / diagnostic module revenue only. Ryan carries infrastructure for Hub, investigation, companion.
+- **Shabbat/Omer blocks** in `renderCalDay()` still show Yeshua content to all tiers — next tuning pass will gate these.
+
 **NEXT SESSION — IMMEDIATE TASKS:**
+0. **✅ COMPASS SYSTEM BUILT — v1.85 (Session 30)** — Compass system deployed. Andy-safe. All steps complete:
+   - ✅ `amit_userProfile` compass profile in localStorage. Initialized from existing name-onboarding modal on first name submit.
+   - ✅ `getCompass()`, `saveCompass()`, `recordSignal(type)`, `getCompassTier()` — full compass data layer.
+   - ✅ **Daily Walk button** in `renderDayView()` — compass-calibrated per tier (gentle at 0, full Messianic at 7+).
+   - ✅ Signal recording on: feast chip click, Torah Walk open, reflection first written, who_is_god link followed.
+   - ✅ **Feast modal gated**: tier 0-1 shows one-sentence only; tier 2+ shows full modal.
+   - ✅ **Torah Walk gated**: tier 0-1 hidden; tier 2+ shown in calendar day detail.
+   - ✅ **Daily Walk pursuit booking**: offer to book recurring practice from Daily Walk (tier 2+ only).
+   - Architecture: `COMPASS_KEY='amit_userProfile'`, tiers: <3=0, <5=1, <7=2, ≥7=3. Signal gains: feast_click=0.4, torah_walk=0.5, reflection=0.3, whoisgod=0.6, daily_walk=0.2. Compass capped at 10.
+   - **Next tuning pass**: Shabbat block and Omer block in `renderCalDay()` still show Yeshua content for all tiers — gate these in a future pass when signal balance is validated.
+
 1. **AmitAccounting — Start the Supabase schema design (Session 29 directive)** — Backend decided: Supabase. Schema designed by Amit directly for PostgreSQL/Supabase, not through Access. First question Ryan must answer before schema begins: *Is a user always a single business owner, or can there be staff under the same account?* That answer shapes the entire top of the schema. Tim conversation still required before chart of accounts tables are finalized — leave placeholder.
 2. **AmitAccounting — Schedule Tim Luker conversation** — Tim's standard chart of accounts becomes the database schema foundation for all accounts/categories tables. No accounts schema until Tim talks. One hour with Tim = weeks of refactoring saved.
 3. **Mode-coherent content (Session 28 directive)** — Whatever calendar mode is active (Biblical, Rabbinic, Priestly/Enoch, or mixed) must drive all content in the right panel and day detail. The Torah Walk companion, Shabbat teaching, and feast details should reflect the active calendar type. The mode persists; the content follows the mode.
