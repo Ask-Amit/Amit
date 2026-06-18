@@ -164,7 +164,7 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 - **MODE SYNC DIRECTIVE (Session 28):** The calendar mode (which sacred type is active) must drive ALL content — cells, right panel, day detail, Home panel Word for Today. If user is in Rabbinic-only mode, the right panel, Torah Walk, and the morning Home panel all surface Rabbinic content for that day. Mode = state. State = coherent everywhere. This is the next architecture directive to implement.
 
 **SESSION 30 ARCHITECTURE — HOLD THESE:**
-- `COMPASS_KEY='amit_userProfile'` in localStorage. Tiers: <3=0, <5=1, <7=2, ≥7=3. Everyone Ryan shares with starts at 7. Partners (Andy) start at 9.
+- `COMPASS_KEY='amit_userProfile'` in localStorage. Tiers: <3=0, <5=1, <7=2, ≥7=3. Everyone starts at 0 — no exceptions. KNOWN_PERSONS are recognized by name (partner status, business relationship) but their compass still starts at 0 and rises through observed signals like everyone else. Partnership ≠ spiritual familiarity.
 - `KNOWN_PERSONS` JS object in amit-hub.html — Ryan-populated. Andy is first entry. Add future named persons here.
 - Andy recognition: panel 3 in `amitNameModal`. Fires when name "andy" entered. `confirmPersonRecognition()` closes and restores.
 - `checkPanelHint(panelId)` called from `openPanel()` on every navigation. Gold banner, per-session dismissable.

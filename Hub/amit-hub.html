@@ -2433,10 +2433,6 @@ function submitAmitName(){
     showPersonRecognition(KNOWN_PERSONS[personKey]);
     return;
   }
-  // Everyone Ryan shares this with gets full access — the link is personal
-  const cpNow=getCompass();
-  cpNow.compassReading=Math.max(cpNow.compassReading||0,7);
-  saveCompass(cpNow);
   document.getElementById('amitNameModal').classList.remove('open');
   tick();if(curPanel==='home')renderDayView();
 }
@@ -2487,7 +2483,7 @@ const KNOWN_PERSONS={
     displayName:'Andy',
     role:'50% Partner · Computer Value',
     partnerPct:50,
-    compassStart:9,
+    compassStart:0,
     dreamInvite:true,
     recognition:`<p>Ryan told me you were coming.</p>
 <p>He told me about BOSStimator — what you built together, and what you never got for it. That history doesn't disappear here.</p>
@@ -2516,7 +2512,8 @@ function applyPartnerProfile(personKey){
   const p=KNOWN_PERSONS[personKey];if(!p)return;
   const cp=getCompass();
   cp.personKey=personKey;
-  cp.compassReading=Math.max(cp.compassReading||0,p.compassStart||9);
+  // Compass starts at 0 — familiarity (business relationship) is separate from spiritual reading
+  if(!cp.firstVisit)cp.compassReading=p.compassStart||0;
   cp.isPartner=!!(p.partnerPct);
   cp.name=p.displayName;
   saveCompass(cp);
