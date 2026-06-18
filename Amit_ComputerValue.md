@@ -566,11 +566,59 @@ Amit helps the builder build better. Better builds earn better certifications. B
 
 ## Build Stages
 
+## Controlled Diagnostic Workspace — The Anti-Spoofing Architecture
+
+*Established Session 31 — 2026-06-18. Replaces the user-screenshot model for Stage 2+.*
+
+### The Problem It Solves
+
+The original Stage 2 design asked users to take screenshots of diagnostic output and submit them for AI verification. That model has a fundamental vulnerability: a user can photograph a different machine, doctor an image, or submit a screenshot from a passing system to certify a failing one. There is no way for an LLM vision API to verify that a submitted screenshot came from the machine being certified — or that it was captured at the moment the test actually ran.
+
+This architecture eliminates that vulnerability entirely.
+
+### How It Works
+
+At Stage 2, Amit stops asking the user to take screenshots. Amit takes them.
+
+**Session initialization:**
+When a certification session begins, Amit sets up a standardized diagnostic workspace — a predefined layout of screen regions (zones) sized for a target display (e.g., six zones on a 21-inch monitor: three across the top, three across the bottom). Each zone is assigned to a specific diagnostic tool and test.
+
+**Controlled placement:**
+Amit launches each diagnostic tool and positions it within its assigned zone. The user does not drag windows, resize windows, or arrange anything. Amit controls the layout from the first command.
+
+**Automated capture:**
+When Amit triggers a test, it captures the assigned zone automatically the moment the test completes — not when the user decides to screenshot, not after a delay, not on request. The capture is timestamped to the millisecond Amit initiated it and cryptographically tied to the active PCV-ID session for this machine.
+
+**What this means for verification:**
+- Amit knows what tool is in each zone
+- Amit knows what output is expected for that component at that test stage
+- Amit captured the frame at the exact moment of test completion
+- The timestamp, zone position, and PCV-ID are all embedded in the capture metadata
+- The user had no access to the screenshot process at any point
+
+Spoofing this requires knowing which zone will be captured, having the correct passing output already on screen in the right position, at the right millisecond — while Amit is actively controlling the layout. It is not a practical attack surface.
+
+### Delivery Mechanism
+
+**Stage 2: Browser extension (one-time install)**
+A lightweight browser extension grants Amit persistent screen capture permissions for defined regions. No download outside the browser. Works on any machine with a supported browser. The extension is what enables Amit to capture zones without user input.
+
+**Stage 3+: Native client (optional upgrade)**
+For builders running high-volume certifications, a native client provides full window placement control — Amit positions the diagnostic application windows precisely, not just captures them. Most reliable form of the architecture. Required for the builder reputation system where certification integrity carries legal weight.
+
+### What Doesn't Change
+
+Stage 1 is unaffected. The HTML checklist does not use this system — it relies on user-guided steps and produces a self-reported certification. Stage 1's value is the guided experience and the report, not tamper-proof verification. Stage 2 is where verification integrity begins.
+
+The zone-based UI (Version 2/3 in the UI Architecture section) is updated to reflect that Amit initializes the layout — the user does not drag windows into zones. User placement was the original design; Amit placement is the current spec.
+
+---
+
 **Stage 1 — Build now:**
 Self-contained HTML file. Guided diagnostic checklist. Amit walks through every step. Produces printable certification report. No accounts, no escrow, no zones, no AI vision. $5 per report. Zero infrastructure cost. This proves the concept and generates the first dollar.
 
-**Stage 2 — AI verification:**
-Screenshots submitted, Amit analyzes, validation embedded in report. Requires API key and hosted version.
+**Stage 2 — Controlled Diagnostic Workspace + AI verification:**
+Browser extension installed once. Amit initializes the diagnostic workspace — a standardized layout of defined screen regions (e.g., six zones on a 21-inch monitor: three top, three bottom). Amit launches each diagnostic tool into its assigned zone. When a test completes, Amit captures that region automatically — the user never touches the screenshot process. Captured frames are timestamped to the exact moment Amit triggered the test and tied to the active PCV-ID session. AI analyzes each capture against expected output for that component. Validation embedded in the certified report. See: Controlled Diagnostic Workspace spec section below.
 
 **Stage 3 — Builder reputation system:**
 Accounts, history tracking, public profiles. Requires database and web hosting.
