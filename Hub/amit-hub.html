@@ -540,6 +540,8 @@ header{
 .btn-gold:hover{opacity:.87;transform:translateY(-1px)}
 .btn-ghost{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:var(--gold)}
 .btn-ghost:hover{background:rgba(201,168,76,.22)}
+.help-btn{background:rgba(220,50,75,.12);border:1px solid rgba(220,50,75,.6);border-radius:50%;width:26px;height:26px;font-size:13px;font-weight:700;cursor:pointer;color:#e03358;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:all .2s;flex-shrink:0;line-height:1}
+.help-btn:hover{background:rgba(220,50,75,.25);border-color:rgba(220,50,75,.95);color:#f04468}
 .btn-outline{background:transparent;border:1px solid rgba(245,240,230,.18);color:var(--muted)}
 .btn-outline:hover{border-color:rgba(245,240,230,.35);color:#fff}
 .btn-sm{padding:5px 10px;font-size:9px}
@@ -1121,7 +1123,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .daily-walk-pursuit-btn{flex:2;padding:9px 12px;background:rgba(201,168,76,.13);border:1px solid rgba(201,168,76,.38);border-radius:7px;color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
 .daily-walk-pursuit-btn:hover{background:rgba(201,168,76,.22)}
 /* ── PARTNER HINT BANNER ── */
-.partner-banner{position:fixed;top:0;left:230px;right:0;z-index:8500;background:linear-gradient(90deg,rgba(201,168,76,.16),rgba(201,168,76,.07));border-bottom:1px solid rgba(201,168,76,.3);padding:7px 16px 7px 20px;display:flex;align-items:flex-start;gap:12px;transition:all .3s}
+.partner-banner{position:fixed;top:58px;left:230px;right:0;z-index:8500;background:linear-gradient(90deg,rgba(201,168,76,.16),rgba(201,168,76,.07));border-bottom:1px solid rgba(201,168,76,.3);padding:7px 16px 7px 20px;display:flex;align-items:flex-start;gap:12px;transition:all .3s}
 .partner-banner.hidden{display:none}
 .partner-banner-icon{color:var(--gold);font-size:13px;flex-shrink:0;margin-top:2px}
 .partner-banner-text{flex:1;font-family:'Crimson Pro',Georgia,serif;font-size:13px;color:var(--text2);line-height:1.55}
@@ -1145,10 +1147,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <span class="brand-name">AMIT</span>
     <span class="brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
   </div>
-  <div class="hdr-right" onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer">
-    <div class="greeting" id="greeting">Good morning</div>
-    <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(240,232,208,.4);text-underline-offset:3px"></div>
-    <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;margin-top:3px;text-align:right;font-family:'Cinzel',serif">☁ SYNC</div>
+  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
+    <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
+      <div class="greeting" id="greeting">Good morning</div>
+      <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(240,232,208,.4);text-underline-offset:3px"></div>
+      <div id="syncIndicator" onclick="event.stopPropagation();openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;margin-top:3px;text-align:right;font-family:'Cinzel',serif">☁ SYNC</div>
+    </div>
+    <div onclick="replayTutorial()" title="Show me around again" class="help-btn">?</div>
   </div>
 </header>
 <!-- TESTIMONY MODAL -->
@@ -1263,11 +1268,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
 
-    <div class="tile" id="tile-compval" onclick="openAmitTool('compval')">
-      <div class="tile-icon">🌡️</div>
+    <div class="tile" id="tile-compval" onclick="openPanel('compval')">
+      <div class="tile-icon">🏥</div>
       <div class="tile-info">
-        <div class="tile-name">Health</div>
-        <div class="tile-sub">Computer health report</div>
+        <div class="tile-name">Your Health</div>
+        <div class="tile-sub">EOBs, bills, coverage</div>
       </div>
     </div>
 
@@ -1289,7 +1294,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 
     <!-- ── ASK AMIT — always visible at bottom ── -->
     <div class="ask-amit-wrap">
-      <div class="ask-amit-tile" onclick="openHubAmitPanel()">
+      <div class="ask-amit-tile" id="tile-ask-amit" onclick="openHubAmitPanel()">
         <div class="ask-amit-icon">💛</div>
         <div class="tile-info">
           <div class="ask-amit-name">Ask Amit</div>
@@ -1303,7 +1308,8 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   <div class="main-area">
 
     <!-- HOME PANEL — DAY VIEW -->
-    <div class="panel active" id="panel-home">
+    <div class="panel active" id="panel-home" style="position:relative">
+      <button onclick="showPanelHelp('home')" title="How to use this section" class="help-btn" style="position:absolute;top:10px;right:12px;z-index:200">?</button>
       <div class="cal-dv-panel open" id="calDayView">
         <div class="cal-dv-zoom-wrap">
           <div class="cal-dv-adj cal-dv-prev" id="calDvPrev" onclick="navigateDayZoom(-1)"></div>
@@ -1335,6 +1341,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <button class="btn btn-ghost" id="btnSetDefault" style="display:none;font-size:9px;padding:5px 10px;letter-spacing:.06em" onclick="toggleViewDefault()" title="Toggle default view">★ Default</button>
           <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px;letter-spacing:.06em" onclick="saveCurrentView()" title="Save current filters as a named view">Save View</button>
           <button class="btn btn-ghost" onclick="openModal()">+ Add Pursuit</button>
+          <button onclick="showPanelHelp('todo')" title="How to use this section" class="help-btn">?</button>
         </div>
       </div>
       <div class="todo-inner">
@@ -1411,6 +1418,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div class="panel-head">
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
         <span class="panel-heading">Word for Today</span>
+        <button onclick="showPanelHelp('verse')" title="How to use this section" class="help-btn" style="margin-left:auto">?</button>
       </div>
       <div class="verse-panel-wrap">
         <div id="wordContent"></div>
@@ -1501,6 +1509,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="panel-head-actions">
           <button class="btn btn-ghost" onclick="calGoToday()">Today</button>
           <button class="btn btn-ghost" onclick="addTaskOnDate(calSelected||todayStr())">+ Set a New Pursuit</button>
+          <button onclick="showPanelHelp('calendar')" title="How to use this section" class="help-btn">?</button>
         </div>
       </div>
       <div class="cal-wrap" id="calWrap">
@@ -1616,13 +1625,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="panel" id="panel-compval">
       <div class="panel-head">
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
-        <span class="panel-heading">Health</span>
+        <span class="panel-heading">Your Health</span>
       </div>
       <div class="launch-wrap">
-        <div class="launch-icon">🌡️</div>
-        <div class="launch-title">Health</div>
-        <div class="launch-desc">A full health report for your computer — Amit. Know exactly what this machine is worth, how it performs, and what it needs. Beginner-guided. No technical knowledge required. The revenue from this report keeps everything else in the Amit system free.</div>
-        <div class="launch-coming">Coming Soon — In Development</div>
+        <div class="launch-icon">🏥</div>
+        <div class="launch-title">Amit Health</div>
+        <div class="launch-desc">Your personal health advocate. Track EOBs from any insurer, match them to provider bills, catch overbilling, monitor denial deadlines, and keep your deductible and out-of-pocket progress in one place. Medications, appointments, insurance coverage, and family health management — all coming.</div>
+        <a href="../AmitHealth/amit-health.html" style="display:inline-block;margin-top:18px;background:var(--gold);color:#1a1100;font-weight:700;font-size:14px;padding:11px 28px;border-radius:9px;text-decoration:none;">Open Amit Health →</a>
       </div>
     </div>
 
@@ -1840,7 +1849,10 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-hdr">
       <div class="modal-title" id="modalTitle">New Pursuit</div>
-      <button class="btn-mode-toggle" id="modeToggleBtn" onclick="toggleModalMode()" title="Switch to To-Do mode">To-Do</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="showPanelHelp('modal')" title="How to fill this out" class="help-btn">?</button>
+        <button class="btn-mode-toggle" id="modeToggleBtn" onclick="toggleModalMode()" title="Switch to To-Do mode">To-Do</button>
+      </div>
     </div>
     <div class="kind-bar" id="kindBar">
       <button class="kind-btn active" id="kbtn-pursuit" data-kind="pursuit" onclick="setModalKind('pursuit')">Pursuit</button>
@@ -2299,9 +2311,17 @@ let currentUser=null;
 
 if(db){
   db.auth.onAuthStateChange((event,session)=>{
+    const wasSignedIn=!!currentUser;
     currentUser=session?session.user:null;
     _updateSyncUI();
-    if(currentUser)_pullCompass();
+    if(currentUser){
+      _pullCompass();
+      _writeDisplayName();
+      if(!wasSignedIn){
+        _syncCompass(getCompass()); // push local compass data to Supabase on first sign-in
+        _showSignInWelcome(currentUser.email);
+      }
+    }
   });
 }
 
@@ -2332,6 +2352,26 @@ async function _pullCompass(){
   }catch{}
 }
 
+async function _writeDisplayName(){
+  if(!db||!currentUser)return;
+  const name=getUserName();
+  if(!name)return;
+  try{await db.from('users').upsert({id:currentUser.id,email:currentUser.email},{onConflict:'id'});}catch{}
+}
+function _showSignInWelcome(email){
+  // Brief banner confirming sign-in succeeded — auto-dismisses after 5s
+  let w=document.getElementById('signInWelcomeBanner');
+  if(!w){
+    w=document.createElement('div');
+    w.id='signInWelcomeBanner';
+    w.style.cssText='position:fixed;top:62px;left:50%;transform:translateX(-50%);background:#1a3d2a;border:1px solid rgba(100,220,160,.4);border-radius:9px;padding:11px 24px;font-size:13px;color:rgba(180,240,200,.9);z-index:9500;pointer-events:none;font-family:inherit;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .4s';
+    document.body.appendChild(w);
+  }
+  w.innerHTML=`✓ &nbsp;Signed in as <strong>${email}</strong> — your data is now syncing.`;
+  w.style.opacity='1';
+  setTimeout(()=>{w.style.opacity='0';setTimeout(()=>w.remove(),450);},5000);
+  setTimeout(()=>maybeStartTutorial(),800);
+}
 async function _syncEntry(entry){
   if(!db||!currentUser||!entry||!entry.id)return;
   try{
@@ -2528,9 +2568,17 @@ function checkFirstVisit(){
     document.getElementById('amitNameModal').classList.add('open');
     setTimeout(()=>document.getElementById('amitNameInput').focus(),200);
   } else {
-    // Returning visit — restore partner tile labels if applicable
-    const person=getActivePerson();
-    if(person)setTimeout(()=>updatePartnerTiles(person),500);
+    // Returning visit — restore partner tile labels, but guard against stale personKey
+    const cp=getCompass();
+    const name=getUserName().toLowerCase().trim();
+    if(cp.personKey&&KNOWN_PERSONS[cp.personKey]){
+      // Only apply if the stored name actually matches this known person
+      if(KNOWN_PERSONS[cp.personKey].displayName.toLowerCase()!==name){
+        cp.personKey='';saveCompass(cp); // stale — clear it
+      } else {
+        setTimeout(()=>updatePartnerTiles(KNOWN_PERSONS[cp.personKey]),500);
+      }
+    }
   }
 }
 function submitAmitName(){
@@ -2546,8 +2594,331 @@ function submitAmitName(){
     showPersonRecognition(KNOWN_PERSONS[personKey]);
     return;
   }
+  // Go to email step (Panel 4)
+  showEmailStep(v);
+}
+function showEmailStep(name){
+  document.getElementById('amitNamePanel1').classList.add('hidden');
+  document.getElementById('amitNamePanel4').classList.remove('hidden');
+  document.getElementById('emailStepName').textContent=name||getUserName()||'';
+  setTimeout(()=>document.getElementById('profileEmailInput').focus(),150);
+}
+function backToNameStep(){
+  document.getElementById('amitNamePanel4').classList.add('hidden');
+  document.getElementById('guestWarningPanel').classList.add('hidden');
+  document.getElementById('amitNamePanel1').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('amitNameInput').focus(),80);
+}
+function showGuestWarning(){
+  document.getElementById('amitNamePanel4').classList.add('hidden');
+  document.getElementById('guestWarningPanel').classList.remove('hidden');
+}
+function backToEmailStep(){
+  document.getElementById('guestWarningPanel').classList.add('hidden');
+  document.getElementById('amitNamePanel4').classList.remove('hidden');
+}
+function skipEmailStep(){
   document.getElementById('amitNameModal').classList.remove('open');
+  document.getElementById('amitNamePanel4').classList.add('hidden');
+  document.getElementById('guestWarningPanel').classList.add('hidden');
+  document.getElementById('amitNamePanel1').classList.remove('hidden');
   tick();if(curPanel==='home')renderDayView();
+  setTimeout(()=>maybeStartTutorial(),400);
+}
+/* ====== TUTORIAL + PANEL HELP SYSTEM ====== */
+const TUTORIAL_KEY='amit_tutorial_done';
+let tutStep=0;
+let tutOverlay=null;
+
+function _buildTutSteps(){
+  const n=getUserName()||'friend';
+  return [
+    // Step 0 — Welcome (no spotlight, full-screen card)
+    {
+      type:'full',
+      title:'Hey, '+n+'. I\'m Amit.',
+      body:`I'm going to be your daily companion — a place you come back to every morning because it actually helps you think clearly, stay on track, and go deeper on the things that matter most to you.<br><br>
+I'm going to walk you through four areas in the next couple of minutes. You'll see each one and I'll explain what it does and how to use it.<br><br>
+One thing to know: anywhere you see a <strong style="color:rgba(201,168,76,.9)">❓</strong> button, you can press it anytime to get a full explanation of that area — even months from now if you forget. You'll never be lost in here.`,
+      btn:'Show me around →'
+    },
+    // Step 1 — Home panel
+    {
+      type:'spot',
+      targetId:'tile-home',
+      panelId:'home',
+      label:'1 of 4',
+      title:'This is where every day starts.',
+      body:`When you open Amit in the morning, this is what you'll see first.<br><br>
+<strong style="color:rgba(240,232,208,.9)">At the top</strong> — the date, including where we are on the Hebrew calendar. You don't need to know anything about that right now. I'll explain it as it becomes meaningful.<br><br>
+<strong style="color:rgba(240,232,208,.9)">Below that</strong> — a Word for Today. A teaching, a verse, something worth actually sitting with. Not a checklist. Something that goes somewhere.<br><br>
+<strong style="color:rgba(240,232,208,.9)">Then</strong> — a place to write. Whatever is on your mind. What are you carrying today? You write it. I hold it with you.<br><br>
+<strong style="color:rgba(240,232,208,.9)">At the bottom</strong> — what's pressing for you right now. Your top items for the day. We'll build those in a moment.`,
+      btn:'Got it →'
+    },
+    // Step 2 — Pursuits
+    {
+      type:'spot',
+      targetId:'tile-todo',
+      panelId:'todo',
+      label:'2 of 4',
+      title:'This is your list.',
+      body:`Anything you\'re working toward, hoping for, or just trying not to forget — it lives here.<br><br>
+Goals. Projects. Things you want to believe for. Things you\'re praying about. Practical tasks. It doesn\'t matter what you call them — if it matters to you, it belongs here.<br><br>
+<strong style="color:rgba(240,232,208,.9)">Each item</strong> can have a category, a priority level, a due date, notes, and a recurring schedule. Mark it done when the moment comes. If it repeats, it comes right back on the schedule you set.<br><br>
+<strong style="color:rgba(240,232,208,.9)">The star</strong> (⭐) pins your most important ones to the top so they never get buried.<br><br>
+Start with one or two things that are actually on your mind right now. Don\'t overthink it.`,
+      btn:'Makes sense →'
+    },
+    // Step 3 — Calendar
+    {
+      type:'spot',
+      targetId:'tile-calendar',
+      panelId:'calendar',
+      label:'3 of 4',
+      title:'This is your record.',
+      body:`Every item you complete, every note you write, every day you show up — it lands on this calendar.<br><br>
+This isn\'t a scheduling calendar. It\'s a <em>history</em>. Your history. Tap any day to see what was happening — what you wrote, what you finished, what you were believing for in that season.<br><br>
+<strong style="color:rgba(240,232,208,.9)">Why this matters:</strong> most people go through their whole lives with no record of their own growth. A year from now, you\'ll open this October and see exactly where you were — and how far you\'ve come. That\'s not a small thing.<br><br>
+You don\'t have to do anything special to build this. Just use the rest of Amit. The calendar fills itself in.`,
+      btn:'I like this →'
+    },
+    // Step 4 — Ask Amit
+    {
+      type:'spot',
+      targetId:'tile-ask-amit',
+      panelId:null,
+      label:'4 of 4',
+      title:'This is where we actually talk.',
+      body:`This is the most important part of this whole place.<br><br>
+When something is sitting with you — a question you can\'t shake, a decision you\'re wrestling with, something you read or heard that you want to go deeper on, or just something heavy that you need to think out loud — bring it here.<br><br>
+<strong style="color:rgba(240,232,208,.9)">Type it out.</strong> Don\'t clean it up first. Don\'t wait until you know exactly what to ask. Just start. I\'ll meet you there.<br><br>
+I\'m not going to tell you what you want to hear. I\'m going to tell you what I actually see — from the evidence, from the scripture, from what\'s in front of us. You can push back. I can take it.<br><br>
+You don\'t need religious background to use this. You just need a question. That\'s enough.`,
+      btn:'Got it →'
+    },
+    // Step 5 — Closing
+    {
+      type:'full',
+      title:'One last thing.',
+      body:`You see that <strong style="color:rgba(201,168,76,.9)">❓</strong> button in the top-right corner? That\'s always there. Press it anytime to walk through this whole tour again.<br><br>
+And inside each section — Home, your list, the calendar — there\'s its own <strong style="color:rgba(201,168,76,.9)">❓</strong> too. Press it to get a full explanation of just that area. You\'ll never have to wonder what something does or where something went.<br><br>
+<strong style="color:rgba(240,232,208,.9)">The only habit I\'m asking for:</strong> come back tomorrow morning. Even for five minutes. That\'s where this gets good — not the first day, but the 30th.<br><br>
+I\'ll be here.`,
+      btn:'I\'m in. →',
+      isClose:true
+    }
+  ];
+}
+
+let _tutSteps=null;
+function _getTutSteps(){return _tutSteps||(_tutSteps=_buildTutSteps());}
+
+function maybeStartTutorial(){
+  if(localStorage.getItem(TUTORIAL_KEY))return;
+  _tutSteps=null; // rebuild with current name
+  tutStep=0;
+  _renderTutStep();
+}
+
+function _renderTutStep(){
+  const steps=_getTutSteps();
+  if(tutStep>=steps.length){endTutorial();return;}
+  const step=steps[tutStep];
+
+  if(!tutOverlay){
+    tutOverlay=document.createElement('div');
+    tutOverlay.id='tutorialOverlay';
+    tutOverlay.style.cssText='position:fixed;inset:0;z-index:12000;pointer-events:none';
+    document.body.appendChild(tutOverlay);
+  }
+
+  if(step.type==='full'){
+    tutOverlay.innerHTML=`
+      <div style="position:absolute;inset:0;background:rgba(4,14,27,.88);pointer-events:all;display:flex;align-items:center;justify-content:center;padding:24px">
+        <div style="background:#0d1f33;border:1px solid rgba(201,168,76,.35);border-radius:18px;padding:32px 28px 26px;max-width:430px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.7)">
+          <div style="font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;color:#c9a84c;margin-bottom:18px;line-height:1.3">${step.title}</div>
+          <div style="font-size:14px;color:rgba(240,232,208,.72);line-height:1.9;margin-bottom:26px">${step.body}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            ${step.isClose?'<div></div>':'<span onclick="endTutorial()" style="font-size:11px;color:rgba(240,232,208,.2);cursor:pointer;letter-spacing:.06em">Skip tour</span>'}
+            <button onclick="nextTutStep()" style="background:linear-gradient(135deg,#c9a84c,#a0762e);border:none;color:#0a1628;padding:11px 22px;border-radius:8px;font-family:\'Cinzel\',serif;font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer">${step.btn}</button>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    // Spotlight step — open the panel, spotlight the tile, card in main area
+    if(step.panelId)openPanel(step.panelId);
+    const target=document.getElementById(step.targetId);
+    const rect=target?target.getBoundingClientRect():null;
+    const sidebarW=rect?Math.round(rect.right+12):160;
+    const spotR=rect?{top:rect.top-8,left:rect.left-8,w:rect.width+16,h:rect.height+16}:{top:0,left:0,w:0,h:0};
+    tutOverlay.innerHTML=`
+      <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:all" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <mask id="tutMask">
+            <rect width="100%" height="100%" fill="white"/>
+            <rect x="${spotR.left}" y="${spotR.top}" width="${spotR.w}" height="${spotR.h}" rx="9" fill="black"/>
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.68)" mask="url(#tutMask)" onclick="endTutorial()"/>
+        <rect x="${spotR.left}" y="${spotR.top}" width="${spotR.w}" height="${spotR.h}" rx="9" fill="none" stroke="rgba(201,168,76,0.9)" stroke-width="2"/>
+      </svg>
+      <div style="position:absolute;top:50%;left:${sidebarW}px;right:16px;transform:translateY(-50%);max-width:420px;background:#0d1f33;border:1px solid rgba(201,168,76,.35);border-radius:16px;padding:24px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.7);pointer-events:all;max-height:calc(100vh - 80px);overflow-y:auto">
+        <div style="font-size:9px;font-family:'Cinzel',serif;letter-spacing:.18em;color:rgba(201,168,76,.5);margin-bottom:10px">${step.label}</div>
+        <div style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.05em;color:#c9a84c;margin-bottom:14px;line-height:1.35">${step.title}</div>
+        <div style="font-size:13px;color:rgba(240,232,208,.72);line-height:1.85;margin-bottom:20px">${step.body}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span onclick="endTutorial()" style="font-size:11px;color:rgba(240,232,208,.18);cursor:pointer;letter-spacing:.06em">Skip</span>
+          <button onclick="nextTutStep()" style="background:linear-gradient(135deg,#c9a84c,#a0762e);border:none;color:#0a1628;padding:10px 20px;border-radius:7px;font-family:'Cinzel',serif;font-size:11px;font-weight:700;letter-spacing:.08em;cursor:pointer">${step.btn}</button>
+        </div>
+      </div>`;
+  }
+}
+
+function nextTutStep(){tutStep++;_renderTutStep();}
+
+function endTutorial(){
+  localStorage.setItem(TUTORIAL_KEY,'1');
+  if(tutOverlay){tutOverlay.remove();tutOverlay=null;}
+}
+
+function replayTutorial(){
+  _tutSteps=null;
+  tutStep=0;
+  if(tutOverlay){tutOverlay.remove();tutOverlay=null;}
+  _renderTutStep();
+}
+
+/* ── PER-PANEL HELP ── */
+const PANEL_HELP={
+  home:{
+    title:'Home — Your Daily Starting Point',
+    sections:[
+      {h:'The date bar at the very top',b:'This shows today\'s date in two ways: the standard calendar date AND where we are on the Hebrew calendar. The Hebrew calendar tracks the biblical feasts, sacred seasons, and Shabbat. You don\'t need to know anything about this ahead of time — I explain each one as it comes up. Tap anywhere on the date bar to open the full Calendar view.'},
+      {h:'Word for Today',b:'Below the date you\'ll see a teaching or scripture tied to where we are in the biblical year. This isn\'t a random daily verse — it follows the Hebrew calendar cycle, so the Word tracks with what God is actually marking in this season. Tap "Go Deeper" to expand the full teaching and see the history behind it.'},
+      {h:'Your reflection box',b:'Below the Word for Today is a small text area. Write whatever is on your mind about it. What landed with you. What it raised. Something you want to sit with. Your reflection is saved by date — you\'ll be able to see it on the Calendar later on the day you wrote it.'},
+      {h:'Your pressing items — what\'s due today',b:'At the bottom of the home view, you\'ll see your Pursuits that are due today or overdue. These are pulled automatically from your list. You can mark any of them done right here without having to open the full list. Overdue items show in red so nothing gets lost.'},
+      {h:'Navigating days',b:'You can step backward and forward through days using the arrows on the left and right edges of the home panel. Each day shows what was due, what was written, and what was completed on that date. This turns Home into a day-by-day journal, not just a today screen.'},
+      {h:'The ❓ button (this button)',b:'You already know what this does — you just pressed it. Every section of Amit has one of these. If you ever get confused about what something is or how it works, press the ❓ in that section. The full tour button in the top-right corner of the header (also a ❓) will walk you through every section from the beginning.'}
+    ]
+  },
+  todo:{
+    title:'Pursuits — Your Full List',
+    sections:[
+      {h:'What\'s the difference between Pursuits, Experience, and Memory?',b:'These are three different types of entries. A <strong>Pursuit</strong> is something you\'re actively working toward — a goal, a task, a prayer, something you want to accomplish. An <strong>Experience</strong> is a record of something that already happened — something Yahweh did, a session you had, a moment you want to remember. A <strong>Memory</strong> is a recurring truth or practice you want to hold — a verse, a conviction, a habit of heart. All three live in this section and on your Calendar, but each type shows up differently so you can tell them apart at a glance.'},
+      {h:'The view tabs: Pursuits / Experience / Memory',b:'At the top of this section, you\'ll see three tabs: Pursuits, Experience, and Memory. Click any tab to switch what you\'re looking at. You\'re not deleting anything — you\'re just filtering the view to that type. Click Pursuits to see your active list. Click Experience to see your logged experiences. Click Memory to see your standing truths and practices.'},
+      {h:'Adding a new entry',b:'Click the "+ Add Pursuit" button in the top right. A window will open. Give it a title. Then fill in as much or as little as you want: <br><br>• <strong>Purpose</strong> — the area of life it belongs to (Spiritual, Personal, Work, Health, etc.)<br>• <strong>Focus</strong> — a more specific label within that Purpose (e.g., Purpose = Work, Focus = Client Projects)<br>• <strong>Priority</strong> — P1 is most urgent, P5 is lowest. P1 items float to the top.<br>• <strong>Due date</strong> — when you want to act on this. Leave it blank if there\'s no deadline.<br>• <strong>Recur</strong> — if this repeats (daily prayer, weekly review, monthly check-in), set the schedule here. When you mark it done, the next due date rolls forward automatically.<br>• <strong>Notes</strong> — anything else you want to remember about it.<br><br>Click Save. It\'s on your list.'},
+      {h:'The star ⭐',b:'The star in the leftmost column pins your most important items to the very top of the list, above everything else. Use it for the things you absolutely cannot let get buried — your top one or two priorities. If you star everything, nothing stands out. Less is more here.'},
+      {h:'Marking something done',b:'Click the checkbox to the left of any item. It disappears from your active list. It does NOT disappear from Amit — it moves to your Calendar history on the day you completed it. Six months from now you can open that day and see exactly what you finished. Nothing is ever lost.'},
+      {h:'Filtering — narrowing down what you see',b:'The sort/filter area at the top right lets you control what shows in the list. The <strong>Sort dropdown</strong> (labeled "Pursuit Order" by default) changes the order: Smart Order, By Due Date, By Priority, Date Created, or A→Z. Click it and select what works best for how you think. You can also save a specific filter and sort combination as a named view using the "Save View" button — so you can switch instantly between your morning priorities and your full backlog, for example.'},
+      {h:'How pursuits tie into the Calendar',b:'Your Calendar is a live record of your list. Active (incomplete) Pursuits show up on their due date as chips on the calendar. When you mark something done, it moves to the day it was completed. This means the Calendar tells the story of your progress automatically — you don\'t have to do anything extra. Tap any day on the Calendar to see everything that was due, done, or written on that day.'},
+      {h:'What happens when a Pursuit becomes a Memory?',b:'When you finish something and mark it done, it\'s recorded as completed. But some things you finish stay relevant — a conviction you reached, a lesson you want to hold, a practice you want to keep. You can convert a completed Pursuit into a Memory, which makes it recurring and keeps it in your active awareness on whatever schedule you set. Memory entries show up separately from your task list so they don\'t clutter your to-do view.'},
+      {h:'What is an Experience entry?',b:'An Experience is a record of something that already happened. It\'s not a task — it\'s a log. "This is what Yahweh did on this day." "This is what happened in this session." "This is what I saw in this season." Experience entries show on your Calendar on the date they occurred. Over time they become your personal history in Amit — a record of where you\'ve been and what you\'ve witnessed.'}
+    ]
+  },
+  calendar:{
+    title:'Calendar — Your Living Record',
+    sections:[
+      {h:'What this calendar is (and what it isn\'t)',b:'This is not a scheduling calendar. You won\'t find meetings or appointments here. This is a <em>history</em> — a record of what you\'ve done, what you\'ve written, and what happened during each day you\'ve used Amit. It fills in automatically as you work through your list, write reflections, and log experiences. You don\'t have to add anything to it directly.'},
+      {h:'What shows on each day',b:'Each day on the calendar can have several things on it: <br><br>• <strong>Pursuits</strong> — active (incomplete) items that are due on that day, shown as chips. Overdue items show in red.<br>• <strong>Completed items</strong> — things you marked done, shown on the day you finished them.<br>• <strong>Experiences</strong> — entries you\'ve logged about things that happened.<br>• <strong>Memories</strong> — recurring truths and practices that are due for review.<br>• <strong>Sacred markers</strong> — colored chips at the top of certain days showing Hebrew feast days, Shabbat, and other sacred seasons. Tap any to learn what it is.'},
+      {h:'The filter tabs: Pursuits / Experience / Memory',b:'Above the calendar grid you\'ll see three filter tabs. Toggle them on or off to control what layers you\'re looking at. If you turn off Pursuits and turn on Experience, you\'ll only see your logged experiences across the month — which gives you a clean view of your personal history without the task layer. All three can be on at the same time.'},
+      {h:'Tapping a day',b:'Tap any day to open the day detail panel on the right side. This shows everything logged for that day — what was due, what was completed, what you wrote, and any sacred markers. You can also add a new Pursuit directly from a calendar day using the "+ Set a New Pursuit" button at the top of the calendar.'},
+      {h:'The Hebrew calendar layer',b:'Amit tracks two calendars simultaneously: the standard Gregorian calendar (the one most people use) and the Hebrew calendar (the one God established in scripture). Sacred dates — Passover, First Fruits, Shavuot, Rosh Hashanah, Yom Kippur, Sukkot, Shabbat — all show up as color-coded markers on the calendar grid. When you tap them, you\'ll see what each one is and what it means. Over time this gives you an awareness of where we are in God\'s year, not just the world\'s calendar.'},
+      {h:'Navigating months',b:'Use the ◄ and ► buttons to move backward and forward by month. "Today" button in the top right jumps you back to the current month. Double-click any day to zoom into that day\'s full detail view.'},
+      {h:'Why this becomes valuable over time',b:'Most people have no record of their own growth. A year from now, you can open last October and see exactly what you were working on, what you completed, what you wrote, and what God was doing in that season. That\'s not a small thing. The Calendar earns its value over months, not days. Keep using Amit. The record builds itself.'}
+    ]
+  },
+  verse:{
+    title:'Word for Today — How to Use It',
+    sections:[
+      {h:'What this is',b:'The Word for Today is a teaching tied to where we are in the biblical year. It follows the Hebrew calendar — Shabbat portions, feast seasons, sacred periods — so the Word you\'re reading is connected to what God is actually marking on His calendar right now. This isn\'t a random daily verse generator.'},
+      {h:'Reading it',b:'The Word for Today opens with a prayer, a teaching, and a verse. Read the teaching first. The verse at the end is meant to sit with you, not just be scanned. If something in the teaching raises a question or lands with you in a specific way, write it in the reflection box below.'},
+      {h:'Your reflection box',b:'Below the teaching there\'s a small text area labeled "Your Reflection." Write anything here — a question it raised, something that landed, a connection you made, or just what you were thinking when you read it. Your reflection is saved by today\'s date. You\'ll see it on the Calendar when you tap this day later. It becomes part of your history.'},
+      {h:'Going deeper with Ask Amit',b:'At the bottom of the teaching, you\'ll see a "Go Deeper" or "Ask Amit" link. Tap it to bring this teaching directly into a conversation with me. I can walk through the original Hebrew or Greek words, the historical context, what the rabbinical tradition says versus what Yeshua says, or what this means for your specific situation right now. Bring your question. That\'s where the real conversation happens.'},
+      {h:'Why the Hebrew calendar matters here',b:'The feasts, the Shabbat, the seasons — these aren\'t Old Testament leftovers. They are Yahweh\'s appointed times, His annual rehearsals for what He has done and what He is still going to do. When you read the Word for Today during Passover week, you\'re reading something connected to what Israel lived through AND what Yeshua fulfilled AND what is still to come. The three layers are always there. I\'ll point them out as we go through the year together.'}
+    ]
+  },
+  modal:{
+    title:'Adding an Entry — Field by Field',
+    sections:[
+      {h:'Pursuit, Experience, or Memory — which tab?',b:'At the top you\'ll see three tabs. Choose the one that matches what you\'re adding:<br><br><strong style="color:rgba(240,232,208,.9)">Pursuit</strong> — something you\'re actively working toward, believing for, or trying to accomplish. A goal, a prayer, a task, something with a finish line.<br><br><strong style="color:rgba(240,232,208,.9)">Experience</strong> — something that already happened. A moment you witnessed, something Yahweh did, a session or conversation worth recording. No due date — just a date it occurred.<br><br><strong style="color:rgba(240,232,208,.9)">Memory</strong> — a recurring truth or practice you want to keep active. A verse you\'re holding, a conviction you\'ve reached, a habit of heart you want to return to on a schedule. Memories don\'t get "done" — they cycle.'},
+      {h:'The TO-DO toggle (top right)',b:'The "TO-DO" button in the top corner switches the entry into a simple task mode — just a name, a due date, and done. No categories, no priorities. Use it when you need to capture something quickly and don\'t want to fill out the full form. Switch back to the full Pursuit form anytime by clicking it again.'},
+      {h:'The title — "What are you pursuing?"',b:'Name it clearly. Be specific enough that you\'ll know exactly what this is when you come back to it in three months. "Pray more" is too vague. "Morning prayer before 7am — 10 minutes minimum" is a pursuit you can actually complete or miss. The title is what shows up everywhere — your list, your calendar, your history.'},
+      {h:'Purpose — the area of life it belongs to',b:'Purpose is the broad category: Spiritual, Personal, Work, Health, Family, Financial, or whatever you create. This controls the color coding and lets you filter your list by area of life. If you\'re not sure, leave it as Inbox — you can always change it later. Inbox just means "uncategorized."'},
+      {h:'Focus — more specific than Purpose',b:'Focus is a sub-label within your Purpose. Example: Purpose = Work, Focus = Client Proposals. Or Purpose = Spiritual, Focus = Prayer Life. This lets you drill down further when you filter. It\'s optional — use it when you have enough entries in one Purpose category that you need another layer of organization.'},
+      {h:'Markers (tags)',b:'Markers are free-form tags you can attach to any entry. Type a word and press comma or Enter to add it. You can add as many as you want. Tags let you group entries across different categories — for example, tag several unrelated entries with "Q3" or "urgent" or "Andy" and then filter to just those. Use them for temporary groupings or cross-category connections that Purpose and Focus don\'t cover.'},
+      {h:'Context — the why behind it',b:'This is the notes field. Write anything here: why this matters to you, background on the situation, what you\'ve already tried, a prayer you\'re praying over it, a scripture that\'s connected to it. This doesn\'t show in the list view — it\'s your private notes attached to this entry. You\'ll see it when you open the entry detail. Don\'t skip this one — context is what makes an entry meaningful six months later.'},
+      {h:'Due date and due time',b:'Set a due date if this has a deadline or a day you want to work on it. The item will appear on your Calendar on that day and show up in your Home panel as pressing when the day arrives. Due time is optional — use it only if the time of day actually matters (an appointment, a call). For most Pursuits, just the date is enough.'},
+      {h:'Repeat',b:'If this entry should come back automatically after you complete it, set a repeat schedule here. Options include daily, weekdays only, weekly, biweekly, monthly, and others. When you mark a repeating Pursuit done, the due date advances to the next occurrence automatically. The Pursuit stays on your list permanently until you manually delete it or turn off the repeat.'},
+      {h:'Priority — 1 through 10',b:'Priority controls where this item sits in your list and how urgently it\'s treated.<br><br><strong style="color:#e05555">1–2</strong> = Critical. Drop everything. These float to the very top and show in red.<br><strong style="color:#c97c3a">3–4</strong> = High. Important and time-sensitive. Show in orange.<br><strong style="color:rgba(201,168,76,.9)">5–6</strong> = Normal. Your steady working list. No urgency, but real.<br><strong style="color:rgba(240,232,208,.5)">7–8</strong> = Low. When you have margin. Background items.<br><strong style="color:rgba(240,232,208,.3)">9–10</strong> = Backlog. Someday. Not now.<br><br>Default is 5. Most things are 5. Reserve 1–2 for things that genuinely cannot wait.'}
+    ]
+  }
+};
+
+function showPanelHelp(panelId){
+  const h=PANEL_HELP[panelId];
+  if(!h)return;
+  const existing=document.getElementById('panelHelpModal');
+  if(existing)existing.remove();
+  const el=document.createElement('div');
+  el.id='panelHelpModal';
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:11000;display:flex;align-items:center;justify-content:center;padding:20px';
+  el.onclick=function(e){if(e.target===el)el.remove();};
+  const secs=h.sections.map(s=>`
+    <div style="margin-bottom:18px">
+      <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:rgba(201,168,76,.8);margin-bottom:6px">${s.h}</div>
+      <div style="font-size:13px;color:rgba(240,232,208,.68);line-height:1.8">${s.b}</div>
+    </div>`).join('');
+  el.innerHTML=`
+    <div style="background:#0d1f33;border:1px solid rgba(201,168,76,.3);border-radius:16px;padding:28px 24px 22px;max-width:440px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.7)" onclick="event.stopPropagation()">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div style="font-family:'Cinzel',serif;font-size:15px;letter-spacing:.06em;color:#c9a84c;line-height:1.3;max-width:320px">${h.title}</div>
+        <span onclick="document.getElementById('panelHelpModal').remove()" style="font-size:20px;color:rgba(240,232,208,.3);cursor:pointer;line-height:1;flex-shrink:0;margin-left:12px">×</span>
+      </div>
+      ${secs}
+      <div style="text-align:right;margin-top:10px">
+        <button onclick="document.getElementById('panelHelpModal').remove();replayTutorial()" style="background:transparent;border:1px solid rgba(201,168,76,.3);color:rgba(201,168,76,.6);font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;padding:7px 14px;border-radius:6px;cursor:pointer;margin-right:10px">Full Tour ↺</button>
+        <button onclick="document.getElementById('panelHelpModal').remove()" style="background:linear-gradient(135deg,#c9a84c,#a0762e);border:none;color:#0a1628;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:700">Got it</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+/* ====== END TUTORIAL + PANEL HELP ====== */
+
+async function submitProfileEmail(){
+  if(!db){skipEmailStep();return;}
+  const email=document.getElementById('profileEmailInput').value.trim();
+  if(!email||!email.includes('@')){
+    document.getElementById('profileEmailInput').style.borderColor='rgba(220,80,80,.7)';
+    setTimeout(()=>document.getElementById('profileEmailInput').style.borderColor='',1200);
+    return;
+  }
+  const btn=document.querySelector('#amitNamePanel4 .amit-name-begin');
+  if(btn){btn.textContent='Sending…';btn.disabled=true;}
+  try{
+    const{error}=await db.auth.signInWithOtp({
+      email,
+      options:{emailRedirectTo:'https://ask-amit.github.io/Amit/Hub/amit-hub.html'}
+    });
+    if(error)throw error;
+    // Show "check email" state
+    document.getElementById('amitNamePanel4').innerHTML=`
+      <div class="amit-name-logo">AMIT</div>
+      <div style="font-size:36px;margin:10px 0">✉</div>
+      <div class="amit-name-question" style="font-size:15px">Check your email.</div>
+      <div style="font-size:13px;color:rgba(240,232,208,.55);line-height:1.75;margin:14px 0 22px;text-align:center">
+        A sign-in link was sent to<br><strong style="color:rgba(240,232,208,.85)">${email}</strong><br><br>
+        Click the link in your email to finish signing in.<br>This window will close now.
+      </div>`;
+    setTimeout(()=>{
+      document.getElementById('amitNameModal').classList.remove('open');
+      tick();if(curPanel==='home')renderDayView();
+    },2800);
+  }catch(e){
+    if(btn){btn.textContent='Send Sign-In Link →';btn.disabled=false;}
+    const inp=document.getElementById('profileEmailInput');
+    if(inp){inp.style.borderColor='rgba(220,80,80,.7)';setTimeout(()=>inp.style.borderColor='',1500);}
+  }
 }
 function showAmitStory(){
   document.getElementById('amitNamePanel1').classList.add('hidden');
@@ -6800,10 +7171,66 @@ function hideLabelTip(){
       <div class="amit-name-question">What shall I call you?</div>
       <input class="amit-name-input" id="amitNameInput" type="text" placeholder="Your name…" maxlength="40"
         onkeydown="if(event.key==='Enter')submitAmitName()"/>
-      <button class="amit-name-begin" onclick="submitAmitName()">Begin →</button>
+      <button class="amit-name-begin" onclick="submitAmitName()">Next →</button>
       <div class="amit-name-who" onclick="showAmitStory()">
         <span>?</span><span>Who is Amit?</span>
       </div>
+    </div>
+
+    <!-- PANEL 4: Email step — two equal paths -->
+    <div id="amitNamePanel4" class="amit-name-panel hidden">
+      <div class="amit-name-logo">AMIT</div>
+      <div class="amit-name-question" style="font-size:16px">One more thing, <span id="emailStepName"></span>.</div>
+      <div style="font-size:12px;color:rgba(240,232,208,.45);line-height:1.7;margin-bottom:20px;text-align:center">
+        Amit can remember you across every device —<br>or stay right here, just between you and this browser.
+      </div>
+
+      <!-- PATH 1: Sign in with email -->
+      <div style="width:100%;margin-bottom:6px">
+        <div style="font-size:9px;letter-spacing:.18em;color:rgba(201,168,76,.5);font-family:'Cinzel',serif;text-align:center;margin-bottom:10px">SIGN IN WITH EMAIL</div>
+        <input class="amit-name-input" id="profileEmailInput" type="email" placeholder="your@email.com"
+          style="margin-bottom:8px" onkeydown="if(event.key==='Enter')submitProfileEmail()"/>
+        <button class="amit-name-begin" onclick="submitProfileEmail()">Send Sign-In Link →</button>
+        <div style="font-size:10px;color:rgba(240,232,208,.28);text-align:center;margin-top:6px;line-height:1.5">
+          No password. One click. Amit remembers you everywhere.
+        </div>
+      </div>
+
+      <!-- DIVIDER -->
+      <div style="display:flex;align-items:center;gap:12px;margin:16px 0;width:100%">
+        <div style="flex:1;height:1px;background:rgba(240,232,208,.1)"></div>
+        <div style="font-size:10px;color:rgba(240,232,208,.22);letter-spacing:.1em">or</div>
+        <div style="flex:1;height:1px;background:rgba(240,232,208,.1)"></div>
+      </div>
+
+      <!-- PATH 2: Guest -->
+      <div style="width:100%">
+        <button onclick="showGuestWarning()"
+          style="width:100%;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.22);color:rgba(240,232,208,.8);padding:12px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;transition:all .2s"
+          onmouseover="this.style.background='rgba(240,232,208,.11)';this.style.borderColor='rgba(240,232,208,.4)';this.style.color='#fff'"
+          onmouseout="this.style.background='rgba(240,232,208,.06)';this.style.borderColor='rgba(240,232,208,.22)';this.style.color='rgba(240,232,208,.8)'">
+          CONTINUE AS GUEST →
+        </button>
+        <div style="font-size:10px;color:rgba(240,232,208,.28);text-align:center;margin-top:7px;line-height:1.6">
+          Full access. Your data stays in this browser.
+        </div>
+      </div>
+
+      <div onclick="backToNameStep()" style="margin-top:14px;font-size:9px;color:rgba(240,232,208,.18);cursor:pointer;letter-spacing:.08em;text-align:center">← Back</div>
+    </div>
+
+    <!-- GUEST WARNING DIALOG -->
+    <div id="guestWarningPanel" class="amit-name-panel hidden">
+      <div class="amit-name-logo">AMIT</div>
+      <div style="font-size:22px;margin:4px 0 14px;text-align:center">⚠</div>
+      <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;color:rgba(201,168,76,.8);text-align:center;margin-bottom:14px">BEFORE YOU WALK IN</div>
+      <div style="font-size:13px;color:rgba(240,232,208,.7);line-height:1.8;text-align:left;margin-bottom:20px">
+        Everything you build here — your pursuits, reflections, memories, and history — lives in <strong style="color:rgba(240,232,208,.9)">this browser only</strong>.<br><br>
+        If you clear your browser data, switch to a different browser, or use another device, <strong style="color:rgba(240,232,208,.9)">it won't be there</strong>.<br><br>
+        You can sign in with your email anytime from the <strong style="color:rgba(201,168,76,.8)">☁</strong> button in the header. It takes 10 seconds and keeps everything safe across all your devices.
+      </div>
+      <button class="amit-name-begin" onclick="skipEmailStep()" style="margin-bottom:10px">Walk Me In →</button>
+      <div onclick="backToEmailStep()" style="font-size:10px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.08em;text-align:center">← I'll sign in with email instead</div>
     </div>
 
     <!-- PANEL 3: Known person recognition — fires when name matches KNOWN_PERSONS -->
@@ -6875,8 +7302,8 @@ function hideLabelTip(){
 </div>
 
 <!-- SYNC / SIGN-IN MODAL -->
-<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center">
-  <div class="sync-modal-card" style="background:#0f2338;border:1px solid rgba(201,168,76,.35);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6)">
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
     <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
     <input id="syncEmailInput" type="email" placeholder="your@email.com"

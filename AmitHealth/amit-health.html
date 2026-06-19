@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amit Health</title>
+<style>
+:root {
+  --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a; --surface3:#2a2e42;
+  --gold:#c9a84c; --gold-dim:#8a6e2f;
+  --text:#e8e4da; --dim:#8a8a8a; --dim2:#5a5a6a;
+  --green:#4caf7d; --red:#e05555; --amber:#e09855; --blue:#5588c9;
+  --border:#2a2d3a;
+  --claim-cols: 90px 1fr 75px 75px 70px 58px 72px 72px 78px 70px 26px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;}
+
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:13px 28px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.logo{font-size:19px;font-weight:700;color:var(--gold);}
+.logo-sub{font-size:11px;color:var(--dim);}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.yr-sel{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:7px;font-size:13px;cursor:pointer;}
+.hub-link{font-size:12px;color:var(--dim);text-decoration:none;padding:5px 12px;border:1px solid var(--border);border-radius:7px;}
+.hub-link:hover{color:var(--gold);border-color:var(--gold-dim);}
+.demo-badge{font-size:11px;font-weight:700;letter-spacing:.5px;padding:4px 11px;border-radius:10px;cursor:pointer;transition:all .2s;}
+.demo-badge.on{background:rgba(201,168,76,.15);color:var(--gold);border:1px solid var(--gold-dim);}
+.demo-badge.off{background:none;color:var(--dim);border:1px solid var(--border);}
+.doc-demo-tag{font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:8px;background:rgba(201,168,76,.1);color:var(--gold-dim);margin-left:8px;vertical-align:middle;}
+
+/* LANDING */
+.landing{max-width:1000px;margin:0 auto;padding:40px 24px;}
+.landing-intro{font-size:14px;color:var(--dim);line-height:1.7;margin-bottom:32px;max-width:680px;}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;cursor:pointer;transition:border-color .15s,transform .1s;position:relative;}
+.tile:hover{transform:translateY(-2px);}
+.tile.act{border-color:var(--gold-dim);}
+.tile.act:hover{border-color:var(--gold);}
+.tile.soon:hover{border-color:#3a3d4a;}
+.tile-icon{font-size:26px;margin-bottom:10px;display:block;}
+.tile-name{font-size:15px;font-weight:600;margin-bottom:6px;}
+.tile.act .tile-name{color:var(--gold);}
+.tile-desc{font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:14px;}
+.tile-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:3px 10px;border-radius:10px;}
+.badge-act{background:rgba(76,175,125,.15);color:var(--green);}
+.badge-soon{background:var(--surface2);color:var(--dim);}
+.tile-flag{position:absolute;top:14px;right:14px;background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;display:none;}
+
+/* COMING SOON */
+.cs-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;align-items:center;justify-content:center;}
+.cs-ov.show{display:flex;}
+.cs-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:44px 52px;text-align:center;max-width:420px;}
+.cs-icon{font-size:38px;margin-bottom:14px;}
+.cs-title{font-size:18px;font-weight:700;margin-bottom:8px;}
+.cs-text{font-size:13px;color:var(--dim);line-height:1.65;margin-bottom:24px;}
+.cs-close{padding:9px 28px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer;}
+
+/* EOB PANEL */
+.eob-panel{display:none;max-width:1260px;margin:0 auto;padding:20px 20px;}
+.eob-panel.show{display:block;}
+.panel-hdr{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
+.back-btn{background:none;border:1px solid var(--border);color:var(--dim);padding:6px 13px;border-radius:7px;cursor:pointer;font-size:13px;}
+.back-btn:hover{border-color:var(--gold-dim);color:var(--text);}
+.panel-title{font-size:19px;font-weight:700;color:var(--gold);}
+.add-btn{margin-left:auto;background:var(--gold);color:#1a1100;border:none;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+.add-btn:hover{opacity:.85;}
+
+/* SUMMARY BAR */
+.sum-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:9px;margin-bottom:14px;}
+.sum-card{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:11px 13px;}
+.sum-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+.sum-val{font-size:17px;font-weight:700;}
+.sum-note{font-size:10px;color:var(--dim);margin-top:2px;}
+.sv-g{color:var(--gold);}  .sv-gr{color:var(--green);}  .sv-am{color:var(--amber);}  .sv-rd{color:var(--red);}  .sv-bl{color:var(--blue);}
+
+/* DEDUCTIBLE PROGRESS BAR */
+.ded-bar{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px 16px;margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.ded-item{display:flex;flex-direction:column;gap:4px;}
+.ded-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;}
+.ded-track{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.ded-fill{height:100%;border-radius:3px;transition:width .3s;}
+.ded-fill.full{background:var(--green);}
+.ded-fill.partial{background:var(--amber);}
+.ded-nums{font-size:11px;color:var(--dim);display:flex;justify-content:space-between;}
+.ded-met{font-size:11px;color:var(--green);font-weight:700;}
+
+/* FLAG BANNER */
+.flag-banner{background:rgba(224,85,85,.08);border:1px solid rgba(224,85,85,.3);border-radius:8px;padding:9px 13px;font-size:12px;color:var(--red);margin-bottom:12px;display:none;}
+.flag-banner.show{display:block;}
+.oop-banner{background:rgba(76,175,125,.08);border:1px solid rgba(76,175,125,.3);border-radius:8px;padding:9px 13px;font-size:12px;color:var(--green);margin-bottom:12px;display:none;}
+.oop-banner.show{display:block;}
+
+/* VIEW TABS */
+.view-tabs{display:flex;gap:2px;margin-bottom:12px;border-bottom:1px solid var(--border);}
+.vtab{padding:7px 14px;font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;border-top:none;border-left:none;border-right:none;white-space:nowrap;}
+.vtab:hover{color:var(--text);}
+.vtab.active{color:var(--gold);border-bottom-color:var(--gold);}
+.vcnt{font-size:10px;background:var(--surface2);padding:1px 5px;border-radius:8px;margin-left:4px;}
+.vtab.active .vcnt{background:rgba(201,168,76,.15);color:var(--gold);}
+.vcnt.rd{background:rgba(224,85,85,.15);color:var(--red);}
+
+/* SORTABLE CLAIM HEADERS */
+.tbl-wrap{overflow-x:auto;}
+.claim-hdr{display:grid;grid-template-columns:var(--claim-cols);gap:6px;padding:5px 12px;margin-bottom:3px;min-width:820px;}
+.ch{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;font-weight:600;cursor:pointer;user-select:none;white-space:nowrap;display:flex;align-items:center;gap:2px;}
+.ch:hover{color:var(--text);}  .ch.r{justify-content:flex-end;}  .ch.active-sort{color:var(--gold);}
+.sort-a{font-size:9px;opacity:.6;}
+
+/* EOB DOCUMENT CARD */
+.doc-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden;}
+.doc-card.has-flags{border-color:rgba(224,85,85,.4);}
+.doc-hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;}
+.doc-hdr:hover{background:var(--surface2);}
+.doc-ins{font-size:14px;font-weight:700;}
+.doc-range{font-size:11px;color:var(--dim);}
+.doc-meta{display:flex;flex-direction:column;}
+.doc-stats{display:flex;gap:14px;margin-left:auto;align-items:center;}
+.ds{display:flex;flex-direction:column;align-items:flex-end;}
+.ds-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.3px;}
+.ds-val{font-size:13px;font-weight:600;}
+.doc-expand{color:var(--dim);font-size:12px;margin-left:8px;}
+.doc-body{display:none;border-top:1px solid var(--border);}
+.doc-body.open{display:block;}
+.doc-actions{display:flex;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.d-btn{font-size:12px;padding:4px 12px;border-radius:6px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--dim);}
+.d-btn:hover{color:var(--text);border-color:var(--gold-dim);}
+.d-btn.add{color:var(--gold);border-color:var(--gold-dim);}
+.d-btn.del{color:var(--red);border-color:rgba(224,85,85,.3);}
+.doc-summary-detail{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface2);}
+.dsd{display:flex;flex-direction:column;gap:2px;}
+.dsd-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.3px;}
+.dsd-val{font-size:12px;font-weight:600;}
+
+/* CLAIM ROWS */
+.empty-state{background:var(--surface);border:1px dashed var(--border);border-radius:10px;padding:48px 24px;text-align:center;color:var(--dim);font-size:14px;line-height:1.75;}
+.claim-item{border-bottom:1px solid var(--border);overflow:hidden;}
+.claim-item:last-child{border-bottom:none;}
+.claim-item.fl{background:rgba(224,85,85,.04);}
+.claim-row{display:grid;grid-template-columns:var(--claim-cols);align-items:center;gap:6px;padding:10px 12px;cursor:pointer;min-width:820px;}
+.claim-row:hover{background:var(--surface2);}
+.c-date{font-size:12px;}
+.c-prov{min-width:0;}
+.c-prov-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.c-prov-type{font-size:10px;color:var(--dim);margin-top:1px;}
+.c-amt{font-size:12px;text-align:right;}
+.c-amt.rd{color:var(--red);}  .c-amt.am{color:var(--amber);}  .c-amt.gr{color:var(--green);}
+.sbadge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;white-space:nowrap;display:inline-block;}
+.s-paid{background:rgba(76,175,125,.15);color:var(--green);}
+.s-unpaid{background:rgba(224,152,85,.15);color:var(--amber);}
+.s-denied{background:rgba(224,85,85,.15);color:var(--red);}
+.s-pending{background:rgba(85,136,201,.15);color:var(--blue);}
+.s-adjusted{background:rgba(201,168,76,.12);color:var(--gold);}
+.s-appealed{background:rgba(85,136,201,.2);color:var(--blue);}
+.s-disputed{background:rgba(224,152,85,.2);color:var(--amber);}
+.s-flagged{background:rgba(224,85,85,.2);color:var(--red);border:1px solid rgba(224,85,85,.4);}
+.exp-btn{background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;padding:3px;}
+
+/* CLAIM DETAIL */
+.claim-detail{display:none;background:var(--surface2);border-top:1px solid var(--border);padding:12px 16px;}
+.claim-detail.open{display:block;}
+.cd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:12px;}
+.cd-f{display:flex;flex-direction:column;gap:2px;}
+.cd-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;}
+.cd-val{font-size:12px;}
+.cd-val.ok{color:var(--green);}  .cd-val.fl{color:var(--red);font-weight:600;}  .cd-val.wn{color:var(--amber);}
+.cd-acts{display:flex;gap:7px;padding-top:9px;border-top:1px solid var(--border);}
+
+/* PROVIDER GROUP */
+.pg{background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;}
+.pg-hdr{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;}
+.pg-hdr:hover{background:var(--surface2);}
+.pg-name{font-size:13px;font-weight:700;flex:1;}
+.pg-stats{display:flex;gap:12px;}
+.pg-stat{display:flex;flex-direction:column;align-items:flex-end;}
+.ps-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.3px;}
+.ps-val{font-size:12px;font-weight:600;}
+.pg-body{display:none;border-top:1px solid var(--border);}
+.pg-body.open{display:block;}
+
+/* IMPORT BUTTON */
+.import-btn{background:none;border:1px solid var(--blue);color:var(--blue);padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+.import-btn:hover{background:rgba(85,136,201,.1);}
+
+/* REVIEW PANEL */
+.review-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:400;justify-content:center;align-items:flex-start;padding:20px 14px;overflow-y:auto;}
+.review-ov.show{display:flex;}
+.review-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:780px;margin:auto;overflow:hidden;}
+.review-hdr{background:var(--surface2);padding:18px 22px;border-bottom:1px solid var(--border);}
+.review-hdr-title{font-size:16px;font-weight:700;color:var(--gold);margin-bottom:4px;}
+.review-hdr-sub{font-size:12px;color:var(--dim);line-height:1.5;}
+.review-doc{padding:16px 22px;border-bottom:1px solid var(--border);}
+.review-doc-title{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:10px;}
+.review-doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.rv-f{display:flex;flex-direction:column;gap:3px;}
+.rv-lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.3px;}
+.rv-val{font-size:13px;font-weight:500;}
+.rv-inp{background:var(--surface3);border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:var(--text);font-size:13px;width:100%;font-family:inherit;}
+.rv-inp:focus{outline:none;border-color:var(--gold-dim);}
+.review-claims{padding:16px 22px;}
+.review-claims-title{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:10px;}
+.rv-claim{background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;overflow:hidden;}
+.rv-claim-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;}
+.rv-claim-hdr:hover{background:var(--surface3);}
+.rv-claim-prov{font-size:13px;font-weight:600;flex:1;}
+.rv-claim-meta{font-size:11px;color:var(--dim);}
+.rv-claim-body{display:none;border-top:1px solid var(--border);padding:12px 14px;}
+.rv-claim-body.open{display:block;}
+.rv-claim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;}
+.review-acts{display:flex;gap:10px;justify-content:flex-end;padding:16px 22px;border-top:1px solid var(--border);background:var(--surface2);}
+.review-flag{background:rgba(224,152,85,.1);border:1px solid rgba(224,152,85,.3);border-radius:8px;padding:10px 14px;margin:0 22px 10px;font-size:12px;color:var(--amber);line-height:1.55;}
+
+/* IMPORT MODAL */
+.imp-modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:100%;max-width:600px;margin:auto;}
+.imp-instructions{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--dim);line-height:1.65;margin-bottom:14px;}
+.imp-instructions strong{color:var(--text);}
+.imp-textarea{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:12px;width:100%;height:180px;font-family:monospace;resize:vertical;}
+.imp-textarea:focus{outline:none;border-color:var(--gold-dim);}
+.imp-err{color:var(--red);font-size:12px;margin-top:8px;display:none;}
+
+/* ACTION SECTIONS */
+.action-sec{margin-bottom:18px;}
+.action-sec-title{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding:5px 0;border-bottom:1px solid var(--border);margin-bottom:7px;}
+
+/* MODAL OVERLAY */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:300;justify-content:center;align-items:flex-start;padding:20px 14px;overflow-y:auto;}
+.modal-ov.show{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:100%;max-width:700px;margin:auto;}
+.modal-title{font-size:16px;font-weight:700;color:var(--gold);margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--dim);margin-bottom:18px;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.ff{display:flex;flex-direction:column;gap:4px;}
+.ff.full{grid-column:1/-1;}
+.flbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;}
+.fi{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:13px;width:100%;font-family:inherit;}
+.fi:focus{outline:none;border-color:var(--gold-dim);}
+select.fi{cursor:pointer;}
+.fhint{font-size:10px;color:var(--dim2);}
+.fsec{grid-column:1/-1;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:6px;padding-top:8px;border-top:1px solid var(--border);}
+.fdiv{grid-column:1/-1;border:none;border-top:1px solid var(--border);}
+.match-msg{grid-column:1/-1;padding:8px 12px;border-radius:6px;font-size:12px;display:none;}
+.match-msg.ok{background:rgba(76,175,125,.1);border:1px solid rgba(76,175,125,.3);color:var(--green);display:block;}
+.match-msg.bad{background:rgba(224,85,85,.1);border:1px solid rgba(224,85,85,.3);color:var(--red);display:block;}
+.dup-warn{grid-column:1/-1;padding:8px 12px;border-radius:6px;font-size:12px;background:rgba(224,152,85,.1);border:1px solid rgba(224,152,85,.3);color:var(--amber);display:none;}
+.dup-warn.show{display:block;}
+.denial-section{grid-column:1/-1;display:none;}
+.denial-section.show{display:contents;}
+.modal-acts{display:flex;gap:9px;justify-content:flex-end;margin-top:18px;}
+.btn-cancel{padding:8px 18px;border-radius:7px;background:none;border:1px solid var(--border);color:var(--dim);font-size:13px;cursor:pointer;}
+.btn-cancel:hover{border-color:var(--gold-dim);color:var(--text);}
+.btn-save{padding:8px 22px;border-radius:7px;background:var(--gold);color:#1a1100;border:none;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-save:hover{opacity:.85;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="logo">Amit Health</div>
+    <div class="logo-sub">Your personal health advocate</div>
+  </div>
+  <div class="hdr-right">
+    <button id="demoBtn" class="demo-badge on" onclick="toggleDemo()" title="Showing Amit's demo data — click to use your own">DEMO</button>
+    <span id="syncIndicator" style="font-size:11px;color:var(--dim)">● Local</span>
+    <select class="yr-sel" id="yearSelect" onchange="setYear(this.value)"></select>
+    <a href="../Hub/amit-hub.html" class="hub-link">← Hub</a>
+  </div>
+</div>
+
+<!-- LANDING -->
+<div class="landing" id="landingView">
+  <p class="landing-intro">Amit Health tracks everything in your health life — medications, appointments, insurance coverage, EOBs, and medical bills. You are the client. Amit works for you.</p>
+  <div class="tiles" id="tilesGrid"></div>
+</div>
+
+<!-- EOB PANEL -->
+<div class="eob-panel" id="eobPanel">
+  <div class="panel-hdr">
+    <button class="back-btn" onclick="showLanding()">← All Modules</button>
+    <div class="panel-title">Explanation of Benefits</div>
+    <button class="import-btn" onclick="openImportPicker()">⬆ Scan &amp; Import</button>
+    <button class="add-btn" onclick="openDocModal()">+ Add Manually</button>
+  </div>
+
+  <div class="sum-bar">
+    <div class="sum-card"><div class="sum-lbl">Total Billed</div><div class="sum-val sv-g" id="sumBilled">$0</div><div class="sum-note">All providers</div></div>
+    <div class="sum-card"><div class="sum-lbl">Insurance Paid</div><div class="sum-val sv-gr" id="sumInsPaid">$0</div></div>
+    <div class="sum-card"><div class="sum-lbl">Other Ins. Paid</div><div class="sum-val sv-bl" id="sumOtherPaid">$0</div><div class="sum-note">Secondary coverage</div></div>
+    <div class="sum-card"><div class="sum-lbl">Your Responsibility</div><div class="sum-val sv-am" id="sumPatResp">$0</div><div class="sum-note">Per all EOBs</div></div>
+    <div class="sum-card"><div class="sum-lbl">You Have Paid</div><div class="sum-val sv-gr" id="sumPatPaid">$0</div></div>
+    <div class="sum-card"><div class="sum-lbl">Outstanding</div><div class="sum-val sv-rd" id="sumOut">$0</div></div>
+    <div class="sum-card"><div class="sum-lbl">Needs Action</div><div class="sum-val sv-rd" id="sumFlags">0</div></div>
+  </div>
+
+  <div class="ded-bar" id="dedBar"></div>
+  <div class="oop-banner" id="oopBanner"></div>
+  <div class="flag-banner" id="flagBanner"></div>
+
+  <div class="view-tabs">
+    <button class="vtab active" id="tab-docs"      onclick="setView('docs')">EOB Documents <span class="vcnt" id="cnt-docs">0</span></button>
+    <button class="vtab"        id="tab-claims"    onclick="setView('claims')">All Claims <span class="vcnt" id="cnt-claims">0</span></button>
+    <button class="vtab"        id="tab-provider"  onclick="setView('provider')">By Provider</button>
+    <button class="vtab"        id="tab-action"    onclick="setView('action')">Needs Action <span class="vcnt rd" id="cnt-action">0</span></button>
+    <button class="vtab"        id="tab-unmatched" onclick="setView('unmatched')">Unmatched <span class="vcnt" id="cnt-unmatched">0</span></button>
+  </div>
+
+  <div class="tbl-wrap" id="tableArea"></div>
+</div>
+
+<!-- COMING SOON -->
+<div class="cs-ov" id="csOv" onclick="closeCs()">
+  <div class="cs-card" onclick="event.stopPropagation()">
+    <div class="cs-icon" id="csIcon"></div>
+    <div class="cs-title" id="csTitle"></div>
+    <div class="cs-text" id="csText"></div>
+    <button class="cs-close" onclick="closeCs()">Got it</button>
+  </div>
+</div>
+
+<!-- EOB DOCUMENT MODAL -->
+<div class="modal-ov" id="docModal" onclick="closeDocModal()">
+<div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-title" id="docModalTitle">Add EOB Document</div>
+  <div class="modal-sub">One record per physical EOB document you received. Each document may contain multiple claims.</div>
+  <div class="fg">
+
+    <div class="fsec">Insurance & Member</div>
+    <div class="ff full"><label class="flbl">Insurance Company</label><input class="fi" id="dIns" placeholder="e.g. Blue Cross of Idaho, Aetna, United Healthcare"></div>
+    <div class="ff"><label class="flbl">Member Name</label><input class="fi" id="dMember" placeholder="Name on the card"></div>
+    <div class="ff"><label class="flbl">Member / Enrollee ID</label><input class="fi" id="dEnrolleeId" placeholder="From the card or document"></div>
+    <div class="ff"><label class="flbl">Group Number</label><input class="fi" id="dGroupNum" placeholder="Group or plan number"></div>
+    <div class="ff"><label class="flbl">Document Reference #</label><input class="fi" id="dDocRef" placeholder="Batch/document ID on EOB"></div>
+
+    <div class="fsec">Document Dates</div>
+    <div class="ff"><label class="flbl">Claims Processed — Start Date</label><input class="fi" type="date" id="dRangeStart"></div>
+    <div class="ff"><label class="flbl">Claims Processed — End Date</label><input class="fi" type="date" id="dRangeEnd"></div>
+    <div class="ff"><label class="flbl">Date You Received This EOB</label><input class="fi" type="date" id="dDateReceived"></div>
+
+    <div class="fsec">Document Totals (summary page)</div>
+    <div class="ff"><label class="flbl">Total Billed by Providers</label><input class="fi" type="number" id="dTotalBilled" step="0.01" placeholder="0.00"></div>
+    <div class="ff"><label class="flbl">Total Amount Saved / Discounts</label><input class="fi" type="number" id="dTotalSaved" step="0.01" placeholder="0.00"></div>
+    <div class="ff"><label class="flbl">Total Insurance Paid</label><input class="fi" type="number" id="dTotalInsPaid" step="0.01" placeholder="0.00"></div>
+    <div class="ff"><label class="flbl">Total Other Insurance Paid</label><input class="fi" type="number" id="dTotalOtherPaid" step="0.01" placeholder="0.00"><span class="fhint">Secondary plan / coordination of benefits</span></div>
+    <div class="ff"><label class="flbl">Total Patient Responsibility</label><input class="fi" type="number" id="dTotalPatResp" step="0.01" placeholder="0.00"></div>
+
+    <div class="fsec">Deductible Progress (from this EOB's summary page)</div>
+    <div class="ff"><label class="flbl">Individual Deductible Limit</label><input class="fi" type="number" id="dDedIndivLimit" step="0.01" placeholder="0.00" oninput="updateDedCalc('indiv')"></div>
+    <div class="ff"><label class="flbl">Individual Deductible Remaining</label><input class="fi" type="number" id="dDedIndivRemain" step="0.01" placeholder="0.00" oninput="updateDedCalc('indiv')"></div>
+    <div class="ff"><label class="flbl">Family Deductible Limit</label><input class="fi" type="number" id="dDedFamLimit" step="0.01" placeholder="0.00" oninput="updateDedCalc('fam')"></div>
+    <div class="ff"><label class="flbl">Family Deductible Remaining</label><input class="fi" type="number" id="dDedFamRemain" step="0.01" placeholder="0.00" oninput="updateDedCalc('fam')"></div>
+
+    <div class="fsec">Out-of-Pocket Max Progress (from this EOB's summary page)</div>
+    <div class="ff"><label class="flbl">Individual OOP Max Limit</label><input class="fi" type="number" id="dOopIndivLimit" step="0.01" placeholder="0.00" oninput="updateDedCalc('oopIndiv')"></div>
+    <div class="ff"><label class="flbl">Individual OOP Max Remaining</label><input class="fi" type="number" id="dOopIndivRemain" step="0.01" placeholder="0.00" oninput="updateDedCalc('oopIndiv')"></div>
+    <div class="ff"><label class="flbl">Family OOP Max Limit</label><input class="fi" type="number" id="dOopFamLimit" step="0.01" placeholder="0.00"></div>
+    <div class="ff"><label class="flbl">Family OOP Max Remaining</label><input class="fi" type="number" id="dOopFamRemain" step="0.01" placeholder="0.00"></div>
+
+    <div class="ff full"><label class="flbl">Notes</label><textarea class="fi" id="dNotes" rows="2" placeholder="Any additional notes about this document..."></textarea></div>
+  </div>
+  <div class="modal-acts">
+    <button class="btn-cancel" onclick="closeDocModal()">Cancel</button>
+    <button class="btn-save" onclick="saveDoc()">Save Document</button>
+  </div>
+</div>
+</div>
+
+<!-- CLAIM MODAL -->
+<div class="modal-ov" id="claimModal" onclick="closeClaimModal()">
+<div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-title" id="claimModalTitle">Add Claim</div>
+  <div class="modal-sub" id="claimModalSub">Enter the details from one claim (one provider visit) listed in this EOB document.</div>
+  <div class="fg">
+
+    <div class="fsec">Claim Identification</div>
+    <div class="ff"><label class="flbl">Claim Number</label><input class="fi" id="cClaimNum" placeholder="Insurer's claim ID"></div>
+    <div class="ff"><label class="flbl">Date of Service</label><input class="fi" type="date" id="cDate" oninput="onDenialChange()"></div>
+    <div class="ff full"><label class="flbl">Provider Name</label><input class="fi" id="cProvider" placeholder="Doctor, hospital, lab, facility name"></div>
+    <div class="ff"><label class="flbl">Provider Account #</label><input class="fi" id="cProvAcct" placeholder="Provider's patient account number"></div>
+    <div class="ff"><label class="flbl">Service Type</label>
+      <select class="fi" id="cServiceType">
+        <option value="">Select...</option>
+        <option>Medical Services</option>
+        <option>Surgery</option>
+        <option>Anesthesia</option>
+        <option>Emergency Room</option>
+        <option>Inpatient Hospital</option>
+        <option>Outpatient Facility</option>
+        <option>Laboratory</option>
+        <option>Radiology / Imaging</option>
+        <option>Physical Therapy</option>
+        <option>Mental Health</option>
+        <option>Preventive Care</option>
+        <option>Medical Equipment (DME)</option>
+        <option>Pharmacy / Prescription</option>
+        <option>Home Health</option>
+        <option>Ambulance</option>
+        <option>Specialist Visit</option>
+        <option>Primary Care Visit</option>
+        <option>Telehealth</option>
+        <option>Dental</option>
+        <option>Vision</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="ff"><label class="flbl">Network Status</label>
+      <select class="fi" id="cNetwork">
+        <option value="in-network">In-Network</option>
+        <option value="out-of-network">Out-of-Network</option>
+        <option value="not-applicable">Not Applicable</option>
+      </select>
+    </div>
+    <div class="ff"><label class="flbl">Prior Auth Number</label><input class="fi" id="cPriorAuth" placeholder="If prior authorization was required"></div>
+
+    <div class="fsec">Coverage — What the EOB Shows</div>
+    <div class="ff"><label class="flbl">Amount Billed by Provider</label><input class="fi" type="number" id="cBilled" step="0.01" placeholder="0.00" oninput="autoCalcAllowed()"></div>
+    <div class="ff"><label class="flbl">Amount Saved / Network Discount</label><input class="fi" type="number" id="cSaved" step="0.01" placeholder="0.00" oninput="autoCalcAllowed()"></div>
+    <div class="ff"><label class="flbl">Allowed Amount</label><input class="fi" type="number" id="cAllowed" step="0.01" placeholder="Auto-calculated"><span class="fhint">Billed minus savings — what plan agreed to pay</span></div>
+    <div class="ff"><label class="flbl">Insurance / Plan Paid</label><input class="fi" type="number" id="cInsPaid" step="0.01" placeholder="0.00"></div>
+    <div class="ff"><label class="flbl">Other Insurance Paid</label><input class="fi" type="number" id="cOtherPaid" step="0.01" placeholder="0.00"><span class="fhint">Secondary plan / Medicare / coordination of benefits</span></div>
+
+    <div class="fsec">Patient Responsibility Breakdown (what you owe — from EOB)</div>
+    <div class="ff"><label class="flbl">Deductible Applied</label><input class="fi" type="number" id="cDeductible" step="0.01" placeholder="0.00" oninput="autoCalcPatResp()"><span class="fhint">Counts toward your deductible accumulator</span></div>
+    <div class="ff"><label class="flbl">Copay</label><input class="fi" type="number" id="cCopay" step="0.01" placeholder="0.00" oninput="autoCalcPatResp()"><span class="fhint">Fixed dollar amount per visit</span></div>
+    <div class="ff"><label class="flbl">Coinsurance</label><input class="fi" type="number" id="cCoinsurance" step="0.01" placeholder="0.00" oninput="autoCalcPatResp()"><span class="fhint">Your percentage share (e.g. 20% after deductible)</span></div>
+    <div class="ff"><label class="flbl">Non-Covered Amount</label><input class="fi" type="number" id="cNonCovered" step="0.01" placeholder="0.00" oninput="autoCalcPatResp()"><span class="fhint">Services not covered — usually does NOT count toward OOP max</span></div>
+    <div class="ff"><label class="flbl">Patient Total Responsibility</label><input class="fi" type="number" id="cPatResp" step="0.01" placeholder="0.00"><span class="fhint">Auto-calculated from above — override if EOB shows a different total</span></div>
+
+    <div class="fsec">Status</div>
+    <div class="ff"><label class="flbl">Claim Status</label>
+      <select class="fi" id="cStatus" onchange="onDenialChange()">
+        <option value="pending">Pending — not yet processed</option>
+        <option value="paid">Paid — settled</option>
+        <option value="unpaid">Unpaid — balance outstanding</option>
+        <option value="denied">Denied — claim rejected</option>
+        <option value="adjusted">Adjusted — claim reprocessed</option>
+        <option value="appealed">Appealed — appeal in progress</option>
+        <option value="disputed">Disputed</option>
+        <option value="not-covered">Not Covered — service excluded from plan</option>
+      </select>
+    </div>
+
+    <div class="denial-section" id="denialSection">
+      <div class="ff"><label class="flbl">Denial Reason Code</label><input class="fi" id="cDenialCode" placeholder="Code from the EOB (e.g. CO-4, PR-96)"></div>
+      <div class="ff"><label class="flbl">Denial Reason</label><input class="fi" id="cDenialReason" placeholder="Plain language reason"></div>
+      <div class="ff"><label class="flbl">Appeal Deadline</label><input class="fi" type="date" id="cAppealDeadline"><span class="fhint">Auto-set 180 days from service date</span></div>
+    </div>
+
+    <div class="fsec">Provider Bill & Payment (matching the paper bill you received)</div>
+    <div class="ff"><label class="flbl">Provider Billing You</label><input class="fi" type="number" id="cProvBill" step="0.01" placeholder="0.00" oninput="checkMatch()"><span class="fhint">What the provider's invoice says you owe — compare to EOB</span></div>
+    <div class="ff"><label class="flbl">Amount You Have Paid</label><input class="fi" type="number" id="cPatPaid" step="0.01" placeholder="0.00"></div>
+
+    <div class="match-msg" id="matchMsg"></div>
+    <div class="dup-warn" id="dupWarn"></div>
+
+    <div class="ff full"><label class="flbl">Notes</label><textarea class="fi" id="cNotes" rows="2" placeholder="Call reference numbers, what was discussed, billing contact, next steps..."></textarea></div>
+  </div>
+  <div class="modal-acts">
+    <button class="btn-cancel" onclick="closeClaimModal()">Cancel</button>
+    <button class="btn-save" onclick="saveClaim()">Save Claim</button>
+  </div>
+</div>
+</div>
+
+<!-- IMPORT SOURCE PICKER -->
+<div class="modal-ov" id="importPickerModal" onclick="closeImportPicker()">
+<div class="modal" style="max-width:540px" onclick="event.stopPropagation()">
+  <div class="modal-title">Scan &amp; Import EOB</div>
+  <div class="modal-sub" style="margin-bottom:20px">Choose how you want to bring in your document. Amit will read it and show you what it found before saving anything.</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+
+    <div class="src-tile" onclick="triggerFileUpload('file')">
+      <div class="src-icon">📁</div>
+      <div class="src-name">From File</div>
+      <div class="src-desc">Browse for a saved PDF, scan, or photo on your device</div>
+    </div>
+
+    <div class="src-tile" onclick="triggerFileUpload('camera')">
+      <div class="src-icon">📷</div>
+      <div class="src-name">Camera</div>
+      <div class="src-desc">Take a photo with your phone camera or webcam</div>
+    </div>
+
+    <div class="src-tile" onclick="triggerClipboard()">
+      <div class="src-icon">📋</div>
+      <div class="src-name">From Clipboard</div>
+      <div class="src-desc">Paste an image or screenshot you already copied</div>
+    </div>
+
+    <div class="src-tile" onclick="openPasteModal()">
+      <div class="src-icon">🤖</div>
+      <div class="src-name">From Amit Chat</div>
+      <div class="src-desc">Paste structured data extracted in an Amit conversation</div>
+    </div>
+
+  </div>
+  <div style="font-size:11px;color:var(--dim);text-align:center;line-height:1.6">
+    <strong style="color:var(--text)">Have a scanner?</strong> Scan your document and save it as a PDF or image, then use <em>From File</em>.<br>
+    Most printers save scans to a folder or send to email — either works.
+  </div>
+  <div class="modal-acts" style="margin-top:14px">
+    <button class="btn-cancel" onclick="closeImportPicker()">Cancel</button>
+  </div>
+</div>
+</div>
+
+<!-- HIDDEN FILE INPUTS -->
+<input type="file" id="fileInputGeneral" accept="image/*,.pdf" style="display:none" onchange="handleFileSelected(this)">
+<input type="file" id="fileInputCamera"  accept="image/*" capture="environment" style="display:none" onchange="handleFileSelected(this)">
+
+<!-- PASTE FROM CHAT MODAL -->
+<div class="modal-ov" id="pasteModal" onclick="closePasteModal()">
+<div class="imp-modal" onclick="event.stopPropagation()">
+  <div class="modal-title" style="margin-bottom:8px">Paste from Amit Chat</div>
+  <div class="imp-instructions">
+    <strong>How to use this path:</strong><br>
+    1. In your Amit conversation, upload your EOB document (photo or PDF).<br>
+    2. Amit will extract all the fields and output them as structured data.<br>
+    3. Copy that output and paste it here — Amit will show you everything it found before saving.<br><br>
+    <strong>What to ask Amit:</strong> <em>"Read this EOB and give me the import JSON for Amit Health."</em>
+  </div>
+  <textarea class="imp-textarea" id="pasteArea" placeholder='Paste the JSON output from your Amit conversation here...&#10;&#10;It will look like: { "eob": { ... }, "claims": [ ... ] }'></textarea>
+  <div class="imp-err" id="pasteErr">Could not read that data — make sure you copied the full output from Amit.</div>
+  <div class="modal-acts" style="margin-top:14px">
+    <button class="btn-cancel" onclick="closePasteModal()">Cancel</button>
+    <button class="btn-save" onclick="processPastedJSON()">Review Extracted Data →</button>
+  </div>
+</div>
+</div>
+
+<!-- FILE PROCESSING STATUS -->
+<div class="modal-ov" id="processingModal">
+<div class="modal" style="max-width:380px;text-align:center;padding:36px 24px">
+  <div style="font-size:32px;margin-bottom:14px" id="procIcon">⏳</div>
+  <div style="font-size:15px;font-weight:700;margin-bottom:8px" id="procTitle">Reading your document...</div>
+  <div style="font-size:13px;color:var(--dim)" id="procMsg">Amit is extracting the EOB fields. This takes just a moment.</div>
+</div>
+</div>
+
+<!-- REVIEW PANEL -->
+<div class="review-ov" id="reviewPanel">
+<div class="review-panel">
+  <div class="review-hdr">
+    <div class="review-hdr-title">Review Extracted Data</div>
+    <div class="review-hdr-sub">Amit read your document and found the fields below. Review everything before it saves — edit any field that doesn't look right.</div>
+  </div>
+  <div class="review-flag" id="reviewFlag" style="display:none"></div>
+  <div class="review-doc">
+    <div class="review-doc-title">EOB Document</div>
+    <div class="review-doc-grid" id="reviewDocFields"></div>
+  </div>
+  <div class="review-claims">
+    <div class="review-claims-title" id="reviewClaimsTitle">Claims</div>
+    <div id="reviewClaimsList"></div>
+  </div>
+  <div class="review-acts">
+    <button class="btn-cancel" onclick="cancelReview()">← Go Back</button>
+    <button class="btn-save" onclick="confirmImport()">✓ Save to Health Records</button>
+  </div>
+</div>
+</div>
+
+<style>
+.src-tile{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:18px 14px;cursor:pointer;transition:border-color .15s,transform .1s;text-align:center;}
+.src-tile:hover{border-color:var(--blue);transform:translateY(-2px);}
+.src-icon{font-size:24px;margin-bottom:8px;}
+.src-name{font-size:13px;font-weight:700;margin-bottom:5px;}
+.src-desc{font-size:11px;color:var(--dim);line-height:1.5;}
+</style>
+
+<script>
+// ─── MODULES ─────────────────────────────────────────────────────────────────
+const MODULES = [
+  {id:'eob',icon:'📋',name:'Explanation of Benefits',
+   desc:'Track EOB documents from any insurer. Each document may contain multiple claims. Match claims to provider bills, catch overbilling, and monitor denial deadlines.',status:'active'},
+  {id:'medications',icon:'💊',name:'Medications',
+   desc:'Daily medications, refill tracking, drug interaction warnings, and prescription history.',status:'soon'},
+  {id:'appointments',icon:'🗓',name:'Appointments',
+   desc:'Doctor visits, notes, follow-up tracking — connected to your Hub calendar.',status:'soon'},
+  {id:'insurance',icon:'🛡',name:'Insurance Coverage',
+   desc:'Coverage lookup, network status, prior auth tracking, open enrollment advisor.',status:'soon'},
+  {id:'bills',icon:'📄',name:'Medical Bills',
+   desc:'Track every provider bill, link to visits, connect payments to AmitAccounting.',status:'soon'},
+  {id:'documents',icon:'🗂',name:'Health Records',
+   desc:'Lab results, radiology reports, clinical notes — your complete health history.',status:'soon'},
+  {id:'family',icon:'👨‍👩‍👧',name:'Family Health',
+   desc:'Manage health records for family members and grant trusted caregiver access.',status:'soon'},
+  {id:'preventive',icon:'🩺',name:'Preventive Care',
+   desc:'Track recommended screenings, due dates, and 100%-covered services by plan.',status:'soon'},
+];
+
+// ─── SUPABASE ─────────────────────────────────────────────────────────────────
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+// Fill in after Ryan re-onboards — his Supabase UUID becomes the demo data source
+const AMIT_DEMO_UID='';
+let _sb=null, _sbUid=null;
+function getSb(){
+  if(!_sb && window.supabase) _sb=window.supabase.createClient(SB_URL,SB_KEY);
+  return _sb;
+}
+function setSyncStatus(s){
+  const el=document.getElementById('syncIndicator');
+  if(!el) return;
+  if(s==='synced'){ el.textContent='● Synced'; el.style.color='var(--green)'; }
+  else if(s==='offline'){ el.textContent='● Offline'; el.style.color='var(--dim)'; }
+  else if(s==='syncing'){ el.textContent='● Syncing…'; el.style.color='var(--amber)'; }
+}
+async function _syncDoc(doc){
+  const sb=getSb(); if(!sb||!_sbUid) return;
+  setSyncStatus('syncing');
+  const {error}=await sb.from('health_eob_documents').upsert({
+    id:doc.id, user_id:_sbUid, benefit_year:currentYear, document:doc,
+    updated_at:new Date().toISOString()
+  },{onConflict:'id'});
+  setSyncStatus(error?'offline':'synced');
+}
+async function _deleteFromSb(docId){
+  const sb=getSb(); if(!sb||!_sbUid) return;
+  await sb.from('health_eob_documents').delete().eq('id',docId).eq('user_id',_sbUid);
+}
+async function _loadFromSupabase(){
+  const sb=getSb(); if(!sb||!_sbUid) return;
+  setSyncStatus('syncing');
+  const {data,error}=await sb.from('health_eob_documents')
+    .select('document').eq('user_id',_sbUid).eq('benefit_year',currentYear);
+  if(error||!data){ setSyncStatus('offline'); return; }
+  eobDocs=data.map(r=>r.document);
+  localStorage.setItem(docsKey(), JSON.stringify(eobDocs));
+  renderView(); updateSums();
+  setSyncStatus('synced');
+}
+
+// ─── MEMBER NAME ALIASES ──────────────────────────────────────────────────────
+// Maps insurance legal names → display names. Key = lowercase trimmed legal name.
+const MEMBER_ALIASES=(()=>{
+  try{ return JSON.parse(localStorage.getItem('amit_health_member_aliases')||'{}'); }catch(e){ return {}; }
+})();
+// Default alias: Ryan E. Frick → Amit (demo/persona mapping — configurable)
+if(!MEMBER_ALIASES['ryan e. frick']){
+  MEMBER_ALIASES['ryan e. frick']='Amit';
+  localStorage.setItem('amit_health_member_aliases',JSON.stringify(MEMBER_ALIASES));
+}
+function displayMember(name){
+  if(!name) return name||'';
+  return MEMBER_ALIASES[name.trim().toLowerCase()]||name;
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let eobDocs = [];
+let demoDocs = [];
+let demoMode = localStorage.getItem('amit_demo_health') !== 'off'; // default ON for new users
+let currentYear = new Date().getFullYear();
+let currentView = 'docs';
+let sortCol = 'date';
+let sortDir = 'desc';
+let editingDocId = null;
+let editingClaimId = null;
+let claimTargetDocId = null;
+
+function docsKey(){ return `amit_health_eob_docs_${currentYear}`; }
+function loadData(){ try{ eobDocs=JSON.parse(localStorage.getItem(docsKey())||'[]'); }catch(e){ eobDocs=[]; } }
+function saveData(){
+  localStorage.setItem(docsKey(), JSON.stringify(eobDocs));
+  if(_sbUid) eobDocs.forEach(d=>_syncDoc(d));
+}
+function uid(){
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
+}
+function fmt$(n){ const v=parseFloat(n)||0; return '$'+v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDate(s){ if(!s) return '—'; const p=s.split('-'); return `${parseInt(p[1])}/${parseInt(p[2])}/${p[0]}`; }
+function fmtShort(s){ if(!s) return ''; const p=s.split('-'); return `${parseInt(p[1])}/${parseInt(p[2])}`; }
+function cap(s){ return s?s.charAt(0).toUpperCase()+s.slice(1):''; }
+
+// ─── YEAR ─────────────────────────────────────────────────────────────────────
+function buildYearSelect(){
+  const sel=document.getElementById('yearSelect');
+  const yr=new Date().getFullYear();
+  for(let y=yr;y>=yr-5;y--){
+    const o=document.createElement('option');
+    o.value=y; o.textContent=y; if(y===currentYear) o.selected=true;
+    sel.appendChild(o);
+  }
+}
+function setYear(y){ currentYear=parseInt(y); loadData(); renderView(); }
+
+// ─── LANDING ──────────────────────────────────────────────────────────────────
+function buildTiles(){
+  const grid=document.getElementById('tilesGrid');
+  grid.innerHTML='';
+  MODULES.forEach(m=>{
+    const t=document.createElement('div');
+    t.className='tile '+(m.status==='active'?'act':'soon');
+    t.innerHTML=`<span class="tile-icon">${m.icon}</span><div class="tile-name">${m.name}</div>
+      <div class="tile-desc">${m.desc}</div>
+      <span class="tile-badge ${m.status==='active'?'badge-act':'badge-soon'}">${m.status==='active'?'Open':'Coming soon'}</span>
+      ${m.id==='eob'?'<span class="tile-flag" id="landing-flag"></span>':''}`;
+    t.onclick = m.status==='active'?()=>showEob():()=>showCs(m);
+    grid.appendChild(t);
+  });
+}
+function showLanding(){
+  document.getElementById('landingView').style.display='';
+  document.getElementById('eobPanel').classList.remove('show');
+  updateLandingBadge();
+}
+function showEob(){
+  document.getElementById('landingView').style.display='none';
+  document.getElementById('eobPanel').classList.add('show');
+  loadData(); renderView();
+}
+function updateLandingBadge(){
+  loadData();
+  const n=allClaims().filter(c=>getClaimFlags(c).length).length;
+  const el=document.getElementById('landing-flag');
+  if(el){ el.style.display=n?'block':'none'; el.textContent=n; }
+}
+
+// ─── COMING SOON ──────────────────────────────────────────────────────────────
+function showCs(m){
+  document.getElementById('csIcon').textContent=m.icon;
+  document.getElementById('csTitle').textContent=m.name;
+  document.getElementById('csText').textContent=m.desc+' This module is coming soon.';
+  document.getElementById('csOv').classList.add('show');
+}
+function closeCs(){ document.getElementById('csOv').classList.remove('show'); }
+
+// ─── DEMO MODE ────────────────────────────────────────────────────────────────
+function getActiveDocs(){ return demoMode ? demoDocs : eobDocs; }
+async function loadDemoData(){
+  if(!AMIT_DEMO_UID||!getSb()) return;
+  const {data,error}=await getSb()
+    .from('health_eob_documents').select('document')
+    .eq('user_id',AMIT_DEMO_UID).eq('benefit_year',currentYear);
+  if(error||!data) return;
+  demoDocs=data.map(r=>({...r.document,_isDemo:true}));
+  renderView(); updateSums();
+}
+function toggleDemo(){
+  demoMode=!demoMode;
+  localStorage.setItem('amit_demo_health',demoMode?'on':'off');
+  updateDemoBtn();
+  if(demoMode&&!demoDocs.length) loadDemoData(); else { renderView(); }
+}
+function updateDemoBtn(){
+  const btn=document.getElementById('demoBtn');
+  if(!btn) return;
+  btn.className='demo-badge '+(demoMode?'on':'off');
+  btn.textContent=demoMode?'DEMO':'Demo ▸';
+  btn.title=demoMode?"Showing Amit's demo data — click to switch to your own view":"Demo is off — click to see how Amit uses this module";
+}
+
+// ─── ALL CLAIMS (flattened) ───────────────────────────────────────────────────
+function allClaims(){
+  return getActiveDocs().flatMap(d=>(d.claims||[]).map(c=>({...c,_doc:d})));
+}
+
+// ─── FLAGS & ANALYSIS ─────────────────────────────────────────────────────────
+function getClaimFlags(c){
+  const flags=[];
+  const pr=parseFloat(c.patResp)||0;
+  const pp=parseFloat(c.patPaid)||0;
+  const pb=parseFloat(c.provBill)||0;
+  if(pb&&Math.abs(pb-pr)>0.01) flags.push('Billing discrepancy');
+  if(pp>pr+0.01) flags.push('Possible overpayment');
+  if(c.status==='denied'||c.status==='not-covered') flags.push('Claim denied');
+  if(c.status==='disputed') flags.push('In dispute');
+  if(c.status==='appealed') flags.push('Appeal in progress');
+  if(c.appealDeadline){
+    const days=Math.ceil((new Date(c.appealDeadline)-new Date())/86400000);
+    if(days>=0&&days<=30) flags.push(`Appeal due in ${days}d`);
+    if(days<0) flags.push('Appeal deadline passed');
+  }
+  return flags;
+}
+function isUnmatched(c){
+  const pb=parseFloat(c.provBill)||0;
+  const pr=parseFloat(c.patResp)||0;
+  if(pr===0) return false;
+  if(!pb) return true;
+  if(Math.abs(pb-pr)>0.01) return true;
+  return false;
+}
+function checkDuplicates(entry){
+  return allClaims().filter(c=>{
+    if(c.id===entry.id) return false;
+    if((c.provider||'').toLowerCase()!==(entry.provider||'').toLowerCase()) return false;
+    const a=parseFloat(entry.billed)||0, b=parseFloat(c.billed)||0;
+    if(a&&b&&Math.abs(a-b)/Math.max(a,b)>0.1) return false;
+    const d1=new Date(entry.date||''), d2=new Date(c.date||'');
+    if(isNaN(d1)||isNaN(d2)||Math.abs(d1-d2)>75*86400000) return false;
+    return true;
+  });
+}
+
+// ─── SUMMARY ──────────────────────────────────────────────────────────────────
+function renderSummary(){
+  const claims=allClaims();
+  let billed=0,insPaid=0,otherPaid=0,patResp=0,patPaid=0,flags=0;
+  claims.forEach(c=>{
+    billed+=parseFloat(c.billed)||0;
+    insPaid+=parseFloat(c.insPaid)||0;
+    otherPaid+=parseFloat(c.otherPaid)||0;
+    patResp+=parseFloat(c.patResp)||0;
+    patPaid+=parseFloat(c.patPaid)||0;
+    if(getClaimFlags(c).length) flags++;
+  });
+  const out=Math.max(0,patResp-patPaid);
+  document.getElementById('sumBilled').textContent=fmt$(billed);
+  document.getElementById('sumInsPaid').textContent=fmt$(insPaid);
+  document.getElementById('sumOtherPaid').textContent=fmt$(otherPaid);
+  document.getElementById('sumPatResp').textContent=fmt$(patResp);
+  document.getElementById('sumPatPaid').textContent=fmt$(patPaid);
+  document.getElementById('sumOut').textContent=fmt$(out);
+  document.getElementById('sumFlags').textContent=flags;
+  document.getElementById('cnt-docs').textContent=getActiveDocs().length;
+  document.getElementById('cnt-claims').textContent=claims.length;
+  document.getElementById('cnt-action').textContent=claims.filter(c=>getClaimFlags(c).length).length;
+  document.getElementById('cnt-unmatched').textContent=claims.filter(c=>isUnmatched(c)).length;
+
+  // Deductible / OOP from most recent doc
+  const sorted=[...eobDocs].sort((a,b)=>(b.dateRangeEnd||'').localeCompare(a.dateRangeEnd||''));
+  const latest=sorted[0];
+  renderDedBar(latest);
+
+  // Flag banners
+  const fb=document.getElementById('flagBanner');
+  if(flags){ fb.textContent=`${flags} claim${flags>1?'s':''} need attention — check the Needs Action tab.`; fb.classList.add('show'); }
+  else fb.classList.remove('show');
+
+  const ob=document.getElementById('oopBanner');
+  if(latest&&(parseFloat(latest.oopIndivRemain)===0&&parseFloat(latest.oopIndivLimit)>0)){
+    ob.textContent=`⚑ Your individual out-of-pocket maximum is met for ${currentYear}. Any in-network covered services should show $0.00 patient responsibility. If you receive bills from in-network providers, verify against your EOB before paying — they may be billing errors.`;
+    ob.classList.add('show');
+  } else ob.classList.remove('show');
+}
+
+function renderDedBar(doc){
+  const db=document.getElementById('dedBar');
+  if(!doc){ db.style.display='none'; return; }
+  db.style.display='';
+  const items=[
+    {lbl:'Individual Deductible',limit:doc.dedIndivLimit,remain:doc.dedIndivRemain},
+    {lbl:'Family Deductible',limit:doc.dedFamLimit,remain:doc.dedFamRemain},
+    {lbl:'Individual OOP Max',limit:doc.oopIndivLimit,remain:doc.oopIndivRemain},
+    {lbl:'Family OOP Max',limit:doc.oopFamLimit,remain:doc.oopFamRemain},
+  ].filter(i=>parseFloat(i.limit)>0);
+  if(!items.length){ db.style.display='none'; return; }
+  db.innerHTML=items.map(i=>{
+    const lim=parseFloat(i.limit)||0;
+    const rem=parseFloat(i.remain)||0;
+    const used=Math.max(0,lim-rem);
+    const pct=lim>0?Math.min(100,used/lim*100):0;
+    const met=rem<=0&&lim>0;
+    return `<div class="ded-item">
+      <div class="ded-lbl">${i.lbl} ${met?'<span class="ded-met">✓ MET</span>':''}</div>
+      <div class="ded-track"><div class="ded-fill ${met?'full':'partial'}" style="width:${pct}%"></div></div>
+      <div class="ded-nums"><span>${fmt$(used)} used</span><span>${met?'Met':''+fmt$(rem)+' left of '+fmt$(lim)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ─── VIEW ROUTING ─────────────────────────────────────────────────────────────
+function setView(v){
+  currentView=v;
+  document.querySelectorAll('.vtab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+v).classList.add('active');
+  renderView();
+}
+function renderView(){
+  renderSummary();
+  const area=document.getElementById('tableArea');
+  if(currentView==='docs') area.innerHTML=renderDocuments();
+  else if(currentView==='claims') area.innerHTML=renderAllClaimsView();
+  else if(currentView==='provider') area.innerHTML=renderByProvider();
+  else if(currentView==='action') area.innerHTML=renderNeedsAction();
+  else if(currentView==='unmatched') area.innerHTML=renderUnmatched();
+}
+
+// ─── SORTING ──────────────────────────────────────────────────────────────────
+function setSort(col){
+  if(sortCol===col) sortDir=sortDir==='asc'?'desc':'asc';
+  else { sortCol=col; sortDir=col==='date'?'desc':'asc'; }
+  renderView();
+}
+function sorted(list){
+  const numCols=['billed','saved','allowed','insPaid','otherPaid','deductible','copay','coinsurance','nonCovered','patResp','provBill','patPaid'];
+  return [...list].sort((a,b)=>{
+    let va=a[sortCol]||'', vb=b[sortCol]||'';
+    if(numCols.includes(sortCol)){ va=parseFloat(va)||0; vb=parseFloat(vb)||0; }
+    if(va<vb) return sortDir==='asc'?-1:1;
+    if(va>vb) return sortDir==='asc'?1:-1;
+    return 0;
+  });
+}
+function sa(col){ return `<span class="sort-a">${sortCol===col?(sortDir==='asc'?'▲':'▼'):'⇅'}</span>`; }
+function cls(col){ return `class="ch ${col==='billed'||col==='insPaid'||col==='deductible'||col==='copay'||col==='coinsurance'||col==='nonCovered'||col==='patResp'?'r ':' '}${sortCol===col?'active-sort':''}" onclick="setSort('${col}')" style="cursor:pointer;user-select:none"`; }
+
+function claimHdrHTML(){
+  return `<div class="claim-hdr">
+    <span ${cls('date')}>Date Svc ${sa('date')}</span>
+    <span ${cls('provider')}>Provider ${sa('provider')}</span>
+    <span ${cls('billed')}>Billed ${sa('billed')}</span>
+    <span ${cls('insPaid')}>Ins.Paid ${sa('insPaid')}</span>
+    <span ${cls('deductible')}>Deduct. ${sa('deductible')}</span>
+    <span ${cls('copay')}>Copay ${sa('copay')}</span>
+    <span ${cls('coinsurance')}>Coins. ${sa('coinsurance')}</span>
+    <span ${cls('nonCovered')}>Non-Cvr ${sa('nonCovered')}</span>
+    <span ${cls('patResp')}>You Owe ${sa('patResp')}</span>
+    <span class="ch">Status</span>
+    <span class="ch"></span>
+  </div>`;
+}
+
+// ─── CLAIM ROW HTML ───────────────────────────────────────────────────────────
+function claimRowHTML(c, docId){
+  const flags=getClaimFlags(c);
+  const pr=parseFloat(c.patResp)||0;
+  const pp=parseFloat(c.patPaid)||0;
+  const out=Math.max(0,pr-pp);
+  const statusLabel=flags.length&&c.status!=='denied'&&c.status!=='not-covered'?'flagged':c.status||'pending';
+  const dId=docId||c._doc?.id||'';
+  return `<div class="claim-item${flags.length?' fl':''}" id="ci-${c.id}">
+    <div class="claim-row" onclick="toggleClaim('${dId}','${c.id}')">
+      <div class="c-date">${fmtDate(c.date)}</div>
+      <div class="c-prov"><div class="c-prov-name">${esc(c.provider)}</div><div class="c-prov-type">${esc(c.serviceType)}</div></div>
+      <div class="c-amt">${fmt$(c.billed)}</div>
+      <div class="c-amt gr">${fmt$(c.insPaid)}</div>
+      <div class="c-amt ${parseFloat(c.deductible)>0?'am':''}">${fmt$(c.deductible)}</div>
+      <div class="c-amt ${parseFloat(c.copay)>0?'am':''}">${fmt$(c.copay)}</div>
+      <div class="c-amt ${parseFloat(c.coinsurance)>0?'am':''}">${fmt$(c.coinsurance)}</div>
+      <div class="c-amt ${parseFloat(c.nonCovered)>0?'rd':''}">${fmt$(c.nonCovered)}</div>
+      <div class="c-amt ${out>0?'am':'gr'}">${fmt$(pr)}</div>
+      <div><span class="sbadge s-${statusLabel}">${cap(statusLabel)}</span></div>
+      <button class="exp-btn" id="cexp-${c.id}">▾</button>
+    </div>
+    <div class="claim-detail" id="cd-${c.id}">
+      <div class="cd-grid">
+        ${flags.length?`<div class="cd-f" style="grid-column:1/-1"><span class="cd-lbl">⚑ Flags</span><span class="cd-val fl">${flags.join(' · ')}</span></div>`:''}
+        ${c.claimNumber?`<div class="cd-f"><span class="cd-lbl">Claim #</span><span class="cd-val">${esc(c.claimNumber)}</span></div>`:''}
+        ${c.provAcct?`<div class="cd-f"><span class="cd-lbl">Provider Acct</span><span class="cd-val">${esc(c.provAcct)}</span></div>`:''}
+        <div class="cd-f"><span class="cd-lbl">Network</span><span class="cd-val">${esc(c.network)||'—'}</span></div>
+        <div class="cd-f"><span class="cd-lbl">Amount Saved</span><span class="cd-val gr">${fmt$(c.saved)}</span></div>
+        <div class="cd-f"><span class="cd-lbl">Allowed Amount</span><span class="cd-val">${fmt$(c.allowed)}</span></div>
+        ${parseFloat(c.otherPaid)>0?`<div class="cd-f"><span class="cd-lbl">Other Ins. Paid</span><span class="cd-val bl">${fmt$(c.otherPaid)}</span></div>`:''}
+        <div class="cd-f"><span class="cd-lbl">You Have Paid</span><span class="cd-val ${pp>pr+0.01?'fl':out>0?'wn':'ok'}">${fmt$(pp)}</span></div>
+        <div class="cd-f"><span class="cd-lbl">Outstanding</span><span class="cd-val ${out>0?'wn':'ok'}">${out>0?fmt$(out):'Paid in full'}</span></div>
+        ${c.provBill&&Math.abs(parseFloat(c.provBill)-pr)>0.01?`<div class="cd-f" style="grid-column:1/-1"><span class="cd-lbl">⚑ Provider Billing You</span><span class="cd-val fl">${fmt$(c.provBill)} — EOB says ${fmt$(pr)}. Do not pay more than the EOB amount without resolving this.</span></div>`:''}
+        ${c.priorAuth?`<div class="cd-f"><span class="cd-lbl">Prior Auth #</span><span class="cd-val">${esc(c.priorAuth)}</span></div>`:''}
+        ${c.status==='denied'||c.status==='not-covered'?`<div class="cd-f"><span class="cd-lbl">Denial Code</span><span class="cd-val fl">${esc(c.denialCode)||'—'}</span></div><div class="cd-f"><span class="cd-lbl">Denial Reason</span><span class="cd-val fl">${esc(c.denialReason)||'—'}</span></div><div class="cd-f"><span class="cd-lbl">Appeal Deadline</span><span class="cd-val ${appealCls(c.appealDeadline)}">${fmtDate(c.appealDeadline)}</span></div>`:''}
+        ${c.notes?`<div class="cd-f" style="grid-column:1/-1"><span class="cd-lbl">Notes</span><span class="cd-val">${esc(c.notes)}</span></div>`:''}
+      </div>
+      <div class="cd-acts">
+        <button class="d-btn" onclick="openClaimModal('${dId}','${c.id}')">Edit</button>
+        <button class="d-btn del" onclick="deleteClaim('${dId}','${c.id}')">Delete</button>
+      </div>
+    </div>
+  </div>`;
+}
+function appealCls(d){ if(!d) return ''; const days=Math.ceil((new Date(d)-new Date())/86400000); return days<0?'fl':days<=30?'wn':'ok'; }
+
+// ─── DOCUMENTS VIEW ───────────────────────────────────────────────────────────
+function renderDocuments(){
+  const docs=getActiveDocs();
+  if(!docs.length) return demoMode
+    ? `<div class="empty-state">Demo data is loading…<br><small>Connect to see Amit's full health records as an example.</small></div>`
+    : `<div class="empty-state">No EOB documents recorded for ${currentYear}.<br>Click <strong>+ Add EOB Document</strong> to enter your first batch.<br><small style="margin-top:8px;display:block">Each physical EOB document can contain multiple claims from multiple providers.</small></div>`;
+  return docs.map(d=>docCardHTML(d)).join('');
+}
+function docCardHTML(d){
+  const claims=d.claims||[];
+  const flags=claims.filter(c=>getClaimFlags(c).length).length;
+  return `<div class="doc-card${flags?' has-flags':''}" id="doc-${d.id}">
+    <div class="doc-hdr" onclick="toggleDoc('${d.id}')">
+      <div class="doc-meta">
+        <div class="doc-ins">${esc(d.ins)||'Unknown Insurer'}${d._isDemo?'<span class="doc-demo-tag">DEMO</span>':''}</div>
+        <div class="doc-range">${d.rangeStart||d.rangeEnd?fmtDate(d.rangeStart)+' – '+fmtDate(d.rangeEnd):''} ${d.dateReceived?'· Rcvd '+fmtDate(d.dateReceived):''}</div>
+      </div>
+      <div class="doc-stats">
+        <div class="ds"><span class="ds-lbl">Billed</span><span class="ds-val sv-g">${fmt$(d.totalBilled)}</span></div>
+        <div class="ds"><span class="ds-lbl">Ins.Paid</span><span class="ds-val sv-gr">${fmt$(d.totalInsPaid)}</span></div>
+        <div class="ds"><span class="ds-lbl">You Owe</span><span class="ds-val sv-am">${fmt$(d.totalPatResp)}</span></div>
+        <div class="ds"><span class="ds-lbl">Claims</span><span class="ds-val">${claims.length}${flags?` <span style="color:var(--red)">⚑${flags}</span>`:''}</span></div>
+      </div>
+      <span class="doc-expand" id="dexp-${d.id}">▾</span>
+    </div>
+    <div class="doc-body" id="db-${d.id}">
+      <div class="doc-actions">
+        ${d._isDemo
+          ? `<span style="font-size:11px;color:var(--gold-dim);align-self:center">Demo record — read only</span>`
+          : `<button class="d-btn add" onclick="openClaimModal('${d.id}')">+ Add Claim</button>
+        <button class="d-btn" onclick="openDocModal('${d.id}')">Edit Document</button>
+        ${d.docRef?`<span style="font-size:11px;color:var(--dim);margin-left:4px;align-self:center">Ref: ${esc(d.docRef)}</span>`:''}
+        <button class="d-btn del" onclick="deleteDoc('${d.id}')" style="margin-left:auto">Delete Document</button>`}
+      </div>
+      ${docSummaryDetail(d)}
+      ${claims.length?claimHdrHTML()+claims.map(c=>claimRowHTML(c,d.id)).join(''):`<div style="padding:20px 16px;color:var(--dim);font-size:13px">No claims added yet. Click <strong>+ Add Claim</strong> to enter claims from this EOB document.</div>`}
+    </div>
+  </div>`;
+}
+function docSummaryDetail(d){
+  const fields=[
+    {lbl:'Member',val:displayMember(d.memberName)}, {lbl:'Enrollee ID',val:d.enrolleeId},
+    {lbl:'Group #',val:d.groupNum}, {lbl:'Total Saved',val:d.totalSaved?fmt$(d.totalSaved):null},
+    {lbl:'Other Ins. Paid',val:parseFloat(d.totalOtherPaid)>0?fmt$(d.totalOtherPaid):null},
+  ].filter(f=>f.val);
+  if(!fields.length) return '';
+  return `<div class="doc-summary-detail">${fields.map(f=>`<div class="dsd"><span class="dsd-lbl">${f.lbl}</span><span class="dsd-val">${esc(f.val)}</span></div>`).join('')}</div>`;
+}
+function toggleDoc(id){
+  const body=document.getElementById('db-'+id);
+  const arr=document.getElementById('dexp-'+id);
+  if(!body) return;
+  const open=body.classList.toggle('open');
+  if(arr) arr.textContent=open?'▴':'▾';
+}
+
+// ─── ALL CLAIMS VIEW ─────────────────────────────────────────────────────────
+function renderAllClaimsView(){
+  const claims=allClaims();
+  if(!claims.length) return `<div class="empty-state">No claims recorded yet.<br>Add an EOB document first, then add claims within it.</div>`;
+  return claimHdrHTML()+sorted(claims).map(c=>claimRowHTML(c)).join('');
+}
+
+// ─── BY PROVIDER ─────────────────────────────────────────────────────────────
+function renderByProvider(){
+  const claims=allClaims();
+  if(!claims.length) return `<div class="empty-state">No claims recorded yet.</div>`;
+  const groups={};
+  claims.forEach(c=>{ const k=(c.provider||'Unknown').trim(); if(!groups[k]) groups[k]=[]; groups[k].push(c); });
+  return Object.keys(groups).sort().map(prov=>{
+    const items=sorted(groups[prov]);
+    const tB=items.reduce((s,c)=>s+(parseFloat(c.billed)||0),0);
+    const tI=items.reduce((s,c)=>s+(parseFloat(c.insPaid)||0),0);
+    const tR=items.reduce((s,c)=>s+(parseFloat(c.patResp)||0),0);
+    const tP=items.reduce((s,c)=>s+(parseFloat(c.patPaid)||0),0);
+    const tO=Math.max(0,tR-tP);
+    const gid='pg-'+prov.replace(/\W/g,'_').slice(0,20);
+    return `<div class="pg"><div class="pg-hdr" onclick="togglePg('${gid}')">
+      <div class="pg-name">${esc(prov)} <span style="font-size:10px;color:var(--dim);font-weight:400">${items.length} claim${items.length>1?'s':''}</span></div>
+      <div class="pg-stats">
+        <div class="pg-stat"><span class="ps-lbl">Billed</span><span class="ps-val sv-g">${fmt$(tB)}</span></div>
+        <div class="pg-stat"><span class="ps-lbl">Ins.Paid</span><span class="ps-val sv-gr">${fmt$(tI)}</span></div>
+        <div class="pg-stat"><span class="ps-lbl">You Owe</span><span class="ps-val sv-am">${fmt$(tR)}</span></div>
+        <div class="pg-stat"><span class="ps-lbl">Outstanding</span><span class="ps-val ${tO>0?'sv-rd':'sv-gr'}">${fmt$(tO)}</span></div>
+      </div>
+      <span style="color:var(--dim);font-size:12px" id="${gid}-a">▾</span>
+    </div>
+    <div class="pg-body" id="${gid}">${claimHdrHTML()}${items.map(c=>claimRowHTML(c)).join('')}</div></div>`;
+  }).join('');
+}
+function togglePg(id){
+  const el=document.getElementById(id), arr=document.getElementById(id+'-a');
+  if(!el) return;
+  const open=el.classList.toggle('open');
+  if(arr) arr.textContent=open?'▴':'▾';
+}
+
+// ─── NEEDS ACTION ────────────────────────────────────────────────────────────
+function renderNeedsAction(){
+  const flagged=allClaims().filter(c=>getClaimFlags(c).length);
+  if(!flagged.length) return `<div class="empty-state">No items need action right now.<br>All claims are balanced and accounted for.</div>`;
+  const sec=(title,items)=>{
+    if(!items.length) return '';
+    return `<div class="action-sec"><div class="action-sec-title">${title} (${items.length})</div>${claimHdrHTML()}${sorted(items).map(c=>claimRowHTML(c)).join('')}</div>`;
+  };
+  return sec('Billing Discrepancy — Provider billing more than EOB patient responsibility',flagged.filter(c=>getClaimFlags(c).includes('Billing discrepancy')))
+    + sec('Denied Claims',flagged.filter(c=>c.status==='denied'||c.status==='not-covered'))
+    + sec('Appeal Deadlines Approaching or Passed',flagged.filter(c=>getClaimFlags(c).some(f=>f.includes('Appeal due')||f.includes('deadline passed'))))
+    + sec('Possible Overpayments',flagged.filter(c=>getClaimFlags(c).includes('Possible overpayment')))
+    + sec('In Dispute or Appeal',flagged.filter(c=>c.status==='disputed'||c.status==='appealed'));
+}
+
+// ─── UNMATCHED ───────────────────────────────────────────────────────────────
+function renderUnmatched(){
+  const unmatched=allClaims().filter(c=>isUnmatched(c));
+  if(!unmatched.length) return `<div class="empty-state">All claims have a matching provider bill recorded.</div>`;
+  return `<div style="font-size:12px;color:var(--dim);margin-bottom:10px;line-height:1.6">
+    These claims have no provider bill entered yet, or the provider's invoice doesn't match the EOB patient responsibility.
+    Enter the <strong>Provider Billing You</strong> field on each claim to match it.
+  </div>`+claimHdrHTML()+sorted(unmatched).map(c=>claimRowHTML(c)).join('');
+}
+
+// ─── TOGGLE CLAIM DETAIL ─────────────────────────────────────────────────────
+function toggleClaim(docId, claimId){
+  const det=document.getElementById('cd-'+claimId);
+  const btn=document.getElementById('cexp-'+claimId);
+  if(!det) return;
+  const open=det.classList.toggle('open');
+  if(btn) btn.textContent=open?'▴':'▾';
+}
+
+// ─── DOC MODAL ───────────────────────────────────────────────────────────────
+const DOC_FIELDS={
+  dIns:'ins',dMember:'memberName',dEnrolleeId:'enrolleeId',dGroupNum:'groupNum',dDocRef:'docRef',
+  dRangeStart:'rangeStart',dRangeEnd:'rangeEnd',dDateReceived:'dateReceived',
+  dTotalBilled:'totalBilled',dTotalSaved:'totalSaved',dTotalInsPaid:'totalInsPaid',
+  dTotalOtherPaid:'totalOtherPaid',dTotalPatResp:'totalPatResp',
+  dDedIndivLimit:'dedIndivLimit',dDedIndivRemain:'dedIndivRemain',
+  dDedFamLimit:'dedFamLimit',dDedFamRemain:'dedFamRemain',
+  dOopIndivLimit:'oopIndivLimit',dOopIndivRemain:'oopIndivRemain',
+  dOopFamLimit:'oopFamLimit',dOopFamRemain:'oopFamRemain',
+  dNotes:'notes'
+};
+function openDocModal(id){
+  editingDocId=id||null;
+  document.getElementById('docModalTitle').textContent=id?'Edit EOB Document':'Add EOB Document';
+  const doc=id?eobDocs.find(d=>d.id===id):null;
+  Object.entries(DOC_FIELDS).forEach(([fid,key])=>{ document.getElementById(fid).value=doc?doc[key]||'':''; });
+  document.getElementById('docModal').classList.add('show');
+}
+function closeDocModal(){ document.getElementById('docModal').classList.remove('show'); editingDocId=null; }
+function saveDoc(){
+  const ins=document.getElementById('dIns').value.trim();
+  if(!ins){ alert('Insurance company is required.'); return; }
+  const doc={id:editingDocId||uid()};
+  Object.entries(DOC_FIELDS).forEach(([fid,key])=>{ doc[key]=document.getElementById(fid).value.trim(); });
+  if(editingDocId){
+    const i=eobDocs.findIndex(d=>d.id===editingDocId);
+    if(i!==-1){ doc.claims=eobDocs[i].claims||[]; eobDocs[i]=doc; }
+  } else { doc.claims=[]; eobDocs.push(doc); }
+  saveData(); closeDocModal(); renderView();
+}
+function deleteDoc(id){
+  const doc=eobDocs.find(d=>d.id===id);
+  const n=(doc?.claims||[]).length;
+  if(!confirm(`Delete this EOB document${n?` and its ${n} claim${n>1?'s':''}`:''}`)) return;
+  eobDocs=eobDocs.filter(d=>d.id!==id);
+  localStorage.setItem(docsKey(), JSON.stringify(eobDocs));
+  _deleteFromSb(id);
+  renderView();
+}
+function updateDedCalc(type){ /* live deductible calc if needed — placeholder */ }
+
+// ─── CLAIM MODAL ─────────────────────────────────────────────────────────────
+const CLAIM_FIELDS={
+  cClaimNum:'claimNumber',cDate:'date',cProvider:'provider',cProvAcct:'provAcct',
+  cServiceType:'serviceType',cNetwork:'network',cPriorAuth:'priorAuth',
+  cBilled:'billed',cSaved:'saved',cAllowed:'allowed',cInsPaid:'insPaid',cOtherPaid:'otherPaid',
+  cDeductible:'deductible',cCopay:'copay',cCoinsurance:'coinsurance',cNonCovered:'nonCovered',cPatResp:'patResp',
+  cDenialCode:'denialCode',cDenialReason:'denialReason',cAppealDeadline:'appealDeadline',
+  cProvBill:'provBill',cPatPaid:'patPaid',cNotes:'notes'
+};
+function openClaimModal(docId, claimId){
+  claimTargetDocId=docId||null;
+  editingClaimId=claimId||null;
+  const doc=eobDocs.find(d=>d.id===docId);
+  const claim=claimId?(doc?.claims||[]).find(c=>c.id===claimId):null;
+  document.getElementById('claimModalTitle').textContent=claimId?'Edit Claim':'Add Claim';
+  document.getElementById('claimModalSub').textContent=doc?`Document: ${doc.ins||'EOB'} — ${fmtDate(doc.rangeStart)} to ${fmtDate(doc.rangeEnd)}`:'Enter claim details from the EOB document.';
+  Object.entries(CLAIM_FIELDS).forEach(([fid,key])=>{ document.getElementById(fid).value=claim?claim[key]||'':''; });
+  document.getElementById('cStatus').value=claim?.status||'paid';
+  onDenialChange();
+  document.getElementById('matchMsg').className='match-msg';
+  document.getElementById('dupWarn').className='dup-warn';
+  document.getElementById('claimModal').classList.add('show');
+}
+function closeClaimModal(){ document.getElementById('claimModal').classList.remove('show'); editingClaimId=null; claimTargetDocId=null; }
+
+function autoCalcAllowed(){
+  const b=parseFloat(document.getElementById('cBilled').value)||0;
+  const s=parseFloat(document.getElementById('cSaved').value)||0;
+  if(b&&s) document.getElementById('cAllowed').value=(b-s).toFixed(2);
+}
+function autoCalcPatResp(){
+  const d=parseFloat(document.getElementById('cDeductible').value)||0;
+  const cp=parseFloat(document.getElementById('cCopay').value)||0;
+  const ci=parseFloat(document.getElementById('cCoinsurance').value)||0;
+  const nc=parseFloat(document.getElementById('cNonCovered').value)||0;
+  document.getElementById('cPatResp').value=(d+cp+ci+nc).toFixed(2);
+  checkMatch();
+}
+function onDenialChange(){
+  const denied=['denied','not-covered'].includes(document.getElementById('cStatus').value);
+  document.getElementById('denialSection').classList.toggle('show',denied);
+  if(denied&&!document.getElementById('cAppealDeadline').value){
+    const d=document.getElementById('cDate').value;
+    if(d){ const dt=new Date(d); dt.setDate(dt.getDate()+180); document.getElementById('cAppealDeadline').value=dt.toISOString().slice(0,10); }
+  }
+}
+function checkMatch(){
+  const pr=parseFloat(document.getElementById('cPatResp').value)||0;
+  const pb=parseFloat(document.getElementById('cProvBill').value)||0;
+  const msg=document.getElementById('matchMsg');
+  if(!pr||!pb){ msg.className='match-msg'; return; }
+  if(Math.abs(pr-pb)<0.01){ msg.className='match-msg ok'; msg.textContent='✓ Provider bill matches EOB patient responsibility.'; }
+  else { msg.className='match-msg bad'; msg.textContent=`⚑ Discrepancy: EOB says you owe ${fmt$(pr)}, provider is billing ${fmt$(pb)}. Do not pay more than the EOB amount without resolving this.`; }
+}
+function saveClaim(){
+  const provider=document.getElementById('cProvider').value.trim();
+  const date=document.getElementById('cDate').value;
+  if(!provider){ alert('Provider name is required.'); return; }
+  const claim={id:editingClaimId||uid()};
+  Object.entries(CLAIM_FIELDS).forEach(([fid,key])=>{ claim[key]=document.getElementById(fid).value.trim(); });
+  claim.status=document.getElementById('cStatus').value;
+  const dups=checkDuplicates(claim);
+  if(dups.length){
+    const dw=document.getElementById('dupWarn');
+    dw.innerHTML=`⚑ Possible duplicate: similar entry already exists — ${esc(dups[0].provider)}, ${fmtDate(dups[0].date)}, ${fmt$(dups[0].billed)}. Save anyway if this is a separate claim.`;
+    dw.classList.add('show');
+  }
+  const doc=eobDocs.find(d=>d.id===claimTargetDocId);
+  if(!doc){ alert('Document not found.'); return; }
+  if(editingClaimId){
+    const i=(doc.claims||[]).findIndex(c=>c.id===editingClaimId);
+    if(i!==-1) doc.claims[i]=claim; else doc.claims.push(claim);
+  } else { if(!doc.claims) doc.claims=[]; doc.claims.push(claim); }
+  saveData(); closeClaimModal(); renderView();
+}
+function deleteClaim(docId, claimId){
+  if(!confirm('Delete this claim?')) return;
+  const doc=eobDocs.find(d=>d.id===docId);
+  if(doc) doc.claims=(doc.claims||[]).filter(c=>c.id!==claimId);
+  saveData(); renderView();
+}
+
+// ─── SCAN & IMPORT ────────────────────────────────────────────────────────────
+let pendingImport = null; // { eob: {}, claims: [] } waiting for review confirmation
+
+function openImportPicker(){ document.getElementById('importPickerModal').classList.add('show'); }
+function closeImportPicker(){ document.getElementById('importPickerModal').classList.remove('show'); }
+
+function triggerFileUpload(mode){
+  closeImportPicker();
+  document.getElementById(mode==='camera'?'fileInputCamera':'fileInputGeneral').click();
+}
+
+function handleFileSelected(input){
+  const file=input.files[0]; if(!file) return;
+  input.value=''; // reset so same file can be re-selected
+  showProcessing('Reading your document...','Amit is analyzing the file. This will take just a moment.');
+  // File reading — AI extraction wires in here via Edge Function
+  // For now, show a placeholder after a brief moment then offer the chat path
+  setTimeout(()=>{
+    hideProcessing();
+    const name=file.name||'your document';
+    openPasteModal(`File received: "${name}"\n\nAI extraction connects here once the processing layer is active.\n\nFor now: open an Amit conversation, share this document, and paste the extracted data below.`);
+  }, 1200);
+}
+
+async function triggerClipboard(){
+  closeImportPicker();
+  try {
+    const items = await navigator.clipboard.read();
+    for(const item of items){
+      const imgType = item.types.find(t=>t.startsWith('image/'));
+      if(imgType){
+        showProcessing('Reading clipboard image...','Amit is analyzing the image you copied.');
+        setTimeout(()=>{
+          hideProcessing();
+          openPasteModal('Image received from clipboard.\n\nAI extraction connects here once the processing layer is active.\n\nFor now: paste this image into an Amit conversation and paste the extracted data below.');
+        }, 1200);
+        return;
+      }
+    }
+    // Try plain text (maybe they copied JSON)
+    const text = await navigator.clipboard.readText();
+    if(text && text.trim().startsWith('{')){
+      openPasteModal();
+      setTimeout(()=>{ document.getElementById('pasteArea').value=text; },100);
+      return;
+    }
+    openPasteModal('No image found in clipboard. If you have text output from Amit, paste it below.');
+  } catch(e){
+    openPasteModal('Clipboard access was denied. Paste the data from your Amit conversation below.');
+  }
+}
+
+function showProcessing(title, msg){
+  document.getElementById('procTitle').textContent=title;
+  document.getElementById('procMsg').textContent=msg;
+  document.getElementById('processingModal').classList.add('show');
+}
+function hideProcessing(){ document.getElementById('processingModal').classList.remove('show'); }
+
+// ─── PASTE FROM CHAT ─────────────────────────────────────────────────────────
+function openPasteModal(prefillMsg){
+  if(prefillMsg){ document.getElementById('pasteArea').value=prefillMsg; }
+  document.getElementById('pasteErr').style.display='none';
+  document.getElementById('pasteModal').classList.add('show');
+}
+function closePasteModal(){
+  document.getElementById('pasteModal').classList.remove('show');
+  document.getElementById('pasteArea').value='';
+  document.getElementById('pasteErr').style.display='none';
+}
+
+function processPastedJSON(){
+  const raw=document.getElementById('pasteArea').value.trim();
+  const errEl=document.getElementById('pasteErr');
+  errEl.style.display='none';
+  let data;
+  try {
+    // Try to find JSON block even if there's surrounding text
+    const match=raw.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('no json');
+    data=JSON.parse(match[0]);
+  } catch(e){
+    errEl.style.display='block';
+    return;
+  }
+  const eob=data.eob||data.eob_document||data.document||{};
+  const claims=data.claims||[];
+  if(!eob.ins&&!eob.insuranceCompany&&!claims.length){
+    errEl.style.display='block'; return;
+  }
+  // Normalize field names (support both short and long key names)
+  const norm={
+    ins: eob.ins||eob.insuranceCompany||'',
+    memberName: eob.memberName||eob.member_name||'',
+    enrolleeId: eob.enrolleeId||eob.enrollee_id||eob.memberId||'',
+    groupNum: eob.groupNum||eob.groupNumber||eob.group_number||'',
+    rangeStart: eob.rangeStart||eob.dateRangeStart||eob.date_range_start||'',
+    rangeEnd: eob.rangeEnd||eob.dateRangeEnd||eob.date_range_end||'',
+    docRef: eob.docRef||eob.documentRef||eob.reference||'',
+    totalBilled: eob.totalBilled||eob.total_billed||'',
+    totalSaved: eob.totalSaved||eob.total_saved||'',
+    totalInsPaid: eob.totalInsPaid||eob.total_ins_paid||eob.insurancePaid||'',
+    totalOtherPaid: eob.totalOtherPaid||eob.total_other_paid||'',
+    totalPatResp: eob.totalPatResp||eob.total_patient_resp||eob.patientResponsibility||'',
+    dedIndivLimit: eob.dedIndivLimit||eob.individual_deductible_limit||'',
+    dedIndivRemain: eob.dedIndivRemain||eob.individual_deductible_remaining||'',
+    dedFamLimit: eob.dedFamLimit||eob.family_deductible_limit||'',
+    dedFamRemain: eob.dedFamRemain||eob.family_deductible_remaining||'',
+    oopIndivLimit: eob.oopIndivLimit||eob.individual_oop_limit||'',
+    oopIndivRemain: eob.oopIndivRemain||eob.individual_oop_remaining||'',
+    oopFamLimit: eob.oopFamLimit||eob.family_oop_limit||'',
+    oopFamRemain: eob.oopFamRemain||eob.family_oop_remaining||'',
+  };
+  const normClaims=claims.map(c=>({
+    claimNumber: c.claimNumber||c.claim_number||c.claimNum||'',
+    date: c.date||c.dateOfService||c.date_of_service||'',
+    provider: c.provider||c.providerName||c.provider_name||'',
+    provAcct: c.provAcct||c.providerAccount||c.provider_account||'',
+    serviceType: c.serviceType||c.service_type||c.type||'',
+    network: c.network||c.networkStatus||c.network_status||'in-network',
+    billed: c.billed||c.amountBilled||c.amount_billed||'',
+    saved: c.saved||c.amountSaved||c.amount_saved||'',
+    allowed: c.allowed||c.allowedAmount||c.allowed_amount||'',
+    insPaid: c.insPaid||c.insurancePaid||c.insurance_paid||'',
+    otherPaid: c.otherPaid||c.otherInsurancePaid||c.other_insurance_paid||'',
+    deductible: c.deductible||c.deductibleApplied||c.deductible_applied||'',
+    copay: c.copay||'',
+    coinsurance: c.coinsurance||'',
+    nonCovered: c.nonCovered||c.non_covered||'',
+    patResp: c.patResp||c.patientResponsibility||c.patient_responsibility||'',
+    status: c.status||'paid',
+    denialCode: c.denialCode||c.denial_code||'',
+    denialReason: c.denialReason||c.denial_reason||'',
+    appealDeadline: c.appealDeadline||c.appeal_deadline||'',
+    priorAuth: c.priorAuth||c.priorAuthNumber||c.prior_auth||'',
+    provBill: c.provBill||c.providerBilling||'',
+    patPaid: c.patPaid||c.patientPaid||'',
+    notes: c.notes||'',
+  }));
+  closePasteModal();
+  pendingImport={eob:norm, claims:normClaims};
+  showReview(norm, normClaims);
+}
+
+// ─── REVIEW PANEL ─────────────────────────────────────────────────────────────
+const DOC_REVIEW_FIELDS=[
+  {key:'ins',lbl:'Insurance Company'},
+  {key:'memberName',lbl:'Member Name'},
+  {key:'enrolleeId',lbl:'Enrollee ID'},
+  {key:'groupNum',lbl:'Group Number'},
+  {key:'rangeStart',lbl:'Period Start',type:'date'},
+  {key:'rangeEnd',lbl:'Period End',type:'date'},
+  {key:'docRef',lbl:'Document Ref #'},
+  {key:'totalBilled',lbl:'Total Billed',type:'number'},
+  {key:'totalSaved',lbl:'Total Saved',type:'number'},
+  {key:'totalInsPaid',lbl:'Insurance Paid',type:'number'},
+  {key:'totalOtherPaid',lbl:'Other Ins. Paid',type:'number'},
+  {key:'totalPatResp',lbl:'Patient Responsibility',type:'number'},
+  {key:'dedIndivLimit',lbl:'Indiv. Ded. Limit',type:'number'},
+  {key:'dedIndivRemain',lbl:'Indiv. Ded. Remaining',type:'number'},
+  {key:'oopIndivLimit',lbl:'Indiv. OOP Limit',type:'number'},
+  {key:'oopIndivRemain',lbl:'Indiv. OOP Remaining',type:'number'},
+];
+const CLAIM_REVIEW_FIELDS=[
+  {key:'date',lbl:'Date of Service',type:'date'},
+  {key:'claimNumber',lbl:'Claim #'},
+  {key:'provider',lbl:'Provider Name'},
+  {key:'provAcct',lbl:'Provider Acct #'},
+  {key:'serviceType',lbl:'Service Type'},
+  {key:'network',lbl:'Network'},
+  {key:'billed',lbl:'Billed',type:'number'},
+  {key:'saved',lbl:'Saved',type:'number'},
+  {key:'insPaid',lbl:'Ins. Paid',type:'number'},
+  {key:'otherPaid',lbl:'Other Paid',type:'number'},
+  {key:'deductible',lbl:'Deductible',type:'number'},
+  {key:'copay',lbl:'Copay',type:'number'},
+  {key:'coinsurance',lbl:'Coinsurance',type:'number'},
+  {key:'nonCovered',lbl:'Non-Covered',type:'number'},
+  {key:'patResp',lbl:'You Owe',type:'number'},
+  {key:'status',lbl:'Status'},
+];
+
+function showReview(eob, claims){
+  // Build doc fields
+  const docGrid=document.getElementById('reviewDocFields');
+  docGrid.innerHTML=DOC_REVIEW_FIELDS.map(f=>`
+    <div class="rv-f">
+      <span class="rv-lbl">${f.lbl}</span>
+      <input class="rv-inp" type="${f.type||'text'}" id="rv-doc-${f.key}" value="${esc(eob[f.key]||'')}">
+    </div>`).join('');
+
+  // Build claim list
+  const claimsList=document.getElementById('reviewClaimsList');
+  document.getElementById('reviewClaimsTitle').textContent=`${claims.length} Claim${claims.length!==1?'s':''} Found`;
+  claimsList.innerHTML=claims.map((c,i)=>`
+    <div class="rv-claim">
+      <div class="rv-claim-hdr" onclick="toggleRvClaim(${i})">
+        <div>
+          <div class="rv-claim-prov">${esc(c.provider)||'Unknown Provider'}</div>
+          <div class="rv-claim-meta">${fmtDate(c.date)} · ${c.serviceType||''} · You owe: ${fmt$(c.patResp)}</div>
+        </div>
+        <span id="rv-arr-${i}" style="color:var(--dim);font-size:12px">▾</span>
+      </div>
+      <div class="rv-claim-body" id="rv-claim-${i}">
+        <div class="rv-claim-grid">
+          ${CLAIM_REVIEW_FIELDS.map(f=>`
+            <div class="rv-f">
+              <span class="rv-lbl">${f.lbl}</span>
+              <input class="rv-inp" type="${f.type||'text'}" id="rv-c-${i}-${f.key}" value="${esc(c[f.key]||'')}">
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`).join('');
+
+  // Check for flags
+  const flags=[];
+  if(!eob.ins) flags.push('Insurance company name was not found — please fill it in.');
+  if(!claims.length) flags.push('No individual claims were found in this document.');
+  const flagEl=document.getElementById('reviewFlag');
+  if(flags.length){ flagEl.innerHTML=flags.map(f=>`⚑ ${f}`).join('<br>'); flagEl.style.display='block'; }
+  else flagEl.style.display='none';
+
+  document.getElementById('reviewPanel').classList.add('show');
+}
+
+function toggleRvClaim(i){
+  const body=document.getElementById('rv-claim-'+i);
+  const arr=document.getElementById('rv-arr-'+i);
+  const open=body.classList.toggle('open');
+  if(arr) arr.textContent=open?'▴':'▾';
+}
+
+function cancelReview(){
+  document.getElementById('reviewPanel').classList.remove('show');
+  pendingImport=null;
+}
+
+function confirmImport(){
+  if(!pendingImport) return;
+  // Collect edited doc fields
+  const doc={id:uid(), claims:[]};
+  DOC_REVIEW_FIELDS.forEach(f=>{ doc[f.key]=document.getElementById('rv-doc-'+f.key)?.value||''; });
+  // Collect edited claim fields
+  const claimCount=pendingImport.claims.length;
+  for(let i=0;i<claimCount;i++){
+    const claim={id:uid()};
+    CLAIM_REVIEW_FIELDS.forEach(f=>{ claim[f.key]=document.getElementById(`rv-c-${i}-${f.key}`)?.value||''; });
+    // Preserve non-review fields from original
+    const orig=pendingImport.claims[i];
+    ['provBill','patPaid','provAcct','denialCode','denialReason','appealDeadline','priorAuth','notes'].forEach(k=>{ claim[k]=orig[k]||''; });
+    doc.claims.push(claim);
+  }
+  eobDocs.push(doc);
+  saveData();
+  document.getElementById('reviewPanel').classList.remove('show');
+  pendingImport=null;
+  setView('docs');
+  // Auto-expand the newly imported document
+  setTimeout(()=>{ toggleDoc(doc.id); },200);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+buildYearSelect();
+buildTiles();
+loadData();
+updateDemoBtn();
+// Supabase auth — fires on page load and on magic link return
+if(window.supabase){
+  const _sbInit=window.supabase.createClient(SB_URL,SB_KEY);
+  _sb=_sbInit;
+  _sbInit.auth.onAuthStateChange((evt,session)=>{
+    _sbUid=session?.user?.id||null;
+    if(_sbUid) _loadFromSupabase();
+    else setSyncStatus('offline');
+  });
+}
+updateLandingBadge();
+</script>
+</body>
+</html>
