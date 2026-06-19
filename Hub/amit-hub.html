@@ -52,6 +52,9 @@ header{
 .brand-name{font-family:'Cinzel',serif;font-size:22px;font-weight:700;color:var(--gold);letter-spacing:.12em}
 .brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
 .hdr-right{text-align:right}
+.demo-badge{font-size:10px;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:10px;cursor:pointer;border:none;font-family:'Cinzel',serif;transition:all .2s;}
+.demo-badge.on{background:rgba(201,168,76,.15);color:var(--gold);border:1px solid rgba(201,168,76,.35);}
+.demo-badge.off{background:none;color:rgba(240,232,208,.3);border:1px solid rgba(240,232,208,.12);}
 .greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
 .datetime{font-size:12px;color:var(--muted);margin-top:2px}
 
@@ -1153,6 +1156,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(240,232,208,.4);text-underline-offset:3px"></div>
       <div id="syncIndicator" onclick="event.stopPropagation();openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;margin-top:3px;text-align:right;font-family:'Cinzel',serif">☁ SYNC</div>
     </div>
+    <button id="hubDemoBtn" class="demo-badge on" onclick="toggleHubDemo()" title="Showing Amit's demo data — click to use your own">DEMO</button>
     <div onclick="replayTutorial()" title="Show me around again" class="help-btn">?</div>
   </div>
 </header>
@@ -2306,8 +2310,11 @@ const RECUR_MAP={'none':'none','does not repeat':'none','no repeat':'none','dail
 // ══════════════════════════════════════════════
 const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
 const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
 const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
 let currentUser=null;
+let demoModeHub=localStorage.getItem('amit_demo_hub')!=='off';
+let demoPursuits=[];
 
 if(db){
   db.auth.onAuthStateChange((event,session)=>{
@@ -2317,8 +2324,10 @@ if(db){
     if(currentUser){
       _pullCompass();
       _writeDisplayName();
+      _pullEntries();
+      _pullReflections();
       if(!wasSignedIn){
-        _syncCompass(getCompass()); // push local compass data to Supabase on first sign-in
+        _syncCompass(getCompass());
         _showSignInWelcome(currentUser.email);
       }
     }
@@ -2358,6 +2367,80 @@ async function _writeDisplayName(){
   if(!name)return;
   try{await db.from('users').upsert({id:currentUser.id,email:currentUser.email},{onConflict:'id'});}catch{}
 }
+
+async function _pullEntries(){
+  if(!db||!currentUser)return;
+  try{
+    const[pRes,mRes]=await Promise.all([
+      db.from('hub_pursuits').select('*').eq('user_id',currentUser.id),
+      db.from('hub_memories').select('*').eq('user_id',currentUser.id)
+    ]);
+    const pursuits=(pRes.data||[]).map(r=>({
+      id:r.id,kind:'pursuit',title:r.title,notes:r.notes||'',
+      cat:r.purpose||'',subcat:r.focus||'',pri:parseInt((r.priority||'P5').replace('P','')),
+      due:r.due_date||'',done:r.done||false,completedDate:r.completed_at||'',
+      recur:r.recur||'none',starred:r.starred||false,isSample:r.is_sample||false,tags:r.tags||[]
+    }));
+    const mems=(mRes.data||[]).map(r=>({
+      id:r.id,kind:r.kind||'memory',title:r.title,notes:r.body||'',
+      due:r.due||'',completedDate:r.completed_date||'',
+      recur:r.recur||'none',isSample:r.is_sample||false
+    }));
+    const all=[...pursuits,...mems];
+    if(!all.length)return;
+    persist(all);
+    render();
+  }catch(e){console.warn('_pullEntries:',e);}
+}
+
+async function _pullReflections(){
+  if(!db||!currentUser)return;
+  try{
+    const{data}=await db.from('hub_reflections').select('*').eq('user_id',currentUser.id);
+    if(!data||!data.length)return;
+    const stored=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
+    data.forEach(r=>{if(r.reflection_date&&r.content)stored[r.reflection_date]=r.content;});
+    localStorage.setItem(REFL_KEY,JSON.stringify(stored));
+  }catch(e){console.warn('_pullReflections:',e);}
+}
+
+async function loadHubDemoData(){
+  if(!db)return;
+  try{
+    const[pRes,mRes]=await Promise.all([
+      db.from('hub_pursuits').select('*').eq('user_id',AMIT_DEMO_UID),
+      db.from('hub_memories').select('*').eq('user_id',AMIT_DEMO_UID)
+    ]);
+    const pursuits=(pRes.data||[]).map(r=>({
+      id:r.id,kind:'pursuit',title:r.title,notes:r.notes||'',
+      cat:r.purpose||'',subcat:r.focus||'',pri:parseInt((r.priority||'P5').replace('P','')),
+      due:r.due_date||'',done:r.done||false,completedDate:r.completed_at||'',
+      recur:r.recur||'none',starred:r.starred||false,isSample:true,tags:r.tags||[],_isDemo:true
+    }));
+    const mems=(mRes.data||[]).map(r=>({
+      id:r.id,kind:r.kind||'memory',title:r.title,notes:r.body||'',
+      due:r.due||'',completedDate:r.completed_date||'',
+      recur:r.recur||'none',isSample:true,_isDemo:true
+    }));
+    demoPursuits=[...pursuits,...mems];
+    if(demoModeHub)render();
+  }catch(e){console.warn('loadHubDemoData:',e);}
+}
+
+function toggleHubDemo(){
+  demoModeHub=!demoModeHub;
+  localStorage.setItem('amit_demo_hub',demoModeHub?'on':'off');
+  updateHubDemoBtn();
+  render();
+}
+
+function updateHubDemoBtn(){
+  const b=document.getElementById('hubDemoBtn');
+  if(!b)return;
+  if(demoModeHub){b.className='demo-badge on';b.title='Showing Amit\'s demo data — click to use your own';}
+  else{b.className='demo-badge off';b.title='Demo mode off — showing your data';}
+}
+
 function _showSignInWelcome(email){
   // Brief banner confirming sign-in succeeded — auto-dismisses after 5s
   let w=document.getElementById('signInWelcomeBanner');
@@ -2445,7 +2528,10 @@ const KEY='amit_todos_v2';
 const REFL_KEY='amit_reflections';
 const LOG_KEY='amit_personal_log';
 const MAIL_KEY='amit_mail_email';
-function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'[]');d.forEach(t=>{t.pri=migrateOldPri(t.pri);if(!t.kind){if(t.isExperience)t.kind='experience';else if(t.cat==='memory')t.kind='memory';else t.kind='pursuit';}if(t.kind==='pursuit'&&t.done){t.kind='memory';if(!t._origin)t._origin='pursuit';}});return d}catch{return[]}}
+function load(){
+  if(demoModeHub&&demoPursuits.length)return demoPursuits;
+  try{const d=JSON.parse(localStorage.getItem(KEY)||'[]');d.forEach(t=>{t.pri=migrateOldPri(t.pri);if(!t.kind){if(t.isExperience)t.kind='experience';else if(t.cat==='memory')t.kind='memory';else t.kind='pursuit';}if(t.kind==='pursuit'&&t.done){t.kind='memory';if(!t._origin)t._origin='pursuit';}});return d}catch{return[]}}
+
 function persist(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
 function uid(){return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16)});}
 function migrateOldPri(p){const m={'critical':1,'high':3,'normal':5,'low':8};return typeof p==='number'?p:(m[p]||5)}
@@ -7128,6 +7214,8 @@ function copyHubAmitInstructions() {
 
 document.addEventListener('DOMContentLoaded', function(){
   loadHubAmitStart(); loadHubAmitDeploy(); checkFirstVisit(); initLabelTooltips();
+  updateHubDemoBtn();
+  loadHubDemoData();
   window.addEventListener('resize', ()=>{ updateCalCellScale(); });
 });
 
