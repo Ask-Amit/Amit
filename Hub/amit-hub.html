@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Amit Hub</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1147,6 +1148,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   <div class="hdr-right" onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer">
     <div class="greeting" id="greeting">Good morning</div>
     <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(240,232,208,.4);text-underline-offset:3px"></div>
+    <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;margin-top:3px;text-align:right;font-family:'Cinzel',serif">☁ SYNC</div>
   </div>
 </header>
 <!-- TESTIMONY MODAL -->
@@ -2286,6 +2288,117 @@ const CAT_MAP={'inbox':'inbox','app development':'app-dev','app dev':'app-dev','
 const RECUR_MAP={'none':'none','does not repeat':'none','no repeat':'none','daily':'daily','weekdays':'weekdays','weekly':'weekly','every two weeks':'biweekly','biweekly':'biweekly','monthly':'monthly','yearly':'yearly'};
 
 // ══════════════════════════════════════════════
+// SUPABASE — CLOUD SYNC
+// localStorage is the source of truth. Supabase is the cloud layer.
+// All writes are fire-and-forget — never block the UI.
+// ══════════════════════════════════════════════
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+let currentUser=null;
+
+if(db){
+  db.auth.onAuthStateChange((event,session)=>{
+    currentUser=session?session.user:null;
+    _updateSyncUI();
+    if(currentUser)_pullCompass();
+  });
+}
+
+function _updateSyncUI(){
+  const el=document.getElementById('syncIndicator');if(!el)return;
+  if(currentUser){el.textContent='● SYNCED';el.style.color='rgba(100,220,160,.7)';el.title='Signed in · '+currentUser.email;}
+  else{el.textContent='☁ SYNC';el.style.color='rgba(240,232,208,.28)';el.title='Sign in to sync across devices';}
+}
+
+async function _syncCompass(p){
+  if(!db||!currentUser)return;
+  try{await db.from('compass_profiles').upsert({
+    user_id:currentUser.id,display_name:p.name||null,
+    compass_reading:p.compassReading||0,signals:p.signals||0,
+    witness_path:p.witnessPath||0,first_visit:p.firstVisit||todayStr()
+  },{onConflict:'user_id'});}catch{}
+}
+
+async function _pullCompass(){
+  if(!db||!currentUser)return;
+  try{
+    const{data}=await db.from('compass_profiles').select('*').eq('user_id',currentUser.id).maybeSingle();
+    if(!data)return;
+    const loc=getCompass();
+    if((data.compass_reading||0)>(loc.compassReading||0)){
+      saveCompass({...loc,compassReading:data.compass_reading,signals:data.signals||loc.signals,witnessPath:data.witness_path||loc.witnessPath,name:data.display_name||loc.name});
+    }
+  }catch{}
+}
+
+async function _syncEntry(entry){
+  if(!db||!currentUser||!entry||!entry.id)return;
+  try{
+    const k=entry.kind||'pursuit';
+    if(k==='pursuit'){
+      await db.from('hub_pursuits').upsert({
+        id:entry.id,user_id:currentUser.id,title:entry.title,notes:entry.notes||null,
+        purpose:entry.cat||null,focus:entry.subcat||null,priority:'P'+(entry.pri||5),
+        due_date:entry.due||null,done:entry.done||false,completed_at:entry.completedDate||null,
+        recur:entry.recur||'none',starred:entry.starred||false,is_sample:entry.isSample||false,
+        tags:entry.tags||[]
+      },{onConflict:'id'});
+    }else{
+      await db.from('hub_memories').upsert({
+        id:entry.id,user_id:currentUser.id,title:entry.title,body:entry.notes||null,
+        kind:k,due:entry.due||null,completed_date:entry.completedDate||null,
+        recur:entry.recur||'none',is_sample:entry.isSample||false
+      },{onConflict:'id'});
+    }
+  }catch{}
+}
+
+async function _syncReflection(dateStr,content){
+  if(!db||!currentUser)return;
+  try{await db.from('hub_reflections').upsert({
+    user_id:currentUser.id,reflection_date:dateStr,content
+  },{onConflict:'user_id,reflection_date'});}catch{}
+}
+
+async function sendMagicLink(email){
+  if(!db)return'Database not available';
+  const{error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:'https://ask-amit.github.io/Amit/Hub/amit-hub.html'}});
+  return error?error.message:null;
+}
+
+async function dbSignOut(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;_updateSyncUI();
+}
+
+function openSyncModal(){
+  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))dbSignOut();return;}
+  const m=document.getElementById('syncModal');if(!m)return;
+  if(location.protocol==='file:'){
+    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:15px;margin-bottom:12px">Sync Available on Web</div>
+      <div style="color:rgba(240,232,208,.65);font-size:12px;line-height:1.8;margin-bottom:20px">Sign-in links require the web version.<br>Open Amit Hub at:<br><a href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" target="_blank" style="color:rgba(201,168,76,.8)">ask-amit.github.io/Amit/Hub/amit-hub.html</a></div>
+      <div onclick="closeSyncModal()" style="font-size:9px;color:rgba(240,232,208,.3);cursor:pointer;letter-spacing:.1em">CLOSE</div>`;
+  }
+  m.style.display='flex';
+}
+function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+async function submitSyncEmail(){
+  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
+  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
+  const err=await sendMagicLink(email);
+  if(err){btn.textContent='Try again';btn.disabled=false;}
+  else{
+    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
 // STORAGE
 // ══════════════════════════════════════════════
 const KEY='amit_todos_v2';
@@ -2294,7 +2407,7 @@ const LOG_KEY='amit_personal_log';
 const MAIL_KEY='amit_mail_email';
 function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||'[]');d.forEach(t=>{t.pri=migrateOldPri(t.pri);if(!t.kind){if(t.isExperience)t.kind='experience';else if(t.cat==='memory')t.kind='memory';else t.kind='pursuit';}if(t.kind==='pursuit'&&t.done){t.kind='memory';if(!t._origin)t._origin='pursuit';}});return d}catch{return[]}}
 function persist(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
-function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
+function uid(){return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16)});}
 function migrateOldPri(p){const m={'critical':1,'high':3,'normal':5,'low':8};return typeof p==='number'?p:(m[p]||5)}
 
 // ══════════════════════════════════════════════
@@ -2456,7 +2569,7 @@ function getCompass(){
     return p||{name:'',firstVisit:'',compassReading:0,signals:0,witnessPath:0};}
   catch{return{name:'',firstVisit:'',compassReading:0,signals:0,witnessPath:0};}
 }
-function saveCompass(p){try{localStorage.setItem(COMPASS_KEY,JSON.stringify(p));}catch{}}
+function saveCompass(p){try{localStorage.setItem(COMPASS_KEY,JSON.stringify(p));}catch{} _syncCompass(p);}
 // 0=productivity only | 1=brief feast | 2=full feast + Torah Walk available | 3=full Messianic
 function getCompassTier(){
   const r=(getCompass().compassReading||0);
@@ -2682,8 +2795,8 @@ function loadVerse(){
 function saveReflection(){
   try{
     const refls=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
-    refls[todayStr()]=document.getElementById('reflectionText').value;
-    localStorage.setItem(REFL_KEY,JSON.stringify(refls));
+    const _ds=todayStr();refls[_ds]=document.getElementById('reflectionText').value;
+    localStorage.setItem(REFL_KEY,JSON.stringify(refls));_syncReflection(_ds,refls[_ds]);
     const s=document.getElementById('reflSaved');
     s.textContent='Saved.';
     setTimeout(()=>s.textContent='',2000);
@@ -2829,7 +2942,7 @@ function saveAltarReflection(){
   try{
     const refls=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
     refls[homePanelDate]=document.getElementById('altarRefl').value;
-    localStorage.setItem(REFL_KEY,JSON.stringify(refls));
+    localStorage.setItem(REFL_KEY,JSON.stringify(refls));_syncReflection(homePanelDate,refls[homePanelDate]);
     const s=document.getElementById('altarReflSaved');if(s){s.textContent='Saved.';setTimeout(()=>s.textContent='',1800);}
   }catch{}
 }
@@ -3930,9 +4043,12 @@ function saveTask(){
   const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,kind:modalKind,due:dueVal,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode,done:isDone,completedAt:isDone?Date.now():null,completedDate:isDone?dueVal:null,isExperience:isExp,...(isExp&&sessionNote?{sessionNote}:{})};
   if(subcat&&!isExp&&!isMem)addFocusItem(cat,subcat);
   const d=load();
-  if(editId){const t=d.find(x=>x.id===editId);if(t)Object.assign(t,obj)}
-  else d.push({id:uid(),...obj,created:Date.now()});
-  persist(d);closeModal();render();
+  let _syncId;
+  if(editId){const t=d.find(x=>x.id===editId);if(t){Object.assign(t,obj);_syncId=editId;}}
+  else{_syncId=uid();d.push({id:_syncId,...obj,created:Date.now()});}
+  persist(d);
+  if(_syncId){const _e=d.find(x=>x.id===_syncId);if(_e)_syncEntry(_e);}
+  closeModal();render();
 }
 
 // ══════════════════════════════════════════════
@@ -5956,7 +6072,7 @@ function saveDvReflection(){
     const r=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
     const prev=r[calDvDs]||'';
     r[calDvDs]=document.getElementById('dvReflArea').value;
-    localStorage.setItem(REFL_KEY,JSON.stringify(r));
+    localStorage.setItem(REFL_KEY,JSON.stringify(r));_syncReflection(calDvDs,r[calDvDs]);
     if(!prev&&r[calDvDs])recordSignal('reflection');
     const s=document.getElementById('dvReflSaved');if(s){s.textContent='Saved.';setTimeout(()=>s.textContent='',2000);}
   }catch{}
@@ -6757,5 +6873,22 @@ function hideLabelTip(){
     </div>
   </div>
 </div>
+
+<!-- SYNC / SIGN-IN MODAL -->
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:#0f2338;border:1px solid rgba(201,168,76,.35);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6)">
+    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+    <input id="syncEmailInput" type="email" placeholder="your@email.com"
+      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
+    <button id="syncSubmitBtn" onclick="submitSyncEmail()"
+      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      SEND SIGN-IN LINK →
+    </button>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+  </div>
+</div>
+
 </body>
 </html>
