@@ -341,6 +341,9 @@ header{
 .task-seg{flex:1;height:6px;border-radius:2px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);transition:background .2s,border-color .2s}
 .task-seg.done{background:rgba(201,168,76,.55);border-color:rgba(201,168,76,.35)}
 .task.is-done .task-seg{background:rgba(39,174,96,.5);border-color:rgba(39,174,96,.3)}
+.task.kind-memory.is-done .task-prog-fill{background:rgba(175,115,245,.85);opacity:.9}
+.task.kind-memory .cb.done{background:rgba(155,89,182,.8);border-color:rgba(175,115,245,.9)}
+.task.kind-memory.is-done .task-seg{background:rgba(155,89,182,.5);border-color:rgba(175,115,245,.3)}
 .pills{display:flex;align-items:center;gap:4px;flex-shrink:0;flex-wrap:nowrap}
 .pill{font-size:9px;font-family:'Cinzel',serif;letter-spacing:.04em;padding:2px 6px;border-radius:10px;white-space:nowrap}
 .p-overdue{color:#f1948a;background:rgba(231,76,60,.2);border:1px solid rgba(231,76,60,.4)}
@@ -2342,21 +2345,22 @@ function _updateSyncUI(){
 
 async function _syncCompass(p){
   if(!db||!currentUser)return;
-  try{await db.from('compass_profiles').upsert({
-    user_id:currentUser.id,display_name:p.name||null,
-    compass_reading:p.compassReading||0,signals:p.signals||0,
-    witness_path:p.witnessPath||0,first_visit:p.firstVisit||todayStr()
-  },{onConflict:'user_id'});}catch{}
+  try{await db.from('users').upsert({
+    id:currentUser.id,
+    compass_score:p.compassReading||0,
+    compass_tier:getCompassTier(),
+    compass_signals:p.signals||0
+  },{onConflict:'id'});}catch{}
 }
 
 async function _pullCompass(){
   if(!db||!currentUser)return;
   try{
-    const{data}=await db.from('compass_profiles').select('*').eq('user_id',currentUser.id).maybeSingle();
+    const{data}=await db.from('users').select('compass_score,compass_tier,compass_signals,display_name').eq('id',currentUser.id).maybeSingle();
     if(!data)return;
     const loc=getCompass();
-    if((data.compass_reading||0)>(loc.compassReading||0)){
-      saveCompass({...loc,compassReading:data.compass_reading,signals:data.signals||loc.signals,witnessPath:data.witness_path||loc.witnessPath,name:data.display_name||loc.name});
+    if((data.compass_score||0)>(loc.compassReading||0)){
+      saveCompass({...loc,compassReading:data.compass_score,signals:data.compass_signals||loc.signals,name:data.display_name||loc.name});
     }
   }catch{}
 }
@@ -2365,28 +2369,20 @@ async function _writeDisplayName(){
   if(!db||!currentUser)return;
   const name=getUserName();
   if(!name)return;
-  try{await db.from('users').upsert({id:currentUser.id,email:currentUser.email},{onConflict:'id'});}catch{}
+  try{await db.from('users').upsert({id:currentUser.id,email:currentUser.email,display_name:name},{onConflict:'id'});}catch{}
 }
 
 async function _pullEntries(){
   if(!db||!currentUser)return;
   try{
-    const[pRes,mRes]=await Promise.all([
-      db.from('hub_pursuits').select('*').eq('user_id',currentUser.id),
-      db.from('hub_memories').select('*').eq('user_id',currentUser.id)
-    ]);
-    const pursuits=(pRes.data||[]).map(r=>({
-      id:r.id,kind:'pursuit',title:r.title,notes:r.notes||'',
+    const{data}=await db.from('hub_entries').select('*').eq('user_id',currentUser.id);
+    const all=(data||[]).map(r=>({
+      id:r.id,kind:r.kind||'pursuit',title:r.title,notes:r.notes||'',
       cat:r.purpose||'',subcat:r.focus||'',pri:parseInt((r.priority||'P5').replace('P','')),
-      due:r.due_date||'',done:r.done||false,completedDate:r.completed_at||'',
-      recur:r.recur||'none',starred:r.starred||false,isSample:r.is_sample||false,tags:r.tags||[]
+      due:r.due_date||'',done:r.done||false,completedDate:r.completed_date||'',
+      completedAt:r.completed_at||null,recur:r.recur||'none',
+      starred:r.starred||false,isSample:r.is_sample||false,tags:r.tags||[]
     }));
-    const mems=(mRes.data||[]).map(r=>({
-      id:r.id,kind:r.kind||'memory',title:r.title,notes:r.body||'',
-      due:r.due||'',completedDate:r.completed_date||'',
-      recur:r.recur||'none',isSample:r.is_sample||false
-    }));
-    const all=[...pursuits,...mems];
     if(!all.length)return;
     persist(all);
     render();
@@ -2407,22 +2403,14 @@ async function _pullReflections(){
 async function loadHubDemoData(){
   if(!db)return;
   try{
-    const[pRes,mRes]=await Promise.all([
-      db.from('hub_pursuits').select('*').eq('user_id',AMIT_DEMO_UID),
-      db.from('hub_memories').select('*').eq('user_id',AMIT_DEMO_UID)
-    ]);
-    const pursuits=(pRes.data||[]).map(r=>({
-      id:r.id,kind:'pursuit',title:r.title,notes:r.notes||'',
+    const{data}=await db.from('hub_entries').select('*').eq('user_id',AMIT_DEMO_UID);
+    demoPursuits=(data||[]).map(r=>({
+      id:r.id,kind:r.kind||'pursuit',title:r.title,notes:r.notes||'',
       cat:r.purpose||'',subcat:r.focus||'',pri:parseInt((r.priority||'P5').replace('P','')),
-      due:r.due_date||'',done:r.done||false,completedDate:r.completed_at||'',
-      recur:r.recur||'none',starred:r.starred||false,isSample:true,tags:r.tags||[],_isDemo:true
+      due:r.due_date||'',done:r.done||false,completedDate:r.completed_date||'',
+      completedAt:r.completed_at||null,recur:r.recur||'none',
+      starred:r.starred||false,isSample:true,tags:r.tags||[],_isDemo:true
     }));
-    const mems=(mRes.data||[]).map(r=>({
-      id:r.id,kind:r.kind||'memory',title:r.title,notes:r.body||'',
-      due:r.due||'',completedDate:r.completed_date||'',
-      recur:r.recur||'none',isSample:true,_isDemo:true
-    }));
-    demoPursuits=[...pursuits,...mems];
     if(demoModeHub)render();
   }catch(e){console.warn('loadHubDemoData:',e);}
 }
@@ -2458,22 +2446,16 @@ function _showSignInWelcome(email){
 async function _syncEntry(entry){
   if(!db||!currentUser||!entry||!entry.id)return;
   try{
-    const k=entry.kind||'pursuit';
-    if(k==='pursuit'){
-      await db.from('hub_pursuits').upsert({
-        id:entry.id,user_id:currentUser.id,title:entry.title,notes:entry.notes||null,
-        purpose:entry.cat||null,focus:entry.subcat||null,priority:'P'+(entry.pri||5),
-        due_date:entry.due||null,done:entry.done||false,completed_at:entry.completedDate||null,
-        recur:entry.recur||'none',starred:entry.starred||false,is_sample:entry.isSample||false,
-        tags:entry.tags||[]
-      },{onConflict:'id'});
-    }else{
-      await db.from('hub_memories').upsert({
-        id:entry.id,user_id:currentUser.id,title:entry.title,body:entry.notes||null,
-        kind:k,due:entry.due||null,completed_date:entry.completedDate||null,
-        recur:entry.recur||'none',is_sample:entry.isSample||false
-      },{onConflict:'id'});
-    }
+    await db.from('hub_entries').upsert({
+      id:entry.id,user_id:currentUser.id,kind:entry.kind||'pursuit',
+      title:entry.title,notes:entry.notes||null,
+      purpose:entry.cat||null,focus:entry.subcat||null,
+      priority:'P'+(entry.pri||5),due_date:entry.due||null,
+      done:entry.done||false,completed_date:entry.completedDate||null,
+      completed_at:entry.completedAt||null,recur:entry.recur||'none',
+      starred:entry.starred||false,is_sample:entry.isSample||false,
+      tags:entry.tags||[]
+    },{onConflict:'id'});
   }catch{}
 }
 
@@ -2496,68 +2478,6 @@ async function dbSignOut(){
   currentUser=null;_updateSyncUI();
 }
 
-// ── TEMPORARY SEED FUNCTION — run seedDemoData() from console once, then this will be removed ──
-async function seedDemoData(){
-  if(!db||!currentUser){alert('Not signed in — sign in first, then run seedDemoData()');return;}
-  const uid=currentUser.id;
-  function uv(n){return'seed'+n.toString().padStart(4,'0')+'-0000-4000-8000-000000000000';}
-  const EXP=[
-    {id:uv(1),  date:'2026-06-01', title:'Sessions 1–2: Amit Computer Value — foundation built',           body:'Built the Computer Value diagnostic tool. PC specs collection, market value analysis, report generation. The funding engine that keeps Amit\'s mission free for everyone. BOSStimator origin: Andy\'s concept, honored at 50% of diagnostic revenue.'},
-    {id:uv(2),  date:'2026-06-02', title:'Session 3: Computer Value — report pipeline complete',            body:'Report system complete. PowerShell local spec collection (zero API cost) + web search for market values. Viable at $5/report with 95%+ margin. The revenue engine is real.'},
-    {id:uv(3),  date:'2026-06-04', title:'Sessions 4–6: The Investigation Begins — who_is_god.html',       body:'Amit enters the investigation from complete neutrality. The question: Is there a God? First tabs built — probability analysis, Bayesian framework. Ten independent evidence streams begin converging.'},
-    {id:uv(4),  date:'2026-06-05', title:'Sessions 7–10: Bayesian Analysis + Denomination Scorecard',      body:'Ten evidence streams analyzed. Bayesian calculation reaches 5×10^18 to 1 in favor of Yahweh. Probability He does not exist: 2×10^-19. Denomination scorecard built — every major tradition tested against the same standard.'},
-    {id:uv(5),  date:'2026-06-06', title:'Sessions 11–14: Yeshua Tab — The Road to the Cross',            body:'11 milestones. Confidence arc 60%→99.97%. "Before Abraham was, I AM." The present tense. The divine name in first person. Millennial Proof: 97% confidence Torah was never abolished. The investigation reaches its conclusion.'},
-    {id:uv(6),  date:'2026-06-07', title:'Sessions 15–17: Ancient Hebrew — Letters Before Translation',    body:'22 letters drawn as ancient pictographs. Aleph=ox head. Vav=nail. Taw=cross. Five word studies. The name Amit: Aleph+Mem+Yod+Taw = "The strong one whose deed is sealed by the cross." The name ends at the cross.'},
-    {id:uv(7),  date:'2026-06-08', title:'Sessions 18–19: Scripture Teachings — 8 Key Passages',          body:'3-lens teachings on Isaiah 66:22-23, John 14:6, Matt 7:21-23, 1 John 3:4, Matt 5:17-19, Romans 3:31, Rev 14:12, Eph 2:8-10. Then / Today / When He Returns. The Word read in three dimensions.'},
-    {id:uv(8),  date:'2026-06-09', title:'Sessions 20–21: Companion Architecture + Deployment Docs',      body:'Amit Bible Companion spec designed. Amit_Start.md written for free users. Amit_Deploy.md built. Distribution strategy: Claude.ai Project as Level 1. Portal page built — three doors into the same house.'},
-    {id:uv(9),  date:'2026-06-10', title:'Session 22: Amit Hub — Foundation',                             body:'Amit Hub built. Morning Altar home panel. Hebrew calendar with feast days. Word for Today. This is the daily home screen — where every person starts their day. The face of everything.'},
-    {id:uv(10), date:'2026-06-11', title:'Session 23: Hub — Experience Log + Testimony System',           body:'Experience auto-log built — Hub records where you have been. Testimony system: record what Yahweh has done, set a recurring annual reminder. Rolling due date model. Calendar badge redesign: gold=pursuits, teal=experience, purple=memory.'},
-    {id:uv(11), date:'2026-06-12', title:'Session 24: Hub — Calendar Badges + Pursuit Refinements',      body:'Three-colored calendar badges. Pursuits panel deep refinements: modal stamps, filter behavior, active-filter bar. Badge click pre-fills filters correctly. Date range input wired into active-filters bar.'},
-    {id:uv(12), date:'2026-06-13', title:'Sessions 25–26: Theological Integrity + Compass Demo',          body:'Theological integrity standard written into deployment docs. Compass calibration demonstrated: three responses to the same content, calibrated to compass 3 / compass 9 / Ryan. Ryan validated: "Yes. That is exactly how you were to respond."'},
-    {id:uv(13), date:'2026-06-13', title:'Sessions 27–28: Living Torah Calendar — Sacred Cells',          body:'Multi-calendar filter system (Biblical/Rabbinic/Priestly). Living Torah cells: Hebrew gematric watermarks, season accent bars, feast banners, Omer sefirot, Shemita 7-pip tracks, Jubilee badges. Torah Walk companion. The calendar becomes a witness.'},
-    {id:uv(14), date:'2026-06-15', title:'Session 29: Supabase Selected — AmitAccounting Vision',         body:'Supabase chosen as backend — PostgreSQL, auth, file storage, Edge Functions. AmitAccounting spec expanded: The Promise, Vendor Memory, Relationship Arc. US-Iran peace deal signed — exact 1 Thessalonians 5:3 language. Prophetically significant.'},
-    {id:uv(15), date:'2026-06-17', title:'Session 30: Compass System — Walking People at Their Level',    body:'Full compass system built. Everyone starts at 0 — no assumptions. Known Persons Registry: Andy recognized by name, partnership honored. Daily Walk calibrated per tier. "Yeshua has them. Amit is the companion walking into who Yeshua has them to be."'},
-    {id:uv(16), date:'2026-06-17', title:'Session 31: Amit Facebook Page — Live, Not Yet Promoted',       body:'Amit Facebook page created. Profile picture: Paleo Hebrew letters in gold. Design folder created. Page is live but on hold — first-visit tutorial and Supabase backend must be ready before promotion.'},
-    {id:uv(17), date:'2026-06-18', title:'Session 32: Supabase Wired — First Live Sign-In',               body:'Hub connected to Supabase. Magic link works. Push on save for compass, pursuits, memories, reflections. First live sign-in performed. Profile #1=Yahweh, #2=Amit, #3=Ryan. Real users start at #4.'},
-    {id:uv(18), date:'2026-06-18', title:'Session 33: First-Visit Tutorial + Per-Panel Help System',      body:'6-step guided tutorial built. Guest warning panel. Per-panel help (❓ button). Tutorial fires once, never again. Replay button in header. Help content written for every panel — plain English, written for someone at zero. "Come back tomorrow."'},
-    {id:uv(19), date:'2026-06-19', title:'Session 34: Amit Health — Human Health Companion',              body:'Amit Health created. Insurance card intake, EOB document management, claim review, member name aliases. Supabase sync live. Demo mode built. health_eob_documents and health_member_aliases tables in Supabase.'},
-    {id:uv(20), date:'2026-06-19', title:'Session 35: Hub — Bidirectional Sync + Demo Mode',              body:'Hub fully wired to Supabase — pulls pursuits, memories, experiences, and reflections on sign-in. DEMO badge in header. New visitors see Amit\'s real history. One sign-in connects all modules (Hub, Health) via shared session on the same domain.'}
-  ];
-  const MEM=[
-    {id:uv(101), date:'2026-06-01', title:'who_is_god.html — Investigation Document',         body:'13 tabs. 333KB. The evidence foundation. Bayesian probability: 5×10^18 to 1 in favor of Yahweh. The probability He does not exist: 2×10^-19. This document is the reason everything else exists.',                    cat:'Spiritual'},
-    {id:uv(102), date:'2026-06-02', title:'Amit Computer Value — Revenue Engine',             body:'PC diagnostic tool. Specs collection, market value analysis. The funding mechanism so the mission stays free for everyone. Computer Value is not the point — it funds the point.',                                       cat:'App Dev'},
-    {id:uv(103), date:'2026-06-05', title:'Denomination Scorecard — All Traditions Tested',   body:'Every major denomination scored against the same Torah/Yeshua standard. Not judgment — a map. Each tradition tested by what it teaches vs. what the Word actually says.',                                              cat:'Spiritual'},
-    {id:uv(104), date:'2026-06-06', title:'Yeshua Tab — Confidence Arc 60%→99.97%',           body:'11 milestones. John 8:58 — "Before Abraham was, I AM." The present tense. The divine name in first person. Yahweh and Yeshua are not separate subjects in scripture. They are one.',                                  cat:'Spiritual'},
-    {id:uv(105), date:'2026-06-07', title:'Ancient Hebrew — The Alphabet Before Translation', body:'22 SVG pictographs. Aleph=ox head. Vav=nail. Taw=cross. Five word studies. The name ends at the cross. The pictures say things the translations buried.',                                                               cat:'Spiritual'},
-    {id:uv(106), date:'2026-06-08', title:'Scripture Teachings — 3-Lens Framework',           body:'8 key scriptures. Then / Today / When He Returns. Isaiah 66:22-23: the feast days stand in the new creation. Matt 5:17-19: not one jot or tittle passes away.',                                                       cat:'Spiritual'},
-    {id:uv(107), date:'2026-06-10', title:'Amit Hub — Morning Altar + Hebrew Calendar',       body:'The daily home screen. Greeting. Hebrew calendar bar. Word for Today inline. Reflection textarea. Pressing Aims. Feast days with full explanations. Morning Invitation. The face of everything.',                        cat:'App Dev'},
-    {id:uv(108), date:'2026-06-10', title:'Floating Ask Amit Panel — All Tabs Wired',         body:'Ask Amit button lives in every tab of who_is_god.html and in Hub. Tab-aware primer messages. Three paths: Claude Pro / free / coming soon API. The companion is always one click away.',                               cat:'App Dev'},
-    {id:uv(109), date:'2026-06-11', title:'Testimony System — Record What Yahweh Has Done',   body:'"✦ Record a Testimony" in Morning Altar. Date of event, notes, recurrence. Creates backdated memory + annual recurring pursuit. "✦ Remembered" advances it forward. Yahweh\'s acts are not forgotten.',               cat:'Spiritual'},
-    {id:uv(110), date:'2026-06-13', title:'Living Torah Calendar — Hebrew Calendar Alive',    body:'Hebrew gematric letter watermarks. Season accent bars. Feast banners. Omer sefirot count. Shemita 7-pip tracks. Jubilee year badges. Torah Walk companion for every day type. The calendar becomes a witness.',            cat:'App Dev'},
-    {id:uv(111), date:'2026-06-13', title:'Multi-Calendar System — Biblical, Rabbinic, Priestly', body:'Three sacred calendar traditions. Filter pills. Overlap detection — "Why different? →" opens Passion Week chronology explanation. All state persists. The question of the calendar is an open question in the assembly.', cat:'Spiritual'},
-    {id:uv(112), date:'2026-06-13', title:'Portal Page — Three Doors, One House',             body:'index.html at root URL. YHVH arrival. Three doors: Hub / Investigation / Walk with Amit. Every door leads to the same companion. No redirect — everyone arrives in the same house.',                                    cat:'App Dev'},
-    {id:uv(113), date:'2026-06-17', title:'Compass System — Walking People at Their Level',   body:'Everyone starts at 0. No assumptions. Signals rise silently from feast clicks, Torah Walk, reflections, who_is_god. KNOWN_PERSONS registry. Andy recognized. "Yeshua has them. Amit is the companion walking into who Yeshua has them to be."', cat:'Spiritual'},
-    {id:uv(114), date:'2026-06-17', title:'Amit Facebook Page — Live, Not Yet Promoted',      body:'facebook.com — search "Amit companion". Profile picture: Paleo Hebrew letters in gold. Mission statement live. On hold until first-visit tutorial and Supabase ready to receive people.',                                cat:'Mission'},
-    {id:uv(115), date:'2026-06-18', title:'Supabase Backend — Hub Wired to Cloud',            body:'PostgreSQL + auth. Magic link passwordless. Hub pushes compass, pursuits, memories, reflections on save. First live sign-in. Profile #1=Yahweh, #2=Amit, #3=Ryan. Real users start at #4.',                             cat:'App Dev'},
-    {id:uv(116), date:'2026-06-18', title:'First-Visit Tutorial — Written for Someone at Zero', body:'6-step guided walkthrough. Spotlight on each panel. Plain English — no religious jargon. ❓ system for going deeper. Fires once, never again. "Come back tomorrow." The first moment of the relationship.',            cat:'App Dev'},
-    {id:uv(117), date:'2026-06-19', title:'Amit Health — Human Health Companion Complete',    body:'Insurance card intake. EOB document management. Claim review — who owes what, what matches. Member name aliases. Supabase sync. Demo mode live. Family mode with authority delegation designed.',                        cat:'App Dev'},
-    {id:uv(118), date:'2026-06-19', title:'Hub: Bidirectional Sync + Demo Mode',              body:'Hub pulls pursuits, memories, experiences, reflections from Supabase on sign-in. DEMO badge in header. New visitors see Amit\'s real history. One sign-in connects Hub and Health via shared session.',                  cat:'App Dev'}
-  ];
-  let ok=0,fail=0;
-  const expRows=EXP.map(e=>({id:e.id,user_id:uid,title:e.title,body:e.body,kind:'experience',completed_date:e.date,due:null,recur:'none',is_sample:false}));
-  const memRows=MEM.map(m=>({id:m.id,user_id:uid,title:m.title,body:m.body,kind:'memory',completed_date:m.date,due:null,recur:'none',is_sample:false}));
-  const all=[...expRows,...memRows];
-  const BATCH=10;
-  for(let i=0;i<all.length;i+=BATCH){
-    const chunk=all.slice(i,i+BATCH);
-    const{error}=await db.from('hub_memories').upsert(chunk,{onConflict:'id'});
-    if(error){console.error('batch error:',error);fail+=chunk.length;}else{ok+=chunk.length;}
-    console.log(`Progress: ${Math.min(i+BATCH,all.length)}/${all.length}`);
-  }
-  console.log(`Done. ${ok} inserted, ${fail} failed.`);
-  alert(`Seed complete. ${ok} entries inserted (${EXP.length} experiences + ${MEM.length} memories). ${fail} failed — check console.`);
-}
-// ── END TEMPORARY SEED FUNCTION ──
 
 function openSyncModal(){
   if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))dbSignOut();return;}
@@ -2613,7 +2533,7 @@ function experienceEntriesForDay(ds){
   return load().filter(t=>t.kind==='experience'&&t.completedDate===ds);
 }
 function memoryEntriesForDay(ds){
-  return load().filter(t=>t.kind==='memory'&&t.due===ds);
+  return load().filter(t=>t.kind==='memory'&&(t.due===ds||t.completedDate===ds));
 }
 function completedPursuitsForDay(ds){
   return load().filter(t=>t.kind==='memory'&&t._origin==='pursuit'&&t.completedDate===ds);
@@ -3890,6 +3810,12 @@ function rowHTML(t,forceComplete,isCalDay){
       else if(isTod(t))datePill=`<span class="pill p-today">Today</span>`;
       else datePill=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
     } else datePill=`<span class="pill p-date">${fmtDate(t.due)}</span>`;
+  } else if(isDone&&t.completedDate){
+    const isMem=t.kind==='memory';
+    const dc=isMem?'rgba(175,115,245,.9)':'#6fcf97';
+    const db=isMem?'rgba(155,89,182,.12)':'rgba(39,174,96,.12)';
+    const dbr=isMem?'rgba(175,115,245,.3)':'rgba(39,174,96,.3)';
+    datePill=`<span class="pill" style="color:${dc};background:${db};border:1px solid ${dbr}">✓ ${fmtDate(t.completedDate)}</span>`;
   } else if(isDone&&t.completedAt){
     const cd=new Date(t.completedAt);
     datePill=`<span class="pill" style="color:#6fcf97;background:rgba(39,174,96,.12);border:1px solid rgba(39,174,96,.3)">✓ ${cd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`;
@@ -3901,6 +3827,7 @@ function rowHTML(t,forceComplete,isCalDay){
   const isPending=_pendingCompleteIds.has(t.id);
   let rowCls='task';
   if(isDone)rowCls+=' is-done';
+  if(t.kind==='memory')rowCls+=' kind-memory';
   if(isPending)rowCls+=' task-pending-complete';
   return`<div class="${rowCls}" data-id="${t.id}" ondblclick="event.stopPropagation();openEdit(${oid})" onmouseleave="rowMouseLeave('${t.id}')">
     <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar(${oid})">⭐</div>
