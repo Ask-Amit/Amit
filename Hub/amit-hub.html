@@ -2358,16 +2358,17 @@ async function _pullCompass(){
   try{
     const{data}=await db.from('users').select('compass_score,compass_tier,compass_signals,display_name').eq('id',currentUser.id).maybeSingle();
     if(!data)return;
-    // Always restore display name if not set locally (new device / cleared storage)
+    // Supabase is truth — always restore on sign-in
     if(data.display_name&&!getUserName()){
       setUserName(data.display_name);
-      render();
     }
-    // Restore compass if Supabase has higher reading than local
     const loc=getCompass();
-    if((data.compass_score||0)>(loc.compassReading||0)){
-      saveCompass({...loc,compassReading:data.compass_score,signals:data.compass_signals||loc.signals,name:data.display_name||loc.name});
-    }
+    saveCompass({...loc,
+      compassReading:data.compass_score||loc.compassReading||0,
+      signals:data.compass_signals||loc.signals||0,
+      name:data.display_name||loc.name
+    });
+    render();
   }catch{}
 }
 
