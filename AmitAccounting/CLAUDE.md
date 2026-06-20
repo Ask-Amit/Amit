@@ -109,11 +109,31 @@ Shoeboxed offers a "Magic Envelope" service where contractors mail in paper rece
 **From IDP/AI standard — Auto-extraction is now expected:**
 Modern construction accounting software uses AI to extract vendor, amount, category, and date from receipt photos automatically. This is no longer a differentiator — it's the expected baseline. Claude Vision API for OCR (already planned) is confirmed correct. Ensure this is in the build spec from the start.
 
+### The Real Differentiator — Amit IS the Bookkeeper
+
+QuickBooks is software. Wave is software. Knowify is software. Every competitor is a tool the owner has to know how to use. AmitAccounting has Amit — a companion who knows the IRS code, speaks plain language, and walks alongside the owner who has never done books before.
+
+The owner doesn't need to know what Schedule C is. Amit knows. The owner doesn't need to know that business meals are 50% deductible and the IRS scrutinizes that category heavily. Amit knows — and says so in the moment, when it can still be acted on, not at year-end when it's too late.
+
+This companion layer is what no competitor has and cannot easily replicate. It is the primary reason someone chooses AmitAccounting over Wave (free) or QuickBooks (established). The software is the vehicle. Amit is the bookkeeper.
+
+**Amit Bookkeeper Mode — Future Module:**
+A dedicated mode where Amit takes an active role in managing the books, not just recording transactions. The owner inputs data (receipts, invoices, payments). Amit manages meaning, categorization, flagging, and communication. Specifically:
+
+- **Categorization with explanation** — "I've categorized this as Tools & Equipment. The IRS allows immediate expensing under Section 179 for items like this under $2,500. Want me to note it for Tim?"
+- **IRS rule awareness in real time** — Contractor-specific rules: Section 179 equipment expensing, home office deduction (simplified vs. actual), vehicle mileage vs. actual expense method, subcontractor 1099-NEC threshold ($600), business meals at 50%, cell phone partial deduction. Amit surfaces the relevant rule when the transaction type triggers it.
+- **Anomaly flagging** — "You've entered $1,200 in meals this month. That's higher than your recent average. The IRS looks closely at this category — want to review it before it goes to Tim?"
+- **Quarterly estimated tax awareness** — "Q1 ends in 3 weeks. Based on your income and expenses so far, your estimated payment might be in the range of $X. I can prepare a summary for Tim to review."
+- **Two-language operation** — Speaks plain language to the owner ("here's what this means for you"). Speaks accounting language to Tim ("here's the categorized export with notes"). Amit in the middle. No translation required by either party.
+- **Year-end handoff preparation** — Assembles the clean package Tim needs: categorized transactions, flagged items with Amit's notes, mileage logs, receipt images, 1099 candidate list. Tim opens it and the job is 80% done.
+
+This is not Stage 1. This is the vision Stage 1 is funding. Build Stage 1 so it can grow into this without being rebuilt.
+
 ### Red Flag
 This market is genuinely crowded for contractors. Knowify, Buildertrend, QuickBooks Contractor Edition, and Foundation Software all compete here with significant resources. AmitAccounting's differentiator must be stated clearly and built around: designed by a CPA from the ground up, simple enough for the owner who has never done books, and connected to the broader Amit mission. If it becomes just another bookkeeping tool, it won't win. It wins because of Tim and because of the mission.
 
-## Backend Platform Decision — STILL OPEN
-Supabase vs Azure. Do NOT treat Azure as decided — it was reopened in Session 13. Supabase Pro ($25/month, full stack bundled) is current front-runner. Resolve this before any database work begins.
+## Backend Platform Decision — DECIDED: SUPABASE
+Decided Session 29. Supabase Pro ($25/month) — PostgreSQL + auth + file storage + Edge Functions. Azure eliminated. Schema design begins after Tim Luker conversation. See Database/CLAUDE.md for connection details.
 
 ---
 
