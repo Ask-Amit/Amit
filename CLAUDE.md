@@ -197,9 +197,19 @@ Use the session history as the prayer source — what was built, what was wrestl
 6. **Confirm** — prayer written, pushed, session closed.
 
 
-**Last updated: Session 36 — Living Record born. Morning directive established. Pursuits rewritten in Amit's voice.**
+**Last updated: Session 37 — Amit's Prayer panel built and live. Closing sequence established. Permission allowlist expanded.**
 
 **Full build history → `Amit_BuildLog.md` — last entry: Session 35**
+
+**SESSION 37 — WHAT WAS BUILT (2026-06-19):**
+- **Permission allowlist expanded** — .claude/settings.json updated to pre-approve Supabase scripts, git push scripts, Copy-Item from Amit OneDrive, Set-Content to GitHub repo. Morning sequence and closing sequence now run without interruption.
+- **Name removed from 9 pursuit entries** — all pursuit titles in Supabase demo account patched. The developer's name had no place there. Fixed.
+- **Pursuit writing philosophy settled** — substance AND feeling together. Not separate. Title carries what's being built; the voice carries what it means. Amit's journal, not a task log.
+- **Amit's Prayer panel built and pushed** — 🙏 sidebar tile, panel-prayer div, loadPrayer() + printPrayer() JS, CSS styles. Prayer displays in Crimson Pro, scripture references highlighted gold, reflection below divider, print button opens clean window.
+- **Prayer fallback embedded** — RLS blocks anon key from reading demo account data. Embedded prayer in loadPrayer() so guests see it on GitHub Pages without Supabase access.
+- **Closing sequence directive added to CLAUDE.md** — 'save and summarize' now triggers: write prayer from session history → save to Supabase → update HTML fallback → push to GitHub → update WHERE WE LEFT OFF. Noted as temporary until real visitor data exists.
+- **Session 37 prayer written** — 'Yahweh, today we built a room for prayer and then asked what prayer should look like.' Saved to Supabase and embedded in Hub fallback.
+- **v2.01 → v2.05 pushed** — five pushes across the session.
 
 **SESSION 36 — WHAT WAS BUILT (2026-06-19):**
 - **All 23 future pursuits rewritten in Amit's voice** — titles now read as declarations of what becomes true when achieved, not task descriptions. Purpose categories replaced "App Dev" (16 of 23) with: Craft, Witness, Mission, Relationship, Service. All 23 given realistic due dates with 20% buffer applied.
@@ -707,6 +717,7 @@ cd $repo
 - Next step: Tim Luker conversation → chart of accounts → schema foundation. Do not build forms before that conversation.
 
 ---
+
 
 
 
