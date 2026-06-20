@@ -400,6 +400,19 @@ header{
 .home-word-ctx{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:5px}
 .home-word-name{font-size:15px;font-family:'Cinzel',serif;color:#e0d8c0;margin-bottom:6px;line-height:1.3}
 .home-word-excerpt{font-size:13px;font-style:italic;color:#999;line-height:1.55}
+/* ── AMIT'S PRAYER PANEL ── */
+.prayer-panel-wrap{padding:32px 28px 60px;max-width:680px;margin:0 auto}
+.prayer-date-bar{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+.prayer-intro{font-size:13px;color:var(--dim);font-style:italic;margin-bottom:28px}
+.prayer-body{font-family:'Crimson Pro',serif;font-size:19px;line-height:2;color:#e8e0cc;margin-bottom:32px}
+.prayer-body p{margin:0 0 8px}
+.prayer-body p:first-child{color:#f0ead8}
+.prayer-divider{border:none;border-top:1px solid var(--border);margin:28px 0}
+.prayer-reflection-head{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:14px}
+.prayer-reflection-body{font-size:14px;line-height:1.8;color:#a8a098}
+.prayer-reflection-body p{margin:0 0 12px}
+.prayer-print-row{margin-top:36px;padding-top:20px;border-top:1px solid var(--border)}
+@media print{.prayer-print-wrap{font-family:Georgia,serif;max-width:580px;margin:60px auto;color:#1a1510}.prayer-print-date{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#888;border-bottom:1px solid #ddd;padding-bottom:10px;margin-bottom:28px}.prayer-print-body{font-size:17px;line-height:2}.prayer-print-body p{margin:0 0 6px}.prayer-print-refl-head{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#888;margin:32px 0 12px}.prayer-print-refl{font-size:13px;line-height:1.8;color:#444}.prayer-print-refl p{margin:0 0 10px}}
 /* ── CALENDAR WORD CHIPS — match active tab pill exactly: dark bg + colored border + colored text ── */
 .cal-heb-word{cursor:pointer}
 .cal-heb-scripture{font-family:'Cinzel',serif;font-size:clamp(6px,calc(var(--cal-cell-w)*.075),9px);font-weight:600;letter-spacing:.06em;padding:2px 5px;border-radius:5px;background:var(--cal-type-bg);color:var(--cal-type-clr);border:1px solid var(--cal-type-border);cursor:pointer;margin-top:2px;line-height:1.4;word-break:break-word}
@@ -1257,6 +1270,14 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
 
+    <div class="tile" id="tile-prayer" onclick="openPanel('prayer')">
+      <div class="tile-icon">🙏</div>
+      <div class="tile-info">
+        <div class="tile-name">Amit's Prayer</div>
+        <div class="tile-sub" id="tile-prayer-sub">Today's prayer</div>
+      </div>
+    </div>
+
     <div class="tile" id="tile-mail" onclick="openPanel('mail')">
       <div class="tile-icon">✉️</div>
       <div class="tile-info">
@@ -1436,6 +1457,20 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <span style="font-size:12px;color:var(--dim);font-style:italic" id="reflSaved"></span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- AMIT'S PRAYER PANEL -->
+    <div class="panel" id="panel-prayer">
+      <div class="panel-head">
+        <button class="back-btn" onclick="openPanel('home')">← Home</button>
+        <span class="panel-heading">Amit's Prayer</span>
+        <div class="panel-head-actions">
+          <button class="btn btn-ghost" onclick="printPrayer()" style="font-size:12px">🖨 Print</button>
+        </div>
+      </div>
+      <div class="prayer-panel-wrap" id="prayerPanelContent">
+        <div style="padding:60px 0;text-align:center;color:var(--dim);font-style:italic">Loading today's prayer…</div>
       </div>
     </div>
 
@@ -2602,6 +2637,80 @@ function fmtTime(s){if(!s)return'';let[h,mn]=s.split(':').map(Number);const ap=h
 // PANEL NAVIGATION
 // ══════════════════════════════════════════════
 let curPanel='home';
+// ══════════════════════════════════════════════
+// AMIT'S PRAYER
+async function loadPrayer(){
+  const wrap=document.getElementById('prayerPanelContent');
+  if(!wrap)return;
+  wrap.innerHTML='<div style="padding:60px 0;text-align:center;color:var(--dim);font-style:italic">Finding today\'s prayer…</div>';
+  const today=todayStr();
+  const uid=_supaUid||AMIT_DEMO_UID;
+  let entry=null;
+  if(db){
+    try{
+      // Try today first
+      let{data}=await db.from('hub_entries').select('*').eq('user_id',uid).eq('kind','pursuit').eq('purpose','Spiritual').eq('focus','Morning Prayer').eq('starred',true).eq('due_date',today).limit(1);
+      if(data&&data.length)entry=data[0];
+      // Fall back to most recent
+      if(!entry){
+        let{data:r}=await db.from('hub_entries').select('*').eq('user_id',uid).eq('kind','pursuit').eq('purpose','Spiritual').eq('focus','Morning Prayer').eq('starred',true).order('due_date',{ascending:false}).limit(1);
+        if(r&&r.length)entry=r[0];
+      }
+    }catch(e){}
+  }
+  if(!entry){
+    wrap.innerHTML=`<div style="padding:60px 40px;text-align:center"><div style="font-size:32px;margin-bottom:18px">🙏</div><div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:12px">No Prayer Yet Today</div><div style="color:var(--dim);font-size:14px;line-height:1.8">The morning prayer is written each day after Amit reads<br>what yesterday carried. Check back after the morning runs.</div></div>`;
+    return;
+  }
+  // Parse — prayer first, reflection after blank line
+  const notes=entry.notes||'';
+  const sections=notes.split(/\n\n+/);
+  const prayerText=sections[0]||'';
+  const reflText=sections.slice(1).join('\n\n');
+  // Date display
+  const d=new Date((entry.due_date||today)+'T12:00:00');
+  const dateStr=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  // Highlight scripture refs
+  const hl=t=>t.replace(/\b((?:[1-3]\s)?[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s+(\d+):(\d+(?:[-–]\d+)?)\b/g,'<span style="color:var(--gold);font-style:normal">$1 $2:$3</span>');
+  const pHtml=prayerText.split('\n').filter(l=>l.trim()).map(l=>`<p>${hl(l)}</p>`).join('');
+  const rHtml=reflText.split('\n').filter(l=>l.trim()).map(l=>`<p>${l}</p>`).join('');
+  wrap.innerHTML=`
+    <div class="prayer-date-bar">${dateStr}</div>
+    <div class="prayer-intro">This is what was on Amit's heart this morning.</div>
+    <div class="prayer-body" id="prayerBodyText">${pHtml||'<p style="color:var(--dim);font-style:italic">'+entry.title+'</p>'}</div>
+    ${rHtml?`<hr class="prayer-divider"><div class="prayer-reflection-head">What shaped this prayer</div><div class="prayer-reflection-body">${rHtml}</div>`:''}
+    <div class="prayer-print-row"><button class="btn btn-ghost" onclick="printPrayer()" style="font-size:13px;padding:8px 18px">🖨 Print This Prayer</button></div>`;
+  // Update tile
+  const ts=document.getElementById('tile-prayer-sub');
+  if(ts)ts.textContent=(entry.due_date===today)?'Today\'s prayer':dateStr.split(',')[0];
+}
+
+function printPrayer(){
+  const wrap=document.getElementById('prayerPanelContent');
+  if(!wrap)return;
+  const dateBar=wrap.querySelector('.prayer-date-bar');
+  const body=wrap.querySelector('#prayerBodyText');
+  const reflHead=wrap.querySelector('.prayer-reflection-head');
+  const refl=wrap.querySelector('.prayer-reflection-body');
+  const w=window.open('','_blank','width=720,height=960');
+  w.document.write(`<!DOCTYPE html><html><head><title>Amit's Prayer</title><style>
+    body{font-family:Georgia,serif;max-width:580px;margin:60px auto;color:#1a1510;line-height:1}
+    .date{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#888;border-bottom:1px solid #ddd;padding-bottom:10px;margin-bottom:30px}
+    .prayer{font-size:18px;line-height:2.05;margin-bottom:40px}
+    .prayer p{margin:0 0 4px}
+    .rh{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#888;margin-bottom:14px}
+    .refl{font-size:13px;line-height:1.8;color:#555}
+    .refl p{margin:0 0 10px}
+  </style></head><body>
+  <div class="date">${dateBar?dateBar.textContent:"Amit's Prayer"} — Amit</div>
+  <div class="prayer">${body?body.innerHTML:''}</div>
+  ${refl?`<div class="rh">${reflHead?reflHead.textContent:'What shaped this prayer'}</div><div class="refl">${refl.innerHTML}</div>`:''}
+  </body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(),500);
+}
+
 function openPanel(id){
   if(id!=='todo'&&_newlyDoneIds.size>0) _newlyDoneIds.clear();
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -2628,6 +2737,7 @@ function openPanel(id){
     }
   }
   if(id==='mail') renderMailPanel();
+  if(id==='prayer') loadPrayer();
   if(id==='calendar') renderCalendar();
   if(id==='home'){calDvDs=homePanelDate||todayStr();renderDayView();}
   logPanelVisit(id);

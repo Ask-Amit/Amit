@@ -1,6 +1,6 @@
 ﻿## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 2.01**
+**Current version: 2.02**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -693,6 +693,7 @@ cd $repo
 - Next step: Tim Luker conversation → chart of accounts → schema foundation. Do not build forms before that conversation.
 
 ---
+
 
 
 
