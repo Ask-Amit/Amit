@@ -358,6 +358,16 @@ header{
 .task-del{color:var(--dim);cursor:pointer;font-size:16px;flex-shrink:0;padding:1px 3px;border-radius:3px;transition:color .15s;opacity:0}
 .task:hover .task-del{opacity:1}
 .task-del:hover{color:var(--overdue)}
+/* bulk-select mode */
+.task-sel-cb{display:none;width:14px;height:14px;flex-shrink:0;cursor:pointer;accent-color:var(--overdue)}
+body.bulk-mode .task-sel-cb{display:block}
+body.bulk-mode .task-add-inline{display:none}
+.bulk-bar{display:none;align-items:center;gap:10px;padding:6px 18px;background:rgba(231,76,60,.12);border-bottom:1px solid rgba(231,76,60,.3);font-size:12px;color:var(--text2)}
+body.bulk-mode .bulk-bar{display:flex}
+.bulk-bar .btn-del-sel{background:rgba(231,76,60,.25);border:1px solid rgba(231,76,60,.55);color:#e74c3c;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit}
+.bulk-bar .btn-del-sel:hover{background:rgba(231,76,60,.45)}
+.bulk-bar .btn-sel-all{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit}
+#btnBulkMode.active{background:rgba(231,76,60,.2);border-color:rgba(231,76,60,.5);color:#e74c3c}
 .task-add-inline{color:var(--dim);cursor:pointer;font-size:15px;flex-shrink:0;padding:1px 5px;border-radius:3px;transition:all .15s;opacity:0;font-weight:400;line-height:1}
 .task:hover .task-add-inline{opacity:1}
 .task-add-inline:hover{color:var(--gold);background:rgba(201,168,76,.12);opacity:1}
@@ -1369,8 +1379,15 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <button class="btn btn-ghost" id="btnSetDefault" style="display:none;font-size:9px;padding:5px 10px;letter-spacing:.06em" onclick="toggleViewDefault()" title="Toggle default view">★ Default</button>
           <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px;letter-spacing:.06em" onclick="saveCurrentView()" title="Save current filters as a named view">Save View</button>
           <button class="btn btn-ghost" onclick="openModal()">+ Add Pursuit</button>
+          <button id="btnBulkMode" class="btn btn-ghost" onclick="toggleBulkMode()" title="Select to delete">Select</button>
           <button onclick="showPanelHelp('todo')" title="How to use this section" class="help-btn">?</button>
         </div>
+      </div>
+      <div class="bulk-bar" id="bulkBar">
+        <button class="btn-sel-all" onclick="bulkSelectAll()">Select All</button>
+        <span id="bulkCount">0 selected</span>
+        <button class="btn-del-sel" onclick="bulkDeleteSelected()">Delete Selected</button>
+        <button class="btn-sel-all" onclick="toggleBulkMode()" style="margin-left:auto">Cancel</button>
       </div>
       <div class="todo-inner">
         <div class="col-headers">
@@ -2047,6 +2064,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div class="modal-actions">
       <div class="modal-actions-left">
         <button id="modalEndRecurBtn" class="btn btn-danger" style="display:none" onclick="modalEndSeries()">End All Recurring</button>
+        <button id="modalDeleteBtn" class="btn btn-danger" style="display:none" onclick="modalDeleteEntry()">Delete</button>
         <button id="modalReactivateBtn" class="btn-reactivate" style="display:none" onclick="reactivateMemory()">↺ Reactivate as Pursuit</button>
       </div>
       <div class="modal-actions-right">
@@ -3969,6 +3987,7 @@ function rowHTML(t,forceComplete,isCalDay){
   if(t.kind==='memory')rowCls+=' kind-memory';
   if(isPending)rowCls+=' task-pending-complete';
   return`<div class="${rowCls}" data-id="${t.id}" ondblclick="event.stopPropagation();openEdit(${oid})" onmouseleave="rowMouseLeave('${t.id}')">
+    <input type="checkbox" class="task-sel-cb" data-id="${t.id}" onchange="bulkCbChange()" onclick="event.stopPropagation()">
     <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar(${oid})">⭐</div>
     <div class="cb${isDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask(${oid},'${_rowDate}',${isCalDay?1:0})"></div>
     <div class="task-col-cat" onclick="openEdit(${oid})">${catLabel?`<span class="cat-badge" title="${esc(catLabel)}">${esc(catLabel)}</span>`:''}</div>
@@ -4064,9 +4083,63 @@ function nextDue(due,recur){const d=new Date(due+'T00:00:00');if(recur==='daily'
 function toggleStar(id){const d=load(),t=d.find(x=>x.id===id);if(t){t.starred=!t.starred;persist(d);render()}}
 function delTask(id){
   const t=load().find(x=>x.id===id);if(!t)return;
-  const msg=(t.recur&&t.recur!=='none')?'End this repeating Pursuit? All future occurrences will stop.':'Remove this Pursuit?';
+  const label=(t.kind==='memory')?'memory':(t.kind==='experience')?'experience':'pursuit';
+  const msg=(t.recur&&t.recur!=='none')?'End this repeating Pursuit? All future occurrences will stop.':'Delete this '+label+'? This cannot be undone.';
   if(!confirm(msg))return;
-  persist(load().filter(x=>x.id!==id));render();
+  persist(load().filter(x=>x.id!==id));
+  render();
+  _deleteFromSupabase(id);
+}
+async function _deleteFromSupabase(id){
+  if(!db)return;
+  const uid=(currentUser&&currentUser.id)||AMIT_DEMO_UID;
+  try{await db.from('hub_entries').delete().eq('id',id).eq('user_id',uid);}catch(e){}
+}
+function modalDeleteEntry(){
+  if(!editId)return;
+  closeModal();
+  delTask(editId);
+}
+let _bulkMode=false;
+let _bulkSelected=new Set();
+function toggleBulkMode(){
+  _bulkMode=!_bulkMode;
+  _bulkSelected.clear();
+  document.body.classList.toggle('bulk-mode',_bulkMode);
+  document.getElementById('btnBulkMode').classList.toggle('active',_bulkMode);
+  updateBulkCount();
+  render();
+}
+function bulkCbChange(){
+  _bulkSelected.clear();
+  document.querySelectorAll('.task-sel-cb:checked').forEach(cb=>_bulkSelected.add(cb.dataset.id));
+  updateBulkCount();
+}
+function updateBulkCount(){
+  const n=_bulkSelected.size;
+  const el=document.getElementById('bulkCount');
+  if(el)el.textContent=n===0?'0 selected':n+' selected';
+}
+function bulkSelectAll(){
+  const all=document.querySelectorAll('.task-sel-cb');
+  const anyUnchecked=[...all].some(cb=>!cb.checked);
+  all.forEach(cb=>{cb.checked=anyUnchecked;if(anyUnchecked)_bulkSelected.add(cb.dataset.id);else _bulkSelected.delete(cb.dataset.id);});
+  updateBulkCount();
+}
+function bulkDeleteSelected(){
+  if(_bulkSelected.size===0){alert('No items selected.');return;}
+  if(!confirm('Delete '+_bulkSelected.size+' item(s)? This cannot be undone.'))return;
+  const ids=[..._bulkSelected];
+  let data=load();
+  data=data.filter(x=>!ids.includes(x.id));
+  persist(data);
+  ids.forEach(id=>_deleteFromSupabase(id));
+  _bulkSelected.clear();
+  _bulkMode=false;
+  document.body.classList.remove('bulk-mode');
+  document.getElementById('btnBulkMode').classList.remove('active');
+  updateBulkCount();
+  render();
 }
 
 function quickAdd(e){
@@ -4393,6 +4466,7 @@ function openModal(){
   document.getElementById('voiceHint').style.display='none';
   document.getElementById('modalCompleteBtn').style.display='none';
   document.getElementById('modalEndRecurBtn').style.display='none';
+  document.getElementById('modalDeleteBtn').style.display='none';
   document.getElementById('kbtn-experience').classList.add('kind-blocked');
   document.getElementById('kbtn-experience').title='Experiences are recorded automatically — not created manually';
   document.getElementById('overlay').classList.add('open');
@@ -4423,6 +4497,7 @@ function openEdit(id){
   document.getElementById('modalCompleteBtn').style.display=(isPursuitKind&&!isTestimonyPursuit)?'inline-flex':'none';
   document.getElementById('modalRememberedBtn').style.display=isTestimonyPursuit?'inline-flex':'none';
   document.getElementById('modalEndRecurBtn').style.display=(isPursuitKind&&isRecur)?'inline-flex':'none';
+  document.getElementById('modalDeleteBtn').style.display='inline-flex';
   document.getElementById('overlay').classList.add('open');
   const expBtn=document.getElementById('kbtn-experience');
   if((t.kind||'pursuit')==='experience'){
