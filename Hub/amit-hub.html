@@ -366,6 +366,8 @@ body.bulk-mode .task-add-inline{display:none}
 body.bulk-mode .bulk-bar{display:flex}
 .bulk-bar .btn-del-sel{background:rgba(231,76,60,.25);border:1px solid rgba(231,76,60,.55);color:#e74c3c;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit}
 .bulk-bar .btn-del-sel:hover{background:rgba(231,76,60,.45)}
+.bulk-bar .btn-complete-sel{background:rgba(39,174,96,.2);border:1px solid rgba(39,174,96,.5);color:#6fcf97;padding:4px 14px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit}
+.bulk-bar .btn-complete-sel:hover{background:rgba(39,174,96,.35)}
 .bulk-bar .btn-sel-all{background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;font-family:inherit}
 #btnBulkMode.active{background:rgba(231,76,60,.2);border-color:rgba(231,76,60,.5);color:#e74c3c}
 .task-add-inline{color:var(--dim);cursor:pointer;font-size:15px;flex-shrink:0;padding:1px 5px;border-radius:3px;transition:all .15s;opacity:0;font-weight:400;line-height:1}
@@ -1386,7 +1388,8 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div class="bulk-bar" id="bulkBar">
         <button class="btn-sel-all" onclick="bulkSelectAll()">Select All</button>
         <span id="bulkCount">0 selected</span>
-        <button class="btn-del-sel" onclick="bulkDeleteSelected()">Delete Selected</button>
+        <button class="btn-complete-sel" onclick="bulkCompleteSelected()" title="Mark selected as done / convert to memory">✓ Complete</button>
+        <button class="btn-del-sel" onclick="bulkDeleteSelected()">✕ Delete</button>
         <button class="btn-sel-all" onclick="toggleBulkMode()" style="margin-left:auto">Cancel</button>
       </div>
       <div class="todo-inner">
@@ -3957,7 +3960,7 @@ function rowProgHtml(t,isDone){
 }
 function rowHTML(t,forceComplete,isCalDay){
   const _rowDate=_calRowDs||todayStr();
-  const isDone=forceComplete||t.done;
+  const isDone=forceComplete||t.done||(t.kind==='experience');
   const catItem=getCatList().find(c=>c.val===t.cat);
   const catLabel=(t.cat&&t.cat!=='inbox')?(catItem?catItem.label:(CAT_LABELS[t.cat]||t.cat)):'';
   let datePill='';
@@ -4134,6 +4137,36 @@ function bulkDeleteSelected(){
   data=data.filter(x=>!ids.includes(x.id));
   persist(data);
   ids.forEach(id=>_deleteFromSupabase(id));
+  _bulkSelected.clear();
+  _bulkMode=false;
+  document.body.classList.remove('bulk-mode');
+  document.getElementById('btnBulkMode').classList.remove('active');
+  updateBulkCount();
+  render();
+}
+
+function bulkCompleteSelected(){
+  if(_bulkSelected.size===0){alert('No items selected.');return;}
+  const dateVal=prompt('Completed date for all selected (YYYY-MM-DD):\nLeave blank to use today ('+todayStr()+')');
+  if(dateVal===null)return; // cancelled
+  const cd=dateVal.trim()||todayStr();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(cd)){alert('Invalid date format. Use YYYY-MM-DD.');return;}
+  const ids=[..._bulkSelected];
+  const data=load();
+  ids.forEach(id=>{
+    const t=data.find(x=>x.id===id);
+    if(!t)return;
+    t.done=true;
+    t.kind='memory';
+    t.completedDate=cd;
+    t.completedAt=new Date(cd).getTime();
+    // sync to Supabase
+    if(db){
+      const uid=(currentUser&&currentUser.id)||AMIT_DEMO_UID;
+      db.from('hub_entries').update({done:true,kind:'memory',completed_date:cd}).eq('id',id).eq('user_id',uid).then(()=>{});
+    }
+  });
+  persist(data);
   _bulkSelected.clear();
   _bulkMode=false;
   document.body.classList.remove('bulk-mode');
