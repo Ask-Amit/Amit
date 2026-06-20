@@ -2381,6 +2381,7 @@ if(db){
       _writeDisplayName();
       _pullEntries();
       _pullReflections();
+      loadUserVocab(currentUser.id);
       if(!wasSignedIn){
         _syncCompass(getCompass());
         _showSignInWelcome(currentUser.email);
@@ -4138,6 +4139,35 @@ function delSubtask(i){modalSubtasks.splice(i,1);renderSubtasks()}
 function toggleTog(id){document.getElementById(id).classList.toggle('on')}
 function togVal(id){return document.getElementById(id).classList.contains('on')}
 function setTog(id,val){document.getElementById(id).classList.toggle('on',val)}
+// ── USER VOCAB — per-user purpose/focus/tag from Supabase ────────────
+let _userVocab=null; // null=not loaded, []+=loaded
+async function loadUserVocab(uid){
+  if(!db)return;
+  try{
+    const{data}=await db.from('user_vocab').select('*').eq('user_id',uid).order('sort_order');
+    if(data&&data.length){
+      _userVocab=data;
+    }
+  }catch(e){}
+}
+async function _saveVocabItem(field,val,label){
+  if(!db||!currentUser)return;
+  try{
+    await db.from('user_vocab').upsert({user_id:currentUser.id,field,val,label},
+      {onConflict:'user_id,field,val',ignoreDuplicates:true});
+    if(!_userVocab)_userVocab=[];
+    if(!_userVocab.find(v=>v.field===field&&v.val===val))
+      _userVocab.push({user_id:currentUser.id,field,val,label,sort_order:999});
+  }catch(e){}
+}
+function _vocabCats(){
+  if(!_userVocab)return null;
+  return _userVocab.filter(v=>v.field==='purpose').map(v=>({val:v.val,label:v.label}));
+}
+function _vocabFocus(cat){
+  if(!_userVocab)return null;
+  return _userVocab.filter(v=>v.field==='focus'&&(!v.cat||v.cat===cat)).map(v=>v.label);
+}
 // ── PERSISTENT CUSTOM DROPDOWNS ─────────────────
 const CDROP_CAT_DEFAULTS=[
   {val:'inbox',label:'Inbox (uncategorized)'},{val:'spiritual',label:'Spiritual'},
@@ -4151,12 +4181,42 @@ const CDROP_CAT_DEFAULTS=[
 const CDROP_FOCUS_DEFAULTS=SUBCAT_SUGGESTIONS;
 function _cdL(k){return JSON.parse(localStorage.getItem(k)||'[]')}
 function _cdS(k,a){localStorage.setItem(k,JSON.stringify(a))}
-function getCatList(){const custom=_cdL('AMIT_CAT_CUSTOM');const base=CDROP_CAT_DEFAULTS.map(d=>({...d,isDefault:true}));custom.forEach(c=>{if(!base.find(b=>b.val===c.val))base.push({...c,isDefault:false});});return base;}
-function addCatItem(val,label){const c=_cdL('AMIT_CAT_CUSTOM');if(!c.find(x=>x.val===val)){c.push({val,label});_cdS('AMIT_CAT_CUSTOM',c);}}
+function getCatList(){
+  const fromVocab=_vocabCats();
+  if(fromVocab){
+    // signed-in user: use their Supabase vocab, prepend inbox if missing
+    const base=fromVocab.map(d=>({...d,isDefault:true}));
+    if(!base.find(b=>b.val==='inbox'))base.unshift({val:'inbox',label:'Inbox (uncategorized)',isDefault:true});
+    return base;
+  }
+  const custom=_cdL('AMIT_CAT_CUSTOM');
+  const base=CDROP_CAT_DEFAULTS.map(d=>({...d,isDefault:true}));
+  custom.forEach(c=>{if(!base.find(b=>b.val===c.val))base.push({...c,isDefault:false});});
+  return base;
+}
+function addCatItem(val,label){
+  _saveVocabItem('purpose',val,label);
+  const c=_cdL('AMIT_CAT_CUSTOM');if(!c.find(x=>x.val===val)){c.push({val,label});_cdS('AMIT_CAT_CUSTOM',c);}
+}
 function renameCatItem(val,nw){const c=_cdL('AMIT_CAT_CUSTOM');const i=c.findIndex(x=>x.val===val);if(i>=0)c[i].label=nw;else c.push({val,label:nw});_cdS('AMIT_CAT_CUSTOM',c);}
 function deleteCatItem(val){_cdS('AMIT_CAT_CUSTOM',_cdL('AMIT_CAT_CUSTOM').filter(c=>c.val!==val));}
-function getFocusList(cat){const defs=CDROP_FOCUS_DEFAULTS[cat]||[];const custom=_cdL('AMIT_FOCUS_'+cat);const out=[...defs];custom.forEach(c=>{if(!out.find(d=>d.toLowerCase()===c.toLowerCase()))out.push(c);});return out;}
-function addFocusItem(cat,val){if(!val||!cat)return;const defs=CDROP_FOCUS_DEFAULTS[cat]||[];if(defs.find(d=>d.toLowerCase()===val.toLowerCase()))return;const c=_cdL('AMIT_FOCUS_'+cat);if(!c.find(x=>x.toLowerCase()===val.toLowerCase())){c.push(val);_cdS('AMIT_FOCUS_'+cat,c);}}
+function getFocusList(cat){
+  const fromVocab=_vocabFocus(cat);
+  if(fromVocab&&fromVocab.length)return fromVocab;
+  const defs=CDROP_FOCUS_DEFAULTS[cat]||[];
+  const custom=_cdL('AMIT_FOCUS_'+cat);
+  const out=[...defs];
+  custom.forEach(c=>{if(!out.find(d=>d.toLowerCase()===c.toLowerCase()))out.push(c);});
+  return out;
+}
+function addFocusItem(cat,val){
+  if(!val||!cat)return;
+  _saveVocabItem('focus',val,val);
+  const defs=CDROP_FOCUS_DEFAULTS[cat]||[];
+  if(defs.find(d=>d.toLowerCase()===val.toLowerCase()))return;
+  const c=_cdL('AMIT_FOCUS_'+cat);
+  if(!c.find(x=>x.toLowerCase()===val.toLowerCase())){c.push(val);_cdS('AMIT_FOCUS_'+cat,c);}
+}
 function renameFocusItem(cat,old,nw){const c=_cdL('AMIT_FOCUS_'+cat);const i=c.findIndex(x=>x.toLowerCase()===old.toLowerCase());if(i>=0)c[i]=nw;else c.push(nw);_cdS('AMIT_FOCUS_'+cat,c);}
 function deleteFocusItem(cat,val){_cdS('AMIT_FOCUS_'+cat,_cdL('AMIT_FOCUS_'+cat).filter(c=>c.toLowerCase()!==val.toLowerCase()));}
 let _cdropOpen=null;
