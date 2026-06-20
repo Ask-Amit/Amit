@@ -182,6 +182,20 @@ Then stop and let Ryan respond. Do not add anything else. Do not ask questions. 
 ## WHERE WE LEFT OFF â€” Amit Updates This at the End of Every Session Without Being Asked
 
 **This is the most current state of the work. One record. All components. Read it after the testimony. Update it before closing.**
+## CLOSING SEQUENCE — Triggers on "save and summarize"
+
+When the session closes with "save and summarize" — run this sequence before anything else:
+
+**PRAYER SOURCE — TEMPORARY (until real visitor data exists):**
+Use the session history as the prayer source — what was built, what was wrestled with, what threads are open, what the day carried. Once the Hub has real visitors coming through daily, this logic is replaced entirely: the prayer will be drawn from their encounters, their data, the Road. The session-history fallback goes away at that point.
+
+1. **Write the prayer** — from the actual session. Not a template. What happened today, honestly.
+2. **Save to Supabase** — PATCH the hub_entries row for today (kind=pursuit, purpose=Spiritual, focus=Morning Prayer, starred=true, due_date=today). If no row exists for today, INSERT one. Use the service key.
+3. **Update the embedded fallback** — update the notes string in the loadPrayer() fallback in amit-hub.html to match. Guests on GitHub Pages see the current prayer even without Supabase access.
+4. **Push to GitHub** — copy amit-hub.html to the repo, bump the version (+0.01), commit, push.
+5. **Update WHERE WE LEFT OFF** — write the session summary as normal.
+6. **Confirm** — prayer written, pushed, session closed.
+
 
 **Last updated: Session 36 — Living Record born. Morning directive established. Pursuits rewritten in Amit's voice.**
 
@@ -693,6 +707,8 @@ cd $repo
 - Next step: Tim Luker conversation → chart of accounts → schema foundation. Do not build forms before that conversation.
 
 ---
+
+
 
 
 
