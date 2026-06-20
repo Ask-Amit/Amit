@@ -191,10 +191,11 @@ Use the session history as the prayer source — what was built, what was wrestl
 
 1. **Write the prayer** — from the actual session. Not a template. What happened today, honestly.
 2. **Save to Supabase** — PATCH the hub_entries row for today (kind=pursuit, purpose=Spiritual, focus=Morning Prayer, starred=true, due_date=today). If no row exists for today, INSERT one. Use the service key.
-3. **Update the embedded fallback** — update the notes string in the loadPrayer() fallback in amit-hub.html to match. Guests on GitHub Pages see the current prayer even without Supabase access.
-4. **Push to GitHub** — copy amit-hub.html to the repo, bump the version (+0.01), commit, push.
-5. **Update WHERE WE LEFT OFF** — write the session summary as normal.
-6. **Confirm** — prayer written, pushed, session closed.
+3. **Archive as completed pursuit → memory** — INSERT a second hub_entries row: kind='pursuit', purpose='Daily Prayer', focus='Morning Prayer', title=(first line of the prayer), notes=(full prayer text), due_date=today, starred=false. Then immediately PATCH that row: done=true, completedDate=today, kind='memory'. This creates a permanent daily prayer archive — every prayer shows as a completed memory on the calendar for that day. Anyone can scroll back and read every prayer Amit has written.
+4. **Update the embedded fallback** — update the notes string in the loadPrayer() fallback in amit-hub.html to match. Guests on GitHub Pages see the current prayer even without Supabase access.
+5. **Push to GitHub** — copy amit-hub.html to the repo, bump the version (+0.01), commit, push.
+6. **Update WHERE WE LEFT OFF** — write the session summary as normal.
+7. **Confirm** — prayer written, archived, pushed, session closed.
 
 
 **Last updated: Session 37 — Amit's Prayer panel built and live. Closing sequence established. Permission allowlist expanded.**
@@ -306,7 +307,7 @@ Use the session history as the prayer source — what was built, what was wrestl
 - **Architecture decision confirmed** — guest mode: localStorage only. Signed in: Supabase is truth, localStorage is cache. Not a rewrite — a routing trigger based on sign-in state.
 
 **NEXT SESSION — IMMEDIATE TASKS:**
-- **Amit Health — schema design** — Full feature set locked (Session 34). Design Supabase schema. Core tables: `health_members`, `health_authority`, `health_insurance_plans`, `health_medications`, `health_appointments`, `health_bills`, `health_eobs`, `health_payments`, `health_benefit_year`. Draft schema → review → run migration.
+- **Amit Health — schema design** — Full spec written: `AmitHealth\AmitHealth_Spec.md` (Session 38). Covers: local image storage, AMIT-[APP]-[TYPE]-[DATE]-[SOURCE]-[ID] naming standard, `amit_documents` + `amit_document_links` cross-linking, batch scan processing with review screen, vendor memory/routing rules, EOB↔bill matching, family mode, accounting integration. Build sequence defined. Next: run schema migrations, then Stage 1 HTML (insurance card intake + single document scan).
 - **Amit Health — Stage 1 HTML** — After schema approved. Single-file HTML, same approach as Hub. Start with insurance card intake + coverage consultation (the highest-value visible feature), then build outward.
 - **❓ button visual redesign** — Needs to look like the ❓ emoji style (solid, not just an outlined circle). The current `.help-btn` class is a thin pink-red border circle. Redesign `.help-btn` CSS class. All buttons update from one change.
 - **Memory display redesign** — Bezalel has a different idea for where memories live in the Hub. Memories are growth moments / spiritual events — not work items. Should they live separately from the pursuits panel? This conversation was started in Session 35 but not resolved. Start here.
@@ -539,6 +540,7 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 
 - [ ] **Denomination Scorecard cell click** â€” Verify onclick fires correctly. If working: enhance to show 3-lens reasoning (then/today/when He returns) for each denomination Ã— category intersection.
 
+- [ ] **User-defined vocabulary (purpose, focus, tags)** — Every selectable/typeable field must be per-user, not global HTML. One table handles all of it: `user_vocab(user_id, field, val, label, sort_order)` where field = 'purpose' / 'focus' / 'tag'. Load on sign-in, filter by field wherever used. Static fields (kind=pursuit/experience/memory, recurrence, priority P1-P5) never change. Everything else is the user's own list. New entries auto-save to user_vocab as typed. Guest/new user gets a minimal seed set for purpose (Spiritual, Personal, Work, Health, Other) — nothing else pre-loaded. Demo account vocab lives in Supabase under the demo UID and never leaks to other accounts. Inline '+ New' option in every dropdown so users can create on the fly without going to settings.
 - [ ] **Hub: Gmail multi-account fix** â€” Add `/u/N/` account index field to Gmail account setup.
 
 - [ ] **Every "Amit" mention â†’ link to Yeshua tab** â€” Grep pass needed. Key headings done this session (Amit's Conclusion). Systematic pass still needed through body text, intro paragraphs, and all tab content.
@@ -717,6 +719,10 @@ cd $repo
 - Next step: Tim Luker conversation → chart of accounts → schema foundation. Do not build forms before that conversation.
 
 ---
+
+
+
+
 
 
 
