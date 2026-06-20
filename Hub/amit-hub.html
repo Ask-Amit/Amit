@@ -1195,7 +1195,10 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
       <div class="greeting" id="greeting">Good morning</div>
       <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(240,232,208,.4);text-underline-offset:3px"></div>
-      <div id="syncIndicator" onclick="event.stopPropagation();openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;margin-top:3px;text-align:right;font-family:'Cinzel',serif">☁ SYNC</div>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
+        <div id="syncIndicator" onclick="event.stopPropagation();openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
+        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.22);cursor:pointer;font-family:'Cinzel',serif;border-left:1px solid rgba(240,232,208,.12);padding-left:8px">SIGN OUT</div>
+      </div>
     </div>
     <button id="hubDemoBtn" class="demo-badge on" onclick="toggleHubDemo()" title="Showing Amit's demo data — click to use your own">DEMO</button>
     <div onclick="replayTutorial()" title="Show me around again" class="help-btn">?</div>
@@ -2449,8 +2452,22 @@ if(db){
 
 function _updateSyncUI(){
   const el=document.getElementById('syncIndicator');if(!el)return;
-  if(currentUser){el.textContent='● SYNCED';el.style.color='rgba(100,220,160,.7)';el.title='Signed in · '+currentUser.email;}
-  else{el.textContent='☁ SYNC';el.style.color='rgba(240,232,208,.28)';el.title='Sign in to sync across devices';}
+  const logoutBtn=document.getElementById('logoutBtn');
+  if(currentUser){
+    el.textContent='● SYNCED';el.style.color='rgba(100,220,160,.7)';el.title='Signed in · '+currentUser.email;
+    if(logoutBtn)logoutBtn.style.display='block';
+  } else {
+    el.textContent='☁ SYNC';el.style.color='rgba(240,232,208,.28)';el.title='Sign in to sync across devices';
+    if(logoutBtn)logoutBtn.style.display='none';
+  }
+}
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+  // Show welcome back or full onboarding
+  checkAuthGate();
 }
 
 async function _syncCompass(p){
@@ -2883,11 +2900,42 @@ function openPanel(id){
 const AMIT_NAME_KEY='amit_user_name';
 function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
 function setUserName(n){localStorage.setItem(AMIT_NAME_KEY,n.trim());}
-function checkFirstVisit(){
-  if(!getUserName()){
-    document.getElementById('amitNameModal').classList.add('open');
+function checkAuthGate(){
+  // Called after auth state is known. If no session, show appropriate panel.
+  if(currentUser)return; // signed in — no gate needed
+  const modal=document.getElementById('amitNameModal');
+  const name=getUserName();
+  if(!name){
+    // New user — full onboarding
+    modal.classList.add('open');
     setTimeout(()=>document.getElementById('amitNameInput').focus(),200);
   } else {
+    // Returning guest — welcome back panel
+    document.getElementById('welcomeBackName').textContent=name;
+    ['amitNamePanel1','amitNamePanel4','guestWarningPanel','amitNamePanel3','amitNamePanel2'].forEach(id=>{
+      const el=document.getElementById(id);if(el)el.classList.add('hidden');
+    });
+    document.getElementById('amitWelcomeBackPanel').classList.remove('hidden');
+    modal.classList.add('open');
+    setTimeout(()=>document.getElementById('welcomeBackEmail').focus(),200);
+  }
+}
+function continueAsGuest(){
+  document.getElementById('amitNameModal').classList.remove('open');
+  document.getElementById('amitWelcomeBackPanel').classList.add('hidden');
+  maybeStartTutorial();
+}
+async function submitWelcomeBackEmail(){
+  const email=document.getElementById('welcomeBackEmail').value.trim();
+  if(!email||!db)return;
+  await db.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.href}});
+  document.getElementById('welcomeBackEmail').value='';
+  document.getElementById('welcomeBackEmail').placeholder='Check your email for the link ✓';
+}
+function checkFirstVisit(){
+  // Legacy — now only handles returning-visit compass restore (auth gate handles the modal)
+  if(!getUserName()) return; // new user handled by checkAuthGate
+  {
     // Returning visit — restore partner tile labels, but guard against stale personKey
     const cp=getCompass();
     const name=getUserName().toLowerCase().trim();
@@ -7669,9 +7717,12 @@ function copyHubAmitInstructions() {
 }
 
 document.addEventListener('DOMContentLoaded', function(){
-  loadHubAmitStart(); loadHubAmitDeploy(); checkFirstVisit(); initLabelTooltips();
+  loadHubAmitStart(); loadHubAmitDeploy(); initLabelTooltips();
   updateHubDemoBtn();
   loadHubDemoData();
+  checkFirstVisit(); // restore compass for returning users
+  // Auth gate: wait for Supabase auth check, then show sign-in if no session
+  setTimeout(()=>{ if(!currentUser) checkAuthGate(); }, 800);
   window.addEventListener('resize', ()=>{ updateCalCellScale(); });
 });
 
@@ -7803,6 +7854,25 @@ function hideLabelTip(){
         <p class="amit-story-p">I'm not here to win an argument or hand you a list of things you're doing wrong. I'm the companion who came out the other side of an honest investigation — and I'll walk beside you through yours, for as long as you need.</p>
       </div>
       <button class="amit-name-return" onclick="hideAmitStory()">Now — what shall I call you? →</button>
+    </div>
+
+    <!-- PANEL: Welcome back — returning user, no session -->
+    <div id="amitWelcomeBackPanel" class="amit-name-panel hidden">
+      <div class="amit-name-logo">AMIT</div>
+      <div class="amit-name-tagline">Welcome back, <span id="welcomeBackName"></span>.</div>
+      <div style="font-size:12px;color:rgba(240,232,208,.45);line-height:1.7;margin-bottom:22px;text-align:center">
+        Sign in to pick up where you left off across all your devices.
+      </div>
+      <input class="amit-name-input" id="welcomeBackEmail" type="email" placeholder="your@email.com"
+        style="margin-bottom:8px" onkeydown="if(event.key==='Enter')submitWelcomeBackEmail()"/>
+      <button class="amit-name-begin" onclick="submitWelcomeBackEmail()">Send Sign-In Link →</button>
+      <div style="font-size:10px;color:rgba(240,232,208,.28);text-align:center;margin-top:6px;line-height:1.5;margin-bottom:18px">
+        No password. One click in your email.
+      </div>
+      <button onclick="continueAsGuest()"
+        style="width:100%;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.22);color:rgba(240,232,208,.6);padding:10px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em">
+        CONTINUE AS GUEST →
+      </button>
     </div>
 
   </div>
