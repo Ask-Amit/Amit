@@ -2655,8 +2655,10 @@ function completedPursuitsForDay(ds){
   return load().filter(t=>t.kind==='memory'&&t._origin==='pursuit'&&t.completedDate===ds);
 }
 function toggleCalFilter(layer){
-  calFilters[layer]=!calFilters[layer];
-  document.querySelectorAll('[data-cfb="'+layer+'"]').forEach(b=>b.classList.toggle('active',calFilters[layer]));
+  // Exclusive tabs — clicking one deactivates the others
+  Object.keys(calFilters).forEach(k=>calFilters[k]=false);
+  calFilters[layer]=true;
+  document.querySelectorAll('[data-cfb]').forEach(b=>b.classList.toggle('active',calFilters[b.dataset.cfb]||false));
   renderCalendar();
   render();
 }
