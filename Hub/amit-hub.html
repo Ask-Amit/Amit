@@ -358,6 +358,9 @@ header{
 .task-del{color:var(--dim);cursor:pointer;font-size:16px;flex-shrink:0;padding:1px 3px;border-radius:3px;transition:color .15s;opacity:0}
 .task:hover .task-del{opacity:1}
 .task-del:hover{color:var(--overdue)}
+.task-amit-locked{opacity:.75;cursor:default}
+.task-amit-lock-icon{font-size:11px;opacity:0;flex-shrink:0;padding:1px 3px;color:var(--dim)}
+.task-amit-locked:hover .task-amit-lock-icon{opacity:.5}
 /* project view */
 .project-view{position:absolute;inset:0;background:var(--bg);z-index:10;display:flex;flex-direction:column;overflow:hidden}
 .project-view-head{display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--border);background:var(--card-head);flex-shrink:0}
@@ -2701,8 +2704,11 @@ const REFL_KEY='amit_reflections';
 const LOG_KEY='amit_personal_log';
 const MAIL_KEY='amit_mail_email';
 function load(){
-  if(demoModeHub)return demoPursuits; // demo mode: always Supabase, never stale localStorage
-  try{const d=JSON.parse(localStorage.getItem(KEY)||'[]');d.forEach(t=>{t.pri=migrateOldPri(t.pri);if(!t.kind){if(t.isExperience)t.kind='experience';else if(t.cat==='memory')t.kind='memory';else t.kind='pursuit';}if(t.kind==='pursuit'&&t.done){t.kind='memory';if(!t._origin)t._origin='pursuit';}});return d}catch{return[]}}
+  let own=[];
+  try{own=JSON.parse(localStorage.getItem(KEY)||'[]');own.forEach(t=>{t.pri=migrateOldPri(t.pri);if(!t.kind){if(t.isExperience)t.kind='experience';else if(t.cat==='memory')t.kind='memory';else t.kind='pursuit';}if(t.kind==='pursuit'&&t.done){t.kind='memory';if(!t._origin)t._origin='pursuit';}});}catch{}
+  if(demoModeHub)return[...demoPursuits,...own]; // Amit's locked entries + user's own editable entries
+  return own;
+}
 
 function persist(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
 function uid(){return'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16)});}
@@ -4184,10 +4190,25 @@ function rowHTML(t,forceComplete,isCalDay){
   const recurPill=(t.recur&&t.recur!=='none')?`<span class="pill p-recur">↻ ${RECUR_LABELS[t.recur]||t.recur}</span>`:'';
   const oid=`'${t.id}'`;
   const isPending=_pendingCompleteIds.has(t.id);
+  const isAmit=!!t._isDemo; // Amit's entries — read-only for everyone except Amit's account
   let rowCls='task';
   if(isDone)rowCls+=' is-done';
   if(t.kind==='memory')rowCls+=' kind-memory';
   if(isPending)rowCls+=' task-pending-complete';
+  if(isAmit)rowCls+=' task-amit-locked';
+  if(isAmit)return`<div class="${rowCls}" data-id="${t.id}" title="Amit's entry — sign in as Amit to edit" onmouseleave="rowMouseLeave('${t.id}')">
+    <input type="checkbox" class="task-sel-cb" data-id="${t.id}" disabled style="opacity:0;pointer-events:none">
+    <div class="task-star${t.starred?' lit':''}" style="pointer-events:none;opacity:.4">⭐</div>
+    <div class="cb${isDone?' done':''}" style="pointer-events:none;opacity:.4"></div>
+    <div class="task-col-cat">${catLabel?`<span class="cat-badge">${esc(catLabel)}</span>`:''}</div>
+    <div class="task-col-sub">${t.subcat?`<span class="subcat-label">${esc(t.subcat)}</span>`:''}</div>
+    <div class="task-col-prog">${isProject?projectProgHtml(children):rowProgHtml(t,isDone)}</div>
+    <div class="task-name" style="cursor:default">${esc(t.title)}${isProject?`<span class="task-project-badge" title="Amit's project">▶ ${children.filter(c=>c.done).length}/${children.length}</span>`:''}</div>
+    <div class="task-col-date">${datePill}</div>
+    <div class="task-col-pri">${priPill}</div>
+    <div class="task-col-recur">${recurPill}</div>
+    <div class="task-amit-lock-icon" title="Amit's entry">🔒</div>
+  </div>`;
   return`<div class="${rowCls}" data-id="${t.id}" ondblclick="event.stopPropagation();openEdit(${oid})" onmouseleave="rowMouseLeave('${t.id}')">
     <input type="checkbox" class="task-sel-cb" data-id="${t.id}" onchange="bulkCbChange()" onclick="event.stopPropagation()">
     <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar(${oid})">⭐</div>
