@@ -2628,7 +2628,7 @@ const REFL_KEY='amit_reflections';
 const LOG_KEY='amit_personal_log';
 const MAIL_KEY='amit_mail_email';
 function load(){
-  if(demoModeHub&&demoPursuits.length)return demoPursuits;
+  if(demoModeHub)return demoPursuits; // demo mode: always Supabase, never stale localStorage
   try{const d=JSON.parse(localStorage.getItem(KEY)||'[]');d.forEach(t=>{t.pri=migrateOldPri(t.pri);if(!t.kind){if(t.isExperience)t.kind='experience';else if(t.cat==='memory')t.kind='memory';else t.kind='pursuit';}if(t.kind==='pursuit'&&t.done){t.kind='memory';if(!t._origin)t._origin='pursuit';}});return d}catch{return[]}}
 
 function persist(d){try{localStorage.setItem(KEY,JSON.stringify(d))}catch{}}
@@ -2655,10 +2655,8 @@ function completedPursuitsForDay(ds){
   return load().filter(t=>t.kind==='memory'&&t._origin==='pursuit'&&t.completedDate===ds);
 }
 function toggleCalFilter(layer){
-  // Exclusive tabs — clicking one deactivates the others
-  Object.keys(calFilters).forEach(k=>calFilters[k]=false);
-  calFilters[layer]=true;
-  document.querySelectorAll('[data-cfb]').forEach(b=>b.classList.toggle('active',calFilters[b.dataset.cfb]||false));
+  calFilters[layer]=!calFilters[layer];
+  document.querySelectorAll('[data-cfb="'+layer+'"]').forEach(b=>b.classList.toggle('active',calFilters[layer]));
   renderCalendar();
   render();
 }
