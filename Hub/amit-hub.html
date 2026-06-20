@@ -2433,12 +2433,15 @@ if(db){
     if(currentUser){
       _pullCompass();
       _writeDisplayName();
-      _pullEntries();
-      _pullReflections();
       loadUserVocab(currentUser.id);
       if(!wasSignedIn){
+        // First sign-in this session — check for guest data to migrate
+        _migrateGuestDataThenPull();
         _syncCompass(getCompass());
         _showSignInWelcome(currentUser.email);
+      } else {
+        _pullEntries();
+        _pullReflections();
       }
     }
   });
@@ -2484,6 +2487,56 @@ async function _writeDisplayName(){
   const name=getUserName();
   if(!name)return;
   try{await db.from('users').upsert({id:currentUser.id,email:currentUser.email,display_name:name},{onConflict:'id'});}catch{}
+}
+
+async function _migrateGuestDataThenPull(){
+  if(!db||!currentUser)return;
+  try{
+    // Check if user already has data in Supabase
+    const{data:existing}=await db.from('hub_entries').select('id').eq('user_id',currentUser.id).limit(1);
+    if(existing&&existing.length>0){
+      // Returning user — Supabase is truth, pull it down
+      await _pullEntries();
+      await _pullReflections();
+      return;
+    }
+    // First-ever sign-in — migrate guest localStorage data to Supabase
+    const localData=JSON.parse(localStorage.getItem(KEY)||'[]');
+    const localRefl=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
+    if(localData.length>0){
+      // Push all local entries to Supabase
+      const rows=localData.map(t=>({
+        id:t.id,user_id:currentUser.id,
+        kind:t.kind||'pursuit',title:t.title||'',notes:t.notes||null,
+        purpose:t.cat||null,focus:t.subcat||null,
+        priority:'P'+(t.pri||5),due_date:t.due||null,
+        done:t.done||false,completed_date:t.completedDate||null,
+        completed_at:t.completedAt||null,recur:t.recur||'none',
+        starred:t.starred||false,is_sample:false,
+        tags:t.tags||[],parent_id:t.parentId||null,sort_order:t.sortOrder||0
+      }));
+      // Upsert in batches of 50 to avoid request size limits
+      for(let i=0;i<rows.length;i+=50){
+        await db.from('hub_entries').upsert(rows.slice(i,i+50),{onConflict:'id'});
+      }
+    }
+    // Migrate reflections
+    const reflRows=Object.entries(localRefl).map(([date,content])=>({
+      user_id:currentUser.id,reflection_date:date,content
+    }));
+    if(reflRows.length>0){
+      await db.from('hub_reflections').upsert(reflRows,{onConflict:'user_id,reflection_date'});
+    }
+    // Now pull back from Supabase as the new source of truth
+    await _pullEntries();
+    await _pullReflections();
+    console.log('Guest data migrated to Supabase:',localData.length,'entries,',reflRows.length,'reflections');
+  }catch(e){
+    console.warn('_migrateGuestDataThenPull:',e);
+    // Fallback: just pull whatever is in Supabase
+    await _pullEntries();
+    await _pullReflections();
+  }
 }
 
 async function _pullEntries(){
