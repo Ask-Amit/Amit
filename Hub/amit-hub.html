@@ -2438,11 +2438,13 @@ if(db){
     currentUser=session?session.user:null;
     _updateSyncUI();
     if(currentUser){
+      // Close the auth gate — returning user is authenticated
+      const modal=document.getElementById('amitNameModal');
+      if(modal&&modal.classList.contains('open')) modal.classList.remove('open');
       _pullCompass();
       _writeDisplayName();
       loadUserVocab(currentUser.id);
       if(!wasSignedIn){
-        // First sign-in this session — check for guest data to migrate
         _migrateGuestDataThenPull();
         _syncCompass(getCompass());
         _showSignInWelcome(currentUser.email);
@@ -2450,6 +2452,9 @@ if(db){
         _pullEntries();
         _pullReflections();
       }
+    } else {
+      // No session — show auth gate only after Supabase has had time to check
+      if(event==='SIGNED_OUT'||event==='INITIAL_SESSION') checkAuthGate();
     }
   });
 }
@@ -7768,8 +7773,6 @@ document.addEventListener('DOMContentLoaded', function(){
   updateHubDemoBtn();
   loadHubDemoData();
   checkFirstVisit(); // restore compass for returning users
-  // Auth gate: wait for Supabase auth check, then show sign-in if no session
-  setTimeout(()=>{ if(!currentUser) checkAuthGate(); }, 800);
   window.addEventListener('resize', ()=>{ updateCalCellScale(); });
 });
 
