@@ -3984,7 +3984,7 @@ function onSortChange(){
     return;
   }
   updateViewButtons(v);
-  render();
+  if(_currentProjectId) renderProjectView(_currentProjectId); else render();
 }
 
 // ══════════════════════════════════════════════
@@ -4140,7 +4140,8 @@ function renderProjectView(parentId){
   document.getElementById('projectViewNotes').style.display=parent.notes?'block':'none';
   document.getElementById('projectViewProgress').textContent=children.length?`${done} of ${children.length} tasks complete`:'No tasks yet — press + Add Task to begin';
   let html='';
-  const active=children.filter(c=>!c.done);
+  const sortVal=(document.getElementById('sortSel')||{}).value||'smart';
+  const active=sortTasks(children.filter(c=>!c.done),sortVal);
   const doneList=children.filter(c=>c.done);
   if(active.length){active.forEach(c=>{html+=rowHTML(c,false,false);});}
   if(doneList.length){
@@ -7979,4 +7980,3 @@ function hideLabelTip(){
 
 </body>
 </html>
-
