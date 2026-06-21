@@ -4200,14 +4200,15 @@ function rowHTML(t,forceComplete,isCalDay){
   if(t.kind==='memory')rowCls+=' kind-memory';
   if(isPending)rowCls+=' task-pending-complete';
   if(isAmit)rowCls+=' task-amit-locked';
-  if(isAmit)return`<div class="${rowCls}" data-id="${t.id}" title="Double-click to view" ondblclick="event.stopPropagation();openEdit('${t.id}')" onmouseleave="rowMouseLeave('${t.id}')">
+  const amitClick=isProject?`onclick="event.stopPropagation();openProjectView('${t.id}')" ondblclick="event.stopPropagation()"`:`onclick="event.stopPropagation();openEdit('${t.id}')" ondblclick="event.stopPropagation()"`;
+  if(isAmit)return`<div class="${rowCls}" data-id="${t.id}" ${amitClick} onmouseleave="rowMouseLeave('${t.id}')" style="cursor:pointer">
     <input type="checkbox" class="task-sel-cb" data-id="${t.id}" disabled style="opacity:0;pointer-events:none">
     <div class="task-star${t.starred?' lit':''}" style="pointer-events:none;opacity:.4">⭐</div>
     <div class="cb${isDone?' done':''}" style="pointer-events:none;opacity:.4"></div>
     <div class="task-col-cat">${catLabel?`<span class="cat-badge">${esc(catLabel)}</span>`:''}</div>
     <div class="task-col-sub">${t.subcat?`<span class="subcat-label">${esc(t.subcat)}</span>`:''}</div>
     <div class="task-col-prog">${isProject?projectProgHtml(children):rowProgHtml(t,isDone)}</div>
-    <div class="task-name" style="cursor:default">${esc(t.title)}${isProject?`<span class="task-project-badge" title="Amit's project">▶ ${children.filter(c=>c.done).length}/${children.length}</span>`:''}</div>
+    <div class="task-name">${esc(t.title)}${isProject?`<span class="task-project-badge" title="Open project">▶ ${children.filter(c=>c.done).length}/${children.length}</span>`:''}</div>
     <div class="task-col-date">${datePill}</div>
     <div class="task-col-pri">${priPill}</div>
     <div class="task-col-recur">${recurPill}</div>
