@@ -4196,7 +4196,7 @@ function rowHTML(t,forceComplete,isCalDay){
   if(t.kind==='memory')rowCls+=' kind-memory';
   if(isPending)rowCls+=' task-pending-complete';
   if(isAmit)rowCls+=' task-amit-locked';
-  if(isAmit)return`<div class="${rowCls}" data-id="${t.id}" title="Amit's entry — sign in as Amit to edit" onmouseleave="rowMouseLeave('${t.id}')">
+  if(isAmit)return`<div class="${rowCls}" data-id="${t.id}" title="Double-click to view" ondblclick="event.stopPropagation();openEdit('${t.id}')" onmouseleave="rowMouseLeave('${t.id}')">
     <input type="checkbox" class="task-sel-cb" data-id="${t.id}" disabled style="opacity:0;pointer-events:none">
     <div class="task-star${t.starred?' lit':''}" style="pointer-events:none;opacity:.4">⭐</div>
     <div class="cb${isDone?' done':''}" style="pointer-events:none;opacity:.4"></div>
@@ -4728,8 +4728,28 @@ function openModal(){
 }
 function openEdit(id){
   const t=load().find(x=>x.id===id);if(!t)return;
+  const readOnly=!!t._isDemo;
   editId=id;modalTags=[...(t.tags||[])];modalSubtasks=(t.subtasks||[]).map(s=>({...s}));
   modalIsEdit=true;setModalMode(t.mode||'pursuit');
+  // Read-only mode for Amit's locked entries
+  const modalEl=document.getElementById('overlay');
+  const fieldsToLock=['mTitle','mNotes','mSessionNote','mCat','mSubcat','mDate','mTime','mRecur'];
+  fieldsToLock.forEach(fid=>{const el=document.getElementById(fid);if(el)el.disabled=readOnly;});
+  document.getElementById('modalSaveBtn').style.display=readOnly?'none':'inline-flex';
+  document.getElementById('modalDeleteBtn').style.display='none';
+  document.getElementById('modalCompleteBtn').style.display='none';
+  document.getElementById('modalRememberedBtn').style.display='none';
+  document.getElementById('modalEndRecurBtn').style.display='none';
+  // Show/hide read-only banner
+  let roBanner=document.getElementById('modalReadOnlyBanner');
+  if(!roBanner){
+    roBanner=document.createElement('div');roBanner.id='modalReadOnlyBanner';
+    roBanner.style.cssText='background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:6px;padding:8px 14px;font-size:11px;color:rgba(201,168,76,.7);letter-spacing:.06em;margin-bottom:12px;text-align:center;font-family:Cinzel,serif';
+    roBanner.textContent="AMIT'S ENTRY — VIEW ONLY";
+    const modalBody=document.querySelector('.modal-body');
+    if(modalBody)modalBody.insertBefore(roBanner,modalBody.firstChild);
+  }
+  roBanner.style.display=readOnly?'block':'none';
   document.getElementById('mTitle').value=t.title;
   document.getElementById('mNotes').value=t.notes||'';
   document.getElementById('mSessionNote').value=t.sessionNote||'';
