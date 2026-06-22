@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Amit Hub</title>
-<link rel="icon" href="../favicon.svg" type="image/svg+xml">
-<link rel="icon" href="../favicon.ico" sizes="any">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -5040,6 +5038,50 @@ function setModalKind(kind){
   }
 }
 function bgClose(e){if(e.target===document.getElementById('overlay'))closeModal()}
+async function checkDuplicatePursuit(title){
+  // Only check if signed in — guest mode uses localStorage only
+  if(!db||!currentUser)return checkDuplicateLocal(title);
+  try{
+    const keywords=title.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>4).slice(0,3);
+    if(!keywords.length)return null;
+    // Search by first meaningful keyword
+    const{data}=await db.from('hub_entries')
+      .select('id,title,purpose,focus')
+      .eq('user_id',currentUser.id)
+      .eq('kind','pursuit')
+      .eq('done',false)
+      .ilike('title','%'+keywords[0]+'%')
+      .limit(5);
+    if(!data||!data.length)return null;
+    // Filter to genuinely similar matches (share 2+ keywords)
+    const matches=data.filter(e=>{
+      const et=e.title.toLowerCase();
+      return keywords.filter(k=>et.includes(k)).length>=2;
+    });
+    return matches.length?matches:null;
+  }catch{return checkDuplicateLocal(title);}
+}
+function checkDuplicateLocal(title){
+  const keywords=title.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>4).slice(0,3);
+  if(!keywords.length)return null;
+  const matches=load().filter(t=>t.kind==='pursuit'&&!t.done&&(()=>{
+    const et=(t.title||'').toLowerCase();
+    return keywords.filter(k=>et.includes(k)).length>=2;
+  })());
+  return matches.length?matches:null;
+}
+function showDuplicateWarning(matches,onProceed){
+  const existing=document.getElementById('dupWarnBanner');
+  if(existing)existing.remove();
+  const banner=document.createElement('div');
+  banner.id='dupWarnBanner';
+  banner.style.cssText='background:rgba(201,100,30,.12);border:1px solid rgba(201,100,30,.4);border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:rgba(240,200,140,.9);line-height:1.5';
+  const list=matches.map(m=>`<div style="margin:4px 0;opacity:.85">· ${esc(m.title)}</div>`).join('');
+  banner.innerHTML=`<div style="font-weight:600;margin-bottom:6px;letter-spacing:.04em">Similar pursuit already exists:</div>${list}<div style="margin-top:10px;display:flex;gap:8px"><button onclick="document.getElementById('dupWarnBanner').remove()" style="background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);color:rgba(201,168,76,.9);border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer">Review existing</button><button id="dupProceedBtn" style="background:rgba(240,232,208,.08);border:1px solid rgba(240,232,208,.2);color:rgba(240,232,208,.7);border-radius:4px;padding:4px 12px;font-size:11px;cursor:pointer">Save as new anyway</button></div>`;
+  const modalBody=document.querySelector('.modal-body');
+  if(modalBody)modalBody.insertBefore(banner,modalBody.firstChild);
+  document.getElementById('dupProceedBtn').onclick=()=>{banner.remove();onProceed();};
+}
 function saveTask(){
   const title=document.getElementById('mTitle').value.trim();
   if(!title){document.getElementById('mTitle').focus();return}
@@ -5047,6 +5089,17 @@ function saveTask(){
   const subcat=document.getElementById('mSubcat').value.trim();
   const isExp=modalKind==='experience';
   const isMem=modalKind==='memory';
+  // Duplicate check — only for new pursuits, not edits, not experiences/memories
+  if(!editId&&!isExp&&!isMem){
+    checkDuplicatePursuit(title).then(matches=>{
+      if(matches){showDuplicateWarning(matches,()=>_commitSaveTask(title,cat,subcat,isExp,isMem));}
+      else{_commitSaveTask(title,cat,subcat,isExp,isMem);}
+    });
+    return;
+  }
+  _commitSaveTask(title,cat,subcat,isExp,isMem);
+}
+function _commitSaveTask(title,cat,subcat,isExp,isMem){
   const dueVal=document.getElementById('mDate').value||(isExp||isMem?todayStr():null);
   const isDone=isExp||isMem;
   const sessionNote=document.getElementById('mSessionNote').value.trim();
