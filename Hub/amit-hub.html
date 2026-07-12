@@ -7853,6 +7853,16 @@ document.addEventListener('DOMContentLoaded', function(){
   loadHubDemoData();
   checkFirstVisit(); // restore compass for returning users
   window.addEventListener('resize', ()=>{ updateCalCellScale(); });
+
+  // The gate is also supposed to show via onAuthStateChange's INITIAL_SESSION
+  // event, but that's not guaranteed to fire reliably (unpinned @2 CDN
+  // version) - check directly and explicitly instead of hoping the event
+  // arrives, so someone with no session always sees the gate.
+  if(db){
+    db.auth.getSession().then(({data:{session}})=>{
+      if(!session && !currentUser) checkAuthGate();
+    });
+  }
 });
 
 // ── LABEL TOOLTIPS ──
