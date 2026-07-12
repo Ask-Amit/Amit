@@ -38,7 +38,8 @@ if ($alreadyInstalled) {
     $filesToCopy = @(
         "amit_bridge_server.ps1", "ComputerHealth_Dashboard.html",
         "activity_watcher2.ps1", "resource_watcher.ps1", "diagnostics_watcher.ps1",
-        "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1"
+        "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
+        "Run_AmitTracker.ps1", "AmitTracker.exe"
     )
     foreach ($f in $filesToCopy) {
         $src = "$scriptDir\$f"
@@ -103,13 +104,9 @@ $finalLhmPath | Set-Content -Path "$watcherInstallDir\lhm_path.txt" -Encoding ut
 Write-Host "[3/5] Skipping auto-start-at-login by design - the desktop shortcut starts everything on demand instead."
 
 # --- Step 4: desktop shortcut ---
-$launcherPath = "$watcherInstallDir\Run_AmitTracker.ps1"
-$launcherSrc = "$scriptDir\Run_AmitTracker.ps1"
-if (Test-Path $launcherSrc) {
-    Copy-Item $launcherSrc $launcherPath -Force -ErrorAction SilentlyContinue
-} elseif (-not (Test-Path $launcherPath) -or $Force) {
-    try { Invoke-WebRequest -Uri "$githubRawBase/Run_AmitTracker.ps1" -OutFile $launcherPath -TimeoutSec 20 -ErrorAction Stop } catch {}
-}
+# (Run_AmitTracker.ps1 itself is installed in Step 1 - AmitTracker.exe finds
+# it next to itself at runtime, no path needs tracking here.)
+$trackerExePath = "$watcherInstallDir\AmitTracker.exe"
 
 # Icon - placeholder (gold "A" on dark circle, matches the dashboard's
 # color scheme), swap the .ico file later without touching this script.
@@ -147,18 +144,18 @@ IconIndex=0
 # button can start local tracking without hunting for a desktop icon ---
 Write-Host "[5/5] Registering amit-tracker:// link handler..."
 try {
-    # This description string is what some browsers/Windows show in the
-    # permission dialog - others show the launched program's own name
-    # instead (powershell.exe), which we can't override without wrapping
-    # this in a real compiled .exe with its own file metadata - a future
-    # step, not done here. Keep this name clean in case it IS what's shown.
+    # Points at AmitTracker.exe - a small named wrapper with its own file
+    # metadata (FileDescription/ProductName = "Amit Tracker") - instead of
+    # powershell.exe directly. Some browsers show the launched program's own
+    # name in the permission dialog rather than this registry description,
+    # so this is what makes "Amit Tracker" show up either way.
     New-Item -Path "HKCU:\Software\Classes\amit-tracker" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "(Default)" -Value "URL:Amit Tracker"
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "URL Protocol" -Value ""
     New-Item -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Name "(Default)" -Value $iconDest
     New-Item -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Force | Out-Null
-    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Name "(Default)" -Value "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`""
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Name "(Default)" -Value "`"$trackerExePath`""
     Write-Host "  Registered. Links starting with amit-tracker:// will now launch the tracker (Windows will always ask permission first - by design, not something we can silence)."
 } catch {
     Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Tracker button won't work yet, but the Amit desktop shortcut and manual tracking still will."
