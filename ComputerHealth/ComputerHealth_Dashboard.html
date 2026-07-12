@@ -55,6 +55,12 @@
   .walkthrough-step strong { color:#e8e8ec; font-size:13px; }
   .walkthrough-step p { font-size:13px; color:#9aa0ab; margin:6px 0 0; }
   .walkthrough-img { max-width:100%; border-radius:6px; margin-top:8px; border:1px solid #3a3f4c; }
+  #deviceBar { padding:10px 24px; background:#181b23; border-bottom:1px solid #2a2e3a; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #deviceBar select { padding:6px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; max-width:260px; }
+  .device-badge { font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600; }
+  .device-badge.current { background:#4caf6d; color:#0f1116; }
+  .device-badge.other { background:#3a3f4c; color:#c7cad1; }
+  .viewing-other-banner { background:#2a2410; border:1px solid #e0a72e; border-radius:8px; padding:10px 16px; margin-bottom:16px; font-size:13px; color:#e0c477; }
 </style>
 </head>
 <body>
@@ -72,6 +78,13 @@
   <input type="email" id="emailInput" placeholder="you@email.com">
   <button onclick="sendMagicLink()">Send Magic Link</button>
   <span id="statusMsg"></span>
+</div>
+
+<div id="deviceBar" class="hidden">
+  <span style="font-size:13px;color:#9aa0ab">Viewing:</span>
+  <select id="deviceSelect" onchange="onDeviceSelectChange()"></select>
+  <span id="deviceBadge"></span>
+  <button class="btn secondary" id="renameDeviceBtn" onclick="renameCurrentDevice()" style="font-size:12px;padding:4px 10px">Rename</button>
 </div>
 
 <div class="overlay hidden" id="signinNudge">
@@ -234,6 +247,7 @@ const SUPABASE_KEY = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let deviceId = null, deviceName = null, currentUser = null;
+let viewingDeviceId = null, myDevices = [];
 
 function showTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -285,6 +299,83 @@ async function claimDevice() {
     // Ownership transfer path - only proceed if explicitly confirmed elsewhere; for now just log conflict
     console.warn('Device already owned by another user - transfer flow not triggered automatically.');
   }
+  await loadMyDevices();
+}
+
+// Loads every device this signed-in user owns (could be many - "they may
+// have twenty computers"), lets them pick which one's data to view, and
+// auto-selects whichever one they're physically sitting at right now
+// (matched by comparing against the local bridge's own device ID).
+async function loadMyDevices() {
+  if (!currentUser) return;
+  const { data, error } = await db.from('amit_devices').select('*').eq('owner_user_id', currentUser.id).order('created_at', { ascending: true });
+  if (error || !data) return;
+  myDevices = data;
+  if (myDevices.length === 0) return;
+
+  document.getElementById('deviceBar').classList.remove('hidden');
+  if (!viewingDeviceId || !myDevices.find(d => d.id === viewingDeviceId)) {
+    viewingDeviceId = (deviceId && myDevices.find(d => d.id === deviceId)) ? deviceId : myDevices[0].id;
+  }
+  populateDeviceSelector();
+  updateLiveControlsAvailability();
+  if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
+}
+
+function populateDeviceSelector() {
+  const sel = document.getElementById('deviceSelect');
+  sel.innerHTML = myDevices.map(d => {
+    const label = (d.device_name || 'Unnamed computer') + (d.id === deviceId ? ' (this computer)' : '');
+    return `<option value="${d.id}" ${d.id === viewingDeviceId ? 'selected' : ''}>${label}</option>`;
+  }).join('');
+  updateDeviceBadge();
+}
+
+function updateDeviceBadge() {
+  const badge = document.getElementById('deviceBadge');
+  if (viewingDeviceId === deviceId) {
+    badge.innerHTML = '<span class="device-badge current">Current Computer</span>';
+  } else {
+    badge.innerHTML = '<span class="device-badge other">Viewing History Only</span>';
+  }
+}
+
+function onDeviceSelectChange() {
+  viewingDeviceId = document.getElementById('deviceSelect').value;
+  updateDeviceBadge();
+  updateLiveControlsAvailability();
+  if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
+}
+
+// Live tabs (Resources, Diagnostics, App Behavior, Install Watch, the
+// Tracker toggle) only ever reflect THIS physical computer - there is no
+// way to start/stop tracking or see live numbers for a computer you're not
+// sitting at. History is the only thing viewable across all owned devices.
+function updateLiveControlsAvailability() {
+  const viewingOther = viewingDeviceId && viewingDeviceId !== deviceId;
+  let banner = document.getElementById('viewingOtherBanner');
+  if (viewingOther) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'viewingOtherBanner';
+      banner.className = 'viewing-other-banner';
+      document.querySelector('main').prepend(banner);
+    }
+    const otherDevice = myDevices.find(d => d.id === viewingDeviceId);
+    banner.textContent = `You're viewing "${otherDevice ? (otherDevice.device_name || 'Unnamed computer') : 'another computer'}" — its History is available here, but tracking can only be started or stopped from that computer itself.`;
+    document.getElementById('trackerToggle').disabled = true;
+  } else {
+    if (banner) banner.remove();
+    document.getElementById('trackerToggle').disabled = false;
+  }
+}
+
+async function renameCurrentDevice() {
+  const current = myDevices.find(d => d.id === viewingDeviceId);
+  const newName = prompt('Name this computer (e.g. "My Work Laptop"):', current ? (current.device_name || '') : '');
+  if (newName === null || newName.trim() === '') return;
+  await db.from('amit_devices').update({ device_name: newName.trim() }).eq('id', viewingDeviceId);
+  await loadMyDevices();
 }
 
 async function logEvent(eventType, severity, summary, detail) {
@@ -298,7 +389,9 @@ async function logEvent(eventType, severity, summary, detail) {
 async function loadHistory() {
   const list = document.getElementById('historyList');
   if (!currentUser) { list.innerHTML = '<em style="color:#8a8f99">Sign in to load history.</em>'; return; }
-  const { data, error } = await db.from('amit_device_events').select('*').eq('device_id', deviceId).order('created_at', { ascending: false }).limit(100);
+  const targetId = viewingDeviceId || deviceId;
+  if (!targetId) { list.innerHTML = '<em style="color:#8a8f99">No computer selected.</em>'; return; }
+  const { data, error } = await db.from('amit_device_events').select('*').eq('device_id', targetId).order('created_at', { ascending: false }).limit(100);
   if (error) { list.innerHTML = '<em>Error loading history: ' + error.message + '</em>'; return; }
   if (!data || data.length === 0) { list.innerHTML = '<em style="color:#8a8f99">No events logged yet for this device.</em>'; return; }
   list.innerHTML = data.map(e => `
