@@ -42,13 +42,29 @@
   table { width:100%; border-collapse:collapse; }
   th, td { text-align:left; padding:8px 10px; font-size:13px; border-bottom:1px solid #2a2e3a; }
   th { color:#9aa0ab; font-weight:600; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000; }
+  .overlay-card { background:#1c1f28; border-radius:14px; padding:28px 32px; max-width:480px; border:1px solid #3a3f4c; }
+  .overlay-card h2 { color:#d4af37; margin-top:0; font-size:19px; }
+  .overlay-card p { color:#c7cad1; font-size:14px; line-height:1.5; }
+  .overlay-card .actions { display:flex; gap:10px; margin-top:18px; }
+  .code-box { background:#0f1116; border-radius:8px; padding:12px 16px; font-family:Consolas, monospace; font-size:12px; color:#9be89b; margin:12px 0; word-break:break-all; }
+  #trackerToggle { padding:6px 14px; border-radius:6px; border:none; font-weight:600; cursor:pointer; }
+  #trackerToggle.on { background:#4caf6d; color:#0f1116; }
+  #trackerToggle.off { background:#3a3f4c; color:#e8e8ec; }
+  .walkthrough-step { background:#12141a; border-radius:8px; padding:10px 14px; margin:10px 0; border-left:3px solid #d4af37; }
+  .walkthrough-step strong { color:#e8e8ec; font-size:13px; }
+  .walkthrough-step p { font-size:13px; color:#9aa0ab; margin:6px 0 0; }
+  .walkthrough-img { max-width:100%; border-radius:6px; margin-top:8px; border:1px solid #3a3f4c; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>Amit Computer Health</h1>
-  <div class="device" id="deviceLabel">Connecting to local watcher...</div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <button id="trackerToggle" class="off" onclick="toggleTracker()">Tracker: checking...</button>
+    <div class="device" id="deviceLabel">Connecting to local watcher...</div>
+  </div>
 </header>
 
 <div id="loginBar">
@@ -56,6 +72,56 @@
   <input type="email" id="emailInput" placeholder="you@email.com">
   <button onclick="sendMagicLink()">Send Magic Link</button>
   <span id="statusMsg"></span>
+</div>
+
+<div class="overlay hidden" id="signinNudge">
+  <div class="overlay-card">
+    <h2>Want this computer's history saved?</h2>
+    <p>Sign in so what's detected here — installs, flags, resource trends — is saved permanently and reviewable later, on this computer or any other you sign in on. Without signing in, tracking still works, but nothing is remembered after you close this page.</p>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('signinNudge').classList.add('hidden'); document.getElementById('emailInput').focus();">Sign In</button>
+      <button class="btn secondary" onclick="dismissSigninNudge()">Continue Without Signing In</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="notRunningScreen">
+  <div class="overlay-card" style="max-width:560px;max-height:85vh;overflow-y:auto">
+    <h2>Desktop Watcher Not Running</h2>
+    <p>This page reads live data from a small program that has to run on this computer — a webpage can never do that on its own, for security reasons every browser enforces. Already installed it before? Just double-click <strong>Run Amit Tracker</strong> on your desktop and come back to this tab.</p>
+
+    <p><strong>Never set this up before?</strong> Here's exactly what will happen, before you start — nothing here should surprise you:</p>
+
+    <div class="walkthrough-step">
+      <strong>1. You'll download one file.</strong>
+      <p>It's a setup script, not an app store install. Your browser may warn you that it's an unrecognized file — that's normal for any script you download directly rather than through an app store; you're choosing to run it.</p>
+    </div>
+    <div class="walkthrough-step">
+      <strong>2. You'll run it, and a black window will briefly appear.</strong>
+      <p>That's the setup program working — it copies a few files to your computer and checks whether you already have a hardware-monitoring tool called LibreHardwareMonitor. If you do, it reuses it. If not, it downloads it from its official, open-source source.</p>
+      <img class="walkthrough-img" src="img/step-install-window.png" alt="" onerror="this.style.display='none'">
+    </div>
+    <div class="walkthrough-step">
+      <strong>3. Windows may ask for your permission (a security prompt).</strong>
+      <p>This can happen when the hardware-monitoring tool needs deeper access to read things like CPU temperature. If you see this, it's expected — click Yes to allow it. If you'd rather not, you can decline; tracking still works, just without temperature/fan/voltage readings.</p>
+      <img class="walkthrough-img" src="img/step-uac-prompt.png" alt="" onerror="this.style.display='none'">
+    </div>
+    <div class="walkthrough-step">
+      <strong>4. A shortcut appears on your desktop: "Run Amit Tracker."</strong>
+      <p>That's the only thing you'll need from now on. Double-click it any time you want to check your computer's health — it starts everything and opens this page automatically.</p>
+    </div>
+    <div class="walkthrough-step">
+      <strong>5. Nothing runs in the background unless you start it.</strong>
+      <p>Closing this tab, or clicking the Tracker button at the top of this page, stops everything again.</p>
+    </div>
+
+    <div class="actions">
+      <a class="btn" href="https://raw.githubusercontent.com/Ask-Amit/Amit/main/ComputerHealth/Install_AmitTracker.ps1" download="Install_AmitTracker.ps1" style="text-decoration:none;display:inline-block">Download the Installer</a>
+      <button class="btn secondary" onclick="document.getElementById('notRunningScreen').classList.add('hidden')">I'll do this later</button>
+      <button class="btn secondary" onclick="location.reload()">I've done this — Retry</button>
+    </div>
+    <p style="font-size:12px;color:#8a8f99;margin-top:10px">After downloading: right-click the file → Run with PowerShell.</p>
+  </div>
 </div>
 
 <nav>
@@ -159,6 +225,7 @@ db.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user;
     document.getElementById('authStatus').textContent = 'Signed in as ' + currentUser.email;
+    document.getElementById('signinNudge').classList.add('hidden');
     await claimDevice();
   }
 });
@@ -196,16 +263,69 @@ async function loadHistory() {
 }
 
 // --- Device init ---
+let bridgeUp = false;
 async function initDevice() {
   try {
     const r = await fetch(BRIDGE + '/api/device');
     const d = await r.json();
     deviceId = d.deviceId; deviceName = d.deviceName;
+    bridgeUp = true;
     document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
+    document.getElementById('notRunningScreen').classList.add('hidden');
+    maybeShowSigninNudge();
+    pollTrackerStatus();
   } catch (e) {
-    document.getElementById('deviceLabel').textContent = 'Bridge server not running (start amit_bridge_server.ps1)';
+    bridgeUp = false;
+    document.getElementById('deviceLabel').textContent = 'Desktop watcher not detected';
+    document.getElementById('notRunningScreen').classList.remove('hidden');
+    document.getElementById('trackerToggle').textContent = 'Tracker: unavailable';
   }
 }
+
+function maybeShowSigninNudge() {
+  if (currentUser) return;
+  if (localStorage.getItem('amit_ch_nudge_dismissed') === '1') return;
+  document.getElementById('signinNudge').classList.remove('hidden');
+}
+function dismissSigninNudge() {
+  localStorage.setItem('amit_ch_nudge_dismissed', '1');
+  document.getElementById('signinNudge').classList.add('hidden');
+}
+
+async function pollTrackerStatus() {
+  if (!bridgeUp) return;
+  try {
+    const r = await fetch(BRIDGE + '/api/tracker-status');
+    const d = await r.json();
+    const btn = document.getElementById('trackerToggle');
+    if (d.running) {
+      btn.textContent = 'Tracker: ON (click to stop)';
+      btn.className = 'on';
+    } else {
+      btn.textContent = 'Tracker: OFF (click to start)';
+      btn.className = 'off';
+    }
+  } catch (e) {}
+}
+
+async function toggleTracker() {
+  if (!bridgeUp) { document.getElementById('notRunningScreen').classList.remove('hidden'); return; }
+  const btn = document.getElementById('trackerToggle');
+  const isOn = btn.className === 'on';
+  btn.textContent = isOn ? 'Stopping...' : 'Starting...';
+  try {
+    await fetch(BRIDGE + (isOn ? '/api/stop-tracking' : '/api/start-tracking'), { method: 'POST', body: '' });
+  } catch (e) {}
+  setTimeout(pollTrackerStatus, 800);
+}
+
+// Best-effort auto-stop when the tab closes. Not guaranteed (crash, force-quit,
+// power loss won't fire this) - the Tracker toggle button is the reliable path.
+window.addEventListener('pagehide', () => {
+  if (bridgeUp) {
+    try { navigator.sendBeacon(BRIDGE + '/api/stop-tracking', new Blob([''])); } catch (e) {}
+  }
+});
 
 // --- Parsing helpers: turn raw watcher lines into plain language ---
 function parseResourceLine(line) {
@@ -413,6 +533,7 @@ setInterval(pollResource, 5000);
 setInterval(pollDiagnostics, 5000);
 setInterval(pollBehavior, 5000);
 setInterval(pollBrowser, 10000);
+setInterval(pollTrackerStatus, 6000);
 </script>
 </body>
 </html>
