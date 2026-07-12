@@ -16,10 +16,36 @@ $watcherDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $My
 $dashboardPath = "$watcherDir\ComputerHealth_Dashboard.html"
 $deviceIdFile = "$watcherDir\device_id.txt"
 
-if (-not (Test-Path $deviceIdFile)) {
-    [guid]::NewGuid().ToString() | Set-Content -Path $deviceIdFile -Encoding utf8
+# Device identity is the SMBIOS UUID - a hardware-level identifier present on
+# virtually every modern PC (this is what IT asset-management tools use for
+# hardware fingerprinting). This matters because it survives a full reinstall
+# of this software: a locally-generated random ID stored in a file would be
+# lost and regenerated on reinstall, orphaning that computer's entire history
+# in Supabase. The SMBIOS UUID is the same value for as long as the physical
+# hardware exists, regardless of what happens to our files.
+#
+# BIOS serial number was tested and rejected - on custom-built desktops
+# (confirmed on this machine) it's frequently just the placeholder text
+# "To be filled by O.E.M.", since board makers often don't populate that
+# field outside of prebuilt OEM systems. SMBIOS UUID is far more reliably
+# populated on DIY builds.
+try {
+    $smbiosUuid = (Get-CimInstance Win32_ComputerSystemProduct -ErrorAction Stop).UUID
+} catch { $smbiosUuid = $null }
+
+if ($smbiosUuid -and $smbiosUuid -ne "00000000-0000-0000-0000-000000000000") {
+    $deviceId = $smbiosUuid
+    # Keep the file in sync for reference/debugging, but it's no longer the
+    # source of truth - the hardware UUID is.
+    $smbiosUuid | Set-Content -Path $deviceIdFile -Encoding utf8
+} else {
+    # Fallback only for the rare system where SMBIOS UUID genuinely isn't
+    # available - a locally-generated ID, same as before.
+    if (-not (Test-Path $deviceIdFile)) {
+        [guid]::NewGuid().ToString() | Set-Content -Path $deviceIdFile -Encoding utf8
+    }
+    $deviceId = (Get-Content $deviceIdFile -Raw).Trim()
 }
-$deviceId = (Get-Content $deviceIdFile -Raw).Trim()
 $deviceName = $env:COMPUTERNAME
 
 $listener = New-Object System.Net.HttpListener

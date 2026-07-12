@@ -114,12 +114,16 @@
     <h2>Desktop Watcher Not Running</h2>
     <p>This page reads live data from a small program that has to run on this computer — a webpage can never do that on its own, for security reasons every browser enforces.</p>
 
-    <p><strong>Already installed this before?</strong> Click below — a Windows permission box will appear first (Windows always asks once, we can't skip that, but here's what it's for and why it's safe to allow):</p>
-    <div class="actions">
-      <button class="btn" onclick="launchTrackerFlow()">Launch Tracker</button>
+    <div id="notRunningQuickLaunch">
+      <p>Click below — Amit will actually try to connect to this computer's tracker. If it's already installed, this starts it. If it isn't, we'll find out immediately and walk you through setup instead.</p>
+      <div class="actions">
+        <button class="btn" onclick="launchTrackerFlow()">Launch Tracker</button>
+      </div>
+      <p id="quickLaunchStatus" style="color:#9aa0ab;font-size:13px"></p>
     </div>
 
-    <p style="margin-top:20px"><strong>Never set this up before?</strong> Here's exactly what will happen, before you start — nothing here should surprise you:</p>
+    <div id="notRunningFullWalkthrough" class="hidden">
+    <p style="margin-top:20px"><strong>Doesn't look like this is installed on this computer yet.</strong> Here's exactly what will happen, before you start — nothing here should surprise you:</p>
 
     <div class="walkthrough-step">
       <strong>1. You'll download one file.</strong>
@@ -150,6 +154,7 @@
       <button class="btn secondary" onclick="location.reload()">I've done this — Retry</button>
     </div>
     <p style="font-size:12px;color:#8a8f99;margin-top:10px">After downloading: right-click the file → Run with PowerShell.</p>
+    </div>
   </div>
 </div>
 
@@ -318,9 +323,22 @@ async function initDevice() {
   } catch (e) {
     bridgeUp = false;
     document.getElementById('deviceLabel').textContent = 'Desktop watcher not detected';
-    document.getElementById('notRunningScreen').classList.remove('hidden');
+    showNotRunningScreen();
     document.getElementById('trackerToggle').textContent = 'Tracker: unavailable';
   }
+}
+
+// Always starts on the quick-launch attempt - the walkthrough only appears
+// if that attempt actually fails to connect (see confirmLaunchTracker),
+// since that live connection attempt is the only real test of "is this
+// installed" a webpage can perform - there's no way to check the filesystem
+// or registry directly, and remembering past success in localStorage would
+// be wrong if this browser's data gets cleared or a different browser is used.
+function showNotRunningScreen() {
+  document.getElementById('notRunningQuickLaunch').classList.remove('hidden');
+  document.getElementById('notRunningFullWalkthrough').classList.add('hidden');
+  document.getElementById('quickLaunchStatus').textContent = '';
+  document.getElementById('notRunningScreen').classList.remove('hidden');
 }
 
 function maybeShowSigninNudge() {
@@ -341,18 +359,28 @@ function cancelLaunchTracker() {
 }
 function confirmLaunchTracker() {
   document.getElementById('launchWarningModal').classList.add('hidden');
+  document.getElementById('quickLaunchStatus').textContent = 'Trying to connect...';
   window.location.href = 'amit-tracker://start';
-  // Poll for the bridge coming up so this page updates itself automatically -
-  // no need to click Retry once the Windows prompt is approved.
+  // This poll IS the real test of "is this installed" - a webpage can't
+  // check the filesystem/registry directly, so actually attempting the
+  // connection and watching what happens is the only honest signal.
+  // A short window (installed = connects in a couple seconds) before
+  // concluding it's genuinely not installed and showing the walkthrough.
   let attempts = 0;
   const poller = setInterval(async () => {
     attempts++;
     try {
       const r = await fetch(BRIDGE + '/api/device', { cache: 'no-store' });
-      if (r.ok) { clearInterval(poller); location.reload(); }
+      if (r.ok) { clearInterval(poller); location.reload(); return; }
     } catch (e) {}
-    if (attempts > 30) clearInterval(poller); // give up after ~60s
-  }, 2000);
+    if (attempts >= 6) {
+      // ~9 seconds with no response - conclude this isn't installed yet.
+      clearInterval(poller);
+      document.getElementById('quickLaunchStatus').textContent = "Couldn't connect - this computer doesn't appear to have it installed yet.";
+      document.getElementById('notRunningQuickLaunch').classList.add('hidden');
+      document.getElementById('notRunningFullWalkthrough').classList.remove('hidden');
+    }
+  }, 1500);
 }
 
 async function pollTrackerStatus() {
