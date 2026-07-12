@@ -117,7 +117,7 @@
     <p>This page reads live data from a small program that has to run on this computer — a webpage can never do that on its own, for security reasons every browser enforces.</p>
 
     <div id="notRunningQuickLaunch">
-      <p>Click below — Amit will actually try to connect to this computer's tracker. If it's already installed, this starts it. If it isn't, we'll find out immediately and walk you through setup instead.</p>
+      <p>Click Launch Tracker — Amit will actually try to connect to this computer's tracker. If it's already installed, this starts it. If it isn't, we'll find out immediately and walk you through setup instead.</p>
       <div class="actions">
         <button class="btn" onclick="launchTrackerFlow()">Launch Tracker</button>
       </div>
@@ -287,18 +287,39 @@ async function claimDevice() {
   await loadMyDevices();
 }
 
+// Amit's own account - same constant used throughout the Hub for demo mode.
+// hub_entries already has a public-read RLS carve-out for this UID; the
+// same carve-out was added for amit_devices/amit_device_events (migration
+// 2026-07-12_002) so demo visitors can browse Amit's real tracked history,
+// read-only, the same way they already see Amit's real pursuits on the Hub.
+const AMIT_DEMO_UID = '8b95d057-fd6b-44ec-abe7-658e08872d1a';
+let isDemoDeviceView = false;
+
 // Loads every device this signed-in user owns (could be many - "they may
 // have twenty computers"), lets them pick which one's data to view, and
 // auto-selects whichever one they're physically sitting at right now
-// (matched by comparing against the local bridge's own device ID).
+// (matched by comparing against the local bridge's own device ID). If no
+// one's signed in and the Hub's demo mode is on, shows Amit's own devices
+// instead, matching exactly how the Hub falls back to demo content.
 async function loadMyDevices() {
-  if (!currentUser) return;
-  const { data, error } = await db.from('amit_devices').select('*').eq('owner_user_id', currentUser.id).order('created_at', { ascending: true });
+  let ownerUid = null;
+  if (currentUser) {
+    ownerUid = currentUser.id;
+    isDemoDeviceView = false;
+  } else if (localStorage.getItem('amit_demo_hub') !== 'off') {
+    ownerUid = AMIT_DEMO_UID;
+    isDemoDeviceView = true;
+  } else {
+    return;
+  }
+
+  const { data, error } = await db.from('amit_devices').select('*').eq('owner_user_id', ownerUid).order('created_at', { ascending: true });
   if (error || !data) return;
   myDevices = data;
   if (myDevices.length === 0) return;
 
   document.getElementById('deviceBar').classList.remove('hidden');
+  document.getElementById('renameDeviceBtn').classList.toggle('hidden', isDemoDeviceView);
   if (!viewingDeviceId || !myDevices.find(d => d.id === viewingDeviceId)) {
     viewingDeviceId = (deviceId && myDevices.find(d => d.id === deviceId)) ? deviceId : myDevices[0].id;
   }
@@ -347,7 +368,10 @@ function updateLiveControlsAvailability() {
       document.querySelector('main').prepend(banner);
     }
     const otherDevice = myDevices.find(d => d.id === viewingDeviceId);
-    banner.textContent = `You're viewing "${otherDevice ? (otherDevice.device_name || 'Unnamed computer') : 'another computer'}" — its History is available here, but tracking can only be started or stopped from that computer itself.`;
+    const otherName = otherDevice ? (otherDevice.device_name || 'Unnamed computer') : 'another computer';
+    banner.textContent = isDemoDeviceView
+      ? `You're browsing "${otherName}" — one of Amit's own real tracked computers, shown here in demo mode. Sign in to track your own computer's health.`
+      : `You're viewing "${otherName}" — its History is available here, but tracking can only be started or stopped from that computer itself.`;
     document.getElementById('trackerToggle').disabled = true;
   } else {
     if (banner) banner.remove();
@@ -714,6 +738,9 @@ async function handleJustStopped() {
 
 initDevice();
 handleJustStopped();
+// Runs immediately for guests too (not just after a real sign-in) so demo
+// mode - browsing Amit's own tracked history - works without an account.
+setTimeout(() => { if (!currentUser) loadMyDevices(); }, 500);
 pollResource();
 pollDiagnostics();
 pollBehavior();
