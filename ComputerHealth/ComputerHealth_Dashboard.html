@@ -75,9 +75,8 @@
 </header>
 
 <div id="loginBar">
-  <span id="authStatus">Not signed in — sign in to save history for this computer.</span>
-  <input type="email" id="emailInput" placeholder="you@email.com">
-  <button onclick="sendMagicLink()">Send Magic Link</button>
+  <span id="authStatus">Not signed in.</span>
+  <a class="btn" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" style="text-decoration:none">Sign in through the Hub</a>
   <span id="statusMsg"></span>
 </div>
 
@@ -86,17 +85,6 @@
   <select id="deviceSelect" onchange="onDeviceSelectChange()"></select>
   <span id="deviceBadge"></span>
   <button class="btn secondary" id="renameDeviceBtn" onclick="renameCurrentDevice()" style="font-size:12px;padding:4px 10px">Rename</button>
-</div>
-
-<div class="overlay hidden" id="signinNudge">
-  <div class="overlay-card">
-    <h2>Want this computer's history saved?</h2>
-    <p>Sign in so what's detected here — installs, flags, resource trends — is saved permanently and reviewable later, on this computer or any other you sign in on. Without signing in, tracking still works, but nothing is remembered after you close this page.</p>
-    <div class="actions">
-      <button class="btn" onclick="document.getElementById('signinNudge').classList.add('hidden'); document.getElementById('emailInput').focus();">Sign In</button>
-      <button class="btn secondary" onclick="dismissSigninNudge()">Continue Without Signing In</button>
-    </div>
-  </div>
 </div>
 
 <div class="overlay hidden" id="launchWarningModal">
@@ -275,18 +263,14 @@ function setStatus(msg) {
   setTimeout(() => { document.getElementById('statusMsg').textContent = ''; }, 4000);
 }
 
-async function sendMagicLink() {
-  const email = document.getElementById('emailInput').value.trim();
-  if (!email) { setStatus('Enter an email first'); return; }
-  const { error } = await db.auth.signInWithOtp({ email });
-  setStatus(error ? 'Error: ' + error.message : 'Magic link sent — check your email');
-}
-
+// No separate sign-in here by design - the Hub is the one door in, and
+// since both pages share the same domain, a Hub sign-in already carries
+// over automatically. This only ever needs to hide the "not signed in"
+// bar once that session is detected, not offer a second way to sign in.
 db.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user;
-    document.getElementById('authStatus').textContent = 'Signed in as ' + currentUser.email;
-    document.getElementById('signinNudge').classList.add('hidden');
+    document.getElementById('loginBar').classList.add('hidden');
     await claimDevice();
   }
 });
@@ -412,7 +396,6 @@ async function initDevice() {
     bridgeUp = true;
     document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
     document.getElementById('notRunningScreen').classList.add('hidden');
-    maybeShowSigninNudge();
     pollTrackerStatus();
   } catch (e) {
     // Deliberately does NOT show the not-running screen automatically -
@@ -441,15 +424,6 @@ function showNotRunningScreen() {
   document.getElementById('notRunningScreen').classList.remove('hidden');
 }
 
-function maybeShowSigninNudge() {
-  if (currentUser) return;
-  if (localStorage.getItem('amit_ch_nudge_dismissed') === '1') return;
-  document.getElementById('signinNudge').classList.remove('hidden');
-}
-function dismissSigninNudge() {
-  localStorage.setItem('amit_ch_nudge_dismissed', '1');
-  document.getElementById('signinNudge').classList.add('hidden');
-}
 
 function launchTrackerFlow() {
   document.getElementById('launchWarningModal').classList.remove('hidden');
