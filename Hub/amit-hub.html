@@ -3308,19 +3308,21 @@ async function submitProfileEmail(){
       options:{emailRedirectTo:'https://ask-amit.github.io/Amit/Hub/amit-hub.html'}
     });
     if(error)throw error;
-    // Show "check email" state
+    // Show "check email" state - this STAYS UP. It does not auto-close.
+    // Closing only ever happens for real once onAuthStateChange sees an
+    // actual signed-in session (from clicking the real email link), or the
+    // person explicitly chooses guest mode below. Auto-closing this after a
+    // few seconds regardless of verification was the bug that let people
+    // straight into the dashboard without ever actually signing in.
     document.getElementById('amitNamePanel4').innerHTML=`
       <div class="amit-name-logo">AMIT</div>
       <div style="font-size:36px;margin:10px 0">✉</div>
       <div class="amit-name-question" style="font-size:15px">Check your email.</div>
       <div style="font-size:13px;color:rgba(240,232,208,.55);line-height:1.75;margin:14px 0 22px;text-align:center">
         A sign-in link was sent to<br><strong style="color:rgba(240,232,208,.85)">${email}</strong><br><br>
-        Click the link in your email to finish signing in.<br>This window will close now.
-      </div>`;
-    setTimeout(()=>{
-      document.getElementById('amitNameModal').classList.remove('open');
-      tick();if(curPanel==='home')renderDayView();
-    },2800);
+        Click the link in your email to finish signing in.<br>This screen will stay here until you do.
+      </div>
+      <div onclick="showGuestWarning()" style="font-size:10px;color:rgba(240,232,208,.28);cursor:pointer;letter-spacing:.08em;text-align:center;margin-top:6px">Continue as guest instead →</div>`;
   }catch(e){
     if(btn){btn.textContent='Send Sign-In Link →';btn.disabled=false;}
     const inp=document.getElementById('profileEmailInput');
