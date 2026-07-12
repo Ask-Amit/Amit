@@ -79,13 +79,40 @@ function Test-IsRealLibreHardwareMonitor($path) {
     } catch { return $false }
 }
 
-$lhmSearchPaths = @(
-    "$lhmInstallDir\LibreHardwareMonitor.exe",
-    "$env:USERPROFILE\Downloads\LibreHardwareMonitor\LibreHardwareMonitor.exe",
-    "$env:ProgramFiles\LibreHardwareMonitor\LibreHardwareMonitor.exe",
-    "${env:ProgramFiles(x86)}\LibreHardwareMonitor\LibreHardwareMonitor.exe"
-)
-$existingLhm = $lhmSearchPaths | Where-Object { Test-IsRealLibreHardwareMonitor $_ } | Select-Object -First 1
+# If it's already running right now, that's the one source of truth that
+# can't be fooled by a moved or deleted file - a person who cleans out their
+# Downloads folder regularly (a normal habit) would otherwise cause a
+# perfectly working, currently-running LibreHardwareMonitor to look "not
+# installed" and get duplicated. Check the live process first.
+$runningLhm = Get-Process -Name "LibreHardwareMonitor" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($runningLhm -and $runningLhm.Path -and (Test-IsRealLibreHardwareMonitor $runningLhm.Path)) {
+    $existingLhm = $runningLhm.Path
+    Write-Host "[2/5] LibreHardwareMonitor is already running (from $existingLhm) - using that."
+} else {
+    $lhmSearchPaths = @(
+        "$lhmInstallDir\LibreHardwareMonitor.exe",
+        "$env:USERPROFILE\Downloads\LibreHardwareMonitor\LibreHardwareMonitor.exe",
+        "$env:ProgramFiles\LibreHardwareMonitor\LibreHardwareMonitor.exe",
+        "${env:ProgramFiles(x86)}\LibreHardwareMonitor\LibreHardwareMonitor.exe"
+    )
+    $existingLhm = $lhmSearchPaths | Where-Object { Test-IsRealLibreHardwareMonitor $_ } | Select-Object -First 1
+}
+
+# Once found ANYWHERE (even our own managed folder), make sure our own
+# managed copy exists too - so a future run never depends on wherever this
+# one happened to be found today. If someone wipes their Downloads folder
+# next week, our own copy (never touched by that cleanup) is still there.
+if ($existingLhm -and -not (Test-IsRealLibreHardwareMonitor "$lhmInstallDir\LibreHardwareMonitor.exe")) {
+    $sourceLhmDir = Split-Path -Parent $existingLhm
+    if ($sourceLhmDir -ne $lhmInstallDir) {
+        Write-Host "  Copying LibreHardwareMonitor to Amit's own managed folder so future runs don't depend on $sourceLhmDir still existing..."
+        New-Item -ItemType Directory -Path $lhmInstallDir -Force | Out-Null
+        Copy-Item "$sourceLhmDir\*" $lhmInstallDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+if (Test-IsRealLibreHardwareMonitor "$lhmInstallDir\LibreHardwareMonitor.exe") {
+    $existingLhm = "$lhmInstallDir\LibreHardwareMonitor.exe"
+}
 
 if ($existingLhm -and -not $Force) {
     Write-Host "[2/5] LibreHardwareMonitor already found at: $existingLhm - using that, not downloading another copy."

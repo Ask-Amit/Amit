@@ -190,7 +190,16 @@ $handlerScript = {
         $newPids = @()
         $warnings = @()
 
-        if ($lhmPath -and (Test-Path $lhmPath)) {
+        # Check the live process list before launching - not just whether a
+        # file exists at the recorded path. A file check alone can be wrong
+        # (the file could've been moved/deleted since, e.g. someone cleaning
+        # out a Downloads folder) while an already-running copy is still
+        # genuinely running. This is what prevents launching a duplicate.
+        $alreadyRunningLhm = Get-Process -Name "LibreHardwareMonitor" -ErrorAction SilentlyContinue
+        if ($alreadyRunningLhm) {
+            # Not one of ours to track/stop later - it was already running
+            # before we started, so Stop-Tracking should leave it alone.
+        } elseif ($lhmPath -and (Test-Path $lhmPath)) {
             try {
                 $lhmProc = Start-Process -FilePath $lhmPath -PassThru -ErrorAction Stop
                 $newPids += $lhmProc.Id
