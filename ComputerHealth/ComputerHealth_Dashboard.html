@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Amit Computer Health</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:#12141a; color:#e8e8ec; margin:0; padding:0; }
+  header { background:#1c1f28; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2a2e3a; }
+  header h1 { font-size:20px; margin:0; color:#d4af37; }
+  header .device { font-size:13px; color:#9aa0ab; }
+  #loginBar { padding:10px 24px; background:#1c1f28; border-bottom:1px solid #2a2e3a; display:flex; gap:10px; align-items:center; }
+  #loginBar input { padding:6px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; }
+  #loginBar button, .btn { padding:6px 14px; border-radius:6px; border:none; background:#d4af37; color:#12141a; font-weight:600; cursor:pointer; }
+  .btn.secondary { background:#3a3f4c; color:#e8e8ec; }
+  .btn.danger { background:#b23a3a; color:#fff; }
+  nav { display:flex; gap:4px; padding:10px 24px 0; background:#12141a; }
+  nav button { padding:10px 18px; border:none; background:#1c1f28; color:#9aa0ab; border-radius:8px 8px 0 0; cursor:pointer; font-size:14px; }
+  nav button.active { background:#22252f; color:#d4af37; font-weight:600; }
+  main { padding:20px 24px; }
+  .tab { display:none; }
+  .tab.active { display:block; }
+  .card-row { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
+  .card { background:#1c1f28; border-radius:10px; padding:16px 20px; min-width:180px; flex:1; border-left:4px solid #3a3f4c; }
+  .card.good { border-left-color:#4caf6d; }
+  .card.warn { border-left-color:#e0a72e; }
+  .card.bad { border-left-color:#d05555; }
+  .card .label { font-size:12px; color:#9aa0ab; text-transform:uppercase; letter-spacing:0.5px; }
+  .card .value { font-size:26px; font-weight:700; margin:4px 0; }
+  .card .verdict { font-size:13px; color:#c7cad1; }
+  .section-title { font-size:15px; color:#d4af37; margin:18px 0 8px; }
+  .controls { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
+  .controls input { padding:8px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; }
+  .log-box { background:#0f1116; border-radius:8px; padding:12px 16px; font-family:Consolas, monospace; font-size:12px; color:#9be89b; max-height:340px; overflow-y:auto; white-space:pre-wrap; }
+  .finding { background:#1c1f28; border-radius:8px; padding:12px 16px; margin-bottom:8px; border-left:4px solid #3a3f4c; }
+  .finding.flag { border-left-color:#e0a72e; }
+  .finding .meta { font-size:11px; color:#8a8f99; margin-top:4px; }
+  #statusMsg { font-size:13px; color:#9aa0ab; margin-left:auto; }
+  .hidden { display:none !important; }
+  .history-item { background:#1c1f28; border-radius:8px; padding:12px 16px; margin-bottom:8px; }
+  .history-item .when { font-size:11px; color:#8a8f99; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:8px 10px; font-size:13px; border-bottom:1px solid #2a2e3a; }
+  th { color:#9aa0ab; font-weight:600; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Amit Computer Health</h1>
+  <div class="device" id="deviceLabel">Connecting to local watcher...</div>
+</header>
+
+<div id="loginBar">
+  <span id="authStatus">Not signed in — sign in to save history for this computer.</span>
+  <input type="email" id="emailInput" placeholder="you@email.com">
+  <button onclick="sendMagicLink()">Send Magic Link</button>
+  <span id="statusMsg"></span>
+</div>
+
+<nav>
+  <button class="active" onclick="showTab('overview')">Overview</button>
+  <button onclick="showTab('resource')">Resources</button>
+  <button onclick="showTab('diagnostics')">Diagnostics</button>
+  <button onclick="showTab('behavior')">App Behavior</button>
+  <button onclick="showTab('install')">Install Watch</button>
+  <button onclick="showTab('history')">History</button>
+</nav>
+
+<main>
+
+  <div class="tab active" id="tab-overview">
+    <div class="section-title">Right now, in plain language</div>
+    <div class="card-row" id="overviewCards"></div>
+    <div class="section-title">Recent flags</div>
+    <div id="overviewFindings"><em style="color:#8a8f99">Nothing flagged yet.</em></div>
+  </div>
+
+  <div class="tab" id="tab-resource">
+    <div class="section-title">Resources — condensed</div>
+    <div class="card-row" id="resourceCards"></div>
+    <div class="section-title">Raw log (last 20 lines)</div>
+    <div class="log-box" id="resourceLog">Waiting for data...</div>
+  </div>
+
+  <div class="tab" id="tab-diagnostics">
+    <div class="section-title">Input-lag & bottleneck causes — condensed</div>
+    <div class="card-row" id="diagCards"></div>
+    <div class="section-title">Raw log (last 30 lines)</div>
+    <div class="log-box" id="diagLog">Waiting for data...</div>
+  </div>
+
+  <div class="tab" id="tab-behavior">
+    <div class="section-title">App Behavior Watcher</div>
+    <div class="controls">
+      <input type="text" id="behaviorProcessName" placeholder="process name, e.g. notepad">
+      <button class="btn" onclick="startBehavior()">Start Watching</button>
+      <button class="btn danger" onclick="stopBehavior()">Stop</button>
+    </div>
+    <p style="font-size:13px;color:#9aa0ab">Start this, then go use the app for as long as you want. File writes are time-correlated (not proven per-process) — network connections are exactly attributed.</p>
+    <div class="log-box" id="behaviorLog">No session running.</div>
+  </div>
+
+  <div class="tab" id="tab-install">
+    <div class="section-title">Install Watch (before/after diff)</div>
+    <div class="controls">
+      <button class="btn" onclick="installStart()">1. Start Baseline (before you download/install)</button>
+      <button class="btn secondary" onclick="installCompare()">2. Compare Now (after install finishes)</button>
+    </div>
+    <div id="installResult"><em style="color:#8a8f99">No comparison run yet.</em></div>
+  </div>
+
+  <div class="tab" id="tab-history">
+    <div class="section-title">This computer's history</div>
+    <p style="font-size:13px;color:#9aa0ab">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
+    <div id="historyList"><em style="color:#8a8f99">Sign in to load history.</em></div>
+  </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const BRIDGE = "http://localhost:8710";
+const SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let deviceId = null, deviceName = null, currentUser = null;
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'history') loadHistory();
+}
+
+function setStatus(msg) {
+  document.getElementById('statusMsg').textContent = msg;
+  setTimeout(() => { document.getElementById('statusMsg').textContent = ''; }, 4000);
+}
+
+async function sendMagicLink() {
+  const email = document.getElementById('emailInput').value.trim();
+  if (!email) { setStatus('Enter an email first'); return; }
+  const { error } = await db.auth.signInWithOtp({ email });
+  setStatus(error ? 'Error: ' + error.message : 'Magic link sent — check your email');
+}
+
+db.auth.onAuthStateChange(async (event, session) => {
+  if (session) {
+    currentUser = session.user;
+    document.getElementById('authStatus').textContent = 'Signed in as ' + currentUser.email;
+    await claimDevice();
+  }
+});
+
+async function claimDevice() {
+  if (!currentUser || !deviceId) return;
+  const { data: existing } = await db.from('amit_devices').select('*').eq('id', deviceId).maybeSingle();
+  if (!existing) {
+    await db.from('amit_devices').insert({ id: deviceId, device_name: deviceName, owner_user_id: currentUser.id });
+  } else if (existing.owner_user_id !== currentUser.id) {
+    // Ownership transfer path - only proceed if explicitly confirmed elsewhere; for now just log conflict
+    console.warn('Device already owned by another user - transfer flow not triggered automatically.');
+  }
+}
+
+async function logEvent(eventType, severity, summary, detail) {
+  if (!currentUser || !deviceId) return;
+  await db.from('amit_device_events').insert({
+    device_id: deviceId, user_id: currentUser.id, event_type: eventType,
+    severity, summary, event_detail: detail
+  });
+}
+
+async function loadHistory() {
+  const list = document.getElementById('historyList');
+  if (!currentUser) { list.innerHTML = '<em style="color:#8a8f99">Sign in to load history.</em>'; return; }
+  const { data, error } = await db.from('amit_device_events').select('*').eq('device_id', deviceId).order('created_at', { ascending: false }).limit(100);
+  if (error) { list.innerHTML = '<em>Error loading history: ' + error.message + '</em>'; return; }
+  if (!data || data.length === 0) { list.innerHTML = '<em style="color:#8a8f99">No events logged yet for this device.</em>'; return; }
+  list.innerHTML = data.map(e => `
+    <div class="history-item">
+      <div><strong>${e.summary || e.event_type}</strong> <span style="color:${e.severity==='critical'?'#d05555':e.severity==='warning'?'#e0a72e':'#8a8f99'}">[${e.severity}]</span></div>
+      <div class="when">${new Date(e.created_at).toLocaleString()}</div>
+    </div>`).join('');
+}
+
+// --- Device init ---
+async function initDevice() {
+  try {
+    const r = await fetch(BRIDGE + '/api/device');
+    const d = await r.json();
+    deviceId = d.deviceId; deviceName = d.deviceName;
+    document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
+  } catch (e) {
+    document.getElementById('deviceLabel').textContent = 'Bridge server not running (start amit_bridge_server.ps1)';
+  }
+}
+
+// --- Parsing helpers: turn raw watcher lines into plain language ---
+function parseResourceLine(line) {
+  const ram = line.match(/RAM:(\d+)MB-free\/(\d+)MB-total\((\d+\.?\d*)%used\)/);
+  const cpu = line.match(/CPU:(\d+\.?\d*)%/);
+  return {
+    ramPct: ram ? parseFloat(ram[3]) : null,
+    ramFreeMB: ram ? parseInt(ram[1]) : null,
+    ramTotalMB: ram ? parseInt(ram[2]) : null,
+    cpuPct: cpu ? parseFloat(cpu[1]) : null
+  };
+}
+
+function verdictClass(pct, warnAt, badAt) {
+  if (pct === null) return '';
+  if (pct >= badAt) return 'bad';
+  if (pct >= warnAt) return 'warn';
+  return 'good';
+}
+function verdictText(label, pct, warnAt, badAt, goodMsg, warnMsg, badMsg) {
+  if (pct === null) return label + ': no data yet';
+  if (pct >= badAt) return badMsg;
+  if (pct >= warnAt) return warnMsg;
+  return goodMsg;
+}
+
+async function pollResource() {
+  try {
+    const r = await fetch(BRIDGE + '/api/resource');
+    const d = await r.json();
+    const lines = d.lines || [];
+    document.getElementById('resourceLog').textContent = lines.join('\n') || 'No data yet.';
+    const last = lines.filter(l => l.includes('RAM:')).slice(-1)[0];
+    if (last) {
+      const p = parseResourceLine(last);
+      const ramCard = `<div class="card ${verdictClass(p.ramPct,70,90)}">
+        <div class="label">Memory (RAM)</div>
+        <div class="value">${p.ramPct !== null ? p.ramPct+'%' : '—'}</div>
+        <div class="verdict">${verdictText('RAM',p.ramPct,70,90,
+          'Plenty of memory free — no concern.',
+          'Getting fuller — fine for now, worth watching if it climbs.',
+          'Memory is nearly full. This can cause slowdowns and stutter.')}</div></div>`;
+      const cpuCard = `<div class="card ${verdictClass(p.cpuPct,60,85)}">
+        <div class="label">Processor (CPU)</div>
+        <div class="value">${p.cpuPct !== null ? p.cpuPct+'%' : '—'}</div>
+        <div class="verdict">${verdictText('CPU',p.cpuPct,60,85,
+          'Low load — computer has plenty of headroom.',
+          'Moderate load — normal during active use.',
+          'Very high load — something is working the processor hard right now.')}</div></div>`;
+      document.getElementById('resourceCards').innerHTML = ramCard + cpuCard;
+      document.getElementById('overviewCards').innerHTML = ramCard + cpuCard;
+      if (p.ramPct !== null && p.ramPct >= 90) {
+        flagOnce('ram-high', 'warning', 'RAM usage crossed 90% — computer may feel sluggish.', p);
+      }
+    }
+  } catch (e) { /* bridge not up yet */ }
+}
+
+async function pollDiagnostics() {
+  try {
+    const r = await fetch(BRIDGE + '/api/diagnostics');
+    const d = await r.json();
+    const lines = d.lines || [];
+    document.getElementById('diagLog').textContent = lines.join('\n') || 'No data yet.';
+    const last = lines.filter(l => l.includes('DPC:')).slice(-1)[0];
+    if (last) {
+      const dpc = last.match(/DPC:(\d+\.?\d*)%/);
+      const disk = last.match(/DISK:(\d+\.?\d*)%/);
+      const dpcPct = dpc ? parseFloat(dpc[1]) : null;
+      const diskPct = disk ? parseFloat(disk[1]) : null;
+      document.getElementById('diagCards').innerHTML = `
+        <div class="card ${verdictClass(dpcPct,3,8)}">
+          <div class="label">Input Lag Risk (DPC time)</div>
+          <div class="value">${dpcPct !== null ? dpcPct+'%' : '—'}</div>
+          <div class="verdict">${verdictText('DPC',dpcPct,3,8,
+            'Normal — mouse/keyboard should feel responsive.',
+            'Slightly elevated — could explain occasional stutter.',
+            'High — this is a common cause of laggy mouse/keyboard. Worth investigating drivers.')}</div></div>
+        <div class="card ${verdictClass(diskPct,50,85)}">
+          <div class="label">Disk Activity</div>
+          <div class="value">${diskPct !== null ? diskPct+'%' : '—'}</div>
+          <div class="verdict">${verdictText('Disk',diskPct,50,85,
+            'Disk is not a bottleneck right now.',
+            'Disk is busy — normal during file operations.',
+            'Disk is maxed out — this alone can make everything feel frozen.')}</div></div>`;
+    }
+  } catch (e) {}
+}
+
+const flaggedOnce = {};
+function flagOnce(key, severity, summary, detail) {
+  if (flaggedOnce[key]) return;
+  flaggedOnce[key] = true;
+  const box = document.getElementById('overviewFindings');
+  if (box.querySelector('em')) box.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'finding flag';
+  div.innerHTML = `<strong>${summary}</strong><div class="meta">${new Date().toLocaleTimeString()}</div>`;
+  box.prepend(div);
+  logEvent('resource_anomaly', severity, summary, detail);
+}
+
+function startBehavior() {
+  const name = document.getElementById('behaviorProcessName').value.trim();
+  if (!name) { setStatus('Enter a process name'); return; }
+  fetch(BRIDGE + '/api/start-behavior', { method:'POST', body: JSON.stringify({processName:name}) });
+  document.getElementById('behaviorLog').textContent = 'Watching "' + name + '"... use the app now.';
+}
+function stopBehavior() {
+  fetch(BRIDGE + '/api/stop-behavior', { method:'POST' });
+  setTimeout(pollBehavior, 1500);
+}
+async function pollBehavior() {
+  try {
+    const r = await fetch(BRIDGE + '/api/behavior');
+    const d = await r.json();
+    document.getElementById('behaviorLog').textContent = (d.lines || []).join('\n') || 'No session running.';
+  } catch (e) {}
+}
+
+async function installStart() {
+  document.getElementById('installResult').innerHTML = '<em style="color:#8a8f99">Baseline captured. Go install/download now, then click Compare.</em>';
+  await fetch(BRIDGE + '/api/install-start', { method:'POST' });
+}
+async function installCompare() {
+  document.getElementById('installResult').innerHTML = '<em>Comparing...</em>';
+  const r = await fetch(BRIDGE + '/api/install-compare', { method:'POST' });
+  const d = await r.json();
+  if (!d.found) { document.getElementById('installResult').innerHTML = '<em>No baseline found — click Start first.</em>'; return; }
+  const diff = JSON.parse(d.content);
+  const total = (diff.NewPrograms?.length||0) + (diff.NewStartupReg?.length||0) + (diff.NewShortcuts?.length||0) + (diff.NewTasks?.length||0) + (diff.NewExtensions?.length||0) + (diff.HomepageChanges?.length||0);
+  let html = `<p><strong>${total} change(s) detected.</strong></p>`;
+  const section = (title, items, fmt) => items && items.length ? `<div class="section-title">${title} (${items.length})</div>` + items.map(fmt).join('') : '';
+  html += section('New Programs', diff.NewPrograms, p => `<div class="finding">${p.DisplayName} — ${p.Publisher||'unknown publisher'}</div>`);
+  html += section('New Startup Entries', diff.NewStartupReg, s => `<div class="finding flag">${s.Name} = ${s.Value}</div>`);
+  html += section('New Scheduled Tasks', diff.NewTasks, t => `<div class="finding flag">${t.TaskPath}${t.TaskName}</div>`);
+  html += section('New Browser Extensions', diff.NewExtensions, e => `<div class="finding flag">[${e.Browser}] ${e.Id}</div>`);
+  html += section('Homepage/Search Changes', diff.HomepageChanges, h => `<div class="finding flag">[${h.Browser}] ${h.OldHomepage} → ${h.NewHomepage}</div>`);
+  if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
+  document.getElementById('installResult').innerHTML = html;
+  if (total > 0) {
+    logEvent('install_diff', total > 2 ? 'warning' : 'info', total + ' change(s) detected during install watch', diff);
+  }
+}
+
+initDevice();
+pollResource();
+pollDiagnostics();
+pollBehavior();
+setInterval(pollResource, 5000);
+setInterval(pollDiagnostics, 5000);
+setInterval(pollBehavior, 5000);
+</script>
+</body>
+</html>
