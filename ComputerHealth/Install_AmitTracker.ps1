@@ -60,13 +60,32 @@ if ($alreadyInstalled) {
 # Check every place it could reasonably already exist before downloading a
 # second copy - this is the exact bug that caused two instances to run
 # simultaneously and confused a real user during testing (2026-07-12).
+#
+# A file existing at the right name/path isn't enough on its own - a
+# leftover empty file, a truncated download, or an unrelated file someone
+# renamed would all pass a plain Test-Path check. Verify the file's actual
+# embedded metadata genuinely identifies it as LibreHardwareMonitor (same
+# technique used to name AmitTracker.exe) and that its size is reasonable,
+# not a 0-byte or corrupted leftover. This can't prove the program has ever
+# been run - nothing short of deep OS forensics can - but it does prove
+# it's a real, complete, launchable copy, which is what actually matters.
+function Test-IsRealLibreHardwareMonitor($path) {
+    if (-not (Test-Path $path)) { return $false }
+    $file = Get-Item $path
+    if ($file.Length -lt 10KB) { return $false }
+    try {
+        $info = $file.VersionInfo
+        return ($info.ProductName -like "*LibreHardwareMonitor*" -or $info.FileDescription -like "*LibreHardwareMonitor*" -or $info.CompanyName -like "*LibreHardwareMonitor*")
+    } catch { return $false }
+}
+
 $lhmSearchPaths = @(
     "$lhmInstallDir\LibreHardwareMonitor.exe",
     "$env:USERPROFILE\Downloads\LibreHardwareMonitor\LibreHardwareMonitor.exe",
     "$env:ProgramFiles\LibreHardwareMonitor\LibreHardwareMonitor.exe",
     "${env:ProgramFiles(x86)}\LibreHardwareMonitor\LibreHardwareMonitor.exe"
 )
-$existingLhm = $lhmSearchPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+$existingLhm = $lhmSearchPaths | Where-Object { Test-IsRealLibreHardwareMonitor $_ } | Select-Object -First 1
 
 if ($existingLhm -and -not $Force) {
     Write-Host "[2/5] LibreHardwareMonitor already found at: $existingLhm - using that, not downloading another copy."
