@@ -64,6 +64,7 @@
   <button onclick="showTab('diagnostics')">Diagnostics</button>
   <button onclick="showTab('behavior')">App Behavior</button>
   <button onclick="showTab('install')">Install Watch</button>
+  <button onclick="showTab('browser')">Browser</button>
   <button onclick="showTab('history')">History</button>
 </nav>
 
@@ -72,6 +73,7 @@
   <div class="tab active" id="tab-overview">
     <div class="section-title">Right now, in plain language</div>
     <div class="card-row" id="overviewCards"></div>
+    <div class="card-row" id="overviewBrowserCards"></div>
     <div class="section-title">Recent flags</div>
     <div id="overviewFindings"><em style="color:#8a8f99">Nothing flagged yet.</em></div>
   </div>
@@ -108,6 +110,12 @@
       <button class="btn secondary" onclick="installCompare()">2. Compare Now (after install finishes)</button>
     </div>
     <div id="installResult"><em style="color:#8a8f99">No comparison run yet.</em></div>
+  </div>
+
+  <div class="tab" id="tab-browser">
+    <div class="section-title">Browser — condensed</div>
+    <p style="font-size:13px;color:#9aa0ab">A browser doesn't run one process per tab — it runs one per tab, plus one per extension (even sitting idle), plus GPU/network/utility helpers shared across everything. A high process count usually means extensions, not open tabs.</p>
+    <div id="browserCards"></div>
   </div>
 
   <div class="tab" id="tab-history">
@@ -287,6 +295,59 @@ async function pollDiagnostics() {
   } catch (e) {}
 }
 
+async function pollBrowser() {
+  try {
+    const r = await fetch(BRIDGE + '/api/browser');
+    const d = await r.json();
+    const browsers = d.browsers || [];
+    if (browsers.length === 0) {
+      document.getElementById('browserCards').innerHTML = '<em style="color:#8a8f99">No supported browsers detected running (Edge, Chrome, Firefox).</em>';
+      document.getElementById('overviewBrowserCards').innerHTML = '';
+      return;
+    }
+    const totalMem = browsers.reduce((sum,b) => sum + b.totalMemMB, 0);
+    const totalExt = browsers.reduce((sum,b) => sum + b.extensionCount, 0);
+
+    document.getElementById('browserCards').innerHTML = browsers.map(b => `
+      <div class="card-row">
+        <div class="card ${verdictClass(b.rendererProcesses, 15, 30)}">
+          <div class="label">${b.browser} — Processes</div>
+          <div class="value">${b.totalProcesses}</div>
+          <div class="verdict">${b.rendererProcesses} of these are tab/extension processes, ${b.gpuProcesses} GPU, ${b.utilityProcesses} background helpers — a browser runs many processes per tab by design, this isn't a leak by itself.</div>
+        </div>
+        <div class="card ${verdictClass(b.extensionCount, 8, 15)}">
+          <div class="label">${b.browser} — Extensions</div>
+          <div class="value">${b.extensionCount}</div>
+          <div class="verdict">${verdictText('ext', b.extensionCount, 8, 15,
+            'A reasonable number — low background footprint.',
+            'Getting high — each one runs in the background even when unused, worth a review.',
+            'High extension count — this is a common, overlooked cause of a browser feeling heavy. Consider disabling ones you rarely use.')}</div>
+        </div>
+        <div class="card ${verdictClass(b.totalMemMB, 1500, 3000)}">
+          <div class="label">${b.browser} — Memory</div>
+          <div class="value">${b.totalMemMB} MB</div>
+          <div class="verdict">${verdictText('mem', b.totalMemMB, 1500, 3000,
+            'Modest footprint for a browser.',
+            'Sizeable — normal with several tabs, worth watching if it keeps climbing.',
+            'Heavy — this browser alone is likely a real contributor to overall slowness.')}</div>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('overviewBrowserCards').innerHTML = `
+      <div class="card ${verdictClass(totalMem, 1500, 3000)}">
+        <div class="label">Browser Memory (all browsers combined)</div>
+        <div class="value">${totalMem} MB</div>
+        <div class="verdict">${verdictText('browsermem', totalMem, 1500, 3000,
+          'Browsers are a light load right now.',
+          'Browsers are using a meaningful chunk of memory — a contributor, not the main cause, if the computer feels slow.',
+          'Browsers are using a lot of memory — a strong candidate for why things feel sluggish. Check the Browser tab.')}</div></div>`;
+
+    if (totalExt >= 15) {
+      flagOnce('ext-high', 'warning', totalExt + ' browser extensions running in the background across all browsers — a common hidden cause of slowdown.', browsers);
+    }
+  } catch (e) { /* bridge not up yet */ }
+}
+
 const flaggedOnce = {};
 function flagOnce(key, severity, summary, detail) {
   if (flaggedOnce[key]) return;
@@ -347,9 +408,11 @@ initDevice();
 pollResource();
 pollDiagnostics();
 pollBehavior();
+pollBrowser();
 setInterval(pollResource, 5000);
 setInterval(pollDiagnostics, 5000);
 setInterval(pollBehavior, 5000);
+setInterval(pollBrowser, 10000);
 </script>
 </body>
 </html>
