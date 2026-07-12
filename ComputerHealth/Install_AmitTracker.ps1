@@ -111,6 +111,17 @@ if (Test-Path $launcherSrc) {
     try { Invoke-WebRequest -Uri "$githubRawBase/Run_AmitTracker.ps1" -OutFile $launcherPath -TimeoutSec 20 -ErrorAction Stop } catch {}
 }
 
+# Icon - placeholder (gold "A" on dark circle, matches the dashboard's
+# color scheme), swap the .ico file later without touching this script.
+$iconDest = "$watcherInstallDir\amit_icon.ico"
+$iconSrc = "$scriptDir\amit_icon.ico"
+if (Test-Path $iconSrc) {
+    Copy-Item $iconSrc $iconDest -Force -ErrorAction SilentlyContinue
+} elseif (-not (Test-Path $iconDest) -or $Force) {
+    try { Invoke-WebRequest -Uri "$githubRawBase/amit_icon.ico" -OutFile $iconDest -TimeoutSec 20 -ErrorAction Stop } catch {}
+}
+$iconLocation = if (Test-Path $iconDest) { "$iconDest,0" } else { "shell32.dll,137" }
+
 $desktopPath = [Environment]::GetFolderPath("Desktop")
 $shortcutPath = "$desktopPath\Run Amit Tracker.lnk"
 if ((Test-Path $shortcutPath) -and -not $Force) {
@@ -122,7 +133,7 @@ if ((Test-Path $shortcutPath) -and -not $Force) {
     $shortcut.TargetPath = "powershell.exe"
     $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`""
     $shortcut.WorkingDirectory = $watcherInstallDir
-    $shortcut.IconLocation = "shell32.dll,137"
+    $shortcut.IconLocation = $iconLocation
     $shortcut.Description = "Start Amit Computer Health tracking and open the dashboard"
     $shortcut.Save()
     Write-Host "  Shortcut created on your desktop: 'Run Amit Tracker'"
