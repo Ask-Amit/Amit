@@ -31,9 +31,9 @@ Write-Host ""
 # --- Step 1: copy watcher/bridge scripts ---
 $alreadyInstalled = (Test-Path "$watcherInstallDir\amit_bridge_server.ps1") -and -not $Force
 if ($alreadyInstalled) {
-    Write-Host "[1/4] Watcher scripts already installed - skipping (use -Force to reinstall)."
+    Write-Host "[1/5] Watcher scripts already installed - skipping (use -Force to reinstall)."
 } else {
-    Write-Host "[1/4] Installing watcher scripts..."
+    Write-Host "[1/5] Installing watcher scripts..."
     New-Item -ItemType Directory -Path $watcherInstallDir -Force | Out-Null
     $filesToCopy = @(
         "amit_bridge_server.ps1", "ComputerHealth_Dashboard.html",
@@ -68,9 +68,9 @@ $lhmSearchPaths = @(
 $existingLhm = $lhmSearchPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 if ($existingLhm -and -not $Force) {
-    Write-Host "[2/4] LibreHardwareMonitor already found at: $existingLhm - using that, not downloading another copy."
+    Write-Host "[2/5] LibreHardwareMonitor already found at: $existingLhm - using that, not downloading another copy."
 } else {
-    Write-Host "[2/4] No existing LibreHardwareMonitor found. Fetching it (open-source, official GitHub releases)..."
+    Write-Host "[2/5] No existing LibreHardwareMonitor found. Fetching it (open-source, official GitHub releases)..."
     try {
         $release = Invoke-RestMethod -Uri "https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest" -Headers @{ "User-Agent" = "AmitComputerHealth" } -TimeoutSec 15
         $asset = $release.assets | Where-Object { $_.name -like "*.zip" } | Select-Object -First 1
@@ -100,7 +100,7 @@ $finalLhmPath | Set-Content -Path "$watcherInstallDir\lhm_path.txt" -Encoding ut
 # shortcut instead of silently launching at every Windows login. This means
 # a 1-2 second delay the first time you click the shortcut each session,
 # in exchange for nothing running in the background until you ask for it.
-Write-Host "[3/4] Skipping auto-start-at-login by design - the desktop shortcut starts everything on demand instead."
+Write-Host "[3/5] Skipping auto-start-at-login by design - the desktop shortcut starts everything on demand instead."
 
 # --- Step 4: desktop shortcut ---
 $launcherPath = "$watcherInstallDir\Run_AmitTracker.ps1"
@@ -122,24 +122,49 @@ if (Test-Path $iconSrc) {
 }
 $iconLocation = if (Test-Path $iconDest) { "$iconDest,0" } else { "shell32.dll,137" }
 
+$hubUrl = "https://ask-amit.github.io/Amit/Hub/amit-hub.html"
 $desktopPath = [Environment]::GetFolderPath("Desktop")
-$shortcutPath = "$desktopPath\Run Amit Tracker.lnk"
+# A .lnk shortcut (WScript.Shell CreateShortcut) does not reliably support a
+# plain web URL as its target - TargetPath silently ends up empty. Windows'
+# real mechanism for a desktop icon that opens a website is a .url file
+# (Internet Shortcut), a simple INI-format text file - not a COM object.
+$shortcutPath = "$desktopPath\Amit.url"
 if ((Test-Path $shortcutPath) -and -not $Force) {
-    Write-Host "[4/4] Desktop shortcut already exists - skipping."
+    Write-Host "[4/5] Desktop shortcut already exists - skipping."
 } else {
-    Write-Host "[4/4] Creating desktop shortcut..."
-    $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut($shortcutPath)
-    $shortcut.TargetPath = "powershell.exe"
-    $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`""
-    $shortcut.WorkingDirectory = $watcherInstallDir
-    $shortcut.IconLocation = $iconLocation
-    $shortcut.Description = "Start Amit Computer Health tracking and open the dashboard"
-    $shortcut.Save()
-    Write-Host "  Shortcut created on your desktop: 'Run Amit Tracker'"
+    Write-Host "[4/5] Creating desktop shortcut..."
+    $urlFileContent = @"
+[InternetShortcut]
+URL=$hubUrl
+IconFile=$iconDest
+IconIndex=0
+"@
+    Set-Content -Path $shortcutPath -Value $urlFileContent -Encoding ASCII
+    Write-Host "  Shortcut created on your desktop: 'Amit' - opens the Hub."
+}
+
+# --- Step 5: register amit-tracker:// so the dashboard's Launch Tracker
+# button can start local tracking without hunting for a desktop icon ---
+Write-Host "[5/5] Registering amit-tracker:// link handler..."
+try {
+    # This description string is what some browsers/Windows show in the
+    # permission dialog - others show the launched program's own name
+    # instead (powershell.exe), which we can't override without wrapping
+    # this in a real compiled .exe with its own file metadata - a future
+    # step, not done here. Keep this name clean in case it IS what's shown.
+    New-Item -Path "HKCU:\Software\Classes\amit-tracker" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "(Default)" -Value "URL:Amit Tracker"
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "URL Protocol" -Value ""
+    New-Item -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Name "(Default)" -Value $iconDest
+    New-Item -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Name "(Default)" -Value "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcherPath`""
+    Write-Host "  Registered. Links starting with amit-tracker:// will now launch the tracker (Windows will always ask permission first - by design, not something we can silence)."
+} catch {
+    Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Tracker button won't work yet, but the Amit desktop shortcut and manual tracking still will."
 }
 
 Write-Host ""
 Write-Host "Install complete."
-Write-Host "Double-click 'Run Amit Tracker' on your desktop any time to start tracking and open the dashboard."
+Write-Host "Double-click 'Amit' on your desktop to open the Hub. From there, Computer Health has its own Launch Tracker button."
 Write-Host "Dashboard: $dashboardUrl"

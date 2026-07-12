@@ -85,12 +85,29 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="launchWarningModal">
+  <div class="overlay-card">
+    <h2>You're about to launch the tracker</h2>
+    <p>In a moment, <strong>Windows itself</strong> — not this webpage — is going to show its own small permission box asking something like "Open Amit Tracker Launcher?" That's Windows confirming it's okay to start a program on your computer, since a website is never allowed to do that silently.</p>
+    <p><strong>Please click Allow / Open</strong> on that box so Amit can start tracking your system. If you click Cancel instead, nothing will start, and you can come back and try again any time.</p>
+    <div class="actions">
+      <button class="btn" onclick="confirmLaunchTracker()">Continue</button>
+      <button class="btn secondary" onclick="cancelLaunchTracker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="notRunningScreen">
   <div class="overlay-card" style="max-width:560px;max-height:85vh;overflow-y:auto">
     <h2>Desktop Watcher Not Running</h2>
-    <p>This page reads live data from a small program that has to run on this computer — a webpage can never do that on its own, for security reasons every browser enforces. Already installed it before? Just double-click <strong>Run Amit Tracker</strong> on your desktop and come back to this tab.</p>
+    <p>This page reads live data from a small program that has to run on this computer — a webpage can never do that on its own, for security reasons every browser enforces.</p>
 
-    <p><strong>Never set this up before?</strong> Here's exactly what will happen, before you start — nothing here should surprise you:</p>
+    <p><strong>Already installed this before?</strong> Click below — a Windows permission box will appear first (Windows always asks once, we can't skip that, but here's what it's for and why it's safe to allow):</p>
+    <div class="actions">
+      <button class="btn" onclick="launchTrackerFlow()">Launch Tracker</button>
+    </div>
+
+    <p style="margin-top:20px"><strong>Never set this up before?</strong> Here's exactly what will happen, before you start — nothing here should surprise you:</p>
 
     <div class="walkthrough-step">
       <strong>1. You'll download one file.</strong>
@@ -107,8 +124,8 @@
       <img class="walkthrough-img" src="img/step-uac-prompt.png" alt="" onerror="this.style.display='none'">
     </div>
     <div class="walkthrough-step">
-      <strong>4. A shortcut appears on your desktop: "Run Amit Tracker."</strong>
-      <p>That's the only thing you'll need from now on. Double-click it any time you want to check your computer's health — it starts everything and opens this page automatically.</p>
+      <strong>4. A shortcut named "Amit" appears on your desktop.</strong>
+      <p>That opens your daily Amit Hub — sign-in, pursuits, and everything else, not just this tracker. Once you're signed in there, come to Computer Health and use the Launch Tracker button any time.</p>
     </div>
     <div class="walkthrough-step">
       <strong>5. Nothing runs in the background unless you start it.</strong>
@@ -290,6 +307,28 @@ function maybeShowSigninNudge() {
 function dismissSigninNudge() {
   localStorage.setItem('amit_ch_nudge_dismissed', '1');
   document.getElementById('signinNudge').classList.add('hidden');
+}
+
+function launchTrackerFlow() {
+  document.getElementById('launchWarningModal').classList.remove('hidden');
+}
+function cancelLaunchTracker() {
+  document.getElementById('launchWarningModal').classList.add('hidden');
+}
+function confirmLaunchTracker() {
+  document.getElementById('launchWarningModal').classList.add('hidden');
+  window.location.href = 'amit-tracker://start';
+  // Poll for the bridge coming up so this page updates itself automatically -
+  // no need to click Retry once the Windows prompt is approved.
+  let attempts = 0;
+  const poller = setInterval(async () => {
+    attempts++;
+    try {
+      const r = await fetch(BRIDGE + '/api/device', { cache: 'no-store' });
+      if (r.ok) { clearInterval(poller); location.reload(); }
+    } catch (e) {}
+    if (attempts > 30) clearInterval(poller); // give up after ~60s
+  }, 2000);
 }
 
 async function pollTrackerStatus() {
