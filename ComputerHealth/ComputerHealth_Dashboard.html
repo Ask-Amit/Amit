@@ -52,6 +52,9 @@
   #trackerToggle { padding:6px 14px; border-radius:6px; border:none; font-weight:600; cursor:pointer; }
   #trackerToggle.on { background:#4caf6d; color:#0f1116; }
   #trackerToggle.off { background:#3a3f4c; color:#e8e8ec; }
+  #chDemoBtn { padding:6px 14px; border-radius:6px; border:none; font-weight:600; cursor:pointer; font-size:12px; letter-spacing:0.05em; }
+  #chDemoBtn.on { background:#d4af37; color:#12141a; }
+  #chDemoBtn.off { background:#3a3f4c; color:#8a8f99; }
   .walkthrough-step { background:#12141a; border-radius:8px; padding:10px 14px; margin:10px 0; border-left:3px solid #d4af37; }
   .walkthrough-step strong { color:#e8e8ec; font-size:13px; }
   .walkthrough-step p { font-size:13px; color:#9aa0ab; margin:6px 0 0; }
@@ -69,6 +72,7 @@
 <header>
   <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health</h1>
   <div style="display:flex;align-items:center;gap:16px">
+    <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
     <button id="trackerToggle" class="off" onclick="toggleTracker()">Tracker: checking...</button>
     <div class="device" id="deviceLabel">Connecting to local watcher...</div>
   </div>
@@ -294,6 +298,36 @@ async function claimDevice() {
 // read-only, the same way they already see Amit's real pursuits on the Hub.
 const AMIT_DEMO_UID = '8b95d057-fd6b-44ec-abe7-658e08872d1a';
 let isDemoDeviceView = false;
+
+// Same localStorage key the Hub uses ('amit_demo_hub') - since both pages
+// share the same browser storage, toggling here also affects the Hub, and
+// toggling on the Hub is reflected here, automatically, both directions,
+// with no syncing code needed beyond reading/writing the same key.
+function updateChDemoBtn() {
+  const on = localStorage.getItem('amit_demo_hub') !== 'off';
+  const btn = document.getElementById('chDemoBtn');
+  btn.className = on ? 'on' : 'off';
+  btn.title = on ? "Showing Amit's demo data — click to use your own" : 'Demo mode off — showing your data';
+}
+function toggleChDemo() {
+  const currentlyOn = localStorage.getItem('amit_demo_hub') !== 'off';
+  localStorage.setItem('amit_demo_hub', currentlyOn ? 'off' : 'on');
+  updateChDemoBtn();
+  myDevices = [];
+  viewingDeviceId = null;
+  if (!currentUser) loadMyDevices();
+}
+// Fires when the Hub (a different tab, same browser) changes the flag -
+// the 'storage' event only fires on OTHER tabs, not the one that made the
+// change, which is exactly what's needed for two-way live sync between them.
+window.addEventListener('storage', (e) => {
+  if (e.key === 'amit_demo_hub') {
+    updateChDemoBtn();
+    myDevices = [];
+    viewingDeviceId = null;
+    if (!currentUser) loadMyDevices();
+  }
+});
 
 // Loads every device this signed-in user owns (could be many - "they may
 // have twenty computers"), lets them pick which one's data to view, and
@@ -738,6 +772,7 @@ async function handleJustStopped() {
 
 initDevice();
 handleJustStopped();
+updateChDemoBtn();
 // Runs immediately for guests too (not just after a real sign-in) so demo
 // mode - browsing Amit's own tracked history - works without an account.
 setTimeout(() => { if (!currentUser) loadMyDevices(); }, 500);
