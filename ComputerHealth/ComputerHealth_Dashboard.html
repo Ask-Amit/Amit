@@ -414,10 +414,16 @@ async function initDevice() {
     maybeShowSigninNudge();
     pollTrackerStatus();
   } catch (e) {
+    // Deliberately does NOT show the not-running screen automatically -
+    // someone arriving just to check History or another computer's data
+    // shouldn't be interrupted by a tracker-launch prompt. That screen only
+    // appears when they explicitly click "Start Tracking" below.
     bridgeUp = false;
-    document.getElementById('deviceLabel').textContent = 'Desktop watcher not detected';
-    showNotRunningScreen();
-    document.getElementById('trackerToggle').textContent = 'Tracker: unavailable';
+    document.getElementById('deviceLabel').textContent = 'This computer: not connected';
+    const btn = document.getElementById('trackerToggle');
+    btn.textContent = 'Start Tracking';
+    btn.className = 'off';
+    btn.onclick = () => showNotRunningScreen();
   }
 }
 
