@@ -97,6 +97,18 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="sessionSummaryScreen">
+  <div class="overlay-card" style="max-width:520px">
+    <h2>Tracking Stopped</h2>
+    <p>Everything has been shut down — the watchers and LibreHardwareMonitor are no longer running, nothing is using resources in the background.</p>
+    <p id="sessionSummaryDetail" style="color:#c7cad1">Reviewing what was captured this session...</p>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('sessionSummaryScreen').classList.add('hidden'); showTabByName('history')">View History</button>
+      <button class="btn secondary" onclick="document.getElementById('sessionSummaryScreen').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="notRunningScreen">
   <div class="overlay-card" style="max-width:560px;max-height:85vh;overflow-y:auto">
     <h2>Desktop Watcher Not Running</h2>
@@ -223,6 +235,18 @@ function showTab(name) {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   event.target.classList.add('active');
+  if (name === 'history') loadHistory();
+}
+
+// Same as showTab but callable without a click event (e.g. from another
+// button's handler, or on page load) - looks up the nav button by its
+// onclick attribute instead of relying on a global `event`.
+function showTabByName(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick') === `showTab('${name}')`);
+  });
+  document.getElementById('tab-' + name).classList.add('active');
   if (name === 'history') loadHistory();
 }
 
@@ -563,7 +587,31 @@ async function installCompare() {
   }
 }
 
+// If AmitTracker.exe just stopped tracking and opened this page with
+// ?justStopped=1, show the session summary instead of the normal view,
+// and record the completion so history has a real end-of-session marker.
+async function handleJustStopped() {
+  if (new URLSearchParams(window.location.search).get('justStopped') !== '1') return;
+  document.getElementById('sessionSummaryScreen').classList.remove('hidden');
+  // Wait for device/auth to be ready before logging
+  let waited = 0;
+  while ((!deviceId || !currentUser) && waited < 6000) {
+    await new Promise(r => setTimeout(r, 300));
+    waited += 300;
+  }
+  const detail = document.getElementById('sessionSummaryDetail');
+  if (currentUser && deviceId) {
+    await logEvent('tracking_session_ended', 'info', 'Tracking session ended on ' + deviceName, { endedAt: new Date().toISOString() });
+    detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
+  } else {
+    detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
+  }
+  // Clean the URL so refreshing doesn't re-trigger this
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 initDevice();
+handleJustStopped();
 pollResource();
 pollDiagnostics();
 pollBehavior();
