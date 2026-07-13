@@ -69,6 +69,16 @@
   .device-badge.current { background:#4caf6d; color:#0f1116; }
   .device-badge.other { background:#3a3f4c; color:#c7cad1; }
   .viewing-other-banner { background:#2a2410; border:1px solid #e0a72e; border-radius:8px; padding:10px 16px; margin-bottom:16px; font-size:13px; color:#e0c477; }
+  .help-btn { background:rgba(220,50,75,.12); border:1px solid rgba(220,50,75,.6); border-radius:50%; width:26px; height:26px; font-size:13px; font-weight:700; cursor:pointer; color:#e03358; display:inline-flex; align-items:center; justify-content:center; padding:0; transition:all .2s; flex-shrink:0; line-height:1; }
+  .help-btn:hover { background:rgba(220,50,75,.25); border-color:rgba(220,50,75,.95); color:#f04468; }
+  .feature-explainer { margin-top:16px; }
+  .feature-explainer .feature-card { background:#12141a; border:1px solid #3a3f4c; border-radius:8px; margin-bottom:8px; overflow:hidden; }
+  .feature-explainer .feature-head { padding:12px 16px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; color:#e8e8ec; }
+  .feature-explainer .feature-head:hover { background:#181b23; }
+  .feature-explainer .feature-body { padding:0 16px; max-height:0; overflow:hidden; transition:max-height .2s ease, padding .2s ease; font-size:13px; color:#9aa0ab; line-height:1.5; }
+  .feature-explainer .feature-card.open .feature-body { max-height:200px; padding:0 16px 14px; }
+  .feature-explainer .feature-head .arrow { transition:transform .2s; color:#d4af37; }
+  .feature-explainer .feature-card.open .arrow { transform:rotate(90deg); }
 </style>
 </head>
 <body>
@@ -79,8 +89,20 @@
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
     <button id="trackerToggle" class="off" onclick="launchTracker()">Launch Tracker</button>
     <div class="device" id="deviceLabel">Not connected yet — click Launch Tracker</div>
+    <div onclick="openChTutorial()" title="What is Computer Health?" class="help-btn">?</div>
   </div>
 </header>
+
+<div class="overlay hidden" id="chTutorialModal">
+  <div class="overlay-card" style="max-width:600px;max-height:85vh;overflow-y:auto">
+    <h2>What Computer Health does</h2>
+    <p style="color:#c7cad1">Computer Health watches this specific machine and translates what it finds into plain language — not raw numbers you have to interpret yourself. Click any item below for what it actually does:</p>
+    <div class="feature-explainer" id="chTutorialFeatureList"></div>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('chTutorialModal').classList.add('hidden')">Got it</button>
+    </div>
+  </div>
+</div>
 
 <div id="loginBar">
   <span id="authStatus">Not signed in.</span>
@@ -186,6 +208,7 @@
       <h3>This computer isn't connected yet</h3>
       <p>Computer Health watches this specific machine, but nothing runs until you turn it on. Click <strong>Launch Tracker</strong> at the top right — the first time, it'll walk you through a quick one-time setup (installs a small local watcher program); after that, this same button just connects instantly.</p>
       <button class="btn" onclick="launchTracker()">Launch Tracker</button>
+      <div class="feature-explainer" id="firstVisitFeatureList"></div>
     </div>
     <div class="section-title">Right now, in plain language</div>
     <div class="card-row" id="overviewCards"></div>
@@ -482,6 +505,53 @@ async function loadHistory() {
 // This Computer" themselves - the click IS the explanation.
 let bridgeUp = false;
 let localAccessAttempted = false;
+
+// What Computer Health actually does, in plain language - shown inline on
+// the very first visit (localStorage flag below), and always reachable
+// afterward through the red "?" button, same pattern the Hub already uses.
+const CH_FEATURES = [
+  { title: '🛠️ Fix & troubleshoot problems', body: 'When something\'s slow, freezing, or acting up, Diagnostics shows the real cause - CPU, disk, GPU, or network - in plain language instead of raw numbers you have to interpret yourself.' },
+  { title: '🦠 Check apps before you trust them', body: 'App Behavior watches exactly what a program does the moment you run it - what files it touches, what it connects to online - so you can see whether something\'s doing more than it should before you decide to keep it.' },
+  { title: '📦 See what an install actually changed', body: 'Install Watch takes a snapshot before you install something and compares it after - so you know exactly what got added, not just what the installer claimed it would do.' },
+  { title: '📊 Test your system\'s health', body: 'Resources and Diagnostics together give you an honest read on how this machine is actually doing right now, not just a number with no context.' },
+  { title: '💰 Know what this computer is worth', body: 'Compare this system\'s real components against another machine\'s to see which one actually has more value, or what would need upgrading to make it worth more.' },
+  { title: '🕘 A running history, so nothing gets lost', body: 'Every flag, resource anomaly, and install this computer has ever had gets kept in History - sign in and it\'s there whenever you need to look back.' }
+];
+
+function renderFeatureExplainer(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = CH_FEATURES.map((f, i) => `
+    <div class="feature-card" id="${containerId}-card-${i}">
+      <div class="feature-head" onclick="toggleFeatureCard('${containerId}-card-${i}')">
+        <span>${f.title}</span><span class="arrow">›</span>
+      </div>
+      <div class="feature-body">${f.body}</div>
+    </div>
+  `).join('');
+}
+
+function toggleFeatureCard(cardId) {
+  const card = document.getElementById(cardId);
+  if (card) card.classList.toggle('open');
+}
+
+function openChTutorial() {
+  renderFeatureExplainer('chTutorialFeatureList');
+  document.getElementById('chTutorialModal').classList.remove('hidden');
+  localStorage.setItem('amit_ch_seen_intro', '1');
+}
+
+// First-ever visit gets the full explainer inline, right in the main banner
+// - after that, it collapses back to just the short connect message, and
+// the same content is only reachable through the "?" button from then on.
+if (!localStorage.getItem('amit_ch_seen_intro')) {
+  renderFeatureExplainer('firstVisitFeatureList');
+  localStorage.setItem('amit_ch_seen_intro', '1');
+} else {
+  const fv = document.getElementById('firstVisitFeatureList');
+  if (fv) fv.remove();
+}
 
 async function checkBridge() {
   const r = await fetch(BRIDGE + '/api/device', { cache: 'no-store' });
