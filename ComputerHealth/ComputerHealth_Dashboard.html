@@ -645,7 +645,12 @@ async function loadHardwareTree() {
     } else {
       hardwareHistory = {};
     }
-    const devices = (hardwareLiveTree.Children || []).filter(d => (d.Children || []).length > 0);
+    // LHM's root is {Text:"Sensor", Children:[{Text:COMPUTERNAME, Children:[actual hardware devices]}]} -
+    // one level deeper than it looks. Reading root.Children directly (as the first version of this did)
+    // surfaces only the single computer-name node as if it were "the device," which then has no Value on
+    // its own children and renders "No readable sensors" (caught live 2026-07-13). getHardwareDevices()
+    // drills to the real device list either way this ever shows up.
+    const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
     if (devices.length === 0) {
       nav.innerHTML = '';
       container.innerHTML = '<em style="color:#8a8f99">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
@@ -668,9 +673,20 @@ function selectHardwareDevice(name) {
   renderSelectedHardwareDevice();
 }
 
+// Root is {Text:"Sensor", Children:[{Text:COMPUTERNAME, Children:[real devices]}]} normally, but
+// tolerate a flatter shape too (in case a different LHM version or config ever nests differently)
+// by falling back to root.Children itself if the computer-node's own children look empty.
+function getHardwareDevices(root) {
+  const topChildren = root.Children || [];
+  if (topChildren.length === 1 && (topChildren[0].Children || []).length > 0) {
+    return topChildren[0].Children;
+  }
+  return topChildren;
+}
+
 function renderSelectedHardwareDevice() {
   const container = document.getElementById('hardwareTree');
-  const devices = (hardwareLiveTree.Children || []);
+  const devices = getHardwareDevices(hardwareLiveTree);
   const device = devices.find(d => d.Text === hardwareSelectedDevice);
   if (!device) { container.innerHTML = '<em style="color:#8a8f99">Select a component above.</em>'; return; }
 
