@@ -1,5 +1,5 @@
 #!/bin/bash
-# Checks whether AmitInstaller.exe's embedded files still match the live
+# Checks whether install-Amit.exe's embedded files still match the live
 # source scripts in Watchers/ (one level up) - so a session picking this up
 # cold can immediately tell "is the compiled installer current, or does it
 # need a rebuild" instead of guessing from file dates.
@@ -10,7 +10,7 @@
 cd "$(dirname "$0")"
 
 if [ ! -f BUILD_MANIFEST.json ]; then
-  echo "No BUILD_MANIFEST.json found - AmitInstaller.exe has never been built with this script."
+  echo "No BUILD_MANIFEST.json found - install-Amit.exe has never been built with this script."
   echo "Run ./build_installer.sh first."
   exit 1
 fi
@@ -33,7 +33,7 @@ while IFS= read -r line; do
 done < BUILD_MANIFEST.json
 
 if [ "$drift" -eq 0 ]; then
-  echo "AmitInstaller.exe is up to date - every embedded file matches its Watchers/ source."
+  echo "install-Amit.exe is up to date - every embedded file matches its Watchers/ source."
 else
   echo ""
   echo "Drift detected above. Run ./build_installer.sh to rebuild before shipping this exe."

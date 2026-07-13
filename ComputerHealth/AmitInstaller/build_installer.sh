@@ -1,11 +1,11 @@
 #!/bin/bash
-# Rebuilds AmitInstaller.exe from the live source scripts in the Watchers
+# Rebuilds install-Amit.exe from the live source scripts in the Watchers
 # folder (one level up) and embeds them directly into the exe as resources.
 #
 # ALWAYS run this after changing any watcher/bridge/tracker script instead of
 # hand-copying files into this folder - it always pulls fresh from Watchers/
 # first, so the compiled installer can never silently drift out of sync with
-# the real source files. Run this, then push the resulting AmitInstaller.exe.
+# the real source files. Run this, then push the resulting install-Amit.exe.
 set -e
 cd "$(dirname "$0")"
 
@@ -31,18 +31,18 @@ for f in "${FILES[@]}"; do
   cp "$SRC/$f" "./$f"
 done
 
-echo "Compiling AmitInstaller.exe with embedded resources..."
+echo "Compiling install-Amit.exe with embedded resources..."
 RESOURCE_ARGS=()
 for f in "${FILES[@]}"; do
   RESOURCE_ARGS+=("//resource:$f,$f")
 done
 
-"$CSC" //nologo //target:winexe //out:AmitInstaller.exe //win32icon:AmitInstaller.ico //r:System.Windows.Forms.dll \
+"$CSC" //nologo //target:winexe //out:install-Amit.exe //win32icon:AmitInstaller.ico //r:System.Windows.Forms.dll \
   "${RESOURCE_ARGS[@]}" \
   AmitInstaller.cs AssemblyInfo.cs
 
 echo "Writing BUILD_MANIFEST.json (records exactly what's embedded, so a future"
-echo "session can tell at a glance whether AmitInstaller.exe matches current source)..."
+echo "session can tell at a glance whether install-Amit.exe matches current source)..."
 {
   echo "{"
   echo "  \"builtAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
@@ -61,7 +61,7 @@ echo "session can tell at a glance whether AmitInstaller.exe matches current sou
 } > BUILD_MANIFEST.json
 
 echo ""
-echo "Done. AmitInstaller.exe rebuilt with the current contents of every file above."
+echo "Done. install-Amit.exe rebuilt with the current contents of every file above."
 echo "Reminder: bump CURRENT_VERSION in AmitInstaller.cs and AssemblyVersion in AssemblyInfo.cs"
 echo "if this is a version bump, and update /VERSION at the repo root to match."
 echo "Run ./verify_installer.sh any time to check whether the built exe has drifted"
