@@ -101,35 +101,45 @@ class AmitTrackerWindow : Form
     private void StopTracker()
     {
         stopping = true;
-        statusLabel.Text = "Stopping tracker and closing everything down...";
-        stopBtn.Enabled = false;
-        minimizeBtn.Enabled = false;
-        dashboardBtn.Enabled = false;
-        Application.DoEvents();
 
-        try
+        // The window itself must disappear right away - the actual cleanup
+        // (stop-tracking call, LHM's elevated shutdown fallback, the WMI
+        // query below) can each take a few seconds, and if any one of them
+        // hangs, the whole window used to sit frozen waiting for it (caught
+        // live 2026-07-13 - took a full 30 seconds to disappear). Hiding
+        // immediately and doing the real work on a background thread means
+        // "closing" always feels instant regardless of how long the
+        // underlying cleanup actually takes.
+        Hide();
+
+        var cleanupThread = new Thread(() =>
         {
-            using (var client = new WebClient())
+            try
             {
+                var client = new WebClient();
                 client.Headers[HttpRequestHeader.ContentType] = "text/plain";
-                client.UploadString(bridgeBase + "/api/stop-tracking", "POST", "");
+                var task = client.UploadStringTaskAsync(bridgeBase + "/api/stop-tracking", "POST", "");
+                task.Wait(TimeSpan.FromSeconds(5)); // bounded - move on regardless of the outcome
             }
-        }
-        catch { /* bridge may already be down - nothing more to stop */ }
+            catch { /* bridge may already be down, or timed out - nothing more to do here */ }
 
-        // Stop the bridge server itself too - previously it deliberately kept
-        // running (lightweight, so the next Launch Tracker reconnects
-        // instantly), but Ryan's direct request 2026-07-13: closing this
-        // window should tear down everything, no exceptions. Matched by
-        // command line (not a single stored PID) so this also cleans up any
-        // duplicate bridge instances that may have accumulated.
-        StopBridgeServer();
+            // Stop the bridge server itself too - previously it deliberately
+            // kept running (lightweight, so the next Launch Tracker
+            // reconnects instantly), but Ryan's direct request 2026-07-13:
+            // closing this window should tear down everything, no
+            // exceptions. Matched by command line (not a single stored PID)
+            // so this also cleans up any duplicate bridge instances that
+            // may have accumulated.
+            StopBridgeServer();
 
-        // Open the dashboard with a flag so it knows to show a session
-        // summary instead of the normal live view, and log the completion.
-        try { Process.Start(dashboardUrl + "?justStopped=1"); } catch { }
+            // Open the dashboard with a flag so it knows to show a session
+            // summary instead of the normal live view, and log the completion.
+            try { Process.Start(dashboardUrl + "?justStopped=1"); } catch { }
 
-        Close();
+            try { this.Invoke(new Action(Application.Exit)); } catch { Application.Exit(); }
+        });
+        cleanupThread.IsBackground = true;
+        cleanupThread.Start();
     }
 
     private void StopBridgeServer()
