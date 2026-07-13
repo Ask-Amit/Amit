@@ -11,6 +11,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Management;
 using System.Net;
 using System.Reflection;
 using System.Threading;
@@ -116,11 +117,40 @@ class AmitTrackerWindow : Form
         }
         catch { /* bridge may already be down - nothing more to stop */ }
 
+        // Stop the bridge server itself too - previously it deliberately kept
+        // running (lightweight, so the next Launch Tracker reconnects
+        // instantly), but Ryan's direct request 2026-07-13: closing this
+        // window should tear down everything, no exceptions. Matched by
+        // command line (not a single stored PID) so this also cleans up any
+        // duplicate bridge instances that may have accumulated.
+        StopBridgeServer();
+
         // Open the dashboard with a flag so it knows to show a session
         // summary instead of the normal live view, and log the completion.
         try { Process.Start(dashboardUrl + "?justStopped=1"); } catch { }
 
         Close();
+    }
+
+    private void StopBridgeServer()
+    {
+        try
+        {
+            using (var searcher = new ManagementObjectSearcher(
+                "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name='powershell.exe'"))
+            {
+                foreach (ManagementObject mo in searcher.Get())
+                {
+                    string cmdLine = mo["CommandLine"] as string;
+                    if (cmdLine != null && cmdLine.IndexOf("amit_bridge_server.ps1", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        int pid = Convert.ToInt32(mo["ProcessId"]);
+                        try { Process.GetProcessById(pid).Kill(); } catch { }
+                    }
+                }
+            }
+        }
+        catch { /* WMI unavailable for some reason - not fatal, just leaves the bridge running */ }
     }
 }
 
