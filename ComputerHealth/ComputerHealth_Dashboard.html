@@ -73,8 +73,8 @@
   <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health</h1>
   <div style="display:flex;align-items:center;gap:16px">
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
-    <button id="trackerToggle" class="off" onclick="connectToThisComputer()">Connect to This Computer</button>
-    <div class="device" id="deviceLabel">Not connected yet — click Connect to This Computer</div>
+    <button id="trackerToggle" class="off" onclick="launchTracker()">Launch Tracker</button>
+    <div class="device" id="deviceLabel">Not connected yet — click Launch Tracker</div>
   </div>
 </header>
 
@@ -117,19 +117,18 @@
 
 <div class="overlay hidden" id="notRunningScreen">
   <div class="overlay-card" style="max-width:560px;max-height:85vh;overflow-y:auto">
-    <h2>Desktop Watcher Not Running</h2>
-    <p>This page reads live data from a small program that has to run on this computer — a webpage can never do that on its own, for security reasons every browser enforces.</p>
+    <p id="quickLaunchStatus" style="color:#9aa0ab;font-size:13px"></p>
 
-    <div id="notRunningQuickLaunch">
-      <p>Click Launch Tracker — Amit will actually try to connect to this computer's tracker. If it's already installed, this starts it. If it isn't, we'll find out immediately and walk you through setup instead.</p>
-      <div class="actions">
-        <button class="btn" id="launchTrackerBtn" onclick="launchTrackerFlow()">Launch Tracker</button>
-      </div>
-      <p id="quickLaunchStatus" style="color:#9aa0ab;font-size:13px"></p>
+    <div id="notRunningFullWalkthrough">
+    <h2>Doesn't look like this is installed on this computer yet</h2>
+    <p>Two small programs get installed, nothing else, and here's exactly what each one is for:</p>
+    <div class="walkthrough-step">
+      <strong>🖥️ The Amit Tracker</strong> — talks to this dashboard so it can show you live data about this computer. Adds one icon to your desktop.
     </div>
-
-    <div id="notRunningFullWalkthrough" class="hidden">
-    <p style="margin-top:20px"><strong>Doesn't look like this is installed on this computer yet.</strong> Here's exactly what will happen, before you start — nothing here should surprise you:</p>
+    <div class="walkthrough-step">
+      <strong>🌡️ LibreHardwareMonitor</strong> — a well-known, open-source tool that reads your computer's temperature, fan speed, and voltage sensors. Amit uses it as the connection to that hardware data; it's not something Amit built, just something Amit relies on. If you already have it, nothing new downloads — yours gets reused.
+    </div>
+    <p>Here's exactly what will happen, step by step, before you start — nothing here should surprise you:</p>
 
     <div class="walkthrough-step">
       <strong>1. You'll download one file: Amit Installer.</strong>
@@ -457,30 +456,91 @@ async function loadHistory() {
 // This Computer" themselves - the click IS the explanation.
 let bridgeUp = false;
 let localAccessAttempted = false;
-async function initDevice() {
+
+async function checkBridge() {
+  const r = await fetch(BRIDGE + '/api/device', { cache: 'no-store' });
+  const d = await r.json();
+  return d;
+}
+
+function onConnected(d) {
+  deviceId = d.deviceId; deviceName = d.deviceName;
+  bridgeUp = true;
+  document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
+  document.getElementById('notRunningScreen').classList.add('hidden');
+  const btn = document.getElementById('trackerToggle');
+  btn.disabled = false;
+  btn.onclick = () => toggleTracker();
+  startLivePolling();
+  pollTrackerStatus();
+  if (currentUser) claimDevice();
+}
+
+// ONE button, does everything, asks only when it legally has to (Windows
+// itself requires a permission click before starting a program - that one
+// unavoidable step aside, this runs start-to-finish with no other clicks
+// needed unless it's genuinely never been installed on this computer).
+async function launchTracker() {
   localAccessAttempted = true;
+  const btn = document.getElementById('trackerToggle');
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  document.getElementById('deviceLabel').textContent = 'Checking this computer…';
+
+  // Step 1: already running? Connect immediately, no further clicks at all.
   try {
-    const r = await fetch(BRIDGE + '/api/device');
-    const d = await r.json();
-    deviceId = d.deviceId; deviceName = d.deviceName;
-    bridgeUp = true;
-    document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
-    document.getElementById('notRunningScreen').classList.add('hidden');
-    document.getElementById('trackerToggle').onclick = () => toggleTracker();
-    startLivePolling();
-    pollTrackerStatus();
-    // If sign-in already happened before this connect click, deviceId
-    // wasn't known yet when claimDevice() first ran - run it again now
-    // that it is. claimDevice() itself is a harmless no-op if already claimed.
-    if (currentUser) claimDevice();
-  } catch (e) {
-    bridgeUp = false;
-    document.getElementById('deviceLabel').textContent = 'This computer: not connected';
-    const btn = document.getElementById('trackerToggle');
-    btn.textContent = 'Start Tracking';
-    btn.className = 'off';
-    btn.onclick = () => showNotRunningScreen();
-  }
+    const d = await checkBridge();
+    onConnected(d);
+    return;
+  } catch (e) { /* not running yet - continue to step 2 */ }
+
+  // Step 2: not running - it might still be installed, just not started.
+  // Starting it requires launching a program on this computer, which
+  // Windows will always ask permission for - that's the one unavoidable
+  // click, explained here before it happens rather than sprung on someone.
+  document.getElementById('launchWarningModal').classList.remove('hidden');
+}
+
+function cancelLaunchTracker() {
+  document.getElementById('launchWarningModal').classList.add('hidden');
+  const btn = document.getElementById('trackerToggle');
+  btn.disabled = false;
+  btn.textContent = 'Launch Tracker';
+  document.getElementById('deviceLabel').textContent = 'Not connected yet — click Launch Tracker';
+}
+
+function confirmLaunchTracker() {
+  document.getElementById('launchWarningModal').classList.add('hidden');
+  document.getElementById('deviceLabel').textContent = 'Connecting…';
+  window.location.href = 'amit-tracker://start';
+  // This poll IS the real test of "is this installed" - a webpage can't
+  // check the filesystem/registry directly, so actually attempting the
+  // connection and watching what happens is the only honest signal.
+  // A short window (installed = connects in a couple seconds) before
+  // concluding it's genuinely not installed at all and going straight to
+  // the download - no extra click needed to "discover" that, it just
+  // happens as the automatic next step.
+  let attempts = 0;
+  const poller = setInterval(async () => {
+    attempts++;
+    try {
+      const d = await checkBridge();
+      clearInterval(poller);
+      onConnected(d);
+      return;
+    } catch (e) {}
+    if (attempts >= 6) {
+      // ~9 seconds with no response - genuinely not installed. Show the
+      // walkthrough directly, no extra click required to get here.
+      clearInterval(poller);
+      const btn = document.getElementById('trackerToggle');
+      btn.disabled = false;
+      btn.textContent = 'Launch Tracker';
+      document.getElementById('quickLaunchStatus').textContent = "Couldn't connect — this computer doesn't appear to have it installed yet.";
+      document.getElementById('deviceLabel').textContent = 'Not connected yet — click Launch Tracker';
+      document.getElementById('notRunningScreen').classList.remove('hidden');
+    }
+  }, 1500);
 }
 
 let livePollingStarted = false;
@@ -496,73 +556,6 @@ function startLivePolling() {
   setInterval(pollBehavior, 5000);
   setInterval(pollBrowser, 10000);
   setInterval(pollTrackerStatus, 6000);
-}
-
-// The button everyone sees first, before any local access has happened.
-function connectToThisComputer() {
-  document.getElementById('deviceLabel').textContent = 'Connecting…';
-  initDevice();
-}
-
-// Always starts on the quick-launch attempt - the walkthrough only appears
-// if that attempt actually fails to connect (see confirmLaunchTracker),
-// since that live connection attempt is the only real test of "is this
-// installed" a webpage can perform - there's no way to check the filesystem
-// or registry directly, and remembering past success in localStorage would
-// be wrong if this browser's data gets cleared or a different browser is used.
-function showNotRunningScreen() {
-  document.getElementById('notRunningQuickLaunch').classList.remove('hidden');
-  document.getElementById('notRunningFullWalkthrough').classList.add('hidden');
-  document.getElementById('quickLaunchStatus').textContent = '';
-  document.getElementById('notRunningScreen').classList.remove('hidden');
-}
-
-
-function launchTrackerFlow() {
-  // Both overlays share the same z-index, so with notRunningScreen still
-  // visible underneath (later in the page's source order, so it wins the
-  // tie), the warning modal would render completely hidden behind it -
-  // clickable in theory, invisible in practice. Hide the screen underneath
-  // before showing the modal on top of it.
-  document.getElementById('notRunningScreen').classList.add('hidden');
-  document.getElementById('launchWarningModal').classList.remove('hidden');
-}
-function cancelLaunchTracker() {
-  document.getElementById('launchWarningModal').classList.add('hidden');
-  document.getElementById('notRunningScreen').classList.remove('hidden');
-}
-function confirmLaunchTracker() {
-  document.getElementById('launchWarningModal').classList.add('hidden');
-  document.getElementById('notRunningScreen').classList.remove('hidden');
-  document.getElementById('quickLaunchStatus').textContent = 'Trying to connect...';
-  // Disabled while checking - otherwise this could be clicked again mid-poll,
-  // stacking up duplicate connection attempts running at the same time.
-  const launchBtn = document.getElementById('launchTrackerBtn');
-  launchBtn.disabled = true;
-  launchBtn.textContent = 'Connecting…';
-  window.location.href = 'amit-tracker://start';
-  // This poll IS the real test of "is this installed" - a webpage can't
-  // check the filesystem/registry directly, so actually attempting the
-  // connection and watching what happens is the only honest signal.
-  // A short window (installed = connects in a couple seconds) before
-  // concluding it's genuinely not installed and showing the walkthrough.
-  let attempts = 0;
-  const poller = setInterval(async () => {
-    attempts++;
-    try {
-      const r = await fetch(BRIDGE + '/api/device', { cache: 'no-store' });
-      if (r.ok) { clearInterval(poller); location.reload(); return; }
-    } catch (e) {}
-    if (attempts >= 6) {
-      // ~9 seconds with no response - conclude this isn't installed yet.
-      clearInterval(poller);
-      launchBtn.disabled = false;
-      launchBtn.textContent = 'Launch Tracker';
-      document.getElementById('quickLaunchStatus').textContent = "Couldn't connect - this computer doesn't appear to have it installed yet.";
-      document.getElementById('notRunningQuickLaunch').classList.add('hidden');
-      document.getElementById('notRunningFullWalkthrough').classList.remove('hidden');
-    }
-  }, 1500);
 }
 
 async function pollTrackerStatus() {
@@ -806,7 +799,10 @@ async function installCompare() {
 async function handleJustStopped() {
   if (new URLSearchParams(window.location.search).get('justStopped') !== '1') return;
   document.getElementById('sessionSummaryScreen').classList.remove('hidden');
-  if (!localAccessAttempted) initDevice();
+  if (!localAccessAttempted) {
+    localAccessAttempted = true;
+    try { onConnected(await checkBridge()); } catch (e) {}
+  }
   // Wait for device/auth to be ready before logging
   let waited = 0;
   while ((!deviceId || !currentUser) && waited < 6000) {
@@ -826,8 +822,7 @@ async function handleJustStopped() {
 
 // Nothing here touches localhost - handleJustStopped() is the one
 // exception, gated on the ?justStopped=1 flag (implicit consent, see
-// above). Everything else waits for an explicit "Connect to This
-// Computer" click (connectToThisComputer -> initDevice -> startLivePolling).
+// above). Everything else waits for an explicit "Launch Tracker" click.
 handleJustStopped();
 updateChDemoBtn();
 // Runs immediately for guests too (not just after a real sign-in) so demo
