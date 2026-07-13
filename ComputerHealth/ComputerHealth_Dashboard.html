@@ -79,6 +79,9 @@
   .feature-explainer .feature-card.open .feature-body { max-height:200px; padding:0 16px 14px; }
   .feature-explainer .feature-head .arrow { transition:transform .2s; color:#d4af37; }
   .feature-explainer .feature-card.open .arrow { transform:rotate(90deg); }
+  .status-badge { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; padding:2px 8px; border-radius:10px; margin-left:10px; }
+  .status-badge.now { background:rgba(76,175,109,.15); color:#4caf6d; border:1px solid rgba(76,175,109,.4); }
+  .status-badge.later { background:rgba(154,160,171,.12); color:#9aa0ab; border:1px solid rgba(154,160,171,.3); }
 </style>
 </head>
 <body>
@@ -506,16 +509,22 @@ async function loadHistory() {
 let bridgeUp = false;
 let localAccessAttempted = false;
 
-// What Computer Health actually does, in plain language - shown inline on
-// the very first visit (localStorage flag below), and always reachable
+// What Computer Health/Value actually does, in plain language - shown inline
+// on the very first visit (localStorage flag below), and always reachable
 // afterward through the red "?" button, same pattern the Hub already uses.
+// Covers the full vision (ComputerHealth\CLAUDE.md + ComputerValue_Spec.md +
+// Hub pursuits), not just what's live today - each item tagged Now/Later so
+// nothing overclaims what actually works yet.
 const CH_FEATURES = [
-  { title: '🛠️ Fix & troubleshoot problems', body: 'When something\'s slow, freezing, or acting up, Diagnostics shows the real cause - CPU, disk, GPU, or network - in plain language instead of raw numbers you have to interpret yourself.' },
-  { title: '🦠 Check apps before you trust them', body: 'App Behavior watches exactly what a program does the moment you run it - what files it touches, what it connects to online - so you can see whether something\'s doing more than it should before you decide to keep it.' },
-  { title: '📦 See what an install actually changed', body: 'Install Watch takes a snapshot before you install something and compares it after - so you know exactly what got added, not just what the installer claimed it would do.' },
-  { title: '📊 Test your system\'s health', body: 'Resources and Diagnostics together give you an honest read on how this machine is actually doing right now, not just a number with no context.' },
-  { title: '💰 Know what this computer is worth', body: 'Compare this system\'s real components against another machine\'s to see which one actually has more value, or what would need upgrading to make it worth more.' },
-  { title: '🕘 A running history, so nothing gets lost', body: 'Every flag, resource anomaly, and install this computer has ever had gets kept in History - sign in and it\'s there whenever you need to look back.' }
+  { title: '🛠️ Fix & troubleshoot problems', status: 'now', body: 'When something\'s slow, freezing, or acting up, Diagnostics shows the real cause - CPU, disk, GPU, or network - in plain language instead of raw numbers you have to interpret yourself.' },
+  { title: '🦠 Check apps before you trust them', status: 'now', body: 'App Behavior watches exactly what a program does the moment you run it - what files it touches, what it connects to online - so you can see whether something\'s doing more than it should before you decide to keep it.' },
+  { title: '📦 See what an install actually changed', status: 'now', body: 'Install Watch takes a snapshot before you install something and compares it after - so you know exactly what got added, not just what the installer claimed it would do.' },
+  { title: '📊 Test your system\'s health', status: 'now', body: 'Resources and Diagnostics together give you an honest read on how this machine is actually doing right now, including real drive wear-level and GPU stress-test tracking over time, not just a number with no context.' },
+  { title: '🕘 A running history, so nothing gets lost', status: 'now', body: 'Every flag, resource anomaly, and install this computer has ever had gets kept in History - sign in and it\'s there whenever you need to look back, even years later.' },
+  { title: '💰 Know what this computer is worth', status: 'later', body: 'A real market value range (not one guessed number) built from actual sold prices and component age - "$650-$750, and this machine\'s 91% health score puts it at the higher end."' },
+  { title: '🏆 Certify it - a record that travels with the machine', status: 'later', body: 'A guided health certification a builder can run before delivery or a buyer can run after - like a Carfax for a PC. Gets a permanent, verifiable ID and QR code any future owner can scan.' },
+  { title: '🔑 Encrypted password vault, synced everywhere', status: 'later', body: 'Your saved passwords, encrypted, backed up under your account - so replacing a computer never means losing them again.' },
+  { title: '💾 One-click backup & restore for a new computer', status: 'later', body: 'Save a full snapshot of this machine - software, settings, file paths - and the Hub walks you step-by-step through rebuilding it all on a brand-new computer.' }
 ];
 
 function renderFeatureExplainer(containerId) {
@@ -524,7 +533,7 @@ function renderFeatureExplainer(containerId) {
   el.innerHTML = CH_FEATURES.map((f, i) => `
     <div class="feature-card" id="${containerId}-card-${i}">
       <div class="feature-head" onclick="toggleFeatureCard('${containerId}-card-${i}')">
-        <span>${f.title}</span><span class="arrow">›</span>
+        <span>${f.title} ${f.status === 'later' ? '<span class="status-badge later">Coming later</span>' : '<span class="status-badge now">Available now</span>'}</span><span class="arrow">›</span>
       </div>
       <div class="feature-body">${f.body}</div>
     </div>
