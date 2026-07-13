@@ -359,7 +359,17 @@
 const BRIDGE = "http://localhost:8710";
 const SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Without internet, the Supabase library itself (loaded from an external CDN
+// above) can't load at all - calling supabase.createClient() unguarded then
+// throws immediately, and since this is an early top-level statement, that
+// error used to halt the ENTIRE script, breaking everything on the page,
+// including the parts that only need the local bridge server and have
+// nothing to do with the internet (Overview, Resources, Hardware, Diagnostics
+// - caught live 2026-07-13, Ryan opening the dashboard offline got nothing
+// working at all, not just the sign-in-dependent pieces). Guarded the same
+// way the Hub already does it, so a missing CDN script degrades to "no
+// account features" instead of "nothing on this page works."
+const db = (typeof supabase !== 'undefined') ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 let deviceId = null, deviceName = null, currentUser = null;
 let viewingDeviceId = null, myDevices = [];
@@ -425,6 +435,10 @@ async function onSessionConfirmed() {
   if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
 }
 
+// db is null when offline (Supabase's CDN script couldn't load) - every call
+// below is guarded so a missing internet connection degrades to "no account
+// features" instead of throwing and halting the rest of the page's scripts.
+if (db) {
 db.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user;
@@ -445,9 +459,10 @@ db.auth.getSession().then(({ data: { session } }) => {
     onSessionConfirmed();
   }
 });
+} // end if (db)
 
 async function claimDevice() {
-  if (!currentUser || !deviceId) return;
+  if (!db || !currentUser || !deviceId) return;
   const { data: existing } = await db.from('amit_devices').select('*').eq('id', deviceId).maybeSingle();
   if (!existing) {
     await db.from('amit_devices').insert({ id: deviceId, device_name: deviceName, owner_user_id: currentUser.id });
@@ -503,6 +518,7 @@ window.addEventListener('storage', (e) => {
 // one's signed in and the Hub's demo mode is on, shows Amit's own devices
 // instead, matching exactly how the Hub falls back to demo content.
 async function loadMyDevices() {
+  if (!db) return; // offline - Supabase never loaded, nothing to fetch
   let ownerUid = null;
   if (currentUser) {
     ownerUid = currentUser.id;

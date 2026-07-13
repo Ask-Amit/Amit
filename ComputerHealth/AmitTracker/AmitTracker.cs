@@ -32,7 +32,7 @@ class AmitTrackerWindow : Form
     {
         exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
-        Text = "Amit Computer Tracker";
+        Text = "Amit - Tracker";
         Width = 440;
         Height = 190;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -44,7 +44,7 @@ class AmitTrackerWindow : Form
 
         statusLabel = new Label
         {
-            Text = "Amit's computer tracker is running - watching this computer's\nresources, diagnostics, and activity in the background.",
+            Text = "Amit - Tracker is running - watching this computer's\nresources, diagnostics, and activity in the background.",
             AutoSize = false,
             Left = 20,
             Top = 20,
