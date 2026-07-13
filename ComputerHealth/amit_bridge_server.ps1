@@ -279,6 +279,27 @@ $handlerScript = {
             }
             Remove-Item $trackerPidFile -ErrorAction SilentlyContinue
         }
+
+        # Also stop LibreHardwareMonitor, even if it was already running before
+        # this session started it (previously left alone deliberately - Ryan's
+        # direct request 2026-07-13: closing the tracker window should shut
+        # everything down cleanly, not leave the monitor running invisibly).
+        # LHM commonly runs elevated, and a non-elevated process can't kill an
+        # elevated one directly ("Access is denied," confirmed live earlier
+        # this session) - try a plain stop first, then fall back to an
+        # elevated attempt, which may surface a UAC prompt.
+        $lhmProcs = Get-Process -Name "LibreHardwareMonitor" -ErrorAction SilentlyContinue
+        if ($lhmProcs) {
+            foreach ($p in $lhmProcs) {
+                try { Stop-Process -Id $p.Id -Force -ErrorAction Stop }
+                catch {
+                    try {
+                        Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -Command `"Stop-Process -Name LibreHardwareMonitor -Force -ErrorAction SilentlyContinue`""
+                    } catch {}
+                }
+            }
+        }
+
         return @{ stopped = $true; pids = $stopped }
     }
 

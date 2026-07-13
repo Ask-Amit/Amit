@@ -1,9 +1,12 @@
-// Amit Tracker Launcher / Tray Indicator
+// Amit Tracker Launcher / Window Indicator
 // Launches tracking (bridge server + watchers + LibreHardwareMonitor via
-// Run_AmitTracker.ps1), then stays running as a small system tray icon so
-// there's always a visible "tracker is running" indicator and a real way
-// to stop it - closing the browser tab alone isn't reliable (crash, force
-// close, etc.), so this is the dependable path.
+// Run_AmitTracker.ps1), then shows a real, visible window - not just a
+// hidden system tray icon - so anyone installing this can actually find it
+// and stop it. A tray-only version was tried first, but tray icons default
+// to Windows' hidden-icons overflow area that most people never discover -
+// closing the browser tab alone isn't reliable either (crash, force close,
+// etc.), so a real taskbar-visible window is the dependable, discoverable
+// path (redesigned 2026-07-13 per Ryan's direct request).
 
 using System;
 using System.Diagnostics;
@@ -14,37 +17,60 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Drawing;
 
-class AmitTrackerContext : ApplicationContext
+class AmitTrackerWindow : Form
 {
-    private NotifyIcon trayIcon;
     private string exeDir;
+    private Label statusLabel;
+    private Button stopBtn;
+    private Button minimizeBtn;
+    private Button dashboardBtn;
+    private bool stopping = false;
     private const string dashboardUrl = "https://ask-amit.github.io/Amit/ComputerHealth/ComputerHealth_Dashboard.html";
     private const string bridgeBase = "http://localhost:8710";
 
-    public AmitTrackerContext()
+    public AmitTrackerWindow()
     {
         exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Amit Tracker - Running", null, (s, e) => { }).Enabled = false;
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Open Dashboard", null, OnOpenDashboard);
-        menu.Items.Add("Stop Tracker", null, OnStopTracker);
+        Text = "Amit Computer Tracker";
+        Width = 440;
+        Height = 190;
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox = false;
+        MinimizeBox = true;
+        StartPosition = FormStartPosition.CenterScreen;
+        ShowInTaskbar = true;
+        try { Icon = new Icon(Path.Combine(exeDir, "amit_icon.ico")); } catch { }
 
-        Icon trayIconImage;
-        try { trayIconImage = new Icon(Path.Combine(exeDir, "amit_icon.ico")); }
-        catch { trayIconImage = SystemIcons.Application; }
-
-        trayIcon = new NotifyIcon
+        statusLabel = new Label
         {
-            Icon = trayIconImage,
-            Text = "Amit Tracker - Running",
-            Visible = true,
-            ContextMenuStrip = menu
+            Text = "Amit's computer tracker is running - watching this computer's\nresources, diagnostics, and activity in the background.",
+            AutoSize = false,
+            Left = 20,
+            Top = 20,
+            Width = 390,
+            Height = 50
         };
-        trayIcon.BalloonTipTitle = "Amit Tracker";
-        trayIcon.BalloonTipText = "Now running - tracking this computer's resources, diagnostics, and activity. Right-click this icon any time to stop.";
-        trayIcon.ShowBalloonTip(4000);
+
+        minimizeBtn = new Button { Text = "Minimize", Left = 20, Top = 95, Width = 110, Height = 34 };
+        minimizeBtn.Click += (s, e) => { WindowState = FormWindowState.Minimized; };
+
+        dashboardBtn = new Button { Text = "Open Dashboard", Left = 150, Top = 95, Width = 140, Height = 34 };
+        dashboardBtn.Click += (s, e) => { try { Process.Start(dashboardUrl); } catch { } };
+
+        stopBtn = new Button { Text = "Stop Tracker", Left = 300, Top = 95, Width = 110, Height = 34 };
+        stopBtn.Click += (s, e) => StopTracker();
+
+        Controls.Add(statusLabel);
+        Controls.Add(minimizeBtn);
+        Controls.Add(dashboardBtn);
+        Controls.Add(stopBtn);
+
+        // Closing this window the normal way (X button, Alt+F4) must stop
+        // tracking too - otherwise everything keeps running invisibly with
+        // no window and no tray icon left to find it by, exactly the
+        // problem this whole redesign exists to fix.
+        FormClosing += OnFormClosing;
 
         StartTracking();
     }
@@ -55,24 +81,30 @@ class AmitTrackerContext : ApplicationContext
         var psi = new ProcessStartInfo
         {
             FileName = "powershell.exe",
-            Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + launcherScript + "\"",
+            Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + launcherScript + "\"",
             UseShellExecute = true,
             WindowStyle = ProcessWindowStyle.Hidden
         };
         Process.Start(psi);
     }
 
-    private void OnOpenDashboard(object sender, EventArgs e)
+    private void OnFormClosing(object sender, FormClosingEventArgs e)
     {
-        Process.Start(dashboardUrl);
+        if (!stopping)
+        {
+            e.Cancel = true;
+            StopTracker();
+        }
     }
 
-    private void OnStopTracker(object sender, EventArgs e)
+    private void StopTracker()
     {
-        trayIcon.Text = "Amit Tracker - Stopping...";
-        trayIcon.BalloonTipTitle = "Amit Tracker";
-        trayIcon.BalloonTipText = "Stopping tracking and closing everything down...";
-        trayIcon.ShowBalloonTip(2000);
+        stopping = true;
+        statusLabel.Text = "Stopping tracker and closing everything down...";
+        stopBtn.Enabled = false;
+        minimizeBtn.Enabled = false;
+        dashboardBtn.Enabled = false;
+        Application.DoEvents();
 
         try
         {
@@ -88,21 +120,19 @@ class AmitTrackerContext : ApplicationContext
         // summary instead of the normal live view, and log the completion.
         try { Process.Start(dashboardUrl + "?justStopped=1"); } catch { }
 
-        trayIcon.Visible = false;
-        trayIcon.Dispose();
-        Application.Exit();
+        Close();
     }
 }
 
 class AmitTracker
 {
-    // Guards against two tray icons ending up alive at once - caught live
-    // 2026-07-13 (two AmitTracker.exe processes running simultaneously, each
-    // with its own tray icon, each having independently called StartTracking).
-    // Most likely cause: the amit-tracker:// protocol firing more than once
-    // (e.g. two dashboard tabs, or a slow click registering twice) with
-    // nothing stopping a second launch from running the whole startup chain
-    // again, same class of bug already fixed in AmitInstaller.exe.
+    // Guards against two windows ending up alive at once - caught live
+    // 2026-07-13 (two AmitTracker.exe processes running simultaneously,
+    // each having independently called StartTracking). Most likely cause:
+    // the amit-tracker:// protocol firing more than once (e.g. two dashboard
+    // tabs, or a slow click registering twice) with nothing stopping a
+    // second launch from running the whole startup chain again - same class
+    // of bug already fixed in AmitInstaller.exe.
     [STAThread]
     static void Main()
     {
@@ -112,14 +142,14 @@ class AmitTracker
             if (!createdNew)
             {
                 MessageBox.Show(
-                    "Amit Tracker is already running - check your system tray (including the hidden icons ^ arrow near the clock).",
+                    "Amit Tracker is already running - check your taskbar.",
                     "Amit Tracker",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
                 return;
             }
             Application.EnableVisualStyles();
-            Application.Run(new AmitTrackerContext());
+            Application.Run(new AmitTrackerWindow());
         }
     }
 }
