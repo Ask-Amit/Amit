@@ -462,7 +462,14 @@ function onDeviceSelectChange() {
 // way to start/stop tracking or see live numbers for a computer you're not
 // sitting at. History is the only thing viewable across all owned devices.
 function updateLiveControlsAvailability() {
-  const viewingOther = viewingDeviceId && viewingDeviceId !== deviceId;
+  // Only treat this as "viewing a different computer" once we've actually
+  // connected locally (deviceId known) and confirmed it doesn't match -
+  // otherwise deviceId is still null before the first connection, and every
+  // selected device (including this exact machine) looked like "another
+  // device," permanently disabling the only button that could connect it
+  // (caught live 2026-07-13 - Launch Tracker did nothing at all on a fresh
+  // tab after a device was already selected from a prior session).
+  const viewingOther = bridgeUp && viewingDeviceId && viewingDeviceId !== deviceId;
   const gsb = document.getElementById('gettingStartedBanner');
   if (gsb) gsb.classList.toggle('hidden', viewingOther || bridgeUp);
   let banner = document.getElementById('viewingOtherBanner');
@@ -608,6 +615,7 @@ function onConnected(d) {
   startLivePolling();
   pollTrackerStatus();
   if (currentUser) claimDevice();
+  updateLiveControlsAvailability();
 }
 
 // ONE button, does everything, asks only when it legally has to (Windows
