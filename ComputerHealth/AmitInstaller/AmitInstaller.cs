@@ -20,6 +20,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
 
 class AmitInstaller
@@ -48,6 +49,32 @@ class AmitInstaller
 
     [STAThread]
     static void Main()
+    {
+        // Guards against the install-and-launch chain running twice at once -
+        // e.g. a slow double-click registering as two separate launches, or
+        // someone impatiently re-running the exe while the ~10-20 second
+        // install is still working and its console window looks like nothing
+        // is happening. A second concurrent launch exits immediately instead
+        // of running the whole chain again and opening a duplicate dashboard
+        // tab (the exact bug reported 2026-07-13 - three tabs from one click).
+        bool createdNew;
+        using (var singleInstance = new Mutex(true, "Global\\AmitInstallerRunning", out createdNew))
+        {
+            if (!createdNew)
+            {
+                MessageBox.Show(
+                    "Amit is already installing - this window can be closed. Give it 10-20 seconds to finish; " +
+                    "the dashboard will open on its own when it's done.",
+                    "Amit Installer",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+            RunInstall();
+        }
+    }
+
+    static void RunInstall()
     {
         try
         {
