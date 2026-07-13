@@ -680,45 +680,66 @@ function parseSensorHistoryRows(lines) {
   return rows;
 }
 
+// Historical rows live in a file on disk and don't depend on LibreHardwareMonitor
+// running right now - only the LIVE device tree (/api/sensors) does. If LHM gets
+// closed (e.g. after a stress test), the live fetch fails, but everything already
+// captured is still real and worth showing - previously this wiped the entire tab
+// down to a bare error message, discarding a device list and history that were
+// still perfectly valid (caught live 2026-07-13, Ryan pointed out data shouldn't
+// just vanish because the live connection blipped). Now falls back to the last
+// known device tree and just shows a small notice instead of erasing everything.
+let hardwareLiveConnectionLost = false;
+
 async function loadHardwareTree() {
   const container = document.getElementById('hardwareTree');
   const catNav = document.getElementById('hardwareCategoryNav');
   const instNav = document.getElementById('hardwareInstanceNav');
-  try {
-    const [liveRes, histRes] = await Promise.all([
-      fetch(BRIDGE + '/api/sensors', { cache: 'no-store' }),
-      fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' }).catch(() => null)
-    ]);
-    if (!liveRes.ok) throw new Error('not reachable');
-    hardwareLiveTree = await liveRes.json();
-    hardwareHistoryRows = (histRes && histRes.ok) ? parseSensorHistoryRows((await histRes.json()).lines || []) : [];
 
-    const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
-    if (devices.length === 0) {
+  const histRes = await fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' }).catch(() => null);
+  hardwareHistoryRows = (histRes && histRes.ok) ? parseSensorHistoryRows((await histRes.json()).lines || []) : hardwareHistoryRows;
+
+  let liveTree = null;
+  try {
+    const liveRes = await fetch(BRIDGE + '/api/sensors', { cache: 'no-store' });
+    if (liveRes.ok) liveTree = await liveRes.json();
+  } catch (e) { /* fall through to cached tree below */ }
+
+  if (liveTree) {
+    hardwareLiveTree = liveTree;
+    hardwareLiveConnectionLost = false;
+  } else {
+    hardwareLiveConnectionLost = true;
+    if (!hardwareLiveTree) {
+      // Never had a successful load at all (not just a lost connection) -
+      // there's genuinely nothing to fall back to yet.
       catNav.innerHTML = ''; instNav.classList.add('hidden');
-      container.innerHTML = '<em style="color:#8a8f99">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
+      container.innerHTML = '<em style="color:#8a8f99">Couldn\'t reach LibreHardwareMonitor\'s sensor data yet. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
       return;
     }
-
-    // Group devices by category (e.g. all RAM sticks fall under one "ram" key).
-    const categories = {}; // key -> { label, devices: [device, ...] }
-    devices.forEach(d => {
-      const c = categorizeHardware(d.Text);
-      if (!categories[c.key]) categories[c.key] = { label: c.label, devices: [] };
-      categories[c.key].devices.push(d);
-    });
-    const categoryKeys = Object.keys(categories);
-    if (!hardwareSelectedCategory || !categories[hardwareSelectedCategory]) {
-      hardwareSelectedCategory = categoryKeys[0];
-    }
-
-    catNav.innerHTML = categoryKeys.map(key => `<button class="hw-device-btn ${key === hardwareSelectedCategory ? 'active' : ''}" onclick="selectHardwareCategory('${key.replace(/'/g, "\\'")}')">${categories[key].label}</button>`).join('');
-
-    renderHardwareInstanceNav(categories);
-  } catch (e) {
-    catNav.innerHTML = ''; instNav.classList.add('hidden');
-    container.innerHTML = '<em style="color:#8a8f99">Couldn\'t reach LibreHardwareMonitor\'s sensor data. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
   }
+
+  const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
+  if (devices.length === 0) {
+    catNav.innerHTML = ''; instNav.classList.add('hidden');
+    container.innerHTML = '<em style="color:#8a8f99">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
+    return;
+  }
+
+  // Group devices by category (e.g. all RAM sticks fall under one "ram" key).
+  const categories = {}; // key -> { label, devices: [device, ...] }
+  devices.forEach(d => {
+    const c = categorizeHardware(d.Text);
+    if (!categories[c.key]) categories[c.key] = { label: c.label, devices: [] };
+    categories[c.key].devices.push(d);
+  });
+  const categoryKeys = Object.keys(categories);
+  if (!hardwareSelectedCategory || !categories[hardwareSelectedCategory]) {
+    hardwareSelectedCategory = categoryKeys[0];
+  }
+
+  catNav.innerHTML = categoryKeys.map(key => `<button class="hw-device-btn ${key === hardwareSelectedCategory ? 'active' : ''}" onclick="selectHardwareCategory('${key.replace(/'/g, "\\'")}')">${categories[key].label}</button>`).join('');
+
+  renderHardwareInstanceNav(categories);
 }
 
 function renderHardwareInstanceNav(categoriesArg) {
@@ -812,7 +833,12 @@ function renderHardwareSpreadsheet() {
     return `<tr><td class="hw-time-col">${r.t}</td>${cells}</tr>`;
   }).join('');
 
+  const connectionNotice = hardwareLiveConnectionLost
+    ? `<div style="background:#2a2410;border:1px solid #e0a72e;border-radius:8px;padding:8px 14px;font-size:12px;color:#e0c477;margin-bottom:10px">⚠️ Live connection to LibreHardwareMonitor is down right now - showing the last data captured before it stopped. Nothing below has been lost; it'll resume updating once it's running again.</div>`
+    : '';
+
   container.innerHTML = `
+    ${connectionNotice}
     <div class="card" style="flex:none;width:100%;border-left-color:#d4af37;margin-bottom:10px">
       <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device.Text).label}</div>
       <div style="font-size:12px;color:#7a7f89">${device.Text} — ${recentFirst.length} reading${recentFirst.length === 1 ? '' : 's'} (newest first, one row per 30-second capture)</div>
