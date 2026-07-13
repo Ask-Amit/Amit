@@ -29,6 +29,10 @@
   .card .label { font-size:12px; color:#9aa0ab; text-transform:uppercase; letter-spacing:0.5px; }
   .card .value { font-size:26px; font-weight:700; margin:4px 0; }
   .card .verdict { font-size:13px; color:#c7cad1; }
+  .getting-started { background:#1c1f28; border:1px solid #d4af37; border-radius:12px; padding:22px 26px; margin-bottom:22px; }
+  .getting-started h3 { margin:0 0 8px; color:#d4af37; font-size:17px; }
+  .getting-started p { margin:0 0 14px; color:#c7cad1; font-size:14px; line-height:1.5; }
+  .getting-started .btn { font-size:14px; padding:9px 20px; }
   .section-title { font-size:15px; color:#d4af37; margin:18px 0 8px; }
   .controls { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
   .controls input { padding:8px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; }
@@ -178,6 +182,11 @@
 <main>
 
   <div class="tab active" id="tab-overview">
+    <div class="getting-started" id="gettingStartedBanner">
+      <h3>This computer isn't connected yet</h3>
+      <p>Computer Health watches this specific machine, but nothing runs until you turn it on. Click <strong>Launch Tracker</strong> at the top right — the first time, it'll walk you through a quick one-time setup (installs a small local watcher program); after that, this same button just connects instantly.</p>
+      <button class="btn" onclick="launchTracker()">Launch Tracker</button>
+    </div>
     <div class="section-title">Right now, in plain language</div>
     <div class="card-row" id="overviewCards"></div>
     <div class="card-row" id="overviewBrowserCards"></div>
@@ -394,6 +403,8 @@ function onDeviceSelectChange() {
 // sitting at. History is the only thing viewable across all owned devices.
 function updateLiveControlsAvailability() {
   const viewingOther = viewingDeviceId && viewingDeviceId !== deviceId;
+  const gsb = document.getElementById('gettingStartedBanner');
+  if (gsb) gsb.classList.toggle('hidden', viewingOther || bridgeUp);
   let banner = document.getElementById('viewingOtherBanner');
   if (viewingOther) {
     if (!banner) {
@@ -470,6 +481,8 @@ function onConnected(d) {
   bridgeUp = true;
   document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
   document.getElementById('notRunningScreen').classList.add('hidden');
+  const gsb = document.getElementById('gettingStartedBanner');
+  if (gsb) gsb.classList.add('hidden');
   const btn = document.getElementById('trackerToggle');
   btn.disabled = false;
   btn.onclick = () => toggleTracker();
