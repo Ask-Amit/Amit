@@ -289,6 +289,19 @@ db.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
+// onAuthStateChange's INITIAL_SESSION firing isn't guaranteed on every fresh
+// tab (same gap found and fixed in the Hub) - a brand-new tab opened by the
+// tracker right after install could already have a valid session sitting in
+// localStorage from signing in through the Hub, but show "Not signed in"
+// anyway if this is the only check. Explicit fallback check on load.
+db.auth.getSession().then(({ data: { session } }) => {
+  if (session && !currentUser) {
+    currentUser = session.user;
+    document.getElementById('loginBar').classList.add('hidden');
+    claimDevice();
+  }
+});
+
 async function claimDevice() {
   if (!currentUser || !deviceId) return;
   const { data: existing } = await db.from('amit_devices').select('*').eq('id', deviceId).maybeSingle();
