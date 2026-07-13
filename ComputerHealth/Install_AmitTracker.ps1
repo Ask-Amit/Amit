@@ -24,6 +24,13 @@ $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyI
 $githubRawBase = "https://raw.githubusercontent.com/Ask-Amit/Amit/main/ComputerHealth"
 $dashboardUrl = "https://ask-amit.github.io/Amit/ComputerHealth/ComputerHealth_Dashboard.html"
 
+# Same fix already applied to the compiled AmitInstaller.exe - Windows
+# PowerShell 5.1's Invoke-WebRequest inherits .NET's default security
+# protocol, which on some systems doesn't include TLS 1.2, causing GitHub
+# downloads to time out or fail outright ("The operation has timed out" /
+# "Could not create SSL/TLS secure channel"). Force it explicitly.
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 Write-Host "Amit Computer Health Installer"
 Write-Host "Install location: $installDir"
 Write-Host ""
