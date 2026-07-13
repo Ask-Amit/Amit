@@ -2655,17 +2655,22 @@ function updateHubDemoBtn(){
 }
 
 function _showSignInWelcome(email){
-  // Brief banner confirming sign-in succeeded — auto-dismisses after 5s
+  // Confirms sign-in succeeded. Clicking a magic link always opens a new
+  // tab (email clients decide that, not us), and a webpage can't reliably
+  // force-close a tab it didn't open itself via script - so rather than
+  // attempt an auto-close that could silently fail, just tell the person
+  // plainly they can close the extra tab themselves. Dismissible and
+  // longer-lived than before since there's now something worth reading.
   let w=document.getElementById('signInWelcomeBanner');
   if(!w){
     w=document.createElement('div');
     w.id='signInWelcomeBanner';
-    w.style.cssText='position:fixed;top:62px;left:50%;transform:translateX(-50%);background:#1a3d2a;border:1px solid rgba(100,220,160,.4);border-radius:9px;padding:11px 24px;font-size:13px;color:rgba(180,240,200,.9);z-index:9500;pointer-events:none;font-family:inherit;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .4s';
+    w.style.cssText='position:fixed;top:62px;left:50%;transform:translateX(-50%);background:#1a3d2a;border:1px solid rgba(100,220,160,.4);border-radius:9px;padding:11px 24px;font-size:13px;color:rgba(180,240,200,.9);z-index:9500;font-family:inherit;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .4s;display:flex;align-items:center;gap:14px;max-width:520px';
     document.body.appendChild(w);
   }
-  w.innerHTML=`✓ &nbsp;Signed in as <strong>${email}</strong> — your data is now syncing.`;
+  w.innerHTML=`<span>✓ &nbsp;Signed in as <strong>${email}</strong> — your data is now syncing. If you have another Amit tab open, you can close this one.</span><span style="cursor:pointer;opacity:.6;font-size:16px;line-height:1" onclick="document.getElementById('signInWelcomeBanner').style.opacity='0'">×</span>`;
   w.style.opacity='1';
-  setTimeout(()=>{w.style.opacity='0';setTimeout(()=>w.remove(),450);},5000);
+  setTimeout(()=>{if(w)w.style.opacity='0';setTimeout(()=>{if(w)w.remove()},450);},9000);
   setTimeout(()=>maybeStartTutorial(),800);
 }
 async function _syncEntry(entry){
