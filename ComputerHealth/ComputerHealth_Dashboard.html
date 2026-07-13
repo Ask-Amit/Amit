@@ -123,7 +123,7 @@
     <div id="notRunningQuickLaunch">
       <p>Click Launch Tracker — Amit will actually try to connect to this computer's tracker. If it's already installed, this starts it. If it isn't, we'll find out immediately and walk you through setup instead.</p>
       <div class="actions">
-        <button class="btn" onclick="launchTrackerFlow()">Launch Tracker</button>
+        <button class="btn" id="launchTrackerBtn" onclick="launchTrackerFlow()">Launch Tracker</button>
       </div>
       <p id="quickLaunchStatus" style="color:#9aa0ab;font-size:13px"></p>
     </div>
@@ -535,6 +535,11 @@ function confirmLaunchTracker() {
   document.getElementById('launchWarningModal').classList.add('hidden');
   document.getElementById('notRunningScreen').classList.remove('hidden');
   document.getElementById('quickLaunchStatus').textContent = 'Trying to connect...';
+  // Disabled while checking - otherwise this could be clicked again mid-poll,
+  // stacking up duplicate connection attempts running at the same time.
+  const launchBtn = document.getElementById('launchTrackerBtn');
+  launchBtn.disabled = true;
+  launchBtn.textContent = 'Connecting…';
   window.location.href = 'amit-tracker://start';
   // This poll IS the real test of "is this installed" - a webpage can't
   // check the filesystem/registry directly, so actually attempting the
@@ -551,6 +556,8 @@ function confirmLaunchTracker() {
     if (attempts >= 6) {
       // ~9 seconds with no response - conclude this isn't installed yet.
       clearInterval(poller);
+      launchBtn.disabled = false;
+      launchBtn.textContent = 'Launch Tracker';
       document.getElementById('quickLaunchStatus').textContent = "Couldn't connect - this computer doesn't appear to have it installed yet.";
       document.getElementById('notRunningQuickLaunch').classList.add('hidden');
       document.getElementById('notRunningFullWalkthrough').classList.remove('hidden');
