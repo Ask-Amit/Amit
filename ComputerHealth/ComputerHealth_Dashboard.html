@@ -659,7 +659,7 @@ async function loadHardwareTree() {
     if (!hardwareSelectedDevice || !devices.find(d => d.Text === hardwareSelectedDevice)) {
       hardwareSelectedDevice = devices[0].Text;
     }
-    nav.innerHTML = devices.map(d => `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" onclick="selectHardwareDevice('${d.Text.replace(/'/g, "\\'")}')">${d.Text}</button>`).join('');
+    nav.innerHTML = devices.map(d => `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" onclick="selectHardwareDevice('${d.Text.replace(/'/g, "\\'")}')">${friendlyHardwareName(d.Text)}</button>`).join('');
     renderSelectedHardwareDevice();
   } catch (e) {
     nav.innerHTML = '';
@@ -669,7 +669,7 @@ async function loadHardwareTree() {
 
 function selectHardwareDevice(name) {
   hardwareSelectedDevice = name;
-  document.querySelectorAll('.hw-device-btn').forEach(b => b.classList.toggle('active', b.textContent === name));
+  document.querySelectorAll('.hw-device-btn').forEach(b => b.classList.toggle('active', b.textContent === friendlyHardwareName(name)));
   renderSelectedHardwareDevice();
 }
 
@@ -684,17 +684,42 @@ function getHardwareDevices(root) {
   return topChildren;
 }
 
+// Not every device nests its sensors the same number of levels deep - CPU/GPU/
+// RAM typically go device > sensor-type > reading, but the Motherboard often
+// has an extra chip layer (device > "Nuvoton NCT6795D" > sensor-type > reading)
+// that a fixed two-level walk misses entirely, showing "No readable sensors"
+// even though real data exists (caught live 2026-07-13 - every device except
+// Motherboard worked, because only Motherboard has that extra layer). This
+// walks any depth: any node whose own children are leaves (have a Value)
+// becomes a group; anything else gets recursed into with its name added to
+// the group's label.
+function collectSensorGroups(device) {
+  const groups = {};
+  function walk(node, labels) {
+    const children = node.Children || [];
+    const leafChildren = children.filter(c => c.Value && c.Value !== '');
+    if (leafChildren.length > 0) {
+      const label = labels.length ? labels.join(' — ') : 'Readings';
+      if (!groups[label]) groups[label] = [];
+      leafChildren.forEach(leaf => groups[label].push({ leaf, pathLabels: labels }));
+    }
+    children.filter(c => !(c.Value && c.Value !== '')).forEach(c => walk(c, labels.concat([c.Text])));
+  }
+  walk(device, []);
+  return groups;
+}
+
 function renderSelectedHardwareDevice() {
   const container = document.getElementById('hardwareTree');
   const devices = getHardwareDevices(hardwareLiveTree);
   const device = devices.find(d => d.Text === hardwareSelectedDevice);
   if (!device) { container.innerHTML = '<em style="color:#8a8f99">Select a component above.</em>'; return; }
 
-  const groups = (device.Children || []).map(group => {
-    const leaves = (group.Children || []).filter(leaf => leaf.Value && leaf.Value !== '');
-    if (leaves.length === 0) return '';
-    const rows = leaves.map(leaf => {
-      const sensorPath = `${device.Text}>${group.Text}>${leaf.Text}`;
+  const groupMap = collectSensorGroups(device);
+  const groupLabels = Object.keys(groupMap);
+  const groups = groupLabels.map(label => {
+    const rows = groupMap[label].map(({ leaf, pathLabels }) => {
+      const sensorPath = [device.Text].concat(pathLabels).concat([leaf.Text]).join('>');
       const trail = (hardwareHistory[sensorPath] || []).slice(-6).map(p => `${p.t} ${p.v}`).join('  →  ');
       return `
       <div style="padding:6px 0;border-bottom:1px solid #22252e;font-size:13px">
@@ -707,16 +732,35 @@ function renderSelectedHardwareDevice() {
     }).join('');
     return `
       <div style="margin-bottom:14px">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9aa0ab;margin-bottom:4px">${group.Text}</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9aa0ab;margin-bottom:4px">${label}</div>
         ${rows}
       </div>`;
   }).join('');
 
   container.innerHTML = `
     <div class="card" style="flex:none;width:100%;border-left-color:#d4af37">
-      <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:10px">${device.Text}</div>
+      <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${friendlyHardwareName(device.Text)}</div>
+      <div style="font-size:12px;color:#7a7f89;margin-bottom:10px">${device.Text}</div>
       ${groups || '<em style="color:#8a8f99">No readable sensors on this component.</em>'}
     </div>`;
+}
+
+// Plain-language labels for the device picker - most people don't know a
+// motherboard model number or that "Virtual Memory" isn't the same thing as
+// physical RAM. Heuristic, keyword-based (not a fixed hardware list) so it
+// generalizes to other users' different components rather than only
+// recognizing this one machine's exact parts.
+function friendlyHardwareName(text) {
+  const t = text.toLowerCase();
+  if (/(asus|msi|gigabyte|asrock|biostar|ms-\d)/.test(t) && !/geforce|radeon/.test(t)) return '🖥️ Motherboard';
+  if (/(ryzen|intel core|celeron|pentium|xeon)/.test(t)) return '⚙️ Processor (CPU)';
+  if (/(geforce|radeon|nvidia|quadro|rtx|gtx)/.test(t)) return '🎮 Graphics Card (GPU)';
+  if (t === 'virtual memory') return '💾 Virtual Memory (page file — different from RAM)';
+  if (t === 'total memory' || t === 'generic memory' || t === 'physical memory') return '🧠 System Memory (RAM total)';
+  if (/(ssd|nvme|hdd|hard disk)/.test(t)) return '💽 Storage Drive';
+  if (/(ethernet|wi-?fi|wireless|network)/.test(t)) return '🌐 Network';
+  if (/(g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d)/.test(t)) return '🧩 Memory Stick (RAM)';
+  return '🔧 ' + text;
 }
 
 async function loadHistory() {
