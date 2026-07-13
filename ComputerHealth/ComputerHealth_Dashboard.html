@@ -73,8 +73,8 @@
   <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health</h1>
   <div style="display:flex;align-items:center;gap:16px">
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
-    <button id="trackerToggle" class="off" onclick="toggleTracker()">Tracker: checking...</button>
-    <div class="device" id="deviceLabel">Connecting to local watcher...</div>
+    <button id="trackerToggle" class="off" onclick="connectToThisComputer()">Connect to This Computer</button>
+    <div class="device" id="deviceLabel">Not connected yet — click Connect to This Computer</div>
   </div>
 </header>
 
@@ -445,8 +445,20 @@ async function loadHistory() {
 }
 
 // --- Device init ---
+// Deliberately NOT called automatically on page load. Even just checking
+// whether the tracker is running requires a fetch() to localhost, and
+// browsers (Edge/Chrome, both Chromium-based) now show a "wants to access
+// other apps and services on this device" permission prompt the first time
+// any public site does that - treating a local machine as a distinct trust
+// boundary from the public internet. Doing that unprompted on every page
+// load meant visitors saw that permission box before ever clicking
+// anything, which reads as intrusive and unexplained. Now it only ever
+// happens as the direct, obvious result of someone clicking "Connect to
+// This Computer" themselves - the click IS the explanation.
 let bridgeUp = false;
+let localAccessAttempted = false;
 async function initDevice() {
+  localAccessAttempted = true;
   try {
     const r = await fetch(BRIDGE + '/api/device');
     const d = await r.json();
@@ -454,12 +466,14 @@ async function initDevice() {
     bridgeUp = true;
     document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
     document.getElementById('notRunningScreen').classList.add('hidden');
+    document.getElementById('trackerToggle').onclick = () => toggleTracker();
+    startLivePolling();
     pollTrackerStatus();
+    // If sign-in already happened before this connect click, deviceId
+    // wasn't known yet when claimDevice() first ran - run it again now
+    // that it is. claimDevice() itself is a harmless no-op if already claimed.
+    if (currentUser) claimDevice();
   } catch (e) {
-    // Deliberately does NOT show the not-running screen automatically -
-    // someone arriving just to check History or another computer's data
-    // shouldn't be interrupted by a tracker-launch prompt. That screen only
-    // appears when they explicitly click "Start Tracking" below.
     bridgeUp = false;
     document.getElementById('deviceLabel').textContent = 'This computer: not connected';
     const btn = document.getElementById('trackerToggle');
@@ -467,6 +481,27 @@ async function initDevice() {
     btn.className = 'off';
     btn.onclick = () => showNotRunningScreen();
   }
+}
+
+let livePollingStarted = false;
+function startLivePolling() {
+  if (livePollingStarted) return;
+  livePollingStarted = true;
+  pollResource();
+  pollDiagnostics();
+  pollBehavior();
+  pollBrowser();
+  setInterval(pollResource, 5000);
+  setInterval(pollDiagnostics, 5000);
+  setInterval(pollBehavior, 5000);
+  setInterval(pollBrowser, 10000);
+  setInterval(pollTrackerStatus, 6000);
+}
+
+// The button everyone sees first, before any local access has happened.
+function connectToThisComputer() {
+  document.getElementById('deviceLabel').textContent = 'Connecting…';
+  initDevice();
 }
 
 // Always starts on the quick-launch attempt - the walkthrough only appears
@@ -750,9 +785,13 @@ async function installCompare() {
 // If AmitTracker.exe just stopped tracking and opened this page with
 // ?justStopped=1, show the session summary instead of the normal view,
 // and record the completion so history has a real end-of-session marker.
+// This is the one case where checking localhost happens automatically -
+// consent is implicit, since the person just triggered the tracker
+// themselves moments ago via the desktop/tray flow.
 async function handleJustStopped() {
   if (new URLSearchParams(window.location.search).get('justStopped') !== '1') return;
   document.getElementById('sessionSummaryScreen').classList.remove('hidden');
+  if (!localAccessAttempted) initDevice();
   // Wait for device/auth to be ready before logging
   let waited = 0;
   while ((!deviceId || !currentUser) && waited < 6000) {
@@ -770,21 +809,16 @@ async function handleJustStopped() {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-initDevice();
+// Nothing here touches localhost - handleJustStopped() is the one
+// exception, gated on the ?justStopped=1 flag (implicit consent, see
+// above). Everything else waits for an explicit "Connect to This
+// Computer" click (connectToThisComputer -> initDevice -> startLivePolling).
 handleJustStopped();
 updateChDemoBtn();
 // Runs immediately for guests too (not just after a real sign-in) so demo
 // mode - browsing Amit's own tracked history - works without an account.
+// This only touches Supabase, never localhost, so it needs no gating.
 setTimeout(() => { if (!currentUser) loadMyDevices(); }, 500);
-pollResource();
-pollDiagnostics();
-pollBehavior();
-pollBrowser();
-setInterval(pollResource, 5000);
-setInterval(pollDiagnostics, 5000);
-setInterval(pollBehavior, 5000);
-setInterval(pollBrowser, 10000);
-setInterval(pollTrackerStatus, 6000);
 </script>
 </body>
 </html>
