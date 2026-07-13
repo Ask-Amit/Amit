@@ -297,6 +297,10 @@
   <div class="tab" id="tab-hardware">
     <div class="section-title">Full hardware breakdown</div>
     <p style="font-size:13px;color:#9aa0ab">Every sensor LibreHardwareMonitor reports for this machine, one component at a time - pick a part below to see its current readings plus how they've moved over the last several minutes (captured every 30 seconds). Requires LibreHardwareMonitor's own web server (Options → Remote Web Server → Run) to be enabled.</p>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+      <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="loadHardwareTree()">↻ Refresh Now</button>
+      <span style="font-size:12px;color:#7a7f89">Auto-refreshes every 30 seconds while this tab is open</span>
+    </div>
     <div id="hardwareDeviceNav" class="hw-device-nav"></div>
     <div id="hardwareTree"><em style="color:#8a8f99">Waiting for data...</em></div>
   </div>
@@ -968,6 +972,12 @@ function startLivePolling() {
   setInterval(pollBehavior, 5000);
   setInterval(pollBrowser, 10000);
   setInterval(pollTrackerStatus, 6000);
+  // Matches the 30-second cadence resource_watcher.ps1 actually captures at -
+  // refreshing more often than that would just show the exact same reading
+  // repeatedly. Runs whether or not the Hardware tab is currently visible
+  // (same pattern as the other polls above), harmless since it just updates
+  // hidden DOM if you're on a different tab.
+  setInterval(loadHardwareTree, 30000);
 }
 
 async function pollTrackerStatus() {
