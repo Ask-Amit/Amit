@@ -307,7 +307,14 @@ $handlerScript = {
                 # captures this every 30s) - returning the whole retained window (up to
                 # its own 500-line cap) instead of just the last 20 lets the dashboard
                 # build a real per-sensor trend over time, not just a live snapshot.
-                Send-JsonLines $response (Get-TailSafe "$env:TEMP\resource_watch_result.txt" 500 2000)
+                #
+                # maxLineLen was 2000 - real lines run 10,000-15,000+ characters (a full
+                # sensor dump across every component). Every line was getting silently
+                # truncated with "..." appended, which broke the closing "]" the JS
+                # parser looks for and dropped EVERY row entirely, for every component
+                # (caught live 2026-07-13 - Ryan reported nothing captured anywhere,
+                # not just Motherboard). Raised well above the largest real line seen.
+                Send-JsonLines $response (Get-TailSafe "$env:TEMP\resource_watch_result.txt" 500 20000)
             }
             "/api/diagnostics" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\diagnostics_watch_result.txt" 30) }
             "/api/activity" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\activity_watch2_result.txt" 30) }

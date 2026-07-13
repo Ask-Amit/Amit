@@ -661,10 +661,16 @@ function parseSensorHistoryRows(lines) {
   const rows = [];
   for (const line of lines) {
     const timeMatch = line.match(/^(\d{2}:\d{2}:\d{2})/);
-    const sensorMatch = line.match(/SENSORS:\[(.*)\]$/);
+    // No trailing "]" requirement - a real truncated line (server-side
+    // maxLineLen cut it short) still has real, usable sensor data before the
+    // cut point. Requiring a clean close silently dropped the ENTIRE row for
+    // ANY truncation, not just the specific field that got cut off.
+    const sensorMatch = line.match(/SENSORS:\[(.*)$/);
     if (!timeMatch || !sensorMatch) continue;
+    let sensorBlob = sensorMatch[1];
+    if (sensorBlob.endsWith(']')) sensorBlob = sensorBlob.slice(0, -1);
     const sensors = {};
-    for (const entry of sensorMatch[1].split(' || ')) {
+    for (const entry of sensorBlob.split(' || ')) {
       const eq = entry.lastIndexOf('=');
       if (eq === -1) continue;
       sensors[entry.slice(0, eq)] = entry.slice(eq + 1);
