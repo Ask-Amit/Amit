@@ -301,6 +301,13 @@ $handlerScript = {
             }
             "/api/device" { Send-Json $response @{ deviceId = $deviceId; deviceName = $deviceName } }
             "/api/resource" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\resource_watch_result.txt" 20) }
+            "/api/resource-history" {
+                # Every line already contains a full sensor dump (resource_watcher.ps1
+                # captures this every 30s) - returning the whole retained window (up to
+                # its own 500-line cap) instead of just the last 20 lets the dashboard
+                # build a real per-sensor trend over time, not just a live snapshot.
+                Send-JsonLines $response (Get-TailSafe "$env:TEMP\resource_watch_result.txt" 500 2000)
+            }
             "/api/diagnostics" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\diagnostics_watch_result.txt" 30) }
             "/api/activity" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\activity_watch2_result.txt" 30) }
             "/api/behavior" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\app_behavior_result.txt" 50) }

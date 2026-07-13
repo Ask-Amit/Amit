@@ -93,6 +93,11 @@
   .tier-table td { padding:8px 10px; border-bottom:1px solid #22252e; color:#c7cad1; }
   .tier-table td.yes { color:#4caf6d; font-weight:700; text-align:center; }
   .tier-table td.no { color:#6a6f79; text-align:center; }
+  .hw-device-nav { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 18px; }
+  .hw-device-btn { background:#1c1f28; border:1px solid #3a3f4c; color:#c7cad1; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+  .hw-device-btn.active { background:#d4af37; color:#12141a; border-color:#d4af37; }
+  .hw-device-btn:hover:not(.active) { border-color:#d4af37; color:#e8e8ec; }
+  .hw-history-trail { font-size:11px; color:#7a7f89; margin-top:2px; }
 </style>
 </head>
 <body>
@@ -291,7 +296,8 @@
 
   <div class="tab" id="tab-hardware">
     <div class="section-title">Full hardware breakdown</div>
-    <p style="font-size:13px;color:#9aa0ab">Every sensor LibreHardwareMonitor reports for this machine, grouped by component - the same tree LHM itself shows, just organized so you can read down through one part at a time instead of one long flat log. Requires LibreHardwareMonitor's own web server (Options → Remote Web Server → Run) to be enabled.</p>
+    <p style="font-size:13px;color:#9aa0ab">Every sensor LibreHardwareMonitor reports for this machine, one component at a time - pick a part below to see its current readings plus how they've moved over the last several minutes (captured every 30 seconds). Requires LibreHardwareMonitor's own web server (Options → Remote Web Server → Run) to be enabled.</p>
+    <div id="hardwareDeviceNav" class="hw-device-nav"></div>
     <div id="hardwareTree"><em style="color:#8a8f99">Waiting for data...</em></div>
   </div>
 
@@ -587,50 +593,113 @@ async function logEvent(eventType, severity, summary, detail) {
   });
 }
 
-// Walks LibreHardwareMonitor's own data.json tree and renders it grouped by
-// real hardware component (Motherboard, CPU, GPU, each RAM stick, each
-// drive), then by sensor type within each (Temperatures, Voltages, Clocks,
-// Load, Fans, Data) - the same grouping LHM's own tree view uses. This is
-// deliberately generic (walks whatever the tree actually contains) rather
-// than hand-built per component, so it doesn't need a code change for a
-// different motherboard/GPU or a sensor LHM adds later.
+// Walks LibreHardwareMonitor's own data.json tree, grouped by real hardware
+// component (Motherboard, CPU, GPU, each RAM stick, each drive) and by
+// sensor type within each (Temperatures, Voltages, Clocks, Load, Fans) - the
+// same grouping LHM's own tree view uses. Deliberately generic (walks
+// whatever the tree contains) rather than hand-built per component, so it
+// doesn't need a code change for a different motherboard/GPU.
+//
+// Selecting one component (hardwareSelectedDevice) also pulls the last
+// several minutes of history for that component's sensors from
+// /api/resource-history - resource_watcher.ps1 has been capturing a full
+// sensor dump every 30 seconds all along, just never exposed per-component
+// before. This is what lets you actually see a trend, not just a snapshot.
+let hardwareLiveTree = null;
+let hardwareHistory = null; // { "Device>Group>SensorName": [{t,v}, ...] }
+let hardwareSelectedDevice = null;
+
+function parseSensorHistoryLines(lines) {
+  const bySensor = {};
+  for (const line of lines) {
+    const timeMatch = line.match(/^(\d{2}:\d{2}:\d{2})/);
+    const sensorMatch = line.match(/SENSORS:\[(.*)\]$/);
+    if (!timeMatch || !sensorMatch) continue;
+    const t = timeMatch[1];
+    const entries = sensorMatch[1].split(' || ');
+    for (const entry of entries) {
+      const eq = entry.lastIndexOf('=');
+      if (eq === -1) continue;
+      const path = entry.slice(0, eq);
+      const value = entry.slice(eq + 1);
+      if (!bySensor[path]) bySensor[path] = [];
+      bySensor[path].push({ t, v: value });
+    }
+  }
+  return bySensor;
+}
+
 async function loadHardwareTree() {
   const container = document.getElementById('hardwareTree');
+  const nav = document.getElementById('hardwareDeviceNav');
   try {
-    const r = await fetch(BRIDGE + '/api/sensors', { cache: 'no-store' });
-    if (!r.ok) throw new Error('not reachable');
-    const root = await r.json();
-    const devices = (root.Children || []);
+    const [liveRes, histRes] = await Promise.all([
+      fetch(BRIDGE + '/api/sensors', { cache: 'no-store' }),
+      fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' }).catch(() => null)
+    ]);
+    if (!liveRes.ok) throw new Error('not reachable');
+    hardwareLiveTree = await liveRes.json();
+    if (histRes && histRes.ok) {
+      const histData = await histRes.json();
+      hardwareHistory = parseSensorHistoryLines(histData.lines || []);
+    } else {
+      hardwareHistory = {};
+    }
+    const devices = (hardwareLiveTree.Children || []).filter(d => (d.Children || []).length > 0);
     if (devices.length === 0) {
+      nav.innerHTML = '';
       container.innerHTML = '<em style="color:#8a8f99">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
       return;
     }
-    container.innerHTML = devices.map(renderHardwareDevice).join('');
+    if (!hardwareSelectedDevice || !devices.find(d => d.Text === hardwareSelectedDevice)) {
+      hardwareSelectedDevice = devices[0].Text;
+    }
+    nav.innerHTML = devices.map(d => `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" onclick="selectHardwareDevice('${d.Text.replace(/'/g, "\\'")}')">${d.Text}</button>`).join('');
+    renderSelectedHardwareDevice();
   } catch (e) {
+    nav.innerHTML = '';
     container.innerHTML = '<em style="color:#8a8f99">Couldn\'t reach LibreHardwareMonitor\'s sensor data. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
   }
 }
 
-function renderHardwareDevice(device) {
+function selectHardwareDevice(name) {
+  hardwareSelectedDevice = name;
+  document.querySelectorAll('.hw-device-btn').forEach(b => b.classList.toggle('active', b.textContent === name));
+  renderSelectedHardwareDevice();
+}
+
+function renderSelectedHardwareDevice() {
+  const container = document.getElementById('hardwareTree');
+  const devices = (hardwareLiveTree.Children || []);
+  const device = devices.find(d => d.Text === hardwareSelectedDevice);
+  if (!device) { container.innerHTML = '<em style="color:#8a8f99">Select a component above.</em>'; return; }
+
   const groups = (device.Children || []).map(group => {
     const leaves = (group.Children || []).filter(leaf => leaf.Value && leaf.Value !== '');
     if (leaves.length === 0) return '';
-    const rows = leaves.map(leaf => `
-      <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #22252e;font-size:13px">
-        <span style="color:#c7cad1">${leaf.Text}</span>
-        <span style="color:#e8e8ec;font-weight:600">${leaf.Value}</span>
-      </div>`).join('');
+    const rows = leaves.map(leaf => {
+      const sensorPath = `${device.Text}>${group.Text}>${leaf.Text}`;
+      const trail = (hardwareHistory[sensorPath] || []).slice(-6).map(p => `${p.t} ${p.v}`).join('  →  ');
+      return `
+      <div style="padding:6px 0;border-bottom:1px solid #22252e;font-size:13px">
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:#c7cad1">${leaf.Text}</span>
+          <span style="color:#e8e8ec;font-weight:600">${leaf.Value}</span>
+        </div>
+        ${trail ? `<div class="hw-history-trail">${trail}</div>` : ''}
+      </div>`;
+    }).join('');
     return `
-      <div style="margin-bottom:10px">
+      <div style="margin-bottom:14px">
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9aa0ab;margin-bottom:4px">${group.Text}</div>
         ${rows}
       </div>`;
   }).join('');
-  if (!groups.trim()) return '';
-  return `
-    <div class="card" style="flex:none;width:100%;margin-bottom:14px;border-left-color:#d4af37">
+
+  container.innerHTML = `
+    <div class="card" style="flex:none;width:100%;border-left-color:#d4af37">
       <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:10px">${device.Text}</div>
-      ${groups}
+      ${groups || '<em style="color:#8a8f99">No readable sensors on this component.</em>'}
     </div>`;
 }
 
