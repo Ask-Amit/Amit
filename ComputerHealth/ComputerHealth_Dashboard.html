@@ -307,10 +307,18 @@ function setStatus(msg) {
 // since both pages share the same domain, a Hub sign-in already carries
 // over automatically. This only ever needs to hide the "not signed in"
 // bar once that session is detected, not offer a second way to sign in.
+// Shows who's actually signed in, instead of just hiding the bar entirely -
+// a page with no visible name/email anywhere doesn't feel connected to a
+// person, the same complaint already addressed elsewhere in the Hub.
+function showSignedInAs(email) {
+  const bar = document.getElementById('loginBar');
+  bar.innerHTML = `<span style="color:#4caf6d">✓ Signed in as <strong>${email}</strong></span>`;
+}
+
 db.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user;
-    document.getElementById('loginBar').classList.add('hidden');
+    showSignedInAs(currentUser.email);
     await claimDevice();
   }
 });
@@ -323,7 +331,7 @@ db.auth.onAuthStateChange(async (event, session) => {
 db.auth.getSession().then(({ data: { session } }) => {
   if (session && !currentUser) {
     currentUser = session.user;
-    document.getElementById('loginBar').classList.add('hidden');
+    showSignedInAs(currentUser.email);
     claimDevice();
   }
 });
