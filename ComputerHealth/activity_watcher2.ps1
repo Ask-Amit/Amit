@@ -14,21 +14,25 @@ while ((Get-Date) -lt $deadline) {
 
     foreach ($id in $current.Keys) {
         if (-not $prev.ContainsKey($id)) {
-            Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') START  $($current[$id]) (PID=$id)" -Encoding utf8
-            $lineCount++
+            try { Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') START  $($current[$id]) (PID=$id)" -Encoding utf8 -ErrorAction Stop; $lineCount++ } catch {}
         }
     }
     foreach ($id in $prev.Keys) {
         if (-not $current.ContainsKey($id)) {
-            Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') STOP   $($prev[$id]) (PID=$id)" -Encoding utf8
-            $lineCount++
+            try { Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') STOP   $($prev[$id]) (PID=$id)" -Encoding utf8 -ErrorAction Stop; $lineCount++ } catch {}
         }
     }
 
     if ($lineCount -gt $maxLines) {
-        $lines = Get-Content $out -Tail $maxLines
-        Set-Content -Path $out -Value $lines -Encoding utf8
-        $lineCount = $lines.Count
+        # A second instance of this exact script (e.g. a duplicate launch
+        # slipping past the bridge server's own dedup check) could still be
+        # mid-write to this same file at this exact moment - swallow that
+        # rather than crashing the whole loop over one missed truncation pass.
+        try {
+            $lines = Get-Content $out -Tail $maxLines -ErrorAction Stop
+            Set-Content -Path $out -Value $lines -Encoding utf8 -ErrorAction Stop
+            $lineCount = $lines.Count
+        } catch {}
     }
 
     $prev = $current

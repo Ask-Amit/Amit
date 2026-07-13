@@ -182,7 +182,32 @@ $handlerScript = {
         return @{ running = $running; pids = $pids }
     }
 
+    # Live command-line check for one of our own watcher scripts - same idea
+    # as the existing LibreHardwareMonitor process check below, generalized.
+    # A second "start tracking" call (a second open tab, a retry, whatever)
+    # must recognize an already-running watcher and skip it, not launch a
+    # duplicate that then fights the first one over the same output file
+    # (this is exactly what caused the repeated "Stream was not readable"
+    # crashes during testing on 2026-07-13 - two tabs each triggered
+    # start-tracking, and nothing here stopped a second full set launching).
+    function Test-WatcherScriptRunning($scriptFileName) {
+        $match = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like "*$scriptFileName*" } |
+            Select-Object -First 1
+        return $match
+    }
+
     function Start-Tracking() {
+        # Top-level guard: if our own tracked pids are already alive, this is
+        # a duplicate start-tracking call (second tab, accidental double
+        # click, etc) - treat it as a no-op success rather than launching a
+        # second full set of watchers.
+        $existing = Get-TrackerStatus
+        if ($existing.running) {
+            $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+            return @{ started = $true; pids = $existing.pids; elevated = $isAdmin; warnings = @("Tracking was already running - reusing the existing session instead of starting a duplicate.") }
+        }
+
         # Each piece starts independently - LibreHardwareMonitor requires admin
         # (it prompts UAC on its own), and if that prompt is denied or can't be
         # shown, that alone must not stop the other three watchers from starting.
@@ -207,18 +232,33 @@ $handlerScript = {
                 $warnings += "LibreHardwareMonitor needs admin approval to run (UAC) - sensor readings (temps/voltages/fans) won't be available this session. Resource and diagnostic tracking still work."
             }
         }
-        try {
-            $activityProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\activity_watcher2.ps1`"" -PassThru -ErrorAction Stop
-            $newPids += $activityProc.Id
-        } catch { $warnings += "activity watcher failed to start: $($_.Exception.Message)" }
-        try {
-            $resourceProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\resource_watcher.ps1`"" -PassThru -ErrorAction Stop
-            $newPids += $resourceProc.Id
-        } catch { $warnings += "resource watcher failed to start: $($_.Exception.Message)" }
-        try {
-            $diagProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\diagnostics_watcher.ps1`"" -PassThru -ErrorAction Stop
-            $newPids += $diagProc.Id
-        } catch { $warnings += "diagnostics watcher failed to start: $($_.Exception.Message)" }
+
+        $activityAlready = Test-WatcherScriptRunning "activity_watcher2.ps1"
+        if ($activityAlready) { $newPids += $activityAlready.ProcessId }
+        else {
+            try {
+                $activityProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\activity_watcher2.ps1`"" -PassThru -ErrorAction Stop
+                $newPids += $activityProc.Id
+            } catch { $warnings += "activity watcher failed to start: $($_.Exception.Message)" }
+        }
+
+        $resourceAlready = Test-WatcherScriptRunning "resource_watcher.ps1"
+        if ($resourceAlready) { $newPids += $resourceAlready.ProcessId }
+        else {
+            try {
+                $resourceProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\resource_watcher.ps1`"" -PassThru -ErrorAction Stop
+                $newPids += $resourceProc.Id
+            } catch { $warnings += "resource watcher failed to start: $($_.Exception.Message)" }
+        }
+
+        $diagAlready = Test-WatcherScriptRunning "diagnostics_watcher.ps1"
+        if ($diagAlready) { $newPids += $diagAlready.ProcessId }
+        else {
+            try {
+                $diagProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\diagnostics_watcher.ps1`"" -PassThru -ErrorAction Stop
+                $newPids += $diagProc.Id
+            } catch { $warnings += "diagnostics watcher failed to start: $($_.Exception.Message)" }
+        }
 
         $newPids -join "`n" | Set-Content -Path $trackerPidFile -Encoding utf8
         return @{ started = $true; pids = $newPids; elevated = $isAdmin; warnings = $warnings }
