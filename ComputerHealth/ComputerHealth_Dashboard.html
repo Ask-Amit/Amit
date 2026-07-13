@@ -262,7 +262,7 @@
 
   <div class="tab" id="tab-history">
     <div class="section-title">This computer's history</div>
-    <p style="font-size:13px;color:#9aa0ab">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
+    <p id="historyIntro" style="font-size:13px;color:#9aa0ab">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
     <div id="historyList"><em style="color:#8a8f99">Sign in to load history.</em></div>
   </div>
 
@@ -490,6 +490,12 @@ async function logEvent(eventType, severity, summary, detail) {
 
 async function loadHistory() {
   const list = document.getElementById('historyList');
+  const intro = document.getElementById('historyIntro');
+  if (intro) {
+    intro.textContent = currentUser
+      ? 'Everything ever detected on this device - installs, flags, and resource anomalies, going back as far as you\'ve been tracking.'
+      : 'Sign in to see everything ever detected on this device - installs, flags, and resource anomalies, going back as far as you\'ve been tracking.';
+  }
   if (!currentUser) { list.innerHTML = '<em style="color:#8a8f99">Sign in to load history.</em>'; return; }
   const targetId = viewingDeviceId || deviceId;
   if (!targetId) { list.innerHTML = '<em style="color:#8a8f99">No computer selected.</em>'; return; }
