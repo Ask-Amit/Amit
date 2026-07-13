@@ -198,15 +198,16 @@ $handlerScript = {
     }
 
     function Start-Tracking() {
-        # Top-level guard: if our own tracked pids are already alive, this is
-        # a duplicate start-tracking call (second tab, accidental double
-        # click, etc) - treat it as a no-op success rather than launching a
-        # second full set of watchers.
-        $existing = Get-TrackerStatus
-        if ($existing.running) {
-            $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
-            return @{ started = $true; pids = $existing.pids; elevated = $isAdmin; warnings = @("Tracking was already running - reusing the existing session instead of starting a duplicate.") }
-        }
+        # NOTE: a top-level "is anything already running" shortcut used to live
+        # here, based on Get-TrackerStatus (whether ANY previously-recorded pid
+        # is still alive). Removed 2026-07-13 - it was a real bug: if only
+        # LibreHardwareMonitor (recorded in the same pid file) was still alive
+        # while the three watcher scripts had actually died, this treated the
+        # whole session as "already running" and skipped restarting them,
+        # silently leaving Resources/Diagnostics/App Behavior stale for good.
+        # The per-script checks below (Test-WatcherScriptRunning) already do
+        # this correctly and specifically per script - that's the only dedup
+        # guard needed.
 
         # Each piece starts independently - LibreHardwareMonitor requires admin
         # (it prompts UAC on its own), and if that prompt is denied or can't be
