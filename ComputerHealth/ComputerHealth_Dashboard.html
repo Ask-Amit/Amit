@@ -985,9 +985,25 @@ async function handleJustStopped() {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-// Nothing here touches localhost - handleJustStopped() is the one
-// exception, gated on the ?justStopped=1 flag (implicit consent, see
-// above). Everything else waits for an explicit "Launch Tracker" click.
+// If Run_AmitTracker.ps1 just started tracking and opened this page with
+// ?justLaunched=1 (the installer's own auto-launch, or the desktop/tray
+// icon), connect immediately instead of showing "Not connected yet - click
+// Launch Tracker" and making the person prove consent they already gave
+// moments ago by running the installer or clicking the icon themselves.
+async function handleJustLaunched() {
+  if (new URLSearchParams(window.location.search).get('justLaunched') !== '1') return;
+  if (!localAccessAttempted) {
+    localAccessAttempted = true;
+    try { onConnected(await checkBridge()); } catch (e) {}
+  }
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
+// Nothing here touches localhost automatically except handleJustStopped()
+// and handleJustLaunched() - both gated on an explicit URL flag set only by
+// a script the person already deliberately ran (implicit consent). Everyone
+// else waits for an explicit "Launch Tracker" click.
+handleJustLaunched();
 handleJustStopped();
 updateChDemoBtn();
 // Runs immediately for guests too (not just after a real sign-in) so demo

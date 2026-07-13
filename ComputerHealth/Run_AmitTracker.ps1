@@ -26,4 +26,10 @@ try {
     Invoke-RestMethod -Uri "http://localhost:8710/api/start-tracking" -Method Post -Body "" -TimeoutSec 10 -ErrorAction Stop | Out-Null
 } catch {}
 
-Start-Process $dashboardUrl
+# ?justLaunched=1 tells the dashboard it can auto-connect on load instead of
+# waiting for another manual click - consent is implicit here, since running
+# this script (via the installer or the desktop/tray icon) IS the person's
+# explicit action. Without this, someone who just finished the install saw
+# "Not connected yet - click Launch Tracker" despite tracking already being
+# live, a redundant extra click after "no other clicks needed" (2026-07-13).
+Start-Process ($dashboardUrl + "?justLaunched=1")
