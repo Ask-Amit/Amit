@@ -305,6 +305,28 @@ $handlerScript = {
             "/api/activity" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\activity_watch2_result.txt" 30) }
             "/api/behavior" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\app_behavior_result.txt" 50) }
             "/api/browser" { Send-BrowserJson $response }
+            "/api/sensors" {
+                # Proxies LibreHardwareMonitor's own web server (localhost:8085/data.json)
+                # straight through as raw JSON - LHM already returns a full nested
+                # component tree (Motherboard/CPU/GPU/RAM/Storage/Network, each with
+                # Temperatures/Voltages/Clocks/Load/Fans/Data subgroups). Relaying the
+                # raw response instead of re-parsing through ConvertTo-Json avoids the
+                # known cold-runspace hang bug, and this data was already being fetched
+                # by resource_watcher.ps1 every 30s and then thrown away as flat text -
+                # this is what finally exposes the real tree to the dashboard.
+                try {
+                    $raw = Invoke-WebRequest -Uri "http://localhost:8085/data.json" -TimeoutSec 5 -ErrorAction Stop
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes($raw.Content)
+                    $response.StatusCode = 200
+                    $response.ContentType = "application/json"
+                    $response.Headers.Add("Access-Control-Allow-Origin", "*")
+                    $response.ContentLength64 = $bytes.Length
+                    $response.OutputStream.Write($bytes, 0, $bytes.Length)
+                    $response.OutputStream.Close()
+                } catch {
+                    Send-Json $response @{ error = "LibreHardwareMonitor web server not reachable - check it's running with Options > Remote Web Server > Run enabled." } 502
+                }
+            }
             "/api/tracker-status" {
                 $s = Get-TrackerStatus
                 Send-JsonRaw $response ('{"running":' + $(if ($s.running) {'true'} else {'false'}) + ',"pidCount":' + $s.pids.Count + '}')

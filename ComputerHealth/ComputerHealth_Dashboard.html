@@ -197,6 +197,7 @@
 <nav>
   <button class="active" onclick="showTab('overview')">Overview</button>
   <button onclick="showTab('resource')">Resources</button>
+  <button onclick="showTab('hardware')">Hardware</button>
   <button onclick="showTab('diagnostics')">Diagnostics</button>
   <button onclick="showTab('behavior')">App Behavior</button>
   <button onclick="showTab('install')">Install Watch</button>
@@ -225,6 +226,12 @@
     <div class="card-row" id="resourceCards"></div>
     <div class="section-title">Raw log (last 20 lines)</div>
     <div class="log-box" id="resourceLog">Waiting for data...</div>
+  </div>
+
+  <div class="tab" id="tab-hardware">
+    <div class="section-title">Full hardware breakdown</div>
+    <p style="font-size:13px;color:#9aa0ab">Every sensor LibreHardwareMonitor reports for this machine, grouped by component - the same tree LHM itself shows, just organized so you can read down through one part at a time instead of one long flat log. Requires LibreHardwareMonitor's own web server (Options → Remote Web Server → Run) to be enabled.</p>
+    <div id="hardwareTree"><em style="color:#8a8f99">Waiting for data...</em></div>
   </div>
 
   <div class="tab" id="tab-diagnostics">
@@ -284,6 +291,7 @@ function showTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   event.target.classList.add('active');
   if (name === 'history') loadHistory();
+  if (name === 'hardware') loadHardwareTree();
 }
 
 // Same as showTab but callable without a click event (e.g. from another
@@ -296,6 +304,7 @@ function showTabByName(name) {
   });
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'history') loadHistory();
+  if (name === 'hardware') loadHardwareTree();
 }
 
 function setStatus(msg) {
@@ -515,6 +524,53 @@ async function logEvent(eventType, severity, summary, detail) {
     device_id: deviceId, user_id: currentUser.id, event_type: eventType,
     severity, summary, event_detail: detail
   });
+}
+
+// Walks LibreHardwareMonitor's own data.json tree and renders it grouped by
+// real hardware component (Motherboard, CPU, GPU, each RAM stick, each
+// drive), then by sensor type within each (Temperatures, Voltages, Clocks,
+// Load, Fans, Data) - the same grouping LHM's own tree view uses. This is
+// deliberately generic (walks whatever the tree actually contains) rather
+// than hand-built per component, so it doesn't need a code change for a
+// different motherboard/GPU or a sensor LHM adds later.
+async function loadHardwareTree() {
+  const container = document.getElementById('hardwareTree');
+  try {
+    const r = await fetch(BRIDGE + '/api/sensors', { cache: 'no-store' });
+    if (!r.ok) throw new Error('not reachable');
+    const root = await r.json();
+    const devices = (root.Children || []);
+    if (devices.length === 0) {
+      container.innerHTML = '<em style="color:#8a8f99">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
+      return;
+    }
+    container.innerHTML = devices.map(renderHardwareDevice).join('');
+  } catch (e) {
+    container.innerHTML = '<em style="color:#8a8f99">Couldn\'t reach LibreHardwareMonitor\'s sensor data. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
+  }
+}
+
+function renderHardwareDevice(device) {
+  const groups = (device.Children || []).map(group => {
+    const leaves = (group.Children || []).filter(leaf => leaf.Value && leaf.Value !== '');
+    if (leaves.length === 0) return '';
+    const rows = leaves.map(leaf => `
+      <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #22252e;font-size:13px">
+        <span style="color:#c7cad1">${leaf.Text}</span>
+        <span style="color:#e8e8ec;font-weight:600">${leaf.Value}</span>
+      </div>`).join('');
+    return `
+      <div style="margin-bottom:10px">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9aa0ab;margin-bottom:4px">${group.Text}</div>
+        ${rows}
+      </div>`;
+  }).join('');
+  if (!groups.trim()) return '';
+  return `
+    <div class="card" style="flex:none;width:100%;margin-bottom:14px;border-left-color:#d4af37">
+      <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:10px">${device.Text}</div>
+      ${groups}
+    </div>`;
 }
 
 async function loadHistory() {
