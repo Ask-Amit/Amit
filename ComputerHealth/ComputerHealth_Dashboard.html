@@ -82,6 +82,17 @@
   .status-badge { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; padding:2px 8px; border-radius:10px; margin-left:10px; }
   .status-badge.now { background:rgba(76,175,109,.15); color:#4caf6d; border:1px solid rgba(76,175,109,.4); }
   .status-badge.later { background:rgba(154,160,171,.12); color:#9aa0ab; border:1px solid rgba(154,160,171,.3); }
+  .help-tab-nav { display:flex; gap:4px; margin:14px 0 16px; border-bottom:1px solid #3a3f4c; flex-wrap:wrap; }
+  .help-tab-btn { background:none; border:none; color:#9aa0ab; padding:8px 14px; cursor:pointer; font-size:13px; font-weight:600; border-bottom:2px solid transparent; }
+  .help-tab-btn.active { color:#d4af37; border-bottom-color:#d4af37; }
+  .help-tab-btn:hover { color:#e8e8ec; }
+  .help-tab-pane { display:none; }
+  .help-tab-pane.active { display:block; }
+  .tier-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+  .tier-table th { text-align:left; padding:8px 10px; color:#d4af37; border-bottom:1px solid #3a3f4c; }
+  .tier-table td { padding:8px 10px; border-bottom:1px solid #22252e; color:#c7cad1; }
+  .tier-table td.yes { color:#4caf6d; font-weight:700; text-align:center; }
+  .tier-table td.no { color:#6a6f79; text-align:center; }
 </style>
 </head>
 <body>
@@ -89,6 +100,7 @@
 <header>
   <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health</h1>
   <div style="display:flex;align-items:center;gap:16px">
+    <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
     <button id="trackerToggle" class="off" onclick="launchTracker()">Launch Tracker</button>
     <div class="device" id="deviceLabel">Not connected yet — click Launch Tracker</div>
@@ -97,10 +109,59 @@
 </header>
 
 <div class="overlay hidden" id="chTutorialModal">
-  <div class="overlay-card" style="max-width:600px;max-height:85vh;overflow-y:auto">
+  <div class="overlay-card" style="max-width:680px;max-height:85vh;overflow-y:auto">
     <h2>What Computer Health does</h2>
-    <p style="color:#c7cad1">Computer Health watches this specific machine and translates what it finds into plain language — not raw numbers you have to interpret yourself. Click any item below for what it actually does:</p>
-    <div class="feature-explainer" id="chTutorialFeatureList"></div>
+    <div class="help-tab-nav">
+      <button class="help-tab-btn active" onclick="showHelpTab('features')">What It Does</button>
+      <button class="help-tab-btn" onclick="showHelpTab('tiers')">Free vs. Paid</button>
+      <button class="help-tab-btn" onclick="showHelpTab('payment')">How Payment Works</button>
+      <button class="help-tab-btn" onclick="showHelpTab('why')">Why It Matters</button>
+    </div>
+
+    <div class="help-tab-pane active" id="helptab-features">
+      <p style="color:#c7cad1">Computer Health watches this specific machine and translates what it finds into plain language — not raw numbers you have to interpret yourself. Click any item below for what it actually does:</p>
+      <div class="feature-explainer" id="chTutorialFeatureList"></div>
+    </div>
+
+    <div class="help-tab-pane" id="helptab-tiers">
+      <p style="color:#c7cad1">Everything here runs on one program — the difference between free and paid isn't a different tool, it's how much of it stays saved for you to look back on.</p>
+      <table class="tier-table">
+        <tr><th></th><th>Free</th><th>Paid</th></tr>
+        <tr><td>Instant resource/CPU checks</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>App Behavior verification</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Full hardware sensor breakdown</td><td class="yes">✓ (live only)</td><td class="yes">✓</td></tr>
+        <tr><td>Saved permanently, viewable later</td><td class="no">✗</td><td class="yes">✓</td></tr>
+        <tr><td>Full guided diagnostic (GPU/RAM stress tests)</td><td class="no">✗</td><td class="yes">✓</td></tr>
+        <tr><td>Upgrade Advisor (what to actually buy)</td><td class="no">✗</td><td class="yes">✓</td></tr>
+        <tr><td>Active troubleshooting walkthrough</td><td class="no">✗</td><td class="yes">✓</td></tr>
+      </table>
+      <p style="color:#9aa0ab;font-size:13px;margin-top:10px">Free-tier data lives only on this computer — close the tab or restart, and it's gone. That's by design, not a limitation we're hiding: nothing about the free tier costs us anything ongoing, which is exactly why it can stay free.</p>
+    </div>
+
+    <div class="help-tab-pane" id="helptab-payment">
+      <p style="color:#c7cad1">There are three ways to get the paid tier, depending on what you actually need <span class="status-badge later">Coming later</span></p>
+      <div class="feature-explainer">
+        <div class="feature-card open">
+          <div class="feature-head" style="cursor:default"><span>📄 One-Time Report</span></div>
+          <div class="feature-body" style="max-height:200px;padding:0 16px 14px">For a single point-in-time need — buying or selling a used PC, or just "what do I actually have." One full diagnostic snapshot, permanently saved, done. Buying another later (different date or machine) is a separate purchase.</div>
+        </div>
+        <div class="feature-card open">
+          <div class="feature-head" style="cursor:default"><span>🛠️ 7-Day Diagnostic Event</span></div>
+          <div class="feature-body" style="max-height:260px;padding:0 16px 14px">For an actual problem right now — slow mouse, laggy keyboard, random shutdowns. Full access for up to 7 days while Amit actively works the problem with you, not just a score. If you upgrade to Pro afterward, what you already paid gets credited toward it.</div>
+        </div>
+        <div class="feature-card open">
+          <div class="feature-head" style="cursor:default"><span>📅 Pro Subscription</span></div>
+          <div class="feature-body" style="max-height:260px;padding:0 16px 14px">Ongoing tracked history, scheduled weekly check-ins reminded through the Hub. Builders managing many machines get fleet tracking and their own public reputation score, with volume-based pricing as the number of machines grows.</div>
+        </div>
+      </div>
+      <p style="color:#9aa0ab;font-size:13px;margin-top:6px">Pricing and the actual payment method aren't finalized yet — this tab describes the plan, not something you can buy today.</p>
+    </div>
+
+    <div class="help-tab-pane" id="helptab-why">
+      <p style="color:#c7cad1">Amit Computer Value is the funding engine that keeps the rest of the Amit system free — the daily Hub, the biblical research, the discipleship companion. Every paid report or subscription here funds all of that staying free for everyone else.</p>
+      <p style="color:#c7cad1">The diagnostic depth this app is built on came from a real event: Ryan's own new computer was crashing, and the same step-by-step process used to find bad RAM sticks and fix it became the blueprint for what this tool does for anyone — technical or not.</p>
+    </div>
+
     <div class="actions">
       <button class="btn" onclick="document.getElementById('chTutorialModal').classList.add('hidden')">Got it</button>
     </div>
@@ -643,6 +704,13 @@ function renderFeatureExplainer(containerId) {
 function toggleFeatureCard(cardId) {
   const card = document.getElementById(cardId);
   if (card) card.classList.toggle('open');
+}
+
+function showHelpTab(name) {
+  document.querySelectorAll('.help-tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.help-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('helptab-' + name).classList.add('active');
+  event.target.classList.add('active');
 }
 
 function openChTutorial() {
