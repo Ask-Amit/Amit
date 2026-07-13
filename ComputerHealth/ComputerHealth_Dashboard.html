@@ -551,6 +551,7 @@ async function loadHistory() {
 // This Computer" themselves - the click IS the explanation.
 let bridgeUp = false;
 let localAccessAttempted = false;
+let trackerRunning = false;
 
 // What Computer Health/Value actually does, in plain language - shown inline
 // on the very first visit (localStorage flag below), and always reachable
@@ -715,6 +716,7 @@ async function pollTrackerStatus() {
     const r = await fetch(BRIDGE + '/api/tracker-status');
     const d = await r.json();
     const btn = document.getElementById('trackerToggle');
+    trackerRunning = !!d.running;
     if (d.running) {
       btn.textContent = 'Tracker: ON (click to stop)';
       btn.className = 'on';
@@ -791,8 +793,14 @@ async function pollResource() {
           'Low load — computer has plenty of headroom.',
           'Moderate load — normal during active use.',
           'Very high load — something is working the processor hard right now.')}</div></div>`;
-      document.getElementById('resourceCards').innerHTML = ramCard + cpuCard;
-      document.getElementById('overviewCards').innerHTML = ramCard + cpuCard;
+      // /api/resource just tails a file that only updates while the resource
+      // watcher is actually running - with the tracker off, this file still
+      // holds whatever it last wrote, which would otherwise look identical
+      // to a live reading with no way to tell the difference (caught live
+      // 2026-07-13 - looked like tracking was on when it genuinely wasn't).
+      const staleNote = trackerRunning ? '' : `<div style="grid-column:1/-1;background:#2a2410;border:1px solid #e0a72e;border-radius:8px;padding:8px 14px;font-size:12px;color:#e0c477;margin-bottom:4px">⏸ Tracker is off - these are the last readings from a previous session, not live data. Click "Tracker: OFF" above to start tracking again.</div>`;
+      document.getElementById('resourceCards').innerHTML = staleNote + ramCard + cpuCard;
+      document.getElementById('overviewCards').innerHTML = staleNote + ramCard + cpuCard;
       if (p.ramPct !== null && p.ramPct >= 90) {
         flagOnce('ram-high', 'warning', 'RAM usage crossed 90% — computer may feel sluggish.', p);
       }
