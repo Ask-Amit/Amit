@@ -663,7 +663,27 @@ async function loadHardwareTree() {
     if (!hardwareSelectedDevice || !devices.find(d => d.Text === hardwareSelectedDevice)) {
       hardwareSelectedDevice = devices[0].Text;
     }
-    nav.innerHTML = devices.map(d => `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" onclick="selectHardwareDevice('${d.Text.replace(/'/g, "\\'")}')">${friendlyHardwareName(d.Text)}</button>`).join('');
+    // Several devices can share the same friendly label (three RAM sticks all
+    // read "Memory Stick (RAM)") - append a number when a label repeats, so
+    // each button is distinguishable at a glance instead of looking identical
+    // (caught live 2026-07-13, along with the active-button highlight
+    // matching ALL same-labeled buttons at once since it compared displayed
+    // text instead of the real underlying device). Buttons now key off
+    // data-device-text (the real, unique LHM name) for selection/highlight,
+    // never the shared friendly label.
+    const labelCounts = {};
+    devices.forEach(d => { const l = friendlyHardwareName(d.Text); labelCounts[l] = (labelCounts[l] || 0) + 1; });
+    const labelSeen = {};
+    nav.innerHTML = devices.map(d => {
+      const label = friendlyHardwareName(d.Text);
+      let displayLabel = label;
+      if (labelCounts[label] > 1) {
+        labelSeen[label] = (labelSeen[label] || 0) + 1;
+        displayLabel = `${label} ${labelSeen[label]}`;
+      }
+      const escaped = d.Text.replace(/"/g, '&quot;');
+      return `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" data-device-text="${escaped}" onclick="selectHardwareDevice(this.dataset.deviceText)">${displayLabel}</button>`;
+    }).join('');
     renderSelectedHardwareDevice();
   } catch (e) {
     nav.innerHTML = '';
@@ -673,7 +693,7 @@ async function loadHardwareTree() {
 
 function selectHardwareDevice(name) {
   hardwareSelectedDevice = name;
-  document.querySelectorAll('.hw-device-btn').forEach(b => b.classList.toggle('active', b.textContent === friendlyHardwareName(name)));
+  document.querySelectorAll('.hw-device-btn').forEach(b => b.classList.toggle('active', b.dataset.deviceText === name));
   renderSelectedHardwareDevice();
 }
 
