@@ -613,7 +613,14 @@ async function checkBridge() {
 }
 
 function onConnected(d) {
-  deviceId = d.deviceId; deviceName = d.deviceName;
+  // Postgres's native uuid column type always normalizes and stores IDs in
+  // lowercase, but the bridge reports the SMBIOS UUID exactly as Windows
+  // gives it (uppercase) - every device-id comparison in this file is a
+  // plain string match, so without lowercasing here, this machine's own
+  // device would permanently look like "a different computer" than itself
+  // (caught live 2026-07-13 - the viewing-other banner never cleared even
+  // while connected to this exact machine).
+  deviceId = d.deviceId.toLowerCase(); deviceName = d.deviceName;
   bridgeUp = true;
   document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
   document.getElementById('notRunningScreen').classList.add('hidden');
