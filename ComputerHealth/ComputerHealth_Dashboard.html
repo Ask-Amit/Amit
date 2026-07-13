@@ -98,6 +98,14 @@
   .hw-device-btn.active { background:#d4af37; color:#12141a; border-color:#d4af37; }
   .hw-device-btn:hover:not(.active) { border-color:#d4af37; color:#e8e8ec; }
   .hw-history-trail { font-size:11px; color:#7a7f89; margin-top:2px; }
+  .hw-spreadsheet-wrap { overflow-x:auto; border:1px solid #3a3f4c; border-radius:8px; }
+  .hw-spreadsheet { border-collapse:collapse; font-size:12px; white-space:nowrap; }
+  .hw-spreadsheet th, .hw-spreadsheet td { border:1px solid #22252e; padding:6px 8px; text-align:right; }
+  .hw-spreadsheet th.hw-time-col, .hw-spreadsheet td.hw-time-col { text-align:left; background:#181b23; position:sticky; left:0; z-index:1; }
+  .hw-spreadsheet thead th { background:#1c1f28; height:120px; vertical-align:bottom; padding-bottom:10px; }
+  .hw-col-label { writing-mode:vertical-rl; transform:rotate(180deg); font-weight:600; color:#d4af37; font-size:11px; white-space:nowrap; }
+  .hw-spreadsheet tbody tr:nth-child(even) { background:#15171d; }
+  .hw-spreadsheet tbody tr:hover { background:#22252e; }
 </style>
 </head>
 <body>
@@ -296,12 +304,12 @@
 
   <div class="tab" id="tab-hardware">
     <div class="section-title">Full hardware breakdown</div>
-    <p style="font-size:13px;color:#9aa0ab">Every sensor LibreHardwareMonitor reports for this machine, one component at a time - pick a part below to see its current readings plus how they've moved over the last several minutes (captured every 30 seconds). Requires LibreHardwareMonitor's own web server (Options → Remote Web Server → Run) to be enabled.</p>
-    <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="loadHardwareTree()">↻ Refresh Now</button>
-      <span style="font-size:12px;color:#7a7f89">Auto-refreshes every 30 seconds while this tab is open</span>
+      <span style="font-size:12px;color:#7a7f89">Auto-refreshes every 30 seconds</span>
     </div>
-    <div id="hardwareDeviceNav" class="hw-device-nav"></div>
+    <div id="hardwareCategoryNav" class="hw-device-nav"></div>
+    <div id="hardwareInstanceNav" class="hw-device-nav hidden"></div>
     <div id="hardwareTree"><em style="color:#8a8f99">Waiting for data...</em></div>
   </div>
 
@@ -610,91 +618,27 @@ async function logEvent(eventType, severity, summary, detail) {
 // sensor dump every 30 seconds all along, just never exposed per-component
 // before. This is what lets you actually see a trend, not just a snapshot.
 let hardwareLiveTree = null;
-let hardwareHistory = null; // { "Device>Group>SensorName": [{t,v}, ...] }
+let hardwareHistoryRows = []; // [{ t, sensors: { "Device>Group>SensorName": value } }, ...]
+let hardwareSelectedCategory = null;
 let hardwareSelectedDevice = null;
 
-function parseSensorHistoryLines(lines) {
-  const bySensor = {};
-  for (const line of lines) {
-    const timeMatch = line.match(/^(\d{2}:\d{2}:\d{2})/);
-    const sensorMatch = line.match(/SENSORS:\[(.*)\]$/);
-    if (!timeMatch || !sensorMatch) continue;
-    const t = timeMatch[1];
-    const entries = sensorMatch[1].split(' || ');
-    for (const entry of entries) {
-      const eq = entry.lastIndexOf('=');
-      if (eq === -1) continue;
-      const path = entry.slice(0, eq);
-      const value = entry.slice(eq + 1);
-      if (!bySensor[path]) bySensor[path] = [];
-      bySensor[path].push({ t, v: value });
-    }
-  }
-  return bySensor;
-}
-
-async function loadHardwareTree() {
-  const container = document.getElementById('hardwareTree');
-  const nav = document.getElementById('hardwareDeviceNav');
-  try {
-    const [liveRes, histRes] = await Promise.all([
-      fetch(BRIDGE + '/api/sensors', { cache: 'no-store' }),
-      fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' }).catch(() => null)
-    ]);
-    if (!liveRes.ok) throw new Error('not reachable');
-    hardwareLiveTree = await liveRes.json();
-    if (histRes && histRes.ok) {
-      const histData = await histRes.json();
-      hardwareHistory = parseSensorHistoryLines(histData.lines || []);
-    } else {
-      hardwareHistory = {};
-    }
-    // LHM's root is {Text:"Sensor", Children:[{Text:COMPUTERNAME, Children:[actual hardware devices]}]} -
-    // one level deeper than it looks. Reading root.Children directly (as the first version of this did)
-    // surfaces only the single computer-name node as if it were "the device," which then has no Value on
-    // its own children and renders "No readable sensors" (caught live 2026-07-13). getHardwareDevices()
-    // drills to the real device list either way this ever shows up.
-    const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
-    if (devices.length === 0) {
-      nav.innerHTML = '';
-      container.innerHTML = '<em style="color:#8a8f99">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
-      return;
-    }
-    if (!hardwareSelectedDevice || !devices.find(d => d.Text === hardwareSelectedDevice)) {
-      hardwareSelectedDevice = devices[0].Text;
-    }
-    // Several devices can share the same friendly label (three RAM sticks all
-    // read "Memory Stick (RAM)") - append a number when a label repeats, so
-    // each button is distinguishable at a glance instead of looking identical
-    // (caught live 2026-07-13, along with the active-button highlight
-    // matching ALL same-labeled buttons at once since it compared displayed
-    // text instead of the real underlying device). Buttons now key off
-    // data-device-text (the real, unique LHM name) for selection/highlight,
-    // never the shared friendly label.
-    const labelCounts = {};
-    devices.forEach(d => { const l = friendlyHardwareName(d.Text); labelCounts[l] = (labelCounts[l] || 0) + 1; });
-    const labelSeen = {};
-    nav.innerHTML = devices.map(d => {
-      const label = friendlyHardwareName(d.Text);
-      let displayLabel = label;
-      if (labelCounts[label] > 1) {
-        labelSeen[label] = (labelSeen[label] || 0) + 1;
-        displayLabel = `${label} ${labelSeen[label]}`;
-      }
-      const escaped = d.Text.replace(/"/g, '&quot;');
-      return `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" data-device-text="${escaped}" onclick="selectHardwareDevice(this.dataset.deviceText)">${displayLabel}</button>`;
-    }).join('');
-    renderSelectedHardwareDevice();
-  } catch (e) {
-    nav.innerHTML = '';
-    container.innerHTML = '<em style="color:#8a8f99">Couldn\'t reach LibreHardwareMonitor\'s sensor data. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
-  }
-}
-
-function selectHardwareDevice(name) {
-  hardwareSelectedDevice = name;
-  document.querySelectorAll('.hw-device-btn').forEach(b => b.classList.toggle('active', b.dataset.deviceText === name));
-  renderSelectedHardwareDevice();
+// Plain-language category for a device - most people don't know a motherboard
+// model number or that "Virtual Memory" isn't the same thing as physical RAM.
+// Heuristic/keyword-based (not a fixed hardware list) so it generalizes to
+// other users' different components. Returns a stable `key` for grouping
+// (several physical devices - e.g. three RAM sticks - share one key) plus a
+// `label` for display.
+function categorizeHardware(text) {
+  const t = text.toLowerCase();
+  if (/(asus|msi|gigabyte|asrock|biostar|ms-\d)/.test(t) && !/geforce|radeon/.test(t)) return { key: 'motherboard', label: '🖥️ Motherboard' };
+  if (/(ryzen|intel core|celeron|pentium|xeon)/.test(t)) return { key: 'cpu', label: '⚙️ Processor (CPU)' };
+  if (/(geforce|radeon|nvidia|quadro|rtx|gtx)/.test(t)) return { key: 'gpu', label: '🎮 Graphics Card (GPU)' };
+  if (t === 'virtual memory') return { key: 'virtualmemory', label: '💾 Virtual Memory' };
+  if (t === 'total memory' || t === 'generic memory' || t === 'physical memory') return { key: 'systemmemory', label: '🧠 System Memory' };
+  if (/(ssd|nvme|hdd|hard disk)/.test(t)) return { key: 'storage', label: '💽 Storage' };
+  if (/(ethernet|wi-?fi|wireless|network)/.test(t)) return { key: 'network', label: '🌐 Network' };
+  if (/(g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d)/.test(t)) return { key: 'ram', label: '🧩 Memory (RAM)' };
+  return { key: 'other:' + text, label: '🔧 ' + text };
 }
 
 // Root is {Text:"Sensor", Children:[{Text:COMPUTERNAME, Children:[real devices]}]} normally, but
@@ -708,83 +652,171 @@ function getHardwareDevices(root) {
   return topChildren;
 }
 
-// Not every device nests its sensors the same number of levels deep - CPU/GPU/
-// RAM typically go device > sensor-type > reading, but the Motherboard often
-// has an extra chip layer (device > "Nuvoton NCT6795D" > sensor-type > reading)
-// that a fixed two-level walk misses entirely, showing "No readable sensors"
-// even though real data exists (caught live 2026-07-13 - every device except
-// Motherboard worked, because only Motherboard has that extra layer). This
-// walks any depth: any node whose own children are leaves (have a Value)
-// becomes a group; anything else gets recursed into with its name added to
-// the group's label.
-function collectSensorGroups(device) {
-  const groups = {};
-  function walk(node, labels) {
-    const children = node.Children || [];
-    const leafChildren = children.filter(c => c.Value && c.Value !== '');
-    if (leafChildren.length > 0) {
-      const label = labels.length ? labels.join(' — ') : 'Readings';
-      if (!groups[label]) groups[label] = [];
-      leafChildren.forEach(leaf => groups[label].push({ leaf, pathLabels: labels }));
+// Every 30-second capture is one line with a full sensor dump embedded - this
+// is already naturally one-row-per-timestamp, just needs unpacking into rows
+// of {sensorPath: value} instead of a flat string, to feed the spreadsheet
+// view directly (each line IS a row; no reshaping of the underlying capture
+// needed, exactly as it's already being written).
+function parseSensorHistoryRows(lines) {
+  const rows = [];
+  for (const line of lines) {
+    const timeMatch = line.match(/^(\d{2}:\d{2}:\d{2})/);
+    const sensorMatch = line.match(/SENSORS:\[(.*)\]$/);
+    if (!timeMatch || !sensorMatch) continue;
+    const sensors = {};
+    for (const entry of sensorMatch[1].split(' || ')) {
+      const eq = entry.lastIndexOf('=');
+      if (eq === -1) continue;
+      sensors[entry.slice(0, eq)] = entry.slice(eq + 1);
     }
-    children.filter(c => !(c.Value && c.Value !== '')).forEach(c => walk(c, labels.concat([c.Text])));
+    rows.push({ t: timeMatch[1], sensors });
   }
-  walk(device, []);
-  return groups;
+  return rows;
 }
 
-function renderSelectedHardwareDevice() {
+async function loadHardwareTree() {
+  const container = document.getElementById('hardwareTree');
+  const catNav = document.getElementById('hardwareCategoryNav');
+  const instNav = document.getElementById('hardwareInstanceNav');
+  try {
+    const [liveRes, histRes] = await Promise.all([
+      fetch(BRIDGE + '/api/sensors', { cache: 'no-store' }),
+      fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' }).catch(() => null)
+    ]);
+    if (!liveRes.ok) throw new Error('not reachable');
+    hardwareLiveTree = await liveRes.json();
+    hardwareHistoryRows = (histRes && histRes.ok) ? parseSensorHistoryRows((await histRes.json()).lines || []) : [];
+
+    const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
+    if (devices.length === 0) {
+      catNav.innerHTML = ''; instNav.classList.add('hidden');
+      container.innerHTML = '<em style="color:#8a8f99">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
+      return;
+    }
+
+    // Group devices by category (e.g. all RAM sticks fall under one "ram" key).
+    const categories = {}; // key -> { label, devices: [device, ...] }
+    devices.forEach(d => {
+      const c = categorizeHardware(d.Text);
+      if (!categories[c.key]) categories[c.key] = { label: c.label, devices: [] };
+      categories[c.key].devices.push(d);
+    });
+    const categoryKeys = Object.keys(categories);
+    if (!hardwareSelectedCategory || !categories[hardwareSelectedCategory]) {
+      hardwareSelectedCategory = categoryKeys[0];
+    }
+
+    catNav.innerHTML = categoryKeys.map(key => `<button class="hw-device-btn ${key === hardwareSelectedCategory ? 'active' : ''}" onclick="selectHardwareCategory('${key.replace(/'/g, "\\'")}')">${categories[key].label}</button>`).join('');
+
+    renderHardwareInstanceNav(categories);
+  } catch (e) {
+    catNav.innerHTML = ''; instNav.classList.add('hidden');
+    container.innerHTML = '<em style="color:#8a8f99">Couldn\'t reach LibreHardwareMonitor\'s sensor data. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
+  }
+}
+
+function renderHardwareInstanceNav(categoriesArg) {
+  const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
+  const categories = categoriesArg || (() => {
+    const c = {};
+    devices.forEach(d => { const cat = categorizeHardware(d.Text); if (!c[cat.key]) c[cat.key] = { label: cat.label, devices: [] }; c[cat.key].devices.push(d); });
+    return c;
+  })();
+  const instNav = document.getElementById('hardwareInstanceNav');
+  const group = categories[hardwareSelectedCategory];
+  if (!group) return;
+
+  if (group.devices.length > 1) {
+    // Multiple physical devices in one category (e.g. 3 RAM sticks) - show a
+    // second row to pick which specific one, numbered since they'd otherwise
+    // look identical (all read "Memory (RAM)").
+    if (!hardwareSelectedDevice || !group.devices.find(d => d.Text === hardwareSelectedDevice)) {
+      hardwareSelectedDevice = group.devices[0].Text;
+    }
+    instNav.classList.remove('hidden');
+    instNav.innerHTML = group.devices.map((d, i) => {
+      const escaped = d.Text.replace(/"/g, '&quot;');
+      return `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" data-device-text="${escaped}" onclick="selectHardwareInstance(this.dataset.deviceText)">${group.label.replace(/^\S+\s/, '')} ${i + 1}</button>`;
+    }).join('');
+  } else {
+    hardwareSelectedDevice = group.devices[0].Text;
+    instNav.classList.add('hidden');
+    instNav.innerHTML = '';
+  }
+  renderHardwareSpreadsheet();
+}
+
+function selectHardwareCategory(key) {
+  hardwareSelectedCategory = key;
+  hardwareSelectedDevice = null; // let renderHardwareInstanceNav pick the first device in the new category
+  const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
+  const categories = {};
+  devices.forEach(d => { const c = categorizeHardware(d.Text); if (!categories[c.key]) categories[c.key] = { label: c.label, devices: [] }; categories[c.key].devices.push(d); });
+  document.querySelectorAll('#hardwareCategoryNav .hw-device-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick') === `selectHardwareCategory('${key}')`);
+  });
+  renderHardwareInstanceNav(categories);
+}
+
+function selectHardwareInstance(name) {
+  hardwareSelectedDevice = name;
+  document.querySelectorAll('#hardwareInstanceNav .hw-device-btn').forEach(b => b.classList.toggle('active', b.dataset.deviceText === name));
+  renderHardwareSpreadsheet();
+}
+
+const HW_MAX_ROWS = 40; // ~20 minutes at 30s intervals - enough real trend, not an unbounded table
+
+function renderHardwareSpreadsheet() {
   const container = document.getElementById('hardwareTree');
   const devices = getHardwareDevices(hardwareLiveTree);
   const device = devices.find(d => d.Text === hardwareSelectedDevice);
   if (!device) { container.innerHTML = '<em style="color:#8a8f99">Select a component above.</em>'; return; }
 
-  const groupMap = collectSensorGroups(device);
-  const groupLabels = Object.keys(groupMap);
-  const groups = groupLabels.map(label => {
-    const rows = groupMap[label].map(({ leaf, pathLabels }) => {
-      const sensorPath = [device.Text].concat(pathLabels).concat([leaf.Text]).join('>');
-      const trail = (hardwareHistory[sensorPath] || []).slice(-6).map(p => `${p.t} ${p.v}`).join('  →  ');
-      return `
-      <div style="padding:6px 0;border-bottom:1px solid #22252e;font-size:13px">
-        <div style="display:flex;justify-content:space-between">
-          <span style="color:#c7cad1">${leaf.Text}</span>
-          <span style="color:#e8e8ec;font-weight:600">${leaf.Value}</span>
-        </div>
-        ${trail ? `<div class="hw-history-trail">${trail}</div>` : ''}
+  const prefix = device.Text + '>';
+  // Column set = every distinct sensor ever seen for this device across the
+  // retained history, in first-seen order (newest capture first, so the
+  // most current set of sensors leads).
+  const columns = [];
+  const seenCols = {};
+  const relevantRows = hardwareHistoryRows.filter(r => Object.keys(r.sensors).some(k => k.startsWith(prefix)));
+  const recentFirst = relevantRows.slice(-HW_MAX_ROWS).reverse();
+  recentFirst.forEach(r => {
+    Object.keys(r.sensors).filter(k => k.startsWith(prefix)).forEach(k => {
+      const short = k.slice(prefix.length);
+      if (!seenCols[short]) { seenCols[short] = true; columns.push(short); }
+    });
+  });
+
+  if (columns.length === 0) {
+    container.innerHTML = `
+      <div class="card" style="flex:none;width:100%;border-left-color:#d4af37">
+        <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device.Text).label}</div>
+        <div style="font-size:12px;color:#7a7f89;margin-bottom:10px">${device.Text}</div>
+        <em style="color:#8a8f99">No history captured yet for this component - give it a minute (readings are captured every 30 seconds), or click Refresh Now.</em>
       </div>`;
+    return;
+  }
+
+  const headerCells = columns.map(c => `<th><div class="hw-col-label">${c}</div></th>`).join('');
+  const bodyRows = recentFirst.map(r => {
+    const cells = columns.map(c => {
+      const v = r.sensors[prefix + c];
+      return `<td>${v !== undefined ? v : '—'}</td>`;
     }).join('');
-    return `
-      <div style="margin-bottom:14px">
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9aa0ab;margin-bottom:4px">${label}</div>
-        ${rows}
-      </div>`;
+    return `<tr><td class="hw-time-col">${r.t}</td>${cells}</tr>`;
   }).join('');
 
   container.innerHTML = `
-    <div class="card" style="flex:none;width:100%;border-left-color:#d4af37">
-      <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${friendlyHardwareName(device.Text)}</div>
-      <div style="font-size:12px;color:#7a7f89;margin-bottom:10px">${device.Text}</div>
-      ${groups || '<em style="color:#8a8f99">No readable sensors on this component.</em>'}
+    <div class="card" style="flex:none;width:100%;border-left-color:#d4af37;margin-bottom:10px">
+      <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device.Text).label}</div>
+      <div style="font-size:12px;color:#7a7f89">${device.Text} — ${recentFirst.length} reading${recentFirst.length === 1 ? '' : 's'} (newest first, one row per 30-second capture)</div>
+    </div>
+    <div class="hw-spreadsheet-wrap">
+      <table class="hw-spreadsheet">
+        <thead><tr><th class="hw-time-col">Time</th>${headerCells}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
     </div>`;
-}
-
-// Plain-language labels for the device picker - most people don't know a
-// motherboard model number or that "Virtual Memory" isn't the same thing as
-// physical RAM. Heuristic, keyword-based (not a fixed hardware list) so it
-// generalizes to other users' different components rather than only
-// recognizing this one machine's exact parts.
-function friendlyHardwareName(text) {
-  const t = text.toLowerCase();
-  if (/(asus|msi|gigabyte|asrock|biostar|ms-\d)/.test(t) && !/geforce|radeon/.test(t)) return '🖥️ Motherboard';
-  if (/(ryzen|intel core|celeron|pentium|xeon)/.test(t)) return '⚙️ Processor (CPU)';
-  if (/(geforce|radeon|nvidia|quadro|rtx|gtx)/.test(t)) return '🎮 Graphics Card (GPU)';
-  if (t === 'virtual memory') return '💾 Virtual Memory (page file — different from RAM)';
-  if (t === 'total memory' || t === 'generic memory' || t === 'physical memory') return '🧠 System Memory (RAM total)';
-  if (/(ssd|nvme|hdd|hard disk)/.test(t)) return '💽 Storage Drive';
-  if (/(ethernet|wi-?fi|wireless|network)/.test(t)) return '🌐 Network';
-  if (/(g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d)/.test(t)) return '🧩 Memory Stick (RAM)';
-  return '🔧 ' + text;
 }
 
 async function loadHistory() {
