@@ -519,13 +519,21 @@ function showNotRunningScreen() {
 
 
 function launchTrackerFlow() {
+  // Both overlays share the same z-index, so with notRunningScreen still
+  // visible underneath (later in the page's source order, so it wins the
+  // tie), the warning modal would render completely hidden behind it -
+  // clickable in theory, invisible in practice. Hide the screen underneath
+  // before showing the modal on top of it.
+  document.getElementById('notRunningScreen').classList.add('hidden');
   document.getElementById('launchWarningModal').classList.remove('hidden');
 }
 function cancelLaunchTracker() {
   document.getElementById('launchWarningModal').classList.add('hidden');
+  document.getElementById('notRunningScreen').classList.remove('hidden');
 }
 function confirmLaunchTracker() {
   document.getElementById('launchWarningModal').classList.add('hidden');
+  document.getElementById('notRunningScreen').classList.remove('hidden');
   document.getElementById('quickLaunchStatus').textContent = 'Trying to connect...';
   window.location.href = 'amit-tracker://start';
   // This poll IS the real test of "is this installed" - a webpage can't
