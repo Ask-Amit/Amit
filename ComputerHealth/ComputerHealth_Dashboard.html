@@ -315,11 +315,24 @@ function showSignedInAs(email) {
   bar.innerHTML = `<span style="color:#4caf6d">✓ Signed in as <strong>${email}</strong></span>`;
 }
 
+// Called once a real session is confirmed, from either path below. Loads
+// the user's device list even if the local tracker isn't connected yet
+// (claimDevice() alone can't do this - it exits immediately without a
+// local deviceId, which left "Viewing: No computer selected" showing for a
+// genuinely signed-in user on a fresh tab that just hadn't connected to the
+// bridge yet). Also re-renders History if it's the currently open tab,
+// since it may have already rendered once before sign-in resolved.
+async function onSessionConfirmed() {
+  await loadMyDevices();
+  if (deviceId) await claimDevice();
+  if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
+}
+
 db.auth.onAuthStateChange(async (event, session) => {
   if (session) {
     currentUser = session.user;
     showSignedInAs(currentUser.email);
-    await claimDevice();
+    await onSessionConfirmed();
   }
 });
 
@@ -332,7 +345,7 @@ db.auth.getSession().then(({ data: { session } }) => {
   if (session && !currentUser) {
     currentUser = session.user;
     showSignedInAs(currentUser.email);
-    claimDevice();
+    onSessionConfirmed();
   }
 });
 
@@ -706,13 +719,12 @@ async function toggleTracker() {
   setTimeout(pollTrackerStatus, 800);
 }
 
-// Best-effort auto-stop when the tab closes. Not guaranteed (crash, force-quit,
-// power loss won't fire this) - the Tracker toggle button is the reliable path.
-window.addEventListener('pagehide', () => {
-  if (bridgeUp) {
-    try { navigator.sendBeacon(BRIDGE + '/api/stop-tracking', new Blob([''])); } catch (e) {}
-  }
-});
+// Deliberately NOT auto-stopping tracking on 'pagehide' - that event fires
+// on a plain page refresh (F5) exactly the same as an actual tab close, and
+// browsers give no reliable way to tell the two apart here. Confirmed this
+// the hard way (2026-07-13): every refresh was silently killing the tracker
+// mid-session. Stopping is now only ever intentional - the Tracker toggle
+// button on this page, or Stop Tracker from the system tray icon.
 
 // --- Parsing helpers: turn raw watcher lines into plain language ---
 function parseResourceLine(line) {
