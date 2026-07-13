@@ -309,10 +309,19 @@ function setStatus(msg) {
 // bar once that session is detected, not offer a second way to sign in.
 // Shows who's actually signed in, instead of just hiding the bar entirely -
 // a page with no visible name/email anywhere doesn't feel connected to a
-// person, the same complaint already addressed elsewhere in the Hub.
-function showSignedInAs(email) {
+// person, the same complaint already addressed elsewhere in the Hub. Uses
+// the real display_name from the shared 'users' table (same one the Hub
+// writes to when someone sets their name there) so this greets by name
+// instead of showing a bare email address, which reads as impersonal.
+async function showSignedInAs(email) {
   const bar = document.getElementById('loginBar');
-  bar.innerHTML = `<span style="color:#4caf6d">✓ Signed in as <strong>${email}</strong></span>`;
+  let name = null;
+  try {
+    const { data } = await db.from('users').select('display_name').eq('id', currentUser.id).maybeSingle();
+    name = data && data.display_name;
+  } catch (e) {}
+  if (!name) name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  bar.innerHTML = `<span style="color:#4caf6d">✓ Welcome, <strong>${name}</strong> — signed in as ${email}</span>`;
 }
 
 // Called once a real session is confirmed, from either path below. Loads
