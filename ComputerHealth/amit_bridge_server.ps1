@@ -238,7 +238,7 @@ $handlerScript = {
         if ($activityAlready) { $newPids += $activityAlready.ProcessId }
         else {
             try {
-                $activityProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\activity_watcher2.ps1`"" -PassThru -ErrorAction Stop
+                $activityProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\activity_watcher2.ps1`"" -WindowStyle Hidden -PassThru -ErrorAction Stop
                 $newPids += $activityProc.Id
             } catch { $warnings += "activity watcher failed to start: $($_.Exception.Message)" }
         }
@@ -247,7 +247,7 @@ $handlerScript = {
         if ($resourceAlready) { $newPids += $resourceAlready.ProcessId }
         else {
             try {
-                $resourceProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\resource_watcher.ps1`"" -PassThru -ErrorAction Stop
+                $resourceProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\resource_watcher.ps1`"" -WindowStyle Hidden -PassThru -ErrorAction Stop
                 $newPids += $resourceProc.Id
             } catch { $warnings += "resource watcher failed to start: $($_.Exception.Message)" }
         }
@@ -256,7 +256,7 @@ $handlerScript = {
         if ($diagAlready) { $newPids += $diagAlready.ProcessId }
         else {
             try {
-                $diagProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\diagnostics_watcher.ps1`"" -PassThru -ErrorAction Stop
+                $diagProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\diagnostics_watcher.ps1`"" -WindowStyle Hidden -PassThru -ErrorAction Stop
                 $newPids += $diagProc.Id
             } catch { $warnings += "diagnostics watcher failed to start: $($_.Exception.Message)" }
         }
@@ -363,7 +363,7 @@ $handlerScript = {
             "/api/start-behavior" {
                 $body = New-Object System.IO.StreamReader($request.InputStream)
                 $data = $body.ReadToEnd() | ConvertFrom-Json
-                Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$watcherDir\app_behavior_watcher.ps1`" -TargetProcess `"$($data.processName)`""
+                Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\app_behavior_watcher.ps1`" -TargetProcess `"$($data.processName)`"" -WindowStyle Hidden
                 Send-Json $response @{ started = $true; processName = $data.processName }
             }
             "/api/stop-behavior" {

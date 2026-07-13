@@ -14,7 +14,7 @@ function Test-BridgeUp {
 }
 
 if (-not (Test-BridgeUp)) {
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$bridgeScript`""
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$bridgeScript`"" -WindowStyle Hidden
     $tries = 0
     while (-not (Test-BridgeUp) -and $tries -lt 10) {
         Start-Sleep -Milliseconds 500
