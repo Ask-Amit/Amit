@@ -1365,7 +1365,22 @@ async function handleJustLaunched() {
   if (new URLSearchParams(window.location.search).get('justLaunched') !== '1') return;
   if (!localAccessAttempted) {
     localAccessAttempted = true;
-    try { onConnected(await checkBridge()); } catch (e) {}
+    try {
+      onConnected(await checkBridge());
+    } catch (e) {
+      // Some browsers block an automatic (non-click) fetch to localhost from
+      // a public HTTPS site as a private-network-access security policy,
+      // even though tracking is genuinely already running - confirmed live
+      // 2026-07-13 (backend fully up, this auto-connect attempt still failed
+      // silently). A real click doesn't hit that restriction, so surface an
+      // obvious one-click fix instead of silently leaving the page looking
+      // disconnected with no explanation.
+      const gsb = document.getElementById('gettingStartedBanner');
+      if (gsb) {
+        gsb.classList.remove('hidden');
+        gsb.innerHTML = `<h3>Tracking is running - just needs one click to finish connecting</h3><p>Your browser blocked the automatic connection just now (a security setting, not a mistake you made) - click below to finish connecting, this one click will work.</p><button class="btn" onclick="launchTracker()">Connect Now</button>`;
+      }
+    }
   }
   window.history.replaceState({}, document.title, window.location.pathname);
 }
