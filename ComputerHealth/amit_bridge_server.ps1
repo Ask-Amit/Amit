@@ -382,10 +382,22 @@ $handlerScript = {
                 else { Send-Json $response @{ found = $false } }
             }
             "/api/start-behavior" {
+                # Real bug caught live 2026-07-14: two App Behavior watcher
+                # processes ended up running simultaneously, both targeting
+                # the same (mistyped) process name - nothing stopped a
+                # second "Start Watching" click from launching a duplicate,
+                # same class of bug already fixed for the bridge server and
+                # the three main watchers. Same fix: check the live process
+                # list first, no-op if one's already running.
                 $body = New-Object System.IO.StreamReader($request.InputStream)
                 $data = $body.ReadToEnd() | ConvertFrom-Json
-                Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\app_behavior_watcher.ps1`" -TargetProcess `"$($data.processName)`"" -WindowStyle Hidden
-                Send-Json $response @{ started = $true; processName = $data.processName }
+                $alreadyRunning = Test-WatcherScriptRunning "app_behavior_watcher.ps1"
+                if ($alreadyRunning) {
+                    Send-Json $response @{ started = $true; alreadyRunning = $true; processName = $data.processName }
+                } else {
+                    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\app_behavior_watcher.ps1`" -TargetProcess `"$($data.processName)`"" -WindowStyle Hidden
+                    Send-Json $response @{ started = $true; processName = $data.processName }
+                }
             }
             "/api/stop-behavior" {
                 New-Item "$env:TEMP\app_behavior_stop.flag" -ItemType File -Force | Out-Null
