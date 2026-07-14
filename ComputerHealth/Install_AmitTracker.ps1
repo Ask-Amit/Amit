@@ -193,6 +193,33 @@ IconIndex=0
     Write-Host "  Shortcut created on your desktop: 'Amit' - opens the Hub."
 }
 
+# Second desktop shortcut - "Amit Tracker" launches tracking directly,
+# bypassing the browser entirely (no amit-tracker:// protocol involved), so
+# it can never be affected by a browser silently remembering a blocked
+# permission decision (real bug hit live 2026-07-13 - Ryan: "that can't
+# happen with the deployed version, we need a workaround"). Unlike the Hub
+# shortcut above, this targets a local .exe, so a real .lnk (WScript.Shell
+# CreateShortcut) is the correct mechanism here - the .lnk-can't-hold-a-web-
+# URL problem noted above doesn't apply to a local file target.
+$trackerShortcutPath = "$desktopPath\Amit Tracker.lnk"
+if ((Test-Path $trackerShortcutPath) -and -not $Force) {
+    Write-Host "[4/5] 'Amit Tracker' desktop shortcut already exists - skipping."
+} else {
+    Write-Host "[4/5] Creating 'Amit Tracker' desktop shortcut..."
+    try {
+        $wshShell = New-Object -ComObject WScript.Shell
+        $trackerShortcut = $wshShell.CreateShortcut($trackerShortcutPath)
+        $trackerShortcut.TargetPath = $trackerExePath
+        $trackerShortcut.WorkingDirectory = $watcherInstallDir
+        $trackerShortcut.IconLocation = $iconLocation
+        $trackerShortcut.Description = "Start Amit's computer tracker directly - no browser involved"
+        $trackerShortcut.Save()
+        Write-Host "  Shortcut created on your desktop: 'Amit Tracker' - starts tracking directly."
+    } catch {
+        Write-Host "  Could not create the 'Amit Tracker' shortcut ($($_.Exception.Message)) - you can still start tracking from the dashboard's Launch Tracker button."
+    }
+}
+
 # --- Step 5: register amit-tracker:// so the dashboard's Launch Tracker
 # button can start local tracking without hunting for a desktop icon ---
 Write-Host "[5/5] Registering amit-tracker:// link handler..."
