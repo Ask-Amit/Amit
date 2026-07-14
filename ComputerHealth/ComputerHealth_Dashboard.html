@@ -332,7 +332,7 @@
     <div class="section-title">App Behavior Watcher</div>
     <p style="font-size:13px;color:#9aa0ab">Point-and-click: click <strong>Start Watching</strong>, then just go open whatever program you want to check - it'll be detected automatically the moment it starts. No need to know its exact process name.</p>
     <div class="controls">
-      <input type="text" id="behaviorProcessName" placeholder="Optional - only if you already know the exact process name">
+      <input type="text" id="behaviorProcessName" placeholder="Optional: exact process name">
       <button class="btn" onclick="startBehavior()">Start Watching</button>
       <button class="btn danger" onclick="stopBehavior()">Stop</button>
     </div>
@@ -1342,7 +1342,10 @@ function startBehavior() {
 }
 function stopBehavior() {
   fetch(BRIDGE + '/api/stop-behavior', { method:'POST' });
-  setTimeout(pollBehavior, 1500);
+  setTimeout(async () => {
+    await pollBehavior();
+    await logBehaviorSessionToHistory();
+  }, 1500);
 }
 async function pollBehavior() {
   try {
@@ -1350,6 +1353,21 @@ async function pollBehavior() {
     const d = await r.json();
     document.getElementById('behaviorLog').textContent = (d.lines || []).join('\n') || 'No session running.';
   } catch (e) {}
+}
+
+// Previously an App Behavior session's results only ever lived in the local
+// log file - stopping a session never wrote anything to History at all,
+// regardless of sign-in state (real gap Ryan caught 2026-07-13, correctly
+// expecting this to follow the same rule everything else does: signed-in
+// gets it saved for later review, not-signed-in stays local-only for now,
+// the free-tier behavior already established elsewhere).
+async function logBehaviorSessionToHistory() {
+  if (!currentUser || !deviceId) return;
+  const text = document.getElementById('behaviorLog').textContent || '';
+  const summaryMatch = text.match(/Session stopped\.[^\n]*/);
+  const summary = summaryMatch ? summaryMatch[0] : 'App Behavior session completed.';
+  const hasFlag = /FLAG|PERSISTENCE-LOCATION/.test(text);
+  await logEvent('app_behavior_session', hasFlag ? 'warning' : 'info', summary, { fullLog: text });
 }
 
 async function installStart() {
