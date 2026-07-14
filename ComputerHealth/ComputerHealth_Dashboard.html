@@ -1046,12 +1046,23 @@ function sortHistoryBy(key) {
   renderHistoryTable();
 }
 
+// Converts "2.6 minutes" / "37 seconds" into raw seconds so Duration
+// sorts numerically (shortest/longest) instead of alphabetically, which
+// would wrongly put "10 seconds" after "2 minutes".
+function durationToSeconds(d) {
+  if (!d) return -1;
+  const m = d.match(/([\d.]+)\s*(second|minute)/);
+  if (!m) return -1;
+  return parseFloat(m[1]) * (m[2] === 'minute' ? 60 : 1);
+}
+
 function renderHistoryTable() {
   const list = document.getElementById('historyList');
   const rows = [...historyData].sort((a, b) => {
     let av, bv;
     if (historySortKey === 'created_at') { av = new Date(a.created_at).getTime(); bv = new Date(b.created_at).getTime(); }
     else if (historySortKey === 'description') { av = describeHistoryEntry(a).toLowerCase(); bv = describeHistoryEntry(b).toLowerCase(); }
+    else if (historySortKey === 'duration') { av = durationToSeconds(a.event_detail?.duration); bv = durationToSeconds(b.event_detail?.duration); }
     else { av = historyComputerName.toLowerCase(); bv = historyComputerName.toLowerCase(); }
     if (av < bv) return -1 * historySortDir;
     if (av > bv) return 1 * historySortDir;
@@ -1063,6 +1074,7 @@ function renderHistoryTable() {
       <th onclick="sortHistoryBy('computer')">Computer${arrow('computer')}</th>
       <th onclick="sortHistoryBy('created_at')">Date${arrow('created_at')}</th>
       <th onclick="sortHistoryBy('description')">Description${arrow('description')}</th>
+      <th onclick="sortHistoryBy('duration')">Duration${arrow('duration')}</th>
       <th>Discussion</th>
     </tr></thead>
     <tbody>${rows.map(e => {
@@ -1072,6 +1084,7 @@ function renderHistoryTable() {
         <td>${historyComputerName}</td>
         <td>${new Date(e.created_at).toLocaleString()}</td>
         <td><span style="color:${sevColor}">●</span> ${describeHistoryEntry(e)}</td>
+        <td>${e.event_detail?.duration || '—'}</td>
         <td><span class="view-link" onclick="openHistoryDetail(${i})">View details →</span></td>
       </tr>`;
     }).join('')}</tbody>
@@ -1726,7 +1739,14 @@ async function logBehaviorSessionToHistory() {
   const hasCritical = /CRITICAL:/.test(text);
   const hasFlag = /FLAG|PERSISTENCE-LOCATION|WARNING:/.test(text);
   const severity = hasCritical ? 'critical' : hasFlag ? 'warning' : 'info';
-  await logEvent('app_behavior_session', severity, summary, { sessionLabel: currentBehaviorLabel, fullLog: text });
+  // Stored as its own field, not left buried in fullLog text to re-parse
+  // every time the table renders - Ryan's direct request 2026-07-14
+  // (asked three times): duration needs to be visible in the History list
+  // itself, not just inside the detail popup, so a 10-second test and a
+  // 3-minute test are distinguishable at a glance without opening either.
+  const durationMatch = text.match(/SESSION SUMMARY.*?for (.+)$/m);
+  const duration = durationMatch ? durationMatch[1].trim() : null;
+  await logEvent('app_behavior_session', severity, summary, { sessionLabel: currentBehaviorLabel, fullLog: text, duration });
 }
 
 async function installStart() {
