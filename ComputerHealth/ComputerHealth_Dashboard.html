@@ -44,6 +44,14 @@
   .hidden { display:none !important; }
   .history-item { background:#1c1f28; border-radius:8px; padding:12px 16px; margin-bottom:8px; }
   .history-item .when { font-size:11px; color:#8a8f99; }
+  .history-table { width:100%; border-collapse:collapse; background:#1c1f28; border-radius:8px; overflow:hidden }
+  .history-table th { text-align:left; padding:10px 14px; background:#12141a; color:#8a8f99; font-size:12px; text-transform:uppercase; cursor:pointer; user-select:none; white-space:nowrap }
+  .history-table th:hover { color:#c9a84c }
+  .history-table th .sort-arrow { opacity:0.5; margin-left:4px }
+  .history-table td { padding:10px 14px; border-top:1px solid #2a2d38; font-size:13px; vertical-align:top }
+  .history-table tr:hover td { background:#22252f }
+  .history-table .view-link { color:#c9a84c; cursor:pointer; white-space:nowrap }
+  .history-table .view-link:hover { text-decoration:underline }
   table { width:100%; border-collapse:collapse; }
   th, td { text-align:left; padding:8px 10px; font-size:13px; border-bottom:1px solid #2a2e3a; }
   th { color:#9aa0ab; font-weight:600; }
@@ -1014,14 +1022,61 @@ async function loadHistory() {
   // by index without a second DB round-trip - the full row (including
   // event_detail) is already sitting in memory from the query above.
   historyData = data;
-  list.innerHTML = data.map((e, i) => `
-    <div class="history-item" style="cursor:pointer" onclick="openHistoryDetail(${i})">
-      <div><strong>${e.summary || e.event_type}</strong> <span style="color:${e.severity==='critical'?'#d05555':e.severity==='warning'?'#e0a72e':'#8a8f99'}">[${e.severity}]</span></div>
-      <div class="when">${new Date(e.created_at).toLocaleString()}</div>
-    </div>`).join('');
+  historyComputerName = (myDevices.find(d => d.id === targetId)?.device_name) || (targetId === deviceId ? deviceName : null) || 'This computer';
+  renderHistoryTable();
 }
 
 let historyData = [];
+let historyComputerName = 'This computer';
+let historySortKey = 'created_at';
+let historySortDir = -1; // newest first by default
+
+// A real sortable table - Ryan's direct request 2026-07-14: Computer, Date,
+// Description, and a Discussion column that opens the exact same detail
+// popup as clicking a live session's own stop summary. Description prefers
+// whatever the person actually typed (App Behavior's session label) and
+// falls back to the auto-generated summary when nothing was typed.
+function describeHistoryEntry(e) {
+  const label = e.event_detail?.sessionLabel;
+  return label ? `"${label}"` : (e.summary || e.event_type);
+}
+
+function sortHistoryBy(key) {
+  if (historySortKey === key) { historySortDir *= -1; } else { historySortKey = key; historySortDir = key === 'created_at' ? -1 : 1; }
+  renderHistoryTable();
+}
+
+function renderHistoryTable() {
+  const list = document.getElementById('historyList');
+  const rows = [...historyData].sort((a, b) => {
+    let av, bv;
+    if (historySortKey === 'created_at') { av = new Date(a.created_at).getTime(); bv = new Date(b.created_at).getTime(); }
+    else if (historySortKey === 'description') { av = describeHistoryEntry(a).toLowerCase(); bv = describeHistoryEntry(b).toLowerCase(); }
+    else { av = historyComputerName.toLowerCase(); bv = historyComputerName.toLowerCase(); }
+    if (av < bv) return -1 * historySortDir;
+    if (av > bv) return 1 * historySortDir;
+    return 0;
+  });
+  const arrow = key => historySortKey === key ? `<span class="sort-arrow">${historySortDir === 1 ? '▲' : '▼'}</span>` : '';
+  list.innerHTML = `<table class="history-table">
+    <thead><tr>
+      <th onclick="sortHistoryBy('computer')">Computer${arrow('computer')}</th>
+      <th onclick="sortHistoryBy('created_at')">Date${arrow('created_at')}</th>
+      <th onclick="sortHistoryBy('description')">Description${arrow('description')}</th>
+      <th>Discussion</th>
+    </tr></thead>
+    <tbody>${rows.map(e => {
+      const i = historyData.indexOf(e);
+      const sevColor = e.severity==='critical'?'#d05555':e.severity==='warning'?'#e0a72e':'#8a8f99';
+      return `<tr>
+        <td>${historyComputerName}</td>
+        <td>${new Date(e.created_at).toLocaleString()}</td>
+        <td><span style="color:${sevColor}">●</span> ${describeHistoryEntry(e)}</td>
+        <td><span class="view-link" onclick="openHistoryDetail(${i})">View details →</span></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
 
 // Every event type gets a real detail view, not just the one-line summary
 // the list shows - Ryan's direct request 2026-07-14: double-clicking (a
@@ -1039,8 +1094,12 @@ function openHistoryDetail(i) {
   const d = e.event_detail || {};
 
   if (e.event_type === 'app_behavior_session') {
+    // Same structured report the live stop popup shows - Ryan's direct
+    // request 2026-07-14: History should show the same clean sectioned
+    // view, not a raw log dump, whether you're looking at it the moment
+    // the session ends or coming back to it later.
     body.innerHTML = (d.sessionLabel ? `<p><strong>Session:</strong> ${d.sessionLabel}</p>` : '') +
-      `<pre style="white-space:pre-wrap;font-size:12px;background:#12141a;padding:12px;border-radius:6px;max-height:50vh;overflow-y:auto">${(d.fullLog || 'No log captured.').replace(/</g,'&lt;')}</pre>`;
+      renderBehaviorReport(d.fullLog || 'No log captured.');
   } else if (e.event_type === 'install_diff') {
     const diff = d;
     const total = (diff.NewPrograms?.length||0) + (diff.NewStartupReg?.length||0) + (diff.NewShortcuts?.length||0) + (diff.NewTasks?.length||0) + (diff.NewExtensions?.length||0) + (diff.HomepageChanges?.length||0);
@@ -1555,16 +1614,84 @@ async function stopBehavior() {
 // summary - Ryan's direct request 2026-07-14: the result was landing only
 // in the small inline log box and in History, never surfaced the moment
 // the session actually ended the way the Tracker's own summary screen does.
+// Real sectioned report - Ryan's direct request 2026-07-14, after bringing
+// back a Copilot review that reformatted this same raw output into clean
+// numbered sections (Overview / Process Activity / Resource Usage / File
+// Activity / Network / System Health). Copilot only had the raw text to
+// work from, not this app's own data - this builds the same clean shape
+// directly from what the watcher already writes, so it's accurate to what
+// actually ran, not a re-guess of it. Shared by the live stop popup and
+// the History detail view so a session looks the same whether you see it
+// the moment it ends or come back to it later - Ryan's direct request:
+// "make sure that pop up shows up even though it's in the history."
+function renderBehaviorReport(text) {
+  const esc = s => (s || '').replace(/</g, '&lt;');
+  const allLines = text.split('\n');
+  const idx = allLines.findIndex(l => l.startsWith('SESSION SUMMARY'));
+  const summaryLines = (idx >= 0 ? allLines.slice(idx) : []).filter(l => l.trim());
+  const header = summaryLines[0] || '';
+  const durationMatch = header.match(/for (.+)$/);
+  const duration = durationMatch ? durationMatch[1] : 'unknown duration';
+  const watchedMatch = header.match(/watched '(.+)' for/);
+  const watched = watchedMatch ? watchedMatch[1] : '';
+
+  const storyLine = summaryLines.find(l => l.startsWith('STORY:'));
+  const processStoryLine = summaryLines.find(l => l.includes(' started') && !l.startsWith('STORY:'));
+  const detected = allLines.filter(l => l.includes('DETECTED new program:')).map(l => {
+    const m = l.match(/DETECTED new program: '([^']+)' \(PID=(\d+)\)(\s*\[expected Windows background process\])?/);
+    return m ? { name: m[1], pid: m[2], expected: !!m[3] } : null;
+  }).filter(Boolean);
+
+  const resourceLines = summaryLines.filter(l =>
+    /^(CPU|GPU|RAM|Storage|Other): /.test(l) || l.startsWith('RAM usage') || l.startsWith('CPU usage') || l.includes('performed normally throughout'));
+  const criticalLines = summaryLines.filter(l => l.startsWith('CRITICAL:'));
+  const elevatedLines = summaryLines.filter(l => l.includes('elevated, not yet critical'));
+  const netLine = summaryLines.find(l => l.startsWith('No network connections') || l.startsWith('connected to') || /^\S.*connected to/.test(l));
+  const fileLine = summaryLines.find(l => l.startsWith('No files were written') || l.startsWith('Wrote '));
+  const eventLine = summaryLines.find(l => l.startsWith('WARNING:') || l.startsWith('No new system errors'));
+  const nothingLine = summaryLines.find(l => l.startsWith('Nothing changed during'));
+
+  const section = (title, inner) => inner ? `<div class="section-title" style="margin-top:16px">${title}</div>${inner}` : '';
+  const bullets = items => '<ul style="margin:6px 0 0 18px">' + items.map(i => `<li style="margin:4px 0">${i}</li>`).join('') + '</ul>';
+
+  let html = `<p style="color:#8a8f99;margin:0 0 4px">Watched <strong>${esc(watched)}</strong> for <strong>${esc(duration)}</strong></p>`;
+
+  if (nothingLine) {
+    html += `<p style="margin:14px 0;padding:10px 14px;background:#12141a;border-left:4px solid #4caf6d;border-radius:6px">${esc(nothingLine)}</p>`;
+    document.getElementById('behaviorSummaryBody').innerHTML = html;
+    return html;
+  }
+
+  if (storyLine) {
+    html += `<p style="margin:10px 0;font-style:italic;color:#c7cad1">${esc(storyLine.replace('STORY: ', ''))}</p>`;
+  }
+
+  html += section('1. Process Activity', bullets(
+    (detected.length ? detected.map(d => `<strong>${esc(d.name)}</strong> (PID ${d.pid})${d.expected ? ' <span style="color:#8a8f99">— expected Windows background process</span>' : ''}`) : ['No new programs were detected during this session.'])
+    .concat(processStoryLine ? [esc(processStoryLine)] : [])
+  ));
+
+  if (resourceLines.length) {
+    html += section('2. Resource Usage', bullets(resourceLines.map(esc)));
+  }
+
+  if (criticalLines.length || elevatedLines.length) {
+    html += section('3. Critical / Elevated Findings', bullets(
+      criticalLines.map(l => `<span style="color:#d05555;font-weight:bold">${esc(l)}</span>`)
+        .concat(elevatedLines.map(l => `<span style="color:#e0a72e">${esc(l)}</span>`))
+    ));
+  }
+
+  if (fileLine) html += section('4. File Activity', bullets([esc(fileLine)]));
+  if (netLine) html += section('5. Network Activity', bullets([esc(netLine)]));
+  if (eventLine) html += section('6. System Health', bullets([esc(eventLine)]));
+
+  document.getElementById('behaviorSummaryBody').innerHTML = html;
+  return html;
+}
+
 function showBehaviorSummary(text) {
-  const idx = text.indexOf('SESSION SUMMARY');
-  const summaryText = idx >= 0 ? text.slice(idx) : text;
-  const lines = summaryText.split('\n').filter(l => l.trim());
-  const body = document.getElementById('behaviorSummaryBody');
-  body.innerHTML = lines.map(l => {
-    const color = l.startsWith('CRITICAL:') ? '#d05555' : l.startsWith('WARNING:') ? '#e0a72e' : l.startsWith('SESSION SUMMARY') ? '#c9a84c' : '#c7cad1';
-    const weight = l.startsWith('SESSION SUMMARY') || l.startsWith('CRITICAL:') || l.startsWith('WARNING:') ? 'bold' : 'normal';
-    return `<p style="color:${color};font-weight:${weight};margin:8px 0">${l.replace(/</g,'&lt;')}</p>`;
-  }).join('');
+  renderBehaviorReport(text);
   document.getElementById('behaviorSummaryModal').classList.remove('hidden');
 }
 async function pollBehavior() {
