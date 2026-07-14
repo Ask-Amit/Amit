@@ -1437,13 +1437,37 @@ function startBehavior() {
     ? 'Watching "' + name + '"... use the app now.'
     : 'Watching for whatever you open next... go start the program you want to check now.';
 }
-function stopBehavior() {
+// Guards against duplicate History entries from stopBehavior() firing more
+// than once for the same session (e.g. Stop clicked twice before the button
+// visibly changed) - real bug caught live 2026-07-14, several near-identical
+// entries piled into History from one stop.
+let behaviorStopInProgress = false;
+
+async function stopBehavior() {
+  if (behaviorStopInProgress) return;
+  behaviorStopInProgress = true;
   fetch(BRIDGE + '/api/stop-behavior', { method:'POST' });
   setBehaviorButtonsRunning(false);
-  setTimeout(async () => {
+
+  // The watcher script only checks its own stop-flag once every 5 seconds
+  // (its main loop sleeps 5s between checks), but this used to wait only
+  // 1.5 seconds before reading the "final" log - meaning the real "Session
+  // stopped..." summary line almost never actually existed yet, and this
+  // fell back to generic, useless text nearly every time (confirmed live -
+  // every History entry said just "App Behavior session completed." with
+  // none of the real detail). Poll for up to 10 seconds, checking every
+  // second, until that line genuinely appears.
+  let waited = 0;
+  let text = '';
+  while (waited < 10000) {
     await pollBehavior();
-    await logBehaviorSessionToHistory();
-  }, 1500);
+    text = document.getElementById('behaviorLog').textContent || '';
+    if (text.includes('Session stopped.')) break;
+    await new Promise(r => setTimeout(r, 1000));
+    waited += 1000;
+  }
+  await logBehaviorSessionToHistory();
+  behaviorStopInProgress = false;
 }
 async function pollBehavior() {
   try {
