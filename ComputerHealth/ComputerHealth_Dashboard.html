@@ -344,11 +344,15 @@
     <div class="section-title">App Behavior Watcher</div>
     <p style="font-size:13px;color:#9aa0ab">Point-and-click: click <strong>Start Watching</strong>, then just go open whatever program you want to check - it'll be detected automatically the moment it starts. No need to know its exact process name.</p>
     <div class="controls">
+      <input type="text" id="behaviorSessionLabel" placeholder="Name this session, e.g. &quot;Starting VS Code with Claude&quot;" style="min-width:260px">
+    </div>
+    <div class="controls">
       <input type="text" id="behaviorProcessName" placeholder="Optional: exact process name">
       <button class="btn" onclick="startBehavior()">Start Watching</button>
       <button class="btn danger" onclick="stopBehavior()">Stop</button>
     </div>
-    <p style="font-size:13px;color:#9aa0ab">File writes are time-correlated (not proven per-process) — network connections are exactly attributed.</p>
+    <p style="font-size:13px;color:#9aa0ab">File writes are time-correlated (not proven per-process) — network connections are exactly attributed. Auto-detect can pick up more than one program (e.g. VS Code launching git alongside it) - the session name above is what lets you tell what a past session actually was when you come back to History later, since the auto-detected process names alone won't mean much on their own.</p>
+    <div id="behaviorSessionLabelDisplay" class="hidden" style="font-weight:600;color:#d4af37;margin-bottom:6px"></div>
     <div class="log-box" id="behaviorLog">No session running.</div>
   </div>
 
@@ -1401,12 +1405,25 @@ function flagOnce(key, severity, summary, detail) {
   logEvent('resource_anomaly', severity, summary, detail);
 }
 
+// Persists across pollBehavior()'s refreshes (which fully overwrite the log
+// box's text every 5 seconds - anything written directly into that box
+// would disappear almost immediately). This is what actually makes a past
+// session identifiable in History later, since auto-detect can catch
+// several process names in one session and none of them alone say what you
+// were actually testing (Ryan, 2026-07-14 - "five days from now... what was
+// he watching?").
+let currentBehaviorLabel = '';
+
 function startBehavior() {
   // Empty is valid now (and the primary path) - auto-detect mode, no need
   // to know the app's exact process name upfront. A name is only required
   // if someone already knows it and wants to skip the wait.
   const name = document.getElementById('behaviorProcessName').value.trim();
+  currentBehaviorLabel = document.getElementById('behaviorSessionLabel').value.trim();
   fetch(BRIDGE + '/api/start-behavior', { method:'POST', body: JSON.stringify({processName:name}) });
+  const labelEl = document.getElementById('behaviorSessionLabelDisplay');
+  labelEl.textContent = currentBehaviorLabel ? 'Session: "' + currentBehaviorLabel + '"' : '';
+  labelEl.classList.toggle('hidden', !currentBehaviorLabel);
   document.getElementById('behaviorLog').textContent = name
     ? 'Watching "' + name + '"... use the app now.'
     : 'Watching for whatever you open next... go start the program you want to check now.';
@@ -1436,9 +1453,14 @@ async function logBehaviorSessionToHistory() {
   if (!currentUser || !deviceId) return;
   const text = document.getElementById('behaviorLog').textContent || '';
   const summaryMatch = text.match(/Session stopped\.[^\n]*/);
-  const summary = summaryMatch ? summaryMatch[0] : 'App Behavior session completed.';
+  const rawSummary = summaryMatch ? summaryMatch[0] : 'App Behavior session completed.';
+  // The user-chosen label (if any) leads the summary, since it's what
+  // actually makes a session identifiable later - "Code, git, claude,
+  // conhost" on their own tell you nothing five days from now, but
+  // "Starting VS Code with Claude" does.
+  const summary = currentBehaviorLabel ? `"${currentBehaviorLabel}" — ${rawSummary}` : rawSummary;
   const hasFlag = /FLAG|PERSISTENCE-LOCATION/.test(text);
-  await logEvent('app_behavior_session', hasFlag ? 'warning' : 'info', summary, { fullLog: text });
+  await logEvent('app_behavior_session', hasFlag ? 'warning' : 'info', summary, { sessionLabel: currentBehaviorLabel, fullLog: text });
 }
 
 async function installStart() {
