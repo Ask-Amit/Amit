@@ -219,6 +219,16 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="behaviorSummaryModal">
+  <div class="overlay-card" style="max-width:640px;max-height:80vh;overflow-y:auto">
+    <h2>App Behavior - Session Summary</h2>
+    <div id="behaviorSummaryBody"></div>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('behaviorSummaryModal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="historyDetailModal">
   <div class="overlay-card" style="max-width:640px;max-height:80vh;overflow-y:auto">
     <h2 id="historyDetailTitle">Event</h2>
@@ -1508,28 +1518,54 @@ let behaviorStopInProgress = false;
 async function stopBehavior() {
   if (behaviorStopInProgress) return;
   behaviorStopInProgress = true;
+  // Real, visible feedback the instant Stop is clicked, and the button
+  // disabled outright (not just guarded by a JS flag) - Ryan's direct
+  // request 2026-07-14: with nothing shown while it worked, repeated clicks
+  // looked like the only sane response to what read as a hang, when the
+  // watcher was actually still finishing (see the widened wait below).
+  const stopBtn = document.getElementById('behaviorStopBtn');
+  stopBtn.disabled = true;
+  stopBtn.textContent = 'Stopping - analyzing session...';
   fetch(BRIDGE + '/api/stop-behavior', { method:'POST' });
-  setBehaviorButtonsRunning(false);
 
-  // The watcher script only checks its own stop-flag once every 5 seconds
-  // (its main loop sleeps 5s between checks), but this used to wait only
-  // 1.5 seconds before reading the "final" log - meaning the real "Session
-  // stopped..." summary line almost never actually existed yet, and this
-  // fell back to generic, useless text nearly every time (confirmed live -
-  // every History entry said just "App Behavior session completed." with
-  // none of the real detail). Poll for up to 10 seconds, checking every
-  // second, until that line genuinely appears.
+  // The watcher's own final summary (full hardware sweep + a bounded
+  // Windows Event Log check, each capped at a few seconds server-side) can
+  // genuinely take up to ~25 seconds end-to-end on a slower system -
+  // confirmed live 2026-07-14 this was cut off too early before, leaving
+  // History with generic fallback text instead of the real summary.
+  // Widened to match the real worst case instead of guessing low again.
   let waited = 0;
   let text = '';
-  while (waited < 10000) {
+  while (waited < 25000) {
     await pollBehavior();
     text = document.getElementById('behaviorLog').textContent || '';
     if (text.includes('Session stopped.')) break;
     await new Promise(r => setTimeout(r, 1000));
     waited += 1000;
   }
+  setBehaviorButtonsRunning(false);
+  stopBtn.disabled = false;
+  stopBtn.textContent = 'Stop';
+  showBehaviorSummary(text);
   await logBehaviorSessionToHistory();
   behaviorStopInProgress = false;
+}
+
+// A real popup, matching how the main Tracker already shows its session
+// summary - Ryan's direct request 2026-07-14: the result was landing only
+// in the small inline log box and in History, never surfaced the moment
+// the session actually ended the way the Tracker's own summary screen does.
+function showBehaviorSummary(text) {
+  const idx = text.indexOf('SESSION SUMMARY');
+  const summaryText = idx >= 0 ? text.slice(idx) : text;
+  const lines = summaryText.split('\n').filter(l => l.trim());
+  const body = document.getElementById('behaviorSummaryBody');
+  body.innerHTML = lines.map(l => {
+    const color = l.startsWith('CRITICAL:') ? '#d05555' : l.startsWith('WARNING:') ? '#e0a72e' : l.startsWith('SESSION SUMMARY') ? '#c9a84c' : '#c7cad1';
+    const weight = l.startsWith('SESSION SUMMARY') || l.startsWith('CRITICAL:') || l.startsWith('WARNING:') ? 'bold' : 'normal';
+    return `<p style="color:${color};font-weight:${weight};margin:8px 0">${l.replace(/</g,'&lt;')}</p>`;
+  }).join('');
+  document.getElementById('behaviorSummaryModal').classList.remove('hidden');
 }
 async function pollBehavior() {
   try {
