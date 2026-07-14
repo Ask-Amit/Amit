@@ -219,6 +219,17 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="historyDetailModal">
+  <div class="overlay-card" style="max-width:640px;max-height:80vh;overflow-y:auto">
+    <h2 id="historyDetailTitle">Event</h2>
+    <div class="when" id="historyDetailWhen" style="margin-bottom:14px"></div>
+    <div id="historyDetailBody"></div>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('historyDetailModal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="historyCapWarningModal">
   <div class="overlay-card" style="max-width:480px">
     <h2>Your free history is almost full</h2>
@@ -989,11 +1000,58 @@ async function loadHistory() {
   if (error) { list.innerHTML = '<em>Error loading history: ' + error.message + '</em>'; return; }
   if (capNotice) capNotice.classList.toggle('hidden', !data || data.length < FREE_TIER_HISTORY_CAP);
   if (!data || data.length === 0) { list.innerHTML = '<em style="color:#8a8f99">No events logged yet for this device.</em>'; return; }
-  list.innerHTML = data.map(e => `
-    <div class="history-item">
+  // Kept on a global so the click handler below can look an entry back up
+  // by index without a second DB round-trip - the full row (including
+  // event_detail) is already sitting in memory from the query above.
+  historyData = data;
+  list.innerHTML = data.map((e, i) => `
+    <div class="history-item" style="cursor:pointer" onclick="openHistoryDetail(${i})">
       <div><strong>${e.summary || e.event_type}</strong> <span style="color:${e.severity==='critical'?'#d05555':e.severity==='warning'?'#e0a72e':'#8a8f99'}">[${e.severity}]</span></div>
       <div class="when">${new Date(e.created_at).toLocaleString()}</div>
     </div>`).join('');
+}
+
+let historyData = [];
+
+// Every event type gets a real detail view, not just the one-line summary
+// the list shows - Ryan's direct request 2026-07-14: double-clicking (a
+// single click, in practice - simpler and just as clear) a History entry
+// should pull up exactly what that run actually found, the same way each
+// feature already showed its own results live before it got tucked away
+// into History.
+function openHistoryDetail(i) {
+  const e = historyData[i];
+  if (!e) return;
+  document.getElementById('historyDetailTitle').textContent = e.summary || e.event_type;
+  document.getElementById('historyDetailWhen').textContent = new Date(e.created_at).toLocaleString() +
+    ' — ' + e.severity;
+  const body = document.getElementById('historyDetailBody');
+  const d = e.event_detail || {};
+
+  if (e.event_type === 'app_behavior_session') {
+    body.innerHTML = (d.sessionLabel ? `<p><strong>Session:</strong> ${d.sessionLabel}</p>` : '') +
+      `<pre style="white-space:pre-wrap;font-size:12px;background:#12141a;padding:12px;border-radius:6px;max-height:50vh;overflow-y:auto">${(d.fullLog || 'No log captured.').replace(/</g,'&lt;')}</pre>`;
+  } else if (e.event_type === 'install_diff') {
+    const diff = d;
+    const total = (diff.NewPrograms?.length||0) + (diff.NewStartupReg?.length||0) + (diff.NewShortcuts?.length||0) + (diff.NewTasks?.length||0) + (diff.NewExtensions?.length||0) + (diff.HomepageChanges?.length||0);
+    const section = (title, items, fmt) => items && items.length ? `<div class="section-title">${title} (${items.length})</div>` + items.map(fmt).join('') : '';
+    let html = `<p><strong>${total} change(s) detected.</strong></p>`;
+    html += section('New Programs', diff.NewPrograms, p => `<div class="finding">${p.DisplayName} — ${p.Publisher||'unknown publisher'}</div>`);
+    html += section('New Startup Entries', diff.NewStartupReg, s => `<div class="finding flag">${s.Name} = ${s.Value}</div>`);
+    html += section('New Scheduled Tasks', diff.NewTasks, t => `<div class="finding flag">${t.TaskPath}${t.TaskName}</div>`);
+    html += section('New Browser Extensions', diff.NewExtensions, ext => `<div class="finding flag">[${ext.Browser}] ${ext.Id}</div>`);
+    html += section('Homepage/Search Changes', diff.HomepageChanges, h => `<div class="finding flag">[${h.Browser}] ${h.OldHomepage} → ${h.NewHomepage}</div>`);
+    if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
+    body.innerHTML = html;
+  } else if (e.event_type === 'tracking_session_ended') {
+    const concerns = d.concerns || [];
+    body.innerHTML = concerns.length
+      ? '<ul>' + concerns.map(c => `<li>${c}</li>`).join('') + '</ul>'
+      : '<em style="color:#8a8f99">No specific concerns were flagged this session.</em>';
+  } else {
+    body.innerHTML = `<pre style="white-space:pre-wrap;font-size:12px;background:#12141a;padding:12px;border-radius:6px">${JSON.stringify(d, null, 2).replace(/</g,'&lt;')}</pre>`;
+  }
+  document.getElementById('historyDetailModal').classList.remove('hidden');
 }
 
 // --- Device init ---
@@ -1087,6 +1145,10 @@ function onConnected(d) {
   // while connected to this exact machine).
   deviceId = d.deviceId.toLowerCase(); deviceName = d.deviceName;
   bridgeUp = true;
+  // Remembered so a later visit/reload in this same browser knows it's
+  // worth silently checking real state instead of always showing the
+  // generic "click Launch Tracker" as if nothing has ever run here before.
+  localStorage.setItem('amit_ch_connected_before', '1');
   document.getElementById('deviceLabel').textContent = deviceName + ' — ' + deviceId.slice(0,8);
   document.getElementById('notRunningScreen').classList.add('hidden');
   const gsb = document.getElementById('gettingStartedBanner');
@@ -1498,7 +1560,7 @@ async function logBehaviorSessionToHistory() {
   // conhost" on their own tell you nothing five days from now, but
   // "Starting VS Code with Claude" does.
   const summary = currentBehaviorLabel ? `"${currentBehaviorLabel}" — ${rawSummary}` : rawSummary;
-  const hasFlag = /FLAG|PERSISTENCE-LOCATION/.test(text);
+  const hasFlag = /FLAG|PERSISTENCE-LOCATION|WARNING:/.test(text);
   await logEvent('app_behavior_session', hasFlag ? 'warning' : 'info', summary, { sessionLabel: currentBehaviorLabel, fullLog: text });
 }
 
@@ -1689,12 +1751,41 @@ async function handleJustLaunched() {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-// Nothing here touches localhost automatically except handleJustStopped()
-// and handleJustLaunched() - both gated on an explicit URL flag set only by
-// a script the person already deliberately ran (implicit consent). Everyone
-// else waits for an explicit "Launch Tracker" click.
+// Reopening the tab, or coming back later the same day, shouldn't always
+// land back on a generic "click Launch Tracker" as if this browser had
+// never connected before - Ryan's direct request 2026-07-14, after the
+// start-tracking hang bug made it look like this had to be "rebuilt every
+// day." Gated on having connected here at least once (set in onConnected)
+// so a genuine first-time visitor still isn't hit with an unprompted
+// localhost access attempt - this only ever silently checks for a browser
+// that has already, at some point, deliberately clicked to connect.
+async function attemptSilentReconnect() {
+  if (bridgeUp) return; // already handled by justLaunched/justStopped above
+  if (localStorage.getItem('amit_ch_connected_before') !== '1') return;
+  try {
+    onConnected(await checkBridge());
+  } catch (e) {
+    // Same private-network-access browser restriction documented above for
+    // handleJustLaunched() - a non-click fetch to localhost can be silently
+    // blocked even though tracking is genuinely still running. Surface an
+    // honest one-click fix instead of the generic "Launch Tracker" label,
+    // since for this person it really is just one click, not a fresh setup.
+    const gsb = document.getElementById('gettingStartedBanner');
+    if (gsb) {
+      gsb.classList.remove('hidden');
+      gsb.innerHTML = `<h3>Welcome back - one click to reconnect</h3><p>Your browser doesn't allow an automatic check on page load, even for a computer you've already connected before (a security setting, not a mistake you made) - this one click will reconnect instantly if it's still running.</p><button class="btn" onclick="launchTracker()">Connect Now</button>`;
+    }
+  }
+}
+
+// Nothing here touches localhost automatically except handleJustStopped(),
+// handleJustLaunched(), and attemptSilentReconnect() - all gated on either
+// an explicit URL flag set by a script the person already deliberately ran,
+// or on having connected here before (implicit consent either way).
+// Everyone else waits for an explicit "Launch Tracker" click.
 handleJustLaunched();
 handleJustStopped();
+attemptSilentReconnect();
 updateChDemoBtn();
 // Runs immediately for guests too (not just after a real sign-in) so demo
 // mode - browsing Amit's own tracked history - works without an account.
