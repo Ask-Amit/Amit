@@ -551,6 +551,7 @@ async function loadMyDevices() {
   }
   populateDeviceSelector();
   updateLiveControlsAvailability();
+  updateDeviceLabelDisplay();
   if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
 }
 
@@ -620,6 +621,20 @@ async function renameCurrentDevice() {
   if (newName === null || newName.trim() === '') return;
   await db.from('amit_devices').update({ device_name: newName.trim() }).eq('id', viewingDeviceId);
   await loadMyDevices();
+  updateDeviceLabelDisplay();
+}
+
+// The top-right header label used to always show the raw Windows computer
+// name (e.g. "DESKTOP-V6DREPU") straight from the bridge, even after
+// renaming the device to something friendly in the "Viewing" dropdown -
+// those two names went out of sync the moment you renamed it (caught live
+// 2026-07-13). This shows the friendly name (from Supabase) whenever this
+// computer has one, falling back to the raw OS name only if it doesn't.
+function updateDeviceLabelDisplay() {
+  if (!deviceId) return;
+  const mine = myDevices.find(d => d.id === deviceId);
+  const displayName = (mine && mine.device_name) ? mine.device_name : deviceName;
+  document.getElementById('deviceLabel').textContent = displayName + ' — ' + deviceId.slice(0,8);
 }
 
 async function logEvent(eventType, severity, summary, detail) {
@@ -1028,7 +1043,7 @@ function onConnected(d) {
   btn.onclick = () => toggleTracker();
   startLivePolling();
   pollTrackerStatus();
-  if (currentUser) claimDevice();
+  if (currentUser) claimDevice().then(updateDeviceLabelDisplay);
   updateLiveControlsAvailability();
 }
 
