@@ -1560,8 +1560,10 @@ async function logBehaviorSessionToHistory() {
   // conhost" on their own tell you nothing five days from now, but
   // "Starting VS Code with Claude" does.
   const summary = currentBehaviorLabel ? `"${currentBehaviorLabel}" — ${rawSummary}` : rawSummary;
+  const hasCritical = /CRITICAL:/.test(text);
   const hasFlag = /FLAG|PERSISTENCE-LOCATION|WARNING:/.test(text);
-  await logEvent('app_behavior_session', hasFlag ? 'warning' : 'info', summary, { sessionLabel: currentBehaviorLabel, fullLog: text });
+  const severity = hasCritical ? 'critical' : hasFlag ? 'warning' : 'info';
+  await logEvent('app_behavior_session', severity, summary, { sessionLabel: currentBehaviorLabel, fullLog: text });
 }
 
 async function installStart() {
