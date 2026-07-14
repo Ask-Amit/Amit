@@ -652,8 +652,26 @@ let hardwareSelectedDevice = null;
 // other users' different components. Returns a stable `key` for grouping
 // (several physical devices - e.g. three RAM sticks - share one key) plus a
 // `label` for display.
-function categorizeHardware(text) {
+// Some brands make more than one kind of hardware (Kingston makes both RAM
+// and SSDs) - a Kingston SSD's model number often doesn't literally contain
+// the word "SSD" (e.g. "KINGSTON SA400S37240G"), so name-only guessing
+// misclassified it as RAM (caught live 2026-07-13). Checking the device's
+// own sensor group names first is far more reliable: a RAM stick reports a
+// "Timings" group (tCKAVGmin, tRCD, etc.), a storage drive reports data
+// read/write or wear-level sensors instead - these are real structural
+// differences in what LHM exposes, not guesses from a name.
+function getTopLevelGroupNames(device) {
+  return (device.Children || []).map(g => (g.Text || '').toLowerCase());
+}
+
+function categorizeHardware(device) {
+  const text = (typeof device === 'string') ? device : device.Text;
   const t = text.toLowerCase();
+  const groups = (typeof device === 'string') ? [] : getTopLevelGroupNames(device);
+
+  if (groups.includes('timings')) return { key: 'ram', label: '🧩 Memory (RAM)' };
+  if (groups.some(g => g === 'data' || g === 'levels' || g === 'factors')) return { key: 'storage', label: '💽 Storage' };
+
   if (/(asus|msi|gigabyte|asrock|biostar|ms-\d)/.test(t) && !/geforce|radeon/.test(t)) return { key: 'motherboard', label: '🖥️ Motherboard' };
   if (/(ryzen|intel core|celeron|pentium|xeon)/.test(t)) return { key: 'cpu', label: '⚙️ Processor (CPU)' };
   if (/(geforce|radeon|nvidia|quadro|rtx|gtx)/.test(t)) return { key: 'gpu', label: '🎮 Graphics Card (GPU)' };
@@ -752,7 +770,7 @@ async function loadHardwareTree() {
   // Group devices by category (e.g. all RAM sticks fall under one "ram" key).
   const categories = {}; // key -> { label, devices: [device, ...] }
   devices.forEach(d => {
-    const c = categorizeHardware(d.Text);
+    const c = categorizeHardware(d);
     if (!categories[c.key]) categories[c.key] = { label: c.label, devices: [] };
     categories[c.key].devices.push(d);
   });
@@ -770,7 +788,7 @@ function renderHardwareInstanceNav(categoriesArg) {
   const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
   const categories = categoriesArg || (() => {
     const c = {};
-    devices.forEach(d => { const cat = categorizeHardware(d.Text); if (!c[cat.key]) c[cat.key] = { label: cat.label, devices: [] }; c[cat.key].devices.push(d); });
+    devices.forEach(d => { const cat = categorizeHardware(d); if (!c[cat.key]) c[cat.key] = { label: cat.label, devices: [] }; c[cat.key].devices.push(d); });
     return c;
   })();
   const instNav = document.getElementById('hardwareInstanceNav');
@@ -802,7 +820,7 @@ function selectHardwareCategory(key) {
   hardwareSelectedDevice = null; // let renderHardwareInstanceNav pick the first device in the new category
   const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
   const categories = {};
-  devices.forEach(d => { const c = categorizeHardware(d.Text); if (!categories[c.key]) categories[c.key] = { label: c.label, devices: [] }; categories[c.key].devices.push(d); });
+  devices.forEach(d => { const c = categorizeHardware(d); if (!categories[c.key]) categories[c.key] = { label: c.label, devices: [] }; categories[c.key].devices.push(d); });
   document.querySelectorAll('#hardwareCategoryNav .hw-device-btn').forEach(b => {
     b.classList.toggle('active', b.getAttribute('onclick') === `selectHardwareCategory('${key}')`);
   });
@@ -841,7 +859,7 @@ function renderHardwareSpreadsheet() {
   if (columns.length === 0) {
     container.innerHTML = `
       <div class="card" style="flex:none;width:100%;border-left-color:#d4af37">
-        <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device.Text).label}</div>
+        <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device).label}</div>
         <div style="font-size:12px;color:#7a7f89;margin-bottom:10px">${device.Text}</div>
         <em style="color:#8a8f99">No history captured yet for this component - give it a minute (readings are captured every 30 seconds), or click Refresh Now.</em>
       </div>`;
@@ -864,7 +882,7 @@ function renderHardwareSpreadsheet() {
   container.innerHTML = `
     ${connectionNotice}
     <div class="card" style="flex:none;width:100%;border-left-color:#d4af37;margin-bottom:10px">
-      <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device.Text).label}</div>
+      <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device).label}</div>
       <div style="font-size:12px;color:#7a7f89">${device.Text} — ${recentFirst.length} reading${recentFirst.length === 1 ? '' : 's'} (newest first, one row per 30-second capture)</div>
     </div>
     <div class="hw-spreadsheet-wrap">
