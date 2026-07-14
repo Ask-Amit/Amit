@@ -358,6 +358,7 @@
   <div class="tab" id="tab-history">
     <div class="section-title">This computer's history</div>
     <p id="historyIntro" style="font-size:13px;color:#9aa0ab">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
+    <div id="historyCapNotice" class="hidden" style="background:#2a2410;border:1px solid #e0a72e;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:13px;color:#e0c477">On the free plan, only your last 10 events are kept - older ones roll off as new ones come in. <strong>Upgrade to Pro</strong> for complete, unlimited history.</div>
     <div id="historyList"><em style="color:#8a8f99">Sign in to load history.</em></div>
   </div>
 
@@ -637,8 +638,26 @@ function updateDeviceLabelDisplay() {
   document.getElementById('deviceLabel').textContent = displayName + ' — ' + deviceId.slice(0,8);
 }
 
+// FREE_TIER_HISTORY_CAP: until real paid-tier tracking exists (no plan/tier
+// field is built anywhere yet - see ComputerValue_Spec.md TIER ARCHITECTURE),
+// every signed-in user is treated as free-tier here. Ryan's directive
+// 2026-07-13: free-tier history should be capped at the last 10 events per
+// device, rolling (oldest drops off as new ones arrive) - a real taste of
+// the feature instead of nothing, with an upgrade prompt once it's full,
+// rather than either "no history at all" or "unlimited for free." Once real
+// tiers exist, this cap should only apply when the account is NOT on an
+// active paid plan.
+const FREE_TIER_HISTORY_CAP = 10;
+
 async function logEvent(eventType, severity, summary, detail) {
   if (!currentUser || !deviceId) return;
+  const { count } = await db.from('amit_device_events').select('id', { count: 'exact', head: true }).eq('device_id', deviceId);
+  if (count !== null && count >= FREE_TIER_HISTORY_CAP) {
+    const { data: oldest } = await db.from('amit_device_events').select('id').eq('device_id', deviceId).order('created_at', { ascending: true }).limit(count - FREE_TIER_HISTORY_CAP + 1);
+    if (oldest && oldest.length > 0) {
+      await db.from('amit_device_events').delete().in('id', oldest.map(o => o.id));
+    }
+  }
   await db.from('amit_device_events').insert({
     device_id: deviceId, user_id: currentUser.id, event_type: eventType,
     severity, summary, event_detail: detail
@@ -930,11 +949,13 @@ async function loadHistory() {
       ? 'Everything ever detected on this device - installs, flags, and resource anomalies, going back as far as you\'ve been tracking.'
       : 'Sign in to see everything ever detected on this device - installs, flags, and resource anomalies, going back as far as you\'ve been tracking.';
   }
-  if (!currentUser) { list.innerHTML = '<em style="color:#8a8f99">Sign in to load history.</em>'; return; }
+  const capNotice = document.getElementById('historyCapNotice');
+  if (!currentUser) { list.innerHTML = '<em style="color:#8a8f99">Sign in to load history.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
   const targetId = viewingDeviceId || deviceId;
-  if (!targetId) { list.innerHTML = '<em style="color:#8a8f99">No computer selected.</em>'; return; }
+  if (!targetId) { list.innerHTML = '<em style="color:#8a8f99">No computer selected.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
   const { data, error } = await db.from('amit_device_events').select('*').eq('device_id', targetId).order('created_at', { ascending: false }).limit(100);
   if (error) { list.innerHTML = '<em>Error loading history: ' + error.message + '</em>'; return; }
+  if (capNotice) capNotice.classList.toggle('hidden', !data || data.length < FREE_TIER_HISTORY_CAP);
   if (!data || data.length === 0) { list.innerHTML = '<em style="color:#8a8f99">No events logged yet for this device.</em>'; return; }
   list.innerHTML = data.map(e => `
     <div class="history-item">
@@ -1390,9 +1411,12 @@ async function installCompare() {
   html += section('Homepage/Search Changes', diff.HomepageChanges, h => `<div class="finding flag">[${h.Browser}] ${h.OldHomepage} → ${h.NewHomepage}</div>`);
   if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
   document.getElementById('installResult').innerHTML = html;
-  if (total > 0) {
-    logEvent('install_diff', total > 2 ? 'warning' : 'info', total + ' change(s) detected during install watch', diff);
-  }
+  // Previously a clean result (nothing added) never got logged at all - only
+  // when something was found. Ryan's point: History should show that a
+  // check was actually run, not just show up when something was flagged.
+  logEvent('install_diff', total > 2 ? 'warning' : 'info',
+    total > 0 ? (total + ' change(s) detected during install watch') : 'Install Watch run - nothing extra was added, clean install',
+    diff);
 }
 
 // If AmitTracker.exe just stopped tracking and opened this page with
