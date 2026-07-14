@@ -330,12 +330,13 @@
 
   <div class="tab" id="tab-behavior">
     <div class="section-title">App Behavior Watcher</div>
+    <p style="font-size:13px;color:#9aa0ab">Point-and-click: click <strong>Start Watching</strong>, then just go open whatever program you want to check - it'll be detected automatically the moment it starts. No need to know its exact process name.</p>
     <div class="controls">
-      <input type="text" id="behaviorProcessName" placeholder="process name, e.g. notepad">
+      <input type="text" id="behaviorProcessName" placeholder="Optional - only if you already know the exact process name">
       <button class="btn" onclick="startBehavior()">Start Watching</button>
       <button class="btn danger" onclick="stopBehavior()">Stop</button>
     </div>
-    <p style="font-size:13px;color:#9aa0ab">Start this, then go use the app for as long as you want. File writes are time-correlated (not proven per-process) — network connections are exactly attributed.</p>
+    <p style="font-size:13px;color:#9aa0ab">File writes are time-correlated (not proven per-process) — network connections are exactly attributed.</p>
     <div class="log-box" id="behaviorLog">No session running.</div>
   </div>
 
@@ -1315,10 +1316,14 @@ function flagOnce(key, severity, summary, detail) {
 }
 
 function startBehavior() {
+  // Empty is valid now (and the primary path) - auto-detect mode, no need
+  // to know the app's exact process name upfront. A name is only required
+  // if someone already knows it and wants to skip the wait.
   const name = document.getElementById('behaviorProcessName').value.trim();
-  if (!name) { setStatus('Enter a process name'); return; }
   fetch(BRIDGE + '/api/start-behavior', { method:'POST', body: JSON.stringify({processName:name}) });
-  document.getElementById('behaviorLog').textContent = 'Watching "' + name + '"... use the app now.';
+  document.getElementById('behaviorLog').textContent = name
+    ? 'Watching "' + name + '"... use the app now.'
+    : 'Watching for whatever you open next... go start the program you want to check now.';
 }
 function stopBehavior() {
   fetch(BRIDGE + '/api/stop-behavior', { method:'POST' });

@@ -1,5 +1,18 @@
 # Amit Watcher - App Behavior Tracker
 # Usage: app_behavior_watcher.ps1 -TargetProcess "notepad"
+#    or: app_behavior_watcher.ps1               (auto-detect mode)
+#
+# Requiring someone to know an app's exact process name upfront doesn't work
+# for the actual use case this exists for - checking a program you just
+# downloaded and don't recognize yet, whose real process name is rarely the
+# same as its display name or file you double-clicked (caught live
+# 2026-07-13 - Ryan: "people don't know exactly how it's gonna be named when
+# the app runs"). Auto-detect mode fixes this the same way Install Watch
+# already does: snapshot what's running BEFORE, then whatever NEW process
+# name appears after that point is adopted automatically - point-and-click,
+# no typing required. Explicitly naming a process is still supported for
+# anyone who already knows it and wants to skip the wait.
+#
 # Run this, then go use the app you're evaluating. When you're done, either
 # Ctrl+C this window, or create the stop flag file:
 #   New-Item "$env:TEMP\app_behavior_stop.flag" -ItemType File
@@ -22,8 +35,7 @@
 #   logged but not verdict-checked.
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$TargetProcess,
+    [string]$TargetProcess = "",
 
     [string]$VirusTotalApiKey = ""
 )
@@ -43,7 +55,18 @@ $watchPaths = @(
     "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
 )
 
-"Amit App Behavior Watcher started at $(Get-Date -Format 'HH:mm:ss.fff') - target process: '$TargetProcess'" | Out-File -FilePath $out -Encoding utf8
+$autoDetect = [string]::IsNullOrWhiteSpace($TargetProcess)
+$watchedNames = New-Object System.Collections.Generic.HashSet[string]
+if (-not $autoDetect) { [void]$watchedNames.Add($TargetProcess) }
+$baselinePidSet = $null
+
+if ($autoDetect) {
+    "Amit App Behavior Watcher started at $(Get-Date -Format 'HH:mm:ss.fff') - auto-detect mode: go open the program you want to check, it'll be picked up automatically." | Out-File -FilePath $out -Encoding utf8
+    $baselinePidSet = New-Object System.Collections.Generic.HashSet[int]
+    Get-Process | ForEach-Object { [void]$baselinePidSet.Add($_.Id) }
+} else {
+    "Amit App Behavior Watcher started at $(Get-Date -Format 'HH:mm:ss.fff') - target process: '$TargetProcess'" | Out-File -FilePath $out -Encoding utf8
+}
 "Watching for file writes under: $($watchPaths -join ', ')" | Add-Content -Path $out -Encoding utf8
 "To stop: create $stopFlag, or Ctrl+C this window." | Add-Content -Path $out -Encoding utf8
 "" | Add-Content -Path $out -Encoding utf8
@@ -88,19 +111,44 @@ function Resolve-RemoteHost($ip) {
     }
 }
 
-Write-Host "Amit App Behavior Watcher running against '$TargetProcess'. Go use the app now."
+if ($autoDetect) {
+    Write-Host "Amit App Behavior Watcher in auto-detect mode. Go open the program you want to check now - it'll be picked up automatically."
+} else {
+    Write-Host "Amit App Behavior Watcher running against '$TargetProcess'. Go use the app now."
+}
 Write-Host "Log: $out"
 Write-Host "Stop with: New-Item `"$stopFlag`" -ItemType File   (or Ctrl+C)"
 
 $connCounts = @{}
 
 while (-not (Test-Path $stopFlag)) {
-    $procs = Get-Process -Name $TargetProcess -ErrorAction SilentlyContinue
-    if (-not $procs) {
+    if ($autoDetect) {
+        # Any process alive right now that wasn't in the baseline snapshot is
+        # something the user just launched - adopt its name automatically.
+        # Everything with that same name (the app could have more than one
+        # process, e.g. a helper/updater) gets watched from here on, exactly
+        # like manually naming it would have.
+        foreach ($p in (Get-Process)) {
+            if (-not $baselinePidSet.Contains($p.Id) -and -not $watchedNames.Contains($p.ProcessName)) {
+                [void]$watchedNames.Add($p.ProcessName)
+                Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') DETECTED new program: '$($p.ProcessName)' (PID=$($p.Id)) - now watching it." -Encoding utf8
+            }
+        }
+        if ($watchedNames.Count -eq 0) {
+            Start-Sleep -Seconds 2
+            continue
+        }
+    }
+
+    $pids = @()
+    foreach ($name in $watchedNames) {
+        $procs = Get-Process -Name $name -ErrorAction SilentlyContinue
+        if ($procs) { $pids += ($procs | Select-Object -ExpandProperty Id) }
+    }
+    if ($pids.Count -eq 0) {
         Start-Sleep -Seconds 3
         continue
     }
-    $pids = $procs | Select-Object -ExpandProperty Id
 
     # --- Network connections, exactly attributed to the target process ---
     foreach ($p in $pids) {
@@ -155,7 +203,8 @@ while (-not (Test-Path $stopFlag)) {
     Start-Sleep -Seconds 5
 }
 
+$watchedList = if ($watchedNames.Count -gt 0) { ($watchedNames -join ', ') } else { "(nothing detected)" }
 Add-Content -Path $out -Value "" -Encoding utf8
-Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') Session stopped. Summary: $($seenConnections.Count) distinct network connections, $($knownFiles.Count) file writes observed during window." -Encoding utf8
+Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') Session stopped. Watched: $watchedList. Summary: $($seenConnections.Count) distinct network connections, $($knownFiles.Count) file writes observed during window." -Encoding utf8
 Remove-Item $stopFlag -ErrorAction SilentlyContinue
 Write-Host "Stopped. Full report: $out"
