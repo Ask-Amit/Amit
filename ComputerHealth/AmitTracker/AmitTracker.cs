@@ -123,6 +123,20 @@ class AmitTrackerWindow : Form
             }
             catch { /* bridge may already be down, or timed out - nothing more to do here */ }
 
+            // Open the dashboard with a flag so it knows to show a session
+            // summary instead of the normal live view, and log the
+            // completion - deliberately BEFORE killing the bridge below.
+            // The dashboard's cursory overview (added 2026-07-14) needs to
+            // fetch real resource/diagnostics/sensor data to analyze the
+            // session, and that only works while the bridge is still alive.
+            try { Process.Start(dashboardUrl + "?justStopped=1"); } catch { }
+
+            // Grace period for the dashboard tab to actually load and finish
+            // its fetches before the bridge disappears out from under it -
+            // without this, the bridge could die before a slow-loading tab
+            // ever gets a chance to read anything.
+            Thread.Sleep(TimeSpan.FromSeconds(8));
+
             // Stop the bridge server itself too - previously it deliberately
             // kept running (lightweight, so the next Launch Tracker
             // reconnects instantly), but Ryan's direct request 2026-07-13:
@@ -131,10 +145,6 @@ class AmitTrackerWindow : Form
             // so this also cleans up any duplicate bridge instances that
             // may have accumulated.
             StopBridgeServer();
-
-            // Open the dashboard with a flag so it knows to show a session
-            // summary instead of the normal live view, and log the completion.
-            try { Process.Start(dashboardUrl + "?justStopped=1"); } catch { }
 
             try { this.Invoke(new Action(Application.Exit)); } catch { Application.Exit(); }
         });

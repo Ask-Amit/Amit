@@ -210,10 +210,22 @@
   <div class="overlay-card" style="max-width:520px">
     <h2>Tracking Stopped</h2>
     <p>Everything has been shut down — the watchers and LibreHardwareMonitor are no longer running, nothing is using resources in the background.</p>
+    <div id="sessionSummaryOverview"></div>
     <p id="sessionSummaryDetail" style="color:#c7cad1">Reviewing what was captured this session...</p>
     <div class="actions">
       <button class="btn" onclick="document.getElementById('sessionSummaryScreen').classList.add('hidden'); showTabByName('history')">View History</button>
       <button class="btn secondary" onclick="document.getElementById('sessionSummaryScreen').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="historyCapWarningModal">
+  <div class="overlay-card" style="max-width:480px">
+    <h2>Your free history is almost full</h2>
+    <p id="historyCapWarningText" style="color:#c7cad1">We've kept 8 of your last 10 events. The free plan only holds your 10 most recent — once it's full, each new one quietly replaces your oldest.</p>
+    <p style="color:#c7cad1">This is real, valuable data about your computer's history — worth keeping complete, not just the last few. Upgrade to Pro to hold onto everything for as long as you want, not just a rolling 10.</p>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('historyCapWarningModal').classList.add('hidden')">Got it</button>
     </div>
   </div>
 </div>
@@ -662,6 +674,22 @@ async function logEvent(eventType, severity, summary, detail) {
     device_id: deviceId, user_id: currentUser.id, event_type: eventType,
     severity, summary, event_detail: detail
   });
+
+  // Proactive warning BEFORE the cap actually bites (Ryan, 2026-07-14) - once
+  // this insert brings the total to 8 or 9, show a real popup rather than
+  // only ever explaining the cap after it's already started overwriting
+  // history. Gated so the same count doesn't nag twice in a row.
+  const newTotal = (count === null ? 0 : count) + 1;
+  if (newTotal >= FREE_TIER_HISTORY_CAP - 2 && newTotal < FREE_TIER_HISTORY_CAP) {
+    const lastWarned = parseInt(localStorage.getItem('amit_ch_last_cap_warning') || '0', 10);
+    if (newTotal !== lastWarned) {
+      localStorage.setItem('amit_ch_last_cap_warning', String(newTotal));
+      const remaining = FREE_TIER_HISTORY_CAP - newTotal;
+      document.getElementById('historyCapWarningText').textContent =
+        `We've kept ${newTotal} of your last ${FREE_TIER_HISTORY_CAP} events. Only ${remaining} more until the free plan starts quietly replacing your oldest with each new one.`;
+      document.getElementById('historyCapWarningModal').classList.remove('hidden');
+    }
+  }
 }
 
 // Walks LibreHardwareMonitor's own data.json tree, grouped by real hardware
@@ -1178,9 +1206,31 @@ async function toggleTracker() {
   const btn = document.getElementById('trackerToggle');
   const isOn = btn.className === 'on';
   btn.textContent = isOn ? 'Stopping...' : 'Starting...';
+  // Run the cursory overview BEFORE stopping - the bridge (and the data it
+  // serves) is still fully alive right up until the stop-tracking call
+  // actually runs, unlike the AmitTracker.exe window's Stop button, which
+  // has to delay its own bridge shutdown for the same reason.
+  let overview = null;
+  if (isOn) {
+    try { overview = await runCursoryOverview(); } catch (e) {}
+  }
   try {
     await fetch(BRIDGE + (isOn ? '/api/stop-tracking' : '/api/start-tracking'), { method: 'POST', body: '' });
   } catch (e) {}
+  if (isOn && overview) {
+    document.getElementById('sessionSummaryScreen').classList.remove('hidden');
+    const overviewEl = document.getElementById('sessionSummaryOverview');
+    const color = overview.severity === 'red' ? '#d05555' : overview.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
+    const icon = overview.severity === 'red' ? '🔴' : overview.severity === 'yellow' ? '🟡' : '🟢';
+    overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
+    const detail = document.getElementById('sessionSummaryDetail');
+    if (currentUser && deviceId) {
+      await logEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+      detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
+    } else {
+      detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
+    }
+  }
   setTimeout(pollTrackerStatus, 800);
 }
 
@@ -1425,12 +1475,112 @@ async function installCompare() {
 // This is the one case where checking localhost happens automatically -
 // consent is implicit, since the person just triggered the tracker
 // themselves moments ago via the desktop/tray flow.
+// Cursory overview - a generic green/yellow/red read on the just-finished
+// session, stated as "here's what stood out" without giving the actual fix
+// away (Ryan, 2026-07-14: leaving a session with zero analysis reads as
+// "this did nothing," which kills any reason to come back - a small,
+// honest taste of concern is what makes the paid diagnostic worth buying).
+// Reuses the exact same thresholds already shown on the live Resources/
+// Diagnostics cards (RAM 70/90, CPU 60/85, DPC 3/8, DISK 50/85) so the
+// verdict here never contradicts what the live view already said.
+async function runCursoryOverview() {
+  const concerns = []; // { text, severity: 'yellow'|'red' }
+  try {
+    const r = await fetch(BRIDGE + '/api/resource', { cache: 'no-store' });
+    const d = await r.json();
+    const last = (d.lines || []).filter(l => l.includes('RAM:')).slice(-1)[0];
+    if (last) {
+      const p = parseResourceLine(last);
+      if (p.ramPct !== null) {
+        if (p.ramPct >= 90) concerns.push({ text: 'Memory ran very full during this session', severity: 'red' });
+        else if (p.ramPct >= 70) concerns.push({ text: 'Memory got fuller than ideal at times', severity: 'yellow' });
+      }
+      if (p.cpuPct !== null) {
+        if (p.cpuPct >= 85) concerns.push({ text: 'The processor was under very heavy load', severity: 'red' });
+        else if (p.cpuPct >= 60) concerns.push({ text: 'The processor ran busier than usual at times', severity: 'yellow' });
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const r = await fetch(BRIDGE + '/api/diagnostics', { cache: 'no-store' });
+    const d = await r.json();
+    const last = (d.lines || []).filter(l => l.includes('DPC:')).slice(-1)[0];
+    if (last) {
+      const dpc = last.match(/DPC:(\d+\.?\d*)%/);
+      const disk = last.match(/DISK:(\d+\.?\d*)%/);
+      const dpcPct = dpc ? parseFloat(dpc[1]) : null;
+      const diskPct = disk ? parseFloat(disk[1]) : null;
+      if (dpcPct !== null) {
+        if (dpcPct >= 8) concerns.push({ text: 'Something is causing real input-lag risk (mouse/keyboard responsiveness)', severity: 'red' });
+        else if (dpcPct >= 3) concerns.push({ text: 'A mild input-lag signal showed up', severity: 'yellow' });
+      }
+      if (diskPct !== null) {
+        if (diskPct >= 85) concerns.push({ text: 'The disk was a real bottleneck at times', severity: 'red' });
+        else if (diskPct >= 50) concerns.push({ text: 'The disk got busier than ideal at times', severity: 'yellow' });
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const r = await fetch(BRIDGE + '/api/sensors', { cache: 'no-store' });
+    const tree = await r.json();
+    const devices = getHardwareDevices(tree);
+    for (const device of devices) {
+      const cat = categorizeHardware(device);
+      const groups = collectSensorGroups(device);
+      for (const label in groups) {
+        for (const { leaf } of groups[label]) {
+          const val = parseFloat(leaf.Value);
+          if (isNaN(val)) continue;
+          if (/temperature/i.test(leaf.Text) && val >= 85) {
+            concerns.push({ text: 'One or more temperatures ran hotter than we\'d like', severity: 'red' });
+          }
+          if (cat.key === 'ram' && cat.isAggregate && /load/i.test(label) && val >= 85) {
+            concerns.push({ text: 'Virtual memory usage climbed higher than it should', severity: 'red' });
+          }
+          if (cat.key === 'storage' && /life/i.test(leaf.Text) && val <= 20) {
+            concerns.push({ text: 'One of your drives is showing significant wear', severity: 'red' });
+          }
+        }
+      }
+    }
+  } catch (e) {}
+
+  // De-duplicate identical concern text (multiple readings can trip the
+  // same threshold repeatedly across the session).
+  const seen = new Set();
+  const unique = concerns.filter(c => { if (seen.has(c.text)) return false; seen.add(c.text); return true; });
+
+  const severity = unique.some(c => c.severity === 'red') ? 'red' : (unique.length > 0 ? 'yellow' : 'green');
+  let summary;
+  if (severity === 'green') {
+    summary = 'Nothing during this session raised a concern — this computer looks healthy right now.';
+  } else if (severity === 'yellow') {
+    summary = 'A few things worth keeping an eye on: ' + unique.map(c => c.text).join('; ') + '.';
+  } else {
+    summary = 'Some real concerns showed up this session: ' + unique.map(c => c.text).join('; ') + '. A full diagnostic run would find the actual cause and walk you through fixing it.';
+  }
+  return { severity, concerns: unique, summary };
+}
+
 async function handleJustStopped() {
   if (new URLSearchParams(window.location.search).get('justStopped') !== '1') return;
   document.getElementById('sessionSummaryScreen').classList.remove('hidden');
   if (!localAccessAttempted) {
     localAccessAttempted = true;
     try { onConnected(await checkBridge()); } catch (e) {}
+  }
+  // Run the cursory overview WHILE the bridge is still alive - AmitTracker.exe
+  // deliberately delays killing the bridge server until after this page has
+  // had time to load and fetch (see AmitTracker.cs), specifically so this
+  // analysis has real data to read instead of finding the bridge already gone.
+  const overview = await runCursoryOverview();
+  const overviewEl = document.getElementById('sessionSummaryOverview');
+  if (overviewEl) {
+    const color = overview.severity === 'red' ? '#d05555' : overview.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
+    const icon = overview.severity === 'red' ? '🔴' : overview.severity === 'yellow' ? '🟡' : '🟢';
+    overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
   }
   // Wait for device/auth to be ready before logging
   let waited = 0;
@@ -1440,7 +1590,7 @@ async function handleJustStopped() {
   }
   const detail = document.getElementById('sessionSummaryDetail');
   if (currentUser && deviceId) {
-    await logEvent('tracking_session_ended', 'info', 'Tracking session ended on ' + deviceName, { endedAt: new Date().toISOString() });
+    await logEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, { endedAt: new Date().toISOString(), concerns: overview.concerns });
     detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
   } else {
     detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
