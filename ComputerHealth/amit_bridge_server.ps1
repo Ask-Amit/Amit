@@ -340,6 +340,15 @@ $handlerScript = {
             "/api/diagnostics" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\diagnostics_watch_result.txt" 30) }
             "/api/activity" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\activity_watch2_result.txt" 30) }
             "/api/behavior" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\app_behavior_result.txt" 50) }
+            "/api/behavior-status" {
+                # Real bug caught live 2026-07-14: Start Watching and Stop
+                # were both always shown/enabled regardless of whether a
+                # session was actually running - a genuine process check
+                # (same pattern as the main Tracker on/off state) instead of
+                # guessing from the log's text content.
+                $running = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1")
+                Send-JsonRaw $response ('{"running":' + $(if ($running) {'true'} else {'false'}) + '}')
+            }
             "/api/browser" { Send-BrowserJson $response }
             "/api/sensors" {
                 # Proxies LibreHardwareMonitor's own web server (localhost:8085/data.json)

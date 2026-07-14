@@ -348,8 +348,8 @@
     </div>
     <div class="controls">
       <input type="text" id="behaviorProcessName" placeholder="Optional: exact process name">
-      <button class="btn" onclick="startBehavior()">Start Watching</button>
-      <button class="btn danger" onclick="stopBehavior()">Stop</button>
+      <button class="btn" id="behaviorStartBtn" onclick="startBehavior()">Start Watching</button>
+      <button class="btn danger hidden" id="behaviorStopBtn" onclick="stopBehavior()">Stop</button>
     </div>
     <p style="font-size:13px;color:#9aa0ab">File writes are time-correlated (not proven per-process) — network connections are exactly attributed. Auto-detect can pick up more than one program (e.g. VS Code launching git alongside it) - the session name above is what lets you tell what a past session actually was when you come back to History later, since the auto-detected process names alone won't mean much on their own.</p>
     <div id="behaviorSessionLabelDisplay" class="hidden" style="font-weight:600;color:#d4af37;margin-bottom:6px"></div>
@@ -1414,6 +1414,14 @@ function flagOnce(key, severity, summary, detail) {
 // he watching?").
 let currentBehaviorLabel = '';
 
+// Real bug caught live 2026-07-14: Start Watching and Stop were both always
+// shown/enabled regardless of whether a session was actually running -
+// matching the on/off toggle the main Tracker button already has.
+function setBehaviorButtonsRunning(running) {
+  document.getElementById('behaviorStartBtn').classList.toggle('hidden', running);
+  document.getElementById('behaviorStopBtn').classList.toggle('hidden', !running);
+}
+
 function startBehavior() {
   // Empty is valid now (and the primary path) - auto-detect mode, no need
   // to know the app's exact process name upfront. A name is only required
@@ -1421,6 +1429,7 @@ function startBehavior() {
   const name = document.getElementById('behaviorProcessName').value.trim();
   currentBehaviorLabel = document.getElementById('behaviorSessionLabel').value.trim();
   fetch(BRIDGE + '/api/start-behavior', { method:'POST', body: JSON.stringify({processName:name}) });
+  setBehaviorButtonsRunning(true);
   const labelEl = document.getElementById('behaviorSessionLabelDisplay');
   labelEl.textContent = currentBehaviorLabel ? 'Session: "' + currentBehaviorLabel + '"' : '';
   labelEl.classList.toggle('hidden', !currentBehaviorLabel);
@@ -1430,6 +1439,7 @@ function startBehavior() {
 }
 function stopBehavior() {
   fetch(BRIDGE + '/api/stop-behavior', { method:'POST' });
+  setBehaviorButtonsRunning(false);
   setTimeout(async () => {
     await pollBehavior();
     await logBehaviorSessionToHistory();
@@ -1440,6 +1450,11 @@ async function pollBehavior() {
     const r = await fetch(BRIDGE + '/api/behavior');
     const d = await r.json();
     document.getElementById('behaviorLog').textContent = (d.lines || []).join('\n') || 'No session running.';
+  } catch (e) {}
+  try {
+    const r2 = await fetch(BRIDGE + '/api/behavior-status');
+    const s = await r2.json();
+    setBehaviorButtonsRunning(!!s.running);
   } catch (e) {}
 }
 
