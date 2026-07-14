@@ -676,7 +676,12 @@ function categorizeHardware(device) {
   if (/(ryzen|intel core|celeron|pentium|xeon)/.test(t)) return { key: 'cpu', label: '⚙️ Processor (CPU)' };
   if (/(geforce|radeon|nvidia|quadro|rtx|gtx)/.test(t)) return { key: 'gpu', label: '🎮 Graphics Card (GPU)' };
   if (t === 'virtual memory') return { key: 'virtualmemory', label: '💾 Virtual Memory' };
-  if (t === 'total memory' || t === 'generic memory' || t === 'physical memory') return { key: 'systemmemory', label: '🧠 System Memory' };
+  // "System Memory" (aggregate live usage) and "Memory (RAM)" (each physical
+  // stick's static specs) are both just RAM shown two different ways - they
+  // were separate top-level tabs before, which read as "aren't these the
+  // same thing?" (Ryan, 2026-07-13). Merged into one category; the aggregate
+  // device gets its own labeled sub-tab instead of a confusing second button.
+  if (t === 'total memory' || t === 'generic memory' || t === 'physical memory') return { key: 'ram', label: '🧩 Memory (RAM)', isAggregate: true };
   if (/(ssd|nvme|hdd|hard disk)/.test(t)) return { key: 'storage', label: '💽 Storage' };
   if (/(ethernet|wi-?fi|wireless|network)/.test(t)) return { key: 'network', label: '🌐 Network' };
   if (/(g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d)/.test(t)) return { key: 'ram', label: '🧩 Memory (RAM)' };
@@ -800,12 +805,20 @@ function renderHardwareInstanceNav(categoriesArg) {
     // second row to pick which specific one, numbered since they'd otherwise
     // look identical (all read "Memory (RAM)").
     if (!hardwareSelectedDevice || !group.devices.find(d => d.Text === hardwareSelectedDevice)) {
-      hardwareSelectedDevice = group.devices[0].Text;
+      const aggregateDevice = group.devices.find(d => categorizeHardware(d).isAggregate);
+      hardwareSelectedDevice = (aggregateDevice || group.devices[0]).Text;
     }
     instNav.classList.remove('hidden');
-    instNav.innerHTML = group.devices.map((d, i) => {
+    let stickCount = 0;
+    instNav.innerHTML = group.devices.map((d) => {
       const escaped = d.Text.replace(/"/g, '&quot;');
-      return `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" data-device-text="${escaped}" onclick="selectHardwareInstance(this.dataset.deviceText)">${group.label.replace(/^\S+\s/, '')} ${i + 1}</button>`;
+      // The aggregate "Total Memory" device gets its own clear label instead
+      // of a number, so it reads as "the overview" rather than looking like
+      // just another interchangeable stick.
+      const label = categorizeHardware(d).isAggregate
+        ? 'Overview'
+        : `${group.label.replace(/^\S+\s/, '')} ${++stickCount}`;
+      return `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" data-device-text="${escaped}" onclick="selectHardwareInstance(this.dataset.deviceText)">${label}</button>`;
     }).join('');
   } else {
     hardwareSelectedDevice = group.devices[0].Text;
