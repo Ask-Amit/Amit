@@ -1163,14 +1163,25 @@ let historyComputerName = 'This computer';
 let historySortKey = 'created_at';
 let historySortDir = -1; // newest first by default
 
-// A real sortable table - Ryan's direct request 2026-07-14: Computer, Date,
-// Description, and a Discussion column that opens the exact same detail
-// popup as clicking a live session's own stop summary. Description prefers
-// whatever the person actually typed (App Behavior's session label) and
-// falls back to the auto-generated summary when nothing was typed.
-function describeHistoryEntry(e) {
+// A real sortable table - Ryan's direct request 2026-07-14/15: Computer,
+// Date, Title, Description, Duration, and a Report column that opens the
+// exact same detail popup as clicking a live session's own stop summary.
+//
+// Title and Description are deliberately separate now, not one field
+// doing both jobs (Ryan, 2026-07-15): Title is "what the person called it"
+// PLUS "what Amit identified as the main thing that happened" in
+// parentheses - e.g. "Testing new install" (Edge). Description stays the
+// fuller auto-generated summary line, unchanged.
+function titleHistoryEntry(e) {
   const label = e.event_detail?.sessionLabel;
-  return label ? `"${label}"` : (e.summary || e.event_type);
+  const main = e.event_detail?.mainProgram;
+  if (label && main) return `"${label}" (${main})`;
+  if (label) return `"${label}"`;
+  if (main) return main;
+  return e.event_type;
+}
+function describeHistoryEntry(e) {
+  return e.summary || e.event_type;
 }
 
 function sortHistoryBy(key) {
@@ -1193,6 +1204,7 @@ function renderHistoryTable() {
   const rows = [...historyData].sort((a, b) => {
     let av, bv;
     if (historySortKey === 'created_at') { av = new Date(a.created_at).getTime(); bv = new Date(b.created_at).getTime(); }
+    else if (historySortKey === 'title') { av = titleHistoryEntry(a).toLowerCase(); bv = titleHistoryEntry(b).toLowerCase(); }
     else if (historySortKey === 'description') { av = describeHistoryEntry(a).toLowerCase(); bv = describeHistoryEntry(b).toLowerCase(); }
     else if (historySortKey === 'duration') { av = durationToSeconds(a.event_detail?.duration); bv = durationToSeconds(b.event_detail?.duration); }
     else { av = historyComputerName.toLowerCase(); bv = historyComputerName.toLowerCase(); }
@@ -1205,9 +1217,10 @@ function renderHistoryTable() {
     <thead><tr>
       <th onclick="sortHistoryBy('computer')">Computer${arrow('computer')}</th>
       <th onclick="sortHistoryBy('created_at')">Date${arrow('created_at')}</th>
+      <th onclick="sortHistoryBy('title')">Title${arrow('title')}</th>
       <th onclick="sortHistoryBy('description')">Description${arrow('description')}</th>
       <th onclick="sortHistoryBy('duration')">Duration${arrow('duration')}</th>
-      <th>Discussion</th>
+      <th>Report</th>
     </tr></thead>
     <tbody>${rows.map(e => {
       const i = historyData.indexOf(e);
@@ -1215,9 +1228,10 @@ function renderHistoryTable() {
       return `<tr>
         <td>${historyComputerName}</td>
         <td>${new Date(e.created_at).toLocaleString()}</td>
-        <td><span style="color:${sevColor}">●</span> ${describeHistoryEntry(e)}</td>
+        <td><span style="color:${sevColor}">●</span> ${titleHistoryEntry(e)}</td>
+        <td>${describeHistoryEntry(e)}</td>
         <td>${e.event_detail?.duration || '—'}</td>
-        <td><span class="view-link" onclick="openHistoryDetail(${i})">View details →</span></td>
+        <td><span class="view-link" onclick="openHistoryDetail(${i})">Report →</span></td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -1936,7 +1950,14 @@ async function logBehaviorSessionToHistory() {
   // 3-minute test are distinguishable at a glance without opening either.
   const durationMatch = text.match(/SESSION SUMMARY.*?for (.+)$/m);
   const duration = durationMatch ? durationMatch[1].trim() : null;
-  await logEvent('app_behavior_session', severity, summary, { sessionLabel: currentBehaviorLabel, fullLog: text, duration });
+  // The actual program identified as the main thing that ran this session
+  // (not the expected-Windows noise around it) - Ryan's direct request
+  // 2026-07-15: "you would have placed Edge browser because that's the
+  // one that was in focus most of the time." Pulled from the watcher's
+  // own "You launched X." narrative line rather than re-deriving it here.
+  const mainProgramMatch = text.match(/You launched ([^.]+)\./);
+  const mainProgram = mainProgramMatch ? mainProgramMatch[1].trim() : null;
+  await logEvent('app_behavior_session', severity, summary, { sessionLabel: currentBehaviorLabel, fullLog: text, duration, mainProgram });
 }
 
 async function installStart() {
