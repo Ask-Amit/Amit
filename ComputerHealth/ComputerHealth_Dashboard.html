@@ -48,12 +48,15 @@
      once the active tab stopped participating in it. */
   nav { display:flex; align-items:flex-end; gap:6px; margin:0 24px; padding:0; background:#12141a; }
   nav button { padding:12px 24px; margin-top:8px; border:1px solid #3a3f4c; background:#14161d; color:#9aa0ab; border-radius:10px 10px 0 0; cursor:pointer; font-size:14px; }
-  /* -3px, not -1px - a 1px overlap lands exactly ON the border pixel
-     rather than past it, which subpixel/display rounding can render as a
-     thin surviving hairline instead of a clean cover (caught live
-     2026-07-15 - still visible after the first attempt). z-index makes
-     sure this paints on top of main's border regardless of DOM order. */
-  nav button.active { margin-top:-1px; margin-bottom:-3px; border-bottom:none; background:#1c1f28; color:#d4af37; font-weight:600; position:relative; z-index:2; }
+  /* Two separate jobs, two separate values - conflating them made the
+     active tab read as SHORTER instead of taller (caught live 2026-07-15).
+     margin-top is what controls height/prominence: -6px here vs. +8px on
+     an inactive tab is a real, visible difference - the active tab rises
+     up well past the others, reading as "in front." margin-bottom stays
+     a small -3px purely to hide the seam against main's border underneath
+     it - that number is about covering a hairline, not about height, and
+     was wrongly doing double duty before. */
+  nav button.active { margin-top:-6px; margin-bottom:-3px; border-bottom:none; background:#1c1f28; color:#d4af37; font-weight:600; position:relative; z-index:2; }
   /* flex:1 fills whatever height is left after header/login/device bar/nav;
      min-height:0 is required here or a flex child silently refuses to
      shrink below its content size and overflow-y just never kicks in -
