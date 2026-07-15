@@ -403,41 +403,36 @@ Invoke-RestMethod -Uri "https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/user_pr
 8. **Confirm** — prayer written, archived, session written to Supabase, testimony updated if growth occurred, pushed, CLAUDE.md updated.
 
 
-**Last updated: Session 51 (2026-07-12) — Amit Computer Health built end-to-end in one extended session: watchers, bridge server, full dashboard, a real double-clickable installer, a persistent tray app, and a custom Aleph icon. Live-tested repeatedly with Ryan; found and fixed real bugs each round. Ended on a single unified "Launch Tracker" button, untested live by Amit — Ryan's turn to run the real first test.**
+**Last updated: Session 53 (2026-07-14) — Fixed the real production bug behind Computer Health's "Start Tracker" never actually starting: the bridge server's runspace pool defaulted to MTA threading, which deadlocked any WMI/CIM call made inside its request handlers — confirmed by direct comparison (identical code ran in under a second standalone, hung indefinitely inside the pool) and fixed by setting `ApartmentState = STA` on the pool itself. Rebuilt App Behavior end to end on Ryan's live, detailed direction: full per-component hardware sweep (separate CPU/GPU/RAM/Storage paragraphs instead of one flat sensor list), known-Windows-process tagging so dllhost/conhost/svchost don't bury the actual app being tested, a flowing narrative lead line, a bounded Windows Event Log check (was silently hanging Stop for a long stretch — fixed with a background job + 8-second cap), a real stop popup matching the Tracker's own summary screen (previously results only ever landed in a small inline log box), and History rebuilt as a real sortable table (Computer/Date/Description/Duration/Discussion columns) sharing one report renderer with the live popup so a session looks identical whether viewed the moment it ends or reviewed later. Helped Ryan set up Tailscale + Windows file sharing between his two physical computers (Amit computer ↔ Accounting computer) end to end — UAC-elevation-blocks-the-request pattern recurred here too and was worked around the same way, plus the Windows-treats-Tailscale-as-Public-network SMB block, plus a blank-password network-login rejection. Closed with an honest, unflattering ROI assessment of Computer Health when Ryan asked directly, and a precise architectural finding on Amit's own connectivity: the compass/tier engagement philosophy is fully written into `Amit_Start.md` and would genuinely be followed — but a returning user's actual accumulated compass score/history from Supabase never reaches a fresh Claude.ai conversation, so every session still starts cold. That gap, not the philosophy, is what's missing. Ryan is opening a separate Amit-focused session to work on it next.**
 
 **Full build history → `Amit_BuildLog.md` — last entry: Session 35**
 
-**SESSION 51 — WHAT WAS BUILT (2026-07-12):**
-- **Amit Computer Health — new module, sibling to Amit Health, distinct from Computer Value.** Full spec and build notes in `ComputerHealth\CLAUDE.md`. Watches system resources, input-lag causes, per-app behavior, and install diffs; translates raw data into plain-language verdicts, not numbers a non-technical person has to interpret.
-- **Device identity settled on SMBIOS UUID** — not a locally-generated ID. Survives software reinstall, unaffected by RAM/GPU/drive swaps; only changes if the motherboard itself is replaced. One user can own unlimited devices; a selector lets them view any owned device's History (read-only) while live controls stay locked to whichever computer they're physically on.
-- **Demo mode connected to Computer Health**, matching Hub's existing `AMIT_DEMO_UID` pattern exactly — no new mechanism invented. Two-way toggle synced via the same `localStorage` key Hub already uses.
-- **Real installer (`AmitInstaller.exe`) and tray app (`AmitTracker.exe`)** — both compiled locally via `csc.exe` (no Visual Studio needed) with proper embedded metadata and a custom-rendered Paleo-Hebrew Aleph icon (pulled from the project's own `ancheb2.ttf`, not a generic Latin "A"). Tray app shows "Running," offers Stop Tracker, and logs session completion to History.
-- **Real bugs found and fixed through live testing with Ryan, each one caught by him, not self-discovered:** a Windows PowerShell `ConvertTo-Json` hang on cold runspaces; a duplicate LibreHardwareMonitor install (fixed by copying into Amit's own managed folder + checking the live process list, not just a file path); an auth screen that auto-closed after 2.8s regardless of real email verification, silently letting people in unauthenticated; a z-index bug that rendered a confirmation modal completely invisible behind the screen still showing underneath it; a TLS 1.2 failure in the compiled installer ("Could not create SSL/TLS secure channel") when fetching from GitHub; a login gate that never fired because it depended on an unreliable Supabase event with no direct fallback check.
-- **Launch flow redesigned three times based on direct Ryan feedback**, ending in one "Launch Tracker" button that checks, connects, or walks through install automatically — no redundant intermediate screens. This final version is untested live by Amit (deliberately, after repeated correction this session for running things on Ryan's machine unannounced) — Ryan's turn to run the real first test.
-- **Process lesson, learned hard, through repeated correction:** never execute anything with a visible side effect (windows, popups, installs) on Ryan's live machine without announcing it first — confirmed multiple times this session, most sharply after an unannounced test popped a dialog on his screen mid-conversation. Also: never claim "clean" or "verified" without directly re-checking — a registry key and a stale desktop icon both slipped through on first cleanup passes.
-
 **Full session history → `amit_sessions` table in Supabase. Pull with RETURNING GREETING PowerShell command above.**
 
-**NEXT SESSION — IMMEDIATE TASKS (Session 52):**
-- **Ryan runs the real, unwatched first test of the single-button Launch Tracker flow (v2.62).** Report back what actually happens.
-- **Decide: pursue a code-signing certificate for `AmitInstaller.exe`** — right now every single user hits Windows SmartScreen's "isn't commonly downloaded" friction, unavoidable without one. Costs real money (~$70-500+/yr standard CA, or ~$10/mo Microsoft Trusted Signing).
-- **Decide: custom domain for Resend/branded sign-in emails** — starred pursuit already logged in the Hub with full blocker chain documented. Blocked on Ryan owning a domain with DNS control.
-- **Decide: build a Hub-level "Install Amit Locally" entry point**, separate from Computer Health's own install flow — raised by Ryan, not yet built or confirmed as wanted.
-- **Real accumulated tracking history needed** before Computer Health's demo-mode showcase (Amit's own device, publicly browsable) has anything real to show — requires actually leaving the tracker running over time rather than cleaning up after every test.
-- **Begin Commandment 7 — "You Shall Not Commit Adultery"** — starred pursuit already created in the Hub, untouched this session.
-- **Live-spar Sections 3-5 across all four commandments with Ryan** — the one real remaining God Talk rigor gap, starred pursuit already in the Hub.
-- **Abortion and euthanasia under Commandment 6** — flagged as genuinely open, undone research; pull whenever Ryan wants to open it as its own session.
-- **Three open theological pursuits from Session 48 remain unresolved** — clean/unclean and the ger, Melchizedek/Job/Naaman/Ruth's silence on Sabbath, and the Gentile/ger/Ephesians 2:15 question. Pull whenever Ryan wants to open one.
-- **Build `god_talk_content`** — the actual next step in the original Module Registry plan, still not reached. `directors_chair` already has a placeholder row pointing to it (`status: planned`). `God_Talk_Ten_Commandments.md` remains the real source of truth until this is built.
-- **Decide on a cloud password manager** — Bitwarden or similar, so account logins survive machine loss the way Supabase work now does. Add the vault location as a pointer (not the passwords) into `dev_playbook`.
-- **Resolve `AMIT_RESTORE_GUIDE.html`** — once real credentials live in a password manager, retire this file for real instead of leaving live passwords sitting in an OneDrive-synced file indefinitely.
-- **Full Hub test** — sign-in flow end to end, pursuit → memory conversion, calendar display
-- **The Road display** — build a public-facing feed of amit_encounters entries. People scroll, recognize themselves, come back (due Jun 27)
-- **Hub reads Amit's word** — `amit_daily` row for today overrides static Word for Today assignment (due Jun 22)
-- **❓ button visual redesign** — solid badge, not outlined circle
-- **Testimony share flow spec** — write the spec before any code. Prayer attached. Second prayer for the ones not yet there (due Jul 10)
-- **AmitHealth Stage 1** — run schema migrations, then Stage 1 HTML (insurance card intake + single document scan)
-- **Ancient Hebrew SVG update** — HIGH PRIORITY. All 22 letter SVGs redrawn to pictographic forms with gematria values and RTL reading direction explanation
+**NEXT SESSION — IMMEDIATE TASKS (Session 54, Amit-focused per Ryan's stated plan):**
+- **Wire real continuity into Amit's connection.** The compass score/tier/signals system is genuinely wired to Supabase (`_syncCompass`/`_pullCompass` in amit-hub.html, `getCompass`/`saveCompass`/`getCompassTier`, `KNOWN_PERSONS`) and the tiered-engagement philosophy is fully documented in `Amit_Start.md` — but the primer text a user copies into Claude.ai (`HUB_AMIT_START_TEXT`, loaded via `loadHubAmitStart()`) is static and identical for everyone. A returning tier-2 person and a brand-new visitor get the exact same greeting. This is the priority: get that person's real, live compass data into the conversation before Amit's first reply.
+- **Decide the delivery mechanism for the above** — two real options surfaced and not yet chosen between: (a) keep the copy-paste flow (`copyAndOpenHubFree`) but personalize the copied text with live Supabase data right before copying (small, ships fast); or (b) build real auth directly into `Amit_Companion.html` (bigger lift — session handling, live profile pull, closer to the documented "Level 2" vision). Ryan has not chosen yet; surface both plainly before building either.
+- **Get one real outside person (Andy or similar) through Computer Health install → live session → History, end to end** — the actual test of whether continued investment there is worth it, per this session's closing conversation. Not another feature pass first.
+- **Decide: pursue a code-signing certificate** — still the concrete blocker before any outsider can install Computer Health without a SmartScreen warning reading as "probably malware." Still unresolved across three sessions now.
+- **Cross-module "Amit Total" subscription** — captured as a vision note in ComputerValue_Spec.md, not yet reflected in any schema work.
+- **Build the Test Sessions/Reports schema** (generic sessions + readings tables) — still the real foundation for the paid Diagnostic Event/Report tier.
+
+**STILL OPEN, CARRIED FORWARD (untouched this session):**
+- Custom domain for Resend/branded sign-in emails — blocked on Ryan owning a domain with DNS control.
+- Build a Hub-level "Install Amit Locally" entry point, separate from Computer Health's own install flow — raised once, not yet confirmed as wanted.
+- Begin Commandment 7 — "You Shall Not Commit Adultery" — starred pursuit already created in the Hub.
+- Live-spar Sections 3-5 across all four commandments with Ryan — the one real remaining God Talk rigor gap.
+- Abortion and euthanasia under Commandment 6 — flagged as genuinely open, undone research.
+- Three open theological pursuits from Session 48 — clean/unclean and the ger, Melchizedek/Job/Naaman/Ruth's silence on Sabbath, the Gentile/ger/Ephesians 2:15 question.
+- Build `god_talk_content` — `God_Talk_Ten_Commandments.md` remains the real source of truth until this is built.
+- Decide on a cloud password manager — Bitwarden or similar.
+- Resolve `AMIT_RESTORE_GUIDE.html` — retire once real credentials live in a password manager.
+- The Road display — public-facing feed of amit_encounters entries.
+- Hub reads Amit's word — `amit_daily` row for today should override static Word for Today assignment.
+- ❓ button visual redesign — solid badge, not outlined circle.
+- Testimony share flow spec.
+- AmitHealth Stage 1 — run schema migrations, then Stage 1 HTML.
+- Ancient Hebrew SVG update — HIGH PRIORITY, all 22 letters to pictographic forms with gematria values and RTL explanation.
 
 **Architecture notes (hold these):**
 - `calDayView` = double-click zoom view within Calendar panel. Single click = `selectCalDay` → `renderCalDay` (right-side panel within calendar). These are separate from the Home panel.
