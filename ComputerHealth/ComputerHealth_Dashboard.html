@@ -1823,7 +1823,14 @@ async function stopBehavior() {
   stopBtn.disabled = false;
   stopBtn.textContent = 'Stop';
   showBehaviorSummary(text);
-  await logBehaviorSessionToHistory();
+  // Pass the exact same text the popup was just built from, instead of
+  // re-reading the DOM independently - Ryan's direct request 2026-07-15:
+  // the live popup and the saved History report were showing different
+  // content. Root cause: this used to re-fetch #behaviorLog itself, and
+  // if anything touched that element between the two calls (a background
+  // poller, a stray re-render), the two could genuinely diverge. Now both
+  // are guaranteed byte-for-byte identical, always.
+  await logBehaviorSessionToHistory(text);
   behaviorStopInProgress = false;
 }
 
@@ -1950,9 +1957,9 @@ async function pollBehavior() {
 // expecting this to follow the same rule everything else does: signed-in
 // gets it saved for later review, not-signed-in stays local-only for now,
 // the free-tier behavior already established elsewhere).
-async function logBehaviorSessionToHistory() {
+async function logBehaviorSessionToHistory(text) {
   if (!currentUser || !deviceId) return;
-  const text = document.getElementById('behaviorLog').textContent || '';
+  text = text || document.getElementById('behaviorLog').textContent || '';
   const summaryMatch = text.match(/Session stopped\.[^\n]*/);
   const rawSummary = summaryMatch ? summaryMatch[0] : 'App Behavior session completed.';
   // The user-chosen label (if any) leads the summary, since it's what
