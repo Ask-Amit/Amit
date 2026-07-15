@@ -1159,8 +1159,20 @@ async function loadHistory() {
   if (!currentUser) { list.innerHTML = '<em style="color:#8a8f99">Sign in to load history.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
   const targetId = viewingDeviceId || deviceId;
   if (!targetId) { list.innerHTML = '<em style="color:#8a8f99">No computer selected.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
-  const { data, error } = await db.from('amit_device_events').select('*').eq('device_id', targetId).order('created_at', { ascending: false }).limit(100);
+  let { data, error } = await db.from('amit_device_events').select('*').eq('device_id', targetId).order('created_at', { ascending: false }).limit(100);
   if (error) { list.innerHTML = '<em>Error loading history: ' + error.message + '</em>'; return; }
+  // Self-healing hard ceiling - Ryan's direct request 2026-07-15: "if
+  // we're only able to capture ten, then there should only be ten
+  // showing," full stop. The old logic only ever trimmed right before a
+  // NEW insert, which is racy (two near-simultaneous logs can both slip
+  // through before either trims) and does nothing to fix an overage that
+  // already exists. This actively enforces the cap on every load,
+  // regardless of how the extra rows got there.
+  if (data && data.length > FREE_TIER_HISTORY_CAP) {
+    const excess = data.slice(FREE_TIER_HISTORY_CAP); // oldest-first tail, since data is newest-first
+    await db.from('amit_device_events').delete().in('id', excess.map(e => e.id));
+    data = data.slice(0, FREE_TIER_HISTORY_CAP);
+  }
   if (capNotice) capNotice.classList.toggle('hidden', !data || data.length < FREE_TIER_HISTORY_CAP);
   if (!data || data.length === 0) { list.innerHTML = '<em style="color:#8a8f99">No events logged yet for this device.</em>'; return; }
   // Kept on a global so the click handler below can look an entry back up
@@ -1229,10 +1241,22 @@ async function confirmDeleteHistoryEntry() {
   const btn = document.getElementById('historyDeleteConfirmBtn');
   btn.disabled = true;
   btn.textContent = 'Deleting...';
-  await db.from('amit_device_events').delete().eq('id', historyPendingDeleteId);
+  // The previous version never checked for an error here at all - it
+  // silently did nothing if the delete was rejected, which is exactly
+  // what Ryan saw (2026-07-15): popup confirms, click Delete, nothing
+  // happens, no explanation why. Almost certainly a missing database
+  // permission rule (Row Level Security has no DELETE policy on this
+  // table yet - only SELECT/INSERT were ever needed before today), not a
+  // bug in this code, but now it says so instead of failing silently.
+  const { error } = await db.from('amit_device_events').delete().eq('id', historyPendingDeleteId);
   historyPendingDeleteId = null;
   btn.disabled = false;
   btn.textContent = 'Delete';
+  if (error) {
+    document.getElementById('historyDeleteModal').classList.add('hidden');
+    alert('Could not delete this entry: ' + error.message + '\n\nThis is likely a database permission setting that needs to be added (see Amit for the fix), not something wrong with what you did.');
+    return;
+  }
   document.getElementById('historyDeleteModal').classList.add('hidden');
   await loadHistory();
 }
