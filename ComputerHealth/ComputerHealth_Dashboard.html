@@ -33,28 +33,22 @@
      real bug caught live 2026-07-15 (Ryan): padding left the border
      spanning the full browser width while the panel below it was inset,
      so the line stuck out past both of the panel's rounded corners. */
-  /* A single line runs across the very top of the whole tab bar - Ryan's
-     direct request 2026-07-15: background tabs sit recessed below that
-     line (it passes in front of their tops, making them read as "behind"),
-     while the active tab has no top margin of its own and rises flush to
-     meet it - no line crosses over the one actually in focus. All buttons
-     stay aligned to the bottom of the row (align-items:flex-end) so only
-     their top edges differ in height, not where they meet the panel below. */
-  nav { display:flex; align-items:flex-end; gap:6px; margin:0 24px; padding:0; background:#12141a; border-top:1px solid #3a3f4c; border-bottom:1px solid #3a3f4c; }
-  nav button { padding:12px 24px; margin-top:8px; border:1px solid #3a3f4c; border-top:none; border-bottom:none; background:#14161d; color:#9aa0ab; border-radius:10px 10px 0 0; cursor:pointer; font-size:14px; position:relative; top:1px; }
-  /* top:0 here matters as much as the negative margin - the base "nav
-     button" rule above sets position:relative;top:1px on every button
-     (inactive and active alike), which was silently cancelling out the
-     margin-top:-1px I tried first (-1 margin + 1 relative offset = net
-     zero movement, caught live 2026-07-15 when Performance still showed
-     the line despite the "fix"). Overriding top back to 0 here removes
-     that inherited downward nudge so the negative margin actually lands. */
-  nav button.active { margin-top:-1px; top:0; background:#1c1f28; color:#d4af37; font-weight:600; border-bottom:1px solid #1c1f28; }
-  /* Performance is always the first/leftmost tab and always will be - its
-     top-left corner has nothing to its left to round away from, so a
-     rounded corner there just reads as a stray overlap against the bar's
-     own edge (Ryan, 2026-07-15). Square on that one corner only. */
-  nav button:first-child { border-radius:0 10px 0 0; }
+  /* Real folder-tab construction, redone properly 2026-07-15 after two
+     failed attempts fighting a shared border between nav and main across
+     an element boundary. The fix: nav no longer owns a border-bottom at
+     all. Each INACTIVE button owns its own complete box (top+left+right+
+     bottom border) so it reads as a separate tile sitting apart from the
+     panel. The ACTIVE button has no bottom border and is pulled down
+     -1px with margin-bottom so its background paints directly over
+     main's own top border line at that exact span - no seam, no visible
+     divider, it reads as literally the same continuous shape as the
+     panel below it. Each button still gets its own top border (not a
+     shared bar-wide line) - a background tab's top border is what makes
+     it read as "boxed off," which a shared line couldn't do cleanly
+     once the active tab stopped participating in it. */
+  nav { display:flex; align-items:flex-end; gap:6px; margin:0 24px; padding:0; background:#12141a; }
+  nav button { padding:12px 24px; margin-top:8px; border:1px solid #3a3f4c; background:#14161d; color:#9aa0ab; border-radius:10px 10px 0 0; cursor:pointer; font-size:14px; }
+  nav button.active { margin-top:-1px; margin-bottom:-1px; border-bottom:none; background:#1c1f28; color:#d4af37; font-weight:600; }
   /* flex:1 fills whatever height is left after header/login/device bar/nav;
      min-height:0 is required here or a flex child silently refuses to
      shrink below its content size and overflow-y just never kicks in -
@@ -67,7 +61,10 @@
      corners) was left square with no border at all. The active nav
      button's own bottom-border-matches-panel-background trick still
      covers just its own span, so the seamless-merge illusion holds. */
-  main { flex:1; min-height:0; overflow-y:auto; padding:28px 32px; margin:0 24px 24px; background:#1c1f28; border:1px solid #3a3f4c; border-radius:12px; }
+  /* Top-left square, not rounded - the panel's own left edge sits
+     directly under the leftmost tab always, since main never moves
+     regardless of which tab is active (Ryan, 2026-07-15). */
+  main { flex:1; min-height:0; overflow-y:auto; padding:28px 32px; margin:0 24px 24px; background:#1c1f28; border:1px solid #3a3f4c; border-radius:0 12px 12px 12px; }
   .tab { display:none; }
   .tab.active { display:block; }
   .card-row { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
