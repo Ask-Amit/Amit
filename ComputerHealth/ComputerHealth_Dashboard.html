@@ -42,12 +42,19 @@
      their top edges differ in height, not where they meet the panel below. */
   nav { display:flex; align-items:flex-end; gap:6px; margin:0 24px; padding:0; background:#12141a; border-top:1px solid #3a3f4c; border-bottom:1px solid #3a3f4c; }
   nav button { padding:12px 24px; margin-top:8px; border:1px solid #3a3f4c; border-top:none; border-bottom:none; background:#14161d; color:#9aa0ab; border-radius:10px 10px 0 0; cursor:pointer; font-size:14px; position:relative; top:1px; }
-  /* -1px, not 0 - margin:0 only brought the button flush BELOW nav's own
-     top border line, which still left that line visible above the active
-     tab too (caught live 2026-07-15, History still showed it). The button
-     needs to shift up by the border's own thickness to actually paint
-     over it, not just sit adjacent to it. */
-  nav button.active { margin-top:-1px; background:#1c1f28; color:#d4af37; font-weight:600; border-bottom:1px solid #1c1f28; }
+  /* top:0 here matters as much as the negative margin - the base "nav
+     button" rule above sets position:relative;top:1px on every button
+     (inactive and active alike), which was silently cancelling out the
+     margin-top:-1px I tried first (-1 margin + 1 relative offset = net
+     zero movement, caught live 2026-07-15 when Performance still showed
+     the line despite the "fix"). Overriding top back to 0 here removes
+     that inherited downward nudge so the negative margin actually lands. */
+  nav button.active { margin-top:-1px; top:0; background:#1c1f28; color:#d4af37; font-weight:600; border-bottom:1px solid #1c1f28; }
+  /* Performance is always the first/leftmost tab and always will be - its
+     top-left corner has nothing to its left to round away from, so a
+     rounded corner there just reads as a stray overlap against the bar's
+     own edge (Ryan, 2026-07-15). Square on that one corner only. */
+  nav button:first-child { border-radius:0 10px 0 0; }
   /* flex:1 fills whatever height is left after header/login/device bar/nav;
      min-height:0 is required here or a flex child silently refuses to
      shrink below its content size and overflow-y just never kicks in -
