@@ -6,7 +6,14 @@
 <link rel="icon" type="image/png" href="../amit_icon.png">
 <style>
   :root { color-scheme: dark; }
-  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:#12141a; color:#e8e8ec; margin:0; padding:0; }
+  /* App-shell layout, not a page that grows/shrinks per tab - Ryan's
+     direct request 2026-07-15: the panel should always fill the available
+     screen height consistently, whichever tab is active, with only the
+     content INSIDE it scrolling - not the whole page. header/login/device
+     bar/nav stay fixed at their natural height; main is the one flexible
+     region that takes up the rest of the viewport and scrolls internally. */
+  html, body { height:100%; }
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:#12141a; color:#e8e8ec; margin:0; padding:0; display:flex; flex-direction:column; overflow:hidden; }
   header { background:#1c1f28; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2a2e3a; }
   header h1 { font-size:20px; margin:0; color:#d4af37; }
   header .device { font-size:13px; color:#9aa0ab; }
@@ -29,7 +36,12 @@
   nav { display:flex; gap:6px; margin:0 24px; padding:18px 0 0; background:#12141a; border-bottom:1px solid #3a3f4c; }
   nav button { padding:12px 24px; border:1px solid #3a3f4c; border-bottom:none; background:#14161d; color:#9aa0ab; border-radius:10px 10px 0 0; cursor:pointer; font-size:14px; position:relative; top:1px; }
   nav button.active { background:#1c1f28; color:#d4af37; font-weight:600; border-bottom:1px solid #1c1f28; }
-  main { padding:28px 32px; margin:0 24px 24px; background:#1c1f28; border:1px solid #3a3f4c; border-top:none; border-radius:0 0 12px 12px; }
+  /* flex:1 fills whatever height is left after header/login/device bar/nav;
+     min-height:0 is required here or a flex child silently refuses to
+     shrink below its content size and overflow-y just never kicks in -
+     the single most common reason this exact layout looks like it's not
+     working the first time it's tried. */
+  main { flex:1; min-height:0; overflow-y:auto; padding:28px 32px; margin:0 24px 24px; background:#1c1f28; border:1px solid #3a3f4c; border-top:none; border-radius:0 0 12px 12px; }
   .tab { display:none; }
   .tab.active { display:block; }
   .card-row { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
