@@ -324,7 +324,7 @@
 </div>
 
 <nav>
-  <button class="active" onclick="showTab('overview')">Overview</button>
+  <button class="active" onclick="showTab('overview')">Performance</button>
   <button onclick="showTab('resource')">Resources</button>
   <button onclick="showTab('hardware')">Hardware</button>
   <button onclick="showTab('diagnostics')">Diagnostics</button>
@@ -345,6 +345,7 @@
     </div>
     <div class="section-title">Right now, in plain language</div>
     <div class="card-row" id="overviewCards"></div>
+    <div class="card-row" id="overviewDiagCards"></div>
     <div class="card-row" id="overviewBrowserCards"></div>
     <div class="section-title">Recent flags</div>
     <div id="overviewFindings"><em style="color:#8a8f99">Nothing flagged yet.</em></div>
@@ -1493,7 +1494,7 @@ async function pollDiagnostics() {
       const disk = last.match(/DISK:(\d+\.?\d*)%/);
       const dpcPct = dpc ? parseFloat(dpc[1]) : null;
       const diskPct = disk ? parseFloat(disk[1]) : null;
-      document.getElementById('diagCards').innerHTML = `
+      const diagCardsHtml = `
         <div class="card ${verdictClass(dpcPct,3,8)}">
           <div class="label">Input Lag Risk (DPC time)</div>
           <div class="value">${dpcPct !== null ? dpcPct+'%' : '—'}</div>
@@ -1508,6 +1509,12 @@ async function pollDiagnostics() {
             'Disk is not a bottleneck right now.',
             'Disk is busy — normal during file operations.',
             'Disk is maxed out — this alone can make everything feel frozen.')}</div></div>`;
+      // Same two cards also shown on the renamed "Performance" (Overview)
+      // tab - Ryan's direct request 2026-07-15: input lag and disk activity
+      // are performance signals just as much as RAM/CPU are, they belong on
+      // the one tab that answers "how well is this computer doing right now."
+      document.getElementById('diagCards').innerHTML = diagCardsHtml;
+      document.getElementById('overviewDiagCards').innerHTML = diagCardsHtml;
     }
   } catch (e) {}
 }
