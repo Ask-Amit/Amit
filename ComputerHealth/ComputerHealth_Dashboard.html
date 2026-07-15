@@ -1841,6 +1841,26 @@ async function stopBehavior() {
 // the History detail view so a session looks the same whether you see it
 // the moment it ends or come back to it later - Ryan's direct request:
 // "make sure that pop up shows up even though it's in the history."
+// Fallback for when the watcher never reached its own "SESSION SUMMARY"
+// line (session stopped abnormally, script killed mid-run, etc.) - Ryan's
+// direct request 2026-07-15, after seeing "unknown duration" on a session
+// where the raw log clearly had a first and last timestamp to work from
+// instead of just giving up. Scales the output the same way the PS1
+// script's own elapsed-time formatter does (seconds -> minutes -> hours).
+function computeDurationFromLog(text) {
+  const times = [...text.matchAll(/^(\d{2}):(\d{2}):(\d{2})\.(\d+)/gm)];
+  if (times.length < 2) return null;
+  const toMs = m => ((+m[1] * 3600 + +m[2] * 60 + +m[3]) * 1000) + +m[4];
+  let diffSec = Math.round((toMs(times[times.length - 1]) - toMs(times[0])) / 1000);
+  if (diffSec < 0) diffSec += 86400; // crossed midnight
+  const h = Math.floor(diffSec / 3600), m = Math.floor((diffSec % 3600) / 60), s = diffSec % 60;
+  const parts = [];
+  if (h > 0) parts.push(`${h} hour${h !== 1 ? 's' : ''}`);
+  if (h > 0 || m > 0) parts.push(`${m} minute${m !== 1 ? 's' : ''}`);
+  parts.push(`${s} second${s !== 1 ? 's' : ''}`);
+  return parts.join(' ');
+}
+
 function renderBehaviorReport(text) {
   const esc = s => (s || '').replace(/</g, '&lt;');
   const allLines = text.split('\n');
@@ -1848,7 +1868,7 @@ function renderBehaviorReport(text) {
   const summaryLines = (idx >= 0 ? allLines.slice(idx) : []).filter(l => l.trim());
   const header = summaryLines[0] || '';
   const durationMatch = header.match(/for (.+)$/);
-  const duration = durationMatch ? durationMatch[1] : 'unknown duration';
+  const duration = durationMatch ? durationMatch[1] : (computeDurationFromLog(text) || 'unknown duration');
   const watchedMatch = header.match(/watched '(.+)' for/);
   const watched = watchedMatch ? watchedMatch[1] : '';
 
@@ -1949,7 +1969,7 @@ async function logBehaviorSessionToHistory() {
   // itself, not just inside the detail popup, so a 10-second test and a
   // 3-minute test are distinguishable at a glance without opening either.
   const durationMatch = text.match(/SESSION SUMMARY.*?for (.+)$/m);
-  const duration = durationMatch ? durationMatch[1].trim() : null;
+  const duration = durationMatch ? durationMatch[1].trim() : computeDurationFromLog(text);
   // The actual program identified as the main thing that ran this session
   // (not the expected-Windows noise around it) - Ryan's direct request
   // 2026-07-15: "you would have placed Edge browser because that's the
