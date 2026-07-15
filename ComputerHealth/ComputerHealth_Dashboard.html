@@ -765,13 +765,26 @@ function categorizeHardware(device) {
   const t = text.toLowerCase();
   const groups = (typeof device === 'string') ? [] : getTopLevelGroupNames(device);
 
-  if (groups.includes('timings')) return { key: 'ram', label: '🧩 Memory (RAM)' };
-  if (groups.some(g => g === 'data' || g === 'levels' || g === 'factors')) return { key: 'storage', label: '💽 Storage' };
-
-  if (/(asus|msi|gigabyte|asrock|biostar|ms-\d)/.test(t) && !/geforce|radeon/.test(t)) return { key: 'motherboard', label: '🖥️ Motherboard' };
+  // Name-based checks come FIRST, in order of confidence - a device's brand/
+  // model name is unambiguous once matched. Real bug caught live 2026-07-14
+  // (Ryan): the structural "Data/Levels/Factors group" heuristic below,
+  // meant to catch storage drives, used to run before these checks - but
+  // GPUs and network adapters also report their own "Data" group (data
+  // transferred/uploaded/downloaded), so an RTX 3070 and an Ethernet
+  // adapter were both getting trapped into Storage before the code ever
+  // reached the line that would have correctly recognized them by name.
   if (/(ryzen|intel core|celeron|pentium|xeon)/.test(t)) return { key: 'cpu', label: '⚙️ Processor (CPU)' };
   if (/(geforce|radeon|nvidia|quadro|rtx|gtx)/.test(t)) return { key: 'gpu', label: '🎮 Graphics Card (GPU)' };
-  if (t === 'virtual memory') return { key: 'virtualmemory', label: '💾 Virtual Memory' };
+  if (/(ethernet|wi-?fi|wireless|network)/.test(t)) return { key: 'network', label: '🌐 Network' };
+  if (/(asus|msi|gigabyte|asrock|biostar|ms-\d)/.test(t) && !/geforce|radeon/.test(t)) return { key: 'motherboard', label: '🖥️ Motherboard' };
+  // Merged into the RAM category as its own sub-tab, not a separate
+  // top-level button - Ryan's direct request 2026-07-15: a third button
+  // next to "Memory (RAM)" read as duplicate/confusing, the same problem
+  // already solved once for System Memory vs. Memory (RAM). Still
+  // technically distinct under the hood (virtual memory includes
+  // disk-backed paging space, not just physical RAM), but that distinction
+  // doesn't need its own top-level category to be honest about it.
+  if (t === 'virtual memory') return { key: 'ram', label: '💾 Virtual Memory', isAggregate: true };
   // "System Memory" (aggregate live usage) and "Memory (RAM)" (each physical
   // stick's static specs) are both just RAM shown two different ways - they
   // were separate top-level tabs before, which read as "aren't these the
@@ -779,8 +792,14 @@ function categorizeHardware(device) {
   // device gets its own labeled sub-tab instead of a confusing second button.
   if (t === 'total memory' || t === 'generic memory' || t === 'physical memory') return { key: 'ram', label: '🧩 Memory (RAM)', isAggregate: true };
   if (/(ssd|nvme|hdd|hard disk)/.test(t)) return { key: 'storage', label: '💽 Storage' };
-  if (/(ethernet|wi-?fi|wireless|network)/.test(t)) return { key: 'network', label: '🌐 Network' };
   if (/(g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d)/.test(t)) return { key: 'ram', label: '🧩 Memory (RAM)' };
+
+  // Structural fallbacks only for devices a name match couldn't identify -
+  // these are genuinely ambiguous (e.g. a generic/unbranded drive), not a
+  // first resort.
+  if (groups.includes('timings')) return { key: 'ram', label: '🧩 Memory (RAM)' };
+  if (groups.some(g => g === 'data' || g === 'levels' || g === 'factors')) return { key: 'storage', label: '💽 Storage' };
+
   return { key: 'other:' + text, label: '🔧 ' + text };
 }
 
@@ -911,8 +930,12 @@ function renderHardwareInstanceNav(categoriesArg) {
       // The aggregate "Total Memory" device gets its own clear label instead
       // of a number, so it reads as "the overview" rather than looking like
       // just another interchangeable stick.
+      // Each aggregate-style device (Total Memory, Virtual Memory) gets its
+      // own real label now, not a shared generic "Overview" - two devices
+      // both flagged isAggregate in the same category would otherwise
+      // render as two identical, indistinguishable buttons.
       const label = categorizeHardware(d).isAggregate
-        ? 'Overview'
+        ? categorizeHardware(d).label.replace(/^\S+\s/, '')
         : `${group.label.replace(/^\S+\s/, '')} ${++stickCount}`;
       return `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" data-device-text="${escaped}" onclick="selectHardwareInstance(this.dataset.deviceText)">${label}</button>`;
     }).join('');
