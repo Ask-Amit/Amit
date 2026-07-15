@@ -1804,18 +1804,23 @@ async function stopBehavior() {
   stopBtn.textContent = 'Stopping - analyzing session...';
   fetch(BRIDGE + '/api/stop-behavior', { method:'POST' });
 
-  // The watcher's own final summary (full hardware sweep + a bounded
-  // Windows Event Log check, each capped at a few seconds server-side) can
-  // genuinely take up to ~25 seconds end-to-end on a slower system -
-  // confirmed live 2026-07-14 this was cut off too early before, leaving
-  // History with generic fallback text instead of the real summary.
-  // Widened to match the real worst case instead of guessing low again.
+  // 25 seconds was still too short - confirmed live 2026-07-15: the
+  // watcher's own loop only checks the stop flag once per ~5-9 second
+  // iteration, and a slow iteration (network scan, Event Log job, LHM
+  // response) can legitimately push total stop time well past 25s. When
+  // that happened, this gave up and saved/showed an incomplete snapshot
+  // even though the REAL, full summary was still being written seconds
+  // later - not lost, just arrived after this had already stopped
+  // waiting for it. Widened to a real 90-second ceiling, with visible
+  // status past the point where it's clearly taking a while, so it never
+  // again looks frozen or silently locks in a premature report.
   let waited = 0;
   let text = '';
-  while (waited < 25000) {
+  while (waited < 90000) {
     await pollBehavior();
     text = document.getElementById('behaviorLog').textContent || '';
     if (text.includes('Session stopped.')) break;
+    if (waited >= 25000) { stopBtn.textContent = `Still finishing... (${Math.round(waited/1000)}s)`; }
     await new Promise(r => setTimeout(r, 1000));
     waited += 1000;
   }
