@@ -160,6 +160,12 @@
   .tier-table td { padding:8px 10px; border-bottom:1px solid #22252e; color:#c7cad1; }
   .tier-table td.yes { color:#4caf6d; font-weight:700; text-align:center; }
   .tier-table td.no { color:#6a6f79; text-align:center; }
+  /* Bottom-of-tab Current/Future buttons - Ryan's direct request
+     2026-07-15: an honest, always-visible working list of what each tab
+     actually captures right now vs. what's sitting captured-but-unused or
+     genuinely not built yet, so nothing gets silently forgotten the way
+     the five unused Diagnostics signals were before tonight. */
+  .capture-info-row { display:flex; gap:10px; margin-top:24px; padding-top:16px; border-top:1px solid #2a2e3a; }
   .hw-device-nav { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 18px; }
   .hw-device-btn { background:#262a36; border:1px solid #3a3f4c; color:#c7cad1; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
   .hw-device-btn.active { background:#d4af37; color:#12141a; border-color:#d4af37; }
@@ -296,6 +302,16 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="captureInfoModal">
+  <div class="overlay-card" style="max-width:560px;max-height:80vh;overflow-y:auto">
+    <h2 id="captureInfoTitle">Currently Captured</h2>
+    <div id="captureInfoBody"></div>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('captureInfoModal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="historyDetailModal">
   <div class="overlay-card" style="max-width:640px;max-height:80vh;overflow-y:auto">
     <h2 id="historyDetailTitle">Event</h2>
@@ -402,6 +418,10 @@
     <div class="card-row" id="overviewBrowserCards"></div>
     <div class="section-title">Recent flags</div>
     <div id="overviewFindings"><em style="color:#8a8f99">Nothing flagged yet.</em></div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('overview','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('overview','future')">＋ Future</button>
+    </div>
   </div>
 
   <div class="tab" id="tab-resource">
@@ -410,6 +430,10 @@
          shown twice a tab apart added nothing. -->
     <div class="section-title">Raw log (last 20 lines)</div>
     <div class="log-box" id="resourceLog">Waiting for data...</div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('resource','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('resource','future')">＋ Future</button>
+    </div>
   </div>
 
   <div class="tab" id="tab-hardware">
@@ -421,6 +445,10 @@
     <div id="hardwareCategoryNav" class="hw-device-nav"></div>
     <div id="hardwareInstanceNav" class="hw-device-nav hidden"></div>
     <div id="hardwareTree"><em style="color:#8a8f99">Waiting for data...</em></div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('hardware','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('hardware','future')">＋ Future</button>
+    </div>
   </div>
 
   <div class="tab" id="tab-diagnostics">
@@ -428,6 +456,10 @@
     <div class="card-row" id="diagCards"></div>
     <div class="section-title">Raw log (last 30 lines)</div>
     <div class="log-box" id="diagLog">Waiting for data...</div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('diagnostics','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('diagnostics','future')">＋ Future</button>
+    </div>
   </div>
 
   <div class="tab" id="tab-behavior">
@@ -444,6 +476,10 @@
     <p style="font-size:13px;color:#9aa0ab">File writes are time-correlated (not proven per-process) — network connections are exactly attributed. Auto-detect can pick up more than one program (e.g. VS Code launching git alongside it) - the session name above is what lets you tell what a past session actually was when you come back to History later, since the auto-detected process names alone won't mean much on their own.</p>
     <div id="behaviorSessionLabelDisplay" class="hidden" style="font-weight:600;color:#d4af37;margin-bottom:6px"></div>
     <div class="log-box" id="behaviorLog">No session running.</div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('behavior','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('behavior','future')">＋ Future</button>
+    </div>
   </div>
 
   <div class="tab" id="tab-install">
@@ -453,12 +489,20 @@
       <button class="btn secondary" onclick="installCompare()">2. Compare Now (after install finishes)</button>
     </div>
     <div id="installResult"><em style="color:#8a8f99">No comparison run yet.</em></div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('install','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('install','future')">＋ Future</button>
+    </div>
   </div>
 
   <div class="tab" id="tab-browser">
     <div class="section-title">Browser — condensed</div>
     <p style="font-size:13px;color:#9aa0ab">A browser doesn't run one process per tab — it runs one per tab, plus one per extension (even sitting idle), plus GPU/network/utility helpers shared across everything. A high process count usually means extensions, not open tabs.</p>
     <div id="browserCards"></div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('browser','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('browser','future')">＋ Future</button>
+    </div>
   </div>
 
   <div class="tab" id="tab-history">
@@ -466,6 +510,10 @@
     <p id="historyIntro" style="font-size:13px;color:#9aa0ab">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
     <div id="historyCapNotice" class="hidden" style="background:#2a2410;border:1px solid #e0a72e;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:13px;color:#e0c477">On the free plan, only your last 10 events are kept - older ones roll off as new ones come in. <strong>Upgrade to Pro</strong> for complete, unlimited history.</div>
     <div id="historyList"><em style="color:#8a8f99">Sign in to load history.</em></div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('history','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('history','future')">＋ Future</button>
+    </div>
   </div>
 
 </main>
@@ -1181,6 +1229,59 @@ function renderHistoryTable() {
 // should pull up exactly what that run actually found, the same way each
 // feature already showed its own results live before it got tucked away
 // into History.
+// Honest, per-tab record of what's actually captured right now vs. what's
+// sitting captured-but-unused or genuinely not built - Ryan's direct
+// request 2026-07-15, after realizing five Diagnostics signals had been
+// captured silently for a while with no display anywhere. Kept here as
+// data, not scattered comments, so it can't drift out of sync with the
+// actual code the way tribal knowledge does - update this object when a
+// "future" item gets built, don't leave it stale.
+const TAB_CAPTURE_INFO = {
+  overview: {
+    current: ['RAM usage %', 'CPU usage %', 'Input Lag Risk (DPC time)', 'Disk Activity %', 'Browser memory (all browsers combined)', 'Recent flags list'],
+    future: ['Interrupt time % (closely related to DPC, currently captured but not shown)', 'Network throughput (KB/sec)', 'Page Faults/sec', 'Paging/sec - probably the single most useful missing signal; a better "needs more RAM" indicator than the RAM % card alone', 'Top 5 CPU-consuming processes as its own item']
+  },
+  resource: {
+    current: ['Full raw sensor dump every 30 seconds: RAM free/total/%, CPU %, top 5 memory-consuming processes, and every temp/voltage/fan/clock/power reading LibreHardwareMonitor exposes'],
+    future: ['Nothing missing here specifically - this is the complete underlying data source everything else reads from. Any gap is in how other tabs surface it, not in what this one captures.']
+  },
+  hardware: {
+    current: ['CPU (all sensors, full history)', 'GPU (all sensors, full history)', 'RAM incl. Virtual Memory sub-tab', 'Storage - each drive separately', 'Motherboard', 'Network adapters'],
+    future: ['Power Supply sensors - only some PSU models report these at all', 'Battery (laptops only) - charge %, health, cycle count', 'Sound/audio, Bluetooth, webcam, USB controllers, optical drive, TPM, RAID controller - these generally aren\'t sensor-trackable through LibreHardwareMonitor at all, so this is less "build it later" and more a real ceiling on what this tool can ever see for those specific components']
+  },
+  diagnostics: {
+    current: ['Input Lag Risk (DPC time)', 'Disk Activity %'],
+    future: ['Interrupt time %', 'Network throughput (KB/sec)', 'Page Faults/sec', 'Paging/sec', 'GPU 3D engine utilization % (may end up redundant with the Hardware tab\'s real GPU load - worth deciding rather than just adding)', 'Top 5 CPU-consuming processes']
+  },
+  behavior: {
+    current: ['Auto-detected process launch + parent/child story ("X started, which opened: Y")', 'Known-Windows-process tagging (dllhost/conhost/svchost etc. marked as expected background activity)', 'Network connections - exactly attributed, with local/external tagging', 'File writes - time-correlated, with VirusTotal hash lookup on flagged files', 'Full per-component hardware sweep (CPU/GPU/RAM/Storage) across the whole session', 'Windows Event Log error/warning check for the session window', 'Plain-language session summary with a flowing narrative lead line'],
+    future: ['DNS/IP reputation lookup on external connections - deliberately deferred, real scope/cost (needs a paid threat-intel API)', 'Process tree beyond one level deep - grandchildren of a detected process aren\'t tracked', 'A "sustained/repeated" flag on file writes the way network connections already get one']
+  },
+  install: {
+    current: ['New programs installed', 'New startup registry entries', 'New scheduled tasks', 'New browser extensions', 'Homepage/search engine changes'],
+    future: ['Nothing significant identified as missing - this one is honestly complete for what it\'s meant to do.']
+  },
+  browser: {
+    current: ['Per-browser total process count', 'Renderer/GPU/utility process breakdown', 'Extension count', 'Total memory used per browser'],
+    future: ['Per-extension name/detail, not just a count', 'Per-tab memory breakdown - harder to get without deeper browser-specific APIs']
+  },
+  history: {
+    current: ['Sortable table: Computer, Date, Description, Duration, Discussion', 'Full report detail on click - identical view whether seen live or reviewed later'],
+    future: ['Combined view across multiple owned devices at once (currently one device at a time)', 'Search/filter within History', 'Export']
+  }
+};
+
+function showCaptureInfo(tabKey, which) {
+  const info = TAB_CAPTURE_INFO[tabKey];
+  if (!info) return;
+  const items = info[which] || [];
+  document.getElementById('captureInfoTitle').textContent = which === 'current' ? '✓ Currently Captured' : '＋ Future — Not Captured Yet';
+  document.getElementById('captureInfoBody').innerHTML = items.length
+    ? '<ul style="margin:6px 0 0 18px;line-height:1.7">' + items.map(i => `<li>${i}</li>`).join('') + '</ul>'
+    : '<em style="color:#8a8f99">Nothing here right now.</em>';
+  document.getElementById('captureInfoModal').classList.remove('hidden');
+}
+
 function openHistoryDetail(i) {
   const e = historyData[i];
   if (!e) return;
