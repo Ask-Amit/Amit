@@ -111,6 +111,8 @@
   .history-table tr:hover td { background:#22252f }
   .history-table .view-link { color:#c9a84c; cursor:pointer; white-space:nowrap }
   .history-table .view-link:hover { text-decoration:underline }
+  .history-table .delete-icon { cursor:pointer; opacity:0.6; font-size:14px }
+  .history-table .delete-icon:hover { opacity:1 }
   table { width:100%; border-collapse:collapse; }
   th, td { text-align:left; padding:8px 10px; font-size:13px; border-bottom:1px solid #2a2e3a; }
   th { color:#9aa0ab; font-weight:600; }
@@ -308,6 +310,17 @@
     <div id="captureInfoBody"></div>
     <div class="actions">
       <button class="btn" onclick="document.getElementById('captureInfoModal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="historyDeleteModal">
+  <div class="overlay-card" style="max-width:440px">
+    <h2>Delete this history entry?</h2>
+    <p style="color:#c7cad1" id="historyDeleteText">This can't be undone.</p>
+    <div class="actions">
+      <button class="btn secondary" onclick="document.getElementById('historyDeleteModal').classList.add('hidden')">Cancel</button>
+      <button class="btn danger" id="historyDeleteConfirmBtn" onclick="confirmDeleteHistoryEntry()">Delete</button>
     </div>
   </div>
 </div>
@@ -1197,6 +1210,33 @@ function durationToSeconds(d) {
   return parseFloat(m[1]) * (m[2] === 'minute' ? 60 : 1);
 }
 
+let historyPendingDeleteId = null;
+
+// Real confirm-before-delete, not an instant destructive click - Ryan's
+// direct request 2026-07-15: a trash icon per row, but with a genuine
+// "you're about to delete this, proceed or cancel" popup in between.
+function promptDeleteHistoryEntry(i) {
+  const e = historyData[i];
+  if (!e) return;
+  historyPendingDeleteId = e.id;
+  document.getElementById('historyDeleteText').textContent =
+    `"${yourTitle(e) !== '—' ? yourTitle(e) : amitTitle(e)}" from ${new Date(e.created_at).toLocaleString()}. This can't be undone.`;
+  document.getElementById('historyDeleteModal').classList.remove('hidden');
+}
+
+async function confirmDeleteHistoryEntry() {
+  if (!historyPendingDeleteId) return;
+  const btn = document.getElementById('historyDeleteConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+  await db.from('amit_device_events').delete().eq('id', historyPendingDeleteId);
+  historyPendingDeleteId = null;
+  btn.disabled = false;
+  btn.textContent = 'Delete';
+  document.getElementById('historyDeleteModal').classList.add('hidden');
+  await loadHistory();
+}
+
 function renderHistoryTable() {
   const list = document.getElementById('historyList');
   const rows = [...historyData].sort((a, b) => {
@@ -1214,6 +1254,8 @@ function renderHistoryTable() {
   const arrow = key => historySortKey === key ? `<span class="sort-arrow">${historySortDir === 1 ? '▲' : '▼'}</span>` : '';
   list.innerHTML = `<table class="history-table">
     <thead><tr>
+      <th>#</th>
+      <th></th>
       <th onclick="sortHistoryBy('computer')">Computer${arrow('computer')}</th>
       <th onclick="sortHistoryBy('created_at')">Date${arrow('created_at')}</th>
       <th onclick="sortHistoryBy('yourTitle')">Your Title${arrow('yourTitle')}</th>
@@ -1223,9 +1265,18 @@ function renderHistoryTable() {
       <th>Report</th>
     </tr></thead>
     <tbody>${rows.map(e => {
+      // Stable number, independent of whatever column the table is
+      // currently sorted by - Ryan's direct request 2026-07-15: "the most
+      // current one is always one" so a person can say "look at #3" and
+      // mean the same entry regardless of how the table is sorted right
+      // now. historyData itself is already fetched newest-first, so its
+      // own index IS that stable rank.
       const i = historyData.indexOf(e);
+      const stableNum = i + 1;
       const sevColor = e.severity==='critical'?'#d05555':e.severity==='warning'?'#e0a72e':'#8a8f99';
       return `<tr>
+        <td style="color:#7a7f89">${stableNum}</td>
+        <td><span class="delete-icon" title="Delete this history entry" onclick="promptDeleteHistoryEntry(${i})">🗑️</span></td>
         <td>${historyComputerName}</td>
         <td>${new Date(e.created_at).toLocaleString()}</td>
         <td><span style="color:${sevColor}">●</span> ${yourTitle(e)}</td>
