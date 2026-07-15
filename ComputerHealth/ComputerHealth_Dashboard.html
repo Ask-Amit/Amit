@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.13</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.14</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -823,7 +823,7 @@ function updateDeviceLabelDisplay() {
 const FREE_TIER_HISTORY_CAP = 10;
 
 async function logEvent(eventType, severity, summary, detail) {
-  if (!currentUser || !deviceId) return;
+  if (!currentUser || !deviceId) return null;
   const { count } = await db.from('amit_device_events').select('id', { count: 'exact', head: true }).eq('device_id', deviceId);
   if (count !== null && count >= FREE_TIER_HISTORY_CAP) {
     const { data: oldest } = await db.from('amit_device_events').select('id').eq('device_id', deviceId).order('created_at', { ascending: true }).limit(count - FREE_TIER_HISTORY_CAP + 1);
@@ -831,10 +831,13 @@ async function logEvent(eventType, severity, summary, detail) {
       await db.from('amit_device_events').delete().in('id', oldest.map(o => o.id));
     }
   }
-  await db.from('amit_device_events').insert({
+  // .select().single() added so the caller gets the new row's real id back -
+  // needed by logBehaviorSessionToHistory to tag this session's aggregated
+  // metric rows with the correct event_id right after this insert completes.
+  const { data: inserted } = await db.from('amit_device_events').insert({
     device_id: deviceId, user_id: currentUser.id, event_type: eventType,
     severity, summary, event_detail: detail
-  });
+  }).select('id').single();
 
   // Proactive warning BEFORE the cap actually bites (Ryan, 2026-07-14) - once
   // this insert brings the total to 8 or 9, show a real popup rather than
@@ -851,6 +854,34 @@ async function logEvent(eventType, severity, summary, detail) {
       document.getElementById('historyCapWarningModal').classList.remove('hidden');
     }
   }
+  return inserted ? inserted.id : null;
+}
+
+// Pulls the aggregated min/max/avg/stddev/count rows app_behavior_watcher.ps1
+// wrote to app_behavior_metrics.json right as its session ended (via the
+// bridge's /api/behavior-metrics), and bulk-inserts them into
+// amit_device_session_metrics tagged with this session's real event_id -
+// the same id logEvent() just returned from creating the History row a
+// moment ago. Silently returns if there's nothing to insert (auto-detect
+// sessions that caught zero real activity, or the metrics file not ready
+// yet) rather than treating an empty session as an error.
+async function pushBehaviorMetrics(eventId) {
+  if (!eventId || !currentUser || !deviceId) return;
+  try {
+    const r = await fetch(BRIDGE + '/api/behavior-metrics', { cache: 'no-store' });
+    const d = await r.json();
+    if (!d.found || !d.rows || d.rows.length === 0) return;
+    const rows = d.rows.map(row => ({
+      event_id: eventId, device_id: deviceId, user_id: currentUser.id,
+      component: row.component, title: row.title,
+      metric_name: row.metric_name, category: row.category,
+      min_value: row.min_value, max_value: row.max_value,
+      avg_value: row.avg_value, stddev_value: row.stddev_value,
+      sample_count: row.sample_count
+    }));
+    const { error } = await db.from('amit_device_session_metrics').insert(rows);
+    if (error) console.error('pushBehaviorMetrics insert failed:', error);
+  } catch (e) { console.error('pushBehaviorMetrics failed:', e); }
 }
 
 // Walks LibreHardwareMonitor's own data.json tree, grouped by real hardware
@@ -2079,7 +2110,8 @@ async function logBehaviorSessionToHistory(text) {
   // own "You launched X." narrative line rather than re-deriving it here.
   const mainProgramMatch = text.match(/You launched ([^.]+)\./);
   const mainProgram = mainProgramMatch ? mainProgramMatch[1].trim() : null;
-  await logEvent('app_behavior_session', severity, summary, { sessionLabel: currentBehaviorLabel, fullLog: text, duration, mainProgram });
+  const eventId = await logEvent('app_behavior_session', severity, summary, { sessionLabel: currentBehaviorLabel, fullLog: text, duration, mainProgram });
+  await pushBehaviorMetrics(eventId);
 }
 
 async function installStart() {
