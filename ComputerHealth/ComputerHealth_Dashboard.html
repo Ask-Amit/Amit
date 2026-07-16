@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.35</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.36</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2185,55 +2185,39 @@ async function checkPendingUpdates() {
   } catch (e) { el.innerHTML = '<em style="color:#8a8f99">Search failed.</em>'; }
 }
 
-// The one action in this whole app that genuinely modifies the system -
-// Ryan's direct request 2026-07-16. Deliberately split into two clearly
-// separate steps: this installs the update files (safe, non-disruptive,
-// requires one UAC prompt), and restartComputerNow() below is a
-// completely separate, explicitly-confirmed action - a restart is never
-// triggered automatically just because an install finished, since that
-// could interrupt unsaved work with no warning.
+// Ryan's direct request 2026-07-16 (revised same day) - the original
+// version ran the install silently in the background via the Update
+// Agent COM API with a plain elapsed-seconds counter as its only
+// progress signal, which gave no real sense of whether a several-hour
+// update was still working or stuck. Windows' own Settings page already
+// shows genuine percentage/time-remaining, so this now just opens that
+// page directly and steps out of the way: stop tracking first (so
+// nothing is silently killed mid-update when the user restarts from
+// within Windows Update themselves), open the native dialog, then tell
+// the user to go finish it there.
 async function startInstallUpdates() {
   const btn = document.getElementById('installUpdatesBtn');
   const statusEl = document.getElementById('installUpdatesStatus');
   btn.disabled = true;
-  btn.textContent = 'Installing…';
-  statusEl.innerHTML = '<em style="color:#8a8f99">Windows may ask for permission (a UAC prompt) - click Yes to continue. This can take several minutes depending on the update.</em>';
+  btn.textContent = 'Opening Windows Update…';
+  statusEl.innerHTML = '<em style="color:#8a8f99">Opening the Windows Update settings page…</em>';
+  let opened = false;
   try {
-    await fetch(BRIDGE + '/api/install-updates', { method: 'POST' });
-  } catch (e) {
-    statusEl.innerHTML = '<em style="color:#d05555">Could not start the install.</em>';
+    const r = await fetch(BRIDGE + '/api/open-windows-update', { method: 'POST' });
+    opened = (await r.json()).opened;
+  } catch (e) {}
+  if (!opened) {
+    statusEl.innerHTML = '<em style="color:#d05555">Could not open Windows Update.</em>';
     btn.disabled = false; btn.textContent = 'Install Updates';
     return;
   }
-  let waited = 0;
-  const poll = setInterval(async () => {
-    waited += 3000;
-    let status = 'not-started';
-    try {
-      const r = await fetch(BRIDGE + '/api/install-updates-status', { cache: 'no-store' });
-      status = (await r.json()).status;
-    } catch (e) {}
-    if (status === 'installing' || status === 'not-started') {
-      statusEl.innerHTML = `<em style="color:#8a8f99">Still installing… (${Math.round(waited/1000)}s)</em>`;
-      return;
-    }
-    clearInterval(poll);
-    btn.classList.add('hidden');
-    if (status === 'done-nothing-to-install') {
-      statusEl.innerHTML = '<div class="card good" style="max-width:520px"><div class="label">Done</div><div class="value">Nothing to install</div><div class="verdict">These updates may have already installed on their own in the meantime.</div></div>';
-    } else if (status === 'done-no-restart-needed') {
-      statusEl.innerHTML = '<div class="card good" style="max-width:520px"><div class="label">Done</div><div class="value">Installed</div><div class="verdict">No restart needed - fully applied already.</div></div>';
-    } else if (status === 'done-restart-needed') {
-      statusEl.innerHTML = `<div class="card warn" style="max-width:520px;margin-bottom:10px">
-          <div class="label">Installed - Restart Needed</div>
-          <div class="value">One step left</div>
-          <div class="verdict">The update files are installed, but need a restart to fully take effect.</div></div>
-        <button class="btn" onclick="restartComputerNow()" id="restartNowBtn">Restart Now</button>
-        <div id="restartNowStatus" style="margin-top:10px"></div>`;
-    } else {
-      statusEl.innerHTML = `<div class="card bad" style="max-width:520px"><div class="label">Install Failed</div><div class="value">Error</div><div class="verdict">${status.replace('failed: ','')}</div></div>`;
-    }
-  }, 3000);
+  statusEl.innerHTML = '<em style="color:#8a8f99">Stopping the tracker and monitor so nothing is interrupted…</em>';
+  await stopAllTracking();
+  btn.classList.add('hidden');
+  statusEl.innerHTML = `<div class="card good" style="max-width:520px">
+      <div class="label">Ready For You</div>
+      <div class="value">I've opened the Windows dialogue box</div>
+      <div class="verdict">The tracker and monitor are stopped. Go back to your desktop and perform the updates now - Windows will show real progress and time remaining. Come back here when you're done.</div></div>`;
 }
 
 // Explicitly separate from the install step above - closes everything
