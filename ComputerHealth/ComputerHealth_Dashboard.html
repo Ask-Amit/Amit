@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.41</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.42</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -668,11 +668,26 @@ async function showSignedInAs(email) {
 // genuinely signed-in user on a fresh tab that just hadn't connected to the
 // bridge yet). Also re-renders History if it's the currently open tab,
 // since it may have already rendered once before sign-in resolved.
+// A ?justStopped=1 / ?justLaunched=1 tab already owns logging its own
+// session-end/start event via handleJustStopped()/handleJustLaunched() -
+// reconcileMissedSummaries() exists for the OTHER case (no tab was open
+// at all when tracking stopped), and must not also run here. Real bug
+// caught live 2026-07-16 (Ryan): both ran in the same fresh tab, and the
+// plain generic reconcile check - fewer awaits, so effectively always
+// faster - won the race and wrote its placeholder first every time;
+// handleJustStopped()'s real, detailed summary then got silently deduped
+// against that placeholder by the same-session unique constraint and
+// never showed up anywhere.
+function isOneShotSessionTab() {
+  const p = new URLSearchParams(window.location.search);
+  return p.get('justStopped') === '1' || p.get('justLaunched') === '1';
+}
+
 async function onSessionConfirmed() {
   await loadMyDevices();
   if (deviceId) await claimDevice();
   if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
-  if (deviceId) reconcileMissedSummaries();
+  if (deviceId && !isOneShotSessionTab()) reconcileMissedSummaries();
 }
 
 // Catches sessions that ended without a browser tab open to catch them
@@ -1808,7 +1823,7 @@ function onConnected(d) {
   startLivePolling();
   pollTrackerStatus();
   if (currentUser) claimDevice().then(updateDeviceLabelDisplay);
-  if (currentUser) reconcileMissedSummaries();
+  if (currentUser && !isOneShotSessionTab()) reconcileMissedSummaries();
   updateLiveControlsAvailability();
 }
 
