@@ -191,13 +191,14 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.16</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.17</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
     <button id="trackerToggle" class="off" onclick="launchTracker()">Launch Tracker</button>
     <span id="behaviorSpinner" class="hidden" title="App Behavior is actively watching right now">⟳</span>
     <div class="device" id="deviceLabel">Not connected yet — click Launch Tracker</div>
+    <button id="closeEverythingBtn" class="btn secondary" onclick="closeEverything()" title="Stops the tracker and App Behavior watcher (if running) before closing this tab - closing the tab with the browser's own X leaves them running invisibly in the background, since they're independent Windows processes, not tied to this page.">Close</button>
     <div onclick="openChTutorial()" title="What is Computer Health?" class="help-btn">?</div>
   </div>
 </header>
@@ -1700,6 +1701,37 @@ async function toggleTracker() {
     }
   }
   setTimeout(pollTrackerStatus, 800);
+}
+
+// Explicit, intentional stop-everything-then-close - Ryan's direct request
+// 2026-07-16: the browser's own tab-close X has no way to reach into a
+// local Windows process and stop it, so closing the tab that way leaves
+// the tracker and/or App Behavior running invisibly in the background,
+// disconnected from anything - not stopped, just unwatched. This button
+// is the honest alternative: stop whatever's actually running first (reusing
+// stopBehavior() so History/metrics still get saved properly, not abruptly
+// killed), then close. Deliberately a separate, explicit action from the
+// pagehide non-handling noted below - that note explains why stopping
+// can't be automatic; this button is what "actually mean it" looks like.
+async function closeEverything() {
+  const btn = document.getElementById('closeEverythingBtn');
+  btn.disabled = true;
+  btn.textContent = 'Stopping...';
+  const behaviorRunning = !document.getElementById('behaviorStopBtn').classList.contains('hidden');
+  if (behaviorRunning) {
+    btn.textContent = 'Stopping App Behavior...';
+    try { await stopBehavior(); } catch (e) {}
+  }
+  const trackerBtn = document.getElementById('trackerToggle');
+  if (bridgeUp && trackerBtn.className === 'on') {
+    btn.textContent = 'Stopping tracker...';
+    try { await fetch(BRIDGE + '/api/stop-tracking', { method: 'POST', body: '' }); } catch (e) {}
+  }
+  btn.textContent = 'Stopped - you can close this tab now';
+  // window.close() only works on tabs opened by script - it silently does
+  // nothing on a tab you navigated to yourself, which is the normal case
+  // here. Told plainly rather than pretending this always auto-closes.
+  window.close();
 }
 
 // Deliberately NOT auto-stopping tracking on 'pagehide' - that event fires
