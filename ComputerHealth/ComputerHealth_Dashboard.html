@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.27</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.28</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1544,8 +1544,8 @@ const TAB_CAPTURE_INFO = {
     ]
   },
   diagnostics: {
-    current: ['Input Lag Risk (DPC time)', 'Disk Activity %'],
-    future: ['Interrupt time %', 'Network throughput (KB/sec)', 'Page Faults/sec', 'Paging/sec', 'GPU 3D engine utilization % (may end up redundant with the Hardware tab\'s real GPU load - worth deciding rather than just adding)', 'Top 5 CPU-consuming processes']
+    current: ['Input Lag Risk (DPC time)', 'Disk Activity %', 'CPU Backlog (Processor Queue Length, with Context Switches/sec shown alongside as supporting context, not its own verdict card - no broadly-trustworthy absolute threshold exists for that one)', 'Disk Response Time (Avg. Disk sec/Read and Write, converted to ms)', 'Free Disk Space %'],
+    future: ['Interrupt time %', 'Network throughput (KB/sec)', 'Page Faults/sec', 'Paging/sec', 'GPU 3D engine utilization % (may end up redundant with the Hardware tab\'s real GPU load - worth deciding rather than just adding)', 'Top 5 CPU-consuming processes', 'Session-level summary verdict for Diagnostics the same way App Behavior and the Tracker already produce one at session-end (min/max/avg/stddev per counter, a plain-language story of what happened) - raised by Ryan 2026-07-16, not yet built']
   },
   behavior: {
     current: ['Auto-detected process launch + parent/child story ("X started, which opened: Y")', 'Known-Windows-process tagging (dllhost/conhost/svchost etc. marked as expected background activity)', 'Network connections - exactly attributed, with local/external tagging', 'File writes - time-correlated, with VirusTotal hash lookup on flagged files', 'Full per-component hardware sweep (CPU/GPU/RAM/Storage) across the whole session', 'Windows Event Log error/warning check for the session window', 'Plain-language session summary with a flowing narrative lead line'],
@@ -1990,6 +1990,28 @@ async function pollDiagnostics() {
       const disk = last.match(/DISK:(\d+\.?\d*)%/);
       const dpcPct = dpc ? parseFloat(dpc[1]) : null;
       const diskPct = disk ? parseFloat(disk[1]) : null;
+      // Three new cards added 2026-07-16 (Ryan's direct request), using
+      // the four counters added the same day. Same design worked through
+      // together: CPU Backlog and Disk Response Time follow the same
+      // low-is-good pattern as the existing two cards; Free Disk Space is
+      // the one inverted case (low is BAD) - handled by feeding "% used"
+      // into the same verdictClass/verdictText helpers instead of adding
+      // a second set of inverted-direction functions. Context
+      // Switches/sec deliberately does NOT get its own verdict card -
+      // there's no broadly-trustworthy absolute threshold for it (a
+      // modern multi-core system can show tens of thousands per second
+      // normally), so it's shown only as a supporting number next to CPU
+      // Backlog rather than a false-precision green/yellow/red.
+      const readMs = last.match(/read=(\d+\.?\d*)ms/);
+      const writeMs = last.match(/write=(\d+\.?\d*)ms/);
+      const freeSpace = last.match(/FREESPACE:(\d+\.?\d*)%/);
+      const procQueue = last.match(/PROCQUEUE:(\d+\.?\d*)/);
+      const ctxSwitch = last.match(/CTXSWITCH:(\d+\.?\d*)\/s/);
+      const diskMs = (readMs || writeMs) ? Math.max(readMs ? parseFloat(readMs[1]) : 0, writeMs ? parseFloat(writeMs[1]) : 0) : null;
+      const freeSpacePct = freeSpace ? parseFloat(freeSpace[1]) : null;
+      const usedSpacePct = freeSpacePct !== null ? Math.round((100 - freeSpacePct) * 10) / 10 : null;
+      const procQueueLen = procQueue ? parseFloat(procQueue[1]) : null;
+      const ctxSwitchPerSec = ctxSwitch ? parseFloat(ctxSwitch[1]) : null;
       const diagCardsHtml = `
         <div class="card ${verdictClass(dpcPct,3,8)}">
           <div class="label">Input Lag Risk (DPC time)</div>
@@ -2004,7 +2026,28 @@ async function pollDiagnostics() {
           <div class="verdict">${verdictText('Disk',diskPct,50,85,
             'Disk is not a bottleneck right now.',
             'Disk is busy — normal during file operations.',
-            'Disk is maxed out — this alone can make everything feel frozen.')}</div></div>`;
+            'Disk is maxed out — this alone can make everything feel frozen.')}</div></div>
+        <div class="card ${verdictClass(procQueueLen,2,5)}">
+          <div class="label">CPU Backlog (Processor Queue)</div>
+          <div class="value">${procQueueLen !== null ? procQueueLen : '—'}${ctxSwitchPerSec !== null ? ' <span style="font-size:12px;color:#8a8f99;font-weight:400">(' + ctxSwitchPerSec.toLocaleString() + ' switches/sec)</span>' : ''}</div>
+          <div class="verdict">${verdictText('CPU Backlog',procQueueLen,2,5,
+            'CPU is keeping up fine — nothing waiting in line.',
+            'Some threads waiting for CPU time — worth watching if this stays consistent.',
+            'Real backlog — the CPU cannot keep up with demand right now.')}</div></div>
+        <div class="card ${verdictClass(diskMs,10,30)}">
+          <div class="label">Disk Response Time</div>
+          <div class="value">${diskMs !== null ? diskMs+'ms' : '—'}</div>
+          <div class="verdict">${verdictText('Disk Response',diskMs,10,30,
+            'Fast — no concern.',
+            'A bit slow — normal for a busy hard drive, worth watching on an SSD.',
+            'Genuinely slow — this could be why things feel sluggish.')}</div></div>
+        <div class="card ${verdictClass(usedSpacePct,80,90)}">
+          <div class="label">Free Disk Space</div>
+          <div class="value">${freeSpacePct !== null ? freeSpacePct+'%' : '—'}</div>
+          <div class="verdict">${verdictText('Free Space',usedSpacePct,80,90,
+            'Plenty of room — no concern.',
+            'Getting full — could start causing slowdowns.',
+            'Very low — this alone can cause real performance problems.')}</div></div>`;
       // Same two cards also shown on the renamed "Performance" (Overview)
       // tab - Ryan's direct request 2026-07-15: input lag and disk activity
       // are performance signals just as much as RAM/CPU are, they belong on
