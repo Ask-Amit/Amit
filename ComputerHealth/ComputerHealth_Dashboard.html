@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.17</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.18</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -617,6 +617,49 @@ async function onSessionConfirmed() {
   await loadMyDevices();
   if (deviceId) await claimDevice();
   if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
+  if (deviceId) reconcileMissedSummaries();
+}
+
+// Catches sessions that ended without a browser tab open to catch them
+// live - Ryan's direct request 2026-07-16: if tracking is stopped from
+// the desktop app (or the machine sleeps/crashes mid-push) with no
+// Computer Health tab open, the local summary JSON still gets written,
+// but nothing was there to push it to Supabase. Runs on every connect
+// (from both onConnected and onSessionConfirmed, whichever fires last -
+// each local metrics file is checked once per call, safe either way) and
+// compares each tracker type's local sessionEndTime against the newest
+// matching row already in Supabase for this device. Newer local than
+// Supabase means it never made it up - reconcile it now under a
+// "recovered" label. Self-correcting: once reconciled, the newly-created
+// History row's own timestamp becomes the new high-water mark, so a
+// second open won't re-publish the same session twice.
+async function reconcileMissedSummaries() {
+  if (!currentUser || !deviceId) return;
+  await reconcileOneTrackerType('/api/tracker-metrics', 'tracking_session_ended', pushTrackerMetrics, 'Tracker');
+  await reconcileOneTrackerType('/api/behavior-metrics', 'app_behavior_session', pushBehaviorMetrics, 'App Behavior');
+}
+async function reconcileOneTrackerType(endpoint, eventType, pushFn, label) {
+  try {
+    const r = await fetch(BRIDGE + endpoint, { cache: 'no-store' });
+    const d = await r.json();
+    if (!d.found || !d.sessionEndTime) return;
+    const localTime = new Date(d.sessionEndTime).getTime();
+    const { data } = await db.from('amit_device_events')
+      .select('id, created_at')
+      .eq('device_id', deviceId)
+      .eq('event_type', eventType)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const latestSupabaseTime = (data && data.length > 0) ? new Date(data[0].created_at).getTime() : 0;
+    // 2s tolerance for normal clock/network latency skew between the
+    // local write and the Supabase insert on a session that WAS pushed
+    // live - only a genuinely missed session should be clearly newer
+    // than that.
+    if (localTime > latestSupabaseTime + 2000) {
+      const eventId = await logEvent(eventType, 'info', label + ' session (recovered - this computer was closed or the machine was asleep before it could be saved live)', { recovered: true, sessionEndTime: d.sessionEndTime });
+      await pushFn(eventId);
+    }
+  } catch (e) { console.error('reconcileOneTrackerType failed for', endpoint, e); }
 }
 
 // db is null when offline (Supabase's CDN script couldn't load) - every call
@@ -866,12 +909,19 @@ async function logEvent(eventType, severity, summary, detail) {
 // moment ago. Silently returns if there's nothing to insert (auto-detect
 // sessions that caught zero real activity, or the metrics file not ready
 // yet) rather than treating an empty session as an error.
-async function pushBehaviorMetrics(eventId) {
-  if (!eventId || !currentUser || !deviceId) return;
+// Shared by both App Behavior and the main Tracker - each writes its own
+// local metrics JSON file, served through its own bridge endpoint, but
+// the shape and the Supabase insert are identical, so this one function
+// handles both rather than keeping two near-duplicate copies. Returns
+// the raw fetched payload (including sessionEndTime, when the endpoint
+// provides one) so callers - like the reconciliation check on connect -
+// can inspect what was actually found without a second fetch.
+async function pushMetricsFromEndpoint(eventId, endpoint) {
+  if (!eventId || !currentUser || !deviceId) return null;
   try {
-    const r = await fetch(BRIDGE + '/api/behavior-metrics', { cache: 'no-store' });
+    const r = await fetch(BRIDGE + endpoint, { cache: 'no-store' });
     const d = await r.json();
-    if (!d.found || !d.rows || d.rows.length === 0) return;
+    if (!d.found || !d.rows || d.rows.length === 0) return d;
     const rows = d.rows.map(row => ({
       event_id: eventId, device_id: deviceId, user_id: currentUser.id,
       component: row.component, title: row.title,
@@ -881,9 +931,12 @@ async function pushBehaviorMetrics(eventId) {
       sample_count: row.sample_count
     }));
     const { error } = await db.from('amit_device_session_metrics').insert(rows);
-    if (error) console.error('pushBehaviorMetrics insert failed:', error);
-  } catch (e) { console.error('pushBehaviorMetrics failed:', e); }
+    if (error) console.error('pushMetricsFromEndpoint insert failed:', error);
+    return d;
+  } catch (e) { console.error('pushMetricsFromEndpoint failed:', e); return null; }
 }
+async function pushBehaviorMetrics(eventId) { return pushMetricsFromEndpoint(eventId, '/api/behavior-metrics'); }
+async function pushTrackerMetrics(eventId) { return pushMetricsFromEndpoint(eventId, '/api/tracker-metrics'); }
 
 // Walks LibreHardwareMonitor's own data.json tree, grouped by real hardware
 // component (Motherboard, CPU, GPU, each RAM stick, each drive) and by
@@ -1562,6 +1615,7 @@ function onConnected(d) {
   startLivePolling();
   pollTrackerStatus();
   if (currentUser) claimDevice().then(updateDeviceLabelDisplay);
+  if (currentUser) reconcileMissedSummaries();
   updateLiveControlsAvailability();
 }
 
@@ -1694,7 +1748,15 @@ async function toggleTracker() {
     overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
     const detail = document.getElementById('sessionSummaryDetail');
     if (currentUser && deviceId) {
-      await logEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+      // Stop-Tracking() on the server already waited (up to 8s) for
+      // resource_watcher.ps1 to exit gracefully and write its summary
+      // before this stop-tracking fetch even returned, so
+      // tracker_metrics.json should already be sitting there ready by the
+      // time this runs - same parity with App Behavior's own
+      // logBehaviorSessionToHistory + pushBehaviorMetrics pairing, Ryan's
+      // direct request 2026-07-16.
+      const trackerEventId = await logEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+      await pushTrackerMetrics(trackerEventId);
       detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
     } else {
       detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
