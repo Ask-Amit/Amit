@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.43</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.44</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2052,6 +2052,7 @@ function verdictText(label, pct, warnAt, badAt, goodMsg, warnMsg, badMsg) {
 }
 
 async function pollResource() {
+  if (!bridgeUp) return;
   try {
     const r = await fetch(BRIDGE + '/api/resource');
     const d = await r.json();
@@ -2988,25 +2989,39 @@ const lastHeartbeatTabId = heartbeatParts[1] || null;
 // only a generic fallback placeholder showed up in History afterward.
 const urlParams = new URLSearchParams(window.location.search);
 const isOneShotTab = urlParams.get('justStopped') === '1' || urlParams.get('justLaunched') === '1';
-const isDuplicateTab = !isOneShotTab && lastHeartbeatTabId !== null && lastHeartbeatTabId !== tabId && (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
+const isDuplicateTab = lastHeartbeatTabId !== null && lastHeartbeatTabId !== tabId && (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
 
 if (isDuplicateTab) {
-  if (tabBroadcast) tabBroadcast.postMessage({ type: 'refresh-requested' });
-  // Best-effort only - window.close() is silently blocked by the browser
-  // on tabs it didn't open itself via script (the normal case here,
-  // since the desktop app opens these through external navigation, not
-  // window.open()). No harm attempting it; the overlay below is the real
-  // fallback for when it doesn't apply.
-  window.close();
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0d0e12;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#e8e8ec;font-family:system-ui,sans-serif';
-  overlay.innerHTML = '<div><h2 style="color:#c9a84c;margin-bottom:10px">Computer Health is already open</h2><p style="color:#9a9fab">Another tab already has this page open, and it has been told to refresh with the latest data. You can close this tab.</p></div>';
-  document.body.appendChild(overlay);
-  // Deliberately does NOT call handleJustLaunched/handleJustStopped/
-  // attemptSilentReconnect below - a duplicate tab doing its own live
-  // polling and bridge/Supabase calls alongside the real tab is exactly
-  // the kind of redundant background activity this whole fix exists to
-  // stop, even beyond the History-duplication problem already closed.
+  // Real regression caught live 2026-07-16 (Ryan) - an earlier fix today
+  // made one-shot tabs skip this whole branch (and its window.close()
+  // call) so their session-summary logging would actually run. That
+  // broke something else that was genuinely working before today: these
+  // externally-opened tabs (via AmitTracker.exe's Process.Start, not
+  // window.open()) have only one entry in their session history, which
+  // is exactly the case some browsers DO allow window.close() to work
+  // for - so duplicate tabs really were self-closing this morning. The
+  // correct fix keeps both: still run the one-shot logging job first
+  // (awaited, so it actually finishes), THEN do the same close attempt
+  // as before for every duplicate tab, one-shot or not.
+  (async () => {
+    await handleJustLaunched();
+    await handleJustStopped();
+    if (tabBroadcast) tabBroadcast.postMessage({ type: 'refresh-requested' });
+    // Best-effort only - silently blocked by the browser on tabs with
+    // more than one session-history entry (a manual duplicate tab you
+    // opened yourself, for instance). The overlay below is the fallback
+    // for when it doesn't apply.
+    window.close();
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0d0e12;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#e8e8ec;font-family:system-ui,sans-serif';
+    overlay.innerHTML = '<div><h2 style="color:#c9a84c;margin-bottom:10px">Computer Health is already open</h2><p style="color:#9a9fab">Another tab already has this page open, and it has been told to refresh with the latest data. You can close this tab.</p></div>';
+    document.body.appendChild(overlay);
+  })();
+  // Deliberately does NOT call attemptSilentReconnect or start live
+  // polling below - a duplicate tab doing its own ongoing background
+  // activity alongside the real tab is exactly the kind of redundant
+  // work this whole fix exists to stop, even beyond the one-shot
+  // logging job it still has to finish above.
 } else {
   const writeHeartbeat = () => localStorage.setItem(TAB_HEARTBEAT_KEY, Date.now() + '|' + tabId);
   writeHeartbeat();
