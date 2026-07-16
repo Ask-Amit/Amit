@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.28</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.29</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -420,6 +420,8 @@
   <button onclick="showTab('behavior')">App Behavior</button>
   <button onclick="showTab('install')">Install Watch</button>
   <button onclick="showTab('browser')">Browser</button>
+  <button onclick="showTab('reliability')">Reliability</button>
+  <button onclick="showTab('security')">Security</button>
   <button onclick="showTab('history')">History</button>
 </nav>
 
@@ -462,6 +464,9 @@
       <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="loadHardwareTree()">↻ Refresh Now</button>
       <span style="font-size:12px;color:#7a7f89">Auto-refreshes every 30 seconds</span>
     </div>
+    <div class="section-title" style="font-size:13px;margin-top:0">Drive Health (SMART)</div>
+    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">A drive's long-term condition, not its live activity - added 2026-07-16, separate from the live sensor tree below since it answers a different question ("is this drive okay") rather than "what is it doing right now."</p>
+    <div id="driveHealthCards" style="margin-bottom:16px"><em style="color:#8a8f99">Loading…</em></div>
     <div id="hardwareCategoryNav" class="hw-device-nav"></div>
     <div id="hardwareInstanceNav" class="hw-device-nav hidden"></div>
     <div id="hardwareTree"><em style="color:#8a8f99">Waiting for data...</em></div>
@@ -525,6 +530,30 @@
     </div>
   </div>
 
+  <div class="tab" id="tab-reliability">
+    <div class="section-title">Reliability — crash and failure history</div>
+    <p style="font-size:13px;color:#9aa0ab">This isn't about how fast your computer is right now — it's about what's actually broken or crashed over time. Windows already tracks this in the background on its own (the Reliability Monitor); this just reads that same record.</p>
+    <div id="reliabilityCards"></div>
+    <div class="section-title" style="margin-top:20px">Recent events</div>
+    <div id="reliabilityList" class="log-box" style="max-height:400px;overflow-y:auto">Loading…</div>
+    <div class="section-title" style="margin-top:20px">Actual crash dump files (BSODs)</div>
+    <div id="minidumpList" class="log-box" style="max-height:200px;overflow-y:auto">Loading…</div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('reliability','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('reliability','future')">＋ Future</button>
+    </div>
+  </div>
+
+  <div class="tab" id="tab-security">
+    <div class="section-title">Security &amp; Backup</div>
+    <p style="font-size:13px;color:#9aa0ab">Is this computer actually protected right now — from malware, and from data loss? Two different kinds of protection, checked together since they're both "is my data actually safe" questions.</p>
+    <div id="securityCards"></div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('security','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('security','future')">＋ Future</button>
+    </div>
+  </div>
+
   <div class="tab" id="tab-history">
     <div class="section-title">This computer's history</div>
     <p id="historyIntro" style="font-size:13px;color:#9aa0ab">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
@@ -565,6 +594,8 @@ function showTab(name) {
   event.target.classList.add('active');
   if (name === 'history') loadHistory();
   if (name === 'hardware') loadHardwareTree();
+  if (name === 'reliability') pollReliability();
+  if (name === 'security') pollSecurity();
 }
 
 // Same as showTab but callable without a click event (e.g. from another
@@ -578,6 +609,8 @@ function showTabByName(name) {
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'history') loadHistory();
   if (name === 'hardware') loadHardwareTree();
+  if (name === 'reliability') pollReliability();
+  if (name === 'security') pollSecurity();
 }
 
 function setStatus(msg) {
@@ -1144,7 +1177,31 @@ function parseSensorHistoryRows(lines) {
 // known device tree and just shows a small notice instead of erasing everything.
 let hardwareLiveConnectionLost = false;
 
+async function pollDriveHealth() {
+  try {
+    const r = await fetch(BRIDGE + '/api/drive-health');
+    const d = await r.json();
+    const drives = d.drives || [];
+    const el = document.getElementById('driveHealthCards');
+    if (!el) return;
+    if (drives.length === 0) { el.innerHTML = '<em style="color:#8a8f99">No drive health data available.</em>'; return; }
+    el.innerHTML = drives.map(dr => {
+      const healthy = dr.healthStatus === 'Healthy';
+      const extras = [];
+      if (dr.wear !== null) extras.push('Wear: ' + dr.wear + '%');
+      if (dr.temperature !== null) extras.push('Temp: ' + dr.temperature + '°C');
+      if (dr.powerOnHours !== null) extras.push('Power-on: ' + dr.powerOnHours + 'h');
+      const extraText = extras.length ? extras.join(' · ') : 'Detailed wear/temp counters not reported by this drive’s controller - health status below is still real, just without the extra detail.';
+      return `<div class="card ${healthy ? 'good' : 'bad'}" style="margin-bottom:8px">
+        <div class="label">${dr.friendlyName} (${dr.mediaType})</div>
+        <div class="value">${dr.healthStatus}</div>
+        <div class="verdict">${extraText}</div></div>`;
+    }).join('');
+  } catch (e) {}
+}
+
 async function loadHardwareTree() {
+  pollDriveHealth();
   const container = document.getElementById('hardwareTree');
   const catNav = document.getElementById('hardwareCategoryNav');
   const instNav = document.getElementById('hardwareInstanceNav');
@@ -1562,6 +1619,14 @@ const TAB_CAPTURE_INFO = {
   history: {
     current: ['Sortable table: Computer, Date, Description, Duration, Discussion', 'Full report detail on click - identical view whether seen live or reviewed later'],
     future: ['Combined view across multiple owned devices at once (currently one device at a time)', 'Search/filter within History', 'Export']
+  },
+  reliability: {
+    current: ['Windows Reliability Monitor history (last 25 records) - crashes, driver failures, install failures, unexpected shutdowns', 'Actual BSOD crash dump files found in the Minidump folder', 'Recent Errors and Crashes summary card', 'Actual BSOD Crashes summary card'],
+    future: ['Session-level summary tracking over time (has this gotten better or worse across weeks/months) - same pipeline as the Tracker/App Behavior metrics, not yet built', 'Filtering/searching the reliability record list', 'Linking a specific crash record to what App Behavior was watching at that exact time, if a session was running']
+  },
+  security: {
+    current: ['Windows Defender status: real-time protection, last scan time, signature age', 'OneDrive backup status: is it running, is it configured (best-effort - no official Microsoft API exists for OneDrive sync state, unlike the Defender check)'],
+    future: ['Support for antivirus products other than Windows Defender - currently no way to check a third-party AV\'s status, since each vendor manages that separately with no universal API', 'Actual sync error detection for OneDrive (files stuck, conflicts) beyond just running/not running', 'Support for other backup methods (File History, third-party backup software)']
   }
 };
 
@@ -2055,6 +2120,68 @@ async function pollDiagnostics() {
       document.getElementById('diagCards').innerHTML = diagCardsHtml;
       document.getElementById('overviewDiagCards').innerHTML = diagCardsHtml;
     }
+  } catch (e) {}
+}
+
+// Reliability and Security tabs added 2026-07-16 (Ryan's direct
+// request) - a genuinely different axis from everything else in this
+// app: not "how fast is this running" but "is something actually
+// broken, or about to be." Loaded lazily when the tab is opened (see
+// showTab/showTabByName), not continuously polled, since crash history
+// and antivirus status don't change fast enough to need live refresh.
+async function pollReliability() {
+  try {
+    const r = await fetch(BRIDGE + '/api/reliability');
+    const d = await r.json();
+    const records = d.records || [];
+    const minidumps = d.minidumps || [];
+    const errorCount = records.filter(rec => /Error|Hang|unexpected/i.test(rec.source + ' ' + rec.message)).length;
+    document.getElementById('reliabilityCards').innerHTML = `
+      <div class="card ${verdictClass(errorCount,3,7)}">
+        <div class="label">Recent Errors &amp; Crashes</div>
+        <div class="value">${errorCount}</div>
+        <div class="verdict">${verdictText('Errors',errorCount,3,7,
+          'Nothing concerning in recent history.',
+          'A few errors showed up recently - worth keeping an eye on.',
+          'A real pattern of errors/crashes - worth investigating what keeps failing.')}</div></div>
+      <div class="card ${verdictClass(minidumps.length,1,3)}">
+        <div class="label">Actual BSOD Crashes</div>
+        <div class="value">${minidumps.length}</div>
+        <div class="verdict">${verdictText('BSODs',minidumps.length,1,3,
+          'No blue-screen crash files found.',
+          'At least one real crash dump exists - worth knowing when it happened.',
+          'Multiple crash dumps - a real, recurring stability problem.')}</div></div>`;
+    document.getElementById('reliabilityList').textContent = records.length
+      ? records.map(rec => `${rec.time}  [${rec.source}]  ${rec.message}`).join('\n\n')
+      : 'No reliability history found yet.';
+    document.getElementById('minidumpList').textContent = minidumps.length
+      ? minidumps.map(m => `${m.time}  ${m.fileName}`).join('\n')
+      : 'No crash dump files found - a good sign.';
+  } catch (e) {}
+}
+
+async function pollSecurity() {
+  try {
+    const r = await fetch(BRIDGE + '/api/security');
+    const d = await r.json();
+    if (!d.found) {
+      document.getElementById('securityCards').innerHTML = '<em style="color:#8a8f99">Could not read antivirus status - Windows Defender may not be the active antivirus on this machine.</em>';
+      return;
+    }
+    const protectedOk = d.antivirusEnabled && d.realTimeProtectionEnabled;
+    const scanText = d.lastQuickScan ? ('Last quick scan: ' + d.lastQuickScan) : 'No recent scan found.';
+    const odText = d.oneDriveRunning
+      ? (d.oneDriveLastSync ? ('OneDrive is running. Best-effort last sync: ' + d.oneDriveLastSync) : 'OneDrive is running, but a last-sync time could not be read (this check is best-effort - Microsoft does not publish an official way to read this).')
+      : 'OneDrive does not appear to be running - files may not be backing up.';
+    document.getElementById('securityCards').innerHTML = `
+      <div class="card ${protectedOk ? 'good' : 'bad'}">
+        <div class="label">Antivirus Protection</div>
+        <div class="value">${protectedOk ? 'Protected' : 'At Risk'}</div>
+        <div class="verdict">${protectedOk ? 'Real-time protection is active.' : 'Real-time protection is OFF or antivirus is disabled - this machine is exposed right now.'} ${scanText}</div></div>
+      <div class="card ${d.oneDriveRunning ? 'good' : 'warn'}">
+        <div class="label">Backup (OneDrive)</div>
+        <div class="value">${d.oneDriveRunning ? 'Running' : 'Not Running'}</div>
+        <div class="verdict">${odText}</div></div>`;
   } catch (e) {}
 }
 
