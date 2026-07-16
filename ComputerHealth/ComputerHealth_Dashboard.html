@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.39</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.40</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -420,7 +420,8 @@
   <button onclick="showTab('behavior')">App Behavior</button>
   <button onclick="showTab('install')">Install Watch</button>
   <button onclick="showTab('browser')">Browser</button>
-  <button onclick="showTab('reliability')">Reliability</button>
+  <button onclick="showTab('reliability')">Updates</button>
+  <button onclick="showTab('errors')">Errors</button>
   <button onclick="showTab('security')">Security</button>
   <button onclick="showTab('history')">History</button>
 </nav>
@@ -532,14 +533,25 @@
 
   <div class="tab" id="tab-reliability">
     <div class="section-title">Windows Update</div>
-    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">Checks directly against Windows Update itself, whether or not automatic update checking is turned on - a stuck or postponed update is a common, real cause of the recurring crashes shown below.</p>
+    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">Checks directly against Windows Update itself, whether or not automatic update checking is turned on - a stuck or postponed update is a common, real cause of the recurring crashes shown on the Errors tab.</p>
     <div id="restartPendingCard" style="margin-bottom:10px"><em style="color:#8a8f99">Checking…</em></div>
     <div id="pendingUpdatesResult"><em style="color:#8a8f99">Searching Windows Update - this runs automatically, takes a few seconds…</em></div>
-    <div style="margin-top:6px">
-      <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="checkPendingUpdates()">Check Again</button>
-    </div>
 
-    <div class="section-title" style="margin-top:24px">Reliability — crash and failure history</div>
+    <div class="section-title" style="margin-top:24px">Driver Updates</div>
+    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">Installed driver version for each detected hardware component. Windows Update is checked automatically where it covers a driver; for anything it doesn't (most GPU drivers, for instance), a direct link to the manufacturer's driver page is given instead of guessing.</p>
+    <div id="driverUpdatesResult"><em style="color:#8a8f99">Reading installed drivers…</em></div>
+
+    <div style="margin-top:16px">
+      <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="checkPendingUpdates(); checkDriverUpdates();">Check Again</button>
+    </div>
+    <div class="capture-info-row">
+      <button class="btn secondary" onclick="showCaptureInfo('reliability','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('reliability','future')">＋ Future</button>
+    </div>
+  </div>
+
+  <div class="tab" id="tab-errors">
+    <div class="section-title">Errors — crash and failure history</div>
     <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">This isn't about how fast your computer is right now — it's about what's actually broken or crashed over time. Windows already tracks this in the background on its own (the Reliability Monitor); this reads that same record.</p>
     <div id="reliabilityCards"></div>
     <div class="section-title" style="margin-top:20px">Recent events</div>
@@ -547,8 +559,8 @@
     <div class="section-title" style="margin-top:20px">Actual crash dump files (BSODs)</div>
     <div id="minidumpList" class="log-box" style="max-height:200px;overflow-y:auto">Loading…</div>
     <div class="capture-info-row">
-      <button class="btn secondary" onclick="showCaptureInfo('reliability','current')">✓ Currently Captured</button>
-      <button class="btn secondary" onclick="showCaptureInfo('reliability','future')">＋ Future</button>
+      <button class="btn secondary" onclick="showCaptureInfo('errors','current')">✓ Currently Captured</button>
+      <button class="btn secondary" onclick="showCaptureInfo('errors','future')">＋ Future</button>
     </div>
   </div>
 
@@ -602,7 +614,8 @@ function showTab(name) {
   event.target.classList.add('active');
   if (name === 'history') loadHistory();
   if (name === 'hardware') loadHardwareTree();
-  if (name === 'reliability') pollReliability();
+  if (name === 'reliability') pollUpdates();
+  if (name === 'errors') pollReliability();
   if (name === 'security') pollSecurity();
 }
 
@@ -617,7 +630,8 @@ function showTabByName(name) {
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'history') loadHistory();
   if (name === 'hardware') loadHardwareTree();
-  if (name === 'reliability') pollReliability();
+  if (name === 'reliability') pollUpdates();
+  if (name === 'errors') pollReliability();
   if (name === 'security') pollSecurity();
 }
 
@@ -2175,11 +2189,49 @@ async function checkPendingUpdates() {
     el.innerHTML = `<div class="card bad" style="max-width:520px;margin-bottom:10px">
         <div class="label">You Need To Update This Computer</div>
         <div class="value">${d.count} update${d.count === 1 ? '' : 's'} outstanding</div>
-        <div class="verdict">These are waiting whether or not automatic update checking is turned on - this is a live search, not a cached notification. Install and restart soon: a stuck pending update is a real, plausible cause of the recurring crash pattern above if it keeps getting interrupted instead of finishing.</div></div>
+        <div class="verdict">These are waiting whether or not automatic update checking is turned on - this is a live search, not a cached notification. Install and restart soon: a stuck pending update is a real, plausible cause of the recurring crash pattern shown on the Errors tab if it keeps getting interrupted instead of finishing.</div></div>
       <div class="log-box" style="margin-bottom:10px">${d.titles.join('\n')}</div>
       <button class="btn" onclick="startInstallUpdates()" id="installUpdatesBtn">Install Updates</button>
       <div id="installUpdatesStatus" style="margin-top:10px"></div>`;
   } catch (e) { el.innerHTML = '<em style="color:#8a8f99">Search failed.</em>'; }
+}
+
+// Driver Updates section, added same day (Ryan's direct request) -
+// installed driver version per detected hardware component, an
+// automatic check against Windows Update's own driver category (same
+// trusted mechanism as the OS-update check above, just filtered to
+// Type='Driver'), and a direct manufacturer driver-page link for
+// anything Windows Update doesn't cover (most GPU drivers, notably) -
+// deliberately NOT scraping vendor sites for a "true latest version",
+// since none of them publish a stable public API for that and a wrong
+// answer here is worse than an honest "check manually" link.
+async function checkDriverUpdates() {
+  const el = document.getElementById('driverUpdatesResult');
+  el.innerHTML = '<em style="color:#8a8f99">Reading installed drivers and checking Windows Update - this can take several seconds…</em>';
+  try {
+    const r = await fetch(BRIDGE + '/api/driver-updates');
+    const d = await r.json();
+    if (!d.found || !d.drivers || !d.drivers.length) {
+      el.innerHTML = '<em style="color:#8a8f99">Could not read installed drivers right now.</em>';
+      return;
+    }
+    const flaggedCount = d.drivers.filter(dr => dr.windowsUpdateAvailable).length;
+    const rows = d.drivers.map(dr => {
+      const flag = dr.windowsUpdateAvailable
+        ? `<span style="color:#e07a7a">Windows Update has a newer driver for this</span>`
+        : `<a href="${dr.vendorLink}" target="_blank" rel="noopener" style="color:#7ab8e0">Check ${dr.manufacturer || 'manufacturer'}'s driver page →</a>`;
+      return `<div style="padding:8px 0;border-bottom:1px solid #2a2d36">
+          <div style="font-weight:600">${dr.deviceName}</div>
+          <div style="font-size:12px;color:#9aa0ab">Installed: ${dr.driverVersion} (${dr.driverDate || 'date unknown'})</div>
+          <div style="font-size:12px;margin-top:2px">${flag}</div>
+        </div>`;
+    }).join('');
+    el.innerHTML = `<div class="card ${flaggedCount ? 'bad' : 'good'}" style="max-width:640px;margin-bottom:10px">
+        <div class="label">Driver Status</div>
+        <div class="value">${flaggedCount ? flaggedCount + ' flagged by Windows Update' : 'Nothing flagged by Windows Update'}</div>
+        <div class="verdict">Windows Update only covers some drivers - GPU drivers especially usually need checking directly with the manufacturer.</div></div>
+      <div class="log-box" style="max-height:400px;overflow-y:auto">${rows}</div>`;
+  } catch (e) { el.innerHTML = '<em style="color:#8a8f99">Driver check failed.</em>'; }
 }
 
 // Ryan's direct request 2026-07-16 (revised same day) - the original
@@ -2241,7 +2293,12 @@ async function restartComputerNow() {
   }
 }
 
-async function pollReliability() {
+// Updates tab - Windows Update + Driver Updates. Split out of what used
+// to be pollReliability() (Ryan's direct request 2026-07-16) - updates
+// checking and actual crash/error history are conceptually different
+// questions ("what needs installing" vs. "what already broke") and now
+// live on separate tabs.
+async function pollUpdates() {
   pollRestartPending();
   // Runs automatically the moment this tab opens now, not gated behind a
   // click - Ryan's direct request 2026-07-16: this needs to be
@@ -2251,6 +2308,10 @@ async function pollReliability() {
   // check. The button below still exists for a manual re-check, it's
   // just no longer the only way this ever runs.
   checkPendingUpdates();
+  checkDriverUpdates();
+}
+
+async function pollReliability() {
   try {
     const r = await fetch(BRIDGE + '/api/reliability');
     const d = await r.json();
