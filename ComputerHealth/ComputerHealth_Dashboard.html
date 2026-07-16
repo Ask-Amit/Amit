@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.19</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.20</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -664,11 +664,17 @@ async function reconcileOneTrackerType(endpoint, eventType, pushFn, label) {
       .order('created_at', { ascending: false })
       .limit(1);
     const latestSupabaseTime = (data && data.length > 0) ? new Date(data[0].created_at).getTime() : 0;
+    // A deliberately-deleted entry counts as a real high-water mark too,
+    // not just whatever currently survives in Supabase - otherwise
+    // deleting a recovered entry just made it reappear on the next
+    // reload, which is exactly the loop Ryan caught live 2026-07-16.
+    const dismissedThreshold = getDismissedThreshold(eventType);
+    const effectiveBaseline = Math.max(latestSupabaseTime, dismissedThreshold);
     // 2s tolerance for normal clock/network latency skew between the
     // local write and the Supabase insert on a session that WAS pushed
     // live - only a genuinely missed session should be clearly newer
     // than that.
-    if (localTime > latestSupabaseTime + 2000) {
+    if (localTime > effectiveBaseline + 2000) {
       const eventId = await logEvent(eventType, 'info', label + ' session (recovered - this computer was closed or the machine was asleep before it could be saved live)', { recovered: true, sessionEndTime: d.sessionEndTime });
       await pushFn(eventId);
     }
@@ -1327,6 +1333,7 @@ function durationToSeconds(d) {
 }
 
 let historyPendingDeleteId = null;
+let historyPendingDeleteEntry = null;
 
 // Real confirm-before-delete, not an instant destructive click - Ryan's
 // direct request 2026-07-15: a trash icon per row, but with a genuine
@@ -1335,9 +1342,29 @@ function promptDeleteHistoryEntry(i) {
   const e = historyData[i];
   if (!e) return;
   historyPendingDeleteId = e.id;
+  historyPendingDeleteEntry = e;
   document.getElementById('historyDeleteText').textContent =
     `"${yourTitle(e) !== '—' ? yourTitle(e) : amitTitle(e)}" from ${new Date(e.created_at).toLocaleString()}. This can't be undone.`;
   document.getElementById('historyDeleteModal').classList.remove('hidden');
+}
+
+// A deletion is a real, deliberate signal, not noise the reconciliation
+// check should fight - Ryan's direct request 2026-07-16: deleting a
+// tracking-summary entry kept getting silently undone by reconciliation
+// on the next page load, since it only compared timestamps and had no
+// memory of an intentional delete. Tracked per event type as "the newest
+// thing ever deliberately deleted" - reconciliation refuses to recover
+// anything at or before this point. Tied to this browser (localStorage),
+// which is the right scope for a UI action taken on this device.
+function markSessionDismissed(eventType, createdAtIso) {
+  if (eventType !== 'tracking_session_ended' && eventType !== 'app_behavior_session') return;
+  const key = 'amit_ch_dismissed_' + eventType;
+  const newTime = new Date(createdAtIso).getTime();
+  const current = parseInt(localStorage.getItem(key) || '0', 10);
+  if (newTime > current) localStorage.setItem(key, String(newTime));
+}
+function getDismissedThreshold(eventType) {
+  return parseInt(localStorage.getItem('amit_ch_dismissed_' + eventType) || '0', 10);
 }
 
 async function confirmDeleteHistoryEntry() {
@@ -1359,7 +1386,12 @@ async function confirmDeleteHistoryEntry() {
   if (error) {
     document.getElementById('historyDeleteModal').classList.add('hidden');
     alert('Could not delete this entry: ' + error.message + '\n\nThis is likely a database permission setting that needs to be added (see Amit for the fix), not something wrong with what you did.');
+    historyPendingDeleteEntry = null;
     return;
+  }
+  if (historyPendingDeleteEntry) {
+    markSessionDismissed(historyPendingDeleteEntry.event_type, historyPendingDeleteEntry.created_at);
+    historyPendingDeleteEntry = null;
   }
   document.getElementById('historyDeleteModal').classList.add('hidden');
   await loadHistory();
