@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.32</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.33</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1632,7 +1632,7 @@ const TAB_CAPTURE_INFO = {
     future: ['Combined view across multiple owned devices at once (currently one device at a time)', 'Search/filter within History', 'Export']
   },
   reliability: {
-    current: ['Windows Reliability Monitor history (last 25 records) - crashes, driver failures, install failures, unexpected shutdowns', 'Actual BSOD crash dump files found in the Minidump folder', 'Recent Errors and Crashes summary card', 'Actual BSOD Crashes summary card', 'Restart Pending status (fast, automatic - registry-based)', 'Pending Windows Updates count and titles (on-demand button - a real search against Windows Update, takes a few seconds)'],
+    current: ['Windows Reliability Monitor history (last 25 records) - crashes, driver failures, install failures, unexpected shutdowns', 'Actual BSOD crash dump files found in the Minidump folder', 'Recent Errors and Crashes summary card', 'Actual BSOD Crashes summary card', 'Restart Pending status (fast, automatic - registry-based)', 'Pending Windows Updates count and titles (runs automatically when the tab opens - a real search against Windows Update, works even if automatic checking is turned off)', 'Install Updates button - actually downloads and installs, elevated, no restart forced automatically', 'Restart Now button - closes App Behavior/the Tracker gracefully first (same as the header Close button), then triggers a real Windows restart with its own visible countdown'],
     future: ['Session-level summary tracking over time (has this gotten better or worse across weeks/months) - same pipeline as the Tracker/App Behavior metrics, not yet built', 'Filtering/searching the reliability record list', 'Linking a specific crash record to what App Behavior was watching at that exact time, if a session was running']
   },
   security: {
@@ -1964,20 +1964,27 @@ async function toggleTracker() {
 // killed), then close. Deliberately a separate, explicit action from the
 // pagehide non-handling noted below - that note explains why stopping
 // can't be automatic; this button is what "actually mean it" looks like.
+// Split out from closeEverything() below - Ryan's direct request
+// 2026-07-16 (restartComputerNow) needed this exact same stop-everything
+// logic, but WITHOUT closeEverything()'s own button-text updates (that
+// button belongs to the header's Close button specifically, not
+// whatever triggered a restart) and WITHOUT its window.close() call,
+// which would have risked closing the tab before the actual restart
+// request even went out.
+async function stopAllTracking() {
+  const behaviorRunning = !document.getElementById('behaviorStopBtn').classList.contains('hidden');
+  if (behaviorRunning) { try { await stopBehavior(); } catch (e) {} }
+  const trackerBtn = document.getElementById('trackerToggle');
+  if (bridgeUp && trackerBtn.className === 'on') {
+    try { await fetch(BRIDGE + '/api/stop-tracking', { method: 'POST', body: '' }); } catch (e) {}
+  }
+}
+
 async function closeEverything() {
   const btn = document.getElementById('closeEverythingBtn');
   btn.disabled = true;
   btn.textContent = 'Stopping...';
-  const behaviorRunning = !document.getElementById('behaviorStopBtn').classList.contains('hidden');
-  if (behaviorRunning) {
-    btn.textContent = 'Stopping App Behavior...';
-    try { await stopBehavior(); } catch (e) {}
-  }
-  const trackerBtn = document.getElementById('trackerToggle');
-  if (bridgeUp && trackerBtn.className === 'on') {
-    btn.textContent = 'Stopping tracker...';
-    try { await fetch(BRIDGE + '/api/stop-tracking', { method: 'POST', body: '' }); } catch (e) {}
-  }
+  await stopAllTracking();
   btn.textContent = 'Stopped - you can close this tab now';
   // window.close() only works on tabs opened by script - it silently does
   // nothing on a tab you navigated to yourself, which is the normal case
@@ -2171,8 +2178,85 @@ async function checkPendingUpdates() {
         <div class="label">You Need To Update This Computer</div>
         <div class="value">${d.count} update${d.count === 1 ? '' : 's'} outstanding</div>
         <div class="verdict">These are waiting whether or not automatic update checking is turned on - this is a live search, not a cached notification. Install and restart soon: a stuck pending update is a real, plausible cause of the recurring crash pattern above if it keeps getting interrupted instead of finishing.</div></div>
-      <div class="log-box">${d.titles.join('\n')}</div>`;
+      <div class="log-box" style="margin-bottom:10px">${d.titles.join('\n')}</div>
+      <button class="btn" onclick="startInstallUpdates()" id="installUpdatesBtn">Install Updates</button>
+      <div id="installUpdatesStatus" style="margin-top:10px"></div>`;
   } catch (e) { el.innerHTML = '<em style="color:#8a8f99">Search failed.</em>'; }
+}
+
+// The one action in this whole app that genuinely modifies the system -
+// Ryan's direct request 2026-07-16. Deliberately split into two clearly
+// separate steps: this installs the update files (safe, non-disruptive,
+// requires one UAC prompt), and restartComputerNow() below is a
+// completely separate, explicitly-confirmed action - a restart is never
+// triggered automatically just because an install finished, since that
+// could interrupt unsaved work with no warning.
+async function startInstallUpdates() {
+  const btn = document.getElementById('installUpdatesBtn');
+  const statusEl = document.getElementById('installUpdatesStatus');
+  btn.disabled = true;
+  btn.textContent = 'Installing…';
+  statusEl.innerHTML = '<em style="color:#8a8f99">Windows may ask for permission (a UAC prompt) - click Yes to continue. This can take several minutes depending on the update.</em>';
+  try {
+    await fetch(BRIDGE + '/api/install-updates', { method: 'POST' });
+  } catch (e) {
+    statusEl.innerHTML = '<em style="color:#d05555">Could not start the install.</em>';
+    btn.disabled = false; btn.textContent = 'Install Updates';
+    return;
+  }
+  let waited = 0;
+  const poll = setInterval(async () => {
+    waited += 3000;
+    let status = 'not-started';
+    try {
+      const r = await fetch(BRIDGE + '/api/install-updates-status', { cache: 'no-store' });
+      status = (await r.json()).status;
+    } catch (e) {}
+    if (status === 'installing' || status === 'not-started') {
+      statusEl.innerHTML = `<em style="color:#8a8f99">Still installing… (${Math.round(waited/1000)}s)</em>`;
+      return;
+    }
+    clearInterval(poll);
+    btn.classList.add('hidden');
+    if (status === 'done-nothing-to-install') {
+      statusEl.innerHTML = '<div class="card good" style="max-width:520px"><div class="label">Done</div><div class="value">Nothing to install</div><div class="verdict">These updates may have already installed on their own in the meantime.</div></div>';
+    } else if (status === 'done-no-restart-needed') {
+      statusEl.innerHTML = '<div class="card good" style="max-width:520px"><div class="label">Done</div><div class="value">Installed</div><div class="verdict">No restart needed - fully applied already.</div></div>';
+    } else if (status === 'done-restart-needed') {
+      statusEl.innerHTML = `<div class="card warn" style="max-width:520px;margin-bottom:10px">
+          <div class="label">Installed - Restart Needed</div>
+          <div class="value">One step left</div>
+          <div class="verdict">The update files are installed, but need a restart to fully take effect.</div></div>
+        <button class="btn" onclick="restartComputerNow()" id="restartNowBtn">Restart Now</button>
+        <div id="restartNowStatus" style="margin-top:10px"></div>`;
+    } else {
+      statusEl.innerHTML = `<div class="card bad" style="max-width:520px"><div class="label">Install Failed</div><div class="value">Error</div><div class="verdict">${status.replace('failed: ','')}</div></div>`;
+    }
+  }, 3000);
+}
+
+// Explicitly separate from the install step above - closes everything
+// gracefully FIRST (same Close button logic already built, which
+// properly stops App Behavior/the Tracker and lets their History
+// summaries save) before the actual restart command ever fires. Ryan's
+// direct request 2026-07-16: a restart shouldn't just abruptly kill
+// whatever's running without giving it the chance to finish and save,
+// the same problem already solved once for the plain Close button.
+async function restartComputerNow() {
+  const btn = document.getElementById('restartNowBtn');
+  const statusEl = document.getElementById('restartNowStatus');
+  btn.disabled = true;
+  btn.textContent = 'Closing everything down first…';
+  statusEl.innerHTML = '<em style="color:#8a8f99">Stopping any active tracking and saving History before restarting…</em>';
+  try { await stopAllTracking(); } catch (e) {}
+  statusEl.innerHTML = '<em style="color:#8a8f99">Restarting in 15 seconds…</em>';
+  try {
+    await fetch(BRIDGE + '/api/restart-computer', { method: 'POST' });
+    statusEl.innerHTML = '<em style="color:#e0a72e">Restarting in 15 seconds - Windows will show its own countdown.</em>';
+  } catch (e) {
+    statusEl.innerHTML = '<em style="color:#d05555">Could not trigger the restart.</em>';
+    btn.disabled = false; btn.textContent = 'Restart Now';
+  }
 }
 
 async function pollReliability() {
