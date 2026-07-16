@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.24</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.25</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2575,21 +2575,28 @@ const TAB_HEARTBEAT_KEY = 'amit_ch_tab_heartbeat';
 const TAB_HEARTBEAT_INTERVAL_MS = 2000;
 const TAB_HEARTBEAT_STALE_MS = 5000;
 const tabBroadcast = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('amit_ch_tabs') : null;
-const lastHeartbeat = parseInt(localStorage.getItem(TAB_HEARTBEAT_KEY) || '0', 10);
-// Real bug caught live 2026-07-16 (Ryan): when the primary tab reloads
-// itself in response to a refresh-requested broadcast, that reload
-// re-runs this exact check from scratch - and at that instant, the
-// heartbeat in shared storage still shows ITS OWN timestamp from a
-// fraction of a second ago, indistinguishable from a genuinely different
-// tab. sessionStorage is the fix: unlike localStorage, it's private to
-// one specific tab and is NOT shared with any other tab, but it DOES
-// survive that same tab reloading itself - exactly the distinction
-// needed here. Set right before a self-triggered reload, checked (and
-// cleared) first on every load, so a tab can always tell "I am reloading
-// myself on purpose" apart from "a different tab is genuinely running."
-const isSelfTriggeredReload = sessionStorage.getItem('amit_ch_self_reload') === '1';
-sessionStorage.removeItem('amit_ch_self_reload');
-const isDuplicateTab = !isSelfTriggeredReload && (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
+// Second real bug caught live 2026-07-16 (Ryan): the first fix only
+// special-cased ONE specific reload trigger (this page's own broadcast
+// handler) - but a plain manual F5 hits the exact same underlying
+// problem, since ANY reload of this tab, for ANY reason, leaves its own
+// very-recent heartbeat sitting in shared storage, indistinguishable
+// from a genuinely different tab. The real, general fix: give each tab
+// a persistent identity - a random id stored in sessionStorage, which
+// (unlike localStorage) is private to one specific tab but DOES survive
+// that exact tab reloading itself, no matter what triggered the reload.
+// The heartbeat now carries this id alongside its timestamp, so a tab
+// can always tell "this heartbeat is mine, from before I reloaded"
+// apart from "this heartbeat belongs to an actually different tab" -
+// correct for a manual F5, this page's own reload, or anything else.
+let tabId = sessionStorage.getItem('amit_ch_tab_id');
+if (!tabId) {
+  tabId = Date.now() + '-' + Math.random().toString(36).slice(2);
+  sessionStorage.setItem('amit_ch_tab_id', tabId);
+}
+const heartbeatParts = (localStorage.getItem(TAB_HEARTBEAT_KEY) || '').split('|');
+const lastHeartbeat = parseInt(heartbeatParts[0] || '0', 10);
+const lastHeartbeatTabId = heartbeatParts[1] || null;
+const isDuplicateTab = lastHeartbeatTabId !== null && lastHeartbeatTabId !== tabId && (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
 
 if (isDuplicateTab) {
   if (tabBroadcast) tabBroadcast.postMessage({ type: 'refresh-requested' });
@@ -2609,12 +2616,15 @@ if (isDuplicateTab) {
   // the kind of redundant background activity this whole fix exists to
   // stop, even beyond the History-duplication problem already closed.
 } else {
-  localStorage.setItem(TAB_HEARTBEAT_KEY, String(Date.now()));
-  setInterval(() => localStorage.setItem(TAB_HEARTBEAT_KEY, String(Date.now())), TAB_HEARTBEAT_INTERVAL_MS);
+  const writeHeartbeat = () => localStorage.setItem(TAB_HEARTBEAT_KEY, Date.now() + '|' + tabId);
+  writeHeartbeat();
+  setInterval(writeHeartbeat, TAB_HEARTBEAT_INTERVAL_MS);
   if (tabBroadcast) {
+    // No special reload-marking needed anymore - the tabId persisted in
+    // sessionStorage already makes this reload correctly recognize
+    // itself, the same as it would for a manual F5.
     tabBroadcast.onmessage = (e) => {
       if (!e.data || e.data.type !== 'refresh-requested') return;
-      sessionStorage.setItem('amit_ch_self_reload', '1');
       location.reload();
     };
   }
