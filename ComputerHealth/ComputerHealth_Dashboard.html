@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.20</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.21</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -675,7 +675,7 @@ async function reconcileOneTrackerType(endpoint, eventType, pushFn, label) {
     // live - only a genuinely missed session should be clearly newer
     // than that.
     if (localTime > effectiveBaseline + 2000) {
-      const eventId = await logEvent(eventType, 'info', label + ' session (recovered - this computer was closed or the machine was asleep before it could be saved live)', { recovered: true, sessionEndTime: d.sessionEndTime });
+      const eventId = await logTrackingSessionEvent(eventType, 'info', label + ' session (recovered - this computer was closed or the machine was asleep before it could be saved live)', d.sessionEndTime, { recovered: true });
       await pushFn(eventId);
     }
   } catch (e) { console.error('reconcileOneTrackerType failed for', endpoint, e); }
@@ -920,6 +920,53 @@ async function logEvent(eventType, severity, summary, detail) {
   return inserted ? inserted.id : null;
 }
 
+// Real duplicate caught live 2026-07-16: the reconciliation check and the
+// actual live stop-push are two SEPARATE code paths that can both decide
+// to write a 'tracking_session_ended' (or app_behavior_session) event
+// within the same instant - a flag inside one function can't stop that,
+// since the race is BETWEEN two different functions, not two calls to
+// the same one. An application-level "check if it exists, then insert"
+// can never fully close a race like this either - both sides can check,
+// both see nothing yet, both insert. The only thing that actually closes
+// this is a database-level uniqueness rule, enforced by Postgres itself:
+// a partial unique index on (device_id, event_type, the sessionEndTime
+// stored inside event_detail) - see PARTIAL_UNIQUE_INDEX_SQL below, which
+// needs to be run once in the Supabase SQL Editor. With that in place,
+// whichever of the two racing inserts loses gets a real constraint-
+// violation error back instead of silently creating a duplicate row -
+// caught here and treated as "someone already logged this," not a
+// failure, and the existing row's id is looked up and reused.
+async function logTrackingSessionEvent(eventType, severity, summary, sessionEndTime, extraDetail) {
+  if (!currentUser || !deviceId) return null;
+  // Same free-tier cap enforcement logEvent() already does - kept here
+  // too so this path doesn't quietly bypass it.
+  const { count } = await db.from('amit_device_events').select('id', { count: 'exact', head: true }).eq('device_id', deviceId);
+  if (count !== null && count >= FREE_TIER_HISTORY_CAP) {
+    const { data: oldest } = await db.from('amit_device_events').select('id').eq('device_id', deviceId).order('created_at', { ascending: true }).limit(count - FREE_TIER_HISTORY_CAP + 1);
+    if (oldest && oldest.length > 0) {
+      await db.from('amit_device_events').delete().in('id', oldest.map(o => o.id));
+    }
+  }
+  const detail = Object.assign({ sessionEndTime }, extraDetail || {});
+  const { data: inserted, error } = await db.from('amit_device_events').insert({
+    device_id: deviceId, user_id: currentUser.id, event_type: eventType,
+    severity, summary, event_detail: detail
+  }).select('id').single();
+  if (!error) return inserted ? inserted.id : null;
+  // 23505 = Postgres unique_violation - the expected, harmless outcome of
+  // losing this exact race, not a real error. Anything else is logged so
+  // a genuine problem doesn't disappear silently.
+  if (error.code !== '23505') { console.error('logTrackingSessionEvent insert failed:', error); return null; }
+  const { data: existing } = await db.from('amit_device_events')
+    .select('id')
+    .eq('device_id', deviceId)
+    .eq('event_type', eventType)
+    .eq('event_detail->>sessionEndTime', sessionEndTime)
+    .limit(1)
+    .single();
+  return existing ? existing.id : null;
+}
+
 // Pulls the aggregated min/max/avg/stddev/count rows app_behavior_watcher.ps1
 // wrote to app_behavior_metrics.json right as its session ended (via the
 // bridge's /api/behavior-metrics), and bulk-inserts them into
@@ -935,24 +982,37 @@ async function logEvent(eventType, severity, summary, detail) {
 // the raw fetched payload (including sessionEndTime, when the endpoint
 // provides one) so callers - like the reconciliation check on connect -
 // can inspect what was actually found without a second fetch.
-async function pushMetricsFromEndpoint(eventId, endpoint) {
-  if (!eventId || !currentUser || !deviceId) return null;
+// Split into a fetch half and an insert half - the fetch needs to happen
+// BEFORE the History event is created now (so sessionEndTime is known
+// and can go into that event's own detail, for logTrackingSessionEvent's
+// dedup check to work), whereas it used to happen after. Kept as two
+// pieces instead of one so each call site can sequence them correctly
+// for its own situation.
+async function fetchLocalMetrics(endpoint) {
   try {
     const r = await fetch(BRIDGE + endpoint, { cache: 'no-store' });
-    const d = await r.json();
-    if (!d.found || !d.rows || d.rows.length === 0) return d;
-    const rows = d.rows.map(row => ({
-      event_id: eventId, device_id: deviceId, user_id: currentUser.id,
-      component: row.component, title: row.title,
-      metric_name: row.metric_name, category: row.category,
-      min_value: row.min_value, max_value: row.max_value,
-      avg_value: row.avg_value, stddev_value: row.stddev_value,
-      sample_count: row.sample_count
-    }));
-    const { error } = await db.from('amit_device_session_metrics').insert(rows);
-    if (error) console.error('pushMetricsFromEndpoint insert failed:', error);
-    return d;
-  } catch (e) { console.error('pushMetricsFromEndpoint failed:', e); return null; }
+    return await r.json();
+  } catch (e) { console.error('fetchLocalMetrics failed:', e); return null; }
+}
+async function insertMetricsRowsForEvent(eventId, d) {
+  if (!eventId || !currentUser || !deviceId || !d || !d.found || !d.rows || d.rows.length === 0) return;
+  const rows = d.rows.map(row => ({
+    event_id: eventId, device_id: deviceId, user_id: currentUser.id,
+    component: row.component, title: row.title,
+    metric_name: row.metric_name, category: row.category,
+    min_value: row.min_value, max_value: row.max_value,
+    avg_value: row.avg_value, stddev_value: row.stddev_value,
+    sample_count: row.sample_count
+  }));
+  const { error } = await db.from('amit_device_session_metrics').insert(rows);
+  if (error) console.error('insertMetricsRowsForEvent failed:', error);
+}
+// Convenience wrapper still used by reconcileOneTrackerType, where the
+// event already exists by the time metrics get pushed.
+async function pushMetricsFromEndpoint(eventId, endpoint) {
+  const d = await fetchLocalMetrics(endpoint);
+  await insertMetricsRowsForEvent(eventId, d);
+  return d;
 }
 async function pushBehaviorMetrics(eventId) { return pushMetricsFromEndpoint(eventId, '/api/behavior-metrics'); }
 async function pushTrackerMetrics(eventId) { return pushMetricsFromEndpoint(eventId, '/api/tracker-metrics'); }
@@ -1800,8 +1860,16 @@ async function toggleTracker() {
       // time this runs - same parity with App Behavior's own
       // logBehaviorSessionToHistory + pushBehaviorMetrics pairing, Ryan's
       // direct request 2026-07-16.
-      const trackerEventId = await logEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, { endedAt: new Date().toISOString(), concerns: overview.concerns });
-      await pushTrackerMetrics(trackerEventId);
+      // Fetched BEFORE creating the event now (not after) - real
+      // duplicate caught live 2026-07-16: reconciliation and this live
+      // push are two separate code paths that can both decide to log
+      // this same session within the same instant. Passing sessionEndTime
+      // into logTrackingSessionEvent lets the database-level unique
+      // constraint (see PARTIAL_UNIQUE_INDEX_SQL) actually stop the
+      // duplicate, which a same-function flag never could.
+      const trackerLocalMetrics = await fetchLocalMetrics('/api/tracker-metrics');
+      const trackerEventId = await logTrackingSessionEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, trackerLocalMetrics ? trackerLocalMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+      await insertMetricsRowsForEvent(trackerEventId, trackerLocalMetrics);
       detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
     } else {
       detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
@@ -2257,8 +2325,12 @@ async function logBehaviorSessionToHistory(text) {
   // own "You launched X." narrative line rather than re-deriving it here.
   const mainProgramMatch = text.match(/You launched ([^.]+)\./);
   const mainProgram = mainProgramMatch ? mainProgramMatch[1].trim() : null;
-  const eventId = await logEvent('app_behavior_session', severity, summary, { sessionLabel: currentBehaviorLabel, fullLog: text, duration, mainProgram });
-  await pushBehaviorMetrics(eventId);
+  // Same fetch-before-create-event fix as the main Tracker's stop path -
+  // Ryan's direct request 2026-07-16: without this, reconciliation and
+  // this live push could both log the same session as a duplicate.
+  const behaviorLocalMetrics = await fetchLocalMetrics('/api/behavior-metrics');
+  const eventId = await logTrackingSessionEvent('app_behavior_session', severity, summary, behaviorLocalMetrics ? behaviorLocalMetrics.sessionEndTime : null, { sessionLabel: currentBehaviorLabel, fullLog: text, duration, mainProgram });
+  await insertMetricsRowsForEvent(eventId, behaviorLocalMetrics);
 }
 
 async function installStart() {
