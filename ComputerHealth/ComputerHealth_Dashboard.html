@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.21</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.22</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2482,7 +2482,19 @@ async function handleJustStopped() {
   }
   const detail = document.getElementById('sessionSummaryDetail');
   if (currentUser && deviceId) {
-    await logEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+    // Real gap caught live 2026-07-16: this is a THIRD, separate code
+    // path that creates a tracking_session_ended event - Ryan's earlier
+    // fix only touched toggleTracker()'s live-click path and the
+    // reconciliation check, missing this one entirely (the desktop app's
+    // own justStopped=1 tab, which exists specifically for when no
+    // browser tab was open to catch the stop live). It used the old
+    // unprotected logEvent() with no sessionEndTime at all, so the
+    // database constraint never applied to it - exactly the empty-
+    // sessionEndTime duplicate Ryan caught. Also never pushed metrics at
+    // all until now, a second, separate gap in this same path.
+    const justStoppedMetrics = await fetchLocalMetrics('/api/tracker-metrics');
+    const justStoppedEventId = await logTrackingSessionEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, justStoppedMetrics ? justStoppedMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+    await insertMetricsRowsForEvent(justStoppedEventId, justStoppedMetrics);
     detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
   } else {
     detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
