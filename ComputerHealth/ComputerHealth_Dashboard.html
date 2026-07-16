@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.40</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.41</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2962,7 +2962,18 @@ if (!tabId) {
 const heartbeatParts = (localStorage.getItem(TAB_HEARTBEAT_KEY) || '').split('|');
 const lastHeartbeat = parseInt(heartbeatParts[0] || '0', 10);
 const lastHeartbeatTabId = heartbeatParts[1] || null;
-const isDuplicateTab = lastHeartbeatTabId !== null && lastHeartbeatTabId !== tabId && (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
+// A ?justStopped=1 / ?justLaunched=1 tab has a specific one-shot job -
+// build and log the real session summary while the bridge is still
+// alive - that must run regardless of whether another Computer Health
+// tab happens to already be open. Real bug caught live 2026-07-16
+// (Ryan): AmitTracker.exe's Stop Tracker opens exactly this kind of tab,
+// and when a normal tab was already open, the new one saw the existing
+// heartbeat, closed itself as a "duplicate" before ever calling
+// handleJustStopped(), and the rich summary silently never got built -
+// only a generic fallback placeholder showed up in History afterward.
+const urlParams = new URLSearchParams(window.location.search);
+const isOneShotTab = urlParams.get('justStopped') === '1' || urlParams.get('justLaunched') === '1';
+const isDuplicateTab = !isOneShotTab && lastHeartbeatTabId !== null && lastHeartbeatTabId !== tabId && (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
 
 if (isDuplicateTab) {
   if (tabBroadcast) tabBroadcast.postMessage({ type: 'refresh-requested' });
