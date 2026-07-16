@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.36</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.37</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2259,15 +2259,29 @@ async function pollReliability() {
     const d = await r.json();
     const records = d.records || [];
     const minidumps = d.minidumps || [];
-    const errorCount = records.filter(rec => /Error|Hang|unexpected/i.test(rec.source + ' ' + rec.message)).length;
+    const errorRecords = records.filter(rec => /Error|Hang|unexpected/i.test(rec.source + ' ' + rec.message));
+    // Windows never purges reliability history just because a later
+    // update fixed the underlying cause - the same old entries would
+    // otherwise sit there looking like an ongoing unresolved problem
+    // forever. errorCount now reflects only what happened SINCE the last
+    // real update (read from Windows' own update-install history, not a
+    // manual log entry), with older entries still shown in full below,
+    // just labeled instead of counted as current (Ryan's direct request
+    // 2026-07-16).
+    const errorCountSinceUpdate = errorRecords.filter(rec => !rec.beforeLastUpdate).length;
+    const errorCountBeforeUpdate = errorRecords.length - errorCountSinceUpdate;
+    const lastUpdateLine = d.lastUpdateDate
+      ? `Last update installed: ${d.lastUpdateDate}${errorCountBeforeUpdate ? ` - ${errorCountBeforeUpdate} of the entries below happened before that and may already be resolved.` : ''}`
+      : 'Could not determine when the last update was installed.';
     document.getElementById('reliabilityCards').innerHTML = `
-      <div class="card ${verdictClass(errorCount,3,7)}">
-        <div class="label">Recent Errors &amp; Crashes</div>
-        <div class="value">${errorCount}</div>
-        <div class="verdict">${verdictText('Errors',errorCount,3,7,
-          'Nothing concerning in recent history.',
-          'A few errors showed up recently - worth keeping an eye on.',
-          'A real pattern of errors/crashes - worth investigating what keeps failing.')}</div></div>
+      <div class="card ${verdictClass(errorCountSinceUpdate,3,7)}">
+        <div class="label">Errors &amp; Crashes Since Your Last Update</div>
+        <div class="value">${errorCountSinceUpdate}</div>
+        <div class="verdict">${verdictText('Errors',errorCountSinceUpdate,3,7,
+          'Nothing concerning since your last update.',
+          'A few errors since your last update - worth keeping an eye on.',
+          'A real pattern of errors/crashes since your last update - worth investigating what keeps failing.')}
+          <div style="margin-top:6px;color:#8a8f99;font-size:12px">${lastUpdateLine}</div></div></div>
       <div class="card ${verdictClass(minidumps.length,1,3)}">
         <div class="label">Actual BSOD Crashes</div>
         <div class="value">${minidumps.length}</div>
@@ -2276,7 +2290,7 @@ async function pollReliability() {
           'At least one real crash dump exists - worth knowing when it happened.',
           'Multiple crash dumps - a real, recurring stability problem.')}</div></div>`;
     document.getElementById('reliabilityList').textContent = records.length
-      ? records.map(rec => `${rec.time}  [${rec.source}]  ${rec.message}`).join('\n\n')
+      ? records.map(rec => `${rec.time}  [${rec.source}]  ${rec.message}${rec.beforeLastUpdate ? '  (before your last update - may already be resolved)' : ''}`).join('\n\n')
       : 'No reliability history found yet.';
     document.getElementById('minidumpList').textContent = minidumps.length
       ? minidumps.map(m => `${m.time}  ${m.fileName}`).join('\n')
