@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.23</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.24</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2576,7 +2576,20 @@ const TAB_HEARTBEAT_INTERVAL_MS = 2000;
 const TAB_HEARTBEAT_STALE_MS = 5000;
 const tabBroadcast = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('amit_ch_tabs') : null;
 const lastHeartbeat = parseInt(localStorage.getItem(TAB_HEARTBEAT_KEY) || '0', 10);
-const isDuplicateTab = (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
+// Real bug caught live 2026-07-16 (Ryan): when the primary tab reloads
+// itself in response to a refresh-requested broadcast, that reload
+// re-runs this exact check from scratch - and at that instant, the
+// heartbeat in shared storage still shows ITS OWN timestamp from a
+// fraction of a second ago, indistinguishable from a genuinely different
+// tab. sessionStorage is the fix: unlike localStorage, it's private to
+// one specific tab and is NOT shared with any other tab, but it DOES
+// survive that same tab reloading itself - exactly the distinction
+// needed here. Set right before a self-triggered reload, checked (and
+// cleared) first on every load, so a tab can always tell "I am reloading
+// myself on purpose" apart from "a different tab is genuinely running."
+const isSelfTriggeredReload = sessionStorage.getItem('amit_ch_self_reload') === '1';
+sessionStorage.removeItem('amit_ch_self_reload');
+const isDuplicateTab = !isSelfTriggeredReload && (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
 
 if (isDuplicateTab) {
   if (tabBroadcast) tabBroadcast.postMessage({ type: 'refresh-requested' });
@@ -2599,7 +2612,11 @@ if (isDuplicateTab) {
   localStorage.setItem(TAB_HEARTBEAT_KEY, String(Date.now()));
   setInterval(() => localStorage.setItem(TAB_HEARTBEAT_KEY, String(Date.now())), TAB_HEARTBEAT_INTERVAL_MS);
   if (tabBroadcast) {
-    tabBroadcast.onmessage = (e) => { if (e.data && e.data.type === 'refresh-requested') location.reload(); };
+    tabBroadcast.onmessage = (e) => {
+      if (!e.data || e.data.type !== 'refresh-requested') return;
+      sessionStorage.setItem('amit_ch_self_reload', '1');
+      location.reload();
+    };
   }
   // Light refresh on refocus - Ryan's direct request 2026-07-16: catches
   // the case where no new tab even opened, the user just switched back

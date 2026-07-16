@@ -739,6 +739,8 @@ Invoke-RestMethod -Uri "https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/hub_ent
 
 17. **BACKUP BEFORE BIG CHANGES:** Before architectural changes to existing files: create `[filename]-pre-v[VERSION].[ext]` in same folder. Keep until Ryan confirms. Does NOT apply to content edits, CSS tweaks, bug fixes.
 
+18. **CHECK REAL TIME BEFORE COMMENTING ON IT:** Before saying anything about lateness, session length, or suggesting a stopping point tied to time of day ("it's late," "should we pick this up tomorrow"), check the actual system clock (`Get-Date`) first. Use correct time-of-day vocabulary (good morning/afternoon/evening/night) matching the real clock, not assumptions from how the conversation feels. Ryan runs long real sessions that span into the next day — don't nag about stopping based on a guessed time.
+
 ---
 
 ## FILE LOCATIONS (always use absolute paths — OneDrive)
