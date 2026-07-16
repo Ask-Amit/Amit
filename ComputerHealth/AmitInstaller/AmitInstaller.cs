@@ -26,7 +26,12 @@ using System.Windows.Forms;
 class AmitInstaller
 {
     // Bump this alongside VERSION at repo root whenever this exe is rebuilt.
-    const string CURRENT_VERSION = "2.67";
+    // Kept in lockstep with the Computer Health dashboard's own version
+    // number (Ryan's direct request 2026-07-16) - the installer literally
+    // embeds the dashboard as a resource, so one shared number means you
+    // can look at either version and immediately know if the other is
+    // stale, instead of cross-referencing two independent counters.
+    const string CURRENT_VERSION = "3.36";
 
     // Every file Install_AmitTracker.ps1 expects to find sitting next to it.
     // Logical resource names (via plain /resource:path, no explicit name)
