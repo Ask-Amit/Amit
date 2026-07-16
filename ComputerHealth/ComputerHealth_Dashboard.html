@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.29</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.30</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -534,6 +534,14 @@
     <div class="section-title">Reliability — crash and failure history</div>
     <p style="font-size:13px;color:#9aa0ab">This isn't about how fast your computer is right now — it's about what's actually broken or crashed over time. Windows already tracks this in the background on its own (the Reliability Monitor); this just reads that same record.</p>
     <div id="reliabilityCards"></div>
+    <div class="section-title" style="margin-top:20px">Windows Update</div>
+    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">Added 2026-07-16, Ryan's direct request: a pending update that keeps getting postponed rather than either finishing or being fully deferred is a real, plausible cause of the crash pattern above - this makes that visible instead of just guessing.</p>
+    <div id="restartPendingCard" style="margin-bottom:10px"><em style="color:#8a8f99">Checking…</em></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="checkPendingUpdates()">Check for Pending Updates</button>
+      <span style="font-size:12px;color:#7a7f89">Takes a few seconds - a real search against Windows Update, not automatic</span>
+    </div>
+    <div id="pendingUpdatesResult"></div>
     <div class="section-title" style="margin-top:20px">Recent events</div>
     <div id="reliabilityList" class="log-box" style="max-height:400px;overflow-y:auto">Loading…</div>
     <div class="section-title" style="margin-top:20px">Actual crash dump files (BSODs)</div>
@@ -1621,7 +1629,7 @@ const TAB_CAPTURE_INFO = {
     future: ['Combined view across multiple owned devices at once (currently one device at a time)', 'Search/filter within History', 'Export']
   },
   reliability: {
-    current: ['Windows Reliability Monitor history (last 25 records) - crashes, driver failures, install failures, unexpected shutdowns', 'Actual BSOD crash dump files found in the Minidump folder', 'Recent Errors and Crashes summary card', 'Actual BSOD Crashes summary card'],
+    current: ['Windows Reliability Monitor history (last 25 records) - crashes, driver failures, install failures, unexpected shutdowns', 'Actual BSOD crash dump files found in the Minidump folder', 'Recent Errors and Crashes summary card', 'Actual BSOD Crashes summary card', 'Restart Pending status (fast, automatic - registry-based)', 'Pending Windows Updates count and titles (on-demand button - a real search against Windows Update, takes a few seconds)'],
     future: ['Session-level summary tracking over time (has this gotten better or worse across weeks/months) - same pipeline as the Tracker/App Behavior metrics, not yet built', 'Filtering/searching the reliability record list', 'Linking a specific crash record to what App Behavior was watching at that exact time, if a session was running']
   },
   security: {
@@ -2129,7 +2137,43 @@ async function pollDiagnostics() {
 // broken, or about to be." Loaded lazily when the tab is opened (see
 // showTab/showTabByName), not continuously polled, since crash history
 // and antivirus status don't change fast enough to need live refresh.
+async function pollRestartPending() {
+  try {
+    const r = await fetch(BRIDGE + '/api/restart-pending');
+    const d = await r.json();
+    const el = document.getElementById('restartPendingCard');
+    if (!el) return;
+    el.innerHTML = `<div class="card ${d.restartPending ? 'warn' : 'good'}" style="max-width:520px">
+      <div class="label">Restart Pending</div>
+      <div class="value">${d.restartPending ? 'Yes' : 'No'}</div>
+      <div class="verdict">${d.restartPending ? (d.reasons.join('; ') + '.') : 'Nothing currently waiting on a restart.'}</div></div>`;
+  } catch (e) {}
+}
+
+async function checkPendingUpdates() {
+  const el = document.getElementById('pendingUpdatesResult');
+  el.innerHTML = '<em style="color:#8a8f99">Searching Windows Update - this can take several seconds…</em>';
+  try {
+    const r = await fetch(BRIDGE + '/api/pending-updates');
+    const d = await r.json();
+    if (!d.found) {
+      el.innerHTML = '<em style="color:#8a8f99">Could not search Windows Update right now.</em>';
+      return;
+    }
+    if (d.count === 0) {
+      el.innerHTML = '<div class="card good" style="max-width:520px"><div class="label">Pending Updates</div><div class="value">None</div><div class="verdict">Everything is installed and up to date.</div></div>';
+      return;
+    }
+    el.innerHTML = `<div class="card warn" style="max-width:520px;margin-bottom:10px">
+        <div class="label">Pending Updates</div>
+        <div class="value">${d.count}</div>
+        <div class="verdict">Waiting to be installed - this is a real, plausible source of the recurring crash pattern above if one of these keeps getting interrupted instead of finishing.</div></div>
+      <div class="log-box">${d.titles.join('\n')}</div>`;
+  } catch (e) { el.innerHTML = '<em style="color:#8a8f99">Search failed.</em>'; }
+}
+
 async function pollReliability() {
+  pollRestartPending();
   try {
     const r = await fetch(BRIDGE + '/api/reliability');
     const d = await r.json();
