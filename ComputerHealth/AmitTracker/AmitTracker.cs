@@ -148,8 +148,22 @@ class AmitTrackerWindow : Form
         }
     }
 
+    private int stopTriggered = 0;
+
     private void StopTracker()
     {
+        // Atomic guard, not just the plain `stopping` bool check below -
+        // the external stop poller thread and the button's own click
+        // handler (or FormClosing) can both pass a "!stopping" check
+        // within the same few-millisecond window before either has
+        // actually set it, since setting `stopping = true` used to be the
+        // FIRST line inside this method, too late to block a concurrent
+        // second call already past its own outer check. Real bug caught
+        // live 2026-07-16 (Ryan): two separate cleanup threads both ran,
+        // each opening its own ?justStopped=1 dashboard tab and racing
+        // each other to log the session, which is why duplicate tabs
+        // reappeared and the real summary kept losing to a generic one.
+        if (Interlocked.Exchange(ref stopTriggered, 1) != 0) return;
         stopping = true;
 
         // The window itself must disappear right away - the actual cleanup
