@@ -26,7 +26,7 @@ using System.Windows.Forms;
 class AmitInstaller
 {
     // Bump this alongside VERSION at repo root whenever this exe is rebuilt.
-    const string CURRENT_VERSION = "2.66";
+    const string CURRENT_VERSION = "2.67";
 
     // Every file Install_AmitTracker.ps1 expects to find sitting next to it.
     // Logical resource names (via plain /resource:path, no explicit name)
