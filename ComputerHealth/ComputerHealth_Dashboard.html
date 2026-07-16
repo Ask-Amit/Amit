@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.22</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.23</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2559,19 +2559,72 @@ async function attemptSilentReconnect() {
   }
 }
 
-// Nothing here touches localhost automatically except handleJustStopped(),
-// handleJustLaunched(), and attemptSilentReconnect() - all gated on either
-// an explicit URL flag set by a script the person already deliberately ran,
-// or on having connected here before (implicit consent either way).
-// Everyone else waits for an explicit "Launch Tracker" click.
-handleJustLaunched();
-handleJustStopped();
-attemptSilentReconnect();
-updateChDemoBtn();
-// Runs immediately for guests too (not just after a real sign-in) so demo
-// mode - browsing Amit's own tracked history - works without an account.
-// This only touches Supabase, never localhost, so it needs no gating.
-setTimeout(() => { if (!currentUser) loadMyDevices(); }, 500);
+// Duplicate-tab prevention - Ryan's direct request 2026-07-16: the
+// desktop app opens a fresh browser tab every time tracking starts or
+// stops (its own justStopped=1 / justLaunched flow), with no way to
+// reuse an already-open tab - browsers deliberately don't let one tab
+// see, focus, or force-close another (a real security boundary, not a
+// gap in this code). What IS possible: same-origin tabs share
+// localStorage, so each open tab writes a small "I'm here" heartbeat
+// every couple seconds; a brand-new tab checks that heartbeat and knows
+// immediately whether a copy of itself is already running, without ever
+// looking at another tab directly. Paired with BroadcastChannel (real
+// same-origin cross-tab messaging) so the new tab can tell the existing
+// one "refresh yourself" before getting out of the way.
+const TAB_HEARTBEAT_KEY = 'amit_ch_tab_heartbeat';
+const TAB_HEARTBEAT_INTERVAL_MS = 2000;
+const TAB_HEARTBEAT_STALE_MS = 5000;
+const tabBroadcast = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('amit_ch_tabs') : null;
+const lastHeartbeat = parseInt(localStorage.getItem(TAB_HEARTBEAT_KEY) || '0', 10);
+const isDuplicateTab = (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
+
+if (isDuplicateTab) {
+  if (tabBroadcast) tabBroadcast.postMessage({ type: 'refresh-requested' });
+  // Best-effort only - window.close() is silently blocked by the browser
+  // on tabs it didn't open itself via script (the normal case here,
+  // since the desktop app opens these through external navigation, not
+  // window.open()). No harm attempting it; the overlay below is the real
+  // fallback for when it doesn't apply.
+  window.close();
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0d0e12;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#e8e8ec;font-family:system-ui,sans-serif';
+  overlay.innerHTML = '<div><h2 style="color:#c9a84c;margin-bottom:10px">Computer Health is already open</h2><p style="color:#9a9fab">Another tab already has this page open, and it has been told to refresh with the latest data. You can close this tab.</p></div>';
+  document.body.appendChild(overlay);
+  // Deliberately does NOT call handleJustLaunched/handleJustStopped/
+  // attemptSilentReconnect below - a duplicate tab doing its own live
+  // polling and bridge/Supabase calls alongside the real tab is exactly
+  // the kind of redundant background activity this whole fix exists to
+  // stop, even beyond the History-duplication problem already closed.
+} else {
+  localStorage.setItem(TAB_HEARTBEAT_KEY, String(Date.now()));
+  setInterval(() => localStorage.setItem(TAB_HEARTBEAT_KEY, String(Date.now())), TAB_HEARTBEAT_INTERVAL_MS);
+  if (tabBroadcast) {
+    tabBroadcast.onmessage = (e) => { if (e.data && e.data.type === 'refresh-requested') location.reload(); };
+  }
+  // Light refresh on refocus - Ryan's direct request 2026-07-16: catches
+  // the case where no new tab even opened, the user just switched back
+  // to this one and wants current data without a manual F5.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !bridgeUp) return;
+    pollTrackerStatus();
+    const historyTabBtn = document.getElementById('tab-history');
+    if (historyTabBtn && historyTabBtn.classList.contains('active')) loadHistory();
+  });
+
+  // Nothing here touches localhost automatically except handleJustStopped(),
+  // handleJustLaunched(), and attemptSilentReconnect() - all gated on either
+  // an explicit URL flag set by a script the person already deliberately ran,
+  // or on having connected here before (implicit consent either way).
+  // Everyone else waits for an explicit "Launch Tracker" click.
+  handleJustLaunched();
+  handleJustStopped();
+  attemptSilentReconnect();
+  updateChDemoBtn();
+  // Runs immediately for guests too (not just after a real sign-in) so demo
+  // mode - browsing Amit's own tracked history - works without an account.
+  // This only touches Supabase, never localhost, so it needs no gating.
+  setTimeout(() => { if (!currentUser) loadMyDevices(); }, 500);
+}
 </script>
 </body>
 </html>
