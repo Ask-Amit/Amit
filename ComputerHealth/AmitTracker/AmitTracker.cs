@@ -193,7 +193,18 @@ class AmitTrackerWindow : Form
             // The dashboard's cursory overview (added 2026-07-14) needs to
             // fetch real resource/diagnostics/sensor data to analyze the
             // session, and that only works while the bridge is still alive.
-            try { Process.Start(dashboardUrl + "?justStopped=1"); } catch { }
+            // Ryan's direct request 2026-07-16: this catch used to silently
+            // swallow any failure with zero trace - if Process.Start ever
+            // fails to actually open the summary tab (blocked browser
+            // association, security policy, anything), there was no way to
+            // ever know versus it opening fine but something else going
+            // wrong downstream. Now writes hard evidence either way.
+            try {
+                Process.Start(dashboardUrl + "?justStopped=1");
+                File.AppendAllText(Path.Combine(Path.GetTempPath(), "amit_tracker_debug.log"), DateTime.Now + " - Process.Start(justStopped) SUCCEEDED\r\n");
+            } catch (Exception ex) {
+                File.AppendAllText(Path.Combine(Path.GetTempPath(), "amit_tracker_debug.log"), DateTime.Now + " - Process.Start(justStopped) FAILED: " + ex.Message + "\r\n");
+            }
 
             // Grace period for the dashboard tab to actually load and finish
             // its fetches before the bridge disappears out from under it -

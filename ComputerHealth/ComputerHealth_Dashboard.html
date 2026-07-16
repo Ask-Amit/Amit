@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.45-debug</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.46</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1713,14 +1713,69 @@ function openHistoryDetail(i) {
     if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
     body.innerHTML = html;
   } else if (e.event_type === 'tracking_session_ended') {
+    // Real gap found live 2026-07-16 (Ryan): this only ever showed the
+    // bare concerns list, never the detailed per-sensor breakdown -
+    // App Behavior sessions get the full sectioned renderBehaviorReport()
+    // treatment, but Tracker sessions never got the equivalent even
+    // though the exact same min/max/avg data has been captured into
+    // amit_device_session_metrics via insertMetricsRowsForEvent() all
+    // along. This was a pre-existing feature gap, not a regression from
+    // tonight's other fixes.
     const concerns = d.concerns || [];
-    body.innerHTML = concerns.length
+    body.innerHTML = (concerns.length
       ? '<ul>' + concerns.map(c => `<li>${c}</li>`).join('') + '</ul>'
-      : '<em style="color:#8a8f99">No specific concerns were flagged this session.</em>';
+      : '<em style="color:#8a8f99">No specific concerns were flagged this session.</em>') +
+      '<div id="trackerMetricsBreakdown" style="margin-top:14px"><em style="color:#8a8f99">Loading resource breakdown…</em></div>';
+    document.getElementById('historyDetailModal').classList.remove('hidden');
+    loadTrackerMetricsBreakdown(e.id);
+    return;
   } else {
     body.innerHTML = `<pre style="white-space:pre-wrap;font-size:12px;background:#12141a;padding:12px;border-radius:6px">${JSON.stringify(d, null, 2).replace(/</g,'&lt;')}</pre>`;
   }
   document.getElementById('historyDetailModal').classList.remove('hidden');
+}
+
+// Real gap found live 2026-07-16 (Ryan) - Tracker session reports never
+// showed the detailed per-sensor breakdown App Behavior sessions already
+// get, even though the exact same min/max/avg data has been sitting in
+// amit_device_session_metrics since insertMetricsRowsForEvent() was
+// built. Groups by category/component and separates sensors that
+// actually changed from ones that stayed steady, same pattern as the
+// live cursory-overview screen already uses.
+async function loadTrackerMetricsBreakdown(eventId) {
+  const el = document.getElementById('trackerMetricsBreakdown');
+  if (!el || !db || !eventId) { if (el) el.innerHTML = ''; return; }
+  const esc = s => (s == null ? '' : String(s)).replace(/</g, '&lt;');
+  try {
+    const { data, error } = await db.from('amit_device_session_metrics').select('*').eq('event_id', eventId);
+    if (error || !data || data.length === 0) {
+      el.innerHTML = '<em style="color:#8a8f99">No detailed sensor data was captured for this session.</em>';
+      return;
+    }
+    const byCategory = {};
+    data.forEach(row => {
+      const cat = row.category || row.component || 'Other';
+      (byCategory[cat] = byCategory[cat] || []).push(row);
+    });
+    let html = '<div class="section-title" style="margin-top:16px">Resource Usage</div><ul style="margin:6px 0 0 18px">';
+    Object.keys(byCategory).forEach(cat => {
+      const rows = byCategory[cat];
+      const changed = rows.filter(r => r.min_value !== r.max_value);
+      const steady = rows.length - changed.length;
+      if (changed.length === 0) {
+        html += `<li style="margin:4px 0"><strong>${esc(cat)}:</strong> performed normally throughout - no meaningful change across ${rows.length} sensor(s).</li>`;
+      } else {
+        const shown = changed.slice(0, 6);
+        const extra = changed.length - shown.length;
+        const parts = shown.map(r => `${esc(r.title || r.metric_name)} rose from ${r.min_value} to ${r.avg_value != null ? r.avg_value : r.max_value} (peak ${r.max_value})`);
+        html += `<li style="margin:4px 0"><strong>${esc(cat)}:</strong> ${parts.join('; ')}.${extra ? ` (${extra} other sensor(s) in this component also changed.)` : ''}${steady ? ` (${steady} other sensor(s) in this component stayed steady.)` : ''}</li>`;
+      }
+    });
+    html += '</ul>';
+    el.innerHTML = html;
+  } catch (err) {
+    el.innerHTML = '<em style="color:#8a8f99">Could not load resource breakdown.</em>';
+  }
 }
 
 // --- Device init ---
@@ -2849,6 +2904,12 @@ async function runCursoryOverview() {
 
 async function handleJustStopped() {
   if (new URLSearchParams(window.location.search).get('justStopped') !== '1') return;
+  // Unmistakable visual marker so this tab can never be confused with an
+  // old, stale, already-open Computer Health tab left over from earlier
+  // testing - Ryan's direct request 2026-07-16, after console evidence
+  // that looked contradictory turned out to likely be from inspecting
+  // the wrong tab entirely.
+  document.title = '🔴 SESSION SUMMARY - Computer Health';
   console.log('[AMIT-DEBUG] handleJustStopped: STARTED');
   document.getElementById('sessionSummaryScreen').classList.remove('hidden');
   if (!localAccessAttempted) {
