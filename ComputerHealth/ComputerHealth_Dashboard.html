@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.18</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.19</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -633,8 +633,21 @@ async function onSessionConfirmed() {
 // "recovered" label. Self-correcting: once reconciled, the newly-created
 // History row's own timestamp becomes the new high-water mark, so a
 // second open won't re-publish the same session twice.
+// Real bug caught live 2026-07-16: this gets called from both
+// onConnected() and onSessionConfirmed(), which can both fire within
+// milliseconds of each other on a normal page load. Without a guard,
+// both calls read Supabase's "latest entry" before either had finished
+// writing its own recovered entry, so both independently concluded the
+// session was missing and each created a duplicate. The check-and-set
+// below is safe specifically because it runs synchronously, before any
+// await - JavaScript won't interleave the two calls until the first one
+// actually yields, so whichever call executes first claims the flag
+// before the second call's own check ever runs.
+let reconcileAlreadyRan = false;
 async function reconcileMissedSummaries() {
   if (!currentUser || !deviceId) return;
+  if (reconcileAlreadyRan) return;
+  reconcileAlreadyRan = true;
   await reconcileOneTrackerType('/api/tracker-metrics', 'tracking_session_ended', pushTrackerMetrics, 'Tracker');
   await reconcileOneTrackerType('/api/behavior-metrics', 'app_behavior_session', pushBehaviorMetrics, 'App Behavior');
 }
