@@ -478,13 +478,55 @@ $handlerScript = {
         # (works fine in a warm/normal session, hangs in this one). Fixed the
         # same way - swap to the older COM-based WMI cmdlet, which doesn't
         # share that failure mode, instead of the WSMan/CIM one.
+        #
+        # Retry added 2026-07-16 (Ryan's direct request, after 1.5 hours lost
+        # to two full generations of watcher processes running at once) -
+        # this exact query intermittently returned nothing for a genuinely
+        # still-running process in this same cold-runspace environment,
+        # exactly the class of unreliability already documented above for
+        # the CIM version. A single miss here means Start-Tracking() thinks
+        # nothing is running and launches a full duplicate set, which then
+        # never gets reconciled since Stop-Tracking() only ever knew about
+        # whichever generation's PIDs it last saved. One retry after a short
+        # pause catches a transient miss without meaningfully slowing down
+        # the normal (nothing running) case.
         $match = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
             Where-Object { $_.CommandLine -like "*$scriptFileName*" } |
             Select-Object -First 1
+        if (-not $match) {
+            Start-Sleep -Milliseconds 400
+            $match = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
+                Where-Object { $_.CommandLine -like "*$scriptFileName*" } |
+                Select-Object -First 1
+        }
         return $match
     }
 
+    # Hard guarantee, not just a retry - Ryan's direct request 2026-07-16.
+    # Runs first, unconditionally, before Start-Tracking does anything else:
+    # for each watcher script, if MORE THAN ONE process matches it (from any
+    # prior bridge-server generation, however it got orphaned), keep only the
+    # single oldest one and force-kill every extra. This is what actually
+    # prevents two full generations from silently running side by side and
+    # fighting over the same output files - the per-script check further
+    # down only prevents launching a NEW duplicate, it never cleans up
+    # duplicates that already exist from before this call.
+    function Remove-DuplicateWatcherProcesses() {
+        $scriptNames = @('resource_watcher.ps1', 'diagnostics_watcher.ps1', 'activity_watcher2.ps1', 'app_behavior_watcher.ps1')
+        foreach ($name in $scriptNames) {
+            $procMatches = @(Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
+                Where-Object { $_.CommandLine -like "*$name*" } |
+                Sort-Object { [Management.ManagementDateTimeConverter]::ToDateTime($_.CreationDate) })
+            if ($procMatches.Count -gt 1) {
+                foreach ($extra in $procMatches[1..($procMatches.Count - 1)]) {
+                    try { Stop-Process -Id $extra.ProcessId -Force -ErrorAction SilentlyContinue } catch {}
+                }
+            }
+        }
+    }
+
     function Start-Tracking() {
+        Remove-DuplicateWatcherProcesses
         # NOTE: a top-level "is anything already running" shortcut used to live
         # here, based on Get-TrackerStatus (whether ANY previously-recorded pid
         # is still alive). Removed 2026-07-13 - it was a real bug: if only
