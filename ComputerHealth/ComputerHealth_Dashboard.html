@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.44</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.45-debug</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -687,6 +687,7 @@ async function onSessionConfirmed() {
   await loadMyDevices();
   if (deviceId) await claimDevice();
   if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
+  console.log('[AMIT-DEBUG] onSessionConfirmed: deviceId=', deviceId, 'isOneShotSessionTab=', isOneShotSessionTab(), 'url=', window.location.search);
   if (deviceId && !isOneShotSessionTab()) reconcileMissedSummaries();
 }
 
@@ -715,9 +716,11 @@ async function onSessionConfirmed() {
 // before the second call's own check ever runs.
 let reconcileAlreadyRan = false;
 async function reconcileMissedSummaries() {
+  console.log('[AMIT-DEBUG] reconcileMissedSummaries: CALLED, currentUser=', !!currentUser, 'deviceId=', deviceId, 'reconcileAlreadyRan=', reconcileAlreadyRan);
   if (!currentUser || !deviceId) return;
   if (reconcileAlreadyRan) return;
   reconcileAlreadyRan = true;
+  console.log('[AMIT-DEBUG] reconcileMissedSummaries: PROCEEDING to reconcile both types');
   await reconcileOneTrackerType('/api/tracker-metrics', 'tracking_session_ended', pushTrackerMetrics, 'Tracker');
   await reconcileOneTrackerType('/api/behavior-metrics', 'app_behavior_session', pushBehaviorMetrics, 'App Behavior');
 }
@@ -727,6 +730,7 @@ async function reconcileOneTrackerType(endpoint, eventType, pushFn, label) {
     const d = await r.json();
     if (!d.found || !d.sessionEndTime) return;
     const localTime = new Date(d.sessionEndTime).getTime();
+    console.log('[AMIT-DEBUG] reconcileOneTrackerType(' + eventType + '): localTime=', d.sessionEndTime);
     const { data } = await db.from('amit_device_events')
       .select('id, created_at')
       .eq('device_id', deviceId)
@@ -744,6 +748,7 @@ async function reconcileOneTrackerType(endpoint, eventType, pushFn, label) {
     // local write and the Supabase insert on a session that WAS pushed
     // live - only a genuinely missed session should be clearly newer
     // than that.
+    console.log('[AMIT-DEBUG] reconcileOneTrackerType(' + eventType + '): latestSupabaseTime=', new Date(latestSupabaseTime).toISOString(), 'effectiveBaseline=', new Date(effectiveBaseline).toISOString(), 'willWriteGeneric=', (localTime > effectiveBaseline + 2000));
     if (localTime > effectiveBaseline + 2000) {
       const eventId = await logTrackingSessionEvent(eventType, 'info', label + ' session (recovered - this computer was closed or the machine was asleep before it could be saved live)', d.sessionEndTime, { recovered: true });
       await pushFn(eventId);
@@ -1823,6 +1828,7 @@ function onConnected(d) {
   startLivePolling();
   pollTrackerStatus();
   if (currentUser) claimDevice().then(updateDeviceLabelDisplay);
+  console.log('[AMIT-DEBUG] onConnected: currentUser=', !!currentUser, 'isOneShotSessionTab=', isOneShotSessionTab(), 'url=', window.location.search);
   if (currentUser && !isOneShotSessionTab()) reconcileMissedSummaries();
   updateLiveControlsAvailability();
 }
@@ -2086,10 +2092,11 @@ async function pollResource() {
         flagOnce('ram-high', 'warning', 'RAM usage crossed 90% — computer may feel sluggish.', p);
       }
     }
-  } catch (e) { /* bridge not up yet */ }
+  } catch (e) { bridgeUp = false; }
 }
 
 async function pollDiagnostics() {
+  if (!bridgeUp) return;
   try {
     const r = await fetch(BRIDGE + '/api/diagnostics');
     const d = await r.json();
@@ -2166,7 +2173,7 @@ async function pollDiagnostics() {
       document.getElementById('diagCards').innerHTML = diagCardsHtml;
       document.getElementById('overviewDiagCards').innerHTML = diagCardsHtml;
     }
-  } catch (e) {}
+  } catch (e) { bridgeUp = false; }
 }
 
 // Reliability and Security tabs added 2026-07-16 (Ryan's direct
@@ -2398,6 +2405,7 @@ async function pollSecurity() {
 }
 
 async function pollBrowser() {
+  if (!bridgeUp) return;
   try {
     const r = await fetch(BRIDGE + '/api/browser');
     const d = await r.json();
@@ -2447,7 +2455,7 @@ async function pollBrowser() {
     if (totalExt >= 15) {
       flagOnce('ext-high', 'warning', totalExt + ' browser extensions running in the background across all browsers — a common hidden cause of slowdown.', browsers);
     }
-  } catch (e) { /* bridge not up yet */ }
+  } catch (e) { bridgeUp = false; }
 }
 
 const flaggedOnce = {};
@@ -2659,16 +2667,17 @@ function showBehaviorSummary(text) {
   document.getElementById('behaviorSummaryModal').classList.remove('hidden');
 }
 async function pollBehavior() {
+  if (!bridgeUp) return;
   try {
     const r = await fetch(BRIDGE + '/api/behavior');
     const d = await r.json();
     document.getElementById('behaviorLog').textContent = (d.lines || []).join('\n') || 'No session running.';
-  } catch (e) {}
+  } catch (e) { bridgeUp = false; }
   try {
     const r2 = await fetch(BRIDGE + '/api/behavior-status');
     const s = await r2.json();
     setBehaviorButtonsRunning(!!s.running);
-  } catch (e) {}
+  } catch (e) { bridgeUp = false; }
 }
 
 // Previously an App Behavior session's results only ever lived in the local
@@ -2840,10 +2849,12 @@ async function runCursoryOverview() {
 
 async function handleJustStopped() {
   if (new URLSearchParams(window.location.search).get('justStopped') !== '1') return;
+  console.log('[AMIT-DEBUG] handleJustStopped: STARTED');
   document.getElementById('sessionSummaryScreen').classList.remove('hidden');
   if (!localAccessAttempted) {
     localAccessAttempted = true;
-    try { onConnected(await checkBridge()); } catch (e) {}
+    try { onConnected(await checkBridge()); console.log('[AMIT-DEBUG] handleJustStopped: checkBridge/onConnected succeeded'); }
+    catch (e) { console.log('[AMIT-DEBUG] handleJustStopped: checkBridge/onConnected FAILED', e); }
   }
   // Run the cursory overview WHILE the bridge is still alive - AmitTracker.exe
   // deliberately delays killing the bridge server until after this page has
@@ -2863,6 +2874,7 @@ async function handleJustStopped() {
     waited += 300;
   }
   const detail = document.getElementById('sessionSummaryDetail');
+  console.log('[AMIT-DEBUG] handleJustStopped: about to log - currentUser=', !!currentUser, 'deviceId=', deviceId, 'waited=', waited, 'overview.summary=', overview.summary);
   if (currentUser && deviceId) {
     // Real gap caught live 2026-07-16: this is a THIRD, separate code
     // path that creates a tracking_session_ended event - Ryan's earlier
@@ -2875,14 +2887,18 @@ async function handleJustStopped() {
     // sessionEndTime duplicate Ryan caught. Also never pushed metrics at
     // all until now, a second, separate gap in this same path.
     const justStoppedMetrics = await fetchLocalMetrics('/api/tracker-metrics');
+    console.log('[AMIT-DEBUG] handleJustStopped: fetchLocalMetrics result=', justStoppedMetrics);
     const justStoppedEventId = await logTrackingSessionEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, justStoppedMetrics ? justStoppedMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+    console.log('[AMIT-DEBUG] handleJustStopped: logTrackingSessionEvent returned eventId=', justStoppedEventId);
     await insertMetricsRowsForEvent(justStoppedEventId, justStoppedMetrics);
     detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
   } else {
+    console.log('[AMIT-DEBUG] handleJustStopped: SKIPPED LOGGING - not signed in or no deviceId after 6s wait');
     detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
   }
   // Clean the URL so refreshing doesn't re-trigger this
   window.history.replaceState({}, document.title, window.location.pathname);
+  console.log('[AMIT-DEBUG] handleJustStopped: FINISHED, URL cleaned');
 }
 
 // If Run_AmitTracker.ps1 just started tracking and opened this page with
