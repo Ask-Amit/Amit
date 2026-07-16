@@ -28,6 +28,7 @@ class AmitTrackerWindow : Form
     private bool stopping = false;
     private const string dashboardUrl = "https://ask-amit.github.io/Amit/ComputerHealth/ComputerHealth_Dashboard.html";
     private const string bridgeBase = "http://localhost:8710";
+    private bool sawTrackingRunning = false;
 
     public AmitTrackerWindow()
     {
@@ -74,6 +75,55 @@ class AmitTrackerWindow : Form
         FormClosing += OnFormClosing;
 
         StartTracking();
+        StartExternalStopPoller();
+    }
+
+    // Ryan's direct request 2026-07-16: pressing Install Updates on the
+    // dashboard (or Close there) stops tracking on the bridge server, but
+    // this window had no way of knowing that happened - it just sat open
+    // looking like tracking was still active. Rather than only reacting to
+    // its own Stop Tracker button, this window now watches the bridge's
+    // own tracking status and closes itself the moment it sees tracking
+    // was stopped from anywhere else (the dashboard, in this case).
+    private void StartExternalStopPoller()
+    {
+        var pollThread = new Thread(() =>
+        {
+            while (!stopping)
+            {
+                Thread.Sleep(3000);
+                bool running = false;
+                bool gotAnswer = false;
+                try
+                {
+                    var client = new WebClient();
+                    client.Headers[HttpRequestHeader.ContentType] = "text/plain";
+                    var task = client.DownloadStringTaskAsync(bridgeBase + "/api/tracker-status");
+                    if (task.Wait(TimeSpan.FromSeconds(2)))
+                    {
+                        running = task.Result.IndexOf("\"running\":true", StringComparison.OrdinalIgnoreCase) >= 0;
+                        gotAnswer = true;
+                    }
+                }
+                catch { /* bridge unreachable this cycle - try again next tick */ }
+
+                if (!gotAnswer) continue;
+
+                if (running) { sawTrackingRunning = true; continue; }
+
+                // Only close on a running->stopped transition we actually
+                // witnessed, not on the very first poll - avoids closing
+                // immediately if the bridge briefly reports false during
+                // its own startup before tracking has even begun.
+                if (sawTrackingRunning && !stopping)
+                {
+                    try { this.Invoke(new Action(StopTracker)); } catch { }
+                    return;
+                }
+            }
+        });
+        pollThread.IsBackground = true;
+        pollThread.Start();
     }
 
     private void StartTracking()
