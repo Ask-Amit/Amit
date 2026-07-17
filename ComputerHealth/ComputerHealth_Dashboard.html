@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.51</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.52</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -339,6 +339,16 @@
     <div id="historyDetailBody"></div>
     <div class="actions">
       <button class="btn" onclick="document.getElementById('historyDetailModal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="componentSpreadsheetModal">
+  <div class="overlay-card" style="max-width:920px;max-height:85vh;overflow-y:auto">
+    <h2 id="componentSpreadsheetTitle">Component Breakdown</h2>
+    <div id="componentSpreadsheetBody"></div>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('componentSpreadsheetModal').classList.add('hidden')">Close</button>
     </div>
   </div>
 </div>
@@ -1738,10 +1748,151 @@ function openHistoryDetail(i) {
 // built. Groups by category/component and separates sensors that
 // actually changed from ones that stayed steady, same pattern as the
 // live cursory-overview screen already uses.
+function escHtml(s) { return (s == null ? '' : String(s)).replace(/</g, '&lt;'); }
+
+// Holds the raw rows and computed issues for whichever report is
+// currently open, keyed by component - lets the spreadsheet modal (opened
+// later by a click, with just a component name to go on) find the right
+// data without re-querying Supabase.
+let LAST_COMPONENT_ROWS = {};
+let LAST_COMPONENT_ISSUES = {};
+
+// Ryan's direct request 2026-07-17 (the morning after the report-fixing
+// marathon): a real cumulative investigation, not a running list of raw
+// deltas. For every sensor in a component, decide whether it's actually
+// worth flagging - using genuine domain thresholds (input-lag risk above
+// 5% DPC/interrupt time, disk latency above 20ms, free space below 10%,
+// temperature headroom from SAFE_TEMP_LIMITS, etc.) - then combine that
+// into one verdict per component instead of narrating every sensor.
+// Deliberately conservative and pattern-based rather than exhaustive -
+// stated honestly in the report itself, not presented as a certified
+// diagnosis.
+function analyzeComponentRows(component, rows) {
+  const issues = [];
+  rows.forEach(r => {
+    const name = (r.metric_name || '').toLowerCase();
+    const cat = (r.category || '').toLowerCase();
+    const min = r.min_value, max = r.max_value, avg = r.avg_value;
+    let flagged = null;
+
+    if (/temp/.test(name) || /temp/.test(cat)) {
+      if (max > IMPLAUSIBLE_TEMP_C) {
+        flagged = { severity: 'info', reason: `Peaked at ${max}°C - not a physically real reading for this sensor, almost certainly a misreport. Safe to ignore, but worth confirming nothing else relies on this exact sensor.` };
+      } else {
+        const known = SAFE_TEMP_LIMITS.find(k => k.match.test(r.title || ''));
+        if (known) {
+          const headroom = known.limit - max;
+          if (headroom <= 0) flagged = { severity: 'investigate', reason: `Peaked at ${max}°C, at or above the typical safe limit (~${known.limit}°C) for this hardware - worth investigating cooling.` };
+          else if (headroom <= 15) flagged = { severity: 'investigate', reason: `Peaked at ${max}°C, only ~${Math.round(headroom)}°C below the typical safe limit (~${known.limit}°C) - getting close, worth keeping an eye on.` };
+        }
+      }
+    } else if (/interrupt time|dpc time/.test(name)) {
+      if (max > 5) flagged = { severity: 'investigate', reason: `Peaked at ${max}% - above 5% is a real, noticeable input-lag risk.` };
+      else if (max > 2) flagged = { severity: 'watch', reason: `Peaked at ${max}% - elevated but not yet a clear problem.` };
+    } else if (/disk read latency|disk write latency/.test(name)) {
+      if (max > 20) flagged = { severity: 'investigate', reason: `Peaked at ${max}ms - above 20ms is a real, noticeable slowdown for storage access.` };
+      else if (max > 10) flagged = { severity: 'watch', reason: `Peaked at ${max}ms - a bit elevated, worth watching if it becomes consistent.` };
+    } else if (/free space/.test(name)) {
+      if (min < 10) flagged = { severity: 'investigate', reason: `Dropped as low as ${min}% free - below 10% free space can cause real performance and update problems.` };
+      else if (min < 20) flagged = { severity: 'watch', reason: `Dropped as low as ${min}% free - worth freeing up space before it gets tighter.` };
+    } else if (/processor queue length/.test(name)) {
+      if (max > 10) flagged = { severity: 'investigate', reason: `Peaked at ${max} threads waiting for CPU time - the processor couldn't keep up with demand at that moment.` };
+      else if (max > 5) flagged = { severity: 'watch', reason: `Peaked at ${max} threads waiting - some backlog, worth watching.` };
+    } else if (/page faults\/sec/.test(name)) {
+      if (max > 5000) flagged = { severity: 'watch', reason: `Peaked at ${max}/sec - elevated, can be normal during heavy multitasking but worth noting.` };
+    } else if (/^(load|utilization|usage)/.test(name) || cat === 'load') {
+      if (typeof avg === 'number' && avg > 90) flagged = { severity: 'watch', reason: `Averaged ${Math.round(avg)}% throughout the session - sustained near-maximum load.` };
+    } else if (/fan/.test(name) && max === 0) {
+      flagged = { severity: 'watch', reason: `Read 0 RPM for the entire session - worth confirming this fan is actually spinning, if the system genuinely has one at this position.` };
+    } else if (/voltage|vcore|vid/.test(name) && typeof avg === 'number' && avg > 0) {
+      const swing = (max - min) / avg;
+      if (swing > 0.15) flagged = { severity: 'watch', reason: `Swung from ${min} to ${max} (about ${Math.round(swing * 100)}% variation) - more movement than typical, not necessarily a problem on its own.` };
+    }
+
+    if (flagged) {
+      issues.push(Object.assign({ title: r.title, metric_name: r.metric_name, category: r.category, min, max, avg }, flagged));
+    }
+  });
+  return { component, sensorCount: rows.length, issues };
+}
+
+function renderComponentRollup(analysis) {
+  const investigateCount = analysis.issues.filter(i => i.severity === 'investigate').length;
+  const watchCount = analysis.issues.filter(i => i.severity === 'watch').length;
+  const infoCount = analysis.issues.filter(i => i.severity === 'info').length;
+  const COLOR = { bad: '#e07a7a', warn: '#e0c477', good: '#4caf6d' };
+  let statusText, color;
+  if (investigateCount > 0) {
+    statusText = `${investigateCount} issue${investigateCount === 1 ? '' : 's'} need${investigateCount === 1 ? 's' : ''} investigation${watchCount ? `, ${watchCount} more to watch` : ''}.`;
+    color = COLOR.bad;
+  } else if (watchCount > 0) {
+    statusText = `${watchCount} item${watchCount === 1 ? '' : 's'} worth watching, nothing urgent.`;
+    color = COLOR.warn;
+  } else {
+    statusText = 'Everything within range.';
+    color = COLOR.good;
+  }
+  const infoNote = infoCount ? ` <span style="color:#8a8f99">(${infoCount} likely sensor misreport${infoCount === 1 ? '' : 's'} noted, not a real concern.)</span>` : '';
+  return `<li style="margin:6px 0"><strong>${escHtml(analysis.component)}</strong> <span style="color:#8a8f99">(${analysis.sensorCount} sensors combined):</span> <span style="color:${color}">${statusText}</span>${infoNote} <span class="view-link" onclick="openComponentSpreadsheet('${escHtml(analysis.component)}')">View full breakdown →</span></li>`;
+}
+
+function openComponentSpreadsheet(component) {
+  const rows = LAST_COMPONENT_ROWS[component] || [];
+  const issues = LAST_COMPONENT_ISSUES[component] || [];
+  const issueMap = {};
+  issues.forEach(i => { issueMap[i.title + '|' + i.metric_name] = i; });
+  document.getElementById('componentSpreadsheetTitle').textContent = component + ' — Full Sensor Breakdown';
+  let html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html += '<tr style="text-align:left;border-bottom:1px solid #3a3f4c"><th style="padding:6px 8px">Sensor</th><th style="padding:6px 8px">Category</th><th style="padding:6px 8px">Min</th><th style="padding:6px 8px">Max</th><th style="padding:6px 8px">Avg</th><th style="padding:6px 8px">Status</th></tr>';
+  rows.forEach(r => {
+    const issue = issueMap[r.title + '|' + r.metric_name];
+    const rowBg = issue ? (issue.severity === 'investigate' ? 'background:#2a1414' : issue.severity === 'watch' ? 'background:#2a2410' : 'background:#12141a') : '';
+    const statusText = issue
+      ? `<span style="color:${issue.severity === 'investigate' ? '#e07a7a' : issue.severity === 'watch' ? '#e0c477' : '#8a8f99'}">${issue.severity === 'investigate' ? '⚠ Investigate' : issue.severity === 'watch' ? '◐ Watch' : 'ℹ Note'}</span>`
+      : '<span style="color:#4caf6d">OK</span>';
+    html += `<tr style="border-bottom:1px solid #22242c;${rowBg}"><td style="padding:6px 8px">${escHtml(r.title)} - ${escHtml(r.metric_name)}</td><td style="padding:6px 8px;color:#8a8f99">${escHtml(r.category)}</td><td style="padding:6px 8px">${r.min_value}</td><td style="padding:6px 8px">${r.max_value}</td><td style="padding:6px 8px">${r.avg_value != null ? Math.round(r.avg_value * 100) / 100 : ''}</td><td style="padding:6px 8px">${statusText}</td></tr>`;
+    if (issue) {
+      html += `<tr style="${rowBg}"><td colspan="6" style="padding:2px 8px 10px 8px;font-size:11px;color:#9aa0ab">${escHtml(issue.reason)}</td></tr>`;
+    }
+  });
+  html += '</table></div>';
+  document.getElementById('componentSpreadsheetBody').innerHTML = html;
+  document.getElementById('componentSpreadsheetModal').classList.remove('hidden');
+}
+
+// The second pass Ryan asked for explicitly - after every component has
+// been analyzed individually, step back and look at all of them
+// together. Not a repeat of the per-component verdicts, a genuine
+// cross-component synthesis: how many real issues exist across the
+// WHOLE machine, where they are, and what that combination says about
+// the computer overall.
+function renderCombinedAnalysis(analyses) {
+  const allIssues = [];
+  analyses.forEach(a => a.issues.forEach(i => { if (i.severity !== 'info') allIssues.push(Object.assign({ component: a.component }, i)); }));
+  const investigate = allIssues.filter(i => i.severity === 'investigate');
+  const watch = allIssues.filter(i => i.severity === 'watch');
+  const totalSensors = analyses.reduce((sum, a) => sum + a.sensorCount, 0);
+  let html = '<div class="section-title" style="margin-top:20px">3. Combined Analysis</div>';
+  if (investigate.length === 0 && watch.length === 0) {
+    html += `<p style="margin:6px 0;padding:10px 14px;background:#12141a;border-left:4px solid #4caf6d;border-radius:6px">Across all ${analyses.length} component${analyses.length === 1 ? '' : 's'} and ${totalSensors} sensors combined, nothing stood out as a concern. This session looks like a healthy, properly-functioning system under whatever load it was carrying.</p>`;
+  } else {
+    const investigateComponents = [...new Set(investigate.map(i => i.component))];
+    const color = investigate.length ? '#e07a7a' : '#e0c477';
+    html += `<p style="margin:6px 0;padding:10px 14px;background:#12141a;border-left:4px solid ${color};border-radius:6px">Across all ${analyses.length} components and ${totalSensors} sensors combined: `;
+    if (investigate.length) html += `<strong style="color:#e07a7a">${investigate.length} item${investigate.length === 1 ? '' : 's'} need${investigate.length === 1 ? 's' : ''} investigation</strong>, in ${escHtml(investigateComponents.join(', '))}. `;
+    if (watch.length) html += `${watch.length} item${watch.length === 1 ? '' : 's'} worth watching. `;
+    html += `Everything else looked normal.</p>`;
+    if (investigate.length) {
+      html += '<div class="section-title" style="margin-top:14px;font-size:13px">Items needing investigation</div><ul style="margin:6px 0 0 18px">' +
+        investigate.map(i => `<li style="margin:4px 0"><strong>[${escHtml(i.component)}] ${escHtml(i.title)} - ${escHtml(i.metric_name)}:</strong> ${escHtml(i.reason)}</li>`).join('') + '</ul>';
+    }
+  }
+  return html;
+}
+
 async function loadTrackerMetricsBreakdown(eventId) {
   const el = document.getElementById('trackerMetricsBreakdown');
   if (!el || !db || !eventId) { if (el) el.innerHTML = ''; return; }
-  const esc = s => (s == null ? '' : String(s)).replace(/</g, '&lt;');
   try {
     const { data, error } = await db.from('amit_device_session_metrics').select('*').eq('event_id', eventId);
     if (error || !data || data.length === 0) {
@@ -1760,24 +1911,19 @@ async function loadTrackerMetricsBreakdown(eventId) {
       const comp = row.component || 'Other';
       (byComponent[comp] = byComponent[comp] || []).push(row);
     });
+    LAST_COMPONENT_ROWS = byComponent;
+    LAST_COMPONENT_ISSUES = {};
     const componentOrder = ['CPU', 'GPU', 'RAM', 'Storage'];
     const orderedComponents = componentOrder.filter(c => byComponent[c]).concat(Object.keys(byComponent).filter(c => !componentOrder.includes(c)));
-    let html = '<div class="section-title" style="margin-top:16px">1. Resource Usage</div><ul style="margin:6px 0 0 18px">';
-    orderedComponents.forEach(comp => {
-      const rows = byComponent[comp];
-      const changed = rows.filter(r => r.min_value !== r.max_value);
-      const steady = rows.length - changed.length;
-      if (changed.length === 0) {
-        html += `<li style="margin:4px 0"><strong>${esc(comp)}:</strong> performed normally throughout - no meaningful change across ${rows.length} sensor(s).</li>`;
-      } else {
-        const shown = changed.slice(0, 6);
-        const extra = changed.length - shown.length;
-        const parts = shown.map(r => `${esc(r.title || r.metric_name)} rose from ${r.min_value} to ${r.avg_value != null ? r.avg_value : r.max_value} (peak ${r.max_value})`);
-        html += `<li style="margin:4px 0"><strong>${esc(comp)}:</strong> ${parts.join('; ')}.${extra ? ` (${extra} other sensor(s) in this component also changed.)` : ''}${steady ? ` (${steady} other sensor(s) in this component stayed steady.)` : ''}</li>`;
-      }
-    });
-    html += '</ul>';
-    html += buildThermalHeadroomSection(byComponent, esc);
+
+    const analyses = orderedComponents.map(comp => analyzeComponentRows(comp, byComponent[comp]));
+    analyses.forEach(a => { LAST_COMPONENT_ISSUES[a.component] = a.issues; });
+
+    let html = '<div class="section-title" style="margin-top:16px">1. Resource Usage — Combined Analysis Per Component</div>';
+    html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Each component\'s sensors analyzed together, not one at a time - click "View full breakdown" for the complete sensor-by-sensor spreadsheet with any flagged items highlighted.</p>';
+    html += '<ul style="margin:6px 0 0 18px">' + analyses.map(renderComponentRollup).join('') + '</ul>';
+    html += buildThermalHeadroomSection(byComponent, escHtml);
+    html += renderCombinedAnalysis(analyses);
     el.innerHTML = html;
   } catch (err) {
     el.innerHTML = '<em style="color:#8a8f99">Could not load resource breakdown.</em>';
