@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.49</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.50</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -363,6 +363,7 @@
       <p>Browsers sometimes silently block the automatic launch after the first time, with no visible warning - if that's happened, the fastest fix is to skip the browser entirely: <strong>double-click the "Amit" icon on your desktop.</strong> That opens the same tracker directly, with no browser permission involved at all, so it always works regardless of any browser setting.</p>
       <div class="actions" style="margin-top:8px">
         <button class="btn secondary" onclick="document.getElementById('notRunningScreen').classList.add('hidden'); launchTracker()">Try the browser launch again</button>
+        <button class="btn secondary" onclick="document.getElementById('notRunningScreen').classList.add('hidden')">Close</button>
       </div>
     </div>
 
@@ -2012,9 +2013,27 @@ function confirmLaunchTracker() {
       btn.textContent = 'Launch Tracker';
       document.getElementById('quickLaunchStatus').textContent = "Couldn't connect automatically. This could mean it's genuinely not installed yet, or that your browser silently blocked the launch (common, and not something you did wrong) - see the two options below.";
       document.getElementById('deviceLabel').textContent = 'Not connected yet — click Launch Tracker';
-      document.getElementById('notRunningScreen').classList.remove('hidden');
+      showNotRunningScreen();
     }
   }, 1500);
+}
+
+// Real gap Ryan caught live 2026-07-17: this screen always showed the
+// FULL first-time install walkthrough (download the installer, browser
+// security warnings, the whole thing) even for someone who's already
+// installed and just needs to reconnect - a scaffolding div
+// (notRunningFullWalkthrough) existed for exactly this distinction but
+// was never actually wired up to hide. Now checks the same
+// amit_ch_connected_before flag attemptSilentReconnect() already relies
+// on: if this browser has connected before, skip straight past the
+// install steps and just show the "already installed, try this" +
+// direct launch button.
+function showNotRunningScreen() {
+  const fullWalkthrough = document.getElementById('notRunningFullWalkthrough');
+  if (fullWalkthrough) {
+    fullWalkthrough.classList.toggle('hidden', localStorage.getItem('amit_ch_connected_before') === '1');
+  }
+  document.getElementById('notRunningScreen').classList.remove('hidden');
 }
 
 let livePollingStarted = false;
@@ -2056,7 +2075,7 @@ async function pollTrackerStatus() {
 }
 
 async function toggleTracker() {
-  if (!bridgeUp) { document.getElementById('notRunningScreen').classList.remove('hidden'); return; }
+  if (!bridgeUp) { showNotRunningScreen(); return; }
   const btn = document.getElementById('trackerToggle');
   const isOn = btn.className === 'on';
   btn.textContent = isOn ? 'Stopping...' : 'Starting...';
