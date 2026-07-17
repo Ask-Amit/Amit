@@ -434,6 +434,7 @@ $handlerScript = {
 
     $trackerPidFile = "$env:TEMP\amit_tracker_pids.txt"
     $trackerStopFlag = "$env:TEMP\tracker_stop.flag"
+    $diagnosticsStopFlag = "$env:TEMP\diagnostics_stop.flag"
     $lhmStopFlag = "$env:TEMP\lhm_stop.flag"
     # The installer records the exact real path (existing install or freshly
     # downloaded) at install time - read that instead of guessing, so this
@@ -647,40 +648,54 @@ try {
         $stopped = @()
         if (Test-Path $trackerPidFile) {
             $savedPids = Get-Content $trackerPidFile -ErrorAction SilentlyContinue
-            # resource_watcher.ps1 gets asked nicely first (a stop-flag it
-            # checks every loop pass) instead of an immediate force-kill -
-            # Ryan's direct request 2026-07-16: only a graceful exit lets it
-            # write its final session-summary JSON the way App Behavior
-            # already does. The other two watchers (activity/diagnostics)
-            # don't produce a summary and stay on the immediate kill they
-            # always had - no reason to slow those down. Falls back to a
-            # force-kill after a few seconds if it doesn't exit on its own,
-            # so Stop always actually stops it either way.
+            # resource_watcher.ps1 AND diagnostics_watcher.ps1 both get asked
+            # nicely first (a stop-flag each checks every loop pass) instead
+            # of an immediate force-kill - Ryan's direct request 2026-07-16,
+            # extended 2026-07-17 to diagnostics once it also gained a final
+            # session-summary write. Both stop flags are set together and
+            # waited on in the SAME window (not sequentially - waiting twice
+            # would double the shutdown delay for no reason), so both scripts
+            # get their full graceful-exit chance in parallel. activity_watcher2
+            # still has no summary to produce and stays on the immediate kill
+            # it always had. Falls back to a force-kill after a few seconds
+            # if either doesn't exit on its own, so Stop always actually
+            # stops everything either way.
             $resourceWatcherPid = $null
+            $diagnosticsWatcherPid = $null
             foreach ($spid in $savedPids) {
                 if ($spid -match '^\d+$') {
                     $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$spid" -ErrorAction SilentlyContinue
                     if ($proc -and $proc.CommandLine -match 'resource_watcher\.ps1') {
                         $resourceWatcherPid = [int]$spid
+                    } elseif ($proc -and $proc.CommandLine -match 'diagnostics_watcher\.ps1') {
+                        $diagnosticsWatcherPid = [int]$spid
                     }
                 }
             }
-            if ($resourceWatcherPid) {
-                New-Item $trackerStopFlag -ItemType File -Force | Out-Null
+            if ($resourceWatcherPid -or $diagnosticsWatcherPid) {
+                if ($resourceWatcherPid) { New-Item $trackerStopFlag -ItemType File -Force | Out-Null }
+                if ($diagnosticsWatcherPid) { New-Item $diagnosticsStopFlag -ItemType File -Force | Out-Null }
                 $waited = 0
                 while ($waited -lt 8000) {
-                    if (-not (Get-Process -Id $resourceWatcherPid -ErrorAction SilentlyContinue)) { break }
+                    $resourceDone = -not $resourceWatcherPid -or -not (Get-Process -Id $resourceWatcherPid -ErrorAction SilentlyContinue)
+                    $diagnosticsDone = -not $diagnosticsWatcherPid -or -not (Get-Process -Id $diagnosticsWatcherPid -ErrorAction SilentlyContinue)
+                    if ($resourceDone -and $diagnosticsDone) { break }
                     Start-Sleep -Milliseconds 500
                     $waited += 500
                 }
-                if (Get-Process -Id $resourceWatcherPid -ErrorAction SilentlyContinue) {
+                if ($resourceWatcherPid -and (Get-Process -Id $resourceWatcherPid -ErrorAction SilentlyContinue)) {
                     try { Stop-Process -Id $resourceWatcherPid -Force -ErrorAction SilentlyContinue } catch {}
                 }
+                if ($diagnosticsWatcherPid -and (Get-Process -Id $diagnosticsWatcherPid -ErrorAction SilentlyContinue)) {
+                    try { Stop-Process -Id $diagnosticsWatcherPid -Force -ErrorAction SilentlyContinue } catch {}
+                }
                 Remove-Item $trackerStopFlag -ErrorAction SilentlyContinue
-                $stopped += $resourceWatcherPid
+                Remove-Item $diagnosticsStopFlag -ErrorAction SilentlyContinue
+                if ($resourceWatcherPid) { $stopped += $resourceWatcherPid }
+                if ($diagnosticsWatcherPid) { $stopped += $diagnosticsWatcherPid }
             }
             foreach ($spid in $savedPids) {
-                if ($spid -match '^\d+$' -and [int]$spid -ne $resourceWatcherPid) {
+                if ($spid -match '^\d+$' -and [int]$spid -ne $resourceWatcherPid -and [int]$spid -ne $diagnosticsWatcherPid) {
                     try {
                         Stop-Process -Id $spid -Force -ErrorAction SilentlyContinue
                         $stopped += $spid
@@ -979,6 +994,20 @@ try {
                 if (Test-Path $trackerMetricsFile) {
                     $tContent = (Get-Content $trackerMetricsFile -Raw -Encoding UTF8).Trim()
                     Send-JsonRaw $response ('{"found":true,' + $tContent.Substring(1))
+                } else {
+                    Send-JsonRaw $response '{"found":false,"sessionEndTime":null,"rows":[]}'
+                }
+            }
+            "/api/diagnostics-metrics" {
+                # Same pattern as /api/tracker-metrics above - Ryan's direct
+                # request 2026-07-17: diagnostics_watcher.ps1 now writes its
+                # own final aggregated summary the same way, so it can be
+                # pushed into the same shared amit_device_session_metrics
+                # table under the same event as the Tracker's own rows.
+                $diagMetricsFile = "$env:TEMP\diagnostics_metrics.json"
+                if (Test-Path $diagMetricsFile) {
+                    $dContent = (Get-Content $diagMetricsFile -Raw -Encoding UTF8).Trim()
+                    Send-JsonRaw $response ('{"found":true,' + $dContent.Substring(1))
                 } else {
                     Send-JsonRaw $response '{"found":false,"sessionEndTime":null,"rows":[]}'
                 }
