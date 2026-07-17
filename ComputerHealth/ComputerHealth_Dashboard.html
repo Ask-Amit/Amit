@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.48</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.49</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1781,10 +1781,63 @@ async function loadTrackerMetricsBreakdown(eventId) {
       }
     });
     html += '</ul>';
+    html += buildThermalHeadroomSection(byComponent, esc);
     el.innerHTML = html;
   } catch (err) {
     el.innerHTML = '<em style="color:#8a8f99">Could not load resource breakdown.</em>';
   }
+}
+
+// Ryan's direct request 2026-07-16, after comparing our raw sensor-delta
+// report against a Copilot interpretation of the same data - Copilot
+// didn't just repeat the numbers, it compared them against known safe
+// operating limits per component, called out headroom, and flagged an
+// obviously-impossible reading (293°C) as a sensor glitch instead of
+// reporting it deadpan. This does the same: known safe temperature
+// ceilings per common component family (public spec knowledge, not
+// measured from this specific machine - approximate for anything
+// unusual), a headroom figure, and a plain-language verdict, plus a
+// sanity check that flags physically-impossible peaks as likely
+// misreports rather than alarming data.
+const SAFE_TEMP_LIMITS = [
+  { match: /ryzen 9|ryzen 7|ryzen 5|threadripper/i, label: 'AMD Ryzen', limit: 95 },
+  { match: /ryzen/i, label: 'AMD Ryzen', limit: 95 },
+  { match: /core i9|core i7|core i5|core i3/i, label: 'Intel Core', limit: 100 },
+  { match: /rtx 40|rtx 30|rtx 20|geforce/i, label: 'NVIDIA GeForce', limit: 93 },
+  { match: /radeon|rx 6|rx 7/i, label: 'AMD Radeon', limit: 110 },
+  { match: /nvme|ssd|samsung ssd|wd |crucial|kingston/i, label: 'SSD/NVMe', limit: 70 },
+];
+const IMPLAUSIBLE_TEMP_C = 150; // above this, no consumer sensor is reporting a real temperature
+
+function findTempRows(rows) {
+  return rows.filter(r => /temp/i.test(r.metric_name || '') || /temp/i.test(r.category || ''));
+}
+
+function buildThermalHeadroomSection(byComponent, esc) {
+  const lines = [];
+  Object.keys(byComponent).forEach(comp => {
+    const tempRows = findTempRows(byComponent[comp]);
+    if (tempRows.length === 0) return;
+    // Group by title (specific hardware part) since one component
+    // category can contain multiple real devices (e.g. two drives).
+    const byTitle = {};
+    tempRows.forEach(r => { (byTitle[r.title] = byTitle[r.title] || []).push(r); });
+    Object.keys(byTitle).forEach(title => {
+      const trows = byTitle[title];
+      const peak = Math.max(...trows.map(r => r.max_value));
+      if (peak > IMPLAUSIBLE_TEMP_C) {
+        lines.push(`<li style="margin:4px 0"><strong>${esc(title)}:</strong> peaked at ${peak}°C, which isn't a physically real reading for this kind of sensor - almost certainly a misreported sensor value, not an actual temperature. Safe to ignore.</li>`);
+        return;
+      }
+      const known = SAFE_TEMP_LIMITS.find(k => k.match.test(title));
+      if (!known) return;
+      const headroom = known.limit - peak;
+      const verdict = headroom > 30 ? 'excellent headroom, running cool' : headroom > 15 ? 'comfortable headroom' : headroom > 0 ? 'getting close to its limit - worth keeping an eye on' : 'at or above its typical safe limit - worth investigating cooling';
+      lines.push(`<li style="margin:4px 0"><strong>${esc(title)}:</strong> peaked at ${peak}°C (typical safe limit ~${known.limit}°C) - about ${Math.round(headroom)}°C of headroom, ${verdict}.</li>`);
+    });
+  });
+  if (lines.length === 0) return '';
+  return '<div class="section-title" style="margin-top:16px">2. Thermal Headroom</div><p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Safe limits are known specs for common hardware families, not measured from this specific machine - treat as a helpful reference, not an exact number.</p><ul style="margin:6px 0 0 18px">' + lines.join('') + '</ul>';
 }
 
 // --- Device init ---
