@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.68</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.69</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -301,6 +301,17 @@
   <select id="deviceSelect" onchange="onDeviceSelectChange()"></select>
   <span id="deviceBadge"></span>
   <button class="btn secondary" id="renameDeviceBtn" onclick="renameCurrentDevice()" style="font-size:12px;padding:4px 10px">Rename</button>
+</div>
+
+<div class="overlay hidden" id="chartHandoffModal">
+  <div class="overlay-card" style="max-width:480px">
+    <h2>📊 Ready for Copilot</h2>
+    <p id="chartHandoffMsg">I've just copied the data and charting instructions to your clipboard.</p>
+    <p>Click <strong>Continue</strong> and I'll open a Copilot page for you — paste (Ctrl+V) into the chat there.</p>
+    <div class="actions">
+      <button class="btn" onclick="continueToChartCopilot()">Continue</button>
+    </div>
+  </div>
 </div>
 
 <div class="overlay hidden" id="launchWarningModal">
@@ -482,6 +493,10 @@
     <div class="ch-gauge-panel" id="chGaugePanel">
       <div id="chGaugeGrid"><em style="color:#8a8f99">Loading last run…</em></div>
       <div class="ch-gauge-meta" id="chGaugeMeta"></div>
+      <div style="display:flex;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn secondary" id="chChartSessionBtn" style="font-size:12px;padding:6px 12px" onclick="chSendChartToCopilot('session')" title="Real per-sample data from the current/most recent tracking session only">📊 Chart this session in Copilot</button>
+        <button class="btn secondary" id="chChartHistoryBtn" style="font-size:12px;padding:6px 12px" onclick="chSendChartToCopilot('history')" title="Every completed session on record for this device, joined to its real date - shows a trend across runs, not just within one">📊 Chart history over time in Copilot</button>
+      </div>
     </div>
     <div class="getting-started" id="gettingStartedBanner">
       <h3>This computer isn't connected yet</h3>
@@ -2003,6 +2018,113 @@ function parseSensorHistoryRows(lines) {
     rows.push({ t: timeMatch[1], sensors });
   }
   return rows;
+}
+
+// Copilot charting handoff - Ryan's direct request 2026-07-18, narrower
+// and simpler than the earlier (removed) conversational attempt: Copilot's
+// only job here is producing charts/visualizations from real data, using
+// its native Excel/Office charting ability, nothing else - no persona, no
+// conversation. Two modes, same mechanism, different data source:
+//   Mode A ("this session"): the real per-sample local log, enough points
+//   for a genuine within-session trend even though it only covers one run.
+//   Mode B ("history over time"): every session this device has on record
+//   in Supabase, joined to its date, for a real trend ACROSS runs - even
+//   the free tier's capped 10 sessions show enough of a curve to make the
+//   upgrade case for itself, so this isn't gated behind a paid tier.
+// Splits a raw "Device>Group>SensorName" path into its real hardware name
+// - Ryan's direct request 2026-07-18: charts must explicitly name the
+// actual part (e.g. "AMD Ryzen 9 3900X"), not just say "CPU" - the
+// monitoring system already captures this, it just needed to be pulled
+// out as its own column instead of buried in a combined path string.
+function chSplitSensorPath(path) {
+  const segs = path.split('>');
+  if (segs.length <= 2) return { device: segs[0] || '', group: '', name: segs[segs.length - 1] || path };
+  return { device: segs.slice(0, segs.length - 2).join(' - '), group: segs[segs.length - 2], name: segs[segs.length - 1] };
+}
+
+const CH_CHART_ONLY_INSTRUCTION = `=== WHAT TO DO ===
+Using the data above, build the most comprehensive charts and analysis tools useful for investigating how these components are behaving over time - suggest good visualization approaches for spotting trends, spikes, or gradual drift per component. Every chart must explicitly name the real hardware it's showing (the device names are already in the data - use them, don't just label something generic like "CPU" or "Drive").
+
+Produce ONLY charts/visualizations and brief captions explaining what each one shows - no persona, no back-and-forth conversation, no lengthy written analysis. Charts are the entire point of this handoff.`;
+
+async function chBuildSessionChartCsv() {
+  if (!bridgeUp) return null;
+  try {
+    const r = await fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const rows = parseSensorHistoryRows(d.lines || []);
+    if (rows.length === 0) return null;
+    const lines = ['timestamp,device,sensor_group,sensor_name,value'];
+    rows.forEach(row => {
+      Object.entries(row.sensors).forEach(([path, val]) => {
+        const p = chSplitSensorPath(path);
+        const esc = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        lines.push(`${row.t},${esc(p.device)},${esc(p.group)},${esc(p.name)},${val}`);
+      });
+    });
+    return { csv: lines.join('\r\n'), sampleCount: rows.length };
+  } catch (e) { return null; }
+}
+
+async function chBuildHistoryChartCsv(devId) {
+  if (!db || !devId) return null;
+  const { data: events } = await db.from('amit_device_events')
+    .select('id,created_at').eq('device_id', devId).eq('event_type', 'tracking_session_ended')
+    .order('created_at', { ascending: true });
+  if (!events || events.length === 0) return null;
+  const eventDates = {};
+  events.forEach(e => { eventDates[e.id] = e.created_at; });
+  const { data: rows } = await db.from('amit_device_session_metrics')
+    .select('event_id,component,title,metric_name,category,min_value,max_value,avg_value')
+    .in('event_id', events.map(e => e.id));
+  if (!rows || rows.length === 0) return null;
+  const esc = s => /[",\n]/.test(String(s)) ? '"' + String(s).replace(/"/g, '""') + '"' : s;
+  const lines = ['session_date,device,component,metric_name,category,min_value,max_value,avg_value'];
+  rows.forEach(r => {
+    const date = eventDates[r.event_id] ? new Date(eventDates[r.event_id]).toISOString().slice(0, 16).replace('T', ' ') : 'unknown';
+    lines.push(`${date},${esc(r.title || r.component)},${r.component},${esc(r.metric_name)},${r.category || ''},${r.min_value},${r.max_value},${r.avg_value}`);
+  });
+  return { csv: lines.join('\r\n'), sessionCount: events.length };
+}
+
+async function chSendChartToCopilot(mode) {
+  const btn = document.getElementById(mode === 'session' ? 'chChartSessionBtn' : 'chChartHistoryBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Gathering data…'; }
+  let result, header, msg;
+  if (mode === 'session') {
+    result = await chBuildSessionChartCsv();
+    header = `Real per-sample sensor data from the CURRENT/most recent tracking session on ${deviceName || 'this computer'}. Each row is one sensor reading at one timestamp during that single run.`;
+    msg = result ? `Copied ${result.sampleCount} timestamped samples from this session to your clipboard.` : null;
+  } else {
+    result = await chBuildHistoryChartCsv(viewingDeviceId);
+    header = `Real sensor data across EVERY completed tracking session on record for ${deviceName || 'this computer'} - one row per (session, sensor) pair, with the real session date so trends across runs over time are visible, not just within one session.`;
+    msg = result ? `Copied data from ${result.sessionCount} session${result.sessionCount === 1 ? '' : 's'} to your clipboard.` : null;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = mode === 'session' ? '📊 Chart this session in Copilot' : '📊 Chart history over time in Copilot'; }
+  if (!result) {
+    alert(mode === 'session'
+      ? 'Could not reach the local per-sample log right now - make sure the bridge is running on this computer.'
+      : 'No completed sessions on record yet for this device.');
+    return;
+  }
+  const packet = `${header}\n\n${result.csv}\n\n${CH_CHART_ONLY_INSTRUCTION}`;
+  try {
+    await navigator.clipboard.writeText(packet);
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = packet; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e2) {}
+    document.body.removeChild(ta);
+  }
+  document.getElementById('chartHandoffMsg').textContent = msg;
+  document.getElementById('chartHandoffModal').classList.remove('hidden');
+}
+
+function continueToChartCopilot() {
+  document.getElementById('chartHandoffModal').classList.add('hidden');
+  window.open('https://copilot.microsoft.com', '_blank');
 }
 
 // Historical rows live in a file on disk and don't depend on LibreHardwareMonitor
