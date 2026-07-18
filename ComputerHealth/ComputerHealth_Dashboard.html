@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.61</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.62</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2659,9 +2659,15 @@ async function loadTrackerMetricsBreakdown(eventId) {
     const analyses = orderedComponents.map(comp => analyzeComponentRows(comp, byComponent[comp], specs));
     analyses.forEach(a => { LAST_COMPONENT_ISSUES[a.component] = a.issues; });
 
+    const allIssuesFlat = [];
+    analyses.forEach(a => a.issues.forEach(i => { if (i.severity !== 'info') allIssuesFlat.push(i); }));
+    const section1Investigate = allIssuesFlat.filter(i => i.severity === 'investigate').length;
+    const section1Watch = allIssuesFlat.filter(i => i.severity === 'watch').length;
+
     let html = '<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn secondary" style="font-size:12px;padding:6px 12px" onclick="downloadMasterDump(\'' + new Date().toISOString().slice(0, 10) + '\')">⬇ Download Master Dump (CSV)</button></div>';
     html += '<div class="section-title" style="margin-top:10px">1. Resource Usage — Combined Analysis Per Component</div>';
     html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Each component\'s sensors analyzed together, not one at a time - click "View full breakdown" for the complete sensor-by-sensor spreadsheet with any flagged items highlighted.</p>';
+    html += sectionSummaryBanner(section1Investigate, section1Watch, 'Across all components');
     html += '<ul style="margin:6px 0 0 18px">' + analyses.map(renderComponentRollup).join('') + '</ul>';
     html += buildThermalHeadroomSection(byComponent, escHtml, specs);
     html += renderCombinedAnalysis(analyses);
@@ -2786,8 +2792,29 @@ function findTempRows(rows) {
   return rows.filter(r => /temp/i.test(r.metric_name || '') || /temp/i.test(r.category || ''));
 }
 
+// Real inconsistency Ryan caught live 2026-07-18: sections 1 and 2 listed
+// individual red/yellow findings inline but never rolled them up into the
+// same colored summary banner that Section 3 (Combined Analysis) and
+// Longevity Outlook already show - so a report could contain real
+// "needs investigation" items in section 1's own list with no banner
+// anywhere above it flagging that at a glance, reading as if only section
+// 3 was the "real" verdict. Every section with findings now gets the same
+// banner treatment, not just the last two.
+function sectionSummaryBanner(investigateCount, watchCount, totalLabel) {
+  const COLOR = { bad: '#e07a7a', warn: '#e0c477', good: '#4caf6d' };
+  if (investigateCount === 0 && watchCount === 0) {
+    return `<p style="margin:6px 0 10px;padding:10px 14px;background:#12141a;border-left:4px solid ${COLOR.good};border-radius:6px">${totalLabel}: nothing stood out as a concern.</p>`;
+  }
+  const color = investigateCount > 0 ? COLOR.bad : COLOR.warn;
+  let text = `${totalLabel}: `;
+  if (investigateCount > 0) text += `<strong style="color:${COLOR.bad}">${investigateCount} item${investigateCount === 1 ? '' : 's'} need${investigateCount === 1 ? 's' : ''} investigation</strong>. `;
+  if (watchCount > 0) text += `${watchCount} item${watchCount === 1 ? '' : 's'} worth watching. `;
+  return `<p style="margin:6px 0 10px;padding:10px 14px;background:#12141a;border-left:4px solid ${color};border-radius:6px">${text}</p>`;
+}
+
 function buildThermalHeadroomSection(byComponent, esc, specs) {
   const lines = [];
+  let investigateCount = 0, watchCount = 0;
   Object.keys(byComponent).forEach(comp => {
     const tempRows = findTempRows(byComponent[comp]);
     if (tempRows.length === 0) return;
@@ -2805,13 +2832,18 @@ function buildThermalHeadroomSection(byComponent, esc, specs) {
       const known = (specs || []).find(s => s.max_temp_c != null && s.regex && s.regex.test(title));
       if (!known) return;
       const headroom = known.max_temp_c - peak;
-      const verdict = headroom > 30 ? 'excellent headroom, running cool' : headroom > 15 ? 'comfortable headroom' : headroom > 0 ? 'getting close to its limit - worth keeping an eye on' : 'at or above its typical safe limit - worth investigating cooling';
+      let verdict;
+      if (headroom > 30) { verdict = 'excellent headroom, running cool'; }
+      else if (headroom > 15) { verdict = 'comfortable headroom'; }
+      else if (headroom > 0) { verdict = 'getting close to its limit - worth keeping an eye on'; watchCount++; }
+      else { verdict = 'at or above its typical safe limit - worth investigating cooling'; investigateCount++; }
       const confidenceNote = known.confidence === 'manufacturer-spec' ? '' : ' (estimated typical, not a verified spec)';
       lines.push(`<li style="margin:4px 0"><strong>${esc(title)}:</strong> peaked at ${peak}°C (safe limit ~${known.max_temp_c}°C${confidenceNote}) - about ${Math.round(headroom)}°C of headroom, ${verdict}.</li>`);
     });
   });
   if (lines.length === 0) return '';
-  return '<div class="section-title" style="margin-top:16px">2. Thermal Headroom</div><p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Safe limits are drawn from the hardware specs database - manufacturer numbers where known, otherwise a labeled estimate - not measured from this specific machine.</p><ul style="margin:6px 0 0 18px">' + lines.join('') + '</ul>';
+  const banner = sectionSummaryBanner(investigateCount, watchCount, 'Thermal headroom across all sensed devices');
+  return '<div class="section-title" style="margin-top:16px">2. Thermal Headroom</div><p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Safe limits are drawn from the hardware specs database - manufacturer numbers where known, otherwise a labeled estimate - not measured from this specific machine.</p>' + banner + '<ul style="margin:6px 0 0 18px">' + lines.join('') + '</ul>';
 }
 
 // --- Device init ---
@@ -3924,15 +3956,38 @@ async function runCursoryOverview() {
     const r = await fetch(BRIDGE + '/api/sensors', { cache: 'no-store' });
     const tree = await r.json();
     const devices = getHardwareDevices(tree);
+    // Real bug caught live 2026-07-18 (Ryan): this quick check used to flag
+    // temperature concerns with one flat 85°C cutoff for every device -
+    // meaning a drive whose REAL safe limit is ~70°C (per the same
+    // amit_hardware_specs data the full report already uses) could peak at
+    // 84°C, get called "healthy" here, and then show up as a genuine
+    // "needs investigation" red flag the moment the full report ran the
+    // SAME reading against its real limit. The quick summary and the full
+    // report must never be able to disagree like that - this now looks up
+    // each device's real limit the identical way the report does, instead
+    // of guessing one number for everything.
+    const specs = await loadHardwareSpecs();
+    const limitFor = (deviceText) => {
+      const match = specs.find(s => s.max_temp_c != null && s.regex && s.regex.test(deviceText));
+      return match ? match.max_temp_c : null;
+    };
     for (const device of devices) {
       const cat = categorizeHardware(device);
+      const limit = limitFor(device.Text || '');
       const groups = collectSensorGroups(device);
       for (const label in groups) {
         for (const { leaf } of groups[label]) {
           const val = parseFloat(leaf.Value);
           if (isNaN(val)) continue;
-          if (/temperature/i.test(leaf.Text) && val >= 85) {
-            concerns.push({ text: 'One or more temperatures ran hotter than we\'d like', severity: 'red' });
+          if (/temperature/i.test(leaf.Text)) {
+            if (limit != null) {
+              if (val >= limit) concerns.push({ text: `${device.Text || 'A component'} is at or past its real safe temperature limit (${Math.round(val)}°C vs ${limit}°C)`, severity: 'red' });
+              else if (val >= limit * 0.85) concerns.push({ text: `${device.Text || 'A component'} is running warmer than ideal (${Math.round(val)}°C, limit ${limit}°C)`, severity: 'yellow' });
+            } else if (val >= 85) {
+              // No real spec on file for this device - fall back to the
+              // old flat guess rather than staying silent.
+              concerns.push({ text: 'One or more temperatures ran hotter than we\'d like', severity: 'red' });
+            }
           }
           if (cat.key === 'ram' && cat.isAggregate && /load/i.test(label) && val >= 85) {
             concerns.push({ text: 'Virtual memory usage climbed higher than it should', severity: 'red' });
