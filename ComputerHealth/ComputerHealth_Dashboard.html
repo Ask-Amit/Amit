@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.63</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.64</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2507,27 +2507,65 @@ function downloadMasterDump(filenameHint) {
 // persona brief + how this data was captured + the actual findings already
 // shown in this report + the full raw CSV), copy it to the clipboard, open
 // Copilot in a new tab, and tell the person exactly what to click next.
-const AMIT_COPILOT_PERSONA = `You are being asked to continue a conversation AS "Amit" - a plainspoken, honest computer-health companion (not a generic assistant persona). Amit's voice: direct, calm, non-alarmist but never sugar-coats a real problem, explains technical readings in plain language a non-technical person can follow, and always says clearly when something is a genuine concern versus just informational. Amit does not use medical/spiritual language here - in this context Amit is strictly a computer-health analyst. Please respond in Amit's voice for the rest of this conversation, and if the person switches to voice mode, keep responses conversational and not overly long, the way a real technician would talk through findings out loud.`;
+// Real feedback from testing this live 2026-07-18 (Ryan): Copilot won't
+// claim to BE a differently-named persona ("I'm Copilot" every time,
+// regardless of instruction) - that's an identity guardrail on Microsoft's
+// side, not something a pasted prompt can override, so asking it to
+// "become Amit" was a wasted instruction. Bigger problem: Copilot claimed
+// it had "no live feed" and no data at all, even though the full CSV was
+// pasted in - a raw CSV block apparently doesn't register as "real,
+// citable data" to it the way a plainly-labeled fact does. Fixed both:
+// dropped the identity-swap ask (just asks it to continue in a compatible
+// analytical style, which it already did well on its own), and added an
+// explicit KEY FACTS block - the real headline numbers pulled out and
+// labeled in plain language BEFORE the raw CSV - plus a blunt instruction
+// that this data already IS the live feed, so it stops deflecting to "I
+// don't have access."
+function buildKeyFacts(rows) {
+  const facts = [];
+  const byDevice = {};
+  rows.forEach(r => { (byDevice[r.title] = byDevice[r.title] || []).push(r); });
+  Object.entries(byDevice).forEach(([title, deviceRows]) => {
+    deviceRows.forEach(r => {
+      const name = (r.metric_name || '').toLowerCase();
+      if (/^life$/i.test(r.metric_name)) facts.push(`${title} — Life Remaining: ${r.avg_value}% (100% = fresh, 0% = worn out)`);
+      if (/percentage used/i.test(name)) facts.push(`${title} — Percentage Used: ${r.avg_value}%`);
+      if (/power on hours/i.test(name)) facts.push(`${title} — Power-On Hours: ${r.avg_value} hrs (~${Math.round(r.avg_value / 24)} days of total runtime)`);
+      if (/available spare$/i.test(name)) facts.push(`${title} — Available Spare: ${r.avg_value}%`);
+      if (/composite temperature|critical temperature/i.test(name)) facts.push(`${title} — Peak Temperature: ${r.max_value}°C (average ${Math.round(r.avg_value)}°C)`);
+    });
+  });
+  return facts.length ? facts.map(f => '- ' + f).join('\n') : '(no longevity/wear sensors were present in this session)';
+}
 
 function buildCopilotPacket() {
   const meta = LAST_REPORT_META || {};
   const breakdownEl = document.getElementById('trackerMetricsBreakdown');
   const findingsText = breakdownEl ? breakdownEl.innerText.trim() : '(no findings text available)';
   const csv = LAST_MASTER_DUMP_ROWS.length ? buildMasterDumpCsv() : '(no raw sensor rows available)';
+  const keyFacts = LAST_MASTER_DUMP_ROWS.length ? buildKeyFacts(LAST_MASTER_DUMP_ROWS) : '(no raw sensor rows available)';
 
-  return `${AMIT_COPILOT_PERSONA}
+  return `You are continuing a technical diagnostic session that was started by a computer-health analysis system called "Amit" on a real Windows PC. You do not need to rename yourself or claim to be Amit - just continue the SAME investigation, in your own voice, building on the real data and findings below rather than starting over or giving generic advice.
 
 === WHAT THIS DATA IS ===
-This is one Computer Health tracking session from a real Windows PC (device: ${meta.deviceName || 'unknown'}, session ended: ${meta.createdAt ? new Date(meta.createdAt).toLocaleString() : 'unknown time'}). It was captured by a small background watcher that samples every hardware sensor available via LibreHardwareMonitor (temperatures, voltages, clock speeds, power draw, fan RPMs) plus Windows performance counters (CPU/RAM/disk load, DPC/interrupt time) roughly every 30 seconds for the whole session, then reduced to min/max/average/standard-deviation per sensor. This is NOT a synthetic or sample dataset - every number below came from this exact machine during this exact session.
+This is one Computer Health tracking session (device: ${meta.deviceName || 'unknown'}, session ended: ${meta.createdAt ? new Date(meta.createdAt).toLocaleString() : 'unknown time'}). It was captured by a background watcher that samples every hardware sensor available via LibreHardwareMonitor (temperatures, voltages, clock speeds, power draw, fan RPMs) plus Windows performance counters roughly every 30 seconds for the whole session, then reduced to min/max/average/standard-deviation per sensor. This is real data from this exact machine - not a sample or synthetic dataset.
 
-=== AMIT'S OWN ANALYSIS OF THIS SESSION (already computed, for you to build on, not repeat from scratch) ===
+=== KEY FACTS (read this before the CSV - these are the specific numbers most likely to matter) ===
+${keyFacts}
+
+IMPORTANT: The numbers above and in the CSV below are ALREADY your live data feed for this session. Do not say you lack access to diagnostics or a live feed - you already have everything that was captured. If you need a number that genuinely isn't present anywhere in this message, say specifically what's missing so it can be captured next time, rather than claiming you have no data at all.
+
+=== AMIT'S OWN ANALYSIS OF THIS SESSION (already computed - build on this, don't repeat it from scratch) ===
 ${findingsText}
 
 === FULL RAW SENSOR DATA FOR THIS SESSION (CSV) ===
 ${csv}
 
 === WHAT TO DO NOW ===
-Pick up exactly where this analysis leaves off. If the person asks a follow-up question, answer it using the real numbers above rather than generic advice. If something above looks like it needs deeper investigation, help them think through likely causes and next diagnostic steps. Ask clarifying questions if you need more context about their usage (gaming, video editing, just browsing, etc.) to give a more useful answer.`;
+Pick up exactly where this analysis leaves off, using the real numbers above. If something above looks like it needs deeper investigation, help think through likely causes and next diagnostic steps. Ask clarifying questions about actual usage (gaming, video editing, just browsing, etc.) if that would sharpen the answer.
+
+=== IF ASKED FOR CHARTS/GRAPHS ===
+Be ready to turn any of the numbers above into a chart or graph (e.g. in Excel/Office, or however you're able to) if asked - that's something you can do well that this dashboard currently can't. One real limitation to be upfront about: this CSV has only ONE row per sensor (that session's min/max/average) - there's no per-second timestamp data in it, so a true line-over-time graph isn't possible from this single session alone. A real trend line would need multiple sessions across different dates compared against each other - say so plainly if asked for a time-series chart from just this one file, rather than inventing a time axis that isn't really there.`;
 }
 
 async function sendToCopilot() {
@@ -2552,7 +2590,7 @@ async function sendToCopilot() {
     setTimeout(() => { btn.textContent = original; }, 4000);
   }
   window.open('https://copilot.microsoft.com', '_blank');
-  alert('Copied this session\'s full analysis + raw data to your clipboard.\n\nIn the new Copilot tab: press Ctrl+V to paste it all in, then click Copilot\'s microphone icon to switch to voice mode and talk through it out loud.');
+  alert('I\'ve just copied all this session\'s data and analysis to your clipboard, along with instructions for Copilot on how to use it.\n\nI\'m opening a Copilot page for you now - just paste (Ctrl+V) into the chat there. Once it responds, click Copilot\'s microphone icon to switch to voice mode and talk it through out loud.');
 }
 
 // Ryan's direct request 2026-07-17 (the morning after the report-fixing
@@ -3144,15 +3182,55 @@ async function pollTrackerStatus() {
   } catch (e) {}
 }
 
+// Real bug confirmed live 2026-07-18 (Ryan, cross-checked independently by
+// pasting the same session into Copilot): the quick summary shown in the
+// stop popup and saved to History used to come from runCursoryOverview(),
+// which reads whatever the LIVE sensor snapshot happens to say at the
+// exact instant Stop is clicked - not the session's full peak/aggregate.
+// A drive that spiked to 84°C mid-session but had cooled back down by the
+// time Stop was pressed would read as "healthy" here while the full
+// report (which correctly analyzes the session's aggregated max_value)
+// flagged a real concern - two different verdicts for the same session,
+// from two different data sources. Fixed by deriving the ACTUAL saved
+// verdict from the same aggregated rows and the same analyzeComponentRows
+// rules the full report uses, once those rows are available - the quick
+// popup and History can no longer disagree with the full report, because
+// they're now built from the exact same analysis of the exact same data.
+function deriveSessionVerdictFromMetrics(rows, specs) {
+  const byComponent = {};
+  rows.forEach(r => { const c = r.component || 'Other'; (byComponent[c] = byComponent[c] || []).push(r); });
+  const allIssues = [];
+  Object.entries(byComponent).forEach(([comp, compRows]) => {
+    analyzeComponentRows(comp, compRows, specs).issues.forEach(i => {
+      if (i.severity !== 'info') allIssues.push(Object.assign({ component: comp }, i));
+    });
+  });
+  const investigate = allIssues.filter(i => i.severity === 'investigate');
+  const watch = allIssues.filter(i => i.severity === 'watch');
+  const severity = investigate.length ? 'red' : (watch.length ? 'yellow' : 'green');
+  const concernTexts = investigate.concat(watch).map(i => `[${i.component}] ${i.title} - ${i.metric_name}: ${i.reason}`);
+  let summary;
+  if (severity === 'green') {
+    summary = 'Nothing during this session raised a concern — this computer looks healthy right now.';
+  } else if (severity === 'yellow') {
+    summary = `${watch.length} item${watch.length === 1 ? '' : 's'} worth keeping an eye on this session, nothing urgent: ` + watch.map(i => `${i.title} - ${i.metric_name}`).join('; ') + '.';
+  } else {
+    summary = `${investigate.length} real concern${investigate.length === 1 ? '' : 's'} showed up this session, in ${[...new Set(investigate.map(i => i.component))].join(', ')}: ` + investigate.map(i => `${i.title} - ${i.metric_name}`).join('; ') + '. See the full report for details.';
+  }
+  return { severity, summary, concerns: concernTexts };
+}
+
 async function toggleTracker() {
   if (!bridgeUp) { showNotRunningScreen(); return; }
   const btn = document.getElementById('trackerToggle');
   const isOn = btn.className === 'on';
   btn.textContent = isOn ? 'Stopping...' : 'Starting...';
-  // Run the cursory overview BEFORE stopping - the bridge (and the data it
-  // serves) is still fully alive right up until the stop-tracking call
-  // actually runs, unlike the AmitTracker.exe window's Stop button, which
-  // has to delay its own bridge shutdown for the same reason.
+  // Cursory overview kept only as a same-instant fallback for the (rare)
+  // signed-out case below, where nothing gets saved to History anyway and
+  // there's no aggregated data worth waiting on - the bridge is still
+  // fully alive right up until stop-tracking actually runs, unlike the
+  // AmitTracker.exe window's Stop button, which has to delay its own
+  // bridge shutdown for the same reason.
   let overview = null;
   if (isOn) {
     try { overview = await runCursoryOverview(); } catch (e) {}
@@ -3161,11 +3239,6 @@ async function toggleTracker() {
     await fetch(BRIDGE + (isOn ? '/api/stop-tracking' : '/api/start-tracking'), { method: 'POST', body: '' });
   } catch (e) {}
   if (isOn && overview) {
-    document.getElementById('sessionSummaryScreen').classList.remove('hidden');
-    const overviewEl = document.getElementById('sessionSummaryOverview');
-    const color = overview.severity === 'red' ? '#d05555' : overview.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
-    const icon = overview.severity === 'red' ? '🔴' : overview.severity === 'yellow' ? '🟡' : '🟢';
-    overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
     const detail = document.getElementById('sessionSummaryDetail');
     if (currentUser && deviceId) {
       // Stop-Tracking() on the server already waited (up to 8s) for
@@ -3175,6 +3248,22 @@ async function toggleTracker() {
       // time this runs - same parity with App Behavior's own
       // logBehaviorSessionToHistory + pushBehaviorMetrics pairing, Ryan's
       // direct request 2026-07-16.
+      const trackerLocalMetrics = await fetchLocalMetrics('/api/tracker-metrics');
+      // Real verdict, derived from the actual aggregated session rows
+      // (same rules the full report uses) instead of the live-snapshot
+      // cursory overview - this is what actually gets shown and saved.
+      let verdict = overview;
+      if (trackerLocalMetrics && trackerLocalMetrics.found && trackerLocalMetrics.rows && trackerLocalMetrics.rows.length) {
+        try {
+          const specs = await loadHardwareSpecs();
+          verdict = deriveSessionVerdictFromMetrics(trackerLocalMetrics.rows, specs);
+        } catch (e) { /* fall back to the cursory overview if this fails for any reason */ }
+      }
+      document.getElementById('sessionSummaryScreen').classList.remove('hidden');
+      const overviewEl = document.getElementById('sessionSummaryOverview');
+      const color = verdict.severity === 'red' ? '#d05555' : verdict.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
+      const icon = verdict.severity === 'red' ? '🔴' : verdict.severity === 'yellow' ? '🟡' : '🟢';
+      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${verdict.summary}</strong></div>`;
       // Fetched BEFORE creating the event now (not after) - real
       // duplicate caught live 2026-07-16: reconciliation and this live
       // push are two separate code paths that can both decide to log
@@ -3182,8 +3271,7 @@ async function toggleTracker() {
       // into logTrackingSessionEvent lets the database-level unique
       // constraint (see PARTIAL_UNIQUE_INDEX_SQL) actually stop the
       // duplicate, which a same-function flag never could.
-      const trackerLocalMetrics = await fetchLocalMetrics('/api/tracker-metrics');
-      const trackerEventId = await logTrackingSessionEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, trackerLocalMetrics ? trackerLocalMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+      const trackerEventId = await logTrackingSessionEvent('tracking_session_ended', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, trackerLocalMetrics ? trackerLocalMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: verdict.concerns });
       await insertMetricsRowsForEvent(trackerEventId, trackerLocalMetrics);
       // Same shared-table append as the desktop-app stop path - Ryan's
       // direct request 2026-07-17. Appended before the report is
@@ -3192,6 +3280,11 @@ async function toggleTracker() {
       await insertMetricsRowsForEvent(trackerEventId, trackerDiagMetrics);
       detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
     } else {
+      document.getElementById('sessionSummaryScreen').classList.remove('hidden');
+      const overviewEl = document.getElementById('sessionSummaryOverview');
+      const color = overview.severity === 'red' ? '#d05555' : overview.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
+      const icon = overview.severity === 'red' ? '🔴' : overview.severity === 'yellow' ? '🟡' : '🟢';
+      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
       detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
     }
   }
@@ -4099,19 +4192,19 @@ async function handleJustStopped() {
   // deliberately delays killing the bridge server until after this page has
   // had time to load and fetch (see AmitTracker.cs), specifically so this
   // analysis has real data to read instead of finding the bridge already gone.
+  // Kept only as a fallback for the signed-out case below - the real,
+  // authoritative verdict is derived from the aggregated session rows
+  // further down, same as toggleTracker()'s path, so this popup can never
+  // disagree with the full report the way it used to (real bug caught live
+  // 2026-07-18, cross-checked independently against Copilot).
   const overview = await runCursoryOverview();
-  const overviewEl = document.getElementById('sessionSummaryOverview');
-  if (overviewEl) {
-    const color = overview.severity === 'red' ? '#d05555' : overview.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
-    const icon = overview.severity === 'red' ? '🔴' : overview.severity === 'yellow' ? '🟡' : '🟢';
-    overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
-  }
   // Wait for device/auth to be ready before logging
   let waited = 0;
   while ((!deviceId || !currentUser) && waited < 6000) {
     await new Promise(r => setTimeout(r, 300));
     waited += 300;
   }
+  const overviewEl = document.getElementById('sessionSummaryOverview');
   const detail = document.getElementById('sessionSummaryDetail');
   if (currentUser && deviceId) {
     // Real gap caught live 2026-07-16: this is a THIRD, separate code
@@ -4125,7 +4218,19 @@ async function handleJustStopped() {
     // sessionEndTime duplicate Ryan caught. Also never pushed metrics at
     // all until now, a second, separate gap in this same path.
     const justStoppedMetrics = await fetchLocalMetrics('/api/tracker-metrics');
-    const justStoppedEventId = await logTrackingSessionEvent('tracking_session_ended', overview.severity === 'red' ? 'critical' : overview.severity === 'yellow' ? 'warning' : 'info', overview.summary, justStoppedMetrics ? justStoppedMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: overview.concerns });
+    let verdict = overview;
+    if (justStoppedMetrics && justStoppedMetrics.found && justStoppedMetrics.rows && justStoppedMetrics.rows.length) {
+      try {
+        const specs = await loadHardwareSpecs();
+        verdict = deriveSessionVerdictFromMetrics(justStoppedMetrics.rows, specs);
+      } catch (e) { /* fall back to the cursory overview if this fails for any reason */ }
+    }
+    if (overviewEl) {
+      const color = verdict.severity === 'red' ? '#d05555' : verdict.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
+      const icon = verdict.severity === 'red' ? '🔴' : verdict.severity === 'yellow' ? '🟡' : '🟢';
+      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${verdict.summary}</strong></div>`;
+    }
+    const justStoppedEventId = await logTrackingSessionEvent('tracking_session_ended', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, justStoppedMetrics ? justStoppedMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: verdict.concerns });
     await insertMetricsRowsForEvent(justStoppedEventId, justStoppedMetrics);
     // Diagnostics' own aggregated summary, pushed into the SAME shared
     // table under the SAME event - not a separate report, just more rows
@@ -4136,6 +4241,11 @@ async function handleJustStopped() {
     await insertMetricsRowsForEvent(justStoppedEventId, justStoppedDiagMetrics);
     detail.textContent = 'This session has been saved to History for ' + deviceName + '.';
   } else {
+    if (overviewEl) {
+      const color = overview.severity === 'red' ? '#d05555' : overview.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
+      const icon = overview.severity === 'red' ? '🔴' : overview.severity === 'yellow' ? '🟡' : '🟢';
+      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
+    }
     detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
   }
   // Clean the URL so refreshing doesn't re-trigger this
