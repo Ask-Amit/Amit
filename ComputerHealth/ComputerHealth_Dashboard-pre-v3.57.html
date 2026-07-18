@@ -98,23 +98,6 @@
   .getting-started p { margin:0 0 14px; color:#c7cad1; font-size:14px; line-height:1.5; }
   .getting-started .btn { font-size:14px; padding:9px 20px; }
   .section-title { font-size:15px; color:#d4af37; margin:18px 0 8px; }
-  .ch-gauge-panel { background:#181b23; border:1px solid #2a2e3a; border-radius:12px; padding:18px 20px 14px; margin-bottom:22px; }
-  .ch-gauge-crumb { font-size:12px; color:#9aa0ab; margin-bottom:10px; min-height:16px; }
-  .ch-gauge-crumb span { cursor:pointer; color:#d4af37; }
-  .ch-gauge-crumb span:hover { text-decoration:underline; }
-  .ch-gauge-grid { display:flex; flex-wrap:wrap; gap:22px; justify-content:center; align-items:flex-start; }
-  .ch-gauge-cell { display:flex; flex-direction:column; align-items:center; cursor:pointer; width:150px; }
-  .ch-gauge-cell canvas { display:block; }
-  .ch-gauge-cell .ch-glabel { margin-top:6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#c7cad1; text-align:center; }
-  .ch-gauge-cell .ch-gsub { font-size:11px; color:#8a8f99; text-align:center; }
-  .ch-gauge-cell:hover .ch-glabel { color:#d4af37; }
-  .ch-gauge-meta { text-align:center; font-size:12px; color:#8a8f99; margin-top:12px; }
-  .ch-gauge-meta b { color:#c7cad1; }
-  .ch-sensor-table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
-  .ch-sensor-table th { text-align:left; color:#9aa0ab; font-weight:600; padding:6px 10px; border-bottom:1px solid #2a2e3a; }
-  .ch-sensor-table td { padding:6px 10px; border-bottom:1px dashed #22252e; color:#c7cad1; }
-  .ch-sensor-table tr:hover td { background:#1e212b; }
-  .ch-grade-A { color:#4caf6d; } .ch-grade-B { color:#8bc34a; } .ch-grade-C { color:#e0a72e; } .ch-grade-D { color:#e0803f; } .ch-grade-F { color:#d05555; }
   .controls { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
   .controls input { padding:8px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; }
   .log-box { background:#0f1116; border-radius:8px; padding:12px 16px; font-family:Consolas, monospace; font-size:12px; color:#9be89b; max-height:340px; overflow-y:auto; white-space:pre-wrap; }
@@ -208,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.57</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.56</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -457,23 +440,6 @@
 <main>
 
   <div class="tab active" id="tab-overview">
-    <!-- Computer composite gauge + drill-down tree - Ryan's direct request
-         2026-07-18: the FIRST thing anyone sees under Performance should be
-         one gauge for the whole computer, showing the last run's grade even
-         when nothing is actively tracking right now. Double-click drills
-         into major components (CPU/GPU/Motherboard/RAM/Storage/Network),
-         then into that component's categories (Temperature/Voltage/Clock/
-         etc.), then into the individual sensors - a breadcrumb (chGaugeCrumb)
-         lets you climb back out at any level. When the tracker is actively
-         running, chLiveMode goes true and the whole tree redraws every time
-         a fresh reading lands, instead of showing a static last-session
-         snapshot. -->
-    <div class="ch-gauge-panel" id="chGaugePanel">
-      <div class="ch-gauge-crumb" id="chGaugeCrumb"></div>
-      <div class="ch-gauge-grid" id="chGaugeGrid"><em style="color:#8a8f99">Loading last run…</em></div>
-      <div class="ch-gauge-meta" id="chGaugeMeta"></div>
-      <div id="chSensorTableWrap" class="hidden"></div>
-    </div>
     <div class="getting-started" id="gettingStartedBanner">
       <h3>This computer isn't connected yet</h3>
       <p>Computer Health watches this specific machine, but nothing runs until you turn it on. Click <strong>Launch Tracker</strong> at the top right — the first time, it'll walk you through a quick one-time setup (installs a small local watcher program); after that, this same button just connects instantly.</p>
@@ -905,7 +871,6 @@ async function loadMyDevices() {
   updateLiveControlsAvailability();
   updateDeviceLabelDisplay();
   if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
-  loadComputerHealthTree(viewingDeviceId);
 }
 
 function populateDeviceSelector() {
@@ -1197,256 +1162,6 @@ async function pushMetricsFromEndpoint(eventId, endpoint) {
 }
 async function pushBehaviorMetrics(eventId) { return pushMetricsFromEndpoint(eventId, '/api/behavior-metrics'); }
 async function pushTrackerMetrics(eventId) { return pushMetricsFromEndpoint(eventId, '/api/tracker-metrics'); }
-
-// ============================================================================
-// COMPUTER COMPOSITE GAUGE + DRILL-DOWN TREE - Ryan's direct request
-// 2026-07-17/18. Engine logic (composite scoring, tree building) lives in
-// component_tree_engine.js and is inlined below so this file stays a single
-// self-contained page, same pattern as everything else here. The FIRST
-// thing shown under Performance is one gauge for the whole computer, using
-// the LAST RUN's data even when nothing is tracking right now - double-
-// click drills in (Computer -> major component -> category -> individual
-// sensors), a breadcrumb climbs back out. When the tracker is actively
-// running, chLiveMode redraws the current level every time pollTrackerStatus
-// notices a fresh local reading, instead of showing a static snapshot.
-// ============================================================================
-
-// ---- inlined from component_tree_engine.js ----
-function chCompositeScore(subScores) {
-  const valid = subScores.filter(s => s !== null && s !== undefined && !isNaN(s));
-  if (valid.length === 0) return null;
-  const sorted = [...valid].sort((a, b) => a - b);
-  if (sorted.length === 1) return Math.round(sorted[0] * 10) / 10;
-  if (sorted.length === 2) return Math.round((sorted[0] * 0.75 + sorted[1] * 0.25) * 10) / 10;
-  const worst = sorted[0], second = sorted[1], rest = sorted.slice(2);
-  const restAvg = rest.reduce((a, b) => a + b, 0) / rest.length;
-  return Math.round((worst * 0.75 + second * 0.10 + restAvg * 0.15) * 10) / 10;
-}
-function chGradeLetter(score) {
-  if (score == null) return '—';
-  if (score >= 90) return 'A'; if (score >= 75) return 'B';
-  if (score >= 55) return 'C'; if (score >= 35) return 'D';
-  return 'F';
-}
-function chScoreSensor(row, limit, category) {
-  const avg = row.avg_value, max = row.max_value;
-  if (limit != null && (category === 'Temperature' || category === 'Power')) {
-    const frac = max / limit;
-    if (frac >= 1) return 0;
-    if (frac <= 0.70) return 100;
-    return Math.round((100 - ((frac - 0.70) / 0.30) * 100) * 10) / 10;
-  }
-  if (category === 'Longevity' && row.metric_name && /percentage used|life/i.test(row.metric_name)) {
-    return Math.round(Math.max(0, Math.min(100, 100 - avg)) * 10) / 10;
-  }
-  if (category === 'Capacity' && /free space %/i.test(row.metric_name || '')) {
-    return Math.round(Math.max(0, Math.min(100, avg)) * 10) / 10;
-  }
-  if (category === 'Performance' && /latency/i.test(row.metric_name || '')) {
-    if (avg <= 10) return 100;
-    if (avg >= 30) return 0;
-    return Math.round((100 - ((avg - 10) / 20) * 100) * 10) / 10;
-  }
-  return 85;
-}
-function chBuildTree(registry, rows) {
-  const regIndex = new Map();
-  registry.forEach(r => regIndex.set(r.raw_component + '|' + r.raw_metric_name, r));
-  const unclassified = [];
-  const tree = {};
-  rows.forEach(row => {
-    const reg = regIndex.get(row.component + '|' + row.metric_name);
-    if (!reg) { unclassified.push({ component: row.component, metric_name: row.metric_name }); return; }
-    const score = chScoreSensor({ ...row, metric_name: reg.raw_metric_name }, null, reg.category);
-    if (!tree[reg.major_group]) tree[reg.major_group] = {};
-    if (!tree[reg.major_group][reg.category]) tree[reg.major_group][reg.category] = {};
-    if (reg.gauge_worthy || !tree[reg.major_group][reg.category][reg.instance_label]) {
-      tree[reg.major_group][reg.category][reg.instance_label] = { row, reg, score, gaugeWorthy: reg.gauge_worthy };
-    }
-  });
-  const categoryScores = {};
-  Object.entries(tree).forEach(([major, cats]) => {
-    categoryScores[major] = {};
-    Object.entries(cats).forEach(([cat, instances]) => {
-      const scores = Object.values(instances).filter(i => i.gaugeWorthy).map(i => i.score);
-      categoryScores[major][cat] = chCompositeScore(scores);
-    });
-  });
-  const majorScores = {};
-  Object.entries(categoryScores).forEach(([major, cats]) => { majorScores[major] = chCompositeScore(Object.values(cats)); });
-  const computerScore = chCompositeScore(Object.values(majorScores));
-  return { tree, categoryScores, majorScores, computerScore, unclassified };
-}
-
-// ---- state + data loading ----
-let chRegistryCache = null;
-let chTreeResult = null;
-let chLevel = 'computer'; // 'computer' | 'major' | 'category' | 'sensors'
-let chPathMajor = null, chPathCategory = null;
-let chLastRunLabel = 'No data yet';
-let chLiveMode = false;
-
-async function chLoadRegistry() {
-  if (chRegistryCache) return chRegistryCache;
-  if (!db) return [];
-  const { data, error } = await db.from('amit_component_registry')
-    .select('raw_component,raw_metric_name,major_group,category,instance_label,gauge_worthy');
-  chRegistryCache = (!error && data) ? data : [];
-  return chRegistryCache;
-}
-
-async function loadComputerHealthTree(devId) {
-  const grid = document.getElementById('chGaugeGrid');
-  if (!devId || !db) { if (grid) grid.innerHTML = '<em style="color:#8a8f99">No device connected yet.</em>'; return; }
-  const registry = await chLoadRegistry();
-  const { data: ev } = await db.from('amit_device_events')
-    .select('id,created_at').eq('device_id', devId).eq('event_type', 'tracking_session_ended')
-    .order('created_at', { ascending: false }).limit(1).maybeSingle();
-  if (!ev) {
-    if (grid) grid.innerHTML = '<em style="color:#8a8f99">No completed runs yet for this computer.</em>';
-    return;
-  }
-  const { data: rows } = await db.from('amit_device_session_metrics')
-    .select('component,metric_name,min_value,max_value,avg_value,stddev_value')
-    .eq('event_id', ev.id);
-  chTreeResult = chBuildTree(registry, rows || []);
-  chLastRunLabel = 'Last run: ' + new Date(ev.created_at).toLocaleString();
-  chLiveMode = false;
-  chLevel = 'computer'; chPathMajor = null; chPathCategory = null;
-  chRenderCurrentLevel();
-}
-
-// Called from pollTrackerStatus while the tracker is actively running -
-// pulls the same live local endpoint the report/history features already
-// use, rebuilds the tree fresh, and redraws whatever level is currently
-// open so the needle genuinely moves as new readings land, not just on a
-// fixed timer of the gauge's own.
-async function chRefreshLiveIfActive() {
-  if (!trackerRunning || !bridgeUp) return;
-  const registry = await chLoadRegistry();
-  const d = await fetchLocalMetrics('/api/tracker-metrics');
-  if (!d || !d.found || !d.rows || d.rows.length === 0) return;
-  chTreeResult = chBuildTree(registry, d.rows);
-  chLastRunLabel = 'Live — updating now';
-  chLiveMode = true;
-  chRenderCurrentLevel();
-}
-
-// ---- rendering ----
-function chGaugeColor(grade) {
-  return { A: '#4caf6d', B: '#8bc34a', C: '#e0a72e', D: '#e0803f', F: '#d05555', '—': '#5a6070' }[grade] || '#5a6070';
-}
-function chDrawGauge(canvas, score) {
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height, cx = w / 2, cy = h / 2, r = w / 2 - 6;
-  ctx.clearRect(0, 0, w, h);
-  const grade = chGradeLetter(score);
-  const color = chGaugeColor(grade);
-  const start = -Math.PI / 2, full = Math.PI * 2;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, full); ctx.strokeStyle = '#262a36'; ctx.lineWidth = 8; ctx.stroke();
-  if (score != null) {
-    ctx.beginPath(); ctx.arc(cx, cy, r, start, start + full * (score / 100));
-    ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.stroke();
-  }
-  ctx.fillStyle = color; ctx.font = '700 ' + Math.round(w * 0.22) + 'px ui-sans-serif, Segoe UI, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(grade, cx, cy - 2);
-  ctx.fillStyle = '#8a8f99'; ctx.font = '600 ' + Math.round(w * 0.09) + 'px ui-sans-serif, Segoe UI, sans-serif';
-  ctx.fillText(score != null ? score.toFixed(0) : '—', cx, cy + w * 0.20);
-}
-
-function chRenderCrumb() {
-  const el = document.getElementById('chGaugeCrumb');
-  if (!el) return;
-  let parts = [`<span onclick="chGoTo('computer')">Computer</span>`];
-  if (chPathMajor) parts.push(`<span onclick="chGoTo('major')">${chPathMajor}</span>`);
-  if (chPathCategory) parts.push(`<span onclick="chGoTo('category')">${chPathCategory}</span>`);
-  el.innerHTML = parts.join(' <span style="color:#4a4f5c">›</span> ');
-}
-
-function chGoTo(level) {
-  chLevel = level;
-  if (level === 'computer') { chPathMajor = null; chPathCategory = null; }
-  if (level === 'major') { chPathCategory = null; }
-  chRenderCurrentLevel();
-}
-
-function chRenderCurrentLevel() {
-  chRenderCrumb();
-  const grid = document.getElementById('chGaugeGrid');
-  const meta = document.getElementById('chGaugeMeta');
-  const tableWrap = document.getElementById('chSensorTableWrap');
-  if (!chTreeResult) return;
-  meta.textContent = chLastRunLabel + (chLiveMode ? ' (live)' : '');
-
-  if (chLevel === 'sensors') {
-    grid.classList.add('hidden');
-    tableWrap.classList.remove('hidden');
-    chRenderSensorTable();
-    return;
-  }
-  grid.classList.remove('hidden');
-  tableWrap.classList.add('hidden');
-
-  if (chLevel === 'computer') {
-    grid.innerHTML = '';
-    const big = document.createElement('div');
-    big.className = 'ch-gauge-cell';
-    big.style.width = '220px';
-    big.innerHTML = `<canvas width="180" height="180"></canvas><div class="ch-glabel">Computer</div><div class="ch-gsub">Double-click to see every major component</div>`;
-    big.ondblclick = () => { chLevel = 'major-list'; chRenderMajorList(); };
-    grid.appendChild(big);
-    chDrawGauge(big.querySelector('canvas'), chTreeResult.computerScore);
-    return;
-  }
-  if (chLevel === 'major-list') { chRenderMajorList(); return; }
-  if (chLevel === 'category-list') { chRenderCategoryList(); return; }
-}
-
-function chRenderMajorList() {
-  chLevel = 'major-list';
-  chRenderCrumb();
-  const grid = document.getElementById('chGaugeGrid');
-  grid.innerHTML = '';
-  Object.entries(chTreeResult.majorScores).forEach(([major, score]) => {
-    const cell = document.createElement('div');
-    cell.className = 'ch-gauge-cell';
-    cell.innerHTML = `<canvas width="110" height="110"></canvas><div class="ch-glabel">${major}</div><div class="ch-gsub">Double-click to drill in</div>`;
-    cell.ondblclick = () => { chPathMajor = major; chLevel = 'category-list'; chRenderCategoryList(); };
-    grid.appendChild(cell);
-    chDrawGauge(cell.querySelector('canvas'), score);
-  });
-  document.getElementById('chGaugeMeta').textContent = chLastRunLabel + (chLiveMode ? ' (live)' : '');
-}
-
-function chRenderCategoryList() {
-  chLevel = 'category-list';
-  chRenderCrumb();
-  const grid = document.getElementById('chGaugeGrid');
-  grid.innerHTML = '';
-  const cats = chTreeResult.categoryScores[chPathMajor] || {};
-  Object.entries(cats).forEach(([cat, score]) => {
-    const cell = document.createElement('div');
-    cell.className = 'ch-gauge-cell';
-    cell.innerHTML = `<canvas width="100" height="100"></canvas><div class="ch-glabel">${cat}</div><div class="ch-gsub">Double-click for sensors</div>`;
-    cell.ondblclick = () => { chPathCategory = cat; chLevel = 'sensors'; chRenderCurrentLevel(); };
-    grid.appendChild(cell);
-    chDrawGauge(cell.querySelector('canvas'), score);
-  });
-  document.getElementById('chGaugeMeta').textContent = chLastRunLabel + (chLiveMode ? ' (live)' : '');
-}
-
-function chRenderSensorTable() {
-  const wrap = document.getElementById('chSensorTableWrap');
-  const instances = (chTreeResult.tree[chPathMajor] || {})[chPathCategory] || {};
-  let rowsHtml = Object.entries(instances).map(([label, i]) => {
-    const gradeCls = 'ch-grade-' + chGradeLetter(i.score);
-    return `<tr><td>${label}${i.gaugeWorthy ? '' : ' <span style="color:#5a6070">(raw only)</span>'}</td>
-      <td>${i.row.min_value}</td><td>${i.row.avg_value.toFixed ? i.row.avg_value.toFixed(2) : i.row.avg_value}</td><td>${i.row.max_value}</td>
-      <td class="${gradeCls}">${chGradeLetter(i.score)} (${i.score})</td></tr>`;
-  }).join('');
-  wrap.innerHTML = `<table class="ch-sensor-table"><thead><tr><th>Sensor</th><th>Min</th><th>Avg</th><th>Max</th><th>Grade</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
-}
 
 // Walks LibreHardwareMonitor's own data.json tree, grouped by real hardware
 // component (Motherboard, CPU, GPU, each RAM stick, each drive) and by
@@ -2687,7 +2402,6 @@ async function pollTrackerStatus() {
       btn.textContent = 'Tracker: OFF (click to start)';
       btn.className = 'off';
     }
-    chRefreshLiveIfActive();
   } catch (e) {}
 }
 
