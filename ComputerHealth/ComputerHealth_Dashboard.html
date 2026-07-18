@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.62</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.63</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2438,6 +2438,7 @@ function openHistoryDetail(i) {
       ? '<ul>' + concerns.map(c => `<li>${c}</li>`).join('') + '</ul>'
       : '<em style="color:#8a8f99">No specific concerns were flagged this session.</em>') +
       '<div id="trackerMetricsBreakdown" style="margin-top:14px"><em style="color:#8a8f99">Loading resource breakdown…</em></div>';
+    LAST_REPORT_META = { createdAt: e.created_at, severity: e.severity, summary: e.summary, deviceName: deviceName };
     document.getElementById('historyDetailModal').classList.remove('hidden');
     loadTrackerMetricsBreakdown(e.id);
     return;
@@ -2463,6 +2464,7 @@ function escHtml(s) { return (s == null ? '' : String(s)).replace(/</g, '&lt;');
 let LAST_COMPONENT_ROWS = {};
 let LAST_COMPONENT_ISSUES = {};
 let LAST_MASTER_DUMP_ROWS = [];
+let LAST_REPORT_META = {};
 
 // Ryan's direct request 2026-07-17: a downloadable file of every raw data
 // point behind a report, so it can be handed to someone else (another
@@ -2470,8 +2472,7 @@ let LAST_MASTER_DUMP_ROWS = [];
 // this dashboard. Plain CSV - opens directly in Excel/Sheets/Numbers with
 // no special software, which is the actual point of "give it to somebody
 // else."
-function downloadMasterDump(filenameHint) {
-  if (!LAST_MASTER_DUMP_ROWS.length) return;
+function buildMasterDumpCsv() {
   const cols = ['component', 'title', 'metric_name', 'category', 'min_value', 'max_value', 'avg_value', 'stddev_value', 'sample_count'];
   const escCsv = v => {
     if (v === null || v === undefined) return '';
@@ -2480,7 +2481,12 @@ function downloadMasterDump(filenameHint) {
   };
   const lines = [cols.join(',')];
   LAST_MASTER_DUMP_ROWS.forEach(row => { lines.push(cols.map(c => escCsv(row[c])).join(',')); });
-  const csv = lines.join('\r\n');
+  return lines.join('\r\n');
+}
+
+function downloadMasterDump(filenameHint) {
+  if (!LAST_MASTER_DUMP_ROWS.length) return;
+  const csv = buildMasterDumpCsv();
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2490,6 +2496,63 @@ function downloadMasterDump(filenameHint) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Ryan's direct request 2026-07-18: hand a session off to Copilot (which
+// has a real voice mode this app doesn't) so someone can talk through the
+// findings out loud instead of just reading a report. This can't launch
+// Copilot's voice mode directly - that's a toggle inside Copilot's own
+// interface, not something a link or pasted text can switch on - so the
+// realistic flow is: build a self-contained text packet (condensed Amit
+// persona brief + how this data was captured + the actual findings already
+// shown in this report + the full raw CSV), copy it to the clipboard, open
+// Copilot in a new tab, and tell the person exactly what to click next.
+const AMIT_COPILOT_PERSONA = `You are being asked to continue a conversation AS "Amit" - a plainspoken, honest computer-health companion (not a generic assistant persona). Amit's voice: direct, calm, non-alarmist but never sugar-coats a real problem, explains technical readings in plain language a non-technical person can follow, and always says clearly when something is a genuine concern versus just informational. Amit does not use medical/spiritual language here - in this context Amit is strictly a computer-health analyst. Please respond in Amit's voice for the rest of this conversation, and if the person switches to voice mode, keep responses conversational and not overly long, the way a real technician would talk through findings out loud.`;
+
+function buildCopilotPacket() {
+  const meta = LAST_REPORT_META || {};
+  const breakdownEl = document.getElementById('trackerMetricsBreakdown');
+  const findingsText = breakdownEl ? breakdownEl.innerText.trim() : '(no findings text available)';
+  const csv = LAST_MASTER_DUMP_ROWS.length ? buildMasterDumpCsv() : '(no raw sensor rows available)';
+
+  return `${AMIT_COPILOT_PERSONA}
+
+=== WHAT THIS DATA IS ===
+This is one Computer Health tracking session from a real Windows PC (device: ${meta.deviceName || 'unknown'}, session ended: ${meta.createdAt ? new Date(meta.createdAt).toLocaleString() : 'unknown time'}). It was captured by a small background watcher that samples every hardware sensor available via LibreHardwareMonitor (temperatures, voltages, clock speeds, power draw, fan RPMs) plus Windows performance counters (CPU/RAM/disk load, DPC/interrupt time) roughly every 30 seconds for the whole session, then reduced to min/max/average/standard-deviation per sensor. This is NOT a synthetic or sample dataset - every number below came from this exact machine during this exact session.
+
+=== AMIT'S OWN ANALYSIS OF THIS SESSION (already computed, for you to build on, not repeat from scratch) ===
+${findingsText}
+
+=== FULL RAW SENSOR DATA FOR THIS SESSION (CSV) ===
+${csv}
+
+=== WHAT TO DO NOW ===
+Pick up exactly where this analysis leaves off. If the person asks a follow-up question, answer it using the real numbers above rather than generic advice. If something above looks like it needs deeper investigation, help them think through likely causes and next diagnostic steps. Ask clarifying questions if you need more context about their usage (gaming, video editing, just browsing, etc.) to give a more useful answer.`;
+}
+
+async function sendToCopilot() {
+  const btn = document.getElementById('copilotHandoffBtn');
+  const packet = buildCopilotPacket();
+  try {
+    await navigator.clipboard.writeText(packet);
+  } catch (e) {
+    // Clipboard API can be blocked in some contexts - fall back to a
+    // manual-copy textarea rather than failing silently.
+    const ta = document.createElement('textarea');
+    ta.value = packet;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e2) {}
+    document.body.removeChild(ta);
+  }
+  if (btn) {
+    const original = btn.textContent;
+    btn.textContent = '✓ Copied — opening Copilot…';
+    setTimeout(() => { btn.textContent = original; }, 4000);
+  }
+  window.open('https://copilot.microsoft.com', '_blank');
+  alert('Copied this session\'s full analysis + raw data to your clipboard.\n\nIn the new Copilot tab: press Ctrl+V to paste it all in, then click Copilot\'s microphone icon to switch to voice mode and talk through it out loud.');
 }
 
 // Ryan's direct request 2026-07-17 (the morning after the report-fixing
@@ -2664,7 +2727,9 @@ async function loadTrackerMetricsBreakdown(eventId) {
     const section1Investigate = allIssuesFlat.filter(i => i.severity === 'investigate').length;
     const section1Watch = allIssuesFlat.filter(i => i.severity === 'watch').length;
 
-    let html = '<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn secondary" style="font-size:12px;padding:6px 12px" onclick="downloadMasterDump(\'' + new Date().toISOString().slice(0, 10) + '\')">⬇ Download Master Dump (CSV)</button></div>';
+    let html = '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">' +
+      '<button class="btn secondary" style="font-size:12px;padding:6px 12px" id="copilotHandoffBtn" onclick="sendToCopilot()" title="Copies this report + the full raw data to your clipboard and opens Copilot in a new tab, so you can paste it in and talk through it by voice">🎙️ Talk to Amit about this in Copilot</button>' +
+      '<button class="btn secondary" style="font-size:12px;padding:6px 12px" onclick="downloadMasterDump(\'' + new Date().toISOString().slice(0, 10) + '\')">⬇ Download Master Dump (CSV)</button></div>';
     html += '<div class="section-title" style="margin-top:10px">1. Resource Usage — Combined Analysis Per Component</div>';
     html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Each component\'s sensors analyzed together, not one at a time - click "View full breakdown" for the complete sensor-by-sensor spreadsheet with any flagged items highlighted.</p>';
     html += sectionSummaryBanner(section1Investigate, section1Watch, 'Across all components');
