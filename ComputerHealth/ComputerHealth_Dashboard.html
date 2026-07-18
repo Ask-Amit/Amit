@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.67</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.68</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -311,17 +311,6 @@
     <div class="actions">
       <button class="btn" onclick="confirmLaunchTracker()">Continue</button>
       <button class="btn secondary" onclick="cancelLaunchTracker()">Cancel</button>
-    </div>
-  </div>
-</div>
-
-<div class="overlay hidden" id="copilotHandoffModal">
-  <div class="overlay-card" style="max-width:480px">
-    <h2>🎙️ Ready for Copilot</h2>
-    <p>I've just copied this session's data and analysis to your clipboard, along with instructions for Copilot on how to use it.</p>
-    <p>Click <strong>Continue</strong> and I'll open a Copilot page for you — just paste (Ctrl+V) into the chat there. Once it responds, click Copilot's microphone icon to switch to voice mode and talk it through out loud.</p>
-    <div class="actions">
-      <button class="btn" onclick="continueToCopilot()">Continue</button>
     </div>
   </div>
 </div>
@@ -493,9 +482,6 @@
     <div class="ch-gauge-panel" id="chGaugePanel">
       <div id="chGaugeGrid"><em style="color:#8a8f99">Loading last run…</em></div>
       <div class="ch-gauge-meta" id="chGaugeMeta"></div>
-      <div style="display:flex;justify-content:center;margin-top:12px">
-        <button class="btn secondary" id="chCopilotBtn" style="font-size:12px;padding:6px 12px" onclick="chSendToCopilotFromPerformance()" title="Uses the same single most-recent completed session as the Master Dump - not the full device history">🎙️ Talk to Amit about this in Copilot</button>
-      </div>
     </div>
     <div class="getting-started" id="gettingStartedBanner">
       <h3>This computer isn't connected yet</h3>
@@ -718,7 +704,6 @@ function setStatus(msg) {
 // the real display_name from the shared 'users' table (same one the Hub
 // writes to when someone sets their name there) so this greets by name
 // instead of showing a bare email address, which reads as impersonal.
-let CURRENT_USER_DISPLAY_NAME = null;
 async function showSignedInAs(email) {
   const bar = document.getElementById('loginBar');
   let name = null;
@@ -727,7 +712,6 @@ async function showSignedInAs(email) {
     name = data && data.display_name;
   } catch (e) {}
   if (!name) name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  CURRENT_USER_DISPLAY_NAME = name;
   bar.innerHTML = `<span style="color:#4caf6d">✓ Welcome, <strong>${name}</strong> — signed in as ${email}</span>`;
 }
 
@@ -1484,32 +1468,6 @@ async function loadComputerHealthTree(devId) {
   // available when the bridge on this machine is reachable right now.
   await chMergeSoftwareIntoTree();
   chRenderCurrentLevel();
-}
-
-// Ryan's direct request 2026-07-18: the Copilot handoff shouldn't only be
-// reachable by digging into a History report - it belongs right on
-// Performance too, since it's always going to be built from the same one
-// most-recent completed session either way (the Master Dump is scoped to
-// one session, not the whole device history). Reuses
-// loadTrackerMetricsBreakdown() to populate the same hidden data (the
-// #trackerMetricsBreakdown div exists in the DOM whether its modal is open
-// or not) rather than duplicating that analysis a second time.
-async function chSendToCopilotFromPerformance() {
-  const btn = document.getElementById('chCopilotBtn');
-  if (!viewingDeviceId || !db) { alert('No device connected yet - nothing to send.'); return; }
-  if (btn) { btn.disabled = true; btn.textContent = 'Gathering session data…'; }
-  const { data: ev } = await db.from('amit_device_events')
-    .select('id,created_at').eq('device_id', viewingDeviceId).eq('event_type', 'tracking_session_ended')
-    .order('created_at', { ascending: false }).limit(1).maybeSingle();
-  if (!ev) {
-    if (btn) { btn.disabled = false; btn.textContent = '🎙️ Talk to Amit about this in Copilot'; }
-    alert('No completed tracking session yet for this computer - nothing to send.');
-    return;
-  }
-  LAST_REPORT_META = { createdAt: ev.created_at, deviceName: deviceName };
-  await loadTrackerMetricsBreakdown(ev.id);
-  if (btn) { btn.disabled = false; btn.textContent = '🎙️ Talk to Amit about this in Copilot'; }
-  await sendToCopilot();
 }
 
 // Called from pollTrackerStatus while the tracker is actively running -
@@ -2564,7 +2522,6 @@ function openHistoryDetail(i) {
       ? '<ul>' + concerns.map(c => `<li>${c}</li>`).join('') + '</ul>'
       : '<em style="color:#8a8f99">No specific concerns were flagged this session.</em>') +
       '<div id="trackerMetricsBreakdown" style="margin-top:14px"><em style="color:#8a8f99">Loading resource breakdown…</em></div>';
-    LAST_REPORT_META = { createdAt: e.created_at, severity: e.severity, summary: e.summary, deviceName: deviceName };
     document.getElementById('historyDetailModal').classList.remove('hidden');
     loadTrackerMetricsBreakdown(e.id);
     return;
@@ -2590,7 +2547,6 @@ function escHtml(s) { return (s == null ? '' : String(s)).replace(/</g, '&lt;');
 let LAST_COMPONENT_ROWS = {};
 let LAST_COMPONENT_ISSUES = {};
 let LAST_MASTER_DUMP_ROWS = [];
-let LAST_REPORT_META = {};
 
 // Ryan's direct request 2026-07-17: a downloadable file of every raw data
 // point behind a report, so it can be handed to someone else (another
@@ -2622,163 +2578,6 @@ function downloadMasterDump(filenameHint) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-// Ryan's direct request 2026-07-18: hand a session off to Copilot (which
-// has a real voice mode this app doesn't) so someone can talk through the
-// findings out loud instead of just reading a report. This can't launch
-// Copilot's voice mode directly - that's a toggle inside Copilot's own
-// interface, not something a link or pasted text can switch on - so the
-// realistic flow is: build a self-contained text packet (condensed Amit
-// persona brief + how this data was captured + the actual findings already
-// shown in this report + the full raw CSV), copy it to the clipboard, open
-// Copilot in a new tab, and tell the person exactly what to click next.
-// Real feedback from testing this live 2026-07-18 (Ryan): Copilot won't
-// claim to BE a differently-named persona ("I'm Copilot" every time,
-// regardless of instruction) - that's an identity guardrail on Microsoft's
-// side, not something a pasted prompt can override, so asking it to
-// "become Amit" was a wasted instruction. Bigger problem: Copilot claimed
-// it had "no live feed" and no data at all, even though the full CSV was
-// pasted in - a raw CSV block apparently doesn't register as "real,
-// citable data" to it the way a plainly-labeled fact does. Fixed both:
-// dropped the identity-swap ask (just asks it to continue in a compatible
-// analytical style, which it already did well on its own), and added an
-// explicit KEY FACTS block - the real headline numbers pulled out and
-// labeled in plain language BEFORE the raw CSV - plus a blunt instruction
-// that this data already IS the live feed, so it stops deflecting to "I
-// don't have access."
-function buildKeyFacts(rows) {
-  const facts = [];
-  const byDevice = {};
-  rows.forEach(r => { (byDevice[r.title] = byDevice[r.title] || []).push(r); });
-  Object.entries(byDevice).forEach(([title, deviceRows]) => {
-    deviceRows.forEach(r => {
-      const name = (r.metric_name || '').toLowerCase();
-      if (/^life$/i.test(r.metric_name)) facts.push(`${title} — Life Remaining: ${r.avg_value}% (100% = fresh, 0% = worn out)`);
-      if (/percentage used/i.test(name)) facts.push(`${title} — Percentage Used: ${r.avg_value}%`);
-      if (/power on hours/i.test(name)) facts.push(`${title} — Power-On Hours: ${r.avg_value} hrs (~${Math.round(r.avg_value / 24)} days of total runtime)`);
-      if (/available spare$/i.test(name)) facts.push(`${title} — Available Spare: ${r.avg_value}%`);
-      if (/composite temperature|critical temperature/i.test(name)) facts.push(`${title} — Peak Temperature: ${r.max_value}°C (average ${Math.round(r.avg_value)}°C)`);
-    });
-  });
-  return facts.length ? facts.map(f => '- ' + f).join('\n') : '(no longevity/wear sensors were present in this session)';
-}
-
-// Real per-sample time series, not the condensed one-row-per-sensor
-// summary - Ryan's direct request 2026-07-18, after realizing the
-// Supabase-aggregated CSV can't support a real "line graph over time"
-// (only one min/max/avg per sensor per session). resource_watch_result.txt
-// on the local drive still has every individual sample from the session
-// (every ~30s), and /api/resource-history already serves the FULL
-// retained log, not just a live snapshot - the same source the Hardware
-// tab's own trend charts already use. Only available while the bridge on
-// THIS machine can still reach that file (the current session, or the
-// last one that ran before the tracker was stopped) - falls back to the
-// condensed Supabase summary with an honest note when it isn't.
-async function buildRawTimeSeriesCsv() {
-  if (!bridgeUp) return null;
-  try {
-    const r = await fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' });
-    if (!r.ok) return null;
-    const d = await r.json();
-    const rows = parseSensorHistoryRows(d.lines || []);
-    if (rows.length === 0) return null;
-    const lines = ['timestamp,sensor_path,value'];
-    rows.forEach(row => {
-      Object.entries(row.sensors).forEach(([path, val]) => {
-        const escPath = /[",\n]/.test(path) ? '"' + path.replace(/"/g, '""') + '"' : path;
-        lines.push(`${row.t},${escPath},${val}`);
-      });
-    });
-    return { csv: lines.join('\r\n'), sampleCount: rows.length };
-  } catch (e) { return null; }
-}
-
-async function buildCopilotPacket() {
-  const meta = LAST_REPORT_META || {};
-  const breakdownEl = document.getElementById('trackerMetricsBreakdown');
-  const findingsText = breakdownEl ? breakdownEl.innerText.trim() : '(no findings text available)';
-  const keyFacts = LAST_MASTER_DUMP_ROWS.length ? buildKeyFacts(LAST_MASTER_DUMP_ROWS) : '(no raw sensor rows available)';
-
-  const timeSeries = await buildRawTimeSeriesCsv();
-  let csv, csvNote;
-  if (timeSeries) {
-    csv = timeSeries.csv;
-    csvNote = `Long-format time series: one row per (timestamp, sensor) pair, ${timeSeries.sampleCount} timestamped samples total across every sensor - real per-sample data straight from this session's local log, not a condensed summary. Pivot this by sensor_path with timestamp on the x-axis for a real line-over-time chart per sensor.`;
-  } else {
-    csv = LAST_MASTER_DUMP_ROWS.length ? buildMasterDumpCsv() : '(no raw sensor rows available)';
-    csvNote = 'Condensed summary only (one row per sensor: min/max/avg/stddev for the whole session) - the per-sample local log wasn\'t reachable from this browser right now (the bridge may not be running on this machine, or this session predates that capability), so a true line-over-time chart isn\'t possible from this file. If you need real per-sample data, it needs to be pulled from the SAME computer while Computer Health is connected to it.';
-  }
-
-  const userName = CURRENT_USER_DISPLAY_NAME || null;
-
-  return `You are continuing a technical diagnostic session that was started by a computer-health analysis system called "Amit" on a real Windows PC. You do not need to rename yourself or claim to be Amit - just continue the SAME investigation, in your own voice, building on the real data and findings below rather than starting over or giving generic advice.
-
-=== HOW TO OPEN ===
-${userName ? `Start by greeting the person by name - they're signed in as "${userName}." Something like: "Welcome back, ${userName} - I've just received the full session Amit put together on your computer."` : 'Start with a warm, direct greeting - no name is available for this session, so keep it general (e.g. "Welcome back").'} Then give a short, warm introduction before diving into technical detail: mention that you're looking at the same data Amit already analyzed, but from your own angle, and that you're glad to talk through it together rather than just hand back another wall of text. Then move into what you actually found - lead with the short version, like a real conversation opening, not a cold technical report.
-
-=== WHAT THIS DATA IS ===
-This is one Computer Health tracking session (device: ${meta.deviceName || 'unknown'}, session ended: ${meta.createdAt ? new Date(meta.createdAt).toLocaleString() : 'unknown time'}). It was captured by a background watcher that samples every hardware sensor available via LibreHardwareMonitor (temperatures, voltages, clock speeds, power draw, fan RPMs) plus Windows performance counters roughly every 30 seconds for the whole session, then reduced to min/max/average/standard-deviation per sensor. This is real data from this exact machine - not a sample or synthetic dataset.
-
-=== KEY FACTS (read this before the CSV - these are the specific numbers most likely to matter) ===
-${keyFacts}
-
-IMPORTANT: The numbers above and in the CSV below are ALREADY your live data feed for this session. Do not say you lack access to diagnostics or a live feed - you already have everything that was captured. If you need a number that genuinely isn't present anywhere in this message, say specifically what's missing so it can be captured next time, rather than claiming you have no data at all.
-
-=== AMIT'S OWN ANALYSIS OF THIS SESSION (already computed - build on this, don't repeat it from scratch) ===
-${findingsText}
-
-=== FULL RAW SENSOR DATA FOR THIS SESSION (CSV) ===
-${csvNote}
-
-${csv}
-
-=== WHAT TO DO NOW ===
-Pick up exactly where this analysis leaves off, using the real numbers above. If something above looks like it needs deeper investigation, help think through likely causes and next diagnostic steps. Ask clarifying questions about actual usage (gaming, video editing, just browsing, etc.) if that would sharpen the answer.
-
-=== IF ASKED FOR CHARTS/GRAPHS ===
-Be ready to turn any of the numbers above into a chart or graph (e.g. in Excel/Office, or however you're able to) if asked - that's something you can do well that this dashboard currently can't. ${timeSeries ? 'The CSV above IS real per-sample, per-timestamp data - a genuine line-over-time chart per sensor is possible directly from it (pivot by sensor_path, timestamp on the x-axis).' : 'The CSV above is a condensed one-row-per-sensor summary, not per-sample data - a true line-over-time graph is NOT possible from it alone. Say so plainly if asked for a time-series chart, rather than inventing a time axis that isn\'t really there.'}`;
-}
-
-async function sendToCopilot() {
-  const btn = document.getElementById('copilotHandoffBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Gathering session data…'; }
-  const packet = await buildCopilotPacket();
-  if (btn) btn.disabled = false;
-  try {
-    await navigator.clipboard.writeText(packet);
-  } catch (e) {
-    // Clipboard API can be blocked in some contexts - fall back to a
-    // manual-copy textarea rather than failing silently.
-    const ta = document.createElement('textarea');
-    ta.value = packet;
-    ta.style.position = 'fixed'; ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); } catch (e2) {}
-    document.body.removeChild(ta);
-  }
-  if (btn) {
-    const original = btn.textContent;
-    btn.textContent = '✓ Copied';
-    setTimeout(() => { btn.textContent = original; }, 4000);
-  }
-  // Real bug caught live 2026-07-18 (Ryan): window.open() immediately
-  // followed by a native alert() meant the new Copilot tab stole focus
-  // BEFORE the confirmation was ever seen - the instructions sat hidden
-  // behind the new tab, findable only if you went looking for the
-  // original one. Also, a native alert() always shows as "ask-amit.
-  // github.io says," generic browser chrome, not Amit's own voice. Fixed
-  // by showing Amit's own styled modal FIRST, in this same tab, with the
-  // new Copilot tab only opening once the person clicks Continue on it -
-  // so the instructions are the first and only thing they see, no
-  // hunting required.
-  document.getElementById('copilotHandoffModal').classList.remove('hidden');
-}
-
-function continueToCopilot() {
-  document.getElementById('copilotHandoffModal').classList.add('hidden');
-  window.open('https://copilot.microsoft.com', '_blank');
 }
 
 // Ryan's direct request 2026-07-17 (the morning after the report-fixing
@@ -2953,8 +2752,7 @@ async function loadTrackerMetricsBreakdown(eventId) {
     const section1Investigate = allIssuesFlat.filter(i => i.severity === 'investigate').length;
     const section1Watch = allIssuesFlat.filter(i => i.severity === 'watch').length;
 
-    let html = '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">' +
-      '<button class="btn secondary" style="font-size:12px;padding:6px 12px" id="copilotHandoffBtn" onclick="sendToCopilot()" title="Copies this report + the full raw data to your clipboard and opens Copilot in a new tab, so you can paste it in and talk through it by voice">🎙️ Talk to Amit about this in Copilot</button>' +
+    let html = '<div style="display:flex;justify-content:flex-end;margin-top:10px">' +
       '<button class="btn secondary" style="font-size:12px;padding:6px 12px" onclick="downloadMasterDump(\'' + new Date().toISOString().slice(0, 10) + '\')">⬇ Download Master Dump (CSV)</button></div>';
     html += '<div class="section-title" style="margin-top:10px">1. Resource Usage — Combined Analysis Per Component</div>';
     html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Each component\'s sensors analyzed together, not one at a time - click "View full breakdown" for the complete sensor-by-sensor spreadsheet with any flagged items highlighted.</p>';
