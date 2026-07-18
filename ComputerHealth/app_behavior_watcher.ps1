@@ -168,7 +168,10 @@ function Get-ComponentCategory($title) {
     # numbers (e.g. "KINGSTON SA400S37240G") don't literally contain "ssd",
     # so they fell through to the generic Kingston-brand match below and got
     # mislabeled component='RAM' instead of 'Storage'.
-    if ($t -match 'kingston.*\b(sa400|suv|skc|snv|shss|sedc)') { return 'Storage' }
+    # Same fix as resource_watcher.ps1: trailing \b never matched since
+    # Kingston concatenates capacity directly onto the model code with no
+    # boundary ("SA400S37240G").
+    if ($t -match 'kingston.*(sa400|suv|skc|snv|shss|sedc)') { return 'Storage' }
     if ($t -match 'g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d') { return 'RAM' }
     return 'Other'
 }

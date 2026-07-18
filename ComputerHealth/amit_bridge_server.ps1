@@ -998,6 +998,22 @@ try {
                     Send-JsonRaw $response '{"found":false,"sessionEndTime":null,"rows":[]}'
                 }
             }
+            "/api/tracker-metrics-live" {
+                # Real gap caught live 2026-07-18 (Ryan, watching the
+                # Performance gauge sit frozen during an active session):
+                # /api/tracker-metrics above only ever has data once the
+                # session has ENDED. This serves resource_watcher.ps1's new
+                # tracker_metrics_live.json instead, rewritten every ~30s
+                # pass while tracking is still running, same shape/pattern
+                # as the other metrics endpoints.
+                $liveMetricsFile = "$env:TEMP\tracker_metrics_live.json"
+                if (Test-Path $liveMetricsFile) {
+                    $lContent = (Get-Content $liveMetricsFile -Raw -Encoding UTF8).Trim()
+                    Send-JsonRaw $response ('{"found":true,' + $lContent.Substring(1))
+                } else {
+                    Send-JsonRaw $response '{"found":false,"sessionEndTime":null,"rows":[]}'
+                }
+            }
             "/api/diagnostics-metrics" {
                 # Same pattern as /api/tracker-metrics above - Ryan's direct
                 # request 2026-07-17: diagnostics_watcher.ps1 now writes its

@@ -114,6 +114,18 @@ function buildRamTimingStability(rawTimingRowsByTitle) {
 // registry: array of {raw_component, raw_metric_name, major_group, category, instance_label, gauge_worthy}
 // rows: array of {component, metric_name, title, min_value, max_value, avg_value, stddev_value} for one session/event
 // limitsLookup(majorGroup, category, title): optional fn returning a numeric limit or null
+// Defensive isolation, independent of the watcher-level classification fix
+// - Ryan's direct request 2026-07-18 ("we gotta isolate those from the
+// dashboard"): OLD sessions already in Supabase have this SSD's rows
+// permanently tagged component='RAM' in the historical record and that
+// doesn't change retroactively. Checking the row's own TITLE against known
+// non-RAM model patterns and rerouting it at render time works for every
+// session, old or new, regardless of what the source watcher tagged it.
+// No trailing \b - Kingston concatenates capacity directly onto the model
+// code with no word boundary ("SA400S37240G"), which silently defeated the
+// match entirely until caught live against real data 2026-07-18.
+const KNOWN_STORAGE_TITLE = /kingston.*(sa400|suv|skc|snv|shss|sedc)|ssd|nvme/i;
+
 function buildComponentTree(registry, rows, limitsLookup) {
     const regIndex = new Map();
     registry.forEach(r => regIndex.set(r.raw_component + '|' + r.raw_metric_name, r));
@@ -129,7 +141,9 @@ function buildComponentTree(registry, rows, limitsLookup) {
             unclassified.push({ component: row.component, metric_name: row.metric_name });
             return;
         }
-        const limit = limitsLookup ? limitsLookup(reg.major_group, reg.category, reg.instance_label) : null;
+        const misroutedToRam = reg.major_group === 'RAM' && row.title && KNOWN_STORAGE_TITLE.test(row.title);
+        const effectiveMajor = misroutedToRam ? 'Storage' : reg.major_group;
+        const limit = limitsLookup ? limitsLookup(effectiveMajor, reg.category, reg.instance_label) : null;
         const score = scoreSensor({ ...row, metric_name: reg.raw_metric_name }, limit, reg.category);
 
         // Multiple physical instances (two RAM sticks, two drives) can
@@ -138,21 +152,21 @@ function buildComponentTree(registry, rows, limitsLookup) {
         // fold it into the instance key for RAM/Storage so each physical
         // device gets its own gauge instead of silently overwriting the
         // other's reading under one shared key.
-        const needsTitleSplit = row.title && (reg.major_group === 'RAM' || reg.major_group === 'Storage');
+        const needsTitleSplit = row.title && (effectiveMajor === 'RAM' || effectiveMajor === 'Storage');
         const instanceKey = needsTitleSplit ? reg.instance_label + ' — ' + row.title : reg.instance_label;
 
-        if (reg.major_group === 'RAM' && reg.category === 'Timing' && row.title) {
+        if (effectiveMajor === 'RAM' && reg.category === 'Timing' && row.title) {
             (ramTimingRowsByTitle[row.title] = ramTimingRowsByTitle[row.title] || []).push(row);
         }
 
-        if (!tree[reg.major_group]) tree[reg.major_group] = {};
-        if (!tree[reg.major_group][reg.category]) tree[reg.major_group][reg.category] = {};
+        if (!tree[effectiveMajor]) tree[effectiveMajor] = {};
+        if (!tree[effectiveMajor][reg.category]) tree[effectiveMajor][reg.category] = {};
         // Multiple raw rows can collapse to the same instance (Core #1 /
         // Core #1 (Effective) / Core #1 (SMU)) - only the gauge-worthy one
         // becomes the instance's score; others are kept for the raw
         // spreadsheet view only, not double-counted in aggregation.
-        if (reg.gauge_worthy || !tree[reg.major_group][reg.category][instanceKey]) {
-            tree[reg.major_group][reg.category][instanceKey] = {
+        if (reg.gauge_worthy || !tree[effectiveMajor][reg.category][instanceKey]) {
+            tree[effectiveMajor][reg.category][instanceKey] = {
                 row, reg, score, gaugeWorthy: reg.gauge_worthy
             };
         }

@@ -210,7 +210,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.58</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.59</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1278,6 +1278,19 @@ function chBuildRamTimingStability(rowsByTitle) {
   });
   return out;
 }
+// Defensive isolation, independent of the watcher-level fix - Ryan's
+// direct request 2026-07-18 ("we gotta isolate those from the dashboard"):
+// even after fixing resource_watcher.ps1's classification, OLD sessions
+// already sitting in Supabase still have this SSD's rows permanently
+// tagged component='RAM' in the historical record - that data doesn't
+// change retroactively. So this checks the row's own TITLE (not just the
+// component tag it arrived with) against known non-RAM model patterns and
+// reroutes it to Storage right here at render time, for every session,
+// old or new, forever - not just sessions captured after the watcher fix.
+// No trailing \b - Kingston concatenates capacity directly onto the model
+// code with no word boundary ("SA400S37240G"), which silently defeated the
+// match entirely until caught live against real data 2026-07-18.
+const CH_KNOWN_STORAGE_TITLE = /kingston.*(sa400|suv|skc|snv|shss|sedc)|ssd|nvme/i;
 function chBuildTree(registry, rows) {
   const regIndex = new Map();
   registry.forEach(r => regIndex.set(r.raw_component + '|' + r.raw_metric_name, r));
@@ -1287,20 +1300,22 @@ function chBuildTree(registry, rows) {
   rows.forEach(row => {
     const reg = regIndex.get(row.component + '|' + row.metric_name);
     if (!reg) { unclassified.push({ component: row.component, metric_name: row.metric_name }); return; }
+    const misroutedToRam = reg.major_group === 'RAM' && row.title && CH_KNOWN_STORAGE_TITLE.test(row.title);
+    const effectiveMajor = misroutedToRam ? 'Storage' : reg.major_group;
     const score = chScoreSensor({ ...row, metric_name: reg.raw_metric_name }, null, reg.category);
     // Two RAM sticks (or two drives) share the same raw metric_name
     // ("Capacity" on stick #2 and #3 alike) - fold the row's title into
     // the instance key for RAM/Storage so each physical device gets its
     // own gauge instead of overwriting the other's reading.
-    const needsTitleSplit = row.title && (reg.major_group === 'RAM' || reg.major_group === 'Storage');
+    const needsTitleSplit = row.title && (effectiveMajor === 'RAM' || effectiveMajor === 'Storage');
     const instanceKey = needsTitleSplit ? reg.instance_label + ' — ' + row.title : reg.instance_label;
-    if (reg.major_group === 'RAM' && reg.category === 'Timing' && row.title) {
+    if (effectiveMajor === 'RAM' && reg.category === 'Timing' && row.title) {
       (ramTimingRowsByTitle[row.title] = ramTimingRowsByTitle[row.title] || []).push(row);
     }
-    if (!tree[reg.major_group]) tree[reg.major_group] = {};
-    if (!tree[reg.major_group][reg.category]) tree[reg.major_group][reg.category] = {};
-    if (reg.gauge_worthy || !tree[reg.major_group][reg.category][instanceKey]) {
-      tree[reg.major_group][reg.category][instanceKey] = { row, reg, score, gaugeWorthy: reg.gauge_worthy };
+    if (!tree[effectiveMajor]) tree[effectiveMajor] = {};
+    if (!tree[effectiveMajor][reg.category]) tree[effectiveMajor][reg.category] = {};
+    if (reg.gauge_worthy || !tree[effectiveMajor][reg.category][instanceKey]) {
+      tree[effectiveMajor][reg.category][instanceKey] = { row, reg, score, gaugeWorthy: reg.gauge_worthy };
     }
   });
   const stabilityScores = chBuildRamTimingStability(ramTimingRowsByTitle);
@@ -1373,7 +1388,12 @@ async function loadComputerHealthTree(devId) {
 async function chRefreshLiveIfActive() {
   if (!trackerRunning || !bridgeUp) return;
   const registry = await chLoadRegistry();
-  const d = await fetchLocalMetrics('/api/tracker-metrics');
+  // Real fix 2026-07-18: /api/tracker-metrics only ever has data once a
+  // session has ENDED - resource_watcher.ps1 now also writes a live
+  // snapshot every ~30s pass while still running, served from this
+  // separate endpoint, which is what actually makes the needle move
+  // during an active session instead of sitting frozen.
+  const d = await fetchLocalMetrics('/api/tracker-metrics-live');
   if (!d || !d.found || !d.rows || d.rows.length === 0) return;
   chTreeResult = chBuildTree(registry, d.rows);
   chLastRunLabel = 'Live — updating now';
@@ -1410,9 +1430,21 @@ function chDrawScoreGauge(canvas, score) {
   const w = canvas.width, h = canvas.height, cx = w / 2, cy = h * 0.56, r = w * 0.42;
   const startAngle = Math.PI * (2 / 3), endAngle = Math.PI * (7 / 3);
   const angleFor = t => startAngle + Math.max(0, Math.min(1, t / 100)) * (endAngle - startAngle);
+  // Real gauge convention Ryan corrected 2026-07-18: on every real gauge
+  // (and the raw sensor gauges on the Instrument Cluster report he already
+  // approved), the SAFE zone sits on the left and the WARNING zone on the
+  // right - low value = left = safe. A composite health score is the
+  // opposite direction (high score = healthy), so plotting it directly
+  // (0=left, 100=right) put GREEN on the right and RED on the left,
+  // backwards from every other gauge in the app. Fix: plot by "display
+  // value" = 100 - score, so a healthy 95 sits near the LEFT/safe end and
+  // a failing 15 sits near the RIGHT/danger end, matching convention -
+  // while the grade letter and color in the center still reflect the real
+  // score, unflipped.
+  const displayFor = score => score == null ? null : 100 - score;
   ctx.clearRect(0, 0, w, h);
 
-  const zones = [{ from: 0, to: 35, color: '#a4291b' }, { from: 35, to: 75, color: '#c8862a' }, { from: 75, to: 100, color: '#4c7a4f' }];
+  const zones = [{ from: 0, to: 25, color: '#4c7a4f' }, { from: 25, to: 65, color: '#c8862a' }, { from: 65, to: 100, color: '#a4291b' }];
   ctx.save();
   ctx.beginPath(); ctx.arc(cx, cy, r, startAngle, endAngle); ctx.lineTo(cx, cy); ctx.closePath(); ctx.clip();
   zones.forEach(z => {
@@ -1427,15 +1459,25 @@ function chDrawScoreGauge(canvas, score) {
 
   ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = '#3a3f4c'; ctx.stroke();
 
+  // Tick labels show the actual SCORE at that position (100 at the safe/
+  // left end, 0 at the danger/right end), not the internal display value -
+  // Ryan's direct request 2026-07-18: label what each mark on the scale
+  // actually means, not just unlabeled ticks.
+  ctx.font = Math.round(w * 0.07) + 'px ui-sans-serif, Segoe UI, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   [0, 25, 50, 75, 100].forEach(t => {
     const a = angleFor(t);
     const x1 = cx + Math.cos(a) * (r - 2), y1 = cy + Math.sin(a) * (r - 2);
     const x2 = cx + Math.cos(a) * (r - 9), y2 = cy + Math.sin(a) * (r - 9);
     ctx.lineWidth = 2; ctx.strokeStyle = '#f2ead8'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    const lx = cx + Math.cos(a) * (r - 20), ly = cy + Math.sin(a) * (r - 20);
+    const scoreLabel = 100 - t; // ticks are laid out in display-space, label shows real score
+    ctx.lineWidth = 3; ctx.strokeStyle = '#12141a'; ctx.strokeText(scoreLabel, lx, ly);
+    ctx.fillStyle = '#c7cad1'; ctx.fillText(scoreLabel, lx, ly);
   });
 
   if (score != null) {
-    const va = angleFor(score);
+    const va = angleFor(displayFor(score));
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(va);
     ctx.beginPath();
     ctx.moveTo(-r * 0.18, 0); ctx.lineTo(r - 8, 0); ctx.lineTo(-r * 0.18, 3);
@@ -1501,7 +1543,8 @@ function chBuildLevelSection(lvl, idx) {
     cell.className = 'ch-gauge-cell';
     const size = lvl.type === 'computer' ? 190 : 130;
     cell.style.width = (size + 30) + 'px';
-    cell.innerHTML = `<canvas width="${size}" height="${size}"></canvas><div class="ch-glabel">${label}</div><div class="ch-gsub">${lvl.childHint}</div>`;
+    const sub = (lvl.subHintFor && lvl.subHintFor(label)) || lvl.childHint;
+    cell.innerHTML = `<canvas width="${size}" height="${size}"></canvas><div class="ch-glabel">${label}</div><div class="ch-gsub">${sub}</div>`;
     if (lvl.onOpen) cell.ondblclick = () => lvl.onOpen(label, idx);
     grid.appendChild(cell);
     chDrawScoreGauge(cell.querySelector('canvas'), score);
@@ -1519,18 +1562,121 @@ function chShortenInstanceLabel(label) {
   if (m) return `${m[1]} — Stick #${m[2]}`;
   return label;
 }
+
+// A best-guess real-world unit from the metric name, so a gauge's ticks
+// read "53.6 °C" instead of a bare unlabeled number - Ryan's direct
+// request 2026-07-18: "if it's voltage, if it's hours, if it's whatever,
+// we need to label the gauges."
+function chGuessUnit(metricName, category) {
+  const m = (metricName || '').toLowerCase();
+  if (category === 'Temperature') return '°C';
+  if (category === 'Voltage' || / vid$/.test(m) || m.includes('voltage') || m === 'vcore') return 'V';
+  if (category === 'Clock') return 'MHz';
+  if (category === 'Power') return 'W';
+  if (category === 'Fan') return 'RPM';
+  if (m.includes('hours')) return 'hrs';
+  if (m.includes('count')) return '';
+  if (m.includes('%') || category === 'Utilization' || category === 'Longevity') return '%';
+  if (m.includes('latency') || m.includes('time') || m.startsWith('t')) return 'ms';
+  if (m.includes('space') || m.includes('capacity') || m.includes('memory')) return 'GB';
+  if (m.includes('rate') || m.includes('throughput') || m.includes('kbps')) return 'KB/s';
+  return '';
+}
+
+// Real per-sensor gauge (auto-scaled to that sensor's own observed range,
+// no assumed safe/danger direction since a generic reading here has no
+// known limit) - Ryan's original request from the start of this feature:
+// "the dashboard that you created with the gauges is what I was
+// anticipating to see in each drill down," not a plain table. Ticks are
+// labeled with the real unit; needle sits at the session average.
+function chDrawRawGauge(canvas, min, max, avg, unit, stddev) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height, cx = w / 2, cy = h * 0.56, r = w * 0.42;
+  const startAngle = Math.PI * (2 / 3), endAngle = Math.PI * (7 / 3);
+  const pad = Math.max((max - min) * 0.12, (max - min) === 0 ? 1 : 0.001 * Math.abs(max));
+  const axisMin = min - pad, axisMax = max + pad;
+  const frac = t => (t - axisMin) / (axisMax - axisMin || 1);
+  const angleFor = t => startAngle + Math.max(0, Math.min(1, frac(t))) * (endAngle - startAngle);
+  const fmt = v => (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10);
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.beginPath(); ctx.arc(cx, cy, r, startAngle, endAngle); ctx.lineTo(cx, cy); ctx.closePath();
+  ctx.fillStyle = '#232733'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = '#3a3f4c'; ctx.stroke();
+
+  // Operating band - where the reading actually spent most of its time
+  // (avg ± ~1.3 stddev, the best estimate available from aggregated
+  // stats), same violet band from the Instrument Cluster report Ryan
+  // already approved - direct request 2026-07-18 to bring it into these
+  // drill-down gauges too. Purely statistical, no safety meaning.
+  if (avg != null && stddev) {
+    const bandHalf = stddev * 1.3;
+    const bandFrom = Math.max(axisMin, avg - bandHalf), bandTo = Math.min(axisMax, avg + bandHalf);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - 10, angleFor(bandFrom), angleFor(bandTo));
+    ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(122,90,158,0.65)'; ctx.lineCap = 'round'; ctx.stroke();
+  }
+
+  ctx.font = Math.round(w * 0.075) + 'px ui-sans-serif, Segoe UI, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  [axisMin, (axisMin + axisMax) / 2, axisMax].forEach(t => {
+    const a = angleFor(t);
+    const x1 = cx + Math.cos(a) * (r - 2), y1 = cy + Math.sin(a) * (r - 2);
+    const x2 = cx + Math.cos(a) * (r - 9), y2 = cy + Math.sin(a) * (r - 9);
+    ctx.lineWidth = 2; ctx.strokeStyle = '#f2ead8'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    const lx = cx + Math.cos(a) * (r - 22), ly = cy + Math.sin(a) * (r - 22);
+    ctx.fillStyle = '#c7cad1'; ctx.fillText(String(fmt(t)), lx, ly);
+  });
+
+  if (avg != null) {
+    const va = angleFor(avg);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(va);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.18, 0); ctx.lineTo(r - 8, 0); ctx.lineTo(-r * 0.18, 3);
+    ctx.closePath();
+    ctx.lineWidth = 1.6; ctx.strokeStyle = '#f2ead8'; ctx.stroke();
+    ctx.fillStyle = '#d4af37'; ctx.fill();
+    ctx.restore();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fillStyle = '#f2ead8'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI * 2); ctx.fillStyle = '#2a2419'; ctx.fill();
+
+  ctx.fillStyle = '#d4af37';
+  ctx.font = '800 ' + Math.round(w * 0.14) + 'px ui-sans-serif, Segoe UI, sans-serif';
+  ctx.fillText(fmt(avg) + (unit ? ' ' + unit : ''), cx, cy + r * 0.42);
+}
+
 function chBuildSensorTable(major, category) {
   const wrap = document.createElement('div');
   const instances = (chTreeResult.tree[major] || {})[category] || {};
+
+  const grid = document.createElement('div');
+  grid.className = 'ch-gauge-grid';
+  Object.entries(instances).forEach(([rawLabel, i]) => {
+    const label = chShortenInstanceLabel(rawLabel);
+    const unit = chGuessUnit(i.reg.raw_metric_name || i.row.title, category);
+    const cell = document.createElement('div');
+    cell.className = 'ch-gauge-cell';
+    cell.style.width = '150px';
+    cell.innerHTML = `<canvas width="130" height="130"></canvas><div class="ch-glabel">${label}</div><div class="ch-gsub">${i.gaugeWorthy ? chGradeLetter(i.score) + ' grade' : 'reference only'}</div>`;
+    grid.appendChild(cell);
+    chDrawRawGauge(cell.querySelector('canvas'), i.row.min_value, i.row.max_value, i.row.avg_value, unit, i.row.stddev_value);
+  });
+  wrap.appendChild(grid);
+
   let rowsHtml = Object.entries(instances).map(([rawLabel, i]) => {
     const label = chShortenInstanceLabel(rawLabel);
+    const unit = chGuessUnit(i.reg.raw_metric_name || i.row.title, category);
     const gradeCls = 'ch-grade-' + chGradeLetter(i.score);
     const avgDisp = (typeof i.row.avg_value === 'number') ? i.row.avg_value.toFixed(2) : i.row.avg_value;
     return `<tr><td>${label}${i.gaugeWorthy ? '' : ' <span style="color:#5a6070">(raw only)</span>'}</td>
-      <td>${i.row.min_value}</td><td>${avgDisp}</td><td>${i.row.max_value}</td>
+      <td>${i.row.min_value} ${unit}</td><td>${avgDisp} ${unit}</td><td>${i.row.max_value} ${unit}</td>
       <td class="${gradeCls}">${chGradeLetter(i.score)} (${i.score})</td></tr>`;
   }).join('');
-  wrap.innerHTML = `<table class="ch-sensor-table"><thead><tr><th>Sensor</th><th>Min</th><th>Avg</th><th>Max</th><th>Grade</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  const table = document.createElement('div');
+  table.style.marginTop = '14px';
+  table.innerHTML = `<table class="ch-sensor-table"><thead><tr><th>Sensor</th><th>Min</th><th>Avg</th><th>Max</th><th>Grade</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  wrap.appendChild(table);
   return wrap;
 }
 
@@ -1545,12 +1691,28 @@ function chRenderCurrentLevel() {
   chRenderAll();
 }
 
+// Real count of distinct physical RAM sticks detected this session - Ryan's
+// direct request 2026-07-18 ("the RAMs don't show how many RAM sticks").
+// Counts distinct titles behind RAM's Capacity instances, which is exactly
+// what's compound-keyed per stick in chBuildTree.
+const CH_NON_STICK_TITLES = /^(system memory|total memory|virtual memory|generic memory|physical memory)$/i;
+function chCountRamSticks() {
+  const cap = (chTreeResult.tree.RAM || {}).Capacity || {};
+  const titles = new Set();
+  Object.values(cap).forEach(i => {
+    if (i.row.title && !CH_NON_STICK_TITLES.test(i.row.title.trim())) titles.add(i.row.title);
+  });
+  return titles.size;
+}
+
 function chOpenMajorList() {
   chTruncateTo(1);
+  const stickCount = chCountRamSticks();
   chLevels.push({
     type: 'major', title: 'Major components',
     entries: Object.entries(chTreeResult.majorScores),
     childHint: 'Double-click to drill in',
+    subHintFor: (label) => label === 'RAM' && stickCount > 0 ? `${stickCount} stick${stickCount === 1 ? '' : 's'} detected — double-click to drill in` : null,
     onOpen: (major) => chOpenCategoryList(major)
   });
   chRenderAll();
@@ -1644,7 +1806,7 @@ function categorizeHardware(device) {
   // this logic, 2026-07-18: Kingston SSD model numbers (e.g. "KINGSTON
   // SA400S37240G") don't literally contain "ssd", so they fell through to
   // the Kingston-brand RAM match just below.
-  if (/kingston.*\b(sa400|suv|skc|snv|shss|sedc)/.test(t)) return { key: 'storage', label: '💽 Storage' };
+  if (/kingston.*(sa400|suv|skc|snv|shss|sedc)/.test(t)) return { key: 'storage', label: '💽 Storage' };
   if (/(g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d)/.test(t)) return { key: 'ram', label: '🧩 Memory (RAM)' };
 
   // Structural fallbacks only for devices a name match couldn't identify -

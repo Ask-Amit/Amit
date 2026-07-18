@@ -25,6 +25,15 @@ $maxLines = 500
 $stopFlag = "$env:TEMP\tracker_stop.flag"
 Remove-Item $stopFlag -ErrorAction SilentlyContinue
 $metricsOutFile = "$env:TEMP\tracker_metrics.json"
+# Real gap caught live 2026-07-18 (Ryan, watching the Performance gauge sit
+# frozen during an active session): $metricsOutFile above is only ever
+# written ONCE, at the very end when this script exits - there was never
+# an interim snapshot for a live view to poll while the session is still
+# running. This is purely additive - a SEPARATE file, rewritten every loop
+# pass from the same running $metricStats accumulators the final write
+# already uses, so the dashboard's live gauge has something real to read
+# mid-session. Does not touch the final-summary write or its timing at all.
+$liveMetricsOutFile = "$env:TEMP\tracker_metrics_live.json"
 
 "Resource watcher started at $(Get-Date -Format 'HH:mm:ss.fff') - RAM, CPU, top memory consumers, and FULL sensor dump (all voltages/temps/fans/power/clocks via LibreHardwareMonitor web server) every 30 seconds" | Out-File -FilePath $out -Encoding utf8
 
@@ -64,7 +73,11 @@ function Get-ComponentCategory($title) {
     # as if it were a RAM stick's. Kingston's actual SSD model-line prefixes
     # (SA400, SUV, SKC, SNV, SHSS, SEDC) are checked first so they route to
     # Storage before the brand-only check below ever runs.
-    if ($t -match 'kingston.*\b(sa400|suv|skc|snv|shss|sedc)') { return 'Storage' }
+    # Real bug caught live 2026-07-18 (Ryan): a trailing \b after the model
+    # prefix never matched, since Kingston concatenates the capacity right
+    # onto the model code with no boundary ("SA400S37240G" - digit directly
+    # into another letter). Plain substring match, no boundary needed.
+    if ($t -match 'kingston.*(sa400|suv|skc|snv|shss|sedc)') { return 'Storage' }
     if ($t -match 'g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d') { return 'RAM' }
     return 'Other'
 }
@@ -176,6 +189,19 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     }
     Update-MetricStats $metricStats ([PSCustomObject]@{ component = 'RAM'; title = 'System Memory'; metricName = 'Used %'; category = 'Load' }) $usedPct
     Update-MetricStats $metricStats ([PSCustomObject]@{ component = 'CPU'; title = 'CPU Total'; metricName = 'Total Load %'; category = 'Load' }) $cpu
+
+    # Live snapshot, every pass - same reduction the final write uses, just
+    # run against the running totals as they stand RIGHT NOW instead of
+    # waiting for the session to end. Non-fatal on failure (a live view
+    # missing one refresh is not worth interrupting real tracking for).
+    try {
+        $liveRows = @(Get-FinalMetricRows $metricStats)
+        $liveRowsJson = if ($liveRows.Count -eq 0) { "[]" } elseif ($liveRows.Count -eq 1) { "[" + ($liveRows[0] | ConvertTo-Json -Depth 3 -Compress) + "]" } else { $liveRows | ConvertTo-Json -Depth 3 }
+        $liveSnapshotTime = (Get-Date).ToUniversalTime().ToString("o")
+        ('{"sessionEndTime":"' + $liveSnapshotTime + '","rows":' + $liveRowsJson + '}') | Out-File -FilePath $liveMetricsOutFile -Encoding utf8
+    } catch {
+        Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') WARNING: failed to write live metrics snapshot - $($_.Exception.Message)" -Encoding utf8
+    }
 
     if ($lineCount -gt $maxLines) {
         $lines = Get-Content $out -Tail $maxLines
