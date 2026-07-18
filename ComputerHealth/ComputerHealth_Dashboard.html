@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.73</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.74</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1607,7 +1607,14 @@ function chDrawScoreGauge(canvas, score) {
   ctx.fillStyle = sheen; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 
-  ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = '#3a3f4c'; ctx.stroke();
+  // Real bug caught live 2026-07-18 (Ryan: "a grayish-blue line straight
+  // across from a little above 0 to a little above 100"): this bezel used
+  // to stroke a FULL 360° circle even though the colored gauge face only
+  // spans 300° (there's a real 60° gap at the bottom for the end ticks) -
+  // across that empty gap, the only thing visible was this stray ring,
+  // reading exactly like an unlabeled line cutting straight across.
+  // Stroked only across the gauge's real arc now, matching the gap.
+  ctx.beginPath(); ctx.arc(cx, cy, r + 4, startAngle, endAngle); ctx.lineWidth = 2; ctx.strokeStyle = '#3a3f4c'; ctx.stroke();
 
   // Tick labels show the actual usedPct value at that position (0 at the
   // green/left end, 100 at the red/right end) - a normal, unmirrored axis.
@@ -2271,25 +2278,35 @@ async function chLoadChartScopeData() {
 // One picker entry per real (device, sensor) pair - explicitly named with
 // the actual hardware, matching Ryan's direct request that charts never
 // just say "CPU" when the real model name is already known.
-// Family grouping - Ryan's direct request 2026-07-18: "all twelve cores
-// would show on that same line chart... whatever the sensors on RAM one
-// and RAM two are, it would have however many RAM sticks their own line
-// charts." Two different grouping strategies depending on scope:
-//   History mode: reuses the SAME amit_component_registry classification
-//   the gauge tree already uses - a "family" is (major_group, category),
-//   e.g. CPU/Clock, and every instance_label within it (Core #1..#12)
-//   becomes its own line/bar/row. Exact, not a heuristic, since history
-//   rows already carry the same (component, metric_name) keys the
-//   registry classifies by.
-//   Session mode: the raw per-sample log doesn't carry that
-//   classification directly, so a family here is (device, sensor group)
-//   from the raw "Device>Group>Name" path - e.g. one CPU's "Temperatures"
-//   group - with each distinct sensor name as its own line. A real,
-//   useful grouping, just less precise than the registry-based one.
-let chRegistryForCharts = null;
-async function chLoadRegistryForCharts() {
-  if (!chRegistryForCharts) chRegistryForCharts = await chLoadRegistry();
-  return chRegistryForCharts;
+//
+// Family grouping, simplified per Ryan's direct request 2026-07-18: "if
+// it has the same title except for a different number... group those
+// together. If it's a completely different title, don't." Replaced the
+// earlier registry-based grouping (which missed the SMU/Effective raw
+// variants entirely, since those are deliberately marked not gauge-worthy
+// in the registry) with one universal rule that works the same way for
+// both scopes: strip every digit out of the sensor name, and anything
+// sharing the same (device, group-or-component, digit-stripped name) is
+// one family - "Core #1"/"Core #12" collapse to the same base, and so do
+// "Core #1 (SMU)"/"Core #12 (SMU)" as their OWN separate family, exactly
+// matching what Ryan asked for.
+function chBaseName(name) {
+  return name.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Natural sort so "Core #1, Core #2 ... Core #12" reads in the order a
+// person expects instead of lexicographic "Core #1, Core #10, Core #11,
+// Core #2..." - Ryan's direct request 2026-07-18.
+function chNaturalSort(a, b) {
+  const re = /(\d+)|(\D+)/g;
+  const pa = String(a).match(re) || [], pb = String(b).match(re) || [];
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || '', y = pb[i] || '';
+    const nx = parseInt(x, 10), ny = parseInt(y, 10);
+    if (!isNaN(nx) && !isNaN(ny)) { if (nx !== ny) return nx - ny; }
+    else if (x !== y) return x < y ? -1 : 1;
+  }
+  return 0;
 }
 
 async function chPopulateSensorPicker(samples) {
@@ -2298,31 +2315,19 @@ async function chPopulateSensorPicker(samples) {
   const seen = new Map(); // key -> label
   const families = new Map(); // familyKey -> { label, count }
 
-  if (aggregated) {
-    const registry = await chLoadRegistryForCharts();
-    const regIndex = new Map();
-    registry.forEach(r => regIndex.set(r.raw_component + '|' + r.raw_metric_name, r));
-    samples.forEach(s => {
-      const key = `${s.device}␟${s.component}␟${s.name}`;
-      if (!seen.has(key)) seen.set(key, `${s.device} — ${s.name}`);
-      const reg = regIndex.get(s.component + '|' + s.name);
-      if (reg && reg.gauge_worthy) {
-        const fam = `FAMILY␟${reg.major_group}␟${reg.category}`;
-        const cur = families.get(fam);
-        families.set(fam, { label: `${reg.major_group} / ${reg.category} — all sensors`, count: (cur ? cur.count : 0) + 1 });
-      }
-    });
-  } else {
-    samples.forEach(s => {
-      const key = `${s.device}␟${s.group}␟${s.name}`;
-      if (!seen.has(key)) seen.set(key, `${s.device} — ${s.name}`);
-      const fam = `FAMILYSESS␟${s.device}␟${s.group}`;
+  samples.forEach(s => {
+    const bucket = aggregated ? s.component : s.group;
+    const key = `${s.device}␟${bucket}␟${s.name}`;
+    if (!seen.has(key)) seen.set(key, `${s.device} — ${s.name}`);
+    const base = chBaseName(s.name);
+    if (base !== s.name) { // only counts as a "family" if a number was actually stripped
+      const fam = `FAM␟${s.device}␟${bucket}␟${base}`;
       const cur = families.get(fam);
-      families.set(fam, { label: `${s.device} — ${s.group || 'sensors'} (all)`, count: (cur ? cur.count : 0) + 1 });
-    });
-  }
+      families.set(fam, { label: `${s.device} — ${base} (all)`, count: (cur ? cur.count : 0) + 1 });
+    }
+  });
 
-  const singleKeys = [...seen.keys()].sort((a, b) => seen.get(a).localeCompare(seen.get(b)));
+  const singleKeys = [...seen.keys()].sort((a, b) => chNaturalSort(seen.get(a), seen.get(b)));
   const familyKeys = [...families.keys()].filter(k => families.get(k).count > 1).sort((a, b) => families.get(a).label.localeCompare(families.get(b).label));
 
   let html = '';
@@ -2351,44 +2356,29 @@ async function chGetChartPoints() {
   const aggregated = chChartScope === 'history' || chSessionIsAggregated;
   if (!key) return { points: [], unit: '', title: '' };
 
-  if (key.startsWith('FAMILY␟') && aggregated) {
-    const [, majorGroup, category] = key.split('␟');
+  if (key.startsWith('FAM␟')) {
+    const [, device, bucket, base] = key.split('␟');
     const samples = chChartScope === 'session' ? (chSessionSamplesCache || []) : (chHistorySamplesCache || []);
-    const registry = await chLoadRegistryForCharts();
-    const regIndex = new Map();
-    registry.forEach(r => regIndex.set(r.raw_component + '|' + r.raw_metric_name, r));
-    const byInstance = new Map(); // instance_label -> [{label, value}]
+    const byName = new Map(); // real sensor name (e.g. "Core #7") -> points
     let unit = '';
     samples.forEach(s => {
-      const reg = regIndex.get(s.component + '|' + s.name);
-      if (!reg || reg.major_group !== majorGroup || reg.category !== category || !reg.gauge_worthy) return;
-      unit = unit || chGuessUnit(s.name, category);
-      const label = s.date ? new Date(s.date).toLocaleDateString() : '?';
-      if (!byInstance.has(reg.instance_label)) byInstance.set(reg.instance_label, []);
-      byInstance.get(reg.instance_label).push({ label, value: s[chChartStat], sortKey: s.date || '' });
-    });
-    const series = [...byInstance.entries()].map(([label, pts], i) => ({
-      label, color: CH_SERIES_COLORS[i % CH_SERIES_COLORS.length],
-      points: pts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
-    }));
-    return { series, unit, title: `${majorGroup} / ${category} — every sensor (${CH_STAT_LABELS[chChartStat]})` };
-  }
-
-  if (key.startsWith('FAMILYSESS␟') && !aggregated) {
-    const [, device, group] = key.split('␟');
-    const samples = chSessionSamplesCache || [];
-    const byName = new Map();
-    let unit = '';
-    samples.forEach(s => {
-      if (s.device !== device || s.group !== group) return;
-      unit = unit || chGuessUnit(s.name, group);
+      const sBucket = aggregated ? s.component : s.group;
+      if (s.device !== device || sBucket !== bucket || chBaseName(s.name) !== base) return;
+      unit = unit || chGuessUnit(s.name, bucket);
+      const label = aggregated ? (s.date ? new Date(s.date).toLocaleDateString() : '?') : s.t;
+      const value = aggregated ? s[chChartStat] : s.value;
+      const sortKey = aggregated ? (s.date || '') : s.t;
       if (!byName.has(s.name)) byName.set(s.name, []);
-      byName.get(s.name).push({ label: s.t, value: s.value });
+      byName.get(s.name).push({ label, value, sortKey });
     });
-    const series = [...byName.entries()].map(([label, pts], i) => ({
-      label, color: CH_SERIES_COLORS[i % CH_SERIES_COLORS.length], points: pts
-    }));
-    return { series, unit, title: `${device} — ${group} — every sensor` };
+    const series = [...byName.entries()]
+      .sort((a, b) => chNaturalSort(a[0], b[0]))
+      .map(([label, pts], i) => ({
+        label, color: CH_SERIES_COLORS[i % CH_SERIES_COLORS.length],
+        points: pts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      }));
+    const statNote = aggregated ? ` (${CH_STAT_LABELS[chChartStat]})` : '';
+    return { series, unit, title: `${device} — ${base} — every sensor${statNote}` };
   }
 
   const parts = key.split('␟');
@@ -2676,50 +2666,79 @@ function chDrawMultiBarChart(canvas, series, unit) {
 // read meaningfully). Real, useful for scanning "which sensor, which
 // moment" was the outlier across many sensors at once, the gap none of
 // line/bar/scatter cover well when there are more than a few sensors.
+// Cool-to-warm scale (blue = low relative to this row's own range, red =
+// high) - a real heat scale, not the red/amber/green safety palette,
+// since this is about relative intensity within a row, not a pass/fail
+// verdict. Shared by the heat map cells AND its legend bar, so the two
+// can never drift apart.
+function chHeatColorFor(frac) {
+  const t = Math.max(0, Math.min(1, frac));
+  const stops = [[90, 140, 220], [212, 175, 55], [200, 60, 60]];
+  const seg = t < 0.5 ? [stops[0], stops[1], t * 2] : [stops[1], stops[2], (t - 0.5) * 2];
+  const [c1, c2, f] = seg;
+  const r = Math.round(c1[0] + (c2[0] - c1[0]) * f), g = Math.round(c1[1] + (c2[1] - c1[1]) * f), b = Math.round(c1[2] + (c2[2] - c1[2]) * f);
+  return `rgb(${r},${g},${b})`;
+}
+function chFmtVal(v) { return v == null || isNaN(v) ? '' : (Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10); }
+
+// Real fixes from live testing 2026-07-18 (Ryan): rows weren't in a
+// sensible order (Core #9 above Core #1), and there was NO way to tell
+// what a color actually meant - "is that blue 50 or 100?" A heat map's
+// whole value is being able to scan many cells at once, but color alone
+// without any number defeats that if you can't tell what's concerning.
+// Fixed with the real value printed directly in each cell (when there's
+// room) and a real per-row min/max legend on the right, instead of only
+// a vague "colors are relative" caption.
 function chDrawHeatMap(canvas, series, unit) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
-  const pad = { l: 160, r: 20, t: 20, b: 50 };
+  const pad = { l: 160, r: 90, t: 30, b: 50 };
   ctx.clearRect(0, 0, w, h);
   if (series.length === 0 || series.every(s => s.points.length === 0)) {
     ctx.fillStyle = '#8a8f99'; ctx.font = '13px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('No data for this selection yet', w / 2, h / 2);
     return;
   }
-  const labels = series.reduce((longest, s) => s.points.length > longest.length ? s.points : longest, []);
+  const sortedSeries = [...series].sort((a, b) => chNaturalSort(a.label, b.label));
+  const labels = sortedSeries.reduce((longest, s) => s.points.length > longest.length ? s.points : longest, []);
   const cellW = (w - pad.l - pad.r) / Math.max(1, labels.length);
-  const cellH = (h - pad.t - pad.b) / series.length;
+  const cellH = (h - pad.t - pad.b) / sortedSeries.length;
+  const showCellText = cellW >= 34 && cellH >= 16;
 
-  // Cool-to-warm scale (blue = low relative to this row's own range, red
-  // = high) - a real heat scale, not the red/amber/green safety palette,
-  // since this is about relative intensity within a row, not a pass/fail
-  // verdict.
-  const colorFor = frac => {
-    const t = Math.max(0, Math.min(1, frac));
-    const stops = [[90, 140, 220], [212, 175, 55], [200, 60, 60]];
-    const seg = t < 0.5 ? [stops[0], stops[1], t * 2] : [stops[1], stops[2], (t - 0.5) * 2];
-    const [c1, c2, f] = seg;
-    const r = Math.round(c1[0] + (c2[0] - c1[0]) * f), g = Math.round(c1[1] + (c2[1] - c1[1]) * f), b = Math.round(c1[2] + (c2[2] - c1[2]) * f);
-    return `rgb(${r},${g},${b})`;
-  };
-
-  series.forEach((s, row) => {
+  sortedSeries.forEach((s, row) => {
     const values = s.points.map(p => p.value).filter(v => v != null && !isNaN(v));
     const rmin = Math.min(...values), rmax = Math.max(...values);
     const y = pad.t + row * cellH;
     s.points.forEach((p, col) => {
       if (p.value == null || isNaN(p.value)) return;
       const frac = rmax === rmin ? 0.5 : (p.value - rmin) / (rmax - rmin);
-      ctx.fillStyle = colorFor(frac);
+      ctx.fillStyle = chHeatColorFor(frac);
       ctx.fillRect(pad.l + col * cellW, y, Math.ceil(cellW) + 1, Math.ceil(cellH) + 1);
+      if (showCellText) {
+        ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.font = '10px ui-sans-serif, Segoe UI, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(chFmtVal(p.value)), pad.l + col * cellW + cellW / 2, y + cellH / 2);
+      }
     });
     ctx.fillStyle = '#c7cad1'; ctx.font = '10.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     ctx.fillText(s.label.slice(0, 24), pad.l - 8, y + cellH / 2);
+    // Real per-row min/max, in the sensor's real unit - answers "is that
+    // blue 50 or 100" directly, since the row's own scale is right there.
+    ctx.fillStyle = '#5a6070'; ctx.font = '9.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(`${chFmtVal(rmin)}–${chFmtVal(rmax)}${unit ? ' ' + unit : ''}`, w - pad.r + 8, y + cellH / 2);
   });
 
   chDrawXLabels(ctx, labels, i => pad.l + (i + 0.5) * cellW, h - pad.b);
-  ctx.fillStyle = '#8a8f99'; ctx.font = '10.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'left';
-  ctx.fillText('Color = relative to each row\'s own range, not a global scale' + (unit ? ' (' + unit + ')' : ''), pad.l, h - 4);
+
+  // Gradient legend bar, top-right - a real color key, not just a caption
+  // saying "colors are relative."
+  const legendX = w - pad.r - 130, legendY = 8, legendW = 130, legendH = 10;
+  const grad = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
+  grad.addColorStop(0, chHeatColorFor(0)); grad.addColorStop(0.5, chHeatColorFor(0.5)); grad.addColorStop(1, chHeatColorFor(1));
+  ctx.fillStyle = grad; ctx.fillRect(legendX, legendY, legendW, legendH);
+  ctx.fillStyle = '#8a8f99'; ctx.font = '9.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('Low (per row)', legendX, legendY + legendH + 11);
+  ctx.textAlign = 'right'; ctx.fillText('High (per row)', legendX + legendW, legendY + legendH + 11);
 }
 
 // Historical rows live in a file on disk and don't depend on LibreHardwareMonitor
