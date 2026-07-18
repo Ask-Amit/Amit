@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.66</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.67</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -311,6 +311,17 @@
     <div class="actions">
       <button class="btn" onclick="confirmLaunchTracker()">Continue</button>
       <button class="btn secondary" onclick="cancelLaunchTracker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="copilotHandoffModal">
+  <div class="overlay-card" style="max-width:480px">
+    <h2>🎙️ Ready for Copilot</h2>
+    <p>I've just copied this session's data and analysis to your clipboard, along with instructions for Copilot on how to use it.</p>
+    <p>Click <strong>Continue</strong> and I'll open a Copilot page for you — just paste (Ctrl+V) into the chat there. Once it responds, click Copilot's microphone icon to switch to voice mode and talk it through out loud.</p>
+    <div class="actions">
+      <button class="btn" onclick="continueToCopilot()">Continue</button>
     </div>
   </div>
 </div>
@@ -482,6 +493,9 @@
     <div class="ch-gauge-panel" id="chGaugePanel">
       <div id="chGaugeGrid"><em style="color:#8a8f99">Loading last run…</em></div>
       <div class="ch-gauge-meta" id="chGaugeMeta"></div>
+      <div style="display:flex;justify-content:center;margin-top:12px">
+        <button class="btn secondary" id="chCopilotBtn" style="font-size:12px;padding:6px 12px" onclick="chSendToCopilotFromPerformance()" title="Uses the same single most-recent completed session as the Master Dump - not the full device history">🎙️ Talk to Amit about this in Copilot</button>
+      </div>
     </div>
     <div class="getting-started" id="gettingStartedBanner">
       <h3>This computer isn't connected yet</h3>
@@ -704,6 +718,7 @@ function setStatus(msg) {
 // the real display_name from the shared 'users' table (same one the Hub
 // writes to when someone sets their name there) so this greets by name
 // instead of showing a bare email address, which reads as impersonal.
+let CURRENT_USER_DISPLAY_NAME = null;
 async function showSignedInAs(email) {
   const bar = document.getElementById('loginBar');
   let name = null;
@@ -712,6 +727,7 @@ async function showSignedInAs(email) {
     name = data && data.display_name;
   } catch (e) {}
   if (!name) name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  CURRENT_USER_DISPLAY_NAME = name;
   bar.innerHTML = `<span style="color:#4caf6d">✓ Welcome, <strong>${name}</strong> — signed in as ${email}</span>`;
 }
 
@@ -1468,6 +1484,32 @@ async function loadComputerHealthTree(devId) {
   // available when the bridge on this machine is reachable right now.
   await chMergeSoftwareIntoTree();
   chRenderCurrentLevel();
+}
+
+// Ryan's direct request 2026-07-18: the Copilot handoff shouldn't only be
+// reachable by digging into a History report - it belongs right on
+// Performance too, since it's always going to be built from the same one
+// most-recent completed session either way (the Master Dump is scoped to
+// one session, not the whole device history). Reuses
+// loadTrackerMetricsBreakdown() to populate the same hidden data (the
+// #trackerMetricsBreakdown div exists in the DOM whether its modal is open
+// or not) rather than duplicating that analysis a second time.
+async function chSendToCopilotFromPerformance() {
+  const btn = document.getElementById('chCopilotBtn');
+  if (!viewingDeviceId || !db) { alert('No device connected yet - nothing to send.'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Gathering session data…'; }
+  const { data: ev } = await db.from('amit_device_events')
+    .select('id,created_at').eq('device_id', viewingDeviceId).eq('event_type', 'tracking_session_ended')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (!ev) {
+    if (btn) { btn.disabled = false; btn.textContent = '🎙️ Talk to Amit about this in Copilot'; }
+    alert('No completed tracking session yet for this computer - nothing to send.');
+    return;
+  }
+  LAST_REPORT_META = { createdAt: ev.created_at, deviceName: deviceName };
+  await loadTrackerMetricsBreakdown(ev.id);
+  if (btn) { btn.disabled = false; btn.textContent = '🎙️ Talk to Amit about this in Copilot'; }
+  await sendToCopilot();
 }
 
 // Called from pollTrackerStatus while the tracker is actively running -
@@ -2668,7 +2710,12 @@ async function buildCopilotPacket() {
     csvNote = 'Condensed summary only (one row per sensor: min/max/avg/stddev for the whole session) - the per-sample local log wasn\'t reachable from this browser right now (the bridge may not be running on this machine, or this session predates that capability), so a true line-over-time chart isn\'t possible from this file. If you need real per-sample data, it needs to be pulled from the SAME computer while Computer Health is connected to it.';
   }
 
+  const userName = CURRENT_USER_DISPLAY_NAME || null;
+
   return `You are continuing a technical diagnostic session that was started by a computer-health analysis system called "Amit" on a real Windows PC. You do not need to rename yourself or claim to be Amit - just continue the SAME investigation, in your own voice, building on the real data and findings below rather than starting over or giving generic advice.
+
+=== HOW TO OPEN ===
+${userName ? `Start by greeting the person by name - they're signed in as "${userName}." Something like: "Welcome back, ${userName} - I've just received the full session Amit put together on your computer."` : 'Start with a warm, direct greeting - no name is available for this session, so keep it general (e.g. "Welcome back").'} Then give a short, warm introduction before diving into technical detail: mention that you're looking at the same data Amit already analyzed, but from your own angle, and that you're glad to talk through it together rather than just hand back another wall of text. Then move into what you actually found - lead with the short version, like a real conversation opening, not a cold technical report.
 
 === WHAT THIS DATA IS ===
 This is one Computer Health tracking session (device: ${meta.deviceName || 'unknown'}, session ended: ${meta.createdAt ? new Date(meta.createdAt).toLocaleString() : 'unknown time'}). It was captured by a background watcher that samples every hardware sensor available via LibreHardwareMonitor (temperatures, voltages, clock speeds, power draw, fan RPMs) plus Windows performance counters roughly every 30 seconds for the whole session, then reduced to min/max/average/standard-deviation per sensor. This is real data from this exact machine - not a sample or synthetic dataset.
@@ -2713,11 +2760,25 @@ async function sendToCopilot() {
   }
   if (btn) {
     const original = btn.textContent;
-    btn.textContent = '✓ Copied — opening Copilot…';
+    btn.textContent = '✓ Copied';
     setTimeout(() => { btn.textContent = original; }, 4000);
   }
+  // Real bug caught live 2026-07-18 (Ryan): window.open() immediately
+  // followed by a native alert() meant the new Copilot tab stole focus
+  // BEFORE the confirmation was ever seen - the instructions sat hidden
+  // behind the new tab, findable only if you went looking for the
+  // original one. Also, a native alert() always shows as "ask-amit.
+  // github.io says," generic browser chrome, not Amit's own voice. Fixed
+  // by showing Amit's own styled modal FIRST, in this same tab, with the
+  // new Copilot tab only opening once the person clicks Continue on it -
+  // so the instructions are the first and only thing they see, no
+  // hunting required.
+  document.getElementById('copilotHandoffModal').classList.remove('hidden');
+}
+
+function continueToCopilot() {
+  document.getElementById('copilotHandoffModal').classList.add('hidden');
   window.open('https://copilot.microsoft.com', '_blank');
-  alert('I\'ve just copied all this session\'s data and analysis to your clipboard, along with instructions for Copilot on how to use it.\n\nI\'m opening a Copilot page for you now - just paste (Ctrl+V) into the chat there. Once it responds, click Copilot\'s microphone icon to switch to voice mode and talk it through out loud.');
 }
 
 // Ryan's direct request 2026-07-17 (the morning after the report-fixing
