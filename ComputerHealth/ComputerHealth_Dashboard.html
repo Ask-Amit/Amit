@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.52</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.53</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -965,6 +965,71 @@ function updateDeviceLabelDisplay() {
 // tiers exist, this cap should only apply when the account is NOT on an
 // active paid plan.
 const FREE_TIER_HISTORY_CAP = 10;
+
+// Same rolling-cap-with-upsell pattern as FREE_TIER_HISTORY_CAP, kept as
+// its own independent limit (Ryan's direct request 2026-07-17) - raising
+// one tier's cap shouldn't silently raise the other. Free tier gets a
+// real taste of error/crash trend history (last 10); Pro removes the cap
+// for genuine month-over-month analysis, which was the actual reason
+// this whole feature got built.
+const FREE_TIER_RELIABILITY_CAP = 10;
+
+// Persists Windows' own reliability/crash history into a dedicated table
+// (NOT amit_device_events - see migration_2026-07-17_001_reliability_log.sql
+// for why) so error patterns are visible over months, not just whatever
+// Windows currently has cached. occurred_at uses the record's own real
+// historical timestamp, not sync time, so genuine trend analysis is
+// possible. High-water-mark dedup (only rows newer than the latest
+// already-stored one get inserted) means repeated syncs of the same
+// ~25 records/10 dumps every time the Errors tab loads don't re-insert
+// duplicates.
+async function syncReliabilityToHistory(records, minidumps) {
+  if (!currentUser || !deviceId || !db) return;
+  try {
+    const { data: latest } = await db.from('amit_device_reliability_log')
+      .select('occurred_at')
+      .eq('device_id', deviceId)
+      .order('occurred_at', { ascending: false })
+      .limit(1);
+    const highWater = (latest && latest.length > 0) ? new Date(latest[0].occurred_at).getTime() : 0;
+
+    const newRows = [];
+    (records || []).forEach(rec => {
+      const t = new Date(rec.time).getTime();
+      if (!isNaN(t) && t > highWater) {
+        newRows.push({
+          device_id: deviceId, user_id: currentUser.id, event_type: 'reliability_record',
+          source: rec.source, product: rec.product, message: rec.message,
+          occurred_at: new Date(t).toISOString()
+        });
+      }
+    });
+    (minidumps || []).forEach(dump => {
+      const t = new Date(dump.time).getTime();
+      if (!isNaN(t) && t > highWater) {
+        newRows.push({
+          device_id: deviceId, user_id: currentUser.id, event_type: 'bsod_crash',
+          dump_file_name: dump.fileName, message: 'Blue-screen crash dump captured',
+          occurred_at: new Date(t).toISOString()
+        });
+      }
+    });
+    if (newRows.length === 0) return;
+
+    await db.from('amit_device_reliability_log').insert(newRows);
+
+    // Free-tier cap enforced AFTER insert, same eviction pattern as
+    // logEvent() - trims down to the cap, oldest first, so a bulk sync
+    // can't silently blow past the limit in one shot.
+    const { count } = await db.from('amit_device_reliability_log').select('id', { count: 'exact', head: true }).eq('device_id', deviceId);
+    if (count && count > FREE_TIER_RELIABILITY_CAP) {
+      const { data: oldest } = await db.from('amit_device_reliability_log').select('id').eq('device_id', deviceId).order('occurred_at', { ascending: true }).limit(count - FREE_TIER_RELIABILITY_CAP);
+      if (oldest && oldest.length > 0) {
+        await db.from('amit_device_reliability_log').delete().in('id', oldest.map(o => o.id));
+      }
+    }
+  } catch (e) { console.error('syncReliabilityToHistory failed:', e); }
+}
 
 async function logEvent(eventType, severity, summary, detail) {
   if (!currentUser || !deviceId) return null;
@@ -2621,6 +2686,7 @@ async function pollReliability() {
     const d = await r.json();
     const records = d.records || [];
     const minidumps = d.minidumps || [];
+    if (currentUser && deviceId) syncReliabilityToHistory(records, minidumps);
     const errorRecords = records.filter(rec => /Error|Hang|unexpected/i.test(rec.source + ' ' + rec.message));
     // Windows never purges reliability history just because a later
     // update fixed the underlying cause - the same old entries would
