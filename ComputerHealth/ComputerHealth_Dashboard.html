@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.71</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.72</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -666,8 +666,20 @@
         <button class="btn secondary ch-charts-scope" id="chScopeBtn-history" onclick="chSetChartScope('history')">All Sessions</button>
       </div>
       <div class="ch-charts-main">
-        <select id="chSensorPicker" onchange="chRenderSelectedChart()"><option>Loading…</option></select>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select id="chSensorPicker" onchange="chRenderSelectedChart()"><option>Loading…</option></select>
+          <div id="chStatRow" class="hidden" style="display:flex;gap:8px;align-items:center">
+            <label style="font-size:12px;color:#9aa0ab">Statistic:</label>
+            <select id="chStatPicker" onchange="chSetChartStat(this.value)">
+              <option value="avg">Average</option>
+              <option value="min">Minimum</option>
+              <option value="max">Maximum</option>
+              <option value="stddev">Std. Deviation</option>
+            </select>
+          </div>
+        </div>
         <div id="chChartStatus" style="font-size:12px;color:#8a8f99;margin:8px 0"></div>
+        <div id="chChartTitle" style="font-size:13px;font-weight:600;color:#d4af37;margin-bottom:6px"></div>
         <canvas id="chChartCanvas" width="900" height="440"></canvas>
       </div>
     </div>
@@ -1455,12 +1467,24 @@ async function chLoadSoftwareGauge() {
 // the Computer composite so a real security/crash problem can pull the
 // whole grade down the same way a failing SSD does.
 async function chMergeSoftwareIntoTree() {
-  if (!chTreeResult || !bridgeUp) return;
-  const sw = await chLoadSoftwareGauge();
-  if (!sw) return;
-  chTreeResult.tree.Software = sw.tree;
-  chTreeResult.categoryScores.Software = sw.categoryScores;
-  chTreeResult.majorScores.Software = sw.majorScore;
+  if (!chTreeResult) return;
+  // Real UX bug caught live 2026-07-18 (Ryan: "the major components...
+  // still doesn't have software"): when the bridge wasn't reachable, this
+  // used to just silently skip adding Software at all, so it vanished
+  // from the gauge list entirely - reading as "never built" rather than
+  // "temporarily unavailable." Now it always shows, with an honest
+  // unavailable state (null score, explanatory sub-hint) instead of
+  // disappearing, the same way a disabled button beats a missing one.
+  const sw = (bridgeUp) ? await chLoadSoftwareGauge() : null;
+  if (sw) {
+    chTreeResult.tree.Software = sw.tree;
+    chTreeResult.categoryScores.Software = sw.categoryScores;
+    chTreeResult.majorScores.Software = sw.majorScore;
+  } else {
+    chTreeResult.tree.Software = {};
+    chTreeResult.categoryScores.Software = {};
+    chTreeResult.majorScores.Software = null;
+  }
   chTreeResult.computerScore = chCompositeScore(Object.values(chTreeResult.majorScores));
 }
 
@@ -1896,7 +1920,11 @@ function chOpenMajorList() {
     type: 'major', title: 'Major components',
     entries: Object.entries(chTreeResult.majorScores),
     childHint: 'Double-click to drill in',
-    subHintFor: (label) => label === 'RAM' && stickCount > 0 ? `${stickCount} stick${stickCount === 1 ? '' : 's'} detected — double-click to drill in` : null,
+    subHintFor: (label) => {
+      if (label === 'RAM' && stickCount > 0) return `${stickCount} stick${stickCount === 1 ? '' : 's'} detected — double-click to drill in`;
+      if (label === 'Software' && chTreeResult.majorScores.Software == null) return 'Connect to this computer (Launch Tracker) to see Reliability/Security/Browser health';
+      return null;
+    },
     onOpen: (major) => chOpenCategoryList(major)
   });
   chRenderAll();
@@ -2100,17 +2128,34 @@ async function chFetchHistorySamples(devId) {
   if (!events || events.length === 0) return [];
   const eventDates = {};
   events.forEach(e => { eventDates[e.id] = e.created_at; });
-  const { data: rows } = await db.from('amit_device_session_metrics')
-    .select('event_id,component,title,metric_name,category,min_value,max_value,avg_value')
-    .in('event_id', events.map(e => e.id));
-  if (!rows || rows.length === 0) return [];
+  // Real bug caught live 2026-07-18 (Ryan: "9 sessions but the chart only
+  // has 3 points"): Supabase/PostgREST caps a single request at 1000 rows
+  // by default - 7+ sessions at 250-500+ sensor rows each easily clears
+  // 2,500 rows total, so a single unpaginated query was silently getting
+  // cut off partway through, before every session's rows ever arrived.
+  // Paged explicitly in 1000-row batches until a page comes back short,
+  // so every session's data actually makes it into the chart.
+  const rows = [];
+  let from = 0;
+  const PAGE = 1000;
+  while (true) {
+    const { data: page } = await db.from('amit_device_session_metrics')
+      .select('event_id,component,title,metric_name,category,min_value,max_value,avg_value,stddev_value')
+      .in('event_id', events.map(e => e.id))
+      .range(from, from + PAGE - 1);
+    if (!page || page.length === 0) break;
+    rows.push(...page);
+    if (page.length < PAGE) break;
+    from += PAGE;
+  }
+  if (rows.length === 0) return [];
   return rows.map(r => ({
     date: eventDates[r.event_id] || null,
     device: r.title || r.component,
     component: r.component,
     name: r.metric_name,
     category: r.category,
-    min: r.min_value, max: r.max_value, avg: r.avg_value
+    min: r.min_value, max: r.max_value, avg: r.avg_value, stddev: r.stddev_value
   }));
 }
 
@@ -2121,7 +2166,9 @@ async function chFetchHistorySamples(devId) {
 // so switching chart TYPE doesn't re-fetch).
 let chChartType = 'line';
 let chChartScope = 'session';
+let chChartStat = 'avg'; // 'min' | 'max' | 'avg' | 'stddev' - only meaningful for aggregated data
 let chSessionSamplesCache = null;
+let chSessionIsAggregated = false; // true when the session fallback (Supabase) is in use instead of the real per-sample local log
 let chHistorySamplesCache = null;
 
 function chSetChartType(type) {
@@ -2132,6 +2179,11 @@ function chSetChartType(type) {
   chRenderSelectedChart();
 }
 
+function chSetChartStat(stat) {
+  chChartStat = stat;
+  chRenderSelectedChart();
+}
+
 async function chSetChartScope(scope) {
   chChartScope = scope;
   document.getElementById('chScopeBtn-session').classList.toggle('active', scope === 'session');
@@ -2139,18 +2191,53 @@ async function chSetChartScope(scope) {
   await chLoadChartScopeData();
 }
 
+// Fallback for "Last Session" when the local bridge/per-sample log isn't
+// reachable (e.g. tracking has been fully stopped, or Computer Health is
+// being viewed from elsewhere) - Ryan's direct request 2026-07-18: the
+// last session's data is still sitting safely in Supabase the moment it
+// ends, so "nothing to show" was never actually true, just incomplete.
+// Pulls the single most recent tracking_session_ended event's rows, same
+// shape as the history query.
+async function chFetchLastSessionAggregated(devId) {
+  if (!db || !devId) return [];
+  const { data: ev } = await db.from('amit_device_events')
+    .select('id,created_at').eq('device_id', devId).eq('event_type', 'tracking_session_ended')
+    .order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (!ev) return [];
+  const { data: rows } = await db.from('amit_device_session_metrics')
+    .select('component,title,metric_name,category,min_value,max_value,avg_value,stddev_value')
+    .eq('event_id', ev.id);
+  if (!rows || rows.length === 0) return [];
+  return rows.map(r => ({
+    date: ev.created_at, device: r.title || r.component, component: r.component,
+    name: r.metric_name, category: r.category,
+    min: r.min_value, max: r.max_value, avg: r.avg_value, stddev: r.stddev_value
+  }));
+}
+
 async function chLoadChartScopeData() {
   const status = document.getElementById('chChartStatus');
   status.textContent = 'Loading…';
+  chSessionIsAggregated = false;
   if (chChartScope === 'session') {
-    if (!chSessionSamplesCache) chSessionSamplesCache = await chFetchSessionSamples();
+    if (!chSessionSamplesCache) {
+      chSessionSamplesCache = await chFetchSessionSamples();
+      if (chSessionSamplesCache.length === 0) {
+        // Real per-sample log unreachable - fall back to the last
+        // completed session's aggregated data from Supabase instead of
+        // showing nothing.
+        chSessionSamplesCache = await chFetchLastSessionAggregated(viewingDeviceId);
+        chSessionIsAggregated = chSessionSamplesCache.length > 0;
+      }
+    }
     if (chSessionSamplesCache.length === 0) {
-      status.textContent = bridgeUp
-        ? 'No per-sample data found in the current/last session.'
-        : 'Not connected to this computer right now - open Computer Health here and connect to see this session\'s data.';
+      status.textContent = 'No session data available - neither the local bridge nor Supabase has anything for this device yet.';
       chPopulateSensorPicker([]);
       return;
     }
+    status.textContent = chSessionIsAggregated
+      ? 'Showing the last completed session (min/max/avg/std-dev per sensor) - the tracker isn\'t running right now, so this is from Supabase, not a live per-sample log.'
+      : '';
   } else {
     if (!chHistorySamplesCache) chHistorySamplesCache = await chFetchHistorySamples(viewingDeviceId);
     if (chHistorySamplesCache.length === 0) {
@@ -2158,8 +2245,9 @@ async function chLoadChartScopeData() {
       chPopulateSensorPicker([]);
       return;
     }
+    status.textContent = '';
   }
-  status.textContent = '';
+  document.getElementById('chStatRow').classList.toggle('hidden', chChartScope === 'session' && !chSessionIsAggregated);
   chPopulateSensorPicker(chChartScope === 'session' ? chSessionSamplesCache : chHistorySamplesCache);
 }
 
@@ -2168,9 +2256,10 @@ async function chLoadChartScopeData() {
 // just say "CPU" when the real model name is already known.
 function chPopulateSensorPicker(samples) {
   const picker = document.getElementById('chSensorPicker');
+  const aggregated = chChartScope === 'history' || chSessionIsAggregated;
   const seen = new Map(); // key -> label
   samples.forEach(s => {
-    const key = chChartScope === 'session' ? `${s.device}␟${s.group}␟${s.name}` : `${s.device}␟${s.component}␟${s.name}`;
+    const key = aggregated ? `${s.device}␟${s.component}␟${s.name}` : `${s.device}␟${s.group}␟${s.name}`;
     if (!seen.has(key)) seen.set(key, `${s.device} — ${s.name}`);
   });
   const keys = [...seen.keys()].sort((a, b) => seen.get(a).localeCompare(seen.get(b)));
@@ -2180,29 +2269,37 @@ function chPopulateSensorPicker(samples) {
   chRenderSelectedChart();
 }
 
+const CH_STAT_LABELS = { min: 'Minimum', max: 'Maximum', avg: 'Average', stddev: 'Std. Deviation' };
+
 function chGetChartPoints() {
   const picker = document.getElementById('chSensorPicker');
   const key = picker.value;
-  if (!key) return { points: [], unit: '' };
+  const aggregated = chChartScope === 'history' || chSessionIsAggregated;
+  if (!key) return { points: [], unit: '', title: '' };
   const parts = key.split('␟');
   const samples = chChartScope === 'session' ? (chSessionSamplesCache || []) : (chHistorySamplesCache || []);
-  if (chChartScope === 'session') {
+  if (!aggregated) {
     const [device, group, name] = parts;
     const matching = samples.filter(s => s.device === device && s.group === group && s.name === name);
     const unit = chGuessUnit(name, group);
-    return { points: matching.map(s => ({ label: s.t, value: s.value })), unit };
+    return { points: matching.map(s => ({ label: s.t, value: s.value })), unit, title: `${device} — ${name}` };
   } else {
     const [device, component, name] = parts;
     const matching = samples.filter(s => s.device === device && s.component === component && s.name === name)
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const unit = chGuessUnit(name, component);
-    return { points: matching.map(s => ({ label: s.date ? new Date(s.date).toLocaleDateString() : '?', value: s.avg })), unit };
+    return {
+      points: matching.map(s => ({ label: s.date ? new Date(s.date).toLocaleDateString() : '?', value: s[chChartStat] })),
+      unit,
+      title: `${device} — ${name} (${CH_STAT_LABELS[chChartStat]})`
+    };
   }
 }
 
 function chRenderSelectedChart() {
   const canvas = document.getElementById('chChartCanvas');
-  const { points, unit } = chGetChartPoints();
+  const { points, unit, title } = chGetChartPoints();
+  document.getElementById('chChartTitle').textContent = title || '';
   if (chChartType === 'line') chDrawLineChart(canvas, points, unit);
   else if (chChartType === 'bar') chDrawBarChart(canvas, points, unit);
   else chDrawScatterChart(canvas, points, unit);
