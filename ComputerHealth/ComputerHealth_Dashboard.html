@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.53</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.54</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1989,10 +1989,105 @@ async function loadTrackerMetricsBreakdown(eventId) {
     html += '<ul style="margin:6px 0 0 18px">' + analyses.map(renderComponentRollup).join('') + '</ul>';
     html += buildThermalHeadroomSection(byComponent, escHtml);
     html += renderCombinedAnalysis(analyses);
+    html += await buildLongevitySection(byComponent);
     el.innerHTML = html;
   } catch (err) {
     el.innerHTML = '<em style="color:#8a8f99">Could not load resource breakdown.</em>';
   }
+}
+
+// Ryan's direct request 2026-07-17: a SEPARATE grade from "how is it
+// performing right now" - this answers "how much runway does this
+// hardware have left." Two real, independent signals feed it: (1) actual
+// SMART-style drive wear data (Get-StorageReliabilityCounter's Wear
+// field is "% of expected life USED", so remaining life = 100 - wear -
+// this is genuine measured data, not a guess); (2) hardware generation
+// inferred from model naming, since no manufacture/purchase date is
+// available anywhere - deliberately labeled as an inference, not a
+// certified age, exactly the caveat Ryan asked for directly. Drive wear
+// dominates the grade when known (a drive at 10% life remaining is a
+// real, near-term repair regardless of how young everything else is) -
+// hardware age is a softer, generational signal shown alongside it.
+const HARDWARE_GENERATION_DB = [
+  { match: /ryzen 9 7|ryzen 7 7|ryzen 5 7|ryzen 9 8|ryzen 7 8/i, label: 'AMD Ryzen 7000/8000 series (Zen 4)', year: 2022 },
+  { match: /ryzen 9 5|ryzen 7 5|ryzen 5 5/i, label: 'AMD Ryzen 5000 series (Zen 3)', year: 2020 },
+  { match: /ryzen 9 39|ryzen 7 37|ryzen 5 36|ryzen 9 38/i, label: 'AMD Ryzen 3000 series (Zen 2)', year: 2019 },
+  { match: /ryzen 7 2|ryzen 5 2/i, label: 'AMD Ryzen 2000 series (Zen+)', year: 2018 },
+  { match: /core i9-13|core i7-13|core i5-13|core i9-14|core i7-14/i, label: 'Intel 13th/14th Gen', year: 2022 },
+  { match: /core i9-12|core i7-12|core i5-12/i, label: 'Intel 12th Gen', year: 2021 },
+  { match: /core i9-10|core i7-10|core i5-10|core i9-11|core i7-11/i, label: 'Intel 10th/11th Gen', year: 2020 },
+  { match: /core i9-9|core i7-9|core i5-9/i, label: 'Intel 9th Gen', year: 2018 },
+  { match: /rtx 40/i, label: 'NVIDIA RTX 40 series', year: 2022 },
+  { match: /rtx 30/i, label: 'NVIDIA RTX 30 series', year: 2020 },
+  { match: /rtx 20/i, label: 'NVIDIA RTX 20 series', year: 2018 },
+  { match: /gtx 16/i, label: 'NVIDIA GTX 16 series', year: 2019 },
+  { match: /gtx 10/i, label: 'NVIDIA GTX 10 series', year: 2016 },
+  { match: /radeon rx 7/i, label: 'AMD Radeon RX 7000 series', year: 2022 },
+  { match: /radeon rx 6/i, label: 'AMD Radeon RX 6000 series', year: 2020 },
+  { match: /x670|b650/i, label: 'AMD 600-series chipset', year: 2022 },
+  { match: /b550|x570/i, label: 'AMD 500-series chipset', year: 2019 },
+  { match: /b450|x470/i, label: 'AMD 400-series chipset', year: 2018 },
+  { match: /z790|b760/i, label: 'Intel 700-series chipset', year: 2022 },
+  { match: /z690|b660/i, label: 'Intel 600-series chipset', year: 2021 },
+];
+
+function gradeFromScore(score) {
+  if (score >= 90) return 'A';
+  if (score >= 75) return 'B';
+  if (score >= 55) return 'C';
+  if (score >= 35) return 'D';
+  return 'F';
+}
+
+async function buildLongevitySection(byComponent) {
+  const findings = [];
+  let worstScore = 100;
+
+  // Signal 1: real drive wear data, when the controller reports it.
+  try {
+    const r = await fetch(BRIDGE + '/api/drive-health');
+    const d = await r.json();
+    (d.drives || []).forEach(dr => {
+      if (dr.wear === null || dr.wear === undefined) return;
+      const remaining = 100 - dr.wear;
+      worstScore = Math.min(worstScore, remaining);
+      const grade = gradeFromScore(remaining);
+      const urgency = remaining < 10 ? 'a near-term repair - plan to replace this drive soon.'
+        : remaining < 20 ? 'worth budgeting a replacement in the coming months.'
+        : remaining < 40 ? 'still has real life left, but past its midpoint.'
+        : 'plenty of expected life remaining.';
+      findings.push({ grade, text: `<strong>${escHtml(dr.friendlyName)}:</strong> ${Math.round(remaining)}% of expected drive life remaining (measured wear data) - ${urgency}` });
+    });
+  } catch (e) {}
+
+  // Signal 2: hardware generation inferred from model naming - no
+  // manufacture date exists anywhere to draw from, stated plainly.
+  const titlesToCheck = [];
+  if (byComponent['CPU'] && byComponent['CPU'][0]) titlesToCheck.push(byComponent['CPU'][0].title);
+  if (byComponent['GPU'] && byComponent['GPU'][0]) titlesToCheck.push(byComponent['GPU'][0].title);
+  if (byComponent['Motherboard'] && byComponent['Motherboard'][0]) titlesToCheck.push(byComponent['Motherboard'][0].title);
+  const currentYear = new Date().getFullYear();
+  titlesToCheck.forEach(title => {
+    const known = HARDWARE_GENERATION_DB.find(k => k.match.test(title || ''));
+    if (!known) return;
+    const age = currentYear - known.year;
+    const ageScore = age <= 3 ? 95 : age <= 5 ? 80 : age <= 7 ? 62 : age <= 9 ? 42 : 20;
+    worstScore = Math.min(worstScore, ageScore);
+    const grade = gradeFromScore(ageScore);
+    findings.push({ grade, text: `<strong>${escHtml(title)}:</strong> ${known.label}, roughly ${age} year${age === 1 ? '' : 's'} old by generation - inferred from the model name only, not an actual purchase date.` });
+  });
+
+  if (findings.length === 0) {
+    return '<div class="section-title" style="margin-top:20px">4. Longevity Outlook</div><p style="margin:6px 0;color:#9aa0ab;font-size:12.5px">Not enough data to estimate remaining hardware lifespan this session - this drive\'s controller doesn\'t report wear data, and no recognized CPU/GPU/motherboard generation was found to infer age from.</p>';
+  }
+
+  const overallGrade = gradeFromScore(worstScore);
+  const gradeColor = { A: '#4caf6d', B: '#4caf6d', C: '#e0c477', D: '#e07a7a', F: '#e07a7a' }[overallGrade];
+  let html = '<div class="section-title" style="margin-top:20px">4. Longevity Outlook</div>';
+  html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">A separate question from today\'s performance: how much runway does this hardware have left. Drive wear is real measured data; hardware age is inferred from model naming, not a certified purchase date - treat it as a helpful signal, not a diagnosis.</p>';
+  html += `<div style="margin:10px 0;padding:10px 14px;background:#12141a;border-left:4px solid ${gradeColor};border-radius:6px"><strong style="color:${gradeColor};font-size:16px">Longevity grade: ${overallGrade}</strong></div>`;
+  html += '<ul style="margin:6px 0 0 18px">' + findings.map(f => `<li style="margin:6px 0">[${f.grade}] ${f.text}</li>`).join('') + '</ul>';
+  return html;
 }
 
 // Ryan's direct request 2026-07-16, after comparing our raw sensor-delta
