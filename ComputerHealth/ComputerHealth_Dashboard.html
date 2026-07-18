@@ -99,6 +99,21 @@
   .getting-started .btn { font-size:14px; padding:9px 20px; }
   .section-title { font-size:15px; color:#d4af37; margin:18px 0 8px; }
   .ch-gauge-panel { background:#181b23; border:1px solid #2a2e3a; border-radius:12px; padding:18px 20px 14px; margin-bottom:22px; }
+  /* Ryan's direct request 2026-07-18: sub-tabs on the LEFT for the Charts
+     tab, not on top like the main nav - a distinct sidebar-style
+     navigation so it reads as "a tool within a tab," not another row of
+     top tabs competing with the main nav bar. */
+  .ch-charts-layout { display:flex; gap:24px; align-items:flex-start; }
+  .ch-charts-sidebar { flex:none; width:150px; display:flex; flex-direction:column; gap:6px; }
+  .ch-charts-subtab { padding:9px 14px; border-radius:8px; font-size:13px; color:#9aa0ab; cursor:pointer; border:1px solid transparent; }
+  .ch-charts-subtab:hover { background:#1c1f28; }
+  .ch-charts-subtab.active { background:#262a36; color:#d4af37; border-color:#3a3f4c; font-weight:600; }
+  .ch-charts-divider { height:1px; background:#2a2e3a; margin:10px 0; }
+  .ch-charts-scope { font-size:12.5px; text-align:left; }
+  .ch-charts-scope.active { background:#d4af37; color:#12141a; }
+  .ch-charts-main { flex:1; min-width:0; }
+  .ch-charts-main select { width:100%; max-width:420px; padding:8px 10px; border-radius:8px; background:#181b23; border:1px solid #3a3f4c; color:#e8e8ec; font-size:13px; }
+  #chChartCanvas { width:100%; max-width:900px; height:auto; background:#181b23; border:1px solid #2a2e3a; border-radius:12px; }
   .ch-level-section { padding:14px 0; border-top:1px solid #22252e; transition: padding .2s ease; }
   .ch-level-section:first-child { border-top:none; padding-top:0; }
   .ch-level-section.ch-collapsed { padding:8px 0; opacity:0.72; }
@@ -218,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.70</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.71</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -462,6 +477,7 @@
   <button onclick="showTab('errors')">Errors</button>
   <button onclick="showTab('security')">Security</button>
   <button onclick="showTab('history')">History</button>
+  <button onclick="showTab('charts')">📊 Charts</button>
 </nav>
 
 <main>
@@ -639,6 +655,24 @@
     </div>
   </div>
 
+  <div class="tab" id="tab-charts">
+    <div class="ch-charts-layout">
+      <div class="ch-charts-sidebar">
+        <div class="ch-charts-subtab active" id="chChartTypeBtn-line" onclick="chSetChartType('line')">📈 Line</div>
+        <div class="ch-charts-subtab" id="chChartTypeBtn-bar" onclick="chSetChartType('bar')">📊 Bar</div>
+        <div class="ch-charts-subtab" id="chChartTypeBtn-scatter" onclick="chSetChartType('scatter')">🔹 Scatter</div>
+        <div class="ch-charts-divider"></div>
+        <button class="btn secondary ch-charts-scope active" id="chScopeBtn-session" onclick="chSetChartScope('session')">Last Session</button>
+        <button class="btn secondary ch-charts-scope" id="chScopeBtn-history" onclick="chSetChartScope('history')">All Sessions</button>
+      </div>
+      <div class="ch-charts-main">
+        <select id="chSensorPicker" onchange="chRenderSelectedChart()"><option>Loading…</option></select>
+        <div id="chChartStatus" style="font-size:12px;color:#8a8f99;margin:8px 0"></div>
+        <canvas id="chChartCanvas" width="900" height="440"></canvas>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -671,6 +705,7 @@ function showTab(name) {
   if (name === 'reliability') pollUpdates();
   if (name === 'errors') pollReliability();
   if (name === 'security') pollSecurity();
+  if (name === 'charts' && !chSessionSamplesCache && !chHistorySamplesCache) chLoadChartScopeData();
 }
 
 // Same as showTab but callable without a click event (e.g. from another
@@ -687,6 +722,7 @@ function showTabByName(name) {
   if (name === 'reliability') pollUpdates();
   if (name === 'errors') pollReliability();
   if (name === 'security') pollSecurity();
+  if (name === 'charts' && !chSessionSamplesCache && !chHistorySamplesCache) chLoadChartScopeData();
 }
 
 function setStatus(msg) {
@@ -2031,45 +2067,266 @@ function chSplitSensorPath(path) {
   return { device: segs.slice(0, segs.length - 2).join(' - '), group: segs[segs.length - 2], name: segs[segs.length - 1] };
 }
 
-async function chBuildSessionChartCsv() {
-  if (!bridgeUp) return null;
+// Real structured data (not CSV text - nothing downstream needs a
+// clipboard-pasteable format anymore now that charting is native) behind
+// the Charts tab. Each sample carries its own real device name via
+// chSplitSensorPath/the row's own title, matching Ryan's direct request
+// that every chart explicitly name the real hardware, not just "CPU."
+async function chFetchSessionSamples() {
+  if (!bridgeUp) return [];
   try {
     const r = await fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' });
-    if (!r.ok) return null;
+    if (!r.ok) return [];
     const d = await r.json();
     const rows = parseSensorHistoryRows(d.lines || []);
-    if (rows.length === 0) return null;
-    const lines = ['timestamp,device,sensor_group,sensor_name,value'];
+    const out = [];
     rows.forEach(row => {
       Object.entries(row.sensors).forEach(([path, val]) => {
         const p = chSplitSensorPath(path);
-        const esc = s => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-        lines.push(`${row.t},${esc(p.device)},${esc(p.group)},${esc(p.name)},${val}`);
+        const num = parseFloat(val);
+        if (isNaN(num)) return;
+        out.push({ t: row.t, device: p.device, group: p.group, name: p.name, value: num });
       });
     });
-    return { csv: lines.join('\r\n'), sampleCount: rows.length };
-  } catch (e) { return null; }
+    return out;
+  } catch (e) { return []; }
 }
 
-async function chBuildHistoryChartCsv(devId) {
-  if (!db || !devId) return null;
+async function chFetchHistorySamples(devId) {
+  if (!db || !devId) return [];
   const { data: events } = await db.from('amit_device_events')
     .select('id,created_at').eq('device_id', devId).eq('event_type', 'tracking_session_ended')
     .order('created_at', { ascending: true });
-  if (!events || events.length === 0) return null;
+  if (!events || events.length === 0) return [];
   const eventDates = {};
   events.forEach(e => { eventDates[e.id] = e.created_at; });
   const { data: rows } = await db.from('amit_device_session_metrics')
     .select('event_id,component,title,metric_name,category,min_value,max_value,avg_value')
     .in('event_id', events.map(e => e.id));
-  if (!rows || rows.length === 0) return null;
-  const esc = s => /[",\n]/.test(String(s)) ? '"' + String(s).replace(/"/g, '""') + '"' : s;
-  const lines = ['session_date,device,component,metric_name,category,min_value,max_value,avg_value'];
-  rows.forEach(r => {
-    const date = eventDates[r.event_id] ? new Date(eventDates[r.event_id]).toISOString().slice(0, 16).replace('T', ' ') : 'unknown';
-    lines.push(`${date},${esc(r.title || r.component)},${r.component},${esc(r.metric_name)},${r.category || ''},${r.min_value},${r.max_value},${r.avg_value}`);
+  if (!rows || rows.length === 0) return [];
+  return rows.map(r => ({
+    date: eventDates[r.event_id] || null,
+    device: r.title || r.component,
+    component: r.component,
+    name: r.metric_name,
+    category: r.category,
+    min: r.min_value, max: r.max_value, avg: r.avg_value
+  }));
+}
+
+// ---- Charts tab engine - Ryan's direct request 2026-07-18 ----
+// Native line/bar/scatter charts, no external tool. State: which chart
+// type is active, which data scope (this session vs. every session on
+// record), and the samples for whichever scope was last loaded (cached
+// so switching chart TYPE doesn't re-fetch).
+let chChartType = 'line';
+let chChartScope = 'session';
+let chSessionSamplesCache = null;
+let chHistorySamplesCache = null;
+
+function chSetChartType(type) {
+  chChartType = type;
+  ['line', 'bar', 'scatter'].forEach(t => {
+    document.getElementById('chChartTypeBtn-' + t).classList.toggle('active', t === type);
   });
-  return { csv: lines.join('\r\n'), sessionCount: events.length };
+  chRenderSelectedChart();
+}
+
+async function chSetChartScope(scope) {
+  chChartScope = scope;
+  document.getElementById('chScopeBtn-session').classList.toggle('active', scope === 'session');
+  document.getElementById('chScopeBtn-history').classList.toggle('active', scope === 'history');
+  await chLoadChartScopeData();
+}
+
+async function chLoadChartScopeData() {
+  const status = document.getElementById('chChartStatus');
+  status.textContent = 'Loading…';
+  if (chChartScope === 'session') {
+    if (!chSessionSamplesCache) chSessionSamplesCache = await chFetchSessionSamples();
+    if (chSessionSamplesCache.length === 0) {
+      status.textContent = bridgeUp
+        ? 'No per-sample data found in the current/last session.'
+        : 'Not connected to this computer right now - open Computer Health here and connect to see this session\'s data.';
+      chPopulateSensorPicker([]);
+      return;
+    }
+  } else {
+    if (!chHistorySamplesCache) chHistorySamplesCache = await chFetchHistorySamples(viewingDeviceId);
+    if (chHistorySamplesCache.length === 0) {
+      status.textContent = 'No completed sessions on record yet for this device.';
+      chPopulateSensorPicker([]);
+      return;
+    }
+  }
+  status.textContent = '';
+  chPopulateSensorPicker(chChartScope === 'session' ? chSessionSamplesCache : chHistorySamplesCache);
+}
+
+// One picker entry per real (device, sensor) pair - explicitly named with
+// the actual hardware, matching Ryan's direct request that charts never
+// just say "CPU" when the real model name is already known.
+function chPopulateSensorPicker(samples) {
+  const picker = document.getElementById('chSensorPicker');
+  const seen = new Map(); // key -> label
+  samples.forEach(s => {
+    const key = chChartScope === 'session' ? `${s.device}␟${s.group}␟${s.name}` : `${s.device}␟${s.component}␟${s.name}`;
+    if (!seen.has(key)) seen.set(key, `${s.device} — ${s.name}`);
+  });
+  const keys = [...seen.keys()].sort((a, b) => seen.get(a).localeCompare(seen.get(b)));
+  picker.innerHTML = keys.length
+    ? keys.map(k => `<option value="${k.replace(/"/g, '&quot;')}">${seen.get(k)}</option>`).join('')
+    : '<option>No sensors available</option>';
+  chRenderSelectedChart();
+}
+
+function chGetChartPoints() {
+  const picker = document.getElementById('chSensorPicker');
+  const key = picker.value;
+  if (!key) return { points: [], unit: '' };
+  const parts = key.split('␟');
+  const samples = chChartScope === 'session' ? (chSessionSamplesCache || []) : (chHistorySamplesCache || []);
+  if (chChartScope === 'session') {
+    const [device, group, name] = parts;
+    const matching = samples.filter(s => s.device === device && s.group === group && s.name === name);
+    const unit = chGuessUnit(name, group);
+    return { points: matching.map(s => ({ label: s.t, value: s.value })), unit };
+  } else {
+    const [device, component, name] = parts;
+    const matching = samples.filter(s => s.device === device && s.component === component && s.name === name)
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    const unit = chGuessUnit(name, component);
+    return { points: matching.map(s => ({ label: s.date ? new Date(s.date).toLocaleDateString() : '?', value: s.avg })), unit };
+  }
+}
+
+function chRenderSelectedChart() {
+  const canvas = document.getElementById('chChartCanvas');
+  const { points, unit } = chGetChartPoints();
+  if (chChartType === 'line') chDrawLineChart(canvas, points, unit);
+  else if (chChartType === 'bar') chDrawBarChart(canvas, points, unit);
+  else chDrawScatterChart(canvas, points, unit);
+}
+
+// Shared axis/grid scaffold every chart type draws on top of - real data
+// only, auto-scaled to the actual observed min/max of the selected
+// sensor, same honesty standard as the Instrument Cluster gauges (no
+// fixed 0-100 axis wasting most of the chart on empty space).
+function chDrawAxes(ctx, w, h, pad, points) {
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = '#2a2e3a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h - pad.b); ctx.lineTo(w - pad.r, h - pad.b); ctx.stroke();
+  if (points.length === 0) {
+    ctx.fillStyle = '#8a8f99'; ctx.font = '13px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No data for this selection yet', w / 2, h / 2);
+    return null;
+  }
+  const values = points.map(p => p.value).filter(v => v != null && !isNaN(v));
+  let min = Math.min(...values), max = Math.max(...values);
+  if (min === max) { min -= 1; max += 1; }
+  const padAmt = (max - min) * 0.1;
+  min -= padAmt; max += padAmt;
+  return { min, max };
+}
+
+function chDrawLineChart(canvas, points, unit) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 50 };
+  const range = chDrawAxes(ctx, w, h, pad, points);
+  if (!range) return;
+  const { min, max } = range;
+  const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+  const xFor = i => pad.l + (points.length > 1 ? (i / (points.length - 1)) * plotW : plotW / 2);
+  const yFor = v => (h - pad.b) - ((v - min) / (max - min)) * plotH;
+
+  ctx.font = '11px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#8a8f99'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = min + (max - min) * (i / 4);
+    const y = yFor(v);
+    ctx.fillText((Math.round(v * 10) / 10) + (unit ? ' ' + unit : ''), pad.l - 8, y + 4);
+    ctx.strokeStyle = '#20232b'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+  }
+
+  ctx.beginPath();
+  points.forEach((p, i) => { const x = xFor(i), y = yFor(p.value); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+  ctx.strokeStyle = '#d4af37'; ctx.lineWidth = 2; ctx.stroke();
+  points.forEach((p, i) => {
+    ctx.beginPath(); ctx.arc(xFor(i), yFor(p.value), 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#d4af37'; ctx.fill();
+  });
+
+  chDrawXLabels(ctx, points, xFor, h - pad.b);
+}
+
+function chDrawBarChart(canvas, points, unit) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 50 };
+  const range = chDrawAxes(ctx, w, h, pad, points);
+  if (!range) return;
+  const min = Math.min(0, range.min), max = range.max;
+  const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+  const barW = Math.min(48, plotW / points.length * 0.6);
+  const xFor = i => pad.l + (i + 0.5) / points.length * plotW;
+  const yFor = v => (h - pad.b) - ((v - min) / (max - min)) * plotH;
+
+  ctx.font = '11px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#8a8f99'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = min + (max - min) * (i / 4);
+    const y = yFor(v);
+    ctx.fillText((Math.round(v * 10) / 10) + (unit ? ' ' + unit : ''), pad.l - 8, y + 4);
+    ctx.strokeStyle = '#20232b'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+  }
+
+  const zeroY = yFor(0);
+  points.forEach((p, i) => {
+    const x = xFor(i), y = yFor(p.value);
+    ctx.fillStyle = '#c8862a';
+    ctx.fillRect(x - barW / 2, Math.min(y, zeroY), barW, Math.abs(zeroY - y));
+  });
+
+  chDrawXLabels(ctx, points, xFor, h - pad.b);
+}
+
+function chDrawScatterChart(canvas, points, unit) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 50 };
+  const range = chDrawAxes(ctx, w, h, pad, points);
+  if (!range) return;
+  const { min, max } = range;
+  const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+  const xFor = i => pad.l + (points.length > 1 ? (i / (points.length - 1)) * plotW : plotW / 2);
+  const yFor = v => (h - pad.b) - ((v - min) / (max - min)) * plotH;
+
+  ctx.font = '11px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#8a8f99'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = min + (max - min) * (i / 4);
+    const y = yFor(v);
+    ctx.fillText((Math.round(v * 10) / 10) + (unit ? ' ' + unit : ''), pad.l - 8, y + 4);
+    ctx.strokeStyle = '#20232b'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+  }
+
+  points.forEach((p, i) => {
+    ctx.beginPath(); ctx.arc(xFor(i), yFor(p.value), 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(212,175,55,0.75)'; ctx.fill();
+    ctx.strokeStyle = '#8a6f1f'; ctx.lineWidth = 1; ctx.stroke();
+  });
+
+  chDrawXLabels(ctx, points, xFor, h - pad.b);
+}
+
+// Thins labels down when there are too many points to show every one
+// legibly - always shows first/last, evenly spaced in between.
+function chDrawXLabels(ctx, points, xFor, y) {
+  if (points.length === 0) return;
+  const maxLabels = 8;
+  const step = Math.max(1, Math.ceil(points.length / maxLabels));
+  ctx.font = '10.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#8a8f99'; ctx.textAlign = 'center';
+  for (let i = 0; i < points.length; i += step) {
+    ctx.fillText(String(points[i].label).slice(0, 12), xFor(i), y + 16);
+  }
+  if ((points.length - 1) % step !== 0) {
+    ctx.fillText(String(points[points.length - 1].label).slice(0, 12), xFor(points.length - 1), y + 16);
+  }
 }
 
 // Historical rows live in a file on disk and don't depend on LibreHardwareMonitor
