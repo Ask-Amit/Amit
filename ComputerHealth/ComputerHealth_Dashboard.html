@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.60</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.61</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1441,15 +1441,13 @@ function chDrawScoreGauge(canvas, score) {
   // Real gauge convention Ryan corrected 2026-07-18: on every real gauge
   // (and the raw sensor gauges on the Instrument Cluster report he already
   // approved), the SAFE zone sits on the left and the WARNING zone on the
-  // right - low value = left = safe. A composite health score is the
-  // opposite direction (high score = healthy), so plotting it directly
-  // (0=left, 100=right) put GREEN on the right and RED on the left,
-  // backwards from every other gauge in the app. Fix: plot by "display
-  // value" = 100 - score, so a healthy 95 sits near the LEFT/safe end and
-  // a failing 15 sits near the RIGHT/danger end, matching convention -
-  // while the grade letter and color in the center still reflect the real
-  // score, unflipped.
-  const displayFor = score => score == null ? null : 100 - score;
+  // right, AND "zero on the left, a hundred on the right" is the normal
+  // reading direction for any numbered scale - Ryan's direct request
+  // 2026-07-18. Reframed the whole gauge around "percent used/degraded"
+  // instead of "health score": usedPct = 100 - score, plotted directly and
+  // normally (0=left=fresh=green, 100=right=fully used=red). No mirroring,
+  // no relabeling trick - the axis IS usedPct, start to finish.
+  const usedPct = score == null ? null : 100 - score;
   ctx.clearRect(0, 0, w, h);
 
   const zones = [{ from: 0, to: 25, color: '#4c7a4f' }, { from: 25, to: 65, color: '#c8862a' }, { from: 65, to: 100, color: '#a4291b' }];
@@ -1467,10 +1465,8 @@ function chDrawScoreGauge(canvas, score) {
 
   ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = '#3a3f4c'; ctx.stroke();
 
-  // Tick labels show the actual SCORE at that position (100 at the safe/
-  // left end, 0 at the danger/right end), not the internal display value -
-  // Ryan's direct request 2026-07-18: label what each mark on the scale
-  // actually means, not just unlabeled ticks.
+  // Tick labels show the actual usedPct value at that position (0 at the
+  // green/left end, 100 at the red/right end) - a normal, unmirrored axis.
   ctx.font = Math.round(w * 0.07) + 'px ui-sans-serif, Segoe UI, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   [0, 25, 50, 75, 100].forEach(t => {
@@ -1479,13 +1475,12 @@ function chDrawScoreGauge(canvas, score) {
     const x2 = cx + Math.cos(a) * (r - 9), y2 = cy + Math.sin(a) * (r - 9);
     ctx.lineWidth = 2; ctx.strokeStyle = '#f2ead8'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     const lx = cx + Math.cos(a) * (r - 20), ly = cy + Math.sin(a) * (r - 20);
-    const scoreLabel = 100 - t; // ticks are laid out in display-space, label shows real score
-    ctx.lineWidth = 3; ctx.strokeStyle = '#12141a'; ctx.strokeText(scoreLabel, lx, ly);
-    ctx.fillStyle = '#c7cad1'; ctx.fillText(scoreLabel, lx, ly);
+    ctx.lineWidth = 3; ctx.strokeStyle = '#12141a'; ctx.strokeText(String(t), lx, ly);
+    ctx.fillStyle = '#c7cad1'; ctx.fillText(String(t), lx, ly);
   });
 
-  if (score != null) {
-    const va = angleFor(displayFor(score));
+  if (usedPct != null) {
+    const va = angleFor(usedPct);
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(va);
     ctx.beginPath();
     ctx.moveTo(-r * 0.18, 0); ctx.lineTo(r - 8, 0); ctx.lineTo(-r * 0.18, 3);
@@ -1550,13 +1545,14 @@ function chBuildLevelSection(lvl, idx, isCollapsed) {
     return section;
   }
 
-  // Explicit label so the 0-100 scale on every one of these gauges is
-  // never ambiguous with a real physical reading - Ryan's direct request
-  // 2026-07-18: "the numbers just... don't tell me anything" without this.
+  // Explicit nomenclature so the 0-100 scale is never ambiguous - Ryan's
+  // direct request 2026-07-18: the axis reads left-to-right like a normal
+  // number line (0 = fresh/green, 100 = fully used/red) and the number IS
+  // "percent of life used/degraded," not an abstract score.
   if (!isCollapsed) {
     const scaleNote = document.createElement('div');
     scaleNote.className = 'ch-scale-note';
-    scaleNote.textContent = 'This is a composite HEALTH SCORE (0 = failing, 100 = perfect) — not a raw measurement. Drill in for real volts/°C/MHz/hours.';
+    scaleNote.textContent = 'Each dial shows % of life used/degraded — 0 = fresh (green), 100 = fully used (red). Drill in for real volts/°C/MHz/hours.';
     section.appendChild(scaleNote);
   }
 
@@ -1569,7 +1565,7 @@ function chBuildLevelSection(lvl, idx, isCollapsed) {
     cell.style.width = (size + 30) + 'px';
     const sub = (lvl.subHintFor && lvl.subHintFor(label)) || lvl.childHint;
     cell.innerHTML = `<canvas width="${size}" height="${size}"></canvas><div class="ch-glabel">${label}</div>` +
-      (isCollapsed ? '' : `<div class="ch-gsub">${sub}</div>`);
+      (isCollapsed ? '' : `<div class="ch-gband">% life used</div><div class="ch-gsub">${sub}</div>`);
     if (lvl.onOpen) cell.ondblclick = () => lvl.onOpen(label, idx);
     grid.appendChild(cell);
     chDrawScoreGauge(cell.querySelector('canvas'), score);
