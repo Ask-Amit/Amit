@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.72</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.73</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -661,6 +661,7 @@
         <div class="ch-charts-subtab active" id="chChartTypeBtn-line" onclick="chSetChartType('line')">📈 Line</div>
         <div class="ch-charts-subtab" id="chChartTypeBtn-bar" onclick="chSetChartType('bar')">📊 Bar</div>
         <div class="ch-charts-subtab" id="chChartTypeBtn-scatter" onclick="chSetChartType('scatter')">🔹 Scatter</div>
+        <div class="ch-charts-subtab" id="chChartTypeBtn-heatmap" onclick="chSetChartType('heatmap')">🔥 Heat Map</div>
         <div class="ch-charts-divider"></div>
         <button class="btn secondary ch-charts-scope active" id="chScopeBtn-session" onclick="chSetChartScope('session')">Last Session</button>
         <button class="btn secondary ch-charts-scope" id="chScopeBtn-history" onclick="chSetChartScope('history')">All Sessions</button>
@@ -2173,7 +2174,7 @@ let chHistorySamplesCache = null;
 
 function chSetChartType(type) {
   chChartType = type;
-  ['line', 'bar', 'scatter'].forEach(t => {
+  ['line', 'bar', 'scatter', 'heatmap'].forEach(t => {
     document.getElementById('chChartTypeBtn-' + t).classList.toggle('active', t === type);
   });
   chRenderSelectedChart();
@@ -2215,23 +2216,36 @@ async function chFetchLastSessionAggregated(devId) {
   }));
 }
 
+// Real bug caught live 2026-07-18 (Ryan: "last session data still isn't
+// working... it keeps on populating at that"): an empty array [] is still
+// truthy in JS, so once a failed fetch cached [], the "if (!cache)" guard
+// thought data already existed and never retried - permanently stuck on
+// the first failure forever, even after the bridge came back or sign-in
+// completed. Fixed with an explicit "have we actually tried" flag instead
+// of trusting the cache variable's truthiness.
+let chSessionFetchAttempted = false;
+let chHistoryFetchAttempted = false;
+
 async function chLoadChartScopeData() {
   const status = document.getElementById('chChartStatus');
   status.textContent = 'Loading…';
   chSessionIsAggregated = false;
   if (chChartScope === 'session') {
-    if (!chSessionSamplesCache) {
+    if (!chSessionFetchAttempted || (chSessionSamplesCache || []).length === 0) {
+      chSessionFetchAttempted = true;
       chSessionSamplesCache = await chFetchSessionSamples();
       if (chSessionSamplesCache.length === 0) {
         // Real per-sample log unreachable - fall back to the last
         // completed session's aggregated data from Supabase instead of
         // showing nothing.
         chSessionSamplesCache = await chFetchLastSessionAggregated(viewingDeviceId);
-        chSessionIsAggregated = chSessionSamplesCache.length > 0;
       }
+      chSessionIsAggregated = chSessionSamplesCache.length > 0 && !!chSessionSamplesCache[0].component;
+    } else {
+      chSessionIsAggregated = !!(chSessionSamplesCache[0] && chSessionSamplesCache[0].component);
     }
     if (chSessionSamplesCache.length === 0) {
-      status.textContent = 'No session data available - neither the local bridge nor Supabase has anything for this device yet.';
+      status.textContent = 'No session data available yet - make sure this computer is connected (Launch Tracker) or has at least one completed run saved.';
       chPopulateSensorPicker([]);
       return;
     }
@@ -2239,7 +2253,10 @@ async function chLoadChartScopeData() {
       ? 'Showing the last completed session (min/max/avg/std-dev per sensor) - the tracker isn\'t running right now, so this is from Supabase, not a live per-sample log.'
       : '';
   } else {
-    if (!chHistorySamplesCache) chHistorySamplesCache = await chFetchHistorySamples(viewingDeviceId);
+    if (!chHistoryFetchAttempted || (chHistorySamplesCache || []).length === 0) {
+      chHistoryFetchAttempted = true;
+      chHistorySamplesCache = await chFetchHistorySamples(viewingDeviceId);
+    }
     if (chHistorySamplesCache.length === 0) {
       status.textContent = 'No completed sessions on record yet for this device.';
       chPopulateSensorPicker([]);
@@ -2248,34 +2265,132 @@ async function chLoadChartScopeData() {
     status.textContent = '';
   }
   document.getElementById('chStatRow').classList.toggle('hidden', chChartScope === 'session' && !chSessionIsAggregated);
-  chPopulateSensorPicker(chChartScope === 'session' ? chSessionSamplesCache : chHistorySamplesCache);
+  await chPopulateSensorPicker(chChartScope === 'session' ? chSessionSamplesCache : chHistorySamplesCache);
 }
 
 // One picker entry per real (device, sensor) pair - explicitly named with
 // the actual hardware, matching Ryan's direct request that charts never
 // just say "CPU" when the real model name is already known.
-function chPopulateSensorPicker(samples) {
+// Family grouping - Ryan's direct request 2026-07-18: "all twelve cores
+// would show on that same line chart... whatever the sensors on RAM one
+// and RAM two are, it would have however many RAM sticks their own line
+// charts." Two different grouping strategies depending on scope:
+//   History mode: reuses the SAME amit_component_registry classification
+//   the gauge tree already uses - a "family" is (major_group, category),
+//   e.g. CPU/Clock, and every instance_label within it (Core #1..#12)
+//   becomes its own line/bar/row. Exact, not a heuristic, since history
+//   rows already carry the same (component, metric_name) keys the
+//   registry classifies by.
+//   Session mode: the raw per-sample log doesn't carry that
+//   classification directly, so a family here is (device, sensor group)
+//   from the raw "Device>Group>Name" path - e.g. one CPU's "Temperatures"
+//   group - with each distinct sensor name as its own line. A real,
+//   useful grouping, just less precise than the registry-based one.
+let chRegistryForCharts = null;
+async function chLoadRegistryForCharts() {
+  if (!chRegistryForCharts) chRegistryForCharts = await chLoadRegistry();
+  return chRegistryForCharts;
+}
+
+async function chPopulateSensorPicker(samples) {
   const picker = document.getElementById('chSensorPicker');
   const aggregated = chChartScope === 'history' || chSessionIsAggregated;
   const seen = new Map(); // key -> label
-  samples.forEach(s => {
-    const key = aggregated ? `${s.device}␟${s.component}␟${s.name}` : `${s.device}␟${s.group}␟${s.name}`;
-    if (!seen.has(key)) seen.set(key, `${s.device} — ${s.name}`);
-  });
-  const keys = [...seen.keys()].sort((a, b) => seen.get(a).localeCompare(seen.get(b)));
-  picker.innerHTML = keys.length
-    ? keys.map(k => `<option value="${k.replace(/"/g, '&quot;')}">${seen.get(k)}</option>`).join('')
-    : '<option>No sensors available</option>';
+  const families = new Map(); // familyKey -> { label, count }
+
+  if (aggregated) {
+    const registry = await chLoadRegistryForCharts();
+    const regIndex = new Map();
+    registry.forEach(r => regIndex.set(r.raw_component + '|' + r.raw_metric_name, r));
+    samples.forEach(s => {
+      const key = `${s.device}␟${s.component}␟${s.name}`;
+      if (!seen.has(key)) seen.set(key, `${s.device} — ${s.name}`);
+      const reg = regIndex.get(s.component + '|' + s.name);
+      if (reg && reg.gauge_worthy) {
+        const fam = `FAMILY␟${reg.major_group}␟${reg.category}`;
+        const cur = families.get(fam);
+        families.set(fam, { label: `${reg.major_group} / ${reg.category} — all sensors`, count: (cur ? cur.count : 0) + 1 });
+      }
+    });
+  } else {
+    samples.forEach(s => {
+      const key = `${s.device}␟${s.group}␟${s.name}`;
+      if (!seen.has(key)) seen.set(key, `${s.device} — ${s.name}`);
+      const fam = `FAMILYSESS␟${s.device}␟${s.group}`;
+      const cur = families.get(fam);
+      families.set(fam, { label: `${s.device} — ${s.group || 'sensors'} (all)`, count: (cur ? cur.count : 0) + 1 });
+    });
+  }
+
+  const singleKeys = [...seen.keys()].sort((a, b) => seen.get(a).localeCompare(seen.get(b)));
+  const familyKeys = [...families.keys()].filter(k => families.get(k).count > 1).sort((a, b) => families.get(a).label.localeCompare(families.get(b).label));
+
+  let html = '';
+  if (familyKeys.length) {
+    html += '<optgroup label="Sensor families (grouped)">' +
+      familyKeys.map(k => `<option value="${k.replace(/"/g, '&quot;')}">▤ ${families.get(k).label} (${families.get(k).count})</option>`).join('') +
+      '</optgroup>';
+  }
+  html += '<optgroup label="Individual sensors">' +
+    singleKeys.map(k => `<option value="${k.replace(/"/g, '&quot;')}">${seen.get(k)}</option>`).join('') +
+    '</optgroup>';
+  picker.innerHTML = (familyKeys.length || singleKeys.length) ? html : '<option>No sensors available</option>';
   chRenderSelectedChart();
 }
 
 const CH_STAT_LABELS = { min: 'Minimum', max: 'Maximum', avg: 'Average', stddev: 'Std. Deviation' };
 
-function chGetChartPoints() {
+// Distinct, readable colors for up to ~14 series before repeating - real
+// hardware families (12 CPU cores, a handful of RAM sticks) fit
+// comfortably without needing a huge palette.
+const CH_SERIES_COLORS = ['#d4af37','#8bc34a','#4caf6d','#e0a72e','#7a5a9e','#5a7a8c','#d05555','#c8862a','#4a9fd4','#e07ac9','#9ad44a','#d47a4a','#4ad4c4','#a0a0a0'];
+
+async function chGetChartPoints() {
   const picker = document.getElementById('chSensorPicker');
   const key = picker.value;
   const aggregated = chChartScope === 'history' || chSessionIsAggregated;
   if (!key) return { points: [], unit: '', title: '' };
+
+  if (key.startsWith('FAMILY␟') && aggregated) {
+    const [, majorGroup, category] = key.split('␟');
+    const samples = chChartScope === 'session' ? (chSessionSamplesCache || []) : (chHistorySamplesCache || []);
+    const registry = await chLoadRegistryForCharts();
+    const regIndex = new Map();
+    registry.forEach(r => regIndex.set(r.raw_component + '|' + r.raw_metric_name, r));
+    const byInstance = new Map(); // instance_label -> [{label, value}]
+    let unit = '';
+    samples.forEach(s => {
+      const reg = regIndex.get(s.component + '|' + s.name);
+      if (!reg || reg.major_group !== majorGroup || reg.category !== category || !reg.gauge_worthy) return;
+      unit = unit || chGuessUnit(s.name, category);
+      const label = s.date ? new Date(s.date).toLocaleDateString() : '?';
+      if (!byInstance.has(reg.instance_label)) byInstance.set(reg.instance_label, []);
+      byInstance.get(reg.instance_label).push({ label, value: s[chChartStat], sortKey: s.date || '' });
+    });
+    const series = [...byInstance.entries()].map(([label, pts], i) => ({
+      label, color: CH_SERIES_COLORS[i % CH_SERIES_COLORS.length],
+      points: pts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+    }));
+    return { series, unit, title: `${majorGroup} / ${category} — every sensor (${CH_STAT_LABELS[chChartStat]})` };
+  }
+
+  if (key.startsWith('FAMILYSESS␟') && !aggregated) {
+    const [, device, group] = key.split('␟');
+    const samples = chSessionSamplesCache || [];
+    const byName = new Map();
+    let unit = '';
+    samples.forEach(s => {
+      if (s.device !== device || s.group !== group) return;
+      unit = unit || chGuessUnit(s.name, group);
+      if (!byName.has(s.name)) byName.set(s.name, []);
+      byName.get(s.name).push({ label: s.t, value: s.value });
+    });
+    const series = [...byName.entries()].map(([label, pts], i) => ({
+      label, color: CH_SERIES_COLORS[i % CH_SERIES_COLORS.length], points: pts
+    }));
+    return { series, unit, title: `${device} — ${group} — every sensor` };
+  }
+
   const parts = key.split('␟');
   const samples = chChartScope === 'session' ? (chSessionSamplesCache || []) : (chHistorySamplesCache || []);
   if (!aggregated) {
@@ -2296,11 +2411,30 @@ function chGetChartPoints() {
   }
 }
 
-function chRenderSelectedChart() {
+async function chRenderSelectedChart() {
   const canvas = document.getElementById('chChartCanvas');
-  const { points, unit, title } = chGetChartPoints();
-  document.getElementById('chChartTitle').textContent = title || '';
-  if (chChartType === 'line') chDrawLineChart(canvas, points, unit);
+  const result = await chGetChartPoints();
+  document.getElementById('chChartTitle').textContent = result.title || '';
+
+  if (result.series) {
+    // A "family" selection - one series per sensor instance.
+    if (chChartType === 'scatter') {
+      chDrawAxes(canvas.getContext('2d'), canvas.width, canvas.height, { l: 60, r: 20, t: 20, b: 50 }, []);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#8a8f99'; ctx.font = '13px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Scatter needs two individual sensors, not a family - pick one from "Individual sensors" for each axis.', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+    if (chChartType === 'heatmap') chDrawHeatMap(canvas, result.series, result.unit);
+    else if (chChartType === 'bar') chDrawMultiBarChart(canvas, result.series, result.unit);
+    else chDrawMultiLineChart(canvas, result.series, result.unit);
+    return;
+  }
+
+  const { points, unit } = result;
+  if (chChartType === 'heatmap') {
+    chDrawHeatMap(canvas, [{ label: result.title || 'Value', color: CH_SERIES_COLORS[0], points }], unit);
+  } else if (chChartType === 'line') chDrawLineChart(canvas, points, unit);
   else if (chChartType === 'bar') chDrawBarChart(canvas, points, unit);
   else chDrawScatterChart(canvas, points, unit);
 }
@@ -2424,6 +2558,168 @@ function chDrawXLabels(ctx, points, xFor, y) {
   if ((points.length - 1) % step !== 0) {
     ctx.fillText(String(points[points.length - 1].label).slice(0, 12), xFor(points.length - 1), y + 16);
   }
+}
+
+// Draws a small color-swatch legend below the chart - shared by every
+// multi-series chart type so a "family" of 12 CPU cores or several RAM
+// sticks reads as distinct, named lines/bars, not an unlabeled tangle.
+function chDrawLegend(ctx, w, h, series) {
+  const padBottom = 16;
+  ctx.font = '10.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  let x = 60, y = h - padBottom, rowH = 14, maxW = w - 80;
+  series.forEach(s => {
+    const label = s.label;
+    const textW = ctx.measureText(label).width;
+    if (x + 14 + textW > maxW) { x = 60; y -= rowH; }
+    ctx.fillStyle = s.color; ctx.fillRect(x, y - 5, 10, 10);
+    ctx.fillStyle = '#c7cad1'; ctx.fillText(label, x + 14, y);
+    x += 14 + textW + 16;
+  });
+}
+
+function chMultiSeriesRange(series) {
+  const all = series.flatMap(s => s.points.map(p => p.value)).filter(v => v != null && !isNaN(v));
+  if (all.length === 0) return null;
+  let min = Math.min(...all), max = Math.max(...all);
+  if (min === max) { min -= 1; max += 1; }
+  const pad = (max - min) * 0.1;
+  return { min: min - pad, max: max + pad };
+}
+
+function chDrawMultiLineChart(canvas, series, unit) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const legendRows = Math.ceil(series.length / 6);
+  const pad = { l: 60, r: 20, t: 20, b: 50 + legendRows * 14 };
+  const allPoints = series.flatMap(s => s.points);
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = '#2a2e3a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h - pad.b); ctx.lineTo(w - pad.r, h - pad.b); ctx.stroke();
+  if (allPoints.length === 0 || series.every(s => s.points.length === 0)) {
+    ctx.fillStyle = '#8a8f99'; ctx.font = '13px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No data for this selection yet', w / 2, h / 2);
+    return;
+  }
+  const range = chMultiSeriesRange(series);
+  const { min, max } = range;
+  const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+  const labels = series.reduce((longest, s) => s.points.length > longest.length ? s.points : longest, []);
+  const xFor = i => pad.l + (labels.length > 1 ? (i / (labels.length - 1)) * plotW : plotW / 2);
+  const yFor = v => (h - pad.b) - ((v - min) / (max - min)) * plotH;
+
+  ctx.font = '11px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#8a8f99'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = min + (max - min) * (i / 4);
+    const y = yFor(v);
+    ctx.fillText((Math.round(v * 10) / 10) + (unit ? ' ' + unit : ''), pad.l - 8, y + 4);
+    ctx.strokeStyle = '#20232b'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+  }
+
+  series.forEach(s => {
+    ctx.beginPath();
+    s.points.forEach((p, i) => { const x = xFor(i), y = yFor(p.value); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.stroke();
+  });
+
+  chDrawXLabels(ctx, labels, xFor, h - pad.b);
+  chDrawLegend(ctx, w, h, series);
+}
+
+function chDrawMultiBarChart(canvas, series, unit) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const legendRows = Math.ceil(series.length / 6);
+  const pad = { l: 60, r: 20, t: 20, b: 50 + legendRows * 14 };
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = '#2a2e3a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h - pad.b); ctx.lineTo(w - pad.r, h - pad.b); ctx.stroke();
+  if (series.every(s => s.points.length === 0)) {
+    ctx.fillStyle = '#8a8f99'; ctx.font = '13px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No data for this selection yet', w / 2, h / 2);
+    return;
+  }
+  const range = chMultiSeriesRange(series);
+  const min = Math.min(0, range.min), max = range.max;
+  const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+  const labels = series.reduce((longest, s) => s.points.length > longest.length ? s.points : longest, []);
+  const groupW = plotW / labels.length;
+  const barW = Math.max(2, (groupW * 0.8) / series.length);
+  const yFor = v => (h - pad.b) - ((v - min) / (max - min)) * plotH;
+
+  ctx.font = '11px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#8a8f99'; ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const v = min + (max - min) * (i / 4);
+    const y = yFor(v);
+    ctx.fillText((Math.round(v * 10) / 10) + (unit ? ' ' + unit : ''), pad.l - 8, y + 4);
+    ctx.strokeStyle = '#20232b'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+  }
+
+  const zeroY = yFor(0);
+  labels.forEach((_, i) => {
+    const groupX = pad.l + i * groupW + groupW * 0.1;
+    series.forEach((s, si) => {
+      const p = s.points[i];
+      if (!p) return;
+      const x = groupX + si * barW, y = yFor(p.value);
+      ctx.fillStyle = s.color;
+      ctx.fillRect(x, Math.min(y, zeroY), barW * 0.9, Math.abs(zeroY - y));
+    });
+  });
+
+  chDrawXLabels(ctx, labels, i => pad.l + (i + 0.5) * groupW, h - pad.b);
+  chDrawLegend(ctx, w, h, series);
+}
+
+// Rows = sensor instances, columns = time/session, color = how close
+// that reading sits to the row's OWN observed range (not a global scale -
+// a 40-90C CPU and a 1.2-1.5V rail need different color scales to both
+// read meaningfully). Real, useful for scanning "which sensor, which
+// moment" was the outlier across many sensors at once, the gap none of
+// line/bar/scatter cover well when there are more than a few sensors.
+function chDrawHeatMap(canvas, series, unit) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const pad = { l: 160, r: 20, t: 20, b: 50 };
+  ctx.clearRect(0, 0, w, h);
+  if (series.length === 0 || series.every(s => s.points.length === 0)) {
+    ctx.fillStyle = '#8a8f99'; ctx.font = '13px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('No data for this selection yet', w / 2, h / 2);
+    return;
+  }
+  const labels = series.reduce((longest, s) => s.points.length > longest.length ? s.points : longest, []);
+  const cellW = (w - pad.l - pad.r) / Math.max(1, labels.length);
+  const cellH = (h - pad.t - pad.b) / series.length;
+
+  // Cool-to-warm scale (blue = low relative to this row's own range, red
+  // = high) - a real heat scale, not the red/amber/green safety palette,
+  // since this is about relative intensity within a row, not a pass/fail
+  // verdict.
+  const colorFor = frac => {
+    const t = Math.max(0, Math.min(1, frac));
+    const stops = [[90, 140, 220], [212, 175, 55], [200, 60, 60]];
+    const seg = t < 0.5 ? [stops[0], stops[1], t * 2] : [stops[1], stops[2], (t - 0.5) * 2];
+    const [c1, c2, f] = seg;
+    const r = Math.round(c1[0] + (c2[0] - c1[0]) * f), g = Math.round(c1[1] + (c2[1] - c1[1]) * f), b = Math.round(c1[2] + (c2[2] - c1[2]) * f);
+    return `rgb(${r},${g},${b})`;
+  };
+
+  series.forEach((s, row) => {
+    const values = s.points.map(p => p.value).filter(v => v != null && !isNaN(v));
+    const rmin = Math.min(...values), rmax = Math.max(...values);
+    const y = pad.t + row * cellH;
+    s.points.forEach((p, col) => {
+      if (p.value == null || isNaN(p.value)) return;
+      const frac = rmax === rmin ? 0.5 : (p.value - rmin) / (rmax - rmin);
+      ctx.fillStyle = colorFor(frac);
+      ctx.fillRect(pad.l + col * cellW, y, Math.ceil(cellW) + 1, Math.ceil(cellH) + 1);
+    });
+    ctx.fillStyle = '#c7cad1'; ctx.font = '10.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(s.label.slice(0, 24), pad.l - 8, y + cellH / 2);
+  });
+
+  chDrawXLabels(ctx, labels, i => pad.l + (i + 0.5) * cellW, h - pad.b);
+  ctx.fillStyle = '#8a8f99'; ctx.font = '10.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('Color = relative to each row\'s own range, not a global scale' + (unit ? ' (' + unit + ')' : ''), pad.l, h - 4);
 }
 
 // Historical rows live in a file on disk and don't depend on LibreHardwareMonitor
