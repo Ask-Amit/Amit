@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.54</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.55</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1821,6 +1821,35 @@ function escHtml(s) { return (s == null ? '' : String(s)).replace(/</g, '&lt;');
 // data without re-querying Supabase.
 let LAST_COMPONENT_ROWS = {};
 let LAST_COMPONENT_ISSUES = {};
+let LAST_MASTER_DUMP_ROWS = [];
+
+// Ryan's direct request 2026-07-17: a downloadable file of every raw data
+// point behind a report, so it can be handed to someone else (another
+// technician, a builder, whoever) rather than only ever viewable inside
+// this dashboard. Plain CSV - opens directly in Excel/Sheets/Numbers with
+// no special software, which is the actual point of "give it to somebody
+// else."
+function downloadMasterDump(filenameHint) {
+  if (!LAST_MASTER_DUMP_ROWS.length) return;
+  const cols = ['component', 'title', 'metric_name', 'category', 'min_value', 'max_value', 'avg_value', 'stddev_value', 'sample_count'];
+  const escCsv = v => {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const lines = [cols.join(',')];
+  LAST_MASTER_DUMP_ROWS.forEach(row => { lines.push(cols.map(c => escCsv(row[c])).join(',')); });
+  const csv = lines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `computer-health-${filenameHint || 'session'}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 // Ryan's direct request 2026-07-17 (the morning after the report-fixing
 // marathon): a real cumulative investigation, not a running list of raw
@@ -1898,7 +1927,10 @@ function renderComponentRollup(analysis) {
     color = COLOR.good;
   }
   const infoNote = infoCount ? ` <span style="color:#8a8f99">(${infoCount} likely sensor misreport${infoCount === 1 ? '' : 's'} noted, not a real concern.)</span>` : '';
-  return `<li style="margin:6px 0"><strong>${escHtml(analysis.component)}</strong> <span style="color:#8a8f99">(${analysis.sensorCount} sensors combined):</span> <span style="color:${color}">${statusText}</span>${infoNote} <span class="view-link" onclick="openComponentSpreadsheet('${escHtml(analysis.component)}')">View full breakdown →</span></li>`;
+  // Double-click anywhere on the row, not just the link text - Ryan's
+  // direct request 2026-07-17: the whole report area should feel
+  // drillable, not just one small link buried in it.
+  return `<li style="margin:6px 0;cursor:pointer" ondblclick="openComponentSpreadsheet('${escHtml(analysis.component)}')" title="Double-click for the full sensor-by-sensor breakdown"><strong>${escHtml(analysis.component)}</strong> <span style="color:#8a8f99">(${analysis.sensorCount} sensors combined):</span> <span style="color:${color}">${statusText}</span>${infoNote} <span class="view-link" onclick="openComponentSpreadsheet('${escHtml(analysis.component)}')">View full breakdown →</span></li>`;
 }
 
 function openComponentSpreadsheet(component) {
@@ -1978,13 +2010,15 @@ async function loadTrackerMetricsBreakdown(eventId) {
     });
     LAST_COMPONENT_ROWS = byComponent;
     LAST_COMPONENT_ISSUES = {};
+    LAST_MASTER_DUMP_ROWS = data;
     const componentOrder = ['CPU', 'GPU', 'RAM', 'Storage'];
     const orderedComponents = componentOrder.filter(c => byComponent[c]).concat(Object.keys(byComponent).filter(c => !componentOrder.includes(c)));
 
     const analyses = orderedComponents.map(comp => analyzeComponentRows(comp, byComponent[comp]));
     analyses.forEach(a => { LAST_COMPONENT_ISSUES[a.component] = a.issues; });
 
-    let html = '<div class="section-title" style="margin-top:16px">1. Resource Usage — Combined Analysis Per Component</div>';
+    let html = '<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn secondary" style="font-size:12px;padding:6px 12px" onclick="downloadMasterDump(\'' + new Date().toISOString().slice(0, 10) + '\')">⬇ Download Master Dump (CSV)</button></div>';
+    html += '<div class="section-title" style="margin-top:10px">1. Resource Usage — Combined Analysis Per Component</div>';
     html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Each component\'s sensors analyzed together, not one at a time - click "View full breakdown" for the complete sensor-by-sensor spreadsheet with any flagged items highlighted.</p>';
     html += '<ul style="margin:6px 0 0 18px">' + analyses.map(renderComponentRollup).join('') + '</ul>';
     html += buildThermalHeadroomSection(byComponent, escHtml);
