@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.65</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.66</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1350,6 +1350,84 @@ function chBuildTree(registry, rows) {
   return { tree, categoryScores, majorScores, computerScore, unclassified };
 }
 
+// Software major-group - Ryan's direct request 2026-07-18 ("we were
+// gonna create a software gauge... the errors, the updates, security...
+// the overall Windows functionality"). Unlike CPU/GPU/RAM/etc, this comes
+// from live Windows APIs and the reliability-history table, not the
+// hardware-sensor tree - so it's built separately and merged into
+// chTreeResult afterward, rather than flowing through chBuildTree/the
+// component registry the way sensor data does. Also, unlike a sensor
+// session, this reflects CURRENT STANDING health (is antivirus on right
+// now, how many errors since the last update) rather than one specific
+// tracking run - real and honest, just a different kind of "current."
+async function chLoadSoftwareGauge() {
+  const tree = { Reliability: {}, Security: {}, Browser: {} };
+  try {
+    const r = await fetch(BRIDGE + '/api/reliability', { cache: 'no-store' });
+    const d = await r.json();
+    const records = d.records || [];
+    const minidumps = d.minidumps || [];
+    const errorRecords = records.filter(rec => /Error|Hang|unexpected/i.test(rec.source + ' ' + rec.message));
+    const errorCountSinceUpdate = errorRecords.filter(rec => !rec.beforeLastUpdate).length;
+    const errorScore = errorCountSinceUpdate === 0 ? 100 : errorCountSinceUpdate <= 2 ? 85 : errorCountSinceUpdate <= 7 ? 55 : 15;
+    const bsodScore = minidumps.length === 0 ? 100 : minidumps.length <= 2 ? 55 : 15;
+    tree.Reliability['Errors Since Last Update'] = { row: { min_value: errorCountSinceUpdate, max_value: errorCountSinceUpdate, avg_value: errorCountSinceUpdate, title: 'Windows Reliability' }, reg: { raw_metric_name: 'errors', instance_label: 'Errors Since Last Update' }, score: errorScore, gaugeWorthy: true };
+    tree.Reliability['BSOD Crash Dumps'] = { row: { min_value: minidumps.length, max_value: minidumps.length, avg_value: minidumps.length, title: 'Windows Reliability' }, reg: { raw_metric_name: 'crashes', instance_label: 'BSOD Crash Dumps' }, score: bsodScore, gaugeWorthy: true };
+  } catch (e) {}
+  try {
+    const r = await fetch(BRIDGE + '/api/security', { cache: 'no-store' });
+    const d = await r.json();
+    if (d.found) {
+      // Hard fail, not a gradient - Ryan's direct request 2026-07-18:
+      // real-time protection being off is a genuinely at-risk state, not
+      // "somewhat concerning," the same way a redlined temperature is a
+      // hard 0 rather than a soft penalty.
+      const protectedOk = d.antivirusEnabled && d.realTimeProtectionEnabled;
+      tree.Security['Antivirus Protection'] = { row: { min_value: protectedOk ? 100 : 0, max_value: protectedOk ? 100 : 0, avg_value: protectedOk ? 100 : 0, title: 'Windows Security' }, reg: { raw_metric_name: 'protection status', instance_label: 'Antivirus Protection' }, score: protectedOk ? 100 : 0, gaugeWorthy: true };
+      const backupScore = d.oneDriveRunning ? 90 : 60;
+      tree.Security['Backup (OneDrive)'] = { row: { min_value: backupScore, max_value: backupScore, avg_value: backupScore, title: 'Windows Security' }, reg: { raw_metric_name: 'backup status', instance_label: 'Backup (OneDrive)' }, score: backupScore, gaugeWorthy: true };
+    }
+  } catch (e) {}
+  try {
+    // Ryan's direct request 2026-07-18: the browser is "controlled by
+    // Windows" the way any other running software is, and belongs in the
+    // same "how the system operates" bucket as Reliability/Security, not
+    // off on its own.
+    const r = await fetch(BRIDGE + '/api/browser', { cache: 'no-store' });
+    const d = await r.json();
+    const browsers = d.browsers || [];
+    if (browsers.length) {
+      const totalMem = browsers.reduce((sum, b) => sum + b.totalMemMB, 0);
+      const totalExt = browsers.reduce((sum, b) => sum + b.extensionCount, 0);
+      const extScore = totalExt < 8 ? 100 : totalExt <= 15 ? 55 : 15;
+      const memScore = totalMem < 1500 ? 100 : totalMem <= 3000 ? 55 : 15;
+      tree.Browser['Extensions (all browsers)'] = { row: { min_value: totalExt, max_value: totalExt, avg_value: totalExt, title: 'Browser' }, reg: { raw_metric_name: 'extension count', instance_label: 'Extensions (all browsers)' }, score: extScore, gaugeWorthy: true };
+      tree.Browser['Memory (all browsers)'] = { row: { min_value: totalMem, max_value: totalMem, avg_value: totalMem, title: 'Browser' }, reg: { raw_metric_name: 'memory', instance_label: 'Memory (all browsers)' }, score: memScore, gaugeWorthy: true };
+    }
+  } catch (e) {}
+
+  const categoryScores = {};
+  Object.entries(tree).forEach(([cat, instances]) => {
+    const scores = Object.values(instances).filter(i => i.gaugeWorthy).map(i => i.score);
+    if (scores.length) categoryScores[cat] = chCompositeScore(scores);
+  });
+  if (Object.keys(categoryScores).length === 0) return null; // bridge unreachable - no Software data available at all
+  return { tree, categoryScores, majorScore: chCompositeScore(Object.values(categoryScores)) };
+}
+
+// Folds the Software gauge into an already-built chTreeResult, recomputing
+// the Computer composite so a real security/crash problem can pull the
+// whole grade down the same way a failing SSD does.
+async function chMergeSoftwareIntoTree() {
+  if (!chTreeResult || !bridgeUp) return;
+  const sw = await chLoadSoftwareGauge();
+  if (!sw) return;
+  chTreeResult.tree.Software = sw.tree;
+  chTreeResult.categoryScores.Software = sw.categoryScores;
+  chTreeResult.majorScores.Software = sw.majorScore;
+  chTreeResult.computerScore = chCompositeScore(Object.values(chTreeResult.majorScores));
+}
+
 // ---- state + data loading ----
 let chRegistryCache = null;
 let chTreeResult = null;
@@ -1385,6 +1463,10 @@ async function loadComputerHealthTree(devId) {
   chLastRunLabel = 'Last run: ' + new Date(ev.created_at).toLocaleString();
   chLiveMode = false;
   chLevel = 'computer'; chPathMajor = null; chPathCategory = null;
+  // Software reflects CURRENT standing health (is antivirus on right now,
+  // errors since the last update), not this specific past session - only
+  // available when the bridge on this machine is reachable right now.
+  await chMergeSoftwareIntoTree();
   chRenderCurrentLevel();
 }
 
@@ -1406,6 +1488,7 @@ async function chRefreshLiveIfActive() {
   chTreeResult = chBuildTree(registry, d.rows);
   chLastRunLabel = 'Live — updating now';
   chLiveMode = true;
+  await chMergeSoftwareIntoTree();
   // Rebuild in place at whatever depth the user was already looking at,
   // instead of always snapping back to the top Computer gauge every few
   // seconds - a live refresh should update the numbers under you, not
@@ -1590,6 +1673,7 @@ function chShortenInstanceLabel(label) {
 // we need to label the gauges."
 function chGuessUnit(metricName, category) {
   const m = (metricName || '').toLowerCase();
+  if (category === 'Browser' && m.includes('memory')) return 'MB';
   if (category === 'Temperature') return '°C';
   if (category === 'Voltage' || / vid$/.test(m) || m.includes('voltage') || m === 'vcore') return 'V';
   if (category === 'Clock') return 'MHz';
