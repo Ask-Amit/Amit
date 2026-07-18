@@ -218,7 +218,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.64</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.65</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2538,12 +2538,51 @@ function buildKeyFacts(rows) {
   return facts.length ? facts.map(f => '- ' + f).join('\n') : '(no longevity/wear sensors were present in this session)';
 }
 
-function buildCopilotPacket() {
+// Real per-sample time series, not the condensed one-row-per-sensor
+// summary - Ryan's direct request 2026-07-18, after realizing the
+// Supabase-aggregated CSV can't support a real "line graph over time"
+// (only one min/max/avg per sensor per session). resource_watch_result.txt
+// on the local drive still has every individual sample from the session
+// (every ~30s), and /api/resource-history already serves the FULL
+// retained log, not just a live snapshot - the same source the Hardware
+// tab's own trend charts already use. Only available while the bridge on
+// THIS machine can still reach that file (the current session, or the
+// last one that ran before the tracker was stopped) - falls back to the
+// condensed Supabase summary with an honest note when it isn't.
+async function buildRawTimeSeriesCsv() {
+  if (!bridgeUp) return null;
+  try {
+    const r = await fetch(BRIDGE + '/api/resource-history', { cache: 'no-store' });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const rows = parseSensorHistoryRows(d.lines || []);
+    if (rows.length === 0) return null;
+    const lines = ['timestamp,sensor_path,value'];
+    rows.forEach(row => {
+      Object.entries(row.sensors).forEach(([path, val]) => {
+        const escPath = /[",\n]/.test(path) ? '"' + path.replace(/"/g, '""') + '"' : path;
+        lines.push(`${row.t},${escPath},${val}`);
+      });
+    });
+    return { csv: lines.join('\r\n'), sampleCount: rows.length };
+  } catch (e) { return null; }
+}
+
+async function buildCopilotPacket() {
   const meta = LAST_REPORT_META || {};
   const breakdownEl = document.getElementById('trackerMetricsBreakdown');
   const findingsText = breakdownEl ? breakdownEl.innerText.trim() : '(no findings text available)';
-  const csv = LAST_MASTER_DUMP_ROWS.length ? buildMasterDumpCsv() : '(no raw sensor rows available)';
   const keyFacts = LAST_MASTER_DUMP_ROWS.length ? buildKeyFacts(LAST_MASTER_DUMP_ROWS) : '(no raw sensor rows available)';
+
+  const timeSeries = await buildRawTimeSeriesCsv();
+  let csv, csvNote;
+  if (timeSeries) {
+    csv = timeSeries.csv;
+    csvNote = `Long-format time series: one row per (timestamp, sensor) pair, ${timeSeries.sampleCount} timestamped samples total across every sensor - real per-sample data straight from this session's local log, not a condensed summary. Pivot this by sensor_path with timestamp on the x-axis for a real line-over-time chart per sensor.`;
+  } else {
+    csv = LAST_MASTER_DUMP_ROWS.length ? buildMasterDumpCsv() : '(no raw sensor rows available)';
+    csvNote = 'Condensed summary only (one row per sensor: min/max/avg/stddev for the whole session) - the per-sample local log wasn\'t reachable from this browser right now (the bridge may not be running on this machine, or this session predates that capability), so a true line-over-time chart isn\'t possible from this file. If you need real per-sample data, it needs to be pulled from the SAME computer while Computer Health is connected to it.';
+  }
 
   return `You are continuing a technical diagnostic session that was started by a computer-health analysis system called "Amit" on a real Windows PC. You do not need to rename yourself or claim to be Amit - just continue the SAME investigation, in your own voice, building on the real data and findings below rather than starting over or giving generic advice.
 
@@ -2559,18 +2598,22 @@ IMPORTANT: The numbers above and in the CSV below are ALREADY your live data fee
 ${findingsText}
 
 === FULL RAW SENSOR DATA FOR THIS SESSION (CSV) ===
+${csvNote}
+
 ${csv}
 
 === WHAT TO DO NOW ===
 Pick up exactly where this analysis leaves off, using the real numbers above. If something above looks like it needs deeper investigation, help think through likely causes and next diagnostic steps. Ask clarifying questions about actual usage (gaming, video editing, just browsing, etc.) if that would sharpen the answer.
 
 === IF ASKED FOR CHARTS/GRAPHS ===
-Be ready to turn any of the numbers above into a chart or graph (e.g. in Excel/Office, or however you're able to) if asked - that's something you can do well that this dashboard currently can't. One real limitation to be upfront about: this CSV has only ONE row per sensor (that session's min/max/average) - there's no per-second timestamp data in it, so a true line-over-time graph isn't possible from this single session alone. A real trend line would need multiple sessions across different dates compared against each other - say so plainly if asked for a time-series chart from just this one file, rather than inventing a time axis that isn't really there.`;
+Be ready to turn any of the numbers above into a chart or graph (e.g. in Excel/Office, or however you're able to) if asked - that's something you can do well that this dashboard currently can't. ${timeSeries ? 'The CSV above IS real per-sample, per-timestamp data - a genuine line-over-time chart per sensor is possible directly from it (pivot by sensor_path, timestamp on the x-axis).' : 'The CSV above is a condensed one-row-per-sensor summary, not per-sample data - a true line-over-time graph is NOT possible from it alone. Say so plainly if asked for a time-series chart, rather than inventing a time axis that isn\'t really there.'}`;
 }
 
 async function sendToCopilot() {
   const btn = document.getElementById('copilotHandoffBtn');
-  const packet = buildCopilotPacket();
+  if (btn) { btn.disabled = true; btn.textContent = 'Gathering session data…'; }
+  const packet = await buildCopilotPacket();
+  if (btn) btn.disabled = false;
   try {
     await navigator.clipboard.writeText(packet);
   } catch (e) {
