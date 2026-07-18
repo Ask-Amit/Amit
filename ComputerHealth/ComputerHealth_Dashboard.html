@@ -191,7 +191,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.55</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.56</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1856,12 +1856,12 @@ function downloadMasterDump(filenameHint) {
 // deltas. For every sensor in a component, decide whether it's actually
 // worth flagging - using genuine domain thresholds (input-lag risk above
 // 5% DPC/interrupt time, disk latency above 20ms, free space below 10%,
-// temperature headroom from SAFE_TEMP_LIMITS, etc.) - then combine that
+// temperature headroom from the amit_hardware_specs table, etc.) - then combine that
 // into one verdict per component instead of narrating every sensor.
 // Deliberately conservative and pattern-based rather than exhaustive -
 // stated honestly in the report itself, not presented as a certified
 // diagnosis.
-function analyzeComponentRows(component, rows) {
+function analyzeComponentRows(component, rows, specs) {
   const issues = [];
   rows.forEach(r => {
     const name = (r.metric_name || '').toLowerCase();
@@ -1873,11 +1873,11 @@ function analyzeComponentRows(component, rows) {
       if (max > IMPLAUSIBLE_TEMP_C) {
         flagged = { severity: 'info', reason: `Peaked at ${max}°C - not a physically real reading for this sensor, almost certainly a misreport. Safe to ignore, but worth confirming nothing else relies on this exact sensor.` };
       } else {
-        const known = SAFE_TEMP_LIMITS.find(k => k.match.test(r.title || ''));
+        const known = (specs || []).find(s => s.max_temp_c != null && s.regex && s.regex.test(r.title || ''));
         if (known) {
-          const headroom = known.limit - max;
-          if (headroom <= 0) flagged = { severity: 'investigate', reason: `Peaked at ${max}°C, at or above the typical safe limit (~${known.limit}°C) for this hardware - worth investigating cooling.` };
-          else if (headroom <= 15) flagged = { severity: 'investigate', reason: `Peaked at ${max}°C, only ~${Math.round(headroom)}°C below the typical safe limit (~${known.limit}°C) - getting close, worth keeping an eye on.` };
+          const headroom = known.max_temp_c - max;
+          if (headroom <= 0) flagged = { severity: 'investigate', reason: `Peaked at ${max}°C, at or above the typical safe limit (~${known.max_temp_c}°C) for this hardware - worth investigating cooling.` };
+          else if (headroom <= 15) flagged = { severity: 'investigate', reason: `Peaked at ${max}°C, only ~${Math.round(headroom)}°C below the typical safe limit (~${known.max_temp_c}°C) - getting close, worth keeping an eye on.` };
         }
       }
     } else if (/interrupt time|dpc time/.test(name)) {
@@ -2014,14 +2014,15 @@ async function loadTrackerMetricsBreakdown(eventId) {
     const componentOrder = ['CPU', 'GPU', 'RAM', 'Storage'];
     const orderedComponents = componentOrder.filter(c => byComponent[c]).concat(Object.keys(byComponent).filter(c => !componentOrder.includes(c)));
 
-    const analyses = orderedComponents.map(comp => analyzeComponentRows(comp, byComponent[comp]));
+    const specs = await loadHardwareSpecs();
+    const analyses = orderedComponents.map(comp => analyzeComponentRows(comp, byComponent[comp], specs));
     analyses.forEach(a => { LAST_COMPONENT_ISSUES[a.component] = a.issues; });
 
     let html = '<div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn secondary" style="font-size:12px;padding:6px 12px" onclick="downloadMasterDump(\'' + new Date().toISOString().slice(0, 10) + '\')">⬇ Download Master Dump (CSV)</button></div>';
     html += '<div class="section-title" style="margin-top:10px">1. Resource Usage — Combined Analysis Per Component</div>';
     html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Each component\'s sensors analyzed together, not one at a time - click "View full breakdown" for the complete sensor-by-sensor spreadsheet with any flagged items highlighted.</p>';
     html += '<ul style="margin:6px 0 0 18px">' + analyses.map(renderComponentRollup).join('') + '</ul>';
-    html += buildThermalHeadroomSection(byComponent, escHtml);
+    html += buildThermalHeadroomSection(byComponent, escHtml, specs);
     html += renderCombinedAnalysis(analyses);
     html += await buildLongevitySection(byComponent);
     el.innerHTML = html;
@@ -2042,28 +2043,28 @@ async function loadTrackerMetricsBreakdown(eventId) {
 // dominates the grade when known (a drive at 10% life remaining is a
 // real, near-term repair regardless of how young everything else is) -
 // hardware age is a softer, generational signal shown alongside it.
-const HARDWARE_GENERATION_DB = [
-  { match: /ryzen 9 7|ryzen 7 7|ryzen 5 7|ryzen 9 8|ryzen 7 8/i, label: 'AMD Ryzen 7000/8000 series (Zen 4)', year: 2022 },
-  { match: /ryzen 9 5|ryzen 7 5|ryzen 5 5/i, label: 'AMD Ryzen 5000 series (Zen 3)', year: 2020 },
-  { match: /ryzen 9 39|ryzen 7 37|ryzen 5 36|ryzen 9 38/i, label: 'AMD Ryzen 3000 series (Zen 2)', year: 2019 },
-  { match: /ryzen 7 2|ryzen 5 2/i, label: 'AMD Ryzen 2000 series (Zen+)', year: 2018 },
-  { match: /core i9-13|core i7-13|core i5-13|core i9-14|core i7-14/i, label: 'Intel 13th/14th Gen', year: 2022 },
-  { match: /core i9-12|core i7-12|core i5-12/i, label: 'Intel 12th Gen', year: 2021 },
-  { match: /core i9-10|core i7-10|core i5-10|core i9-11|core i7-11/i, label: 'Intel 10th/11th Gen', year: 2020 },
-  { match: /core i9-9|core i7-9|core i5-9/i, label: 'Intel 9th Gen', year: 2018 },
-  { match: /rtx 40/i, label: 'NVIDIA RTX 40 series', year: 2022 },
-  { match: /rtx 30/i, label: 'NVIDIA RTX 30 series', year: 2020 },
-  { match: /rtx 20/i, label: 'NVIDIA RTX 20 series', year: 2018 },
-  { match: /gtx 16/i, label: 'NVIDIA GTX 16 series', year: 2019 },
-  { match: /gtx 10/i, label: 'NVIDIA GTX 10 series', year: 2016 },
-  { match: /radeon rx 7/i, label: 'AMD Radeon RX 7000 series', year: 2022 },
-  { match: /radeon rx 6/i, label: 'AMD Radeon RX 6000 series', year: 2020 },
-  { match: /x670|b650/i, label: 'AMD 600-series chipset', year: 2022 },
-  { match: /b550|x570/i, label: 'AMD 500-series chipset', year: 2019 },
-  { match: /b450|x470/i, label: 'AMD 400-series chipset', year: 2018 },
-  { match: /z790|b760/i, label: 'Intel 700-series chipset', year: 2022 },
-  { match: /z690|b660/i, label: 'Intel 600-series chipset', year: 2021 },
-];
+// Ryan's direct request 2026-07-17: replaces the hardcoded generation/
+// temp-limit tables that used to live directly in this file with a real,
+// growable database table (amit_hardware_specs) - see
+// migration_2026-07-17_002_hardware_specs.sql. Fetched once per page
+// visit and cached, since spec data changes rarely; each row's
+// model_pattern is compiled to a real RegExp for matching against
+// whatever a sensor's own title says.
+let CACHED_HARDWARE_SPECS = null;
+async function loadHardwareSpecs() {
+  if (CACHED_HARDWARE_SPECS) return CACHED_HARDWARE_SPECS;
+  if (!db) return [];
+  try {
+    const { data, error } = await db.from('amit_hardware_specs').select('*');
+    if (error || !data) return [];
+    CACHED_HARDWARE_SPECS = data.map(s => {
+      let regex = null;
+      try { regex = new RegExp(s.model_pattern, 'i'); } catch (e) {}
+      return Object.assign({}, s, { regex });
+    });
+    return CACHED_HARDWARE_SPECS;
+  } catch (e) { return []; }
+}
 
 function gradeFromScore(score) {
   if (score >= 90) return 'A';
@@ -2094,21 +2095,24 @@ async function buildLongevitySection(byComponent) {
     });
   } catch (e) {}
 
-  // Signal 2: hardware generation inferred from model naming - no
-  // manufacture date exists anywhere to draw from, stated plainly.
+  // Signal 2: hardware generation, looked up from the amit_hardware_specs
+  // table instead of a hardcoded list - no manufacture date exists
+  // anywhere to draw from, stated plainly either way.
+  const specs = await loadHardwareSpecs();
   const titlesToCheck = [];
-  if (byComponent['CPU'] && byComponent['CPU'][0]) titlesToCheck.push(byComponent['CPU'][0].title);
-  if (byComponent['GPU'] && byComponent['GPU'][0]) titlesToCheck.push(byComponent['GPU'][0].title);
-  if (byComponent['Motherboard'] && byComponent['Motherboard'][0]) titlesToCheck.push(byComponent['Motherboard'][0].title);
+  ['CPU', 'GPU', 'Motherboard'].forEach(compType => {
+    if (byComponent[compType] && byComponent[compType][0]) titlesToCheck.push({ title: byComponent[compType][0].title, compType });
+  });
   const currentYear = new Date().getFullYear();
-  titlesToCheck.forEach(title => {
-    const known = HARDWARE_GENERATION_DB.find(k => k.match.test(title || ''));
+  titlesToCheck.forEach(({ title, compType }) => {
+    const known = specs.find(s => s.component_type === compType && s.release_year != null && s.regex && s.regex.test(title || ''));
     if (!known) return;
-    const age = currentYear - known.year;
+    const age = currentYear - known.release_year;
     const ageScore = age <= 3 ? 95 : age <= 5 ? 80 : age <= 7 ? 62 : age <= 9 ? 42 : 20;
     worstScore = Math.min(worstScore, ageScore);
     const grade = gradeFromScore(ageScore);
-    findings.push({ grade, text: `<strong>${escHtml(title)}:</strong> ${known.label}, roughly ${age} year${age === 1 ? '' : 's'} old by generation - inferred from the model name only, not an actual purchase date.` });
+    const confidenceNote = known.confidence === 'manufacturer-spec' ? '' : ' (estimated generation, not a verified spec)';
+    findings.push({ grade, text: `<strong>${escHtml(title)}:</strong> ${escHtml(known.model_family)}, roughly ${age} year${age === 1 ? '' : 's'} old by generation${confidenceNote} - inferred from the model name only, not an actual purchase date.` });
   });
 
   if (findings.length === 0) {
@@ -2135,21 +2139,13 @@ async function buildLongevitySection(byComponent) {
 // unusual), a headroom figure, and a plain-language verdict, plus a
 // sanity check that flags physically-impossible peaks as likely
 // misreports rather than alarming data.
-const SAFE_TEMP_LIMITS = [
-  { match: /ryzen 9|ryzen 7|ryzen 5|threadripper/i, label: 'AMD Ryzen', limit: 95 },
-  { match: /ryzen/i, label: 'AMD Ryzen', limit: 95 },
-  { match: /core i9|core i7|core i5|core i3/i, label: 'Intel Core', limit: 100 },
-  { match: /rtx 40|rtx 30|rtx 20|geforce/i, label: 'NVIDIA GeForce', limit: 93 },
-  { match: /radeon|rx 6|rx 7/i, label: 'AMD Radeon', limit: 110 },
-  { match: /nvme|ssd|samsung ssd|wd |crucial|kingston/i, label: 'SSD/NVMe', limit: 70 },
-];
 const IMPLAUSIBLE_TEMP_C = 150; // above this, no consumer sensor is reporting a real temperature
 
 function findTempRows(rows) {
   return rows.filter(r => /temp/i.test(r.metric_name || '') || /temp/i.test(r.category || ''));
 }
 
-function buildThermalHeadroomSection(byComponent, esc) {
+function buildThermalHeadroomSection(byComponent, esc, specs) {
   const lines = [];
   Object.keys(byComponent).forEach(comp => {
     const tempRows = findTempRows(byComponent[comp]);
@@ -2165,15 +2161,16 @@ function buildThermalHeadroomSection(byComponent, esc) {
         lines.push(`<li style="margin:4px 0"><strong>${esc(title)}:</strong> peaked at ${peak}°C, which isn't a physically real reading for this kind of sensor - almost certainly a misreported sensor value, not an actual temperature. Safe to ignore.</li>`);
         return;
       }
-      const known = SAFE_TEMP_LIMITS.find(k => k.match.test(title));
+      const known = (specs || []).find(s => s.max_temp_c != null && s.regex && s.regex.test(title));
       if (!known) return;
-      const headroom = known.limit - peak;
+      const headroom = known.max_temp_c - peak;
       const verdict = headroom > 30 ? 'excellent headroom, running cool' : headroom > 15 ? 'comfortable headroom' : headroom > 0 ? 'getting close to its limit - worth keeping an eye on' : 'at or above its typical safe limit - worth investigating cooling';
-      lines.push(`<li style="margin:4px 0"><strong>${esc(title)}:</strong> peaked at ${peak}°C (typical safe limit ~${known.limit}°C) - about ${Math.round(headroom)}°C of headroom, ${verdict}.</li>`);
+      const confidenceNote = known.confidence === 'manufacturer-spec' ? '' : ' (estimated typical, not a verified spec)';
+      lines.push(`<li style="margin:4px 0"><strong>${esc(title)}:</strong> peaked at ${peak}°C (safe limit ~${known.max_temp_c}°C${confidenceNote}) - about ${Math.round(headroom)}°C of headroom, ${verdict}.</li>`);
     });
   });
   if (lines.length === 0) return '';
-  return '<div class="section-title" style="margin-top:16px">2. Thermal Headroom</div><p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Safe limits are known specs for common hardware families, not measured from this specific machine - treat as a helpful reference, not an exact number.</p><ul style="margin:6px 0 0 18px">' + lines.join('') + '</ul>';
+  return '<div class="section-title" style="margin-top:16px">2. Thermal Headroom</div><p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Safe limits are drawn from the hardware specs database - manufacturer numbers where known, otherwise a labeled estimate - not measured from this specific machine.</p><ul style="margin:6px 0 0 18px">' + lines.join('') + '</ul>';
 }
 
 // --- Device init ---
