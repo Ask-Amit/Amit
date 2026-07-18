@@ -99,10 +99,12 @@
   .getting-started .btn { font-size:14px; padding:9px 20px; }
   .section-title { font-size:15px; color:#d4af37; margin:18px 0 8px; }
   .ch-gauge-panel { background:#181b23; border:1px solid #2a2e3a; border-radius:12px; padding:18px 20px 14px; margin-bottom:22px; }
-  .ch-gauge-crumb { font-size:12px; color:#9aa0ab; margin-bottom:10px; min-height:16px; }
-  .ch-gauge-crumb span { cursor:pointer; color:#d4af37; }
-  .ch-gauge-crumb span:hover { text-decoration:underline; }
-  .ch-gauge-grid { display:flex; flex-wrap:wrap; gap:22px; justify-content:center; align-items:flex-start; }
+  .ch-level-section { padding:14px 0; border-top:1px solid #22252e; }
+  .ch-level-section:first-child { border-top:none; padding-top:0; }
+  .ch-level-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .ch-level-title { font-size:13px; font-weight:700; color:#d4af37; text-transform:uppercase; letter-spacing:.05em; }
+  .ch-back-btn { font-size:11.5px; padding:5px 12px; }
+  .ch-gauge-grid { display:flex; flex-wrap:wrap; gap:22px; justify-content:flex-start; align-items:flex-start; }
   .ch-gauge-cell { display:flex; flex-direction:column; align-items:center; cursor:pointer; width:150px; }
   .ch-gauge-cell canvas { display:block; }
   .ch-gauge-cell .ch-glabel { margin-top:6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#c7cad1; text-align:center; }
@@ -208,7 +210,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.57</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.58</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -463,16 +465,15 @@
          when nothing is actively tracking right now. Double-click drills
          into major components (CPU/GPU/Motherboard/RAM/Storage/Network),
          then into that component's categories (Temperature/Voltage/Clock/
-         etc.), then into the individual sensors - a breadcrumb (chGaugeCrumb)
-         lets you climb back out at any level. When the tracker is actively
-         running, chLiveMode goes true and the whole tree redraws every time
-         a fresh reading lands, instead of showing a static last-session
-         snapshot. -->
+         etc.), then into the individual sensors - each level APPENDS below
+         the one above it (accordion-style, not a screen replace), and a
+         "← Back" button on every level below the top collapses back up to
+         it. When the tracker is actively running, chLiveMode goes true and
+         the tree redraws in place at whatever depth is open, instead of
+         showing a static last-session snapshot. -->
     <div class="ch-gauge-panel" id="chGaugePanel">
-      <div class="ch-gauge-crumb" id="chGaugeCrumb"></div>
-      <div class="ch-gauge-grid" id="chGaugeGrid"><em style="color:#8a8f99">Loading last run…</em></div>
+      <div id="chGaugeGrid"><em style="color:#8a8f99">Loading last run…</em></div>
       <div class="ch-gauge-meta" id="chGaugeMeta"></div>
-      <div id="chSensorTableWrap" class="hidden"></div>
     </div>
     <div class="getting-started" id="gettingStartedBanner">
       <h3>This computer isn't connected yet</h3>
@@ -1236,8 +1237,15 @@ function chScoreSensor(row, limit, category) {
     if (frac <= 0.70) return 100;
     return Math.round((100 - ((frac - 0.70) / 0.30) * 100) * 10) / 10;
   }
-  if (category === 'Longevity' && row.metric_name && /percentage used|life/i.test(row.metric_name)) {
+  if (category === 'Longevity' && row.metric_name && /percentage used/i.test(row.metric_name)) {
     return Math.round(Math.max(0, Math.min(100, 100 - avg)) * 10) / 10;
+  }
+  // Real bug caught live 2026-07-18 (Ryan, cross-checked against real
+  // manufacturer RAM lifespan data): "Life" is ALREADY a remaining-life
+  // percentage (100 = full life left), unlike "Percentage Used" - scoring
+  // it the same way (100 - avg) inverted a healthy 100 into a false F.
+  if (category === 'Longevity' && row.metric_name && /^life$/i.test(row.metric_name)) {
+    return Math.round(Math.max(0, Math.min(100, avg)) * 10) / 10;
   }
   if (category === 'Capacity' && /free space %/i.test(row.metric_name || '')) {
     return Math.round(Math.max(0, Math.min(100, avg)) * 10) / 10;
@@ -1249,20 +1257,61 @@ function chScoreSensor(row, limit, category) {
   }
   return 85;
 }
+// Real per-stick RAM health, from data that actually exists (Ryan's direct
+// request 2026-07-18): DDR sticks report no Power-On-Hours/Life sensor on
+// this hardware - that telemetry genuinely doesn't exist for RAM the way
+// it does for SSDs. What every stick DOES report is a set of timing values
+// (CAS latency, refresh delays) fixed by its own SPD chip - these should
+// never drift during a session, so any nonzero stddev is a real signal-
+// integrity flag, not noise. This becomes each stick's synthetic "Timing
+// Stability" gauge, the honest replacement for a fabricated lifespan gauge.
+function chBuildRamTimingStability(rowsByTitle) {
+  const out = {};
+  Object.entries(rowsByTitle).forEach(([title, rows]) => {
+    let worstPenalty = 0;
+    rows.forEach(r => {
+      if (!r.avg_value) return;
+      const driftPct = Math.abs(r.stddev_value / r.avg_value) * 100;
+      worstPenalty = Math.max(worstPenalty, driftPct);
+    });
+    out[title] = Math.round(Math.max(0, 100 - worstPenalty * 50) * 10) / 10;
+  });
+  return out;
+}
 function chBuildTree(registry, rows) {
   const regIndex = new Map();
   registry.forEach(r => regIndex.set(r.raw_component + '|' + r.raw_metric_name, r));
   const unclassified = [];
   const tree = {};
+  const ramTimingRowsByTitle = {};
   rows.forEach(row => {
     const reg = regIndex.get(row.component + '|' + row.metric_name);
     if (!reg) { unclassified.push({ component: row.component, metric_name: row.metric_name }); return; }
     const score = chScoreSensor({ ...row, metric_name: reg.raw_metric_name }, null, reg.category);
+    // Two RAM sticks (or two drives) share the same raw metric_name
+    // ("Capacity" on stick #2 and #3 alike) - fold the row's title into
+    // the instance key for RAM/Storage so each physical device gets its
+    // own gauge instead of overwriting the other's reading.
+    const needsTitleSplit = row.title && (reg.major_group === 'RAM' || reg.major_group === 'Storage');
+    const instanceKey = needsTitleSplit ? reg.instance_label + ' — ' + row.title : reg.instance_label;
+    if (reg.major_group === 'RAM' && reg.category === 'Timing' && row.title) {
+      (ramTimingRowsByTitle[row.title] = ramTimingRowsByTitle[row.title] || []).push(row);
+    }
     if (!tree[reg.major_group]) tree[reg.major_group] = {};
     if (!tree[reg.major_group][reg.category]) tree[reg.major_group][reg.category] = {};
-    if (reg.gauge_worthy || !tree[reg.major_group][reg.category][reg.instance_label]) {
-      tree[reg.major_group][reg.category][reg.instance_label] = { row, reg, score, gaugeWorthy: reg.gauge_worthy };
+    if (reg.gauge_worthy || !tree[reg.major_group][reg.category][instanceKey]) {
+      tree[reg.major_group][reg.category][instanceKey] = { row, reg, score, gaugeWorthy: reg.gauge_worthy };
     }
+  });
+  const stabilityScores = chBuildRamTimingStability(ramTimingRowsByTitle);
+  Object.entries(stabilityScores).forEach(([title, score]) => {
+    if (!tree.RAM) tree.RAM = {};
+    if (!tree.RAM.Timing) tree.RAM.Timing = {};
+    tree.RAM.Timing['Timing Stability — ' + title] = {
+      row: { min_value: score, max_value: score, avg_value: score, title },
+      reg: { instance_label: 'Timing Stability', category: 'Timing' },
+      score, gaugeWorthy: true
+    };
   });
   const categoryScores = {};
   Object.entries(tree).forEach(([major, cats]) => {
@@ -1307,7 +1356,7 @@ async function loadComputerHealthTree(devId) {
     return;
   }
   const { data: rows } = await db.from('amit_device_session_metrics')
-    .select('component,metric_name,min_value,max_value,avg_value,stddev_value')
+    .select('component,metric_name,title,min_value,max_value,avg_value,stddev_value')
     .eq('event_id', ev.id);
   chTreeResult = chBuildTree(registry, rows || []);
   chLastRunLabel = 'Last run: ' + new Date(ev.created_at).toLocaleString();
@@ -1329,123 +1378,199 @@ async function chRefreshLiveIfActive() {
   chTreeResult = chBuildTree(registry, d.rows);
   chLastRunLabel = 'Live — updating now';
   chLiveMode = true;
-  chRenderCurrentLevel();
+  // Rebuild in place at whatever depth the user was already looking at,
+  // instead of always snapping back to the top Computer gauge every few
+  // seconds - a live refresh should update the numbers under you, not
+  // yank you out of the screen you're actively reading.
+  const wasDepth = chLevels.length;
+  const curMajor = chLevels.length > 2 ? chLevels[2].title : null;
+  const curCategory = chLevels.length > 3 ? chLevels[3].title.split(' / ')[1] : null;
+  chRenderCurrentLevel(); // rebuild level 0
+  if (wasDepth > 1) chOpenMajorList();
+  if (wasDepth > 2 && curMajor) chOpenCategoryList(curMajor);
+  if (wasDepth > 3 && curMajor && curCategory) chOpenSensorTable(curMajor, curCategory);
 }
 
-// ---- rendering ----
+// ---- rendering: real instrument-cluster gauges, accordion-style levels ----
+// Ryan's direct request 2026-07-18, after seeing the first version: reuse
+// the same car-gauge visual (arc, colored zones, needle, ticks) from the
+// Instrument Cluster report artifact he already approved, not a plain thin
+// ring. And instead of each drill-down REPLACING the screen, each level
+// APPENDS below the one above it, growing the page downward like a real
+// accordion, with a "Back" button at each level that collapses everything
+// below it - it never leaves you stuck with no way up.
 function chGaugeColor(grade) {
   return { A: '#4caf6d', B: '#8bc34a', C: '#e0a72e', D: '#e0803f', F: '#d05555', '—': '#5a6070' }[grade] || '#5a6070';
 }
-function chDrawGauge(canvas, score) {
+// Score gauge zones fixed to the same A-F thresholds gradeLetter uses:
+// red below 35 (F), amber 35-75 (C/D), green 75-100 (A/B) - so the color a
+// gauge shows always matches the letter grade it's displaying.
+function chDrawScoreGauge(canvas, score) {
   const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height, cx = w / 2, cy = h / 2, r = w / 2 - 6;
+  const w = canvas.width, h = canvas.height, cx = w / 2, cy = h * 0.56, r = w * 0.42;
+  const startAngle = Math.PI * (2 / 3), endAngle = Math.PI * (7 / 3);
+  const angleFor = t => startAngle + Math.max(0, Math.min(1, t / 100)) * (endAngle - startAngle);
   ctx.clearRect(0, 0, w, h);
-  const grade = chGradeLetter(score);
-  const color = chGaugeColor(grade);
-  const start = -Math.PI / 2, full = Math.PI * 2;
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, full); ctx.strokeStyle = '#262a36'; ctx.lineWidth = 8; ctx.stroke();
+
+  const zones = [{ from: 0, to: 35, color: '#a4291b' }, { from: 35, to: 75, color: '#c8862a' }, { from: 75, to: 100, color: '#4c7a4f' }];
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, r, startAngle, endAngle); ctx.lineTo(cx, cy); ctx.closePath(); ctx.clip();
+  zones.forEach(z => {
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angleFor(z.from), angleFor(z.to));
+    ctx.closePath(); ctx.fillStyle = z.color; ctx.fill();
+  });
+  const sheen = ctx.createRadialGradient(cx, cy - r * 0.35, r * 0.1, cx, cy, r);
+  sheen.addColorStop(0, 'rgba(255,250,235,0.28)'); sheen.addColorStop(1, 'rgba(255,250,235,0.03)');
+  ctx.fillStyle = sheen; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+
+  ctx.beginPath(); ctx.arc(cx, cy, r + 4, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = '#3a3f4c'; ctx.stroke();
+
+  [0, 25, 50, 75, 100].forEach(t => {
+    const a = angleFor(t);
+    const x1 = cx + Math.cos(a) * (r - 2), y1 = cy + Math.sin(a) * (r - 2);
+    const x2 = cx + Math.cos(a) * (r - 9), y2 = cy + Math.sin(a) * (r - 9);
+    ctx.lineWidth = 2; ctx.strokeStyle = '#f2ead8'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  });
+
   if (score != null) {
-    ctx.beginPath(); ctx.arc(cx, cy, r, start, start + full * (score / 100));
-    ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.stroke();
+    const va = angleFor(score);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(va);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.18, 0); ctx.lineTo(r - 8, 0); ctx.lineTo(-r * 0.18, 3);
+    ctx.closePath();
+    ctx.lineWidth = 1.6; ctx.strokeStyle = '#f2ead8'; ctx.stroke();
+    ctx.fillStyle = '#201a10'; ctx.fill();
+    ctx.restore();
   }
-  ctx.fillStyle = color; ctx.font = '700 ' + Math.round(w * 0.22) + 'px ui-sans-serif, Segoe UI, sans-serif';
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fillStyle = '#f2ead8'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, cy, 3.5, 0, Math.PI * 2); ctx.fillStyle = '#2a2419'; ctx.fill();
+
+  const grade = chGradeLetter(score);
+  ctx.fillStyle = chGaugeColor(grade);
+  ctx.font = '800 ' + Math.round(w * 0.20) + 'px ui-sans-serif, Segoe UI, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(grade, cx, cy - 2);
-  ctx.fillStyle = '#8a8f99'; ctx.font = '600 ' + Math.round(w * 0.09) + 'px ui-sans-serif, Segoe UI, sans-serif';
-  ctx.fillText(score != null ? score.toFixed(0) : '—', cx, cy + w * 0.20);
+  ctx.fillText(grade, cx, cy + r * 0.42);
 }
 
-function chRenderCrumb() {
-  const el = document.getElementById('chGaugeCrumb');
-  if (!el) return;
-  let parts = [`<span onclick="chGoTo('computer')">Computer</span>`];
-  if (chPathMajor) parts.push(`<span onclick="chGoTo('major')">${chPathMajor}</span>`);
-  if (chPathCategory) parts.push(`<span onclick="chGoTo('category')">${chPathCategory}</span>`);
-  el.innerHTML = parts.join(' <span style="color:#4a4f5c">›</span> ');
-}
+// ---- accordion level stack ----
+// chLevels: ordered array describing every section currently on screen,
+// from Computer (always index 0) down to however deep the user has
+// drilled. Re-clicking a different cell at an existing depth truncates
+// everything below that depth before appending the new one, so the stack
+// always reflects one single, consistent path - never two branches shown
+// at once.
+let chLevels = [];
 
-function chGoTo(level) {
-  chLevel = level;
-  if (level === 'computer') { chPathMajor = null; chPathCategory = null; }
-  if (level === 'major') { chPathCategory = null; }
-  chRenderCurrentLevel();
-}
-
-function chRenderCurrentLevel() {
-  chRenderCrumb();
-  const grid = document.getElementById('chGaugeGrid');
-  const meta = document.getElementById('chGaugeMeta');
-  const tableWrap = document.getElementById('chSensorTableWrap');
-  if (!chTreeResult) return;
-  meta.textContent = chLastRunLabel + (chLiveMode ? ' (live)' : '');
-
-  if (chLevel === 'sensors') {
-    grid.classList.add('hidden');
-    tableWrap.classList.remove('hidden');
-    chRenderSensorTable();
-    return;
+function chRenderAll() {
+  const root = document.getElementById('chGaugeGrid');
+  root.innerHTML = '';
+  chLevels.forEach((lvl, idx) => root.appendChild(chBuildLevelSection(lvl, idx)));
+  document.getElementById('chGaugeMeta').textContent = chLastRunLabel + (chLiveMode ? ' (live)' : '');
+  if (chLevels.length > 1) {
+    const last = root.lastElementChild;
+    if (last) last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-  grid.classList.remove('hidden');
-  tableWrap.classList.add('hidden');
-
-  if (chLevel === 'computer') {
-    grid.innerHTML = '';
-    const big = document.createElement('div');
-    big.className = 'ch-gauge-cell';
-    big.style.width = '220px';
-    big.innerHTML = `<canvas width="180" height="180"></canvas><div class="ch-glabel">Computer</div><div class="ch-gsub">Double-click to see every major component</div>`;
-    big.ondblclick = () => { chLevel = 'major-list'; chRenderMajorList(); };
-    grid.appendChild(big);
-    chDrawGauge(big.querySelector('canvas'), chTreeResult.computerScore);
-    return;
-  }
-  if (chLevel === 'major-list') { chRenderMajorList(); return; }
-  if (chLevel === 'category-list') { chRenderCategoryList(); return; }
 }
 
-function chRenderMajorList() {
-  chLevel = 'major-list';
-  chRenderCrumb();
-  const grid = document.getElementById('chGaugeGrid');
-  grid.innerHTML = '';
-  Object.entries(chTreeResult.majorScores).forEach(([major, score]) => {
+function chTruncateTo(depth) {
+  chLevels = chLevels.slice(0, depth);
+  chRenderAll();
+}
+
+function chBuildLevelSection(lvl, idx) {
+  const section = document.createElement('div');
+  section.className = 'ch-level-section';
+  const header = document.createElement('div');
+  header.className = 'ch-level-header';
+  header.innerHTML = `<span class="ch-level-title">${lvl.title}</span>` +
+    (idx > 0 ? `<button class="btn secondary ch-back-btn" type="button">← Back to ${chLevels[idx - 1].title}</button>` : '');
+  if (idx > 0) header.querySelector('.ch-back-btn').onclick = () => chTruncateTo(idx);
+  section.appendChild(header);
+
+  if (lvl.type === 'sensors') {
+    section.appendChild(chBuildSensorTable(lvl.major, lvl.category));
+    return section;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'ch-gauge-grid';
+  lvl.entries.forEach(([label, score]) => {
     const cell = document.createElement('div');
     cell.className = 'ch-gauge-cell';
-    cell.innerHTML = `<canvas width="110" height="110"></canvas><div class="ch-glabel">${major}</div><div class="ch-gsub">Double-click to drill in</div>`;
-    cell.ondblclick = () => { chPathMajor = major; chLevel = 'category-list'; chRenderCategoryList(); };
+    const size = lvl.type === 'computer' ? 190 : 130;
+    cell.style.width = (size + 30) + 'px';
+    cell.innerHTML = `<canvas width="${size}" height="${size}"></canvas><div class="ch-glabel">${label}</div><div class="ch-gsub">${lvl.childHint}</div>`;
+    if (lvl.onOpen) cell.ondblclick = () => lvl.onOpen(label, idx);
     grid.appendChild(cell);
-    chDrawGauge(cell.querySelector('canvas'), score);
+    chDrawScoreGauge(cell.querySelector('canvas'), score);
   });
-  document.getElementById('chGaugeMeta').textContent = chLastRunLabel + (chLiveMode ? ' (live)' : '');
+  section.appendChild(grid);
+  return section;
 }
 
-function chRenderCategoryList() {
-  chLevel = 'category-list';
-  chRenderCrumb();
-  const grid = document.getElementById('chGaugeGrid');
-  grid.innerHTML = '';
-  const cats = chTreeResult.categoryScores[chPathMajor] || {};
-  Object.entries(cats).forEach(([cat, score]) => {
-    const cell = document.createElement('div');
-    cell.className = 'ch-gauge-cell';
-    cell.innerHTML = `<canvas width="100" height="100"></canvas><div class="ch-glabel">${cat}</div><div class="ch-gsub">Double-click for sensors</div>`;
-    cell.ondblclick = () => { chPathCategory = cat; chLevel = 'sensors'; chRenderCurrentLevel(); };
-    grid.appendChild(cell);
-    chDrawGauge(cell.querySelector('canvas'), score);
-  });
-  document.getElementById('chGaugeMeta').textContent = chLastRunLabel + (chLiveMode ? ' (live)' : '');
+// Compound instance keys look like "Capacity — G Skill Intl - F4-3600C18-
+// 8GVK (#2)" - readable in a spreadsheet cell, but too long for a clean
+// row label. Collapses the raw part title down to just its "(#2)" stick
+// number when present, so the row reads "Capacity — Stick #2" instead.
+function chShortenInstanceLabel(label) {
+  const m = label.match(/^(.+?) — .*\(#(\d+)\)\s*$/);
+  if (m) return `${m[1]} — Stick #${m[2]}`;
+  return label;
 }
-
-function chRenderSensorTable() {
-  const wrap = document.getElementById('chSensorTableWrap');
-  const instances = (chTreeResult.tree[chPathMajor] || {})[chPathCategory] || {};
-  let rowsHtml = Object.entries(instances).map(([label, i]) => {
+function chBuildSensorTable(major, category) {
+  const wrap = document.createElement('div');
+  const instances = (chTreeResult.tree[major] || {})[category] || {};
+  let rowsHtml = Object.entries(instances).map(([rawLabel, i]) => {
+    const label = chShortenInstanceLabel(rawLabel);
     const gradeCls = 'ch-grade-' + chGradeLetter(i.score);
+    const avgDisp = (typeof i.row.avg_value === 'number') ? i.row.avg_value.toFixed(2) : i.row.avg_value;
     return `<tr><td>${label}${i.gaugeWorthy ? '' : ' <span style="color:#5a6070">(raw only)</span>'}</td>
-      <td>${i.row.min_value}</td><td>${i.row.avg_value.toFixed ? i.row.avg_value.toFixed(2) : i.row.avg_value}</td><td>${i.row.max_value}</td>
+      <td>${i.row.min_value}</td><td>${avgDisp}</td><td>${i.row.max_value}</td>
       <td class="${gradeCls}">${chGradeLetter(i.score)} (${i.score})</td></tr>`;
   }).join('');
   wrap.innerHTML = `<table class="ch-sensor-table"><thead><tr><th>Sensor</th><th>Min</th><th>Avg</th><th>Max</th><th>Grade</th></tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  return wrap;
+}
+
+function chRenderCurrentLevel() {
+  if (!chTreeResult) return;
+  chLevels = [{
+    type: 'computer', title: 'Computer',
+    entries: [['Computer', chTreeResult.computerScore]],
+    childHint: 'Double-click to see every major component',
+    onOpen: () => chOpenMajorList()
+  }];
+  chRenderAll();
+}
+
+function chOpenMajorList() {
+  chTruncateTo(1);
+  chLevels.push({
+    type: 'major', title: 'Major components',
+    entries: Object.entries(chTreeResult.majorScores),
+    childHint: 'Double-click to drill in',
+    onOpen: (major) => chOpenCategoryList(major)
+  });
+  chRenderAll();
+}
+
+function chOpenCategoryList(major) {
+  chTruncateTo(2);
+  chLevels.push({
+    type: 'category', title: major,
+    entries: Object.entries(chTreeResult.categoryScores[major] || {}),
+    childHint: 'Double-click for sensors',
+    onOpen: (cat) => chOpenSensorTable(major, cat)
+  });
+  chRenderAll();
+}
+
+function chOpenSensorTable(major, category) {
+  chTruncateTo(3);
+  chLevels.push({ type: 'sensors', title: major + ' / ' + category, major, category });
+  chRenderAll();
 }
 
 // Walks LibreHardwareMonitor's own data.json tree, grouped by real hardware
@@ -1515,6 +1640,11 @@ function categorizeHardware(device) {
   // device gets its own labeled sub-tab instead of a confusing second button.
   if (t === 'total memory' || t === 'generic memory' || t === 'physical memory') return { key: 'ram', label: '🧩 Memory (RAM)', isAggregate: true };
   if (/(ssd|nvme|hdd|hard disk)/.test(t)) return { key: 'storage', label: '💽 Storage' };
+  // Same fix as resource_watcher.ps1/app_behavior_watcher.ps1's copies of
+  // this logic, 2026-07-18: Kingston SSD model numbers (e.g. "KINGSTON
+  // SA400S37240G") don't literally contain "ssd", so they fell through to
+  // the Kingston-brand RAM match just below.
+  if (/kingston.*\b(sa400|suv|skc|snv|shss|sedc)/.test(t)) return { key: 'storage', label: '💽 Storage' };
   if (/(g\.?skill|corsair|crucial|kingston|hyperx|f4-|f5-|ddr\d)/.test(t)) return { key: 'ram', label: '🧩 Memory (RAM)' };
 
   // Structural fallbacks only for devices a name match couldn't identify -
