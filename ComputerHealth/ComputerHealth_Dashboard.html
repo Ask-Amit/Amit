@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.74</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.75</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1741,19 +1741,46 @@ function chShortenInstanceLabel(label) {
 // we need to label the gauges."
 function chGuessUnit(metricName, category) {
   const m = (metricName || '').toLowerCase();
-  if (category === 'Browser' && m.includes('memory')) return 'MB';
-  if (category === 'Temperature') return '°C';
-  if (category === 'Voltage' || / vid$/.test(m) || m.includes('voltage') || m === 'vcore') return 'V';
-  if (category === 'Clock') return 'MHz';
-  if (category === 'Power') return 'W';
-  if (category === 'Fan') return 'RPM';
+  // Category matching normalized to lowercase + startsWith, since real
+  // categories walked from LibreHardwareMonitor's own tree are plural
+  // ("Temperatures", "Voltages", "Clocks", "Fans") - a real bug found
+  // 2026-07-19 where exact-match against singular forms ("Temperature",
+  // "Voltage", etc.) never matched anything, silently leaving every
+  // chart's Y-axis with no unit at all.
+  const c = (category || '').toLowerCase();
+  if (c === 'browser' && m.includes('memory')) return 'MB';
+  if (c.startsWith('temperature')) return '°C';
+  if (c.startsWith('voltage') || / vid$/.test(m) || m.includes('voltage') || m === 'vcore') return 'V';
+  if (c.startsWith('clock')) return 'MHz';
+  if (c.startsWith('power')) return 'W';
+  if (c.startsWith('fan')) return 'RPM';
   if (m.includes('hours')) return 'hrs';
   if (m.includes('count')) return '';
-  if (m.includes('%') || category === 'Utilization' || category === 'Longevity') return '%';
+  if (m.includes('%') || c.startsWith('load') || c.startsWith('utilization') || c.startsWith('longevity')) return '%';
   if (m.includes('latency') || m.includes('time') || m.startsWith('t')) return 'ms';
   if (m.includes('space') || m.includes('capacity') || m.includes('memory')) return 'GB';
   if (m.includes('rate') || m.includes('throughput') || m.includes('kbps')) return 'KB/s';
   return '';
+}
+
+// Human-readable axis title from the same category/bucket string -
+// Ryan's direct request 2026-07-19: a unit suffix on tick labels alone
+// ("65.3 °C") isn't the same as an actual axis title telling you what
+// you're looking at before you've read a single number. Combines with
+// the unit for a full label like "Temperature (°C)".
+function chAxisLabel(category, unit) {
+  const c = (category || '').toLowerCase();
+  let name = 'Value';
+  if (c.startsWith('temperature')) name = 'Temperature';
+  else if (c.startsWith('voltage')) name = 'Voltage';
+  else if (c.startsWith('clock')) name = 'Clock Speed';
+  else if (c.startsWith('power')) name = 'Power';
+  else if (c.startsWith('fan')) name = 'Fan Speed';
+  else if (c.startsWith('load') || c.startsWith('utilization')) name = 'Load';
+  else if (c.startsWith('data')) name = 'Data';
+  else if (c.startsWith('longevity')) name = 'Longevity';
+  else if (category) name = category;
+  return unit ? `${name} (${unit})` : name;
 }
 
 // Faithful port of drawSmartGauge from the Instrument Cluster report
@@ -2378,7 +2405,7 @@ async function chGetChartPoints() {
         points: pts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
       }));
     const statNote = aggregated ? ` (${CH_STAT_LABELS[chChartStat]})` : '';
-    return { series, unit, title: `${device} — ${base} — every sensor${statNote}` };
+    return { series, unit, yLabel: chAxisLabel(bucket, unit), title: `${device} — ${base} — every sensor${statNote}` };
   }
 
   const parts = key.split('␟');
@@ -2387,7 +2414,7 @@ async function chGetChartPoints() {
     const [device, group, name] = parts;
     const matching = samples.filter(s => s.device === device && s.group === group && s.name === name);
     const unit = chGuessUnit(name, group);
-    return { points: matching.map(s => ({ label: s.t, value: s.value })), unit, title: `${device} — ${name}` };
+    return { points: matching.map(s => ({ label: s.t, value: s.value })), unit, yLabel: chAxisLabel(group, unit), title: `${device} — ${name}` };
   } else {
     const [device, component, name] = parts;
     const matching = samples.filter(s => s.device === device && s.component === component && s.name === name)
@@ -2396,6 +2423,7 @@ async function chGetChartPoints() {
     return {
       points: matching.map(s => ({ label: s.date ? new Date(s.date).toLocaleDateString() : '?', value: s[chChartStat] })),
       unit,
+      yLabel: chAxisLabel(component, unit),
       title: `${device} — ${name} (${CH_STAT_LABELS[chChartStat]})`
     };
   }
@@ -2415,18 +2443,35 @@ async function chRenderSelectedChart() {
       ctx.fillText('Scatter needs two individual sensors, not a family - pick one from "Individual sensors" for each axis.', canvas.width / 2, canvas.height / 2);
       return;
     }
-    if (chChartType === 'heatmap') chDrawHeatMap(canvas, result.series, result.unit);
-    else if (chChartType === 'bar') chDrawMultiBarChart(canvas, result.series, result.unit);
-    else chDrawMultiLineChart(canvas, result.series, result.unit);
+    if (chChartType === 'heatmap') chDrawHeatMap(canvas, result.series, result.unit, result.yLabel);
+    else if (chChartType === 'bar') chDrawMultiBarChart(canvas, result.series, result.unit, result.yLabel);
+    else chDrawMultiLineChart(canvas, result.series, result.unit, result.yLabel);
     return;
   }
 
-  const { points, unit } = result;
+  const { points, unit, yLabel } = result;
   if (chChartType === 'heatmap') {
-    chDrawHeatMap(canvas, [{ label: result.title || 'Value', color: CH_SERIES_COLORS[0], points }], unit);
-  } else if (chChartType === 'line') chDrawLineChart(canvas, points, unit);
-  else if (chChartType === 'bar') chDrawBarChart(canvas, points, unit);
-  else chDrawScatterChart(canvas, points, unit);
+    chDrawHeatMap(canvas, [{ label: result.title || 'Value', color: CH_SERIES_COLORS[0], points }], unit, yLabel);
+  } else if (chChartType === 'line') chDrawLineChart(canvas, points, unit, yLabel);
+  else if (chChartType === 'bar') chDrawBarChart(canvas, points, unit, yLabel);
+  else chDrawScatterChart(canvas, points, unit, yLabel);
+}
+
+// Draws the shared X-axis title ("Time" - every chart here is a
+// time series) and a rotated Y-axis title showing what the value axis
+// actually measures (e.g. "Temperature (°C)") - Ryan's direct request
+// 2026-07-19: a unit suffix on tick labels alone doesn't tell you what
+// you're looking at before you've read a single number.
+function chDrawAxisTitles(ctx, w, h, pad, yLabel, timeY) {
+  ctx.save();
+  ctx.font = '11px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#c7cad1'; ctx.textAlign = 'center';
+  ctx.fillText('Time', pad.l + (w - pad.l - pad.r) / 2, timeY || (h - 6));
+  if (yLabel) {
+    ctx.translate(14, pad.t + (h - pad.t - pad.b) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(yLabel, 0, 0);
+  }
+  ctx.restore();
 }
 
 // Shared axis/grid scaffold every chart type draws on top of - real data
@@ -2450,9 +2495,9 @@ function chDrawAxes(ctx, w, h, pad, points) {
   return { min, max };
 }
 
-function chDrawLineChart(canvas, points, unit) {
+function chDrawLineChart(canvas, points, unit, yLabel) {
   const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 50 };
+  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 62 };
   const range = chDrawAxes(ctx, w, h, pad, points);
   if (!range) return;
   const { min, max } = range;
@@ -2477,11 +2522,12 @@ function chDrawLineChart(canvas, points, unit) {
   });
 
   chDrawXLabels(ctx, points, xFor, h - pad.b);
+  chDrawAxisTitles(ctx, w, h, pad, yLabel);
 }
 
-function chDrawBarChart(canvas, points, unit) {
+function chDrawBarChart(canvas, points, unit, yLabel) {
   const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 50 };
+  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 62 };
   const range = chDrawAxes(ctx, w, h, pad, points);
   if (!range) return;
   const min = Math.min(0, range.min), max = range.max;
@@ -2506,11 +2552,12 @@ function chDrawBarChart(canvas, points, unit) {
   });
 
   chDrawXLabels(ctx, points, xFor, h - pad.b);
+  chDrawAxisTitles(ctx, w, h, pad, yLabel);
 }
 
-function chDrawScatterChart(canvas, points, unit) {
+function chDrawScatterChart(canvas, points, unit, yLabel) {
   const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 50 };
+  const w = canvas.width, h = canvas.height, pad = { l: 60, r: 20, t: 20, b: 62 };
   const range = chDrawAxes(ctx, w, h, pad, points);
   if (!range) return;
   const { min, max } = range;
@@ -2533,6 +2580,7 @@ function chDrawScatterChart(canvas, points, unit) {
   });
 
   chDrawXLabels(ctx, points, xFor, h - pad.b);
+  chDrawAxisTitles(ctx, w, h, pad, yLabel);
 }
 
 // Thins labels down when there are too many points to show every one
@@ -2576,11 +2624,11 @@ function chMultiSeriesRange(series) {
   return { min: min - pad, max: max + pad };
 }
 
-function chDrawMultiLineChart(canvas, series, unit) {
+function chDrawMultiLineChart(canvas, series, unit, yLabel) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   const legendRows = Math.ceil(series.length / 6);
-  const pad = { l: 60, r: 20, t: 20, b: 50 + legendRows * 14 };
+  const pad = { l: 60, r: 20, t: 20, b: 62 + legendRows * 14 };
   const allPoints = series.flatMap(s => s.points);
   ctx.clearRect(0, 0, w, h);
   ctx.strokeStyle = '#2a2e3a'; ctx.lineWidth = 1;
@@ -2613,13 +2661,14 @@ function chDrawMultiLineChart(canvas, series, unit) {
 
   chDrawXLabels(ctx, labels, xFor, h - pad.b);
   chDrawLegend(ctx, w, h, series);
+  chDrawAxisTitles(ctx, w, h, pad, yLabel, h - legendRows * 14 - 20);
 }
 
-function chDrawMultiBarChart(canvas, series, unit) {
+function chDrawMultiBarChart(canvas, series, unit, yLabel) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   const legendRows = Math.ceil(series.length / 6);
-  const pad = { l: 60, r: 20, t: 20, b: 50 + legendRows * 14 };
+  const pad = { l: 60, r: 20, t: 20, b: 62 + legendRows * 14 };
   ctx.clearRect(0, 0, w, h);
   ctx.strokeStyle = '#2a2e3a'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h - pad.b); ctx.lineTo(w - pad.r, h - pad.b); ctx.stroke();
@@ -2658,6 +2707,7 @@ function chDrawMultiBarChart(canvas, series, unit) {
 
   chDrawXLabels(ctx, labels, i => pad.l + (i + 0.5) * groupW, h - pad.b);
   chDrawLegend(ctx, w, h, series);
+  chDrawAxisTitles(ctx, w, h, pad, yLabel, h - legendRows * 14 - 20);
 }
 
 // Rows = sensor instances, columns = time/session, color = how close
@@ -2689,10 +2739,10 @@ function chFmtVal(v) { return v == null || isNaN(v) ? '' : (Math.abs(v) >= 100 ?
 // Fixed with the real value printed directly in each cell (when there's
 // room) and a real per-row min/max legend on the right, instead of only
 // a vague "colors are relative" caption.
-function chDrawHeatMap(canvas, series, unit) {
+function chDrawHeatMap(canvas, series, unit, yLabel) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
-  const pad = { l: 160, r: 90, t: 30, b: 50 };
+  const pad = { l: 160, r: 90, t: 30, b: 62 };
   ctx.clearRect(0, 0, w, h);
   if (series.length === 0 || series.every(s => s.points.length === 0)) {
     ctx.fillStyle = '#8a8f99'; ctx.font = '13px ui-sans-serif, Segoe UI, sans-serif'; ctx.textAlign = 'center';
@@ -2729,10 +2779,19 @@ function chDrawHeatMap(canvas, series, unit) {
   });
 
   chDrawXLabels(ctx, labels, i => pad.l + (i + 0.5) * cellW, h - pad.b);
+  ctx.font = '11px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#c7cad1'; ctx.textAlign = 'center';
+  ctx.fillText('Time', pad.l + (w - pad.l - pad.r) / 2, h - 6);
 
   // Gradient legend bar, top-right - a real color key, not just a caption
-  // saying "colors are relative."
+  // saying "colors are relative." Labeled with what the color scale
+  // actually measures (e.g. "Temperature (°C)") - Ryan's direct request
+  // 2026-07-19: color+row-range alone doesn't say what quantity is being
+  // shown until you already know what sensor you picked.
   const legendX = w - pad.r - 130, legendY = 8, legendW = 130, legendH = 10;
+  if (yLabel) {
+    ctx.font = '9.5px ui-sans-serif, Segoe UI, sans-serif'; ctx.fillStyle = '#8a8f99'; ctx.textAlign = 'right';
+    ctx.fillText(yLabel + ' — relative per row', legendX + legendW, legendY - 3);
+  }
   const grad = ctx.createLinearGradient(legendX, 0, legendX + legendW, 0);
   grad.addColorStop(0, chHeatColorFor(0)); grad.addColorStop(0.5, chHeatColorFor(0.5)); grad.addColorStop(1, chHeatColorFor(1));
   ctx.fillStyle = grad; ctx.fillRect(legendX, legendY, legendW, legendH);

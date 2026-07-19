@@ -14,6 +14,22 @@ All Computer Health development files belong here. Do not create Computer Health
 
 ---
 
+## THREE REAL COPIES EXIST — Read Before Fixing Any Bug (added 2026-07-19)
+
+There are three genuinely separate copies of the watcher/bridge scripts, and a bug fix only counts as done once it's actually reached the one that's running. Getting this wrong is exactly what happened on 2026-07-19: a real bug (`Invoke-WebRequest` missing `-UseBasicParsing`, causing "Couldn't reach LibreHardwareMonitor's sensor data" on the Hardware tab even though LHM was healthy) was fixed in the dev copy, declared fixed, and then Ryan tested it and it was still broken — because the actually-running tracker was a third copy that hadn't been touched.
+
+| Copy | Path | What it's for |
+|---|---|---|
+| **Dev source** | `Amit\ComputerHealth\Watchers\` | Where all real editing happens. The source of truth. |
+| **Git repo mirror** | `C:\Users\user1\GitHub\Amit\ComputerHealth\` | What gets pushed live to GitHub Pages. Copy dev source here before a push. |
+| **Installed runtime copy** | `%LOCALAPPDATA%\AmitComputerHealth\Watchers\` (i.e. `C:\Users\user1\AppData\Local\AmitComputerHealth\Watchers\`) | **This is what actually runs when Ryan clicks "Launch Tracker" or the desktop shortcut**, via a registered `amit-tracker://` protocol handler that points at a fixed path. It is a deliberate install-time copy, not clutter — every real end-user's machine will have its own equivalent of this folder, since a locally-running background tracker has to live somewhere fixed on that specific computer. It is **not** something to consolidate away, even on Ryan's own machine — Ryan deliberately keeps his own machine's tracker installed the normal way (not repointed to dev source) specifically so he can test the real experience a stranger's install would have, not a dev shortcut. |
+
+**The rule going forward:** any fix to `amit_bridge_server.ps1` or any watcher script must be followed by re-running `Install_AmitTracker.ps1 -Force` (from `ComputerHealth\Watchers\`) before calling the fix verified — this re-copies every file fresh into the installed runtime copy. Hand-editing both copies separately (what happened on 2026-07-19, as a one-off) works but isn't the real process and is easy to forget one side of. Also: after any such fix, the currently-running bridge server process must be restarted (killed and relaunched) — editing the `.ps1` file does not affect a process that already has the old code loaded in memory.
+
+**Never say a bug is fixed without testing against the actual installed runtime copy** — confirm what's really listening on port 8710 (`Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" | Where-Object { $_.CommandLine -like '*amit_bridge_server.ps1*' }`, check the `CommandLine` path) before declaring anything resolved.
+
+---
+
 ## Who Amit Is — Carried Forward Into This Project
 
 This project is part of the Amit system. One character. One mission.
@@ -59,7 +75,7 @@ Schema defined in: `Database\migration_2026-07-12_001_computer_health.sql`
 
 ## What This Project Is
 
-A background monitoring and diagnostic companion that lives on a user's computer. Four local watcher scripts (in `AmitLog\Watchers\`, shared infrastructure) continuously or on-demand capture: system resource usage (RAM/CPU/GPU/temps), input-lag causes (DPC/interrupt/disk/network), per-app behavior (file writes, network destinations) during a session, and install diffs (everything a new program silently adds — Startup entries, scheduled tasks, browser extensions, homepage hijacks). A local bridge server exposes this data and controls to an HTML dashboard that translates raw sensor/log data into plain language ("90% of your RAM is in use" instead of "7.385 GB") with a verdict (safe / watch / fix now), rather than requiring the user to know what any of the numbers mean.
+A background monitoring and diagnostic companion that lives on a user's computer. Local watcher scripts (in `ComputerHealth\Watchers\` — see FILE LOCATION MIGRATION below) continuously or on-demand capture: system resource usage (RAM/CPU/GPU/temps), input-lag causes (DPC/interrupt/disk/network), per-app behavior (file writes, network destinations) during a session, and install diffs (everything a new program silently adds — Startup entries, scheduled tasks, browser extensions, homepage hijacks). A local bridge server exposes this data and controls to an HTML dashboard that translates raw sensor/log data into plain language ("90% of your RAM is in use" instead of "7.385 GB") with a verdict (safe / watch / fix now), rather than requiring the user to know what any of the numbers mean.
 
 Every detected event is pushed to Supabase, tied to a device ID and the logged-in user, so history persists permanently — not just in a local temp file that gets capped and lost. A user can return months or years later and ask "what got installed and when," "what caused this slowdown," or "what changed since last time."
 
@@ -69,10 +85,25 @@ Sibling to Amit Health (personal/body) — this is Amit watching over the machin
 
 ## Current Status
 
-In active development, 2026-07-12 (single extended session). Live at `https://ask-amit.github.io/Amit/ComputerHealth/ComputerHealth_Dashboard.html`, version v2.43 as of last push. Repo mirror: `C:\Users\user1\GitHub\Amit\ComputerHealth\`. Dev/working copies of all scripts live in `AmitLog\Watchers\` (OneDrive) and get copied to the git repo before each push — always edit the OneDrive copy first, then copy to the repo, per the standard Amit push workflow.
+Last touched Session 55 (2026-07-18) — a full-day marathon, no other Amit module touched that session. Live at `https://ask-amit.github.io/Amit/ComputerHealth/ComputerHealth_Dashboard.html`, page version v3.74 as of last push (this page tracks its own version number, separate from the repo-wide `VERSION`/CLAUDE.md counter — the two are intentionally different numbers). Repo mirror: `C:\Users\user1\GitHub\Amit\ComputerHealth\`.
 
-**Built, tested, and pushed:**
-- Five watcher/tool scripts in `AmitLog\Watchers\`: `activity_watcher2.ps1`, `resource_watcher.ps1` (pre-existing) plus `diagnostics_watcher.ps1`, `app_behavior_watcher.ps1`, `install_snapshot_watcher.ps1` (new this session).
+**FILE LOCATION MIGRATION (2026-07-19), COMPLETE:** All dev/working files (dashboard, bridge server, watcher scripts, tracker exe, installer bundle, `Hardware_Crash_Log.md`, `Computer_Specs_and_History.html`, the two `DisableBadUSB*.ps1` scripts) moved out of `AmitLog\` / `AmitLog\Watchers\` into this folder (`ComputerHealth\` and `ComputerHealth\Watchers\`) so this folder actually holds everything the project name promises. **`AmitLog` was never a Computer Health folder** — it's the fixed target of an NTFS junction (`C:\Users\user1\.claude\projects` → `AmitLog`) that backs every Claude Code session transcript system-wide; Computer Health's files had just been dropped into it over time. `AmitLog` itself was never moved or renamed, since doing so would break that junction.
+
+Process: (1) copied everything to `ComputerHealth\`/`ComputerHealth\Watchers\` first, verified byte-for-byte identical (41 files, 2,012,145 bytes both sides); (2) tested the bridge server launched from the new location — HTTP 200, correct version, real device API response, and a CORS check confirmed the live online dashboard (`ask-amit.github.io`) can genuinely reach it; (3) **then the originals were moved (not left as copies) into a new `AmitLog\ComputerHealth_Backup\` folder** — this deliberately breaks the old `AmitLog\Watchers\` path entirely, so if anything were still silently depending on it, it would fail now; (4) re-ran the identical test with the old path gone — identical results, proving `ComputerHealth\Watchers\` has no hidden dependency on the old location. `AmitLog\ComputerHealth_Backup\` is the current fallback copy if anything ever needs to be recovered. See the migration table further down this file for the exact list of what moved.
+
+**Session 55 build (2026-07-18), most recent real work:** a drill-down gauge tree (Computer → CPU/GPU/RAM/Storage/Motherboard/Network/Software → categories → individual sensors) backed by a data-driven `amit_component_registry` table (217 real sensors classified from Ryan's machine) instead of hardcoded JS, plus a 75/10/15 worst-weighted composite scoring formula so one failing part honestly drags a parent grade down. A native Charts tab (Line/Bar/Scatter/Heat Map, this-session vs. cross-session-history, sensor "family" grouping via a universal digit-stripping rule so all 12 CPU cores or all RAM sticks chart together, natural sort, real per-cell value labels/legends) — this replaced two separate Copilot-based charting/voice handoffs, both built and then fully removed after live testing showed neither actually worked. Fixed a real bug where the quick session summary and the full report could disagree because they read from two different data sources — unified via `deriveSessionVerdictFromMetrics`. Also fixed: a Kingston SSD misclassified as RAM (regex `\b` boundary bug, five places), a Supabase 1000-row silent truncation on multi-session chart queries, a JS caching bug where an empty array's truthiness blocked retries, a stray bezel-ring line on the gauge. Built a live-data path (`resource_watcher.ps1` writes a live snapshot every ~30s) and a Software health category (Reliability/Security/Browser) from existing Windows API data.
+
+**NEXT SESSION — IMMEDIATE TASKS (carried from Session 55):**
+- Revisit the composite grading system with Ryan — he explicitly flagged wanting to come back to this and didn't finish reviewing it.
+- Verify the native Charts tab live on Ryan's real machine — family grouping, natural sort, heat map labels/legend only verified against mocked/historical data so far.
+- Confirm the Software gauge renders correctly once actually connected — only the disconnected placeholder state confirmed live so far.
+- Verify `deriveSessionVerdictFromMetrics` holds up on a genuinely fresh session, not just historical data.
+- Decide whether to build real in-app conversational voice (mic → Claude API via Supabase Edge Function → speech) for the future Companion, now that Copilot's been ruled out for that twice.
+
+**Header/sidebar shell-consistency attempt (2026-07-19) — tried and reverted:** Ryan asked whether Computer Health's page could visually match Hub's exact header + left-sidebar shell, with all tab content consolidated onto one page. A first attempt was built (Hub-style header, gold sidebar with placeholder tiles, all 12 tabs stacked on one page) and shown to Ryan locally — he reviewed it and said "that's not gonna work," and it was fully reverted back to the clean GitHub version before anything was pushed. Worth revisiting with a different approach if this comes up again, but the specific shell built that day is not the answer.
+
+**Built, tested, and pushed (earlier sessions):**
+- Five watcher/tool scripts: `activity_watcher2.ps1`, `resource_watcher.ps1` (pre-existing) plus `diagnostics_watcher.ps1`, `app_behavior_watcher.ps1`, `install_snapshot_watcher.ps1`.
 - `amit_bridge_server.ps1` — local HTTP server (port 8710), portable via `$PSScriptRoot` (not hardcoded to Ryan's OneDrive path). Handles concurrent requests via a runspace pool (fixed a real hang bug: Windows PowerShell 5.1's `ConvertTo-Json` stalls on a cold runspace's first call — log-tail endpoints now hand-build JSON instead). Exposes `/api/device`, `/api/resource`, `/api/diagnostics`, `/api/activity`, `/api/behavior`, `/api/browser`, `/api/tracker-status`, `/api/start-tracking`, `/api/stop-tracking`, `/api/install-start`, `/api/install-compare`.
 - `ComputerHealth_Dashboard.html` — tabs: Overview, Resources, Diagnostics, App Behavior, Install Watch, Browser, History. Plain-language verdict cards throughout, not raw numbers. Sign-in nudge (non-blocking), session-summary screen (`?justStopped=1`), pre-install walkthrough with a real Download link.
 - `Install_AmitTracker.ps1` — idempotent, checks for an existing LibreHardwareMonitor install in common locations (Downloads, Program Files, its own folder) before downloading a duplicate — this was a real bug caught by Ryan during live testing (two LHM instances running simultaneously, one needing a .NET runtime the other didn't). Works standalone (downloads sibling files from GitHub raw if run outside a full local copy) or from a full copy. Creates `Amit.url` desktop shortcut (opens the **Hub**, not Computer Health directly — login happens there first, so device claiming ties to the right user) and registers the `amit-tracker://` protocol handler. Deliberately does NOT register any Task Scheduler/login auto-start (Ryan's explicit choice) — tracking only ever starts when a human explicitly triggers it.
@@ -87,7 +118,7 @@ In active development, 2026-07-12 (single extended session). Live at `https://as
 ## Build Notes
 
 - **Version discipline (Ryan's direct request 2026-07-16):** `AmitInstaller.cs`'s `CURRENT_VERSION` and `AssemblyInfo.cs` are kept in lockstep with `ComputerHealth_Dashboard.html`'s own version label — one shared number for the whole distributable. Any time the dashboard's version bumps, before considering the push done: (1) check whether anything else in the `AmitInstaller` bundle needs a real content update, not just the number — bumping the version string alone without re-running `build_installer.sh` is worse than doing nothing, since it falsely claims freshness; (2) bump `CURRENT_VERSION` and `AssemblyVersion` to match; (3) re-run `AmitLog\Watchers\AmitInstaller\build_installer.sh` (pulls fresh source, rebuilds `install-Amit.exe`); (4) run `verify_installer.sh` to confirm no drift; (5) copy the rebuilt exe to both repo locations (`ComputerHealth\install-Amit.exe` and `ComputerHealth\AmitInstaller\install-Amit.exe`) and commit/push. This was skipped for an unknown number of prior sessions — found 2026-07-16 badly stale (missing code from several sessions back).
-- Watcher scripts, the bridge server, the dashboard, the installer, the tray exe, and the icon generator all live in `AmitLog\Watchers\` (dev) — they're shared infrastructure conceptually, but in practice this folder is the actual Computer Health build location. `ComputerHealth\` (this folder) holds only `CLAUDE.md` and is otherwise a staging/mirror target for the git repo.
+- Watcher scripts, the bridge server, the dashboard, the installer, the tray exe, and the icon generator now live in `ComputerHealth\Watchers\` (dev) as of the 2026-07-19 migration — this folder is the real, primary Computer Health build location. A rollback copy remains at `AmitLog\Watchers\` until Ryan confirms the tracker/bridge still launches correctly from here.
 - Device ID is generated once per machine on first run by the bridge server and stored in `device_id.txt` next to it — persists across restarts, independent of login state.
 - Ownership transfer (selling/giving away a computer) is handled by updating `amit_devices.owner_user_id` and writing a row to `amit_device_ownership_history` — the device's full event history stays intact and is only visible to whoever currently owns it (RLS-enforced via `user_id` on each event). Not yet tested (blocked on the migration being run).
 - File-write attribution in `app_behavior_watcher.ps1` is time-correlated, not proven via ETW — stated honestly in the dashboard, not presented as certain.
@@ -102,6 +133,26 @@ In active development, 2026-07-12 (single extended session). Live at `https://as
 - **Hub** — same login pattern (Supabase magic link), same "one Amit system" feel. Could eventually surface Computer Health alerts as Hub pursuits ("your PC flagged 3 new startup items — review them").
 - **Computer Value** — sibling diagnostic module; may share device history data in the future.
 - **Database** — new tables (`amit_devices`, `amit_device_ownership_history`, `amit_device_events`) live in the shared schema, documented in `Database\CLAUDE.md` once the migration is run.
+
+---
+
+## FILE MIGRATION RECORD — What Moved From AmitLog, 2026-07-19
+
+Kept as a permanent fallback reference — "what did we actually move" — in case anything needs to be traced back to its original location.
+
+| Original location | Final location | Backup copy | What it is |
+|---|---|---|---|
+| `AmitLog\Hardware_Crash_Log.md` | `ComputerHealth\Hardware_Crash_Log.md` | `AmitLog\ComputerHealth_Backup\Hardware_Crash_Log.md` | Recurring hardware crash/BSOD diagnostic history |
+| `AmitLog\Computer_Specs_and_History.html` | `ComputerHealth\Computer_Specs_and_History.html` | `AmitLog\ComputerHealth_Backup\Computer_Specs_and_History.html` | This machine's spec/history reference |
+| `AmitLog\DisableBadUSB.ps1` | `ComputerHealth\DisableBadUSB.ps1` | `AmitLog\ComputerHealth_Backup\DisableBadUSB.ps1` | USB controller fix script |
+| `AmitLog\DisableBadUSBController.ps1` | `ComputerHealth\DisableBadUSBController.ps1` | `AmitLog\ComputerHealth_Backup\DisableBadUSBController.ps1` | USB controller fix script |
+| `AmitLog\Watchers\` (entire folder, 41 files) | `ComputerHealth\Watchers\` | `AmitLog\ComputerHealth_Backup\Watchers\` | Dashboard HTML, bridge server, all watcher scripts, `AmitTracker.exe` + source, `AmitInstaller\` bundle, icons, `device_id.txt` |
+
+Sequence: copied to `ComputerHealth\` first → verified byte-identical (41 files, 2,012,145 bytes both sides, after fixing a same-first-pass collision between the `AmitTracker` folder and `AmitTracker.exe` file) → tested the bridge server running from the new location (HTTP 200, correct version, working API, CORS-confirmed reachable from the live online dashboard) → **originals then moved (not copied) into `AmitLog\ComputerHealth_Backup\`**, deliberately breaking the old `AmitLog\Watchers\` path → re-ran the identical test with the old path gone, identical results. `ComputerHealth\Watchers\` has no remaining dependency on `AmitLog` in any form.
+
+**A separate, third copy exists and was untouched by any of this:** `%LOCALAPPDATA%\AmitComputerHealth\Watchers\` — an actual installed copy from a prior `Install_AmitTracker.ps1` run, unrelated to either OneDrive dev location. No Desktop shortcuts currently point to it (Desktop is empty as of 2026-07-19).
+
+**Not moved, and should never be:** `AmitLog` itself, `AmitLog\SETUP_JUNCTION.bat`, and the `c--Users-user1-...` session-backup folders inside it — these are Claude Code's own session-history infrastructure (an NTFS junction target), unrelated to Computer Health, and moving/renaming that folder would break the junction.
 
 ---
 

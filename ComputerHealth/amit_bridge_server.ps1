@@ -900,7 +900,7 @@ try {
                 # by resource_watcher.ps1 every 30s and then thrown away as flat text -
                 # this is what finally exposes the real tree to the dashboard.
                 try {
-                    $raw = Invoke-WebRequest -Uri "http://localhost:8085/data.json" -TimeoutSec 5 -ErrorAction Stop
+                    $raw = Invoke-WebRequest -Uri "http://localhost:8085/data.json" -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
                     $bytes = [System.Text.Encoding]::UTF8.GetBytes($raw.Content)
                     $response.StatusCode = 200
                     $response.ContentType = "application/json"

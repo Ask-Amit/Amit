@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 3.27**
+**Current version: 3.28**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -154,6 +154,7 @@ When building anything in the Amit system, Amit writes directly to the correct s
 |---|---|
 | Amit Hub | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Hub\` |
 | Amit Computer Value | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\ComputerValue\` |
+| Amit Computer Health | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\ComputerHealth\` — own CLAUDE.md holds all current status/task detail |
 | Amit Health | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitHealth\` |
 | who_is_god.html | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\who_is_god\` |
 | Amit Bible Companion | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Companion\` |
@@ -211,7 +212,7 @@ All work is done from this root folder. Subfolders are file organization, not wo
 | `Amit_ProjectOverview.md` | Full project technical overview |
 | `Amit_RyanProfile.md` | Ryan's profile â€” who he is, how he works |
 | `CLAUDE.md` | This file â€” auto-orientation |
-| `AmitLog\Hardware_Crash_Log.md` | **IMPORTANT — if this machine is crashing (BSODs, unexpected reboots, hangs), read this file immediately before doing anything else.** Full history of a recurring hardware failure across three motherboard/build attempts starting 2026-07-01, current diagnostic state, known crash signatures, and what's already been ruled out. A plain file findable from any session regardless of how it was launched. |
+| `ComputerHealth\Hardware_Crash_Log.md` | **IMPORTANT — if this machine is crashing (BSODs, unexpected reboots, hangs), read this file immediately before doing anything else.** Full history of a recurring hardware failure across three motherboard/build attempts starting 2026-07-01, current diagnostic state, known crash signatures, and what's already been ruled out. Moved here 2026-07-19 from `AmitLog\` (which is not a Computer Health folder — see `ComputerHealth\CLAUDE.md` migration notes); a rollback copy remains at `AmitLog\Hardware_Crash_Log.md` for now. |
 | `..\Amit_Archive_Backups\` (sibling folder, one level above this Amit folder) | **IF A FILE CAN'T BE FOUND — CHECK HERE FIRST before assuming it's lost.** Holds everything moved or removed during the 2026-07-06 cleanup pass: the full pre-cleanup snapshot (`2026-06-18\`), the original `AmitCorrespondence` folder before duplicates were removed (`AmitCorrespondence_2026-07-06\`), and every file merged into `Hardware_Crash_Log.md` in its original, unmerged form (`pre-consolidation-2026-07-06\`). Nothing from that cleanup was truly deleted — it was relocated here. Still inside OneDrive, so still cloud-synced and reachable from any machine signed into the same account. If Ryan or a future session asks "where did X go" and it's not in its expected folder, look here before concluding it's gone. |
 
 ---
@@ -403,18 +404,11 @@ Invoke-RestMethod -Uri "https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/user_pr
 8. **Confirm** — prayer written, archived, session written to Supabase, testimony updated if growth occurred, pushed, CLAUDE.md updated.
 
 
-**Last updated: Session 55 (2026-07-18) — Full-day Computer Health marathon, no other module touched. Built a real drill-down gauge tree (Computer → CPU/GPU/RAM/Storage/Motherboard/Network/Software → categories → individual sensors) backed by a new, data-driven `amit_component_registry` table (217 real sensors classified from Ryan's actual machine) instead of hardcoded JS, plus a 75/10/15 worst-weighted composite scoring formula so one failing part honestly drags a parent grade down. Built a native Charts tab (Line/Bar/Scatter/Heat Map, this-session vs. cross-session-history data, sensor "family" grouping via a universal digit-stripping rule so all 12 CPU cores or all RAM sticks chart together, natural sort, real per-cell value labels and legends) — this replaced a Copilot conversational handoff AND a Copilot charting handoff, both built and then fully removed after live testing showed neither actually worked (voice mode can't see chat-pasted data; Copilot's own charting needed too much back-and-forth to be one-click). Found and fixed a real production bug where the quick session summary and the full report could disagree because they read from two different data sources (a live instantaneous snapshot vs. the session's true aggregated peak) — unified via `deriveSessionVerdictFromMetrics` so both now derive from the same analysis. Also fixed: a Kingston SSD silently misclassified as RAM (a regex `\b` boundary bug, present in five separate places), a Supabase 1000-row silent truncation on multi-session chart queries, a JS caching bug where an empty array's truthiness permanently blocked retry attempts, and a stray bezel-ring line crossing the gauge's colored zone gap. Built a real live-data path (`resource_watcher.ps1` now writes a live snapshot every ~30s, not just at session end) and a Software health category (Reliability/Security/Browser) sourced from already-existing Windows API data. The Session 53/54 Amit-connectivity priority remains fully untouched — not abandoned, just not what this session's live testing surfaced as urgent.**
+**Last updated: Session 55 (2026-07-18), Computer Health.** Full detail — what was built, current status, and next-session tasks — now lives in `ComputerHealth\CLAUDE.md` (that project's own file), not here. This root file just points there: **if you're picking up Computer Health work, read `C:\Users\user1\OneDrive\Documents - onedrive\Amit\ComputerHealth\CLAUDE.md` first.** As of 2026-07-19, that folder also holds all of Computer Health's actual dev files (dashboard, bridge server, watcher scripts, installer) — moved there from `AmitLog\Watchers\`, which was never really a Computer Health folder (see that file's migration notes).
 
 **Full build history → `Amit_BuildLog.md` — last entry: Session 35**
 
 **Full session history → `amit_sessions` table in Supabase. Pull with RETURNING GREETING PowerShell command above.**
-
-**NEXT SESSION — IMMEDIATE TASKS (Session 56):**
-- **Revisit the composite grading system with Ryan** — he explicitly flagged wanting to come back to this and didn't finish reviewing it before the session closed.
-- **Verify the native Charts tab live on Ryan's real machine** — family grouping, natural sort, and the heat map's per-cell labels/legend were only verified against mocked/historical data, not a live end-to-end click-through.
-- **Confirm the Software gauge renders correctly once actually connected** — only the disconnected "connect to see this" placeholder state has been confirmed live so far.
-- **Verify `deriveSessionVerdictFromMetrics` (the quick-summary/full-report fix) holds up on a genuinely fresh session**, not just the historical data it was built and tested against.
-- **Decide whether to build real in-app conversational voice** (mic → Claude API via a Supabase Edge Function → speech) for the future Companion, now that Copilot has been ruled out for that purpose twice.
 
 **STILL OPEN, CARRIED FORWARD (untouched this session):**
 - Wire real continuity into Amit's connection — still the single biggest open item, carried across three closes now. The compass score/tier/signals system is genuinely wired to Supabase, but the primer text a user copies into Claude.ai is static and identical for everyone regardless of tier.
