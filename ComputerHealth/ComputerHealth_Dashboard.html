@@ -166,6 +166,17 @@
      between rows - not under the header (first row has no line above it,
      since the header already separates it) - Ryan's direct request
      2026-07-19. */
+  /* Real bug found 2026-07-19 (Ryan, live testing - confirmed by
+     reproducing it): a completely separate, unscoped rule elsewhere in
+     this stylesheet (plain `th, td { border-bottom:1px solid #2a2e3a }`,
+     meant for a different simple table) applies to every <td> on the
+     page, including these. With border-collapse:collapse, that row's
+     border-BOTTOM and this row's border-TOP merge at the same shared
+     edge, and the generic near-invisible gray border-bottom was winning
+     the merge over this rule's intended black border-top. Explicit
+     border-bottom:none removes the competing edge entirely so there's
+     nothing left to lose that conflict to. */
+  .ip-table td { border-bottom:none }
   .ip-table tbody tr:not(:first-child) td { border-top:1px solid #12141a }
   .ip-table tr:hover td { background:#37404f }
   .ip-table tr { cursor:zoom-in }
@@ -246,7 +257,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.88</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.89</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5536,8 +5547,16 @@ async function chLoadInstalledProgramsTab() {
   chRenderInstalledPrograms(rows || [], notes || [], devId);
 }
 
-function chOpenProgramSearch(name) {
-  window.open('https://www.google.com/search?q=' + encodeURIComponent('what is "' + name + '"'), '_blank');
+// Ryan's direct request 2026-07-19: two questions in one search, not just
+// "what is this program" - a person may already recognize the program by
+// name, but the SPECIFIC VERSION is often where the actual problem lives
+// (a bad update, not the program itself). Publisher included too, since
+// it disambiguates genuinely obscure/generic-sounding names.
+function chOpenProgramSearch(name, publisher, version) {
+  let q = 'what is "' + name + '"';
+  if (publisher) q += ' by ' + publisher;
+  if (version) q += ', and what changed in version ' + version;
+  window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank');
 }
 
 async function chSaveDateNote(devId, dateValue, text) {
@@ -5628,7 +5647,8 @@ function chRenderInstalledPrograms(rows, notes, devId) {
         // ondblclick. Row hover-highlight already existed in .history-table
         // (tr:hover td) - added cursor:pointer so it visually reads as
         // clickable before the user even tries.
-        return `<tr ondblclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')" title="Double-click this row to search for what it is">
+        const esc = s => (s || '').replace(/'/g, "\\'");
+        return `<tr ondblclick="chOpenProgramSearch('${esc(r.display_name)}','${esc(r.publisher)}','${esc(r.version)}')" title="Double-click this row to search for what it is">
           <td>${badge}</td>
           <td><span style="color:#c9a84c">🔍</span> ${r.display_name}${watcherLink}</td>
           <td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
