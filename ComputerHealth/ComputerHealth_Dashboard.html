@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.82</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.83</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5548,8 +5548,9 @@ function chRenderInstalledPrograms(rows, notes, devId) {
         <input type="text" id="${noteId}" value="${(savedNote || '').replace(/"/g,'&quot;')}" placeholder="Add a comment for this date…" style="flex:1;min-width:220px;max-width:420px;padding:6px 10px;border-radius:6px;border:1px solid #3a3f4c;background:#0f1116;color:#e8e8ec;font-size:12px"
           onchange="chSaveDateNote('${devId}', ${dateKey === null ? 'null' : `'${dateKey}'`}, this.value)">
       </div>
-      <table class="history-table" style="width:100%">
-        <thead><tr><th></th><th>Program</th><th>Publisher</th><th>Version</th><th></th></tr></thead>
+      <table class="history-table" style="width:100%;table-layout:fixed">
+        <colgroup><col style="width:70px"><col><col style="width:22%"><col style="width:130px"></colgroup>
+        <thead><tr><th></th><th>Program</th><th>Publisher</th><th>Version</th></tr></thead>
         <tbody>` +
       items.map(r => {
         const badge = r.entry_type === 'update'
@@ -5561,10 +5562,19 @@ function chRenderInstalledPrograms(rows, notes, devId) {
         // real traceability, reused from the existing event log rather
         // than duplicated into a separate table.
         const watcherLink = r.install_diff_event_id
-          ? `<span class="view-link" style="color:#4caf6d;font-size:11px" onclick="event.stopPropagation();chShowInstallDiffDetail('${r.install_diff_event_id}')">Installed via Watcher — view details</span>`
+          ? `<span class="view-link" style="color:#4caf6d;font-size:11px;display:block;margin-top:4px" onclick="event.stopPropagation();chShowInstallDiffDetail('${r.install_diff_event_id}')">Installed via Watcher — view details</span>`
           : '';
-        return `<tr class="view-link" ondblclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')" title="Double-click to search for what this is">
-          <td>${badge}</td><td>${r.display_name}</td><td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td><td>${watcherLink}</td>
+        // Real usability fix 2026-07-19 (Ryan): a hidden double-click plus
+        // a hover-only tooltip was never actually discoverable - Ryan
+        // asked where the "what is this program" feature even was.
+        // Switched to a real visible link, single-click, matching the
+        // .view-link convention used everywhere else in this app (History's
+        // own "Report ->" links are single-click too) instead of a hidden
+        // gesture no one would find on their own.
+        return `<tr>
+          <td>${badge}</td>
+          <td>${r.display_name}<br><span class="view-link" style="font-size:11px" onclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')">🔍 What is this?</span>${watcherLink}</td>
+          <td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
         </tr>`;
       }).join('') +
       `</tbody></table></div>`;
