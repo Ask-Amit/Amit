@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.80</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.81</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5412,18 +5412,62 @@ async function chScanAndSyncInstalledPrograms() {
   const latestByKey = new Map();
   (existing || []).forEach(r => latestByKey.set(r.reg_key_id, r));
 
+  // Ryan's direct request 2026-07-19: link a newly-detected program back to
+  // whichever Install Watch (install_diff) run actually caught it, if any -
+  // real traceability reused from the existing event log instead of a
+  // second, parallel "watcher run history" table that could drift out of
+  // sync with it. Matched by display name against recent diffs' own
+  // "New Programs" list (Install Watch's own matching is name-based too,
+  // so this stays consistent with how it already reports itself). Recent
+  // = last 20 install_diff events for this device, not just today's - a
+  // person might not open the Installed Programs tab until well after
+  // running the watcher.
+  const { data: recentDiffs } = await db.from('amit_device_events')
+    .select('id,event_detail').eq('device_id', deviceId).eq('event_type', 'install_diff')
+    .order('created_at', { ascending: false }).limit(20);
+  const diffEventIdByName = new Map();
+  (recentDiffs || []).forEach(ev => {
+    const names = (ev.event_detail && ev.event_detail.NewPrograms) || [];
+    names.forEach(p => { if (p.DisplayName && !diffEventIdByName.has(p.DisplayName)) diffEventIdByName.set(p.DisplayName, ev.id); });
+  });
+
   const toInsert = [];
   programs.forEach(p => {
     const dateValue = p.folderDate || p.registryDate || null;
     const dateSource = p.folderDate ? 'folder' : (p.registryDate ? 'registry' : 'unknown');
     const prior = latestByKey.get(p.regKeyId);
+    const watcherEventId = diffEventIdByName.get(p.displayName) || null;
     if (!prior) {
-      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, entry_type: 'new', device_id: deviceId, user_id: currentUser.id });
+      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, entry_type: 'new', device_id: deviceId, user_id: currentUser.id, install_diff_event_id: watcherEventId });
     } else if (prior.date_value !== dateValue || prior.version !== p.version) {
-      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, entry_type: 'update', device_id: deviceId, user_id: currentUser.id });
+      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, entry_type: 'update', device_id: deviceId, user_id: currentUser.id, install_diff_event_id: watcherEventId });
     }
   });
   if (toInsert.length) await db.from('amit_installed_programs').insert(toInsert);
+}
+
+// Standalone History-detail viewer for a single install_diff event, callable
+// from the Installed Programs tab without depending on the History tab's
+// own historyData array already being loaded.
+async function chShowInstallDiffDetail(eventId) {
+  if (!db || !eventId) return;
+  const { data: e } = await db.from('amit_device_events').select('*').eq('id', eventId).maybeSingle();
+  if (!e) return;
+  document.getElementById('historyDetailTitle').textContent = e.summary || e.event_type;
+  document.getElementById('historyDetailWhen').textContent = new Date(e.created_at).toLocaleString() + ' — ' + e.severity;
+  const body = document.getElementById('historyDetailBody');
+  const diff = e.event_detail || {};
+  const total = (diff.NewPrograms?.length||0) + (diff.NewStartupReg?.length||0) + (diff.NewShortcuts?.length||0) + (diff.NewTasks?.length||0) + (diff.NewExtensions?.length||0) + (diff.HomepageChanges?.length||0);
+  const section = (title, items, fmt) => items && items.length ? `<div class="section-title">${title} (${items.length})</div>` + items.map(fmt).join('') : '';
+  let html = `<p><strong>${total} change(s) detected.</strong></p>`;
+  html += section('New Programs', diff.NewPrograms, p => `<div class="finding">${p.DisplayName} — ${p.Publisher||'unknown publisher'}</div>`);
+  html += section('New Startup Entries', diff.NewStartupReg, s => `<div class="finding flag">${s.Name} = ${s.Value}</div>`);
+  html += section('New Scheduled Tasks', diff.NewTasks, t => `<div class="finding flag">${t.TaskPath}${t.TaskName}</div>`);
+  html += section('New Browser Extensions', diff.NewExtensions, ex => `<div class="finding flag">[${ex.Browser}] ${ex.Id}</div>`);
+  html += section('Homepage/Search Changes', diff.HomepageChanges, h => `<div class="finding flag">[${h.Browser}] ${h.OldHomepage} → ${h.NewHomepage}</div>`);
+  if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
+  body.innerHTML = html;
+  document.getElementById('historyDetailModal').classList.remove('hidden');
 }
 
 let CH_INSTALLED_PROGRAMS_LOADED = false;
@@ -5492,14 +5536,22 @@ function chRenderInstalledPrograms(rows, notes, devId) {
           onchange="chSaveDateNote('${devId}', ${dateKey === null ? 'null' : `'${dateKey}'`}, this.value)">
       </div>
       <table class="history-table" style="width:100%">
-        <thead><tr><th></th><th>Program</th><th>Publisher</th><th>Version</th></tr></thead>
+        <thead><tr><th></th><th>Program</th><th>Publisher</th><th>Version</th><th></th></tr></thead>
         <tbody>` +
       items.map(r => {
         const badge = r.entry_type === 'update'
           ? '<span class="status-badge later" style="background:rgba(224,167,46,.15);color:#e0a72e;border:1px solid rgba(224,167,46,.4)">UPDATE</span>'
           : '<span class="status-badge now">NEW</span>';
+        // Ryan's direct request 2026-07-19: a program whose name matched a
+        // recent Install Watch (install_diff) run's "New Programs" list
+        // gets a clickable link straight to that run's full report -
+        // real traceability, reused from the existing event log rather
+        // than duplicated into a separate table.
+        const watcherLink = r.install_diff_event_id
+          ? `<span class="view-link" style="color:#4caf6d;font-size:11px" onclick="event.stopPropagation();chShowInstallDiffDetail('${r.install_diff_event_id}')">Installed via Watcher — view details</span>`
+          : '';
         return `<tr class="view-link" ondblclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')" title="Double-click to search for what this is">
-          <td>${badge}</td><td>${r.display_name}</td><td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
+          <td>${badge}</td><td>${r.display_name}</td><td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td><td>${watcherLink}</td>
         </tr>`;
       }).join('') +
       `</tbody></table></div>`;
