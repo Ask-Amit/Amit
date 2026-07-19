@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.75</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.76</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3393,7 +3393,20 @@ function analyzeComponentRows(component, rows, specs) {
     const min = r.min_value, max = r.max_value, avg = r.avg_value;
     let flagged = null;
 
-    if (/temp/.test(name) || /temp/.test(cat)) {
+    // Real bug found 2026-07-19 (Ryan, live testing): NVMe drives report
+    // fixed manufacturer threshold VALUES (e.g. "Critical Temperature",
+    // "Warning Temperature") as sensors sitting right alongside the real
+    // live temperature readings in LibreHardwareMonitor's tree. Those
+    // names contain the word "temperature" too, so the check below was
+    // matching them and flagging a constant, never-changing spec value
+    // (84.0C every single sample, forever) as if it were an observed peak
+    // - a false "Investigate" that could never resolve itself no matter
+    // what the drive actually did. Confirmed by pulling raw history: the
+    // real Composite Temperature genuinely varies sample to sample while
+    // Critical/Warning Temperature never move at all across an entire
+    // session - the signature of a threshold constant, not a reading.
+    const isThresholdField = /warning|critical|threshold|limit/.test(name);
+    if (!isThresholdField && (/temp/.test(name) || /temp/.test(cat))) {
       if (max > IMPLAUSIBLE_TEMP_C) {
         flagged = { severity: 'info', reason: `Peaked at ${max}°C - not a physically real reading for this sensor, almost certainly a misreport. Safe to ignore, but worth confirming nothing else relies on this exact sensor.` };
       } else {
@@ -3673,7 +3686,11 @@ async function buildLongevitySection(byComponent) {
 const IMPLAUSIBLE_TEMP_C = 150; // above this, no consumer sensor is reporting a real temperature
 
 function findTempRows(rows) {
-  return rows.filter(r => /temp/i.test(r.metric_name || '') || /temp/i.test(r.category || ''));
+  // Same threshold-field exclusion as analyzeComponentRows above - "Critical
+  // Temperature" / "Warning Temperature" are fixed manufacturer limit
+  // VALUES, not live readings, and their names contain "temperature" too.
+  return rows.filter(r => !/warning|critical|threshold|limit/i.test(r.metric_name || '') &&
+    (/temp/i.test(r.metric_name || '') || /temp/i.test(r.category || '')));
 }
 
 // Real inconsistency Ryan caught live 2026-07-18: sections 1 and 2 listed
