@@ -178,6 +178,15 @@
      nothing left to lose that conflict to. */
   .ip-table td { border-bottom:none }
   .ip-table tbody tr:not(:first-child) td { border-top:1px solid #12141a }
+  /* Real time-gap boundary within a date group - Ryan's direct request
+     2026-07-19: items installed close together (~10 min) are very
+     likely one real install event (an app plus its runtime
+     dependencies); a genuine gap on the same day almost certainly means
+     a separate, unrelated install. Same rule/specificity shape as the
+     line above it (must include tbody to tie its specificity and win by
+     appearing later in the stylesheet), just border-style:double
+     instead of solid so it visually reads as a stronger break. */
+  .ip-table tbody tr.cluster-break td { border-top:5px double #12141a }
   .ip-table tr:hover td { background:#37404f }
   .ip-table tr { cursor:zoom-in }
   .history-table .view-link { color:#c9a84c; cursor:pointer; white-space:nowrap }
@@ -257,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.91</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.92</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5501,9 +5510,9 @@ async function chScanAndSyncInstalledPrograms() {
     const prior = latestByKey.get(p.regKeyId);
     const watcherEventId = diffEventIdByName.get(p.displayName) || null;
     if (!prior) {
-      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, entry_type: 'new', device_id: deviceId, user_id: currentUser.id, install_diff_event_id: watcherEventId });
+      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, install_datetime: p.folderDateTime || null, entry_type: 'new', device_id: deviceId, user_id: currentUser.id, install_diff_event_id: watcherEventId });
     } else if (prior.date_value !== dateValue || prior.version !== p.version) {
-      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, entry_type: 'update', device_id: deviceId, user_id: currentUser.id, install_diff_event_id: watcherEventId });
+      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, install_datetime: p.folderDateTime || null, entry_type: 'update', device_id: deviceId, user_id: currentUser.id, install_diff_event_id: watcherEventId });
     }
   });
   if (toInsert.length) await db.from('amit_installed_programs').insert(toInsert);
@@ -5597,9 +5606,33 @@ function chRenderInstalledPrograms(rows, notes, devId) {
   const oldestFirst = sortedDates.filter(d => d !== null).slice().reverse();
   const initialBuildDate = oldestFirst.find(d => groups.get(d).length >= 5);
 
+  // Ryan's direct request 2026-07-19: within a date, sort newest install
+  // time first, oldest at bottom - a computer that's run fine a long time
+  // makes old installs an unlikely culprit, same logic already applied to
+  // date groups themselves. Items with a real time (folder-sourced) sort
+  // before items where only the date is known (registry-sourced/unknown -
+  // those can't be placed precisely, so they fall to the end and sort
+  // alphabetically among themselves, same as before this feature existed.
+  const CH_CLUSTER_GAP_MS = 10 * 60 * 1000; // Ryan's own example: ~10 minutes apart = likely the same real install event
   let html = '';
   sortedDates.forEach(dateKey => {
-    const items = groups.get(dateKey).sort((a, b) => a.display_name.localeCompare(b.display_name));
+    const items = groups.get(dateKey).sort((a, b) => {
+      const at = a.install_datetime ? new Date(a.install_datetime).getTime() : null;
+      const bt = b.install_datetime ? new Date(b.install_datetime).getTime() : null;
+      if (at !== null && bt !== null) return bt - at;
+      if (at !== null) return -1;
+      if (bt !== null) return 1;
+      return a.display_name.localeCompare(b.display_name);
+    });
+    // A real gap (or either side missing a time at all) marks a cluster
+    // break, rendered as the stronger double line instead of the normal
+    // thin single line between rows.
+    items.forEach((r, i) => {
+      if (i === 0) { r._clusterBreak = false; return; }
+      const prevT = items[i - 1].install_datetime ? new Date(items[i - 1].install_datetime).getTime() : null;
+      const curT = r.install_datetime ? new Date(r.install_datetime).getTime() : null;
+      r._clusterBreak = (prevT === null || curT === null) ? true : (prevT - curT) > CH_CLUSTER_GAP_MS;
+    });
     let suggested = '';
     if (dateKey === initialBuildDate) {
       suggested = 'Initial build';
@@ -5656,9 +5689,10 @@ function chRenderInstalledPrograms(rows, notes, devId) {
         // (tr:hover td) - added cursor:pointer so it visually reads as
         // clickable before the user even tries.
         const esc = s => (s || '').replace(/'/g, "\\'");
-        return `<tr ondblclick="chOpenProgramSearch('${esc(r.display_name)}','${esc(r.publisher)}','${esc(r.version)}')" title="Double-click this row to search for what it is">
+        const timeLabel = r.install_datetime ? new Date(r.install_datetime).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+        return `<tr class="${r._clusterBreak ? 'cluster-break' : ''}" ondblclick="chOpenProgramSearch('${esc(r.display_name)}','${esc(r.publisher)}','${esc(r.version)}')" title="Double-click this row to search for what it is">
           <td>${badge}</td>
-          <td><span style="color:#c9a84c">🔍</span> ${r.display_name}${watcherLink}</td>
+          <td><span style="color:#c9a84c">🔍</span> ${r.display_name}${timeLabel ? ` <span style="color:#7a7f89;font-size:11px">· ${timeLabel}</span>` : ''}${watcherLink}</td>
           <td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
         </tr>`;
       }).join('') +

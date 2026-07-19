@@ -813,9 +813,21 @@ try {
                         Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, PSChildName |
                         Sort-Object DisplayName -Unique
                     $rowsJson = ($items | ForEach-Object {
-                        $folderDate = $null
+                        # Ryan's direct request 2026-07-19: keep the real time
+                        # of day, not just the date - the folder's actual NTFS
+                        # CreationTime already has it, this was just being
+                        # thrown away by formatting to date-only. Two things
+                        # installed ten minutes apart are very likely one real
+                        # install event (an app plus its runtime dependencies);
+                        # two installed hours apart on the same calendar day
+                        # almost certainly are not.
+                        $folderDate = $null; $folderDateTime = $null
                         if ($_.InstallLocation -and (Test-Path $_.InstallLocation)) {
-                            try { $folderDate = (Get-Item $_.InstallLocation -ErrorAction Stop).CreationTime.ToString('yyyy-MM-dd') } catch {}
+                            try {
+                                $ct = (Get-Item $_.InstallLocation -ErrorAction Stop).CreationTime
+                                $folderDate = $ct.ToString('yyyy-MM-dd')
+                                $folderDateTime = $ct.ToString('yyyy-MM-ddTHH:mm:ss')
+                            } catch {}
                         }
                         $regDate = $null
                         if ($_.InstallDate -and $_.InstallDate -match '^\d{8}$') {
@@ -826,6 +838,7 @@ try {
                         ',"publisher":' + (ConvertTo-JsonString $_.Publisher) +
                         ',"version":' + (ConvertTo-JsonString $_.DisplayVersion) +
                         ',"folderDate":' + $(if ($folderDate) { ConvertTo-JsonString $folderDate } else { 'null' }) +
+                        ',"folderDateTime":' + $(if ($folderDateTime) { ConvertTo-JsonString $folderDateTime } else { 'null' }) +
                         ',"registryDate":' + $(if ($regDate) { ConvertTo-JsonString $regDate } else { 'null' }) + '}'
                     }) -join ","
                     Send-JsonRaw $response ('{"programs":[' + $rowsJson + ']}')
