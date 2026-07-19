@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.78</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.79</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -385,7 +385,7 @@
     <p style="color:#c7cad1">Amit's way of telling these apart: watch each individual sensor across at least 10 separate tracking runs. A real reading moves around with real use. A spec label or an empty header never moves, ever — same exact number, every single time. Once a sensor proves itself constant across 10 full runs, it quietly stops appearing in reports and stops being flagged, automatically, no one has to fix anything by hand. And if it ever DOES start moving again in the future — say a fan actually gets installed in one of those empty headers — it comes right back the next time it's checked.</p>
     <p style="color:#c7cad1"><strong>This computer just doesn't have enough history yet to make that call for every sensor.</strong> So a reading in the report below marked "Investigate" may turn out, a few sessions from now, to have been one of these — a label, not an emergency. It's not a false alarm exactly; it's an honest "not confirmed yet," and Amit would rather tell you that plainly than either hide it or cry wolf.</p>
     <div class="actions">
-      <button class="btn" onclick="document.getElementById('youngHistoryModal').classList.add('hidden')">Understood — show me the report</button>
+      <button class="btn" onclick="chProceedFromYoungHistoryNotice()">Understood — show me the report</button>
     </div>
   </div>
 </div>
@@ -3302,7 +3302,50 @@ function showCaptureInfo(tabKey, which) {
   document.getElementById('captureInfoModal').classList.remove('hidden');
 }
 
-function openHistoryDetail(i) {
+// Real sequencing bug caught live 2026-07-19 (Ryan): the young-history
+// popup was being shown WHILE the report modal underneath it was already
+// open and rendering, so the popup either got buried or the report was
+// already visible by the time anyone read it - not the two-step "read
+// this, THEN see the report" flow it was meant to be. Fixed by making
+// this a real gate: the <10-session check now runs and resolves BEFORE
+// the report modal opens at all. If it fires, the report modal stays
+// completely closed until "Understood" is clicked - see
+// chProceedFromYoungHistoryNotice() below, which is what actually opens
+// it. If the device has 10+ sessions, this adds one quick count query
+// and then proceeds straight to the report, same as before.
+let CH_PENDING_HISTORY_INDEX = null;
+
+async function openHistoryDetail(i) {
+  const e = historyData[i];
+  if (!e) return;
+  if (e.event_type === 'tracking_session_ended' && db) {
+    try {
+      const { data: eventRow } = await db.from('amit_device_events').select('device_id').eq('id', e.id).maybeSingle();
+      const devId = eventRow && eventRow.device_id;
+      if (devId) {
+        const { count } = await db.from('amit_device_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('device_id', devId).eq('event_type', 'tracking_session_ended');
+        if (count != null && count < 10) {
+          CH_PENDING_HISTORY_INDEX = i;
+          document.getElementById('youngHistorySessionCount').textContent = count;
+          document.getElementById('youngHistoryModal').classList.remove('hidden');
+          return; // report modal stays closed until "Understood" is clicked
+        }
+      }
+    } catch (err) { /* fail open - fall through to opening the report normally */ }
+  }
+  actuallyOpenHistoryDetail(i);
+}
+
+function chProceedFromYoungHistoryNotice() {
+  document.getElementById('youngHistoryModal').classList.add('hidden');
+  const i = CH_PENDING_HISTORY_INDEX;
+  CH_PENDING_HISTORY_INDEX = null;
+  if (i != null) actuallyOpenHistoryDetail(i);
+}
+
+function actuallyOpenHistoryDetail(i) {
   const e = historyData[i];
   if (!e) return;
   document.getElementById('historyDetailTitle').textContent = e.summary || e.event_type;
@@ -3452,26 +3495,6 @@ async function chRefreshConstantSensorKeys(devId) {
       if (allIdentical) CH_CONSTANT_SENSOR_KEYS.add(key);
     });
   } catch (e) { /* leave CH_CONSTANT_SENSOR_KEYS empty - fail open, never hide anything on error */ }
-}
-
-// Ryan's direct request 2026-07-19: shown once, right before a session
-// report opens, whenever the device behind it has fewer than 10 tracked
-// sessions - not enough history yet for chRefreshConstantSensorKeys to
-// have proven anything constant, so a manufacturer spec value or an
-// unpopulated sensor header could still be sitting in the report ahead,
-// looking exactly like a live emergency. Fails open (shows nothing) on
-// any error - a missing explanation is a much smaller problem than a
-// popup blocking someone from ever seeing their own report.
-async function chMaybeShowYoungHistoryNotice(devId) {
-  if (!db || !devId) return;
-  try {
-    const { count } = await db.from('amit_device_events')
-      .select('id', { count: 'exact', head: true })
-      .eq('device_id', devId).eq('event_type', 'tracking_session_ended');
-    if (count == null || count >= 10) return;
-    document.getElementById('youngHistorySessionCount').textContent = count;
-    document.getElementById('youngHistoryModal').classList.remove('hidden');
-  } catch (e) { /* fail open - no popup rather than blocking the report */ }
 }
 
 // Ryan's direct request 2026-07-17 (the morning after the report-fixing
@@ -3657,7 +3680,6 @@ async function loadTrackerMetricsBreakdown(eventId) {
     const { data: eventRow } = await db.from('amit_device_events').select('device_id').eq('id', eventId).maybeSingle();
     const thisDeviceId = eventRow && eventRow.device_id;
     await chRefreshConstantSensorKeys(thisDeviceId);
-    await chMaybeShowYoungHistoryNotice(thisDeviceId);
     const analyses = orderedComponents.map(comp => analyzeComponentRows(comp, byComponent[comp], specs));
     analyses.forEach(a => { LAST_COMPONENT_ISSUES[a.component] = a.issues; });
 
