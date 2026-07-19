@@ -241,7 +241,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.86</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.87</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -4655,16 +4655,42 @@ async function pollSecurity() {
       document.getElementById('securityCards').innerHTML = '<em style="color:#8a8f99">Could not read antivirus status - Windows Defender may not be the active antivirus on this machine.</em>';
       return;
     }
-    const protectedOk = d.antivirusEnabled && d.realTimeProtectionEnabled;
+    const realTimeOk = d.antivirusEnabled && d.realTimeProtectionEnabled;
     const scanText = d.lastQuickScan ? ('Last quick scan: ' + d.lastQuickScan) : 'No recent scan found.';
+    // Real gap caught live 2026-07-19 (Ryan): "Protected" only ever checked
+    // whether real-time protection was on - a scan that hadn't run in
+    // weeks still showed a green "Protected" card, with the stale date
+    // sitting as silent text underneath. Real-time protection IS the
+    // primary, continuous defense (Windows Defender's own default scan
+    // schedule is weekly, not daily, so flagging anything short of that
+    // as "at risk" would cry wolf on a perfectly normal, healthy system -
+    // the same failure mode fixed earlier tonight for the false Critical
+    // Temperature flag). 7 days is the real, defensible line: genuinely
+    // neglected, not just "hasn't run since yesterday."
+    const scanDate = d.lastQuickScan ? new Date(d.lastQuickScan) : null;
+    const daysSinceScan = (scanDate && !isNaN(scanDate)) ? (Date.now() - scanDate.getTime()) / 86400000 : null;
+    const scanStale = daysSinceScan === null || daysSinceScan > 7;
+    let avTier, avLabel, avVerdict;
+    if (!realTimeOk) {
+      avTier = 'bad'; avLabel = 'At Risk';
+      avVerdict = 'Real-time protection is OFF or antivirus is disabled - this machine is exposed right now.';
+    } else if (scanStale) {
+      avTier = 'warn'; avLabel = 'Scan Overdue';
+      avVerdict = 'Real-time protection is active, but a full/quick scan hasn\'t completed in over a week' +
+        (daysSinceScan !== null ? ` (${Math.floor(daysSinceScan)} days ago)` : ' (none on record') +
+        ' - worth running one manually to catch anything real-time protection alone might have missed.';
+    } else {
+      avTier = 'good'; avLabel = 'Protected';
+      avVerdict = 'Real-time protection is active, and a scan has run recently.';
+    }
     const odText = d.oneDriveRunning
       ? (d.oneDriveLastSync ? ('OneDrive is running. Best-effort last sync: ' + d.oneDriveLastSync) : 'OneDrive is running, but a last-sync time could not be read (this check is best-effort - Microsoft does not publish an official way to read this).')
       : 'OneDrive does not appear to be running - files may not be backing up.';
     document.getElementById('securityCards').innerHTML = `
-      <div class="card ${protectedOk ? 'good' : 'bad'}">
+      <div class="card ${avTier}">
         <div class="label">Antivirus Protection</div>
-        <div class="value">${protectedOk ? 'Protected' : 'At Risk'}</div>
-        <div class="verdict">${protectedOk ? 'Real-time protection is active.' : 'Real-time protection is OFF or antivirus is disabled - this machine is exposed right now.'} ${scanText}</div></div>
+        <div class="value">${avLabel}</div>
+        <div class="verdict">${avVerdict} ${scanText}</div></div>
       <div class="card ${d.oneDriveRunning ? 'good' : 'warn'}">
         <div class="label">Backup (OneDrive)</div>
         <div class="value">${d.oneDriveRunning ? 'Running' : 'Not Running'}</div>
