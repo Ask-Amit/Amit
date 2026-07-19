@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.79</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.80</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -499,6 +499,7 @@
   <button onclick="showTab('diagnostics')">Diagnostics</button>
   <button onclick="showTab('behavior')">App Behavior</button>
   <button onclick="showTab('install')">Install Watch</button>
+  <button onclick="showTab('installedprograms')">Installed Programs</button>
   <button onclick="showTab('browser')">Browser</button>
   <button onclick="showTab('reliability')">Updates</button>
   <button onclick="showTab('errors')">Errors</button>
@@ -616,6 +617,12 @@
       <button class="btn secondary" onclick="showCaptureInfo('install','current')">✓ Currently Captured</button>
       <button class="btn secondary" onclick="showCaptureInfo('install','future')">＋ Future</button>
     </div>
+  </div>
+
+  <div class="tab" id="tab-installedprograms">
+    <div class="section-title">Installed Programs</div>
+    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">Captured automatically every time tracking starts on this computer - grouped by the date each program first showed up (real registry data, cross-checked against each install folder's own creation date so an ordinary update never looks like a fresh install). Newest at the top, since anything that just appeared is usually the first place to look if something started acting up recently. Double-click a program to search for what it is.</p>
+    <div id="installedProgramsBody"><em style="color:#8a8f99">Loading…</em></div>
   </div>
 
   <div class="tab" id="tab-browser">
@@ -746,6 +753,7 @@ function showTab(name) {
   if (name === 'errors') pollReliability();
   if (name === 'security') pollSecurity();
   if (name === 'charts' && !chSessionSamplesCache && !chHistorySamplesCache) chLoadChartScopeData();
+  if (name === 'installedprograms') chLoadInstalledProgramsTab();
 }
 
 // Same as showTab but callable without a click event (e.g. from another
@@ -763,6 +771,7 @@ function showTabByName(name) {
   if (name === 'errors') pollReliability();
   if (name === 'security') pollSecurity();
   if (name === 'charts' && !chSessionSamplesCache && !chHistorySamplesCache) chLoadChartScopeData();
+  if (name === 'installedprograms') chLoadInstalledProgramsTab();
 }
 
 function setStatus(msg) {
@@ -4166,6 +4175,10 @@ async function toggleTracker() {
   try {
     await fetch(BRIDGE + (isOn ? '/api/stop-tracking' : '/api/start-tracking'), { method: 'POST', body: '' });
   } catch (e) {}
+  // Ryan's direct request 2026-07-19: scan+sync installed programs every
+  // time tracking actually starts, not on a manual bracketed workflow -
+  // fire-and-forget, doesn't block the tracker-start UI on it.
+  if (!isOn) { chScanAndSyncInstalledPrograms().catch(() => {}); }
   if (isOn && overview) {
     const detail = document.getElementById('sessionSummaryDetail');
     if (currentUser && deviceId) {
@@ -5355,6 +5368,143 @@ if (isDuplicateTab) {
   // mode - browsing Amit's own tracked history - works without an account.
   // This only touches Supabase, never localhost, so it needs no gating.
   setTimeout(() => { if (!currentUser) loadMyDevices(); }, 500);
+}
+
+// ==========================================================================
+// INSTALLED PROGRAMS TAB — Ryan's direct request 2026-07-19
+//
+// Real registry + folder-date scan (verified live against Ryan's own
+// machine that evening) run every time tracking starts, diffed against
+// this device's own history by registry key identity (not display name -
+// several real programs, like the VC++ Redistributables, bake their own
+// version number into the name, which would make an ordinary update
+// misread as a brand-new install if matched by text). First time an
+// identity is ever seen -> logged as "new". Same identity seen again with
+// a different date or version -> logged as a separate "update" row -
+// nothing already logged is ever edited or deleted, so the full history
+// stays intact (an uninstall-then-reinstall producing two rows for the
+// same name is an accepted, understood edge case, not a bug).
+//
+// Grouped by date in the tab itself, newest at the top (a computer that's
+// run fine a long time makes old installs an unlikely culprit - anything
+// that just showed up is the first place to look), oldest at the bottom,
+// "date unknown" last of all. The very earliest date group on a device is
+// auto-suggested as "Initial build". A date group where several items
+// share one publisher is auto-suggested as "Potential install of
+// <publisher> software" - both are just starting text a person can freely
+// overwrite in the comment field; nothing is forced.
+// ==========================================================================
+
+async function chScanAndSyncInstalledPrograms() {
+  if (!db || !currentUser || !deviceId || !bridgeUp) return;
+  const res = await fetch(BRIDGE + '/api/installed-programs');
+  if (!res.ok) return;
+  const { programs } = await res.json();
+  if (!programs || !programs.length) return;
+
+  const { data: existing } = await db.from('amit_installed_programs')
+    .select('reg_key_id,date_value,version,created_at')
+    .eq('device_id', deviceId)
+    .order('created_at', { ascending: true });
+  // Latest known state per identity - later rows in the ascending-ordered
+  // list overwrite earlier ones in this map, so what's left is each
+  // program's most recently logged date/version.
+  const latestByKey = new Map();
+  (existing || []).forEach(r => latestByKey.set(r.reg_key_id, r));
+
+  const toInsert = [];
+  programs.forEach(p => {
+    const dateValue = p.folderDate || p.registryDate || null;
+    const dateSource = p.folderDate ? 'folder' : (p.registryDate ? 'registry' : 'unknown');
+    const prior = latestByKey.get(p.regKeyId);
+    if (!prior) {
+      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, entry_type: 'new', device_id: deviceId, user_id: currentUser.id });
+    } else if (prior.date_value !== dateValue || prior.version !== p.version) {
+      toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, entry_type: 'update', device_id: deviceId, user_id: currentUser.id });
+    }
+  });
+  if (toInsert.length) await db.from('amit_installed_programs').insert(toInsert);
+}
+
+let CH_INSTALLED_PROGRAMS_LOADED = false;
+async function chLoadInstalledProgramsTab() {
+  const el = document.getElementById('installedProgramsBody');
+  if (!el || !db) return;
+  const devId = viewingDeviceId || deviceId;
+  if (!devId) { el.innerHTML = '<em style="color:#8a8f99">Sign in and connect a computer to see its installed-programs history.</em>'; return; }
+  el.innerHTML = '<em style="color:#8a8f99">Loading…</em>';
+  const [{ data: rows }, { data: notes }] = await Promise.all([
+    db.from('amit_installed_programs').select('*').eq('device_id', devId).order('date_value', { ascending: false }),
+    db.from('amit_installed_program_date_notes').select('*').eq('device_id', devId)
+  ]);
+  chRenderInstalledPrograms(rows || [], notes || [], devId);
+}
+
+function chOpenProgramSearch(name) {
+  window.open('https://www.google.com/search?q=' + encodeURIComponent('what is "' + name + '"'), '_blank');
+}
+
+async function chSaveDateNote(devId, dateValue, text) {
+  await db.from('amit_installed_program_date_notes').upsert({
+    device_id: devId, user_id: currentUser.id, date_value: dateValue, note: text, updated_at: new Date().toISOString()
+  }, { onConflict: 'device_id,date_value' });
+}
+
+function chRenderInstalledPrograms(rows, notes, devId) {
+  const el = document.getElementById('installedProgramsBody');
+  if (!rows.length) { el.innerHTML = '<em style="color:#8a8f99">No installed-programs history yet - it\'s captured the next time tracking starts on this device.</em>'; return; }
+
+  const noteByDate = new Map(notes.map(n => [n.date_value, n.note]));
+  const groups = new Map(); // date_value (or null) -> rows[]
+  rows.forEach(r => { const k = r.date_value; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); });
+
+  // Newest date first, "date unknown" (null) always last.
+  const sortedDates = [...groups.keys()].sort((a, b) => {
+    if (a === null) return 1; if (b === null) return -1;
+    return b.localeCompare(a);
+  });
+  const earliestRealDate = sortedDates.filter(d => d !== null).slice(-1)[0];
+
+  let html = '';
+  sortedDates.forEach(dateKey => {
+    const items = groups.get(dateKey).sort((a, b) => a.display_name.localeCompare(b.display_name));
+    let suggested = '';
+    if (dateKey === earliestRealDate) {
+      suggested = 'Initial build';
+    } else if (dateKey !== null) {
+      // Publisher-based grouping heuristic - Ryan's direct request: if
+      // several items in the same date group share one publisher, they
+      // likely arrived together as part of installing one real product
+      // (e.g. five NVIDIA components on the day a GPU went in).
+      const counts = new Map();
+      items.forEach(r => { if (r.publisher) counts.set(r.publisher, (counts.get(r.publisher) || 0) + 1); });
+      const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (top && top[1] >= 2 && top[1] >= items.length * 0.5) suggested = `Potential install of ${top[0]} software`;
+    }
+    const savedNote = noteByDate.has(dateKey) ? noteByDate.get(dateKey) : suggested;
+    const dateLabel = dateKey === null ? 'Date unknown' : new Date(dateKey + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    const noteId = 'chDateNote-' + (dateKey === null ? 'unknown' : dateKey);
+
+    html += `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <div class="section-title" style="margin:0">${dateLabel}</div>
+        <input type="text" id="${noteId}" value="${(savedNote || '').replace(/"/g,'&quot;')}" placeholder="Add a comment for this date…" style="flex:1;min-width:220px;max-width:420px;padding:6px 10px;border-radius:6px;border:1px solid #3a3f4c;background:#0f1116;color:#e8e8ec;font-size:12px"
+          onchange="chSaveDateNote('${devId}', ${dateKey === null ? 'null' : `'${dateKey}'`}, this.value)">
+      </div>
+      <table class="history-table" style="width:100%">
+        <thead><tr><th></th><th>Program</th><th>Publisher</th><th>Version</th></tr></thead>
+        <tbody>` +
+      items.map(r => {
+        const badge = r.entry_type === 'update'
+          ? '<span class="status-badge later" style="background:rgba(224,167,46,.15);color:#e0a72e;border:1px solid rgba(224,167,46,.4)">UPDATE</span>'
+          : '<span class="status-badge now">NEW</span>';
+        return `<tr class="view-link" ondblclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')" title="Double-click to search for what this is">
+          <td>${badge}</td><td>${r.display_name}</td><td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
+        </tr>`;
+      }).join('') +
+      `</tbody></table></div>`;
+  });
+  el.innerHTML = html;
 }
 </script>
 </body>

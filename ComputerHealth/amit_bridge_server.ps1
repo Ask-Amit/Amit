@@ -791,6 +791,48 @@ try {
                 else { Send-Html $response "<h1>Dashboard file not found at $dashboardPath</h1>" }
             }
             "/api/device" { Send-Json $response @{ deviceId = $deviceId; deviceName = $deviceName } }
+            "/api/installed-programs" {
+                # Ryan's direct request 2026-07-19: same technique verified live
+                # in chat that evening (registry Uninstall keys, cross-checked
+                # against each install folder's real NTFS creation date, which
+                # doesn't silently drift forward the way the registry's own
+                # self-reported InstallDate can on an ordinary update). Identity
+                # for change-tracking is PSChildName - the actual registry
+                # subkey name/GUID - not DisplayName, since several real
+                # entries (the VC++ Redistributables) bake their own version
+                # number into DisplayName, which would make a routine update
+                # misread as a brand-new install if matched by name.
+                try {
+                    $paths = @(
+                        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                    )
+                    $items = Get-ItemProperty $paths -ErrorAction SilentlyContinue |
+                        Where-Object { $_.DisplayName } |
+                        Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, PSChildName |
+                        Sort-Object DisplayName -Unique
+                    $rowsJson = ($items | ForEach-Object {
+                        $folderDate = $null
+                        if ($_.InstallLocation -and (Test-Path $_.InstallLocation)) {
+                            try { $folderDate = (Get-Item $_.InstallLocation -ErrorAction Stop).CreationTime.ToString('yyyy-MM-dd') } catch {}
+                        }
+                        $regDate = $null
+                        if ($_.InstallDate -and $_.InstallDate -match '^\d{8}$') {
+                            $regDate = "$($_.InstallDate.Substring(0,4))-$($_.InstallDate.Substring(4,2))-$($_.InstallDate.Substring(6,2))"
+                        }
+                        '{"regKeyId":' + (ConvertTo-JsonString $_.PSChildName) +
+                        ',"displayName":' + (ConvertTo-JsonString $_.DisplayName) +
+                        ',"publisher":' + (ConvertTo-JsonString $_.Publisher) +
+                        ',"version":' + (ConvertTo-JsonString $_.DisplayVersion) +
+                        ',"folderDate":' + $(if ($folderDate) { ConvertTo-JsonString $folderDate } else { 'null' }) +
+                        ',"registryDate":' + $(if ($regDate) { ConvertTo-JsonString $regDate } else { 'null' }) + '}'
+                    }) -join ","
+                    Send-JsonRaw $response ('{"programs":[' + $rowsJson + ']}')
+                } catch {
+                    Send-Json $response @{ error = "Could not read installed-programs list: $($_.Exception.Message)" } 500
+                }
+            }
             "/api/resource" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\resource_watch_result.txt" 20) }
             "/api/resource-history" {
                 # Every line already contains a full sensor dump (resource_watcher.ps1
