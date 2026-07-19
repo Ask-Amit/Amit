@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.76</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.77</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3375,6 +3375,58 @@ function downloadMasterDump(filenameHint) {
   URL.revokeObjectURL(url);
 }
 
+// General, data-driven replacement for the 2026-07-19 name-based
+// threshold-field guess (isThresholdField below) - Ryan's direct request
+// after that fix: instead of trusting sensor NAMES ("contains the word
+// critical/warning"), which only catches fields we thought to name in
+// advance, this looks at what a sensor has actually DONE across its own
+// real session history. Any sensor whose value has been bit-identical
+// across its most recent 10 appearances in amit_device_session_metrics
+// is treated as a fixed manufacturer constant (like an NVMe "Critical
+// Temperature" limit), not a live reading, and excluded from flagging/
+// display - regardless of what it's named or what hardware it's on.
+// A sensor with fewer than 10 sessions of its own history is always
+// left alone (shown/flagged normally) - not enough evidence yet to
+// conclude it never moves, and a brand-new device's first ~10 sessions
+// behave exactly as before this feature existed. Self-correcting: this
+// is recomputed fresh from real data every time a report is built, so a
+// sensor that starts varying again automatically stops being excluded
+// the very next time this runs - no separate "reactivation" step needed.
+let CH_CONSTANT_SENSOR_KEYS = new Set();
+function chConstantKey(component, title, metricName) { return `${component}|${title}|${metricName}`; }
+
+async function chRefreshConstantSensorKeys(devId) {
+  CH_CONSTANT_SENSOR_KEYS = new Set();
+  if (!db || !devId) return;
+  try {
+    // Widened to the last 20 sessions (not exactly 10) so a sensor that's
+    // simply absent from one or two recent sessions (e.g. a drive briefly
+    // unplugged) isn't unfairly denied enough evidence - the rule is "at
+    // least 10 of its own appearances, all identical," not "the last 10
+    // sessions in a row."
+    const { data: events } = await db.from('amit_device_events')
+      .select('id,created_at').eq('device_id', devId).eq('event_type', 'tracking_session_ended')
+      .order('created_at', { ascending: false }).limit(20);
+    if (!events || events.length < 10) return; // not enough session history to conclude anything yet
+    const { data: rows } = await db.from('amit_device_session_metrics')
+      .select('event_id,component,title,metric_name,min_value,max_value,avg_value')
+      .in('event_id', events.map(e => e.id));
+    if (!rows) return;
+    const byKey = new Map();
+    rows.forEach(r => {
+      const key = chConstantKey(r.component, r.title, r.metric_name);
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key).push(r);
+    });
+    byKey.forEach((list, key) => {
+      if (list.length < 10) return; // this specific sensor hasn't appeared often enough yet
+      const first = list[0];
+      const allIdentical = list.every(r => r.min_value === first.min_value && r.max_value === first.max_value && r.avg_value === first.avg_value);
+      if (allIdentical) CH_CONSTANT_SENSOR_KEYS.add(key);
+    });
+  } catch (e) { /* leave CH_CONSTANT_SENSOR_KEYS empty - fail open, never hide anything on error */ }
+}
+
 // Ryan's direct request 2026-07-17 (the morning after the report-fixing
 // marathon): a real cumulative investigation, not a running list of raw
 // deltas. For every sensor in a component, decide whether it's actually
@@ -3387,6 +3439,7 @@ function downloadMasterDump(filenameHint) {
 // diagnosis.
 function analyzeComponentRows(component, rows, specs) {
   const issues = [];
+  rows = rows.filter(r => !CH_CONSTANT_SENSOR_KEYS.has(chConstantKey(component, r.title, r.metric_name)));
   rows.forEach(r => {
     const name = (r.metric_name || '').toLowerCase();
     const cat = (r.category || '').toLowerCase();
@@ -3552,6 +3605,10 @@ async function loadTrackerMetricsBreakdown(eventId) {
     const orderedComponents = componentOrder.filter(c => byComponent[c]).concat(Object.keys(byComponent).filter(c => !componentOrder.includes(c)));
 
     const specs = await loadHardwareSpecs();
+    // Which device this session belongs to - needed to check that
+    // device's own 10-session sensor history (see chRefreshConstantSensorKeys).
+    const { data: eventRow } = await db.from('amit_device_events').select('device_id').eq('id', eventId).maybeSingle();
+    await chRefreshConstantSensorKeys(eventRow && eventRow.device_id);
     const analyses = orderedComponents.map(comp => analyzeComponentRows(comp, byComponent[comp], specs));
     analyses.forEach(a => { LAST_COMPONENT_ISSUES[a.component] = a.issues; });
 
@@ -3685,11 +3742,13 @@ async function buildLongevitySection(byComponent) {
 // misreports rather than alarming data.
 const IMPLAUSIBLE_TEMP_C = 150; // above this, no consumer sensor is reporting a real temperature
 
-function findTempRows(rows) {
-  // Same threshold-field exclusion as analyzeComponentRows above - "Critical
-  // Temperature" / "Warning Temperature" are fixed manufacturer limit
-  // VALUES, not live readings, and their names contain "temperature" too.
+function findTempRows(rows, component) {
+  // Same two exclusions as analyzeComponentRows above: the name-based
+  // guess (fast, catches known cases from sample one) and the real
+  // history-based constant check (general, catches anything regardless
+  // of name - see CH_CONSTANT_SENSOR_KEYS above).
   return rows.filter(r => !/warning|critical|threshold|limit/i.test(r.metric_name || '') &&
+    !CH_CONSTANT_SENSOR_KEYS.has(chConstantKey(component, r.title, r.metric_name)) &&
     (/temp/i.test(r.metric_name || '') || /temp/i.test(r.category || '')));
 }
 
@@ -3717,7 +3776,7 @@ function buildThermalHeadroomSection(byComponent, esc, specs) {
   const lines = [];
   let investigateCount = 0, watchCount = 0;
   Object.keys(byComponent).forEach(comp => {
-    const tempRows = findTempRows(byComponent[comp]);
+    const tempRows = findTempRows(byComponent[comp], comp);
     if (tempRows.length === 0) return;
     // Group by title (specific hardware part) since one component
     // category can contain multiple real devices (e.g. two drives).
@@ -4054,6 +4113,7 @@ async function toggleTracker() {
       if (trackerLocalMetrics && trackerLocalMetrics.found && trackerLocalMetrics.rows && trackerLocalMetrics.rows.length) {
         try {
           const specs = await loadHardwareSpecs();
+          await chRefreshConstantSensorKeys(deviceId);
           verdict = deriveSessionVerdictFromMetrics(trackerLocalMetrics.rows, specs);
         } catch (e) { /* fall back to the cursory overview if this fails for any reason */ }
       }
@@ -5020,6 +5080,7 @@ async function handleJustStopped() {
     if (justStoppedMetrics && justStoppedMetrics.found && justStoppedMetrics.rows && justStoppedMetrics.rows.length) {
       try {
         const specs = await loadHardwareSpecs();
+        await chRefreshConstantSensorKeys(deviceId);
         verdict = deriveSessionVerdictFromMetrics(justStoppedMetrics.rows, specs);
       } catch (e) { /* fall back to the cursory overview if this fails for any reason */ }
     }
