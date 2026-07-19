@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.92</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.93</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -419,6 +419,31 @@
     <p style="color:#c7cad1"><strong>This computer just doesn't have enough history yet to make that call for every sensor.</strong> So a reading in the report below marked "Investigate" may turn out, a few sessions from now, to have been one of these — a label, not an emergency. It's not a false alarm exactly; it's an honest "not confirmed yet," and Amit would rather tell you that plainly than either hide it or cry wolf.</p>
     <div class="actions">
       <button class="btn" onclick="chProceedFromYoungHistoryNotice()">Understood — show me the report</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ryan's direct request 2026-07-19: a teaser for a paid-tier feature
+     that doesn't exist yet - the button itself is real and live now, but
+     clicking it explains what the paid version WOULD do rather than
+     actually doing anything, since none of the real checking (winget
+     version comparison, driver update checks, malware history lookups)
+     is built yet. Styled to match the header's existing DEMO button
+     (same gold accent) so it reads as a real, inviting feature, not a
+     dead/disabled button. -->
+<div class="overlay hidden" id="verifyConditionsModal">
+  <div class="overlay-card" style="max-width:560px">
+    <h2>🛡 Verify Conditions</h2>
+    <p style="color:#c7cad1">This is a paid-subscription feature — not available on the Free tier yet.</p>
+    <p style="color:#c7cad1">With the paid version, Amit would go through this exact list — every installed program, every driver — and:</p>
+    <ul style="color:#c7cad1;margin:10px 0 10px 20px;line-height:1.7">
+      <li>Check the real current version of each one against what's actually installed here, program by program, driver by driver</li>
+      <li>Flag anything that's out of date and needs updating</li>
+      <li>Cross-check each one against known malware/virus history, so an update itself doesn't turn out to be the actual problem</li>
+    </ul>
+    <p style="color:#c7cad1">All of it done automatically — no manually double-clicking each row one at a time.</p>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('verifyConditionsModal').classList.add('hidden')">Got it</button>
     </div>
   </div>
 </div>
@@ -653,8 +678,11 @@
   </div>
 
   <div class="tab" id="tab-installedprograms">
-    <div class="section-title">Installed Programs</div>
-    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">Captured automatically every time tracking starts on this computer - grouped by the date each program first showed up (real registry data, cross-checked against each install folder's own creation date so an ordinary update never looks like a fresh install). Newest at the top, since anything that just appeared is usually the first place to look if something started acting up recently. Double-click a program to search for what it is.</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
+      <div class="section-title" style="margin:0">Installed Programs</div>
+      <button id="chVerifyConditionsBtn" onclick="openVerifyConditionsModal()" style="padding:6px 14px;border-radius:6px;border:none;font-weight:600;cursor:pointer;font-size:12px;letter-spacing:0.05em;background:#d4af37;color:#12141a;flex-shrink:0">🛡 Verify Conditions</button>
+    </div>
+    <p style="font-size:12px;color:#9aa0ab;margin-top:6px">Captured automatically every time tracking starts on this computer - grouped by the date each program first showed up (real registry data, cross-checked against each install folder's own creation date so an ordinary update never looks like a fresh install). Newest at the top, since anything that just appeared is usually the first place to look if something started acting up recently. Double-click a program to search for what it is.</p>
     <div id="installedProgramsBody"><em style="color:#8a8f99">Loading…</em></div>
   </div>
 
@@ -5540,6 +5568,10 @@ async function chShowInstallDiffDetail(eventId) {
   if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
   body.innerHTML = html;
   document.getElementById('historyDetailModal').classList.remove('hidden');
+}
+
+function openVerifyConditionsModal() {
+  document.getElementById('verifyConditionsModal').classList.remove('hidden');
 }
 
 let CH_INSTALLED_PROGRAMS_LOADED = false;
