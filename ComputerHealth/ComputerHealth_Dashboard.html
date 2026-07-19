@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.97</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.98</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5419,30 +5419,20 @@ const isOneShotTab = urlParams.get('justStopped') === '1' || urlParams.get('just
 const isDuplicateTab = lastHeartbeatTabId !== null && lastHeartbeatTabId !== tabId && (Date.now() - lastHeartbeat) < TAB_HEARTBEAT_STALE_MS;
 
 if (isDuplicateTab) {
-  // Real regression caught live 2026-07-16 (Ryan) - an earlier fix today
-  // made one-shot tabs skip this whole branch (and its window.close()
-  // call) so their session-summary logging would actually run. That
-  // broke something else that was genuinely working before today: these
-  // externally-opened tabs (via AmitTracker.exe's Process.Start, not
-  // window.open()) have only one entry in their session history, which
-  // is exactly the case some browsers DO allow window.close() to work
-  // for - so duplicate tabs really were self-closing this morning. The
-  // correct fix keeps both: still run the one-shot logging job first
-  // (awaited, so it actually finishes), THEN do the same close attempt
-  // as before for every duplicate tab, one-shot or not.
+  // Ryan's direct request 2026-07-19: this tab used to auto-close itself
+  // right after handleJustStopped() built the real session summary -
+  // when the close actually succeeded, the summary flashed and vanished
+  // before it could really be read; when it didn't, a generic "already
+  // open, you can close this tab" overlay silently replaced it instead.
+  // Neither gave Ryan a real chance to see what the session actually
+  // found. Now this tab just does its one real job (build + log the
+  // summary while the bridge is still alive) and stays open showing it -
+  // no self-close, no replacement overlay - closed manually when Ryan's
+  // actually done reading it.
   (async () => {
     await handleJustLaunched();
     await handleJustStopped();
     if (tabBroadcast) tabBroadcast.postMessage({ type: 'refresh-requested' });
-    // Best-effort only - silently blocked by the browser on tabs with
-    // more than one session-history entry (a manual duplicate tab you
-    // opened yourself, for instance). The overlay below is the fallback
-    // for when it doesn't apply.
-    window.close();
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0d0e12;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:#e8e8ec;font-family:system-ui,sans-serif';
-    overlay.innerHTML = '<div><h2 style="color:#c9a84c;margin-bottom:10px">Computer Health is already open</h2><p style="color:#9a9fab">Another tab already has this page open, and it has been told to refresh with the latest data. You can close this tab.</p></div>';
-    document.body.appendChild(overlay);
   })();
   // Deliberately does NOT call attemptSilentReconnect or start live
   // polling below - a duplicate tab doing its own ongoing background
