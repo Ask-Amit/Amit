@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.93</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.94</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5503,7 +5503,7 @@ async function chScanAndSyncInstalledPrograms() {
   if (!programs || !programs.length) return;
 
   const { data: existing } = await db.from('amit_installed_programs')
-    .select('reg_key_id,date_value,version,created_at')
+    .select('id,reg_key_id,date_value,version,install_datetime,created_at')
     .eq('device_id', deviceId)
     .order('created_at', { ascending: true });
   // Latest known state per identity - later rows in the ascending-ordered
@@ -5532,6 +5532,7 @@ async function chScanAndSyncInstalledPrograms() {
   });
 
   const toInsert = [];
+  const toBackfillTime = []; // {id, install_datetime} - existing, unchanged rows that just never had a time recorded
   programs.forEach(p => {
     const dateValue = p.folderDate || p.registryDate || null;
     const dateSource = p.folderDate ? 'folder' : (p.registryDate ? 'registry' : 'unknown');
@@ -5541,9 +5542,24 @@ async function chScanAndSyncInstalledPrograms() {
       toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, install_datetime: p.folderDateTime || null, entry_type: 'new', device_id: deviceId, user_id: currentUser.id, install_diff_event_id: watcherEventId });
     } else if (prior.date_value !== dateValue || prior.version !== p.version) {
       toInsert.push({ reg_key_id: p.regKeyId, display_name: p.displayName, publisher: p.publisher, version: p.version, date_value: dateValue, date_source: dateSource, install_datetime: p.folderDateTime || null, entry_type: 'update', device_id: deviceId, user_id: currentUser.id, install_diff_event_id: watcherEventId });
+    } else if (!prior.install_datetime && p.folderDateTime) {
+      // Real gap caught live 2026-07-19 (Ryan): rows captured before this
+      // feature existed never get touched by the two branches above (their
+      // date/version never changes), so they'd carry a missing time
+      // forever, permanently reading as a false "cluster break" against
+      // items that were genuinely installed close together. This backfills
+      // the time onto the SAME existing row instead of inserting a new
+      // one - nothing about the program actually changed, so it must not
+      // get relabeled as an "update".
+      toBackfillTime.push({ id: prior.id, install_datetime: p.folderDateTime });
     }
   });
   if (toInsert.length) await db.from('amit_installed_programs').insert(toInsert);
+  if (toBackfillTime.length) {
+    await Promise.all(toBackfillTime.map(b =>
+      db.from('amit_installed_programs').update({ install_datetime: b.install_datetime }).eq('id', b.id)
+    ));
+  }
 }
 
 // Standalone History-detail viewer for a single install_diff event, callable
@@ -5656,14 +5672,17 @@ function chRenderInstalledPrograms(rows, notes, devId) {
       if (bt !== null) return 1;
       return a.display_name.localeCompare(b.display_name);
     });
-    // A real gap (or either side missing a time at all) marks a cluster
-    // break, rendered as the stronger double line instead of the normal
-    // thin single line between rows.
+    // Real fix 2026-07-19 (Ryan, live testing): only a CONFIRMED real gap
+    // between two KNOWN times gets the double line. Missing time on
+    // either side defaults to the normal single line instead of assuming
+    // a break we can't actually prove - Ryan's own words, he doesn't need
+    // the double line for "we just don't know," only for "we know these
+    // were genuinely far apart."
     items.forEach((r, i) => {
       if (i === 0) { r._clusterBreak = false; return; }
       const prevT = items[i - 1].install_datetime ? new Date(items[i - 1].install_datetime).getTime() : null;
       const curT = r.install_datetime ? new Date(r.install_datetime).getTime() : null;
-      r._clusterBreak = (prevT === null || curT === null) ? true : (prevT - curT) > CH_CLUSTER_GAP_MS;
+      r._clusterBreak = (prevT !== null && curT !== null) && (prevT - curT) > CH_CLUSTER_GAP_MS;
     });
     let suggested = '';
     if (dateKey === initialBuildDate) {
