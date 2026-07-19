@@ -162,8 +162,13 @@
      #262a36 row, #2a2d38 border vs the same #262a36 - all nearly
      identical luminance). Real, much stronger contrast here instead of
      a subtle shift nobody could perceive. */
-  .ip-table td { border-top:1px solid #4a5162 }
+  /* Black line (matching the header's own #12141a background), only
+     between rows - not under the header (first row has no line above it,
+     since the header already separates it) - Ryan's direct request
+     2026-07-19. */
+  .ip-table tbody tr:not(:first-child) td { border-top:1px solid #12141a }
   .ip-table tr:hover td { background:#37404f }
+  .ip-table tr { cursor:zoom-in }
   .history-table .view-link { color:#c9a84c; cursor:pointer; white-space:nowrap }
   .history-table .view-link:hover { text-decoration:underline }
   .history-table .delete-icon { cursor:pointer; opacity:0.6; font-size:14px }
@@ -241,7 +246,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.87</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.88</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5623,7 +5628,7 @@ function chRenderInstalledPrograms(rows, notes, devId) {
         // ondblclick. Row hover-highlight already existed in .history-table
         // (tr:hover td) - added cursor:pointer so it visually reads as
         // clickable before the user even tries.
-        return `<tr ondblclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')" style="cursor:pointer" title="Double-click this row to search for what it is">
+        return `<tr ondblclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')" title="Double-click this row to search for what it is">
           <td>${badge}</td>
           <td><span style="color:#c9a84c">🔍</span> ${r.display_name}${watcherLink}</td>
           <td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
