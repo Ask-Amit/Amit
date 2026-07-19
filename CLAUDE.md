@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 3.31**
+**Current version: 3.78**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -106,6 +106,8 @@ Format: vMAJOR.MINOR (e.g. v1.03)
 Commit message format: `v1.03 — brief description of what changed`
 VERSION file at repo root holds the current number. Update it with every push.
 CLAUDE.md "Current version" line above updates with every push.
+
+**ONE NUMBER, EVERYWHERE — permanent, re-added 2026-07-19 after being lost once already:** If any individual project page carries its own visible version badge (Computer Health's dashboard is the current example — top-left corner, next to its title), that badge is not a separate counter. It moves in exact lockstep with this repo-wide number, on every single push, regardless of which project the push actually touched. A push to Hub still bumps Computer Health's badge to match, even though nothing in Computer Health changed. The two numbers are never allowed to read differently — if they ever do, that's a bug in the push process, not two legitimately different things. (This was previously treated as "two numbers, tracked independently, by design" — that was wrong and caused real confusion for Ryan on 2026-07-19; this entry replaces that assumption permanently.) Reconciled today: both were out of sync (3.31 repo-wide vs 3.78 on Computer Health's badge) - both now set to 3.78. Any future project that adds its own version badge inherits this same rule automatically - update this table's badge the moment it's created, don't wait to be asked twice.
 # CLAUDE.md â€” Auto-Orientation for Every Session
 
 ## Read This First â€” Before Responding to Anything
