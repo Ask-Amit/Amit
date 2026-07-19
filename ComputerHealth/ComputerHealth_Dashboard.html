@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.81</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.82</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -4107,7 +4107,19 @@ async function pollTrackerStatus() {
     const r = await fetch(BRIDGE + '/api/tracker-status');
     const d = await r.json();
     const btn = document.getElementById('trackerToggle');
+    // Real bug caught live 2026-07-19 (Ryan): the installed-programs scan
+    // was only wired into toggleTracker()'s manual in-page button click,
+    // so tracking started any other way (the "Amit Tracker" desktop
+    // shortcut, the tray icon, the amit-tracker:// protocol handler) never
+    // triggered it at all - this poll is the one place that reflects
+    // tracking state no matter HOW it started, so this is the real,
+    // universal place to detect the transition. wasRunning captured
+    // BEFORE trackerRunning is overwritten below.
+    const wasRunning = trackerRunning;
     trackerRunning = !!d.running;
+    if (!wasRunning && trackerRunning) {
+      chScanAndSyncInstalledPrograms().catch(err => console.error('Installed Programs scan/sync failed:', err));
+    }
     if (d.running) {
       btn.textContent = 'Tracker: ON (click to stop)';
       btn.className = 'on';
@@ -4175,10 +4187,11 @@ async function toggleTracker() {
   try {
     await fetch(BRIDGE + (isOn ? '/api/stop-tracking' : '/api/start-tracking'), { method: 'POST', body: '' });
   } catch (e) {}
-  // Ryan's direct request 2026-07-19: scan+sync installed programs every
-  // time tracking actually starts, not on a manual bracketed workflow -
-  // fire-and-forget, doesn't block the tracker-start UI on it.
-  if (!isOn) { chScanAndSyncInstalledPrograms().catch(() => {}); }
+  // Installed-programs scan/sync is triggered from pollTrackerStatus()'s
+  // OFF->ON transition detection instead of here - that's the one place
+  // that reflects tracking state no matter how it was actually started
+  // (this button, the desktop shortcut, the tray icon, or the protocol
+  // handler), not just this specific in-page click path. See there.
   if (isOn && overview) {
     const detail = document.getElementById('sessionSummaryDetail');
     if (currentUser && deviceId) {
