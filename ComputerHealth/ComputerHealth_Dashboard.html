@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.77</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.78</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -359,6 +359,33 @@
     <div id="captureInfoBody"></div>
     <div class="actions">
       <button class="btn" onclick="document.getElementById('captureInfoModal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ryan's direct request 2026-07-19: a device with fewer than 10
+     tracked sessions hasn't had enough history yet for the constant-
+     sensor detector to tell a real reading apart from a manufacturer
+     spec value or an unpopulated sensor - this explains that plainly,
+     before the report itself, so a number like "84C - Investigate"
+     doesn't read as an active emergency the moment someone opens it. -->
+<div class="overlay hidden" id="youngHistoryModal">
+  <div class="overlay-card" style="max-width:620px;max-height:85vh;overflow-y:auto">
+    <h2>Before you read this report</h2>
+    <p style="color:#c7cad1">This computer has only completed <strong id="youngHistorySessionCount">?</strong> tracking session(s) so far — Amit needs at least 10 before it can fully tell real readings apart from a couple of things that only look like readings.</p>
+    <p style="color:#c7cad1">Two things worth knowing before anything in this report worries you:</p>
+    <div class="walkthrough-step">
+      <strong>Some "sensors" are actually just labels, not measurements.</strong>
+      <p>Certain hardware — NVMe drives especially — reports its own built-in safety limit (like "Critical Temperature: 84°C") sitting right alongside its real live temperature in the same data. That number isn't what the drive is running at; it's the maker's own line in the sand for "this would be too hot," reported the exact same way every single time, because it's a fixed spec, not something the drive is measuring right now.</p>
+    </div>
+    <div class="walkthrough-step">
+      <strong>Some sensors exist on the board but aren't actually connected to anything.</strong>
+      <p>A motherboard built to support, say, 10 fan headers doesn't always ship in a case with 10 fans installed — this one might only have 4. The other 6 headers are still real sensors the board reports on, they just don't have a fan plugged into them, so they'll sit at 0 forever. That's an empty header, not a failed fan.</p>
+    </div>
+    <p style="color:#c7cad1">Amit's way of telling these apart: watch each individual sensor across at least 10 separate tracking runs. A real reading moves around with real use. A spec label or an empty header never moves, ever — same exact number, every single time. Once a sensor proves itself constant across 10 full runs, it quietly stops appearing in reports and stops being flagged, automatically, no one has to fix anything by hand. And if it ever DOES start moving again in the future — say a fan actually gets installed in one of those empty headers — it comes right back the next time it's checked.</p>
+    <p style="color:#c7cad1"><strong>This computer just doesn't have enough history yet to make that call for every sensor.</strong> So a reading in the report below marked "Investigate" may turn out, a few sessions from now, to have been one of these — a label, not an emergency. It's not a false alarm exactly; it's an honest "not confirmed yet," and Amit would rather tell you that plainly than either hide it or cry wolf.</p>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('youngHistoryModal').classList.add('hidden')">Understood — show me the report</button>
     </div>
   </div>
 </div>
@@ -3427,6 +3454,26 @@ async function chRefreshConstantSensorKeys(devId) {
   } catch (e) { /* leave CH_CONSTANT_SENSOR_KEYS empty - fail open, never hide anything on error */ }
 }
 
+// Ryan's direct request 2026-07-19: shown once, right before a session
+// report opens, whenever the device behind it has fewer than 10 tracked
+// sessions - not enough history yet for chRefreshConstantSensorKeys to
+// have proven anything constant, so a manufacturer spec value or an
+// unpopulated sensor header could still be sitting in the report ahead,
+// looking exactly like a live emergency. Fails open (shows nothing) on
+// any error - a missing explanation is a much smaller problem than a
+// popup blocking someone from ever seeing their own report.
+async function chMaybeShowYoungHistoryNotice(devId) {
+  if (!db || !devId) return;
+  try {
+    const { count } = await db.from('amit_device_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('device_id', devId).eq('event_type', 'tracking_session_ended');
+    if (count == null || count >= 10) return;
+    document.getElementById('youngHistorySessionCount').textContent = count;
+    document.getElementById('youngHistoryModal').classList.remove('hidden');
+  } catch (e) { /* fail open - no popup rather than blocking the report */ }
+}
+
 // Ryan's direct request 2026-07-17 (the morning after the report-fixing
 // marathon): a real cumulative investigation, not a running list of raw
 // deltas. For every sensor in a component, decide whether it's actually
@@ -3608,7 +3655,9 @@ async function loadTrackerMetricsBreakdown(eventId) {
     // Which device this session belongs to - needed to check that
     // device's own 10-session sensor history (see chRefreshConstantSensorKeys).
     const { data: eventRow } = await db.from('amit_device_events').select('device_id').eq('id', eventId).maybeSingle();
-    await chRefreshConstantSensorKeys(eventRow && eventRow.device_id);
+    const thisDeviceId = eventRow && eventRow.device_id;
+    await chRefreshConstantSensorKeys(thisDeviceId);
+    await chMaybeShowYoungHistoryNotice(thisDeviceId);
     const analyses = orderedComponents.map(comp => analyzeComponentRows(comp, byComponent[comp], specs));
     analyses.forEach(a => { LAST_COMPONENT_ISSUES[a.component] = a.issues; });
 
