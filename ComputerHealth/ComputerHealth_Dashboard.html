@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.84</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.85</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5576,18 +5576,22 @@ function chRenderInstalledPrograms(rows, notes, devId) {
         // real traceability, reused from the existing event log rather
         // than duplicated into a separate table.
         const watcherLink = r.install_diff_event_id
-          ? `<span class="view-link" style="color:#4caf6d;font-size:11px;display:block;margin-top:4px" onclick="event.stopPropagation();chShowInstallDiffDetail('${r.install_diff_event_id}')">Installed via Watcher — view details</span>`
+          ? `<span class="view-link" style="color:#4caf6d;font-size:11px;display:block;margin-top:2px" onclick="event.stopPropagation();chShowInstallDiffDetail('${r.install_diff_event_id}')">Installed via Watcher — view details</span>`
           : '';
-        // Real usability fix 2026-07-19 (Ryan): a hidden double-click plus
-        // a hover-only tooltip was never actually discoverable - Ryan
-        // asked where the "what is this program" feature even was.
-        // Switched to a real visible link, single-click, matching the
-        // .view-link convention used everywhere else in this app (History's
-        // own "Report ->" links are single-click too) instead of a hidden
-        // gesture no one would find on their own.
-        return `<tr>
+        // Refined 2026-07-19 per Ryan's follow-up: the "What is this?" link
+        // alone was too small a click target. Now the magnifying glass sits
+        // to the LEFT of the program name as a persistent visual label
+        // ("this row is searchable"), and the entire row is double-
+        // clickable, not just that one small link - a much bigger, easier
+        // target. The icon/text no longer needs its own click handler
+        // since double-clicking anywhere in the row (including on the
+        // icon) already triggers the same search via the <tr>'s own
+        // ondblclick. Row hover-highlight already existed in .history-table
+        // (tr:hover td) - added cursor:pointer so it visually reads as
+        // clickable before the user even tries.
+        return `<tr ondblclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')" style="cursor:pointer" title="Double-click this row to search for what it is">
           <td>${badge}</td>
-          <td>${r.display_name}<br><span class="view-link" style="font-size:11px" onclick="chOpenProgramSearch('${(r.display_name || '').replace(/'/g,"\\'")}')">🔍 What is this?</span>${watcherLink}</td>
+          <td><span style="color:#c9a84c">🔍</span> ${r.display_name}${watcherLink}</td>
           <td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
         </tr>`;
       }).join('') +
