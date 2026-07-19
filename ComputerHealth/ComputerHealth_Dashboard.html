@@ -233,7 +233,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.83</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.84</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5520,13 +5520,27 @@ function chRenderInstalledPrograms(rows, notes, devId) {
     if (a === null) return 1; if (b === null) return -1;
     return b.localeCompare(a);
   });
-  const earliestRealDate = sortedDates.filter(d => d !== null).slice(-1)[0];
+  // "Initial build" = the earliest date with a REAL cluster of activity,
+  // not just the single oldest timestamp anywhere. Real bug caught live
+  // 2026-07-19 (Ryan): Windows ships Microsoft Edge/WebView2 pre-bundled
+  // inside the OS install image itself, so their folder's creation date
+  // reflects when MICROSOFT built that Windows image, not when this
+  // machine was actually set up - it can be a year or more older than
+  // everything else, sitting alone as a 2-item date group. Ryan's own
+  // words for what "initial build" should mean: "a LOT of things
+  // happened on one day" - so this now walks earliest-first and picks
+  // the first date with a real cluster (5+ items), skipping lonely
+  // outlier dates like that one entirely. If nothing clears that bar,
+  // nothing gets auto-labeled - better to suggest nothing than suggest
+  // something wrong.
+  const oldestFirst = sortedDates.filter(d => d !== null).slice().reverse();
+  const initialBuildDate = oldestFirst.find(d => groups.get(d).length >= 5);
 
   let html = '';
   sortedDates.forEach(dateKey => {
     const items = groups.get(dateKey).sort((a, b) => a.display_name.localeCompare(b.display_name));
     let suggested = '';
-    if (dateKey === earliestRealDate) {
+    if (dateKey === initialBuildDate) {
       suggested = 'Initial build';
     } else if (dateKey !== null) {
       // Publisher-based grouping heuristic - Ryan's direct request: if
