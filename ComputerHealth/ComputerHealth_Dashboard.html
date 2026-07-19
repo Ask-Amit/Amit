@@ -257,7 +257,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.89</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.91</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5547,13 +5547,16 @@ async function chLoadInstalledProgramsTab() {
   chRenderInstalledPrograms(rows || [], notes || [], devId);
 }
 
-// Ryan's direct request 2026-07-19: two questions in one search, not just
-// "what is this program" - a person may already recognize the program by
-// name, but the SPECIFIC VERSION is often where the actual problem lives
-// (a bad update, not the program itself). Publisher included too, since
-// it disambiguates genuinely obscure/generic-sounding names.
+// Ryan's direct request 2026-07-19: three questions in one search, safety
+// FIRST - is this program actually safe, or is there a history of it being
+// malware/malicious - before the general "what is this" identity research.
+// Then the identity question (a person may already recognize the program
+// by name, but not know what it actually is) plus publisher (disambiguates
+// genuinely obscure/generic-sounding names), plus the SPECIFIC VERSION
+// question last - often where the actual problem lives (a bad update, not
+// the program itself), not just "what is this program" in general.
 function chOpenProgramSearch(name, publisher, version) {
-  let q = 'what is "' + name + '"';
+  let q = 'is "' + name + '" safe to use, or does it have a history of malware/malicious behavior? What is it';
   if (publisher) q += ' by ' + publisher;
   if (version) q += ', and what changed in version ' + version;
   window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank');
@@ -5621,13 +5624,18 @@ function chRenderInstalledPrograms(rows, notes, devId) {
           onchange="chSaveDateNote('${devId}', ${dateKey === null ? 'null' : `'${dateKey}'`}, this.value)">
       </div>
       <table class="history-table ip-table" style="width:100%;table-layout:fixed">
-        <colgroup><col style="width:70px"><col><col style="width:22%"><col style="width:130px"></colgroup>
+        <colgroup><col style="width:140px"><col><col style="width:22%"><col style="width:130px"></colgroup>
         <thead><tr><th></th><th>Program</th><th>Publisher</th><th>Version</th></tr></thead>
         <tbody>` +
       items.map(r => {
+        // Real wording fix 2026-07-19 (Ryan): "NEW" reads as "just
+        // happened today," when it actually means "first time this
+        // identity was ever detected on this computer" - which could be
+        // a year-old date group like "Initial build." Misleading label,
+        // not misleading data. Renamed to say exactly what it is.
         const badge = r.entry_type === 'update'
           ? '<span class="status-badge later" style="background:rgba(224,167,46,.15);color:#e0a72e;border:1px solid rgba(224,167,46,.4)">UPDATE</span>'
-          : '<span class="status-badge now">NEW</span>';
+          : '<span class="status-badge now">FIRST INSTALL</span>';
         // Ryan's direct request 2026-07-19: a program whose name matched a
         // recent Install Watch (install_diff) run's "New Programs" list
         // gets a clickable link straight to that run's full report -
