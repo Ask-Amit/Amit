@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.95</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.97</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -440,8 +440,9 @@
       <li>Check the real current version of each one against what's actually installed here, program by program, driver by driver</li>
       <li>Flag anything that's out of date and needs updating</li>
       <li>Cross-check each one against known malware/virus history, so an update itself doesn't turn out to be the actual problem</li>
+      <li>Once you pick which ones to update, go find the real updated driver or installer and download it straight to this computer, ready for you to install — no hunting for it yourself</li>
     </ul>
-    <p style="color:#c7cad1">All of it done automatically — no manually double-clicking each row one at a time.</p>
+    <p style="color:#c7cad1">All of it done automatically — no manually double-clicking each row one at a time, and nothing to search for on your own.</p>
     <div class="actions">
       <button class="btn" onclick="document.getElementById('verifyConditionsModal').classList.add('hidden')">Got it</button>
     </div>
@@ -3961,6 +3962,7 @@ function buildThermalHeadroomSection(byComponent, esc, specs) {
 let bridgeUp = false;
 let localAccessAttempted = false;
 let trackerRunning = false;
+let CH_INSTALLED_SYNC_PENDING = true; // see pollTrackerStatus() - starts true so an already-running tracker at page load still triggers the scan
 
 // What Computer Health/Value actually does, in plain language - shown inline
 // on the very first visit (localStorage flag below), and always reachable
@@ -4173,13 +4175,28 @@ async function pollTrackerStatus() {
     // so tracking started any other way (the "Amit Tracker" desktop
     // shortcut, the tray icon, the amit-tracker:// protocol handler) never
     // triggered it at all - this poll is the one place that reflects
-    // tracking state no matter HOW it started, so this is the real,
-    // universal place to detect the transition. wasRunning captured
-    // BEFORE trackerRunning is overwritten below.
-    const wasRunning = trackerRunning;
+    // tracking state no matter HOW it started.
+    //
+    // SECOND real bug, also caught live 2026-07-19: the original fix here
+    // only fired on a false->true TRANSITION - if the tracker was ALREADY
+    // running when the page loaded (exactly what happened to Ryan - "the
+    // tracker was still running, I didn't shut it down"), trackerRunning
+    // started true on the very first poll, so there was never a false
+    // state to transition FROM, and the scan silently never fired at all.
+    // Fixed with a pending-flag state machine instead of an edge check:
+    // CH_INSTALLED_SYNC_PENDING starts true, so if the tracker is already
+    // on at page load, the very first poll fires the sync immediately.
+    // Every time we observe it go OFF, the flag resets to true so the
+    // NEXT time it comes back on (however that happens) fires again.
     trackerRunning = !!d.running;
-    if (!wasRunning && trackerRunning) {
-      chScanAndSyncInstalledPrograms().catch(err => console.error('Installed Programs scan/sync failed:', err));
+    if (trackerRunning) {
+      if (CH_INSTALLED_SYNC_PENDING) {
+        CH_INSTALLED_SYNC_PENDING = false;
+        console.log('[Installed Programs] tracker is on, running scan/sync now...');
+        chScanAndSyncInstalledPrograms().catch(err => console.error('Installed Programs scan/sync failed:', err));
+      }
+    } else {
+      CH_INSTALLED_SYNC_PENDING = true;
     }
     if (d.running) {
       btn.textContent = 'Tracker: ON (click to stop)';
@@ -5712,8 +5729,8 @@ function chRenderInstalledPrograms(rows, notes, devId) {
           onchange="chSaveDateNote('${devId}', ${dateKey === null ? 'null' : `'${dateKey}'`}, this.value)">
       </div>
       <table class="history-table ip-table" style="width:100%;table-layout:fixed">
-        <colgroup><col style="width:140px"><col><col style="width:22%"><col style="width:130px"></colgroup>
-        <thead><tr><th></th><th>Program</th><th>Publisher</th><th>Version</th></tr></thead>
+        <colgroup><col style="width:140px"><col><col style="width:22%"><col style="width:130px"><col style="width:80px"></colgroup>
+        <thead><tr><th></th><th>Program</th><th>Publisher</th><th>Version</th><th>Time</th></tr></thead>
         <tbody>` +
       items.map(r => {
         // Real wording fix 2026-07-19 (Ryan): "NEW" reads as "just
@@ -5744,11 +5761,16 @@ function chRenderInstalledPrograms(rows, notes, devId) {
         // (tr:hover td) - added cursor:pointer so it visually reads as
         // clickable before the user even tries.
         const esc = s => (s || '').replace(/'/g, "\\'");
-        const timeLabel = r.install_datetime ? new Date(r.install_datetime).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+        // Real troubleshooting request 2026-07-19 (Ryan): a dedicated
+        // column instead of small inline text, so what time (if any) is
+        // actually recorded is immediately visible for diagnosing the
+        // cluster-break logic, not buried next to the program name.
+        const timeLabel = r.install_datetime ? new Date(r.install_datetime).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '—';
         return `<tr class="${r._clusterBreak ? 'cluster-break' : ''}" ondblclick="chOpenProgramSearch('${esc(r.display_name)}','${esc(r.publisher)}','${esc(r.version)}')" title="Double-click this row to search for what it is">
           <td>${badge}</td>
-          <td><span style="color:#c9a84c">🔍</span> ${r.display_name}${timeLabel ? ` <span style="color:#7a7f89;font-size:11px">· ${timeLabel}</span>` : ''}${watcherLink}</td>
+          <td><span style="color:#c9a84c">🔍</span> ${r.display_name}${watcherLink}</td>
           <td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
+          <td style="color:#9aa0ab">${timeLabel}</td>
         </tr>`;
       }).join('') +
       `</tbody></table></div>`;
