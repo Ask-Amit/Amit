@@ -31,7 +31,7 @@ class AmitInstaller
     // embeds the dashboard as a resource, so one shared number means you
     // can look at either version and immediately know if the other is
     // stale, instead of cross-referencing two independent counters.
-    const string CURRENT_VERSION = "4.07";
+    const string CURRENT_VERSION = "4.08";
 
     // Every file Install_AmitTracker.ps1 expects to find sitting next to it.
     // Logical resource names (via plain /resource:path, no explicit name)

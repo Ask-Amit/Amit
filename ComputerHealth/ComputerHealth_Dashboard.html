@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.07</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.08</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -4231,7 +4231,19 @@ async function pollTrackerStatus() {
       btn.className = 'off';
     }
     chRefreshLiveIfActive();
-  } catch (e) {}
+  } catch (e) {
+    // Real bug caught live 2026-07-20 (Ryan): this catch was empty, so a
+    // genuinely dead bridge server (connection refused right after Stop
+    // fully shuts it down) never updated bridgeUp - every other poll
+    // function's "if (!bridgeUp) return" guard never triggered, so all of
+    // them kept hammering dead endpoints every few seconds indefinitely,
+    // flooding the console with CORS/connection-refused errors instead of
+    // going quiet. This is the one poll that runs unconditionally
+    // (no bridgeUp guard of its own), so it's the right place to detect
+    // "the bridge is actually gone" and flip the flag that gates all the
+    // others.
+    bridgeUp = false;
+  }
 }
 
 // Real bug confirmed live 2026-07-18 (Ryan, cross-checked independently by
@@ -4697,6 +4709,10 @@ async function pollUpdates() {
 }
 
 async function pollReliability() {
+  // Real gap caught live 2026-07-20 (Ryan) - unlike every other poll
+  // function, this one was missing the bridgeUp guard entirely, so it kept
+  // hitting a dead bridge server after Stop with no gate at all.
+  if (!bridgeUp) return;
   try {
     const r = await fetch(BRIDGE + '/api/reliability');
     const d = await r.json();
@@ -4743,6 +4759,8 @@ async function pollReliability() {
 }
 
 async function pollSecurity() {
+  // Same missing-guard gap as pollReliability, fixed the same way.
+  if (!bridgeUp) return;
   try {
     const r = await fetch(BRIDGE + '/api/security');
     const d = await r.json();
