@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.03</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.04</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3360,7 +3360,14 @@ const TAB_CAPTURE_INFO = {
   },
   install: {
     current: ['New programs installed', 'New startup registry entries', 'New scheduled tasks', 'New browser extensions', 'Homepage/search engine changes'],
-    future: ['Nothing significant identified as missing - this one is honestly complete for what it\'s meant to do.']
+    future: [
+      'DEEP-TRACKING (Ryan spec, 2026-07-19): a full forensic trail per bracketed install/uninstall session - every registry key actually written and every file actually created, correctly attributed to that specific install, so a bad program\'s full footprint (and any leftover cruft after uninstalling) is fully traceable instead of just guessed at. Only possible from the local tracker (PowerShell running on the machine), never from the browser/online HTML, and only during a deliberately bracketed Start → install/uninstall → Compare session, never passively.',
+      'Files side of deep-tracking - straightforward: .NET\'s FileSystemWatcher gives real live file-create/change/delete notification with no polling needed, pointed at Program Files/ProgramData/AppData/etc. during the bracket window.',
+      'Registry side of deep-tracking - no simple live-watch cmdlet exists in PowerShell. Two real options, not yet decided between: (a) fast polling of sensitive registry hives during the bracket window - buildable now, same spirit as the existing before/after diff just running continuously, but an ultra-transient write between two polls could be missed; (b) real-time ETW (Event Tracing for Windows) registry monitoring, the same mechanism Sysinternals Process Monitor uses - zero misses, correctly attributes every change to the exact process that made it, but a meaningfully bigger build (needs admin privileges, real engineering for process-attribution).',
+      'REMOVAL detection - a smaller, already-understood gap in the current tool: it only ever detects ADDITIONS (what\'s new in the "after" snapshot), never REMOVALS, so it can\'t verify a clean uninstall - the exact "dead registry edits left behind" scenario deep-tracking is meant to solve. Worth fixing on its own regardless of which deep-tracking tier gets built.',
+      'VERIFY CONDITIONS paid tier (scoped 2026-07-19, teaser button live on the Installed Programs tab, real checking not built yet): software version-checking is fully buildable now, completely free - Windows 10/11\'s built-in winget already knows installed versions and can check them against its own repository at zero API cost. Driver updates are partially buildable free via Windows Update\'s own mechanism, but many real GPU/motherboard vendor drivers ship outside Windows Update with no universal free API, so full coverage needs vendor-specific logic. Malware/safety research is the real paid-tier boundary - the deployed page has no live AI connection at all today (pure static HTML/JS + local PowerShell + Supabase); a genuine "Amit researches this" experience needs a real LLM API call with a real per-use cost, a business decision not just an engineering one. The free-tier answer today is a plain web search link (chOpenProgramSearch) - a human reads the results themselves.',
+      'Verify Conditions download-not-auto-install (Ryan\'s own words, 2026-07-19): after picking which flagged items to update, Amit would find the real updated driver/installer and download it ready to install manually - not silently auto-install, since silent unattended install is genuinely riskier (per-vendor flags vary, some need a reboot or careful elevation) than a plain download. Worth evaluating properly when built rather than assuming either way.'
+    ]
   },
   browser: {
     current: ['Per-browser total process count', 'Renderer/GPU/utility process breakdown', 'Extension count', 'Total memory used per browser'],
