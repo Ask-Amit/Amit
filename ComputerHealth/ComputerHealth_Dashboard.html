@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.06</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.07</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -4807,6 +4807,25 @@ async function pollBrowser() {
     const totalMem = browsers.reduce((sum,b) => sum + b.totalMemMB, 0);
     const totalExt = browsers.reduce((sum,b) => sum + b.extensionCount, 0);
 
+    // Ryan's direct request 2026-07-19: alongside the MB/GB value, show what
+    // share of the machine's actual installed physical RAM this represents
+    // - not virtual memory, the real installed total - so a number like
+    // "2 GB" reads as "25% of your RAM" instead of needing the reader to
+    // already know how much RAM this computer has. Pulled from the same
+    // resource-log line the Resources tab already parses (RAM:...MB-total),
+    // not a separate API call.
+    let installedRamMB = null;
+    try {
+      const resRes = await fetch(BRIDGE + '/api/resource');
+      const resLines = await resRes.json();
+      for (let i = (resLines.lines || resLines).length - 1; i >= 0; i--) {
+        const parsed = parseResourceLine((resLines.lines || resLines)[i]);
+        if (parsed.ramTotalMB) { installedRamMB = parsed.ramTotalMB; break; }
+      }
+    } catch (e) { /* percentage is a bonus, not worth blocking the memory value on */ }
+    const ramPctOf = (mb) => installedRamMB ? ` — ${((mb / installedRamMB) * 100).toFixed(0)}% of installed RAM` : '';
+    const formatMem = (mb) => (mb >= 1000 ? (mb / 1024).toFixed(2) + ' GB' : mb + ' MB') + ramPctOf(mb);
+
     document.getElementById('browserCards').innerHTML = browsers.map(b => `
       <div class="card-row">
         <div class="card ${verdictClass(b.rendererProcesses, 15, 30)}">
@@ -4824,7 +4843,7 @@ async function pollBrowser() {
         </div>
         <div class="card ${verdictClass(b.totalMemMB, 1500, 3000)}">
           <div class="label">${b.browser} — Memory</div>
-          <div class="value">${b.totalMemMB >= 1000 ? (b.totalMemMB / 1024).toFixed(2) + ' GB' : b.totalMemMB + ' MB'}</div>
+          <div class="value">${formatMem(b.totalMemMB)}</div>
           <div class="verdict">${verdictText('mem', b.totalMemMB, 1500, 3000,
             'Modest footprint for a browser.',
             'Sizeable — normal with several tabs, worth watching if it keeps climbing.',
@@ -4835,7 +4854,7 @@ async function pollBrowser() {
     document.getElementById('overviewBrowserCards').innerHTML = `
       <div class="card ${verdictClass(totalMem, 1500, 3000)}">
         <div class="label">Browser Memory (all browsers combined)</div>
-        <div class="value">${totalMem >= 1000 ? (totalMem / 1024).toFixed(2) + ' GB' : totalMem + ' MB'}</div>
+        <div class="value">${formatMem(totalMem)}</div>
         <div class="verdict">${verdictText('browsermem', totalMem, 1500, 3000,
           'Browsers are a light load right now.',
           'Browsers are using a meaningful chunk of memory — a contributor, not the main cause, if the computer feels slow.',
