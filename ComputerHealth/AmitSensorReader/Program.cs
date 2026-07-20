@@ -34,19 +34,34 @@ try
 {
     while (!File.Exists(stopFlagPath))
     {
+        // Real LibreHardwareMonitor web server output nests one extra level
+        // under root - Sensor > COMPUTERNAME > Motherboard/CPU/... - not
+        // Sensor > Motherboard directly. resource_watcher.ps1 and
+        // app_behavior_watcher.ps1 both strip exactly "Sensor>COMPUTERNAME>"
+        // from every log line assuming that shape; skipping this level here
+        // made them strip the actual hardware name instead, breaking the
+        // Hardware tab's history view even though live data still worked.
         var root = new JsonObject
         {
             ["id"] = 0,
             ["Text"] = "Sensor",
             ["Children"] = new JsonArray()
         };
+        var computerNode = new JsonObject
+        {
+            ["id"] = 1,
+            ["Text"] = Environment.MachineName,
+            ["Children"] = new JsonArray()
+        };
+        ((JsonArray)root["Children"]!).Add(computerNode);
+        var hwChildren = (JsonArray)computerNode["Children"]!;
 
-        int nextId = 1;
+        int nextId = 2;
         foreach (var hw in computer.Hardware)
         {
             hw.Update();
             var hwNode = BuildHardwareNode(hw, ref nextId);
-            ((JsonArray)root["Children"]!).Add(hwNode);
+            hwChildren.Add(hwNode);
         }
 
         try

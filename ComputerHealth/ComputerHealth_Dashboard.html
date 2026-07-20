@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v3.99</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.00</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3014,9 +3014,18 @@ function renderHardwareInstanceNav(categoriesArg) {
       // own real label now, not a shared generic "Overview" - two devices
       // both flagged isAggregate in the same category would otherwise
       // render as two identical, indistinguishable buttons.
+      // Real bug caught live 2026-07-19 (Ryan, sensors working for the first
+      // time this session): non-aggregate devices used the shared
+      // GROUP label here, not their own - fine when every device in a
+      // category genuinely shares one label, but "ram" merges two
+      // differently-labeled things (Virtual Memory + Memory/RAM sticks), so
+      // whichever device happened to enumerate first "won" the label for
+      // everyone else too. A physical RAM stick could read "Virtual Memory 1"
+      // instead of "Memory (RAM) 1" purely by enumeration order. Each
+      // device's own categorizeHardware() call is the correct source.
       const label = categorizeHardware(d).isAggregate
         ? categorizeHardware(d).label.replace(/^\S+\s/, '')
-        : `${group.label.replace(/^\S+\s/, '')} ${++stickCount}`;
+        : `${categorizeHardware(d).label.replace(/^\S+\s/, '')} ${++stickCount}`;
       return `<button class="hw-device-btn ${d.Text === hardwareSelectedDevice ? 'active' : ''}" data-device-text="${escaped}" onclick="selectHardwareInstance(this.dataset.deviceText)">${label}</button>`;
     }).join('');
   } else {
