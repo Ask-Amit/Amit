@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.09</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.10</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2918,6 +2918,7 @@ function chDrawHeatMap(canvas, series, unit, yLabel) {
 let hardwareLiveConnectionLost = false;
 
 async function pollDriveHealth() {
+  if (!bridgeUp) return;
   try {
     const r = await fetch(BRIDGE + '/api/drive-health');
     const d = await r.json();
@@ -2941,6 +2942,11 @@ async function pollDriveHealth() {
 }
 
 async function loadHardwareTree() {
+  // Real gap caught live 2026-07-20 (Ryan) - this ran on its own 30-second
+  // setInterval with no bridgeUp guard at all, unlike every poll* function,
+  // so it kept hammering /api/resource-history, /api/drive-health, and
+  // /api/sensors indefinitely after the bridge server actually shut down.
+  if (!bridgeUp) return;
   pollDriveHealth();
   const container = document.getElementById('hardwareTree');
   const catNav = document.getElementById('hardwareCategoryNav');
@@ -4242,7 +4248,20 @@ async function pollTrackerStatus() {
     // (no bridgeUp guard of its own), so it's the right place to detect
     // "the bridge is actually gone" and flip the flag that gates all the
     // others.
+    //
+    // Real gap in that same fix, caught live 2026-07-20 (Ryan, tested
+    // immediately): stopping the polling alone left the button frozen
+    // showing whatever it last successfully said ("Tracker: ON") forever,
+    // even though the backend was genuinely gone - the dashboard and
+    // reality visibly disagreed. Update the button here too, the same way
+    // the success path above does for a normal "off" state.
     bridgeUp = false;
+    trackerRunning = false;
+    const btn = document.getElementById('trackerToggle');
+    if (btn) {
+      btn.textContent = 'Tracker: OFF (click to start)';
+      btn.className = 'off';
+    }
   }
 }
 
