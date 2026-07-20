@@ -436,15 +436,16 @@ $handlerScript = {
     $trackerStopFlag = "$env:TEMP\tracker_stop.flag"
     $diagnosticsStopFlag = "$env:TEMP\diagnostics_stop.flag"
     $lhmStopFlag = "$env:TEMP\lhm_stop.flag"
-    # The installer records the exact real path (existing install or freshly
-    # downloaded) at install time - read that instead of guessing, so this
-    # never launches a second copy alongside one the user already has.
-    $lhmPathFile = "$watcherDir\lhm_path.txt"
-    $lhmPath = $null
-    if (Test-Path $lhmPathFile) {
-        $recorded = (Get-Content $lhmPathFile -Raw -ErrorAction SilentlyContinue).Trim()
-        if ($recorded -and (Test-Path $recorded)) { $lhmPath = $recorded }
-    }
+    # PERMANENT FIX (2026-07-19): sensor reading no longer depends on
+    # LibreHardwareMonitor's own GUI app or its "Remote Web Server" toggle -
+    # that toggle silently failed to turn on for a real user despite the
+    # saved config claiming it was enabled, with no reliable way to force it
+    # from outside the GUI. AmitSensorReader.exe (compiled against
+    # LibreHardwareMonitorLib.dll directly, self-contained net10.0) reads
+    # the same sensors straight from the library and writes them to a JSON
+    # file - no GUI, no web server, no toggle to silently fail.
+    $sensorReaderPath = Join-Path $watcherDir "AmitSensorReader.exe"
+    $sensorDataPath = "$env:TEMP\amit_sensor_data.json"
 
     function Get-TrackerStatus() {
         $running = $false
@@ -551,65 +552,42 @@ $handlerScript = {
         # (the file could've been moved/deleted since, e.g. someone cleaning
         # out a Downloads folder) while an already-running copy is still
         # genuinely running. This is what prevents launching a duplicate.
-        $alreadyRunningLhm = Get-Process -Name "LibreHardwareMonitor" -ErrorAction SilentlyContinue
-        if ($alreadyRunningLhm) {
+        $alreadyRunningReader = Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue
+        if ($alreadyRunningReader) {
             # Not one of ours to track/stop later - it was already running
             # before we started, so Stop-Tracking should leave it alone.
-        } elseif ($lhmPath -and (Test-Path $lhmPath)) {
-            # LibreHardwareMonitor requires admin (UAC). Starting an elevated
-            # process this way blocks the calling thread until the user
-            # answers the consent prompt - confirmed live 2026-07-14: this
-            # held the entire start-tracking response hostage waiting on a
-            # UAC click, so the client's short timeout gave up and moved on
-            # before the response ever came back, even after the prompt was
-            # approved - leaving the other three watchers unlaunched and the
-            # PID file (written at the very end of this function) never
-            # updated. Fire it on a background job instead so the UAC wait
-            # can never block the rest of the pipeline or the HTTP response.
+        } elseif (Test-Path $sensorReaderPath) {
+            # AmitSensorReader.exe needs admin (LibreHardwareMonitorLib's
+            # driver access requires it, same as the GUI app did). Starting
+            # an elevated process this way blocks the calling thread until
+            # the user answers the UAC prompt - confirmed live 2026-07-14:
+            # this held the entire start-tracking response hostage, so the
+            # client's short timeout gave up before the response ever came
+            # back. Launching the WATCHER itself elevated (one UAC prompt)
+            # avoids that - it starts the reader as its own already-
+            # elevated child, then waits on a stop-flag file and kills it
+            # directly when signaled. No new elevation ever needed again
+            # after this one initial approval, and stopping is a plain,
+            # always-reliable file write instead of a second UAC gamble.
             try {
-                # Real bug caught live 2026-07-16 (Ryan): the old approach
-                # launched LHM via a plain (non-elevated) Start-Process,
-                # relying on LHM's own embedded manifest to trigger UAC at
-                # launch - which worked for STARTING it, but meant the job
-                # that launched it was never itself elevated, so it had no
-                # rights to kill its own child later. Stop-Tracking()'s
-                # fallback then tried a FRESH elevated kill at stop-time,
-                # which needs its own separate UAC prompt - fire-and-
-                # forget, easy to miss, and confirmed live to sometimes
-                # not even visibly prompt at all.
-                #
-                # Fixed by launching the WATCHER itself elevated (one UAC
-                # prompt, same as before), which then launches LHM as its
-                # own child - already elevated, inherited from the
-                # parent, no separate prompt for LHM specifically. That
-                # same elevated watcher then waits for a stop-flag file
-                # and kills LHM directly when signaled - no new elevation
-                # ever needed again after this one initial approval.
-                # Stopping becomes a plain, always-reliable file write
-                # instead of a second UAC gamble.
                 Remove-Item $lhmStopFlag -ErrorAction SilentlyContinue
+                Remove-Item $sensorDataPath -ErrorAction SilentlyContinue
                 $lhmWatcherScript = @"
 try {
-    `$lhmProc = Start-Process -FilePath '$lhmPath' -WindowStyle Minimized -PassThru -ErrorAction Stop
-    Start-Sleep -Seconds 3
-    try {
-        Add-Type -Name Win32ShowWindow -Namespace Amit -MemberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindowAsync(System.IntPtr hWnd, int nCmdShow);' -ErrorAction SilentlyContinue
-        `$lhmProc.Refresh()
-        if (`$lhmProc.MainWindowHandle -ne [System.IntPtr]::Zero) { [Amit.Win32ShowWindow]::ShowWindowAsync(`$lhmProc.MainWindowHandle, 6) | Out-Null }
-    } catch {}
+    `$readerProc = Start-Process -FilePath '$sensorReaderPath' -ArgumentList '"$sensorDataPath"','"$lhmStopFlag"' -WindowStyle Hidden -PassThru -ErrorAction Stop
     while (-not (Test-Path '$lhmStopFlag')) {
         Start-Sleep -Seconds 1
-        `$lhmProc.Refresh()
-        if (`$lhmProc.HasExited) { break }
+        `$readerProc.Refresh()
+        if (`$readerProc.HasExited) { break }
     }
-    if (-not `$lhmProc.HasExited) { Stop-Process -Id `$lhmProc.Id -Force -ErrorAction SilentlyContinue }
+    if (-not `$readerProc.HasExited) { Stop-Process -Id `$readerProc.Id -Force -ErrorAction SilentlyContinue }
     Remove-Item '$lhmStopFlag' -ErrorAction SilentlyContinue
 } catch {}
 "@
                 $lhmEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($lhmWatcherScript))
                 Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -EncodedCommand $lhmEncoded"
             } catch {
-                $warnings += "LibreHardwareMonitor needs admin approval to run (UAC) - sensor readings (temps/voltages/fans) won't be available this session. Resource and diagnostic tracking still work."
+                $warnings += "Sensor reader needs admin approval to run (UAC) - sensor readings (temps/voltages/fans) won't be available this session. Resource and diagnostic tracking still work."
             }
         }
 
@@ -705,30 +683,27 @@ try {
             Remove-Item $trackerPidFile -ErrorAction SilentlyContinue
         }
 
-        # Also stop LibreHardwareMonitor, even if it was already running before
+        # Also stop AmitSensorReader, even if it was already running before
         # this session started it (previously left alone deliberately - Ryan's
         # direct request 2026-07-13: closing the tracker window should shut
         # everything down cleanly, not leave the monitor running invisibly).
-        # Real bug caught live 2026-07-16 (Ryan): the old fallback here needed
-        # a FRESH elevated kill at stop-time, fire-and-forget, confirmed to
-        # sometimes not even visibly prompt at all - stopping LHM was never
-        # actually reliable. Signaling the stop-flag is now the primary path
-        # - the elevated watcher that launched LHM (see Start-Tracking above)
-        # is already sitting there watching for exactly this file and kills
-        # LHM directly, no new elevation needed. The old plain-kill-then-
-        # elevated-fallback only still applies to the one case the flag
-        # can't cover: LHM was already running before this session ever
-        # touched it, so no elevated watcher for it exists to signal.
-        $lhmProcs = Get-Process -Name "LibreHardwareMonitor" -ErrorAction SilentlyContinue
+        # Signaling the stop-flag is the primary path - the elevated watcher
+        # that launched the reader (see Start-Tracking above) is already
+        # sitting there watching for exactly this file and kills it directly,
+        # no new elevation needed. The plain-kill-then-elevated-fallback only
+        # still applies to the one case the flag can't cover: the reader was
+        # already running before this session ever touched it, so no
+        # elevated watcher for it exists to signal.
+        $lhmProcs = Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue
         if ($lhmProcs) {
             New-Item $lhmStopFlag -ItemType File -Force | Out-Null
             $lhmWaited = 0
             while ($lhmWaited -lt 5000) {
-                if (-not (Get-Process -Name "LibreHardwareMonitor" -ErrorAction SilentlyContinue)) { break }
+                if (-not (Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue)) { break }
                 Start-Sleep -Milliseconds 500
                 $lhmWaited += 500
             }
-            $stillRunning = Get-Process -Name "LibreHardwareMonitor" -ErrorAction SilentlyContinue
+            $stillRunning = Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue
             if ($stillRunning) {
                 # Genuinely wasn't launched by an elevated watcher of ours
                 # (e.g. was already running before this session) - fall back
@@ -737,7 +712,7 @@ try {
                     try { Stop-Process -Id $p.Id -Force -ErrorAction Stop }
                     catch {
                         try {
-                            Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -Command `"Stop-Process -Name LibreHardwareMonitor -Force -ErrorAction SilentlyContinue`""
+                            Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList "-NoProfile -Command `"Stop-Process -Name AmitSensorReader -Force -ErrorAction SilentlyContinue`""
                         } catch {}
                     }
                 }
@@ -946,17 +921,20 @@ try {
                 Send-JsonRaw $response $json
             }
             "/api/sensors" {
-                # Proxies LibreHardwareMonitor's own web server (localhost:8085/data.json)
-                # straight through as raw JSON - LHM already returns a full nested
-                # component tree (Motherboard/CPU/GPU/RAM/Storage/Network, each with
-                # Temperatures/Voltages/Clocks/Load/Fans/Data subgroups). Relaying the
-                # raw response instead of re-parsing through ConvertTo-Json avoids the
-                # known cold-runspace hang bug, and this data was already being fetched
-                # by resource_watcher.ps1 every 30s and then thrown away as flat text -
-                # this is what finally exposes the real tree to the dashboard.
+                # PERMANENT FIX (2026-07-19): reads AmitSensorReader.exe's own
+                # output file directly instead of proxying LibreHardwareMonitor's
+                # GUI web server (localhost:8085/data.json). That web server
+                # required a "Remote Web Server > Run" toggle that a real user
+                # hit tonight with the toggle silently off despite the saved
+                # config claiming it was on, with no reliable way to force it
+                # from outside the GUI. AmitSensorReader.exe reads the same
+                # sensors straight from LibreHardwareMonitorLib and writes the
+                # identical tree shape (Text/Value/Children) to this file every
+                # 2 seconds - no GUI, no web server, no toggle to silently fail.
                 try {
-                    $raw = Invoke-WebRequest -Uri "http://localhost:8085/data.json" -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
-                    $bytes = [System.Text.Encoding]::UTF8.GetBytes($raw.Content)
+                    if (-not (Test-Path $sensorDataPath)) { throw "not started yet" }
+                    $raw = Get-Content $sensorDataPath -Raw -ErrorAction Stop
+                    $bytes = [System.Text.Encoding]::UTF8.GetBytes($raw)
                     $response.StatusCode = 200
                     $response.ContentType = "application/json"
                     $response.Headers.Add("Access-Control-Allow-Origin", "*")
@@ -964,7 +942,7 @@ try {
                     $response.OutputStream.Write($bytes, 0, $bytes.Length)
                     $response.OutputStream.Close()
                 } catch {
-                    Send-Json $response @{ error = "LibreHardwareMonitor web server not reachable - check it's running with Options > Remote Web Server > Run enabled." } 502
+                    Send-Json $response @{ error = "Sensor data not available yet - the tracker may still be starting, or admin approval (UAC) for sensor access wasn't granted this session." } 502
                 }
             }
             "/api/tracker-status" {

@@ -22,6 +22,7 @@ FILES=(
   install_snapshot_watcher.ps1
   Run_AmitTracker.ps1
   AmitTracker.exe
+  AmitSensorReader.exe
   amit_icon.ico
   ComputerHealth_Dashboard.html
 )
@@ -62,7 +63,12 @@ echo "session can tell at a glance whether install-Amit.exe matches current sour
 
 echo ""
 echo "Done. install-Amit.exe rebuilt with the current contents of every file above."
-echo "Reminder: bump CURRENT_VERSION in AmitInstaller.cs and AssemblyVersion in AssemblyInfo.cs"
-echo "if this is a version bump, and update /VERSION at the repo root to match."
+echo ""
+echo "Reminder (Ryan's direct request 2026-07-16): CURRENT_VERSION in AmitInstaller.cs"
+echo "and AssemblyVersion in AssemblyInfo.cs must match the version label in"
+echo "ComputerHealth_Dashboard.html's header (currently pulled in as one of the"
+echo "embedded files above) - one shared number for the whole distributable, not"
+echo "two independent counters to cross-reference by hand. Bump both together"
+echo "any time the dashboard's own version changes, then re-run this script."
 echo "Run ./verify_installer.sh any time to check whether the built exe has drifted"
 echo "out of sync with the live Watchers/ source files."

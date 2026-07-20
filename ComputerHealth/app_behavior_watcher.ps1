@@ -259,12 +259,18 @@ function Write-SharedResourceSample($metricStats = $null) {
     $sensorDump = ""
     $trimmed = $null
     try {
-        $response = Invoke-RestMethod -Uri "http://localhost:8085/data.json" -TimeoutSec 5 -ErrorAction Stop
+        # PERMANENT FIX (2026-07-19): reads AmitSensorReader.exe's own output
+        # file directly instead of LibreHardwareMonitor's GUI web server -
+        # see amit_bridge_server.ps1 for the full story on why that toggle
+        # was replaced.
+        $sensorDataPath = "$env:TEMP\amit_sensor_data.json"
+        if (-not (Test-Path $sensorDataPath)) { throw "sensor data not available yet" }
+        $response = Get-Content $sensorDataPath -Raw -ErrorAction Stop | ConvertFrom-Json
         $flat = Get-SensorFlat $response
         $trimmed = $flat | ForEach-Object { $_ -replace '^[^>]+>[^>]+>', '' }
         $sensorDump = ($trimmed -join " || ")
     } catch {
-        $sensorDump = "[LibreHardwareMonitor web server not reachable - check Options > Remote Web Server > Run is enabled]"
+        $sensorDump = "[Sensor data not available - tracker may still be starting or admin approval wasn't granted]"
     }
     # Same fix as resource_watcher.ps1, kept consistent - Ryan's direct
     # request 2026-07-15: read CPU% from the LHM data already fetched
