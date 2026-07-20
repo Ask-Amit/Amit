@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.08</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.09</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -4341,7 +4341,8 @@ async function toggleTracker() {
       // into logTrackingSessionEvent lets the database-level unique
       // constraint (see PARTIAL_UNIQUE_INDEX_SQL) actually stop the
       // duplicate, which a same-function flag never could.
-      const trackerEventId = await logTrackingSessionEvent('tracking_session_ended', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, trackerLocalMetrics ? trackerLocalMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: verdict.concerns });
+      const trackerDuration = await computeTrackerSessionDuration();
+      const trackerEventId = await logTrackingSessionEvent('tracking_session_ended', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, trackerLocalMetrics ? trackerLocalMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: verdict.concerns, duration: trackerDuration });
       await insertMetricsRowsForEvent(trackerEventId, trackerLocalMetrics);
       // Same shared-table append as the desktop-app stop path - Ryan's
       // direct request 2026-07-17. Appended before the report is
@@ -5008,6 +5009,21 @@ async function stopBehavior() {
 // where the raw log clearly had a first and last timestamp to work from
 // instead of just giving up. Scales the output the same way the PS1
 // script's own elapsed-time formatter does (seconds -> minutes -> hours).
+// Ryan's direct request 2026-07-20: tracking_session_ended events (the
+// Tracker's own stop summary, distinct from App Behavior's) never
+// attached a duration at all - History showed real durations for App
+// Behavior sessions but a bare "—" for every Tracker session. Reuses the
+// same computeDurationFromLog() logic below against resource_watcher.ps1's
+// own timestamped log lines (fetched fresh, not from a cached/stale copy).
+async function computeTrackerSessionDuration() {
+  try {
+    const r = await fetch(BRIDGE + '/api/resource-history');
+    const d = await r.json();
+    const text = (d.lines || []).join('\n');
+    return computeDurationFromLog(text);
+  } catch (e) { return null; }
+}
+
 function computeDurationFromLog(text) {
   const times = [...text.matchAll(/^(\d{2}):(\d{2}):(\d{2})\.(\d+)/gm)];
   if (times.length < 2) return null;
@@ -5376,6 +5392,7 @@ async function handleJustStopped() {
     // sessionEndTime duplicate Ryan caught. Also never pushed metrics at
     // all until now, a second, separate gap in this same path.
     const justStoppedMetrics = await fetchLocalMetrics('/api/tracker-metrics');
+    const justStoppedDuration = await computeTrackerSessionDuration();
     let verdict = overview;
     if (justStoppedMetrics && justStoppedMetrics.found && justStoppedMetrics.rows && justStoppedMetrics.rows.length) {
       try {
@@ -5389,7 +5406,7 @@ async function handleJustStopped() {
       const icon = verdict.severity === 'red' ? '🔴' : verdict.severity === 'yellow' ? '🟡' : '🟢';
       overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${verdict.summary}</strong></div>`;
     }
-    const justStoppedEventId = await logTrackingSessionEvent('tracking_session_ended', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, justStoppedMetrics ? justStoppedMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: verdict.concerns });
+    const justStoppedEventId = await logTrackingSessionEvent('tracking_session_ended', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, justStoppedMetrics ? justStoppedMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: verdict.concerns, duration: justStoppedDuration });
     await insertMetricsRowsForEvent(justStoppedEventId, justStoppedMetrics);
     // Diagnostics' own aggregated summary, pushed into the SAME shared
     // table under the SAME event - not a separate report, just more rows
