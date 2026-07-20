@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.00</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.01</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -370,8 +370,8 @@
     <div id="sessionSummaryOverview"></div>
     <p id="sessionSummaryDetail" style="color:#c7cad1">Reviewing what was captured this session...</p>
     <div class="actions">
-      <button class="btn" onclick="document.getElementById('sessionSummaryScreen').classList.add('hidden'); showTabByName('history')">View History</button>
-      <button class="btn secondary" onclick="document.getElementById('sessionSummaryScreen').classList.add('hidden')">Close</button>
+      <button class="btn" onclick="closeSessionSummary('history')">View History</button>
+      <button class="btn secondary" onclick="closeSessionSummary()">Close</button>
     </div>
   </div>
 </div>
@@ -5243,6 +5243,33 @@ async function runCursoryOverview() {
   return { severity, concerns: unique, summary };
 }
 
+// Ryan's direct request 2026-07-19: when this is the one-shot tab
+// AmitTracker.exe's Stop Tracker opened (?justStopped=1), closing the
+// summary should close THIS tab and bring the original Computer Health
+// tab back into focus, not just hide the overlay and leave a redundant
+// full second copy of the dashboard sitting open. The normal in-tab Stop
+// flow (clicking Stop from within an already-open tab you're actively
+// using) keeps the old simple hide-the-overlay behavior - closing your
+// own active tab out from under you would be wrong there.
+function closeSessionSummary(showTab) {
+  if (isOneShotTab) {
+    if (tabBroadcast) tabBroadcast.postMessage({ type: 'focus-requested', showTab: showTab || null });
+    window.close();
+    // Browsers block window.close() on a tab that wasn't opened via
+    // window.open() from script - this tab is opened by AmitTracker.exe's
+    // own Process.Start(), so that block applies here. If the close above
+    // didn't actually happen (this code is still running a moment later),
+    // fall back to a clear manual instruction instead of doing nothing.
+    setTimeout(() => {
+      const detail = document.getElementById('sessionSummaryDetail');
+      if (detail) detail.innerHTML = 'This browser tab can\'t be closed automatically - you can close it manually now (the original Computer Health tab has been brought to the front).';
+    }, 300);
+    return;
+  }
+  document.getElementById('sessionSummaryScreen').classList.add('hidden');
+  if (showTab) showTabByName(showTab);
+}
+
 async function handleJustStopped() {
   if (new URLSearchParams(window.location.search).get('justStopped') !== '1') return;
   // Unmistakable visual marker so this tab can never be confused with an
@@ -5457,8 +5484,17 @@ if (isDuplicateTab) {
     // sessionStorage already makes this reload correctly recognize
     // itself, the same as it would for a manual F5.
     tabBroadcast.onmessage = (e) => {
-      if (!e.data || e.data.type !== 'refresh-requested') return;
-      location.reload();
+      if (!e.data) return;
+      if (e.data.type === 'refresh-requested') { location.reload(); return; }
+      // Ryan's direct request 2026-07-19: closing the one-shot session-
+      // summary tab (opened by AmitTracker.exe's Stop Tracker) used to just
+      // hide its own overlay, leaving a redundant full second copy of the
+      // whole dashboard sitting open behind it - "kind of useless." A
+      // background tab can't force-focus another tab directly (a real
+      // browser security boundary), but the ORIGINAL tab focusing itself in
+      // response to a message from the closing one-shot tab achieves the
+      // same result.
+      if (e.data.type === 'focus-requested') { if (e.data.showTab) showTabByName(e.data.showTab); window.focus(); return; }
     };
   }
   // Light refresh on refocus - Ryan's direct request 2026-07-16: catches
