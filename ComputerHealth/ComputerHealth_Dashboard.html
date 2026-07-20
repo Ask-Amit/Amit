@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.01</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.02</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5253,7 +5253,17 @@ async function runCursoryOverview() {
 // own active tab out from under you would be wrong there.
 function closeSessionSummary(showTab) {
   if (isOneShotTab) {
-    if (tabBroadcast) tabBroadcast.postMessage({ type: 'focus-requested', showTab: showTab || null });
+    // Real bug caught live 2026-07-19 (Ryan, tested immediately): the
+    // original tab regained focus but showed nothing - whatever tab it
+    // happened to be sitting on before, with no sign the session summary
+    // ever existed. The whole point was for Ryan to see the report. Now
+    // the already-rendered summary content (built above by
+    // handleJustStopped(), sitting in the DOM right now) is forwarded
+    // along with the focus request, so the original tab shows the exact
+    // same report instead of just silently refocusing to nothing.
+    const overviewHtml = document.getElementById('sessionSummaryOverview')?.innerHTML || '';
+    const detailHtml = document.getElementById('sessionSummaryDetail')?.innerHTML || '';
+    if (tabBroadcast) tabBroadcast.postMessage({ type: 'focus-requested', showTab: showTab || null, overviewHtml, detailHtml });
     window.close();
     // Browsers block window.close() on a tab that wasn't opened via
     // window.open() from script - this tab is opened by AmitTracker.exe's
@@ -5494,7 +5504,21 @@ if (isDuplicateTab) {
       // browser security boundary), but the ORIGINAL tab focusing itself in
       // response to a message from the closing one-shot tab achieves the
       // same result.
-      if (e.data.type === 'focus-requested') { if (e.data.showTab) showTabByName(e.data.showTab); window.focus(); return; }
+      if (e.data.type === 'focus-requested') {
+        // Show the actual report the one-shot tab built, not just an empty
+        // refocus - see closeSessionSummary()'s comment for the bug this
+        // fixes.
+        if (e.data.overviewHtml) {
+          const ov = document.getElementById('sessionSummaryOverview');
+          const dt = document.getElementById('sessionSummaryDetail');
+          if (ov) ov.innerHTML = e.data.overviewHtml;
+          if (dt) dt.innerHTML = e.data.detailHtml || '';
+          document.getElementById('sessionSummaryScreen').classList.remove('hidden');
+        }
+        if (e.data.showTab) showTabByName(e.data.showTab);
+        window.focus();
+        return;
+      }
     };
   }
   // Light refresh on refocus - Ryan's direct request 2026-07-16: catches
