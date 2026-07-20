@@ -951,7 +951,13 @@ try {
             }
             "/api/start-tracking" {
                 $r = Start-Tracking
-                Send-JsonRaw $response ('{"started":true,"pidCount":' + $r.pids.Count + ',"elevated":' + $(if ($r.elevated) {'true'} else {'false'}) + '}')
+                # Real gap caught live 2026-07-20 (Ryan) - Start-Tracking() already
+                # collects real failure reasons into $warnings (e.g. the sensor
+                # reader needing UAC approval it never got), but this response
+                # never included them - a real launch failure was completely
+                # invisible to the dashboard/user, looking identical to success.
+                $warningsJson = if ($r.warnings -and $r.warnings.Count -gt 0) { ($r.warnings | ForEach-Object { ConvertTo-JsonString $_ }) -join "," } else { "" }
+                Send-JsonRaw $response ('{"started":true,"pidCount":' + $r.pids.Count + ',"elevated":' + $(if ($r.elevated) {'true'} else {'false'}) + ',"warnings":[' + $warningsJson + ']}')
             }
             "/api/stop-tracking" {
                 $r = Stop-Tracking
