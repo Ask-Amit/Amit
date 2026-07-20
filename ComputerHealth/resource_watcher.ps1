@@ -35,7 +35,7 @@ $metricsOutFile = "$env:TEMP\tracker_metrics.json"
 # mid-session. Does not touch the final-summary write or its timing at all.
 $liveMetricsOutFile = "$env:TEMP\tracker_metrics_live.json"
 
-"Resource watcher started at $(Get-Date -Format 'HH:mm:ss.fff') - RAM, CPU, top memory consumers, and FULL sensor dump (all voltages/temps/fans/power/clocks via LibreHardwareMonitor web server) every 30 seconds" | Out-File -FilePath $out -Encoding utf8
+"Resource watcher started at $(Get-Date -Format 'HH:mm:ss.fff') - RAM, CPU, top memory consumers, and FULL sensor dump (all voltages/temps/fans/power/clocks) - first 3 captures 5 seconds apart, then every 30 seconds" | Out-File -FilePath $out -Encoding utf8
 
 function Get-SensorFlat($node, $path = "") {
     $results = @()
@@ -136,6 +136,17 @@ function Get-FinalMetricRows($stats) {
 $metricStats = @{}
 $deadline = (Get-Date).AddHours(8)
 $lineCount = 1
+# Fast-start ramp (Ryan's direct request 2026-07-19): the first few captures
+# used to be instantaneous - a flat 30-second cadence from the very first
+# loop pass meant a freshly-started tracker could sit on "No history
+# captured yet" for up to 30 seconds before anything showed up at all.
+# First 3 captures are 5 seconds apart (covers the first ~15-20 seconds),
+# then settles into the normal 30-second cadence - gets the Hardware tab
+# and other history views populated fast without capturing continuously
+# at that rate for the whole session.
+$captureCount = 0
+$fastStartCaptures = 3
+$fastStartIntervalSeconds = 5
 while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     $os = Get-CimInstance Win32_OperatingSystem
     $totalMB = [math]::Round($os.TotalVisibleMemorySize/1024, 0)
@@ -215,15 +226,18 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
         $lineCount = $lines.Count
     }
 
+    $captureCount++
+    $sleepSeconds = if ($captureCount -le $fastStartCaptures) { $fastStartIntervalSeconds } else { 30 }
+
     # Slept in 1-second increments, checking the stop flag each time,
-    # instead of one flat 30-second sleep - confirmed live 2026-07-16:
-    # with a single 30s sleep, the loop only ever notices the stop flag
-    # at the TOP of the next iteration, so a stop request right after a
-    # sample could take up to 30 seconds to be seen at all - longer than
-    # the bridge server's 8-second graceful-wait window, which would
-    # mean it almost always fell back to a force-kill anyway, defeating
-    # the entire point of adding a graceful exit in the first place.
-    for ($i = 0; $i -lt 30; $i++) {
+    # instead of one flat sleep - confirmed live 2026-07-16: with a single
+    # 30s sleep, the loop only ever notices the stop flag at the TOP of the
+    # next iteration, so a stop request right after a sample could take up
+    # to 30 seconds to be seen at all - longer than the bridge server's
+    # 8-second graceful-wait window, which would mean it almost always fell
+    # back to a force-kill anyway, defeating the entire point of adding a
+    # graceful exit in the first place.
+    for ($i = 0; $i -lt $sleepSeconds; $i++) {
         if (Test-Path $stopFlag) { break }
         Start-Sleep -Seconds 1
     }
