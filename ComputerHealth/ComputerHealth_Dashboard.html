@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.02</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.03</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -2130,7 +2130,16 @@ function categorizeHardware(device) {
   // reached the line that would have correctly recognized them by name.
   if (/(ryzen|intel core|celeron|pentium|xeon)/.test(t)) return { key: 'cpu', label: '⚙️ Processor (CPU)' };
   if (/(geforce|radeon|nvidia|quadro|rtx|gtx)/.test(t)) return { key: 'gpu', label: '🎮 Graphics Card (GPU)' };
-  if (/(ethernet|wi-?fi|wireless|network)/.test(t)) return { key: 'network', label: '🌐 Network' };
+  // "Local Area Connection* N" is Windows' own legacy naming for virtual
+  // network stack layers (QoS Packet Scheduler, WFP filters, MAC layer
+  // filters, etc. stacked per real adapter) - none of "ethernet/wifi/
+  // wireless/network" match that name, so every one of these fell into
+  // "Other" instead of Network. Real gap caught live 2026-07-19 (Ryan) -
+  // the zero readings on these are correct (they're internal plumbing, not
+  // real traffic paths), the miscategorization was the actual bug. Tailscale
+  // and other VPN/tunnel adapters have the same problem - their names don't
+  // contain any network keyword either.
+  if (/(ethernet|wi-?fi|wireless|network|local area connection|tailscale|vpn|tunnel)/.test(t)) return { key: 'network', label: '🌐 Network' };
   if (/(asus|msi|gigabyte|asrock|biostar|ms-\d)/.test(t) && !/geforce|radeon/.test(t)) return { key: 'motherboard', label: '🖥️ Motherboard' };
   // Merged into the RAM category as its own sub-tab, not a separate
   // top-level button - Ryan's direct request 2026-07-15: a third button
