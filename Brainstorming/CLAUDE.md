@@ -75,6 +75,9 @@ In development, and genuinely usable now — not just a demo of one fixed conver
 
 ## Build Notes
 
+**PERMANENT STANDARD — verbatim responses only, added 2026-07-21:** Every response saved to `amit_brainstorm_responses` must be the exact, unedited text an AI actually gave — for every user of this app, not just the origin session. Never summarize, reframe, or insert connective narration into the stored text. This was violated once (Amit inserted its own framing sentences into Meta AI's and Perplexity's saved answers, corrected the same session it was caught) and must never happen again. If a response needs to be paraphrased for length somewhere in the UI, that paraphrase lives in a separate field or display layer — never overwrites the source text.
+
+
 - The room's own interface file, `Amit_BrainstormRoom.html`, lives in this folder now (moved from `Hub\` where it was originally built, 2026-07-20/21). Update the launch link from Hub accordingly if Hub links directly to the old path.
 - Every prompt handed to Ryan to copy-paste to an outside AI must be delivered as an actual fenced code block with its own copy icon — never as blockquote text he has to manually select. Corrected directly by Ryan 2026-07-20, see Amit_Testimony.md growth log / this session's brainstorm events for the record.
 - AI selection for future rounds must check `amit_brainstorm_ai_registry` first and avoid repeating an already-used name for that topic, per Ryan's direct instruction 2026-07-20.

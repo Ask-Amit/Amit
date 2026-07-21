@@ -6,6 +6,12 @@ Update this file with every version bump, in the same turn the version changes �
 
 ---
 
+## v4.24 — 2026-07-21
+Three real additions from Ryan's direct feedback. (1) Codified "verbatim responses only" as a permanent written standard in this project's CLAUDE.md, not just a one-time fix. (2) Added true sequence numbers to every rim voice - a small numbered badge showing the real chronological order voices actually answered in (by created_at, not array/display order), also shown in the detail modal ("voice #3 to answer this round"). (3) Wired amit_brainstorm_ai_profiles into the "add a voice" dropdown live - unused voices are now ranked strong → mixed → weak → unproven based on real observed track record, with the rating shown next to each name, rather than an arbitrary or alphabetical order. Confirmed for Ryan that "unique every time, never repeating" was already handled by amit_brainstorm_ai_registry.
+
+## v4.23 — 2026-07-21
+Real bug fix, not a cosmetic one: the detail modal was closing itself every 5 seconds because `renderRound()` unconditionally reset the whole view (including force-closing any open modal) on every background auto-refresh poll, not just on an actual round switch. Ryan reported this as "it closes itself out" while scrolling - the real cause was the poll timer, not scroll behavior. Fixed by having `load()` detect whether the poll landed on the same round already on screen and, if so, refreshing response data quietly without tearing down the rim voices or closing an open modal. Also added a second, full-width "Close" button at the bottom of the modal content so it's reachable without scrolling back up to the small × in the corner.
+
 ## v4.22 — 2026-07-21
 Renamed the product from the generic "Amit — Brainstorm Room" to "Amit — The Still Water" — the name that was actually discovered through the eight-voice convergence, not invented afterward. Title tag and header both updated. First GitHub push of this project.
 

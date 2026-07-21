@@ -45,7 +45,12 @@
     position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%;
     cursor:pointer; transition:transform .3s, box-shadow .4s; z-index:6;
   }
-  .rim-voice .dot{ width:100%; height:100%; border-radius:50%; display:block; }
+  .rim-voice .dot{ width:100%; height:100%; border-radius:50%; display:block; position:relative; }
+  .rim-voice .seqNum{
+    position:absolute; top:-6px; right:-6px; background:var(--bg); color:var(--gold);
+    font-size:9px; font-weight:700; border:1px solid var(--gold-dim); border-radius:50%;
+    width:15px; height:15px; display:flex; align-items:center; justify-content:center;
+  }
   .rim-voice .rvname{
     position:absolute; top:16px; left:50%; transform:translateX(-50%);
     font-size:9px; color:var(--text-faint); white-space:nowrap; letter-spacing:.3px;
@@ -113,6 +118,10 @@
   .modalClose{
     float:right; background:transparent; border:1px solid var(--border); color:var(--text-dim);
     border-radius:6px; padding:6px 12px; cursor:pointer; font-size:12px;
+  }
+  .modalCloseBottom{
+    display:block; width:100%; margin-top:8px; background:var(--gold); color:#1a1206;
+    border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;
   }
 
   #synthesisPanel{ display:none; border-color:var(--good); }
@@ -190,7 +199,7 @@
   <div class="corona" id="corona"></div>
   <div class="center-mark" id="centerMark"><img src="amit_icon.png" alt="Amit"></div>
 </div>
-<div class="versionBadge">v4.22</div>
+<div class="versionBadge">v4.24</div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
 <div class="roundNav">
   <button id="prevRoundBtn" type="button">‹ Prev round</button>
@@ -245,6 +254,7 @@
     <div class="q"><h4>The question asked this round</h4><div class="body" id="modalQuestion"></div></div>
     <div class="a"><h4>This voice's answer</h4><div class="body" id="modalAnswer"></div></div>
     <div class="n" id="modalNextWrap" style="display:none"><h4>What this fed into next</h4><div class="body" id="modalNext"></div></div>
+    <button class="modalCloseBottom" id="modalCloseBtnBottom" type="button">Close</button>
   </div>
 </div>
 <footer>Every voice shown here becomes part of one consented conclusion. This session is the origin case — shown as it actually happened.</footer>
@@ -382,7 +392,11 @@ function initCanvas(){
   offImageData = offCtx.createImageData(GRID, GRID);
 }
 
-function placeRimVoices(names, answeredSet){
+// seqMap: name -> the real order (1, 2, 3...) this voice actually answered
+// in, by created_at - Ryan's direct request 2026-07-21, so the true
+// chronological progression is visible, not just alphabetical/array order.
+function placeRimVoices(names, answeredSet, seqMap){
+  seqMap = seqMap || {};
   document.querySelectorAll('.rim-voice').forEach(e => e.remove());
   const stage = document.getElementById('stage');
   const size = stage.clientWidth;
@@ -391,15 +405,17 @@ function placeRimVoices(names, answeredSet){
     const angle = (i / names.length) * Math.PI * 2 - Math.PI / 2;
     const nx = Math.cos(angle) * radius, ny = Math.sin(angle) * radius;
     const answered = answeredSet.has(name);
+    const seq = seqMap[name] || null;
     const el = document.createElement('div');
     el.className = 'rim-voice' + (answered ? ' answered' : '');
     const px = size/2 + nx * size/2, py = size/2 + ny * size/2;
     el.style.left = px + 'px'; el.style.top = py + 'px';
     const c = colorFor(name);
-    el.innerHTML = `<span class="dot" style="background:rgb(${c[0]},${c[1]},${c[2]});box-shadow:0 0 8px 2px rgba(${c[0]},${c[1]},${c[2]},0.6)"></span><span class="rvname">${name}</span>`;
+    const badge = seq ? `<span class="seqNum">${seq}</span>` : '';
+    el.innerHTML = `<span class="dot" style="background:rgb(${c[0]},${c[1]},${c[2]});box-shadow:0 0 8px 2px rgba(${c[0]},${c[1]},${c[2]},0.6)">${badge}</span><span class="rvname">${name}</span>`;
     el.ondblclick = () => showDetail(name);
     stage.appendChild(el);
-    return { name, nx, ny, color: c, answered, seed: i * 1.7 };
+    return { name, nx, ny, color: c, answered, seed: i * 1.7, seq };
   });
 }
 
@@ -476,7 +492,7 @@ function checkConvergence(){
 function showDetail(name){
   const s = sources.find(x => x.name === name);
   if (!s || !s.responseText){ toast(name + ' has not answered yet.'); return; }
-  document.getElementById('modalVoiceName').textContent = name;
+  document.getElementById('modalVoiceName').textContent = name + (s.seq ? ' — voice #' + s.seq + ' to answer this round' : '');
   document.getElementById('modalQuestion').textContent = currentRound ? currentRound.prompt_text : '—';
   document.getElementById('modalAnswer').textContent = s.responseText;
   const nextWrap = document.getElementById('modalNextWrap');
@@ -490,6 +506,7 @@ function showDetail(name){
   document.getElementById('detailModal').classList.add('show');
 }
 document.getElementById('modalCloseBtn').onclick = () => document.getElementById('detailModal').classList.remove('show');
+document.getElementById('modalCloseBtnBottom').onclick = () => document.getElementById('detailModal').classList.remove('show');
 document.getElementById('detailModal').onclick = (e) => { if (e.target.id === 'detailModal') e.currentTarget.classList.remove('show'); };
 
 let currentRound = null;
@@ -508,35 +525,70 @@ function updateRoundNav(){
   nextBtn.disabled = roundIndex >= allRounds.length - 1;
 }
 
-async function renderRound(round){
+// isSameRoundRefresh=true means this is a background poll of the round
+// already on screen - don't tear down the rim voices or close an open
+// modal just because data was re-fetched. Only a genuine round switch
+// (Prev/Next, a brand new round arriving, a topic switch) resets the view.
+async function renderRound(round, isSameRoundRefresh){
+  const modalWasOpen = document.getElementById('detailModal').classList.contains('show');
   currentRound = round;
   document.getElementById('promptText').textContent = round.prompt_text;
-  const responses = await sb(`amit_brainstorm_responses?round_id=eq.${round.id}`);
+  const responses = await sb(`amit_brainstorm_responses?round_id=eq.${round.id}&order=created_at.asc`);
   const present = responses.map(r => r.source);
   const seats = present.length ? present : ['Amit'];
   const answeredSet = new Set(present);
-  allAnswered = false; convergedAt = null; // reset convergence animation state per round shown
-  placeRimVoices(seats, answeredSet);
+  const seqMap = {};
+  responses.forEach((r, i) => { seqMap[r.source] = i + 1; });
+  if (!isSameRoundRefresh){
+    allAnswered = false; convergedAt = null;
+    placeRimVoices(seats, answeredSet, seqMap);
+  }
   responses.forEach(r => {
     const s = sources.find(x => x.name === r.source);
-    if (s) s.responseText = r.response_text;
+    if (s) { s.responseText = r.response_text; s.seq = seqMap[r.source]; }
   });
-  document.getElementById('detailModal').classList.remove('show');
-  document.getElementById('centerMark').classList.remove('converged');
-  document.getElementById('corona').classList.remove('converged');
+  if (!isSameRoundRefresh || !modalWasOpen){
+    document.getElementById('detailModal').classList.remove('show');
+  }
+  if (!isSameRoundRefresh){
+    document.getElementById('centerMark').classList.remove('converged');
+    document.getElementById('corona').classList.remove('converged');
+    document.getElementById('statusLine').classList.remove('converged');
+  }
   const sl = document.getElementById('statusLine');
-  sl.classList.remove('converged');
-  sl.innerHTML = `Round <b>${round.round_number}</b> — ${responses.length} of ${seats.length} response${seats.length===1?'':'s'} in`;
+  if (!sl.classList.contains('converged')) {
+    sl.innerHTML = `Round <b>${round.round_number}</b> — ${responses.length} of ${seats.length} response${seats.length===1?'':'s'} in`;
+  }
   checkConvergence();
   updateRoundNav();
 }
 
-function populateSrcSelect(usedNames){
+const RELIABILITY_RANK = { strong: 0, mixed: 1, weak: 2, unproven: 3 };
+
+// Orders the dropdown by real track record - amit_brainstorm_ai_profiles,
+// seeded from actual observed behavior - so a strong, reliable voice is
+// suggested first, not just whatever's alphabetically or arbitrarily
+// first. Ryan's direct instruction 2026-07-21: use the history of how
+// each provider has actually answered to inform who's asked next.
+async function populateSrcSelect(usedNames){
   const sel = document.getElementById('srcSelect');
   sel.innerHTML = '';
   const notYetUsed = KNOWN_SOURCES.filter(n => !usedNames.includes(n));
-  [...notYetUsed, '— other —'].forEach(n => {
-    const opt = document.createElement('option'); opt.value = n; opt.textContent = n; sel.appendChild(opt);
+  let profiles = [];
+  try { profiles = await sb(`amit_brainstorm_ai_profiles?select=ai_name,reliability,known_quirks`); } catch(e) { /* table may not exist yet on some deployments - fall back to plain order */ }
+  const profileMap = {};
+  profiles.forEach(p => { profileMap[p.ai_name] = p; });
+  const ranked = notYetUsed.slice().sort((a, b) => {
+    const ra = profileMap[a] ? RELIABILITY_RANK[profileMap[a].reliability] : RELIABILITY_RANK.unproven;
+    const rb = profileMap[b] ? RELIABILITY_RANK[profileMap[b].reliability] : RELIABILITY_RANK.unproven;
+    return ra - rb;
+  });
+  [...ranked, '— other —'].forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    const p = profileMap[n];
+    opt.textContent = p ? `${n} (${p.reliability})` : n;
+    sel.appendChild(opt);
   });
   sel.onchange = () => { document.getElementById('srcOther').style.display = sel.value === '— other —' ? 'inline-block' : 'none'; };
   sel.onchange();
@@ -557,12 +609,15 @@ async function load(){
 
   const wasAtLatest = viewingLatest;
   const newRoundCount = rounds.length !== allRounds.length;
+  const prevRoundId = currentRound ? currentRound.id : null;
   allRounds = rounds;
   if (roundIndex === -1 || (wasAtLatest && newRoundCount)) {
     roundIndex = allRounds.length - 1; // stay pinned to newest unless the user has navigated back
   }
   viewingLatest = roundIndex === allRounds.length - 1;
-  await renderRound(allRounds[roundIndex]);
+  const nextRound = allRounds[roundIndex];
+  const isSameRoundRefresh = prevRoundId !== null && nextRound.id === prevRoundId;
+  await renderRound(nextRound, isSameRoundRefresh);
 
   const usedNames = (registry || []).map(r => r.ai_name);
   populateSrcSelect(usedNames);
