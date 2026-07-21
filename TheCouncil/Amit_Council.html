@@ -216,6 +216,23 @@
   .topicStatus{ text-align:center; font-size:12px; margin-top:4px; letter-spacing:.5px; text-transform:uppercase; }
   .topicStatus.resolved{ color:var(--good); }
   .topicStatus.open{ color:var(--text-faint); }
+
+  /* NEW — topic list: browse every past Council session, not just the one
+     loaded via URL. Ryan's direct request 2026-07-21: "how do we navigate
+     to previous brainstorming events" - there was no answer before this. */
+  .topicListPanel{ max-width:760px; margin:16px auto 0; padding:0 20px; }
+  .topicListPanel .inner{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 18px; }
+  .topicListPanel h3{ margin:0 0 10px; font-size:12px; color:var(--text-faint); letter-spacing:.5px; text-transform:uppercase; }
+  .topicListPanel .topicRow{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;
+  }
+  .topicListPanel .topicRow:last-child{ border-bottom:none; }
+  .topicListPanel .topicRow a{ color:var(--text); text-decoration:none; flex:1; }
+  .topicListPanel .topicRow a:hover{ color:var(--gold); }
+  .topicListPanel .topicRow a.active{ color:var(--gold); font-weight:600; }
+  .topicListPanel .topicRow .status{ font-size:10px; text-transform:uppercase; letter-spacing:.4px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); color:var(--text-faint); }
+  .topicListPanel .topicRow .status.resolved{ color:var(--good); border-color:var(--good); }
 </style>
 
 <header>
@@ -225,6 +242,13 @@
 </header>
 
 <div class="authbar" id="authbar"><span>Checking session...</span></div>
+
+<div class="topicListPanel">
+  <div class="inner">
+    <h3>Every Council session</h3>
+    <div id="topicListRows">Loading...</div>
+  </div>
+</div>
 
 <div class="newTopicPanel">
   <div class="inner">
@@ -272,7 +296,7 @@
     </div>
   </div>
 </div>
-<div class="versionBadge">v4.35</div>
+<div class="versionBadge">v4.36</div>
 <button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
 <div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
@@ -421,17 +445,12 @@ function goSignInAtHub(){
 function renderAuthbar(user){
   const bar = document.getElementById('authbar');
   if (user){
-    const name = getDisplayName();
-    if (name){
-      bar.innerHTML = `<span class="who">Signed in as ${name}</span> <button class="ghost" id="renameBtn">Change name</button> <button class="ghost" id="signOutBtn">Sign out</button>`;
-      document.getElementById('renameBtn').onclick = () => { localStorage.removeItem(DISPLAY_NAME_KEY); renderAuthbar(user); };
-    } else {
-      bar.innerHTML = `<span class="who">Signed in — choose a display name:</span> <input type="text" id="displayNameInput" placeholder="e.g. Examined"> <button id="saveNameBtn">Save</button>`;
-      document.getElementById('saveNameBtn').onclick = () => {
-        const v = document.getElementById('displayNameInput').value.trim();
-        if (!v){ toast('Type a name first.'); return; }
-        setDisplayName(v); renderAuthbar(user);
-      };
+    // Ryan's direct correction, 2026-07-21: the signed-in account IS the
+    // identity - never ask someone to pick a separate display name on top
+    // of who they already are. Derive it from the account itself.
+    const name = getDisplayName() || (user.user_metadata && user.user_metadata.full_name) || (user.email ? user.email.split('@')[0] : 'Signed in');
+    {
+      bar.innerHTML = `<span class="who">Signed in as ${name}</span> <button class="ghost" id="signOutBtn">Sign out</button>`;
     }
     document.getElementById('signOutBtn') && (document.getElementById('signOutBtn').onclick = async () => { await db.auth.signOut(); localStorage.removeItem(DISPLAY_NAME_KEY); location.reload(); });
     document.getElementById('lockedNote').style.display = 'none';
@@ -751,12 +770,34 @@ async function populateSrcSelect(usedNames){
   sel.onchange();
 }
 
+// NEW — populates the topic list panel so past Council sessions are
+// actually browsable, not just reachable if you already have the URL.
+async function loadTopicList(){
+  try {
+    const all = await sb(`council_topics?select=id,title,status&order=created_at.desc`);
+    const rows = document.getElementById('topicListRows');
+    if (!all.length){ rows.textContent = 'No sessions yet.'; return; }
+    rows.innerHTML = all.map(t => {
+      const isActive = t.id === TOPIC_ID;
+      const statusLabel = t.status === 'resolved' ? 'resolved' : 'open';
+      return `<div class="topicRow">
+        <a href="?topic=${t.id}" class="${isActive ? 'active' : ''}" data-topic="${t.id}">${t.title}</a>
+        <span class="status ${statusLabel}">${statusLabel}</span>
+      </div>`;
+    }).join('');
+    rows.querySelectorAll('a[data-topic]').forEach(a => {
+      a.onclick = (e) => { e.preventDefault(); switchToTopic(a.dataset.topic); };
+    });
+  } catch(e){ console.error(e); document.getElementById('topicListRows').textContent = 'Could not load session list.'; }
+}
+
 async function load(){
   const [topics, seats, rounds] = await Promise.all([
     sb(`council_topics?id=eq.${TOPIC_ID}&select=title,final_solution,status`),
     sb(`council_seats?select=id,role_name`),
     sb(`council_rounds?topic_id=eq.${TOPIC_ID}&order=round_number.asc`)
   ]);
+  loadTopicList();
   seatById = {};
   (seats || []).forEach(s => { seatById[s.id] = s.role_name.replace(' Seat',''); });
 
