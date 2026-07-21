@@ -272,7 +272,7 @@
     </div>
   </div>
 </div>
-<div class="versionBadge">v4.34</div>
+<div class="versionBadge">v4.35</div>
 <button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
 <div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
@@ -383,47 +383,40 @@
 </div>
 <footer>Every Seat shown here becomes part of one consented conclusion. Amit holds a real, equal Seat too — never left out, never weighted above the rest.</footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+// The Hub (amit-hub.html) initializes the same supabase-js client the same
+// way — no custom storageKey — so its session lives in this browser's
+// localStorage under Supabase's own default key. Because both pages are
+// served from the same origin (ask-amit.github.io), initializing the SDK
+// here identically means Council automatically sees a Hub sign-in with no
+// separate auth step. Ryan's direct instruction, 2026-07-21: everyone
+// arrives through the Hub already signed in - Council should never ask
+// someone to sign in twice.
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
 // The migrated self-service-automation deliberation is the origin showcase
 // for The Council, same role the naming brainstorm played for the old room.
 const SHOWCASE_TOPIC_ID = '9baf3b43-2859-45c2-98a4-7df7a07412b8';
 let TOPIC_ID = new URLSearchParams(location.search).get('topic') || SHOWCASE_TOPIC_ID;
-const SESSION_KEY = 'amit_council_session';
 
 let session = null;
 let currentUser = null;
-function loadSession(){ try{ session = JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); }catch(e){ session=null; } }
-function saveSession(s){ session=s; localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
-function clearSession(){ session=null; localStorage.removeItem(SESSION_KEY); }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
 
-async function requestMagicLink(email){
-  const r = await fetch(SUPABASE_URL + '/auth/v1/otp', {
-    method:'POST',
-    headers:{ apikey:SUPABASE_ANON, 'Content-Type':'application/json' },
-    body: JSON.stringify({ email, create_user:true, options:{ emailRedirectTo: location.href.split('#')[0] } })
-  });
-  if (!r.ok){ const body=await r.text().catch(()=> ''); console.error('Magic link failed:', r.status, body); throw new Error('Magic link failed ('+r.status+'): '+body); }
-}
-function captureAuthFromHash(){
-  if (!location.hash || !location.hash.includes('access_token')) return false;
-  const params = new URLSearchParams(location.hash.slice(1));
-  const access_token = params.get('access_token');
-  if (!access_token) return false;
-  saveSession({ access_token, email: params.get('email')||null });
-  history.replaceState(null,'',location.pathname+location.search);
-  return true;
-}
-async function whoAmI(token){
-  const r = await fetch(SUPABASE_URL + '/auth/v1/user', { headers:{ apikey:SUPABASE_ANON, Authorization:'Bearer '+token } });
-  if (!r.ok) return null;
-  return r.json();
-}
 const DISPLAY_NAME_KEY = 'amit_council_displayname';
 function getDisplayName(){ return localStorage.getItem(DISPLAY_NAME_KEY) || ''; }
 function setDisplayName(n){ localStorage.setItem(DISPLAY_NAME_KEY, n); }
+
+// The Hub's own sign-in screen is the only place anyone signs in — Council
+// never runs its own email/magic-link flow. Sends them to the Hub with a
+// return path back to whatever Council topic they were viewing.
+const HUB_URL = 'https://ask-amit.github.io/Amit/Hub/amit-hub.html';
+function goSignInAtHub(){
+  location.href = HUB_URL;
+}
 
 function renderAuthbar(user){
   const bar = document.getElementById('authbar');
@@ -440,7 +433,7 @@ function renderAuthbar(user){
         setDisplayName(v); renderAuthbar(user);
       };
     }
-    document.getElementById('signOutBtn') && (document.getElementById('signOutBtn').onclick = () => { clearSession(); localStorage.removeItem(DISPLAY_NAME_KEY); location.reload(); });
+    document.getElementById('signOutBtn') && (document.getElementById('signOutBtn').onclick = async () => { await db.auth.signOut(); localStorage.removeItem(DISPLAY_NAME_KEY); location.reload(); });
     document.getElementById('lockedNote').style.display = 'none';
     document.getElementById('contribute').classList.add('show');
     document.getElementById('rerunLockedNote').style.display = 'none';
@@ -450,16 +443,10 @@ function renderAuthbar(user){
     document.getElementById('phase2LockedNote').style.display = 'none';
     document.getElementById('phase2Box').style.display = 'block';
   } else {
-    bar.innerHTML = `<input type="text" id="emailInput" placeholder="you@email.com"> <button id="sendLinkBtn">Send sign-in link</button>`;
-    document.getElementById('sendLinkBtn').onclick = async () => {
-      const email = document.getElementById('emailInput').value.trim();
-      if (!email){ toast('Type your email first.'); return; }
-      const btn = document.getElementById('sendLinkBtn');
-      btn.disabled = true; btn.textContent = 'Sending...';
-      try { await requestMagicLink(email); toast('Check your email for the sign-in link.'); }
-      catch(e){ console.error(e); toast('Could not send link — open the console (F12) for the real error.'); }
-      finally { btn.disabled = false; btn.textContent = 'Send sign-in link'; }
-    };
+    // Signed out: one button, straight back to the Hub's own sign-in screen.
+    // No email field here — Council is never the place someone signs in.
+    bar.innerHTML = `<span>Not signed in.</span> <button id="hubSignInBtn">Sign in via the Hub</button>`;
+    document.getElementById('hubSignInBtn').onclick = goSignInAtHub;
     document.getElementById('lockedNote').style.display = 'block';
     document.getElementById('contribute').classList.remove('show');
     document.getElementById('rerunLockedNote').style.display = 'block';
@@ -977,12 +964,22 @@ document.getElementById('newTopicBtn').onclick = beginNewBrainstorm;
 document.getElementById('backToShowcaseLink').onclick = (e) => { e.preventDefault(); switchToTopic(SHOWCASE_TOPIC_ID); };
 if (TOPIC_ID !== SHOWCASE_TOPIC_ID) document.getElementById('currentTopicLink').style.display = 'block';
 
-loadSession();
-captureAuthFromHash();
-(async () => {
-  if (session){ const user = await whoAmI(session.access_token); if (user) { currentUser = user; renderAuthbar(user); } else { clearSession(); renderAuthbar(null); } }
-  else { renderAuthbar(null); }
-})();
+// Real SDK session check - this is what actually picks up the Hub's
+// sign-in via shared localStorage, no separate flow on this page at all.
+db.auth.getSession().then(({ data: { session: sbSession } }) => {
+  if (sbSession){
+    session = sbSession;
+    currentUser = sbSession.user;
+    renderAuthbar(currentUser);
+  } else {
+    renderAuthbar(null);
+  }
+});
+db.auth.onAuthStateChange((event, sbSession) => {
+  session = sbSession;
+  currentUser = sbSession ? sbSession.user : null;
+  renderAuthbar(currentUser);
+});
 
 initCanvas();
 running = true;
