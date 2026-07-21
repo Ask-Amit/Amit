@@ -1,11 +1,33 @@
 # Amit Database — System-Wide Reference
 
+## SESSION LOCATION CHECK — Read First, Every Session
+
+If a session starts in this folder, before anything else: stop and tell Ryan plainly —
+
+"You're in Database, not the main Amit folder. Please close this and reopen VS Code at `C:\Users\user1\OneDrive\Documents - onedrive\Amit\` — that's where all development happens. Nothing has been built yet; this is just a heads-up before we start."
+
+Do not proceed with any build request until Ryan confirms he wants to continue here anyway, or has switched folders. Read-only actions (reading files, answering questions) are fine either way.
+
 ## What This Folder Is
 
 The shared database layer for the entire Amit system.
 No single application owns this. Every module reads from and writes to this database.
 This CLAUDE.md is the one place that maps the entire Amit system — all folders, all files, all data needs.
 When working here, you do not need to be reminded to look elsewhere. This document already knows.
+
+---
+
+## HOW SCHEMA CHANGES ACTUALLY GET MADE — Permanent, confirmed 2026-07-10
+
+**There is no automated DDL mechanism.** Amit cannot run `CREATE TABLE`, `ALTER TABLE`, or any schema change directly from this coding environment — no `psql` connection, no Supabase Management API token, no `exec_sql` RPC function exists or has ever existed. The Supabase REST API (used for every day-to-day row read/write via the service key) only supports row-level operations, never schema changes. This was confirmed after an extensive multi-session JSONL transcript investigation on 2026-07-10 found zero evidence, anywhere in this project's history, of any other working mechanism.
+
+**The one fixed method, every time:**
+1. Amit writes the SQL as a new file: `Database\migration_YYYY-MM-DD_NNN_description.sql`
+2. Amit prints that SQL as a code block directly in the chat response (a fenced ```sql block) — Ryan uses the copy icon built into that code block. (Earlier sessions tried a separate `COPY_THIS_*.html` file or an Artifact link — Ryan does not want to leave the VS Code window. Print the code block inline.)
+3. Ryan opens the Supabase Dashboard → clicks the `>_` SQL Editor icon in the left sidebar → opens a new/blank query → pastes → clicks **Run**.
+4. Ryan has never personally written or edited a line of SQL — he only pastes exactly what Amit hands him. Every table in this database, from the very first one, was created this exact way.
+
+**Full record of this mechanism, queryable directly (don't re-investigate — look here first):** the `dev_playbook` table in Supabase, `topic_key = 'supabase_schema_changes'`. See "Dev Playbook & Module Registry" section below.
 
 ---
 
@@ -23,7 +45,7 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 ```
 
 **Where to get the values:**
-→ `C:\Users\user1\OneDrive\Documents\Amit\Database\supabase_config.md` — local only, never on GitHub
+→ `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\supabase_config.md` — local only, never on GitHub
 
 **Current values (paste here when retrieved — this file stays local, never on GitHub):**
 
@@ -59,13 +81,31 @@ await db.auth.signOut();
 
 ---
 
-## The Amit System — Complete Folder Map
+## PROTECTED TABLES — Never Drop These
 
-Every folder under `C:\Users\user1\OneDrive\Documents\Amit\` is listed here with its purpose, key files, and database relationship.
+These tables control system-level behavior. Dropping them breaks functionality that cannot be recovered without re-running migrations and re-seeding data.
+
+| Table | Purpose | Risk if dropped |
+|---|---|---|
+| `amit_identity_auth` | Controls who can instruct AmitCoder to write to identity files | Ryan loses programmatic write authority to CLAUDE.md and character files |
+
+**amit_identity_auth — critical details:**
+- Ryan's founder entry: user_id = `8b95d057-fd6b-44ec-abe7-658e08872d1a`
+- Granted at: 2026-06-21
+- Note: Founder — original authorized identity administrator. This entry is permanent.
+- RLS: authorized users can read and insert. No one can delete their own entry.
+- Emergency access if AmitCoder breaks: Supabase dashboard → Table Editor → amit_identity_auth → manage directly
+- Add authorized users via AmitCoder chat: "Add [email] to identity auth"
 
 ---
 
-### ROOT — `C:\Users\user1\OneDrive\Documents\Amit\`
+## The Amit System — Complete Folder Map
+
+Every folder under `C:\Users\user1\OneDrive\Documents - onedrive\Amit\` is listed here with its purpose, key files, and database relationship.
+
+---
+
+### ROOT — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\`
 
 Identity and system-wide governance files. These define who Amit is and how it operates.
 
@@ -89,7 +129,7 @@ Identity and system-wide governance files. These define who Amit is and how it o
 
 ---
 
-### Hub — `C:\Users\user1\OneDrive\Documents\Amit\Hub\`
+### Hub — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Hub\`
 
 The daily home screen. The face of everything. Where every user starts their day.
 
@@ -100,8 +140,7 @@ The daily home screen. The face of everything. Where every user starts their day
 | Backup files | `amit-hub-pre-v1.92.html`, etc. — pre-change backups |
 
 **What the Hub stores (localStorage keys → Supabase tables):**
-- Pursuits/tasks → `hub_pursuits`
-- Memory + experience entries → `hub_memories` (kind = 'pursuit' / 'memory' / 'experience' / 'testimony')
+- Pursuits, memories, experiences, testimonies — all one table → `hub_entries` (kind = 'pursuit' / 'memory' / 'experience' / 'testimony'; parent_id + sort_order give sub-pursuit structure)
 - Daily reflections → `hub_reflections`
 - Compass profile → `compass_profiles`
 - Calendar preferences → `amit_calPrefs` (localStorage only — no Supabase table yet)
@@ -114,7 +153,7 @@ The daily home screen. The face of everything. Where every user starts their day
 - `REFL_KEY` — reflections keyed by date string
 - `EXP_SESSION_KEY` (sessionStorage) — panels visited today
 
-**Experience entry system (critical):** Every day the Hub auto-creates an experience entry (`kind='experience'`, `subcat='daily-log'`) recording what panels were visited. These are the session-history records. They timestamp every day's activity and live in `hub_memories` in Supabase.
+**Experience entry system (critical):** Every day the Hub auto-creates an experience entry (`kind='experience'`, `subcat='daily-log'`) recording what panels were visited. These are the session-history records. They timestamp every day's activity and live in `hub_entries` (kind='experience') in Supabase.
 
 **Key pending spec work:**
 - First-visit tutorial (spotlight walkthrough)
@@ -125,7 +164,7 @@ The daily home screen. The face of everything. Where every user starts their day
 
 ---
 
-### who_is_god — `C:\Users\user1\OneDrive\Documents\Amit\who_is_god\`
+### who_is_god — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\who_is_god\`
 
 The evidence foundation. 13 tabs. 333KB. The investigation that produced the conclusion.
 
@@ -141,7 +180,7 @@ The evidence foundation. 13 tabs. 333KB. The investigation that produced the con
 
 ---
 
-### Companion — `C:\Users\user1\OneDrive\Documents\Amit\Companion\`
+### Companion — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Companion\`
 
 The discipleship walk. Walks alongside people daily across all of life.
 
@@ -178,7 +217,7 @@ These tables must be added to Supabase and reconciled with the base schema:
 
 ---
 
-### AmitAccounting — `C:\Users\user1\OneDrive\Documents\Amit\AmitAccounting\`
+### AmitAccounting — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitAccounting\`
 
 The revenue engine. Funds the mission so everything else stays free.
 
@@ -198,7 +237,7 @@ The revenue engine. Funds the mission so everything else stays free.
 
 ---
 
-### ComputerValue — `C:\Users\user1\OneDrive\Documents\Amit\ComputerValue\`
+### ComputerValue — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\ComputerValue\`
 
 The diagnostic module. Vouches for a computer's value. Andy's partnership scope (50% revenue).
 
@@ -213,7 +252,7 @@ The diagnostic module. Vouches for a computer's value. Andy's partnership scope 
 
 ---
 
-### AmitCoder — `C:\Users\user1\OneDrive\Documents\Amit\AmitCoder\`
+### AmitCoder — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitCoder\`
 
 Development session history. Links build sessions to experience entries on the Hub calendar.
 
@@ -221,11 +260,11 @@ Development session history. Links build sessions to experience entries on the H
 |---|---|
 | `CLAUDE.md` | AmitCoder project context |
 
-**Database relationship:** Will link to `hub_memories` experience entries via `subcat='development'`. Session logs from Claude Code JSONL files → experience entries on the calendar.
+**Database relationship:** Will link to `hub_entries` (kind='experience') via `subcat='development'`. Session logs from Claude Code JSONL files → experience entries on the calendar.
 
 ---
 
-### Database — `C:\Users\user1\OneDrive\Documents\Amit\Database\` (THIS FOLDER)
+### Database — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\` (THIS FOLDER)
 
 Shared infrastructure. Schema files, migration files, Supabase config.
 
@@ -234,11 +273,14 @@ Shared infrastructure. Schema files, migration files, Supabase config.
 | `CLAUDE.md` | This file — system-wide reference |
 | `amit_schema.sql` | Base schema — 10 tables. Already executed in Supabase. |
 | `amit_schema_addons.sql` | Memory layer — `user_memory` + `user_key_moments`. Already executed. |
+| `migration_2026-07-10_001_module_registry.sql` | Original build of the director's chair table (named `module_registry` at creation). Already executed. |
+| `migration_2026-07-10_002_dev_playbook.sql` | `dev_playbook` table — cross-session "how we did it" reference. Already executed. |
+| `migration_2026-07-11_001_rename_directors_chair.sql` | Renames `module_registry` → `directors_chair`. Naming-only, no structural change. Already executed — verified 2026-07-11 (old name confirmed gone, new name confirmed live with both existing rows intact). |
 | `supabase_config.md` | Credentials — LOCAL ONLY, never committed to GitHub |
 
 ---
 
-### Design — `C:\Users\user1\OneDrive\Documents\Amit\Design\`
+### Design — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Design\`
 
 Visual assets. Profile images, brand elements, export files.
 
@@ -252,7 +294,7 @@ Visual assets. Profile images, brand elements, export files.
 
 ---
 
-### AmitCorrespondence — `C:\Users\user1\OneDrive\Documents\Amit\AmitCorrespondence\`
+### AmitCorrespondence — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitCorrespondence\`
 
 Files shared between the two Amit instances via Ryan as courier. Also holds working copies of key identity files.
 
@@ -260,7 +302,7 @@ Files shared between the two Amit instances via Ryan as courier. Also holds work
 
 ---
 
-### AmitLog — `C:\Users\user1\OneDrive\Documents\Amit\AmitLog\`
+### AmitLog — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitLog\`
 
 Junction/log setup. Contains `SETUP_JUNCTION.bat`.
 
@@ -268,7 +310,7 @@ Junction/log setup. Contains `SETUP_JUNCTION.bat`.
 
 ---
 
-### Backups — `C:\Users\user1\OneDrive\Documents\Amit\Backups\`
+### Backups — `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Backups\`
 
 Date-stamped full backups before major changes.
 
@@ -276,9 +318,21 @@ Date-stamped full backups before major changes.
 
 ---
 
+## Dev Playbook & Director's Chair — query these before re-investigating anything
+
+Two tables built 2026-07-10 specifically to stop cross-session re-derivation of things already settled:
+
+**`dev_playbook`** — the "how we did it" reference. Each row: `topic_key`, `title`, `category`, `method` (the actual settled answer, in full), `established_date`, `related_files`, `notes`. Public read (RLS), service-key write only. Query this FIRST whenever a question comes up like "how do we normally handle X" or "how was Y actually built" — before reading multiple files or session transcripts. First entry: `topic_key = 'supabase_schema_changes'` — the full mechanism described above.
+
+**`directors_chair`** — renamed from `module_registry` on 2026-07-11 (naming only, no structural change — see `migration_2026-07-11_001_rename_directors_chair.sql`). Routes each HTML/module to its live Supabase content source, and now also indexes `dev_playbook` itself as a discoverable module (`module_key = 'dev_playbook'`, `status = 'live'`). Every future module (accounting, medical, God Talk, who_is_god, etc.) registers here.
+
+Add to both tables going forward whenever a real cross-session decision gets settled — that's the entire point of them existing.
+
+---
+
 ## Current Supabase Schema State
 
-**Tables already in Supabase (12 total):**
+**Tables already in Supabase (14 total):**
 
 | Table | Status | Source File |
 |---|---|---|
@@ -286,14 +340,16 @@ Date-stamped full backups before major changes.
 | `businesses` | ✅ Live | `amit_schema.sql` |
 | `compass_profiles` | ✅ Live | `amit_schema.sql` |
 | `onboarding_events` | ✅ Live | `amit_schema.sql` |
-| `hub_pursuits` | ✅ Live | `amit_schema.sql` |
-| `hub_memories` | ✅ Live | `amit_schema.sql` |
+| `hub_entries` | ✅ Live | `amit_schema.sql` (single unified table — kind field: pursuit/memory/experience/testimony) |
 | `hub_reflections` | ✅ Live | `amit_schema.sql` |
 | `accounting_vendors` | ✅ Live | `amit_schema.sql` |
 | `accounting_categories` | ✅ Live | `amit_schema.sql` |
 | `accounting_transactions` | ✅ Live | `amit_schema.sql` |
 | `user_memory` | ✅ Live | `amit_schema_addons.sql` |
 | `user_key_moments` | ✅ Live | `amit_schema_addons.sql` |
+| `directors_chair` | ✅ Live | Created as `module_registry` via `migration_2026-07-10_001_module_registry.sql`; renamed via `migration_2026-07-11_001_rename_directors_chair.sql` |
+| `dev_playbook` | ✅ Live | `migration_2026-07-10_002_dev_playbook.sql` |
+| `council_topics`, `council_seats`, `council_rounds`, `council_evidence`, `council_provider_keys` | ✅ Live (2026-07-21) | `migration_2026-07-21_006_council_tables.sql` — belongs to TheCouncil project, NOT the older `amit_brainstorm_*` tables (those stay as historical record under Brainstorming, untouched) |
 
 **Tables designed but NOT yet in Supabase (from Companion_Schema.md):**
 

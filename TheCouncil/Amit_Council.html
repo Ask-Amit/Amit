@@ -1,0 +1,993 @@
+<title>Amit — The Council</title>
+<style>
+  :root{
+    --bg:#0b0c10; --bg2:#12141a; --panel:#171a22; --border:#262a36;
+    --gold:#d4af37; --gold-dim:#8a7228;
+    --text:#e8e8ec; --text-dim:#9498a3; --text-faint:#5b606e;
+    --good:#4caf6d; --warn:#e0a72e; --bad:#d05555;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:radial-gradient(ellipse at 50% -10%, #1a1d27 0%, var(--bg) 60%);
+    color:var(--text); font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;
+    min-height:100vh; overflow-x:hidden;
+  }
+  header{ text-align:center; padding:36px 20px 6px; }
+  header h1{ font-family:Georgia,serif; font-weight:600; font-size:28px; margin:0; letter-spacing:0.3px; color:var(--text); }
+  header h1 span{color:var(--gold)}
+  header h1 .headerMark{ width:32px; height:32px; border-radius:50%; vertical-align:middle; margin-right:8px; margin-bottom:4px; }
+  header p{ color:var(--text-dim); font-size:14px; margin:8px 0 0; max-width:600px; margin-left:auto; margin-right:auto; line-height:1.5 }
+
+  .authbar{
+    max-width:760px; margin:14px auto 0; padding:0 20px;
+    display:flex; align-items:center; justify-content:center; gap:10px; font-size:13px; color:var(--text-dim);
+  }
+  .authbar input{ background:var(--panel); border:1px solid var(--border); color:var(--text); padding:7px 10px; border-radius:6px; font-size:13px; width:220px; }
+  .authbar button{ background:var(--gold); color:#1a1206; border:none; padding:7px 14px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+  .authbar button.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold-dim); }
+  .authbar .who{ color:var(--good); }
+
+  /* THE STILL WATER — carried forward unchanged from the Brainstorming room.
+     A dark basin; each Seat is a source of ripples at the rim; wave
+     interference makes agreeing signals reinforce and lets the field settle.
+     When every Seat in the round has answered, the field damps to
+     stillness and the center reveals what survived. */
+  .stage{ position:relative; width:min(720px, 92vw); aspect-ratio:1/1; margin:18px auto 6px; }
+  .basin{
+    position:absolute; inset:0; border-radius:50%;
+    background:#000; box-shadow:0 0 60px 10px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.8);
+    overflow:hidden;
+  }
+  .basin canvas{ width:100%; height:100%; display:block; image-rendering:auto; }
+  .basin-rim{ position:absolute; inset:0; border-radius:50%; border:1px solid rgba(212,175,55,0.18); pointer-events:none; }
+
+  .rim-voice{
+    position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%;
+    cursor:pointer; transition:transform .3s, box-shadow .4s; z-index:6;
+  }
+  .rim-voice .dot{ width:100%; height:100%; border-radius:50%; display:block; position:relative; }
+  .rim-voice .seqNum{
+    position:absolute; top:-6px; right:-6px; background:var(--bg); color:var(--gold);
+    font-size:9px; font-weight:700; border:1px solid var(--gold-dim); border-radius:50%;
+    width:15px; height:15px; display:flex; align-items:center; justify-content:center;
+  }
+  .rim-voice .rvname{
+    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    font-size:9px; color:var(--text-faint); white-space:nowrap; letter-spacing:.3px;
+  }
+  .rim-voice.answered .rvname{ color:var(--text-dim); }
+  .rim-voice:hover{ transform:scale(1.5); }
+
+  .corona{
+    position:absolute; top:50%; left:50%; width:220px; height:220px;
+    transform:translate(-50%,-50%); border-radius:50%;
+    background:
+      repeating-conic-gradient(from 0deg,
+        rgba(243,223,160,0.95) 0deg 3deg,
+        rgba(212,175,55,0.55) 3deg 6deg,
+        rgba(212,175,55,0) 6deg 16deg);
+    filter:blur(1.5px);
+    animation:coronaSpin 50s linear infinite;
+    z-index:6; pointer-events:none;
+    -webkit-mask-image:radial-gradient(circle, transparent 27%, black 30%, black 92%, transparent 100%);
+    mask-image:radial-gradient(circle, transparent 27%, black 30%, black 92%, transparent 100%);
+  }
+  .corona.converged{ animation-duration:14s; }
+  @keyframes coronaSpin{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+
+  .center-mark{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:104px; height:104px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    z-index:7; pointer-events:none; transition:filter 1.2s ease, transform 1.2s ease;
+    filter:drop-shadow(0 0 10px rgba(212,175,55,0.25));
+  }
+  .center-mark img{ width:100%; height:100%; border-radius:50%; opacity:1; background:#000; }
+  .center-mark.converged{ filter:drop-shadow(0 0 46px rgba(212,175,55,0.85)); transform:translate(-50%,-50%) scale(1.08); }
+  .name-glyphs{
+    width:100%; height:100%; border-radius:50%; background:#000;
+    display:flex; flex-direction:row-reverse; align-items:center; justify-content:center; gap:6px;
+  }
+  .name-glyphs svg{ width:22px; height:36px; }
+  .name-glyphs path{ fill:var(--gold); stroke:none; }
+  .name-glyphs circle{ fill:var(--gold); stroke:none; }
+  .name-glyphs .stem{ fill:none; stroke:var(--gold); stroke-width:4; stroke-linecap:round; }
+  .name-glyphs{ opacity:0.4; transition:opacity 1.6s ease; }
+  .center-mark.converged .name-glyphs{ opacity:1; }
+
+  .ampToggle{
+    position:fixed; bottom:14px; right:16px; background:transparent; border:1px solid var(--border);
+    color:var(--text-faint); font-size:10px; padding:4px 9px; border-radius:5px; cursor:pointer; z-index:10;
+    font-family:monospace;
+  }
+  .ampReadout{ display:none; position:fixed; bottom:14px; right:100px; text-align:right; z-index:10; }
+  .ampReadout.show{ display:block; }
+  .ampReadout .lbl{ font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--text-faint); }
+  .ampReadout .val{ font-family:monospace; font-size:12px; color:var(--gold); }
+
+  .status-line{ text-align:center; color:var(--text-dim); font-size:12px; letter-spacing:1px; text-transform:uppercase; margin-top:10px; }
+  .status-line b{ color:var(--gold); }
+  .status-line.converged b{ color:var(--good); }
+  .roundNav{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:8px; }
+  .roundNav button{ background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:4px 10px; border-radius:6px; font-size:12px; cursor:pointer; }
+  .roundNav button:disabled{ opacity:.35; cursor:default; }
+  .roundNav button:not(:disabled):hover{ border-color:var(--gold-dim); color:var(--text); }
+  .roundNav .roundLabel{ font-size:12px; color:var(--text-faint); letter-spacing:.5px; }
+  .dblHint{ text-align:center; color:var(--text-faint); font-size:11px; font-style:italic; margin-top:4px; }
+
+  .panels{ max-width:760px; margin:26px auto 60px; padding:0 20px; display:grid; gap:16px; }
+  .panel{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:18px 20px; }
+  .panel h3{ margin:0 0 8px; font-size:13px; color:var(--gold); letter-spacing:.4px; text-transform:uppercase }
+  .panel p, .panel div.body{ margin:0; color:var(--text-dim); font-size:14px; line-height:1.6; white-space:pre-wrap }
+
+  .modalOverlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:50;
+    align-items:center; justify-content:center; padding:20px;
+  }
+  .modalOverlay.show{ display:flex; }
+  .modalCard{
+    background:var(--panel); border:1px solid var(--gold-dim); border-radius:12px;
+    max-width:640px; width:100%; max-height:82vh; overflow-y:auto; padding:26px 28px;
+  }
+  .modalCard h4{ margin:0 0 4px; font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.6px; }
+  .modalCard .q, .modalCard .a, .modalCard .n{ margin:0 0 20px; }
+  .modalCard .voiceName{ color:var(--gold); font-size:18px; font-weight:700; margin-bottom:14px; }
+  .modalCard .body{ color:var(--text-dim); font-size:14px; line-height:1.65; white-space:pre-wrap; }
+  .modalClose{
+    float:right; background:transparent; border:1px solid var(--border); color:var(--text-dim);
+    border-radius:6px; padding:6px 12px; cursor:pointer; font-size:12px;
+  }
+  .modalCloseBottom{
+    display:block; width:100%; margin-top:8px; background:var(--gold); color:#1a1206;
+    border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+
+  #synthesisPanel{ display:none; border-color:var(--good); }
+  #synthesisPanel.show{ display:block; }
+  #synthesisPanel h3{ color:var(--good); }
+
+  /* NEW — the round-review panel. This is the gap Ryan named 2026-07-21:
+     nothing showed what a round actually achieved, what carries forward,
+     or what the user said back. This panel makes all three visible
+     together, every time, so a returning user is never lost. */
+  #reviewPanel{ display:none; border-color:var(--gold-dim); }
+  #reviewPanel.show{ display:block; }
+  #reviewPanel h3{ color:var(--gold); }
+  #reviewPanel .nextStepBody{ color:var(--text); font-weight:600; }
+  #reviewPanel .feedbackBlock{ margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+  #reviewPanel .feedbackBlock h4{ margin:0 0 6px; font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.5px; }
+  #reviewPanel .directiveBadge{
+    display:inline-block; font-size:11px; padding:3px 9px; border-radius:12px; margin-top:6px;
+    border:1px solid var(--gold-dim); color:var(--gold); text-transform:uppercase; letter-spacing:.4px;
+  }
+  #reviewPanel .directiveBadge.confirmed{ border-color:var(--good); color:var(--good); }
+
+  /* NEW — the user's own review controls, shown once a round has all its
+     evidence in and is waiting for the human to say what happens next. */
+  #directivePanel{ display:none; border-color:var(--gold); }
+  #directivePanel.show{ display:block; }
+  #directivePanel h3{ color:var(--gold); }
+  #directivePanel textarea{ width:100%; min-height:90px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; font-family:inherit; resize:vertical; margin-bottom:10px; }
+  #directivePanel .directiveRow{ display:flex; gap:8px; flex-wrap:wrap; }
+  #directivePanel button{ background:transparent; color:var(--text-dim); border:1px solid var(--border); padding:9px 14px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+  #directivePanel button:hover{ border-color:var(--gold-dim); color:var(--text); }
+  #directivePanel button.achieved{ background:var(--good); color:#08170e; border:none; }
+  #directivePanel button.achieved:hover{ opacity:.9; }
+
+  .contribute{ display:none; }
+  .contribute.show{ display:block; }
+  .contribute .row{ display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .contribute select, .contribute input[type=text]{ background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:6px; font-size:13px; }
+  .contribute textarea{ width:100%; min-height:140px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; font-family:inherit; resize:vertical; }
+  .contribute .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+  .contribute button{ background:var(--gold); color:#1a1206; border:none; padding:9px 16px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+  .contribute button.secondary{ background:transparent; color:var(--text-dim); border:1px solid var(--border); }
+  .lockedNote{ color:var(--text-faint); font-size:13px; font-style:italic; }
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+    background:var(--panel); border:1px solid var(--good); color:var(--text);
+    padding:10px 18px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .3s;
+  }
+  .toast.show{ opacity:1; }
+
+  .newTopicPanel{
+    max-width:760px; margin:22px auto 0; padding:0 20px;
+  }
+  .newTopicPanel .inner{ background:var(--panel); border:1px solid var(--gold-dim); border-radius:10px; padding:20px 22px; }
+  .newTopicPanel h3{ margin:0 0 4px; font-size:15px; color:var(--gold); }
+  .newTopicPanel p{ margin:0 0 12px; color:var(--text-dim); font-size:13px; line-height:1.5; }
+  .newTopicPanel textarea{
+    width:100%; min-height:180px; background:var(--bg2); border:1px solid var(--border);
+    color:var(--text); border-radius:8px; padding:14px; font-size:14px; line-height:1.6;
+    font-family:inherit; resize:vertical;
+  }
+  .newTopicPanel .actions{ display:flex; justify-content:flex-end; margin-top:12px; }
+  .newTopicPanel button{ background:var(--gold); color:#1a1206; border:none; padding:11px 22px; border-radius:6px; font-weight:700; font-size:14px; cursor:pointer; }
+  .newTopicPanel button:disabled{ opacity:.5; cursor:default; }
+  .newTopicPanel .lockedNote{ margin-top:4px; }
+  .currentTopicLink{ text-align:center; margin-top:16px; }
+  .currentTopicLink a{ color:var(--gold); font-size:12px; text-decoration:none; border-bottom:1px dotted var(--gold-dim); }
+
+  footer{ text-align:center; color:var(--text-faint); font-size:12px; padding-bottom:40px; }
+  .versionBadge{
+    text-align:center; color:var(--gold); font-size:15px; font-weight:700;
+    letter-spacing:1px; font-family:monospace; margin-top:6px;
+  }
+  .topicStatus{ text-align:center; font-size:12px; margin-top:4px; letter-spacing:.5px; text-transform:uppercase; }
+  .topicStatus.resolved{ color:var(--good); }
+  .topicStatus.open{ color:var(--text-faint); }
+</style>
+
+<header>
+  <h1><img class="headerMark" src="../Brainstorming/amit_icon.png" alt="Amit"> Amit <span>— The Council</span></h1>
+  <p id="topicTitle">Loading the live topic...</p>
+  <div class="topicStatus" id="topicStatus"></div>
+</header>
+
+<div class="authbar" id="authbar"><span>Checking session...</span></div>
+
+<div class="newTopicPanel">
+  <div class="inner">
+    <h3>Bring a real question to The Council</h3>
+    <p>Write out the real problem you want the Seats to work on — as much detail as it takes. This becomes Round 1's question, in your own words.</p>
+    <div class="lockedNote" id="newTopicLockedNote">Sign in above to bring a question of your own.</div>
+    <div id="newTopicBox" style="display:none">
+      <textarea id="newTopicText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..."></textarea>
+      <div class="actions">
+        <button id="newTopicBtn" type="button">Convene the Council</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="currentTopicLink" id="currentTopicLink" style="display:none">
+  <a href="#" id="backToShowcaseLink">‹ back to the origin deliberation</a>
+</div>
+
+<div class="stage" id="stage">
+  <div class="basin"><canvas id="basinCanvas"></canvas></div>
+  <div class="basin-rim"></div>
+  <div class="corona" id="corona"></div>
+  <div class="center-mark" id="centerMark">
+    <div class="name-glyphs">
+      <svg viewBox="0 0 20 36" title="Yod">
+        <circle cx="9" cy="9" r="4.5"/>
+        <path class="stem" d="M9,13 Q8,20 6,26"/>
+      </svg>
+      <svg viewBox="0 0 20 36" title="Hei">
+        <circle cx="10" cy="7" r="3.4"/>
+        <path class="stem" d="M10,10 L10,30"/>
+        <path class="stem" d="M10,13 Q4,10 3,3"/>
+        <path class="stem" d="M10,13 Q16,10 17,3"/>
+      </svg>
+      <svg viewBox="0 0 20 36" title="Vav">
+        <circle cx="10" cy="6" r="3.6"/>
+        <path class="stem" d="M10,10 L10,30"/>
+      </svg>
+      <svg viewBox="0 0 20 36" title="Hei">
+        <circle cx="10" cy="7" r="3.4"/>
+        <path class="stem" d="M10,10 L10,30"/>
+        <path class="stem" d="M10,13 Q4,10 3,3"/>
+        <path class="stem" d="M10,13 Q16,10 17,3"/>
+      </svg>
+    </div>
+  </div>
+</div>
+<div class="versionBadge">v4.34</div>
+<button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
+<div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
+<div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
+<div class="roundNav">
+  <button id="prevRoundBtn" type="button">‹ Prev round</button>
+  <span class="roundLabel" id="roundLabel">Round 1 of 1</span>
+  <button id="nextRoundBtn" type="button">Next round ›</button>
+</div>
+<div class="dblHint">Double-click a light on the rim to read that Seat's full answer.</div>
+
+<div class="panels">
+  <div class="panel">
+    <h3>This round's question</h3>
+    <div class="body" id="promptText">—</div>
+  </div>
+
+  <!-- NEW — the round-review panel: what this round actually achieved, and
+       what carries forward. This is the gap Ryan named directly: users had
+       no way to see what was accomplished last round. -->
+  <div class="panel" id="reviewPanel">
+    <h3>Where this round landed</h3>
+    <div class="body" id="synthesisTextReview"></div>
+    <div class="feedbackBlock" id="nextStepBlock" style="display:none">
+      <h4>What carries into the next round</h4>
+      <div class="body nextStepBody" id="nextStepText"></div>
+    </div>
+    <div class="feedbackBlock" id="userFeedbackBlock" style="display:none">
+      <h4>What the user said back</h4>
+      <div class="body" id="userFeedbackText"></div>
+      <div id="directiveBadgeWrap"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="synthesisPanel">
+    <h3>What survived — the converged design</h3>
+    <div class="body" id="synthesisText"></div>
+  </div>
+
+  <div class="panel" id="phase2Panel" style="display:none; border-color:var(--gold-dim);">
+    <h3>Phase 1 is complete — you have a real idea. Phase 2 turns it into a solution.</h3>
+    <p style="color:var(--text-dim); font-size:14px; line-height:1.6; margin:0 0 14px;">
+      What you have right now is a genuine, converged idea — that's real, and you can stop here.
+      Phase 2 takes it the rest of the way: we navigate with you, step by step, from this idea to an actual solution you can act on — not more brainstorming, the real path to making it happen.
+    </p>
+    <p style="color:var(--gold); font-size:14px; line-height:1.6; margin:0 0 14px; font-weight:600;">
+      Because Phase 1 already did real work, Phase 2 is half price — you're not starting over, you're already halfway there.
+    </p>
+    <div class="lockedNote" id="phase2LockedNote">Sign in above, on a premium account, to begin Phase 2.</div>
+    <div class="contribute" id="phase2Box" style="display:none">
+      <button id="phase2Btn" type="button">Begin Phase 2 (half price) — take this idea to a real solution</button>
+    </div>
+  </div>
+
+  <!-- NEW — the user's own directive controls: continue, repeat/refine,
+       different angle, or achieved result. This closes the loop Ryan
+       described: a person reviews where a round landed and decides what
+       happens next, and that decision is logged, not just implied. -->
+  <div class="panel" id="directivePanel">
+    <h3>What do you want to happen next?</h3>
+    <textarea id="directiveFeedback" placeholder="Say why, if it helps — what's right, what's missing, what should be looked at differently..."></textarea>
+    <div class="directiveRow">
+      <button id="directiveContinueBtn" type="button">Continue as-is</button>
+      <button id="directiveRefineBtn" type="button">Repeat this round, sharper wording</button>
+      <button id="directiveAngleBtn" type="button">Look at this from a different angle</button>
+      <button class="achieved" id="directiveAchievedBtn" type="button">This is the solution — mark achieved</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Add a Seat's answer to this round</h3>
+    <div class="lockedNote" id="lockedNote">Sign in above to paste in a Seat's answer yourself.</div>
+    <div class="contribute" id="contribute">
+      <div class="row">
+        <select id="srcSelect"></select>
+        <input type="text" id="srcOther" placeholder="or type a new Seat name" style="display:none">
+      </div>
+      <textarea id="respText" placeholder="Paste the Seat's full answer here..."></textarea>
+      <div class="actions">
+        <button class="secondary" id="clearBtn" type="button">Clear</button>
+        <button id="saveBtn" type="button">Save to this round</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Start a fresh round yourself</h3>
+    <div class="lockedNote" id="rerunLockedNote">Sign in above to start a new round yourself.</div>
+    <div class="contribute" id="rerunBox">
+      <textarea id="rerunText" placeholder="Tell the Council what you want reconsidered, sharpened, or approached differently. This becomes the next round's question, in your own words."></textarea>
+      <div class="actions">
+        <button class="secondary" id="rerunClearBtn" type="button">Clear</button>
+        <button id="rerunBtn" type="button">Start next round</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modalOverlay" id="detailModal">
+  <div class="modalCard">
+    <button class="modalClose" id="modalCloseBtn" type="button">Close ✕</button>
+    <div class="voiceName" id="modalVoiceName"></div>
+    <div class="q"><h4>The question asked this round</h4><div class="body" id="modalQuestion"></div></div>
+    <div class="a"><h4>This Seat's answer</h4><div class="body" id="modalAnswer"></div></div>
+    <div class="n" id="modalNextWrap" style="display:none"><h4>What this fed into next</h4><div class="body" id="modalNext"></div></div>
+    <button class="modalCloseBottom" id="modalCloseBtnBottom" type="button">Close</button>
+  </div>
+</div>
+<footer>Every Seat shown here becomes part of one consented conclusion. Amit holds a real, equal Seat too — never left out, never weighted above the rest.</footer>
+
+<script>
+const SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+// The migrated self-service-automation deliberation is the origin showcase
+// for The Council, same role the naming brainstorm played for the old room.
+const SHOWCASE_TOPIC_ID = '9baf3b43-2859-45c2-98a4-7df7a07412b8';
+let TOPIC_ID = new URLSearchParams(location.search).get('topic') || SHOWCASE_TOPIC_ID;
+const SESSION_KEY = 'amit_council_session';
+
+let session = null;
+let currentUser = null;
+function loadSession(){ try{ session = JSON.parse(localStorage.getItem(SESSION_KEY)||'null'); }catch(e){ session=null; } }
+function saveSession(s){ session=s; localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+function clearSession(){ session=null; localStorage.removeItem(SESSION_KEY); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
+
+async function requestMagicLink(email){
+  const r = await fetch(SUPABASE_URL + '/auth/v1/otp', {
+    method:'POST',
+    headers:{ apikey:SUPABASE_ANON, 'Content-Type':'application/json' },
+    body: JSON.stringify({ email, create_user:true, options:{ emailRedirectTo: location.href.split('#')[0] } })
+  });
+  if (!r.ok){ const body=await r.text().catch(()=> ''); console.error('Magic link failed:', r.status, body); throw new Error('Magic link failed ('+r.status+'): '+body); }
+}
+function captureAuthFromHash(){
+  if (!location.hash || !location.hash.includes('access_token')) return false;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const access_token = params.get('access_token');
+  if (!access_token) return false;
+  saveSession({ access_token, email: params.get('email')||null });
+  history.replaceState(null,'',location.pathname+location.search);
+  return true;
+}
+async function whoAmI(token){
+  const r = await fetch(SUPABASE_URL + '/auth/v1/user', { headers:{ apikey:SUPABASE_ANON, Authorization:'Bearer '+token } });
+  if (!r.ok) return null;
+  return r.json();
+}
+const DISPLAY_NAME_KEY = 'amit_council_displayname';
+function getDisplayName(){ return localStorage.getItem(DISPLAY_NAME_KEY) || ''; }
+function setDisplayName(n){ localStorage.setItem(DISPLAY_NAME_KEY, n); }
+
+function renderAuthbar(user){
+  const bar = document.getElementById('authbar');
+  if (user){
+    const name = getDisplayName();
+    if (name){
+      bar.innerHTML = `<span class="who">Signed in as ${name}</span> <button class="ghost" id="renameBtn">Change name</button> <button class="ghost" id="signOutBtn">Sign out</button>`;
+      document.getElementById('renameBtn').onclick = () => { localStorage.removeItem(DISPLAY_NAME_KEY); renderAuthbar(user); };
+    } else {
+      bar.innerHTML = `<span class="who">Signed in — choose a display name:</span> <input type="text" id="displayNameInput" placeholder="e.g. Examined"> <button id="saveNameBtn">Save</button>`;
+      document.getElementById('saveNameBtn').onclick = () => {
+        const v = document.getElementById('displayNameInput').value.trim();
+        if (!v){ toast('Type a name first.'); return; }
+        setDisplayName(v); renderAuthbar(user);
+      };
+    }
+    document.getElementById('signOutBtn') && (document.getElementById('signOutBtn').onclick = () => { clearSession(); localStorage.removeItem(DISPLAY_NAME_KEY); location.reload(); });
+    document.getElementById('lockedNote').style.display = 'none';
+    document.getElementById('contribute').classList.add('show');
+    document.getElementById('rerunLockedNote').style.display = 'none';
+    document.getElementById('rerunBox').classList.add('show');
+    document.getElementById('newTopicLockedNote').style.display = 'none';
+    document.getElementById('newTopicBox').style.display = 'block';
+    document.getElementById('phase2LockedNote').style.display = 'none';
+    document.getElementById('phase2Box').style.display = 'block';
+  } else {
+    bar.innerHTML = `<input type="text" id="emailInput" placeholder="you@email.com"> <button id="sendLinkBtn">Send sign-in link</button>`;
+    document.getElementById('sendLinkBtn').onclick = async () => {
+      const email = document.getElementById('emailInput').value.trim();
+      if (!email){ toast('Type your email first.'); return; }
+      const btn = document.getElementById('sendLinkBtn');
+      btn.disabled = true; btn.textContent = 'Sending...';
+      try { await requestMagicLink(email); toast('Check your email for the sign-in link.'); }
+      catch(e){ console.error(e); toast('Could not send link — open the console (F12) for the real error.'); }
+      finally { btn.disabled = false; btn.textContent = 'Send sign-in link'; }
+    };
+    document.getElementById('lockedNote').style.display = 'block';
+    document.getElementById('contribute').classList.remove('show');
+    document.getElementById('rerunLockedNote').style.display = 'block';
+    document.getElementById('rerunBox').classList.remove('show');
+    document.getElementById('newTopicLockedNote').style.display = 'block';
+    document.getElementById('newTopicBox').style.display = 'none';
+    document.getElementById('phase2LockedNote').style.display = 'block';
+    document.getElementById('phase2Box').style.display = 'none';
+  }
+}
+
+async function sb(path, opts){
+  opts = opts || {};
+  const headers = Object.assign({
+    apikey: SUPABASE_ANON,
+    Authorization: 'Bearer ' + (opts.authed && session ? session.access_token : SUPABASE_ANON)
+  }, opts.headers || {});
+  const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({}, opts, { headers }));
+  if (!r.ok) throw new Error('Request failed: ' + r.status);
+  return r.json();
+}
+
+/* ---------- THE STILL WATER — unchanged visual engine ---------- */
+const VOICE_COLORS = {
+  'Amit Seat': [212,175,55],
+  'Grok':      [224,110,60],
+  'Copilot':   [90,150,224],
+  'ChatGPT':   [90,200,170],
+  'Gemini':    [170,120,224],
+  'DeepSeek':  [70,190,120],
+  'Perplexity':[90,210,224],
+  'Meta AI':   [224,160,70],
+  'Bolt':      [200,150,90],
+  'Claude':    [200,150,90]
+};
+function colorFor(name){ return VOICE_COLORS[name] || [180,180,190]; }
+
+const GRID = 64;
+let canvas, cctx, offCanvas, offCtx, offImageData;
+let sources = [];
+let running = false;
+let convergedAt = null;
+let allAnswered = false;
+
+function initCanvas(){
+  canvas = document.getElementById('basinCanvas');
+  const stage = document.getElementById('stage');
+  const size = stage.clientWidth;
+  canvas.width = size; canvas.height = size;
+  cctx = canvas.getContext('2d');
+  offCanvas = document.createElement('canvas');
+  offCanvas.width = GRID; offCanvas.height = GRID;
+  offCtx = offCanvas.getContext('2d');
+  offImageData = offCtx.createImageData(GRID, GRID);
+}
+
+function placeRimVoices(names, answeredSet, seqMap){
+  seqMap = seqMap || {};
+  document.querySelectorAll('.rim-voice').forEach(e => e.remove());
+  const stage = document.getElementById('stage');
+  const size = stage.clientWidth;
+  const radius = 0.90;
+  sources = names.map((name, i) => {
+    const angle = (i / names.length) * Math.PI * 2 - Math.PI / 2;
+    const nx = Math.cos(angle) * radius, ny = Math.sin(angle) * radius;
+    const answered = answeredSet.has(name);
+    const seq = seqMap[name] || null;
+    const el = document.createElement('div');
+    el.className = 'rim-voice' + (answered ? ' answered' : '');
+    const px = size/2 + nx * size/2, py = size/2 + ny * size/2;
+    el.style.left = px + 'px'; el.style.top = py + 'px';
+    const c = colorFor(name);
+    const badge = seq ? `<span class="seqNum">${seq}</span>` : '';
+    el.innerHTML = `<span class="dot" style="background:rgb(${c[0]},${c[1]},${c[2]});box-shadow:0 0 8px 2px rgba(${c[0]},${c[1]},${c[2]},0.6)">${badge}</span><span class="rvname">${name}</span>`;
+    el.ondblclick = () => showDetail(name);
+    stage.appendChild(el);
+    return { name, nx, ny, color: c, answered, seed: i * 1.7, seq };
+  });
+}
+
+let lastMeanAmplitude = 0;
+
+function computeField(t){
+  const data = offImageData.data;
+  const answeredCount = sources.filter(s => s.answered).length;
+  const settleFactor = allAnswered ? Math.max(0, 1 - (t - convergedAt) / 4500) : 1;
+  let ampSum = 0, ampCount = 0;
+
+  for (let gy = 0; gy < GRID; gy++){
+    for (let gx = 0; gx < GRID; gx++){
+      const px = (gx / (GRID-1)) * 2 - 1;
+      const py = (gy / (GRID-1)) * 2 - 1;
+      const distFromCenter = Math.sqrt(px*px + py*py);
+      let amp = 0, rSum=0, gSum=0, bSum=0, wSum=0;
+      if (distFromCenter <= 1.02){
+        for (const s of sources){
+          const dx = px - s.nx, dy = py - s.ny;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const freq = s.answered ? 2.1 : 3.4;
+          const speed = 1.6;
+          const amplitude0 = (s.answered ? 0.35 : 1.0) * settleFactor;
+          const wave = amplitude0 * Math.sin((freq*(t*0.001 + s.seed)) - dist*4.2) * Math.exp(-dist*3.4);
+          amp += wave;
+          const w = Math.abs(wave) + 0.001;
+          rSum += s.color[0]*w; gSum += s.color[1]*w; bSum += s.color[2]*w; wSum += w;
+        }
+        ampSum += Math.abs(amp); ampCount++;
+      }
+      const idx = (gy*GRID + gx) * 4;
+      if (distFromCenter > 1.02){ data[idx]=0; data[idx+1]=0; data[idx+2]=0; data[idx+3]=255; continue; }
+      const bright = Math.min(1, Math.pow(Math.abs(amp), 1.4) * 0.7);
+      const baseR = wSum ? rSum/wSum : 30, baseG = wSum ? gSum/wSum : 30, baseB = wSum ? bSum/wSum : 40;
+      data[idx]   = Math.min(255, 8 + baseR * bright);
+      data[idx+1] = Math.min(255, 8 + baseG * bright);
+      data[idx+2] = Math.min(255, 12 + baseB * bright);
+      data[idx+3] = 255;
+    }
+  }
+  offCtx.putImageData(offImageData, 0, 0);
+  cctx.imageSmoothingEnabled = true;
+  cctx.clearRect(0,0,canvas.width,canvas.height);
+  cctx.drawImage(offCanvas, 0, 0, canvas.width, canvas.height);
+
+  lastMeanAmplitude = ampCount ? ampSum/ampCount : 0;
+  const readoutEl = document.getElementById('ampReadoutVal');
+  if (readoutEl && readoutEl.closest('.show')) readoutEl.textContent = lastMeanAmplitude.toFixed(4);
+}
+
+function animate(t){
+  if (!running) return;
+  computeField(t);
+  requestAnimationFrame(animate);
+}
+
+function checkConvergence(){
+  const nowAllAnswered = sources.length > 0 && sources.every(s => s.answered);
+  if (nowAllAnswered && !allAnswered){
+    allAnswered = true;
+    convergedAt = performance.now();
+    setTimeout(() => {
+      document.getElementById('centerMark').classList.add('converged');
+      document.getElementById('corona').classList.add('converged');
+      const sl = document.getElementById('statusLine');
+      sl.classList.add('converged');
+      sl.innerHTML = 'Round <b>' + (currentRound ? currentRound.round_number : '') + '</b> — the field has gone still';
+    }, 4600);
+  } else if (!nowAllAnswered){
+    allAnswered = false; convergedAt = null;
+    document.getElementById('centerMark').classList.remove('converged');
+    document.getElementById('corona').classList.remove('converged');
+    document.getElementById('statusLine').classList.remove('converged');
+  }
+}
+
+function showDetail(name){
+  const s = sources.find(x => x.name === name);
+  if (!s || !s.responseText){ toast(name + ' has not answered yet.'); return; }
+  document.getElementById('modalVoiceName').textContent = name + (s.seq ? ' — Seat #' + s.seq + ' to answer this round' : '');
+  document.getElementById('modalQuestion').textContent = currentRound ? currentRound.prompt_text : '—';
+  document.getElementById('modalAnswer').textContent = s.responseText;
+  const nextWrap = document.getElementById('modalNextWrap');
+  const nextRound = allRounds[roundIndex + 1];
+  if (nextRound){
+    document.getElementById('modalNext').textContent = nextRound.prompt_text;
+    nextWrap.style.display = 'block';
+  } else {
+    nextWrap.style.display = 'none';
+  }
+  document.getElementById('detailModal').classList.add('show');
+}
+document.getElementById('modalCloseBtn').onclick = () => document.getElementById('detailModal').classList.remove('show');
+document.getElementById('modalCloseBtnBottom').onclick = () => document.getElementById('detailModal').classList.remove('show');
+document.getElementById('detailModal').onclick = (e) => { if (e.target.id === 'detailModal') e.currentTarget.classList.remove('show'); };
+
+let currentRound = null;
+let allRounds = [];
+let roundIndex = -1;
+let viewingLatest = true;
+let currentTopicStatus = 'open';
+// Seat names — Amit Seat is now a real, guaranteed participant (Ryan's
+// direct override, 2026-07-21), not excluded from the roster the way the
+// old room's "Amit answers last, outside the voice list" model worked.
+const KNOWN_SOURCES = ['Amit Seat','DeepSeek','Bolt','Gemini','Meta AI','ChatGPT','Grok','Copilot','Perplexity'];
+
+function updateRoundNav(){
+  const label = document.getElementById('roundLabel');
+  const prevBtn = document.getElementById('prevRoundBtn');
+  const nextBtn = document.getElementById('nextRoundBtn');
+  if (!allRounds.length){ label.textContent = 'No rounds yet'; prevBtn.disabled = true; nextBtn.disabled = true; return; }
+  label.textContent = `Round ${roundIndex + 1} of ${allRounds.length}`;
+  prevBtn.disabled = roundIndex <= 0;
+  nextBtn.disabled = roundIndex >= allRounds.length - 1;
+}
+
+// Resolves a seat_id to its display name via the seats already loaded for
+// this topic. Falls back to the raw provenance string (used for the
+// migrated pre-Seat evidence rows where provenance held the AI's name).
+let seatById = {};
+function seatDisplayName(evidenceRow){
+  if (evidenceRow.seat_id && seatById[evidenceRow.seat_id]) return seatById[evidenceRow.seat_id];
+  return evidenceRow.provenance || 'Unknown';
+}
+
+async function renderRound(round, isSameRoundRefresh){
+  const modalWasOpen = document.getElementById('detailModal').classList.contains('show');
+  currentRound = round;
+  document.getElementById('promptText').textContent = round.prompt_text;
+
+  // NEW — the review panel: this round's own synthesis, its next_step, and
+  // whatever the user said back. Shown together, every time.
+  const reviewPanel = document.getElementById('reviewPanel');
+  if (round.synthesis){
+    document.getElementById('synthesisTextReview').textContent = round.synthesis;
+    reviewPanel.classList.add('show');
+  } else {
+    reviewPanel.classList.remove('show');
+  }
+  const nextStepBlock = document.getElementById('nextStepBlock');
+  if (round.next_step){
+    document.getElementById('nextStepText').textContent = round.next_step;
+    nextStepBlock.style.display = 'block';
+  } else {
+    nextStepBlock.style.display = 'none';
+  }
+  const feedbackBlock = document.getElementById('userFeedbackBlock');
+  const badgeWrap = document.getElementById('directiveBadgeWrap');
+  if (round.user_feedback || round.user_directive){
+    document.getElementById('userFeedbackText').textContent = round.user_feedback || '(no written feedback — directive only)';
+    const isConfirmed = round.user_directive === 'confirmed_solution';
+    badgeWrap.innerHTML = round.user_directive
+      ? `<span class="directiveBadge${isConfirmed ? ' confirmed' : ''}">${round.user_directive.replace('_',' ')}</span>`
+      : '';
+    feedbackBlock.style.display = 'block';
+  } else {
+    feedbackBlock.style.display = 'none';
+  }
+
+  // NEW — show the directive controls only on the latest round of an open
+  // topic, so old rounds display as read-only history.
+  const directivePanel = document.getElementById('directivePanel');
+  const isLatestRound = roundIndex === allRounds.length - 1;
+  if (session && isLatestRound && currentTopicStatus !== 'resolved'){
+    directivePanel.classList.add('show');
+  } else {
+    directivePanel.classList.remove('show');
+  }
+
+  const evidence = await sb(`council_evidence?round_id=eq.${round.id}&order=created_at.asc`);
+  const present = evidence.map(r => seatDisplayName(r));
+  const seats = present.length ? present : ['Amit Seat'];
+  const answeredSet = new Set(present);
+  const seqMap = {};
+  evidence.forEach((r, i) => { seqMap[seatDisplayName(r)] = i + 1; });
+  if (!isSameRoundRefresh){
+    allAnswered = false; convergedAt = null;
+    placeRimVoices(seats, answeredSet, seqMap);
+  }
+  evidence.forEach(r => {
+    const name = seatDisplayName(r);
+    const s = sources.find(x => x.name === name);
+    if (s) { s.responseText = r.body; s.seq = seqMap[name]; }
+  });
+  if (!isSameRoundRefresh || !modalWasOpen){
+    document.getElementById('detailModal').classList.remove('show');
+  }
+  if (!isSameRoundRefresh){
+    document.getElementById('centerMark').classList.remove('converged');
+    document.getElementById('corona').classList.remove('converged');
+    document.getElementById('statusLine').classList.remove('converged');
+  }
+  const sl = document.getElementById('statusLine');
+  if (!sl.classList.contains('converged')) {
+    sl.innerHTML = `Round <b>${round.round_number}</b> — ${evidence.length} of ${seats.length} answer${seats.length===1?'':'s'} in`;
+  }
+  checkConvergence();
+  updateRoundNav();
+}
+
+const RELIABILITY_RANK = { strong: 0, mixed: 1, weak: 2, unproven: 3 };
+
+async function populateSrcSelect(usedNames){
+  const sel = document.getElementById('srcSelect');
+  sel.innerHTML = '';
+  const notYetUsed = KNOWN_SOURCES.filter(n => !usedNames.includes(n));
+  let profiles = [];
+  try { profiles = await sb(`amit_brainstorm_ai_profiles?select=ai_name,reliability,known_quirks`); } catch(e) { /* reference-only, historical table */ }
+  const profileMap = {};
+  profiles.forEach(p => { profileMap[p.ai_name] = p; });
+  const ranked = notYetUsed.slice().sort((a, b) => {
+    const ra = profileMap[a] ? RELIABILITY_RANK[profileMap[a].reliability] : RELIABILITY_RANK.unproven;
+    const rb = profileMap[b] ? RELIABILITY_RANK[profileMap[b].reliability] : RELIABILITY_RANK.unproven;
+    return ra - rb;
+  });
+  [...ranked, '— other —'].forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    const p = profileMap[n];
+    opt.textContent = p ? `${n} (${p.reliability})` : n;
+    sel.appendChild(opt);
+  });
+  sel.onchange = () => { document.getElementById('srcOther').style.display = sel.value === '— other —' ? 'inline-block' : 'none'; };
+  sel.onchange();
+}
+
+async function load(){
+  const [topics, seats, rounds] = await Promise.all([
+    sb(`council_topics?id=eq.${TOPIC_ID}&select=title,final_solution,status`),
+    sb(`council_seats?select=id,role_name`),
+    sb(`council_rounds?topic_id=eq.${TOPIC_ID}&order=round_number.asc`)
+  ]);
+  seatById = {};
+  (seats || []).forEach(s => { seatById[s.id] = s.role_name.replace(' Seat',''); });
+
+  document.getElementById('topicTitle').textContent = topics[0] ? topics[0].title : 'Topic not found';
+  currentTopicStatus = topics[0] ? topics[0].status : 'open';
+  const statusEl = document.getElementById('topicStatus');
+  statusEl.textContent = currentTopicStatus === 'resolved' ? 'Resolved — a solution was confirmed' : 'Open — still deliberating';
+  statusEl.className = 'topicStatus ' + currentTopicStatus;
+
+  if (topics[0] && topics[0].final_solution){
+    document.getElementById('synthesisText').textContent = topics[0].final_solution;
+    document.getElementById('synthesisPanel').classList.add('show');
+    document.getElementById('phase2Panel').style.display = (currentTopicStatus === 'resolved') ? 'block' : 'none';
+  } else {
+    document.getElementById('synthesisPanel').classList.remove('show');
+    document.getElementById('phase2Panel').style.display = 'none';
+  }
+  if (!rounds.length) return;
+
+  const wasAtLatest = viewingLatest;
+  const newRoundCount = rounds.length !== allRounds.length;
+  const prevRoundId = currentRound ? currentRound.id : null;
+  allRounds = rounds;
+  if (roundIndex === -1 || (wasAtLatest && newRoundCount)) {
+    roundIndex = allRounds.length - 1;
+  }
+  viewingLatest = roundIndex === allRounds.length - 1;
+  const nextRound = allRounds[roundIndex];
+  const isSameRoundRefresh = prevRoundId !== null && nextRound.id === prevRoundId;
+  await renderRound(nextRound, isSameRoundRefresh);
+
+  const usedNames = sources.map(s => s.name).filter(n => n !== '— other —');
+  populateSrcSelect(usedNames);
+}
+
+document.getElementById('prevRoundBtn').onclick = () => {
+  if (roundIndex <= 0) return;
+  roundIndex -= 1; viewingLatest = roundIndex === allRounds.length - 1;
+  renderRound(allRounds[roundIndex]);
+};
+document.getElementById('nextRoundBtn').onclick = () => {
+  if (roundIndex >= allRounds.length - 1) return;
+  roundIndex += 1; viewingLatest = roundIndex === allRounds.length - 1;
+  renderRound(allRounds[roundIndex]);
+};
+
+async function saveResponse(){
+  if (!session){ toast('Sign in first.'); return; }
+  const sel = document.getElementById('srcSelect');
+  const other = document.getElementById('srcOther');
+  const source = sel.value === '— other —' ? other.value.trim() : sel.value;
+  const text = document.getElementById('respText').value.trim();
+  if (!source || !text){ toast('Pick a Seat and paste the answer.'); return; }
+  if (!currentRound){ toast('No active round loaded yet.'); return; }
+  try {
+    // Find or create the seat for this name.
+    let seat = (await sb(`council_seats?role_name=eq.${encodeURIComponent(source + ' Seat')}&select=id`, { authed:true }))[0];
+    if (!seat){
+      const created = await sb('council_seats', {
+        authed:true, method:'POST',
+        headers:{ 'Content-Type':'application/json', Prefer:'return=representation' },
+        body: JSON.stringify({ user_id: currentUser.id, role_name: source + ' Seat', current_provider: source })
+      });
+      seat = created[0];
+    }
+    await sb('council_evidence', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ round_id: currentRound.id, seat_id: seat.id, body: text, source: 'manual_paste', provenance: source, witnessed_at: new Date().toISOString(), witnessed_by: currentUser.id })
+    });
+    document.getElementById('respText').value = '';
+    toast(source + '’s answer saved.');
+    load();
+  } catch(e){ toast('Save failed — check console.'); console.error(e); }
+}
+
+async function startNextRound(){
+  if (!session){ toast('Sign in first.'); return; }
+  const text = document.getElementById('rerunText').value.trim();
+  if (!text){ toast('Say what you want reconsidered first.'); return; }
+  const nextNumber = allRounds.length ? Math.max(...allRounds.map(r => r.round_number)) + 1 : 1;
+  try {
+    await sb('council_rounds', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: nextNumber, prompt_text: text })
+    });
+    document.getElementById('rerunText').value = '';
+    toast('New round ' + nextNumber + ' started.');
+    viewingLatest = true;
+    await load();
+  } catch(e){ toast('Could not start the round — check console.'); console.error(e); }
+}
+
+// NEW — logs the user's directive on the CURRENT round (not a new round),
+// per the standing rule: nothing is ever deleted, the round that prompted
+// a redirect stays exactly as it happened, visible in the record.
+async function setDirective(directive){
+  if (!session){ toast('Sign in first.'); return; }
+  if (!currentRound){ toast('No active round loaded.'); return; }
+  const feedback = document.getElementById('directiveFeedback').value.trim();
+  try {
+    await sb(`council_rounds?id=eq.${currentRound.id}`, {
+      authed:true, method:'PATCH',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({
+        presented_to_user_at: new Date().toISOString(),
+        user_feedback: feedback || null,
+        user_directive: directive,
+        status: 'resolved',
+        resolved_at: new Date().toISOString()
+      })
+    });
+    if (directive === 'confirmed_solution'){
+      await sb(`council_topics?id=eq.${TOPIC_ID}`, {
+        authed:true, method:'PATCH',
+        headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+        body: JSON.stringify({ status: 'resolved', final_solution: currentRound.synthesis || feedback, resolved_at: new Date().toISOString() })
+      });
+      toast('Marked achieved — The Council has its answer.');
+    } else {
+      toast('Logged: ' + directive.replace('_',' ') + '.');
+    }
+    document.getElementById('directiveFeedback').value = '';
+    await load();
+  } catch(e){ toast('Could not save your response — check console.'); console.error(e); }
+}
+document.getElementById('directiveContinueBtn').onclick = () => setDirective('continue');
+document.getElementById('directiveRefineBtn').onclick = () => setDirective('repeat_refine');
+document.getElementById('directiveAngleBtn').onclick = () => setDirective('different_angle');
+document.getElementById('directiveAchievedBtn').onclick = () => setDirective('confirmed_solution');
+
+document.getElementById('saveBtn').onclick = saveResponse;
+document.getElementById('clearBtn').onclick = () => { document.getElementById('respText').value = ''; };
+document.getElementById('rerunBtn').onclick = startNextRound;
+document.getElementById('rerunClearBtn').onclick = () => { document.getElementById('rerunText').value = ''; };
+document.getElementById('ampToggleBtn').onclick = () => { document.getElementById('ampReadout').classList.toggle('show'); };
+
+async function startPhase2(){
+  if (!session){ toast('Sign in first.'); return; }
+  const synthesis = document.getElementById('synthesisText').textContent.trim();
+  if (!synthesis){ toast('No confirmed solution to build on yet.'); return; }
+  const nextNumber = allRounds.length ? Math.max(...allRounds.map(r => r.round_number)) + 1 : 1;
+  const phase2Prompt = 'This is Phase 2 - the premium continuation. The Council reached this real, confirmed solution:\n\n' + synthesis + '\n\nStarting from this exact result, not from scratch: what is the single most important way to sharpen this further toward the original goal? Give one clear, concrete answer.';
+  try {
+    await sb('council_rounds', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: nextNumber, prompt_text: phase2Prompt })
+    });
+    await sb(`council_topics?id=eq.${TOPIC_ID}`, {
+      authed:true, method:'PATCH',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ status: 'open', resolved_at: null })
+    });
+    toast('Phase 2 started - Round ' + nextNumber + '.');
+    viewingLatest = true;
+    await load();
+  } catch(e){ toast('Could not start Phase 2 — check console.'); console.error(e); }
+}
+document.getElementById('phase2Btn').onclick = startPhase2;
+
+function switchToTopic(id){
+  TOPIC_ID = id;
+  allRounds = []; roundIndex = -1; viewingLatest = true; currentRound = null;
+  const url = new URL(location.href);
+  if (id === SHOWCASE_TOPIC_ID) url.searchParams.delete('topic'); else url.searchParams.set('topic', id);
+  history.replaceState(null, '', url.toString());
+  document.getElementById('currentTopicLink').style.display = id === SHOWCASE_TOPIC_ID ? 'none' : 'block';
+  document.getElementById('synthesisPanel').classList.remove('show');
+  document.getElementById('reviewPanel').classList.remove('show');
+  load();
+}
+
+async function beginNewBrainstorm(){
+  if (!session || !currentUser){ toast('Sign in first.'); return; }
+  const text = document.getElementById('newTopicText').value.trim();
+  if (!text){ toast('Write your problem first.'); return; }
+  const btn = document.getElementById('newTopicBtn');
+  btn.disabled = true; btn.textContent = 'Convening...';
+  try {
+    const title = text.length > 90 ? text.slice(0, 87) + '...' : text;
+    const topic = await sb('council_topics', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=representation' },
+      body: JSON.stringify({ user_id: currentUser.id, title, original_question: text })
+    });
+    const newTopicId = topic[0].id;
+    await sb('council_rounds', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ topic_id: newTopicId, round_number: 1, prompt_text: text })
+    });
+    document.getElementById('newTopicText').value = '';
+    toast('The Council is convened.');
+    switchToTopic(newTopicId);
+  } catch(e){
+    console.error(e);
+    toast('Could not start — you may need premium access. Check console.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Convene the Council';
+  }
+}
+document.getElementById('newTopicBtn').onclick = beginNewBrainstorm;
+document.getElementById('backToShowcaseLink').onclick = (e) => { e.preventDefault(); switchToTopic(SHOWCASE_TOPIC_ID); };
+if (TOPIC_ID !== SHOWCASE_TOPIC_ID) document.getElementById('currentTopicLink').style.display = 'block';
+
+loadSession();
+captureAuthFromHash();
+(async () => {
+  if (session){ const user = await whoAmI(session.access_token); if (user) { currentUser = user; renderAuthbar(user); } else { clearSession(); renderAuthbar(null); } }
+  else { renderAuthbar(null); }
+})();
+
+initCanvas();
+running = true;
+requestAnimationFrame(animate);
+
+load().catch(e => { document.getElementById('topicTitle').textContent = 'Could not load live data — check connection.'; console.error(e); });
+setInterval(() => load().catch(() => {}), 5000);
+</script>

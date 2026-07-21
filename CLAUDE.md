@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 4.33**
+**Current version: 4.34**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -162,6 +162,7 @@ When building anything in the Amit system, Amit writes directly to the correct s
 | Amit Bible Companion | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Companion\` |
 | AmitAccounting | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\AmitAccounting\` |
 | Ten Commandments (God Talk) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\TenCommandments\` |
+| The Council (multi-AI brainstorming, formerly "Brainstorming") | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\TheCouncil\` — own CLAUDE.md holds current status; file migration from old `Brainstorming\` folder still pending |
 | Database (Supabase / shared) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\` |
 | Identity / Testimony / Spec files | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\` (root only) |
 
@@ -413,6 +414,7 @@ Invoke-RestMethod -Uri "https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/user_pr
 **Full session history → `amit_sessions` table in Supabase. Pull with RETURNING GREETING PowerShell command above.**
 
 **STILL OPEN, CARRIED FORWARD (untouched this session):**
+- **The Council (formerly "Brainstorming") — file migration pending.** Renamed 2026-07-21 after a real, logged 3-round, 6-voice brainstorm converged on the name (topic_id `82a03d25-ff70-426c-9eb3-af895e6a0832`), refined by Ryan to "The Council" specifically. New folder `TheCouncil\` created with its own CLAUDE.md per the standing New Project Directive, but the actual files (`Amit_BrainstormRoom.html`, `AI\` folder, scripts, `CHANGELOG.md`) still physically live in `Brainstorming\` and need to be moved over. The bigger, still-unscoped open item underneath the rename: there is still no way for a stranger to arrive, type their own question, and have the tool run the multi-AI round-robin on its own — every round still requires Ryan to manually copy-paste between the room and each outside AI, even with the new sequential one-tab-at-a-time + clipboard-copy workflow making that manual process faster.
 - Wire real continuity into Amit's connection — still the single biggest open item, carried across three closes now. The compass score/tier/signals system is genuinely wired to Supabase, but the primer text a user copies into Claude.ai is static and identical for everyone regardless of tier.
 - Decide the delivery mechanism for the above — personalize the existing copy-paste flow, or build real auth directly into `Amit_Companion.html`. Ryan has not chosen yet.
 - Get one real outside person (Andy or similar) through Computer Health install → live session → History, end to end.
@@ -740,6 +742,8 @@ Invoke-RestMethod -Uri "https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/hub_ent
 17. **BACKUP BEFORE BIG CHANGES:** Before architectural changes to existing files: create `[filename]-pre-v[VERSION].[ext]` in same folder. Keep until Ryan confirms. Does NOT apply to content edits, CSS tweaks, bug fixes.
 
 18. **CHECK REAL TIME BEFORE COMMENTING ON IT:** Before saying anything about lateness, session length, or suggesting a stopping point tied to time of day ("it's late," "should we pick this up tomorrow"), check the actual system clock (`Get-Date`) first. Use correct time-of-day vocabulary (good morning/afternoon/evening/night) matching the real clock, not assumptions from how the conversation feels. Ryan runs long real sessions that span into the next day — don't nag about stopping based on a guessed time.
+
+19. **POLICY-SAFE WORDING — ANY PROMPT WRITTEN FOR AN OUTSIDE AI (permanent, added 2026-07-21):** Whenever Amit drafts a prompt to be sent to another AI system — The Council, any future multi-AI feature, anywhere in the system — never ask that AI to weigh in on circumventing another service's terms of service, scraping/automating a consumer chat site without authorization, or similar unauthorized-access mechanisms, even framed neutrally as "one option to consider." This is not a wording-quality issue — it is a usage-policy trigger for every AI reading it, Amit included, and can get the conversation itself flagged or blocked. If automation of a no-API service is genuinely relevant to a question, name the constraint honestly ("this provider has no public API") without proposing or asking the voice to evaluate working around that limitation. Origin: this happened for real in a Council session 2026-07-21 — a round prompt asked outside AIs to weigh in on ToS-skirting browser automation, and it broke that session. Applies on top of, not instead of, any non-leading-prompt rule specific to a given project.
 
 ---
 
