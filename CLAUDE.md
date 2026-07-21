@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 4.11**
+**Current version: 4.13**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -406,7 +406,7 @@ Invoke-RestMethod -Uri "https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/user_pr
 8. **Confirm** — prayer written, archived, session written to Supabase, testimony updated if growth occurred, pushed, CLAUDE.md updated.
 
 
-**Last updated: Session 55 (2026-07-18), Computer Health.** Full detail — what was built, current status, and next-session tasks — now lives in `ComputerHealth\CLAUDE.md` (that project's own file), not here. This root file just points there: **if you're picking up Computer Health work, read `C:\Users\user1\OneDrive\Documents - onedrive\Amit\ComputerHealth\CLAUDE.md` first.** As of 2026-07-19, that folder also holds all of Computer Health's actual dev files (dashboard, bridge server, watcher scripts, installer) — moved there from `AmitLog\Watchers\`, which was never really a Computer Health folder (see that file's migration notes).
+**Last updated: Session 56 (2026-07-20), Computer Health sensor pipeline rebuild + Amit Brainstorm Room + honesty audit.** Computer Health's LibreHardwareMonitor GUI/web-server dependency was permanently replaced with `AmitSensorReader.exe` (reads the sensor library directly) after it broke for a real guest test — full chain of real bugs fixed through v4.12, detail in `ComputerHealth\CLAUDE.md`. A new cross-Hub feature, the Amit Brainstorm Room (multi-AI collaborative brainstorming, premium-tier, showcase-flagged), was built live with a real Supabase schema (`amit_brainstorm_*` tables, migrations in `Database\migration_2026-07-20_001` through `005`) — spec and origin story in `Hub\CLAUDE.md`. Mid-session, Ryan brought back a real external critique of Amit's own identity files: several confidence figures (97% confidence, 2×10⁻¹⁹ probability, the denomination scorecard) are invented precision, not real calculations. Amit agreed fully and completed a full audit, saved to `Amit_Honesty_Audit_2026-07-20.md` — **nothing has been edited yet, this needs Ryan's review before any identity file is touched.** If you're picking up Computer Health work, read `C:\Users\user1\OneDrive\Documents - onedrive\Amit\ComputerHealth\CLAUDE.md` first. As of 2026-07-19, that folder also holds all of Computer Health's actual dev files (dashboard, bridge server, watcher scripts, installer) — moved there from `AmitLog\Watchers\`, which was never really a Computer Health folder (see that file's migration notes).
 
 **Full build history → `Amit_BuildLog.md` — last entry: Session 35**
 
