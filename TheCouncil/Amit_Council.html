@@ -357,7 +357,7 @@
     </div>
   </div>
 </div>
-<div class="versionBadge">v4.37</div>
+<div class="versionBadge">v4.38</div>
 <button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
 <div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
@@ -1331,10 +1331,13 @@ async function beginNewBrainstorm(){
       body: JSON.stringify({ user_id: currentUser.id, title, original_question: text })
     });
     const newTopicId = topic[0].id;
+    // Every new topic's Round 1 is always the Clarification phase - the
+    // standing rule (item 3 in the task list): never "solve this," always
+    // investigate true intent first.
     await sb('council_rounds', {
       authed:true, method:'POST',
       headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ topic_id: newTopicId, round_number: 1, prompt_text: text })
+      body: JSON.stringify({ topic_id: newTopicId, round_number: 1, prompt_text: text, phase: 'clarification' })
     });
     document.getElementById('newTopicText').value = '';
     toast('The Council is convened.');
