@@ -157,7 +157,11 @@ header{
 .council-wheel .cw-corona.converged{animation-duration:14s}
 @keyframes cwSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
 .council-wheel .cw-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:15%;height:15%;border-radius:50%;background:#000;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;z-index:7;pointer-events:none;filter:drop-shadow(0 0 6px rgba(212,175,55,.25));transition:filter .4s;overflow:hidden}
-.council-wheel .cw-center.answered{filter:drop-shadow(0 0 16px rgba(212,175,55,.9))}
+.council-wheel .cw-center.answered{animation:cwCenterPulse 1.8s ease-in-out infinite}
+@keyframes cwCenterPulse{
+  0%,100%{filter:drop-shadow(0 0 10px rgba(212,175,55,.6))}
+  50%{filter:drop-shadow(0 0 20px rgba(212,175,55,.95))}
+}
 .council-wheel .cw-center img{width:100%;height:100%;border-radius:50%;object-fit:cover}
 .council-wheel .cw-center svg{width:22%;height:38%}
 .council-wheel .cw-center path{fill:var(--gold);stroke:none}
@@ -165,10 +169,18 @@ header{
 .council-wheel .cw-center .cw-stem{fill:none;stroke:var(--gold);stroke-width:4;stroke-linecap:round}
 /* One circle per voice, carrying the sequence number itself - no separate
    shadow dot behind it. Ryan's direct instruction, 2026-07-22. */
-.council-wheel .cw-voice{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;cursor:pointer;transition:transform .3s;z-index:8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:rgba(240,232,208,.9);background:rgba(180,180,190,.55);border:1px solid rgba(240,232,208,.35)}
-.council-wheel .cw-voice.answered{color:#11161f;border-color:transparent;box-shadow:0 0 10px 3px var(--cw-glow,rgba(212,175,55,.6))}
+.council-wheel .cw-voice{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;cursor:pointer;transition:transform .3s;z-index:8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:rgba(240,232,208,.9);background:rgba(180,180,190,.55);border:1px solid rgba(240,232,208,.35);overflow:hidden}
+.council-wheel .cw-voice img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.council-wheel .cw-voice.answered{color:#11161f;border-color:transparent;animation:cwPulse 1.8s ease-in-out infinite}
 .council-wheel .cw-voice .cw-name{position:absolute;top:32px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted);white-space:nowrap}
 .council-wheel .cw-voice:hover{transform:scale(1.4)}
+/* Continuous pulse for anything that has answered - the ongoing "there's
+   something here" state, distinct from the one-time landing ripple below.
+   Ryan's direct instruction, 2026-07-22. */
+@keyframes cwPulse{
+  0%,100%{box-shadow:0 0 8px 2px var(--cw-glow,rgba(212,175,55,.55))}
+  50%{box-shadow:0 0 16px 6px var(--cw-glow,rgba(212,175,55,.85))}
+}
 /* "Something landed" ripple - fires once per newly-saved answer, restored
    from the original Still Water build. Ryan's direct instruction, 2026-07-22. */
 .council-wheel .cw-landing{position:absolute;border-radius:50%;border:2px solid;pointer-events:none;z-index:9;transform:translate(-50%,-50%);animation:cwLand 1.1s ease-out forwards}
@@ -202,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.87</div>
+    <div class="page-version" id="pageVersion">v4.88</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -679,6 +691,19 @@ const VOICE_COLORS={
 };
 function cwColorFor(name){return VOICE_COLORS[name]||[180,180,190];}
 
+// Real favicon for a voice's rim badge, pulled from its own site via
+// Google's public favicon service - no local icon files to maintain, and
+// it's always that provider's actual current logo. Returns null for voices
+// with no known URL (e.g. Amit, which never appears on the rim anyway).
+function cwFaviconUrl(name){
+  const url=PROVIDER_URLS[name];
+  if(!url)return null;
+  try{
+    const domain=new URL(url).hostname;
+    return `https://www.google.com/s2/favicons?sz=64&domain=${domain}`;
+  }catch(e){return null;}
+}
+
 // Builds/refreshes the wheel graphic for one round's Ruling box: a light
 // per voice on the rim, lit and glowing once that voice's answer is saved,
 // dim while pending. Double-click a light to read that voice's exact
@@ -736,7 +761,12 @@ function renderCouncilWheel(n,roster,evidenceList){
     // and clicking OR double-clicking it opens that saved answer, never a
     // tab. Opening/reopening a voice's actual website by name only ever
     // happens on the Petition side (the answer box labels).
-    return `<div class="cw-voice${answered?' answered':''}" style="left:${px}%;top:${py}%;--cw-glow:${glow};${bgStyle}" onclick="${clickHandler}" ondblclick="${clickHandler}" title="${answered?'Click or double-click to read the answer':"Awaiting this voice's answer"}">${i+1}<span class="cw-name">${name}</span></div>`;
+    // Real per-AI icon instead of a plain sequence number, pulled from that
+    // provider's own favicon - falls back to the number if there's no known
+    // URL for this voice. Ryan's direct instruction, 2026-07-22.
+    const favicon=cwFaviconUrl(name);
+    const badgeInner=favicon?`<img src="${favicon}" alt="${nameEsc}" onerror="this.replaceWith(document.createTextNode('${i+1}'))">`:String(i+1);
+    return `<div class="cw-voice${answered?' answered':''}" style="left:${px}%;top:${py}%;--cw-glow:${glow};${bgStyle}" onclick="${clickHandler}" ondblclick="${clickHandler}" title="${answered?'Click or double-click to read the answer':"Awaiting this voice's answer"}">${badgeInner}<span class="cw-name">${name}</span></div>`;
   }).join('');
   const centerClickHandler=amitAnswered?`showCwDetail('Amit',${n})`:'';
   host.innerHTML=`<div class="cw-wheel-host">
