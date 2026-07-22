@@ -125,6 +125,14 @@ header{
 .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
+
+/* Diary structure: header flush left with an underline, body indented
+   beneath it - consistent for every section (Original Question, Current
+   Solution, each Round entry). Ryan's direct instruction, 2026-07-22. */
+#diaryText[contenteditable]:empty:before{content:attr(data-placeholder);color:rgba(240,232,208,.35)}
+.diaryHeader{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);border-bottom:1px solid rgba(201,168,76,.35);padding-bottom:4px;margin:16px 0 8px}
+.diaryHeader:first-child{margin-top:0}
+.diaryBody{margin-left:18px;margin-bottom:4px;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -132,7 +140,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.48</div>
+    <div class="page-version" id="pageVersion">v4.49</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -244,7 +252,7 @@ header{
               <button type="button" onclick="printDiary()" style="background:var(--gold);color:#1a1206;border:none;padding:6px 12px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer">Print Preview</button>
             </div>
           </div>
-          <textarea id="diaryText" placeholder="The diary populates once a session is convened and rounds begin..." style="flex:1;width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.2);color:var(--text);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;font-family:'Crimson Pro',Georgia,serif;resize:none;overflow-y:auto"></textarea>
+          <div id="diaryText" contenteditable="true" data-placeholder="The diary populates once a session is convened and rounds begin..." style="flex:1;width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.2);color:var(--text);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;font-family:'Crimson Pro',Georgia,serif;overflow-y:auto"></div>
         </div>
       </div><span id="roundTabContentSlot"></span>`;
     }
@@ -333,10 +341,17 @@ function loadSessionIntoWorkspace(session,switchView){
   const name=getUserName()||'Amit';
   document.getElementById('requestHeading').textContent=name+' requested from the council';
   document.getElementById('requestSubtext').style.display='none';
-  document.getElementById('diaryText').value=session.diary_text||('ORIGINAL QUESTION:\n'+(session.original_question||''));
+  document.getElementById('diaryText').innerHTML=session.diary_text||diaryEntryHTML('Requested Counsel',session.original_question||'');
   renderSessionTiles();
   loadRound1(session.id);
   if(switchView)openPanel(2);
+}
+
+// Header flush left with an underline, body indented beneath it -
+// consistent for every diary section. Ryan's direct instruction, 2026-07-22.
+function diaryEntryHTML(header,body){
+  const esc=(body||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return `<div class="diaryHeader">${header}</div><div class="diaryBody">${esc}</div>`;
 }
 
 // Fix, 2026-07-22: editing the Title field for an existing session had
@@ -359,20 +374,22 @@ async function renameSession(){
 // own document to alter, not a locked auto-generated report.
 async function saveDiary(){
   if(!activeSessionId)return;
-  const text=document.getElementById('diaryText').value;
-  await db.from('council_topics').update({diary_text:text}).eq('id',activeSessionId);
+  const html=document.getElementById('diaryText').innerHTML;
+  await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
   const s=councilSessions.find(x=>x.id===activeSessionId);
-  if(s)s.diary_text=text;
+  if(s)s.diary_text=html;
 }
 
 function printDiary(){
-  const text=document.getElementById('diaryText').value;
+  const html=document.getElementById('diaryText').innerHTML;
   const title=document.getElementById('councilTitleText').value||'Council Session';
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
-    body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.7;white-space:pre-wrap}
+    body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.7}
     h1{font-size:22px;border-bottom:2px solid #c9a84c;padding-bottom:10px}
-  </style></head><body><h1>${title}</h1>${text.replace(/</g,'&lt;')}</body></html>`);
+    .diaryHeader{font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:12px;border-bottom:1px solid #c9a84c;padding-bottom:4px;margin:16px 0 8px}
+    .diaryBody{margin-left:18px;margin-bottom:4px;white-space:pre-wrap}
+  </style></head><body><h1>${title}</h1>${html}</body></html>`);
   w.document.close();
   w.focus();
   w.print();
@@ -593,21 +610,30 @@ async function startNextRound(completedN){
     topic_id:activeSessionId, round_number:nextN, prompt_text:nextPrompt, phase:'investigation'
   });
 
-  // Diary: append this round's log entry, refresh the "current solution"
-  // section to reflect the latest round. Ryan's direct instruction,
-  // 2026-07-22 - the diary is the living, printable record of the session.
+  // Diary: refresh the "current solution" section (DOM-updated in place,
+  // not string regex - more robust) and append this round's log entry.
+  // Ryan's direct instruction, 2026-07-22 - the diary is the living,
+  // printable record of the session.
   const session=councilSessions.find(s=>s.id===activeSessionId);
-  let diary=document.getElementById('diaryText').value||session.diary_text||'';
+  const diaryEl=document.getElementById('diaryText');
   const phaseLabel=PHASE_LABELS[completedRound.phase]||('Round '+completedN);
-  const entry=`ROUND ${completedN} — ${phaseLabel}\n${summary}\n\n---\n`;
-  const solutionBlock=`CURRENT SOLUTION (as of Round ${completedN}):\n${summary}\n\n---\n`;
-  const solutionRegex=/CURRENT SOLUTION \(as of Round \d+\):\n[\s\S]*?\n\n---\n/;
-  if(solutionRegex.test(diary)) diary=diary.replace(solutionRegex,solutionBlock);
-  else diary=diary+'\n'+solutionBlock;
-  diary=diary+entry;
-  document.getElementById('diaryText').value=diary;
-  await db.from('council_topics').update({diary_text:diary}).eq('id',activeSessionId);
-  if(session)session.diary_text=diary;
+
+  let solHeader=document.getElementById('diarySolutionHeader');
+  let solBody=document.getElementById('diarySolutionBody');
+  if(!solHeader){
+    diaryEl.insertAdjacentHTML('beforeend',
+      `<div class="diaryHeader" id="diarySolutionHeader"></div><div class="diaryBody" id="diarySolutionBody"></div>`);
+    solHeader=document.getElementById('diarySolutionHeader');
+    solBody=document.getElementById('diarySolutionBody');
+  }
+  solHeader.textContent='Current Solution (as of Round '+completedN+')';
+  solBody.textContent=summary;
+
+  diaryEl.insertAdjacentHTML('beforeend',diaryEntryHTML('Round '+completedN+' — '+phaseLabel,summary));
+
+  const html=diaryEl.innerHTML;
+  await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
+  if(session)session.diary_text=html;
 
   await loadRound1(activeSessionId);
   showChTab(2,'round-'+nextN);
@@ -674,12 +700,12 @@ async function conveneCouncil(){
   statusEl.textContent='';
   try{
     const now=new Date().toISOString();
-    const diaryStart='ORIGINAL QUESTION:\n'+request+'\n\n---\n';
+    const diaryStart=diaryEntryHTML('Requested Counsel',request);
     const{data:topic,error:topicErr}=await db.from('council_topics').insert({
       user_id:currentUser.id, title:title, original_question:request, last_activity_at:now, diary_text:diaryStart
     }).select().single();
     if(topicErr)throw topicErr;
-    document.getElementById('diaryText').value=diaryStart;
+    document.getElementById('diaryText').innerHTML=diaryStart;
     const{error:roundErr}=await db.from('council_rounds').insert({
       topic_id:topic.id, round_number:1, prompt_text:request, phase:'clarification'
     });
