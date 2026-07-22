@@ -146,7 +146,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.60</div>
+    <div class="page-version" id="pageVersion">v4.61</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -284,8 +284,13 @@ header{
         </div>
       </div><span id="roundTabContentSlot"></span>`;
     }
+    const actionBarHtml=i===2?`<div style="display:flex;justify-content:flex-end;gap:8px;padding:0 0 8px">
+      <button type="button" onclick="printDiary()" style="background:var(--gold);color:#1a1206;border:none;padding:7px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">Print Preview</button>
+      <button type="button" onclick="deleteCurrentTab()" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.45);padding:7px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">Delete</button>
+    </div>`:'';
     panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
       <div class="panel-head"><span class="panel-heading">${label}</span></div>
+      ${actionBarHtml}
       <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
       <div class="ch-tab-main">${tabContentHtml}</div>
     </div>`;
@@ -375,6 +380,7 @@ async function selectCouncilSession(topicId){
 
 async function loadSessionIntoWorkspace(session,switchView){
   activeSessionId=session.id;
+  resetVoiceTabs();
   document.getElementById('councilTitleText').value=session.title||'';
   document.getElementById('councilRequestText').value=session.original_question||'';
   // Ryan's direct instruction, 2026-07-22: an existing session doesn't ask
@@ -450,11 +456,51 @@ function printDiary(){
   w.print();
 }
 
+// Delete - tab-aware, permanent, added per Ryan's direct instruction.
+// On Scope: deletes the entire council session (topic + every round + every
+// piece of evidence), then falls through to the next session in the MRU
+// list. On any Round tab: deletes that round AND every round after it
+// (cascading forward, never backward) so the user can redo the deliberation
+// from that point on - the session and everything before that round stays
+// intact. Both paths are irreversible and say so plainly before acting.
+async function deleteCurrentTab(){
+  if(!activeSessionId){alert('No council session is loaded.');return;}
+  const panel2=document.getElementById('panel-2');
+  const activeBtn=panel2.querySelector('.ch-tab-btn.active');
+  const tabkey=activeBtn?activeBtn.dataset.tabkey:'scope';
+
+  if(tabkey==='scope'){
+    if(!confirm('You are about to delete this entire council session. This is permanent — there is no coming back from this. Are you sure you wish to do so?'))return;
+    const{data:rounds}=await db.from('council_rounds').select('id').eq('topic_id',activeSessionId);
+    const roundIds=(rounds||[]).map(r=>r.id);
+    if(roundIds.length)await db.from('council_evidence').delete().in('round_id',roundIds);
+    await db.from('council_rounds').delete().eq('topic_id',activeSessionId);
+    await db.from('council_topics').delete().eq('id',activeSessionId);
+    activeSessionId=null;activeRounds=[];
+    await loadCouncilSessions();
+    if(!activeSessionId)startNewCouncilRequest();
+    openPanel(2);
+    return;
+  }
+
+  const n=Number(tabkey.replace('round-',''));
+  if(!confirm(`You are on Round ${n}. You are about to delete this round. As a consequence, all rounds beyond this point will also be deleted, and you will start fresh from this location. This is permanent — there is no coming back from this. Are you sure you wish to do so?`))return;
+  const{data:roundsToDelete}=await db.from('council_rounds').select('id').eq('topic_id',activeSessionId).gte('round_number',n);
+  const ids=(roundsToDelete||[]).map(r=>r.id);
+  if(ids.length){
+    await db.from('council_evidence').delete().in('round_id',ids);
+    await db.from('council_rounds').delete().in('id',ids);
+  }
+  await loadRound1(activeSessionId);
+  showChTab(2,n>1?'round-'+(n-1):'scope');
+}
+
 // "New Council Request" - clears the workspace so Convene creates a
 // genuinely new session instead of overwriting whatever was loaded.
 function startNewCouncilRequest(){
   activeSessionId=null;
   activeRounds=[];
+  resetVoiceTabs();
   document.getElementById('councilTitleText').value='';
   document.getElementById('councilRequestText').value='';
   document.getElementById('conveneStatus').textContent='';
@@ -476,6 +522,15 @@ function startNewCouncilRequest(){
 // confirm: round N's prompt is composed from round N-1's real evidence,
 // all queryable together because everything shares the same topic_id.
 let activeRounds=[];
+
+// Ryan's direct instruction, 2026-07-22: councilmen's tabs stay live across
+// the whole run of a council session rather than being closed and reopened
+// cold each round. Keyed by voice name (not by round), so the same tab is
+// reused round after round for as long as this page stays open. This is a
+// same-browser-session convenience only - it cannot survive a page reload,
+// since a window reference can't be persisted to the database.
+let openVoiceTabs={};
+function resetVoiceTabs(){openVoiceTabs={};}
 
 async function loadRound1(topicId){
   const{data,error}=await db.from('council_rounds')
@@ -582,11 +637,32 @@ async function renderOneRoundState(round){
   document.getElementById('roundtableVoiceName-'+n).textContent=nextVoice;
   document.getElementById('roundtableAnswerText-'+n).value='';
   document.getElementById('roundtableOpenBtn-'+n).onclick=()=>{
-    window.open(PROVIDER_URLS[nextVoice]||('https://www.google.com/search?q='+encodeURIComponent(nextVoice)),'_blank');
+    // Ryan's direct instruction, 2026-07-22: keep each councilman's tab live
+    // across the whole run - reuse it round after round instead of opening
+    // a fresh one, so that voice actually accumulates its own visible
+    // conversation history in its own interface.
+    const existing=openVoiceTabs[nextVoice];
+    if(existing&&!existing.closed){existing.focus();return;}
+    const w=window.open(PROVIDER_URLS[nextVoice]||('https://www.google.com/search?q='+encodeURIComponent(nextVoice)),'_blank');
+    openVoiceTabs[nextVoice]=w;
   };
   document.getElementById('roundtableCopyBtn-'+n).onclick=async()=>{
     const requesterName=getUserName()||'the user';
-    const prompt=`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${round.prompt_text}"\n\nYOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to propose clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nPropose EXACTLY 2 clarifying questions, no more. For each one, give both the question itself AND the goal - what that question is actually trying to uncover.\n\nStructure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating, in one sentence, what you believe the core ambiguity in the question actually is.\n2. Then give your 2 clarifying questions as one continuous piece of plain text under clear headings (not a code block) - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer. Format each question exactly like this, one per line:\nQuestion text here | What this question is trying to uncover\n3. After your 2 questions, add a "GOING FURTHER:" section - is there a third angle or risk ${requesterName} likely hasn't considered that isn't captured by your 2 questions? Name it briefly, even though it doesn't count toward the 2.\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+    const isClarification=round.phase==='clarification';
+    const taskBlock=isClarification
+      ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to propose clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nPropose EXACTLY 2 clarifying questions, no more. For each one, give both the question itself AND the goal - what that question is actually trying to uncover. Format each question exactly like this, one per line:\nQuestion text here | What this question is trying to uncover`
+      :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
+    const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
+    const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+    // If this voice's tab is still open from an earlier round in this same
+    // session, this is a continuation of the same live conversation - no
+    // need to re-explain who Amit is or what The Council does, that context
+    // is already sitting right there in the thread above. Ryan's direct
+    // instruction, 2026-07-22.
+    const stillOpen=!!(openVoiceTabs[nextVoice]&&!openVoiceTabs[nextVoice].closed);
+    const prompt=stillOpen
+      ?`${requesterName} is continuing the same Council deliberation with you, right here in this same conversation - no need to re-introduce yourself or the tool, just pick up from what's already above.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${endMarker}`
+      :`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${endMarker}`;
     try{await navigator.clipboard.writeText(prompt);
       document.getElementById('roundtableStatus-'+n).textContent='Prompt copied — paste it into '+nextVoice+'.';
     }catch(e){alert('Could not copy — select and copy the prompt manually.');}
@@ -710,8 +786,13 @@ async function startNextRound(completedN){
   const summary=(evidence||[]).map(e=>`${e.provenance}: ${e.body}`).join('\n\n');
   const nextN=completedN+1;
   const nextPrompt=`THE ORIGINAL QUESTION: ${activeRounds[0].prompt_text}\n\nWHAT HAPPENED IN ROUND ${completedN}:\n${summary}\n\nBased on everything above, this is Round ${nextN}. Continue the deliberation, building directly on what Round ${completedN} produced.`;
+  // Ryan's direct instruction, 2026-07-22: the roster identified once on
+  // Scope is who's on the council for the ENTIRE run of this session - it
+  // carries forward automatically to every future round, never re-picked.
+  // Round N+1 goes straight into roundtable mode, skipping the chat/roster
+  // picker step entirely.
   await db.from('council_rounds').insert({
-    topic_id:activeSessionId, round_number:nextN, prompt_text:nextPrompt, phase:'investigation'
+    topic_id:activeSessionId, round_number:nextN, prompt_text:nextPrompt, phase:'investigation', roster:completedRound.roster||[]
   });
 
   // Diary: refresh the "current solution" section (DOM-updated in place,
