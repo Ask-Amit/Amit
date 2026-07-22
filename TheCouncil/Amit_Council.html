@@ -146,7 +146,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.51</div>
+    <div class="page-version" id="pageVersion">v4.52</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -245,6 +245,26 @@ header{
 
             <button id="councilRequestBtn" type="button" tabindex="3" onclick="conveneCouncil()" style="margin-top:16px;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;display:block">Submit Request</button>
             <div id="conveneStatus" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
+
+            <!-- Identifying the council (roster) and the actual question
+                 all happens ONCE, here on Scope, for the whole session -
+                 not duplicated per round. Ryan's direct instruction,
+                 2026-07-22: Round 1 takes the finalized question as its
+                 very first step, it doesn't re-derive it. -->
+            <div id="scopeCouncilChat" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid rgba(201,168,76,.2)">
+              <div style="align-self:flex-end;max-width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+                <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em">Identifying correct council...</div>
+              </div>
+              <div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+                <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:10px">Councilmen Selected — change, add, or remove as you see fit</div>
+                <div id="rosterPickerRows-scope"></div>
+              </div>
+              <div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+                <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div>
+                <textarea id="scopeQuestionText" style="width:100%;min-height:90px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+              </div>
+              <button type="button" onclick="confirmScopeRoster()" style="background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button>
+            </div>
           </div>
         </div>
 
@@ -349,6 +369,7 @@ function loadSessionIntoWorkspace(session,switchView){
   const name=getUserName()||'Amit';
   document.getElementById('requestHeading').textContent=name+' requested from the council';
   document.getElementById('requestSubtext').style.display='none';
+  document.getElementById('scopeCouncilChat').style.display='none';
   document.getElementById('diaryText').innerHTML=session.diary_text||diaryEntryHTML('Requested Counsel',session.original_question||'');
   renderSessionTiles();
   loadRound1(session.id);
@@ -413,6 +434,7 @@ function startNewCouncilRequest(){
   document.getElementById('conveneStatus').textContent='';
   document.getElementById('requestHeading').textContent='What is the request of the Council?';
   document.getElementById('requestSubtext').style.display='block';
+  document.getElementById('scopeCouncilChat').style.display='none';
   renderSessionTiles();
   renderRoundTabs();
   document.getElementById('councilTitleText').focus();
@@ -463,31 +485,33 @@ function renderRoundTabs(){
       <!-- Same box/title format as Scope, applied to every round: Petition
            on the left, Ruling on the right. Ryan's direct instruction,
            2026-07-22. -->
-      <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px;overflow-y:auto">
-        <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Petition</div>
-        <!-- Chat-thread: Amit's messages right-aligned, user's left-aligned.
-             Identifying the council, the editable roster picker, and the
-             plain-language question all appear as Amit's messages;
-             "Convene the Council" is the user's action, left-aligned, that
-             locks it in and starts the roundtable. -->
-        <div id="chatThread-${n}" style="display:none;flex-direction:column;gap:14px"></div>
-        <div id="roundtablePanel-${n}" style="display:none">
-          <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin-bottom:6px">Roundtable</div>
-          <p id="roundtableStatus-${n}" style="color:var(--muted);font-size:13px;margin-bottom:12px"></p>
-          <div style="display:flex;gap:10px;margin-bottom:10px">
-            <button type="button" id="roundtableOpenBtn-${n}" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Open <span id="roundtableVoiceName-${n}">—</span>'s site ↗</button>
-            <button type="button" id="roundtableCopyBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the prompt</button>
+      <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px;display:flex;flex-direction:column;overflow:hidden">
+        <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;flex-shrink:0">Petition</div>
+        <div style="flex:1;overflow-y:auto;min-height:0">
+          <!-- Chat-thread: Amit's messages right-aligned, user's left-aligned.
+               Identifying the council, the editable roster picker, and the
+               plain-language question all appear as Amit's messages;
+               "Convene the Council" is the user's action, left-aligned, that
+               locks it in and starts the roundtable. -->
+          <div id="chatThread-${n}" style="display:none;flex-direction:column;gap:14px"></div>
+          <div id="roundtablePanel-${n}" style="display:none">
+            <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin-bottom:6px">Roundtable</div>
+            <p id="roundtableStatus-${n}" style="color:var(--muted);font-size:13px;margin-bottom:12px"></p>
+            <div style="display:flex;gap:10px;margin-bottom:10px">
+              <button type="button" id="roundtableOpenBtn-${n}" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Open <span id="roundtableVoiceName-${n}">—</span>'s site ↗</button>
+              <button type="button" id="roundtableCopyBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the prompt</button>
+            </div>
+            <textarea id="roundtableAnswerText-${n}" placeholder="Paste this voice's full answer here..." style="width:100%;min-height:140px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <button type="button" id="roundtableSaveBtn-${n}" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save and go to next voice</button>
           </div>
-          <textarea id="roundtableAnswerText-${n}" placeholder="Paste this voice's full answer here..." style="width:100%;min-height:140px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
-          <button type="button" id="roundtableSaveBtn-${n}" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save and go to next voice</button>
-        </div>
-        <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px">
-          <button type="button" onclick="startNextRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Round ${n} complete — start Round ${n+1}</button>
+          <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px">
+            <button type="button" onclick="startNextRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Round ${n} complete — start Round ${n+1}</button>
+          </div>
         </div>
       </div>
-      <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px;overflow-y:auto">
-        <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Ruling</div>
-        <div id="roundRuling-${n}" style="color:var(--muted);font-size:13px;line-height:1.7;font-family:'Crimson Pro',Georgia,serif">Awaiting this round's answers...</div>
+      <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px;display:flex;flex-direction:column;overflow:hidden">
+        <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;flex-shrink:0">Ruling</div>
+        <div id="roundRuling-${n}" style="flex:1;overflow-y:auto;min-height:0;color:var(--muted);font-size:13px;line-height:1.7;font-family:'Crimson Pro',Georgia,serif">Awaiting this round's answers...</div>
       </div>`;
     contentSlot.appendChild(contentDiv);
     renderOneRoundState(round);
@@ -573,8 +597,8 @@ function initRoundChat(round){
 
   thread.innerHTML=
     bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em">Identifying correct council...</div>`,'amit')+
-    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:10px">Council selected — change, add, or remove as you see fit</div><div id="rosterPickerRows-${n}"></div>`,'amit')+
-    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:6px">This is what I'll ask each voice</div><div style="color:var(--text);font-size:13px;line-height:1.6">Help identify the clarifying questions that would uncover the real scope of work behind: "${round.prompt_text}"</div>`,'amit')+
+    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:10px">Councilmen Selected — change, add, or remove as you see fit</div><div id="rosterPickerRows-${n}"></div>`,'amit')+
+    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div><textarea id="roundQuestionText-${n}" style="width:100%;min-height:90px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">Help identify the clarifying questions that would uncover the real scope of work behind: "${round.prompt_text}"</textarea>`,'amit')+
     `<div style="align-self:flex-start"><button type="button" onclick="confirmRoster(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button></div>`;
 
   renderRosterPickerRows(n,DEFAULT_ROSTER.slice());
@@ -614,9 +638,27 @@ async function confirmRoster(n){
   const wrap=document.getElementById('rosterPickerRows-'+n);
   const names=JSON.parse(wrap.dataset.names||'[]');
   if(names.length<5){alert('Minimum 5 voices required.');return;}
-  await db.from('council_rounds').update({roster:names}).eq('id',round.id);
-  round.roster=names;
+  const questionEl=document.getElementById('roundQuestionText-'+n);
+  const question=questionEl?questionEl.value.trim():round.prompt_text;
+  await db.from('council_rounds').update({roster:names,prompt_text:question}).eq('id',round.id);
+  round.roster=names;round.prompt_text=question;
   await renderOneRoundState(round);
+}
+
+// Same mechanism as confirmRoster, but for Scope's one-time, whole-session
+// council identification - sets Round 1's roster and finalized question,
+// then reveals Round 1 already in roundtable mode. Ryan's direct
+// instruction, 2026-07-22: this lives on Scope, never duplicated per round.
+async function confirmScopeRoster(){
+  const round1=activeRounds.find(r=>r.round_number===1);
+  const wrap=document.getElementById('rosterPickerRows-scope');
+  const names=JSON.parse(wrap.dataset.names||'[]');
+  if(names.length<5){alert('Minimum 5 voices required.');return;}
+  const question=document.getElementById('scopeQuestionText').value.trim();
+  await db.from('council_rounds').update({roster:names,prompt_text:question}).eq('id',round1.id);
+  round1.roster=names;round1.prompt_text=question;
+  await loadRound1(activeSessionId);
+  showChTab(2,'round-1');
 }
 
 // The actual cross-talk: Round N+1's prompt is composed from Round N's
@@ -742,8 +784,10 @@ async function conveneCouncil(){
     // as its own tile at the top of the list (page 3), most recent first.
     activeSessionId=topic.id;
     await loadCouncilSessions();
-    await loadRound1(topic.id);
-    showChTab(2,'round-1');
+    await loadRound1(topic.id); // populates activeRounds so Round 1's row is ready for confirmScopeRoster
+    document.getElementById('scopeCouncilChat').style.display='block';
+    document.getElementById('scopeQuestionText').value=`Help identify the clarifying questions that would uncover the real scope of work behind: "${request}"`;
+    renderRosterPickerRows('scope',DEFAULT_ROSTER.slice());
     statusEl.textContent='Saved — topic and Round 1 created in the database.';
     statusEl.style.color='rgba(120,200,150,.9)';
   }catch(e){
