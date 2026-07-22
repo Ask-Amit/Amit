@@ -233,6 +233,51 @@
   .topicListPanel .topicRow a.active{ color:var(--gold); font-weight:600; }
   .topicListPanel .topicRow .status{ font-size:10px; text-transform:uppercase; letter-spacing:.4px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); color:var(--text-faint); }
   .topicListPanel .topicRow .status.resolved{ color:var(--good); border-color:var(--good); }
+
+  /* NEW — two-column layout: the question box off to the left, the wheel
+     and everything else on the right/center. Ryan's direct request
+     2026-07-21: the page was too narrow and tall, the original question
+     got buried. Stacks to one column on narrow screens. */
+  .councilGrid{ max-width:1100px; margin:0 auto; padding:0 20px; display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start; }
+  @media (max-width:860px){ .councilGrid{ grid-template-columns:1fr; } }
+  .councilGrid .leftCol{ position:sticky; top:16px; }
+  .councilGrid .leftCol .newTopicPanel, .councilGrid .leftCol .topicListPanel{ margin:16px 0 0; padding:0; max-width:none; }
+
+  /* NEW — big "boxing match" round banner + phase label. */
+  .roundBanner{ text-align:center; margin-top:8px; }
+  .roundBanner .num{ font-family:Georgia,serif; font-weight:700; font-size:52px; color:var(--gold); letter-spacing:2px; line-height:1; text-shadow:0 0 24px rgba(212,175,55,0.35); }
+  .roundBanner .label{ display:block; font-size:11px; color:var(--text-faint); letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
+  .phaseBadge{ display:inline-block; margin-top:6px; font-size:11px; padding:4px 12px; border-radius:14px; border:1px solid var(--gold-dim); color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
+
+  /* NEW — clarifying-question popup: one at a time, boxing-round style. */
+  .clarifyModalCard{ background:var(--panel); border:1px solid var(--gold); border-radius:12px; max-width:560px; width:100%; padding:28px 30px; }
+  .clarifyModalCard .qNum{ font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
+  .clarifyModalCard .qText{ font-size:18px; color:var(--text); line-height:1.5; margin-bottom:18px; }
+  .clarifyModalCard textarea{ width:100%; min-height:110px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:12px; font-size:14px; line-height:1.5; font-family:inherit; resize:vertical; margin-bottom:14px; }
+  .clarifyModalCard button{ background:var(--gold); color:#1a1206; border:none; padding:11px 20px; border-radius:6px; font-weight:700; font-size:14px; cursor:pointer; }
+
+  /* NEW — Round 1 checklist + Amit-authoring panels. */
+  #checklistPanel{ display:none; }
+  #checklistPanel.show{ display:block; }
+  #checklistPanel .qaRow{ padding:10px 0; border-bottom:1px solid var(--border); }
+  #checklistPanel .qaRow:last-child{ border-bottom:none; }
+  #checklistPanel .qaRow .qLine{ color:var(--gold); font-size:13px; margin-bottom:4px; }
+  #checklistPanel .qaRow .qLine .check{ color:var(--good); margin-right:6px; }
+  #checklistPanel .qaRow .aLine{ color:var(--text-dim); font-size:13px; padding-left:20px; }
+
+  #amitAuthorPanel, #consensusPanel{ display:none; border-color:var(--gold); }
+  #amitAuthorPanel.show, #consensusPanel.show{ display:block; }
+  #amitAuthorPanel textarea, #consensusPanel textarea{ width:100%; min-height:110px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; font-family:inherit; resize:vertical; margin-bottom:10px; }
+  #amitAuthorPanel .hint{ color:var(--text-faint); font-size:12px; font-style:italic; margin-bottom:8px; }
+  #consensusPanel .consensusText{ color:var(--text); font-size:15px; line-height:1.6; padding:14px; background:var(--bg2); border-radius:8px; margin-bottom:14px; }
+  #consensusPanel .yesNoRow{ display:flex; gap:10px; }
+  #consensusPanel button.yes{ background:var(--good); color:#08170e; border:none; padding:10px 18px; border-radius:6px; font-weight:700; cursor:pointer; }
+  #consensusPanel button.no{ background:transparent; color:var(--bad); border:1px solid var(--bad); padding:10px 18px; border-radius:6px; font-weight:600; cursor:pointer; }
+  #consensusNoOptions{ display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+  #consensusNoOptions.show{ display:block; }
+  #consensusNoOptions button{ background:var(--gold); color:#1a1206; border:none; padding:9px 16px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; margin-top:8px; }
+  #startRound2Btn, #startRound3Btn{ display:none; background:var(--gold); color:#1a1206; border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; width:100%; margin-top:6px; }
+  #startRound2Btn.show, #startRound3Btn.show{ display:block; }
 </style>
 
 <header>
@@ -243,17 +288,17 @@
 
 <div class="authbar" id="authbar"><span>Checking session...</span></div>
 
-<div class="topicListPanel">
-  <div class="inner">
-    <h3>Every Council session</h3>
-    <div id="topicListRows">Loading...</div>
-  </div>
-</div>
+<div class="councilGrid">
+<div class="leftCol">
 
+<!-- The original question stays visible here, permanently, off to the
+     left - Ryan's direct fix for "it's hard to find out what the original
+     question is." -->
 <div class="newTopicPanel">
   <div class="inner">
-    <h3>Bring a real question to The Council</h3>
-    <p>Write out the real problem you want the Seats to work on — as much detail as it takes. This becomes Round 1's question, in your own words.</p>
+    <h3 id="originalQuestionLabel">Bring a real question to The Council</h3>
+    <p id="originalQuestionText" style="display:none; color:var(--text); font-size:14px; line-height:1.6; white-space:pre-wrap;"></p>
+    <p id="newTopicPrompt">Write out the real problem you want the Seats to work on — as much detail as it takes. This becomes Round 1's question, in your own words.</p>
     <div class="lockedNote" id="newTopicLockedNote">Sign in above to bring a question of your own.</div>
     <div id="newTopicBox" style="display:none">
       <textarea id="newTopicText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..."></textarea>
@@ -265,6 +310,22 @@
 </div>
 <div class="currentTopicLink" id="currentTopicLink" style="display:none">
   <a href="#" id="backToShowcaseLink">‹ back to the origin deliberation</a>
+</div>
+
+<div class="topicListPanel">
+  <div class="inner">
+    <h3>Every Council session</h3>
+    <div id="topicListRows">Loading...</div>
+  </div>
+</div>
+
+</div>
+<div class="centerCol">
+
+<div class="roundBanner" id="roundBanner">
+  <span class="num" id="roundBannerNum">ROUND 1</span>
+  <span class="label">of The Council</span>
+  <div><span class="phaseBadge" id="phaseBadge" style="display:none"></span></div>
 </div>
 
 <div class="stage" id="stage">
@@ -296,7 +357,7 @@
     </div>
   </div>
 </div>
-<div class="versionBadge">v4.36</div>
+<div class="versionBadge">v4.37</div>
 <button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
 <div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
@@ -391,9 +452,70 @@
       </div>
     </div>
   </div>
+
+  <!-- NEW — Amit authors the confirmed clarifying-question list for a
+       Clarification-phase round, live on this page, directly from reading
+       every Seat's proposed questions above. -->
+  <div class="panel" id="amitAuthorPanel">
+    <h3>Amit: confirm the clarifying questions for this round</h3>
+    <div class="hint">One per line, formatted as: Question | What this is trying to uncover</div>
+    <textarea id="amitQuestionsText" placeholder="What specific outcome are you trying to reach? | Uncovers the real end goal, not just the topic&#10;Who else is affected by this decision? | Uncovers scope and stakeholders"></textarea>
+    <div class="actions">
+      <button id="amitQuestionsBtn" type="button">Save clarifying questions — begin asking the user</button>
+    </div>
+  </div>
+
+  <!-- NEW — Round 1's completed checklist: original question, every
+       clarifying question, every answer. Persistent, never buried. -->
+  <div class="panel" id="checklistPanel">
+    <h3>Round 1 <span style="color:var(--good)">✓ completed</span> — clarifying questions</h3>
+    <div id="checklistRows"></div>
+  </div>
+
+  <!-- NEW — Amit authors the consensus intent statement for an
+       Investigation-phase round, then the user confirms yes/no. -->
+  <div class="panel" id="amitConsensusAuthorPanel">
+    <h3>Amit: write the consensus intent statement</h3>
+    <div class="hint">Read every Seat's answer above (including Amit's own) and write ONE statement capturing the real intent.</div>
+    <textarea id="amitConsensusText" placeholder="Based on everything gathered, here is what we believe you are actually trying to achieve..."></textarea>
+    <div class="actions">
+      <button id="amitConsensusBtn" type="button">Save consensus statement — ask the user to confirm</button>
+    </div>
+  </div>
+
+  <div class="panel" id="consensusPanel">
+    <h3>Does this capture your intent?</h3>
+    <div class="consensusText" id="consensusStatementText"></div>
+    <div class="yesNoRow">
+      <button class="yes" id="consensusYesBtn" type="button">Yes — proceed to Round 3</button>
+      <button class="no" id="consensusNoBtn" type="button">No</button>
+    </div>
+    <div id="consensusNoOptions">
+      <p style="color:var(--text-dim); font-size:13px;">Rewrite from scratch, or just tell us what to change:</p>
+      <textarea id="consensusNoText" placeholder="Either rewrite your original intent entirely, or say what to modify/add..."></textarea>
+      <button id="consensusRestartBtn" type="button">Start over with this — becomes the next round</button>
+      <button id="consensusModifyBtn" type="button" style="margin-left:8px; background:transparent; color:var(--text-dim); border:1px solid var(--border);">Just modify the statement above</button>
+    </div>
+  </div>
+
+  <button id="startRound2Btn" type="button">All clarifying questions answered — Start Round 2 (Investigation)</button>
+  <button id="startRound3Btn" type="button">Intent confirmed — Start Round 3 (Scope of Work)</button>
+</div>
+</div>
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- NEW — the sequential clarifying-question popup. One question at a
+     time, boxing-round style: answer, save, next one appears. -->
+<div class="modalOverlay" id="clarifyModal">
+  <div class="clarifyModalCard">
+    <div class="qNum" id="clarifyQNum">Question 1</div>
+    <div class="qText" id="clarifyQText">—</div>
+    <textarea id="clarifyAnswerText" placeholder="Your answer..."></textarea>
+    <button id="clarifySaveBtn" type="button">Save and continue</button>
+  </div>
+</div>
 
 <div class="modalOverlay" id="detailModal">
   <div class="modalCard">
@@ -669,10 +791,224 @@ function seatDisplayName(evidenceRow){
   return evidenceRow.provenance || 'Unknown';
 }
 
+// NEW — big round banner + phase badge, "boxing match" style.
+function renderRoundBanner(round){
+  document.getElementById('roundBannerNum').textContent = 'ROUND ' + round.round_number;
+  const badge = document.getElementById('phaseBadge');
+  const PHASE_LABELS = { clarification:'Clarification', investigation:'Investigation', scope_of_work:'Scope of Work' };
+  if (round.phase && PHASE_LABELS[round.phase]){
+    badge.textContent = PHASE_LABELS[round.phase];
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// NEW — the whole Clarification-phase mechanic: Amit authors the confirmed
+// question list live on the page, then it's presented to the user one at a
+// time as a popup, saved as they go, shown as a completed checklist after.
+let clarifyQuestions = [];
+async function renderClarificationPhase(round, isLatestRound){
+  const authorPanel = document.getElementById('amitAuthorPanel');
+  const checklistPanel = document.getElementById('checklistPanel');
+  const startRound2Btn = document.getElementById('startRound2Btn');
+  if (round.phase !== 'clarification'){
+    authorPanel.classList.remove('show'); checklistPanel.classList.remove('show'); startRound2Btn.classList.remove('show');
+    document.getElementById('clarifyModal').classList.remove('show');
+    return;
+  }
+  clarifyQuestions = await sb(`council_clarifying_questions?round_id=eq.${round.id}&order=sort_order.asc`);
+
+  if (!clarifyQuestions.length){
+    authorPanel.classList.toggle('show', !!session && isLatestRound);
+    checklistPanel.classList.remove('show');
+    startRound2Btn.classList.remove('show');
+    document.getElementById('clarifyModal').classList.remove('show');
+    return;
+  }
+  authorPanel.classList.remove('show');
+
+  // Checklist — always visible once questions exist, persistent record.
+  document.getElementById('checklistRows').innerHTML = clarifyQuestions.map(q => `
+    <div class="qaRow">
+      <div class="qLine"><span class="check">${q.answered_at ? '✓' : '○'}</span>${q.question_text}</div>
+      ${q.answered_at ? `<div class="aLine">${q.user_answer}</div>` : ''}
+    </div>`).join('');
+  checklistPanel.classList.add('show');
+
+  const unanswered = clarifyQuestions.find(q => !q.answered_at);
+  const nextRoundExists = allRounds.some(r => r.round_number === round.round_number + 1);
+  if (unanswered && session && isLatestRound){
+    const idx = clarifyQuestions.indexOf(unanswered) + 1;
+    document.getElementById('clarifyQNum').textContent = `Question ${idx} of ${clarifyQuestions.length}`;
+    document.getElementById('clarifyQText').textContent = unanswered.question_text;
+    document.getElementById('clarifyAnswerText').value = '';
+    document.getElementById('clarifyModal').classList.add('show');
+  } else {
+    document.getElementById('clarifyModal').classList.remove('show');
+  }
+  startRound2Btn.classList.toggle('show', !unanswered && !nextRoundExists && !!session && isLatestRound);
+}
+document.getElementById('clarifySaveBtn').onclick = async () => {
+  const unanswered = clarifyQuestions.find(q => !q.answered_at);
+  if (!unanswered) return;
+  const answer = document.getElementById('clarifyAnswerText').value.trim();
+  if (!answer){ toast('Type an answer first.'); return; }
+  try {
+    await sb(`council_clarifying_questions?id=eq.${unanswered.id}`, {
+      authed:true, method:'PATCH',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ user_answer: answer, answered_at: new Date().toISOString() })
+    });
+    await renderRound(currentRound, true);
+  } catch(e){ toast('Could not save — check console.'); console.error(e); }
+};
+document.getElementById('amitQuestionsBtn').onclick = async () => {
+  if (!session){ toast('Sign in first.'); return; }
+  const raw = document.getElementById('amitQuestionsText').value.trim();
+  if (!raw){ toast('Enter at least one question.'); return; }
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+  const rows = lines.map((line, i) => {
+    const [q, g] = line.split('|').map(s => s ? s.trim() : '');
+    return { round_id: currentRound.id, question_text: q, goal_text: g || null, sort_order: i };
+  });
+  try {
+    await sb('council_clarifying_questions', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify(rows)
+    });
+    document.getElementById('amitQuestionsText').value = '';
+    toast('Clarifying questions saved.');
+    await renderRound(currentRound, true);
+  } catch(e){ toast('Could not save — check console.'); console.error(e); }
+};
+document.getElementById('startRound2Btn').onclick = async () => {
+  const qaText = clarifyQuestions.map(q => `Q: ${q.question_text}\nA: ${q.user_answer}`).join('\n\n');
+  const composed = `INVESTIGATION PHASE. Original question:\n${currentRound.prompt_text_original || document.getElementById('originalQuestionText').textContent}\n\nRound 1 clarifying questions and the user's answers:\n${qaText}\n\nBased on everything above, write a one-line or one-paragraph summary that captures the true intent of what the user is actually trying to achieve.`;
+  try {
+    await sb('council_rounds', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: currentRound.round_number + 1, prompt_text: composed, phase: 'investigation' })
+    });
+    toast('Round 2 (Investigation) started.');
+    viewingLatest = true;
+    await load();
+  } catch(e){ toast('Could not start Round 2 — check console.'); console.error(e); }
+};
+
+// NEW — the Investigation-phase mechanic: Amit writes one consensus intent
+// statement, the user confirms yes/no, no/restart/modify both logged.
+async function renderInvestigationPhase(round, isLatestRound){
+  const authorPanel = document.getElementById('amitConsensusAuthorPanel');
+  const consensusPanel = document.getElementById('consensusPanel');
+  const startRound3Btn = document.getElementById('startRound3Btn');
+  if (round.phase !== 'investigation'){
+    authorPanel.classList.remove('show'); consensusPanel.classList.remove('show'); startRound3Btn.classList.remove('show');
+    return;
+  }
+  if (!round.consensus_statement){
+    authorPanel.classList.toggle('show', !!session && isLatestRound);
+    consensusPanel.classList.remove('show');
+    startRound3Btn.classList.remove('show');
+    return;
+  }
+  authorPanel.classList.remove('show');
+  document.getElementById('consensusStatementText').textContent = round.consensus_statement;
+  const nextRoundExists = allRounds.some(r => r.round_number === round.round_number + 1);
+  if (round.consensus_confirmed === true){
+    consensusPanel.classList.remove('show');
+    startRound3Btn.classList.toggle('show', !nextRoundExists && !!session && isLatestRound);
+  } else {
+    consensusPanel.classList.toggle('show', !!session && isLatestRound);
+    startRound3Btn.classList.remove('show');
+    document.getElementById('consensusNoOptions').classList.remove('show');
+  }
+}
+document.getElementById('amitConsensusBtn').onclick = async () => {
+  if (!session){ toast('Sign in first.'); return; }
+  const text = document.getElementById('amitConsensusText').value.trim();
+  if (!text){ toast('Write the consensus statement first.'); return; }
+  try {
+    await sb(`council_rounds?id=eq.${currentRound.id}`, {
+      authed:true, method:'PATCH',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ consensus_statement: text })
+    });
+    document.getElementById('amitConsensusText').value = '';
+    await renderRound(currentRound, true);
+  } catch(e){ toast('Could not save — check console.'); console.error(e); }
+};
+document.getElementById('consensusYesBtn').onclick = async () => {
+  try {
+    await sb(`council_rounds?id=eq.${currentRound.id}`, {
+      authed:true, method:'PATCH',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ consensus_confirmed: true, user_directive: 'confirmed_solution', resolved_at: new Date().toISOString() })
+    });
+    toast('Intent confirmed.');
+    await renderRound(currentRound, true);
+  } catch(e){ toast('Could not save — check console.'); console.error(e); }
+};
+document.getElementById('consensusNoBtn').onclick = () => { document.getElementById('consensusNoOptions').classList.add('show'); };
+document.getElementById('consensusRestartBtn').onclick = async () => {
+  const text = document.getElementById('consensusNoText').value.trim();
+  if (!text){ toast('Write what you want reconsidered first.'); return; }
+  try {
+    await sb(`council_rounds?id=eq.${currentRound.id}`, {
+      authed:true, method:'PATCH',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ user_feedback: text, user_directive: 'different_angle' })
+    });
+    const composed = `CLARIFICATION PHASE (restarted with better direction — nothing before this is lost, see earlier rounds). Original question:\n${document.getElementById('originalQuestionText').textContent}\n\nUser's new directive:\n${text}`;
+    await sb('council_rounds', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: currentRound.round_number + 1, prompt_text: composed, phase: 'clarification' })
+    });
+    toast('New round started with your direction.');
+    document.getElementById('consensusNoText').value = '';
+    viewingLatest = true;
+    await load();
+  } catch(e){ toast('Could not start the new round — check console.'); console.error(e); }
+};
+document.getElementById('consensusModifyBtn').onclick = async () => {
+  const text = document.getElementById('consensusNoText').value.trim();
+  if (!text){ toast('Say what to change first.'); return; }
+  try {
+    const updated = currentRound.consensus_statement + '\n\n[Amendment per user request: ' + text + ']';
+    await sb(`council_rounds?id=eq.${currentRound.id}`, {
+      authed:true, method:'PATCH',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ consensus_statement: updated, user_feedback: text, user_directive: 'repeat_refine' })
+    });
+    document.getElementById('consensusNoText').value = '';
+    toast('Statement updated — confirm again when ready.');
+    await renderRound(currentRound, true);
+  } catch(e){ toast('Could not save — check console.'); console.error(e); }
+};
+document.getElementById('startRound3Btn').onclick = async () => {
+  try {
+    await sb('council_rounds', {
+      authed:true, method:'POST',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: currentRound.round_number + 1, prompt_text: currentRound.consensus_statement, phase: 'scope_of_work' })
+    });
+    toast('Round 3 (Scope of Work) started.');
+    viewingLatest = true;
+    await load();
+  } catch(e){ toast('Could not start Round 3 — check console.'); console.error(e); }
+};
+
 async function renderRound(round, isSameRoundRefresh){
   const modalWasOpen = document.getElementById('detailModal').classList.contains('show');
   currentRound = round;
   document.getElementById('promptText').textContent = round.prompt_text;
+  renderRoundBanner(round);
+  const isLatestRoundForPhase = roundIndex === allRounds.length - 1;
+  await renderClarificationPhase(round, isLatestRoundForPhase);
+  await renderInvestigationPhase(round, isLatestRoundForPhase);
 
   // NEW — the review panel: this round's own synthesis, its next_step, and
   // whatever the user said back. Shown together, every time.
@@ -793,7 +1129,7 @@ async function loadTopicList(){
 
 async function load(){
   const [topics, seats, rounds] = await Promise.all([
-    sb(`council_topics?id=eq.${TOPIC_ID}&select=title,final_solution,status`),
+    sb(`council_topics?id=eq.${TOPIC_ID}&select=title,final_solution,status,original_question`),
     sb(`council_seats?select=id,role_name`),
     sb(`council_rounds?topic_id=eq.${TOPIC_ID}&order=round_number.asc`)
   ]);
@@ -802,6 +1138,15 @@ async function load(){
   (seats || []).forEach(s => { seatById[s.id] = s.role_name.replace(' Seat',''); });
 
   document.getElementById('topicTitle').textContent = topics[0] ? topics[0].title : 'Topic not found';
+  // NEW — the original question stays permanently visible in the left
+  // column, never buried, per Ryan's direct fix. Once a topic has one,
+  // the left box becomes a display of it instead of the empty-state prompt.
+  if (topics[0] && topics[0].original_question){
+    document.getElementById('originalQuestionLabel').textContent = 'The original question';
+    document.getElementById('originalQuestionText').textContent = topics[0].original_question;
+    document.getElementById('originalQuestionText').style.display = 'block';
+    document.getElementById('newTopicPrompt').style.display = 'none';
+  }
   currentTopicStatus = topics[0] ? topics[0].status : 'open';
   const statusEl = document.getElementById('topicStatus');
   statusEl.textContent = currentTopicStatus === 'resolved' ? 'Resolved — a solution was confirmed' : 'Open — still deliberating';
