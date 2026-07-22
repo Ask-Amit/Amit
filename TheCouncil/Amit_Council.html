@@ -132,7 +132,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.44</div>
+    <div class="page-version" id="pageVersion">v4.45</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -190,7 +190,7 @@ const PLACEHOLDER_COUNT=20;
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const label=i===1?'Introduction':i===2?'Tabbed Layout':'Placeholder '+i;
+    const label=i===1?'Introduction':i===2?'New Council':'Placeholder '+i;
     navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
       <div class="tile-icon">▢</div>
       <div class="tile-info">
@@ -210,7 +210,7 @@ const PLACEHOLDER_COUNT=20;
           ? `<div style="max-width:640px">
               <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
                 <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);white-space:nowrap">Title</div>
-                <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" oninput="updateCouncilPageTitle(2,this.value)" tabindex="1" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
+                <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" tabindex="1" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
                 <div style="color:var(--muted);font-size:12px;white-space:nowrap">Max. 20</div>
               </div>
 
@@ -298,7 +298,9 @@ async function conveneCouncil(){
       topic_id:topic.id, round_number:1, prompt_text:request, phase:'clarification'
     });
     if(roundErr)throw roundErr;
-    updateCouncilPageTitle(2,title);
+    // Page 2 ("New Council") stays static, permanently - Ryan's direct
+    // instruction, 2026-07-22. It never gets renamed to whatever title was
+    // just entered; it's the standing launcher for starting the next one.
     statusEl.textContent='Saved — topic and Round 1 created in the database.';
     statusEl.style.color='rgba(120,200,150,.9)';
   }catch(e){
