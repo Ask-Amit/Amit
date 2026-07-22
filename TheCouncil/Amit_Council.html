@@ -146,7 +146,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.53</div>
+    <div class="page-version" id="pageVersion">v4.54</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -322,7 +322,7 @@ async function loadCouncilSessions(){
   // most recent one into Page 2, per "Page 2 shows Page 3's session by
   // default."
   if(!activeSessionId&&councilSessions.length){
-    loadSessionIntoWorkspace(councilSessions[0],false);
+    await loadSessionIntoWorkspace(councilSessions[0],false);
   }
 }
 
@@ -355,11 +355,18 @@ async function selectCouncilSession(topicId){
   const now=new Date().toISOString();
   await db.from('council_topics').update({last_activity_at:now}).eq('id',topicId);
   session.last_activity_at=now;
-  loadSessionIntoWorkspace(session,true);
+  // Fix, 2026-07-22: this was NOT awaited, a real race condition - the
+  // panel switch inside loadSessionIntoWorkspace could fire unpredictably
+  // late (or effectively never, if anything inside threw), leaving
+  // Introduction showing as active while a session tile also looked
+  // selected. Now awaited, and openPanel(2) called directly here too as a
+  // guarantee the switch always happens regardless of what's inside.
+  await loadSessionIntoWorkspace(session,true);
+  openPanel(2);
   await loadCouncilSessions();
 }
 
-function loadSessionIntoWorkspace(session,switchView){
+async function loadSessionIntoWorkspace(session,switchView){
   activeSessionId=session.id;
   document.getElementById('councilTitleText').value=session.title||'';
   document.getElementById('councilRequestText').value=session.original_question||'';
@@ -369,10 +376,22 @@ function loadSessionIntoWorkspace(session,switchView){
   const name=getUserName()||'Amit';
   document.getElementById('requestHeading').textContent=name+' requested from the council';
   document.getElementById('requestSubtext').style.display='none';
-  document.getElementById('scopeCouncilChat').style.display='none';
   document.getElementById('diaryText').innerHTML=session.diary_text||diaryEntryHTML('Requested Counsel',session.original_question||'');
   renderSessionTiles();
-  loadRound1(session.id);
+  await loadRound1(session.id);
+  // Fix, 2026-07-22: the councilmen selection was disappearing every time
+  // you left and returned to Scope, because this was unconditionally
+  // hidden on load instead of checking whether it was already saved.
+  // Scope is the permanent home of this - it must persist, not just show
+  // once right after Convene.
+  const round1=activeRounds.find(r=>r.round_number===1);
+  if(round1&&round1.roster&&round1.roster.length){
+    document.getElementById('scopeCouncilChat').style.display='flex';
+    document.getElementById('scopeQuestionText').value=round1.prompt_text||'';
+    renderRosterPickerRows('scope',round1.roster.slice());
+  } else {
+    document.getElementById('scopeCouncilChat').style.display='none';
+  }
   if(switchView)openPanel(2);
 }
 
