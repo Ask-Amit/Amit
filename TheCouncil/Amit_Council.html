@@ -265,8 +265,8 @@
   #checklistPanel .qaRow .qLine .check{ color:var(--good); margin-right:6px; }
   #checklistPanel .qaRow .aLine{ color:var(--text-dim); font-size:13px; padding-left:20px; }
 
-  #amitAuthorPanel, #consensusPanel{ display:none; border-color:var(--gold); }
-  #amitAuthorPanel.show, #consensusPanel.show{ display:block; }
+  #amitAuthorPanel, #consensusPanel, #rosterAuthorPanel, #roundtablePanel{ display:none; border-color:var(--gold); }
+  #amitAuthorPanel.show, #consensusPanel.show, #rosterAuthorPanel.show, #roundtablePanel.show{ display:block; }
   #amitAuthorPanel textarea, #consensusPanel textarea{ width:100%; min-height:110px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; font-family:inherit; resize:vertical; margin-bottom:10px; }
   #amitAuthorPanel .hint{ color:var(--text-faint); font-size:12px; font-style:italic; margin-bottom:8px; }
   #consensusPanel .consensusText{ color:var(--text); font-size:15px; line-height:1.6; padding:14px; background:var(--bg2); border-radius:8px; margin-bottom:14px; }
@@ -376,7 +376,7 @@
     </div>
   </div>
 </div>
-<div class="versionBadge">v4.40</div>
+<div class="versionBadge">v4.41</div>
 <button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
 <div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
@@ -468,6 +468,33 @@
       <div class="actions">
         <button class="secondary" id="rerunClearBtn" type="button">Clear</button>
         <button id="rerunBtn" type="button">Start next round</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW — Amit sets the roster for this round, live on the page. -->
+  <div class="panel" id="rosterAuthorPanel">
+    <h3>Amit: who's answering this round?</h3>
+    <div class="hint">One name per line. Minimum 5 voices.</div>
+    <textarea id="rosterText" placeholder="DeepSeek&#10;Bolt&#10;Gemini&#10;Meta AI&#10;ChatGPT"></textarea>
+    <div class="actions">
+      <button id="rosterBtn" type="button">Save roster — begin the roundtable</button>
+    </div>
+  </div>
+
+  <!-- NEW — the actual roundtable: open a voice's tab, copy its prompt,
+     paste its answer back, move to the next one. All on this page. -->
+  <div class="panel" id="roundtablePanel">
+    <h3 id="roundtableHeading">Roundtable</h3>
+    <p id="roundtableStatus" style="color:var(--text-dim); font-size:13px;"></p>
+    <div id="roundtableActive">
+      <div class="actions" style="justify-content:flex-start; gap:10px; margin-bottom:10px;">
+        <button id="roundtableOpenBtn" type="button">Open <span id="roundtableVoiceName">—</span>'s site ↗</button>
+        <button id="roundtableCopyBtn" type="button" class="secondary">Copy the prompt</button>
+      </div>
+      <textarea id="roundtableAnswerText" placeholder="Paste this voice's full answer here..."></textarea>
+      <div class="actions">
+        <button id="roundtableSaveBtn" type="button">Save and go to next voice</button>
       </div>
     </div>
   </div>
@@ -849,11 +876,120 @@ function renderRoundBanner(round){
 // question list live on the page, then it's presented to the user one at a
 // time as a popup, saved as they go, shown as a completed checklist after.
 let clarifyQuestions = [];
+
+// NEW — the on-page roundtable: open a voice's tab, copy its prompt,
+// paste its answer back, move to the next. Ryan's direct correction,
+// 2026-07-22: none of this belongs in VS Code, it all has to happen on
+// the HTML itself.
+const PROVIDER_URLS = {
+  'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
+  'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
+  'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
+  'Copilot':'https://copilot.microsoft.com/', 'Perplexity':'https://www.perplexity.ai/',
+  'Claude':'https://claude.ai/', 'Mistral':'https://chat.mistral.ai/',
+  'v0':'https://v0.dev/', 'Ideogram':'https://ideogram.ai/'
+};
+function buildRoundtablePrompt(round, voiceName){
+  return `Cold-start briefing: I'm Ryan, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." Amit is a companion built to walk alongside people and facilitate honest deliberation - it invites independent AI voices to answer a real question, without those voices seeing each other's answers, then synthesizes the results. You are being invited as one independent voice in this round. You have no memory of any prior round - this prompt gives you everything you need.
+
+THE REAL QUESTION A USER JUST BROUGHT TO THE COUNCIL: "${round.prompt_text}"
+
+YOUR TASK: This is Round 1 - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to propose clarifying questions that would help pin down what the user is actually trying to achieve, since the question as written may be ambiguous.
+
+Propose EXACTLY 2 clarifying questions, no more. For each one, give both the question itself AND the goal - what that question is actually trying to uncover.
+
+Write your full answer as one continuous piece of plain text (not multiple separate code blocks) - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer. Format each question exactly like this, one per line:
+
+Question text here | What this question is trying to uncover`;
+}
+let roundtableEvidence = [];
+async function renderRoster(round, isLatestRound){
+  const rosterPanel = document.getElementById('rosterAuthorPanel');
+  const roundtablePanel = document.getElementById('roundtablePanel');
+  if (!round.roster || !round.roster.length){
+    rosterPanel.classList.toggle('show', !!session && isLatestRound);
+    roundtablePanel.classList.remove('show');
+    return false; // not ready for clarifying-question authoring yet
+  }
+  rosterPanel.classList.remove('show');
+  roundtableEvidence = await sb(`council_evidence?round_id=eq.${round.id}&select=provenance`);
+  const answered = new Set(roundtableEvidence.map(e => e.provenance));
+  const pending = round.roster.filter(name => !answered.has(name));
+  document.getElementById('roundtableStatus').textContent = `${answered.size} of ${round.roster.length} voices answered.`;
+  if (!pending.length){
+    roundtablePanel.classList.remove('show');
+    return true; // roundtable complete, ready for clarifying-question authoring
+  }
+  if (!session || !isLatestRound){
+    roundtablePanel.classList.remove('show');
+    return false;
+  }
+  const nextVoice = pending[0];
+  document.getElementById('roundtableVoiceName').textContent = nextVoice;
+  document.getElementById('roundtableAnswerText').value = '';
+  document.getElementById('roundtableOpenBtn').onclick = () => {
+    window.open(PROVIDER_URLS[nextVoice] || ('https://www.google.com/search?q=' + encodeURIComponent(nextVoice)), '_blank');
+  };
+  document.getElementById('roundtableCopyBtn').onclick = async () => {
+    try { await navigator.clipboard.writeText(buildRoundtablePrompt(round, nextVoice)); toast('Prompt copied — paste it into ' + nextVoice + '.'); }
+    catch(e){ toast('Could not copy — select and copy the prompt manually.'); }
+  };
+  document.getElementById('roundtableSaveBtn').onclick = async () => {
+    const answer = document.getElementById('roundtableAnswerText').value.trim();
+    if (!answer){ toast('Paste the answer first.'); return; }
+    let seat = (await sb(`council_seats?role_name=eq.${encodeURIComponent(nextVoice + ' Seat')}&select=id`, { authed:true }))[0];
+    if (!seat){
+      const created = await sb('council_seats', {
+        authed:true, method:'POST',
+        headers:{ 'Content-Type':'application/json', Prefer:'return=representation' },
+        body: JSON.stringify({ user_id: currentUser.id, role_name: nextVoice + ' Seat', current_provider: nextVoice })
+      });
+      seat = created[0];
+    }
+    try {
+      await sb('council_evidence', {
+        authed:true, method:'POST',
+        headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+        body: JSON.stringify({ round_id: round.id, seat_id: seat.id, body: answer, source: 'manual_paste', provenance: nextVoice, witnessed_at: new Date().toISOString(), witnessed_by: currentUser.id })
+      });
+      toast(nextVoice + '’s answer saved.');
+      await renderRound(currentRound, true);
+    } catch(e){ toast('Could not save — check console.'); console.error(e); }
+  };
+  roundtablePanel.classList.add('show');
+  return false;
+}
+document.getElementById('rosterBtn').onclick = async () => {
+  if (!session){ toast('Sign in first.'); return; }
+  const names = document.getElementById('rosterText').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (names.length < 5){ toast('Minimum 5 voices required.'); return; }
+  try {
+    await sb(`council_rounds?id=eq.${currentRound.id}`, {
+      authed:true, method:'PATCH',
+      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
+      body: JSON.stringify({ roster: names })
+    });
+    document.getElementById('rosterText').value = '';
+    toast('Roster saved — roundtable begins.');
+    await renderRound(currentRound, true);
+  } catch(e){ toast('Could not save — check console.'); console.error(e); }
+};
+
 async function renderClarificationPhase(round, isLatestRound){
   const authorPanel = document.getElementById('amitAuthorPanel');
   const checklistPanel = document.getElementById('checklistPanel');
   const startRound2Btn = document.getElementById('startRound2Btn');
   if (round.phase !== 'clarification'){
+    authorPanel.classList.remove('show'); checklistPanel.classList.remove('show'); startRound2Btn.classList.remove('show');
+    document.getElementById('clarifyModal').classList.remove('show');
+    document.getElementById('rosterAuthorPanel').classList.remove('show');
+    document.getElementById('roundtablePanel').classList.remove('show');
+    return;
+  }
+  const roundtableReady = await renderRoster(round, isLatestRound);
+  if (!roundtableReady){
+    // Roster not yet set, or roundtable still in progress - clarifying
+    // questions can't be authored until every voice has actually answered.
     authorPanel.classList.remove('show'); checklistPanel.classList.remove('show'); startRound2Btn.classList.remove('show');
     document.getElementById('clarifyModal').classList.remove('show');
     return;
