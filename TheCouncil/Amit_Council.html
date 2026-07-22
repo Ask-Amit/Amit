@@ -119,7 +119,7 @@ header{
 .panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
 /* ── TABBED LAYOUT (copied structure from Computer Health's folder-tab UI — no data behind it) ── */
-.ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:18px 24px 0;padding:0;background:var(--bg);flex-shrink:0}
 .ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
 .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
@@ -132,7 +132,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.45</div>
+    <div class="page-version" id="pageVersion">v4.46</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -184,13 +184,16 @@ header{
 // into each panel when this template is copied for a new project.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=20;
-(function buildPlaceholders(){
+// Only two static pages now: Introduction and Current Council. Everything
+// from the third tile down is a real, database-driven session list - built
+// by loadCouncilSessions() below, not generated as generic placeholders.
+// Ryan's direct instruction, 2026-07-22.
+(function buildStaticPages(){
   const nav=document.getElementById('sidebarTiles');
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
-  for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const label=i===1?'Introduction':i===2?'New Council':'Placeholder '+i;
+  for(let i=1;i<=2;i++){
+    const label=i===1?'Introduction':'Current Council';
     navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
       <div class="tile-icon">▢</div>
       <div class="tile-info">
@@ -198,56 +201,416 @@ const PLACEHOLDER_COUNT=20;
         <div class="tile-sub">—</div>
       </div>
     </div>`;
-    if(i===1||i===2){
-      let tabNavHtml='',tabContentHtml='';
+    let tabNavHtml='',tabContentHtml='';
+    if(i===1){
+      // Introduction stays the fixed 5-tab generic shell for now - untouched.
       for(let t=1;t<=5;t++){
-        const tabLabel=(i===2&&t===1)?'Scope':'Tab '+t;
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})">${tabLabel}</button>`;
-        // Session 1 (panel 2), Tab 1: the real entry point - what the user
-        // is actually asking the Council to convene on. Ryan's direct
-        // instruction, 2026-07-22.
-        const body=(i===2&&t===1)
-          ? `<div style="max-width:640px">
-              <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
-                <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);white-space:nowrap">Title</div>
-                <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" tabindex="1" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
-                <div style="color:var(--muted);font-size:12px;white-space:nowrap">Max. 20</div>
-              </div>
-
-              <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin:20px 0 6px">What is the request of the Council?</div>
-              <div style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:16px">Write out the real problem you want the Council to work on — as much detail as it takes. This becomes the question the Council convenes around.</div>
-              <textarea id="councilRequestText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..." tabindex="2" style="width:100%;min-height:160px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:14px;font-size:14px;line-height:1.6;font-family:inherit;resize:vertical"></textarea>
-
-              <button id="councilRequestBtn" type="button" tabindex="3" onclick="conveneCouncil()" style="margin-top:16px;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;display:block">Convene the Council</button>
-              <div id="conveneStatus" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
-            </div>`
-          : `Tab ${t} content goes here`;
-        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${body}</div>`;
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" data-tabkey="${t}" onclick="showChTab(1,'${t}')">Tab ${t}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-1-${t}">Tab ${t} content goes here</div>`;
       }
-      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
-        <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
-        <div class="ch-tab-main">${tabContentHtml}</div>
-      </div>`;
     } else {
-      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}">
-        <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="panel-empty">Panel ${i} content goes here</div>
-      </div>`;
+      // Page 2 ("Current Council"): only Scope is static. Round tabs
+      // (Round 1, Round 2, ...) are built dynamically by renderRoundTabs()
+      // to match however many rounds actually exist for the active
+      // session - never a fixed count. Ryan's direct instruction, 2026-07-22.
+      tabNavHtml=`<button class="ch-tab-btn active" data-tabkey="scope" onclick="showChTab(2,'scope')">Scope</button><span id="roundTabNavSlot"></span>`;
+      tabContentHtml=`<div class="ch-tab-content active" id="ch-tab-2-scope" style="display:flex;gap:20px;height:100%">
+        <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px;overflow-y:auto">
+          <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px">Request</div>
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+            <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);white-space:nowrap">Title</div>
+            <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" tabindex="1" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
+            <div style="color:var(--muted);font-size:12px;white-space:nowrap">Max. 20</div>
+            <button id="newCouncilRequestBtn" type="button" onclick="startNewCouncilRequest()" style="margin-left:auto;background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:8px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">New Council Request</button>
+          </div>
+
+          <div id="requestHeading" style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin:20px 0 6px">What is the request of the Council?</div>
+          <div id="requestSubtext" style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:16px">Write out the real problem you want the Council to work on — as much detail as it takes. This becomes the question the Council convenes around.</div>
+          <textarea id="councilRequestText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..." tabindex="2" style="width:100%;min-height:160px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:14px;font-size:14px;line-height:1.6;font-family:inherit;resize:vertical"></textarea>
+
+          <button id="councilRequestBtn" type="button" tabindex="3" onclick="conveneCouncil()" style="margin-top:16px;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;display:block">Submit Request</button>
+          <div id="conveneStatus" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
+        </div>
+
+        <!-- The diary: the living, printable, editable summary of the whole
+             session - original question, current solution, then a
+             round-by-round log. Grows as rounds complete. Ryan's direct
+             instruction, 2026-07-22. -->
+        <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px;display:flex;flex-direction:column;overflow:hidden">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0">
+            <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Diary</div>
+            <div style="display:flex;gap:8px">
+              <button type="button" onclick="saveDiary()" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:6px 12px;border-radius:6px;font-weight:600;font-size:11px;cursor:pointer">Save</button>
+              <button type="button" onclick="printDiary()" style="background:var(--gold);color:#1a1206;border:none;padding:6px 12px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer">Print Preview</button>
+            </div>
+          </div>
+          <textarea id="diaryText" placeholder="The diary populates once a session is convened and rounds begin..." style="flex:1;width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.2);color:var(--text);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;font-family:'Crimson Pro',Georgia,serif;resize:none;overflow-y:auto"></textarea>
+        </div>
+      </div><span id="roundTabContentSlot"></span>`;
     }
+    panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
+      <div class="panel-head"><span class="panel-heading">${label}</span></div>
+      <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
+      <div class="ch-tab-main">${tabContentHtml}</div>
+    </div>`;
   }
   nav.innerHTML=navHtml;
   main.innerHTML=panelHtml;
 })();
 
+// ══════════════════════════════════════════════
+// SESSION LIST — pages 3+, real data from council_topics. Most-recently-
+// active first (last_activity_at desc). Clicking one loads it into Page 2
+// and bumps it back to the top. Ryan's direct instruction, 2026-07-22.
+// ══════════════════════════════════════════════
+let councilSessions=[];
+let activeSessionId=null;
+const PROVIDER_URLS={
+  'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
+  'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
+  'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
+  'Copilot':'https://copilot.microsoft.com/', 'Perplexity':'https://www.perplexity.ai/',
+  'Claude':'https://claude.ai/', 'Mistral':'https://chat.mistral.ai/'
+};
+
+async function loadCouncilSessions(){
+  if(!currentUser)return;
+  const{data,error}=await db.from('council_topics')
+    .select('id,title,original_question,last_activity_at,diary_text')
+    .eq('user_id',currentUser.id)
+    .order('last_activity_at',{ascending:false});
+  if(error){console.error(error);return;}
+  councilSessions=data||[];
+  renderSessionTiles();
+  // Default: nothing explicitly selected yet and sessions exist - load the
+  // most recent one into Page 2, per "Page 2 shows Page 3's session by
+  // default."
+  if(!activeSessionId&&councilSessions.length){
+    loadSessionIntoWorkspace(councilSessions[0],false);
+  }
+}
+
+function renderSessionTiles(){
+  const nav=document.getElementById('sidebarTiles');
+  nav.querySelectorAll('.session-tile').forEach(el=>el.remove());
+  const frag=document.createDocumentFragment();
+  councilSessions.forEach((s,idx)=>{
+    const pageNum=idx+3;
+    const d=new Date(s.last_activity_at);
+    const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const el=document.createElement('div');
+    el.className='tile session-tile'+(s.id===activeSessionId?' active':'');
+    el.id='session-tile-'+s.id;
+    el.onclick=()=>selectCouncilSession(s.id);
+    el.innerHTML=`<div class="tile-icon">▢</div>
+      <div class="tile-info">
+        <div class="tile-name">${s.title}</div>
+        <div class="tile-sub">${dateStr}</div>
+      </div>`;
+    frag.appendChild(el);
+  });
+  nav.appendChild(frag);
+}
+
+async function selectCouncilSession(topicId){
+  const session=councilSessions.find(s=>s.id===topicId);
+  if(!session)return;
+  // Reviewing it counts as activity - bump it to the top with a fresh date.
+  const now=new Date().toISOString();
+  await db.from('council_topics').update({last_activity_at:now}).eq('id',topicId);
+  session.last_activity_at=now;
+  loadSessionIntoWorkspace(session,true);
+  await loadCouncilSessions();
+}
+
+function loadSessionIntoWorkspace(session,switchView){
+  activeSessionId=session.id;
+  document.getElementById('councilTitleText').value=session.title||'';
+  document.getElementById('councilRequestText').value=session.original_question||'';
+  // Ryan's direct instruction, 2026-07-22: an existing session doesn't ask
+  // "what's the request" as if it's new - it states who requested it and
+  // just displays what was actually asked, no submission prompt.
+  const name=getUserName()||'Amit';
+  document.getElementById('requestHeading').textContent=name+' requested from the council';
+  document.getElementById('requestSubtext').style.display='none';
+  document.getElementById('diaryText').value=session.diary_text||('ORIGINAL QUESTION:\n'+(session.original_question||''));
+  renderSessionTiles();
+  loadRound1(session.id);
+  if(switchView)openPanel(2);
+}
+
+// Saves whatever the user has typed/edited in the diary box - it's their
+// own document to alter, not a locked auto-generated report.
+async function saveDiary(){
+  if(!activeSessionId)return;
+  const text=document.getElementById('diaryText').value;
+  await db.from('council_topics').update({diary_text:text}).eq('id',activeSessionId);
+  const s=councilSessions.find(x=>x.id===activeSessionId);
+  if(s)s.diary_text=text;
+}
+
+function printDiary(){
+  const text=document.getElementById('diaryText').value;
+  const title=document.getElementById('councilTitleText').value||'Council Session';
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
+    body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.7;white-space:pre-wrap}
+    h1{font-size:22px;border-bottom:2px solid #c9a84c;padding-bottom:10px}
+  </style></head><body><h1>${title}</h1>${text.replace(/</g,'&lt;')}</body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+// "New Council Request" - clears the workspace so Convene creates a
+// genuinely new session instead of overwriting whatever was loaded.
+function startNewCouncilRequest(){
+  activeSessionId=null;
+  activeRounds=[];
+  document.getElementById('councilTitleText').value='';
+  document.getElementById('councilRequestText').value='';
+  document.getElementById('conveneStatus').textContent='';
+  document.getElementById('requestHeading').textContent='What is the request of the Council?';
+  document.getElementById('requestSubtext').style.display='block';
+  renderSessionTiles();
+  renderRoundTabs();
+  document.getElementById('councilTitleText').focus();
+}
+
+// ══════════════════════════════════════════════
+// ROUND 1 — the real Seats + Evidence + Resolver mechanic, matching the
+// consensus architecture from tonight's earlier deliberation. Tier 1:
+// manual copy-paste, works for anyone signed in, no premium/API required.
+// ══════════════════════════════════════════════
+// activeRounds = every round row for the current session, ordered by
+// round_number. This is the actual cross-talk mechanism Ryan asked to
+// confirm: round N's prompt is composed from round N-1's real evidence,
+// all queryable together because everything shares the same topic_id.
+let activeRounds=[];
+
+async function loadRound1(topicId){
+  const{data,error}=await db.from('council_rounds')
+    .select('*').eq('topic_id',topicId).order('round_number',{ascending:true});
+  if(error){console.error(error);activeRounds=[];}
+  else activeRounds=data||[];
+  renderRoundTabs();
+}
+
+// Rebuilds the tab bar/content area for Page 2 to match exactly how many
+// rounds actually exist for this session - never a fixed count. Called
+// every time a session loads, a roster is saved, an answer is saved, or a
+// new round starts.
+function renderRoundTabs(){
+  const navSlot=document.getElementById('roundTabNavSlot');
+  const contentSlot=document.getElementById('roundTabContentSlot');
+  if(!navSlot||!contentSlot)return;
+  navSlot.innerHTML='';contentSlot.innerHTML='';
+  activeRounds.forEach((round,idx)=>{
+    const n=round.round_number;
+    const btn=document.createElement('button');
+    btn.className='ch-tab-btn';
+    btn.dataset.tabkey='round-'+n;
+    btn.textContent='Round '+n;
+    btn.onclick=()=>showChTab(2,'round-'+n);
+    navSlot.appendChild(btn);
+
+    const contentDiv=document.createElement('div');
+    contentDiv.className='ch-tab-content';
+    contentDiv.id='ch-tab-2-round-'+n;
+    contentDiv.style.maxWidth='640px';
+    contentDiv.innerHTML=`
+      <!-- Chat-thread: Amit's messages right-aligned, user's left-aligned -
+           Ryan's direct instruction, 2026-07-22. Identifying the council,
+           the editable roster picker, and the plain-language question all
+           appear as Amit's messages; "Convene the Council" is the user's
+           action, left-aligned, that locks it in and starts the roundtable. -->
+      <div id="chatThread-${n}" style="display:none;flex-direction:column;gap:14px"></div>
+      <div id="roundtablePanel-${n}" style="display:none">
+        <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin-bottom:6px">Roundtable</div>
+        <p id="roundtableStatus-${n}" style="color:var(--muted);font-size:13px;margin-bottom:12px"></p>
+        <div style="display:flex;gap:10px;margin-bottom:10px">
+          <button type="button" id="roundtableOpenBtn-${n}" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Open <span id="roundtableVoiceName-${n}">—</span>'s site ↗</button>
+          <button type="button" id="roundtableCopyBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the prompt</button>
+        </div>
+        <textarea id="roundtableAnswerText-${n}" placeholder="Paste this voice's full answer here..." style="width:100%;min-height:140px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+        <button type="button" id="roundtableSaveBtn-${n}" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save and go to next voice</button>
+      </div>
+      <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px">
+        <button type="button" onclick="startNextRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Round ${n} complete — start Round ${n+1}</button>
+      </div>`;
+    contentSlot.appendChild(contentDiv);
+    renderOneRoundState(round);
+  });
+}
+
+async function renderOneRoundState(round){
+  const n=round.round_number;
+  const chatThread=document.getElementById('chatThread-'+n);
+  const roundtablePanel=document.getElementById('roundtablePanel-'+n);
+  const nextWrap=document.getElementById('startNextRoundWrap-'+n);
+  if(!round.roster||!round.roster.length){
+    chatThread.style.display='flex';roundtablePanel.style.display='none';nextWrap.style.display='none';
+    initRoundChat(round);
+    return;
+  }
+  chatThread.style.display='none';
+  const{data:evidence}=await db.from('council_evidence').select('provenance').eq('round_id',round.id);
+  const answered=new Set((evidence||[]).map(e=>e.provenance));
+  const pending=round.roster.filter(v=>!answered.has(v));
+  document.getElementById('roundtableStatus-'+n).textContent=`${answered.size} of ${round.roster.length} voices answered.`;
+  if(!pending.length){
+    roundtablePanel.style.display='none';
+    document.getElementById('roundtableStatus-'+n).textContent='All voices answered. Round '+n+' complete.';
+    // Only offer "start next round" from the LATEST round, and only once.
+    const isLatest=n===activeRounds[activeRounds.length-1].round_number;
+    nextWrap.style.display=isLatest?'block':'none';
+    return;
+  }
+  nextWrap.style.display='none';
+  roundtablePanel.style.display='block';
+  const nextVoice=pending[0];
+  document.getElementById('roundtableVoiceName-'+n).textContent=nextVoice;
+  document.getElementById('roundtableAnswerText-'+n).value='';
+  document.getElementById('roundtableOpenBtn-'+n).onclick=()=>{
+    window.open(PROVIDER_URLS[nextVoice]||('https://www.google.com/search?q='+encodeURIComponent(nextVoice)),'_blank');
+  };
+  document.getElementById('roundtableCopyBtn-'+n).onclick=async()=>{
+    const prompt=`Cold-start briefing: I'm Ryan, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." You are being invited as one independent voice in this round. You have no memory of any prior round - this prompt gives you everything you need.\n\n${round.prompt_text}\n\nWrite your full answer as one continuous piece of plain text, formatted one per line as:\nQuestion text here | What this question is trying to uncover`;
+    try{await navigator.clipboard.writeText(prompt);
+      document.getElementById('roundtableStatus-'+n).textContent='Prompt copied — paste it into '+nextVoice+'.';
+    }catch(e){alert('Could not copy — select and copy the prompt manually.');}
+  };
+  document.getElementById('roundtableSaveBtn-'+n).onclick=async()=>{
+    const answer=document.getElementById('roundtableAnswerText-'+n).value.trim();
+    if(!answer)return;
+    let{data:seat}=await db.from('council_seats').select('id').eq('role_name',nextVoice+' Seat').eq('user_id',currentUser.id).maybeSingle();
+    if(!seat){
+      const{data:created}=await db.from('council_seats').insert({user_id:currentUser.id,role_name:nextVoice+' Seat',current_provider:nextVoice}).select().single();
+      seat=created;
+    }
+    await db.from('council_evidence').insert({
+      round_id:round.id, seat_id:seat.id, body:answer, source:'manual_paste',
+      provenance:nextVoice, witnessed_at:new Date().toISOString(), witnessed_by:currentUser.id
+    });
+    await renderOneRoundState(round);
+  };
+}
+
+// Default capability-matched roster - Amit's own starting judgment,
+// editable by the user afterward. Same five voices with the strongest
+// track record from tonight's earlier deliberation.
+const DEFAULT_ROSTER=['DeepSeek','Bolt','Gemini','Meta AI','ChatGPT'];
+
+// Builds the chat thread: Amit "identifying correct council," the editable
+// roster picker (as Amit's message), the one shared question (as Amit's
+// message), and the user's "Convene the Council" button, left-aligned.
+// Ryan's direct instruction, 2026-07-22.
+function initRoundChat(round){
+  const n=round.round_number;
+  const thread=document.getElementById('chatThread-'+n);
+  if(thread.dataset.built)return; // don't rebuild on every re-render
+  thread.dataset.built='1';
+  const bubble=(html,side)=>`<div style="align-self:${side==='amit'?'flex-end':'flex-start'};max-width:85%;background:${side==='amit'?'rgba(201,168,76,.12)':'rgba(255,255,255,.05)'};border:1px solid ${side==='amit'?'rgba(201,168,76,.35)':'rgba(240,232,208,.2)'};border-radius:10px;padding:14px 16px">${html}</div>`;
+
+  thread.innerHTML=
+    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em">Identifying correct council...</div>`,'amit')+
+    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:10px">Council selected — change, add, or remove as you see fit</div><div id="rosterPickerRows-${n}"></div>`,'amit')+
+    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:6px">This is what I'll ask each voice</div><div style="color:var(--text);font-size:13px;line-height:1.6">Help identify the clarifying questions that would uncover the real scope of work behind: "${round.prompt_text}"</div>`,'amit')+
+    `<div style="align-self:flex-start"><button type="button" onclick="confirmRoster(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button></div>`;
+
+  renderRosterPickerRows(n,DEFAULT_ROSTER.slice());
+}
+
+function renderRosterPickerRows(n,names){
+  const wrap=document.getElementById('rosterPickerRows-'+n);
+  const opts=Object.keys(PROVIDER_URLS);
+  const rowHtml=(name,idx)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <select data-idx="${idx}" onchange="rosterPickerChange(${n},this)" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit">
+      <option value=""${name?'':' selected'}>— select —</option>
+      ${opts.map(o=>`<option value="${o}"${o===name?' selected':''}>${o}</option>`).join('')}
+    </select>
+    ${name?`<button type="button" onclick="rosterPickerRemove(${n},${idx})" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px">×</button>`:''}
+  </div>`;
+  wrap.innerHTML=names.map((name,idx)=>rowHtml(name,idx)).join('')+rowHtml('',names.length);
+  wrap.dataset.names=JSON.stringify(names);
+}
+function rosterPickerChange(n,selectEl){
+  const wrap=document.getElementById('rosterPickerRows-'+n);
+  let names=JSON.parse(wrap.dataset.names||'[]');
+  const idx=Number(selectEl.dataset.idx);
+  const val=selectEl.value;
+  if(!val)return;
+  if(idx>=names.length)names.push(val); else names[idx]=val;
+  renderRosterPickerRows(n,names);
+}
+function rosterPickerRemove(n,idx){
+  const wrap=document.getElementById('rosterPickerRows-'+n);
+  let names=JSON.parse(wrap.dataset.names||'[]');
+  names.splice(idx,1);
+  renderRosterPickerRows(n,names);
+}
+
+async function confirmRoster(n){
+  const round=activeRounds.find(r=>r.round_number===n);
+  const wrap=document.getElementById('rosterPickerRows-'+n);
+  const names=JSON.parse(wrap.dataset.names||'[]');
+  if(names.length<5){alert('Minimum 5 voices required.');return;}
+  await db.from('council_rounds').update({roster:names}).eq('id',round.id);
+  round.roster=names;
+  await renderOneRoundState(round);
+}
+
+// The actual cross-talk: Round N+1's prompt is composed from Round N's
+// real evidence (every voice's answer), pulled live from the database -
+// not hardcoded, not assumed. This is what makes "round three has to do
+// with what happened in round two" literally true.
+const PHASE_LABELS={clarification:'Clarification',investigation:'Investigation',scope_of_work:'Scope of Work'};
+
+async function startNextRound(completedN){
+  const completedRound=activeRounds.find(r=>r.round_number===completedN);
+  const{data:evidence}=await db.from('council_evidence')
+    .select('provenance,body').eq('round_id',completedRound.id).order('created_at',{ascending:true});
+  const summary=(evidence||[]).map(e=>`${e.provenance}: ${e.body}`).join('\n\n');
+  const nextN=completedN+1;
+  const nextPrompt=`THE ORIGINAL QUESTION: ${activeRounds[0].prompt_text}\n\nWHAT HAPPENED IN ROUND ${completedN}:\n${summary}\n\nBased on everything above, this is Round ${nextN}. Continue the deliberation, building directly on what Round ${completedN} produced.`;
+  await db.from('council_rounds').insert({
+    topic_id:activeSessionId, round_number:nextN, prompt_text:nextPrompt, phase:'investigation'
+  });
+
+  // Diary: append this round's log entry, refresh the "current solution"
+  // section to reflect the latest round. Ryan's direct instruction,
+  // 2026-07-22 - the diary is the living, printable record of the session.
+  const session=councilSessions.find(s=>s.id===activeSessionId);
+  let diary=document.getElementById('diaryText').value||session.diary_text||'';
+  const phaseLabel=PHASE_LABELS[completedRound.phase]||('Round '+completedN);
+  const entry=`ROUND ${completedN} — ${phaseLabel}\n${summary}\n\n---\n`;
+  const solutionBlock=`CURRENT SOLUTION (as of Round ${completedN}):\n${summary}\n\n---\n`;
+  const solutionRegex=/CURRENT SOLUTION \(as of Round \d+\):\n[\s\S]*?\n\n---\n/;
+  if(solutionRegex.test(diary)) diary=diary.replace(solutionRegex,solutionBlock);
+  else diary=diary+'\n'+solutionBlock;
+  diary=diary+entry;
+  document.getElementById('diaryText').value=diary;
+  await db.from('council_topics').update({diary_text:diary}).eq('id',activeSessionId);
+  if(session)session.diary_text=diary;
+
+  await loadRound1(activeSessionId);
+  showChTab(2,'round-'+nextN);
+}
+
 // Tabbed-layout behavior (copied from Computer Health's showTab — folder-tab
 // look, sub-content switching within one panel — no data hooks attached).
+// Fix, 2026-07-22: this used to rely on the global `event` object, which
+// only exists when called from a real click - calling this programmatically
+// (e.g. right after Convene creates Round 1) threw a ReferenceError. Now
+// looks the button up by data-tabkey instead, works either way.
 function showChTab(panelNum,n){
   const panel=document.getElementById('panel-'+panelNum);
   panel.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
   panel.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('ch-tab-'+panelNum+'-'+n).classList.add('active');
-  event.target.classList.add('active');
+  const content=document.getElementById('ch-tab-'+panelNum+'-'+n);
+  if(content)content.classList.add('active');
+  const btn=panel.querySelector('.ch-tab-btn[data-tabkey="'+n+'"]');
+  if(btn)btn.classList.add('active');
 }
 
 function openPanel(n){
@@ -282,6 +645,10 @@ function updateCouncilPageTitle(pageNum,value){
 async function conveneCouncil(){
   const statusEl=document.getElementById('conveneStatus');
   if(!currentUser){statusEl.textContent='Sign in first.';statusEl.style.color='#e08a8a';return;}
+  // Guard against the exact duplicate-session bug from earlier - Convene
+  // only ever creates a NEW session. If an existing one is loaded, it must
+  // be cleared via "New Council Request" first, never silently duplicated.
+  if(activeSessionId){statusEl.textContent='This is an existing session — click "New Council Request" first to start a genuinely new one.';statusEl.style.color='#e08a8a';return;}
   const title=document.getElementById('councilTitleText').value.trim();
   const request=document.getElementById('councilRequestText').value.trim();
   if(!title){statusEl.textContent='Give it a title first.';statusEl.style.color='#e08a8a';return;}
@@ -290,17 +657,25 @@ async function conveneCouncil(){
   btn.disabled=true;btn.textContent='Convening...';
   statusEl.textContent='';
   try{
+    const now=new Date().toISOString();
+    const diaryStart='ORIGINAL QUESTION:\n'+request+'\n\n---\n';
     const{data:topic,error:topicErr}=await db.from('council_topics').insert({
-      user_id:currentUser.id, title:title, original_question:request
+      user_id:currentUser.id, title:title, original_question:request, last_activity_at:now, diary_text:diaryStart
     }).select().single();
     if(topicErr)throw topicErr;
+    document.getElementById('diaryText').value=diaryStart;
     const{error:roundErr}=await db.from('council_rounds').insert({
       topic_id:topic.id, round_number:1, prompt_text:request, phase:'clarification'
     });
     if(roundErr)throw roundErr;
-    // Page 2 ("New Council") stays static, permanently - Ryan's direct
+    // Page 2 ("Current Council") stays static, permanently - Ryan's direct
     // instruction, 2026-07-22. It never gets renamed to whatever title was
-    // just entered; it's the standing launcher for starting the next one.
+    // just entered; it's the standing workspace. The new session appears
+    // as its own tile at the top of the list (page 3), most recent first.
+    activeSessionId=topic.id;
+    await loadCouncilSessions();
+    await loadRound1(topic.id);
+    showChTab(2,'round-1');
     statusEl.textContent='Saved — topic and Round 1 created in the database.';
     statusEl.style.color='rgba(120,200,150,.9)';
   }catch(e){
@@ -308,7 +683,7 @@ async function conveneCouncil(){
     statusEl.textContent='Could not save — '+(e.message||'check console')+(e.message&&e.message.includes('row-level security')?' (this account may need premium access)':'');
     statusEl.style.color='#e08a8a';
   }finally{
-    btn.disabled=false;btn.textContent='Convene the Council';
+    btn.disabled=false;btn.textContent='Submit Request';
   }
 }
 
@@ -331,6 +706,7 @@ if(db){
   db.auth.onAuthStateChange((event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    loadCouncilSessions();
   });
 }
 
