@@ -195,7 +195,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.73</div>
+    <div class="page-version" id="pageVersion">v4.74</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -611,22 +611,13 @@ async function deleteCurrentTab(){
     await db.from('council_evidence').delete().in('round_id',ids);
     await db.from('council_rounds').delete().in('id',ids);
   }
-  // Fix, 2026-07-22: deleting Round 1 left the session with zero rounds and
-  // no way back in - Submit Request correctly refused to touch an existing
-  // session, but there was nothing left to "start fresh from," breaking the
-  // exact promise the delete confirmation just made. If Round 1 is what got
-  // deleted, recreate a fresh, empty Round 1 (same original question,
-  // clarification phase, no roster) so the roster/question step is
-  // immediately ready to run again - a real restart, not a dead end.
-  if(n===1){
-    const session=councilSessions.find(s=>s.id===activeSessionId);
-    await db.from('council_rounds').insert({
-      topic_id:activeSessionId,round_number:1,
-      prompt_text:session?session.original_question:'',phase:'clarification'
-    });
-  }
+  // Ryan's direct correction, 2026-07-22: no round is ever auto-recreated
+  // on delete. Deleting a round just deletes it - focus returns to the
+  // PREVIOUS tab (the prior round, or Scope if Round 1 itself was deleted).
+  // A new Round 1 only ever gets created when the user goes back to Scope,
+  // makes their adjustments, and presses Submit Request again themselves.
   await loadRound1(activeSessionId);
-  showChTab(2,n>1?'round-'+(n-1):'round-1');
+  showChTab(2,n>1?'round-'+(n-1):'scope');
 }
 
 // "New Council Request" - clears the workspace so Convene creates a
@@ -812,8 +803,9 @@ function renderRoundTabs(){
             <textarea id="roundtableAnswerText-${n}" placeholder="Paste this voice's full answer here..." oninput="autoGrowTextarea(this)" style="width:100%;height:44px;min-height:44px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
             <button type="button" id="roundtableSaveBtn-${n}" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save and go to next voice</button>
           </div>
-          <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px">
-            <button type="button" onclick="startNextRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Round ${n} complete — start Round ${n+1}</button>
+          <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px;gap:10px">
+            <button type="button" onclick="startNextRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the next round</button>
+            <button type="button" onclick="markRulingComplete(${n})" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Problem Solved</button>
           </div>
         </div>
       </div>
@@ -881,7 +873,7 @@ async function renderOneRoundState(round){
     document.getElementById('roundtableStatus-'+n).textContent='All voices answered. Round '+n+' complete.';
     // Only offer "start next round" from the LATEST round, and only once.
     const isLatest=n===activeRounds[activeRounds.length-1].round_number;
-    nextWrap.style.display=isLatest?'block':'none';
+    nextWrap.style.display=isLatest?'flex':'none';
     return;
   }
   nextWrap.style.display='none';
@@ -1081,6 +1073,45 @@ async function startNextRound(completedN){
   showChTab(2,'round-'+nextN);
 }
 
+// "Problem Solved" - the user is declaring this round's answer is the real
+// solution, closing out the whole session. Ryan's direct instruction,
+// 2026-07-22: this is the other option alongside "Convene the next round" -
+// a council session only ever moves forward by one of these two explicit
+// choices, never automatically. Saves the round's evidence as the final
+// solution, marks the topic resolved, confirms with an Amit-branded popup
+// ("Ruling Complete"), then opens a print preview of the whole session.
+async function markRulingComplete(completedN){
+  const completedRound=activeRounds.find(r=>r.round_number===completedN);
+  const{data:evidence}=await db.from('council_evidence')
+    .select('provenance,body').eq('round_id',completedRound.id).order('created_at',{ascending:true});
+  const summary=(evidence||[]).map(e=>`${e.provenance}: ${e.body}`).join('\n\n');
+
+  const session=councilSessions.find(s=>s.id===activeSessionId);
+  const diaryEl=document.getElementById('diaryText');
+  const phaseLabel=PHASE_LABELS[completedRound.phase]||('Round '+completedN);
+
+  let solHeader=document.getElementById('diarySolutionHeader');
+  let solBody=document.getElementById('diarySolutionBody');
+  if(!solHeader){
+    diaryEl.insertAdjacentHTML('beforeend',
+      `<div class="diaryHeader" id="diarySolutionHeader"></div><div class="diaryBody" id="diarySolutionBody"></div>`);
+    solHeader=document.getElementById('diarySolutionHeader');
+    solBody=document.getElementById('diarySolutionBody');
+  }
+  solHeader.textContent='Final Solution (Round '+completedN+')';
+  solBody.textContent=summary;
+  diaryEl.insertAdjacentHTML('beforeend',diaryEntryHTML('Round '+completedN+' — '+phaseLabel+' (Final)',summary));
+
+  const html=diaryEl.innerHTML;
+  const now=new Date().toISOString();
+  await db.from('council_topics').update({status:'resolved',final_solution:summary,diary_text:html,resolved_at:now}).eq('id',activeSessionId);
+  await db.from('council_rounds').update({status:'resolved',resolved_at:now}).eq('id',completedRound.id);
+  if(session){session.diary_text=html;}
+
+  await amitConfirm('Ruling Complete — this council session is now marked solved and saved. A print preview of everything learned across the whole session will open next.');
+  printDiary();
+}
+
 // Tabbed-layout behavior (copied from Computer Health's showTab — folder-tab
 // look, sub-content switching within one panel — no data hooks attached).
 // Fix, 2026-07-22: this used to rely on the global `event` object, which
@@ -1128,9 +1159,15 @@ async function conveneCouncil(){
   const statusEl=document.getElementById('conveneStatus');
   if(!currentUser){statusEl.textContent='Sign in first.';statusEl.style.color='#e08a8a';return;}
   // Guard against the exact duplicate-session bug from earlier - Convene
-  // only ever creates a NEW session. If an existing one is loaded, it must
-  // be cleared via "New Council Request" first, never silently duplicated.
-  if(activeSessionId){statusEl.textContent='This is an existing session — click "New Council Request" first to start a genuinely new one.';statusEl.style.color='#e08a8a';return;}
+  // only ever creates a NEW topic when there is no existing one loaded. If
+  // an existing session already has an active round, it must be cleared
+  // via "New Council Request" first, never silently duplicated. But if the
+  // existing session's rounds were all deleted (round history genuinely
+  // empty), this is exactly the "go back to Scope, adjust, convene again"
+  // path Ryan asked for, 2026-07-22 - it reuses the SAME topic rather than
+  // creating a new one.
+  const reusingExistingTopic=!!(activeSessionId&&(!activeRounds||!activeRounds.length));
+  if(activeSessionId&&activeRounds&&activeRounds.length){statusEl.textContent='This is an existing session — click "New Council Request" first to start a genuinely new one.';statusEl.style.color='#e08a8a';return;}
   const title=document.getElementById('councilTitleText').value.trim();
   const request=document.getElementById('councilRequestText').value.trim();
   if(!title){statusEl.textContent='Give it a title first.';statusEl.style.color='#e08a8a';return;}
@@ -1139,24 +1176,31 @@ async function conveneCouncil(){
   btn.disabled=true;btn.textContent='Convening...';
   statusEl.textContent='';
   try{
-    const now=new Date().toISOString();
-    const diaryStart=diaryEntryHTML('Requested Counsel',request);
-    const{data:topic,error:topicErr}=await db.from('council_topics').insert({
-      user_id:currentUser.id, title:title, original_question:request, last_activity_at:now, diary_text:diaryStart
-    }).select().single();
-    if(topicErr)throw topicErr;
-    document.getElementById('diaryText').innerHTML=diaryStart;
+    let topicId;
+    if(reusingExistingTopic){
+      topicId=activeSessionId;
+      await db.from('council_topics').update({title,original_question:request,last_activity_at:new Date().toISOString()}).eq('id',topicId);
+    } else {
+      const now=new Date().toISOString();
+      const diaryStart=diaryEntryHTML('Requested Counsel',request);
+      const{data:topic,error:topicErr}=await db.from('council_topics').insert({
+        user_id:currentUser.id, title:title, original_question:request, last_activity_at:now, diary_text:diaryStart
+      }).select().single();
+      if(topicErr)throw topicErr;
+      document.getElementById('diaryText').innerHTML=diaryStart;
+      topicId=topic.id;
+    }
     const{error:roundErr}=await db.from('council_rounds').insert({
-      topic_id:topic.id, round_number:1, prompt_text:request, phase:'clarification'
+      topic_id:topicId, round_number:1, prompt_text:request, phase:'clarification'
     });
     if(roundErr)throw roundErr;
     // Page 2 ("Current Council") stays static, permanently - Ryan's direct
     // instruction, 2026-07-22. It never gets renamed to whatever title was
     // just entered; it's the standing workspace. The new session appears
     // as its own tile at the top of the list (page 3), most recent first.
-    activeSessionId=topic.id;
+    activeSessionId=topicId;
     await loadCouncilSessions();
-    await loadRound1(topic.id); // populates activeRounds so Round 1's row is ready for confirmScopeRoster
+    await loadRound1(topicId); // populates activeRounds so Round 1's row is ready for confirmScopeRoster
     document.getElementById('scopeCouncilChat').style.display='flex';
     document.getElementById('scopeQuestionText').value=`Help me understand exactly what ${getUserName()||'the user'} is trying to investigate. ${getUserName()||'The user'} has come up with this question: "${request}" — what exactly two questions would you ask ${getUserName()||'them'} to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.`;
     autoGrowTextarea(document.getElementById('scopeQuestionText'));
