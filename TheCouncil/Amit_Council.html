@@ -376,7 +376,7 @@
     </div>
   </div>
 </div>
-<div class="versionBadge">v4.39</div>
+<div class="versionBadge">v4.40</div>
 <button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
 <div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
@@ -637,8 +637,18 @@ async function sb(path, opts){
     Authorization: 'Bearer ' + (opts.authed && session ? session.access_token : SUPABASE_ANON)
   }, opts.headers || {});
   const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({}, opts, { headers }));
-  if (!r.ok) throw new Error('Request failed: ' + r.status);
-  return r.json();
+  if (!r.ok){
+    const body = await r.text().catch(() => '');
+    throw new Error('Request failed: ' + r.status + (body ? ' — ' + body : ''));
+  }
+  // Fix, 2026-07-21: Prefer: return=minimal correctly returns an EMPTY body
+  // on success (204/200 with no content) - calling .json() on empty text
+  // throws "Unexpected end of JSON input" even though the request actually
+  // succeeded. This was silently breaking every write that used
+  // return=minimal (most of them) and surfacing as a misleading error in
+  // whatever catch block happened to be listening.
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
 }
 
 /* ---------- THE STILL WATER — unchanged visual engine ---------- */
