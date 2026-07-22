@@ -195,7 +195,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.71</div>
+    <div class="page-version" id="pageVersion">v4.72</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -893,7 +893,7 @@ async function renderOneRoundState(round){
     const requesterName=getUserName()||'the user';
     const isClarification=round.phase==='clarification';
     const taskBlock=isClarification
-      ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to propose clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nPropose EXACTLY 2 clarifying questions, no more. For each one, give both the question itself AND the goal - what that question is actually trying to uncover. Format each question exactly like this, one per line:\nQuestion text here | What this question is trying to uncover`
+      ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Do not expound, explain your reasoning, or add any commentary. Just the two questions, formatted exactly like this and nothing else:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
       :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
     const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
     const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
@@ -945,7 +945,7 @@ function initRoundChat(round){
   thread.innerHTML=
     bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em">Identifying correct council...</div>`,'amit')+
     bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:10px">Councilmen Selected — change, add, or remove as you see fit</div><div id="rosterPickerRows-${n}"></div>`,'amit')+
-    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div><textarea id="roundQuestionText-${n}" oninput="autoGrowTextarea(this)" style="width:100%;height:40px;min-height:40px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">Help me understand exactly what ${getUserName()||'the user'} is trying to investigate. ${getUserName()||'The user'} has come up with this question: "${round.prompt_text}" — what 1-2 questions would you ask ${getUserName()||'them'} to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it?</textarea>`,'amit')+
+    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div><textarea id="roundQuestionText-${n}" oninput="autoGrowTextarea(this)" style="width:100%;height:40px;min-height:40px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">Help me understand exactly what ${getUserName()||'the user'} is trying to investigate. ${getUserName()||'The user'} has come up with this question: "${round.prompt_text}" — what exactly two questions would you ask ${getUserName()||'them'} to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.</textarea>`,'amit')+
     `<div style="align-self:flex-start"><button type="button" onclick="confirmRoster(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button></div>`;
 
   renderRosterPickerRows(n,DEFAULT_ROSTER.slice());
@@ -1146,7 +1146,7 @@ async function conveneCouncil(){
     await loadCouncilSessions();
     await loadRound1(topic.id); // populates activeRounds so Round 1's row is ready for confirmScopeRoster
     document.getElementById('scopeCouncilChat').style.display='flex';
-    document.getElementById('scopeQuestionText').value=`Help me understand exactly what ${getUserName()||'the user'} is trying to investigate. ${getUserName()||'The user'} has come up with this question: "${request}" — what 1-2 questions would you ask ${getUserName()||'them'} to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it?`;
+    document.getElementById('scopeQuestionText').value=`Help me understand exactly what ${getUserName()||'the user'} is trying to investigate. ${getUserName()||'The user'} has come up with this question: "${request}" — what exactly two questions would you ask ${getUserName()||'them'} to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.`;
     autoGrowTextarea(document.getElementById('scopeQuestionText'));
     renderRosterPickerRows('scope',DEFAULT_ROSTER.slice());
     markNeedsInput(document.getElementById('scopeQuestionText'));
