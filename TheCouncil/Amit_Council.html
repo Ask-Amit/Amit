@@ -176,6 +176,18 @@ header{
 #cwDetailModal button{margin-top:16px;align-self:flex-end;background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #amitConfirmModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #councilTitleText:focus{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(201,168,76,.25)}
+
+/* STANDING RULE — "needs input" - any field on the Petition side of any
+   box, on any page/tab, that is the very next thing the user needs to act
+   on gets this blinking gold border. Ryan's direct instruction, 2026-07-22:
+   this is a standard for the whole Council, not a one-off - whatever field
+   is next always blinks, and is auto-scrolled to the vertical center of
+   its Petition box, so the user is never left hunting for what's next. */
+.needs-input{animation:needsInputBlink 1.4s ease-in-out infinite;border-color:var(--gold2)!important}
+@keyframes needsInputBlink{
+  0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.55);border-color:var(--gold2)}
+  50%{box-shadow:0 0 0 4px rgba(201,168,76,0);border-color:rgba(201,168,76,.5)}
+}
 </style>
 </head>
 <body>
@@ -183,7 +195,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.66</div>
+    <div class="page-version" id="pageVersion">v4.67</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -296,7 +308,7 @@ header{
           <div style="flex:1;overflow-y:auto;min-height:0;padding-right:20px">
             <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
               <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);white-space:nowrap">Title</div>
-              <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" tabindex="1" oninput="updateCouncilPageTitle(2,this.value)" onblur="renameSession()" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;caret-color:var(--gold2)">
+              <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" tabindex="1" oninput="updateCouncilPageTitle(2,this.value);if(this.value.trim())markNeedsInput(document.getElementById('councilRequestText'))" onblur="renameSession()" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit;outline:none;caret-color:var(--gold2)">
               <div style="color:var(--muted);font-size:12px;white-space:nowrap">Max. 20</div>
               <button id="newCouncilRequestBtn" type="button" onclick="startNewCouncilRequest()" style="margin-left:auto;background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:8px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">New Council Request</button>
             </div>
@@ -515,6 +527,27 @@ function printDiary(){
 
 // Amit-branded confirm, replacing the native browser confirm() dialog -
 // resolves true/false the same way, so every call site just adds `await`.
+// Marks whichever field is the next thing the user needs to act on -
+// blinking gold border, and auto-scrolled to the vertical center of its
+// Petition box's scrollable area. Only one field is ever marked at a time.
+// Ryan's direct instruction, 2026-07-22: this is a standing rule for every
+// page/tab in The Council, not a one-off - whatever's next always blinks
+// and sits centered, so the user is never left hunting for it.
+function markNeedsInput(el){
+  if(!el)return;
+  document.querySelectorAll('.needs-input').forEach(e=>{if(e!==el)e.classList.remove('needs-input');});
+  el.classList.add('needs-input');
+  const scrollHost=el.closest('[style*="overflow-y:auto"]');
+  if(scrollHost){
+    requestAnimationFrame(()=>{
+      const hostRect=scrollHost.getBoundingClientRect();
+      const elRect=el.getBoundingClientRect();
+      const offset=(elRect.top-hostRect.top)-(hostRect.height/2)+(elRect.height/2);
+      scrollHost.scrollBy({top:offset,behavior:'smooth'});
+    });
+  }
+}
+
 function amitConfirm(message){
   return new Promise(resolve=>{
     document.getElementById('amitConfirmBody').textContent=message;
@@ -582,7 +615,9 @@ function startNewCouncilRequest(){
   updateCouncilPageTitle(2,'');
   renderSessionTiles();
   renderRoundTabs();
-  document.getElementById('councilTitleText').focus();
+  const titleEl=document.getElementById('councilTitleText');
+  titleEl.focus();
+  markNeedsInput(titleEl);
 }
 
 // ══════════════════════════════════════════════
@@ -812,7 +847,9 @@ async function renderOneRoundState(round){
   roundtablePanel.style.display='block';
   const nextVoice=pending[0];
   document.getElementById('roundtableVoiceName-'+n).textContent=nextVoice;
-  document.getElementById('roundtableAnswerText-'+n).value='';
+  const answerBox=document.getElementById('roundtableAnswerText-'+n);
+  answerBox.value='';
+  markNeedsInput(answerBox);
   document.getElementById('roundtableOpenBtn-'+n).onclick=()=>{
     // Ryan's direct instruction, 2026-07-22: keep each councilman's tab live
     // across the whole run - reuse it round after round instead of opening
@@ -883,6 +920,7 @@ function initRoundChat(round){
     `<div style="align-self:flex-start"><button type="button" onclick="confirmRoster(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button></div>`;
 
   renderRosterPickerRows(n,DEFAULT_ROSTER.slice());
+  markNeedsInput(document.getElementById('roundQuestionText-'+n));
 }
 
 function renderRosterPickerRows(n,names){
@@ -1080,6 +1118,7 @@ async function conveneCouncil(){
     document.getElementById('scopeCouncilChat').style.display='flex';
     document.getElementById('scopeQuestionText').value=`Help identify the clarifying questions that would uncover the real scope of work behind: "${request}"`;
     renderRosterPickerRows('scope',DEFAULT_ROSTER.slice());
+    markNeedsInput(document.getElementById('scopeQuestionText'));
     statusEl.textContent='Saved — topic and Round 1 created in the database.';
     statusEl.style.color='rgba(120,200,150,.9)';
   }catch(e){

@@ -1,5 +1,9 @@
 # The Council — Project Context
 
+## PERMANENT STANDARD — "needs input" blinking field, added 2026-07-22
+
+Whatever field is the very next thing the user needs to act on — on any page, any tab, Scope or Round 1 or Round 50 — gets a blinking gold border (`.needs-input` CSS class, `markNeedsInput(el)` JS helper in `Amit_Council.html`) and is auto-scrolled to the vertical center of its Petition box's scrollable area. Only one field is ever marked at a time. Ryan's direct instruction: this is a standing rule for the whole Council, not a one-off — the user should never have to hunt for what's next; it should be immediately obvious, centered, and blinking. Applies to: the Title field on a new request, the Request textarea once a title is typed, the roster/question step's question textarea, and each round's "paste this voice's answer" box every time a new voice becomes the pending one. Any future input-driven step added to the Council must call `markNeedsInput()` on its own key field the moment that field becomes the active ask — this is not optional per-feature polish, it's baseline behavior.
+
 ## STANDING TASK LIST — NOT YET BUILT, Ryan's direct directives 2026-07-21
 
 Ryan named the real problem directly: two Council sessions run so far produced deliberation but no actual output — "a lot of talk," nothing achieved. These directives exist to fix that at the procedural level, not just the schema level. Log first, discuss/build after — Ryan's own instruction this session.
