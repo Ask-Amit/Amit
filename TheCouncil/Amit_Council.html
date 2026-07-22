@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.88</div>
+    <div class="page-version" id="pageVersion">v4.89</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -913,6 +913,36 @@ function renderRoundTabs(){
             <button type="button" onclick="processPetition(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Process this Petition</button>
             <p style="color:var(--muted);font-size:11px;margin:8px 0 0;font-style:italic">All voices have answered. This is the signal for Amit to actually read through everyone's answers and do the work asked of it — not just a mechanical unlock.</p>
           </div>
+          <!-- The real Clarification-stage pipeline (TheCouncil\CLAUDE.md
+               standing task list, items 5-8): after every voice answers,
+               Amit reads through the raw questions and identifies which
+               ones came up more than once - genuinely a judgment call, so
+               Amit types the confirmed list in rather than a fake string-
+               matcher guessing at it. Those confirmed questions are then
+               asked to the user ONE AT A TIME; once every one is answered,
+               Amit rewrites a single clarifying question incorporating the
+               user's answers, and the user confirms before moving on.
+               Ryan's direct instruction, 2026-07-22. -->
+          <div id="clarifyMatchWrap-${n}" style="display:none;margin-top:14px">
+            <div style="font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);margin-bottom:6px">Amit: identify the questions that came up more than once</div>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">Go by intent, not exact wording - different voices will phrase the same real question differently. Read every question below in order: the first time you see a genuinely new intent, it's a new entry with one vote. The next time you see one that means the same thing, even worded completely differently, that's a second vote for the SAME entry - reword the entry if needed so it fairly captures both. Keep going through all of them, then type only the entries that ended up with two or more votes, one per line.</p>
+            <div id="clarifyRawAnswers-${n}" style="max-height:160px;overflow-y:auto;background:rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;color:var(--muted);font-size:12px;line-height:1.6;white-space:pre-wrap"></div>
+            <textarea id="clarifyConfirmedText-${n}" oninput="autoGrowTextarea(this)" placeholder="One confirmed (two-or-more-vote) question per line..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <button type="button" onclick="beginClarifyQA(${n})" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Begin Asking the User</button>
+          </div>
+          <div id="clarifyAskWrap-${n}" style="display:none;margin-top:14px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:10px;padding:16px">
+            <div id="clarifyAskProgress-${n}" style="color:var(--muted);font-size:11px;margin-bottom:8px"></div>
+            <div id="clarifyAskQuestion-${n}" style="color:var(--text);font-size:14px;font-family:'Crimson Pro',Georgia,serif;margin-bottom:10px"></div>
+            <textarea id="clarifyAskAnswer-${n}" oninput="autoGrowTextarea(this)" placeholder="Your answer..." style="width:100%;height:44px;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <button type="button" onclick="answerClarifyQuestion(${n})" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Next</button>
+          </div>
+          <div id="clarifySynthesizeWrap-${n}" style="display:none;margin-top:14px">
+            <div style="font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);margin-bottom:6px">Every clarifying question has been answered</div>
+            <div id="clarifyQARecap-${n}" style="color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:10px;white-space:pre-wrap"></div>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 6px;font-style:italic">Amit: rewrite the clarifying question, incorporating the original request and the user's answers above, into one refined question for the next round.</p>
+            <textarea id="clarifySynthesisText-${n}" oninput="autoGrowTextarea(this)" placeholder="The refined clarifying question..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <button type="button" onclick="confirmClarifySynthesis(${n})" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">I'm comfortable with this</button>
+          </div>
           <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px;gap:10px">
             <button type="button" onclick="startNextRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the next round</button>
             <button type="button" onclick="markRulingComplete(${n})" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Problem Solved</button>
@@ -939,7 +969,7 @@ async function renderOneRoundState(round){
   // Ryan's direct instruction, 2026-07-22: carry this forward every round.
   const petitionEl=document.getElementById('roundPetitionText-'+n);
   if(petitionEl){
-    petitionEl.textContent=n===1?round.prompt_text:'Continue the deliberation — building directly on what Round '+(n-1)+' produced.';
+    petitionEl.textContent=round.prompt_text;
   }
   const prevWrap=document.getElementById('roundPrevCompleted-'+n);
   if(prevWrap&&n>1){
@@ -1083,9 +1113,82 @@ async function copyRoundtablePrompt(round,n){
 // "Process this Petition" - the explicit signal that all answers are in
 // and it's Amit's turn to actually read through them and do the work, not
 // an automatic unlock the instant the last box is saved. Ryan's direct
-// instruction, 2026-07-22.
+// instruction, 2026-07-22. In the Clarification phase specifically, this
+// opens the real matching pipeline (items 5-8 of the standing task list)
+// instead of jumping straight to Convene/Problem Solved - every other
+// phase still goes straight there, since the match-and-ask cycle is only
+// meaningful for the "what is the user actually asking" stage.
 function processPetition(n){
   document.getElementById('processPetitionWrap-'+n).style.display='none';
+  const round=activeRounds.find(r=>r.round_number===n);
+  if(round&&round.phase==='clarification'){
+    document.getElementById('clarifyMatchWrap-'+n).style.display='block';
+    const evidenceJson=document.getElementById('roundRuling-'+n).dataset.evidence;
+    const byVoice=evidenceJson?JSON.parse(evidenceJson):{};
+    document.getElementById('clarifyRawAnswers-'+n).textContent=
+      Object.entries(byVoice).map(([voice,body])=>`${voice}:\n${body}`).join('\n\n');
+    markNeedsInput(document.getElementById('clarifyConfirmedText-'+n));
+  } else {
+    document.getElementById('startNextRoundWrap-'+n).style.display='flex';
+  }
+}
+
+// Sequential clarifying-question state, per round - not persisted to the
+// database mid-cycle (only the final synthesis is saved), since this is a
+// same-session, one-pass flow the user works through in order.
+let clarifyState={};
+
+function beginClarifyQA(n){
+  const raw=document.getElementById('clarifyConfirmedText-'+n).value;
+  const questions=raw.split('\n').map(q=>q.trim()).filter(Boolean);
+  if(!questions.length){alert('Type at least one confirmed question first.');return;}
+  clarifyState[n]={questions,answers:[],idx:0};
+  document.getElementById('clarifyMatchWrap-'+n).style.display='none';
+  document.getElementById('clarifyAskWrap-'+n).style.display='block';
+  renderClarifyQuestion(n);
+}
+
+function renderClarifyQuestion(n){
+  const st=clarifyState[n];
+  document.getElementById('clarifyAskProgress-'+n).textContent=`Question ${st.idx+1} of ${st.questions.length}`;
+  document.getElementById('clarifyAskQuestion-'+n).textContent=st.questions[st.idx];
+  const answerEl=document.getElementById('clarifyAskAnswer-'+n);
+  answerEl.value='';
+  markNeedsInput(answerEl);
+}
+
+function answerClarifyQuestion(n){
+  const st=clarifyState[n];
+  const answer=document.getElementById('clarifyAskAnswer-'+n).value.trim();
+  if(!answer)return;
+  st.answers.push(answer);
+  st.idx++;
+  if(st.idx<st.questions.length){
+    renderClarifyQuestion(n);
+    return;
+  }
+  // Every confirmed question answered - show the recap and let Amit
+  // synthesize the refined question for the next round.
+  document.getElementById('clarifyAskWrap-'+n).style.display='none';
+  const recap=st.questions.map((q,i)=>`${q}\n${st.answers[i]}`).join('\n\n');
+  document.getElementById('clarifyQARecap-'+n).textContent=recap;
+  document.getElementById('clarifySynthesizeWrap-'+n).style.display='block';
+  markNeedsInput(document.getElementById('clarifySynthesisText-'+n));
+}
+
+// "I'm comfortable with this" - saves Amit's rewritten question as this
+// round's synthesis (the real council_rounds.synthesis column, unused
+// until now) and as the prompt the NEXT round actually opens with, then
+// reveals the Convene/Problem Solved choice. Ryan's direct instruction,
+// 2026-07-22: only pressing Convene from here actually finalizes anything -
+// this step just prepares what gets carried forward.
+async function confirmClarifySynthesis(n){
+  const synthesis=document.getElementById('clarifySynthesisText-'+n).value.trim();
+  if(!synthesis){alert('Write the refined clarifying question first.');return;}
+  const round=activeRounds.find(r=>r.round_number===n);
+  await db.from('council_rounds').update({synthesis}).eq('id',round.id);
+  round.synthesis=synthesis;
+  document.getElementById('clarifySynthesizeWrap-'+n).style.display='none';
   document.getElementById('startNextRoundWrap-'+n).style.display='flex';
 }
 
@@ -1268,7 +1371,17 @@ async function startNextRound(completedN){
     .select('provenance,body').eq('round_id',completedRound.id).order('created_at',{ascending:true});
   const summary=(evidence||[]).map(e=>`${e.provenance}: ${e.body}`).join('\n\n');
   const nextN=completedN+1;
-  const nextPrompt=`THE ORIGINAL QUESTION: ${activeRounds[0].prompt_text}\n\nWHAT HAPPENED IN ROUND ${completedN}:\n${summary}\n\nBased on everything above, this is Round ${nextN}. Continue the deliberation, building directly on what Round ${completedN} produced.`;
+  // Ryan's direct instruction, 2026-07-22: when this round went through the
+  // real Clarification pipeline (confirmed questions asked one at a time,
+  // Amit's rewritten question confirmed), THAT synthesized question is what
+  // the next round actually opens with - not a generic "continue the
+  // deliberation" placeholder. Falls back to the old generic framing for
+  // any round that didn't go through that pipeline (e.g. investigation
+  // rounds, which don't re-run the match-and-ask cycle).
+  const st=clarifyState[completedN];
+  const nextPrompt=completedRound.synthesis
+    ?completedRound.synthesis
+    :`THE ORIGINAL QUESTION: ${activeRounds[0].prompt_text}\n\nWHAT HAPPENED IN ROUND ${completedN}:\n${summary}\n\nBased on everything above, this is Round ${nextN}. Continue the deliberation, building directly on what Round ${completedN} produced.`;
   // Ryan's direct instruction, 2026-07-22: the roster identified once on
   // Scope is who's on the council for the ENTIRE run of this session - it
   // carries forward automatically to every future round, never re-picked.
@@ -1281,10 +1394,15 @@ async function startNextRound(completedN){
   // Diary: refresh the "current solution" section (DOM-updated in place,
   // not string regex - more robust) and append this round's log entry.
   // Ryan's direct instruction, 2026-07-22 - the diary is the living,
-  // printable record of the session.
+  // printable record of the session. When the clarify pipeline actually
+  // ran, log the real confirmed questions, the user's real answers, and
+  // Amit's rewritten question - not just the raw voice-by-voice dump.
   const session=councilSessions.find(s=>s.id===activeSessionId);
   const diaryEl=document.getElementById('diaryText');
   const phaseLabel=PHASE_LABELS[completedRound.phase]||('Round '+completedN);
+  const diaryBody=(st&&completedRound.synthesis)
+    ?`Confirmed clarifying questions and answers:\n\n${st.questions.map((q,i)=>`${q}\n${st.answers[i]}`).join('\n\n')}\n\nRewritten clarifying question for the next round:\n${completedRound.synthesis}`
+    :summary;
 
   let solHeader=document.getElementById('diarySolutionHeader');
   let solBody=document.getElementById('diarySolutionBody');
@@ -1295,9 +1413,9 @@ async function startNextRound(completedN){
     solBody=document.getElementById('diarySolutionBody');
   }
   solHeader.textContent='Current Solution (as of Round '+completedN+')';
-  solBody.textContent=summary;
+  solBody.textContent=diaryBody;
 
-  diaryEl.insertAdjacentHTML('beforeend',diaryEntryHTML('Round '+completedN+' — '+phaseLabel,summary));
+  diaryEl.insertAdjacentHTML('beforeend',diaryEntryHTML('Round '+completedN+' — '+phaseLabel,diaryBody));
 
   const html=diaryEl.innerHTML;
   await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
