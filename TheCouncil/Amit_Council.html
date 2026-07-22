@@ -146,7 +146,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.56</div>
+    <div class="page-version" id="pageVersion">v4.57</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -527,6 +527,7 @@ function renderRoundTabs(){
               <button type="button" id="roundtableOpenBtn-${n}" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Open <span id="roundtableVoiceName-${n}">—</span>'s site ↗</button>
               <button type="button" id="roundtableCopyBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the prompt</button>
             </div>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">The prompt now asks each voice to end with a "===== END OF ANSWER =====" marker line — copy everything from the start of its reply down to that line, then paste it below.</p>
             <textarea id="roundtableAnswerText-${n}" placeholder="Paste this voice's full answer here..." style="width:100%;min-height:140px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
             <button type="button" id="roundtableSaveBtn-${n}" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save and go to next voice</button>
           </div>
@@ -584,7 +585,7 @@ async function renderOneRoundState(round){
     window.open(PROVIDER_URLS[nextVoice]||('https://www.google.com/search?q='+encodeURIComponent(nextVoice)),'_blank');
   };
   document.getElementById('roundtableCopyBtn-'+n).onclick=async()=>{
-    const prompt=`Cold-start briefing: I'm Ryan, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." You are being invited as one independent voice in this round. You have no memory of any prior round - this prompt gives you everything you need.\n\n${round.prompt_text}\n\nWrite your full answer as one continuous piece of plain text, formatted one per line as:\nQuestion text here | What this question is trying to uncover`;
+    const prompt=`Cold-start briefing: I'm Ryan, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." You are being invited as one independent voice in this round. You have no memory of any prior round - this prompt gives you everything you need.\n\n${round.prompt_text}\n\nWrite your full answer as one continuous piece of plain text, formatted one per line as:\nQuestion text here | What this question is trying to uncover\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
     try{await navigator.clipboard.writeText(prompt);
       document.getElementById('roundtableStatus-'+n).textContent='Prompt copied — paste it into '+nextVoice+'.';
     }catch(e){alert('Could not copy — select and copy the prompt manually.');}
