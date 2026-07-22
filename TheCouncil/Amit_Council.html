@@ -278,6 +278,25 @@
   #consensusNoOptions button{ background:var(--gold); color:#1a1206; border:none; padding:9px 16px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; margin-top:8px; }
   #startRound2Btn, #startRound3Btn{ display:none; background:var(--gold); color:#1a1206; border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; width:100%; margin-top:6px; }
   #startRound2Btn.show, #startRound3Btn.show{ display:block; }
+
+  /* NEW — landing gate: the very first screen on arrival, before dropping
+     into any specific topic. Ryan's direct request 2026-07-21: "do you
+     wanna revisit an old one, or create a new one" as the actual first
+     question, not landing straight in the showcase. */
+  .landingCard{ background:var(--panel); border:1px solid var(--gold-dim); border-radius:14px; max-width:560px; width:100%; padding:32px 34px; max-height:82vh; overflow-y:auto; }
+  .landingCard h2{ margin:0 0 6px; font-size:20px; color:var(--gold); font-family:Georgia,serif; }
+  .landingCard p{ margin:0 0 18px; color:var(--text-dim); font-size:13px; line-height:1.5; }
+  .landingCard .landingRow{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 0; border-bottom:1px solid var(--border); font-size:14px;
+  }
+  .landingCard .landingRow:last-child{ border-bottom:none; }
+  .landingCard .landingRow a{ color:var(--text); text-decoration:none; flex:1; }
+  .landingCard .landingRow a:hover{ color:var(--gold); }
+  .landingCard .landingRow .status{ font-size:10px; text-transform:uppercase; letter-spacing:.4px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); color:var(--text-faint); }
+  .landingCard .landingRow .status.resolved{ color:var(--good); border-color:var(--good); }
+  .landingCard .newBtn{ display:block; width:100%; margin-top:18px; background:var(--gold); color:#1a1206; border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; }
+  .landingCard .skipLink{ display:block; text-align:center; margin-top:10px; color:var(--text-faint); font-size:12px; cursor:pointer; }
 </style>
 
 <header>
@@ -357,7 +376,7 @@
     </div>
   </div>
 </div>
-<div class="versionBadge">v4.38</div>
+<div class="versionBadge">v4.39</div>
 <button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
 <div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
@@ -514,6 +533,18 @@
     <div class="qText" id="clarifyQText">—</div>
     <textarea id="clarifyAnswerText" placeholder="Your answer..."></textarea>
     <button id="clarifySaveBtn" type="button">Save and continue</button>
+  </div>
+</div>
+
+<!-- NEW — the landing gate: first thing shown on arrival with no ?topic=
+     in the URL. Revisit an existing session, or start a new one. -->
+<div class="modalOverlay" id="landingGate" style="display:flex">
+  <div class="landingCard">
+    <h2>Welcome to The Council</h2>
+    <p id="landingSubtext">Every session, one place. Revisit one already running, or start a new one.</p>
+    <div id="landingRows">Loading sessions...</div>
+    <button class="newBtn" id="landingNewBtn" type="button">Start a new Council session</button>
+    <span class="skipLink" id="landingViewShowcaseBtn">‹ or just watch the origin session, no sign-in needed</span>
   </div>
 </div>
 
@@ -1355,6 +1386,31 @@ if (TOPIC_ID !== SHOWCASE_TOPIC_ID) document.getElementById('currentTopicLink').
 
 // Real SDK session check - this is what actually picks up the Hub's
 // sign-in via shared localStorage, no separate flow on this page at all.
+// NEW — landing gate: the real first screen. Only shows on a bare arrival
+// (no ?topic= in the URL) - a direct link to a specific topic skips it.
+function hideLandingGate(){ document.getElementById('landingGate').style.display = 'none'; }
+async function loadLandingGate(){
+  const rows = document.getElementById('landingRows');
+  if (!session || !currentUser){
+    rows.innerHTML = '<p style="color:var(--text-faint);font-size:13px;">Sign in above (via the Hub) to see your own Council sessions.</p>';
+    return;
+  }
+  try {
+    const mine = await sb(`council_topics?user_id=eq.${currentUser.id}&select=id,title,status&order=created_at.desc`, { authed:true });
+    if (!mine.length){
+      rows.innerHTML = '<p style="color:var(--text-faint);font-size:13px;">No sessions of your own yet — start your first one below.</p>';
+      return;
+    }
+    rows.innerHTML = mine.map(t => `<div class="landingRow"><a href="#" data-topic="${t.id}">${t.title}</a><span class="status ${t.status}">${t.status}</span></div>`).join('');
+    rows.querySelectorAll('a[data-topic]').forEach(a => {
+      a.onclick = (e) => { e.preventDefault(); switchToTopic(a.dataset.topic); hideLandingGate(); };
+    });
+  } catch(e){ console.error(e); rows.textContent = 'Could not load your sessions.'; }
+}
+document.getElementById('landingNewBtn').onclick = () => { hideLandingGate(); document.getElementById('newTopicText').focus(); };
+document.getElementById('landingViewShowcaseBtn').onclick = () => { switchToTopic(SHOWCASE_TOPIC_ID); hideLandingGate(); };
+if (new URLSearchParams(location.search).get('topic')) hideLandingGate();
+
 db.auth.getSession().then(({ data: { session: sbSession } }) => {
   if (sbSession){
     session = sbSession;
@@ -1363,11 +1419,13 @@ db.auth.getSession().then(({ data: { session: sbSession } }) => {
   } else {
     renderAuthbar(null);
   }
+  loadLandingGate();
 });
 db.auth.onAuthStateChange((event, sbSession) => {
   session = sbSession;
   currentUser = sbSession ? sbSession.user : null;
   renderAuthbar(currentUser);
+  loadLandingGate();
 });
 
 initCanvas();
