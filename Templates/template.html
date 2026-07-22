@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Council</title>
+<title>Template</title>
 <link rel="icon" type="image/png" href="../amit_icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -131,8 +131,8 @@ header{
 
 <header>
   <div class="page-title-wrap">
-    <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.44</div>
+    <div class="page-title" id="pageTitle">Template</div>
+    <div class="page-version" id="pageVersion">v1.00</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -201,28 +201,8 @@ const PLACEHOLDER_COUNT=20;
     if(i===1||i===2){
       let tabNavHtml='',tabContentHtml='';
       for(let t=1;t<=5;t++){
-        const tabLabel=(i===2&&t===1)?'Scope':'Tab '+t;
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})">${tabLabel}</button>`;
-        // Session 1 (panel 2), Tab 1: the real entry point - what the user
-        // is actually asking the Council to convene on. Ryan's direct
-        // instruction, 2026-07-22.
-        const body=(i===2&&t===1)
-          ? `<div style="max-width:640px">
-              <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
-                <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);white-space:nowrap">Title</div>
-                <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" oninput="updateCouncilPageTitle(2,this.value)" tabindex="1" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
-                <div style="color:var(--muted);font-size:12px;white-space:nowrap">Max. 20</div>
-              </div>
-
-              <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin:20px 0 6px">What is the request of the Council?</div>
-              <div style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:16px">Write out the real problem you want the Council to work on — as much detail as it takes. This becomes the question the Council convenes around.</div>
-              <textarea id="councilRequestText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..." tabindex="2" style="width:100%;min-height:160px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:14px;font-size:14px;line-height:1.6;font-family:inherit;resize:vertical"></textarea>
-
-              <button id="councilRequestBtn" type="button" tabindex="3" onclick="conveneCouncil()" style="margin-top:16px;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;display:block">Convene the Council</button>
-              <div id="conveneStatus" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
-            </div>`
-          : `Tab ${t} content goes here`;
-        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${body}</div>`;
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})">Tab ${t}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">Tab ${t} content goes here</div>`;
       }
       panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
@@ -257,57 +237,6 @@ function openPanel(n){
   const panel=document.getElementById('panel-'+n);
   if(tile)tile.classList.add('active');
   if(panel)panel.classList.add('active');
-}
-
-// Ryan's direct instruction, 2026-07-22: the Council Title field on Page
-// 2's Scope tab (max 20 chars) becomes that page's actual title - the
-// sidebar tile name and the panel's own heading, live as it's typed.
-// Reactive UI only right now, no persistence yet.
-function updateCouncilPageTitle(pageNum,value){
-  const display=value.trim()||'Session 1';
-  const tileName=document.querySelector('#tile-'+pageNum+' .tile-name');
-  const panelHeading=document.querySelector('#panel-'+pageNum+' .panel-heading');
-  if(tileName)tileName.textContent=display;
-  if(panelHeading)panelHeading.textContent=display;
-}
-
-// Ryan's direct instruction, 2026-07-22: Convene writes for real, straight
-// into the existing council_ schema (council_topics + council_rounds) -
-// same tables Amit_Council2.html already uses. Round 1 always starts in
-// the Clarification phase, per the standing procedure. Picking the actual
-// AI roster and writing the real investigation prompt is Amit's own live
-// judgment call in conversation, not something this static page computes -
-// this just gets the topic and Round 1 correctly saved so that work has
-// somewhere real to attach to.
-async function conveneCouncil(){
-  const statusEl=document.getElementById('conveneStatus');
-  if(!currentUser){statusEl.textContent='Sign in first.';statusEl.style.color='#e08a8a';return;}
-  const title=document.getElementById('councilTitleText').value.trim();
-  const request=document.getElementById('councilRequestText').value.trim();
-  if(!title){statusEl.textContent='Give it a title first.';statusEl.style.color='#e08a8a';return;}
-  if(!request){statusEl.textContent='Write the actual request first.';statusEl.style.color='#e08a8a';return;}
-  const btn=document.getElementById('councilRequestBtn');
-  btn.disabled=true;btn.textContent='Convening...';
-  statusEl.textContent='';
-  try{
-    const{data:topic,error:topicErr}=await db.from('council_topics').insert({
-      user_id:currentUser.id, title:title, original_question:request
-    }).select().single();
-    if(topicErr)throw topicErr;
-    const{error:roundErr}=await db.from('council_rounds').insert({
-      topic_id:topic.id, round_number:1, prompt_text:request, phase:'clarification'
-    });
-    if(roundErr)throw roundErr;
-    updateCouncilPageTitle(2,title);
-    statusEl.textContent='Saved — topic and Round 1 created in the database.';
-    statusEl.style.color='rgba(120,200,150,.9)';
-  }catch(e){
-    console.error(e);
-    statusEl.textContent='Could not save — '+(e.message||'check console')+(e.message&&e.message.includes('row-level security')?' (this account may need premium access)':'');
-    statusEl.style.color='#e08a8a';
-  }finally{
-    btn.disabled=false;btn.textContent='Convene the Council';
-  }
 }
 
 // Double-click anywhere in the sidebar collapses it to icon-only, or
@@ -383,9 +312,7 @@ async function submitSyncEmail(){
 // CLOCK / GREETING — visual only, no data behind it
 // ══════════════════════════════════════════════
 // Same localStorage key the Hub uses (same origin, shared automatically) -
-// this is how the Hub recognizes who's signed in and greets them by name.
-// Ryan's direct correction, 2026-07-22: this page must recognize the same
-// login the Hub already knows about, not show a nameless generic greeting.
+// this is how any page recognizes who's signed in and greets them by name.
 const AMIT_NAME_KEY='amit_user_name';
 function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
 
