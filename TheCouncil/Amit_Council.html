@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.89</div>
+    <div class="page-version" id="pageVersion">v4.91</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -906,7 +906,7 @@ function renderRoundTabs(){
               <button type="button" id="roundtableOpenAllBtn-${n}" style="background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Open All Councilmen &amp; Copy the Question</button>
               <button type="button" id="roundtableCopyAgainBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:10px 18px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the Question Again</button>
             </div>
-            <p style="color:var(--muted);font-size:11px;margin:0 0 16px;font-style:italic">Opens every pending voice's site in its own tab (reusing any that are already open) and copies the shared question to your clipboard — paste it into each one and press Enter. Lost the copy or pasted it wrong? "Copy the Question Again" re-copies it without reopening tabs. Double-click a name on the wheel to reopen that voice's page if you closed it. Each answer ends with an "===== END OF ANSWER =====" marker so you know it's finished — most AI chat pages show a copy icon right under their own message, so just click that to grab the whole response in one go, then paste it into that voice's box below. No need to manually select the text.</p>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 16px;font-style:italic">Opens every pending voice's site in its own tab (reusing any that are already open) and copies the shared question to your clipboard — paste it into each one and press Enter. Some browsers/extensions only allow one popup per click no matter what - if that happens, use the ↗ next to each voice's answer box below to open that one site directly; a real link click always gets through. Lost the copy or pasted it wrong? "Copy the Question Again" re-copies it without reopening tabs. Double-click a name on the wheel to reopen that voice's page if you closed it. Each answer ends with an "===== END OF ANSWER =====" marker so you know it's finished — most AI chat pages show a copy icon right under their own message, so just click that to grab the whole response in one go, then paste it into that voice's box below. No need to manually select the text.</p>
             <div id="roundtableAnswerBoxes-${n}" style="display:flex;flex-direction:column;gap:16px"></div>
           </div>
           <div id="processPetitionWrap-${n}" style="display:none;margin-top:14px">
@@ -1048,10 +1048,21 @@ async function renderOneRoundState(round){
   const outsidePending=pending.filter(v=>v!=='Amit');
   const visiblePending=outsidePending.length?outsidePending:pending;
   const boxesHost=document.getElementById('roundtableAnswerBoxes-'+n);
-  boxesHost.innerHTML=visiblePending.map((voice,idx)=>`<div style="display:flex;align-items:center;gap:12px">
-    <div ondblclick="openOrReuseVoiceTab('${voice.replace(/'/g,"\\'")}')" title="Double-click to open/reopen ${voice}'s site" style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 130px;white-space:nowrap;cursor:pointer">${voice}'s Answer</div>
+  // Per-voice "Open ↗" is a REAL anchor with target="_blank", not a
+  // scripted window.open() call - genuine anchor clicks are essentially
+  // never blocked, even when a browser/extension throttles "Open All" to
+  // just one popup per click despite everything firing synchronously.
+  // Ryan's direct instruction, 2026-07-22: this is the guaranteed fallback
+  // when the one-button convenience gets blocked.
+  boxesHost.innerHTML=visiblePending.map((voice,idx)=>{
+    const url=PROVIDER_URLS[voice];
+    const openLink=url?`<a href="${url}" target="_blank" rel="noopener" title="Open ${voice}'s site" style="color:var(--gold2);text-decoration:none;font-size:15px;flex:0 0 auto">↗</a>`:'';
+    return `<div style="display:flex;align-items:center;gap:12px">
+    ${openLink}
+    <div ondblclick="openOrReuseVoiceTab('${voice.replace(/'/g,"\\'")}')" title="Double-click to open/reopen ${voice}'s site" style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 116px;white-space:nowrap;cursor:pointer">${voice}'s Answer</div>
     <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="saveVoiceAnswer(${n},${idx})" placeholder="Paste ${voice}'s full answer here..." style="flex:1;height:40px;min-height:40px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;line-height:1.4;font-family:inherit;resize:vertical"></textarea>
-  </div>`).join('');
+  </div>`;
+  }).join('');
   boxesHost.dataset.pending=JSON.stringify(visiblePending);
   if(visiblePending.length)markNeedsInput(document.getElementById('voiceAnswerText-'+n+'-0'));
 
@@ -1102,8 +1113,9 @@ async function copyRoundtablePrompt(round,n){
     ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Do not expound, explain your reasoning, or add any commentary. Just the two questions, formatted exactly like this and nothing else:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
     :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
   const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
+  const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block (some chat interfaces split a code block into several separately-copyable chunks instead of one, which breaks this). Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time, anywhere in this single response, and have that one press copy your entire answer from top to bottom - I should never have to scroll through your page hunting for a separate copy control partway through your reply.`;
   const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-  const prompt=`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${endMarker}`;
+  const prompt=`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
   try{
     await navigator.clipboard.writeText(prompt);
     document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
