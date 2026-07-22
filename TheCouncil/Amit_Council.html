@@ -180,7 +180,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.63</div>
+    <div class="page-version" id="pageVersion">v4.64</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -278,7 +278,7 @@ header{
           <div style="flex:1;overflow-y:auto;min-height:0;padding-right:20px">
             <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
               <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);white-space:nowrap">Title</div>
-              <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" tabindex="1" onblur="renameSession()" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
+              <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" tabindex="1" oninput="updateCouncilPageTitle(2,this.value)" onblur="renameSession()" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
               <div style="color:var(--muted);font-size:12px;white-space:nowrap">Max. 20</div>
               <button id="newCouncilRequestBtn" type="button" onclick="startNewCouncilRequest()" style="margin-left:auto;background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:8px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">New Council Request</button>
             </div>
@@ -317,24 +317,18 @@ header{
              round-by-round log. Grows as rounds complete. Ryan's direct
              instruction, 2026-07-22. -->
         <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px 0 20px 20px;display:flex;flex-direction:column;overflow:hidden">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-shrink:0;padding-right:20px">
-            <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Ruling</div>
-            <div style="display:flex;gap:8px">
-              <button type="button" onclick="saveDiary()" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:6px 12px;border-radius:6px;font-weight:600;font-size:11px;cursor:pointer">Save</button>
-              <button type="button" onclick="printDiary()" style="background:var(--gold);color:#1a1206;border:none;padding:6px 12px;border-radius:6px;font-weight:700;font-size:11px;cursor:pointer">Print Preview</button>
-            </div>
-          </div>
+          <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;flex-shrink:0;padding-right:20px">Ruling</div>
           <div id="diaryText" contenteditable="true" data-placeholder="The diary populates once a session is convened and rounds begin..." style="flex:1;margin-right:20px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.2);color:var(--text);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;font-family:'Crimson Pro',Georgia,serif;overflow-y:auto"></div>
         </div>
       </div><span id="roundTabContentSlot"></span>`;
     }
-    const actionBarHtml=i===2?`<div style="display:flex;justify-content:flex-end;gap:8px;padding:0 0 8px">
+    const actionBarHtml=i===2?`<div style="display:flex;gap:8px;margin-left:auto">
+      <button type="button" onclick="saveDiary()" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:7px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">Save</button>
       <button type="button" onclick="printDiary()" style="background:var(--gold);color:#1a1206;border:none;padding:7px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">Print Preview</button>
       <button type="button" onclick="deleteCurrentTab()" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.45);padding:7px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">Delete</button>
     </div>`:'';
     panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
-      <div class="panel-head"><span class="panel-heading">${label}</span></div>
-      ${actionBarHtml}
+      <div class="panel-head"><span class="panel-heading" id="panel-heading-${i}">${label}</span>${actionBarHtml}</div>
       <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
       <div class="ch-tab-main">${tabContentHtml}</div>
     </div>`;
@@ -426,6 +420,7 @@ async function loadSessionIntoWorkspace(session,switchView){
   activeSessionId=session.id;
   resetVoiceTabs();
   document.getElementById('councilTitleText').value=session.title||'';
+  updateCouncilPageTitle(2,session.title||'');
   document.getElementById('councilRequestText').value=session.original_question||'';
   // Ryan's direct instruction, 2026-07-22: an existing session doesn't ask
   // "what's the request" as if it's new - it states who requested it and
@@ -551,6 +546,7 @@ function startNewCouncilRequest(){
   document.getElementById('requestHeading').textContent='What is the request of the Council?';
   document.getElementById('requestSubtext').style.display='block';
   document.getElementById('scopeCouncilChat').style.display='none';
+  updateCouncilPageTitle(2,'');
   renderSessionTiles();
   renderRoundTabs();
   document.getElementById('councilTitleText').focus();
@@ -987,10 +983,8 @@ function openPanel(n){
 // sidebar tile name and the panel's own heading, live as it's typed.
 // Reactive UI only right now, no persistence yet.
 function updateCouncilPageTitle(pageNum,value){
-  const display=value.trim()||'Session 1';
-  const tileName=document.querySelector('#tile-'+pageNum+' .tile-name');
-  const panelHeading=document.querySelector('#panel-'+pageNum+' .panel-heading');
-  if(tileName)tileName.textContent=display;
+  const display=value.trim()||'Current Council';
+  const panelHeading=document.getElementById('panel-heading-'+pageNum);
   if(panelHeading)panelHeading.textContent=display;
 }
 
