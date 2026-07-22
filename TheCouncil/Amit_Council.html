@@ -196,7 +196,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.79</div>
+    <div class="page-version" id="pageVersion">v4.80</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -944,7 +944,11 @@ async function renderOneRoundState(round){
     // trust, so every window.open() past the first got silently blocked as
     // a popup - only DeepSeek got through. Every tab must open synchronously,
     // right here in the click handler, before any await happens.
-    pending.forEach(voice=>openOrReuseVoiceTab(voice));
+    // Amit has no external site - it answers directly in its own box, no
+    // tab needed. Opening one for it was worse than a no-op: it grabbed the
+    // browser's per-click popup allowance, silently blocking the real AI
+    // tabs from opening at all. Ryan's direct correction, 2026-07-22.
+    pending.filter(voice=>voice!=='Amit').forEach(voice=>openOrReuseVoiceTab(voice));
     // Bring focus back to THIS window/tab so the user lands back on the
     // Council, not stuck on whichever voice's tab the browser switched to.
     // Also kept synchronous, before the clipboard await, for the same
@@ -963,6 +967,7 @@ async function renderOneRoundState(round){
 // from earlier - shared by the "Open All" button and double-clicking a
 // name on the wheel (in case the user closed the tab and lost it).
 function openOrReuseVoiceTab(voice){
+  if(voice==='Amit')return; // Amit has no external site and never gets a tab - it's not one of the outside voices, it answers directly
   const existing=openVoiceTabs[voice];
   if(existing&&!existing.closed){existing.focus();return;}
   const w=window.open(PROVIDER_URLS[voice]||('https://www.google.com/search?q='+encodeURIComponent(voice)),'_blank');
