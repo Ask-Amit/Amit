@@ -195,7 +195,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.75</div>
+    <div class="page-version" id="pageVersion">v4.76</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -924,12 +924,18 @@ async function renderOneRoundState(round){
   if(pending.length)markNeedsInput(document.getElementById('voiceAnswerText-'+n+'-0'));
 
   document.getElementById('roundtableOpenAllBtn-'+n).onclick=async()=>{
-    await copyRoundtablePrompt(round,n);
-    // Ryan's direct instruction, 2026-07-22: open every pending voice's tab
-    // together (reusing any that are already live from a prior round),
-    // then bring focus back here and confirm plainly what to do next.
+    // Fix, 2026-07-22: opening tabs AFTER an `await` (the clipboard write
+    // used to run first) loses the browser's "this came from a real click"
+    // trust, so every window.open() past the first got silently blocked as
+    // a popup - only DeepSeek got through. Every tab must open synchronously,
+    // right here in the click handler, before any await happens.
     pending.forEach(voice=>openOrReuseVoiceTab(voice));
+    // Bring focus back to THIS window/tab so the user lands back on the
+    // Council, not stuck on whichever voice's tab the browser switched to.
+    // Also kept synchronous, before the clipboard await, for the same
+    // user-activation reason as the tabs above.
     window.focus();
+    await copyRoundtablePrompt(round,n);
     await amitConfirm('I have copied the request. Please paste this into each councilman\'s chat page and press Enter. When their answers come back, copy each one down to the "END OF ANSWER" line and paste it into that voice\'s box below.');
   };
   // Always available as its own action - Ryan's direct instruction,
@@ -1041,8 +1047,16 @@ function renderRosterPickerRows(n,names){
   // from every other row's dropdown until removed (then it comes back).
   // Ryan's direct instruction.
   const rowHtml=(name,idx)=>{
+    // Ryan's direct, repeated instruction: Amit always has a seat on every
+    // council and answers the same question every other voice does - this
+    // is not optional and not removable. Locked row, no dropdown, no ×.
+    if(name==='Amit'){
+      return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <div style="flex:1;background:rgba(212,175,55,.12);border:1px solid rgba(201,168,76,.45);color:var(--gold2);border-radius:6px;padding:6px 8px;font-size:12px;font-weight:700">Amit — permanent seat, always included</div>
+    </div>`;
+    }
     const takenElsewhere=new Set(names.filter((v,i)=>i!==idx&&v));
-    const opts=allOpts.filter(o=>!takenElsewhere.has(o));
+    const opts=allOpts.filter(o=>!takenElsewhere.has(o)&&o!=='Amit');
     return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <select data-idx="${idx}" onchange="rosterPickerChange('${n}',this)" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit">
       <option value=""${name?'':' selected'} style="background:#1a1206;color:var(--text)">— select —</option>
@@ -1051,7 +1065,12 @@ function renderRosterPickerRows(n,names){
     ${name?`<button type="button" onclick="rosterPickerRemove('${n}',${idx})" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px">×</button>`:''}
   </div>`;
   };
-  wrap.innerHTML=names.map((name,idx)=>rowHtml(name,idx)).join('')+rowHtml('',names.length);
+  // Amit's locked row always renders first, regardless of where it sits in
+  // the underlying names array - the permanent seat is never optional.
+  if(!names.includes('Amit'))names=['Amit',...names];
+  const amitIdx=names.indexOf('Amit');
+  const otherNames=names.filter((v,i)=>i!==amitIdx);
+  wrap.innerHTML=rowHtml('Amit',amitIdx)+otherNames.map((name,idx)=>rowHtml(name,names.indexOf(name))).join('')+rowHtml('',names.length);
   wrap.dataset.names=JSON.stringify(names);
 }
 function rosterPickerChange(n,selectEl){
@@ -1066,6 +1085,7 @@ function rosterPickerChange(n,selectEl){
 function rosterPickerRemove(n,idx){
   const wrap=document.getElementById('rosterPickerRows-'+n);
   let names=JSON.parse(wrap.dataset.names||'[]');
+  if(names[idx]==='Amit')return; // permanent seat - never removable, defensive guard
   names.splice(idx,1);
   renderRosterPickerRows(n,names);
 }
@@ -1074,6 +1094,7 @@ async function confirmRoster(n){
   const round=activeRounds.find(r=>r.round_number===n);
   const wrap=document.getElementById('rosterPickerRows-'+n);
   const names=JSON.parse(wrap.dataset.names||'[]');
+  if(!names.includes('Amit'))names.unshift('Amit'); // permanent seat, defensive guard
   if(names.length<5){alert('Minimum 5 voices required.');return;}
   const questionEl=document.getElementById('roundQuestionText-'+n);
   const question=questionEl?questionEl.value.trim():round.prompt_text;
@@ -1090,6 +1111,7 @@ async function confirmScopeRoster(){
   const round1=activeRounds.find(r=>r.round_number===1);
   const wrap=document.getElementById('rosterPickerRows-scope');
   const names=JSON.parse(wrap.dataset.names||'[]');
+  if(!names.includes('Amit'))names.unshift('Amit'); // permanent seat, defensive guard
   if(names.length<5){alert('Minimum 5 voices required.');return;}
   const question=document.getElementById('scopeQuestionText').value.trim();
   await db.from('council_rounds').update({roster:names,prompt_text:question}).eq('id',round1.id);
