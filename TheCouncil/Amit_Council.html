@@ -195,7 +195,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.69</div>
+    <div class="page-version" id="pageVersion">v4.70</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -315,7 +315,7 @@ header{
 
             <div id="requestHeading" style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin:20px 0 6px">What is the request of the Council?</div>
             <div id="requestSubtext" style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:16px">Write out the real problem you want the Council to work on — as much detail as it takes. This becomes the question the Council convenes around.</div>
-            <textarea id="councilRequestText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..." tabindex="2" style="width:100%;min-height:160px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:14px;font-size:14px;line-height:1.6;font-family:inherit;resize:vertical"></textarea>
+            <textarea id="councilRequestText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..." tabindex="2" oninput="autoGrowTextarea(this)" style="width:100%;height:44px;min-height:44px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:14px;font-size:14px;line-height:1.6;font-family:inherit;resize:vertical"></textarea>
 
             <button id="councilRequestBtn" type="button" tabindex="3" onclick="conveneCouncil()" style="margin-top:16px;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;display:block">Submit Request</button>
             <div id="conveneStatus" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
@@ -335,7 +335,7 @@ header{
               </div>
               <div style="align-self:flex-end;max-width:88%;width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px">
                 <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div>
-                <textarea id="scopeQuestionText" style="width:100%;min-height:90px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+                <textarea id="scopeQuestionText" oninput="autoGrowTextarea(this)" style="width:100%;height:40px;min-height:40px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
               </div>
               <button type="button" onclick="confirmScopeRoster()" style="align-self:flex-start;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button>
             </div>
@@ -452,6 +452,7 @@ async function loadSessionIntoWorkspace(session,switchView){
   document.getElementById('councilTitleText').value=session.title||'';
   updateCouncilPageTitle(2,session.title||'');
   document.getElementById('councilRequestText').value=session.original_question||'';
+  autoGrowTextarea(document.getElementById('councilRequestText'));
   // Ryan's direct instruction, 2026-07-22: an existing session doesn't ask
   // "what's the request" as if it's new - it states who requested it and
   // just displays what was actually asked, no submission prompt.
@@ -470,6 +471,7 @@ async function loadSessionIntoWorkspace(session,switchView){
   if(round1&&round1.roster&&round1.roster.length){
     document.getElementById('scopeCouncilChat').style.display='flex';
     document.getElementById('scopeQuestionText').value=round1.prompt_text||'';
+    autoGrowTextarea(document.getElementById('scopeQuestionText'));
     renderRosterPickerRows('scope',round1.roster.slice());
   } else {
     document.getElementById('scopeCouncilChat').style.display='none';
@@ -533,6 +535,19 @@ function printDiary(){
 // Ryan's direct instruction, 2026-07-22: this is a standing rule for every
 // page/tab in The Council, not a one-off - whatever's next always blinks
 // and sits centered, so the user is never left hunting for it.
+// Every question/answer textarea starts at one row and grows with the
+// content, up to about 3 rows - past that, the existing resize:vertical
+// handle (bottom-right corner drag) takes over for manual expansion, so
+// auto-grow never fights a size the user picked on purpose. Ryan's direct
+// instruction, 2026-07-22.
+function autoGrowTextarea(el){
+  const capPx=92;
+  const curH=parseFloat(el.style.height)||0;
+  if(curH>=capPx && el.scrollHeight>=capPx)return; // already at/above cap or user-resized bigger - leave it alone
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,capPx)+'px';
+}
+
 function markNeedsInput(el){
   if(!el)return;
   document.querySelectorAll('.needs-input').forEach(e=>{if(e!==el)e.classList.remove('needs-input');});
@@ -794,7 +809,7 @@ function renderRoundTabs(){
               <button type="button" id="roundtableCopyBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the prompt</button>
             </div>
             <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">The prompt now asks each voice to end with a "===== END OF ANSWER =====" marker line — copy everything from the start of its reply down to that line, then paste it below.</p>
-            <textarea id="roundtableAnswerText-${n}" placeholder="Paste this voice's full answer here..." style="width:100%;min-height:140px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <textarea id="roundtableAnswerText-${n}" placeholder="Paste this voice's full answer here..." oninput="autoGrowTextarea(this)" style="width:100%;height:44px;min-height:44px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
             <button type="button" id="roundtableSaveBtn-${n}" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save and go to next voice</button>
           </div>
           <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px">
@@ -930,10 +945,11 @@ function initRoundChat(round){
   thread.innerHTML=
     bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em">Identifying correct council...</div>`,'amit')+
     bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:10px">Councilmen Selected — change, add, or remove as you see fit</div><div id="rosterPickerRows-${n}"></div>`,'amit')+
-    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div><textarea id="roundQuestionText-${n}" style="width:100%;min-height:90px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">Help identify the clarifying questions that would uncover the real scope of work behind: "${round.prompt_text}"</textarea>`,'amit')+
+    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div><textarea id="roundQuestionText-${n}" oninput="autoGrowTextarea(this)" style="width:100%;height:40px;min-height:40px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">Help identify the clarifying questions that would uncover the real scope of work behind: "${round.prompt_text}"</textarea>`,'amit')+
     `<div style="align-self:flex-start"><button type="button" onclick="confirmRoster(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button></div>`;
 
   renderRosterPickerRows(n,DEFAULT_ROSTER.slice());
+  autoGrowTextarea(document.getElementById('roundQuestionText-'+n));
   markNeedsInput(document.getElementById('roundQuestionText-'+n));
 }
 
@@ -1131,6 +1147,7 @@ async function conveneCouncil(){
     await loadRound1(topic.id); // populates activeRounds so Round 1's row is ready for confirmScopeRoster
     document.getElementById('scopeCouncilChat').style.display='flex';
     document.getElementById('scopeQuestionText').value=`Help identify the clarifying questions that would uncover the real scope of work behind: "${request}"`;
+    autoGrowTextarea(document.getElementById('scopeQuestionText'));
     renderRosterPickerRows('scope',DEFAULT_ROSTER.slice());
     markNeedsInput(document.getElementById('scopeQuestionText'));
     statusEl.textContent='Saved — topic and Round 1 created in the database.';
