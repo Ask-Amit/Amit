@@ -238,10 +238,16 @@
      and everything else on the right/center. Ryan's direct request
      2026-07-21: the page was too narrow and tall, the original question
      got buried. Stacks to one column on narrow screens. */
-  .councilGrid{ max-width:1100px; margin:0 auto; padding:0 20px; display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start; }
-  @media (max-width:860px){ .councilGrid{ grid-template-columns:1fr; } }
+  .councilGrid{ max-width:1500px; margin:0 auto; padding:0 20px; display:grid; grid-template-columns:280px 1fr 360px; gap:20px; align-items:start; }
+  @media (max-width:1200px){ .councilGrid{ grid-template-columns:260px 1fr; } .councilGrid .rightCol{ grid-column:1 / -1; position:static; max-height:none; } }
+  @media (max-width:860px){ .councilGrid{ grid-template-columns:1fr; } .councilGrid .leftCol{ position:static; } }
   .councilGrid .leftCol{ position:sticky; top:16px; }
   .councilGrid .leftCol .newTopicPanel, .councilGrid .leftCol .topicListPanel{ margin:16px 0 0; padding:0; max-width:none; }
+  /* NEW — the right column: whatever the next real action is, always
+     visible beside the wheel, never below it. Ryan's direct correction,
+     2026-07-22. */
+  .councilGrid .rightCol{ position:sticky; top:16px; max-height:calc(100vh - 32px); overflow-y:auto; }
+  .councilGrid .rightCol .panels{ margin:0; padding:0; max-width:none; }
 
   /* NEW — big "boxing match" round banner + phase label. */
   .roundBanner{ text-align:center; margin-top:8px; }
@@ -376,7 +382,7 @@
     </div>
   </div>
 </div>
-<div class="versionBadge">v4.41</div>
+<div class="versionBadge">v4.42</div>
 <button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
 <div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
 <div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
@@ -387,90 +393,14 @@
 </div>
 <div class="dblHint">Double-click a light on the rim to read that Seat's full answer.</div>
 
+</div>
+<div class="rightCol">
 <div class="panels">
-  <div class="panel">
-    <h3>This round's question</h3>
-    <div class="body" id="promptText">—</div>
-  </div>
 
-  <!-- NEW — the round-review panel: what this round actually achieved, and
-       what carries forward. This is the gap Ryan named directly: users had
-       no way to see what was accomplished last round. -->
-  <div class="panel" id="reviewPanel">
-    <h3>Where this round landed</h3>
-    <div class="body" id="synthesisTextReview"></div>
-    <div class="feedbackBlock" id="nextStepBlock" style="display:none">
-      <h4>What carries into the next round</h4>
-      <div class="body nextStepBody" id="nextStepText"></div>
-    </div>
-    <div class="feedbackBlock" id="userFeedbackBlock" style="display:none">
-      <h4>What the user said back</h4>
-      <div class="body" id="userFeedbackText"></div>
-      <div id="directiveBadgeWrap"></div>
-    </div>
-  </div>
-
-  <div class="panel" id="synthesisPanel">
-    <h3>What survived — the converged design</h3>
-    <div class="body" id="synthesisText"></div>
-  </div>
-
-  <div class="panel" id="phase2Panel" style="display:none; border-color:var(--gold-dim);">
-    <h3>Phase 1 is complete — you have a real idea. Phase 2 turns it into a solution.</h3>
-    <p style="color:var(--text-dim); font-size:14px; line-height:1.6; margin:0 0 14px;">
-      What you have right now is a genuine, converged idea — that's real, and you can stop here.
-      Phase 2 takes it the rest of the way: we navigate with you, step by step, from this idea to an actual solution you can act on — not more brainstorming, the real path to making it happen.
-    </p>
-    <p style="color:var(--gold); font-size:14px; line-height:1.6; margin:0 0 14px; font-weight:600;">
-      Because Phase 1 already did real work, Phase 2 is half price — you're not starting over, you're already halfway there.
-    </p>
-    <div class="lockedNote" id="phase2LockedNote">Sign in above, on a premium account, to begin Phase 2.</div>
-    <div class="contribute" id="phase2Box" style="display:none">
-      <button id="phase2Btn" type="button">Begin Phase 2 (half price) — take this idea to a real solution</button>
-    </div>
-  </div>
-
-  <!-- NEW — the user's own directive controls: continue, repeat/refine,
-       different angle, or achieved result. This closes the loop Ryan
-       described: a person reviews where a round landed and decides what
-       happens next, and that decision is logged, not just implied. -->
-  <div class="panel" id="directivePanel">
-    <h3>What do you want to happen next?</h3>
-    <textarea id="directiveFeedback" placeholder="Say why, if it helps — what's right, what's missing, what should be looked at differently..."></textarea>
-    <div class="directiveRow">
-      <button id="directiveContinueBtn" type="button">Continue as-is</button>
-      <button id="directiveRefineBtn" type="button">Repeat this round, sharper wording</button>
-      <button id="directiveAngleBtn" type="button">Look at this from a different angle</button>
-      <button class="achieved" id="directiveAchievedBtn" type="button">This is the solution — mark achieved</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>Add a Seat's answer to this round</h3>
-    <div class="lockedNote" id="lockedNote">Sign in above to paste in a Seat's answer yourself.</div>
-    <div class="contribute" id="contribute">
-      <div class="row">
-        <select id="srcSelect"></select>
-        <input type="text" id="srcOther" placeholder="or type a new Seat name" style="display:none">
-      </div>
-      <textarea id="respText" placeholder="Paste the Seat's full answer here..."></textarea>
-      <div class="actions">
-        <button class="secondary" id="clearBtn" type="button">Clear</button>
-        <button id="saveBtn" type="button">Save to this round</button>
-      </div>
-    </div>
-  </div>
-  <div class="panel">
-    <h3>Start a fresh round yourself</h3>
-    <div class="lockedNote" id="rerunLockedNote">Sign in above to start a new round yourself.</div>
-    <div class="contribute" id="rerunBox">
-      <textarea id="rerunText" placeholder="Tell the Council what you want reconsidered, sharpened, or approached differently. This becomes the next round's question, in your own words."></textarea>
-      <div class="actions">
-        <button class="secondary" id="rerunClearBtn" type="button">Clear</button>
-        <button id="rerunBtn" type="button">Start next round</button>
-      </div>
-    </div>
-  </div>
+  <!-- ACTIONABLE — whatever the next real step is, always the first thing
+       visible, never below the wheel. Ryan's direct correction, 2026-07-22:
+       the whole point of the right column is you never have to scroll to
+       find out what you're supposed to do next. -->
 
   <!-- NEW — Amit sets the roster for this round, live on the page. -->
   <div class="panel" id="rosterAuthorPanel">
@@ -546,8 +476,91 @@
 
   <button id="startRound2Btn" type="button">All clarifying questions answered — Start Round 2 (Investigation)</button>
   <button id="startRound3Btn" type="button">Intent confirmed — Start Round 3 (Scope of Work)</button>
+
+  <!-- NEW — the user's own directive controls: continue, repeat/refine,
+       different angle, or achieved result. -->
+  <div class="panel" id="directivePanel">
+    <h3>What do you want to happen next?</h3>
+    <textarea id="directiveFeedback" placeholder="Say why, if it helps — what's right, what's missing, what should be looked at differently..."></textarea>
+    <div class="directiveRow">
+      <button id="directiveContinueBtn" type="button">Continue as-is</button>
+      <button id="directiveRefineBtn" type="button">Repeat this round, sharper wording</button>
+      <button id="directiveAngleBtn" type="button">Look at this from a different angle</button>
+      <button class="achieved" id="directiveAchievedBtn" type="button">This is the solution — mark achieved</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>This round's question</h3>
+    <div class="body" id="promptText">—</div>
+  </div>
 </div>
 </div>
+</div>
+
+<!-- Reference material — the history, not the next step. Full width,
+     below the grid, scroll to it when you want it. -->
+<div class="panels" style="max-width:1100px;">
+  <div class="panel" id="reviewPanel">
+    <h3>Where this round landed</h3>
+    <div class="body" id="synthesisTextReview"></div>
+    <div class="feedbackBlock" id="nextStepBlock" style="display:none">
+      <h4>What carries into the next round</h4>
+      <div class="body nextStepBody" id="nextStepText"></div>
+    </div>
+    <div class="feedbackBlock" id="userFeedbackBlock" style="display:none">
+      <h4>What the user said back</h4>
+      <div class="body" id="userFeedbackText"></div>
+      <div id="directiveBadgeWrap"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="synthesisPanel">
+    <h3>What survived — the converged design</h3>
+    <div class="body" id="synthesisText"></div>
+  </div>
+
+  <div class="panel" id="phase2Panel" style="display:none; border-color:var(--gold-dim);">
+    <h3>Phase 1 is complete — you have a real idea. Phase 2 turns it into a solution.</h3>
+    <p style="color:var(--text-dim); font-size:14px; line-height:1.6; margin:0 0 14px;">
+      What you have right now is a genuine, converged idea — that's real, and you can stop here.
+      Phase 2 takes it the rest of the way: we navigate with you, step by step, from this idea to an actual solution you can act on — not more brainstorming, the real path to making it happen.
+    </p>
+    <p style="color:var(--gold); font-size:14px; line-height:1.6; margin:0 0 14px; font-weight:600;">
+      Because Phase 1 already did real work, Phase 2 is half price — you're not starting over, you're already halfway there.
+    </p>
+    <div class="lockedNote" id="phase2LockedNote">Sign in above, on a premium account, to begin Phase 2.</div>
+    <div class="contribute" id="phase2Box" style="display:none">
+      <button id="phase2Btn" type="button">Begin Phase 2 (half price) — take this idea to a real solution</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Add a Seat's answer to this round</h3>
+    <div class="lockedNote" id="lockedNote">Sign in above to paste in a Seat's answer yourself.</div>
+    <div class="contribute" id="contribute">
+      <div class="row">
+        <select id="srcSelect"></select>
+        <input type="text" id="srcOther" placeholder="or type a new Seat name" style="display:none">
+      </div>
+      <textarea id="respText" placeholder="Paste the Seat's full answer here..."></textarea>
+      <div class="actions">
+        <button class="secondary" id="clearBtn" type="button">Clear</button>
+        <button id="saveBtn" type="button">Save to this round</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Start a fresh round yourself</h3>
+    <div class="lockedNote" id="rerunLockedNote">Sign in above to start a new round yourself.</div>
+    <div class="contribute" id="rerunBox">
+      <textarea id="rerunText" placeholder="Tell the Council what you want reconsidered, sharpened, or approached differently. This becomes the next round's question, in your own words."></textarea>
+      <div class="actions">
+        <button class="secondary" id="rerunClearBtn" type="button">Clear</button>
+        <button id="rerunBtn" type="button">Start next round</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
