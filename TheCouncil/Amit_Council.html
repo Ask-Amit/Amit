@@ -197,7 +197,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.82</div>
+    <div class="page-version" id="pageVersion">v4.83</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -709,7 +709,12 @@ function renderCouncilWheel(n,roster,evidenceList){
     const nameEsc=name.replace(/'/g,"\\'");
     const bgStyle=answered?`background:rgb(${c[0]},${c[1]},${c[2]})`:'';
     const clickHandler=answered?`showCwDetail('${nameEsc}',${n})`:`openOrReuseVoiceTab('${nameEsc}')`;
-    return `<div class="cw-voice${answered?' answered':''}" style="left:${px}%;top:${py}%;--cw-glow:${glow};${bgStyle}" onclick="${clickHandler}" ondblclick="openOrReuseVoiceTab('${nameEsc}')" title="${answered?'Click to read the answer, double-click to reopen the site':'Click or double-click to open/reopen the site'}">${i+1}<span class="cw-name">${name}</span></div>`;
+    // Ryan's direct correction, 2026-07-22: the Ruling side (this wheel) is
+    // the results interface - a light glows once that voice has answered,
+    // and clicking OR double-clicking it opens that saved answer, never a
+    // tab. Opening/reopening a voice's actual website by name only ever
+    // happens on the Petition side (the answer box labels).
+    return `<div class="cw-voice${answered?' answered':''}" style="left:${px}%;top:${py}%;--cw-glow:${glow};${bgStyle}" onclick="${clickHandler}" ondblclick="${clickHandler}" title="${answered?'Click or double-click to read the answer':'Awaiting this voice\\'s answer'}">${i+1}<span class="cw-name">${name}</span></div>`;
   }).join('');
   const centerClickHandler=amitAnswered?`showCwDetail('Amit',${n})`:'';
   host.innerHTML=`<div class="cw-wheel-host">
