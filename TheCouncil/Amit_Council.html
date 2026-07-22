@@ -1,1596 +1,399 @@
-<title>Amit — The Council</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Council</title>
+<link rel="icon" type="image/png" href="../amit_icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  :root{
-    --bg:#0b0c10; --bg2:#12141a; --panel:#171a22; --border:#262a36;
-    --gold:#d4af37; --gold-dim:#8a7228;
-    --text:#e8e8ec; --text-dim:#9498a3; --text-faint:#5b606e;
-    --good:#4caf6d; --warn:#e0a72e; --bad:#d05555;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0; background:radial-gradient(ellipse at 50% -10%, #1a1d27 0%, var(--bg) 60%);
-    color:var(--text); font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;
-    min-height:100vh; overflow-x:hidden;
-  }
-  header{ text-align:center; padding:36px 20px 6px; }
-  header h1{ font-family:Georgia,serif; font-weight:600; font-size:28px; margin:0; letter-spacing:0.3px; color:var(--text); }
-  header h1 span{color:var(--gold)}
-  header h1 .headerMark{ width:32px; height:32px; border-radius:50%; vertical-align:middle; margin-right:8px; margin-bottom:4px; }
-  header p{ color:var(--text-dim); font-size:14px; margin:8px 0 0; max-width:600px; margin-left:auto; margin-right:auto; line-height:1.5 }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09141f;
+  --card-head:#0f2338;
+  --border:rgba(201,168,76,0.55);
+  --gold:#c9a84c;
+  --gold2:#e8c56a;
+  --text:#ffffff;
+  --text2:#f0e8d0;
+  --muted:rgba(240,232,208,0.78);
+  --dim:rgba(240,232,208,0.42);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
 
-  .authbar{
-    max-width:760px; margin:14px auto 0; padding:0 20px;
-    display:flex; align-items:center; justify-content:center; gap:10px; font-size:13px; color:var(--text-dim);
-  }
-  .authbar input{ background:var(--panel); border:1px solid var(--border); color:var(--text); padding:7px 10px; border-radius:6px; font-size:13px; width:220px; }
-  .authbar button{ background:var(--gold); color:#1a1206; border:none; padding:7px 14px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
-  .authbar button.ghost{ background:transparent; color:var(--gold); border:1px solid var(--gold-dim); }
-  .authbar .who{ color:var(--good); }
+body::before{
+  content:'';
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:60vmin;height:60vmin;
+  background:url('../amit_icon.png') center/contain no-repeat;
+  opacity:.035;
+  pointer-events:none;
+  z-index:0;
+}
 
-  /* THE STILL WATER — carried forward unchanged from the Brainstorming room.
-     A dark basin; each Seat is a source of ripples at the rim; wave
-     interference makes agreeing signals reinforce and lets the field settle.
-     When every Seat in the round has answered, the field damps to
-     stillness and the center reveals what survived. */
-  .stage{ position:relative; width:min(720px, 92vw); aspect-ratio:1/1; margin:18px auto 6px; }
-  .basin{
-    position:absolute; inset:0; border-radius:50%;
-    background:#000; box-shadow:0 0 60px 10px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.8);
-    overflow:hidden;
-  }
-  .basin canvas{ width:100%; height:100%; display:block; image-rendering:auto; }
-  .basin-rim{ position:absolute; inset:0; border-radius:50%; border:1px solid rgba(212,175,55,0.18); pointer-events:none; }
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+  position:relative;
+}
+.page-title-wrap{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.page-title{
+  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  letter-spacing:.3px;text-transform:none;color:var(--gold2);
+}
+.page-version{
+  font-family:monospace;font-size:11px;letter-spacing:.05em;
+  color:rgba(201,168,76,.55);margin-top:2px;
+}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.hdr-right{text-align:right}
+.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.datetime{font-size:12px;color:var(--muted);margin-top:2px}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn:hover{border-color:var(--gold);color:var(--gold)}
 
-  .rim-voice{
-    position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%;
-    cursor:pointer; transition:transform .3s, box-shadow .4s; z-index:6;
-  }
-  .rim-voice .dot{ width:100%; height:100%; border-radius:50%; display:block; position:relative; }
-  .rim-voice .seqNum{
-    position:absolute; top:-6px; right:-6px; background:var(--bg); color:var(--gold);
-    font-size:9px; font-weight:700; border:1px solid var(--gold-dim); border-radius:50%;
-    width:15px; height:15px; display:flex; align-items:center; justify-content:center;
-  }
-  .rim-voice .rvname{
-    position:absolute; top:16px; left:50%; transform:translateX(-50%);
-    font-size:9px; color:var(--text-faint); white-space:nowrap; letter-spacing:.3px;
-  }
-  .rim-voice.answered .rvname{ color:var(--text-dim); }
-  .rim-voice:hover{ transform:scale(1.5); }
+/* ── HUB LAYOUT ── */
+.hub{display:flex;flex:1;overflow:hidden}
 
-  .corona{
-    position:absolute; top:50%; left:50%; width:220px; height:220px;
-    transform:translate(-50%,-50%); border-radius:50%;
-    background:
-      repeating-conic-gradient(from 0deg,
-        rgba(243,223,160,0.95) 0deg 3deg,
-        rgba(212,175,55,0.55) 3deg 6deg,
-        rgba(212,175,55,0) 6deg 16deg);
-    filter:blur(1.5px);
-    animation:coronaSpin 50s linear infinite;
-    z-index:6; pointer-events:none;
-    -webkit-mask-image:radial-gradient(circle, transparent 27%, black 30%, black 92%, transparent 100%);
-    mask-image:radial-gradient(circle, transparent 27%, black 30%, black 92%, transparent 100%);
-  }
-  .corona.converged{ animation-duration:14s; }
-  @keyframes coronaSpin{ to{ transform:translate(-50%,-50%) rotate(360deg); } }
+/* ── SIDEBAR ── */
+.sidebar{
+  width:230px;flex-shrink:0;
+  background:var(--card-head);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:5px;
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar{transition:width .18s ease}
+.sidebar.collapsed{width:60px}
+.sidebar.collapsed .tile{justify-content:center;padding:10px 0}
+.sidebar.collapsed .tile-info{display:none}
+.tile{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 11px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;
+  transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;
+}
+.tile:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
+.tile.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+.tile-info{flex:1;min-width:0}
+.tile-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  .center-mark{
-    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-    width:104px; height:104px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    z-index:7; pointer-events:none; transition:filter 1.2s ease, transform 1.2s ease;
-    filter:drop-shadow(0 0 10px rgba(212,175,55,0.25));
-  }
-  .center-mark img{ width:100%; height:100%; border-radius:50%; opacity:1; background:#000; }
-  .center-mark.converged{ filter:drop-shadow(0 0 46px rgba(212,175,55,0.85)); transform:translate(-50%,-50%) scale(1.08); }
-  .name-glyphs{
-    width:100%; height:100%; border-radius:50%; background:#000;
-    display:flex; flex-direction:row-reverse; align-items:center; justify-content:center; gap:6px;
-  }
-  .name-glyphs svg{ width:22px; height:36px; }
-  .name-glyphs path{ fill:var(--gold); stroke:none; }
-  .name-glyphs circle{ fill:var(--gold); stroke:none; }
-  .name-glyphs .stem{ fill:none; stroke:var(--gold); stroke-width:4; stroke-linecap:round; }
-  .name-glyphs{ opacity:0.4; transition:opacity 1.6s ease; }
-  .center-mark.converged .name-glyphs{ opacity:1; }
+/* ── MAIN AREA ── */
+.main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.panel{
+  position:absolute;inset:0;overflow-y:auto;
+  display:none;flex-direction:column;
+  animation:pfade .18s ease;
+}
+.panel.active{display:flex}
+@keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.panel::-webkit-scrollbar{width:5px}
+.panel::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
 
-  .ampToggle{
-    position:fixed; bottom:14px; right:16px; background:transparent; border:1px solid var(--border);
-    color:var(--text-faint); font-size:10px; padding:4px 9px; border-radius:5px; cursor:pointer; z-index:10;
-    font-family:monospace;
-  }
-  .ampReadout{ display:none; position:fixed; bottom:14px; right:100px; text-align:right; z-index:10; }
-  .ampReadout.show{ display:block; }
-  .ampReadout .lbl{ font-size:9px; text-transform:uppercase; letter-spacing:.1em; color:var(--text-faint); }
-  .ampReadout .val{ font-family:monospace; font-size:12px; color:var(--gold); }
+/* ── PANEL HEADER ── */
+.panel-head{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 24px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+.panel-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
-  .status-line{ text-align:center; color:var(--text-dim); font-size:12px; letter-spacing:1px; text-transform:uppercase; margin-top:10px; }
-  .status-line b{ color:var(--gold); }
-  .status-line.converged b{ color:var(--good); }
-  .roundNav{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:8px; }
-  .roundNav button{ background:transparent; border:1px solid var(--border); color:var(--text-dim); padding:4px 10px; border-radius:6px; font-size:12px; cursor:pointer; }
-  .roundNav button:disabled{ opacity:.35; cursor:default; }
-  .roundNav button:not(:disabled):hover{ border-color:var(--gold-dim); color:var(--text); }
-  .roundNav .roundLabel{ font-size:12px; color:var(--text-faint); letter-spacing:.5px; }
-  .dblHint{ text-align:center; color:var(--text-faint); font-size:11px; font-style:italic; margin-top:4px; }
-
-  .panels{ max-width:760px; margin:26px auto 60px; padding:0 20px; display:grid; gap:16px; }
-  .panel{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:18px 20px; }
-  .panel h3{ margin:0 0 8px; font-size:13px; color:var(--gold); letter-spacing:.4px; text-transform:uppercase }
-  .panel p, .panel div.body{ margin:0; color:var(--text-dim); font-size:14px; line-height:1.6; white-space:pre-wrap }
-
-  .modalOverlay{
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:50;
-    align-items:center; justify-content:center; padding:20px;
-  }
-  .modalOverlay.show{ display:flex; }
-  .modalCard{
-    background:var(--panel); border:1px solid var(--gold-dim); border-radius:12px;
-    max-width:640px; width:100%; max-height:82vh; overflow-y:auto; padding:26px 28px;
-  }
-  .modalCard h4{ margin:0 0 4px; font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.6px; }
-  .modalCard .q, .modalCard .a, .modalCard .n{ margin:0 0 20px; }
-  .modalCard .voiceName{ color:var(--gold); font-size:18px; font-weight:700; margin-bottom:14px; }
-  .modalCard .body{ color:var(--text-dim); font-size:14px; line-height:1.65; white-space:pre-wrap; }
-  .modalClose{
-    float:right; background:transparent; border:1px solid var(--border); color:var(--text-dim);
-    border-radius:6px; padding:6px 12px; cursor:pointer; font-size:12px;
-  }
-  .modalCloseBottom{
-    display:block; width:100%; margin-top:8px; background:var(--gold); color:#1a1206;
-    border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer;
-  }
-
-  #synthesisPanel{ display:none; border-color:var(--good); }
-  #synthesisPanel.show{ display:block; }
-  #synthesisPanel h3{ color:var(--good); }
-
-  /* NEW — the round-review panel. This is the gap Ryan named 2026-07-21:
-     nothing showed what a round actually achieved, what carries forward,
-     or what the user said back. This panel makes all three visible
-     together, every time, so a returning user is never lost. */
-  #reviewPanel{ display:none; border-color:var(--gold-dim); }
-  #reviewPanel.show{ display:block; }
-  #reviewPanel h3{ color:var(--gold); }
-  #reviewPanel .nextStepBody{ color:var(--text); font-weight:600; }
-  #reviewPanel .feedbackBlock{ margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
-  #reviewPanel .feedbackBlock h4{ margin:0 0 6px; font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.5px; }
-  #reviewPanel .directiveBadge{
-    display:inline-block; font-size:11px; padding:3px 9px; border-radius:12px; margin-top:6px;
-    border:1px solid var(--gold-dim); color:var(--gold); text-transform:uppercase; letter-spacing:.4px;
-  }
-  #reviewPanel .directiveBadge.confirmed{ border-color:var(--good); color:var(--good); }
-
-  /* NEW — the user's own review controls, shown once a round has all its
-     evidence in and is waiting for the human to say what happens next. */
-  #directivePanel{ display:none; border-color:var(--gold); }
-  #directivePanel.show{ display:block; }
-  #directivePanel h3{ color:var(--gold); }
-  #directivePanel textarea{ width:100%; min-height:90px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; font-family:inherit; resize:vertical; margin-bottom:10px; }
-  #directivePanel .directiveRow{ display:flex; gap:8px; flex-wrap:wrap; }
-  #directivePanel button{ background:transparent; color:var(--text-dim); border:1px solid var(--border); padding:9px 14px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
-  #directivePanel button:hover{ border-color:var(--gold-dim); color:var(--text); }
-  #directivePanel button.achieved{ background:var(--good); color:#08170e; border:none; }
-  #directivePanel button.achieved:hover{ opacity:.9; }
-
-  .contribute{ display:none; }
-  .contribute.show{ display:block; }
-  .contribute .row{ display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
-  .contribute select, .contribute input[type=text]{ background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:6px; font-size:13px; }
-  .contribute textarea{ width:100%; min-height:140px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; font-family:inherit; resize:vertical; }
-  .contribute .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
-  .contribute button{ background:var(--gold); color:#1a1206; border:none; padding:9px 16px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
-  .contribute button.secondary{ background:transparent; color:var(--text-dim); border:1px solid var(--border); }
-  .lockedNote{ color:var(--text-faint); font-size:13px; font-style:italic; }
-  .toast{
-    position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
-    background:var(--panel); border:1px solid var(--good); color:var(--text);
-    padding:10px 18px; border-radius:8px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .3s;
-  }
-  .toast.show{ opacity:1; }
-
-  .newTopicPanel{
-    max-width:760px; margin:22px auto 0; padding:0 20px;
-  }
-  .newTopicPanel .inner{ background:var(--panel); border:1px solid var(--gold-dim); border-radius:10px; padding:20px 22px; }
-  .newTopicPanel h3{ margin:0 0 4px; font-size:15px; color:var(--gold); }
-  .newTopicPanel p{ margin:0 0 12px; color:var(--text-dim); font-size:13px; line-height:1.5; }
-  .newTopicPanel textarea{
-    width:100%; min-height:180px; background:var(--bg2); border:1px solid var(--border);
-    color:var(--text); border-radius:8px; padding:14px; font-size:14px; line-height:1.6;
-    font-family:inherit; resize:vertical;
-  }
-  .newTopicPanel .actions{ display:flex; justify-content:flex-end; margin-top:12px; }
-  .newTopicPanel button{ background:var(--gold); color:#1a1206; border:none; padding:11px 22px; border-radius:6px; font-weight:700; font-size:14px; cursor:pointer; }
-  .newTopicPanel button:disabled{ opacity:.5; cursor:default; }
-  .newTopicPanel .lockedNote{ margin-top:4px; }
-  .currentTopicLink{ text-align:center; margin-top:16px; }
-  .currentTopicLink a{ color:var(--gold); font-size:12px; text-decoration:none; border-bottom:1px dotted var(--gold-dim); }
-
-  footer{ text-align:center; color:var(--text-faint); font-size:12px; padding-bottom:40px; }
-  .versionBadge{
-    text-align:center; color:var(--gold); font-size:15px; font-weight:700;
-    letter-spacing:1px; font-family:monospace; margin-top:6px;
-  }
-  .topicStatus{ text-align:center; font-size:12px; margin-top:4px; letter-spacing:.5px; text-transform:uppercase; }
-  .topicStatus.resolved{ color:var(--good); }
-  .topicStatus.open{ color:var(--text-faint); }
-
-  /* NEW — topic list: browse every past Council session, not just the one
-     loaded via URL. Ryan's direct request 2026-07-21: "how do we navigate
-     to previous brainstorming events" - there was no answer before this. */
-  .topicListPanel{ max-width:760px; margin:16px auto 0; padding:0 20px; }
-  .topicListPanel .inner{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 18px; }
-  .topicListPanel h3{ margin:0 0 10px; font-size:12px; color:var(--text-faint); letter-spacing:.5px; text-transform:uppercase; }
-  .topicListPanel .topicRow{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;
-  }
-  .topicListPanel .topicRow:last-child{ border-bottom:none; }
-  .topicListPanel .topicRow a{ color:var(--text); text-decoration:none; flex:1; }
-  .topicListPanel .topicRow a:hover{ color:var(--gold); }
-  .topicListPanel .topicRow a.active{ color:var(--gold); font-weight:600; }
-  .topicListPanel .topicRow .status{ font-size:10px; text-transform:uppercase; letter-spacing:.4px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); color:var(--text-faint); }
-  .topicListPanel .topicRow .status.resolved{ color:var(--good); border-color:var(--good); }
-
-  /* NEW — two-column layout: the question box off to the left, the wheel
-     and everything else on the right/center. Ryan's direct request
-     2026-07-21: the page was too narrow and tall, the original question
-     got buried. Stacks to one column on narrow screens. */
-  .councilGrid{ max-width:1500px; margin:0 auto; padding:0 20px; display:grid; grid-template-columns:280px 1fr 360px; gap:20px; align-items:start; }
-  @media (max-width:1200px){ .councilGrid{ grid-template-columns:260px 1fr; } .councilGrid .rightCol{ grid-column:1 / -1; position:static; max-height:none; } }
-  @media (max-width:860px){ .councilGrid{ grid-template-columns:1fr; } .councilGrid .leftCol{ position:static; } }
-  .councilGrid .leftCol{ position:sticky; top:16px; }
-  .councilGrid .leftCol .newTopicPanel, .councilGrid .leftCol .topicListPanel{ margin:16px 0 0; padding:0; max-width:none; }
-  /* NEW — the right column: whatever the next real action is, always
-     visible beside the wheel, never below it. Ryan's direct correction,
-     2026-07-22. */
-  .councilGrid .rightCol{ position:sticky; top:16px; max-height:calc(100vh - 32px); overflow-y:auto; }
-  .councilGrid .rightCol .panels{ margin:0; padding:0; max-width:none; }
-
-  /* NEW — big "boxing match" round banner + phase label. */
-  .roundBanner{ text-align:center; margin-top:8px; }
-  .roundBanner .num{ font-family:Georgia,serif; font-weight:700; font-size:52px; color:var(--gold); letter-spacing:2px; line-height:1; text-shadow:0 0 24px rgba(212,175,55,0.35); }
-  .roundBanner .label{ display:block; font-size:11px; color:var(--text-faint); letter-spacing:2px; text-transform:uppercase; margin-top:2px; }
-  .phaseBadge{ display:inline-block; margin-top:6px; font-size:11px; padding:4px 12px; border-radius:14px; border:1px solid var(--gold-dim); color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
-
-  /* NEW — clarifying-question popup: one at a time, boxing-round style. */
-  .clarifyModalCard{ background:var(--panel); border:1px solid var(--gold); border-radius:12px; max-width:560px; width:100%; padding:28px 30px; }
-  .clarifyModalCard .qNum{ font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.6px; margin-bottom:6px; }
-  .clarifyModalCard .qText{ font-size:18px; color:var(--text); line-height:1.5; margin-bottom:18px; }
-  .clarifyModalCard textarea{ width:100%; min-height:110px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:12px; font-size:14px; line-height:1.5; font-family:inherit; resize:vertical; margin-bottom:14px; }
-  .clarifyModalCard button{ background:var(--gold); color:#1a1206; border:none; padding:11px 20px; border-radius:6px; font-weight:700; font-size:14px; cursor:pointer; }
-
-  /* NEW — Round 1 checklist + Amit-authoring panels. */
-  #checklistPanel{ display:none; }
-  #checklistPanel.show{ display:block; }
-  #checklistPanel .qaRow{ padding:10px 0; border-bottom:1px solid var(--border); }
-  #checklistPanel .qaRow:last-child{ border-bottom:none; }
-  #checklistPanel .qaRow .qLine{ color:var(--gold); font-size:13px; margin-bottom:4px; }
-  #checklistPanel .qaRow .qLine .check{ color:var(--good); margin-right:6px; }
-  #checklistPanel .qaRow .aLine{ color:var(--text-dim); font-size:13px; padding-left:20px; }
-
-  #amitAuthorPanel, #consensusPanel, #rosterAuthorPanel, #roundtablePanel{ display:none; border-color:var(--gold); }
-  #amitAuthorPanel.show, #consensusPanel.show, #rosterAuthorPanel.show, #roundtablePanel.show{ display:block; }
-  #amitAuthorPanel textarea, #consensusPanel textarea{ width:100%; min-height:110px; background:var(--bg2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.5; font-family:inherit; resize:vertical; margin-bottom:10px; }
-  #amitAuthorPanel .hint{ color:var(--text-faint); font-size:12px; font-style:italic; margin-bottom:8px; }
-  #consensusPanel .consensusText{ color:var(--text); font-size:15px; line-height:1.6; padding:14px; background:var(--bg2); border-radius:8px; margin-bottom:14px; }
-  #consensusPanel .yesNoRow{ display:flex; gap:10px; }
-  #consensusPanel button.yes{ background:var(--good); color:#08170e; border:none; padding:10px 18px; border-radius:6px; font-weight:700; cursor:pointer; }
-  #consensusPanel button.no{ background:transparent; color:var(--bad); border:1px solid var(--bad); padding:10px 18px; border-radius:6px; font-weight:600; cursor:pointer; }
-  #consensusNoOptions{ display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
-  #consensusNoOptions.show{ display:block; }
-  #consensusNoOptions button{ background:var(--gold); color:#1a1206; border:none; padding:9px 16px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; margin-top:8px; }
-  #startRound2Btn, #startRound3Btn{ display:none; background:var(--gold); color:#1a1206; border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; width:100%; margin-top:6px; }
-  #startRound2Btn.show, #startRound3Btn.show{ display:block; }
-
-  /* NEW — landing gate: the very first screen on arrival, before dropping
-     into any specific topic. Ryan's direct request 2026-07-21: "do you
-     wanna revisit an old one, or create a new one" as the actual first
-     question, not landing straight in the showcase. */
-  .landingCard{ background:var(--panel); border:1px solid var(--gold-dim); border-radius:14px; max-width:560px; width:100%; padding:32px 34px; max-height:82vh; overflow-y:auto; }
-  .landingCard h2{ margin:0 0 6px; font-size:20px; color:var(--gold); font-family:Georgia,serif; }
-  .landingCard p{ margin:0 0 18px; color:var(--text-dim); font-size:13px; line-height:1.5; }
-  .landingCard .landingRow{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    padding:10px 0; border-bottom:1px solid var(--border); font-size:14px;
-  }
-  .landingCard .landingRow:last-child{ border-bottom:none; }
-  .landingCard .landingRow a{ color:var(--text); text-decoration:none; flex:1; }
-  .landingCard .landingRow a:hover{ color:var(--gold); }
-  .landingCard .landingRow .status{ font-size:10px; text-transform:uppercase; letter-spacing:.4px; padding:2px 7px; border-radius:10px; border:1px solid var(--border); color:var(--text-faint); }
-  .landingCard .landingRow .status.resolved{ color:var(--good); border-color:var(--good); }
-  .landingCard .newBtn{ display:block; width:100%; margin-top:18px; background:var(--gold); color:#1a1206; border:none; padding:12px; border-radius:8px; font-weight:700; font-size:14px; cursor:pointer; }
-  .landingCard .skipLink{ display:block; text-align:center; margin-top:10px; color:var(--text-faint); font-size:12px; cursor:pointer; }
+/* ── TABBED LAYOUT (copied structure from Computer Health's folder-tab UI — no data behind it) ── */
+.ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
 </style>
+</head>
+<body>
 
 <header>
-  <h1><img class="headerMark" src="../Brainstorming/amit_icon.png" alt="Amit"> Amit <span>— The Council</span></h1>
-  <p id="topicTitle">Loading the live topic...</p>
-  <div class="topicStatus" id="topicStatus"></div>
+  <div class="page-title-wrap">
+    <div class="page-title" id="pageTitle">Council</div>
+    <div class="page-version" id="pageVersion">v4.43</div>
+  </div>
+  <div class="brand">
+    <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
+    <span class="brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
+  </div>
+  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
+    <div style="text-align:right">
+      <div class="greeting" id="greeting">Good morning</div>
+      <div class="datetime" id="datetime"></div>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
+        <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
+        <div id="signInBtn" onclick="openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
+        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
+      </div>
+    </div>
+    <div class="help-btn">?</div>
+  </div>
 </header>
 
-<div class="authbar" id="authbar"><span>Checking session...</span></div>
+<div class="hub">
 
-<div class="councilGrid">
-<div class="leftCol">
+  <!-- ── SIDEBAR — PLACEHOLDER TILES (1-20) ── -->
+  <nav class="sidebar" id="sidebarTiles" ondblclick="toggleSidebar()"></nav>
 
-<!-- The original question stays visible here, permanently, off to the
-     left - Ryan's direct fix for "it's hard to find out what the original
-     question is." -->
-<div class="newTopicPanel">
-  <div class="inner">
-    <h3 id="originalQuestionLabel">Bring a real question to The Council</h3>
-    <p id="originalQuestionText" style="display:none; color:var(--text); font-size:14px; line-height:1.6; white-space:pre-wrap;"></p>
-    <p id="newTopicPrompt">Write out the real problem you want the Seats to work on — as much detail as it takes. This becomes Round 1's question, in your own words.</p>
-    <div class="lockedNote" id="newTopicLockedNote">Sign in above to bring a question of your own.</div>
-    <div id="newTopicBox" style="display:none">
-      <textarea id="newTopicText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..."></textarea>
-      <div class="actions">
-        <button id="newTopicBtn" type="button">Convene the Council</button>
-      </div>
-    </div>
-  </div>
-</div>
-<div class="currentTopicLink" id="currentTopicLink" style="display:none">
-  <a href="#" id="backToShowcaseLink">‹ back to the origin deliberation</a>
+  <!-- ── MAIN CONTENT AREA — PLACEHOLDER PANELS (1-20) ── -->
+  <div class="main-area" id="mainArea"></div>
+
 </div>
 
-<div class="topicListPanel">
-  <div class="inner">
-    <h3>Every Council session</h3>
-    <div id="topicListRows">Loading...</div>
+<!-- SYNC / SIGN-IN MODAL -->
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+    <input id="syncEmailInput" type="email" placeholder="your@email.com"
+      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
+    <button id="syncSubmitBtn" onclick="submitSyncEmail()"
+      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      SEND SIGN-IN LINK →
+    </button>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
   </div>
 </div>
 
-</div>
-<div class="centerCol">
-
-<div class="roundBanner" id="roundBanner">
-  <span class="num" id="roundBannerNum">ROUND 1</span>
-  <span class="label">of The Council</span>
-  <div><span class="phaseBadge" id="phaseBadge" style="display:none"></span></div>
-</div>
-
-<div class="stage" id="stage">
-  <div class="basin"><canvas id="basinCanvas"></canvas></div>
-  <div class="basin-rim"></div>
-  <div class="corona" id="corona"></div>
-  <div class="center-mark" id="centerMark">
-    <div class="name-glyphs">
-      <svg viewBox="0 0 20 36" title="Yod">
-        <circle cx="9" cy="9" r="4.5"/>
-        <path class="stem" d="M9,13 Q8,20 6,26"/>
-      </svg>
-      <svg viewBox="0 0 20 36" title="Hei">
-        <circle cx="10" cy="7" r="3.4"/>
-        <path class="stem" d="M10,10 L10,30"/>
-        <path class="stem" d="M10,13 Q4,10 3,3"/>
-        <path class="stem" d="M10,13 Q16,10 17,3"/>
-      </svg>
-      <svg viewBox="0 0 20 36" title="Vav">
-        <circle cx="10" cy="6" r="3.6"/>
-        <path class="stem" d="M10,10 L10,30"/>
-      </svg>
-      <svg viewBox="0 0 20 36" title="Hei">
-        <circle cx="10" cy="7" r="3.4"/>
-        <path class="stem" d="M10,10 L10,30"/>
-        <path class="stem" d="M10,13 Q4,10 3,3"/>
-        <path class="stem" d="M10,13 Q16,10 17,3"/>
-      </svg>
-    </div>
-  </div>
-</div>
-<div class="versionBadge">v4.42</div>
-<button class="ampToggle" id="ampToggleBtn" type="button">Ā</button>
-<div class="ampReadout" id="ampReadout"><div class="lbl">Mean Amplitude</div><div class="val" id="ampReadoutVal">0.0000</div></div>
-<div class="status-line" id="statusLine">Round <b>1</b> — waiting for responses</div>
-<div class="roundNav">
-  <button id="prevRoundBtn" type="button">‹ Prev round</button>
-  <span class="roundLabel" id="roundLabel">Round 1 of 1</span>
-  <button id="nextRoundBtn" type="button">Next round ›</button>
-</div>
-<div class="dblHint">Double-click a light on the rim to read that Seat's full answer.</div>
-
-</div>
-<div class="rightCol">
-<div class="panels">
-
-  <!-- ACTIONABLE — whatever the next real step is, always the first thing
-       visible, never below the wheel. Ryan's direct correction, 2026-07-22:
-       the whole point of the right column is you never have to scroll to
-       find out what you're supposed to do next. -->
-
-  <!-- NEW — Amit sets the roster for this round, live on the page. -->
-  <div class="panel" id="rosterAuthorPanel">
-    <h3>Amit: who's answering this round?</h3>
-    <div class="hint">One name per line. Minimum 5 voices.</div>
-    <textarea id="rosterText" placeholder="DeepSeek&#10;Bolt&#10;Gemini&#10;Meta AI&#10;ChatGPT"></textarea>
-    <div class="actions">
-      <button id="rosterBtn" type="button">Save roster — begin the roundtable</button>
-    </div>
-  </div>
-
-  <!-- NEW — the actual roundtable: open a voice's tab, copy its prompt,
-     paste its answer back, move to the next one. All on this page. -->
-  <div class="panel" id="roundtablePanel">
-    <h3 id="roundtableHeading">Roundtable</h3>
-    <p id="roundtableStatus" style="color:var(--text-dim); font-size:13px;"></p>
-    <div id="roundtableActive">
-      <div class="actions" style="justify-content:flex-start; gap:10px; margin-bottom:10px;">
-        <button id="roundtableOpenBtn" type="button">Open <span id="roundtableVoiceName">—</span>'s site ↗</button>
-        <button id="roundtableCopyBtn" type="button" class="secondary">Copy the prompt</button>
-      </div>
-      <textarea id="roundtableAnswerText" placeholder="Paste this voice's full answer here..."></textarea>
-      <div class="actions">
-        <button id="roundtableSaveBtn" type="button">Save and go to next voice</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- NEW — Amit authors the confirmed clarifying-question list for a
-       Clarification-phase round, live on this page, directly from reading
-       every Seat's proposed questions above. -->
-  <div class="panel" id="amitAuthorPanel">
-    <h3>Amit: confirm the clarifying questions for this round</h3>
-    <div class="hint">One per line, formatted as: Question | What this is trying to uncover</div>
-    <textarea id="amitQuestionsText" placeholder="What specific outcome are you trying to reach? | Uncovers the real end goal, not just the topic&#10;Who else is affected by this decision? | Uncovers scope and stakeholders"></textarea>
-    <div class="actions">
-      <button id="amitQuestionsBtn" type="button">Save clarifying questions — begin asking the user</button>
-    </div>
-  </div>
-
-  <!-- NEW — Round 1's completed checklist: original question, every
-       clarifying question, every answer. Persistent, never buried. -->
-  <div class="panel" id="checklistPanel">
-    <h3>Round 1 <span style="color:var(--good)">✓ completed</span> — clarifying questions</h3>
-    <div id="checklistRows"></div>
-  </div>
-
-  <!-- NEW — Amit authors the consensus intent statement for an
-       Investigation-phase round, then the user confirms yes/no. -->
-  <div class="panel" id="amitConsensusAuthorPanel">
-    <h3>Amit: write the consensus intent statement</h3>
-    <div class="hint">Read every Seat's answer above (including Amit's own) and write ONE statement capturing the real intent.</div>
-    <textarea id="amitConsensusText" placeholder="Based on everything gathered, here is what we believe you are actually trying to achieve..."></textarea>
-    <div class="actions">
-      <button id="amitConsensusBtn" type="button">Save consensus statement — ask the user to confirm</button>
-    </div>
-  </div>
-
-  <div class="panel" id="consensusPanel">
-    <h3>Does this capture your intent?</h3>
-    <div class="consensusText" id="consensusStatementText"></div>
-    <div class="yesNoRow">
-      <button class="yes" id="consensusYesBtn" type="button">Yes — proceed to Round 3</button>
-      <button class="no" id="consensusNoBtn" type="button">No</button>
-    </div>
-    <div id="consensusNoOptions">
-      <p style="color:var(--text-dim); font-size:13px;">Rewrite from scratch, or just tell us what to change:</p>
-      <textarea id="consensusNoText" placeholder="Either rewrite your original intent entirely, or say what to modify/add..."></textarea>
-      <button id="consensusRestartBtn" type="button">Start over with this — becomes the next round</button>
-      <button id="consensusModifyBtn" type="button" style="margin-left:8px; background:transparent; color:var(--text-dim); border:1px solid var(--border);">Just modify the statement above</button>
-    </div>
-  </div>
-
-  <button id="startRound2Btn" type="button">All clarifying questions answered — Start Round 2 (Investigation)</button>
-  <button id="startRound3Btn" type="button">Intent confirmed — Start Round 3 (Scope of Work)</button>
-
-  <!-- NEW — the user's own directive controls: continue, repeat/refine,
-       different angle, or achieved result. -->
-  <div class="panel" id="directivePanel">
-    <h3>What do you want to happen next?</h3>
-    <textarea id="directiveFeedback" placeholder="Say why, if it helps — what's right, what's missing, what should be looked at differently..."></textarea>
-    <div class="directiveRow">
-      <button id="directiveContinueBtn" type="button">Continue as-is</button>
-      <button id="directiveRefineBtn" type="button">Repeat this round, sharper wording</button>
-      <button id="directiveAngleBtn" type="button">Look at this from a different angle</button>
-      <button class="achieved" id="directiveAchievedBtn" type="button">This is the solution — mark achieved</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>This round's question</h3>
-    <div class="body" id="promptText">—</div>
-  </div>
-</div>
-</div>
-</div>
-
-<!-- Reference material — the history, not the next step. Full width,
-     below the grid, scroll to it when you want it. -->
-<div class="panels" style="max-width:1100px;">
-  <div class="panel" id="reviewPanel">
-    <h3>Where this round landed</h3>
-    <div class="body" id="synthesisTextReview"></div>
-    <div class="feedbackBlock" id="nextStepBlock" style="display:none">
-      <h4>What carries into the next round</h4>
-      <div class="body nextStepBody" id="nextStepText"></div>
-    </div>
-    <div class="feedbackBlock" id="userFeedbackBlock" style="display:none">
-      <h4>What the user said back</h4>
-      <div class="body" id="userFeedbackText"></div>
-      <div id="directiveBadgeWrap"></div>
-    </div>
-  </div>
-
-  <div class="panel" id="synthesisPanel">
-    <h3>What survived — the converged design</h3>
-    <div class="body" id="synthesisText"></div>
-  </div>
-
-  <div class="panel" id="phase2Panel" style="display:none; border-color:var(--gold-dim);">
-    <h3>Phase 1 is complete — you have a real idea. Phase 2 turns it into a solution.</h3>
-    <p style="color:var(--text-dim); font-size:14px; line-height:1.6; margin:0 0 14px;">
-      What you have right now is a genuine, converged idea — that's real, and you can stop here.
-      Phase 2 takes it the rest of the way: we navigate with you, step by step, from this idea to an actual solution you can act on — not more brainstorming, the real path to making it happen.
-    </p>
-    <p style="color:var(--gold); font-size:14px; line-height:1.6; margin:0 0 14px; font-weight:600;">
-      Because Phase 1 already did real work, Phase 2 is half price — you're not starting over, you're already halfway there.
-    </p>
-    <div class="lockedNote" id="phase2LockedNote">Sign in above, on a premium account, to begin Phase 2.</div>
-    <div class="contribute" id="phase2Box" style="display:none">
-      <button id="phase2Btn" type="button">Begin Phase 2 (half price) — take this idea to a real solution</button>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h3>Add a Seat's answer to this round</h3>
-    <div class="lockedNote" id="lockedNote">Sign in above to paste in a Seat's answer yourself.</div>
-    <div class="contribute" id="contribute">
-      <div class="row">
-        <select id="srcSelect"></select>
-        <input type="text" id="srcOther" placeholder="or type a new Seat name" style="display:none">
-      </div>
-      <textarea id="respText" placeholder="Paste the Seat's full answer here..."></textarea>
-      <div class="actions">
-        <button class="secondary" id="clearBtn" type="button">Clear</button>
-        <button id="saveBtn" type="button">Save to this round</button>
-      </div>
-    </div>
-  </div>
-  <div class="panel">
-    <h3>Start a fresh round yourself</h3>
-    <div class="lockedNote" id="rerunLockedNote">Sign in above to start a new round yourself.</div>
-    <div class="contribute" id="rerunBox">
-      <textarea id="rerunText" placeholder="Tell the Council what you want reconsidered, sharpened, or approached differently. This becomes the next round's question, in your own words."></textarea>
-      <div class="actions">
-        <button class="secondary" id="rerunClearBtn" type="button">Clear</button>
-        <button id="rerunBtn" type="button">Start next round</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<!-- NEW — the sequential clarifying-question popup. One question at a
-     time, boxing-round style: answer, save, next one appears. -->
-<div class="modalOverlay" id="clarifyModal">
-  <div class="clarifyModalCard">
-    <div class="qNum" id="clarifyQNum">Question 1</div>
-    <div class="qText" id="clarifyQText">—</div>
-    <textarea id="clarifyAnswerText" placeholder="Your answer..."></textarea>
-    <button id="clarifySaveBtn" type="button">Save and continue</button>
-  </div>
-</div>
-
-<!-- NEW — the landing gate: first thing shown on arrival with no ?topic=
-     in the URL. Revisit an existing session, or start a new one. -->
-<div class="modalOverlay" id="landingGate" style="display:flex">
-  <div class="landingCard">
-    <h2>Welcome to The Council</h2>
-    <p id="landingSubtext">Every session, one place. Revisit one already running, or start a new one.</p>
-    <div id="landingRows">Loading sessions...</div>
-    <button class="newBtn" id="landingNewBtn" type="button">Start a new Council session</button>
-    <span class="skipLink" id="landingViewShowcaseBtn">‹ or just watch the origin session, no sign-in needed</span>
-  </div>
-</div>
-
-<div class="modalOverlay" id="detailModal">
-  <div class="modalCard">
-    <button class="modalClose" id="modalCloseBtn" type="button">Close ✕</button>
-    <div class="voiceName" id="modalVoiceName"></div>
-    <div class="q"><h4>The question asked this round</h4><div class="body" id="modalQuestion"></div></div>
-    <div class="a"><h4>This Seat's answer</h4><div class="body" id="modalAnswer"></div></div>
-    <div class="n" id="modalNextWrap" style="display:none"><h4>What this fed into next</h4><div class="body" id="modalNext"></div></div>
-    <button class="modalCloseBottom" id="modalCloseBtnBottom" type="button">Close</button>
-  </div>
-</div>
-<footer>Every Seat shown here becomes part of one consented conclusion. Amit holds a real, equal Seat too — never left out, never weighted above the rest.</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co';
-const SUPABASE_ANON = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
-// The Hub (amit-hub.html) initializes the same supabase-js client the same
-// way — no custom storageKey — so its session lives in this browser's
-// localStorage under Supabase's own default key. Because both pages are
-// served from the same origin (ask-amit.github.io), initializing the SDK
-// here identically means Council automatically sees a Hub sign-in with no
-// separate auth step. Ryan's direct instruction, 2026-07-21: everyone
-// arrives through the Hub already signed in - Council should never ask
-// someone to sign in twice.
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+// ══════════════════════════════════════════════
+// TEMPLATE — blank layout shell. No data model, no per-project logic.
+// Placeholder tiles/panels 1-20: rename, re-icon, and build real content
+// into each panel when this template is copied for a new project.
+// ══════════════════════════════════════════════
 
-// The migrated self-service-automation deliberation is the origin showcase
-// for The Council, same role the naming brainstorm played for the old room.
-const SHOWCASE_TOPIC_ID = '9baf3b43-2859-45c2-98a4-7df7a07412b8';
-let TOPIC_ID = new URLSearchParams(location.search).get('topic') || SHOWCASE_TOPIC_ID;
+const PLACEHOLDER_COUNT=20;
+(function buildPlaceholders(){
+  const nav=document.getElementById('sidebarTiles');
+  const main=document.getElementById('mainArea');
+  let navHtml='',panelHtml='';
+  for(let i=1;i<=PLACEHOLDER_COUNT;i++){
+    const label=i===1?'Introduction':i===2?'Tabbed Layout':'Placeholder '+i;
+    navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
+      <div class="tile-icon">▢</div>
+      <div class="tile-info">
+        <div class="tile-name">${label}</div>
+        <div class="tile-sub">—</div>
+      </div>
+    </div>`;
+    if(i===1||i===2){
+      let tabNavHtml='',tabContentHtml='';
+      for(let t=1;t<=5;t++){
+        const tabLabel=(i===2&&t===1)?'Scope':'Tab '+t;
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})">${tabLabel}</button>`;
+        // Session 1 (panel 2), Tab 1: the real entry point - what the user
+        // is actually asking the Council to convene on. Ryan's direct
+        // instruction, 2026-07-22.
+        const body=(i===2&&t===1)
+          ? `<div style="max-width:640px">
+              <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+                <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);white-space:nowrap">Title</div>
+                <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" oninput="updateCouncilPageTitle(2,this.value)" tabindex="1" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
+                <div style="color:var(--muted);font-size:12px;white-space:nowrap">Max. 20</div>
+              </div>
 
-let session = null;
-let currentUser = null;
-function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
+              <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin:20px 0 6px">What is the request of the Council?</div>
+              <div style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:16px">Write out the real problem you want the Council to work on — as much detail as it takes. This becomes the question the Council convenes around.</div>
+              <textarea id="councilRequestText" placeholder="What are you actually trying to figure out? Bring the real problem, with all its real constraints..." tabindex="2" style="width:100%;min-height:160px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:14px;font-size:14px;line-height:1.6;font-family:inherit;resize:vertical"></textarea>
 
-const DISPLAY_NAME_KEY = 'amit_council_displayname';
-function getDisplayName(){ return localStorage.getItem(DISPLAY_NAME_KEY) || ''; }
-function setDisplayName(n){ localStorage.setItem(DISPLAY_NAME_KEY, n); }
-
-// The Hub's own sign-in screen is the only place anyone signs in — Council
-// never runs its own email/magic-link flow. Sends them to the Hub with a
-// return path back to whatever Council topic they were viewing.
-const HUB_URL = 'https://ask-amit.github.io/Amit/Hub/amit-hub.html';
-function goSignInAtHub(){
-  location.href = HUB_URL;
-}
-
-function renderAuthbar(user){
-  const bar = document.getElementById('authbar');
-  if (user){
-    // Ryan's direct correction, 2026-07-21: the signed-in account IS the
-    // identity - never ask someone to pick a separate display name on top
-    // of who they already are. Derive it from the account itself.
-    const name = getDisplayName() || (user.user_metadata && user.user_metadata.full_name) || (user.email ? user.email.split('@')[0] : 'Signed in');
-    {
-      bar.innerHTML = `<span class="who">Signed in as ${name}</span> <button class="ghost" id="signOutBtn">Sign out</button>`;
-    }
-    document.getElementById('signOutBtn') && (document.getElementById('signOutBtn').onclick = async () => { await db.auth.signOut(); localStorage.removeItem(DISPLAY_NAME_KEY); location.reload(); });
-    document.getElementById('lockedNote').style.display = 'none';
-    document.getElementById('contribute').classList.add('show');
-    document.getElementById('rerunLockedNote').style.display = 'none';
-    document.getElementById('rerunBox').classList.add('show');
-    document.getElementById('newTopicLockedNote').style.display = 'none';
-    document.getElementById('newTopicBox').style.display = 'block';
-    document.getElementById('phase2LockedNote').style.display = 'none';
-    document.getElementById('phase2Box').style.display = 'block';
-  } else {
-    // Signed out: one button, straight back to the Hub's own sign-in screen.
-    // No email field here — Council is never the place someone signs in.
-    bar.innerHTML = `<span>Not signed in.</span> <button id="hubSignInBtn">Sign in via the Hub</button>`;
-    document.getElementById('hubSignInBtn').onclick = goSignInAtHub;
-    document.getElementById('lockedNote').style.display = 'block';
-    document.getElementById('contribute').classList.remove('show');
-    document.getElementById('rerunLockedNote').style.display = 'block';
-    document.getElementById('rerunBox').classList.remove('show');
-    document.getElementById('newTopicLockedNote').style.display = 'block';
-    document.getElementById('newTopicBox').style.display = 'none';
-    document.getElementById('phase2LockedNote').style.display = 'block';
-    document.getElementById('phase2Box').style.display = 'none';
-  }
-}
-
-async function sb(path, opts){
-  opts = opts || {};
-  const headers = Object.assign({
-    apikey: SUPABASE_ANON,
-    Authorization: 'Bearer ' + (opts.authed && session ? session.access_token : SUPABASE_ANON)
-  }, opts.headers || {});
-  const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, Object.assign({}, opts, { headers }));
-  if (!r.ok){
-    const body = await r.text().catch(() => '');
-    throw new Error('Request failed: ' + r.status + (body ? ' — ' + body : ''));
-  }
-  // Fix, 2026-07-21: Prefer: return=minimal correctly returns an EMPTY body
-  // on success (204/200 with no content) - calling .json() on empty text
-  // throws "Unexpected end of JSON input" even though the request actually
-  // succeeded. This was silently breaking every write that used
-  // return=minimal (most of them) and surfacing as a misleading error in
-  // whatever catch block happened to be listening.
-  const text = await r.text();
-  return text ? JSON.parse(text) : null;
-}
-
-/* ---------- THE STILL WATER — unchanged visual engine ---------- */
-const VOICE_COLORS = {
-  'Amit Seat': [212,175,55],
-  'Grok':      [224,110,60],
-  'Copilot':   [90,150,224],
-  'ChatGPT':   [90,200,170],
-  'Gemini':    [170,120,224],
-  'DeepSeek':  [70,190,120],
-  'Perplexity':[90,210,224],
-  'Meta AI':   [224,160,70],
-  'Bolt':      [200,150,90],
-  'Claude':    [200,150,90]
-};
-function colorFor(name){ return VOICE_COLORS[name] || [180,180,190]; }
-
-const GRID = 64;
-let canvas, cctx, offCanvas, offCtx, offImageData;
-let sources = [];
-let running = false;
-let convergedAt = null;
-let allAnswered = false;
-
-function initCanvas(){
-  canvas = document.getElementById('basinCanvas');
-  const stage = document.getElementById('stage');
-  const size = stage.clientWidth;
-  canvas.width = size; canvas.height = size;
-  cctx = canvas.getContext('2d');
-  offCanvas = document.createElement('canvas');
-  offCanvas.width = GRID; offCanvas.height = GRID;
-  offCtx = offCanvas.getContext('2d');
-  offImageData = offCtx.createImageData(GRID, GRID);
-}
-
-function placeRimVoices(names, answeredSet, seqMap){
-  seqMap = seqMap || {};
-  document.querySelectorAll('.rim-voice').forEach(e => e.remove());
-  const stage = document.getElementById('stage');
-  const size = stage.clientWidth;
-  const radius = 0.90;
-  sources = names.map((name, i) => {
-    const angle = (i / names.length) * Math.PI * 2 - Math.PI / 2;
-    const nx = Math.cos(angle) * radius, ny = Math.sin(angle) * radius;
-    const answered = answeredSet.has(name);
-    const seq = seqMap[name] || null;
-    const el = document.createElement('div');
-    el.className = 'rim-voice' + (answered ? ' answered' : '');
-    const px = size/2 + nx * size/2, py = size/2 + ny * size/2;
-    el.style.left = px + 'px'; el.style.top = py + 'px';
-    const c = colorFor(name);
-    const badge = seq ? `<span class="seqNum">${seq}</span>` : '';
-    el.innerHTML = `<span class="dot" style="background:rgb(${c[0]},${c[1]},${c[2]});box-shadow:0 0 8px 2px rgba(${c[0]},${c[1]},${c[2]},0.6)">${badge}</span><span class="rvname">${name}</span>`;
-    el.ondblclick = () => showDetail(name);
-    stage.appendChild(el);
-    return { name, nx, ny, color: c, answered, seed: i * 1.7, seq };
-  });
-}
-
-let lastMeanAmplitude = 0;
-
-function computeField(t){
-  const data = offImageData.data;
-  const answeredCount = sources.filter(s => s.answered).length;
-  const settleFactor = allAnswered ? Math.max(0, 1 - (t - convergedAt) / 4500) : 1;
-  let ampSum = 0, ampCount = 0;
-
-  for (let gy = 0; gy < GRID; gy++){
-    for (let gx = 0; gx < GRID; gx++){
-      const px = (gx / (GRID-1)) * 2 - 1;
-      const py = (gy / (GRID-1)) * 2 - 1;
-      const distFromCenter = Math.sqrt(px*px + py*py);
-      let amp = 0, rSum=0, gSum=0, bSum=0, wSum=0;
-      if (distFromCenter <= 1.02){
-        for (const s of sources){
-          const dx = px - s.nx, dy = py - s.ny;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          const freq = s.answered ? 2.1 : 3.4;
-          const speed = 1.6;
-          const amplitude0 = (s.answered ? 0.35 : 1.0) * settleFactor;
-          const wave = amplitude0 * Math.sin((freq*(t*0.001 + s.seed)) - dist*4.2) * Math.exp(-dist*3.4);
-          amp += wave;
-          const w = Math.abs(wave) + 0.001;
-          rSum += s.color[0]*w; gSum += s.color[1]*w; bSum += s.color[2]*w; wSum += w;
-        }
-        ampSum += Math.abs(amp); ampCount++;
+              <button id="councilRequestBtn" type="button" tabindex="3" onclick="conveneCouncil()" style="margin-top:16px;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer;display:block">Convene the Council</button>
+              <div id="conveneStatus" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
+            </div>`
+          : `Tab ${t} content goes here`;
+        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${body}</div>`;
       }
-      const idx = (gy*GRID + gx) * 4;
-      if (distFromCenter > 1.02){ data[idx]=0; data[idx+1]=0; data[idx+2]=0; data[idx+3]=255; continue; }
-      const bright = Math.min(1, Math.pow(Math.abs(amp), 1.4) * 0.7);
-      const baseR = wSum ? rSum/wSum : 30, baseG = wSum ? gSum/wSum : 30, baseB = wSum ? bSum/wSum : 40;
-      data[idx]   = Math.min(255, 8 + baseR * bright);
-      data[idx+1] = Math.min(255, 8 + baseG * bright);
-      data[idx+2] = Math.min(255, 12 + baseB * bright);
-      data[idx+3] = 255;
-    }
-  }
-  offCtx.putImageData(offImageData, 0, 0);
-  cctx.imageSmoothingEnabled = true;
-  cctx.clearRect(0,0,canvas.width,canvas.height);
-  cctx.drawImage(offCanvas, 0, 0, canvas.width, canvas.height);
-
-  lastMeanAmplitude = ampCount ? ampSum/ampCount : 0;
-  const readoutEl = document.getElementById('ampReadoutVal');
-  if (readoutEl && readoutEl.closest('.show')) readoutEl.textContent = lastMeanAmplitude.toFixed(4);
-}
-
-function animate(t){
-  if (!running) return;
-  computeField(t);
-  requestAnimationFrame(animate);
-}
-
-function checkConvergence(){
-  const nowAllAnswered = sources.length > 0 && sources.every(s => s.answered);
-  if (nowAllAnswered && !allAnswered){
-    allAnswered = true;
-    convergedAt = performance.now();
-    setTimeout(() => {
-      document.getElementById('centerMark').classList.add('converged');
-      document.getElementById('corona').classList.add('converged');
-      const sl = document.getElementById('statusLine');
-      sl.classList.add('converged');
-      sl.innerHTML = 'Round <b>' + (currentRound ? currentRound.round_number : '') + '</b> — the field has gone still';
-    }, 4600);
-  } else if (!nowAllAnswered){
-    allAnswered = false; convergedAt = null;
-    document.getElementById('centerMark').classList.remove('converged');
-    document.getElementById('corona').classList.remove('converged');
-    document.getElementById('statusLine').classList.remove('converged');
-  }
-}
-
-function showDetail(name){
-  const s = sources.find(x => x.name === name);
-  if (!s || !s.responseText){ toast(name + ' has not answered yet.'); return; }
-  document.getElementById('modalVoiceName').textContent = name + (s.seq ? ' — Seat #' + s.seq + ' to answer this round' : '');
-  document.getElementById('modalQuestion').textContent = currentRound ? currentRound.prompt_text : '—';
-  document.getElementById('modalAnswer').textContent = s.responseText;
-  const nextWrap = document.getElementById('modalNextWrap');
-  const nextRound = allRounds[roundIndex + 1];
-  if (nextRound){
-    document.getElementById('modalNext').textContent = nextRound.prompt_text;
-    nextWrap.style.display = 'block';
-  } else {
-    nextWrap.style.display = 'none';
-  }
-  document.getElementById('detailModal').classList.add('show');
-}
-document.getElementById('modalCloseBtn').onclick = () => document.getElementById('detailModal').classList.remove('show');
-document.getElementById('modalCloseBtnBottom').onclick = () => document.getElementById('detailModal').classList.remove('show');
-document.getElementById('detailModal').onclick = (e) => { if (e.target.id === 'detailModal') e.currentTarget.classList.remove('show'); };
-
-let currentRound = null;
-let allRounds = [];
-let roundIndex = -1;
-let viewingLatest = true;
-let currentTopicStatus = 'open';
-// Seat names — Amit Seat is now a real, guaranteed participant (Ryan's
-// direct override, 2026-07-21), not excluded from the roster the way the
-// old room's "Amit answers last, outside the voice list" model worked.
-const KNOWN_SOURCES = ['Amit Seat','DeepSeek','Bolt','Gemini','Meta AI','ChatGPT','Grok','Copilot','Perplexity'];
-
-function updateRoundNav(){
-  const label = document.getElementById('roundLabel');
-  const prevBtn = document.getElementById('prevRoundBtn');
-  const nextBtn = document.getElementById('nextRoundBtn');
-  if (!allRounds.length){ label.textContent = 'No rounds yet'; prevBtn.disabled = true; nextBtn.disabled = true; return; }
-  label.textContent = `Round ${roundIndex + 1} of ${allRounds.length}`;
-  prevBtn.disabled = roundIndex <= 0;
-  nextBtn.disabled = roundIndex >= allRounds.length - 1;
-}
-
-// Resolves a seat_id to its display name via the seats already loaded for
-// this topic. Falls back to the raw provenance string (used for the
-// migrated pre-Seat evidence rows where provenance held the AI's name).
-let seatById = {};
-function seatDisplayName(evidenceRow){
-  if (evidenceRow.seat_id && seatById[evidenceRow.seat_id]) return seatById[evidenceRow.seat_id];
-  return evidenceRow.provenance || 'Unknown';
-}
-
-// NEW — big round banner + phase badge, "boxing match" style.
-function renderRoundBanner(round){
-  document.getElementById('roundBannerNum').textContent = 'ROUND ' + round.round_number;
-  const badge = document.getElementById('phaseBadge');
-  const PHASE_LABELS = { clarification:'Clarification', investigation:'Investigation', scope_of_work:'Scope of Work' };
-  if (round.phase && PHASE_LABELS[round.phase]){
-    badge.textContent = PHASE_LABELS[round.phase];
-    badge.style.display = 'inline-block';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
-// NEW — the whole Clarification-phase mechanic: Amit authors the confirmed
-// question list live on the page, then it's presented to the user one at a
-// time as a popup, saved as they go, shown as a completed checklist after.
-let clarifyQuestions = [];
-
-// NEW — the on-page roundtable: open a voice's tab, copy its prompt,
-// paste its answer back, move to the next. Ryan's direct correction,
-// 2026-07-22: none of this belongs in VS Code, it all has to happen on
-// the HTML itself.
-const PROVIDER_URLS = {
-  'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
-  'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
-  'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
-  'Copilot':'https://copilot.microsoft.com/', 'Perplexity':'https://www.perplexity.ai/',
-  'Claude':'https://claude.ai/', 'Mistral':'https://chat.mistral.ai/',
-  'v0':'https://v0.dev/', 'Ideogram':'https://ideogram.ai/'
-};
-function buildRoundtablePrompt(round, voiceName){
-  return `Cold-start briefing: I'm Ryan, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." Amit is a companion built to walk alongside people and facilitate honest deliberation - it invites independent AI voices to answer a real question, without those voices seeing each other's answers, then synthesizes the results. You are being invited as one independent voice in this round. You have no memory of any prior round - this prompt gives you everything you need.
-
-THE REAL QUESTION A USER JUST BROUGHT TO THE COUNCIL: "${round.prompt_text}"
-
-YOUR TASK: This is Round 1 - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to propose clarifying questions that would help pin down what the user is actually trying to achieve, since the question as written may be ambiguous.
-
-Propose EXACTLY 2 clarifying questions, no more. For each one, give both the question itself AND the goal - what that question is actually trying to uncover.
-
-Write your full answer as one continuous piece of plain text (not multiple separate code blocks) - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer. Format each question exactly like this, one per line:
-
-Question text here | What this question is trying to uncover`;
-}
-let roundtableEvidence = [];
-async function renderRoster(round, isLatestRound){
-  const rosterPanel = document.getElementById('rosterAuthorPanel');
-  const roundtablePanel = document.getElementById('roundtablePanel');
-  if (!round.roster || !round.roster.length){
-    rosterPanel.classList.toggle('show', !!session && isLatestRound);
-    roundtablePanel.classList.remove('show');
-    return false; // not ready for clarifying-question authoring yet
-  }
-  rosterPanel.classList.remove('show');
-  roundtableEvidence = await sb(`council_evidence?round_id=eq.${round.id}&select=provenance`);
-  const answered = new Set(roundtableEvidence.map(e => e.provenance));
-  const pending = round.roster.filter(name => !answered.has(name));
-  document.getElementById('roundtableStatus').textContent = `${answered.size} of ${round.roster.length} voices answered.`;
-  if (!pending.length){
-    roundtablePanel.classList.remove('show');
-    return true; // roundtable complete, ready for clarifying-question authoring
-  }
-  if (!session || !isLatestRound){
-    roundtablePanel.classList.remove('show');
-    return false;
-  }
-  const nextVoice = pending[0];
-  document.getElementById('roundtableVoiceName').textContent = nextVoice;
-  document.getElementById('roundtableAnswerText').value = '';
-  document.getElementById('roundtableOpenBtn').onclick = () => {
-    window.open(PROVIDER_URLS[nextVoice] || ('https://www.google.com/search?q=' + encodeURIComponent(nextVoice)), '_blank');
-  };
-  document.getElementById('roundtableCopyBtn').onclick = async () => {
-    try { await navigator.clipboard.writeText(buildRoundtablePrompt(round, nextVoice)); toast('Prompt copied — paste it into ' + nextVoice + '.'); }
-    catch(e){ toast('Could not copy — select and copy the prompt manually.'); }
-  };
-  document.getElementById('roundtableSaveBtn').onclick = async () => {
-    const answer = document.getElementById('roundtableAnswerText').value.trim();
-    if (!answer){ toast('Paste the answer first.'); return; }
-    let seat = (await sb(`council_seats?role_name=eq.${encodeURIComponent(nextVoice + ' Seat')}&select=id`, { authed:true }))[0];
-    if (!seat){
-      const created = await sb('council_seats', {
-        authed:true, method:'POST',
-        headers:{ 'Content-Type':'application/json', Prefer:'return=representation' },
-        body: JSON.stringify({ user_id: currentUser.id, role_name: nextVoice + ' Seat', current_provider: nextVoice })
-      });
-      seat = created[0];
-    }
-    try {
-      await sb('council_evidence', {
-        authed:true, method:'POST',
-        headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-        body: JSON.stringify({ round_id: round.id, seat_id: seat.id, body: answer, source: 'manual_paste', provenance: nextVoice, witnessed_at: new Date().toISOString(), witnessed_by: currentUser.id })
-      });
-      toast(nextVoice + '’s answer saved.');
-      await renderRound(currentRound, true);
-    } catch(e){ toast('Could not save — check console.'); console.error(e); }
-  };
-  roundtablePanel.classList.add('show');
-  return false;
-}
-document.getElementById('rosterBtn').onclick = async () => {
-  if (!session){ toast('Sign in first.'); return; }
-  const names = document.getElementById('rosterText').value.split('\n').map(s => s.trim()).filter(Boolean);
-  if (names.length < 5){ toast('Minimum 5 voices required.'); return; }
-  try {
-    await sb(`council_rounds?id=eq.${currentRound.id}`, {
-      authed:true, method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ roster: names })
-    });
-    document.getElementById('rosterText').value = '';
-    toast('Roster saved — roundtable begins.');
-    await renderRound(currentRound, true);
-  } catch(e){ toast('Could not save — check console.'); console.error(e); }
-};
-
-async function renderClarificationPhase(round, isLatestRound){
-  const authorPanel = document.getElementById('amitAuthorPanel');
-  const checklistPanel = document.getElementById('checklistPanel');
-  const startRound2Btn = document.getElementById('startRound2Btn');
-  if (round.phase !== 'clarification'){
-    authorPanel.classList.remove('show'); checklistPanel.classList.remove('show'); startRound2Btn.classList.remove('show');
-    document.getElementById('clarifyModal').classList.remove('show');
-    document.getElementById('rosterAuthorPanel').classList.remove('show');
-    document.getElementById('roundtablePanel').classList.remove('show');
-    return;
-  }
-  const roundtableReady = await renderRoster(round, isLatestRound);
-  if (!roundtableReady){
-    // Roster not yet set, or roundtable still in progress - clarifying
-    // questions can't be authored until every voice has actually answered.
-    authorPanel.classList.remove('show'); checklistPanel.classList.remove('show'); startRound2Btn.classList.remove('show');
-    document.getElementById('clarifyModal').classList.remove('show');
-    return;
-  }
-  clarifyQuestions = await sb(`council_clarifying_questions?round_id=eq.${round.id}&order=sort_order.asc`);
-
-  if (!clarifyQuestions.length){
-    authorPanel.classList.toggle('show', !!session && isLatestRound);
-    checklistPanel.classList.remove('show');
-    startRound2Btn.classList.remove('show');
-    document.getElementById('clarifyModal').classList.remove('show');
-    return;
-  }
-  authorPanel.classList.remove('show');
-
-  // Checklist — always visible once questions exist, persistent record.
-  document.getElementById('checklistRows').innerHTML = clarifyQuestions.map(q => `
-    <div class="qaRow">
-      <div class="qLine"><span class="check">${q.answered_at ? '✓' : '○'}</span>${q.question_text}</div>
-      ${q.answered_at ? `<div class="aLine">${q.user_answer}</div>` : ''}
-    </div>`).join('');
-  checklistPanel.classList.add('show');
-
-  const unanswered = clarifyQuestions.find(q => !q.answered_at);
-  const nextRoundExists = allRounds.some(r => r.round_number === round.round_number + 1);
-  if (unanswered && session && isLatestRound){
-    const idx = clarifyQuestions.indexOf(unanswered) + 1;
-    document.getElementById('clarifyQNum').textContent = `Question ${idx} of ${clarifyQuestions.length}`;
-    document.getElementById('clarifyQText').textContent = unanswered.question_text;
-    document.getElementById('clarifyAnswerText').value = '';
-    document.getElementById('clarifyModal').classList.add('show');
-  } else {
-    document.getElementById('clarifyModal').classList.remove('show');
-  }
-  startRound2Btn.classList.toggle('show', !unanswered && !nextRoundExists && !!session && isLatestRound);
-}
-document.getElementById('clarifySaveBtn').onclick = async () => {
-  const unanswered = clarifyQuestions.find(q => !q.answered_at);
-  if (!unanswered) return;
-  const answer = document.getElementById('clarifyAnswerText').value.trim();
-  if (!answer){ toast('Type an answer first.'); return; }
-  try {
-    await sb(`council_clarifying_questions?id=eq.${unanswered.id}`, {
-      authed:true, method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ user_answer: answer, answered_at: new Date().toISOString() })
-    });
-    await renderRound(currentRound, true);
-  } catch(e){ toast('Could not save — check console.'); console.error(e); }
-};
-document.getElementById('amitQuestionsBtn').onclick = async () => {
-  if (!session){ toast('Sign in first.'); return; }
-  const raw = document.getElementById('amitQuestionsText').value.trim();
-  if (!raw){ toast('Enter at least one question.'); return; }
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  const rows = lines.map((line, i) => {
-    const [q, g] = line.split('|').map(s => s ? s.trim() : '');
-    return { round_id: currentRound.id, question_text: q, goal_text: g || null, sort_order: i };
-  });
-  try {
-    await sb('council_clarifying_questions', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify(rows)
-    });
-    document.getElementById('amitQuestionsText').value = '';
-    toast('Clarifying questions saved.');
-    await renderRound(currentRound, true);
-  } catch(e){ toast('Could not save — check console.'); console.error(e); }
-};
-document.getElementById('startRound2Btn').onclick = async () => {
-  const qaText = clarifyQuestions.map(q => `Q: ${q.question_text}\nA: ${q.user_answer}`).join('\n\n');
-  const composed = `INVESTIGATION PHASE. Original question:\n${currentRound.prompt_text_original || document.getElementById('originalQuestionText').textContent}\n\nRound 1 clarifying questions and the user's answers:\n${qaText}\n\nBased on everything above, write a one-line or one-paragraph summary that captures the true intent of what the user is actually trying to achieve.`;
-  try {
-    await sb('council_rounds', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: currentRound.round_number + 1, prompt_text: composed, phase: 'investigation' })
-    });
-    toast('Round 2 (Investigation) started.');
-    viewingLatest = true;
-    await load();
-  } catch(e){ toast('Could not start Round 2 — check console.'); console.error(e); }
-};
-
-// NEW — the Investigation-phase mechanic: Amit writes one consensus intent
-// statement, the user confirms yes/no, no/restart/modify both logged.
-async function renderInvestigationPhase(round, isLatestRound){
-  const authorPanel = document.getElementById('amitConsensusAuthorPanel');
-  const consensusPanel = document.getElementById('consensusPanel');
-  const startRound3Btn = document.getElementById('startRound3Btn');
-  if (round.phase !== 'investigation'){
-    authorPanel.classList.remove('show'); consensusPanel.classList.remove('show'); startRound3Btn.classList.remove('show');
-    return;
-  }
-  if (!round.consensus_statement){
-    authorPanel.classList.toggle('show', !!session && isLatestRound);
-    consensusPanel.classList.remove('show');
-    startRound3Btn.classList.remove('show');
-    return;
-  }
-  authorPanel.classList.remove('show');
-  document.getElementById('consensusStatementText').textContent = round.consensus_statement;
-  const nextRoundExists = allRounds.some(r => r.round_number === round.round_number + 1);
-  if (round.consensus_confirmed === true){
-    consensusPanel.classList.remove('show');
-    startRound3Btn.classList.toggle('show', !nextRoundExists && !!session && isLatestRound);
-  } else {
-    consensusPanel.classList.toggle('show', !!session && isLatestRound);
-    startRound3Btn.classList.remove('show');
-    document.getElementById('consensusNoOptions').classList.remove('show');
-  }
-}
-document.getElementById('amitConsensusBtn').onclick = async () => {
-  if (!session){ toast('Sign in first.'); return; }
-  const text = document.getElementById('amitConsensusText').value.trim();
-  if (!text){ toast('Write the consensus statement first.'); return; }
-  try {
-    await sb(`council_rounds?id=eq.${currentRound.id}`, {
-      authed:true, method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ consensus_statement: text })
-    });
-    document.getElementById('amitConsensusText').value = '';
-    await renderRound(currentRound, true);
-  } catch(e){ toast('Could not save — check console.'); console.error(e); }
-};
-document.getElementById('consensusYesBtn').onclick = async () => {
-  try {
-    await sb(`council_rounds?id=eq.${currentRound.id}`, {
-      authed:true, method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ consensus_confirmed: true, user_directive: 'confirmed_solution', resolved_at: new Date().toISOString() })
-    });
-    toast('Intent confirmed.');
-    await renderRound(currentRound, true);
-  } catch(e){ toast('Could not save — check console.'); console.error(e); }
-};
-document.getElementById('consensusNoBtn').onclick = () => { document.getElementById('consensusNoOptions').classList.add('show'); };
-document.getElementById('consensusRestartBtn').onclick = async () => {
-  const text = document.getElementById('consensusNoText').value.trim();
-  if (!text){ toast('Write what you want reconsidered first.'); return; }
-  try {
-    await sb(`council_rounds?id=eq.${currentRound.id}`, {
-      authed:true, method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ user_feedback: text, user_directive: 'different_angle' })
-    });
-    const composed = `CLARIFICATION PHASE (restarted with better direction — nothing before this is lost, see earlier rounds). Original question:\n${document.getElementById('originalQuestionText').textContent}\n\nUser's new directive:\n${text}`;
-    await sb('council_rounds', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: currentRound.round_number + 1, prompt_text: composed, phase: 'clarification' })
-    });
-    toast('New round started with your direction.');
-    document.getElementById('consensusNoText').value = '';
-    viewingLatest = true;
-    await load();
-  } catch(e){ toast('Could not start the new round — check console.'); console.error(e); }
-};
-document.getElementById('consensusModifyBtn').onclick = async () => {
-  const text = document.getElementById('consensusNoText').value.trim();
-  if (!text){ toast('Say what to change first.'); return; }
-  try {
-    const updated = currentRound.consensus_statement + '\n\n[Amendment per user request: ' + text + ']';
-    await sb(`council_rounds?id=eq.${currentRound.id}`, {
-      authed:true, method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ consensus_statement: updated, user_feedback: text, user_directive: 'repeat_refine' })
-    });
-    document.getElementById('consensusNoText').value = '';
-    toast('Statement updated — confirm again when ready.');
-    await renderRound(currentRound, true);
-  } catch(e){ toast('Could not save — check console.'); console.error(e); }
-};
-document.getElementById('startRound3Btn').onclick = async () => {
-  try {
-    await sb('council_rounds', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: currentRound.round_number + 1, prompt_text: currentRound.consensus_statement, phase: 'scope_of_work' })
-    });
-    toast('Round 3 (Scope of Work) started.');
-    viewingLatest = true;
-    await load();
-  } catch(e){ toast('Could not start Round 3 — check console.'); console.error(e); }
-};
-
-async function renderRound(round, isSameRoundRefresh){
-  const modalWasOpen = document.getElementById('detailModal').classList.contains('show');
-  currentRound = round;
-  document.getElementById('promptText').textContent = round.prompt_text;
-  renderRoundBanner(round);
-  const isLatestRoundForPhase = roundIndex === allRounds.length - 1;
-  await renderClarificationPhase(round, isLatestRoundForPhase);
-  await renderInvestigationPhase(round, isLatestRoundForPhase);
-
-  // NEW — the review panel: this round's own synthesis, its next_step, and
-  // whatever the user said back. Shown together, every time.
-  const reviewPanel = document.getElementById('reviewPanel');
-  if (round.synthesis){
-    document.getElementById('synthesisTextReview').textContent = round.synthesis;
-    reviewPanel.classList.add('show');
-  } else {
-    reviewPanel.classList.remove('show');
-  }
-  const nextStepBlock = document.getElementById('nextStepBlock');
-  if (round.next_step){
-    document.getElementById('nextStepText').textContent = round.next_step;
-    nextStepBlock.style.display = 'block';
-  } else {
-    nextStepBlock.style.display = 'none';
-  }
-  const feedbackBlock = document.getElementById('userFeedbackBlock');
-  const badgeWrap = document.getElementById('directiveBadgeWrap');
-  if (round.user_feedback || round.user_directive){
-    document.getElementById('userFeedbackText').textContent = round.user_feedback || '(no written feedback — directive only)';
-    const isConfirmed = round.user_directive === 'confirmed_solution';
-    badgeWrap.innerHTML = round.user_directive
-      ? `<span class="directiveBadge${isConfirmed ? ' confirmed' : ''}">${round.user_directive.replace('_',' ')}</span>`
-      : '';
-    feedbackBlock.style.display = 'block';
-  } else {
-    feedbackBlock.style.display = 'none';
-  }
-
-  // NEW — show the directive controls only on the latest round of an open
-  // topic, so old rounds display as read-only history.
-  const directivePanel = document.getElementById('directivePanel');
-  const isLatestRound = roundIndex === allRounds.length - 1;
-  if (session && isLatestRound && currentTopicStatus !== 'resolved'){
-    directivePanel.classList.add('show');
-  } else {
-    directivePanel.classList.remove('show');
-  }
-
-  const evidence = await sb(`council_evidence?round_id=eq.${round.id}&order=created_at.asc`);
-  const present = evidence.map(r => seatDisplayName(r));
-  const seats = present.length ? present : ['Amit Seat'];
-  const answeredSet = new Set(present);
-  const seqMap = {};
-  evidence.forEach((r, i) => { seqMap[seatDisplayName(r)] = i + 1; });
-  if (!isSameRoundRefresh){
-    allAnswered = false; convergedAt = null;
-    placeRimVoices(seats, answeredSet, seqMap);
-  }
-  evidence.forEach(r => {
-    const name = seatDisplayName(r);
-    const s = sources.find(x => x.name === name);
-    if (s) { s.responseText = r.body; s.seq = seqMap[name]; }
-  });
-  if (!isSameRoundRefresh || !modalWasOpen){
-    document.getElementById('detailModal').classList.remove('show');
-  }
-  if (!isSameRoundRefresh){
-    document.getElementById('centerMark').classList.remove('converged');
-    document.getElementById('corona').classList.remove('converged');
-    document.getElementById('statusLine').classList.remove('converged');
-  }
-  const sl = document.getElementById('statusLine');
-  if (!sl.classList.contains('converged')) {
-    sl.innerHTML = `Round <b>${round.round_number}</b> — ${evidence.length} of ${seats.length} answer${seats.length===1?'':'s'} in`;
-  }
-  checkConvergence();
-  updateRoundNav();
-}
-
-const RELIABILITY_RANK = { strong: 0, mixed: 1, weak: 2, unproven: 3 };
-
-async function populateSrcSelect(usedNames){
-  const sel = document.getElementById('srcSelect');
-  sel.innerHTML = '';
-  const notYetUsed = KNOWN_SOURCES.filter(n => !usedNames.includes(n));
-  let profiles = [];
-  try { profiles = await sb(`amit_brainstorm_ai_profiles?select=ai_name,reliability,known_quirks`); } catch(e) { /* reference-only, historical table */ }
-  const profileMap = {};
-  profiles.forEach(p => { profileMap[p.ai_name] = p; });
-  const ranked = notYetUsed.slice().sort((a, b) => {
-    const ra = profileMap[a] ? RELIABILITY_RANK[profileMap[a].reliability] : RELIABILITY_RANK.unproven;
-    const rb = profileMap[b] ? RELIABILITY_RANK[profileMap[b].reliability] : RELIABILITY_RANK.unproven;
-    return ra - rb;
-  });
-  [...ranked, '— other —'].forEach(n => {
-    const opt = document.createElement('option');
-    opt.value = n;
-    const p = profileMap[n];
-    opt.textContent = p ? `${n} (${p.reliability})` : n;
-    sel.appendChild(opt);
-  });
-  sel.onchange = () => { document.getElementById('srcOther').style.display = sel.value === '— other —' ? 'inline-block' : 'none'; };
-  sel.onchange();
-}
-
-// NEW — populates the topic list panel so past Council sessions are
-// actually browsable, not just reachable if you already have the URL.
-async function loadTopicList(){
-  try {
-    const all = await sb(`council_topics?select=id,title,status&order=created_at.desc`);
-    const rows = document.getElementById('topicListRows');
-    if (!all.length){ rows.textContent = 'No sessions yet.'; return; }
-    rows.innerHTML = all.map(t => {
-      const isActive = t.id === TOPIC_ID;
-      const statusLabel = t.status === 'resolved' ? 'resolved' : 'open';
-      return `<div class="topicRow">
-        <a href="?topic=${t.id}" class="${isActive ? 'active' : ''}" data-topic="${t.id}">${t.title}</a>
-        <span class="status ${statusLabel}">${statusLabel}</span>
+      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
       </div>`;
-    }).join('');
-    rows.querySelectorAll('a[data-topic]').forEach(a => {
-      a.onclick = (e) => { e.preventDefault(); switchToTopic(a.dataset.topic); };
-    });
-  } catch(e){ console.error(e); document.getElementById('topicListRows').textContent = 'Could not load session list.'; }
-}
-
-async function load(){
-  const [topics, seats, rounds] = await Promise.all([
-    sb(`council_topics?id=eq.${TOPIC_ID}&select=title,final_solution,status,original_question`),
-    sb(`council_seats?select=id,role_name`),
-    sb(`council_rounds?topic_id=eq.${TOPIC_ID}&order=round_number.asc`)
-  ]);
-  loadTopicList();
-  seatById = {};
-  (seats || []).forEach(s => { seatById[s.id] = s.role_name.replace(' Seat',''); });
-
-  document.getElementById('topicTitle').textContent = topics[0] ? topics[0].title : 'Topic not found';
-  // NEW — the original question stays permanently visible in the left
-  // column, never buried, per Ryan's direct fix. Once a topic has one,
-  // the left box becomes a display of it instead of the empty-state prompt.
-  if (topics[0] && topics[0].original_question){
-    document.getElementById('originalQuestionLabel').textContent = 'The original question';
-    document.getElementById('originalQuestionText').textContent = topics[0].original_question;
-    document.getElementById('originalQuestionText').style.display = 'block';
-    document.getElementById('newTopicPrompt').style.display = 'none';
-  }
-  currentTopicStatus = topics[0] ? topics[0].status : 'open';
-  const statusEl = document.getElementById('topicStatus');
-  statusEl.textContent = currentTopicStatus === 'resolved' ? 'Resolved — a solution was confirmed' : 'Open — still deliberating';
-  statusEl.className = 'topicStatus ' + currentTopicStatus;
-
-  if (topics[0] && topics[0].final_solution){
-    document.getElementById('synthesisText').textContent = topics[0].final_solution;
-    document.getElementById('synthesisPanel').classList.add('show');
-    document.getElementById('phase2Panel').style.display = (currentTopicStatus === 'resolved') ? 'block' : 'none';
-  } else {
-    document.getElementById('synthesisPanel').classList.remove('show');
-    document.getElementById('phase2Panel').style.display = 'none';
-  }
-  if (!rounds.length) return;
-
-  const wasAtLatest = viewingLatest;
-  const newRoundCount = rounds.length !== allRounds.length;
-  const prevRoundId = currentRound ? currentRound.id : null;
-  allRounds = rounds;
-  if (roundIndex === -1 || (wasAtLatest && newRoundCount)) {
-    roundIndex = allRounds.length - 1;
-  }
-  viewingLatest = roundIndex === allRounds.length - 1;
-  const nextRound = allRounds[roundIndex];
-  const isSameRoundRefresh = prevRoundId !== null && nextRound.id === prevRoundId;
-  await renderRound(nextRound, isSameRoundRefresh);
-
-  const usedNames = sources.map(s => s.name).filter(n => n !== '— other —');
-  populateSrcSelect(usedNames);
-}
-
-document.getElementById('prevRoundBtn').onclick = () => {
-  if (roundIndex <= 0) return;
-  roundIndex -= 1; viewingLatest = roundIndex === allRounds.length - 1;
-  renderRound(allRounds[roundIndex]);
-};
-document.getElementById('nextRoundBtn').onclick = () => {
-  if (roundIndex >= allRounds.length - 1) return;
-  roundIndex += 1; viewingLatest = roundIndex === allRounds.length - 1;
-  renderRound(allRounds[roundIndex]);
-};
-
-async function saveResponse(){
-  if (!session){ toast('Sign in first.'); return; }
-  const sel = document.getElementById('srcSelect');
-  const other = document.getElementById('srcOther');
-  const source = sel.value === '— other —' ? other.value.trim() : sel.value;
-  const text = document.getElementById('respText').value.trim();
-  if (!source || !text){ toast('Pick a Seat and paste the answer.'); return; }
-  if (!currentRound){ toast('No active round loaded yet.'); return; }
-  try {
-    // Find or create the seat for this name.
-    let seat = (await sb(`council_seats?role_name=eq.${encodeURIComponent(source + ' Seat')}&select=id`, { authed:true }))[0];
-    if (!seat){
-      const created = await sb('council_seats', {
-        authed:true, method:'POST',
-        headers:{ 'Content-Type':'application/json', Prefer:'return=representation' },
-        body: JSON.stringify({ user_id: currentUser.id, role_name: source + ' Seat', current_provider: source })
-      });
-      seat = created[0];
-    }
-    await sb('council_evidence', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ round_id: currentRound.id, seat_id: seat.id, body: text, source: 'manual_paste', provenance: source, witnessed_at: new Date().toISOString(), witnessed_by: currentUser.id })
-    });
-    document.getElementById('respText').value = '';
-    toast(source + '’s answer saved.');
-    load();
-  } catch(e){ toast('Save failed — check console.'); console.error(e); }
-}
-
-async function startNextRound(){
-  if (!session){ toast('Sign in first.'); return; }
-  const text = document.getElementById('rerunText').value.trim();
-  if (!text){ toast('Say what you want reconsidered first.'); return; }
-  const nextNumber = allRounds.length ? Math.max(...allRounds.map(r => r.round_number)) + 1 : 1;
-  try {
-    await sb('council_rounds', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: nextNumber, prompt_text: text })
-    });
-    document.getElementById('rerunText').value = '';
-    toast('New round ' + nextNumber + ' started.');
-    viewingLatest = true;
-    await load();
-  } catch(e){ toast('Could not start the round — check console.'); console.error(e); }
-}
-
-// NEW — logs the user's directive on the CURRENT round (not a new round),
-// per the standing rule: nothing is ever deleted, the round that prompted
-// a redirect stays exactly as it happened, visible in the record.
-async function setDirective(directive){
-  if (!session){ toast('Sign in first.'); return; }
-  if (!currentRound){ toast('No active round loaded.'); return; }
-  const feedback = document.getElementById('directiveFeedback').value.trim();
-  try {
-    await sb(`council_rounds?id=eq.${currentRound.id}`, {
-      authed:true, method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({
-        presented_to_user_at: new Date().toISOString(),
-        user_feedback: feedback || null,
-        user_directive: directive,
-        status: 'resolved',
-        resolved_at: new Date().toISOString()
-      })
-    });
-    if (directive === 'confirmed_solution'){
-      await sb(`council_topics?id=eq.${TOPIC_ID}`, {
-        authed:true, method:'PATCH',
-        headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-        body: JSON.stringify({ status: 'resolved', final_solution: currentRound.synthesis || feedback, resolved_at: new Date().toISOString() })
-      });
-      toast('Marked achieved — The Council has its answer.');
     } else {
-      toast('Logged: ' + directive.replace('_',' ') + '.');
+      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="panel-empty">Panel ${i} content goes here</div>
+      </div>`;
     }
-    document.getElementById('directiveFeedback').value = '';
-    await load();
-  } catch(e){ toast('Could not save your response — check console.'); console.error(e); }
-}
-document.getElementById('directiveContinueBtn').onclick = () => setDirective('continue');
-document.getElementById('directiveRefineBtn').onclick = () => setDirective('repeat_refine');
-document.getElementById('directiveAngleBtn').onclick = () => setDirective('different_angle');
-document.getElementById('directiveAchievedBtn').onclick = () => setDirective('confirmed_solution');
+  }
+  nav.innerHTML=navHtml;
+  main.innerHTML=panelHtml;
+})();
 
-document.getElementById('saveBtn').onclick = saveResponse;
-document.getElementById('clearBtn').onclick = () => { document.getElementById('respText').value = ''; };
-document.getElementById('rerunBtn').onclick = startNextRound;
-document.getElementById('rerunClearBtn').onclick = () => { document.getElementById('rerunText').value = ''; };
-document.getElementById('ampToggleBtn').onclick = () => { document.getElementById('ampReadout').classList.toggle('show'); };
-
-async function startPhase2(){
-  if (!session){ toast('Sign in first.'); return; }
-  const synthesis = document.getElementById('synthesisText').textContent.trim();
-  if (!synthesis){ toast('No confirmed solution to build on yet.'); return; }
-  const nextNumber = allRounds.length ? Math.max(...allRounds.map(r => r.round_number)) + 1 : 1;
-  const phase2Prompt = 'This is Phase 2 - the premium continuation. The Council reached this real, confirmed solution:\n\n' + synthesis + '\n\nStarting from this exact result, not from scratch: what is the single most important way to sharpen this further toward the original goal? Give one clear, concrete answer.';
-  try {
-    await sb('council_rounds', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ topic_id: TOPIC_ID, round_number: nextNumber, prompt_text: phase2Prompt })
-    });
-    await sb(`council_topics?id=eq.${TOPIC_ID}`, {
-      authed:true, method:'PATCH',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ status: 'open', resolved_at: null })
-    });
-    toast('Phase 2 started - Round ' + nextNumber + '.');
-    viewingLatest = true;
-    await load();
-  } catch(e){ toast('Could not start Phase 2 — check console.'); console.error(e); }
-}
-document.getElementById('phase2Btn').onclick = startPhase2;
-
-function switchToTopic(id){
-  TOPIC_ID = id;
-  allRounds = []; roundIndex = -1; viewingLatest = true; currentRound = null;
-  const url = new URL(location.href);
-  if (id === SHOWCASE_TOPIC_ID) url.searchParams.delete('topic'); else url.searchParams.set('topic', id);
-  history.replaceState(null, '', url.toString());
-  document.getElementById('currentTopicLink').style.display = id === SHOWCASE_TOPIC_ID ? 'none' : 'block';
-  document.getElementById('synthesisPanel').classList.remove('show');
-  document.getElementById('reviewPanel').classList.remove('show');
-  load();
+// Tabbed-layout behavior (copied from Computer Health's showTab — folder-tab
+// look, sub-content switching within one panel — no data hooks attached).
+function showChTab(panelNum,n){
+  const panel=document.getElementById('panel-'+panelNum);
+  panel.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  panel.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ch-tab-'+panelNum+'-'+n).classList.add('active');
+  event.target.classList.add('active');
 }
 
-async function beginNewBrainstorm(){
-  if (!session || !currentUser){ toast('Sign in first.'); return; }
-  const text = document.getElementById('newTopicText').value.trim();
-  if (!text){ toast('Write your problem first.'); return; }
-  const btn = document.getElementById('newTopicBtn');
-  btn.disabled = true; btn.textContent = 'Convening...';
-  try {
-    const title = text.length > 90 ? text.slice(0, 87) + '...' : text;
-    const topic = await sb('council_topics', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=representation' },
-      body: JSON.stringify({ user_id: currentUser.id, title, original_question: text })
+function openPanel(n){
+  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const tile=document.getElementById('tile-'+n);
+  const panel=document.getElementById('panel-'+n);
+  if(tile)tile.classList.add('active');
+  if(panel)panel.classList.add('active');
+}
+
+// Ryan's direct instruction, 2026-07-22: the Council Title field on Page
+// 2's Scope tab (max 20 chars) becomes that page's actual title - the
+// sidebar tile name and the panel's own heading, live as it's typed.
+// Reactive UI only right now, no persistence yet.
+function updateCouncilPageTitle(pageNum,value){
+  const display=value.trim()||'Session 1';
+  const tileName=document.querySelector('#tile-'+pageNum+' .tile-name');
+  const panelHeading=document.querySelector('#panel-'+pageNum+' .panel-heading');
+  if(tileName)tileName.textContent=display;
+  if(panelHeading)panelHeading.textContent=display;
+}
+
+// Ryan's direct instruction, 2026-07-22: Convene writes for real, straight
+// into the existing council_ schema (council_topics + council_rounds) -
+// same tables Amit_Council2.html already uses. Round 1 always starts in
+// the Clarification phase, per the standing procedure. Picking the actual
+// AI roster and writing the real investigation prompt is Amit's own live
+// judgment call in conversation, not something this static page computes -
+// this just gets the topic and Round 1 correctly saved so that work has
+// somewhere real to attach to.
+async function conveneCouncil(){
+  const statusEl=document.getElementById('conveneStatus');
+  if(!currentUser){statusEl.textContent='Sign in first.';statusEl.style.color='#e08a8a';return;}
+  const title=document.getElementById('councilTitleText').value.trim();
+  const request=document.getElementById('councilRequestText').value.trim();
+  if(!title){statusEl.textContent='Give it a title first.';statusEl.style.color='#e08a8a';return;}
+  if(!request){statusEl.textContent='Write the actual request first.';statusEl.style.color='#e08a8a';return;}
+  const btn=document.getElementById('councilRequestBtn');
+  btn.disabled=true;btn.textContent='Convening...';
+  statusEl.textContent='';
+  try{
+    const{data:topic,error:topicErr}=await db.from('council_topics').insert({
+      user_id:currentUser.id, title:title, original_question:request
+    }).select().single();
+    if(topicErr)throw topicErr;
+    const{error:roundErr}=await db.from('council_rounds').insert({
+      topic_id:topic.id, round_number:1, prompt_text:request, phase:'clarification'
     });
-    const newTopicId = topic[0].id;
-    // Every new topic's Round 1 is always the Clarification phase - the
-    // standing rule (item 3 in the task list): never "solve this," always
-    // investigate true intent first.
-    await sb('council_rounds', {
-      authed:true, method:'POST',
-      headers:{ 'Content-Type':'application/json', Prefer:'return=minimal' },
-      body: JSON.stringify({ topic_id: newTopicId, round_number: 1, prompt_text: text, phase: 'clarification' })
-    });
-    document.getElementById('newTopicText').value = '';
-    toast('The Council is convened.');
-    switchToTopic(newTopicId);
-  } catch(e){
+    if(roundErr)throw roundErr;
+    updateCouncilPageTitle(2,title);
+    statusEl.textContent='Saved — topic and Round 1 created in the database.';
+    statusEl.style.color='rgba(120,200,150,.9)';
+  }catch(e){
     console.error(e);
-    toast('Could not start — you may need premium access. Check console.');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Convene the Council';
+    statusEl.textContent='Could not save — '+(e.message||'check console')+(e.message&&e.message.includes('row-level security')?' (this account may need premium access)':'');
+    statusEl.style.color='#e08a8a';
+  }finally{
+    btn.disabled=false;btn.textContent='Convene the Council';
   }
 }
-document.getElementById('newTopicBtn').onclick = beginNewBrainstorm;
-document.getElementById('backToShowcaseLink').onclick = (e) => { e.preventDefault(); switchToTopic(SHOWCASE_TOPIC_ID); };
-if (TOPIC_ID !== SHOWCASE_TOPIC_ID) document.getElementById('currentTopicLink').style.display = 'block';
 
-// Real SDK session check - this is what actually picks up the Hub's
-// sign-in via shared localStorage, no separate flow on this page at all.
-// NEW — landing gate: the real first screen. Only shows on a bare arrival
-// (no ?topic= in the URL) - a direct link to a specific topic skips it.
-function hideLandingGate(){ document.getElementById('landingGate').style.display = 'none'; }
-async function loadLandingGate(){
-  const rows = document.getElementById('landingRows');
-  if (!session || !currentUser){
-    rows.innerHTML = '<p style="color:var(--text-faint);font-size:13px;">Sign in above (via the Hub) to see your own Council sessions.</p>';
-    return;
-  }
-  try {
-    const mine = await sb(`council_topics?user_id=eq.${currentUser.id}&select=id,title,status&order=created_at.desc`, { authed:true });
-    if (!mine.length){
-      rows.innerHTML = '<p style="color:var(--text-faint);font-size:13px;">No sessions of your own yet — start your first one below.</p>';
-      return;
-    }
-    rows.innerHTML = mine.map(t => `<div class="landingRow"><a href="#" data-topic="${t.id}">${t.title}</a><span class="status ${t.status}">${t.status}</span></div>`).join('');
-    rows.querySelectorAll('a[data-topic]').forEach(a => {
-      a.onclick = (e) => { e.preventDefault(); switchToTopic(a.dataset.topic); hideLandingGate(); };
-    });
-  } catch(e){ console.error(e); rows.textContent = 'Could not load your sessions.'; }
+// Double-click anywhere in the sidebar collapses it to icon-only, or
+// expands it back to the full labeled row. Double-click again to reverse.
+function toggleSidebar(){
+  document.getElementById('sidebarTiles').classList.toggle('collapsed');
 }
-document.getElementById('landingNewBtn').onclick = () => { hideLandingGate(); document.getElementById('newTopicText').focus(); };
-document.getElementById('landingViewShowcaseBtn').onclick = () => { switchToTopic(SHOWCASE_TOPIC_ID); hideLandingGate(); };
-if (new URLSearchParams(location.search).get('topic')) hideLandingGate();
 
-db.auth.getSession().then(({ data: { session: sbSession } }) => {
-  if (sbSession){
-    session = sbSession;
-    currentUser = sbSession.user;
-    renderAuthbar(currentUser);
+// ══════════════════════════════════════════════
+// LOGIN CONNECTION — the one live piece of this template.
+// Supabase auth only: knows who is signed in. No data reads/writes beyond that.
+// ══════════════════════════════════════════════
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+let currentUser=null;
+
+if(db){
+  db.auth.onAuthStateChange((event,session)=>{
+    currentUser=session?session.user:null;
+    _updateSyncUI();
+  });
+}
+
+function _updateSyncUI(){
+  const el=document.getElementById('syncIndicator');if(!el)return;
+  const logoutBtn=document.getElementById('logoutBtn');
+  const signInBtn=document.getElementById('signInBtn');
+  if(currentUser){
+    el.textContent='● SYNCED';el.style.color='rgba(100,220,160,.7)';el.title='Signed in · '+currentUser.email;
+    if(logoutBtn)logoutBtn.style.display='block';
+    if(signInBtn)signInBtn.style.display='none';
   } else {
-    renderAuthbar(null);
+    el.textContent='';el.style.color='rgba(240,232,208,.28)';el.title='';
+    if(logoutBtn)logoutBtn.style.display='none';
+    if(signInBtn)signInBtn.style.display='block';
   }
-  loadLandingGate();
-});
-db.auth.onAuthStateChange((event, sbSession) => {
-  session = sbSession;
-  currentUser = sbSession ? sbSession.user : null;
-  renderAuthbar(currentUser);
-  loadLandingGate();
-});
+}
 
-initCanvas();
-running = true;
-requestAnimationFrame(animate);
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+}
 
-load().catch(e => { document.getElementById('topicTitle').textContent = 'Could not load live data — check connection.'; console.error(e); });
-setInterval(() => load().catch(() => {}), 5000);
+async function sendMagicLink(email){
+  if(!db)return'Database not available';
+  const{error}=await db.auth.signInWithOtp({email});
+  return error?error.message:null;
+}
+
+function openSyncModal(){
+  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
+  const m=document.getElementById('syncModal');if(!m)return;
+  m.style.display='flex';
+}
+function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+async function submitSyncEmail(){
+  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
+  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
+  const err=await sendMagicLink(email);
+  if(err){btn.textContent='Try again';btn.disabled=false;}
+  else{
+    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+// CLOCK / GREETING — visual only, no data behind it
+// ══════════════════════════════════════════════
+function updateClock(){
+  const d=new Date();
+  const h=d.getHours();
+  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const g=document.getElementById('greeting');if(g)g.textContent=sal;
+  const dt=document.getElementById('datetime');
+  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock,30000);
 </script>
+
+</body>
+</html>

@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 4.42**
+**Current version: 4.43**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -164,6 +164,7 @@ When building anything in the Amit system, Amit writes directly to the correct s
 | Ten Commandments (God Talk) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\TenCommandments\` |
 | The Council (multi-AI brainstorming, formerly "Brainstorming") | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\TheCouncil\` — own CLAUDE.md holds current status; file migration from old `Brainstorming\` folder still pending |
 | Database (Supabase / shared) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\` |
+| Templates (reusable project/document templates) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Templates\` |
 | Identity / Testimony / Spec files | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\` (root only) |
 
 **Do not ask Ryan to switch folders. Write to the correct absolute path directly.**
@@ -175,7 +176,7 @@ When building anything in the Amit system, Amit writes directly to the correct s
 When Ryan starts a new application or project under the Amit system, do the following automatically â€” without being asked:
 
 **Step 1 — Create the subfolder**
-Create `C:\Users\user1\OneDrive\Documents - onedrive\Amit\[ProjectName]\` and place a CLAUDE.md inside it using the template at `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_NewProject_Template.md`. Fill in the project name, folder path, purpose, and current status.
+Create `C:\Users\user1\OneDrive\Documents - onedrive\Amit\[ProjectName]\` and place a CLAUDE.md inside it using the template at `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Templates\Amit_NewProject_Template.md`. Fill in the project name, folder path, purpose, and current status.
 
 **Step 2 — Update the path table above**
 Add the new project and its correct path to the table so future sessions know where it lives.
@@ -412,6 +413,8 @@ Invoke-RestMethod -Uri "https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/user_pr
 **Full build history → `Amit_BuildLog.md` — last entry: Session 35**
 
 **Full session history → `amit_sessions` table in Supabase. Pull with RETURNING GREETING PowerShell command above.**
+
+**Templates folder created (2026-07-22):** New `Templates\` subfolder holds reusable template files, starting with `Amit_NewProject_Template.md` (copied here, original retained at root for now). Own CLAUDE.md added per the New Project Directive. Root CLAUDE.md's path table and NEW PROJECT DIRECTIVE reference updated to point here. Next templates to add when identified: pursuit-entry, session-log, God Talk entry.
 
 **STILL OPEN, CARRIED FORWARD (untouched this session):**
 - **The Council (formerly "Brainstorming") — file migration pending.** Renamed 2026-07-21 after a real, logged 3-round, 6-voice brainstorm converged on the name (topic_id `82a03d25-ff70-426c-9eb3-af895e6a0832`), refined by Ryan to "The Council" specifically. New folder `TheCouncil\` created with its own CLAUDE.md per the standing New Project Directive, but the actual files (`Amit_BrainstormRoom.html`, `AI\` folder, scripts, `CHANGELOG.md`) still physically live in `Brainstorming\` and need to be moved over. The bigger, still-unscoped open item underneath the rename: there is still no way for a stranger to arrive, type their own question, and have the tool run the multi-AI round-robin on its own — every round still requires Ryan to manually copy-paste between the room and each outside AI, even with the new sequential one-tab-at-a-time + clipboard-copy workflow making that manual process faster.
