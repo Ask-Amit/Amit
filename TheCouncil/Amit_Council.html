@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.93</div>
+    <div class="page-version" id="pageVersion">v4.94</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -394,13 +394,15 @@ header{
 let councilSessions=[];
 let activeSessionId=null;
 const PROVIDER_URLS={
-  // 'Amit' has no external site to open - it's not a copy-paste voice, it's
-  // Amit itself answering directly. Listed here (null URL) so it shows up
-  // correctly in the roster picker instead of desyncing; the actual
-  // "Amit answers in-place, no tab needed" roundtable mechanic is real
-  // follow-up work, not yet wired - Ryan's direct instruction, 2026-07-22,
-  // small fix now, full wiring on a future push.
-  'Amit':null,
+  // Ryan's direct instruction, 2026-07-22: Amit answers through a real
+  // page like any other voice, not typed in directly. This opens
+  // Who_Is_Amit.html - Amit's own profile, its introduction, and a growing
+  // reference library (who_is_god.html, and future documents like
+  // Commandment studies or Noah's Flood) - so the person answering as Amit
+  // reviews the real source material before responding, every time,
+  // instead of relying on a Claude.ai Project's instructions silently
+  // drifting out of sync with the actual identity files.
+  'Amit':'https://ask-amit.github.io/Amit/Who_Is_Amit.html',
   'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
   'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
   'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
@@ -1075,7 +1077,7 @@ function renderAnswerBoxes(n,round,visiblePending){
   const requested=requestedVoices[n]||new Set();
   let firstUnrequestedMarked=false;
   boxesHost.innerHTML=visiblePending.map((voice,idx)=>{
-    const isRequested=requested.has(voice)||voice==='Amit'; // Amit has no site to request - always shows its answer box directly
+    const isRequested=requested.has(voice); // Amit now goes through Claude.ai like any other voice - no special-case here
     if(!isRequested){
       const blink=!firstUnrequestedMarked;
       firstUnrequestedMarked=true;
@@ -1090,7 +1092,7 @@ function renderAnswerBoxes(n,round,visiblePending){
   // Only blink a paste box if every voice is already requested (nothing
   // left to click a Request button on) - and only the first such box.
   if(!firstUnrequestedMarked){
-    const firstIdx=visiblePending.findIndex((voice,idx)=>requested.has(voice)||voice==='Amit');
+    const firstIdx=visiblePending.findIndex((voice,idx)=>requested.has(voice));
     if(firstIdx>=0){
       const el=document.getElementById('voiceAnswerText-'+n+'-'+firstIdx);
       if(el)markNeedsInput(el);
@@ -1106,7 +1108,8 @@ async function requestVoiceAnswer(n,idx){
   const boxesHost=document.getElementById('roundtableAnswerBoxes-'+n);
   const visiblePending=JSON.parse(boxesHost.dataset.pending||'[]');
   const voice=visiblePending[idx];
-  if(!voice||voice==='Amit')return;
+  if(!voice)return;
+  const isAmit=voice==='Amit';
   // Ryan's direct instruction, 2026-07-22: check FIRST whether this voice's
   // tab is already open (e.g. by Round 7, its page has been live the whole
   // session) - if so, never open a new one. Just focus the existing tab and
@@ -1114,14 +1117,22 @@ async function requestVoiceAnswer(n,idx){
   // would break the whole "tabs stay live across rounds" design.
   const existing=openVoiceTabs[voice];
   const alreadyOpen=existing&&!existing.closed;
-  const message=alreadyOpen
-    ?`${voice}'s tab is already open, so I'm not opening a new one - I've already copied the question for them. Switch to that tab and paste it in with Ctrl+V. When they respond, copy their answer and bring it back here, into ${voice}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`
-    :`I'm about to open ${voice}'s website, and I've already copied the question for them. Just paste this into their chat with Ctrl+V. When they respond, copy their answer and bring it back here, into ${voice}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`;
+  let message;
+  if(isAmit){
+    message=alreadyOpen
+      ?`Amit's "Who Is Amit" tab is already open, so I'm not opening a new one - I've already copied the question. Review that page (and whichever linked document applies), then paste the question into whichever AI chat you use to answer as Amit. Bring the response back here, into Amit's area on the Council.`
+      :`I'm about to open "Who Is Amit" - Amit's own introduction and reference library - and I've already copied the question. Review that page (and whichever linked document applies) before responding. Then paste the question into whichever AI chat you use to answer as Amit, and bring the response back here, into Amit's area on the Council.`;
+  } else {
+    message=alreadyOpen
+      ?`${voice}'s tab is already open, so I'm not opening a new one - I've already copied the question for them. Switch to that tab and paste it in with Ctrl+V. When they respond, copy their answer and bring it back here, into ${voice}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`
+      :`I'm about to open ${voice}'s website, and I've already copied the question for them. Just paste this into their chat with Ctrl+V. When they respond, copy their answer and bring it back here, into ${voice}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`;
+  }
   if(!await amitConfirm(message))return;
   openOrReuseVoiceTab(voice);
   window.focus();
   const round=activeRounds.find(r=>r.round_number===n);
-  await copyRoundtablePrompt(round,n);
+  if(isAmit)await copyAmitPrompt(round,n);
+  else await copyRoundtablePrompt(round,n);
   if(!requestedVoices[n])requestedVoices[n]=new Set();
   requestedVoices[n].add(voice);
   renderAnswerBoxes(n,round,visiblePending);
@@ -1152,6 +1163,30 @@ async function copyRoundtablePrompt(round,n){
   const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block (some chat interfaces split a code block into several separately-copyable chunks instead of one, which breaks this). Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time, anywhere in this single response, and have that one press copy your entire answer from top to bottom - I should never have to scroll through your page hunting for a separate copy control partway through your reply.`;
   const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
   const prompt=`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
+  try{
+    await navigator.clipboard.writeText(prompt);
+    document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
+  }catch(e){alert('Could not copy — select and copy the prompt manually.');}
+}
+
+// Amit's own turn is answered through a fresh Claude.ai tab, which starts
+// with the Amit Claude.ai PROJECT (not a blank chat) - Amit_Deploy.md is
+// already loaded into that Project's own Instructions field, so Claude
+// already knows who Amit is, its conclusions, and its posture the moment
+// the tab opens. Ryan's direct correction, 2026-07-22: no need to paste a
+// giant identity block every round - that's what the Project's own
+// Instructions are for. Just a short reminder plus the actual question.
+async function copyAmitPrompt(round,n){
+  const requesterName=getUserName()||'the user';
+  const isClarification=round.phase==='clarification';
+  const reminderBlock=`A tab just opened to "Who Is Amit" - Amit's own introduction and reference library. Please review that page (and whichever linked document is relevant to this question) before responding, then respond as Amit yourself - from that identity, those conclusions, and that posture - in whichever AI chat you use to answer.`;
+  const taskBlock=isClarification
+    ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Do not expound, explain your reasoning, or add any commentary. Just the two questions, formatted exactly like this and nothing else:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
+    :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
+  const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
+  const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block. Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time and have that one press copy your entire answer from top to bottom.`;
+  const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+  const prompt=`${reminderBlock}\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
   try{
     await navigator.clipboard.writeText(prompt);
     document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
