@@ -132,7 +132,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.46</div>
+    <div class="page-version" id="pageVersion">v4.47</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -221,6 +221,7 @@ header{
             <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);white-space:nowrap">Title</div>
             <input id="councilTitleText" type="text" maxlength="20" placeholder="e.g. Budget Fix" tabindex="1" style="flex:0 0 auto;width:22ch;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:14px;font-family:inherit">
             <div style="color:var(--muted);font-size:12px;white-space:nowrap">Max. 20</div>
+            <button id="renameSessionBtn" type="button" onclick="renameSession()" style="display:none;background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:8px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Rename</button>
             <button id="newCouncilRequestBtn" type="button" onclick="startNewCouncilRequest()" style="margin-left:auto;background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:8px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">New Council Request</button>
           </div>
 
@@ -334,9 +335,23 @@ function loadSessionIntoWorkspace(session,switchView){
   document.getElementById('requestHeading').textContent=name+' requested from the council';
   document.getElementById('requestSubtext').style.display='none';
   document.getElementById('diaryText').value=session.diary_text||('ORIGINAL QUESTION:\n'+(session.original_question||''));
+  document.getElementById('renameSessionBtn').style.display='inline-block';
   renderSessionTiles();
   loadRound1(session.id);
   if(switchView)openPanel(2);
+}
+
+// Fix, 2026-07-22: editing the Title field for an existing session had
+// nowhere to save - it silently reverted the moment you navigated away.
+// This actually persists the rename.
+async function renameSession(){
+  if(!activeSessionId)return;
+  const newTitle=document.getElementById('councilTitleText').value.trim();
+  if(!newTitle){alert('Title cannot be empty.');return;}
+  await db.from('council_topics').update({title:newTitle}).eq('id',activeSessionId);
+  const s=councilSessions.find(x=>x.id===activeSessionId);
+  if(s)s.title=newTitle;
+  renderSessionTiles();
 }
 
 // Saves whatever the user has typed/edited in the diary box - it's their
@@ -372,6 +387,7 @@ function startNewCouncilRequest(){
   document.getElementById('conveneStatus').textContent='';
   document.getElementById('requestHeading').textContent='What is the request of the Council?';
   document.getElementById('requestSubtext').style.display='block';
+  document.getElementById('renameSessionBtn').style.display='none';
   renderSessionTiles();
   renderRoundTabs();
   document.getElementById('councilTitleText').focus();
