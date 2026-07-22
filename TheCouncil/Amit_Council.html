@@ -196,7 +196,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.77</div>
+    <div class="page-version" id="pageVersion">v4.78</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -925,11 +925,15 @@ async function renderOneRoundState(round){
   // the one shared question once, then leave every pending voice's own
   // labeled answer box open and ready - the user works through them at
   // their own pace, in any order, and each save updates the wheel live.
+  // Compact row layout, Ryan's direct instruction, 2026-07-22: label on the
+  // left, the paste area on the right, both on one line - no separate Save
+  // button. Pressing Enter (without Shift, so multi-line pastes still work
+  // fine - only an actual Enter keypress submits) or simply leaving the
+  // field (blur) saves it automatically.
   const boxesHost=document.getElementById('roundtableAnswerBoxes-'+n);
-  boxesHost.innerHTML=pending.map((voice,idx)=>`<div>
-    <div style="color:var(--gold2);font-weight:700;font-size:13px;margin-bottom:6px;font-family:'Cinzel',serif">${voice}'s Answer</div>
-    <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" placeholder="Paste ${voice}'s full answer here..." style="width:100%;height:44px;min-height:44px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
-    <button type="button" onclick="saveVoiceAnswer(${n},${idx})" style="margin-top:8px;background:var(--gold);color:#1a1206;border:none;padding:9px 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save ${voice}'s Answer</button>
+  boxesHost.innerHTML=pending.map((voice,idx)=>`<div style="display:flex;align-items:center;gap:12px">
+    <div style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 130px;white-space:nowrap">${voice}'s Answer</div>
+    <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="saveVoiceAnswer(${n},${idx})" placeholder="Paste ${voice}'s full answer here..." style="flex:1;height:40px;min-height:40px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;line-height:1.4;font-family:inherit;resize:vertical"></textarea>
   </div>`).join('');
   boxesHost.dataset.pending=JSON.stringify(pending);
   if(pending.length)markNeedsInput(document.getElementById('voiceAnswerText-'+n+'-0'));
