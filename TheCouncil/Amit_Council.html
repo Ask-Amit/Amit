@@ -146,7 +146,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.52</div>
+    <div class="page-version" id="pageVersion">v4.53</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -251,19 +251,19 @@ header{
                  not duplicated per round. Ryan's direct instruction,
                  2026-07-22: Round 1 takes the finalized question as its
                  very first step, it doesn't re-derive it. -->
-            <div id="scopeCouncilChat" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid rgba(201,168,76,.2)">
-              <div style="align-self:flex-end;max-width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+            <div id="scopeCouncilChat" style="display:none;flex-direction:column;gap:14px;margin-top:20px;padding-top:20px;border-top:1px solid rgba(201,168,76,.2)">
+              <div style="align-self:flex-end;max-width:88%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px">
                 <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em">Identifying correct council...</div>
               </div>
-              <div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+              <div style="align-self:flex-end;max-width:88%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px">
                 <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:10px">Councilmen Selected — change, add, or remove as you see fit</div>
                 <div id="rosterPickerRows-scope"></div>
               </div>
-              <div style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+              <div style="align-self:flex-end;max-width:88%;width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px">
                 <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div>
                 <textarea id="scopeQuestionText" style="width:100%;min-height:90px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
               </div>
-              <button type="button" onclick="confirmScopeRoster()" style="background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button>
+              <button type="button" onclick="confirmScopeRoster()" style="align-self:flex-start;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button>
             </div>
           </div>
         </div>
@@ -606,14 +606,22 @@ function initRoundChat(round){
 
 function renderRosterPickerRows(n,names){
   const wrap=document.getElementById('rosterPickerRows-'+n);
-  const opts=Object.keys(PROVIDER_URLS);
-  const rowHtml=(name,idx)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-    <select data-idx="${idx}" onchange="rosterPickerChange(${n},this)" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit">
+  const allOpts=Object.keys(PROVIDER_URLS);
+  // Fix, 2026-07-22: every AI with a known link should be selectable - not
+  // just the default five - and once picked in one row, it must disappear
+  // from every other row's dropdown until removed (then it comes back).
+  // Ryan's direct instruction.
+  const rowHtml=(name,idx)=>{
+    const takenElsewhere=new Set(names.filter((v,i)=>i!==idx&&v));
+    const opts=allOpts.filter(o=>!takenElsewhere.has(o));
+    return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <select data-idx="${idx}" onchange="rosterPickerChange('${n}',this)" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit">
       <option value=""${name?'':' selected'}>— select —</option>
       ${opts.map(o=>`<option value="${o}"${o===name?' selected':''}>${o}</option>`).join('')}
     </select>
-    ${name?`<button type="button" onclick="rosterPickerRemove(${n},${idx})" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px">×</button>`:''}
+    ${name?`<button type="button" onclick="rosterPickerRemove('${n}',${idx})" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px">×</button>`:''}
   </div>`;
+  };
   wrap.innerHTML=names.map((name,idx)=>rowHtml(name,idx)).join('')+rowHtml('',names.length);
   wrap.dataset.names=JSON.stringify(names);
 }
@@ -785,7 +793,7 @@ async function conveneCouncil(){
     activeSessionId=topic.id;
     await loadCouncilSessions();
     await loadRound1(topic.id); // populates activeRounds so Round 1's row is ready for confirmScopeRoster
-    document.getElementById('scopeCouncilChat').style.display='block';
+    document.getElementById('scopeCouncilChat').style.display='flex';
     document.getElementById('scopeQuestionText').value=`Help identify the clarifying questions that would uncover the real scope of work behind: "${request}"`;
     renderRosterPickerRows('scope',DEFAULT_ROSTER.slice());
     statusEl.textContent='Saved — topic and Round 1 created in the database.';
