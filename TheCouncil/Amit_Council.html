@@ -163,8 +163,8 @@ header{
 .council-wheel .cw-center .cw-stem{fill:none;stroke:var(--gold);stroke-width:4;stroke-linecap:round}
 /* One circle per voice, carrying the sequence number itself - no separate
    shadow dot behind it. Ryan's direct instruction, 2026-07-22. */
-.council-wheel .cw-voice{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;cursor:pointer;transition:transform .3s;z-index:8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#11161f;background:rgba(180,180,190,.3)}
-.council-wheel .cw-voice.answered{box-shadow:0 0 10px 3px var(--cw-glow,rgba(212,175,55,.6))}
+.council-wheel .cw-voice{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;cursor:pointer;transition:transform .3s;z-index:8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:rgba(240,232,208,.9);background:rgba(180,180,190,.55);border:1px solid rgba(240,232,208,.35)}
+.council-wheel .cw-voice.answered{color:#11161f;border-color:transparent;box-shadow:0 0 10px 3px var(--cw-glow,rgba(212,175,55,.6))}
 .council-wheel .cw-voice .cw-name{position:absolute;top:32px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted);white-space:nowrap}
 .council-wheel .cw-voice:hover{transform:scale(1.4)}
 .council-wheel .cw-status{text-align:center;font-size:11px;color:var(--muted);margin-top:10px;flex-shrink:0}
@@ -195,7 +195,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.74</div>
+    <div class="page-version" id="pageVersion">v4.75</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -375,6 +375,13 @@ header{
 let councilSessions=[];
 let activeSessionId=null;
 const PROVIDER_URLS={
+  // 'Amit' has no external site to open - it's not a copy-paste voice, it's
+  // Amit itself answering directly. Listed here (null URL) so it shows up
+  // correctly in the roster picker instead of desyncing; the actual
+  // "Amit answers in-place, no tab needed" roundtable mechanic is real
+  // follow-up work, not yet wired - Ryan's direct instruction, 2026-07-22,
+  // small fix now, full wiring on a future push.
+  'Amit':null,
   'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
   'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
   'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
@@ -682,8 +689,16 @@ function renderCouncilWheel(n,roster,evidenceList){
     const nx=Math.cos(angle),ny=Math.sin(angle);
     const px=50+nx*46,py=50+ny*46;
     const glow=`rgba(${c[0]},${c[1]},${c[2]},.75)`;
-    const dotBg=answered?`rgb(${c[0]},${c[1]},${c[2]})`:'rgba(180,180,190,.3)';
-    return `<div class="cw-voice${answered?' answered':''}" style="left:${px}%;top:${py}%;--cw-glow:${glow};background:${dotBg}" ${answered?`onclick="showCwDetail('${name.replace(/'/g,"\\'")}',${n})" ondblclick="showCwDetail('${name.replace(/'/g,"\\'")}',${n})"`:''}>${i+1}<span class="cw-name">${name}</span></div>`;
+    // Pending voices keep the CSS class's default (visible) fill - only
+    // answered voices get an inline background override to their actual
+    // color. Click behavior: an answered light shows its saved answer; a
+    // pending light opens/reopens that voice's site. Double-click always
+    // opens/reopens the site regardless of answered state - Ryan's direct
+    // instruction, 2026-07-22, in case the user closed the tab and lost it.
+    const nameEsc=name.replace(/'/g,"\\'");
+    const bgStyle=answered?`background:rgb(${c[0]},${c[1]},${c[2]})`:'';
+    const clickHandler=answered?`showCwDetail('${nameEsc}',${n})`:`openOrReuseVoiceTab('${nameEsc}')`;
+    return `<div class="cw-voice${answered?' answered':''}" style="left:${px}%;top:${py}%;--cw-glow:${glow};${bgStyle}" onclick="${clickHandler}" ondblclick="openOrReuseVoiceTab('${nameEsc}')" title="${answered?'Click to read the answer, double-click to reopen the site':'Click or double-click to open/reopen the site'}">${i+1}<span class="cw-name">${name}</span></div>`;
   }).join('');
   host.innerHTML=`<div class="cw-wheel-host">
     <div class="council-wheel" id="cwStage-${n}">
@@ -795,13 +810,16 @@ function renderRoundTabs(){
           <div id="roundtablePanel-${n}" style="display:none">
             <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin-bottom:6px">Roundtable</div>
             <p id="roundtableStatus-${n}" style="color:var(--muted);font-size:13px;margin-bottom:12px"></p>
-            <div style="display:flex;gap:10px;margin-bottom:10px">
-              <button type="button" id="roundtableOpenBtn-${n}" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Open <span id="roundtableVoiceName-${n}">—</span>'s site ↗</button>
-              <button type="button" id="roundtableCopyBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:9px 14px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the prompt</button>
+            <div style="display:flex;gap:10px;margin-bottom:6px">
+              <button type="button" id="roundtableOpenAllBtn-${n}" style="background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Open All Councilmen &amp; Copy the Question</button>
+              <button type="button" id="roundtableCopyAgainBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:10px 18px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the Question Again</button>
             </div>
-            <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">The prompt now asks each voice to end with a "===== END OF ANSWER =====" marker line — copy everything from the start of its reply down to that line, then paste it below.</p>
-            <textarea id="roundtableAnswerText-${n}" placeholder="Paste this voice's full answer here..." oninput="autoGrowTextarea(this)" style="width:100%;height:44px;min-height:44px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
-            <button type="button" id="roundtableSaveBtn-${n}" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save and go to next voice</button>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 16px;font-style:italic">Opens every pending voice's site in its own tab (reusing any that are already open) and copies the shared question to your clipboard — paste it into each one and press Enter. Lost the copy or pasted it wrong? "Copy the Question Again" re-copies it without reopening tabs. Double-click a name on the wheel to reopen that voice's page if you closed it. Each answer ends with an "===== END OF ANSWER =====" marker — copy down to that line and paste it into that voice's box below.</p>
+            <div id="roundtableAnswerBoxes-${n}" style="display:flex;flex-direction:column;gap:16px"></div>
+          </div>
+          <div id="processPetitionWrap-${n}" style="display:none;margin-top:14px">
+            <button type="button" onclick="processPetition(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Process this Petition</button>
+            <p style="color:var(--muted);font-size:11px;margin:8px 0 0;font-style:italic">All voices have answered. This is the signal for Amit to actually read through everyone's answers and do the work asked of it — not just a mechanical unlock.</p>
           </div>
           <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px;gap:10px">
             <button type="button" onclick="startNextRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the next round</button>
@@ -871,69 +889,127 @@ async function renderOneRoundState(round){
   if(!pending.length){
     roundtablePanel.style.display='none';
     document.getElementById('roundtableStatus-'+n).textContent='All voices answered. Round '+n+' complete.';
-    // Only offer "start next round" from the LATEST round, and only once.
+    // Only offer this from the LATEST round, and only once. Ryan's direct
+    // instruction, 2026-07-22: the "Convene next round"/"Problem Solved"
+    // choice doesn't appear automatically the instant the last answer is
+    // saved - a "Process this Petition" gate sits in front of it, an
+    // explicit signal that it's Amit's turn to actually read through
+    // everyone's answers and do the work, not just a mechanical unlock.
     const isLatest=n===activeRounds[activeRounds.length-1].round_number;
-    nextWrap.style.display=isLatest?'flex':'none';
+    const processWrap=document.getElementById('processPetitionWrap-'+n);
+    if(isLatest){
+      processWrap.style.display='block';
+      nextWrap.style.display='none';
+    } else {
+      processWrap.style.display='none';
+      nextWrap.style.display='none';
+    }
     return;
   }
   nextWrap.style.display='none';
   roundtablePanel.style.display='block';
-  const nextVoice=pending[0];
-  document.getElementById('roundtableVoiceName-'+n).textContent=nextVoice;
-  const answerBox=document.getElementById('roundtableAnswerText-'+n);
-  answerBox.value='';
-  markNeedsInput(answerBox);
-  document.getElementById('roundtableOpenBtn-'+n).onclick=()=>{
-    // Ryan's direct instruction, 2026-07-22: keep each councilman's tab live
-    // across the whole run - reuse it round after round instead of opening
-    // a fresh one, so that voice actually accumulates its own visible
-    // conversation history in its own interface.
-    const existing=openVoiceTabs[nextVoice];
-    if(existing&&!existing.closed){existing.focus();return;}
-    const w=window.open(PROVIDER_URLS[nextVoice]||('https://www.google.com/search?q='+encodeURIComponent(nextVoice)),'_blank');
-    openVoiceTabs[nextVoice]=w;
+
+  // ALL pending voices at once, not one-at-a-time. Ryan's direct
+  // instruction, 2026-07-22: open every councilman's site together, copy
+  // the one shared question once, then leave every pending voice's own
+  // labeled answer box open and ready - the user works through them at
+  // their own pace, in any order, and each save updates the wheel live.
+  const boxesHost=document.getElementById('roundtableAnswerBoxes-'+n);
+  boxesHost.innerHTML=pending.map((voice,idx)=>`<div>
+    <div style="color:var(--gold2);font-weight:700;font-size:13px;margin-bottom:6px;font-family:'Cinzel',serif">${voice}'s Answer</div>
+    <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" placeholder="Paste ${voice}'s full answer here..." style="width:100%;height:44px;min-height:44px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:12px;font-size:14px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+    <button type="button" onclick="saveVoiceAnswer(${n},${idx})" style="margin-top:8px;background:var(--gold);color:#1a1206;border:none;padding:9px 16px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save ${voice}'s Answer</button>
+  </div>`).join('');
+  boxesHost.dataset.pending=JSON.stringify(pending);
+  if(pending.length)markNeedsInput(document.getElementById('voiceAnswerText-'+n+'-0'));
+
+  document.getElementById('roundtableOpenAllBtn-'+n).onclick=async()=>{
+    await copyRoundtablePrompt(round,n);
+    // Ryan's direct instruction, 2026-07-22: open every pending voice's tab
+    // together (reusing any that are already live from a prior round),
+    // then bring focus back here and confirm plainly what to do next.
+    pending.forEach(voice=>openOrReuseVoiceTab(voice));
+    window.focus();
+    await amitConfirm('I have copied the request. Please paste this into each councilman\'s chat page and press Enter. When their answers come back, copy each one down to the "END OF ANSWER" line and paste it into that voice\'s box below.');
   };
-  document.getElementById('roundtableCopyBtn-'+n).onclick=async()=>{
-    const requesterName=getUserName()||'the user';
-    const isClarification=round.phase==='clarification';
-    const taskBlock=isClarification
-      ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Do not expound, explain your reasoning, or add any commentary. Just the two questions, formatted exactly like this and nothing else:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
-      :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
-    const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
-    const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-    // If this voice's tab is still open from an earlier round in this same
-    // session, this is a continuation of the same live conversation - no
-    // need to re-explain who Amit is or what The Council does, that context
-    // is already sitting right there in the thread above. Ryan's direct
-    // instruction, 2026-07-22.
-    const stillOpen=!!(openVoiceTabs[nextVoice]&&!openVoiceTabs[nextVoice].closed);
-    const prompt=stillOpen
-      ?`${requesterName} is continuing the same Council deliberation with you, right here in this same conversation - no need to re-introduce yourself or the tool, just pick up from what's already above.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${endMarker}`
-      :`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${endMarker}`;
-    try{await navigator.clipboard.writeText(prompt);
-      document.getElementById('roundtableStatus-'+n).textContent='Prompt copied — paste it into '+nextVoice+'.';
-    }catch(e){alert('Could not copy — select and copy the prompt manually.');}
-  };
-  document.getElementById('roundtableSaveBtn-'+n).onclick=async()=>{
-    const answer=document.getElementById('roundtableAnswerText-'+n).value.trim();
-    if(!answer)return;
-    let{data:seat}=await db.from('council_seats').select('id').eq('role_name',nextVoice+' Seat').eq('user_id',currentUser.id).maybeSingle();
-    if(!seat){
-      const{data:created}=await db.from('council_seats').insert({user_id:currentUser.id,role_name:nextVoice+' Seat',current_provider:nextVoice}).select().single();
-      seat=created;
-    }
-    await db.from('council_evidence').insert({
-      round_id:round.id, seat_id:seat.id, body:answer, source:'manual_paste',
-      provenance:nextVoice, witnessed_at:new Date().toISOString(), witnessed_by:currentUser.id
-    });
-    await renderOneRoundState(round);
-  };
+  // Always available as its own action - Ryan's direct instruction,
+  // 2026-07-22: if the user lost the copy, pasted it into the wrong place,
+  // or just wants it again, this re-copies without reopening any tabs.
+  document.getElementById('roundtableCopyAgainBtn-'+n).onclick=()=>copyRoundtablePrompt(round,n);
+}
+
+// Opens a voice's site in a fresh tab, or refocuses its tab if still open
+// from earlier - shared by the "Open All" button and double-clicking a
+// name on the wheel (in case the user closed the tab and lost it).
+function openOrReuseVoiceTab(voice){
+  const existing=openVoiceTabs[voice];
+  if(existing&&!existing.closed){existing.focus();return;}
+  const w=window.open(PROVIDER_URLS[voice]||('https://www.google.com/search?q='+encodeURIComponent(voice)),'_blank');
+  openVoiceTabs[voice]=w;
+}
+
+// Builds and copies this round's shared prompt - broadcast to every pending
+// voice at once, so it always uses the cold-start framing (safe and
+// complete even for a voice that's technically continuing) rather than
+// customizing per-voice continuation phrasing for a single shared copy.
+async function copyRoundtablePrompt(round,n){
+  const requesterName=getUserName()||'the user';
+  const isClarification=round.phase==='clarification';
+  const taskBlock=isClarification
+    ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Do not expound, explain your reasoning, or add any commentary. Just the two questions, formatted exactly like this and nothing else:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
+    :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
+  const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
+  const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+  const prompt=`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${endMarker}`;
+  try{
+    await navigator.clipboard.writeText(prompt);
+    document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
+  }catch(e){alert('Could not copy — select and copy the prompt manually.');}
+}
+
+// "Process this Petition" - the explicit signal that all answers are in
+// and it's Amit's turn to actually read through them and do the work, not
+// an automatic unlock the instant the last box is saved. Ryan's direct
+// instruction, 2026-07-22.
+function processPetition(n){
+  document.getElementById('processPetitionWrap-'+n).style.display='none';
+  document.getElementById('startNextRoundWrap-'+n).style.display='flex';
+}
+
+// Saves one voice's answer from its own labeled box (identified by index
+// into that render's pending list, since voice names like "Meta AI" aren't
+// safe as raw element IDs). Re-renders the round afterward, which drops
+// this voice's box (it's no longer pending) and lights its spot on the
+// wheel - the remaining voices' boxes stay exactly as the user left them.
+async function saveVoiceAnswer(n,idx){
+  const round=activeRounds.find(r=>r.round_number===n);
+  const boxesHost=document.getElementById('roundtableAnswerBoxes-'+n);
+  const pending=JSON.parse(boxesHost.dataset.pending||'[]');
+  const voice=pending[idx];
+  if(!voice)return;
+  const answer=document.getElementById('voiceAnswerText-'+n+'-'+idx).value.trim();
+  if(!answer)return;
+  let{data:seat}=await db.from('council_seats').select('id').eq('role_name',voice+' Seat').eq('user_id',currentUser.id).maybeSingle();
+  if(!seat){
+    const{data:created}=await db.from('council_seats').insert({user_id:currentUser.id,role_name:voice+' Seat',current_provider:voice}).select().single();
+    seat=created;
+  }
+  await db.from('council_evidence').insert({
+    round_id:round.id, seat_id:seat.id, body:answer, source:'manual_paste',
+    provenance:voice, witnessed_at:new Date().toISOString(), witnessed_by:currentUser.id
+  });
+  await renderOneRoundState(round);
 }
 
 // Default capability-matched roster - Amit's own starting judgment,
 // editable by the user afterward. Same five voices with the strongest
 // track record from tonight's earlier deliberation.
-const DEFAULT_ROSTER=['DeepSeek','Bolt','Gemini','Meta AI','ChatGPT'];
+// Ryan's direct instruction, 2026-07-22: Amit is always on the council -
+// a guaranteed seat, never optional, answering the same cold question
+// every other voice receives (see TheCouncil/CLAUDE.md's permanent
+// "Amit is a real Seat" standard). Included in the default roster here so
+// it's present on every new session by default, same as any other voice.
+const DEFAULT_ROSTER=['Amit','DeepSeek','Bolt','Gemini','Meta AI','ChatGPT'];
 
 // Builds the chat thread: Amit "identifying correct council," the editable
 // roster picker (as Amit's message), the one shared question (as Amit's
