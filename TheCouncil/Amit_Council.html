@@ -195,7 +195,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.68</div>
+    <div class="page-version" id="pageVersion">v4.69</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -596,8 +596,22 @@ async function deleteCurrentTab(){
     await db.from('council_evidence').delete().in('round_id',ids);
     await db.from('council_rounds').delete().in('id',ids);
   }
+  // Fix, 2026-07-22: deleting Round 1 left the session with zero rounds and
+  // no way back in - Submit Request correctly refused to touch an existing
+  // session, but there was nothing left to "start fresh from," breaking the
+  // exact promise the delete confirmation just made. If Round 1 is what got
+  // deleted, recreate a fresh, empty Round 1 (same original question,
+  // clarification phase, no roster) so the roster/question step is
+  // immediately ready to run again - a real restart, not a dead end.
+  if(n===1){
+    const session=councilSessions.find(s=>s.id===activeSessionId);
+    await db.from('council_rounds').insert({
+      topic_id:activeSessionId,round_number:1,
+      prompt_text:session?session.original_question:'',phase:'clarification'
+    });
+  }
   await loadRound1(activeSessionId);
-  showChTab(2,n>1?'round-'+(n-1):'scope');
+  showChTab(2,n>1?'round-'+(n-1):'round-1');
 }
 
 // "New Council Request" - clears the workspace so Convene creates a
