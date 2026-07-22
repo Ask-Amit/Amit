@@ -146,7 +146,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.61</div>
+    <div class="page-version" id="pageVersion">v4.62</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -569,6 +569,19 @@ function renderRoundTabs(){
       <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px 0 20px 20px;display:flex;flex-direction:column;overflow:hidden">
         <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;flex-shrink:0;padding-right:20px">Petition</div>
         <div style="flex:1;overflow-y:auto;min-height:0;padding-right:20px">
+          <!-- The petition for THIS round - what's actually being asked -
+               plus what the previous round finished with, since that
+               finished result IS this round's starting petition. Ryan's
+               direct instruction, 2026-07-22: whatever's finished in Round
+               N-1 carries forward as Round N's own petition, every round. -->
+          <div id="roundPrevCompleted-${n}" style="display:none;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid rgba(201,168,76,.2)">
+            <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Completed in Round <span id="roundPrevCompletedN-${n}"></span></div>
+            <div id="roundPrevCompletedBody-${n}" style="color:var(--muted);font-size:13px;line-height:1.6;font-family:'Crimson Pro',Georgia,serif;white-space:pre-wrap"></div>
+          </div>
+          <div style="margin-bottom:16px">
+            <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Round <span>${n}</span> Petition</div>
+            <div id="roundPetitionText-${n}" style="color:var(--text);font-size:14px;line-height:1.6;font-family:'Crimson Pro',Georgia,serif;white-space:pre-wrap"></div>
+          </div>
           <!-- Chat-thread: Amit's messages right-aligned, user's left-aligned.
                Identifying the council, the editable roster picker, and the
                plain-language question all appear as Amit's messages;
@@ -605,6 +618,25 @@ async function renderOneRoundState(round){
   const chatThread=document.getElementById('chatThread-'+n);
   const roundtablePanel=document.getElementById('roundtablePanel-'+n);
   const nextWrap=document.getElementById('startNextRoundWrap-'+n);
+
+  // Round N's petition + what Round N-1 finished with - the finished
+  // result of the previous round IS the starting petition of this one.
+  // Ryan's direct instruction, 2026-07-22: carry this forward every round.
+  const petitionEl=document.getElementById('roundPetitionText-'+n);
+  if(petitionEl){
+    petitionEl.textContent=n===1?round.prompt_text:'Continue the deliberation — building directly on what Round '+(n-1)+' produced.';
+  }
+  const prevWrap=document.getElementById('roundPrevCompleted-'+n);
+  if(prevWrap&&n>1){
+    const prevRound=activeRounds.find(r=>r.round_number===n-1);
+    if(prevRound){
+      const{data:prevEvidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',prevRound.id).order('created_at',{ascending:true});
+      document.getElementById('roundPrevCompletedN-'+n).textContent=String(n-1);
+      document.getElementById('roundPrevCompletedBody-'+n).textContent=(prevEvidence||[]).map(e=>`${e.provenance}: ${e.body}`).join('\n\n');
+      prevWrap.style.display='block';
+    }
+  }
+
   if(!round.roster||!round.roster.length){
     chatThread.style.display='flex';roundtablePanel.style.display='none';nextWrap.style.display='none';
     initRoundChat(round);
