@@ -146,7 +146,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.54</div>
+    <div class="page-version" id="pageVersion">v4.55</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -330,12 +330,19 @@ function renderSessionTiles(){
   const nav=document.getElementById('sidebarTiles');
   nav.querySelectorAll('.session-tile').forEach(el=>el.remove());
   const frag=document.createDocumentFragment();
+  // Fix, 2026-07-22: activeSessionId means "loaded into Page 2's workspace,
+  // ready to view" - it does NOT mean "currently being looked at." A
+  // session tile must only highlight when the user is actually viewing
+  // Current Council, never while they're still on Introduction just
+  // because a session was pre-loaded in the background.
+  const panel2=document.getElementById('panel-2');
+  const viewingCurrentCouncil=panel2&&panel2.classList.contains('active');
   councilSessions.forEach((s,idx)=>{
     const pageNum=idx+3;
     const d=new Date(s.last_activity_at);
     const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     const el=document.createElement('div');
-    el.className='tile session-tile'+(s.id===activeSessionId?' active':'');
+    el.className='tile session-tile'+((viewingCurrentCouncil&&s.id===activeSessionId)?' active':'');
     el.id='session-tile-'+s.id;
     el.onclick=()=>selectCouncilSession(s.id);
     el.innerHTML=`<div class="tile-icon">▢</div>
