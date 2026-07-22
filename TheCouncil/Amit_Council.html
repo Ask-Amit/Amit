@@ -196,7 +196,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.78</div>
+    <div class="page-version" id="pageVersion">v4.79</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1118,19 +1118,48 @@ async function confirmRoster(n){
   await renderOneRoundState(round);
 }
 
+// Checks whether a round actually has any saved answers - used to decide
+// whether reconvening from Scope needs to warn before wiping anything out.
+async function roundHasEvidence(roundId){
+  const{count}=await db.from('council_evidence').select('id',{count:'exact',head:true}).eq('round_id',roundId);
+  return !!count;
+}
+
 // Same mechanism as confirmRoster, but for Scope's one-time, whole-session
 // council identification - sets Round 1's roster and finalized question,
 // then reveals Round 1 already in roundtable mode. Ryan's direct
 // instruction, 2026-07-22: this lives on Scope, never duplicated per round.
+// Rebuilt, 2026-07-22, Ryan's direct correction: "Convene the Council" must
+// ALWAYS be pressable, regardless of session state - Round 1 might already
+// exist with answers, might have rounds built on top of it, or might not
+// exist at all (e.g. right after deleting it). Same operating procedure as
+// the round-delete confirmation: if there's real downstream work (any round
+// beyond 1, or Round 1 itself already has answers), warn plainly before
+// wiping it and starting over from here; if there's genuinely nothing to
+// lose, it just convenes - no popup needed.
 async function confirmScopeRoster(){
-  const round1=activeRounds.find(r=>r.round_number===1);
   const wrap=document.getElementById('rosterPickerRows-scope');
   const names=JSON.parse(wrap.dataset.names||'[]');
   if(!names.includes('Amit'))names.unshift('Amit'); // permanent seat, defensive guard
   if(names.length<5){alert('Minimum 5 voices required.');return;}
   const question=document.getElementById('scopeQuestionText').value.trim();
-  await db.from('council_rounds').update({roster:names,prompt_text:question}).eq('id',round1.id);
-  round1.roster=names;round1.prompt_text=question;
+
+  const existingRound1=activeRounds.find(r=>r.round_number===1);
+  const hasDownstream=activeRounds.length>1||(existingRound1&&await roundHasEvidence(existingRound1.id));
+  if(hasDownstream){
+    if(!await amitConfirm('You are about to convene the council at this round. Everything past this round will be deleted. Are you sure you want to do that?'))return;
+  }
+  if(hasDownstream||existingRound1){
+    const{data:allRounds}=await db.from('council_rounds').select('id').eq('topic_id',activeSessionId);
+    const ids=(allRounds||[]).map(r=>r.id);
+    if(ids.length){
+      await db.from('council_evidence').delete().in('round_id',ids);
+      await db.from('council_rounds').delete().in('id',ids);
+    }
+  }
+  await db.from('council_rounds').insert({
+    topic_id:activeSessionId, round_number:1, prompt_text:question, phase:'clarification', roster:names
+  });
   await loadRound1(activeSessionId);
   showChTab(2,'round-1');
 }
