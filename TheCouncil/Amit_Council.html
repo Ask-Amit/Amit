@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.91</div>
+    <div class="page-version" id="pageVersion">v4.92</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -476,6 +476,7 @@ async function loadSessionIntoWorkspace(session,switchView){
   activeSessionId=session.id;
   resetVoiceTabs();
   wheelAnsweredCache={};
+  requestedVoices={};
   document.getElementById('councilTitleText').value=session.title||'';
   updateCouncilPageTitle(2,session.title||'');
   document.getElementById('councilRequestText').value=session.original_question||'';
@@ -654,6 +655,7 @@ function startNewCouncilRequest(){
   activeRounds=[];
   resetVoiceTabs();
   wheelAnsweredCache={};
+  requestedVoices={};
   document.getElementById('councilTitleText').value='';
   document.getElementById('councilRequestText').value='';
   document.getElementById('conveneStatus').textContent='';
@@ -903,10 +905,9 @@ function renderRoundTabs(){
             <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin-bottom:6px">Roundtable</div>
             <p id="roundtableStatus-${n}" style="color:var(--muted);font-size:13px;margin-bottom:12px"></p>
             <div style="display:flex;gap:10px;margin-bottom:6px">
-              <button type="button" id="roundtableOpenAllBtn-${n}" style="background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Open All Councilmen &amp; Copy the Question</button>
-              <button type="button" id="roundtableCopyAgainBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:10px 18px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Copy the Question Again</button>
+              <button type="button" id="roundtableCopyAgainBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:8px 16px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">Copy the Question Again</button>
             </div>
-            <p style="color:var(--muted);font-size:11px;margin:0 0 16px;font-style:italic">Opens every pending voice's site in its own tab (reusing any that are already open) and copies the shared question to your clipboard — paste it into each one and press Enter. Some browsers/extensions only allow one popup per click no matter what - if that happens, use the ↗ next to each voice's answer box below to open that one site directly; a real link click always gets through. Lost the copy or pasted it wrong? "Copy the Question Again" re-copies it without reopening tabs. Double-click a name on the wheel to reopen that voice's page if you closed it. Each answer ends with an "===== END OF ANSWER =====" marker so you know it's finished — most AI chat pages show a copy icon right under their own message, so just click that to grab the whole response in one go, then paste it into that voice's box below. No need to manually select the text.</p>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 16px;font-style:italic">Below: request one voice's answer at a time. Requesting opens that voice's site (in its own tab, reusing it if already open) and copies the shared question to your clipboard, one real click at a time - never blocked by a browser's popup limit. Paste the question in, press Enter, and once the answer finishes (it ends with an "===== END OF ANSWER =====" marker), click that AI's own copy icon under its message to grab the whole response, then paste it back into that voice's box here. "Copy the Question Again" re-copies the shared question without opening anything, in case you lost it.</p>
             <div id="roundtableAnswerBoxes-${n}" style="display:flex;flex-direction:column;gap:16px"></div>
           </div>
           <div id="processPetitionWrap-${n}" style="display:none;margin-top:14px">
@@ -1047,48 +1048,83 @@ async function renderOneRoundState(round){
   // its own answer to the same question.
   const outsidePending=pending.filter(v=>v!=='Amit');
   const visiblePending=outsidePending.length?outsidePending:pending;
-  const boxesHost=document.getElementById('roundtableAnswerBoxes-'+n);
-  // Per-voice "Open ↗" is a REAL anchor with target="_blank", not a
-  // scripted window.open() call - genuine anchor clicks are essentially
-  // never blocked, even when a browser/extension throttles "Open All" to
-  // just one popup per click despite everything firing synchronously.
-  // Ryan's direct instruction, 2026-07-22: this is the guaranteed fallback
-  // when the one-button convenience gets blocked.
-  boxesHost.innerHTML=visiblePending.map((voice,idx)=>{
-    const url=PROVIDER_URLS[voice];
-    const openLink=url?`<a href="${url}" target="_blank" rel="noopener" title="Open ${voice}'s site" style="color:var(--gold2);text-decoration:none;font-size:15px;flex:0 0 auto">↗</a>`:'';
-    return `<div style="display:flex;align-items:center;gap:12px">
-    ${openLink}
-    <div ondblclick="openOrReuseVoiceTab('${voice.replace(/'/g,"\\'")}')" title="Double-click to open/reopen ${voice}'s site" style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 116px;white-space:nowrap;cursor:pointer">${voice}'s Answer</div>
-    <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="saveVoiceAnswer(${n},${idx})" placeholder="Paste ${voice}'s full answer here..." style="flex:1;height:40px;min-height:40px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;line-height:1.4;font-family:inherit;resize:vertical"></textarea>
-  </div>`;
-  }).join('');
-  boxesHost.dataset.pending=JSON.stringify(visiblePending);
-  if(visiblePending.length)markNeedsInput(document.getElementById('voiceAnswerText-'+n+'-0'));
+  renderAnswerBoxes(n,round,visiblePending);
 
-  document.getElementById('roundtableOpenAllBtn-'+n).onclick=async()=>{
-    // Fix, 2026-07-22: opening tabs AFTER an `await` (the clipboard write
-    // used to run first) loses the browser's "this came from a real click"
-    // trust, so every window.open() past the first got silently blocked as
-    // a popup - only DeepSeek got through. Every tab must open synchronously,
-    // right here in the click handler, before any await happens.
-    // Amit has no external site - it answers directly in its own box, no
-    // tab needed. Opening one for it was worse than a no-op: it grabbed the
-    // browser's per-click popup allowance, silently blocking the real AI
-    // tabs from opening at all. Ryan's direct correction, 2026-07-22.
-    pending.filter(voice=>voice!=='Amit').forEach(voice=>openOrReuseVoiceTab(voice));
-    // Bring focus back to THIS window/tab so the user lands back on the
-    // Council, not stuck on whichever voice's tab the browser switched to.
-    // Also kept synchronous, before the clipboard await, for the same
-    // user-activation reason as the tabs above.
-    window.focus();
-    await copyRoundtablePrompt(round,n);
-    await amitConfirm('I have copied the request. Please paste this into each councilman\'s chat page and press Enter. When an answer finishes (it ends with an "END OF ANSWER" marker), click the copy icon under that AI\'s own message to grab the whole response, then paste it into that voice\'s box below.');
-  };
   // Always available as its own action - Ryan's direct instruction,
   // 2026-07-22: if the user lost the copy, pasted it into the wrong place,
   // or just wants it again, this re-copies without reopening any tabs.
   document.getElementById('roundtableCopyAgainBtn-'+n).onclick=()=>copyRoundtablePrompt(round,n);
+}
+
+// Tracks which pending voices have already been "requested" this session -
+// i.e. their site opened and the question copied - so their box shows the
+// paste area instead of the blinking request button. Not persisted (same-
+// session convenience, like openVoiceTabs), keyed by round number.
+let requestedVoices={};
+
+// Two-state answer box, Ryan's direct instruction, 2026-07-22, replacing
+// the old "Open All" bulk button entirely: a not-yet-requested voice shows
+// a single blinking `Request "[Voice]'s Answer"` button - only the earliest
+// unrequested one blinks, per the standing needs-input rule. Pressing it
+// asks for confirmation, then opens THAT ONE voice's site and copies the
+// question - a real, single click every time, so nothing a browser could
+// ever silently block. Once requested, the row switches to the plain
+// label + paste box, non-blinking, waiting for the answer to come back.
+function renderAnswerBoxes(n,round,visiblePending){
+  const boxesHost=document.getElementById('roundtableAnswerBoxes-'+n);
+  const requested=requestedVoices[n]||new Set();
+  let firstUnrequestedMarked=false;
+  boxesHost.innerHTML=visiblePending.map((voice,idx)=>{
+    const isRequested=requested.has(voice)||voice==='Amit'; // Amit has no site to request - always shows its answer box directly
+    if(!isRequested){
+      const blink=!firstUnrequestedMarked;
+      firstUnrequestedMarked=true;
+      return `<div class="${blink?'needs-input':''}" onclick="requestVoiceAnswer(${n},${idx})" style="cursor:pointer;padding:9px 14px;border:1px solid rgba(201,168,76,.3);border-radius:8px;background:rgba(255,255,255,.05);color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif">Request "${voice}'s Answer"</div>`;
+    }
+    return `<div style="display:flex;align-items:center;gap:12px">
+    <div ondblclick="openOrReuseVoiceTab('${voice.replace(/'/g,"\\'")}')" title="Double-click to open/reopen ${voice}'s site" style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 130px;white-space:nowrap;cursor:pointer">${voice}'s Answer</div>
+    <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="saveVoiceAnswer(${n},${idx})" placeholder="Paste ${voice}'s full answer here..." style="flex:1;height:40px;min-height:40px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;line-height:1.4;font-family:inherit;resize:vertical"></textarea>
+  </div>`;
+  }).join('');
+  boxesHost.dataset.pending=JSON.stringify(visiblePending);
+  // Only blink a paste box if every voice is already requested (nothing
+  // left to click a Request button on) - and only the first such box.
+  if(!firstUnrequestedMarked){
+    const firstIdx=visiblePending.findIndex((voice,idx)=>requested.has(voice)||voice==='Amit');
+    if(firstIdx>=0){
+      const el=document.getElementById('voiceAnswerText-'+n+'-'+firstIdx);
+      if(el)markNeedsInput(el);
+    }
+  }
+}
+
+// The confirm-then-open-and-copy step for one voice, triggered by a real
+// click every time - this is what makes the whole flow immune to popup
+// blockers, since a browser never blocks a tab opened directly inside its
+// own click handler. Ryan's direct instruction, 2026-07-22.
+async function requestVoiceAnswer(n,idx){
+  const boxesHost=document.getElementById('roundtableAnswerBoxes-'+n);
+  const visiblePending=JSON.parse(boxesHost.dataset.pending||'[]');
+  const voice=visiblePending[idx];
+  if(!voice||voice==='Amit')return;
+  // Ryan's direct instruction, 2026-07-22: check FIRST whether this voice's
+  // tab is already open (e.g. by Round 7, its page has been live the whole
+  // session) - if so, never open a new one. Just focus the existing tab and
+  // tell the user to paste there directly, since a fresh tab per round
+  // would break the whole "tabs stay live across rounds" design.
+  const existing=openVoiceTabs[voice];
+  const alreadyOpen=existing&&!existing.closed;
+  const message=alreadyOpen
+    ?`${voice}'s tab is already open. I've copied the question to your clipboard - just switch to that tab, paste it in, get their response, then come back and paste it here.`
+    :`I'm about to open ${voice}'s website and copy their question to your clipboard. Paste it in, get their response, then come back and paste it here.`;
+  if(!await amitConfirm(message))return;
+  openOrReuseVoiceTab(voice);
+  window.focus();
+  const round=activeRounds.find(r=>r.round_number===n);
+  await copyRoundtablePrompt(round,n);
+  if(!requestedVoices[n])requestedVoices[n]=new Set();
+  requestedVoices[n].add(voice);
+  renderAnswerBoxes(n,round,visiblePending);
 }
 
 // Opens a voice's site in a fresh tab, or refocuses its tab if still open
