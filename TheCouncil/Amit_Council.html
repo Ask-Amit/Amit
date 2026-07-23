@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.96</div>
+    <div class="page-version" id="pageVersion">v4.97</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -933,7 +933,11 @@ function renderRoundTabs(){
             <div style="font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);margin-bottom:6px">Amit: identify the questions that came up more than once</div>
             <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">Go by intent, not exact wording - different voices will phrase the same real question differently. Read every question below in order: the first time you see a genuinely new intent, it's a new entry with one vote. The next time you see one that means the same thing, even worded completely differently, that's a second vote for the SAME entry - reword the entry if needed so it fairly captures both. Keep going through all of them, then type only the entries that ended up with two or more votes, one per line.</p>
             <div id="clarifyRawAnswers-${n}" style="max-height:160px;overflow-y:auto;background:rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;color:var(--muted);font-size:12px;line-height:1.6;white-space:pre-wrap"></div>
-            <textarea id="clarifyConfirmedText-${n}" oninput="autoGrowTextarea(this)" placeholder="One confirmed (two-or-more-vote) question per line..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <div style="display:flex;gap:10px;margin-bottom:10px">
+              <button type="button" onclick="requestClarifyMatching(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:9px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">Generate &amp; Copy the Matching Request</button>
+            </div>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">Don't want to read and match these yourself? This copies a request (with all the raw answers already included) that asks whichever AI you paste it into to do the matching-by-intent and vote-tallying for you — same as any other Council round, no API needed. Paste its result into the box below.</p>
+            <textarea id="clarifyConfirmedText-${n}" oninput="autoGrowTextarea(this)" placeholder="One confirmed (two-or-more-vote) question per line - type them yourself, or paste the result from the button above..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
             <button type="button" onclick="beginClarifyQA(${n})" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Begin Asking the User</button>
           </div>
           <div id="clarifyAskWrap-${n}" style="display:none;margin-top:14px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:10px;padding:16px">
@@ -1227,6 +1231,31 @@ function processPetition(n){
   } else {
     document.getElementById('startNextRoundWrap-'+n).style.display='flex';
   }
+}
+
+// Ryan's direct instruction, 2026-07-22: instead of requiring Ryan (or
+// Amit) to manually read through every voice's raw questions and match
+// them by intent, this copies a ready-made request - all the raw answers
+// already included, plus the exact matching/tallying instructions - that
+// asks whichever AI it's pasted into to do that reading-and-grouping work
+// and hand back the confirmed (2+ vote) list. This is still the free, no-
+// API-key model: it's just one more copy-paste round, using the same
+// open-a-tab-and-paste mechanic as every other voice, applied to the
+// matching task itself instead of to answering the original question.
+async function requestClarifyMatching(n){
+  const evidenceJson=document.getElementById('roundRuling-'+n).dataset.evidence;
+  const byVoice=evidenceJson?JSON.parse(evidenceJson):{};
+  const rawDump=Object.entries(byVoice).map(([voice,body])=>`${voice}:\n${body}`).join('\n\n');
+  const prompt=`Here are all the councilmen's answers from a round of clarifying questions on The Council, a multi-AI deliberation tool. Each voice proposed exactly two clarifying questions about the same original request.\n\n${rawDump}\n\nYOUR TASK: Read through every question above, in order. Go by intent, not exact wording - different voices phrase the same real question differently. The first time you see a genuinely new intent, that's a new entry with one vote. The next time you see a question that means the same underlying thing, even worded completely differently, that's a second vote for the SAME entry - reword the entry if needed so it fairly captures what both voices meant. Keep going through all of them this way.\n\nThen give me ONLY the entries that ended up with two or more independent votes, one per line, nothing else - no explanation, no vote counts, no extra commentary. Just the confirmed questions, one per line, ready to paste directly into a form.`;
+  try{
+    await navigator.clipboard.writeText(prompt);
+    if(!document.getElementById('clarifyMatchStatus-'+n)){
+      document.getElementById('clarifyRawAnswers-'+n).insertAdjacentHTML('afterend',
+        `<p id="clarifyMatchStatus-${n}" style="color:rgba(120,200,150,.9);font-size:11px;margin:0 0 10px">Matching request copied — paste it into any AI chat, then paste its result into the box below.</p>`);
+    }
+  }catch(e){alert('Could not copy — select and copy the raw answers manually.');}
+  window.open('https://claude.ai/new','_blank');
+  window.focus();
 }
 
 // Sequential clarifying-question state, per round - not persisted to the
