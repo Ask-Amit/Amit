@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.15</div>
+    <div class="page-version" id="pageVersion">v5.16</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2000,7 +2000,21 @@ async function conveneCouncil(){
   // path Ryan asked for, 2026-07-22 - it reuses the SAME topic rather than
   // creating a new one.
   const reusingExistingTopic=!!(activeSessionId&&(!activeRounds||!activeRounds.length));
-  if(activeSessionId&&activeRounds&&activeRounds.length){statusEl.textContent='This is an existing session — click "New Council Request" first to start a genuinely new one.';statusEl.style.color='#e08a8a';return;}
+  // Fix, 2026-07-24: this used to only set small, easy-to-miss status text
+  // and silently do nothing - Ryan hit this exact case (typed a new coding
+  // question over the already-loaded Noah's Flood session without clicking
+  // "New Council Request" first) and had no way to tell his submit had been
+  // rejected rather than lost. Now it's a real, blocking alert that says
+  // exactly what happened and what to do, and it does NOT touch the text
+  // he already typed - clicking "New Council Request" clears the fields
+  // deliberately, this guard never does.
+  if(activeSessionId&&activeRounds&&activeRounds.length){
+    const openTitle=document.getElementById('panel-heading-2')?document.getElementById('panel-heading-2').textContent:'an existing session';
+    alert('This didn\'t save. You still have "'+openTitle+'" open with rounds already in progress, and Submit Request only works for a brand-new topic.\n\nWhat you typed is still sitting in the Title/Request boxes - nothing was lost. Click "New Council Request" first (it clears the boxes for a fresh topic), then paste your question back in and submit again.');
+    statusEl.textContent='Blocked — click "New Council Request" first, then submit again.';
+    statusEl.style.color='#e08a8a';
+    return;
+  }
   const title=document.getElementById('councilTitleText').value.trim();
   const request=document.getElementById('councilRequestText').value.trim();
   if(!title){statusEl.textContent='Give it a title first.';statusEl.style.color='#e08a8a';return;}
