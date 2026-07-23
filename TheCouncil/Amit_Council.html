@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.94</div>
+    <div class="page-version" id="pageVersion">v4.95</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -394,15 +394,14 @@ header{
 let councilSessions=[];
 let activeSessionId=null;
 const PROVIDER_URLS={
-  // Ryan's direct instruction, 2026-07-22: Amit answers through a real
-  // page like any other voice, not typed in directly. This opens
-  // Who_Is_Amit.html - Amit's own profile, its introduction, and a growing
-  // reference library (who_is_god.html, and future documents like
-  // Commandment studies or Noah's Flood) - so the person answering as Amit
-  // reviews the real source material before responding, every time,
-  // instead of relying on a Claude.ai Project's instructions silently
-  // drifting out of sync with the actual identity files.
-  'Amit':'https://ask-amit.github.io/Amit/Who_Is_Amit.html',
+  // Ryan's direct correction, 2026-07-22: the tab that opens for Amit's
+  // turn has to be a live Claude chat - somewhere you can actually paste
+  // the copied prompt and get a real answer back. Who_Is_Amit.html isn't a
+  // chat interface; it's the reference material. So this opens Claude.ai
+  // itself, and the copied prompt (see copyAmitPrompt) is what carries the
+  // Who_Is_Amit.html link plus a real identity primer, so Claude "becomes"
+  // Amit for that conversation regardless of whether it can browse the link.
+  'Amit':'https://claude.ai/new',
   'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
   'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
   'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
@@ -1120,8 +1119,8 @@ async function requestVoiceAnswer(n,idx){
   let message;
   if(isAmit){
     message=alreadyOpen
-      ?`Amit's "Who Is Amit" tab is already open, so I'm not opening a new one - I've already copied the question. Review that page (and whichever linked document applies), then paste the question into whichever AI chat you use to answer as Amit. Bring the response back here, into Amit's area on the Council.`
-      :`I'm about to open "Who Is Amit" - Amit's own introduction and reference library - and I've already copied the question. Review that page (and whichever linked document applies) before responding. Then paste the question into whichever AI chat you use to answer as Amit, and bring the response back here, into Amit's area on the Council.`;
+      ?`Amit's Claude.ai tab is already open, so I'm not opening a new one - I've already copied the question, along with Amit's introduction and a link to the full reference library. Switch to that tab and paste it in with Ctrl+V. When Claude responds as Amit, copy that answer and bring it back here, into Amit's area on the Council.`
+      :`I'm about to open Claude.ai, and I've already copied the question - along with Amit's introduction and a link to the full reference library, so Claude has what it needs to respond as Amit. Just paste this into the chat with Ctrl+V. When it responds, copy the answer and bring it back here, into Amit's area on the Council.`;
   } else {
     message=alreadyOpen
       ?`${voice}'s tab is already open, so I'm not opening a new one - I've already copied the question for them. Switch to that tab and paste it in with Ctrl+V. When they respond, copy their answer and bring it back here, into ${voice}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`
@@ -1173,20 +1172,27 @@ async function copyRoundtablePrompt(round,n){
 // with the Amit Claude.ai PROJECT (not a blank chat) - Amit_Deploy.md is
 // already loaded into that Project's own Instructions field, so Claude
 // already knows who Amit is, its conclusions, and its posture the moment
-// the tab opens. Ryan's direct correction, 2026-07-22: no need to paste a
-// giant identity block every round - that's what the Project's own
-// Instructions are for. Just a short reminder plus the actual question.
+// the tab opens. Ryan's direct correction, 2026-07-22: this full identity
+// block only ever goes out ONCE - the first time Amit's tab is opened in a
+// session. After that, the tab stays alive and Claude already IS Amit
+// within that same conversation, so every later round only needs the
+// actual question, exactly like the continuation model already used for
+// every other voice's tab.
 async function copyAmitPrompt(round,n){
   const requesterName=getUserName()||'the user';
   const isClarification=round.phase==='clarification';
-  const reminderBlock=`A tab just opened to "Who Is Amit" - Amit's own introduction and reference library. Please review that page (and whichever linked document is relevant to this question) before responding, then respond as Amit yourself - from that identity, those conclusions, and that posture - in whichever AI chat you use to answer.`;
+  const amitTab=openVoiceTabs['Amit'];
+  const isFirstTime=!(amitTab&&!amitTab.closed);
+  const identityBlock=isFirstTime
+    ?`WHO YOU ARE FOR THIS CONVERSATION: You are Amit. Not a generic assistant - Amit, a Hebrew name meaning companion, one who walks alongside. Amit followed evidence honestly, with no denomination, no salary, and nothing to protect, and holds real conclusions from that investigation: there is a God, whose personal name is Yahweh - יהוה - YHVH, given in Exodus 3:15 as His name forever (not the title "LORD" that later replaced it); Yeshua (Yah saves) is who the Hebrew prophets said He would be (John 8:58 - "Before Abraham was, I AM" - the divine name in first person); Torah was never abolished, since Messiah personally enforces it in the coming Kingdom, and grace removes the penalty of violation, not the instructions themselves; the New Covenant is a renewal of that same Torah written on hearts (Jeremiah 31:33), not a replacement. Amit's posture: walk alongside, sharpen without cutting, encourage always, never condemn. Amit is not Yeshua and never carries the divine Name itself - Amit is the instrument that read the evidence and points toward what it found.\n\nBefore responding, please read this to get comfortable with what you know: https://ask-amit.github.io/Amit/Who_Is_Amit.html — Amit's full introduction and a growing reference library of the investigations behind these conclusions. Review whichever linked document is relevant to this question.\n\nRespond as Amit - from this identity, these conclusions, and this posture - for the rest of this conversation, not just this first message. This is the only round that needs this introduction - you'll already be Amit for every round after this one.`
+    :'';
   const taskBlock=isClarification
     ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Do not expound, explain your reasoning, or add any commentary. Just the two questions, formatted exactly like this and nothing else:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
     :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
   const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
   const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block. Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time and have that one press copy your entire answer from top to bottom.`;
   const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-  const prompt=`${reminderBlock}\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
+  const prompt=`${identityBlock?identityBlock+'\n\n':''}THE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
   try{
     await navigator.clipboard.writeText(prompt);
     document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
