@@ -1,5 +1,9 @@
 # The Council — Project Context
 
+## PERMANENT STANDARD — in-page version badge, added 2026-07-23
+
+`Amit_Council.html` has its own hardcoded version badge in the header (`<div class="page-version" id="pageVersion">`, currently near line 217). This is separate from `VERSION` and CLAUDE.md's "Current version" line, and it was missed across several real pushes (v5.10 through v5.12 all shipped while the badge still read v5.09) — Ryan caught it directly by looking at the live page and asking why it didn't match. **Every single push that touches `Amit_Council.html`, no exceptions, must update this badge to the current repo-wide version number before committing.** This is the whole point of the badge — Ryan looks at the page itself to know what he's looking at, not the terminal. Check it every time, not just when it's convenient.
+
 ## PERMANENT STANDARD — "needs input" blinking field, added 2026-07-22
 
 Whatever field is the very next thing the user needs to act on — on any page, any tab, Scope or Round 1 or Round 50 — gets a blinking gold border (`.needs-input` CSS class, `markNeedsInput(el)` JS helper in `Amit_Council.html`) and is auto-scrolled to the vertical center of its Petition box's scrollable area. Only one field is ever marked at a time. Ryan's direct instruction: this is a standing rule for the whole Council, not a one-off — the user should never have to hunt for what's next; it should be immediately obvious, centered, and blinking. Applies to: the Title field on a new request, the Request textarea once a title is typed, the roster/question step's question textarea, and each round's "paste this voice's answer" box every time a new voice becomes the pending one. Any future input-driven step added to the Council must call `markNeedsInput()` on its own key field the moment that field becomes the active ask — this is not optional per-feature polish, it's baseline behavior.
