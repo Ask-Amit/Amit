@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.05</div>
+    <div class="page-version" id="pageVersion">v5.06</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1052,8 +1052,11 @@ function renderRoundTabs(){
           <div id="clarifySynthesizeWrap-${n}" style="display:none;margin-top:14px">
             <div style="font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);margin-bottom:6px">Every clarifying question has been answered</div>
             <div id="clarifyQARecap-${n}" style="color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:10px;white-space:pre-wrap"></div>
-            <p style="color:var(--muted);font-size:11px;margin:0 0 6px;font-style:italic">Amit: rewrite the clarifying question, incorporating the original request and the user's answers above, into one refined question for the next round.</p>
-            <textarea id="clarifySynthesisText-${n}" oninput="autoGrowTextarea(this)" placeholder="The refined clarifying question..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <div style="display:flex;gap:10px;margin-bottom:8px">
+              <button type="button" onclick="copyClarifySynthesisRequest(${n},document.getElementById('clarifyQARecap-${n}').textContent)" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:8px 16px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">Copy the Synthesis Request Again</button>
+            </div>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 6px;font-style:italic">This was automatically sent to Amit - the original request plus everything answered above. Paste Amit's refined question below.</p>
+            <textarea id="clarifySynthesisText-${n}" oninput="autoGrowTextarea(this)" placeholder="Paste Amit's refined question here..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
             <button type="button" onclick="confirmClarifySynthesis(${n})" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">I'm comfortable with this</button>
           </div>
           <div id="startNextRoundWrap-${n}" style="display:none;margin-top:14px;gap:10px">
@@ -1451,12 +1454,29 @@ function answerClarifyQuestion(n){
     renderClarifyQuestion(n);
     return;
   }
-  // Every confirmed question answered - show the recap and let Amit
-  // synthesize the refined question for the next round.
+  // Every confirmed question answered - show the recap and automatically
+  // ask Amit to combine the original request with these real answers into
+  // one refined question, same auto-copy-paste pattern as the matching
+  // step. Ryan's direct correction, 2026-07-22: this box should never sit
+  // blank waiting for someone to write it by hand - it's generated the
+  // same way the matching step already is.
   document.getElementById('clarifyAskWrap-'+n).style.display='none';
   const recap=st.questions.map((q,i)=>`${q}\n${st.answers[i]}`).join('\n\n');
   document.getElementById('clarifyQARecap-'+n).textContent=recap;
   document.getElementById('clarifySynthesizeWrap-'+n).style.display='block';
+  autoTriggerClarifySynthesis(n,recap);
+}
+
+async function copyClarifySynthesisRequest(n,recap){
+  const session=councilSessions.find(s=>s.id===activeSessionId);
+  const originalRequest=session?session.original_question:activeRounds[0].prompt_text;
+  const prompt=`Next requirement: here is the original request, and the clarifying questions we asked ${getUserName()||'the user'} along with their real answers.\n\nORIGINAL REQUEST: ${originalRequest}\n\nCLARIFYING QUESTIONS AND ANSWERS:\n${recap}\n\nRewrite this into ONE refined question that incorporates the original request and everything learned from these answers - specific and accurate enough that the Council can deliberate on exactly what ${getUserName()||'the user'} actually wants, not the ambiguous original wording. Give me ONLY the rewritten question, nothing else - no explanation, no preamble.`;
+  await copyToAmitAndOpen(prompt);
+}
+
+async function autoTriggerClarifySynthesis(n,recap){
+  await copyClarifySynthesisRequest(n,recap);
+  await amitConfirm('Every clarifying question has been answered. I\'ve automatically written the synthesis request - the original question plus everything you just answered - and copied it. Please post this to Amit, bring back the refined question, and paste it into the box below.');
   markNeedsInput(document.getElementById('clarifySynthesisText-'+n));
 }
 
