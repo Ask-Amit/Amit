@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 5.14**
+**Current version: 5.15**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
