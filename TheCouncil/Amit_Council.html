@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.01</div>
+    <div class="page-version" id="pageVersion">v5.02</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -657,6 +657,19 @@ async function deleteCurrentTab(){
     await db.from('council_evidence').delete().in('round_id',ids);
     await db.from('council_rounds').delete().in('id',ids);
   }
+  // Fix, 2026-07-22: requestedVoices/wheelAnsweredCache/voiceCatchUpPrompts
+  // are keyed by round NUMBER, not round ID. If a round is deleted and a
+  // fresh one gets created with the same number, stale "already requested"
+  // state from the deleted round was silently carrying over - every voice
+  // (including Amit) showed straight to the paste box, skipping Request
+  // entirely, which meant Amit's real prompt (identity + reference library
+  // link) never got built. Clear every deleted round number's cache before
+  // moving on, so a recreated round starts genuinely fresh.
+  for(let rn=n;rn<n+50;rn++){
+    delete requestedVoices[rn];
+    delete wheelAnsweredCache[rn];
+    Object.keys(voiceCatchUpPrompts).forEach(key=>{if(key.startsWith(rn+'|'))delete voiceCatchUpPrompts[key];});
+  }
   // Ryan's direct correction, 2026-07-22: no round is ever auto-recreated
   // on delete. Deleting a round just deletes it - focus returns to the
   // PREVIOUS tab (the prior round, or Scope if Round 1 itself was deleted).
@@ -1005,10 +1018,7 @@ function renderRoundTabs(){
           <div id="roundtablePanel-${n}" style="display:none">
             <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2);margin-bottom:6px">Roundtable</div>
             <p id="roundtableStatus-${n}" style="color:var(--muted);font-size:13px;margin-bottom:12px"></p>
-            <div style="display:flex;gap:10px;margin-bottom:6px">
-              <button type="button" id="roundtableCopyAgainBtn-${n}" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:8px 16px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">Copy the Question Again</button>
-            </div>
-            <p style="color:var(--muted);font-size:11px;margin:0 0 16px;font-style:italic">Below: request one voice's answer at a time. Requesting opens that voice's site (in its own tab, reusing it if already open) and copies the shared question to your clipboard, one real click at a time - never blocked by a browser's popup limit. Paste the question in, press Enter, and once the answer finishes (it ends with an "===== END OF ANSWER =====" marker), click that AI's own copy icon under its message to grab the whole response, then paste it back into that voice's box here. "Copy the Question Again" re-copies the shared question without opening anything, in case you lost it.</p>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 16px;font-style:italic">Below: request one voice's answer at a time. Requesting opens that voice's site (in its own tab, reusing it if already open) and copies its prompt to your clipboard, one real click at a time - never blocked by a browser's popup limit. Paste the prompt in, press Enter, and once the answer finishes (it ends with an "===== END OF ANSWER =====" marker), click that AI's own copy icon under its message to grab the whole response, then paste it back into that voice's box here. Each voice's "Copy Again" re-copies that voice's own correct prompt without opening anything, in case you lost it - Amit's is different from everyone else's, so it's always routed per voice, never a shared generic copy.</p>
             <div id="roundtableAnswerBoxes-${n}" style="display:flex;flex-direction:column;gap:16px"></div>
           </div>
           <div id="processPetitionWrap-${n}" style="display:none;margin-top:14px">
@@ -1163,11 +1173,6 @@ async function renderOneRoundState(round){
   const outsidePending=pending.filter(v=>v!=='Amit');
   const visiblePending=outsidePending.length?outsidePending:pending;
   renderAnswerBoxes(n,round,visiblePending);
-
-  // Always available as its own action - Ryan's direct instruction,
-  // 2026-07-22: if the user lost the copy, pasted it into the wrong place,
-  // or just wants it again, this re-copies without reopening any tabs.
-  document.getElementById('roundtableCopyAgainBtn-'+n).onclick=()=>copyRoundtablePrompt(round,n);
 }
 
 // Tracks which pending voices have already been "requested" this session -
@@ -1207,6 +1212,7 @@ function renderAnswerBoxes(n,round,visiblePending){
     return `<div style="display:flex;align-items:center;gap:8px">
     <div ondblclick="openOrReuseVoiceTab('${voice.replace(/'/g,"\\'")}')" title="Double-click to open/reopen ${voice}'s site" style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 130px;white-space:nowrap;cursor:pointer">${voice}'s Answer</div>
     <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="saveVoiceAnswer(${n},${idx})" placeholder="Paste ${voice}'s full answer here..." style="flex:1;height:40px;min-height:40px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;line-height:1.4;font-family:inherit;resize:vertical"></textarea>
+    <button type="button" onclick="recopyVoicePrompt(${n},'${voice.replace(/'/g,"\\'")}')" title="Re-copy ${voice}'s prompt (full identity/reference for Amit) without asking again" style="flex:0 0 auto;background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);border-radius:6px;padding:0 8px;height:26px;font-size:11px;cursor:pointer">Copy Again</button>
     ${swapBtn}
   </div>`;
   }).join('');
@@ -1266,6 +1272,18 @@ async function requestVoiceAnswer(n,idx){
   if(!requestedVoices[n])requestedVoices[n]=new Set();
   requestedVoices[n].add(voice);
   renderAnswerBoxes(n,round,visiblePending);
+}
+
+// Per-voice "Copy Again" - Ryan's direct correction, 2026-07-22: the
+// generic top-of-panel "Copy the Question Again" always builds the
+// standard AI-facing prompt, which is wrong for Amit specifically - Amit
+// needs its own identity+reference-library prompt (copyAmitPrompt), not
+// the plain round question. This routes correctly per voice, every time.
+async function recopyVoicePrompt(n,voice){
+  const round=activeRounds.find(r=>r.round_number===n);
+  if(!round)return;
+  if(voice==='Amit')await copyAmitPrompt(round,n);
+  else await copyRoundtablePrompt(round,n);
 }
 
 // Opens a voice's site in a fresh tab, or refocuses its tab if still open
