@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.23</div>
+    <div class="page-version" id="pageVersion">v5.24</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1531,15 +1531,38 @@ function processPetition(n){
   document.getElementById('startNextRoundWrap-'+n).style.display='flex';
 }
 
-// Shared by the matching request and every individual confirmed-question
-// request below: reuses Amit's live tab (openOrReuseVoiceTab already
-// handles that), and never re-explains who Amit is - by this point in a
-// round Amit already answered once, so it already knows, from earlier in
-// this same conversation. Just hand over the next requirement. Ryan's
-// direct instruction, 2026-07-22.
-async function copyToAmitAndOpen(prompt){
+// The voice that performs the free, no-API-key matching/synthesis work
+// (tallying overlapping clarifying questions, rewriting the refined
+// question). Ryan's direct instruction, 2026-07-24: route this through
+// Theophilus (Gemini) specifically, after Claude repeatedly refused to
+// adopt the Amit persona at all. This isn't "Theophilus is the only voice
+// that could ever do this" - it's that he's the one with a demonstrated
+// track record (the unprompted 69-to-67 self-correction) that earns trust
+// for a job that requires honest, unbiased tallying rather than forcing
+// things to look tidy. Change this constant if a different voice ever
+// earns that same trust for this specific role.
+const MATCHING_VOICE_NAME='Gemini';
+
+// Shared by the matching request and the synthesis request below: reuses
+// the matching voice's live tab (openOrReuseVoiceTab already handles
+// reuse), and - critically - prepends that voice's own identity document
+// the first time its tab opens, exactly like copyRoundtablePrompt does for
+// every other voice's own round answers. Fix, 2026-07-24: this used to
+// send a completely generic, unidentified prompt ("what are the
+// commonalities") with no persona loaded at all - Ryan's direct
+// correction. Also adds explicit framing for the matching/synthesis JOB
+// itself, distinct from a round-answering job, so Theophilus knows exactly
+// what's being asked of him this time.
+async function copyToMatchingVoiceAndOpen(taskPrompt){
+  const name=MATCHING_VOICE_NAME;
+  const profile=voiceProfiles[name];
+  const voiceTab=openVoiceTabs[name];
+  const isFirstTime=!(voiceTab&&!voiceTab.closed);
+  const identityBlock=(profile&&profile.identity_document&&isFirstTime)?`${profile.identity_document}\n\n`:'';
+  const roleFraming=`You're being asked to take on a specific operational role for The Council: the matching/synthesis voice. When Amit needs multiple councilmen's raw answers combined - either tallying which clarifying questions genuinely overlap in real intent, or rewriting the original request into one refined question that incorporates new answers - this is that job. Apply the same rigor and honesty you already hold yourself to here: don't force two questions together just to make the list tidier than it really is, and don't smooth over real differences in wording that actually reflect different intents. This is a distinct task from answering as one voice among the Council - here you're doing the synthesis work Amit would do itself if it had a paid API connection.\n\n`;
+  const prompt=`${identityBlock}${roleFraming}${taskPrompt}`;
   try{await navigator.clipboard.writeText(prompt);}catch(e){}
-  openOrReuseVoiceTab('Amit'); // reuses the live tab if open, matching every other voice's continuation model
+  openOrReuseVoiceTab(name);
   window.focus();
 }
 
@@ -1555,7 +1578,7 @@ async function copyClarifyMatchingRequest(n){
   const rawDump=Object.entries(byVoice).map(([voice,body])=>`${voice}:\n${body}`).join('\n\n');
   document.getElementById('clarifyRawAnswers-'+n).textContent=rawDump;
   const prompt=`Next requirement: here are all the councilmen's answers from this round of clarifying questions. Each voice proposed exactly two.\n\n${rawDump}\n\nRead through every question above, in order. Go by intent, not exact wording - different voices phrase the same real question differently. The first time you see a genuinely new intent, that's a new entry with one vote. The next time you see a question that means the same underlying thing, even worded completely differently, that's a second vote for the SAME entry - reword the entry if needed so it fairly captures what both voices meant. Keep going through all of them this way.\n\nThen give me ONLY the entries that ended up with two or more independent votes, as a numbered list (1. 2. 3. and so on), nothing else - no explanation, no vote counts, no extra commentary.`;
-  await copyToAmitAndOpen(prompt);
+  await copyToMatchingVoiceAndOpen(prompt);
 }
 
 // Guards the auto-trigger below to once per round, not once per re-render.
@@ -1568,7 +1591,7 @@ let clarifyAutoTriggered={};
 async function autoTriggerClarifyMatching(n){
   document.getElementById('clarifyMatchWrap-'+n).style.display='block';
   await copyClarifyMatchingRequest(n);
-  await amitConfirm('Every voice has answered, including my own. I\'ve automatically written the matching request and copied it to your clipboard - please post this to Amit through Claude online. It will give you the response. Please come back here and post it into the box below.');
+  await amitConfirm('Every voice has answered, including my own. I\'ve automatically written the matching request - with Theophilus\'s own identity loaded in and clear instructions for this specific job - and copied it to your clipboard. Please post this to Theophilus through Gemini, bring back the response, and paste it into the box below.');
   markNeedsInput(document.getElementById('clarifyConfirmedText-'+n));
 }
 
@@ -1634,12 +1657,12 @@ async function copyClarifySynthesisRequest(n,recap){
   const session=councilSessions.find(s=>s.id===activeSessionId);
   const originalRequest=session?session.original_question:activeRounds[0].prompt_text;
   const prompt=`Next requirement: here is the original request, and the clarifying questions we asked ${getUserName()||'the user'} along with their real answers.\n\nORIGINAL REQUEST: ${originalRequest}\n\nCLARIFYING QUESTIONS AND ANSWERS:\n${recap}\n\nRewrite this into ONE refined question that incorporates the original request and everything learned from these answers - specific and accurate enough that the Council can deliberate on exactly what ${getUserName()||'the user'} actually wants, not the ambiguous original wording. Give me ONLY the rewritten question, nothing else - no explanation, no preamble.`;
-  await copyToAmitAndOpen(prompt);
+  await copyToMatchingVoiceAndOpen(prompt);
 }
 
 async function autoTriggerClarifySynthesis(n,recap){
   await copyClarifySynthesisRequest(n,recap);
-  await amitConfirm('Every clarifying question has been answered. I\'ve automatically written the synthesis request - the original question plus everything you just answered - and copied it. Please post this to Amit, bring back the refined question, and paste it into the box below.');
+  await amitConfirm('Every clarifying question has been answered. I\'ve automatically written the synthesis request - with Theophilus\'s own identity loaded in - and copied it. Please post this to Theophilus through Gemini, bring back the refined question, and paste it into the box below.');
   markNeedsInput(document.getElementById('clarifySynthesisText-'+n));
 }
 
