@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.13</div>
+    <div class="page-version" id="pageVersion">v5.14</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1323,6 +1323,13 @@ async function requestVoiceAnswer(n,idx){
       :`I'm about to open ${displayName}'s website, and I've already copied the question for them. Just paste this into their chat with Ctrl+V. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`;
   }
   if(!await amitConfirm(message))return;
+  // Capture whether this voice's tab was ALREADY open before we touch it -
+  // openOrReuseVoiceTab() below opens/registers the tab immediately, which
+  // would otherwise make copyRoundtablePrompt's own "is this the first
+  // time" check see the tab as already open on this very first request and
+  // wrongly skip the identity document, every single time. Bug found and
+  // fixed 2026-07-23, real live test against Theophilus/Gemini.
+  const wasFirstTimeForVoice=!alreadyOpen;
   openOrReuseVoiceTab(voice);
   window.focus();
   const round=activeRounds.find(r=>r.round_number===n);
@@ -1331,7 +1338,7 @@ async function requestVoiceAnswer(n,idx){
     delete voiceCatchUpPrompts[catchUpKey];
   }
   else if(isAmit)await copyAmitPrompt(round,n);
-  else await copyRoundtablePrompt(round,n,voice);
+  else await copyRoundtablePrompt(round,n,voice,wasFirstTimeForVoice);
   if(!requestedVoices[n])requestedVoices[n]=new Set();
   requestedVoices[n].add(voice);
   renderAnswerBoxes(n,round,visiblePending);
@@ -1367,18 +1374,22 @@ function openOrReuseVoiceTab(voice){
 // voice at once, so it always uses the cold-start framing (safe and
 // complete even for a voice that's technically continuing) rather than
 // customizing per-voice continuation phrasing for a single shared copy.
-async function copyRoundtablePrompt(round,n,voice){
+async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
   const requesterName=getUserName()||'the user';
   const isClarification=round.phase==='clarification';
   // Per-voice identity document (a voice's own self-authored profile, once
   // one exists - see council_voice_profiles) goes in ONCE per live
-  // conversation, same idea as Amit's identity block. Caveat worth naming
-  // honestly: this is tracked the same way Amit's was, by whether the
-  // browser tab still looks open - the exact tracking we found fragile for
-  // Amit. Good enough to ship, but a closed/refreshed tab will re-send it.
+  // conversation, same idea as Amit's identity block. When requestVoiceAnswer
+  // calls this, it passes forceFirstTime explicitly (computed BEFORE it
+  // opened the tab) since checking openVoiceTabs here would always see the
+  // tab as already open by that point. recopyVoicePrompt calls this with no
+  // 4th arg, so it falls back to the live openVoiceTabs check below - which
+  // is accurate there, since no tab-opening happens between the check and
+  // the copy. Still tab-based, so a closed/refreshed tab will re-send it -
+  // acceptable, matches how Amit's own identity block behaves.
   const profile=voice?voiceProfiles[voice]:null;
   const voiceTab=voice?openVoiceTabs[voice]:null;
-  const isFirstTimeForVoice=!(voiceTab&&!voiceTab.closed);
+  const isFirstTimeForVoice=(forceFirstTime!==undefined)?forceFirstTime:!(voiceTab&&!voiceTab.closed);
   const identityDocBlock=(profile&&profile.identity_document&&isFirstTimeForVoice)
     ?`${profile.identity_document}\n\n`
     :'';
@@ -1728,7 +1739,7 @@ function renderRosterPickerRows(n,names){
     return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <select data-idx="${idx}" onchange="rosterPickerChange('${n}',this)" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit">
       <option value=""${name?'':' selected'} style="background:#1a1206;color:var(--text)">— select —</option>
-      ${opts.map(o=>`<option value="${o}"${o===name?' selected':''} style="background:#1a1206;color:var(--text)">${voiceDisplayName(o)}</option>`).join('')}
+      ${opts.map(o=>{const dn=voiceDisplayName(o);const label=dn!==o?`${dn} (${o})`:o;return`<option value="${o}"${o===name?' selected':''} style="background:#1a1206;color:var(--text)">${label}</option>`;}).join('')}
     </select>
     ${name?`<button type="button" onclick="rosterPickerRemove('${n}',${idx})" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px">×</button>`:''}
   </div>`;
