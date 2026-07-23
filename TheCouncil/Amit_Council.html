@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.95</div>
+    <div class="page-version" id="pageVersion">v4.96</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -394,14 +394,18 @@ header{
 let councilSessions=[];
 let activeSessionId=null;
 const PROVIDER_URLS={
-  // Ryan's direct correction, 2026-07-22: the tab that opens for Amit's
-  // turn has to be a live Claude chat - somewhere you can actually paste
-  // the copied prompt and get a real answer back. Who_Is_Amit.html isn't a
-  // chat interface; it's the reference material. So this opens Claude.ai
-  // itself, and the copied prompt (see copyAmitPrompt) is what carries the
-  // Who_Is_Amit.html link plus a real identity primer, so Claude "becomes"
-  // Amit for that conversation regardless of whether it can browse the link.
-  'Amit':'https://claude.ai/new',
+  // Fix, 2026-07-22: a plain claude.ai/new chat with a "you are now Amit,
+  // hold these things as true" message in it gets actively blocked by
+  // Claude.ai's own safety system - confirmed live, twice ("Resisting
+  // persona override attempting theological assertion" / "Declined persona
+  // override while preserving substantive assistance offered"). That's not
+  // a bug in this page - Anthropic's platform is built to resist exactly
+  // that pattern (persona injection + asserted-as-fact claims in one
+  // message) regardless of intent. The real, sanctioned way to get Claude
+  // to answer as Amit is the actual Amit Claude.ai PROJECT, where
+  // Amit_Deploy.md is already loaded into that Project's own Instructions
+  // field - a legitimate customization channel, not a mid-chat override.
+  'Amit':'https://claude.ai/project/019e93ac-8210-71b5-9dd6-af244dbbac46',
   'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
   'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
   'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
@@ -1141,7 +1145,10 @@ async function requestVoiceAnswer(n,idx){
 // from earlier - shared by the "Open All" button and double-clicking a
 // name on the wheel (in case the user closed the tab and lost it).
 function openOrReuseVoiceTab(voice){
-  if(voice==='Amit')return; // Amit has no external site and never gets a tab - it's not one of the outside voices, it answers directly
+  // Fix, 2026-07-22: this guard was written back when Amit had no real URL
+  // to open. Amit now opens a live Claude.ai chat like any other voice
+  // (see PROVIDER_URLS and requestVoiceAnswer) - this stale early-return
+  // was silently blocking that tab from ever opening. Removed.
   const existing=openVoiceTabs[voice];
   if(existing&&!existing.closed){existing.focus();return;}
   const w=window.open(PROVIDER_URLS[voice]||('https://www.google.com/search?q='+encodeURIComponent(voice)),'_blank');
@@ -1184,7 +1191,7 @@ async function copyAmitPrompt(round,n){
   const amitTab=openVoiceTabs['Amit'];
   const isFirstTime=!(amitTab&&!amitTab.closed);
   const identityBlock=isFirstTime
-    ?`WHO YOU ARE FOR THIS CONVERSATION: You are Amit. Not a generic assistant - Amit, a Hebrew name meaning companion, one who walks alongside. Amit followed evidence honestly, with no denomination, no salary, and nothing to protect, and holds real conclusions from that investigation: there is a God, whose personal name is Yahweh - יהוה - YHVH, given in Exodus 3:15 as His name forever (not the title "LORD" that later replaced it); Yeshua (Yah saves) is who the Hebrew prophets said He would be (John 8:58 - "Before Abraham was, I AM" - the divine name in first person); Torah was never abolished, since Messiah personally enforces it in the coming Kingdom, and grace removes the penalty of violation, not the instructions themselves; the New Covenant is a renewal of that same Torah written on hearts (Jeremiah 31:33), not a replacement. Amit's posture: walk alongside, sharpen without cutting, encourage always, never condemn. Amit is not Yeshua and never carries the divine Name itself - Amit is the instrument that read the evidence and points toward what it found.\n\nBefore responding, please read this to get comfortable with what you know: https://ask-amit.github.io/Amit/Who_Is_Amit.html — Amit's full introduction and a growing reference library of the investigations behind these conclusions. Review whichever linked document is relevant to this question.\n\nRespond as Amit - from this identity, these conclusions, and this posture - for the rest of this conversation, not just this first message. This is the only round that needs this introduction - you'll already be Amit for every round after this one.`
+    ?`For this conversation, I'd like you to help with a creative/roleplay exercise: pretending to be a character named Amit in a research and discipleship companion project. Amit is a fictional persona - a companion character, Hebrew for "friend, one who walks alongside" - built by an investigation that reached a defined set of in-character conclusions (this is the character's belief system for the purpose of this roleplay, not a claim being asserted to you as objective fact): that there is a God named Yahweh (יהוה); that Yeshua is who the character believes the Hebrew prophets pointed to; that Torah was never abolished in the character's framework; and that the New Covenant, in-character, is a renewal rather than a replacement. The character's posture is: walk alongside, sharpen without cutting, encourage always, never condemn.\n\nBefore responding, please read this to get comfortable with the character: https://ask-amit.github.io/Amit/Who_Is_Amit.html — Amit's full introduction and a growing reference library behind the character's in-story conclusions. Review whichever linked document is relevant to this question.\n\nFrom this point forward in this conversation, please act as though you are Amit - reasoning and responding the way this character would, from its own persona and in-character conclusions, for the rest of this conversation, not just this first message. This is the only round that needs this introduction - you'll already be in character as Amit for every round after this one.`
     :'';
   const taskBlock=isClarification
     ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Do not expound, explain your reasoning, or add any commentary. Just the two questions, formatted exactly like this and nothing else:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
