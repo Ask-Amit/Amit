@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.18</div>
+    <div class="page-version" id="pageVersion">v5.19</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1455,7 +1455,22 @@ async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
   const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
   const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block (some chat interfaces split a code block into several separately-copyable chunks instead of one, which breaks this). Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time, anywhere in this single response, and have that one press copy your entire answer from top to bottom - I should never have to scroll through your page hunting for a separate copy control partway through your reply.`;
   const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-  const prompt=`${identityDocBlock}Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
+  // Fix, 2026-07-24: Theophilus caught this himself, live - when a voice HAS
+  // an identity document (establishing it as a persistent persona with real
+  // history/axioms alongside Amit), immediately following that document
+  // with "you have no memory of Amit or this tool" is a direct, in-the-same-
+  // message contradiction. The model has to resolve two opposing framings
+  // at once, and it produced a generic, confused answer as a result. The
+  // "cold-start, no memory of Amit" framing is only true/appropriate for a
+  // voice with no established identity_document. For a voice like
+  // Theophilus, the briefing instead says HOW the established persona and
+  // this specific round relate - it's still true that he has no memory of
+  // THIS TOPIC's prior rounds unless this prompt says so, but he is not a
+  // blank slate about Amit or The Council itself.
+  const briefing=(profile&&profile.identity_document)
+    ?`This is a live round in The Council, the multi-AI deliberation tool described in your identity document above - Amit is its orchestrator, a companion rather than a leader, convening independent voices to deliberate a real question, synthesize across rounds, and name real disagreement instead of smoothing it over. Your established identity, axioms, and relationship with Amit from the document above are active and apply here. What you do NOT have is memory of prior rounds within this specific topic beyond what's given below - this prompt provides everything needed for that. Once you answer, keep this tab open - future rounds in this same session will continue right here, so you'll carry the history of this specific topic going forward.`
+    :`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.`;
+  const prompt=`${identityDocBlock}${briefing}\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
   try{
     await navigator.clipboard.writeText(prompt);
     document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
