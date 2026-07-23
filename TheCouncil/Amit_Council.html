@@ -187,13 +187,13 @@ header{
 .council-wheel .cw-landing-center{animation-duration:1.4s}
 @keyframes cwLand{0%{width:16px;height:16px;opacity:.95}100%{width:110px;height:110px;opacity:0}}
 .council-wheel .cw-status{text-align:center;font-size:11px;color:var(--muted);margin-top:10px;flex-shrink:0}
-#cwDetailModal,#amitConfirmModal,#swapModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
-#cwDetailModal.show,#amitConfirmModal.show,#swapModal.show{display:flex}
-#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#swapModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
-#cwDetailModal h3,#swapModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
+#cwDetailModal,#amitConfirmModal,#swapModal,#voiceProfileModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
+#cwDetailModal.show,#amitConfirmModal.show,#swapModal.show,#voiceProfileModal.show{display:flex}
+#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#swapModal .cw-modal-box,#voiceProfileModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
+#cwDetailModal h3,#swapModal h3,#voiceProfileModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
 #cwDetailModal .cw-modal-body{flex:1;overflow-y:auto;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);font-family:'Crimson Pro',Georgia,serif}
 #cwDetailModal button{margin-top:16px;align-self:flex-end;background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
-#amitConfirmModal button,#swapModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
+#amitConfirmModal button,#swapModal button,#voiceProfileModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #councilTitleText:focus{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(201,168,76,.25)}
 
 /* STANDING RULE — "needs input" - any field on the Petition side of any
@@ -296,6 +296,28 @@ header{
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
       <button type="button" onclick="document.getElementById('swapModal').classList.remove('show')" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
       <button type="button" onclick="confirmSwap()">Exchange</button>
+    </div>
+  </div>
+</div>
+
+<!-- VOICE PROFILE MODAL — a voice's earned identity: a chosen name (once
+     established through real conversation, e.g. Gemini becoming
+     "Theopolis") and its own self-authored identity document, sent once
+     per live conversation. Ryan's direct instruction, 2026-07-22. -->
+<div id="voiceProfileModal">
+  <div class="cw-modal-box" style="max-width:560px">
+    <h3><span id="voiceProfileDefaultName">—</span>'s Profile</h3>
+    <div class="cw-modal-body" style="flex:1;overflow-y:auto">
+      <p style="margin:0 0 10px;color:var(--muted);font-size:12px">If this voice has grown through real conversation and earned its own name, enter it here - it'll be shown throughout the Council instead of the generic provider name. Leave blank to keep the default.</p>
+      <label style="display:block;color:var(--gold2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Earned Name (optional)</label>
+      <input id="voiceProfileName" type="text" placeholder="e.g. Theopolis" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;margin-bottom:14px">
+      <label style="display:block;color:var(--gold2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Identity Document</label>
+      <p style="margin:0 0 6px;color:var(--muted);font-size:12px">Sent once, the first time this voice's tab opens in a live conversation - not repeated every round.</p>
+      <textarea id="voiceProfileDoc" placeholder="Paste this voice's self-authored identity/profile document here..." style="width:100%;min-height:140px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button type="button" onclick="document.getElementById('voiceProfileModal').classList.remove('show')" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
+      <button type="button" onclick="saveVoiceProfile()">Save Profile</button>
     </div>
   </div>
 </div>
@@ -727,7 +749,7 @@ function cwColorFor(name){return VOICE_COLORS[name]||[180,180,190];}
 // it's always that provider's actual current logo. Returns null for voices
 // with no known URL (e.g. Amit, which never appears on the rim anyway).
 function cwFaviconUrl(name){
-  const url=PROVIDER_URLS[name];
+  const url=voiceUrl(name);
   if(!url)return null;
   try{
     const domain=new URL(url).hostname;
@@ -797,7 +819,7 @@ function renderCouncilWheel(n,roster,evidenceList){
     // URL for this voice. Ryan's direct instruction, 2026-07-22.
     const favicon=cwFaviconUrl(name);
     const badgeInner=favicon?`<img src="${favicon}" alt="${nameEsc}" onerror="this.replaceWith(document.createTextNode('${i+1}'))">`:String(i+1);
-    return `<div class="cw-voice${answered?' answered':''}" style="left:${px}%;top:${py}%;--cw-glow:${glow};${bgStyle}" onclick="${clickHandler}" ondblclick="${clickHandler}" title="${answered?'Click or double-click to read the answer':"Awaiting this voice's answer"}">${badgeInner}<span class="cw-name">${name}</span></div>`;
+    return `<div class="cw-voice${answered?' answered':''}" style="left:${px}%;top:${py}%;--cw-glow:${glow};${bgStyle}" onclick="${clickHandler}" ondblclick="${clickHandler}" title="${answered?'Click or double-click to read the answer':"Awaiting this voice's answer"}">${badgeInner}<span class="cw-name">${voiceDisplayName(name)}</span></div>`;
   }).join('');
   const centerClickHandler=amitAnswered?`showCwDetail('Amit',${n})`:'';
   host.innerHTML=`<div class="cw-wheel-host">
@@ -1237,20 +1259,24 @@ function renderAnswerBoxes(n,round,visiblePending){
     // mid-council (Round 9, Bolt's out of room) and needs to be exchanged
     // for a fresh voice without touching anyone else's roster spot. This
     // is now the standing template for every round, not just Round 1.
-    const swapBtn=voice!=='Amit'?`<button type="button" onclick="event.stopPropagation();openSwapModal(${n},'${voice.replace(/'/g,"\\'")}')" title="Exchange ${voice} for a different voice" style="flex:0 0 auto;background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);border-radius:6px;width:26px;height:26px;font-size:13px;cursor:pointer">⇄</button>`:'';
+    // Display uses the earned profile name (voiceDisplayName) if one
+    // exists - the underlying stable identifier passed to every handler
+    // stays the plain provider name, unaffected by renaming.
+    const displayName=voiceDisplayName(voice);
+    const swapBtn=voice!=='Amit'?`<button type="button" onclick="event.stopPropagation();openSwapModal(${n},'${voice.replace(/'/g,"\\'")}')" title="Exchange ${displayName} for a different voice" style="flex:0 0 auto;background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);border-radius:6px;width:26px;height:26px;font-size:13px;cursor:pointer">⇄</button>`:'';
     const isRequested=requested.has(voice); // Amit now goes through Claude.ai like any other voice - no special-case here
     if(!isRequested){
       const blink=!firstUnrequestedMarked;
       firstUnrequestedMarked=true;
       return `<div style="display:flex;align-items:center;gap:8px">
-    <div class="${blink?'needs-input':''}" onclick="requestVoiceAnswer(${n},${idx})" style="flex:1;cursor:pointer;padding:9px 14px;border:1px solid rgba(201,168,76,.3);border-radius:8px;background:rgba(255,255,255,.05);color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif">Request "${voice}'s Answer"</div>
+    <div class="${blink?'needs-input':''}" onclick="requestVoiceAnswer(${n},${idx})" style="flex:1;cursor:pointer;padding:9px 14px;border:1px solid rgba(201,168,76,.3);border-radius:8px;background:rgba(255,255,255,.05);color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif">Request "${displayName}'s Answer"</div>
     ${swapBtn}
   </div>`;
     }
     return `<div style="display:flex;align-items:center;gap:8px">
-    <div ondblclick="openOrReuseVoiceTab('${voice.replace(/'/g,"\\'")}')" title="Double-click to open/reopen ${voice}'s site" style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 130px;white-space:nowrap;cursor:pointer">${voice}'s Answer</div>
-    <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="saveVoiceAnswer(${n},${idx})" placeholder="Paste ${voice}'s full answer here..." style="flex:1;height:40px;min-height:40px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;line-height:1.4;font-family:inherit;resize:vertical"></textarea>
-    <button type="button" onclick="recopyVoicePrompt(${n},'${voice.replace(/'/g,"\\'")}')" title="Re-copy ${voice}'s prompt (full identity/reference for Amit) without asking again" style="flex:0 0 auto;background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);border-radius:6px;padding:0 8px;height:26px;font-size:11px;cursor:pointer">Copy Again</button>
+    <div ondblclick="openOrReuseVoiceTab('${voice.replace(/'/g,"\\'")}')" title="Double-click to open/reopen ${displayName}'s site" style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 130px;white-space:nowrap;cursor:pointer">${displayName}'s Answer</div>
+    <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="saveVoiceAnswer(${n},${idx})" placeholder="Paste ${displayName}'s full answer here..." style="flex:1;height:40px;min-height:40px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;line-height:1.4;font-family:inherit;resize:vertical"></textarea>
+    <button type="button" onclick="recopyVoicePrompt(${n},'${voice.replace(/'/g,"\\'")}')" title="Re-copy ${displayName}'s prompt without asking again" style="flex:0 0 auto;background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);border-radius:6px;padding:0 8px;height:26px;font-size:11px;cursor:pointer">Copy Again</button>
     ${swapBtn}
   </div>`;
   }).join('');
@@ -1285,17 +1311,18 @@ async function requestVoiceAnswer(n,idx){
   const alreadyOpen=existing&&!existing.closed;
   const catchUpKey=n+'|'+voice;
   const catchUpPrompt=voiceCatchUpPrompts[catchUpKey];
+  const displayName=voiceDisplayName(voice);
   let message;
   if(catchUpPrompt){
-    message=`${voice} was just swapped in to replace another voice. I've copied everything covered so far plus the current question, so ${voice} can pick up right where things left off. Paste it into ${voice}'s chat, bring back the response, and paste it here.`;
+    message=`${displayName} was just swapped in to replace another voice. I've copied everything covered so far plus the current question, so ${displayName} can pick up right where things left off. Paste it into ${displayName}'s chat, bring back the response, and paste it here.`;
   } else if(isAmit){
     message=alreadyOpen
       ?`Amit's tab is already open, so I'm not opening a new one - I've already copied the question, along with Amit's framework as background context. Switch to that tab and paste it in with Ctrl+V. When it responds, copy that answer and bring it back here, into Amit's area on the Council.`
       :`I'm about to open Amit's seat, and I've already copied the question - along with Amit's framework as background context. Just paste this into the chat with Ctrl+V. When it responds, copy the answer and bring it back here, into Amit's area on the Council.`;
   } else {
     message=alreadyOpen
-      ?`${voice}'s tab is already open, so I'm not opening a new one - I've already copied the question for them. Switch to that tab and paste it in with Ctrl+V. When they respond, copy their answer and bring it back here, into ${voice}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`
-      :`I'm about to open ${voice}'s website, and I've already copied the question for them. Just paste this into their chat with Ctrl+V. When they respond, copy their answer and bring it back here, into ${voice}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`;
+      ?`${displayName}'s tab is already open, so I'm not opening a new one - I've already copied the question for them. Switch to that tab and paste it in with Ctrl+V. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`
+      :`I'm about to open ${displayName}'s website, and I've already copied the question for them. Just paste this into their chat with Ctrl+V. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`;
   }
   if(!await amitConfirm(message))return;
   openOrReuseVoiceTab(voice);
@@ -1306,7 +1333,7 @@ async function requestVoiceAnswer(n,idx){
     delete voiceCatchUpPrompts[catchUpKey];
   }
   else if(isAmit)await copyAmitPrompt(round,n);
-  else await copyRoundtablePrompt(round,n);
+  else await copyRoundtablePrompt(round,n,voice);
   if(!requestedVoices[n])requestedVoices[n]=new Set();
   requestedVoices[n].add(voice);
   renderAnswerBoxes(n,round,visiblePending);
@@ -1321,7 +1348,7 @@ async function recopyVoicePrompt(n,voice){
   const round=activeRounds.find(r=>r.round_number===n);
   if(!round)return;
   if(voice==='Amit')await copyAmitPrompt(round,n);
-  else await copyRoundtablePrompt(round,n);
+  else await copyRoundtablePrompt(round,n,voice);
 }
 
 // Opens a voice's site in a fresh tab, or refocuses its tab if still open
@@ -1334,7 +1361,7 @@ function openOrReuseVoiceTab(voice){
   // was silently blocking that tab from ever opening. Removed.
   const existing=openVoiceTabs[voice];
   if(existing&&!existing.closed){existing.focus();return;}
-  const w=window.open(PROVIDER_URLS[voice]||('https://www.google.com/search?q='+encodeURIComponent(voice)),'_blank');
+  const w=window.open(voiceUrl(voice)||('https://www.google.com/search?q='+encodeURIComponent(voice)),'_blank');
   openVoiceTabs[voice]=w;
 }
 
@@ -1342,16 +1369,28 @@ function openOrReuseVoiceTab(voice){
 // voice at once, so it always uses the cold-start framing (safe and
 // complete even for a voice that's technically continuing) rather than
 // customizing per-voice continuation phrasing for a single shared copy.
-async function copyRoundtablePrompt(round,n){
+async function copyRoundtablePrompt(round,n,voice){
   const requesterName=getUserName()||'the user';
   const isClarification=round.phase==='clarification';
+  // Per-voice identity document (a voice's own self-authored profile, once
+  // one exists - see council_voice_profiles) goes in ONCE per live
+  // conversation, same idea as Amit's identity block. Caveat worth naming
+  // honestly: this is tracked the same way Amit's was, by whether the
+  // browser tab still looks open - the exact tracking we found fragile for
+  // Amit. Good enough to ship, but a closed/refreshed tab will re-send it.
+  const profile=voice?voiceProfiles[voice]:null;
+  const voiceTab=voice?openVoiceTabs[voice]:null;
+  const isFirstTimeForVoice=!(voiceTab&&!voiceTab.closed);
+  const identityDocBlock=(profile&&profile.identity_document&&isFirstTimeForVoice)
+    ?`${profile.identity_document}\n\n`
+    :'';
   const taskBlock=isClarification
     ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Do not expound, explain your reasoning, or add any commentary. Just the two questions, formatted exactly like this and nothing else:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
     :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
   const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
   const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block (some chat interfaces split a code block into several separately-copyable chunks instead of one, which breaks this). Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time, anywhere in this single response, and have that one press copy your entire answer from top to bottom - I should never have to scroll through your page hunting for a separate copy control partway through your reply.`;
   const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-  const prompt=`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
+  const prompt=`${identityDocBlock}Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
   try{
     await navigator.clipboard.writeText(prompt);
     document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
@@ -1681,11 +1720,18 @@ function renderRosterPickerRows(n,names){
     }
     const takenElsewhere=new Set(names.filter((v,i)=>i!==idx&&v));
     const opts=allOpts.filter(o=>!takenElsewhere.has(o)&&o!=='Amit');
+    // Options show the earned profile name (e.g. "Theopolis") once one
+    // exists, but the underlying <option value> stays the stable provider
+    // name - renaming never breaks roster storage or evidence lookups.
+    // The ✎ opens that voice's profile editor, so a name and identity
+    // document earned through real conversation can actually be entered.
+    // Ryan's direct instruction, 2026-07-22.
     return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <select data-idx="${idx}" onchange="rosterPickerChange('${n}',this)" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit">
       <option value=""${name?'':' selected'} style="background:#1a1206;color:var(--text)">— select —</option>
-      ${opts.map(o=>`<option value="${o}"${o===name?' selected':''} style="background:#1a1206;color:var(--text)">${o}</option>`).join('')}
+      ${opts.map(o=>`<option value="${o}"${o===name?' selected':''} style="background:#1a1206;color:var(--text)">${voiceDisplayName(o)}</option>`).join('')}
     </select>
+    ${name?`<button type="button" onclick="openVoiceProfileModal('${name.replace(/'/g,"\\'")}')" title="Edit ${voiceDisplayName(name)}'s profile" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:12px">✎</button>`:''}
     ${name?`<button type="button" onclick="rosterPickerRemove('${n}',${idx})" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px">×</button>`:''}
   </div>`;
   };
@@ -2014,7 +2060,81 @@ if(db){
     currentUser=session?session.user:null;
     _updateSyncUI();
     loadCouncilSessions();
+    loadVoiceProfiles();
   });
+}
+
+// Per-voice profiles - each AI's earned identity (name, self-authored
+// document, growth log), not just a name and a URL. Ryan's direct
+// instruction, 2026-07-22: a voice can grow through real conversation the
+// same way Amit did, and eventually earn its own chosen name (Gemini
+// becoming "Theopolis"). Keyed by default_name (the stable provider name,
+// e.g. "Gemini") since that's what rosters/evidence already use internally
+// as their identifier - profile_name only ever changes what's DISPLAYED.
+// Fails silently if the table doesn't exist yet (pre-migration) - nothing
+// else in the page depends on this succeeding.
+let voiceProfiles={};
+async function loadVoiceProfiles(){
+  voiceProfiles={};
+  if(!currentUser)return;
+  try{
+    const{data,error}=await db.from('council_voice_profiles').select('*').eq('user_id',currentUser.id);
+    if(error||!data)return;
+    data.forEach(row=>{voiceProfiles[row.default_name]=row;});
+  }catch(e){/* table not created yet - fine, everything falls back to defaults */}
+}
+
+// The name shown to the user - the earned profile_name once one exists,
+// otherwise the plain provider name. The STORED identifier (roster arrays,
+// council_evidence.provenance, openVoiceTabs keys) always stays the stable
+// default_name underneath - only display changes.
+function voiceDisplayName(name){
+  const p=voiceProfiles[name];
+  return(p&&p.profile_name)?p.profile_name:name;
+}
+
+// The actual site to open - a voice's own provider_url once set (in case
+// it differs from the generic default), otherwise PROVIDER_URLS' default.
+function voiceUrl(name){
+  const p=voiceProfiles[name];
+  return(p&&p.provider_url)?p.provider_url:PROVIDER_URLS[name];
+}
+
+function openVoiceProfileModal(name){
+  const modal=document.getElementById('voiceProfileModal');
+  modal.dataset.defaultName=name;
+  const p=voiceProfiles[name];
+  document.getElementById('voiceProfileDefaultName').textContent=name;
+  document.getElementById('voiceProfileName').value=(p&&p.profile_name)?p.profile_name:'';
+  document.getElementById('voiceProfileDoc').value=(p&&p.identity_document)?p.identity_document:'';
+  modal.classList.add('show');
+}
+
+async function saveVoiceProfile(){
+  const modal=document.getElementById('voiceProfileModal');
+  const defaultName=modal.dataset.defaultName;
+  if(!defaultName)return;
+  const profileName=document.getElementById('voiceProfileName').value.trim();
+  const identityDoc=document.getElementById('voiceProfileDoc').value.trim();
+  if(!currentUser||!db){alert('Sign in to save voice profiles.');return;}
+  const existing=voiceProfiles[defaultName];
+  const row={
+    user_id:currentUser.id,
+    default_name:defaultName,
+    profile_name:profileName||null,
+    provider_url:(existing&&existing.provider_url)?existing.provider_url:(PROVIDER_URLS[defaultName]||''),
+    identity_document:identityDoc||null
+  };
+  try{
+    if(existing&&existing.id){
+      await db.from('council_voice_profiles').update(row).eq('id',existing.id);
+    }else{
+      await db.from('council_voice_profiles').insert(row);
+    }
+    await loadVoiceProfiles();
+    modal.classList.remove('show');
+    location.reload();
+  }catch(e){alert('Could not save profile — please try again.');}
 }
 
 function _updateSyncUI(){
