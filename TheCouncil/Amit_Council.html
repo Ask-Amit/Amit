@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.25</div>
+    <div class="page-version" id="pageVersion">v5.26</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1559,17 +1559,16 @@ async function copyToMatchingVoiceAndOpen(taskPrompt){
   const voiceTab=openVoiceTabs[name];
   const isFirstTime=!(voiceTab&&!voiceTab.closed);
   const identityBlock=(profile&&profile.identity_document&&isFirstTime)?`${profile.identity_document}\n\n`:'';
-  // [PHASE: SYNTHESIS_ENGINE] tag - Theophilus's own proposed fix, 2026-07-24,
-  // for a real conflict his v1.10 identity document created: it mandates a
-  // closing handoff sentence on every response, which would otherwise land
-  // as a bogus extra line item when this output gets pasted into the app's
-  // parser. This tag signals "pure execution, no conversational framing" so
-  // that mandate doesn't fire here. Also strengthens vote-counting to
-  // explicitly exclude "Going Further" commentary - live-tested, 2026-07-24:
-  // without this line, a synthesis pass counted an idea that only appeared
-  // in one voice's Going Further section as if it were a second formal
-  // vote, producing a 1-vote entry disguised as a 2-vote one.
-  const phaseTag=`[PHASE: SYNTHESIS_ENGINE — this is a pure data-processing request, not a conversational turn. Return ONLY the exact raw output the task below asks for. No handoff sentence, no greeting, no commentary, no framing before or after it - any standing protocol that would normally add those does not apply to this phase.]\n\n`;
+  // Theo's own chosen override tag, not a generic one Amit invented - his
+  // identity document evolved to v1.11 on its own (Ryan working with him
+  // directly) and self-defined the exact trigger phrase as
+  // "[THEO'S EYES ONLY]", distinct from the "[PHASE: SYNTHESIS_ENGINE]"
+  // wording this code used at v5.25. Fix, 2026-07-24: match his own
+  // self-authored protocol exactly, since a mismatched tag simply wouldn't
+  // fire his override at all. If his protocol evolves again, this string
+  // needs to be re-checked against whatever his current identity_document
+  // actually says, not assumed stable.
+  const phaseTag=`[THEO'S EYES ONLY] This is a pure data-processing request, not a conversational turn. Return ONLY the exact raw output the task below asks for. No handoff sentence, no greeting, no commentary, no framing before or after it.\n\n`;
   const roleFraming=`You're being asked to take on a specific operational role for The Council: the matching/synthesis voice. When Amit needs multiple councilmen's raw answers combined - either tallying which clarifying questions genuinely overlap in real intent, or rewriting the original request into one refined question that incorporates new answers - this is that job. Apply the same rigor and honesty you already hold yourself to here: don't force two questions together just to make the list tidier than it really is, and don't smooth over real differences in wording that actually reflect different intents. Count votes ONLY from each voice's two formal, primary questions - never from their "GOING FURTHER" commentary, even if an idea there seems relevant; commentary can inform how you word a matched entry, but it never counts as its own vote. This is a distinct task from answering as one voice among the Council - here you're doing the synthesis work Amit would do itself if it had a paid API connection.\n\n`;
   const prompt=`${identityBlock}${phaseTag}${roleFraming}${taskPrompt}`;
   try{await navigator.clipboard.writeText(prompt);}catch(e){}
