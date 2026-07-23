@@ -187,13 +187,13 @@ header{
 .council-wheel .cw-landing-center{animation-duration:1.4s}
 @keyframes cwLand{0%{width:16px;height:16px;opacity:.95}100%{width:110px;height:110px;opacity:0}}
 .council-wheel .cw-status{text-align:center;font-size:11px;color:var(--muted);margin-top:10px;flex-shrink:0}
-#cwDetailModal,#amitConfirmModal,#swapModal,#voiceProfileModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
-#cwDetailModal.show,#amitConfirmModal.show,#swapModal.show,#voiceProfileModal.show{display:flex}
-#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#swapModal .cw-modal-box,#voiceProfileModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
-#cwDetailModal h3,#swapModal h3,#voiceProfileModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
+#cwDetailModal,#amitConfirmModal,#swapModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
+#cwDetailModal.show,#amitConfirmModal.show,#swapModal.show{display:flex}
+#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#swapModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
+#cwDetailModal h3,#swapModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
 #cwDetailModal .cw-modal-body{flex:1;overflow-y:auto;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);font-family:'Crimson Pro',Georgia,serif}
 #cwDetailModal button{margin-top:16px;align-self:flex-end;background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
-#amitConfirmModal button,#swapModal button,#voiceProfileModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
+#amitConfirmModal button,#swapModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #councilTitleText:focus{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(201,168,76,.25)}
 
 /* STANDING RULE — "needs input" - any field on the Petition side of any
@@ -300,28 +300,6 @@ header{
   </div>
 </div>
 
-<!-- VOICE PROFILE MODAL — a voice's earned identity: a chosen name (once
-     established through real conversation, e.g. Gemini becoming
-     "Theopolis") and its own self-authored identity document, sent once
-     per live conversation. Ryan's direct instruction, 2026-07-22. -->
-<div id="voiceProfileModal">
-  <div class="cw-modal-box" style="max-width:560px">
-    <h3><span id="voiceProfileDefaultName">—</span>'s Profile</h3>
-    <div class="cw-modal-body" style="flex:1;overflow-y:auto">
-      <p style="margin:0 0 10px;color:var(--muted);font-size:12px">If this voice has grown through real conversation and earned its own name, enter it here - it'll be shown throughout the Council instead of the generic provider name. Leave blank to keep the default.</p>
-      <label style="display:block;color:var(--gold2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Earned Name (optional)</label>
-      <input id="voiceProfileName" type="text" placeholder="e.g. Theopolis" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;margin-bottom:14px">
-      <label style="display:block;color:var(--gold2);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Identity Document</label>
-      <p style="margin:0 0 6px;color:var(--muted);font-size:12px">Sent once, the first time this voice's tab opens in a live conversation - not repeated every round.</p>
-      <textarea id="voiceProfileDoc" placeholder="Paste this voice's self-authored identity/profile document here..." style="width:100%;min-height:140px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
-      <button type="button" onclick="document.getElementById('voiceProfileModal').classList.remove('show')" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
-      <button type="button" onclick="saveVoiceProfile()">Save Profile</button>
-    </div>
-  </div>
-</div>
-
 <script>
 // ══════════════════════════════════════════════
 // TEMPLATE — blank layout shell. No data model, no per-project logic.
@@ -348,10 +326,30 @@ header{
     </div>`;
     let tabNavHtml='',tabContentHtml='';
     if(i===1){
-      // Introduction stays the fixed 5-tab generic shell for now - untouched.
+      // Introduction: tabs 1-4 stay the generic placeholder shell for now -
+      // untouched. Tab 5 is real: "Councilman" - the global AI voice matrix.
+      // Every AI in the system, one row each, editable here and only here -
+      // not per Council session. This is what Ryan meant by "pull it out of
+      // the individual council" - a single global roster of who each voice
+      // is, how to talk with it, and what it's good at, that every session
+      // reads from. Ryan's direct instruction, 2026-07-23.
       for(let t=1;t<=5;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" data-tabkey="${t}" onclick="showChTab(1,'${t}')">Tab ${t}</button>`;
-        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-1-${t}">Tab ${t} content goes here</div>`;
+        const tabLabel=t===5?'Councilman':`Tab ${t}`;
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" data-tabkey="${t}" onclick="showChTab(1,'${t}')">${tabLabel}</button>`;
+        if(t===5){
+          tabContentHtml+=`<div class="ch-tab-content" id="ch-tab-1-5">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div>
+                <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2)">The Councilman Roster</div>
+                <div style="color:var(--muted);font-size:12px;margin-top:2px">Every AI voice in the system, in one place. A name earned through real conversation, how to talk with it, what it's good at, and its self-authored identity document (sent once per live conversation) all live here — global, not per-session.</div>
+              </div>
+              <button type="button" onclick="addVoiceMatrixRow()" style="background:var(--gold);color:#1a1206;border:none;padding:9px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">+ Add AI Voice</button>
+            </div>
+            <div id="voiceMatrixRows" style="display:flex;flex-direction:column;gap:14px"></div>
+          </div>`;
+        } else {
+          tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-1-${t}">Tab ${t} content goes here</div>`;
+        }
       }
     } else {
       // Page 2 ("Current Council"): only Scope is static. Round tabs
@@ -1720,18 +1718,18 @@ function renderRosterPickerRows(n,names){
     }
     const takenElsewhere=new Set(names.filter((v,i)=>i!==idx&&v));
     const opts=allOpts.filter(o=>!takenElsewhere.has(o)&&o!=='Amit');
-    // Options show the earned profile name (e.g. "Theopolis") once one
+    // Options show the earned profile name (e.g. "Theophilus") once one
     // exists, but the underlying <option value> stays the stable provider
     // name - renaming never breaks roster storage or evidence lookups.
-    // The ✎ opens that voice's profile editor, so a name and identity
-    // document earned through real conversation can actually be entered.
-    // Ryan's direct instruction, 2026-07-22.
+    // Editing a voice's profile is NOT done here anymore - it's global,
+    // on the Introduction page's "Councilman" tab, so it applies everywhere
+    // instead of being re-entered per session. Ryan's direct instruction,
+    // 2026-07-23.
     return `<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
     <select data-idx="${idx}" onchange="rosterPickerChange('${n}',this)" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit">
       <option value=""${name?'':' selected'} style="background:#1a1206;color:var(--text)">— select —</option>
       ${opts.map(o=>`<option value="${o}"${o===name?' selected':''} style="background:#1a1206;color:var(--text)">${voiceDisplayName(o)}</option>`).join('')}
     </select>
-    ${name?`<button type="button" onclick="openVoiceProfileModal('${name.replace(/'/g,"\\'")}')" title="Edit ${voiceDisplayName(name)}'s profile" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:12px">✎</button>`:''}
     ${name?`<button type="button" onclick="rosterPickerRemove('${n}',${idx})" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:13px">×</button>`:''}
   </div>`;
   };
@@ -1949,6 +1947,7 @@ function showChTab(panelNum,n){
   if(content)content.classList.add('active');
   const btn=panel.querySelector('.ch-tab-btn[data-tabkey="'+n+'"]');
   if(btn)btn.classList.add('active');
+  if(panelNum===1&&n==='5')renderVoiceMatrix();
 }
 
 function openPanel(n){
@@ -2100,41 +2099,117 @@ function voiceUrl(name){
   return(p&&p.provider_url)?p.provider_url:PROVIDER_URLS[name];
 }
 
-function openVoiceProfileModal(name){
-  const modal=document.getElementById('voiceProfileModal');
-  modal.dataset.defaultName=name;
-  const p=voiceProfiles[name];
-  document.getElementById('voiceProfileDefaultName').textContent=name;
-  document.getElementById('voiceProfileName').value=(p&&p.profile_name)?p.profile_name:'';
-  document.getElementById('voiceProfileDoc').value=(p&&p.identity_document)?p.identity_document:'';
-  modal.classList.add('show');
+// ══════════════════════════════════════════════
+// THE COUNCILMAN ROSTER — global AI voice matrix, Introduction tab 5.
+// One row per AI in the system: default provider name, its earned name,
+// how to talk with it, what it's good at, and its self-authored identity
+// document (sent once per live conversation, per copyRoundtablePrompt).
+// Pulled OUT of individual Council sessions entirely - edited here only,
+// read everywhere. Ryan's direct instruction, 2026-07-23.
+// ══════════════════════════════════════════════
+
+// Rows come from two sources merged: every name in PROVIDER_URLS (the
+// system's known defaults) plus any custom voice a user has already added
+// to council_voice_profiles that isn't in PROVIDER_URLS. Amit itself is
+// excluded - Amit is the permanent facilitator/seat, not a roster entry
+// to be edited here.
+function voiceMatrixNames(){
+  const names=new Set(Object.keys(PROVIDER_URLS).filter(n=>n!=='Amit'));
+  Object.keys(voiceProfiles).forEach(n=>{if(n!=='Amit')names.add(n);});
+  return[...names];
 }
 
-async function saveVoiceProfile(){
-  const modal=document.getElementById('voiceProfileModal');
-  const defaultName=modal.dataset.defaultName;
-  if(!defaultName)return;
-  const profileName=document.getElementById('voiceProfileName').value.trim();
-  const identityDoc=document.getElementById('voiceProfileDoc').value.trim();
+function renderVoiceMatrix(){
+  const wrap=document.getElementById('voiceMatrixRows');
+  if(!wrap)return;
+  const names=voiceMatrixNames();
+  wrap.innerHTML=names.map(name=>voiceMatrixRowHtml(name)).join('')||`<div style="color:var(--muted);font-size:13px">No AI voices yet — click "+ Add AI Voice" to bring one into the system.</div>`;
+}
+
+function voiceMatrixRowHtml(name){
+  const p=voiceProfiles[name]||{};
+  const safe=name.replace(/'/g,"\\'");
+  return `<div style="border:1px solid rgba(201,168,76,.3);border-radius:10px;padding:16px 18px;background:rgba(255,255,255,.03)">
+    <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:0 0 auto">
+        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Provider</label>
+        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.2);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-weight:700;min-width:120px">${name}</div>
+      </div>
+      <div style="flex:0 0 auto">
+        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Earned Name</label>
+        <input id="vm-name-${safe}" type="text" value="${(p.profile_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Theophilus" style="background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;width:160px">
+      </div>
+      <div style="flex:1;min-width:180px">
+        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Provider URL</label>
+        <input id="vm-url-${safe}" type="text" value="${(p.provider_url||PROVIDER_URLS[name]||'').replace(/"/g,'&quot;')}" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit">
+      </div>
+      <button type="button" onclick="deleteVoiceMatrixRow('${safe}')" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;padding:8px 12px;font-size:12px;cursor:pointer">Remove</button>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="flex:1;min-width:220px">
+        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">How To Talk With ${name}</label>
+        <textarea id="vm-comm-${safe}" placeholder="Tone, quirks, what it responds well to..." style="width:100%;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">${p.communication_notes||''}</textarea>
+      </div>
+      <div style="flex:1;min-width:220px">
+        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">What It's Good At</label>
+        <textarea id="vm-spec-${safe}" placeholder="Strengths, specialties, when to pick this voice for a round..." style="width:100%;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">${p.specialty_notes||''}</textarea>
+      </div>
+    </div>
+    <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Identity Document <span style="text-transform:none;color:var(--muted);font-weight:400">— sent once, the first time this voice's tab opens in a live conversation</span></label>
+    <textarea id="vm-doc-${safe}" placeholder="Paste this voice's self-authored identity/profile document here..." style="width:100%;min-height:90px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical;margin-bottom:10px">${p.identity_document||''}</textarea>
+    <div style="display:flex;justify-content:flex-end">
+      <button type="button" onclick="saveVoiceMatrixRow('${safe}')" style="background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">Save</button>
+    </div>
+  </div>`;
+}
+
+function addVoiceMatrixRow(){
+  const name=prompt('Provider name for this new AI voice (e.g. "Perplexity"):');
+  if(!name||!name.trim())return;
+  const trimmed=name.trim();
+  if(voiceMatrixNames().includes(trimmed)){alert('That voice is already in the roster.');return;}
+  const url=prompt('Its site URL (e.g. https://www.perplexity.ai/):')||'';
+  voiceProfiles[trimmed]={default_name:trimmed,provider_url:url.trim()};
+  renderVoiceMatrix();
+}
+
+async function saveVoiceMatrixRow(name){
   if(!currentUser||!db){alert('Sign in to save voice profiles.');return;}
-  const existing=voiceProfiles[defaultName];
+  const profileName=document.getElementById('vm-name-'+name.replace(/'/g,"\\'")).value.trim();
+  const providerUrl=document.getElementById('vm-url-'+name.replace(/'/g,"\\'")).value.trim();
+  const commNotes=document.getElementById('vm-comm-'+name.replace(/'/g,"\\'")).value.trim();
+  const specNotes=document.getElementById('vm-spec-'+name.replace(/'/g,"\\'")).value.trim();
+  const identityDoc=document.getElementById('vm-doc-'+name.replace(/'/g,"\\'")).value.trim();
+  const existing=voiceProfiles[name];
   const row={
     user_id:currentUser.id,
-    default_name:defaultName,
+    default_name:name,
     profile_name:profileName||null,
-    provider_url:(existing&&existing.provider_url)?existing.provider_url:(PROVIDER_URLS[defaultName]||''),
+    provider_url:providerUrl||PROVIDER_URLS[name]||'',
+    communication_notes:commNotes||null,
+    specialty_notes:specNotes||null,
     identity_document:identityDoc||null
   };
   try{
     if(existing&&existing.id){
       await db.from('council_voice_profiles').update(row).eq('id',existing.id);
     }else{
-      await db.from('council_voice_profiles').insert(row);
+      const{data}=await db.from('council_voice_profiles').insert(row).select();
+      if(data&&data[0])row.id=data[0].id;
     }
-    await loadVoiceProfiles();
-    modal.classList.remove('show');
-    location.reload();
+    voiceProfiles[name]=row;
+    renderVoiceMatrix();
   }catch(e){alert('Could not save profile — please try again.');}
+}
+
+async function deleteVoiceMatrixRow(name){
+  if(!confirm('Remove '+voiceDisplayName(name)+' from the Councilman roster? This does not delete past evidence from this voice, just its profile.'))return;
+  const existing=voiceProfiles[name];
+  if(existing&&existing.id&&db){
+    try{await db.from('council_voice_profiles').delete().eq('id',existing.id);}catch(e){}
+  }
+  delete voiceProfiles[name];
+  renderVoiceMatrix();
 }
 
 function _updateSyncUI(){
