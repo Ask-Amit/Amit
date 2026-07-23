@@ -187,13 +187,13 @@ header{
 .council-wheel .cw-landing-center{animation-duration:1.4s}
 @keyframes cwLand{0%{width:16px;height:16px;opacity:.95}100%{width:110px;height:110px;opacity:0}}
 .council-wheel .cw-status{text-align:center;font-size:11px;color:var(--muted);margin-top:10px;flex-shrink:0}
-#cwDetailModal,#amitConfirmModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
-#cwDetailModal.show,#amitConfirmModal.show{display:flex}
-#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
-#cwDetailModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
+#cwDetailModal,#amitConfirmModal,#swapModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
+#cwDetailModal.show,#amitConfirmModal.show,#swapModal.show{display:flex}
+#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#swapModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
+#cwDetailModal h3,#swapModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
 #cwDetailModal .cw-modal-body{flex:1;overflow-y:auto;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);font-family:'Crimson Pro',Georgia,serif}
 #cwDetailModal button{margin-top:16px;align-self:flex-end;background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
-#amitConfirmModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
+#amitConfirmModal button,#swapModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #councilTitleText:focus{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(201,168,76,.25)}
 
 /* STANDING RULE — "needs input" - any field on the Petition side of any
@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v4.99</div>
+    <div class="page-version" id="pageVersion">v5.00</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -280,6 +280,22 @@ header{
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
       <button type="button" id="amitConfirmCancelBtn" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
       <button type="button" id="amitConfirmOkBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- SWAP VOICE MODAL — mid-session exchange for a voice that ran out of
+     chat history/session room. Ryan's direct instruction, 2026-07-22. -->
+<div id="swapModal">
+  <div class="cw-modal-box" style="max-width:420px">
+    <h3>Exchange <span id="swapOldVoiceName">—</span></h3>
+    <div class="cw-modal-body" style="flex:none">
+      <p style="margin:0 0 10px;color:var(--muted);font-size:13px">Who do you want to exchange this seat with? Whoever's picked will open with everything covered so far, so they can pick up right where the conversation left off.</p>
+      <select id="swapVoiceSelect" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit"></select>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button type="button" onclick="document.getElementById('swapModal').classList.remove('show')" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
+      <button type="button" onclick="confirmSwap()">Exchange</button>
     </div>
   </div>
 </div>
@@ -835,6 +851,78 @@ function showCwDetail(name,n){
   document.getElementById('cwDetailModal').classList.add('show');
 }
 
+// Mid-session voice exchange - a voice can run out of chat/session room
+// deep into a council (Round 9, Bolt's out of history) and needs swapping
+// for a fresh one without touching anyone else's seat. Ryan's direct
+// instruction, 2026-07-22: pressing ⇄ first explains plainly what it's
+// about to do (people may press it with no idea what it does otherwise),
+// and only after "Proceed" does the actual replacement picker appear.
+async function openSwapModal(n,oldVoice){
+  const proceed=await amitConfirm(`You pressed exchange. This assumes that for some reason you'd like to change out ${oldVoice} for a different voice. If this is what you want to do, press Proceed. Otherwise, Cancel.`);
+  if(!proceed)return;
+  const round=activeRounds.find(r=>r.round_number===n);
+  const taken=new Set(round.roster||[]);
+  const available=Object.keys(PROVIDER_URLS).filter(v=>v!=='Amit'&&!taken.has(v));
+  const select=document.getElementById('swapVoiceSelect');
+  if(!available.length){
+    select.innerHTML=`<option value="">No other voices available to swap in</option>`;
+  } else {
+    select.innerHTML=available.map(v=>`<option value="${v}">${v}</option>`).join('');
+  }
+  document.getElementById('swapOldVoiceName').textContent=oldVoice;
+  const modal=document.getElementById('swapModal');
+  modal.dataset.round=n;
+  modal.dataset.oldVoice=oldVoice;
+  modal.classList.add('show');
+}
+
+async function confirmSwap(){
+  const modal=document.getElementById('swapModal');
+  const n=Number(modal.dataset.round);
+  const oldVoice=modal.dataset.oldVoice;
+  const newVoice=document.getElementById('swapVoiceSelect').value;
+  modal.classList.remove('show');
+  if(!newVoice)return;
+  await performVoiceSwap(n,oldVoice,newVoice);
+}
+
+// Swaps oldVoice → newVoice on the CURRENT round's roster (which is what
+// every future round inherits automatically per the existing carry-forward
+// logic, so the swap sticks going forward without touching history).
+// Opens the new voice's site with a full catch-up: everything decided so
+// far, all prior rounds' real evidence, and the current outstanding
+// question - so newVoice picks up exactly where oldVoice left off instead
+// of starting cold. Ryan's direct instruction, 2026-07-22.
+async function performVoiceSwap(n,oldVoice,newVoice){
+  const round=activeRounds.find(r=>r.round_number===n);
+  const newRoster=round.roster.map(v=>v===oldVoice?newVoice:v);
+  await db.from('council_rounds').update({roster:newRoster}).eq('id',round.id);
+  round.roster=newRoster;
+  delete openVoiceTabs[oldVoice];
+
+  // Build the catch-up: original request, every completed round's real
+  // evidence in order, then this round's current question.
+  const historyParts=[`THE ORIGINAL REQUEST: ${activeRounds[0].prompt_text}`];
+  for(const r of activeRounds){
+    if(r.round_number>=n)break;
+    const{data:priorEvidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',r.id).order('created_at',{ascending:true});
+    if(priorEvidence&&priorEvidence.length){
+      historyParts.push(`ROUND ${r.round_number}:\n`+priorEvidence.map(e=>`${e.provenance}: ${e.body}`).join('\n\n'));
+    }
+  }
+  const{data:thisRoundEvidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',round.id).order('created_at',{ascending:true});
+  if(thisRoundEvidence&&thisRoundEvidence.length){
+    historyParts.push(`ROUND ${n} SO FAR:\n`+thisRoundEvidence.map(e=>`${e.provenance}: ${e.body}`).join('\n\n'));
+  }
+  const history=historyParts.join('\n\n');
+  const catchUpPrompt=`Cold-start briefing: I'm ${getUserName()||'the user'}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." You're being brought in partway through, replacing another voice that ran out of session room - from this point forward, you're acting in exchange of that voice. Here is everything decided and said so far, so you can pick up exactly where they left off, not start cold:\n\n${history}\n\nTHE CURRENT QUESTION FOR THIS ROUND: ${round.prompt_text}\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+  try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
+  openOrReuseVoiceTab(newVoice);
+  window.focus();
+  await amitConfirm(`${newVoice} is in, replacing ${oldVoice}. I've copied everything covered so far plus the current question - paste it into ${newVoice}'s chat and they'll pick up right where things left off.`);
+  await renderOneRoundState(round);
+}
+
 // Ryan's direct instruction, 2026-07-22: councilmen's tabs stay live across
 // the whole run of a council session rather than being closed and reopened
 // cold each round. Keyed by voice name (not by round), so the same tab is
@@ -1093,15 +1181,25 @@ function renderAnswerBoxes(n,round,visiblePending){
   const requested=requestedVoices[n]||new Set();
   let firstUnrequestedMarked=false;
   boxesHost.innerHTML=visiblePending.map((voice,idx)=>{
+    // Every non-Amit pending voice gets a swap (⇄) button - Ryan's direct
+    // instruction, 2026-07-22: a voice can run out of session/chat history
+    // mid-council (Round 9, Bolt's out of room) and needs to be exchanged
+    // for a fresh voice without touching anyone else's roster spot. This
+    // is now the standing template for every round, not just Round 1.
+    const swapBtn=voice!=='Amit'?`<button type="button" onclick="event.stopPropagation();openSwapModal(${n},'${voice.replace(/'/g,"\\'")}')" title="Exchange ${voice} for a different voice" style="flex:0 0 auto;background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);border-radius:6px;width:26px;height:26px;font-size:13px;cursor:pointer">⇄</button>`:'';
     const isRequested=requested.has(voice); // Amit now goes through Claude.ai like any other voice - no special-case here
     if(!isRequested){
       const blink=!firstUnrequestedMarked;
       firstUnrequestedMarked=true;
-      return `<div class="${blink?'needs-input':''}" onclick="requestVoiceAnswer(${n},${idx})" style="cursor:pointer;padding:9px 14px;border:1px solid rgba(201,168,76,.3);border-radius:8px;background:rgba(255,255,255,.05);color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif">Request "${voice}'s Answer"</div>`;
+      return `<div style="display:flex;align-items:center;gap:8px">
+    <div class="${blink?'needs-input':''}" onclick="requestVoiceAnswer(${n},${idx})" style="flex:1;cursor:pointer;padding:9px 14px;border:1px solid rgba(201,168,76,.3);border-radius:8px;background:rgba(255,255,255,.05);color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif">Request "${voice}'s Answer"</div>
+    ${swapBtn}
+  </div>`;
     }
-    return `<div style="display:flex;align-items:center;gap:12px">
+    return `<div style="display:flex;align-items:center;gap:8px">
     <div ondblclick="openOrReuseVoiceTab('${voice.replace(/'/g,"\\'")}')" title="Double-click to open/reopen ${voice}'s site" style="color:var(--gold2);font-weight:700;font-size:13px;font-family:'Cinzel',serif;flex:0 0 130px;white-space:nowrap;cursor:pointer">${voice}'s Answer</div>
     <textarea id="voiceAnswerText-${n}-${idx}" oninput="autoGrowTextarea(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur();}" onblur="saveVoiceAnswer(${n},${idx})" placeholder="Paste ${voice}'s full answer here..." style="flex:1;height:40px;min-height:40px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:9px 12px;font-size:14px;line-height:1.4;font-family:inherit;resize:vertical"></textarea>
+    ${swapBtn}
   </div>`;
   }).join('');
   boxesHost.dataset.pending=JSON.stringify(visiblePending);
