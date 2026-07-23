@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.19</div>
+    <div class="page-version" id="pageVersion">v5.20</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -798,11 +798,18 @@ const VOICE_COLORS={
 };
 function cwColorFor(name){return VOICE_COLORS[name]||[180,180,190];}
 
-// Real favicon for a voice's rim badge, pulled from its own site via
-// Google's public favicon service - no local icon files to maintain, and
-// it's always that provider's actual current logo. Returns null for voices
-// with no known URL (e.g. Amit, which never appears on the rim anyway).
+// Real favicon for a voice's rim badge. If a voice has chosen its own
+// emblem (council_voice_profiles.avatar_url - e.g. Theophilus's own
+// compass/ichthys mark, distinct from Gemini's generic logo), that always
+// wins. Otherwise falls back to that provider's actual site favicon via
+// Google's public favicon service - no local icon files to maintain for
+// voices that haven't earned/chosen their own yet. Returns null for voices
+// with no known URL at all (e.g. Amit, which never appears on the rim
+// anyway - Amit lives in the center with its own fixed emblem).
+// Ryan's direct instruction, 2026-07-24.
 function cwFaviconUrl(name){
+  const p=voiceProfiles[name];
+  if(p&&p.avatar_url)return p.avatar_url;
   const url=voiceUrl(name);
   if(!url)return null;
   try{
@@ -2246,8 +2253,10 @@ function voiceMatrixRowHtml(name){
   const safe=name.replace(/'/g,"\\'");
   const expanded=voiceMatrixExpanded.has(name);
   const displayName=voiceDisplayName(name);
-  // Collapsed line: Provider · Persona · URL · Remove · Details.
+  // Collapsed line: Avatar · Provider · Persona · URL · Remove · Details.
+  const avatarImg=p.avatar_url?`<img src="${p.avatar_url}" alt="${name}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex:0 0 26px;border:1px solid rgba(201,168,76,.4)" onerror="this.style.display='none'">`:`<div style="width:26px;height:26px;flex:0 0 26px"></div>`;
   const collapsedRow=`<div style="display:flex;gap:14px;align-items:center">
+    ${avatarImg}
     <div style="flex:0 0 130px;font-weight:700;font-size:13px;color:var(--text)">${name}</div>
     <div style="flex:0 0 150px;color:var(--gold2);font-size:13px">${p.profile_name?displayName:'—'}</div>
     <div style="flex:1;min-width:0;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.provider_url||PROVIDER_URLS[name]||''}</div>
@@ -2268,6 +2277,16 @@ function voiceMatrixRowHtml(name){
         <div style="flex:1;min-width:220px">
           <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Provider URL</label>
           <input id="vm-url-${safe}" type="text" value="${(p.provider_url||PROVIDER_URLS[name]||'').replace(/"/g,'&quot;')}" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit">
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Avatar Image <span style="text-transform:none;color:var(--muted);font-weight:400">— its own chosen emblem, if it has one. Replaces the generic site favicon everywhere (wheel, roster). Leave blank to use the default favicon.</span></label>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <img id="vm-avatar-preview-${safe}" src="${p.avatar_url||''}" alt="${name}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:1px solid rgba(201,168,76,.4);flex:0 0 36px;${p.avatar_url?'':'display:none'}" onerror="this.style.display='none'">
+          <input id="vm-avatar-${safe}" type="hidden" value="${(p.avatar_url||'').replace(/"/g,'&quot;')}">
+          <input id="vm-avatar-file-${safe}" type="file" accept="image/*" style="color:var(--muted);font-size:12px;flex:1;min-width:180px">
+          <button type="button" onclick="uploadVoiceAvatar('${safe}')" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:7px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">Upload</button>
+          <span id="vm-avatar-status-${safe}" style="font-size:11px;color:var(--muted)"></span>
         </div>
       </div>
       <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
@@ -2299,6 +2318,46 @@ function addVoiceMatrixRow(){
   renderVoiceMatrix();
 }
 
+// Uploads the chosen file to the 'voice_avatars' Supabase Storage bucket,
+// gets back a real public URL, drops it into the hidden avatar field +
+// preview image, and saves it immediately - a single discrete action, not
+// bundled behind the row's separate "Save" button (which handles the text
+// fields). Ryan's direct instruction, 2026-07-24: upload directly from this
+// row, no separate URL-hunting step.
+async function uploadVoiceAvatar(name){
+  const fileInput=document.getElementById('vm-avatar-file-'+name);
+  const statusEl=document.getElementById('vm-avatar-status-'+name);
+  const file=fileInput.files[0];
+  if(!file){statusEl.textContent='Choose a file first.';statusEl.style.color='#e08a8a';return;}
+  if(!currentUser||!db){statusEl.textContent='Sign in first.';statusEl.style.color='#e08a8a';return;}
+  statusEl.textContent='Uploading...';statusEl.style.color='var(--muted)';
+  try{
+    const ext=(file.name.split('.').pop()||'png').toLowerCase();
+    const path=`${currentUser.id}/${name}_${Date.now()}.${ext}`;
+    const{error:upErr}=await db.storage.from('voice_avatars').upload(path,file,{upsert:true});
+    if(upErr)throw upErr;
+    const{data:pub}=db.storage.from('voice_avatars').getPublicUrl(path);
+    const url=pub.publicUrl;
+    document.getElementById('vm-avatar-'+name).value=url;
+    const preview=document.getElementById('vm-avatar-preview-'+name);
+    preview.src=url;preview.style.display='';
+    const existing=voiceProfiles[name]||{};
+    const row={...existing,user_id:currentUser.id,default_name:name,avatar_url:url,provider_url:existing.provider_url||PROVIDER_URLS[name]||''};
+    if(existing&&existing.id){
+      await db.from('council_voice_profiles').update({avatar_url:url}).eq('id',existing.id);
+    }else{
+      const{data}=await db.from('council_voice_profiles').insert(row).select();
+      if(data&&data[0])row.id=data[0].id;
+    }
+    voiceProfiles[name]=row;
+    statusEl.textContent='Uploaded and saved.';statusEl.style.color='rgba(120,200,150,.9)';
+  }catch(e){
+    console.error(e);
+    statusEl.textContent='Upload failed — '+(e.message||'check console')+(e.message&&e.message.toLowerCase().includes('bucket')?' (storage bucket may not exist yet)':'');
+    statusEl.style.color='#e08a8a';
+  }
+}
+
 async function saveVoiceMatrixRow(name){
   if(!currentUser||!db){alert('Sign in to save voice profiles.');return;}
   const profileName=document.getElementById('vm-name-'+name.replace(/'/g,"\\'")).value.trim();
@@ -2306,6 +2365,7 @@ async function saveVoiceMatrixRow(name){
   const commNotes=document.getElementById('vm-comm-'+name.replace(/'/g,"\\'")).value.trim();
   const specNotes=document.getElementById('vm-spec-'+name.replace(/'/g,"\\'")).value.trim();
   const identityDoc=document.getElementById('vm-doc-'+name.replace(/'/g,"\\'")).value.trim();
+  const avatarUrl=document.getElementById('vm-avatar-'+name.replace(/'/g,"\\'")).value.trim();
   const existing=voiceProfiles[name];
   const row={
     user_id:currentUser.id,
@@ -2314,7 +2374,8 @@ async function saveVoiceMatrixRow(name){
     provider_url:providerUrl||PROVIDER_URLS[name]||'',
     communication_notes:commNotes||null,
     specialty_notes:specNotes||null,
-    identity_document:identityDoc||null
+    identity_document:identityDoc||null,
+    avatar_url:avatarUrl||null
   };
   try{
     if(existing&&existing.id){
