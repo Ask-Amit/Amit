@@ -2119,6 +2119,12 @@ function voiceMatrixNames(){
   return[...names];
 }
 
+// Which rows are currently expanded (by default_name). A fresh visit to
+// the Councilman tab always starts fully collapsed - one line per voice -
+// per Ryan's direct instruction, 2026-07-23. Expanding one row does not
+// affect any other row's state.
+let voiceMatrixExpanded=new Set();
+
 function renderVoiceMatrix(){
   const wrap=document.getElementById('voiceMatrixRows');
   if(!wrap)return;
@@ -2126,39 +2132,56 @@ function renderVoiceMatrix(){
   wrap.innerHTML=names.map(name=>voiceMatrixRowHtml(name)).join('')||`<div style="color:var(--muted);font-size:13px">No AI voices yet — click "+ Add AI Voice" to bring one into the system.</div>`;
 }
 
+function toggleVoiceMatrixRow(name){
+  if(voiceMatrixExpanded.has(name))voiceMatrixExpanded.delete(name);
+  else voiceMatrixExpanded.add(name);
+  renderVoiceMatrix();
+}
+
 function voiceMatrixRowHtml(name){
   const p=voiceProfiles[name]||{};
   const safe=name.replace(/'/g,"\\'");
-  return `<div style="border:1px solid rgba(201,168,76,.3);border-radius:10px;padding:16px 18px;background:rgba(255,255,255,.03)">
-    <div style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
-      <div style="flex:0 0 auto">
-        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Provider</label>
-        <div style="background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.2);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-weight:700;min-width:120px">${name}</div>
+  const expanded=voiceMatrixExpanded.has(name);
+  const displayName=voiceDisplayName(name);
+  // Collapsed line: Provider · Earned Name · URL · Remove · Details.
+  const collapsedRow=`<div style="display:flex;gap:14px;align-items:center">
+    <div style="flex:0 0 130px;font-weight:700;font-size:13px;color:var(--text)">${name}</div>
+    <div style="flex:0 0 150px;color:var(--gold2);font-size:13px">${p.profile_name?displayName:'—'}</div>
+    <div style="flex:1;min-width:0;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.provider_url||PROVIDER_URLS[name]||''}</div>
+    <button type="button" onclick="toggleVoiceMatrixRow('${safe}')" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:7px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">${expanded?'Close':'Details'}</button>
+    <button type="button" onclick="deleteVoiceMatrixRow('${safe}')" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer">Remove</button>
+  </div>`;
+  if(!expanded){
+    return `<div style="border:1px solid rgba(201,168,76,.3);border-radius:10px;padding:12px 16px;background:rgba(255,255,255,.03)">${collapsedRow}</div>`;
+  }
+  return `<div style="border:1px solid rgba(201,168,76,.45);border-radius:10px;padding:12px 16px 18px;background:rgba(255,255,255,.04)">
+    ${collapsedRow}
+    <div style="border-top:1px solid rgba(201,168,76,.2);margin-top:14px;padding-top:16px">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="flex:0 0 auto">
+          <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Earned Name</label>
+          <input id="vm-name-${safe}" type="text" value="${(p.profile_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Theophilus" style="background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;width:160px">
+        </div>
+        <div style="flex:1;min-width:220px">
+          <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Provider URL</label>
+          <input id="vm-url-${safe}" type="text" value="${(p.provider_url||PROVIDER_URLS[name]||'').replace(/"/g,'&quot;')}" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit">
+        </div>
       </div>
-      <div style="flex:0 0 auto">
-        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Earned Name</label>
-        <input id="vm-name-${safe}" type="text" value="${(p.profile_name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Theophilus" style="background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;width:160px">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="flex:1;min-width:220px">
+          <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">How To Talk With ${name}</label>
+          <textarea id="vm-comm-${safe}" placeholder="Tone, quirks, what it responds well to..." style="width:100%;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">${p.communication_notes||''}</textarea>
+        </div>
+        <div style="flex:1;min-width:220px">
+          <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">What It's Good At</label>
+          <textarea id="vm-spec-${safe}" placeholder="Strengths, specialties, when to pick this voice for a round..." style="width:100%;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">${p.specialty_notes||''}</textarea>
+        </div>
       </div>
-      <div style="flex:1;min-width:180px">
-        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Provider URL</label>
-        <input id="vm-url-${safe}" type="text" value="${(p.provider_url||PROVIDER_URLS[name]||'').replace(/"/g,'&quot;')}" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit">
+      <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Identity Document <span style="text-transform:none;color:var(--muted);font-weight:400">— sent once, the first time this voice's tab opens in a live conversation</span></label>
+      <textarea id="vm-doc-${safe}" placeholder="Paste this voice's self-authored identity/profile document here..." style="width:100%;min-height:90px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical;margin-bottom:10px">${p.identity_document||''}</textarea>
+      <div style="display:flex;justify-content:flex-end">
+        <button type="button" onclick="saveVoiceMatrixRow('${safe}')" style="background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">Save</button>
       </div>
-      <button type="button" onclick="deleteVoiceMatrixRow('${safe}')" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;padding:8px 12px;font-size:12px;cursor:pointer">Remove</button>
-    </div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
-      <div style="flex:1;min-width:220px">
-        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">How To Talk With ${name}</label>
-        <textarea id="vm-comm-${safe}" placeholder="Tone, quirks, what it responds well to..." style="width:100%;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">${p.communication_notes||''}</textarea>
-      </div>
-      <div style="flex:1;min-width:220px">
-        <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">What It's Good At</label>
-        <textarea id="vm-spec-${safe}" placeholder="Strengths, specialties, when to pick this voice for a round..." style="width:100%;min-height:44px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">${p.specialty_notes||''}</textarea>
-      </div>
-    </div>
-    <label style="display:block;color:var(--gold2);font-size:10px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Identity Document <span style="text-transform:none;color:var(--muted);font-weight:400">— sent once, the first time this voice's tab opens in a live conversation</span></label>
-    <textarea id="vm-doc-${safe}" placeholder="Paste this voice's self-authored identity/profile document here..." style="width:100%;min-height:90px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:8px 10px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical;margin-bottom:10px">${p.identity_document||''}</textarea>
-    <div style="display:flex;justify-content:flex-end">
-      <button type="button" onclick="saveVoiceMatrixRow('${safe}')" style="background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">Save</button>
     </div>
   </div>`;
 }
