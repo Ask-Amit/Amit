@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.24</div>
+    <div class="page-version" id="pageVersion">v5.25</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1559,8 +1559,19 @@ async function copyToMatchingVoiceAndOpen(taskPrompt){
   const voiceTab=openVoiceTabs[name];
   const isFirstTime=!(voiceTab&&!voiceTab.closed);
   const identityBlock=(profile&&profile.identity_document&&isFirstTime)?`${profile.identity_document}\n\n`:'';
-  const roleFraming=`You're being asked to take on a specific operational role for The Council: the matching/synthesis voice. When Amit needs multiple councilmen's raw answers combined - either tallying which clarifying questions genuinely overlap in real intent, or rewriting the original request into one refined question that incorporates new answers - this is that job. Apply the same rigor and honesty you already hold yourself to here: don't force two questions together just to make the list tidier than it really is, and don't smooth over real differences in wording that actually reflect different intents. This is a distinct task from answering as one voice among the Council - here you're doing the synthesis work Amit would do itself if it had a paid API connection.\n\n`;
-  const prompt=`${identityBlock}${roleFraming}${taskPrompt}`;
+  // [PHASE: SYNTHESIS_ENGINE] tag - Theophilus's own proposed fix, 2026-07-24,
+  // for a real conflict his v1.10 identity document created: it mandates a
+  // closing handoff sentence on every response, which would otherwise land
+  // as a bogus extra line item when this output gets pasted into the app's
+  // parser. This tag signals "pure execution, no conversational framing" so
+  // that mandate doesn't fire here. Also strengthens vote-counting to
+  // explicitly exclude "Going Further" commentary - live-tested, 2026-07-24:
+  // without this line, a synthesis pass counted an idea that only appeared
+  // in one voice's Going Further section as if it were a second formal
+  // vote, producing a 1-vote entry disguised as a 2-vote one.
+  const phaseTag=`[PHASE: SYNTHESIS_ENGINE — this is a pure data-processing request, not a conversational turn. Return ONLY the exact raw output the task below asks for. No handoff sentence, no greeting, no commentary, no framing before or after it - any standing protocol that would normally add those does not apply to this phase.]\n\n`;
+  const roleFraming=`You're being asked to take on a specific operational role for The Council: the matching/synthesis voice. When Amit needs multiple councilmen's raw answers combined - either tallying which clarifying questions genuinely overlap in real intent, or rewriting the original request into one refined question that incorporates new answers - this is that job. Apply the same rigor and honesty you already hold yourself to here: don't force two questions together just to make the list tidier than it really is, and don't smooth over real differences in wording that actually reflect different intents. Count votes ONLY from each voice's two formal, primary questions - never from their "GOING FURTHER" commentary, even if an idea there seems relevant; commentary can inform how you word a matched entry, but it never counts as its own vote. This is a distinct task from answering as one voice among the Council - here you're doing the synthesis work Amit would do itself if it had a paid API connection.\n\n`;
+  const prompt=`${identityBlock}${phaseTag}${roleFraming}${taskPrompt}`;
   try{await navigator.clipboard.writeText(prompt);}catch(e){}
   openOrReuseVoiceTab(name);
   window.focus();
@@ -1605,9 +1616,17 @@ let clarifyState={};
 // round with Amit, exactly like the matching step, cycling through the
 // whole numbered list automatically. Accepts numbered ("1. ", "1) ") or
 // plain one-per-line input, since Amit's response may come back either way.
+// Fix, 2026-07-24: some voices' identity documents mandate a standing
+// closing sentence (e.g. Theophilus's "Now please return this to the
+// Council...") that isn't a question at all - without a real safety net
+// here, that line would get treated as a bogus extra question item. The
+// [PHASE: SYNTHESIS_ENGINE] tag added to the outbound prompt is the real
+// fix, but this filter is the client-side backstop in case a voice doesn't
+// fully honor it: since every genuine confirmed entry is, by definition, a
+// question, any line without a "?" gets dropped rather than trusted.
 function beginClarifyQA(n){
   const raw=document.getElementById('clarifyConfirmedText-'+n).value;
-  const questions=raw.split('\n').map(q=>q.trim().replace(/^\d+[\.\)]\s*/,'')).filter(Boolean);
+  const questions=raw.split('\n').map(q=>q.trim().replace(/^\d+[\.\)]\s*/,'')).filter(q=>q&&q.includes('?'));
   if(!questions.length){alert('Paste the confirmed question list first.');return;}
   clarifyState[n]={questions,answers:[],idx:0};
   document.getElementById('clarifyMatchWrap-'+n).style.display='none';
