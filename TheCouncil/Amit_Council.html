@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.07</div>
+    <div class="page-version" id="pageVersion">v5.08</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1532,16 +1532,51 @@ async function confirmClarifySynthesis(n){
   round.synthesis=synthesis;
   document.getElementById('clarifySynthesizeWrap-'+n).style.display='none';
   renderClarifyRulingSummary(n,round,synthesis);
+  // Ryan's direct instruction, 2026-07-22: the diary entry is written to
+  // the database the moment the Ruling is confirmed - not deferred until
+  // the user picks one of the four follow-up buttons. Not relying on
+  // clarifyState surviving in memory either - this writes straight to the
+  // database record, which is the real source of truth.
+  await writeClarifyDiaryEntry(n,round,synthesis);
+}
+
+// Builds and saves this round's diary entry: Clarify Questions (each
+// confirmed question with the real answer) and the Ruling (the refined
+// New Question). Writes straight to council_topics.diary_text in the
+// database, matching the standing rule that the diary is the living,
+// printable record - not something held only in page memory.
+async function writeClarifyDiaryEntry(n,round,synthesis){
+  const st=clarifyState[n];
+  const qaText=st
+    ?st.questions.map((q,i)=>`${cleanPastedText(q)}\n${cleanPastedText(st.answers[i])}`).join('\n\n')
+    :cleanPastedText(document.getElementById('clarifyQARecap-'+n).textContent);
+  const diaryBody=`Clarify Questions:\n\n${qaText}\n\nRuling:\nNew Question: ${cleanPastedText(synthesis)}`;
+  const session=councilSessions.find(s=>s.id===activeSessionId);
+  const diaryEl=document.getElementById('diaryText');
+  let solHeader=document.getElementById('diarySolutionHeader');
+  let solBody=document.getElementById('diarySolutionBody');
+  if(!solHeader){
+    diaryEl.insertAdjacentHTML('beforeend',
+      `<div class="diaryHeader" id="diarySolutionHeader"></div><div class="diaryBody" id="diarySolutionBody"></div>`);
+    solHeader=document.getElementById('diarySolutionHeader');
+    solBody=document.getElementById('diarySolutionBody');
+  }
+  solHeader.textContent='Current Solution (as of Round '+n+')';
+  solBody.textContent=diaryBody;
+  diaryEl.insertAdjacentHTML('beforeend',diaryEntryHTML('Round '+n+' — '+PHASE_LABELS[round.phase],diaryBody));
+  const html=diaryEl.innerHTML;
+  await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
+  if(session)session.diary_text=html;
 }
 
 function renderClarifyRulingSummary(n,round,synthesis){
   const session=councilSessions.find(s=>s.id===activeSessionId);
   const originalQuestion=session?session.original_question:round.prompt_text;
   const st=clarifyState[n];
-  const recap=st?st.questions.map((q,i)=>`${q}\n${st.answers[i]}`).join('\n\n'):document.getElementById('clarifyQARecap-'+n).textContent;
+  const recap=st?st.questions.map((q,i)=>`${cleanPastedText(q)}\n${cleanPastedText(st.answers[i])}`).join('\n\n'):document.getElementById('clarifyQARecap-'+n).textContent;
   document.getElementById('clarifyRulingOriginal-'+n).textContent=originalQuestion;
   document.getElementById('clarifyRulingQARecap-'+n).textContent=recap;
-  document.getElementById('clarifyRulingRefined-'+n).textContent=synthesis;
+  document.getElementById('clarifyRulingRefined-'+n).textContent=cleanPastedText(synthesis);
   document.getElementById('clarifyRulingWrap-'+n).style.display='block';
 }
 
@@ -1742,7 +1777,24 @@ async function confirmScopeRoster(){
 // real evidence (every voice's answer), pulled live from the database -
 // not hardcoded, not assumed. This is what makes "round three has to do
 // with what happened in round two" literally true.
-const PHASE_LABELS={clarification:'Clarification',investigation:'Investigation',scope_of_work:'Scope of Work'};
+const PHASE_LABELS={clarification:'Clarify the Question',investigation:'Investigation',scope_of_work:'Scope of Work'};
+
+// Strips common copy-paste chrome that leaks in from an AI chat interface
+// (usage/capacity indicators, stray lone-period lines from clipboard
+// artifacts) before anything goes into the diary. Ryan's direct
+// instruction, 2026-07-22: the diary should read clean, just the actual
+// questions and answers, not the scenery around them.
+function cleanPastedText(s){
+  return(s||'').split('\n')
+    .filter(line=>{
+      const t=line.trim();
+      if(!t)return false;
+      if(t==='.')return false;
+      if(/chat capacity/i.test(t))return false;
+      if(/^[\u{1F4CA}\u{1F300}-\u{1FAFF}]/u.test(t))return false; // stray emoji-led status lines
+      return true;
+    }).join('\n').trim();
+}
 
 async function startNextRound(completedN){
   const completedRound=activeRounds.find(r=>r.round_number===completedN);
@@ -1757,7 +1809,6 @@ async function startNextRound(completedN){
   // deliberation" placeholder. Falls back to the old generic framing for
   // any round that didn't go through that pipeline (e.g. investigation
   // rounds, which don't re-run the match-and-ask cycle).
-  const st=clarifyState[completedN];
   const nextPrompt=completedRound.synthesis
     ?completedRound.synthesis
     :`THE ORIGINAL QUESTION: ${activeRounds[0].prompt_text}\n\nWHAT HAPPENED IN ROUND ${completedN}:\n${summary}\n\nBased on everything above, this is Round ${nextN}. Continue the deliberation, building directly on what Round ${completedN} produced.`;
@@ -1770,35 +1821,30 @@ async function startNextRound(completedN){
     topic_id:activeSessionId, round_number:nextN, prompt_text:nextPrompt, phase:'investigation', roster:completedRound.roster||[]
   });
 
-  // Diary: refresh the "current solution" section (DOM-updated in place,
-  // not string regex - more robust) and append this round's log entry.
-  // Ryan's direct instruction, 2026-07-22 - the diary is the living,
-  // printable record of the session. When the clarify pipeline actually
-  // ran, log the real confirmed questions, the user's real answers, and
-  // Amit's rewritten question - not just the raw voice-by-voice dump.
-  const session=councilSessions.find(s=>s.id===activeSessionId);
-  const diaryEl=document.getElementById('diaryText');
-  const phaseLabel=PHASE_LABELS[completedRound.phase]||('Round '+completedN);
-  const diaryBody=(st&&completedRound.synthesis)
-    ?`Confirmed clarifying questions and answers:\n\n${st.questions.map((q,i)=>`${q}\n${st.answers[i]}`).join('\n\n')}\n\nRewritten clarifying question for the next round:\n${completedRound.synthesis}`
-    :summary;
-
-  let solHeader=document.getElementById('diarySolutionHeader');
-  let solBody=document.getElementById('diarySolutionBody');
-  if(!solHeader){
-    diaryEl.insertAdjacentHTML('beforeend',
-      `<div class="diaryHeader" id="diarySolutionHeader"></div><div class="diaryBody" id="diarySolutionBody"></div>`);
-    solHeader=document.getElementById('diarySolutionHeader');
-    solBody=document.getElementById('diarySolutionBody');
+  // Diary: a clarification round's entry was already written to the
+  // database the moment its Ruling was confirmed (writeClarifyDiaryEntry) -
+  // don't log it again here. Only investigation-phase (or other) rounds
+  // still get their entry written at this point, when they actually
+  // complete. Ryan's direct instruction, 2026-07-22.
+  if(completedRound.phase!=='clarification'){
+    const session=councilSessions.find(s=>s.id===activeSessionId);
+    const diaryEl=document.getElementById('diaryText');
+    const phaseLabel=PHASE_LABELS[completedRound.phase]||('Round '+completedN);
+    let solHeader=document.getElementById('diarySolutionHeader');
+    let solBody=document.getElementById('diarySolutionBody');
+    if(!solHeader){
+      diaryEl.insertAdjacentHTML('beforeend',
+        `<div class="diaryHeader" id="diarySolutionHeader"></div><div class="diaryBody" id="diarySolutionBody"></div>`);
+      solHeader=document.getElementById('diarySolutionHeader');
+      solBody=document.getElementById('diarySolutionBody');
+    }
+    solHeader.textContent='Current Solution (as of Round '+completedN+')';
+    solBody.textContent=summary;
+    diaryEl.insertAdjacentHTML('beforeend',diaryEntryHTML('Round '+completedN+' — '+phaseLabel,summary));
+    const html=diaryEl.innerHTML;
+    await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
+    if(session)session.diary_text=html;
   }
-  solHeader.textContent='Current Solution (as of Round '+completedN+')';
-  solBody.textContent=diaryBody;
-
-  diaryEl.insertAdjacentHTML('beforeend',diaryEntryHTML('Round '+completedN+' — '+phaseLabel,diaryBody));
-
-  const html=diaryEl.innerHTML;
-  await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
-  if(session)session.diary_text=html;
 
   await loadRound1(activeSessionId);
   showChTab(2,'round-'+nextN);
