@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.22</div>
+    <div class="page-version" id="pageVersion">v5.23</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2028,7 +2028,7 @@ async function markRulingComplete(completedN){
 // only exists when called from a real click - calling this programmatically
 // (e.g. right after Convene creates Round 1) threw a ReferenceError. Now
 // looks the button up by data-tabkey instead, works either way.
-function showChTab(panelNum,n){
+async function showChTab(panelNum,n){
   const panel=document.getElementById('panel-'+panelNum);
   panel.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
   panel.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
@@ -2036,7 +2036,19 @@ function showChTab(panelNum,n){
   if(content)content.classList.add('active');
   const btn=panel.querySelector('.ch-tab-btn[data-tabkey="'+n+'"]');
   if(btn)btn.classList.add('active');
-  if(panelNum===1&&n==='5')renderVoiceMatrix();
+  // Fix, 2026-07-24: real duplicate-row bug traced to this - if the
+  // Councilman tab was opened right after a fresh page load, before the
+  // page's one-time loadVoiceProfiles() (fired from onAuthStateChange) had
+  // actually returned, this rendered every row as if no profile existed
+  // yet. Any edit + Save at that moment inserted a brand-new row instead of
+  // updating the real one, since existing.id was never found - Theophilus
+  // ended up with 3 duplicate rows this way. Now the Councilman tab always
+  // re-fetches fresh from the database the instant it's opened, never
+  // trusting whatever was (or wasn't) cached at page load.
+  if(panelNum===1&&n==='5'){
+    await loadVoiceProfiles();
+    renderVoiceMatrix();
+  }
 }
 
 function openPanel(n){
