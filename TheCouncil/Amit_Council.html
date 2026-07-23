@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.17</div>
+    <div class="page-version" id="pageVersion">v5.18</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -736,14 +736,24 @@ async function startNewCouncilRequest(){
     return;
   }
   const now=new Date().toISOString();
+  // Fix, 2026-07-24: this row pre-exists before Submit Request now (see the
+  // comment above), which means conveneCouncil() always takes the
+  // "reusingExistingTopic" path for it - that path never touches the
+  // diaryText panel, since it was only ever reset in the old "brand new
+  // topic" branch. Left alone, the Ruling panel kept showing whatever
+  // session's diary was on screen before "New Council Request" was
+  // clicked. Reset diary_text here too, at creation time, so a fresh
+  // request never shows a stale ruling.
+  const diaryStart=diaryEntryHTML('Requested Counsel','Enter Request Here');
   const{data:topic,error}=await db.from('council_topics').insert({
-    user_id:currentUser.id, title:'Enter Title Here', original_question:'Enter Request Here', last_activity_at:now
+    user_id:currentUser.id, title:'Enter Title Here', original_question:'Enter Request Here', last_activity_at:now, diary_text:diaryStart
   }).select().single();
   if(error){console.error(error);return;}
   activeSessionId=topic.id;
   activeRounds=[];
   document.getElementById('councilTitleText').value='Enter Title Here';
   document.getElementById('councilRequestText').value='Enter Request Here';
+  document.getElementById('diaryText').innerHTML=diaryStart;
   autoGrowTextarea(document.getElementById('councilRequestText'));
   updateCouncilPageTitle(2,'Enter Title Here');
   await loadCouncilSessions();
@@ -2072,7 +2082,14 @@ async function conveneCouncil(){
     let topicId;
     if(reusingExistingTopic){
       topicId=activeSessionId;
-      await db.from('council_topics').update({title,original_question:request,last_activity_at:new Date().toISOString()}).eq('id',topicId);
+      // Fix, 2026-07-24: rebuild the diary from the FINAL title/request the
+      // user actually submitted, not the "Enter Request Here" placeholder
+      // written when the draft row was first created. Without this, the
+      // Ruling panel kept showing whatever was on screen (or the
+      // placeholder) instead of the real question just convened.
+      const diaryStart=diaryEntryHTML('Requested Counsel',request);
+      await db.from('council_topics').update({title,original_question:request,last_activity_at:new Date().toISOString(),diary_text:diaryStart}).eq('id',topicId);
+      document.getElementById('diaryText').innerHTML=diaryStart;
     } else {
       const now=new Date().toISOString();
       const diaryStart=diaryEntryHTML('Requested Counsel',request);
