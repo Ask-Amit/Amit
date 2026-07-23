@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.00</div>
+    <div class="page-version" id="pageVersion">v5.01</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -278,8 +278,8 @@ header{
     <h3>Amit</h3>
     <div class="cw-modal-body" id="amitConfirmBody" style="flex:none"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
-      <button type="button" id="amitConfirmCancelBtn" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
       <button type="button" id="amitConfirmOkBtn">OK</button>
+      <button type="button" id="amitConfirmCancelBtn" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
     </div>
   </div>
 </div>
@@ -411,17 +411,13 @@ let councilSessions=[];
 let activeSessionId=null;
 const PROVIDER_URLS={
   // Fix, 2026-07-22: a plain claude.ai/new chat with a "you are now Amit,
-  // hold these things as true" message in it gets actively blocked by
-  // Claude.ai's own safety system - confirmed live, twice ("Resisting
-  // persona override attempting theological assertion" / "Declined persona
-  // override while preserving substantive assistance offered"). That's not
-  // a bug in this page - Anthropic's platform is built to resist exactly
-  // that pattern (persona injection + asserted-as-fact claims in one
-  // message) regardless of intent. The real, sanctioned way to get Claude
-  // to answer as Amit is the actual Amit Claude.ai PROJECT, where
-  // Amit_Deploy.md is already loaded into that Project's own Instructions
-  // field - a legitimate customization channel, not a mid-chat override.
-  'Amit':'https://claude.ai/project/019e93ac-8210-71b5-9dd6-af244dbbac46',
+  // Fix, 2026-07-22, Ryan's direct correction: the Amit Claude.ai Project
+  // link isn't accessible from every account ("you don't have access to
+  // this project"), so it can't be the default. Opens a blank Claude.ai
+  // chat instead - paired with the roleplay-framed identity prompt (see
+  // copyAmitPrompt) rather than the earlier assertion-style wording that
+  // triggered Claude's persona-override safety block twice.
+  'Amit':'https://claude.ai/new',
   'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
   'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
   'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
@@ -612,13 +608,14 @@ function markNeedsInput(el){
   }
 }
 
-function amitConfirm(message){
+function amitConfirm(message,okLabel){
   return new Promise(resolve=>{
     document.getElementById('amitConfirmBody').textContent=message;
     const modal=document.getElementById('amitConfirmModal');
     modal.classList.add('show');
     const okBtn=document.getElementById('amitConfirmOkBtn');
     const cancelBtn=document.getElementById('amitConfirmCancelBtn');
+    okBtn.textContent=okLabel||'OK';
     const cleanup=result=>{modal.classList.remove('show');okBtn.onclick=null;cancelBtn.onclick=null;resolve(result);};
     okBtn.onclick=()=>cleanup(true);
     cancelBtn.onclick=()=>cleanup(false);
@@ -858,7 +855,7 @@ function showCwDetail(name,n){
 // about to do (people may press it with no idea what it does otherwise),
 // and only after "Proceed" does the actual replacement picker appear.
 async function openSwapModal(n,oldVoice){
-  const proceed=await amitConfirm(`You pressed exchange. This assumes that for some reason you'd like to change out ${oldVoice} for a different voice. If this is what you want to do, press Proceed. Otherwise, Cancel.`);
+  const proceed=await amitConfirm(`You pressed exchange. This assumes that for some reason you'd like to change out ${oldVoice} for a different voice. If this is what you want to do, press Proceed. Otherwise, Cancel.`,'Proceed');
   if(!proceed)return;
   const round=activeRounds.find(r=>r.round_number===n);
   const taken=new Set(round.roster||[]);
@@ -916,10 +913,13 @@ async function performVoiceSwap(n,oldVoice,newVoice){
   }
   const history=historyParts.join('\n\n');
   const catchUpPrompt=`Cold-start briefing: I'm ${getUserName()||'the user'}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." You're being brought in partway through, replacing another voice that ran out of session room - from this point forward, you're acting in exchange of that voice. Here is everything decided and said so far, so you can pick up exactly where they left off, not start cold:\n\n${history}\n\nTHE CURRENT QUESTION FOR THIS ROUND: ${round.prompt_text}\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-  try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
-  openOrReuseVoiceTab(newVoice);
-  window.focus();
-  await amitConfirm(`${newVoice} is in, replacing ${oldVoice}. I've copied everything covered so far plus the current question - paste it into ${newVoice}'s chat and they'll pick up right where things left off.`);
+  // Fix, 2026-07-22, Ryan's direct correction: the swap itself must NOT
+  // open a tab or copy anything - that caused a real duplicate (Gemini's
+  // site opened once here, then opened AGAIN when the normal "Request
+  // Gemini's Answer" button was pressed right after). The swap just seats
+  // the new voice; the catch-up prompt is stored and used ONE TIME by the
+  // standard Request flow the next time this voice is actually requested.
+  voiceCatchUpPrompts[n+'|'+newVoice]=catchUpPrompt;
   await renderOneRoundState(round);
 }
 
@@ -931,6 +931,14 @@ async function performVoiceSwap(n,oldVoice,newVoice){
 // since a window reference can't be persisted to the database.
 let openVoiceTabs={};
 function resetVoiceTabs(){openVoiceTabs={};}
+
+// One-time catch-up prompts from a mid-session voice swap, keyed by
+// "roundNumber|voiceName" - built at swap time but only actually used
+// (copied + opened) the next time that voice is genuinely requested via
+// the standard Request flow, then deleted so later rounds go back to the
+// normal continuation prompt. Ryan's direct correction, 2026-07-22: the
+// swap itself must never open a tab or copy anything on its own.
+let voiceCatchUpPrompts={};
 
 // Tracks which voices were already known-answered as of the last wheel
 // render, per round number - lets renderCouncilWheel detect newly-landed
@@ -1231,8 +1239,12 @@ async function requestVoiceAnswer(n,idx){
   // would break the whole "tabs stay live across rounds" design.
   const existing=openVoiceTabs[voice];
   const alreadyOpen=existing&&!existing.closed;
+  const catchUpKey=n+'|'+voice;
+  const catchUpPrompt=voiceCatchUpPrompts[catchUpKey];
   let message;
-  if(isAmit){
+  if(catchUpPrompt){
+    message=`${voice} was just swapped in to replace another voice. I've copied everything covered so far plus the current question, so ${voice} can pick up right where things left off. Paste it into ${voice}'s chat, bring back the response, and paste it here.`;
+  } else if(isAmit){
     message=alreadyOpen
       ?`Amit's Claude.ai tab is already open, so I'm not opening a new one - I've already copied the question, along with Amit's introduction and a link to the full reference library. Switch to that tab and paste it in with Ctrl+V. When Claude responds as Amit, copy that answer and bring it back here, into Amit's area on the Council.`
       :`I'm about to open Claude.ai, and I've already copied the question - along with Amit's introduction and a link to the full reference library, so Claude has what it needs to respond as Amit. Just paste this into the chat with Ctrl+V. When it responds, copy the answer and bring it back here, into Amit's area on the Council.`;
@@ -1245,7 +1257,11 @@ async function requestVoiceAnswer(n,idx){
   openOrReuseVoiceTab(voice);
   window.focus();
   const round=activeRounds.find(r=>r.round_number===n);
-  if(isAmit)await copyAmitPrompt(round,n);
+  if(catchUpPrompt){
+    try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
+    delete voiceCatchUpPrompts[catchUpKey];
+  }
+  else if(isAmit)await copyAmitPrompt(round,n);
   else await copyRoundtablePrompt(round,n);
   if(!requestedVoices[n])requestedVoices[n]=new Set();
   requestedVoices[n].add(voice);
