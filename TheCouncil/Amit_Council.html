@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.26</div>
+    <div class="page-version" id="pageVersion">v5.27</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -686,6 +686,14 @@ async function deleteCurrentTab(){
   for(let rn=n;rn<n+50;rn++){
     delete requestedVoices[rn];
     delete wheelAnsweredCache[rn];
+    // Fix, 2026-07-24: this loop already existed to fix the exact same class
+    // of stale-cache bug for the caches above, but clarifyAutoTriggered was
+    // never added to it. A deleted-and-recreated round with the same number
+    // inherited "matching already triggered" from the deleted round, so the
+    // auto-trigger for the NEW round silently never fired - Ryan hit this
+    // directly, live. Every round-number-keyed cache needs to be cleared
+    // here, not just the three that happened to be here originally.
+    delete clarifyAutoTriggered[rn];
     Object.keys(voiceCatchUpPrompts).forEach(key=>{if(key.startsWith(rn+'|'))delete voiceCatchUpPrompts[key];});
   }
   // Ryan's direct correction, 2026-07-22: no round is ever auto-recreated
@@ -1262,9 +1270,27 @@ async function renderOneRoundState(round){
       autoTriggerClarifyMatching(n);
       return;
     }
-    // Every other phase keeps the explicit "Process this Petition" gate -
-    // the "Convene next round"/"Problem Solved" choice doesn't appear
-    // automatically the instant the last answer is saved.
+    // Fix, 2026-07-24: real bug Ryan hit live - this fallback used to show
+    // regardless of phase. If a clarification round's auto-trigger had
+    // already fired once (clarifyAutoTriggered[n] true) and the round then
+    // re-rendered again for any reason (wheel update, tab switch, a stale
+    // cache from a delete+recreate - see the fix above), it fell through to
+    // HERE and showed the generic "Process this Petition" button even
+    // though the round was still genuinely mid-matching/synthesis. Clicking
+    // it revealed "Convene next round / Problem Solved" and completely
+    // skipped the matching step. A clarification-phase round must NEVER
+    // show this generic gate - it either auto-triggers matching, shows the
+    // saved Ruling summary (handled above), or is silently mid-flow waiting
+    // on a paste-back into the matching/synthesis boxes, which have their
+    // own visibility already handled elsewhere. Every other phase keeps the
+    // explicit "Process this Petition" gate - the "Convene next
+    // round"/"Problem Solved" choice doesn't appear automatically the
+    // instant the last answer is saved.
+    if(round.phase==='clarification'){
+      processWrap.style.display='none';
+      nextWrap.style.display='none';
+      return;
+    }
     if(isLatest){
       processWrap.style.display='block';
       nextWrap.style.display='none';
