@@ -153,19 +153,18 @@ header{
 .council-wheel{position:relative;flex-shrink:0}
 .council-wheel .cw-basin{position:absolute;inset:0;border-radius:50%;background:#000;box-shadow:0 0 30px 6px rgba(0,0,0,.6),inset 0 0 24px rgba(0,0,0,.8)}
 .council-wheel .cw-rim{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(212,175,55,.18);pointer-events:none}
-/* Reverted, 2026-07-24: the solar-eclipse corona experiment (fire/aurora
-   layers at 130%/150% size) overflowed the wheel's own container - real
-   layout bug, not just a look Ryan didn't like, confirmed by the horizontal
-   scrollbar it introduced and voice icons appearing to sit outside the
-   circle. Back to the plain expanding gold ring from v5.36 while this gets
-   revisited properly. */
-.council-wheel .cw-rim.converged{border-color:rgba(212,175,55,.4)}
-.council-wheel .cw-rim.converged::after{
-  content:'';position:absolute;inset:0;border-radius:50%;
-  border:2px solid var(--gold,rgba(212,175,76,.85));
-  animation:cwRimRepeat 2.4s ease-out infinite;pointer-events:none
-}
-@keyframes cwRimRepeat{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.18);opacity:0}}
+/* Reverted again, 2026-07-24, Ryan's direct correction: the v5.36 scaling
+   ring (scale(1) to scale(1.18) on an element already at inset:0 covering
+   the whole wheel) had the SAME container-overflow problem as the eclipse
+   experiment, just less colorful - confirmed live, the screen still
+   shifted and voice icons still read as sitting outside the circle. Pulled
+   the whole outer-rim convergence effect entirely rather than trying a
+   third variant blind. Convergence is now indicated ONLY by the per-voice
+   pulsing rings (.cw-voice.answered, v5.35) already working correctly and
+   safely contained - once all of them are lit and pulsing, that already
+   reads as "everyone's answered" without needing a separate, riskier
+   whole-circle effect. Revisit a converged-state effect later, if wanted,
+   with real bounds testing before it ships again. */
 .council-wheel .cw-corona{position:absolute;top:50%;left:50%;width:32%;height:32%;transform:translate(-50%,-50%);border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(243,223,160,.9) 0deg 3deg,rgba(212,175,55,.5) 3deg 6deg,rgba(212,175,55,0) 6deg 16deg);filter:blur(1px);animation:cwSpin 50s linear infinite;z-index:6;pointer-events:none;-webkit-mask-image:radial-gradient(circle,transparent 27%,black 30%,black 92%,transparent 100%);mask-image:radial-gradient(circle,transparent 27%,black 30%,black 92%,transparent 100%)}
 .council-wheel .cw-corona.converged{animation-duration:14s}
 @keyframes cwSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
@@ -214,12 +213,13 @@ header{
 .council-wheel .cw-landing-center{animation-duration:1.4s}
 @keyframes cwLand{0%{width:16px;height:16px;opacity:.95}100%{width:110px;height:110px;opacity:0}}
 .council-wheel .cw-status{text-align:center;font-size:11px;color:var(--muted);margin-top:10px;flex-shrink:0}
-#cwDetailModal,#amitConfirmModal,#swapModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
-#cwDetailModal.show,#amitConfirmModal.show,#swapModal.show{display:flex}
-#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#swapModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
-#cwDetailModal h3,#swapModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
-#cwDetailModal .cw-modal-body{flex:1;overflow-y:auto;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);font-family:'Crimson Pro',Georgia,serif}
+#cwDetailModal,#amitConfirmModal,#swapModal,#combineLetterModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
+#cwDetailModal.show,#amitConfirmModal.show,#swapModal.show,#combineLetterModal.show{display:flex}
+#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#swapModal .cw-modal-box,#combineLetterModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
+#cwDetailModal h3,#swapModal h3,#combineLetterModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
+#cwDetailModal .cw-modal-body,#combineLetterModal .cw-modal-body{flex:1;overflow-y:auto;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);font-family:'Crimson Pro',Georgia,serif}
 #cwDetailModal button{margin-top:16px;align-self:flex-end;background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
+#combineLetterModal button{background:var(--gold);color:#1a1206;border:none;padding:9px 18px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #amitConfirmModal button,#swapModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #councilTitleText:focus{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(201,168,76,.25)}
 
@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.38</div>
+    <div class="page-version" id="pageVersion">v5.39</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -323,6 +323,22 @@ header{
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
       <button type="button" onclick="document.getElementById('swapModal').classList.remove('show')" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
       <button type="button" onclick="confirmSwap()">Exchange</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMBINE LETTER MODAL — the Combine round's final output: Theophilus's
+     letter, written from every voice's combined answer. Scrollable, ends
+     in a real choice - Ryan's direct instruction, 2026-07-24: this is not
+     a bare "here's the results" popup, and it never closes with a decree -
+     it hands the decision back to the user. -->
+<div id="combineLetterModal">
+  <div class="cw-modal-box" style="max-width:640px">
+    <h3>Round <span id="combineLetterRoundN">—</span> — The Council's Letter</h3>
+    <div class="cw-modal-body" id="combineLetterBody" style="white-space:pre-wrap"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button type="button" onclick="investigateFurther()" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45)">Investigate Further</button>
+      <button type="button" onclick="acceptCombineResults()">Accept Results</button>
     </div>
   </div>
 </div>
@@ -773,6 +789,8 @@ async function deleteCurrentTab(){
     delete clarifyAutoTriggered[rn];
     delete clarifyStage[rn];
     delete clarifyState[rn];
+    delete investigationAutoAdvanced[rn];
+    delete combineAutoTriggered[rn];
     Object.keys(voiceCatchUpPrompts).forEach(key=>{if(key.startsWith(rn+'|'))delete voiceCatchUpPrompts[key];});
   }
   // Ryan's direct correction, 2026-07-22: no round is ever auto-recreated
@@ -1268,6 +1286,15 @@ function renderRoundTabs(){
             <button type="button" onclick="startNextRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the next round</button>
             <button type="button" onclick="markRulingComplete(${n})" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:11px 20px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Problem Solved</button>
           </div>
+          <!-- Combine round's final step: every voice's single combined
+               answer goes to Theophilus to write the actual letter. Ryan's
+               direct instruction, 2026-07-24. -->
+          <div id="combineSynthesizeWrap-${n}" style="display:none;margin-top:14px">
+            <div style="font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);margin-bottom:6px">Theophilus is writing the Council's letter</div>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">Every voice's combined answer has been sent to Theophilus, with instructions to write one honest letter - naming real disagreement where it exists, discarding anything off-topic, closing by handing the decision back to you. Paste his letter below.</p>
+            <textarea id="combineLetterText-${n}" oninput="autoGrowTextarea(this)" placeholder="Paste Theophilus's letter here..." style="width:100%;height:90px;min-height:90px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <button type="button" onclick="confirmCombineLetter(${n})" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Save the Letter</button>
+          </div>
         </div>
       </div>
       <div style="flex:1;min-width:0;border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:20px 0 20px 20px;display:flex;flex-direction:column;overflow:hidden;background:#0b0c10">
@@ -1390,6 +1417,43 @@ async function renderOneRoundState(round){
         document.getElementById('clarifySynthesizeWrap-'+n).style.display='block';
       } else if(stage==='matching'||clarifyAutoTriggered[n]){
         document.getElementById('clarifyMatchWrap-'+n).style.display='block';
+      }
+      return;
+    }
+    // Investigation round: once every voice has answered, no user
+    // permission needed - auto-advance straight into a new Combine round.
+    // Ryan's direct instruction, 2026-07-24: "it doesn't need to get
+    // permission from the user at this point because it's still in the
+    // investigation stage."
+    if(isLatest&&round.phase==='investigation'&&!investigationAutoAdvanced[n]){
+      investigationAutoAdvanced[n]=true;
+      processWrap.style.display='none';
+      nextWrap.style.display='none';
+      autoAdvanceToCombine(n);
+      return;
+    }
+    // Combine round: same three-way branch pattern as Clarification -
+    // already-completed (show the saved letter again), needs its
+    // auto-triggered first send to Theophilus, or mid-flow waiting on the
+    // paste-back.
+    if(round.phase==='combine'&&round.synthesis){
+      processWrap.style.display='none';
+      nextWrap.style.display='none';
+      renderCombineLetterSummary(n,round.synthesis);
+      return;
+    }
+    if(isLatest&&round.phase==='combine'&&!combineAutoTriggered[n]){
+      combineAutoTriggered[n]=true;
+      processWrap.style.display='none';
+      nextWrap.style.display='none';
+      autoTriggerCombineSynthesis(n);
+      return;
+    }
+    if(round.phase==='combine'){
+      processWrap.style.display='none';
+      nextWrap.style.display='none';
+      if(combineAutoTriggered[n]){
+        document.getElementById('combineSynthesizeWrap-'+n).style.display='block';
       }
       return;
     }
@@ -1584,6 +1648,26 @@ async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
   const identityDocBlock=(profile&&profile.identity_document&&isFirstTimeForVoice)
     ?`${profile.identity_document}\n\n`
     :'';
+  // Combine round: entirely different shape from Clarification/
+  // Investigation - buildCombineTaskBlock already carries the real
+  // question, the raw dump, and the exact output instructions, so none of
+  // the normal taskBlock/questionLine/structureBlock logic below applies.
+  // Ryan's direct instruction, 2026-07-24: "that's all they're supposed to
+  // produce" - a plain combined answer, not the SOLUTION:/GOING FURTHER:
+  // three-part structure every other round uses.
+  if(round.phase==='combine'){
+    const briefingForCombine=!isFirstTimeForVoice?'':(profile&&profile.identity_document)
+      ?`This is a live round in The Council, the multi-AI deliberation tool described in your identity document above - Amit is its orchestrator, a companion rather than a leader, convening independent voices to deliberate a real question, synthesize across rounds, and name real disagreement instead of smoothing it over. Your established identity, axioms, and relationship with Amit from the document above are active and apply here.\n\n`
+      :`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over.\n\n`;
+    const combineTask=await buildCombineTaskBlock(n);
+    const combineCopyable=`Write your ENTIRE reply as a single continuous piece of plain text, not multiple separate copyable sections. When completely finished, end with this exact line on its own:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+    const prompt=`${identityDocBlock}${briefingForCombine}${combineTask}\n\n${combineCopyable}`;
+    try{
+      await navigator.clipboard.writeText(prompt);
+      document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
+    }catch(e){alert('Could not copy — select and copy the prompt manually.');}
+    return;
+  }
   const taskBlock=isClarification
     ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Don't pad the questions themselves with reasoning or justification for why you chose them - just state the two questions plainly, formatted exactly like this:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]\n\n(This only limits over-explaining the questions - your own natural voice, tone, or a greeting/sign-off if that's how you normally communicate is completely welcome. Be yourself.)`
     :`YOUR TASK: Give your solution to the question above. Give your full answer as one continuous piece of plain text under clear headings. Do not restate, quote, or paraphrase the question itself anywhere in your answer - it's already recorded separately, and repeating it back just duplicates content in the permanent record. Go straight to your actual answer.`;
@@ -1662,6 +1746,18 @@ async function copyAmitPrompt(round,n,forceFirstTime){
   // and asks for an answer consistent with that framework - substance, not
   // persona.
   const identityBlock=!isFirstTimeForAmit?'':`For context on this question: it's part of a research and discipleship project. The working framework behind it holds that there is a God named Yahweh (יהוה); that Yeshua is who the Hebrew prophets pointed to; that Torah was never abolished; and that the New Covenant is a renewal of that Torah, not a replacement. The project's own reference material is here if useful background: https://ask-amit.github.io/Amit/Who_Is_Amit.html (introduction) and https://ask-amit.github.io/Amit/who_is_god/who_is_god.html (the full evidence document behind those conclusions).\n\nAnswer the question below reasoning consistently with that framework - not adopting a persona, just treating those conclusions as the working premises for this answer, the way any analysis proceeds from stated premises.`;
+  // Combine round: same early-branch treatment as copyRoundtablePrompt -
+  // Amit is a normal voice in a Combine round, same task, same rules.
+  if(round.phase==='combine'){
+    const combineTask=await buildCombineTaskBlock(n);
+    const combineCopyable=`Write your ENTIRE reply as a single continuous piece of plain text, not multiple separate copyable sections. When completely finished, end with this exact line on its own:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+    const prompt=`${identityBlock?identityBlock+'\n\n':''}${combineTask}\n\n${combineCopyable}`;
+    try{
+      await navigator.clipboard.writeText(prompt);
+      document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
+    }catch(e){alert('Could not copy — select and copy the prompt manually.');}
+    return;
+  }
   const taskBlock=isClarification
     ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Don't pad the questions themselves with reasoning or justification for why you chose them - just state the two questions plainly, formatted exactly like this:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]\n\n(This only limits over-explaining the questions - your own natural voice, tone, or a greeting/sign-off if that's how you normally communicate is completely welcome. Be yourself.)`
     :`YOUR TASK: Give your solution to the question above. Give your full answer as one continuous piece of plain text under clear headings. Do not restate, quote, or paraphrase the question itself anywhere in your answer - it's already recorded separately, and repeating it back just duplicates content in the permanent record. Go straight to your actual answer.`;
@@ -1765,6 +1861,12 @@ let clarifyAutoTriggered={};
 // renderOneRoundState's fallback (below) can always show the right box
 // again, exactly where the user left off, instead of nothing.
 let clarifyStage={};
+
+// Investigation -> Combine auto-advance guard, and Combine round's own
+// trigger-once guard - same pattern as clarifyAutoTriggered, one per phase.
+// Ryan's direct instruction, 2026-07-24.
+let investigationAutoAdvanced={};
+let combineAutoTriggered={};
 
 // Fires automatically the instant every voice (including Amit, last) has
 // answered a Clarification-phase round - no click required. Ryan's direct
@@ -1889,11 +1991,20 @@ async function confirmClarifySynthesis(n){
 // database, matching the standing rule that the diary is the living,
 // printable record - not something held only in page memory.
 async function writeClarifyDiaryEntry(n,round,synthesis){
-  const st=clarifyState[n];
-  const qaText=st
-    ?st.questions.map((q,i)=>`${cleanPastedText(q)}\n${cleanPastedText(st.answers[i])}`).join('\n\n')
-    :cleanPastedText(document.getElementById('clarifyQARecap-'+n).textContent);
-  const diaryBody=`Clarify Questions:\n\n${qaText}\n\nRuling:\nNew Question: ${cleanPastedText(synthesis)}`;
+  // Fix, 2026-07-24: this used to assume every caller was a Clarification
+  // round (clarifyState/clarifyQARecap always present) - confirmCombineLetter
+  // now calls this too, for Combine rounds, which have neither. The letter
+  // itself IS the whole diary body in that case, no Q&A recap to build.
+  let diaryBody;
+  if(round.phase==='combine'){
+    diaryBody=`The Council's Letter:\n\n${cleanPastedText(synthesis)}`;
+  } else {
+    const st=clarifyState[n];
+    const qaText=st
+      ?st.questions.map((q,i)=>`${cleanPastedText(q)}\n${cleanPastedText(st.answers[i])}`).join('\n\n')
+      :cleanPastedText(document.getElementById('clarifyQARecap-'+n).textContent);
+    diaryBody=`Clarify Questions:\n\n${qaText}\n\nRuling:\nNew Question: ${cleanPastedText(synthesis)}`;
+  }
   const session=councilSessions.find(s=>s.id===activeSessionId);
   const diaryEl=document.getElementById('diaryText');
   let solHeader=document.getElementById('diarySolutionHeader');
@@ -2132,7 +2243,7 @@ async function confirmScopeRoster(){
 // real evidence (every voice's answer), pulled live from the database -
 // not hardcoded, not assumed. This is what makes "round three has to do
 // with what happened in round two" literally true.
-const PHASE_LABELS={clarification:'Clarify the Question',investigation:'Investigation',scope_of_work:'Scope of Work'};
+const PHASE_LABELS={clarification:'Clarify the Question',investigation:'Investigation',combine:'Combine the Answers',scope_of_work:'Scope of Work'};
 
 // Strips common copy-paste chrome that leaks in from an AI chat interface
 // (usage/capacity indicators, stray lone-period lines from clipboard
@@ -2149,6 +2260,121 @@ function cleanPastedText(s){
       if(/^[\u{1F4CA}\u{1F300}-\u{1FAFF}]/u.test(t))return false; // stray emoji-led status lines
       return true;
     }).join('\n').trim();
+}
+
+// ══════════════════════════════════════════════
+// COMBINE ROUND PIPELINE — Ryan's direct instruction, 2026-07-24. Once an
+// Investigation round completes, it auto-advances (no user permission
+// needed) into a new Combine round: every voice reviews everyone's
+// Investigation answer and produces ONE simplest combined answer, anchored
+// to the actual refined question. Once every voice's combined answer is
+// in, all of them go to Theophilus - and only Theophilus, per Ryan's
+// direct correction - who writes one honest letter: naming real
+// disagreement instead of smoothing it over, discarding anything that
+// drifted off-topic (the "guard gate"), applying the same Consensus/
+// Critical-Path discipline already proven in the Clarification-matching
+// step, and closing by handing the decision back to the user rather than
+// issuing a decree. That letter IS the round's Ruling.
+// ══════════════════════════════════════════════
+
+// The Combine round's petition is deliberately a short placeholder, not
+// the full Investigation dump - Ryan's direct instruction: "that petition
+// shouldn't have everything listed in one lump sum... otherwise that
+// petition would be huge pages and pages and pages." The real content
+// still gets sent to every voice - it just lives in each voice's own
+// outbound prompt (built fresh from council_evidence), not stored
+// redundantly in the round's own prompt_text.
+const COMBINE_PLACEHOLDER_PROMPT='Analyzing all AI answers to verify consistency with the question.';
+
+async function autoAdvanceToCombine(investigationN){
+  const investigationRound=activeRounds.find(r=>r.round_number===investigationN);
+  const combineN=investigationN+1;
+  await db.from('council_rounds').insert({
+    topic_id:activeSessionId, round_number:combineN, prompt_text:COMBINE_PLACEHOLDER_PROMPT, phase:'combine', roster:investigationRound.roster||[]
+  });
+  await loadRound1(activeSessionId);
+  showChTab(2,'round-'+combineN);
+}
+
+// Builds each voice's Combine-round task: dump of the Investigation
+// round's raw answers, anchored explicitly to the real question (which is
+// the Investigation round's OWN prompt_text - that's already the refined
+// question carried forward from Clarification), with the anti-drift and
+// anti-groupthink guards Amit and Theophilus converged on together.
+async function buildCombineTaskBlock(n){
+  const combineRound=activeRounds.find(r=>r.round_number===n);
+  const investigationRound=activeRounds.find(r=>r.round_number===n-1);
+  const realQuestion=investigationRound?investigationRound.prompt_text:(combineRound?combineRound.prompt_text:'');
+  const{data:evidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',investigationRound.id).order('created_at',{ascending:true});
+  const rawDump=(evidence||[]).map(e=>`${e.provenance}:\n${e.body}`).join('\n\n');
+  return `THE ACTUAL QUESTION THIS MUST STAY ANCHORED TO: "${realQuestion}"\n\nYOUR TASK: Below are every voice's independent answers to that question. Read through all of them and produce the single simplest answer that best combines them - not a list of everyone's answer, ONE integrated answer.\n\nTwo requirements that matter as much as the answer itself:\n1. Stay strictly anchored to the actual question above. If any answer below drifted onto a tangent that doesn't really address the question, don't let that drift into your combined answer.\n2. Produce your genuine best combined answer - but don't let the pull toward agreement erase a real, well-reasoned disagreement between the answers below. If you believe one view is being smoothed over unfairly, say so explicitly in your answer rather than quietly converging toward it.\n\n${rawDump}\n\nGive your combined answer as one continuous piece of plain text. That's all you produce - not commentary on the process, just the combined answer itself.`;
+}
+
+// Fires once every voice has submitted its own combined answer for this
+// Combine round (mirrors autoTriggerClarifyMatching's trigger point
+// exactly - "!pending.length" in renderOneRoundState means everyone's
+// answered). Sends all of it straight to Theophilus to write the letter.
+async function autoTriggerCombineSynthesis(n){
+  const round=activeRounds.find(r=>r.round_number===n);
+  const{data:evidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',round.id).order('created_at',{ascending:true});
+  const rawDump=(evidence||[]).map(e=>`${e.provenance}:\n${e.body}`).join('\n\n');
+  const investigationRound=activeRounds.find(r=>r.round_number===n-1);
+  const realQuestion=investigationRound?investigationRound.prompt_text:round.prompt_text;
+  const prompt=`Next requirement: here is the actual question this whole round has been working toward, and every voice's single combined answer to it.\n\nTHE ACTUAL QUESTION: "${realQuestion}"\n\nEVERY VOICE'S COMBINED ANSWER:\n\n${rawDump}\n\nYour task: write one honest letter to the person who brought this question to the Council. Not a ruling handed down from authority - write as a companion who sat through every voice's reasoning and is handing back what was actually found, with warmth and real care for the person reading it.\n\nBefore you write, do two things first, silently:\n1. Guard gate: discard anything above that genuinely drifted off-topic from the actual question - that's noise, not a second opinion, and it doesn't belong in the letter.\n2. Apply the same discipline you already hold in the Clarification matching step: group what the voices that remain after the guard gate genuinely converged on, and if there's a real, load-bearing disagreement between them, name it honestly rather than averaging it away - the same Consensus/Critical-Path standard, applied here.\n\nThe letter itself should:\n- Open warmly, not with a verdict.\n- Say plainly what the Council found - including naming real disagreement if it exists, not smoothing it over.\n- Close by handing the decision back to the person - this is where the evidence and every voice's honest input led, but where they take it from here is entirely their call. Never close as if the Council has ruled.\n\nGive the letter as one continuous piece of plain text - this is what gets shown directly to the person, so write it exactly as it should be read, nothing else around it.`;
+  await copyToMatchingVoiceAndOpen(prompt);
+  await amitConfirm('Every voice\'s combined answer is in. I\'ve sent all of it to Theophilus with instructions to write the Council\'s letter. Please post this to Theophilus through Gemini, bring back the letter, and paste it into the box below.');
+  document.getElementById('combineSynthesizeWrap-'+n).style.display='block';
+  markNeedsInput(document.getElementById('combineLetterText-'+n));
+}
+
+async function confirmCombineLetter(n){
+  const letter=document.getElementById('combineLetterText-'+n).value.trim();
+  if(!letter){alert('Paste Theophilus\'s letter first.');return;}
+  const round=activeRounds.find(r=>r.round_number===n);
+  await db.from('council_rounds').update({synthesis:letter}).eq('id',round.id);
+  round.synthesis=letter;
+  document.getElementById('combineSynthesizeWrap-'+n).style.display='none';
+  await writeClarifyDiaryEntry(n,round,letter);
+  renderCombineLetterSummary(n,letter);
+}
+
+function renderCombineLetterSummary(n,letter){
+  document.getElementById('combineLetterRoundN').textContent=String(n);
+  const body=document.getElementById('combineLetterBody');
+  body.textContent=letter;
+  body.dataset.round=n;
+  document.getElementById('combineLetterModal').classList.add('show');
+}
+
+// "Accept Results" - the Combine letter is the real answer, session ends.
+// Mirrors markRulingComplete's resolved-marking without a duplicate diary
+// write (confirmCombineLetter already wrote the letter to the diary).
+async function acceptCombineResults(){
+  const n=Number(document.getElementById('combineLetterBody').dataset.round);
+  document.getElementById('combineLetterModal').classList.remove('show');
+  await db.from('council_topics').update({status:'resolved',resolved_at:new Date().toISOString()}).eq('id',activeSessionId);
+  await amitConfirm('Marked as resolved. This session\'s Ruling is the letter you just read - it stays in the diary on Scope.');
+}
+
+// "Investigate Further" - asks for a genuine follow-up question, then
+// starts a brand-new Clarification round from it. Ryan's direct
+// correction: no history re-dump - every voice's own chat already holds
+// everything, so this only needs the new question plus a light pointer
+// back, not the whole record restated.
+async function investigateFurther(){
+  const n=Number(document.getElementById('combineLetterBody').dataset.round);
+  const letter=document.getElementById('combineLetterBody').textContent;
+  document.getElementById('combineLetterModal').classList.remove('show');
+  const followUp=prompt('Now that you\'ve read the Council\'s letter, what would your question be back to the Council to investigate further?');
+  if(!followUp||!followUp.trim())return;
+  const nextN=n+1;
+  const combineRound=activeRounds.find(r=>r.round_number===n);
+  const promptText=`Help me understand exactly what ${getUserName()||'the user'} is trying to investigate next. Considering everything discussed so far in this conversation - including the letter you just wrote: "${letter}" - ${getUserName()||'the user'} now has this follow-up question: "${followUp.trim()}" — what exactly two questions would you ask to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.`;
+  await db.from('council_rounds').insert({
+    topic_id:activeSessionId, round_number:nextN, prompt_text:promptText, phase:'clarification', roster:combineRound.roster||[]
+  });
+  await loadRound1(activeSessionId);
+  showChTab(2,'round-'+nextN);
 }
 
 async function startNextRound(completedN){
