@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.39</div>
+    <div class="page-version" id="pageVersion">v5.40</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -304,9 +304,12 @@ header{
   <div class="cw-modal-box" style="max-width:420px">
     <h3>Amit</h3>
     <div class="cw-modal-body" id="amitConfirmBody" style="flex:none"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
-      <button type="button" id="amitConfirmOkBtn">OK</button>
-      <button type="button" id="amitConfirmCancelBtn" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
+    <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:18px">
+      <button type="button" id="amitConfirmDisregardBtn" style="display:none;background:transparent;color:rgba(240,232,208,.4);border:none;font-size:11px;text-decoration:underline;cursor:pointer;padding:0">Disregard future notifications</button>
+      <div style="display:flex;gap:10px;margin-left:auto">
+        <button type="button" id="amitConfirmOkBtn">OK</button>
+        <button type="button" id="amitConfirmCancelBtn" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
+      </div>
     </div>
   </div>
 </div>
@@ -719,17 +722,28 @@ function markNeedsInput(el){
   }
 }
 
-function amitConfirm(message,okLabel){
+// Fix, 2026-07-24: Ryan's direct instruction - this popup fires once per
+// voice, every round, forever, and gets repetitive fast once a user
+// understands the flow. Added an optional "Disregard future notifications"
+// link, only shown when the caller explicitly asks for it (showDisregard),
+// so it never appears on genuinely one-off or destructive confirms (like
+// deleteCurrentTab's). Resolves 'disregard' instead of true/false when
+// clicked - callers that opt in are responsible for following up with
+// their own explicit "are you sure" before actually suppressing anything.
+function amitConfirm(message,okLabel,showDisregard){
   return new Promise(resolve=>{
     document.getElementById('amitConfirmBody').textContent=message;
     const modal=document.getElementById('amitConfirmModal');
     modal.classList.add('show');
     const okBtn=document.getElementById('amitConfirmOkBtn');
     const cancelBtn=document.getElementById('amitConfirmCancelBtn');
+    const disregardBtn=document.getElementById('amitConfirmDisregardBtn');
     okBtn.textContent=okLabel||'OK';
-    const cleanup=result=>{modal.classList.remove('show');okBtn.onclick=null;cancelBtn.onclick=null;resolve(result);};
+    disregardBtn.style.display=showDisregard?'inline-block':'none';
+    const cleanup=result=>{modal.classList.remove('show');okBtn.onclick=null;cancelBtn.onclick=null;disregardBtn.onclick=null;resolve(result);};
     okBtn.onclick=()=>cleanup(true);
     cancelBtn.onclick=()=>cleanup(false);
+    disregardBtn.onclick=()=>cleanup('disregard');
   });
 }
 
@@ -1096,15 +1110,17 @@ async function confirmSwap(){
 // far, all prior rounds' real evidence, and the current outstanding
 // question - so newVoice picks up exactly where oldVoice left off instead
 // of starting cold. Ryan's direct instruction, 2026-07-22.
-async function performVoiceSwap(n,oldVoice,newVoice){
+// Fix, 2026-07-24: extracted from performVoiceSwap so the same real
+// history-building logic can be reused for "Copy Again, reopen fresh"
+// (Ryan's direct instruction: sometimes a user has so many chat tabs open
+// they paste into the wrong one - "Copy Again" needed a way to reopen a
+// genuinely fresh tab and get that voice properly caught up, not just
+// re-copy the bare current-round prompt into whatever tab happens to be
+// open). `framing` customizes the opening sentence only - the actual
+// history (original request, every completed round's real evidence, this
+// round so far) is identical either way.
+async function buildCatchUpPrompt(n,framing){
   const round=activeRounds.find(r=>r.round_number===n);
-  const newRoster=round.roster.map(v=>v===oldVoice?newVoice:v);
-  await db.from('council_rounds').update({roster:newRoster}).eq('id',round.id);
-  round.roster=newRoster;
-  delete openVoiceTabs[oldVoice];
-
-  // Build the catch-up: original request, every completed round's real
-  // evidence in order, then this round's current question.
   const historyParts=[`THE ORIGINAL REQUEST: ${activeRounds[0].prompt_text}`];
   for(const r of activeRounds){
     if(r.round_number>=n)break;
@@ -1118,7 +1134,16 @@ async function performVoiceSwap(n,oldVoice,newVoice){
     historyParts.push(`ROUND ${n} SO FAR:\n`+thisRoundEvidence.map(e=>`${e.provenance}: ${e.body}`).join('\n\n'));
   }
   const history=historyParts.join('\n\n');
-  const catchUpPrompt=`Cold-start briefing: I'm ${getUserName()||'the user'}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." You're being brought in partway through, replacing another voice that ran out of session room - from this point forward, you're acting in exchange of that voice. Here is everything decided and said so far, so you can pick up exactly where they left off, not start cold:\n\n${history}\n\nTHE CURRENT QUESTION FOR THIS ROUND: ${round.prompt_text}\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+  return `Cold-start briefing: I'm ${getUserName()||'the user'}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." ${framing} Here is everything decided and said so far, so you can pick up exactly where things are, not start cold:\n\n${history}\n\nTHE CURRENT QUESTION FOR THIS ROUND: ${round.prompt_text}\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+}
+
+async function performVoiceSwap(n,oldVoice,newVoice){
+  const round=activeRounds.find(r=>r.round_number===n);
+  const newRoster=round.roster.map(v=>v===oldVoice?newVoice:v);
+  await db.from('council_rounds').update({roster:newRoster}).eq('id',round.id);
+  round.roster=newRoster;
+  delete openVoiceTabs[oldVoice];
+  const catchUpPrompt=await buildCatchUpPrompt(n,`You're being brought in partway through, replacing another voice that ran out of session room - from this point forward, you're acting in exchange of that voice.`);
   // Fix, 2026-07-22, Ryan's direct correction: the swap itself must NOT
   // open a tab or copy anything - that caused a real duplicate (Gemini's
   // site opened once here, then opened AGAIN when the normal "Request
@@ -1136,7 +1161,13 @@ async function performVoiceSwap(n,oldVoice,newVoice){
 // same-browser-session convenience only - it cannot survive a page reload,
 // since a window reference can't be persisted to the database.
 let openVoiceTabs={};
-function resetVoiceTabs(){openVoiceTabs={};}
+function resetVoiceTabs(){openVoiceTabs={};councilSkipVoiceNotify=false;}
+
+// "Disregard future notifications" state for the per-voice request popup -
+// in-memory only, scoped to this council session, not permanent. Reset
+// alongside openVoiceTabs whenever a genuinely new council request starts.
+// Ryan's direct instruction, 2026-07-24.
+let councilSkipVoiceNotify=false;
 
 // One-time catch-up prompts from a mid-session voice swap, keyed by
 // "roundNumber|voiceName" - built at swap time but only actually used
@@ -1573,11 +1604,37 @@ async function requestVoiceAnswer(n,idx){
       ?`Amit's tab is already open, so I'm not opening a new one - I've already copied the question, along with Amit's framework as background context. Switch to that tab and paste it in with Ctrl+V. When it responds, copy that answer and bring it back here, into Amit's area on the Council.`
       :`I'm about to open Amit's seat, and I've already copied the question - along with Amit's framework as background context. Just paste this into the chat with Ctrl+V. When it responds, copy the answer and bring it back here, into Amit's area on the Council.`;
   } else {
+    // Fix, 2026-07-24: Ryan's direct correction - "already open" wording
+    // now explicitly says to post at the END of that voice's previous
+    // answer to continue the same conversation, not just "switch to that
+    // tab," so it reads as continuing a discussion rather than a fresh ask.
     message=alreadyOpen
-      ?`${displayName}'s tab is already open, so I'm not opening a new one - I've already copied the question for them. Switch to that tab and paste it in with Ctrl+V. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`
+      ?`${displayName}'s tab is already open from earlier - please go back to their website and post this at the end of their previous answer, to continue the discussion. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`
       :`I'm about to open ${displayName}'s website, and I've already copied the question for them. Just paste this into their chat with Ctrl+V. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`;
   }
-  if(!await amitConfirm(message))return;
+  // Fix, 2026-07-24: Ryan's direct instruction - once a user understands
+  // this flow, seeing the same "here's what's about to happen" popup every
+  // single voice, every single round, gets old fast. If they've already
+  // disregarded future notifications (a real, explicit second confirm, not
+  // just clicking a link once), skip straight past this popup entirely.
+  // Fix, 2026-07-24 (same day, Ryan's direct correction): this was
+  // originally written to persist in localStorage - permanent, forever,
+  // across every future council session. Ryan corrected that directly:
+  // it should only stay disregarded for the CURRENT council session, not
+  // eternally. In-memory only now (councilSkipVoiceNotify below), which
+  // naturally resets on a page reload or when starting a genuinely new
+  // council request - consistent with how every other in-session state
+  // (openVoiceTabs, clarifyState, etc.) already behaves in this app.
+  if(!councilSkipVoiceNotify){
+    const result=await amitConfirm(message,undefined,true);
+    if(result===false)return;
+    if(result==='disregard'){
+      const reallyDisregard=await amitConfirm('For the rest of this council session, this will keep going back and forth - you\'ll just copy and paste into each AI without a notification first. This resets the next time you start a new council request or reload the page. Confirm that\'s what you\'d like to do.');
+      if(!reallyDisregard)return;
+      councilSkipVoiceNotify=true;
+      // fall through - proceed with this request too, not just future ones
+    }
+  }
   // Capture whether this voice's tab was ALREADY open before we touch it -
   // openOrReuseVoiceTab() below opens/registers the tab immediately, which
   // would otherwise make copyRoundtablePrompt's own "is this the first
@@ -1585,8 +1642,14 @@ async function requestVoiceAnswer(n,idx){
   // wrongly skip the identity document, every single time. Bug found and
   // fixed 2026-07-23, real live test against Theophilus/Gemini.
   const wasFirstTimeForVoice=!alreadyOpen;
+  // Fix, 2026-07-24: real bug Ryan hit live - openOrReuseVoiceTab already
+  // focuses the right tab itself (existing.focus() when reused; a newly
+  // opened tab is focused by the browser automatically). The window.focus()
+  // that used to run right after this pulled focus straight back to the
+  // COUNCIL page itself - it means "focus my own window," not "focus the
+  // tab I just opened." That's exactly why the AI's tab never ended up
+  // focused no matter what the popup said. Removed.
   openOrReuseVoiceTab(voice);
-  window.focus();
   const round=activeRounds.find(r=>r.round_number===n);
   if(catchUpPrompt){
     try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
@@ -1607,6 +1670,26 @@ async function requestVoiceAnswer(n,idx){
 async function recopyVoicePrompt(n,voice){
   const round=activeRounds.find(r=>r.round_number===n);
   if(!round)return;
+  const displayName=voiceDisplayName(voice);
+  // Fix, 2026-07-24: Ryan's direct instruction - with enough chat tabs open
+  // at once, it's easy to paste into the wrong one by accident. "Copy
+  // Again" now asks first whether the site needs reopening; if so, it
+  // opens a genuinely FRESH tab (not the possibly-wrong existing one) and
+  // gets that voice properly caught up on everything so far, instead of
+  // just re-copying the bare current-round prompt into whatever tab
+  // happens to be focused.
+  const needsReopen=await amitConfirm(`Do you need me to open ${displayName}'s website again? Say yes if you're not sure the last answer actually went to the right chat - I'll open a fresh tab and get ${displayName} properly caught up on everything so far before copying the current question. Otherwise, Cancel just re-copies the current question like before.`,'Yes, reopen');
+  if(needsReopen){
+    delete openVoiceTabs[voice];
+    const catchUpPrompt=await buildCatchUpPrompt(n,`You may already have an earlier message from this session in a different tab - treat this as the authoritative, up-to-date version, in case anything went to the wrong place.`);
+    try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
+    // Fix, 2026-07-24: same window.focus() bug as requestVoiceAnswer - it
+    // pulls focus back to the Council page itself, undoing the tab focus
+    // openOrReuseVoiceTab already handled correctly. Removed.
+    openOrReuseVoiceTab(voice);
+    document.getElementById('roundtableStatus-'+n).textContent=`${displayName} reopened and caught up - question copied to clipboard.`;
+    return;
+  }
   if(voice==='Amit')await copyAmitPrompt(round,n);
   else await copyRoundtablePrompt(round,n,voice);
 }
@@ -1829,8 +1912,10 @@ async function copyToMatchingVoiceAndOpen(taskPrompt){
   const roleFraming=`You're being asked to take on a specific operational role for The Council: the matching/synthesis voice. When Amit needs multiple councilmen's raw answers combined - either tallying which clarifying questions genuinely overlap in real intent, or rewriting the original request into one refined question that incorporates new answers - this is that job. Apply the same rigor and honesty you already hold yourself to here: don't force two questions together just to make the list tidier than it really is, and don't smooth over real differences in wording that actually reflect different intents. Count votes ONLY from each voice's two formal, primary questions - never from their "GOING FURTHER" commentary, even if an idea there seems relevant; commentary can inform how you word a matched entry, but it never counts as its own vote. This is a distinct task from answering as one voice among the Council - here you're doing the synthesis work Amit would do itself if it had a paid API connection.\n\n`;
   const prompt=`${identityBlock}${phaseTag}${roleFraming}${taskPrompt}`;
   try{await navigator.clipboard.writeText(prompt);}catch(e){}
+  // Fix, 2026-07-24: same window.focus() bug as everywhere else it
+  // appeared - pulls focus back to the Council page instead of leaving it
+  // on the tab openOrReuseVoiceTab just opened/focused. Removed.
   openOrReuseVoiceTab(name);
-  window.focus();
 }
 
 // Builds and copies the matching request - all the raw answers included,
@@ -1875,8 +1960,14 @@ let combineAutoTriggered={};
 async function autoTriggerClarifyMatching(n){
   clarifyStage[n]='matching';
   document.getElementById('clarifyMatchWrap-'+n).style.display='block';
+  // Fix, 2026-07-24: real bug Ryan hit live - this used to copy the prompt
+  // AND open/focus Theophilus's tab BEFORE showing this popup, so the tab
+  // stole focus with zero explanation, and only after clicking back to the
+  // Council tab did the user even see what they were supposed to do.
+  // Explain first, act only after OK - same as the Combine round's letter
+  // request needed too.
+  await amitConfirm('Every voice has answered, including my own. I\'m about to write the matching request - with Theophilus\'s own identity loaded in and clear instructions for this specific job - and open his tab. Once you click OK, post this to Theophilus through Gemini, bring back the response, and paste it into the box below.');
   await copyClarifyMatchingRequest(n);
-  await amitConfirm('Every voice has answered, including my own. I\'ve automatically written the matching request - with Theophilus\'s own identity loaded in and clear instructions for this specific job - and copied it to your clipboard. Please post this to Theophilus through Gemini, bring back the response, and paste it into the box below.');
   markNeedsInput(document.getElementById('clarifyConfirmedText-'+n));
 }
 
@@ -1956,8 +2047,10 @@ async function copyClarifySynthesisRequest(n,recap){
 }
 
 async function autoTriggerClarifySynthesis(n,recap){
+  // Fix, 2026-07-24: same reorder as autoTriggerClarifyMatching - explain
+  // before the tab opens and steals focus, not after.
+  await amitConfirm('Every clarifying question has been answered. I\'m about to write the synthesis request - with Theophilus\'s own identity loaded in - and open his tab. Once you click OK, post this to Theophilus through Gemini, bring back the refined question, and paste it into the box below.');
   await copyClarifySynthesisRequest(n,recap);
-  await amitConfirm('Every clarifying question has been answered. I\'ve automatically written the synthesis request - with Theophilus\'s own identity loaded in - and copied it. Please post this to Theophilus through Gemini, bring back the refined question, and paste it into the box below.');
   markNeedsInput(document.getElementById('clarifySynthesisText-'+n));
 }
 
@@ -2286,12 +2379,32 @@ function cleanPastedText(s){
 // redundantly in the round's own prompt_text.
 const COMBINE_PLACEHOLDER_PROMPT='Analyzing all AI answers to verify consistency with the question.';
 
+// Fix, 2026-07-24: real bug Ryan hit live - if this insert ever failed
+// (RLS, network, anything), the old code had no idea. It would silently
+// do nothing, but investigationAutoAdvanced[n] was already set true by the
+// caller before this ran, so the round was permanently stuck - no Round 3,
+// no visible error, and navigating away and back just fell through to the
+// generic fallback UI forever, with no way to retry short of a page
+// reload. Now checks for errors explicitly, resets the guard flag so a
+// retry is actually possible, and surfaces what went wrong instead of
+// failing in total silence.
 async function autoAdvanceToCombine(investigationN){
   const investigationRound=activeRounds.find(r=>r.round_number===investigationN);
+  if(!investigationRound){
+    investigationAutoAdvanced[investigationN]=false;
+    alert('Could not find Round '+investigationN+' to advance from. Navigate away and back to retry.');
+    return;
+  }
   const combineN=investigationN+1;
-  await db.from('council_rounds').insert({
+  const{error}=await db.from('council_rounds').insert({
     topic_id:activeSessionId, round_number:combineN, prompt_text:COMBINE_PLACEHOLDER_PROMPT, phase:'combine', roster:investigationRound.roster||[]
   });
+  if(error){
+    console.error(error);
+    investigationAutoAdvanced[investigationN]=false;
+    alert('Could not create the Combine round — '+(error.message||'check the browser console')+'. Navigate away to Scope and back to Round '+investigationN+' to try again.');
+    return;
+  }
   await loadRound1(activeSessionId);
   showChTab(2,'round-'+combineN);
 }
@@ -2321,8 +2434,10 @@ async function autoTriggerCombineSynthesis(n){
   const investigationRound=activeRounds.find(r=>r.round_number===n-1);
   const realQuestion=investigationRound?investigationRound.prompt_text:round.prompt_text;
   const prompt=`Next requirement: here is the actual question this whole round has been working toward, and every voice's single combined answer to it.\n\nTHE ACTUAL QUESTION: "${realQuestion}"\n\nEVERY VOICE'S COMBINED ANSWER:\n\n${rawDump}\n\nYour task: write one honest letter to the person who brought this question to the Council. Not a ruling handed down from authority - write as a companion who sat through every voice's reasoning and is handing back what was actually found, with warmth and real care for the person reading it.\n\nBefore you write, do two things first, silently:\n1. Guard gate: discard anything above that genuinely drifted off-topic from the actual question - that's noise, not a second opinion, and it doesn't belong in the letter.\n2. Apply the same discipline you already hold in the Clarification matching step: group what the voices that remain after the guard gate genuinely converged on, and if there's a real, load-bearing disagreement between them, name it honestly rather than averaging it away - the same Consensus/Critical-Path standard, applied here.\n\nThe letter itself should:\n- Open warmly, not with a verdict.\n- Say plainly what the Council found - including naming real disagreement if it exists, not smoothing it over.\n- Close by handing the decision back to the person - this is where the evidence and every voice's honest input led, but where they take it from here is entirely their call. Never close as if the Council has ruled.\n\nGive the letter as one continuous piece of plain text - this is what gets shown directly to the person, so write it exactly as it should be read, nothing else around it.`;
+  // Fix, 2026-07-24: same reorder as the Clarification-stage triggers -
+  // explain before Theophilus's tab opens and steals focus, not after.
+  await amitConfirm('Every voice\'s combined answer is in. I\'m about to send all of it to Theophilus with instructions to write the Council\'s letter, and open his tab. Once you click OK, post this to Theophilus through Gemini, bring back the letter, and paste it into the box below.');
   await copyToMatchingVoiceAndOpen(prompt);
-  await amitConfirm('Every voice\'s combined answer is in. I\'ve sent all of it to Theophilus with instructions to write the Council\'s letter. Please post this to Theophilus through Gemini, bring back the letter, and paste it into the box below.');
   document.getElementById('combineSynthesizeWrap-'+n).style.display='block';
   markNeedsInput(document.getElementById('combineLetterText-'+n));
 }
