@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.47</div>
+    <div class="page-version" id="pageVersion">v5.48</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1218,7 +1218,22 @@ async function performVoiceSwap(n,oldVoice,newVoice){
 // same-browser-session convenience only - it cannot survive a page reload,
 // since a window reference can't be persisted to the database.
 let openVoiceTabs={};
-function resetVoiceTabs(){openVoiceTabs={};councilSkipVoiceNotify=false;matchingVoiceBriefed=false;}
+function resetVoiceTabs(){openVoiceTabs={};councilSkipVoiceNotify=false;matchingVoiceBriefed=false;voiceBriefed={};}
+
+// Whether each roster voice has already been sent its full cold-start/
+// identity briefing this session - tracked SEPARATELY from openVoiceTabs,
+// same fix and same reasoning as matchingVoiceBriefed above. Ryan's direct
+// correction, 2026-07-24: this was still being derived from whether
+// openVoiceTabs held a live window reference, so a lost tab reference (a
+// page reload between rounds is the common real case) silently made a
+// continuing Round 4+ voice look like a brand-new one and re-sent the
+// entire "Cold-start briefing: I'm the user, and Amit is the orchestrator
+// of..." identity document into what's still, from the user's side, the
+// exact same ongoing conversation. The briefing should only ever go out
+// once per voice per session, full stop - the only path back to a genuine
+// re-briefing is an explicit "Copy Again -> Yes, reopen," which already
+// uses buildCatchUpPrompt regardless of this flag.
+let voiceBriefed={};
 
 // Whether the matching/synthesis voice (Theophilus) has already been sent
 // his identity document this session - tracked SEPARATELY from
@@ -1755,7 +1770,11 @@ async function requestVoiceAnswer(n,idx){
   // time" check see the tab as already open on this very first request and
   // wrongly skip the identity document, every single time. Bug found and
   // fixed 2026-07-23, real live test against Theophilus/Gemini.
-  const wasFirstTimeForVoice=!alreadyOpen;
+  // Fix, 2026-07-24, Ryan's direct correction: was `!alreadyOpen`, which
+  // reflects tab-reference reliability, not whether this voice has actually
+  // been briefed - see voiceBriefed above.
+  const wasFirstTimeForVoice=!voiceBriefed[voice];
+  voiceBriefed[voice]=true;
   const round=activeRounds.find(r=>r.round_number===n);
   // Fix, 2026-07-24: real bug Ryan hit live IMMEDIATELY after the previous
   // fix - navigator.clipboard.writeText() requires the calling document to
@@ -1835,14 +1854,17 @@ async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
   // conversation, same idea as Amit's identity block. When requestVoiceAnswer
   // calls this, it passes forceFirstTime explicitly (computed BEFORE it
   // opened the tab) since checking openVoiceTabs here would always see the
-  // tab as already open by that point. recopyVoicePrompt calls this with no
-  // 4th arg, so it falls back to the live openVoiceTabs check below - which
-  // is accurate there, since no tab-opening happens between the check and
-  // the copy. Still tab-based, so a closed/refreshed tab will re-send it -
-  // acceptable, matches how Amit's own identity block behaves.
+  // tab as already open by that point. recopyVoicePrompt's "Proceed to
+  // Existing Tab" branch calls this with no 4th arg, so it falls back to
+  // voiceBriefed below.
+  // Fix, 2026-07-24, Ryan's direct correction: this fallback used to be
+  // tab-reference-based (`!(voiceTab&&!voiceTab.closed)`), which resent the
+  // full cold-start briefing any time tab tracking was lost (e.g. after a
+  // page reload) even though, from the user's side, it's the same ongoing
+  // conversation. Now keyed off voiceBriefed - see its declaration above -
+  // so the briefing only ever goes out once per voice per session.
   const profile=voice?voiceProfiles[voice]:null;
-  const voiceTab=voice?openVoiceTabs[voice]:null;
-  const isFirstTimeForVoice=(forceFirstTime!==undefined)?forceFirstTime:!(voiceTab&&!voiceTab.closed);
+  const isFirstTimeForVoice=(forceFirstTime!==undefined)?forceFirstTime:!voiceBriefed[voice];
   const identityDocBlock=(profile&&profile.identity_document&&isFirstTimeForVoice)
     ?`${profile.identity_document}\n\n`
     :'';
@@ -1932,8 +1954,10 @@ async function copyAmitPrompt(round,n,forceFirstTime){
   // block "only ever goes out ONCE," but the code never actually checked
   // that - it was unconditionally included every round. Wired up the same
   // first-time detection every other voice already has.
-  const amitTab=openVoiceTabs['Amit'];
-  const isFirstTimeForAmit=(forceFirstTime!==undefined)?forceFirstTime:!(amitTab&&!amitTab.closed);
+  // Fix, 2026-07-24, Ryan's direct correction: same fix as copyRoundtablePrompt
+  // - fallback is now voiceBriefed, not a live tab reference that a page
+  // reload can silently invalidate.
+  const isFirstTimeForAmit=(forceFirstTime!==undefined)?forceFirstTime:!voiceBriefed['Amit'];
   // Fix, 2026-07-24, Ryan's direct correction: even the "Option B" context-
   // only framing (no persona, just Amit's theological conclusions handed
   // over as background premises) was still steering Claude's answers toward
