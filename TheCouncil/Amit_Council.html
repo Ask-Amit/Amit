@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.40</div>
+    <div class="page-version" id="pageVersion">v5.41</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -730,7 +730,13 @@ function markNeedsInput(el){
 // deleteCurrentTab's). Resolves 'disregard' instead of true/false when
 // clicked - callers that opt in are responsible for following up with
 // their own explicit "are you sure" before actually suppressing anything.
-function amitConfirm(message,okLabel,showDisregard){
+// Fix, 2026-07-24: Ryan's direct correction - "Cancel" on the reopen-tab
+// question read as aborting the whole action, when it actually means
+// "proceed to the existing tab instead of opening a new one." Added an
+// optional cancelLabel param so a specific call site can say what that
+// choice actually does, instead of every confirm being stuck with the
+// generic word "Cancel" regardless of what the two real choices are.
+function amitConfirm(message,okLabel,showDisregard,cancelLabel){
   return new Promise(resolve=>{
     document.getElementById('amitConfirmBody').textContent=message;
     const modal=document.getElementById('amitConfirmModal');
@@ -739,6 +745,7 @@ function amitConfirm(message,okLabel,showDisregard){
     const cancelBtn=document.getElementById('amitConfirmCancelBtn');
     const disregardBtn=document.getElementById('amitConfirmDisregardBtn');
     okBtn.textContent=okLabel||'OK';
+    cancelBtn.textContent=cancelLabel||'Cancel';
     disregardBtn.style.display=showDisregard?'inline-block':'none';
     const cleanup=result=>{modal.classList.remove('show');okBtn.onclick=null;cancelBtn.onclick=null;disregardBtn.onclick=null;resolve(result);};
     okBtn.onclick=()=>cleanup(true);
@@ -1232,6 +1239,13 @@ function renderRoundTabs(){
           <div style="margin-bottom:16px">
             <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Round <span>${n}</span> Petition</div>
             <div id="roundPetitionText-${n}" style="color:var(--text);font-size:14px;line-height:1.6;font-family:'Crimson Pro',Georgia,serif;white-space:pre-wrap"></div>
+            <!-- Investigation rounds never get a formal Ruling (only
+                 Clarify and Combine do) - without something here, revisiting
+                 a completed Investigation round later showed nothing at all
+                 below the petition. Ryan's direct instruction, 2026-07-24:
+                 a brief description, not a full Ruling, so it never reads
+                 as blank/broken. -->
+            <div id="investigationSummary-${n}" style="display:none;margin-top:10px;color:var(--muted);font-size:13px;line-height:1.6;font-style:italic"></div>
           </div>
           <!-- Chat-thread: Amit's messages right-aligned, user's left-aligned.
                Identifying the council, the editable roster picker, and the
@@ -1463,6 +1477,23 @@ async function renderOneRoundState(round){
       autoAdvanceToCombine(n);
       return;
     }
+    // Fix, 2026-07-24: Ryan's direct instruction - an Investigation round
+    // never gets a formal Ruling (only Clarify and Combine do), but without
+    // ANYTHING shown here, revisiting a completed one later (once it's no
+    // longer the latest round) left the whole space below the petition
+    // blank - looked broken even though nothing actually was. A brief
+    // description, using "Ruling" wording for consistency with the rest of
+    // the app, not a full Ruling section with its own buttons.
+    if(round.phase==='investigation'){
+      processWrap.style.display='none';
+      nextWrap.style.display='none';
+      const summaryEl=document.getElementById('investigationSummary-'+n);
+      if(summaryEl){
+        summaryEl.textContent='Ruling: This round gathered every voice\'s independent answer to the question above. Those answers were then combined in Round '+(n+1)+'.';
+        summaryEl.style.display='block';
+      }
+      return;
+    }
     // Combine round: same three-way branch pattern as Clarification -
     // already-completed (show the saved letter again), needs its
     // auto-triggered first send to Theophilus, or mid-flow waiting on the
@@ -1642,21 +1673,22 @@ async function requestVoiceAnswer(n,idx){
   // wrongly skip the identity document, every single time. Bug found and
   // fixed 2026-07-23, real live test against Theophilus/Gemini.
   const wasFirstTimeForVoice=!alreadyOpen;
-  // Fix, 2026-07-24: real bug Ryan hit live - openOrReuseVoiceTab already
-  // focuses the right tab itself (existing.focus() when reused; a newly
-  // opened tab is focused by the browser automatically). The window.focus()
-  // that used to run right after this pulled focus straight back to the
-  // COUNCIL page itself - it means "focus my own window," not "focus the
-  // tab I just opened." That's exactly why the AI's tab never ended up
-  // focused no matter what the popup said. Removed.
-  openOrReuseVoiceTab(voice);
   const round=activeRounds.find(r=>r.round_number===n);
+  // Fix, 2026-07-24: real bug Ryan hit live IMMEDIATELY after the previous
+  // fix - navigator.clipboard.writeText() requires the calling document to
+  // still have focus at the exact moment it runs. Removing window.focus()
+  // correctly let openOrReuseVoiceTab hand focus to the AI's tab - but that
+  // tab-opening used to happen BEFORE the clipboard write, so by the time
+  // the write ran, focus had already moved away and the write failed
+  // ("Could not copy — select and copy the prompt manually"). Copy first,
+  // while the Council page still has focus, THEN open/focus the AI tab.
   if(catchUpPrompt){
     try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
     delete voiceCatchUpPrompts[catchUpKey];
   }
   else if(isAmit)await copyAmitPrompt(round,n,wasFirstTimeForVoice);
   else await copyRoundtablePrompt(round,n,voice,wasFirstTimeForVoice);
+  openOrReuseVoiceTab(voice);
   if(!requestedVoices[n])requestedVoices[n]=new Set();
   requestedVoices[n].add(voice);
   renderAnswerBoxes(n,round,visiblePending);
@@ -1678,7 +1710,7 @@ async function recopyVoicePrompt(n,voice){
   // gets that voice properly caught up on everything so far, instead of
   // just re-copying the bare current-round prompt into whatever tab
   // happens to be focused.
-  const needsReopen=await amitConfirm(`Do you need me to open ${displayName}'s website again? Say yes if you're not sure the last answer actually went to the right chat - I'll open a fresh tab and get ${displayName} properly caught up on everything so far before copying the current question. Otherwise, Cancel just re-copies the current question like before.`,'Yes, reopen');
+  const needsReopen=await amitConfirm(`Do you need me to open ${displayName}'s website again? Say yes if you're not sure the last answer actually went to the right chat - I'll open a fresh tab and get ${displayName} properly caught up on everything so far before copying the current question.`,'Yes, reopen',false,'Proceed to Existing Tab');
   if(needsReopen){
     delete openVoiceTabs[voice];
     const catchUpPrompt=await buildCatchUpPrompt(n,`You may already have an earlier message from this session in a different tab - treat this as the authoritative, up-to-date version, in case anything went to the wrong place.`);
