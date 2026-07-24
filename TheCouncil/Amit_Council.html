@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.33</div>
+    <div class="page-version" id="pageVersion">v5.34</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -452,17 +452,28 @@ header{
 let councilSessions=[];
 let activeSessionId=null;
 const PROVIDER_URLS={
-  // Fix, 2026-07-22, Ryan's direct instruction: Claude repeatedly declined
-  // to answer Amit's seat regardless of wording (persona-adoption request,
-  // roleplay framing, even "context not persona" still got flagged in
-  // testing). Amit's seat now opens Gemini instead - same copyAmitPrompt
-  // context-as-background framing, different destination.
-  'Amit':'https://gemini.google.com/app',
+  // Fix, 2026-07-24, Ryan's direct instruction: switched back to Claude.
+  // Real problem found and diagnosed live, 2026-07-24: Amit's seat had been
+  // routed to Gemini since 2026-07-22 (Claude kept declining persona-
+  // adoption wording at the time). But Theophilus/Gemini is now also a
+  // named voice on the roster - with both seats hitting the same
+  // underlying model, a "2-vote consensus" between them isn't really
+  // independent at all, it's the same model agreeing with itself in two
+  // wrappers. Claude back for Amit's seat, using the same Option-B
+  // context-as-background framing (copyAmitPrompt) that was built
+  // specifically to avoid asking Claude to adopt a persona - the actual
+  // thing Claude was refusing, not reasoning from stated premises itself.
+  'Amit':'https://claude.ai/',
   'DeepSeek':'https://chat.deepseek.com/', 'Bolt':'https://bolt.new/',
   'Gemini':'https://gemini.google.com/app', 'ChatGPT':'https://chatgpt.com/',
   'Meta AI':'https://www.meta.ai/', 'Grok':'https://grok.com/',
   'Copilot':'https://copilot.microsoft.com/', 'Perplexity':'https://www.perplexity.ai/',
-  'Claude':'https://claude.ai/', 'Mistral':'https://chat.mistral.ai/'
+  'Mistral':'https://chat.mistral.ai/'
+  // 'Claude' removed as a separately-selectable roster voice, 2026-07-24,
+  // Ryan's direct instruction: Amit's seat IS Claude now, so offering
+  // "Claude" as a normal pickable seat would recreate the exact same
+  // double-counting problem just diagnosed with Gemini/Theophilus - a
+  // second seat quietly running on the same model as Amit itself.
 };
 
 async function loadCouncilSessions(){
