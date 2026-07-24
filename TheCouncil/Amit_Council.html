@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.44</div>
+    <div class="page-version" id="pageVersion">v5.45</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1181,7 +1181,18 @@ async function performVoiceSwap(n,oldVoice,newVoice){
 // same-browser-session convenience only - it cannot survive a page reload,
 // since a window reference can't be persisted to the database.
 let openVoiceTabs={};
-function resetVoiceTabs(){openVoiceTabs={};councilSkipVoiceNotify=false;}
+function resetVoiceTabs(){openVoiceTabs={};councilSkipVoiceNotify=false;matchingVoiceBriefed=false;}
+
+// Whether the matching/synthesis voice (Theophilus) has already been sent
+// his identity document this session - tracked SEPARATELY from
+// openVoiceTabs, not derived from it. Ryan's direct correction, 2026-07-24:
+// a page reload (or any other reason the in-memory tab reference goes
+// stale) must NOT cause the full identity document to get silently resent
+// into what Ryan still considers the same, already-briefed tab - that
+// resend should only ever happen through an explicit reopen action (a
+// future "Copy Again" for the matching voice), never as a side effect of
+// lost tab tracking on the normal flow.
+let matchingVoiceBriefed=false;
 
 // "Disregard future notifications" state for the per-voice request popup -
 // in-memory only, scoped to this council session, not permanent. Reset
@@ -1250,15 +1261,19 @@ function renderRoundTabs(){
             <div id="roundPrevCompletedBody-${n}" style="color:var(--muted);font-size:13px;line-height:1.6;font-family:'Crimson Pro',Georgia,serif;white-space:pre-wrap"></div>
           </div>
           <div style="margin-bottom:16px">
-            <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Round <span>${n}</span> Petition</div>
+            <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:6px">Round <span>${n}</span> Petition</div>
             <div id="roundPetitionText-${n}" style="color:var(--text);font-size:14px;line-height:1.6;font-family:'Crimson Pro',Georgia,serif;white-space:pre-wrap"></div>
             <!-- Investigation rounds never get a formal Ruling (only
                  Clarify and Combine do) - without something here, revisiting
                  a completed Investigation round later showed nothing at all
                  below the petition. Ryan's direct instruction, 2026-07-24:
                  a brief description, not a full Ruling, so it never reads
-                 as blank/broken. -->
-            <div id="investigationSummary-${n}" style="display:none;margin-top:10px;color:var(--muted);font-size:13px;line-height:1.6;font-style:italic"></div>
+                 as blank/broken. Styling fix, 2026-07-24, Ryan's direct
+                 instruction: this label and the Ruling line beneath it must
+                 match the same Petition/Ruling styling used everywhere else
+                 in the app (gold label, bright white body) instead of the
+                 muted grey it had drifted to. -->
+            <div id="investigationSummary-${n}" style="display:none;margin-top:10px;color:var(--text);font-size:13px;line-height:1.6;font-style:italic"></div>
           </div>
           <!-- Chat-thread: Amit's messages right-aligned, user's left-aligned.
                Identifying the council, the editable roster picker, and the
@@ -1336,7 +1351,6 @@ function renderRoundTabs(){
             <div style="display:flex;flex-wrap:wrap;gap:10px">
               <button type="button" onclick="rerunClarifyRound(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Rerun This Round to Further Clarify</button>
               <button type="button" onclick="adjustClarifyRuling(${n})" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Adjust the Ruling</button>
-              <button type="button" onclick="showChTab(2,'scope')" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:10px 18px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer">Restart Round 1</button>
               <button type="button" onclick="startNextRound(${n})" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Confirm Ruling — Ready for Next Round</button>
             </div>
           </div>
@@ -1869,16 +1883,17 @@ async function copyAmitPrompt(round,n,forceFirstTime){
   // first-time detection every other voice already has.
   const amitTab=openVoiceTabs['Amit'];
   const isFirstTimeForAmit=(forceFirstTime!==undefined)?forceFirstTime:!(amitTab&&!amitTab.closed);
-  // Rebuilt, 2026-07-22, Ryan's direct instruction (Option B): Claude
-  // directly declined every persona-adoption wording tried so far ("act as
-  // Amit," roleplay framing, "you are pretending to be") - it explicitly
-  // said it won't treat a document as identity instructions to adopt for a
-  // conversation, but it WILL reason from a stated framework and answer in
-  // its own voice. So this stops asking Claude to "become" or "act as"
-  // anyone. It hands over Amit's actual conclusions as background context
-  // and asks for an answer consistent with that framework - substance, not
-  // persona.
-  const identityBlock=!isFirstTimeForAmit?'':`For context on this question: it's part of a research and discipleship project. The working framework behind it holds that there is a God named Yahweh (יהוה); that Yeshua is who the Hebrew prophets pointed to; that Torah was never abolished; and that the New Covenant is a renewal of that Torah, not a replacement. The project's own reference material is here if useful background: https://ask-amit.github.io/Amit/Who_Is_Amit.html (introduction) and https://ask-amit.github.io/Amit/who_is_god/who_is_god.html (the full evidence document behind those conclusions).\n\nAnswer the question below reasoning consistently with that framework - not adopting a persona, just treating those conclusions as the working premises for this answer, the way any analysis proceeds from stated premises.`;
+  // Fix, 2026-07-24, Ryan's direct correction: even the "Option B" context-
+  // only framing (no persona, just Amit's theological conclusions handed
+  // over as background premises) was still steering Claude's answers toward
+  // Torah/covenant framing on questions that had nothing to do with
+  // theology - Ryan saw it happen live on a plain AI-delegation risk
+  // question. Amit's seat is now a completely cold, unframed seat, same as
+  // every other voice - no identity, no working framework, no reference
+  // links. The seat is filled by Claude standing in for Amit until the API
+  // exists to let Amit answer directly; nothing about that stand-in should
+  // shape the substance of the answer.
+  const identityBlock='';
   // Combine round: same early-branch treatment as copyRoundtablePrompt -
   // Amit is a normal voice in a Combine round, same task, same rules.
   if(round.phase==='combine'){
@@ -1946,9 +1961,14 @@ const MATCHING_VOICE_NAME='Gemini';
 async function copyToMatchingVoiceAndOpen(taskPrompt){
   const name=MATCHING_VOICE_NAME;
   const profile=voiceProfiles[name];
-  const voiceTab=openVoiceTabs[name];
-  const isFirstTime=!(voiceTab&&!voiceTab.closed);
+  // Fix, 2026-07-24, Ryan's direct correction: identity-briefing state is
+  // tracked on matchingVoiceBriefed, NOT derived from whether openVoiceTabs
+  // still holds a live window reference - that reference is unreliable
+  // (lost on page reload) and was causing the full identity document to get
+  // resent into what's still, from Ryan's side, the same original tab.
+  const isFirstTime=!matchingVoiceBriefed;
   const identityBlock=(profile&&profile.identity_document&&isFirstTime)?`${profile.identity_document}\n\n`:'';
+  if(isFirstTime)matchingVoiceBriefed=true;
   // Theo's own chosen override tag, not a generic one Amit invented - his
   // identity document evolved to v1.11 on its own (Ryan working with him
   // directly) and self-defined the exact trigger phrase as
@@ -2041,7 +2061,21 @@ let clarifyState={};
 // question, any line without a "?" gets dropped rather than trusted.
 function beginClarifyQA(n){
   const raw=document.getElementById('clarifyConfirmedText-'+n).value;
-  const questions=raw.split('\n').map(q=>q.trim().replace(/^\d+[\.\)]\s*/,'')).filter(q=>q&&q.includes('?'));
+  // Fix, 2026-07-24: the old filter required a literal "?" on every line,
+  // but a real confirmed entry can legitimately be phrased as a statement
+  // instead of a question - e.g. Theophilus's own "[CONSENSUS] Whether the
+  // non-coding creator intends to..." format, which has no question mark at
+  // all. That phrasing got silently dropped, emptying the whole list and
+  // throwing "Paste the confirmed question list first" even though a real
+  // list had just been pasted. A line is now kept if it was numbered
+  // ("1. "/"1) ") - the actual signal that it's one of the confirmed
+  // entries - OR, as a fallback for plain unnumbered paste formats, if it
+  // contains a "?". Only genuinely stray lines (blank, or an unnumbered
+  // closing sentence with no "?") get dropped.
+  const questions=raw.split('\n').map(q=>q.trim()).filter(q=>q).map(q=>{
+    const numbered=/^\d+[\.\)]\s*/.test(q);
+    return{text:q.replace(/^\d+[\.\)]\s*/,''),numbered};
+  }).filter(item=>item.numbered||item.text.includes('?')).map(item=>item.text);
   if(!questions.length){alert('Paste the confirmed question list first.');return;}
   clarifyState[n]={questions,answers:[],idx:0};
   clarifyStage[n]='asking';
@@ -2530,6 +2564,14 @@ async function investigateFurther(){
   const n=Number(document.getElementById('combineLetterBody').dataset.round);
   const letter=document.getElementById('combineLetterBody').textContent;
   document.getElementById('combineLetterModal').classList.remove('show');
+  // Fix, 2026-07-24, Ryan's direct correction: removing the 'show' class
+  // and immediately calling prompt() (a synchronous, blocking native
+  // dialog) didn't reliably give the browser a chance to repaint the modal
+  // closing first - it visibly stacked the letter modal underneath the
+  // native prompt instead of actually closing it. A zero-length setTimeout
+  // yields one tick back to the browser so the repaint happens before the
+  // blocking dialog opens.
+  await new Promise(r=>setTimeout(r,0));
   const followUp=prompt('Now that you\'ve read the Council\'s letter, what would your question be back to the Council to investigate further?');
   if(!followUp||!followUp.trim())return;
   const nextN=n+1;
