@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.30</div>
+    <div class="page-version" id="pageVersion">v5.31</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1254,16 +1254,16 @@ async function renderOneRoundState(round){
   if(petitionEl){
     petitionEl.textContent=round.prompt_text;
   }
+  // Fix, 2026-07-24: Ryan's direct correction - round.prompt_text ALREADY
+  // correctly carries the previous round's Ruling forward as this round's
+  // petition (that's the whole point of startNextRound using
+  // completedRound.synthesis). This block was ALSO dumping every voice's
+  // raw evidence from the previous round right above it, unconditionally -
+  // redundant with, and far more confusing than, the clean petition text
+  // already showing correctly below it. "It should just be the ruling, and
+  // that becomes the petition" - removed entirely, nothing else replaces it.
   const prevWrap=document.getElementById('roundPrevCompleted-'+n);
-  if(prevWrap&&n>1){
-    const prevRound=activeRounds.find(r=>r.round_number===n-1);
-    if(prevRound){
-      const{data:prevEvidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',prevRound.id).order('created_at',{ascending:true});
-      document.getElementById('roundPrevCompletedN-'+n).textContent=String(n-1);
-      document.getElementById('roundPrevCompletedBody-'+n).textContent=(prevEvidence||[]).map(e=>`${e.provenance}: ${e.body}`).join('\n\n');
-      prevWrap.style.display='block';
-    }
-  }
+  if(prevWrap)prevWrap.style.display='none';
 
   if(!round.roster||!round.roster.length){
     // Identifying the council (roster + question) happens exactly once, on
@@ -1833,10 +1833,14 @@ async function writeClarifyDiaryEntry(n,round,synthesis){
     solHeader=document.getElementById('diarySolutionHeader');
     solBody=document.getElementById('diarySolutionBody');
   }
+  // Fix, 2026-07-24: Ryan's direct correction - the diary should only ever
+  // hold the original scope (written once, at topic creation) plus ONE
+  // rolling "current state" section that gets REPLACED every round, not a
+  // growing stack of separate "Round 1", "Round 2", "Round 3"... entries.
+  // The per-round append (diaryRoundEntryHTML) is removed - solHeader/
+  // solBody being overwritten in place IS the whole diary update now.
   solHeader.textContent='Current Solution (as of Round '+n+')';
   solBody.textContent=diaryBody;
-  removeDiaryRoundEntry(diaryEl,n);
-  diaryEl.insertAdjacentHTML('beforeend',diaryRoundEntryHTML(n,'Round '+n+' — '+PHASE_LABELS[round.phase],diaryBody));
   const html=diaryEl.innerHTML;
   await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
   if(session)session.diary_text=html;
@@ -2118,10 +2122,11 @@ async function startNextRound(completedN){
       solHeader=document.getElementById('diarySolutionHeader');
       solBody=document.getElementById('diarySolutionBody');
     }
+    // Fix, 2026-07-24: Ryan's direct correction - rolling replacement only,
+    // no growing per-round log. See the matching change in
+    // writeClarifyDiaryEntry above for the full reasoning.
     solHeader.textContent='Current Solution (as of Round '+completedN+')';
     solBody.textContent=summary;
-    removeDiaryRoundEntry(diaryEl,completedN);
-    diaryEl.insertAdjacentHTML('beforeend',diaryRoundEntryHTML(completedN,'Round '+completedN+' — '+phaseLabel,summary));
     const html=diaryEl.innerHTML;
     await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
     if(session)session.diary_text=html;
