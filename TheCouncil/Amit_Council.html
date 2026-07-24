@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.28</div>
+    <div class="page-version" id="pageVersion">v5.29</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -716,6 +716,8 @@ async function deleteCurrentTab(){
     // directly, live. Every round-number-keyed cache needs to be cleared
     // here, not just the three that happened to be here originally.
     delete clarifyAutoTriggered[rn];
+    delete clarifyStage[rn];
+    delete clarifyState[rn];
     Object.keys(voiceCatchUpPrompts).forEach(key=>{if(key.startsWith(rn+'|'))delete voiceCatchUpPrompts[key];});
   }
   // Ryan's direct correction, 2026-07-22: no round is ever auto-recreated
@@ -967,7 +969,14 @@ function renderCouncilWheel(n,roster,evidenceList){
 function showCwDetail(name,n){
   const host=document.getElementById('roundRuling-'+n);
   const byVoice=host?JSON.parse(host.dataset.evidence||'{}'):{};
-  document.getElementById('cwDetailName').textContent=name;
+  // Fix, 2026-07-24: this showed the raw provider name only ("Gemini"),
+  // even for a voice that's earned its own persona (Theophilus). Ryan's
+  // direct instruction: show it as "Theophilus via Gemini" - the persona is
+  // who actually answered, the provider is just which site it ran on. Only
+  // append "via X" when a persona genuinely differs from the plain name;
+  // an untouched voice (no persona set) just shows its plain name as before.
+  const displayName=voiceDisplayName(name);
+  document.getElementById('cwDetailName').textContent=(displayName!==name)?`${displayName} via ${name}`:name;
   document.getElementById('cwDetailBody').textContent=byVoice[name]||'';
   document.getElementById('cwDetailModal').classList.add('show');
 }
@@ -1311,6 +1320,22 @@ async function renderOneRoundState(round){
     if(round.phase==='clarification'){
       processWrap.style.display='none';
       nextWrap.style.display='none';
+      // Fix, 2026-07-24: the v5.27 fix above correctly stopped this from
+      // ever showing the wrong button, but replaced it with a genuine dead
+      // end - navigating away mid-flow (matching sent but not pasted back,
+      // or partway through asking/synthesizing questions) and back again
+      // left the whole Petition side blank, since nothing restored which
+      // sub-stage was active. clarifyStage[n] (set at every transition
+      // point) lets this actually restore the right box instead of nothing.
+      const stage=clarifyStage[n];
+      if(stage==='asking'&&clarifyState[n]){
+        document.getElementById('clarifyAskWrap-'+n).style.display='block';
+        renderClarifyQuestion(n);
+      } else if(stage==='synthesizing'){
+        document.getElementById('clarifySynthesizeWrap-'+n).style.display='block';
+      } else if(stage==='matching'||clarifyAutoTriggered[n]){
+        document.getElementById('clarifyMatchWrap-'+n).style.display='block';
+      }
       return;
     }
     if(isLatest){
@@ -1642,11 +1667,23 @@ async function copyClarifyMatchingRequest(n){
 // Guards the auto-trigger below to once per round, not once per re-render.
 let clarifyAutoTriggered={};
 
+// Fix, 2026-07-24: real bug Ryan hit live - navigating away from a round
+// mid-clarify-flow (matching sent but not pasted back, or partway through
+// asking/synthesizing) and back again left the Petition side completely
+// blank. The wraps below (clarifyMatchWrap/clarifyAskWrap/
+// clarifySynthesizeWrap) only ever got shown by the function that started
+// that stage - nothing remembered which stage was active so a later
+// re-render could restore it. This tracks it explicitly so
+// renderOneRoundState's fallback (below) can always show the right box
+// again, exactly where the user left off, instead of nothing.
+let clarifyStage={};
+
 // Fires automatically the instant every voice (including Amit, last) has
 // answered a Clarification-phase round - no click required. Ryan's direct
 // instruction, 2026-07-22: this should all happen within the same flow as
 // posting Amit's answer, not as a separate manual step.
 async function autoTriggerClarifyMatching(n){
+  clarifyStage[n]='matching';
   document.getElementById('clarifyMatchWrap-'+n).style.display='block';
   await copyClarifyMatchingRequest(n);
   await amitConfirm('Every voice has answered, including my own. I\'ve automatically written the matching request - with Theophilus\'s own identity loaded in and clear instructions for this specific job - and copied it to your clipboard. Please post this to Theophilus through Gemini, bring back the response, and paste it into the box below.');
@@ -1676,6 +1713,7 @@ function beginClarifyQA(n){
   const questions=raw.split('\n').map(q=>q.trim().replace(/^\d+[\.\)]\s*/,'')).filter(q=>q&&q.includes('?'));
   if(!questions.length){alert('Paste the confirmed question list first.');return;}
   clarifyState[n]={questions,answers:[],idx:0};
+  clarifyStage[n]='asking';
   document.getElementById('clarifyMatchWrap-'+n).style.display='none';
   document.getElementById('clarifyAskWrap-'+n).style.display='block';
   renderClarifyQuestion(n);
@@ -1712,6 +1750,7 @@ function answerClarifyQuestion(n){
   // step. Ryan's direct correction, 2026-07-22: this box should never sit
   // blank waiting for someone to write it by hand - it's generated the
   // same way the matching step already is.
+  clarifyStage[n]='synthesizing';
   document.getElementById('clarifyAskWrap-'+n).style.display='none';
   const recap=st.questions.map((q,i)=>`${q}\n${st.answers[i]}`).join('\n\n');
   document.getElementById('clarifyQARecap-'+n).textContent=recap;
@@ -1745,6 +1784,7 @@ async function confirmClarifySynthesis(n){
   const round=activeRounds.find(r=>r.round_number===n);
   await db.from('council_rounds').update({synthesis}).eq('id',round.id);
   round.synthesis=synthesis;
+  delete clarifyStage[n];
   document.getElementById('clarifySynthesizeWrap-'+n).style.display='none';
   renderClarifyRulingSummary(n,round,synthesis);
   // Ryan's direct instruction, 2026-07-22: the diary entry is written to
