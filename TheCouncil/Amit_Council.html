@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.48</div>
+    <div class="page-version" id="pageVersion">v5.49</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -616,6 +616,11 @@ async function loadSessionIntoWorkspace(session,switchView){
   resetVoiceTabs();
   wheelAnsweredCache={};
   requestedVoices={};
+  // Fix, 2026-07-24: persisted onboarding list (see onboardedVoices above) -
+  // loaded fresh from the session's own saved record, unlike voiceBriefed/
+  // openVoiceTabs which reset to blank on every reload by design (there's
+  // nothing to load them from). This is exactly what makes it survive one.
+  onboardedVoices=new Set(session.onboarded_voices||[]);
   document.getElementById('councilTitleText').value=session.title||'';
   updateCouncilPageTitle(2,session.title||'');
   document.getElementById('councilRequestText').value=session.original_question||'';
@@ -890,6 +895,7 @@ async function startNewCouncilRequest(){
   resetVoiceTabs();
   wheelAnsweredCache={};
   requestedVoices={};
+  onboardedVoices=new Set();
   document.getElementById('conveneStatus').textContent='';
   document.getElementById('requestHeading').textContent='What is the request of the Council?';
   document.getElementById('requestSubtext').style.display='block';
@@ -1218,22 +1224,37 @@ async function performVoiceSwap(n,oldVoice,newVoice){
 // same-browser-session convenience only - it cannot survive a page reload,
 // since a window reference can't be persisted to the database.
 let openVoiceTabs={};
-function resetVoiceTabs(){openVoiceTabs={};councilSkipVoiceNotify=false;matchingVoiceBriefed=false;voiceBriefed={};}
+function resetVoiceTabs(){openVoiceTabs={};councilSkipVoiceNotify=false;}
 
-// Whether each roster voice has already been sent its full cold-start/
-// identity briefing this session - tracked SEPARATELY from openVoiceTabs,
-// same fix and same reasoning as matchingVoiceBriefed above. Ryan's direct
-// correction, 2026-07-24: this was still being derived from whether
-// openVoiceTabs held a live window reference, so a lost tab reference (a
-// page reload between rounds is the common real case) silently made a
-// continuing Round 4+ voice look like a brand-new one and re-sent the
-// entire "Cold-start briefing: I'm the user, and Amit is the orchestrator
-// of..." identity document into what's still, from the user's side, the
-// exact same ongoing conversation. The briefing should only ever go out
-// once per voice per session, full stop - the only path back to a genuine
-// re-briefing is an explicit "Copy Again -> Yes, reopen," which already
-// uses buildCatchUpPrompt regardless of this flag.
-let voiceBriefed={};
+// Fix, 2026-07-24, Ryan's direct instruction: a new browser tab should only
+// ever be auto-opened for a voice the FIRST time it's ever brought onto a
+// topic (normally Round 1, plus Theophilus/the matching voice whenever his
+// first real use happens - also usually Round 1). From then on, no
+// automatic flow should ever open a second tab for a voice already part of
+// the council - that voice is already onboarded and its tab is presumed to
+// still be sitting open somewhere. Unlike voiceBriefed/openVoiceTabs (both
+// in-memory, both wiped by a page reload), this list is PERSISTED to
+// council_topics.onboarded_voices so it survives a reload - that's the
+// actual root fix; the in-memory versions could never solve this because a
+// reload clears them just as completely as it clears real tab references.
+let onboardedVoices=new Set();
+async function markVoiceOnboarded(voice){
+  if(onboardedVoices.has(voice))return;
+  onboardedVoices.add(voice);
+  if(activeSessionId)await db.from('council_topics').update({onboarded_voices:Array.from(onboardedVoices)}).eq('id',activeSessionId);
+}
+// Guarded auto-open - used by every AUTOMATIC flow (requestVoiceAnswer's
+// normal path, the matching voice's auto-trigger). Deliberate, explicit
+// user actions (double-clicking a name, "Copy Again -> Yes, reopen") still
+// call openOrReuseVoiceTab directly and are unaffected - those are genuine,
+// on-purpose requests to open/reopen a tab, not automatic ones.
+async function openOrReuseVoiceTabAuto(voice){
+  const existing=openVoiceTabs[voice];
+  if(existing&&!existing.closed){existing.focus();return;}
+  if(onboardedVoices.has(voice))return;
+  openOrReuseVoiceTab(voice);
+  await markVoiceOnboarded(voice);
+}
 
 // Whether the matching/synthesis voice (Theophilus) has already been sent
 // his identity document this session - tracked SEPARATELY from
@@ -1717,6 +1738,12 @@ async function requestVoiceAnswer(n,idx){
   // would break the whole "tabs stay live across rounds" design.
   const existing=openVoiceTabs[voice];
   const alreadyOpen=existing&&!existing.closed;
+  // Fix, 2026-07-24, Ryan's direct instruction: a voice already onboarded
+  // onto this topic (persisted, survives reloads - see onboardedVoices)
+  // but with no live tab reference right now must NEVER get treated as a
+  // brand-new voice to open a fresh tab for. This is its own distinct third
+  // state between "already open" and "genuinely first time."
+  const onboardedButUntracked=!alreadyOpen&&onboardedVoices.has(voice);
   const catchUpKey=n+'|'+voice;
   const catchUpPrompt=voiceCatchUpPrompts[catchUpKey];
   const displayName=voiceDisplayName(voice);
@@ -1726,7 +1753,9 @@ async function requestVoiceAnswer(n,idx){
   } else if(isAmit){
     message=alreadyOpen
       ?`Amit's tab is already open, so I'm not opening a new one - I've already copied the question, along with Amit's framework as background context. Switch to that tab and paste it in with Ctrl+V. When it responds, copy that answer and bring it back here, into Amit's area on the Council.`
-      :`I'm about to open Amit's seat, and I've already copied the question - along with Amit's framework as background context. Just paste this into the chat with Ctrl+V. When it responds, copy the answer and bring it back here, into Amit's area on the Council.\n\nIf you already have Amit's tab open from earlier (e.g. after a page refresh, I can lose track of it), use "Copy Again" on that voice's row instead - it can reopen and properly catch Amit up on everything so far, instead of starting a disconnected second tab.`;
+      :onboardedButUntracked
+        ?`Amit's seat is already part of this council, but I don't have a live reference to that tab right now (a page refresh can cause that). I'm not opening a second tab for Amit - please go find that existing tab yourself, paste this in at the end of the conversation there, and bring the answer back. If you're not sure which tab it is anymore, use "Copy Again" instead - it opens a fresh tab and properly catches Amit up.`
+        :`I'm about to open Amit's seat, and I've already copied the question - along with Amit's framework as background context. Just paste this into the chat with Ctrl+V. When it responds, copy the answer and bring it back here, into Amit's area on the Council.`;
   } else {
     // Fix, 2026-07-24: Ryan's direct correction - "already open" wording
     // now explicitly says to post at the END of that voice's previous
@@ -1739,7 +1768,9 @@ async function requestVoiceAnswer(n,idx){
     // not something the app can silently work around.
     message=alreadyOpen
       ?`${displayName}'s tab is already open from earlier - please go back to their website and post this at the end of their previous answer, to continue the discussion. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`
-      :`I'm about to open ${displayName}'s website, and I've already copied the question for them. Just paste this into their chat with Ctrl+V. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.\n\nIf you already have ${displayName}'s tab open from earlier (e.g. after a page refresh, I can lose track of it), use "Copy Again" on their row instead - it can reopen and properly catch them up on everything so far, instead of starting a disconnected second tab.`;
+      :onboardedButUntracked
+        ?`${displayName} is already part of this council, but I don't have a live reference to their tab right now (a page refresh can cause that). I'm not opening a second tab for them - please go find their existing tab yourself, post this at the end of the conversation there, and bring the answer back. If you're not sure which tab it is anymore, use "Copy Again" instead - it opens a fresh tab and properly catches them up.`
+        :`I'm about to open ${displayName}'s website, and I've already copied the question for them. Just paste this into their chat with Ctrl+V. When they respond, copy their answer and bring it back here, into ${displayName}'s area on the Council. The copy button is usually right at the end of their response - it often looks like two sheets of paper stacked on top of each other.`;
   }
   // Fix, 2026-07-24: Ryan's direct instruction - once a user understands
   // this flow, seeing the same "here's what's about to happen" popup every
@@ -1773,8 +1804,11 @@ async function requestVoiceAnswer(n,idx){
   // Fix, 2026-07-24, Ryan's direct correction: was `!alreadyOpen`, which
   // reflects tab-reference reliability, not whether this voice has actually
   // been briefed - see voiceBriefed above.
-  const wasFirstTimeForVoice=!voiceBriefed[voice];
-  voiceBriefed[voice]=true;
+  // Fix, 2026-07-24: was voiceBriefed (in-memory, session-only) - now reads
+  // the persisted onboardedVoices directly, the single source of truth for
+  // "has this voice ever been briefed on this topic," reload-proof. Marking
+  // it onboarded happens below, inside openOrReuseVoiceTabAuto.
+  const wasFirstTimeForVoice=!onboardedVoices.has(voice);
   const round=activeRounds.find(r=>r.round_number===n);
   // Fix, 2026-07-24: real bug Ryan hit live IMMEDIATELY after the previous
   // fix - navigator.clipboard.writeText() requires the calling document to
@@ -1790,7 +1824,12 @@ async function requestVoiceAnswer(n,idx){
   }
   else if(isAmit)await copyAmitPrompt(round,n,wasFirstTimeForVoice);
   else await copyRoundtablePrompt(round,n,voice,wasFirstTimeForVoice);
-  openOrReuseVoiceTab(voice);
+  // Fix, 2026-07-24, Ryan's direct instruction: this was a plain
+  // openOrReuseVoiceTab, which always opens a fresh tab the moment there's
+  // no live reference - exactly the "always opens a new tab, no matter the
+  // round" bug Ryan hit. The guarded version below refuses to auto-open a
+  // second tab for a voice already onboarded onto this topic.
+  await openOrReuseVoiceTabAuto(voice);
   if(!requestedVoices[n])requestedVoices[n]=new Set();
   requestedVoices[n].add(voice);
   renderAnswerBoxes(n,round,visiblePending);
@@ -1856,15 +1895,15 @@ async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
   // opened the tab) since checking openVoiceTabs here would always see the
   // tab as already open by that point. recopyVoicePrompt's "Proceed to
   // Existing Tab" branch calls this with no 4th arg, so it falls back to
-  // voiceBriefed below.
+  // onboardedVoices below.
   // Fix, 2026-07-24, Ryan's direct correction: this fallback used to be
   // tab-reference-based (`!(voiceTab&&!voiceTab.closed)`), which resent the
   // full cold-start briefing any time tab tracking was lost (e.g. after a
   // page reload) even though, from the user's side, it's the same ongoing
-  // conversation. Now keyed off voiceBriefed - see its declaration above -
-  // so the briefing only ever goes out once per voice per session.
+  // conversation. Now keyed off the persisted onboardedVoices, so the
+  // briefing only ever goes out once per voice per topic, reload-proof.
   const profile=voice?voiceProfiles[voice]:null;
-  const isFirstTimeForVoice=(forceFirstTime!==undefined)?forceFirstTime:!voiceBriefed[voice];
+  const isFirstTimeForVoice=(forceFirstTime!==undefined)?forceFirstTime:!onboardedVoices.has(voice);
   const identityDocBlock=(profile&&profile.identity_document&&isFirstTimeForVoice)
     ?`${profile.identity_document}\n\n`
     :'';
@@ -1955,9 +1994,9 @@ async function copyAmitPrompt(round,n,forceFirstTime){
   // that - it was unconditionally included every round. Wired up the same
   // first-time detection every other voice already has.
   // Fix, 2026-07-24, Ryan's direct correction: same fix as copyRoundtablePrompt
-  // - fallback is now voiceBriefed, not a live tab reference that a page
-  // reload can silently invalidate.
-  const isFirstTimeForAmit=(forceFirstTime!==undefined)?forceFirstTime:!voiceBriefed['Amit'];
+  // - fallback is now the persisted onboardedVoices, not a live tab
+  // reference that a page reload can silently invalidate.
+  const isFirstTimeForAmit=(forceFirstTime!==undefined)?forceFirstTime:!onboardedVoices.has('Amit');
   // Fix, 2026-07-24, Ryan's direct correction: even the "Option B" context-
   // only framing (no persona, just Amit's theological conclusions handed
   // over as background premises) was still steering Claude's answers toward
@@ -2036,14 +2075,14 @@ const MATCHING_VOICE_NAME='Gemini';
 async function copyToMatchingVoiceAndOpen(taskPrompt){
   const name=MATCHING_VOICE_NAME;
   const profile=voiceProfiles[name];
-  // Fix, 2026-07-24, Ryan's direct correction: identity-briefing state is
-  // tracked on matchingVoiceBriefed, NOT derived from whether openVoiceTabs
-  // still holds a live window reference - that reference is unreliable
-  // (lost on page reload) and was causing the full identity document to get
-  // resent into what's still, from Ryan's side, the same original tab.
-  const isFirstTime=!matchingVoiceBriefed;
+  // Fix, 2026-07-24, Ryan's direct correction: identity-briefing state now
+  // reads the persisted onboardedVoices (same source of truth as every
+  // other voice) instead of a same-session-only flag or a live openVoiceTabs
+  // window reference - either of which resets on a page reload and was
+  // causing the full identity document to get resent into what's still,
+  // from Ryan's side, the same original tab.
+  const isFirstTime=!onboardedVoices.has(name);
   const identityBlock=(profile&&profile.identity_document&&isFirstTime)?`${profile.identity_document}\n\n`:'';
-  if(isFirstTime)matchingVoiceBriefed=true;
   // Theo's own chosen override tag, not a generic one Amit invented - his
   // identity document evolved to v1.11 on its own (Ryan working with him
   // directly) and self-defined the exact trigger phrase as
@@ -2060,7 +2099,11 @@ async function copyToMatchingVoiceAndOpen(taskPrompt){
   // Fix, 2026-07-24: same window.focus() bug as everywhere else it
   // appeared - pulls focus back to the Council page instead of leaving it
   // on the tab openOrReuseVoiceTab just opened/focused. Removed.
-  openOrReuseVoiceTab(name);
+  // Fix, 2026-07-24: guarded (openOrReuseVoiceTabAuto), matching every other
+  // automatic flow - never auto-opens a second tab once the matching voice
+  // is already onboarded onto this topic.
+  await openOrReuseVoiceTabAuto(name);
+  await markVoiceOnboarded(name);
 }
 
 // Builds and copies the matching request - all the raw answers included,
