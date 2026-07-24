@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.45</div>
+    <div class="page-version" id="pageVersion">v5.46</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1274,6 +1274,20 @@ function renderRoundTabs(){
                  in the app (gold label, bright white body) instead of the
                  muted grey it had drifted to. -->
             <div id="investigationSummary-${n}" style="display:none;margin-top:10px;color:var(--text);font-size:13px;line-height:1.6;font-style:italic"></div>
+            <!-- Fix, 2026-07-24, Ryan's direct correction: revisiting an
+                 already-actioned Combine round (e.g. a session reload, or
+                 just clicking back onto that tab) was force-popping the
+                 letter modal every single time renderOneRoundState ran -
+                 even after the user had already pressed Accept Results or
+                 Investigate Further on it. The modal should only ever
+                 auto-open the ONE time the letter is first generated; every
+                 later visit shows a quiet inline read-back instead, with a
+                 button to reopen the full modal on purpose if wanted. -->
+            <div id="combineLetterInline-${n}" style="display:none;margin-top:10px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.35);border-radius:8px;padding:12px 14px">
+              <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px">The Council's Letter</div>
+              <div id="combineLetterInlineBody-${n}" style="color:var(--text);font-size:13px;line-height:1.6;white-space:pre-wrap;max-height:120px;overflow-y:auto;margin-bottom:10px"></div>
+              <button type="button" onclick="reopenCombineLetter(${n})" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:7px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">View Full Letter</button>
+            </div>
           </div>
           <!-- Chat-thread: Amit's messages right-aligned, user's left-aligned.
                Identifying the council, the editable roster picker, and the
@@ -1528,7 +1542,7 @@ async function renderOneRoundState(round){
     if(round.phase==='combine'&&round.synthesis){
       processWrap.style.display='none';
       nextWrap.style.display='none';
-      renderCombineLetterSummary(n,round.synthesis);
+      showCombineLetterInline(n,round.synthesis);
       return;
     }
     if(isLatest&&round.phase==='combine'&&!combineAutoTriggered[n]){
@@ -2543,6 +2557,25 @@ function renderCombineLetterSummary(n,letter){
   body.textContent=letter;
   body.dataset.round=n;
   document.getElementById('combineLetterModal').classList.add('show');
+}
+
+// Quiet, non-modal read-back for a Combine round that's already been
+// actioned - see the comment on #combineLetterInline-${n} above. Called
+// every time renderOneRoundState revisits an already-completed Combine
+// round; never opens the modal on its own.
+function showCombineLetterInline(n,letter){
+  const inline=document.getElementById('combineLetterInline-'+n);
+  if(!inline)return;
+  document.getElementById('combineLetterInlineBody-'+n).textContent=letter;
+  inline.style.display='block';
+}
+
+// Explicit, user-requested reopen of the full letter modal from the inline
+// read-back's "View Full Letter" button - the only path back into the
+// modal once a Combine round has already been actioned once.
+function reopenCombineLetter(n){
+  const round=activeRounds.find(r=>r.round_number===n);
+  if(round&&round.synthesis)renderCombineLetterSummary(n,round.synthesis);
 }
 
 // "Accept Results" - the Combine letter is the real answer, session ends.
