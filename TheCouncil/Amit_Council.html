@@ -213,14 +213,14 @@ header{
 .council-wheel .cw-landing-center{animation-duration:1.4s}
 @keyframes cwLand{0%{width:16px;height:16px;opacity:.95}100%{width:110px;height:110px;opacity:0}}
 .council-wheel .cw-status{text-align:center;font-size:11px;color:var(--muted);margin-top:10px;flex-shrink:0}
-#cwDetailModal,#amitConfirmModal,#swapModal,#combineLetterModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
-#cwDetailModal.show,#amitConfirmModal.show,#swapModal.show,#combineLetterModal.show{display:flex}
-#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#swapModal .cw-modal-box,#combineLetterModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
-#cwDetailModal h3,#swapModal h3,#combineLetterModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
+#cwDetailModal,#amitConfirmModal,#amitPromptModal,#swapModal,#combineLetterModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
+#cwDetailModal.show,#amitConfirmModal.show,#amitPromptModal.show,#swapModal.show,#combineLetterModal.show{display:flex}
+#cwDetailModal .cw-modal-box,#amitConfirmModal .cw-modal-box,#amitPromptModal .cw-modal-box,#swapModal .cw-modal-box,#combineLetterModal .cw-modal-box{background:#11161f;border:1px solid rgba(201,168,76,.4);border-radius:12px;max-width:560px;width:90%;max-height:76vh;display:flex;flex-direction:column;padding:22px;box-shadow:0 12px 48px rgba(0,0,0,.6)}
+#cwDetailModal h3,#amitPromptModal h3,#swapModal h3,#combineLetterModal h3{font-family:'Cinzel',serif;color:var(--gold2);margin:0 0 12px}
 #cwDetailModal .cw-modal-body,#combineLetterModal .cw-modal-body{flex:1;overflow-y:auto;white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);font-family:'Crimson Pro',Georgia,serif}
 #cwDetailModal button{margin-top:16px;align-self:flex-end;background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #combineLetterModal button{background:var(--gold);color:#1a1206;border:none;padding:9px 18px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
-#amitConfirmModal button,#swapModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
+#amitConfirmModal button,#amitPromptModal button,#swapModal button{background:var(--gold);color:#1a1206;border:none;padding:8px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer}
 #councilTitleText:focus{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(201,168,76,.25)}
 
 /* STANDING RULE — "needs input" - any field on the Petition side of any
@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.46</div>
+    <div class="page-version" id="pageVersion">v5.47</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -310,6 +310,22 @@ header{
         <button type="button" id="amitConfirmOkBtn">OK</button>
         <button type="button" id="amitConfirmCancelBtn" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
       </div>
+    </div>
+  </div>
+</div>
+<!-- Amit-branded replacement for the native prompt() (same
+     "ask-amit.github.io says" unstyled problem as the old confirm/alert
+     calls this replaced back on 2026-07-22) - Ryan's direct instruction,
+     2026-07-24: investigateFurther's follow-up-question ask was still using
+     the raw browser prompt(). -->
+<div id="amitPromptModal">
+  <div class="cw-modal-box" style="max-width:420px">
+    <h3>Amit</h3>
+    <div class="cw-modal-body" id="amitPromptBody" style="flex:none"></div>
+    <input type="text" id="amitPromptInput" style="width:100%;box-sizing:border-box;margin-top:12px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:6px;padding:10px 12px;font-size:14px;font-family:inherit">
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button type="button" id="amitPromptOkBtn">OK</button>
+      <button type="button" id="amitPromptCancelBtn" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25)">Cancel</button>
     </div>
   </div>
 </div>
@@ -760,6 +776,27 @@ function amitConfirm(message,okLabel,showDisregard,cancelLabel){
     okBtn.onclick=()=>cleanup(true);
     cancelBtn.onclick=()=>cleanup(false);
     disregardBtn.onclick=()=>cleanup('disregard');
+  });
+}
+
+// Amit-branded replacement for the native prompt() - see the comment on
+// #amitPromptModal above. Returns the trimmed text, or null if cancelled/
+// left blank, matching prompt()'s own contract closely enough that call
+// sites don't need restructuring.
+function amitPrompt(message){
+  return new Promise(resolve=>{
+    document.getElementById('amitPromptBody').textContent=message;
+    const modal=document.getElementById('amitPromptModal');
+    const input=document.getElementById('amitPromptInput');
+    input.value='';
+    modal.classList.add('show');
+    setTimeout(()=>input.focus(),0);
+    const okBtn=document.getElementById('amitPromptOkBtn');
+    const cancelBtn=document.getElementById('amitPromptCancelBtn');
+    const cleanup=result=>{modal.classList.remove('show');okBtn.onclick=null;cancelBtn.onclick=null;input.onkeydown=null;resolve(result);};
+    okBtn.onclick=()=>cleanup(input.value.trim()||null);
+    cancelBtn.onclick=()=>cleanup(null);
+    input.onkeydown=e=>{if(e.key==='Enter')cleanup(input.value.trim()||null);};
   });
 }
 
@@ -2597,16 +2634,15 @@ async function investigateFurther(){
   const n=Number(document.getElementById('combineLetterBody').dataset.round);
   const letter=document.getElementById('combineLetterBody').textContent;
   document.getElementById('combineLetterModal').classList.remove('show');
-  // Fix, 2026-07-24, Ryan's direct correction: removing the 'show' class
-  // and immediately calling prompt() (a synchronous, blocking native
-  // dialog) didn't reliably give the browser a chance to repaint the modal
-  // closing first - it visibly stacked the letter modal underneath the
-  // native prompt instead of actually closing it. A zero-length setTimeout
-  // yields one tick back to the browser so the repaint happens before the
-  // blocking dialog opens.
-  await new Promise(r=>setTimeout(r,0));
-  const followUp=prompt('Now that you\'ve read the Council\'s letter, what would your question be back to the Council to investigate further?');
-  if(!followUp||!followUp.trim())return;
+  // Fix, 2026-07-24, Ryan's direct instruction: replaced the raw browser
+  // prompt() with the Amit-branded amitPrompt() modal, same as every other
+  // native dialog in this app already was - it's not just unstyled, its
+  // generic "ask-amit.github.io says" header gave Ryan no sense this was
+  // part of the app at all. This also removes the earlier setTimeout-based
+  // repaint workaround entirely - amitPrompt is a normal async DOM modal,
+  // not a blocking native dialog, so there's no repaint race to work around.
+  const followUp=await amitPrompt('Now that you\'ve read the Council\'s letter, what would your question be back to the Council to investigate further?');
+  if(!followUp)return;
   const nextN=n+1;
   const combineRound=activeRounds.find(r=>r.round_number===n);
   const promptText=`Help me understand exactly what ${getUserName()||'the user'} is trying to investigate next. Considering everything discussed so far in this conversation - including the letter you just wrote: "${letter}" - ${getUserName()||'the user'} now has this follow-up question: "${followUp.trim()}" — what exactly two questions would you ask to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.`;
