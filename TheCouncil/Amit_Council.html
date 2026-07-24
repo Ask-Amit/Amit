@@ -153,6 +153,20 @@ header{
 .council-wheel{position:relative;flex-shrink:0}
 .council-wheel .cw-basin{position:absolute;inset:0;border-radius:50%;background:#000;box-shadow:0 0 30px 6px rgba(0,0,0,.6),inset 0 0 24px rgba(0,0,0,.8)}
 .council-wheel .cw-rim{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(212,175,55,.18);pointer-events:none}
+/* Ryan's direct instruction, 2026-07-24: once every voice on the wheel has
+   answered (round converged), the outer rim itself should get the same
+   "something happened here" ring treatment individual voices get once
+   THEY answer - not a different effect, the same visual language, just
+   applied to the whole circle instead of one small dot. transform+opacity
+   only (not width/height like the smaller per-voice ring) since this
+   element is much larger - cheaper for the browser to animate at this size. */
+.council-wheel .cw-rim.converged{border-color:rgba(212,175,55,.4)}
+.council-wheel .cw-rim.converged::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:2px solid var(--gold,rgba(212,175,76,.85));
+  animation:cwRimRepeat 2.4s ease-out infinite;pointer-events:none
+}
+@keyframes cwRimRepeat{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.18);opacity:0}}
 .council-wheel .cw-corona{position:absolute;top:50%;left:50%;width:32%;height:32%;transform:translate(-50%,-50%);border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(243,223,160,.9) 0deg 3deg,rgba(212,175,55,.5) 3deg 6deg,rgba(212,175,55,0) 6deg 16deg);filter:blur(1px);animation:cwSpin 50s linear infinite;z-index:6;pointer-events:none;-webkit-mask-image:radial-gradient(circle,transparent 27%,black 30%,black 92%,transparent 100%);mask-image:radial-gradient(circle,transparent 27%,black 30%,black 92%,transparent 100%)}
 .council-wheel .cw-corona.converged{animation-duration:14s}
 @keyframes cwSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
@@ -228,7 +242,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.35</div>
+    <div class="page-version" id="pageVersion">v5.36</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -960,7 +974,7 @@ function renderCouncilWheel(n,roster,evidenceList){
   host.innerHTML=`<div class="cw-wheel-host">
     <div class="council-wheel" id="cwStage-${n}">
       <div class="cw-basin"></div>
-      <div class="cw-rim"></div>
+      <div class="cw-rim${converged?' converged':''}"></div>
       <div class="cw-corona${converged?' converged':''}"></div>
       <div class="cw-center${amitAnswered?' answered':''}" ${amitAnswered?`onclick="${centerClickHandler}" style="cursor:pointer;pointer-events:auto" title="Click to read Amit's answer"`:'title="Amit — answers here once submitted"'}>
         <img src="../amit_icon.png" alt="Amit">
