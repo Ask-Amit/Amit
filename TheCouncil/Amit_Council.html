@@ -153,48 +153,19 @@ header{
 .council-wheel{position:relative;flex-shrink:0}
 .council-wheel .cw-basin{position:absolute;inset:0;border-radius:50%;background:#000;box-shadow:0 0 30px 6px rgba(0,0,0,.6),inset 0 0 24px rgba(0,0,0,.8)}
 .council-wheel .cw-rim{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(212,175,55,.18);pointer-events:none}
-/* Fix, 2026-07-24: Ryan's creative redirect - replaced the plain expanding
-   ring on convergence with a solar-eclipse corona effect. The wheel reads
-   as the moon blocking the sun; once every voice (including Amit) has
-   answered, it's like the sun ignites behind it - fire-colored light
-   flaring at the circle's edge (inner layer), with a slower, cooler
-   aurora-colored layer spinning the opposite direction underneath for
-   depth. Both layers are masked to a thin ring right at the boundary, not
-   filling the circle, so it reads as light escaping from behind the disc,
-   not a glow ON it. Pure CSS, two pseudo-elements, no JS - same "least
-   RAM" principle as the per-voice rings, just styled differently.
-   Ryan's own words: "flames or gas... looks like the Aurora." */
-.council-wheel .cw-rim.converged{border-color:rgba(255,180,80,.5)}
-.council-wheel .cw-rim.converged::before{
-  content:'';position:absolute;top:50%;left:50%;width:130%;height:130%;
-  transform:translate(-50%,-50%);border-radius:50%;
-  background:repeating-conic-gradient(from 0deg,
-    rgba(255,90,0,.9) 0deg 4deg,
-    rgba(255,180,40,.6) 4deg 9deg,
-    rgba(255,60,120,.35) 9deg 13deg,
-    rgba(255,140,0,0) 13deg 24deg);
-  filter:blur(3px);
-  animation:cwCoronaSpin 22s linear infinite;
-  -webkit-mask-image:radial-gradient(circle,transparent 46%,black 49%,black 58%,transparent 68%);
-  mask-image:radial-gradient(circle,transparent 46%,black 49%,black 58%,transparent 68%);
-  pointer-events:none;z-index:5
-}
+/* Reverted, 2026-07-24: the solar-eclipse corona experiment (fire/aurora
+   layers at 130%/150% size) overflowed the wheel's own container - real
+   layout bug, not just a look Ryan didn't like, confirmed by the horizontal
+   scrollbar it introduced and voice icons appearing to sit outside the
+   circle. Back to the plain expanding gold ring from v5.36 while this gets
+   revisited properly. */
+.council-wheel .cw-rim.converged{border-color:rgba(212,175,55,.4)}
 .council-wheel .cw-rim.converged::after{
-  content:'';position:absolute;top:50%;left:50%;width:150%;height:150%;
-  transform:translate(-50%,-50%);border-radius:50%;
-  background:repeating-conic-gradient(from 45deg,
-    rgba(0,220,255,.25) 0deg 6deg,
-    rgba(160,80,255,.2) 6deg 14deg,
-    rgba(255,120,180,.18) 14deg 20deg,
-    rgba(0,220,255,0) 20deg 34deg);
-  filter:blur(6px);
-  animation:cwCoronaSpin 40s linear infinite reverse, cwCoronaFlicker 3.5s ease-in-out infinite;
-  -webkit-mask-image:radial-gradient(circle,transparent 48%,black 52%,black 62%,transparent 75%);
-  mask-image:radial-gradient(circle,transparent 48%,black 52%,black 62%,transparent 75%);
-  pointer-events:none;z-index:4
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:2px solid var(--gold,rgba(212,175,76,.85));
+  animation:cwRimRepeat 2.4s ease-out infinite;pointer-events:none
 }
-@keyframes cwCoronaSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
-@keyframes cwCoronaFlicker{0%,100%{opacity:.7}50%{opacity:1}}
+@keyframes cwRimRepeat{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.18);opacity:0}}
 .council-wheel .cw-corona{position:absolute;top:50%;left:50%;width:32%;height:32%;transform:translate(-50%,-50%);border-radius:50%;background:repeating-conic-gradient(from 0deg,rgba(243,223,160,.9) 0deg 3deg,rgba(212,175,55,.5) 3deg 6deg,rgba(212,175,55,0) 6deg 16deg);filter:blur(1px);animation:cwSpin 50s linear infinite;z-index:6;pointer-events:none;-webkit-mask-image:radial-gradient(circle,transparent 27%,black 30%,black 92%,transparent 100%);mask-image:radial-gradient(circle,transparent 27%,black 30%,black 92%,transparent 100%)}
 .council-wheel .cw-corona.converged{animation-duration:14s}
 @keyframes cwSpin{to{transform:translate(-50%,-50%) rotate(360deg)}}
@@ -270,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.37</div>
+    <div class="page-version" id="pageVersion">v5.38</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -421,7 +392,7 @@ header{
                 <div style="font-family:'Cinzel',serif;font-size:15px;color:var(--gold2)">The Councilman Roster</div>
                 <div style="color:var(--muted);font-size:12px;margin-top:2px">Every AI voice in the system, in one place. A name earned through real conversation, how to talk with it, what it's good at, and its self-authored identity document (sent once per live conversation) all live here — global, not per-session.</div>
               </div>
-              <button type="button" onclick="addVoiceMatrixRow()" style="background:var(--gold);color:#1a1206;border:none;padding:9px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">+ Add AI Voice</button>
+              <button type="button" onclick="addVoiceMatrixRow()" style="background:var(--gold);color:#1a1206;border:none;padding:9px 16px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap">+ Add Councilman</button>
             </div>
             <div id="voiceMatrixRows" style="display:flex;flex-direction:column;gap:14px"></div>
           </div>`;
@@ -2505,7 +2476,7 @@ function renderVoiceMatrix(){
   const wrap=document.getElementById('voiceMatrixRows');
   if(!wrap)return;
   const names=voiceMatrixNames();
-  wrap.innerHTML=names.map(name=>voiceMatrixRowHtml(name)).join('')||`<div style="color:var(--muted);font-size:13px">No AI voices yet — click "+ Add AI Voice" to bring one into the system.</div>`;
+  wrap.innerHTML=names.map(name=>voiceMatrixRowHtml(name)).join('')||`<div style="color:var(--muted);font-size:13px">No councilmen yet — click "+ Add Councilman" to bring one into the system.</div>`;
 }
 
 function toggleVoiceMatrixRow(name){
@@ -2575,10 +2546,19 @@ function voiceMatrixRowHtml(name){
 }
 
 function addVoiceMatrixRow(){
-  const name=prompt('Provider name for this new AI voice (e.g. "Perplexity"):');
+  const name=prompt('Provider name for this new councilman (e.g. "Perplexity"):');
   if(!name||!name.trim())return;
   const trimmed=name.trim();
-  if(voiceMatrixNames().includes(trimmed)){alert('That voice is already in the roster.');return;}
+  // Fix, 2026-07-24, Ryan's direct instruction: Claude was deliberately
+  // removed from the roster entirely (v5.34) since Amit's own seat now
+  // runs on Claude - a separately-added "Claude" councilman would recreate
+  // the exact double-counting problem that removal was meant to prevent.
+  // Block it by name specifically, with an honest reason, rather than
+  // letting it silently fall through the generic duplicate check (which
+  // wouldn't catch it, since Claude no longer appears in voiceMatrixNames()
+  // at all).
+  if(trimmed.toLowerCase()==='claude'){alert('Claude already exists via Amit - Amit\'s own seat runs on Claude, so it can\'t also be added as a separate councilman.');return;}
+  if(voiceMatrixNames().includes(trimmed)){alert('That councilman is already in the roster.');return;}
   const url=prompt('Its site URL (e.g. https://www.perplexity.ai/):')||'';
   voiceProfiles[trimmed]={default_name:trimmed,provider_url:url.trim()};
   renderVoiceMatrix();
