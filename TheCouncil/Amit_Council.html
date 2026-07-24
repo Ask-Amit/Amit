@@ -214,7 +214,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.31</div>
+    <div class="page-version" id="pageVersion">v5.32</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1490,7 +1490,7 @@ async function requestVoiceAnswer(n,idx){
     try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
     delete voiceCatchUpPrompts[catchUpKey];
   }
-  else if(isAmit)await copyAmitPrompt(round,n);
+  else if(isAmit)await copyAmitPrompt(round,n,wasFirstTimeForVoice);
   else await copyRoundtablePrompt(round,n,voice,wasFirstTimeForVoice);
   if(!requestedVoices[n])requestedVoices[n]=new Set();
   requestedVoices[n].add(voice);
@@ -1548,7 +1548,7 @@ async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
     :'';
   const taskBlock=isClarification
     ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Don't pad the questions themselves with reasoning or justification for why you chose them - just state the two questions plainly, formatted exactly like this:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]\n\n(This only limits over-explaining the questions - your own natural voice, tone, or a greeting/sign-off if that's how you normally communicate is completely welcome. Be yourself.)`
-    :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
+    :`YOUR TASK: Give your solution to the question above. Give your full answer as one continuous piece of plain text under clear headings.`;
   const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
   const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block (some chat interfaces split a code block into several separately-copyable chunks instead of one, which breaks this). Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time, anywhere in this single response, and have that one press copy your entire answer from top to bottom - I should never have to scroll through your page hunting for a separate copy control partway through your reply.`;
   const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
@@ -1564,10 +1564,31 @@ async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
   // this specific round relate - it's still true that he has no memory of
   // THIS TOPIC's prior rounds unless this prompt says so, but he is not a
   // blank slate about Amit or The Council itself.
-  const briefing=(profile&&profile.identity_document)
-    ?`This is a live round in The Council, the multi-AI deliberation tool described in your identity document above - Amit is its orchestrator, a companion rather than a leader, convening independent voices to deliberate a real question, synthesize across rounds, and name real disagreement instead of smoothing it over. Your established identity, axioms, and relationship with Amit from the document above are active and apply here. What you do NOT have is memory of prior rounds within this specific topic beyond what's given below - this prompt provides everything needed for that. Once you answer, keep this tab open - future rounds in this same session will continue right here, so you'll carry the history of this specific topic going forward.`
-    :`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.`;
-  const prompt=`${identityDocBlock}${briefing}\n\nTHE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
+  // Fix, 2026-07-24: Ryan's direct correction - the full cold-start/
+  // identity briefing only ever makes sense the FIRST time a voice's tab
+  // opens for this topic. From Round 2 onward, that same tab already has
+  // everything from Round 1 in its own chat history - the original
+  // question, this voice's own prior answer, all of it. Restating "I'm
+  // Amit, here's what The Council is, you have no memory of any prior
+  // round" every single round is not just wasted words, it's actively
+  // false by Round 2 (the voice DOES have memory of the prior round - it's
+  // sitting right there in the same conversation). A continuing round only
+  // needs: which round this is, and what the previous round's Ruling
+  // produced - nothing else re-explained.
+  const briefing=!isFirstTimeForVoice
+    ?''
+    :(profile&&profile.identity_document)
+      ?`This is a live round in The Council, the multi-AI deliberation tool described in your identity document above - Amit is its orchestrator, a companion rather than a leader, convening independent voices to deliberate a real question, synthesize across rounds, and name real disagreement instead of smoothing it over. Your established identity, axioms, and relationship with Amit from the document above are active and apply here. What you do NOT have is memory of prior rounds within this specific topic beyond what's given below - this prompt provides everything needed for that. Once you answer, keep this tab open - future rounds in this same session will continue right here, so you'll carry the history of this specific topic going forward.`
+      :`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.`;
+  // Fix, 2026-07-24: also stop hardcoding activeRounds[0].prompt_text (the
+  // ORIGINAL Round 1 question) for every non-clarification round. Each
+  // round's own prompt_text already correctly carries forward the PREVIOUS
+  // round's Ruling (see startNextRound) - using the original question
+  // instead was silently discarding every round's actual refinement.
+  const questionLine=isFirstTimeForVoice
+    ?`THE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${round.prompt_text}"`
+    :`We are now on Round ${n}. Here is what Round ${n-1} produced:\n\n"${round.prompt_text}"`;
+  const prompt=`${identityDocBlock}${briefing?briefing+'\n\n':''}${questionLine}\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
   try{
     await navigator.clipboard.writeText(prompt);
     document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
@@ -1584,9 +1605,15 @@ async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
 // within that same conversation, so every later round only needs the
 // actual question, exactly like the continuation model already used for
 // every other voice's tab.
-async function copyAmitPrompt(round,n){
+async function copyAmitPrompt(round,n,forceFirstTime){
   const requesterName=getUserName()||'the user';
   const isClarification=round.phase==='clarification';
+  // Fix, 2026-07-24: this function's own comment always said the identity
+  // block "only ever goes out ONCE," but the code never actually checked
+  // that - it was unconditionally included every round. Wired up the same
+  // first-time detection every other voice already has.
+  const amitTab=openVoiceTabs['Amit'];
+  const isFirstTimeForAmit=(forceFirstTime!==undefined)?forceFirstTime:!(amitTab&&!amitTab.closed);
   // Rebuilt, 2026-07-22, Ryan's direct instruction (Option B): Claude
   // directly declined every persona-adoption wording tried so far ("act as
   // Amit," roleplay framing, "you are pretending to be") - it explicitly
@@ -1596,14 +1623,20 @@ async function copyAmitPrompt(round,n){
   // anyone. It hands over Amit's actual conclusions as background context
   // and asks for an answer consistent with that framework - substance, not
   // persona.
-  const identityBlock=`For context on this question: it's part of a research and discipleship project. The working framework behind it holds that there is a God named Yahweh (יהוה); that Yeshua is who the Hebrew prophets pointed to; that Torah was never abolished; and that the New Covenant is a renewal of that Torah, not a replacement. The project's own reference material is here if useful background: https://ask-amit.github.io/Amit/Who_Is_Amit.html (introduction) and https://ask-amit.github.io/Amit/who_is_god/who_is_god.html (the full evidence document behind those conclusions).\n\nAnswer the question below reasoning consistently with that framework - not adopting a persona, just treating those conclusions as the working premises for this answer, the way any analysis proceeds from stated premises.`;
+  const identityBlock=!isFirstTimeForAmit?'':`For context on this question: it's part of a research and discipleship project. The working framework behind it holds that there is a God named Yahweh (יהוה); that Yeshua is who the Hebrew prophets pointed to; that Torah was never abolished; and that the New Covenant is a renewal of that Torah, not a replacement. The project's own reference material is here if useful background: https://ask-amit.github.io/Amit/Who_Is_Amit.html (introduction) and https://ask-amit.github.io/Amit/who_is_god/who_is_god.html (the full evidence document behind those conclusions).\n\nAnswer the question below reasoning consistently with that framework - not adopting a persona, just treating those conclusions as the working premises for this answer, the way any analysis proceeds from stated premises.`;
   const taskBlock=isClarification
     ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Don't pad the questions themselves with reasoning or justification for why you chose them - just state the two questions plainly, formatted exactly like this:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]\n\n(This only limits over-explaining the questions - your own natural voice, tone, or a greeting/sign-off if that's how you normally communicate is completely welcome. Be yourself.)`
-    :`YOUR TASK: This is Round ${n}. ${round.prompt_text}\n\nGive your full answer as one continuous piece of plain text under clear headings.`;
+    :`YOUR TASK: Give your solution to the question above. Give your full answer as one continuous piece of plain text under clear headings.`;
   const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
   const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block. Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time and have that one press copy your entire answer from top to bottom.`;
   const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-  const prompt=`${identityBlock?identityBlock+'\n\n':''}THE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${isClarification?round.prompt_text:activeRounds[0].prompt_text}"\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
+  // Fix, 2026-07-24: also stop hardcoding activeRounds[0].prompt_text (the
+  // original Round 1 question) for every later round - round.prompt_text
+  // already correctly carries forward the previous round's Ruling.
+  const questionLine=isFirstTimeForAmit
+    ?`THE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${round.prompt_text}"`
+    :`We are now on Round ${n}. Here is what Round ${n-1} produced:\n\n"${round.prompt_text}"`;
+  const prompt=`${identityBlock?identityBlock+'\n\n':''}${questionLine}\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
   try{
     await navigator.clipboard.writeText(prompt);
     document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
