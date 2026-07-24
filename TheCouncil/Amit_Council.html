@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.49</div>
+    <div class="page-version" id="pageVersion">v5.50</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2285,6 +2285,39 @@ async function confirmClarifySynthesis(n){
 // New Question). Writes straight to council_topics.diary_text in the
 // database, matching the standing rule that the diary is the living,
 // printable record - not something held only in page memory.
+// Fix, 2026-07-24, Ryan's direct instruction: the diary was overwriting one
+// single "Current Solution" block on every Ruling-bearing round, so Round
+// 6's Combine letter silently erased Round 3's - even though Round 3
+// answered a genuinely different, earlier question in the same topic
+// (before "Investigate Further" asked a follow-up and started what's
+// really a whole new deliberation cycle on a modified question). The diary
+// now groups by CYCLE, not by round: every Clarification round is the
+// start of a new cycle (Round 1 always starts Cycle I; every
+// "Investigate Further" follow-up starts the next one), and each cycle
+// gets its own permanent section, labeled with a Roman numeral, holding
+// that cycle's own question plus its own rolling solution. Only writes
+// WITHIN the same cycle overwrite each other now - a genuinely new cycle
+// always appends a new section instead of erasing the previous one.
+function toRoman(num){
+  const vals=[[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let n=num,out='';
+  for(const[v,s]of vals){while(n>=v){out+=s;n-=v;}}
+  return out||String(num);
+}
+function cycleNumberForRound(n){
+  const clarifyRoundNumbers=activeRounds.filter(r=>r.phase==='clarification').map(r=>r.round_number).sort((a,b)=>a-b);
+  let cycle=0;
+  for(const rn of clarifyRoundNumbers){if(rn<=n)cycle++;else break;}
+  return cycle||1;
+}
+// The round that actually started this round's cycle (its own round if it
+// IS the cycle-starting Clarification round, otherwise the most recent
+// Clarification round at or before it).
+function cycleStartRound(n){
+  const clarifyRounds=activeRounds.filter(r=>r.phase==='clarification'&&r.round_number<=n).sort((a,b)=>b.round_number-a.round_number);
+  return clarifyRounds[0]||activeRounds.find(r=>r.round_number===n);
+}
+
 async function writeClarifyDiaryEntry(n,round,synthesis){
   // Fix, 2026-07-24: this used to assume every caller was a Clarification
   // round (clarifyState/clarifyQARecap always present) - confirmCombineLetter
@@ -2302,22 +2335,36 @@ async function writeClarifyDiaryEntry(n,round,synthesis){
   }
   const session=councilSessions.find(s=>s.id===activeSessionId);
   const diaryEl=document.getElementById('diaryText');
-  let solHeader=document.getElementById('diarySolutionHeader');
-  let solBody=document.getElementById('diarySolutionBody');
-  if(!solHeader){
+  // Fix, 2026-07-24, Ryan's direct correction - replaces the old single
+  // rolling "Current Solution" block (which erased earlier cycles' real
+  // answers) with a permanent, per-cycle section. Round 1 always starts
+  // Cycle I; each "Investigate Further" starts the next cycle. Writes
+  // within the SAME cycle still overwrite each other in place (a Clarify
+  // round's own Ruling gets superseded by that same cycle's later Combine
+  // letter, exactly as before) - only a genuinely new cycle gets a new,
+  // separate, permanent section instead of erasing the last one.
+  const cycle=cycleNumberForRound(n);
+  const cycleId='diaryCycle'+cycle;
+  let cycleHeader=document.getElementById(cycleId+'Header');
+  let cycleBody=document.getElementById(cycleId+'Body');
+  if(!cycleHeader){
     diaryEl.insertAdjacentHTML('beforeend',
-      `<div class="diaryHeader" id="diarySolutionHeader"></div><div class="diaryBody" id="diarySolutionBody"></div>`);
-    solHeader=document.getElementById('diarySolutionHeader');
-    solBody=document.getElementById('diarySolutionBody');
+      `<div class="diaryHeader" id="${cycleId}Header"></div><div class="diaryBody" id="${cycleId}Body"></div>`);
+    cycleHeader=document.getElementById(cycleId+'Header');
+    cycleBody=document.getElementById(cycleId+'Body');
   }
-  // Fix, 2026-07-24: Ryan's direct correction - the diary should only ever
-  // hold the original scope (written once, at topic creation) plus ONE
-  // rolling "current state" section that gets REPLACED every round, not a
-  // growing stack of separate "Round 1", "Round 2", "Round 3"... entries.
-  // The per-round append (diaryRoundEntryHTML) is removed - solHeader/
-  // solBody being overwritten in place IS the whole diary update now.
-  solHeader.textContent='Current Solution (as of Round '+n+')';
-  solBody.textContent=diaryBody;
+  const startRound=cycleStartRound(n);
+  // Cycle I's question is the original request, already shown once in its
+  // own "Requested Counsel" block above - no need to repeat it here. Every
+  // later cycle's question is the actual follow-up typed into
+  // "Investigate Further" (stored on that cycle's starting round's
+  // user_feedback - see investigateFurther), which isn't displayed
+  // anywhere else, so it's included directly in that cycle's own section.
+  const cycleQuestionLine=(cycle>1&&startRound&&startRound.user_feedback)
+    ?`Additional Question Asked: ${cleanPastedText(startRound.user_feedback)}\n\n`
+    :'';
+  cycleHeader.textContent=`Council Cycle ${toRoman(cycle)} — Solution (as of Round ${n})`;
+  cycleBody.textContent=cycleQuestionLine+diaryBody;
   const html=diaryEl.innerHTML;
   await db.from('council_topics').update({diary_text:html}).eq('id',activeSessionId);
   if(session)session.diary_text=html;
@@ -2714,7 +2761,12 @@ async function investigateFurther(){
   const combineRound=activeRounds.find(r=>r.round_number===n);
   const promptText=`Help me understand exactly what ${getUserName()||'the user'} is trying to investigate next. Considering everything discussed so far in this conversation - including the letter you just wrote: "${letter}" - ${getUserName()||'the user'} now has this follow-up question: "${followUp.trim()}" — what exactly two questions would you ask to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.`;
   await db.from('council_rounds').insert({
-    topic_id:activeSessionId, round_number:nextN, prompt_text:promptText, phase:'clarification', roster:combineRound.roster||[]
+    // Fix, 2026-07-24, Ryan's direct instruction: the raw follow-up question
+    // itself is stored on user_feedback - not shown anywhere else once
+    // buried inside promptText's larger instruction block - so the diary's
+    // per-cycle grouping (see writeClarifyDiaryEntry) has a clean copy of
+    // "what was actually asked to start this cycle" to display.
+    topic_id:activeSessionId, round_number:nextN, prompt_text:promptText, phase:'clarification', roster:combineRound.roster||[], user_feedback:followUp
   });
   await loadRound1(activeSessionId);
   showChTab(2,'round-'+nextN);
