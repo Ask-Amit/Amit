@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.43</div>
+    <div class="page-version" id="pageVersion">v5.44</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -521,6 +521,15 @@ const PROVIDER_URLS={
   // double-counting problem just diagnosed with Gemini/Theophilus - a
   // second seat quietly running on the same model as Amit itself.
 };
+
+// Fixed clock-position order for the Ruling wheel, added 2026-07-24, Ryan's
+// direct correction: a given voice must sit in the same spot on the rim
+// every round, not get reflowed based on that specific round's roster size/
+// order. Position is now looked up from this master list (same list backing
+// PROVIDER_URLS, so it never drifts out of sync) instead of the round's own
+// roster array - a round simply lights up whichever of these fixed slots its
+// roster includes, leaving the rest unlit rather than redistributing space.
+const CW_VOICE_ORDER=Object.keys(PROVIDER_URLS).filter(v=>v!=='Amit');
 
 async function loadCouncilSessions(){
   if(!currentUser)return;
@@ -982,7 +991,11 @@ function renderCouncilWheel(n,roster,evidenceList){
   const voicesHtml=rimRoster.map((name,i)=>{
     const answered=byVoice[name]!==undefined;
     const c=cwColorFor(name);
-    const angle=(i/rimRoster.length)*Math.PI*2-Math.PI/2;
+    // Fixed slot lookup, not this round's own index - see CW_VOICE_ORDER.
+    // Falls back to this round's index for a name somehow not in the master
+    // list, so a stray/legacy voice name still renders instead of vanishing.
+    const slot=CW_VOICE_ORDER.indexOf(name);
+    const angle=(slot>=0?slot:i)/CW_VOICE_ORDER.length*Math.PI*2-Math.PI/2;
     const nx=Math.cos(angle),ny=Math.sin(angle);
     const px=50+nx*46,py=50+ny*46;
     const glow=`rgba(${c[0]},${c[1]},${c[2]},.75)`;
