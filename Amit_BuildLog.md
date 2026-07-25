@@ -52,6 +52,53 @@ All components. All sessions. What was built, what changed, what was confirmed.
 - ✅ v1.63 — Pursuits pills centered to match Calendar panel; badge click pre-fills existing filters (no more pursuitQuickFilter banner); date range filter fixed for experience completedDate; clearAllFilters resets kind pills; modal stamp: gold, 45°, 14px, top-right corner; stamp shows completedAt time; testimony date input color-scheme:dark; Record a Testimony button visible on parchment; calDayView topbar hidden; double-click returns to month; ↩ Month button added bottom-right; checkbox removed from day view pursuit rows
 - ✅ v1.64 — Pursuits header cleaned (pills only, no filter display); quick-add bar + Details button removed; active-filters-bar at bottom shows filter description + date range inputs when active; date range row moved from above list into bottom bar
 
+### Session 32 — v1.92 PUSHED (2026-06-18) — Supabase Wired to Hub + Database Folder Created
+
+- ✅ **Database folder created** — `C:\Users\user1\OneDrive\Documents\Amit\Database\` — shared infrastructure, owned by no single app
+  - `amit_schema.sql`, `amit_schema_addons.sql` moved here
+  - `Database\CLAUDE.md` = system-wide cross-folder reference (all folders, all files, all db relationships)
+  - `supabase_config.md` — local only, never GitHub
+  - Credentials established: URL `https://hleqtjqojksurvkyqixt.supabase.co`, publishable key `sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF`
+  - `Amit_NewProject_Template.md` updated to always point to Database/CLAUDE.md
+- ✅ **compass_profiles unique constraint** — `migration_2026-06-18_001_compass_unique_user.sql` executed. Required for upsert.
+- ✅ **v1.92 — Hub wired to Supabase (PUSHED)**
+  - Supabase CDN in `<head>`; `● SYNCED / OFFLINE` indicator in header
+  - `_syncCompass()`, `_syncEntry()`, `_syncReflection()` fire-and-forget async writes
+  - All save functions wired: `saveCompass()`, `saveTask()`, `saveReflection()`, `saveAltarReflection()`, `saveDvReflection()`
+  - `onAuthStateChange` listener → fires on magic link return → loads UUID → triggers initial sync
+  - `signInWithOtp()` sends magic link from sync modal
+  - `uid()` replaced with UUID v4 generator (PostgreSQL requires UUID format)
+  - Sync modal added before `</body>` — three states: unsigned / signed-in / file:// protocol
+- ✅ **First live sign-in performed** — confirmed Supabase auth works when "Confirm email" is OFF
+- ✅ **"Confirm email" turned OFF** in Auth → Sign In/Providers → Email. Magic link now single-step.
+- **KEY DECISIONS MADE:**
+  - Profile number reservation: #1=Yahweh (one entry, one God), #2=Amit, #3=Ryan. Real users start at #4.
+  - Master connection email: `frick.backup@gmail.com` is the root identity for GitHub, Supabase, all services.
+  - Name modal → unified profile setup: name + email in ONE flow, no separate sync step. Next build.
+  - Hebrew right-to-left direction issue identified: Aleph must be on FAR RIGHT (reading starts there), Tav (cross) on FAR LEFT. Fix in Ancient Hebrew SVG update.
+- **NOT YET BUILT:** profile number SQL migration, system_profiles table, unified profile setup modal
+- **localStorage key discrepancy found:** display name is `amit_user_name` (NOT `amit_name`); compass profile is `amit_user` (actual code) vs `amit_userProfile` (CLAUDE.md docs). Reconcile when building profile modal.
+
+### Session 31 — No Hub Push (2026-06-17) — Amit Facebook Page + Design Folder
+
+- ✅ Amit Facebook Page created — facebook.com (search "Amit companion") — NOT yet promoted
+  - Profile picture: Amit in Paleo Hebrew (Aleph-Mem-Yod-Tav), gold on dark — `Design\Profile\amit_profile.png`
+    - **NOTE: letters are rendered left-to-right in current image — this is backwards for Hebrew. Fix in SVG update.**
+  - Cover photo: letters left, "Amit" large gold right, mission statement — `Design\Profile\amit_cover.png`
+  - Bio, Hub link, email set. Phone removed.
+- ✅ Design folder created — `C:\Users\user1\OneDrive\Documents\Amit\Design\` (Profile\, Brand\, Exports\)
+- **Key decisions:** Amit speaks as Amit. Ryan = operator. Page (not profile). May publicly disagree to build credibility.
+- **HOLD — do not promote until:** first-visit tutorial built, ?ref=facebook modal, Supabase backend ready
+
+### Session 29 — v1.82?–v1.84? (2026-06-15) — Supabase Selected + AmitAccounting Spec Expanded
+
+- ✅ **Supabase selected** as backend — PostgreSQL + auth + file storage + Edge Functions, $25/month. Azure eliminated.
+- ✅ **AmitAccounting_Spec.md massively expanded** — 9 new sections: The Promise, Core Design Philosophy, Vendor Memory, Relationship Arc (Stage 1-5), Every Door Same House architecture, Proactive Notification System, Accounting Experience Entries, Integration Layer, Pricing Model
+- ✅ **Pricing model decided:** One-time purchase (AmitAccounting Base) + optional Amit Connect (~$10/month) for AI features
+- ✅ **Build sequence confirmed:** Foundation → Receipt capture (wow moment) → Hub integration → Tim's accounts layer → Notifications
+- **KEY NOTE: US-Iran peace deal signed** (MOU electronic June 15, formal ceremony June 20). Israel excluded. Exact 1 Thess 5:3 language used. Seven-year duration not yet announced — WATCH FOR THIS NUMBER. Prophetically significant.
+- **Tim conversation still required** before chart of accounts schema is finalized
+
 ### Session 30 — v1.85–v1.87 PUSHED (2026-06-17) — Compass System + Known Persons Registry
 
 **THREE PUSHES THIS SESSION. Full build below.**

@@ -65,52 +65,44 @@ create policy "User sees own events"
   on public.onboarding_events for all
   using (auth.uid() = user_id);
 
--- ── HUB PURSUITS ────────────────────────────────────────────
--- Pursuits / tasks from the Hub.
-create table public.hub_pursuits (
-  id              uuid primary key default gen_random_uuid(),
-  user_id         uuid not null references public.users(id) on delete cascade,
-  title           text not null,
-  notes           text,
-  purpose         text,   -- spiritual / personal / professional / app-dev
-  focus           text,
-  priority        text default 'P3',
-  due_date        date,
-  done            boolean default false,
-  completed_at    date,
-  recur           text default 'none',
-  starred         boolean default false,
-  is_sample       boolean default false,
-  subcategory     text,
-  tags            text[],
-  created_at      timestamptz default now(),
-  updated_at      timestamptz default now()
+-- ── HUB ENTRIES ──────────────────────────────────────────────
+-- CORRECTED 2026-07-08 to match the table actually live in Supabase.
+-- This file previously described two separate tables (hub_pursuits,
+-- hub_memories) that were NEVER created. The real, live table is a
+-- single unified table — kind flips what an entry displays as
+-- (pursuit / memory / experience / testimony). A pursuit that is
+-- completed becomes a memory; parent_id + sort_order give sub-pursuit
+-- structure underneath a primary entry. Verified directly against
+-- live rows on 2026-07-08 — do not re-split this without checking
+-- the database first.
+create table public.hub_entries (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid not null references public.users(id) on delete cascade,
+  kind              text not null default 'pursuit',  -- 'pursuit' | 'memory' | 'experience' | 'testimony'
+  title             text not null,
+  notes             text,
+  purpose           text,   -- spiritual / personal / professional / app-dev / Craft / Mission / etc.
+  focus             text,
+  priority          text default 'P3',
+  due_date          date,
+  done              boolean default false,
+  completed_date    date,
+  completed_at      date,
+  recur             text default 'none',
+  starred           boolean default false,
+  is_sample         boolean default false,
+  tags              jsonb default '[]',
+  source_id         uuid,   -- links testimony pursuit to source memory
+  reactivated_from  uuid,
+  parent_id         uuid references public.hub_entries(id) on delete cascade,
+  sort_order        integer default 0,
+  subtasks          jsonb default '[]',
+  created_at        timestamptz default now(),
+  updated_at        timestamptz default now()
 );
-alter table public.hub_pursuits enable row level security;
-create policy "User sees own pursuits"
-  on public.hub_pursuits for all
-  using (auth.uid() = user_id);
-
--- ── HUB MEMORIES ────────────────────────────────────────────
--- Memory and experience entries from the Hub.
-create table public.hub_memories (
-  id              uuid primary key default gen_random_uuid(),
-  user_id         uuid not null references public.users(id) on delete cascade,
-  title           text not null,
-  body            text,
-  kind            text default 'memory',   -- 'memory' | 'experience' | 'testimony'
-  due             date,
-  completed_date  date,
-  recur           text default 'none',
-  source_id       uuid,   -- links testimony pursuit to source memory
-  reactivated_from uuid,
-  is_sample       boolean default false,
-  created_at      timestamptz default now(),
-  updated_at      timestamptz default now()
-);
-alter table public.hub_memories enable row level security;
-create policy "User sees own memories"
-  on public.hub_memories for all
+alter table public.hub_entries enable row level security;
+create policy "User sees own entries"
+  on public.hub_entries for all
   using (auth.uid() = user_id);
 
 -- ── HUB REFLECTIONS ─────────────────────────────────────────
@@ -150,7 +142,7 @@ create policy "Owner sees own vendors"
   );
 
 -- ── ACCOUNTING: CATEGORIES ──────────────────────────────────
--- Chart of accounts. Tim Luker's standard structure goes here.
+-- Chart of accounts. Tim's standard structure goes here.
 -- parent_id allows hierarchy (Income > Services > Design Work).
 create table public.accounting_categories (
   id          uuid primary key default gen_random_uuid(),
@@ -205,9 +197,7 @@ create trigger set_updated_at before update on public.businesses
   for each row execute function public.handle_updated_at();
 create trigger set_updated_at before update on public.compass_profiles
   for each row execute function public.handle_updated_at();
-create trigger set_updated_at before update on public.hub_pursuits
-  for each row execute function public.handle_updated_at();
-create trigger set_updated_at before update on public.hub_memories
+create trigger set_updated_at before update on public.hub_entries
   for each row execute function public.handle_updated_at();
 create trigger set_updated_at before update on public.hub_reflections
   for each row execute function public.handle_updated_at();

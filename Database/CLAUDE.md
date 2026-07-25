@@ -224,16 +224,16 @@ The revenue engine. Funds the mission so everything else stays free.
 | File | Purpose |
 |---|---|
 | `AmitAccounting_Spec.md` | Full spec — The Promise, vendor memory, relationship arc, pricing model |
-| `Tim_Luker_Proposal.html` | Proposal for Tim Luker conversation — chart of accounts |
+| `Tim_Proposal.html` | Proposal for Tim conversation — chart of accounts |
 | `CLAUDE.md` | AmitAccounting project context |
 
 **Database tables (already in base schema):**
 - `businesses` — one per user (single owner now, multi-staff ready)
 - `accounting_vendors` — vendor memory, relationship stage 1-5
-- `accounting_categories` — chart of accounts (Tim Luker's standard — schema placeholder)
+- `accounting_categories` — chart of accounts (Tim's standard — schema placeholder)
 - `accounting_transactions` — every receipt, payment, income entry
 
-**Pending:** Tim Luker conversation before chart of accounts tables are finalized. Do not build `accounting_categories` rows until Tim talks.
+**Pending:** Tim conversation before chart of accounts tables are finalized. Do not build `accounting_categories` rows until Tim talks.
 
 ---
 
@@ -245,7 +245,7 @@ The diagnostic module. Vouches for a computer's value. Andy's partnership scope 
 |---|---|
 | `amit-computer-companion.html` | Computer Value app |
 | `ComputerValue_Deploy.md` | Deployment spec |
-| `Andy_Korea_Proposal.html` | Proposal for Andy |
+| `Andy_Proposal.html` | Proposal for Andy |
 | `CLAUDE.md` | ComputerValue project context |
 
 **Database relationship:** No Supabase tables yet. Future: diagnostic results, report history, revenue tracking per report.
