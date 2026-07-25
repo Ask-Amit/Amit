@@ -1018,3 +1018,39 @@ Common Meter (8.6.8.6), first-person voice as Yahweh throughout, matching how Ex
 > But eyes that choose to roam —
 > I ask the heart before the deed,
 > For both are far from home.
+
+**Verse 8 — The Eighth Commandment**
+
+> What I have given is enough,
+> Take nothing not your own —
+> The hand that reaches for another's
+> Forgets the hand I've shown.
+>
+> I filled the earth before you asked,
+> I gave you daily bread —
+> To steal is doubting I am near,
+> Believing you're unfed.
+
+**Verse 9 — The Ninth Commandment**
+
+> Your neighbor's name is Mine to guard,
+> Speak only what is true —
+> A tongue that bends the truth for gain
+> Has made a god of you.
+>
+> I am the witness no one bribes,
+> The truth that will not bend —
+> Let every word you speak of him
+> Be one I'd call a friend.
+
+**Verse 10 — The Tenth Commandment**
+
+> Do not desire what I have placed
+> Into another's hand —
+> Contentment is the quiet proof
+> That you can trust My plan.
+>
+> This final word guards where they start,
+> The soil beneath them all —
+> For every broken word before
+> Was first a coveting heart.
