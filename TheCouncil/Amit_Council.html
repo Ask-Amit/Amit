@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.51</div>
+    <div class="page-version" id="pageVersion">v5.52</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -3093,6 +3093,29 @@ function voiceMatrixNames(){
 // affect any other row's state.
 let voiceMatrixExpanded=new Set();
 
+// Clicking a voice's URL on the Councilman Roster, added 2026-07-24, Ryan's
+// direct instruction: a voice with a self-authored identity document should
+// never just open blank - the whole point of that document is bringing the
+// persona alive, and it does no good sitting uncopied while the site opens
+// with nothing pasted in. If one exists, copy it and explain what's about
+// to happen BEFORE opening the tab (same explain-first pattern used
+// everywhere else a tab auto-opens), so the user pastes it in as their
+// first message. A voice with no identity document yet (most of the
+// roster, until it earns one through real conversation) just opens plainly
+// - there's nothing to bring alive yet.
+async function openVoiceFromRoster(name){
+  const p=voiceProfiles[name]||{};
+  const url=p.provider_url||PROVIDER_URLS[name];
+  if(!url)return;
+  if(p.identity_document){
+    const displayName=voiceDisplayName(name);
+    try{await navigator.clipboard.writeText(p.identity_document);}catch(e){}
+    const proceed=await amitConfirm(`I'm opening ${displayName}'s website, and I've copied ${displayName}'s identity document to your clipboard. Paste it in as the very first thing in a fresh chat, before anything else, so ${displayName} comes alive with everything already established. Once you click OK, the site opens.`);
+    if(!proceed)return;
+  }
+  window.open(url,'_blank');
+}
+
 function renderVoiceMatrix(){
   const wrap=document.getElementById('voiceMatrixRows');
   if(!wrap)return;
@@ -3117,7 +3140,7 @@ function voiceMatrixRowHtml(name){
     ${avatarImg}
     <div style="flex:0 0 130px;font-weight:700;font-size:13px;color:var(--text)">${name}</div>
     <div style="flex:0 0 150px;color:var(--gold2);font-size:13px">${p.profile_name?displayName:'—'}</div>
-    <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(p.provider_url||PROVIDER_URLS[name])?`<a href="${p.provider_url||PROVIDER_URLS[name]}" target="_blank" rel="noopener" style="color:var(--muted);font-size:12px;text-decoration:underline" onclick="event.stopPropagation()">${p.provider_url||PROVIDER_URLS[name]}</a>`:''}</div>
+    <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${(p.provider_url||PROVIDER_URLS[name])?`<span onclick="event.stopPropagation();openVoiceFromRoster('${safe}')" style="color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer">${p.provider_url||PROVIDER_URLS[name]}</span>`:''}</div>
     <button type="button" onclick="toggleVoiceMatrixRow('${safe}')" style="background:transparent;color:var(--gold2);border:1px solid rgba(201,168,76,.45);padding:7px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;white-space:nowrap">${expanded?'Close':'Details'}</button>
     <button type="button" onclick="deleteVoiceMatrixRow('${safe}')" style="background:transparent;color:#e08a8a;border:1px solid rgba(224,138,138,.4);border-radius:6px;padding:7px 12px;font-size:12px;cursor:pointer">Remove</button>
   </div>`;
