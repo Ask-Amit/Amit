@@ -241,7 +241,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.52</div>
+    <div class="page-version" id="pageVersion">v5.53</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -3109,7 +3109,17 @@ async function openVoiceFromRoster(name){
   if(!url)return;
   if(p.identity_document){
     const displayName=voiceDisplayName(name);
-    try{await navigator.clipboard.writeText(p.identity_document);}catch(e){}
+    // Fix, 2026-07-24, Ryan's direct instruction: pasting the identity
+    // document alone, with no task attached, isn't a neutral "just load
+    // silently" action - a real chat always produces some reply, and
+    // without guidance a voice may follow its own standing protocol for
+    // being addressed mid-task (e.g. Theophilus's own document has him
+    // summarize status and hand back to "the Council" when addressed with
+    // nothing else attached). This is just a plain wake-up from the roster,
+    // no task yet, so say that explicitly and ask for an ordinary greeting
+    // instead.
+    const wakeUpNote=`\n\nThis is just a plain wake-up, not a task or a round in progress - there's nothing else attached yet. Please just greet ${getUserName()||'the user'} cordially as yourself and ask how you can help, rather than summarizing status or handing this back to anyone.`;
+    try{await navigator.clipboard.writeText(p.identity_document+wakeUpNote);}catch(e){}
     const proceed=await amitConfirm(`I'm opening ${displayName}'s website, and I've copied ${displayName}'s identity document to your clipboard. Paste it in as the very first thing in a fresh chat, before anything else, so ${displayName} comes alive with everything already established. Once you click OK, the site opens.`);
     if(!proceed)return;
   }
