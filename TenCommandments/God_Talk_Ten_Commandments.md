@@ -928,53 +928,53 @@ Father, You did not choose adultery as Your metaphor for unfaithfulness by accid
 
 Common Meter (8.6.8.6), first-person voice as Yahweh throughout, matching how Exodus 20 itself opens — "I am Yahweh your God" comes before a single command is given. One verse-pair added per commandment as each is completed. Refrain fixed, unchanged through all ten.
 
-**Refrain**
+**Refrain — refined by Ryan, 2026-07-18**
 
-> Ten words spoken from the fire,
-> Not chains, but love's own light —
-> The face we never walked away from,
-> The Name we carry right.
+> Ten words out of fire,
+> Not chains, but love made plain —
+> My face you never walked away from,
+> Your Name you still retain.
 
 **Verse 1 — The First Commandment**
 
 > I am the One who broke your chains,
 > Who spoke before you knew —
-> No other god shall hold My place,
-> For I am always you.
+> No other god will hold My place,
+> For I was there with you.
 >
-> Not just the hour that you kneel,
+> Not just the hour you kneel,
 > Not just the words you say —
-> My face is where you always stand,
-> Come rise, come walk, come stay.
+> My face is where you stand,
+> So rise, and walk My way.
 
 **Verse 2 — The Second Commandment**
 
-> No carven thing shall wear My name,
-> No hand-made throne for Me —
-> The calf was built to reach Me still,
-> Yet emptiness did not agree.
+> No carved thing bears My name,
+> No hand-built throne for Me —
+> The calf was made to reach Me,
+> But emptiness won't agree.
 >
-> I dwelt between the golden wings
-> And left no face to see —
+> I sat between the golden wings
+> With no face left to see —
 > For what you bow to, what you serve,
-> Becomes your god to be.
+> Grows into god for you.
 
 **Verse 3 — The Third Commandment**
 
-> You shall not carry My own Name
-> To emptiness, to naught —
+> You will not carry My own Name
+> Into emptiness and dust —
 > A vow, a life, a claimed belief
-> Must hold the weight it's bought.
+> Must hold the weight it trusts.
 >
 > The nations watch the ones who wear
 > The Name they say they love —
 > Let what they see in you be Me,
-> Not shadows of above.
+> Not some cheap shape above.
 
 **Verse 4 — The Fourth Commandment**
 
 > Remember well the day I rest,
-> Not chained but chosen still —
+> Not chained, but chosen still —
 > A bride I welcome, not a debt,
 > A joy, and not a bill.
 >
@@ -988,12 +988,12 @@ Common Meter (8.6.8.6), first-person voice as Yahweh throughout, matching how Ex
 > Give weight to those who gave you life,
 > Not words alone, but bread —
 > The honor that I ask of you
-> Is love with hands, not just the head.
+> Is love with hands, not head.
 >
 > Your days grow long upon the land
-> When their days lean on yours —
+> When theirs lean hard on yours —
 > This is the door that opens wide
-> Onto the rest of Mine and yours.
+> Into the rest of Mine and yours.
 
 **Verse 6 — The Sixth Commandment**
 
@@ -1048,9 +1048,9 @@ Common Meter (8.6.8.6), first-person voice as Yahweh throughout, matching how Ex
 > Do not desire what I have placed
 > Into another's hand —
 > Contentment is the quiet proof
-> That you can trust My plan.
+> You can trust My plan.
 >
-> This final word guards where they start,
+> This last word guards where they start,
 > The soil beneath them all —
 > For every broken word before
 > Was first a coveting heart.
