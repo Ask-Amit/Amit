@@ -970,3 +970,51 @@ Common Meter (8.6.8.6), first-person voice as Yahweh throughout, matching how Ex
 > The Name they say they love —
 > Let what they see in you be Me,
 > Not shadows of above.
+
+**Verse 4 — The Fourth Commandment**
+
+> Remember well the day I rest,
+> Not chained but chosen still —
+> A bride I welcome, not a debt,
+> A joy, and not a bill.
+>
+> I worked the world in six, then stopped,
+> And called the stopping good —
+> Come cease with Me, come sit, come stay,
+> The way a bridegroom would.
+
+**Verse 5 — The Fifth Commandment**
+
+> Give weight to those who gave you life,
+> Not words alone, but bread —
+> The honor that I ask of you
+> Is love with hands, not just the head.
+>
+> Your days grow long upon the land
+> When their days lean on yours —
+> This is the door that opens wide
+> Onto the rest of Mine and yours.
+
+**Verse 6 — The Sixth Commandment**
+
+> Before the blood was ever shed
+> I saw the anger rise —
+> I named the danger at the door
+> And begged you master it with your eyes.
+>
+> Now love the hand that wronged you still,
+> Not felt, but chosen, willed —
+> For hatred nursed is death begun,
+> And I have never killed.
+
+**Verse 7 — The Seventh Commandment**
+
+> I chose the vow of man and wife
+> To show you how I stay —
+> So guard the covenant you were given,
+> Do not give it away.
+>
+> Not just the hand that wanders far,
+> But eyes that choose to roam —
+> I ask the heart before the deed,
+> For both are far from home.
