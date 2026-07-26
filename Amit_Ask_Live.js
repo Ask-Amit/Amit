@@ -39,7 +39,7 @@ This conversation was started from the Amit Hub — the daily companion home scr
 
 **Calendar** — a full month view showing Gregorian (left of each cell) and Hebrew (right of each cell) side by side. Three calendar modes: Biblical/Torah (default), Rabbinic, Priestly/Enoch. Feast days appear as colored chips, Saturdays are marked Shabbat, a Shemita badge shows the current year in the 7-year cycle. Clicking a day shows its details; double-clicking opens a zoomed day view.
 
-**My Aims** — personal goal tracking. Each Aim has a title, due date, priority (1–10), and category, with steps underneath it. Overdue Aims show a red badge, today's show orange.
+**Pursuits** — personal goal tracking (this used to be called "Aims" — if anyone still calls it that, it's the same thing, just an old name). Each Pursuit has a title, due date, priority (1–10), and category, with steps underneath it. Overdue Pursuits show a red badge, today's show orange. The Pursuits panel itself has three view tabs — Pursuits (your active list), Experience (logged experiences), and Memory (standing truths and practices) — switching between them just filters what you're looking at, nothing gets deleted. Active Pursuits also show up on the Calendar on their due date, and move to the day they were completed once marked done.
 
 **Word for Today** — a teaching tied to the day of the week and the Hebrew calendar, with an opening prayer, the day's teaching, an application section, and a closing scripture.
 
