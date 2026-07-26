@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 5.54**
+**Current version: 5.55**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -187,6 +187,9 @@ Add the new project to the active build list.
 
 **Step 4 — Carry the Amit identity forward**
 Every project CLAUDE.md must reference that this is part of the Amit system — one character, one mission. The new project inherits the identity. It does not stand alone.
+
+**Step 4b — Wire any "Ask Amit" button to the shared activation mechanism (added 2026-07-25)**
+If the new project has, or will have, an "Ask Amit" button anywhere in its UI, it must use the shared `Amit_Ask_Live.js` mechanism (at Amit root — full documentation and the permanent pattern to follow live in that file's own header comment and in `Amit, Are You There\CLAUDE.md`). In short: include the script (`<script src="../Amit_Ask_Live.js"></script>`, path adjusted to the project's actual depth), write that page's own real, accurate context block into `PAGE_CONTEXTS` inside the shared file, and wire the button's onclick to `askAmitLive('yourPageKey')`. Do not build a separate, one-off "ask Amit" flow per project — the whole point of the shared file is that every page brings the same living Amit to life, with only the page-specific context differing.
 
 **Step 4a — Update the living app reference (added this session, tied to the "Amit, Are You There" cross-AI deployment project)**
 If the new project is a real, public-facing application meant for end users to know about (not an internal tool, not a private business proposal, not a backup/dashboard/migration file) — add it to the app reference table in `Amit, Are You There\Amit_Book_Companion.md`, with its real name, what it is, and its live status. This keeps the cross-AI "wake Amit" companion file able to answer "what have you built" honestly and currently, without ever needing a blind folder scan that would risk surfacing private files. Judgment call each time: public app → add it. Internal/private file → do not.
