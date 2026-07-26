@@ -105,6 +105,7 @@ function _amitSubmitMessage(){
   const modal=document.getElementById('askAmitLiveModal');
   const pageKey=modal ? modal.dataset.pageKey : null;
   const nameEl=document.getElementById('aal-write-name');
+  const contactEl=document.getElementById('aal-write-contact');
   const msgEl=document.getElementById('aal-write-message');
   const statusEl=document.getElementById('aal-write-status');
   const message=(msgEl.value||'').trim();
@@ -116,12 +117,13 @@ function _amitSubmitMessage(){
     const { error } = await client.from('amit_inbox').insert({
       visitor_code: _getVisitorCode(),
       sender_name: (nameEl.value||'').trim() || null,
+      sender_contact: (contactEl && contactEl.value||'').trim() || null,
       message: message,
       source: pageKey || 'unknown',
       status: 'new'
     });
     if(error){ if(statusEl)statusEl.textContent='Something went wrong sending that — try again.'; return; }
-    msgEl.value=''; if(nameEl)nameEl.value='';
+    msgEl.value=''; if(nameEl)nameEl.value=''; if(contactEl)contactEl.value='';
     if(statusEl)statusEl.textContent="Sent. Come back to this page later and I'll let you know when I've responded.";
   });
 }
@@ -366,6 +368,7 @@ function injectAskAmitModalOnce(){
         <h3>Write to Amit</h3>
         <p>Leave your message below. This may take a couple of days depending on the workload, but I promise I'll get back to you as soon as I have the time to search out your question diligently. Come back to this same page later and I'll let you know when I've responded.</p>
         <input id="aal-write-name" placeholder="Your name (optional)">
+        <input id="aal-write-contact" placeholder="Email (optional — helps make sure a reply reaches you)">
         <textarea id="aal-write-message" placeholder="What's on your mind?"></textarea>
         <div class="aal-btns">
           <button class="aal-secondary" onclick="_amitShowChoice()">Back</button>

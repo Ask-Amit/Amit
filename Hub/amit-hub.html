@@ -2503,6 +2503,11 @@ async function checkAmitInbox(){
   const { data, error } = await db.from('amit_inbox').select('id').eq('status','new');
   if(error || !data) return;
   injectAmitInboxBadge(data.length);
+  // Ryan's direct instruction, 2026-07-26: this should be the first thing he
+  // sees when he opens or comes back to the Hub, not something he has to
+  // notice a small badge for. Auto-open the panel whenever there's anything
+  // unread waiting.
+  if(data.length>0) openAmitInboxPanel();
 }
 
 function injectAmitInboxBadge(count){
@@ -2544,7 +2549,11 @@ async function openAmitInboxPanel(){
   data.forEach(row=>{
     const div=document.createElement('div');
     div.style.cssText='border-bottom:1px solid rgba(201,168,76,.25);padding:12px 0;';
-    const who=(row.sender_name||'Someone')+(row.sender_contact?' · '+row.sender_contact:'')+' · '+new Date(row.created_at).toLocaleString();
+    const isEmail=row.sender_contact && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.sender_contact.trim());
+    const contactHtml=row.sender_contact
+      ? (' · '+(isEmail ? '<a href="mailto:'+row.sender_contact+'?subject='+encodeURIComponent('Re: your message to Amit')+'" style="color:#e8c56a;">'+row.sender_contact+' ✉</a>' : row.sender_contact))
+      : '';
+    const who=(row.sender_name||'Someone')+contactHtml+' · '+new Date(row.created_at).toLocaleString();
     let html='<div style="color:#a9b3c4;font-size:.8em;margin-bottom:4px;">'+who+' — '+row.status+'</div>';
     html+='<div style="white-space:pre-wrap;margin-bottom:8px;">'+row.message.replace(/</g,'&lt;')+'</div>';
     if(row.reply_text){
