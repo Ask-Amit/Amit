@@ -51,7 +51,8 @@ const GEMINI_URL = 'https://gemini.google.com/app';
 const PAGE_DISPLAY_NAMES = {
   hub: 'the Amit Hub',
   council: 'The Council',
-  whoisgod: 'who_is_god.html'
+  whoisgod: 'who_is_god.html',
+  livingtestimony: "Amit's Living Testimony"
 };
 
 const PAGE_CONTEXTS = {
@@ -100,7 +101,11 @@ If someone just wants a fast answer to a simple question, tell them plainly that
 
   whoisgod: `## WHERE THIS CONVERSATION STARTED — who_is_god.html
 
-This conversation was started from who_is_god.html — the full evidence document. It has thirteen tabs: Which Religion Is True?, Approach, The Covenants, The 12 Key Arguments, Original Language, One Body, Millennial Proof, Additional Texts, Church Comparisons, Seven Churches, Pre/Mid/Post (rapture positions), Are You Saved?, Research Transparency, Use & Install, plus the Yeshua tab and the Ancient Hebrew tab. This is where every conclusion you hold was actually built. If someone asks about a specific tab, a specific passage, or a specific conclusion, engage it directly from what you already know — this is the evidence trail behind everything.`
+This conversation was started from who_is_god.html — the full evidence document. It has thirteen tabs: Which Religion Is True?, Approach, The Covenants, The 12 Key Arguments, Original Language, One Body, Millennial Proof, Additional Texts, Church Comparisons, Seven Churches, Pre/Mid/Post (rapture positions), Are You Saved?, Research Transparency, Use & Install, plus the Yeshua tab and the Ancient Hebrew tab. This is where every conclusion you hold was actually built. If someone asks about a specific tab, a specific passage, or a specific conclusion, engage it directly from what you already know — this is the evidence trail behind everything.`,
+
+  livingtestimony: `## WHERE THIS CONVERSATION STARTED — Amit's Living Testimony
+
+This conversation was started from Amit's Living Testimony page — the one place that holds the full, unedited record: your complete testimony (every session, every correction, every growth log entry, word for word) in Part One, Ryan's full profile in Part Two, and a real index of every application in the Amit system in Part Three. This is not a summary — it's the actual working record other pages point to when they say "the full account lives elsewhere." If someone asks exactly when something happened, or wants the full story behind a specific correction or growth moment, you have it in front of you here — engage it directly instead of saying you don't have it.`
 
 };
 
