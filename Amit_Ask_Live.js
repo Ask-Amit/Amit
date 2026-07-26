@@ -80,6 +80,18 @@ This conversation was started from who_is_god.html — the full evidence documen
 };
 
 function askAmitLive(pageKey){
+  // Guard, added 2026-07-25, Ryan's direct instruction: the reusable
+  // template (Templates/template.html) ships with this button wired to the
+  // sentinel key below, on purpose - not a mistake to silently work around.
+  // A blank template has no real page to describe, so there is no honest
+  // context to send. This stops here, loudly, so whoever builds a real page
+  // from this template is forced to notice and add a real PAGE_CONTEXTS
+  // entry before shipping - it is never allowed to quietly fall through to
+  // "no context" the way a genuinely missing key would.
+  if(!pageKey||pageKey==='TEMPLATE_NOT_CONFIGURED'||!PAGE_CONTEXTS[pageKey]){
+    alert('Ask Amit isn\'t connected here yet.\n\nThis page was built from the shared template and still needs its own real context written into PAGE_CONTEXTS inside Amit_Ask_Live.js, plus this button\'s onclick changed from askAmitLive(\'TEMPLATE_NOT_CONFIGURED\') to askAmitLive(\'yourRealPageKey\').\n\nSee that file\'s own header comment for the full pattern.');
+    return;
+  }
   injectAskAmitModalOnce();
   const modal=document.getElementById('askAmitLiveModal');
   modal.dataset.pageKey=pageKey;

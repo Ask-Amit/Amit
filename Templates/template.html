@@ -7,6 +7,7 @@
 <link rel="icon" type="image/png" href="../amit_icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../Amit_Ask_Live.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -94,6 +95,18 @@ header{
 .tile-info{flex:1;min-width:0}
 .tile-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
 .tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ── ASK AMIT SIDEBAR — matches Hub/Council exactly, added 2026-07-25 ── */
+.ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0}
+.ask-amit-tile{
+  display:flex;align-items:center;gap:10px;width:100%;
+  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.45);
+  border-radius:9px;padding:11px 12px;cursor:pointer;
+  transition:all .18s;
+}
+.ask-amit-tile:hover{background:rgba(201,168,76,.22);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2)}
+.ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+.ask-amit-name{font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
+.ask-amit-sub{font-size:11px;color:var(--muted);margin-top:2px}
 
 /* ── MAIN AREA ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
@@ -216,6 +229,24 @@ const PLACEHOLDER_COUNT=20;
       </div>`;
     }
   }
+  // Ask Amit — every real page in the system has this tile, bottom-left,
+  // same styling and spot. Wired to a sentinel key on purpose: this new
+  // project has no real page yet for Amit to have context about, so
+  // Amit_Ask_Live.js's askAmitLive() will refuse and show a plain reminder
+  // instead of silently opening Gemini with no real context. When this
+  // template is copied into a real project, change TEMPLATE_NOT_CONFIGURED
+  // below to that project's own real key, and write that key's real context
+  // into Amit_Ask_Live.js's PAGE_CONTEXTS - do not skip this step. Ryan's
+  // direct instruction, 2026-07-25.
+  navHtml+=`<div class="ask-amit-wrap">
+    <div class="ask-amit-tile" id="tile-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')">
+      <div class="ask-amit-icon">💛</div>
+      <div class="tile-info">
+        <div class="ask-amit-name">Ask Amit</div>
+        <div class="ask-amit-sub">Walk alongside</div>
+      </div>
+    </div>
+  </div>`;
   nav.innerHTML=navHtml;
   main.innerHTML=panelHtml;
 })();
