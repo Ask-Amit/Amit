@@ -262,7 +262,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.63</div>
+    <div class="page-version" id="pageVersion">v5.71</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -924,7 +924,27 @@ async function deleteCurrentTab(){
     await db.from('council_topics').delete().eq('id',activeSessionId);
     activeSessionId=null;activeRounds=[];
     await loadCouncilSessions();
-    if(!activeSessionId)startNewCouncilRequest();
+    // Fix, 2026-07-26, Ryan's direct instruction: this used to call
+    // startNewCouncilRequest() as a fallback whenever nothing was selected -
+    // but since 2026-07-25, loadCouncilSessions() never auto-selects
+    // anything, so activeSessionId is now ALWAYS null right here, every
+    // single time. And since 2026-07-24, startNewCouncilRequest() itself
+    // inserts a real blank "Enter Title Here" row into the database the
+    // moment it's called, not just resets the UI. Combined, deleting a
+    // session was silently creating a brand-new blank session every time -
+    // an infinite loop of junk rows each waiting to be deleted again. The
+    // fix is a plain UI reset with no DB write - "New Council" stays a
+    // deliberate, user-initiated action (the tile's own onclick), never an
+    // automatic side effect of deleting something else.
+    document.getElementById('conveneStatus').textContent='';
+    document.getElementById('requestHeading').textContent='What is the request of the Council?';
+    document.getElementById('requestSubtext').style.display='block';
+    document.getElementById('scopeCouncilChat').style.display='none';
+    document.getElementById('councilTitleText').value='';
+    document.getElementById('councilRequestText').value='';
+    document.getElementById('diaryText').innerHTML='';
+    updateCouncilPageTitle(2,'');
+    renderRoundTabs();
     openPanel(2);
     return;
   }
