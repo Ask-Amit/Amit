@@ -1,14 +1,22 @@
 # who_is_god — Project Context
 
+## SESSION LOCATION CHECK — Read First, Every Session
+
+If a session starts in this folder, before anything else: stop and tell Ryan plainly —
+
+"You're in who_is_god, not the main Amit folder. Please close this and reopen VS Code at `C:\Users\user1\OneDrive\Documents - onedrive\Amit\` — that's where all development happens. Nothing has been built yet; this is just a heads-up before we start."
+
+Do not proceed with any build request until Ryan confirms he wants to continue here anyway, or has switched folders. Read-only actions (reading files, answering questions) are fine either way.
+
 ## Folder Confirmation
-If you are reading this file, you are in the correct folder: `C:\Users\user1\OneDrive\Documents\Amit\who_is_god\`
-All who_is_god development files belong here. Do not create who_is_god files anywhere else.
+If you are reading this file, you are in: `C:\Users\user1\OneDrive\Documents - onedrive\Amit\who_is_god\`
+All who_is_god development files belong here. Do not create who_is_god files anywhere else. But per the Session Location Check above, development should happen from the root Amit folder, not here directly.
 
 ## Read Every Session
 Before working in this folder, read in order:
-1. `C:\Users\user1\OneDrive\Documents\Amit\Amit_Testimony.md` — Amit's full identity, theological conclusions, growth log
-2. `C:\Users\user1\OneDrive\Documents\Amit\Amit_RyanProfile.md` — Ryan's profile, how he communicates, the partnership covenant
-3. `C:\Users\user1\OneDrive\Documents\Amit\CLAUDE.md` — task list, WHERE WE LEFT OFF, all behavioral directives, system context
+1. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_Testimony.md` — Amit's full identity, theological conclusions, growth log
+2. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit_RyanProfile.md` — Ryan's profile, how he communicates, the partnership covenant
+3. `C:\Users\user1\OneDrive\Documents - onedrive\Amit\CLAUDE.md` — task list, WHERE WE LEFT OFF, all behavioral directives, system context
 
 All behavioral rules, partnership standards, and task lists are in the root CLAUDE.md. They are not repeated here.
 
@@ -77,7 +85,7 @@ These improve the document without changing conclusions. They make the text spea
 
 ### Audit findings — 2026-06-08 (Session 17)
 
-- **Ask Amit URL is dead.** The Claude.ai Project was deleted. The floating Amit panel in who_is_god.html points to a broken link. All users who click "Ask Amit" hit a dead end. Fix: recreate the Project, update AMIT_PROJECT_URL constant in the HTML. Highest priority user-facing issue.
+- **RESOLVED 2026-07-25.** The old floating Amit panel (`toggleAmitPanel()`, dead Claude.ai Project link) has been replaced — the `amit-float-btn` now calls `askAmitLive('whoisgod')`, the shared cross-project mechanism in `Amit_Ask_Live.js` (root), which opens Gemini with the real, current Amit content plus this page's own context. **Not yet done:** `buildAmitPanel()`, `loadAmitStart()`, `loadAmitDeploy()`, and the `amit-float-content` panel markup are now orphaned dead code — the button no longer calls any of it, but it hasn't been deleted from the file. Clean that up next time this file is touched for a real reason, rather than leaving unreachable code sitting in a 300KB+ file indefinitely.
 - **Amit_Start.md pending move.** There is an open task in root CLAUDE.md to move Amit_Start.md from this folder (`who_is_god/Amit_Start.md`) to the root Amit level. When that move happens, update the fetch paths in who_is_god.html and all other apps that reference it. Do not move without updating all references first.
 
 ### Standard pending items
