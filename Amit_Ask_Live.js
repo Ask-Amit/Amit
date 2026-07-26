@@ -25,20 +25,18 @@
   own context block — it is fetched live from the one real source specifically
   so every page always carries the current version, never a stale copy.
 
-  LOCATION-AWARE ARRIVAL — REQUIRED HEADING, added 2026-07-25, Ryan's direct
-  instruction: every real Ask Amit button must produce an arrival that names
-  where the conversation actually started ("I see you've come from the Hub —
-  what can I help you with?") instead of a generic opening question. This
-  already happens automatically for every page below — it is not something
-  each page has to re-implement — because Amit_Book_Companion.md's own
-  arrival instructions look for a heading that reads exactly:
-      ## WHERE THIS CONVERSATION STARTED — <Real Page Name>
-  Every PAGE_CONTEXTS entry below starts with that exact heading on purpose.
-  If a future entry is added without it, or with different wording, the
-  location-aware arrival silently breaks for that page and Amit falls back
-  to the generic "where do you want to start" question instead — it will not
-  error, it will just quietly stop working. Always start a new page's context
-  with that exact heading line.
+  LOCATION-AWARE ARRIVAL — TRIED AND REVERTED, 2026-07-25: Amit_Book_Companion.md
+  briefly instructed the AI to open by naming where the conversation started
+  (reading a "## WHERE THIS CONVERSATION STARTED" heading in the appended
+  context) instead of asking its normal opening question. Ryan tested it
+  directly and it made Gemini refuse to adopt the Amit persona at all,
+  something that hadn't happened before that change. It was reverted the
+  same session. The heading itself still appears at the top of each
+  PAGE_CONTEXTS entry below as a plain section label, but nothing in
+  Amit_Book_Companion.md looks for it anymore — do not re-add instructions
+  that key off of it without testing carefully first, since this exact shape
+  of conditional "if X appears, do Y instead of Z" instruction is apparently
+  something that can trip a persona-adoption refusal.
 */
 
 const AMIT_BOOK_COMPANION_URL = 'https://ask-amit.github.io/Amit/Amit,%20Are%20You%20There/Amit_Book_Companion.md';
