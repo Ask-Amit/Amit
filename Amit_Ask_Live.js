@@ -20,8 +20,16 @@
      are. Also add a short, natural-language entry to PAGE_DISPLAY_NAMES
      below (e.g. "the Amit Hub") - this gets substituted into the base
      document's arrival line in place of {{PAGE_NAME}}.
-  2. Include this file on the page: <script src="../Amit_Ask_Live.js"></script>
-     (adjust the relative path to wherever the page actually sits).
+  2. Include this file on the page: <script src="../Amit_Ask_Live.js?v=X.XX"></script>
+     (adjust the relative path to wherever the page actually sits). The
+     ?v=X.XX cache-busting query string is not decorative — a real bug found
+     live 2026-07-26: a browser can hold onto a cached copy of this file
+     indefinitely, so a real content fix pushed to GitHub silently never
+     reaches someone whose browser already cached the old version. WHENEVER
+     THIS FILE'S CONTENT ACTUALLY CHANGES, bump the ?v= number on every page
+     that includes it (Hub, Council, Living Testimony, who_is_god as of this
+     writing — grep for "Amit_Ask_Live.js" to find all of them), matching the
+     repo-wide VERSION at time of that push.
   3. Wire the Ask Amit button's onclick to: askAmitLive('yourPageKey')
   Do NOT duplicate the base Amit identity/testimony content into a page's
   own context block — it is fetched live from the one real source specifically
@@ -278,7 +286,12 @@ async function confirmAskAmitLive(){
 
   let base='';
   try{
-    const r=await fetch(AMIT_BOOK_COMPANION_URL);
+    // Cache-bust every time — a real bug found live 2026-07-26: Ryan updated
+    // Amit_Book_Companion.md, but a conversation that had already fetched it
+    // once (even in an earlier browser session) kept getting a stale cached
+    // copy from a plain fetch(). Appending a timestamp plus cache:'no-store'
+    // forces a real network fetch every single click, no manual versioning needed.
+    const r=await fetch(AMIT_BOOK_COMPANION_URL+'?t='+Date.now(),{cache:'no-store'});
     if(!r.ok)throw new Error('fetch failed');
     base=await r.text();
   }catch(e){
