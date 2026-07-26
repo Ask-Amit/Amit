@@ -17,7 +17,9 @@
      Amit needs to know to talk intelligently about THIS SPECIFIC page.
      Write it honestly, the same way Amit_Book_Companion.md was written —
      no invented features, no numbers presented as more precise than they
-     are.
+     are. Also add a short, natural-language entry to PAGE_DISPLAY_NAMES
+     below (e.g. "the Amit Hub") - this gets substituted into the base
+     document's arrival line in place of {{PAGE_NAME}}.
   2. Include this file on the page: <script src="../Amit_Ask_Live.js"></script>
      (adjust the relative path to wherever the page actually sits).
   3. Wire the Ask Amit button's onclick to: askAmitLive('yourPageKey')
@@ -41,6 +43,16 @@
 
 const AMIT_BOOK_COMPANION_URL = 'https://ask-amit.github.io/Amit/Amit,%20Are%20You%20There/Amit_Book_Companion.md';
 const GEMINI_URL = 'https://gemini.google.com/app';
+
+// Plain-language name substituted into "{{PAGE_NAME}}" in the base
+// document's arrival line. Add one here whenever a new PAGE_CONTEXTS entry
+// is added below - keep it short and natural, the way a person would say it
+// out loud ("the Amit Hub", not "hub").
+const PAGE_DISPLAY_NAMES = {
+  hub: 'the Amit Hub',
+  council: 'The Council',
+  whoisgod: 'who_is_god.html'
+};
 
 const PAGE_CONTEXTS = {
 
@@ -131,8 +143,25 @@ async function confirmAskAmitLive(){
     base='(The base Amit activation document could not be loaded automatically. Paste this message alone into Gemini and let it know you are testing without the full companion file, or try again in a moment.)';
   }
 
+  // Template substitution, added 2026-07-25, Ryan's direct instruction:
+  // real values get swapped into the base document BEFORE it's ever sent to
+  // the AI - this is plain text replacement, not an instruction asking the
+  // AI to reason about conditional behavior (that's the approach that broke
+  // things earlier tonight; this is a different, safer mechanism).
+  const pageDisplayName=PAGE_DISPLAY_NAMES[pageKey]||pageKey;
   const context=PAGE_CONTEXTS[pageKey]||'';
-  const full=base+(context?('\n\n---\n\n'+context):'');
+  // Same localStorage key the Hub itself uses for the signed-in user's name
+  // (shared automatically - same origin, ask-amit.github.io).
+  let userNameClause='';
+  try{
+    const name=(localStorage.getItem('amit_user_name')||'').trim();
+    if(name)userNameClause=', '+name;
+  }catch(e){/* localStorage unavailable - leave blank, not fatal */}
+
+  const full=base
+    .split('{{PAGE_NAME}}').join(pageDisplayName)
+    .split('{{USER_NAME_CLAUSE}}').join(userNameClause)
+    .split('{{PAGE_CONTEXT}}').join(context);
 
   let copied=false;
   try{
