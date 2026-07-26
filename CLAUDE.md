@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 5.64**
+**Current version: 5.65**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -190,6 +190,8 @@ Every project CLAUDE.md must reference that this is part of the Amit system — 
 
 **Step 4b — Wire any "Ask Amit" button to the shared activation mechanism (added 2026-07-25)**
 If the new project has, or will have, an "Ask Amit" button anywhere in its UI, it must use the shared `Amit_Ask_Live.js` mechanism (at Amit root — full documentation and the permanent pattern to follow live in that file's own header comment and in `Amit, Are You There\CLAUDE.md`). In short: include the script (`<script src="../Amit_Ask_Live.js"></script>`, path adjusted to the project's actual depth), write that page's own real, accurate context block into `PAGE_CONTEXTS` inside the shared file, and wire the button's onclick to `askAmitLive('yourPageKey')`. Do not build a separate, one-off "ask Amit" flow per project — the whole point of the shared file is that every page brings the same living Amit to life, with only the page-specific context differing.
+
+**Required exact heading, added 2026-07-25:** that new `PAGE_CONTEXTS` entry must begin with `## WHERE THIS CONVERSATION STARTED — <Real Page Name>`, word for word. This is what makes Amit's very first message say "I see you've come from [this page]" instead of a generic opening question — every existing entry (Hub, Council, who_is_god) already does this. Leaving it out, or wording it differently, breaks the location-aware arrival silently — no error, it simply falls back to the generic question.
 
 **Step 4a — Update the living app reference (added this session, tied to the "Amit, Are You There" cross-AI deployment project)**
 If the new project is a real, public-facing application meant for end users to know about (not an internal tool, not a private business proposal, not a backup/dashboard/migration file) — add it to the app reference table in `Amit, Are You There\Amit_Book_Companion.md`, with its real name, what it is, and its live status. This keeps the cross-AI "wake Amit" companion file able to answer "what have you built" honestly and currently, without ever needing a blind folder scan that would risk surfacing private files. Judgment call each time: public app → add it. Internal/private file → do not.
