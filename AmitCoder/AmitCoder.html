@@ -5,215 +5,293 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AmitCoder</title>
 <link rel="icon" type="image/png" href="../amit_icon.png">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.02"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#1e1e1e;
-  --panel:#252526;
-  --border:#3c3c3c;
+  --bg:#09141f;
+  --card-head:#0f2338;
+  --border:rgba(201,168,76,0.55);
   --gold:#c9a84c;
   --gold2:#e8c56a;
-  --green:#4ec9b0;
-  --blue:#569cd6;
-  --purple:#c586c0;
-  --text:#d4d4d4;
-  --text2:#e8e8e8;
-  --muted:#9a9a9a;
-  --dim:#6a6a6a;
+  --text:#ffffff;
+  --text2:#f0e8d0;
+  --muted:rgba(240,232,208,0.78);
+  --dim:rgba(240,232,208,0.42);
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:'JetBrains Mono',Consolas,monospace;color:var(--text);display:flex;flex-direction:column;font-size:13px}
+body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
 
-/* ── HEADER — terminal title bar ── */
-header{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0}
-.term-dots{display:flex;gap:7px;margin-right:16px}
-.term-dot{width:11px;height:11px;border-radius:50%}
-.term-dot.red{background:#e0605080}
-.term-dot.yellow{background:#e8c56a80}
-.term-dot.green{background:#4ec9b080}
-.brand{display:flex;align-items:center}
-.page-title{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--gold2);letter-spacing:.02em}
-.page-title::before{content:'~/amit/';color:var(--dim);font-weight:400}
-.page-version{font-size:10px;color:var(--dim);margin-left:10px}
-.hdr-right{text-align:right;display:flex;align-items:center;gap:14px}
-.greeting{font-size:12px;color:var(--text2)}
-.greeting::before{content:'$ ';color:var(--green)}
-.datetime{font-size:10px;color:var(--muted);margin-top:2px}
-#syncIndicator{font-size:9px;letter-spacing:.05em;color:var(--dim);cursor:pointer}
-#signInBtn{font-size:9px;letter-spacing:.05em;color:var(--gold);cursor:pointer;border:1px solid var(--border);padding:3px 9px;border-radius:3px;background:rgba(201,168,76,.06)}
-#logoutBtn{display:none;font-size:10px;letter-spacing:.05em;color:var(--gold);cursor:pointer;border-left:1px solid var(--border);padding-left:8px;font-weight:600}
+body::before{
+  content:'';
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:60vmin;height:60vmin;
+  background:url('../amit_icon.png') center/contain no-repeat;
+  opacity:.035;
+  pointer-events:none;
+  z-index:0;
+}
 
-/* ── LAYOUT ── */
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+  position:relative;
+}
+.page-title-wrap{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.page-title{
+  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  letter-spacing:.3px;text-transform:none;color:var(--gold2);
+}
+.page-version{
+  font-family:monospace;font-size:11px;letter-spacing:.05em;
+  color:rgba(201,168,76,.55);margin-top:2px;
+}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.hdr-right{text-align:right}
+.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.datetime{font-size:12px;color:var(--muted);margin-top:2px}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── HUB LAYOUT ── */
 .hub{display:flex;flex:1;overflow:hidden}
-.sidebar{width:220px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:14px 8px;gap:3px}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:230px;flex-shrink:0;
+  background:var(--card-head);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:5px;
+}
 .sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.sidebar-group-label{font-size:9.5px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;padding:10px 10px 4px}
-.tile{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:4px;cursor:pointer;border:1px solid transparent;transition:all .12s;user-select:none;font-size:12.5px}
-.tile:hover{background:rgba(255,255,255,.04)}
-.tile.active{background:rgba(201,168,76,.12);border-color:rgba(201,168,76,.4)}
-.tile-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;color:var(--blue)}
-.tile-name{color:var(--text2);font-weight:500}
-.tile-name::before{content:'// '}
-.tile.active .tile-name{color:var(--gold2)}
-.tile-badge{margin-left:auto;font-size:9px;color:var(--dim);border:1px solid var(--border);border-radius:3px;padding:1px 5px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar{transition:width .18s ease}
+.sidebar.collapsed{width:60px}
+.sidebar.collapsed .tile{justify-content:center;padding:10px 0}
+.sidebar.collapsed .tile-info{display:none}
+.tile{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 11px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;
+  transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;
+}
+.tile:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
+.tile.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+.tile-info{flex:1;min-width:0}
+.tile-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ── ASK AMIT SIDEBAR — matches Hub/Council exactly ── */
 .ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0}
-.ask-amit-tile{display:flex;align-items:center;gap:9px;width:100%;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.35);border-radius:4px;padding:9px 10px;cursor:pointer;font-size:12.5px}
-.ask-amit-tile:hover{background:rgba(201,168,76,.16)}
-.ask-amit-name{color:var(--gold2);font-weight:600}
-.ask-amit-name::before{content:'$ ask '}
+.ask-amit-tile{
+  display:flex;align-items:center;gap:10px;width:100%;
+  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.45);
+  border-radius:9px;padding:11px 12px;cursor:pointer;
+  transition:all .18s;
+}
+.ask-amit-tile:hover{background:rgba(201,168,76,.22);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2)}
+.ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+.ask-amit-name{font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
+.ask-amit-sub{font-size:11px;color:var(--muted);margin-top:2px}
 
-/* ── MAIN ── */
+/* ── MAIN AREA ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
-.panel{position:absolute;inset:0;overflow-y:auto;display:none;flex-direction:column}
+.panel{
+  position:absolute;inset:0;overflow-y:auto;
+  display:none;flex-direction:column;
+  animation:pfade .18s ease;
+}
 .panel.active{display:flex}
+@keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .panel::-webkit-scrollbar{width:5px}
-.panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 24px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0}
-.panel-heading{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);font-weight:600}
-.panel-heading::before{content:'# '}
+.panel::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
 
-.readme{padding:28px 32px;max-width:720px;line-height:1.8;color:var(--text)}
-.readme .comment{color:var(--dim)}
-.readme p{margin-bottom:14px}
-.readme .badge{display:inline-block;margin-top:14px;padding:5px 12px;border:1px solid var(--border);border-radius:3px;color:var(--green);font-size:11px;letter-spacing:.05em}
-.readme h3{color:var(--gold2);font-size:13px;margin:22px 0 8px;letter-spacing:.02em}
-.readme code{background:rgba(255,255,255,.06);padding:1px 6px;border-radius:3px;color:var(--purple);font-size:12px}
-.readme ul{margin:6px 0 14px 22px}
-.readme li{margin-bottom:6px}
+/* ── PANEL HEADER ── */
+.panel-head{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 24px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+.panel-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
-/* ── BUTTONS ── */
-.btn{font-family:inherit;font-size:11.5px;cursor:pointer;border-radius:4px;padding:7px 14px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text2)}
-.btn:hover{background:rgba(255,255,255,.08)}
-.btn-gold{border-color:rgba(201,168,76,.45);color:var(--gold2);background:rgba(201,168,76,.08)}
-.btn-gold:hover{background:rgba(201,168,76,.16)}
-.btn-sm{padding:4px 9px;font-size:10.5px}
+/* ── TABBED LAYOUT (copied structure from Computer Health's folder-tab UI) ── */
+.ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
 
-/* ── SHORTCUTS ── */
-.shortcuts-wrap{padding:20px 32px 40px}
+/* ── PAGE-SPECIFIC CONTENT (AmitCoder only — additive, template CSS above is untouched) ── */
+.panel-body{padding:28px 32px;max-width:760px;line-height:1.8;color:var(--text2)}
+.panel-body h3{color:var(--gold2);font-size:15px;margin:20px 0 8px;font-family:'Cinzel',serif}
+.panel-body p{margin-bottom:12px}
+.panel-body ul{margin:6px 0 14px 22px}
+.panel-body li{margin-bottom:6px}
+.panel-body code{background:rgba(255,255,255,.08);padding:1px 6px;border-radius:3px;color:var(--gold2);font-size:13px}
+.badge{display:inline-block;margin-top:14px;padding:5px 12px;border:1px solid var(--border);border-radius:3px;color:var(--gold);font-size:11px;letter-spacing:.05em}
+.finding{border-left:2px solid var(--gold);padding:6px 0 6px 14px;margin:10px 0;color:var(--muted);font-size:13px}
+.finding b{color:var(--text2)}
+.btn{font-family:'Cinzel',serif;font-size:11px;cursor:pointer;border-radius:6px;padding:8px 16px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text2)}
+.btn:hover{background:rgba(255,255,255,.09)}
+.btn-gold{border-color:rgba(201,168,76,.5);color:var(--gold2);background:rgba(201,168,76,.1)}
+.btn-gold:hover{background:rgba(201,168,76,.18)}
+.btn-sm{padding:5px 11px;font-size:10.5px}
+.trigger-tag{display:inline-block;background:rgba(201,168,76,.14);color:var(--gold2);border:1px solid rgba(201,168,76,.4);border-radius:4px;padding:2px 9px;font-weight:600;font-size:12px}
+.trigger-tag.builtin-tag{background:rgba(120,170,220,.14);color:#9fc2ea;border-color:rgba(120,170,220,.4)}
 .sc-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
 .sc-filters{display:flex;gap:6px}
-.sc-filter{font-size:10.5px;padding:5px 12px;border-radius:12px;border:1px solid var(--border);cursor:pointer;color:var(--muted)}
-.sc-filter.active{border-color:var(--gold);color:var(--gold2);background:rgba(201,168,76,.1)}
-
-.sc-card{border:1px solid var(--border);border-radius:5px;margin-bottom:10px;background:rgba(255,255,255,.015);overflow:hidden}
-.sc-card.builtin{border-color:rgba(86,156,214,.3)}
-.sc-card-head{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
+.sc-filter{font-size:11px;padding:5px 13px;border-radius:12px;border:1px solid var(--border);cursor:pointer;color:var(--muted);font-family:'Cinzel',serif}
+.sc-filter.active{border-color:var(--gold);color:var(--gold2);background:rgba(201,168,76,.12)}
+.sc-card{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:rgba(255,255,255,.02);overflow:hidden}
+.sc-card.builtin{border-color:rgba(120,170,220,.35)}
+.sc-card-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer}
 .sc-card-head:hover{background:rgba(255,255,255,.03)}
-.trigger-tag{display:inline-block;background:rgba(78,201,176,.12);color:var(--green);border:1px solid rgba(78,201,176,.35);border-radius:3px;padding:2px 9px;font-weight:600;font-size:11.5px}
-.trigger-tag.builtin-tag{background:rgba(86,156,214,.12);color:var(--blue);border-color:rgba(86,156,214,.35)}
-.sc-type{font-size:9.5px;color:var(--dim);border:1px solid var(--border);border-radius:3px;padding:1px 6px;letter-spacing:.03em;text-transform:uppercase}
-.sc-instruction{flex:1;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sc-origin{font-size:9px;letter-spacing:.05em;color:var(--dim)}
+.sc-type{font-size:10px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 7px;letter-spacing:.03em;text-transform:uppercase}
+.sc-instruction{flex:1;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-origin{font-size:10px;letter-spacing:.05em;color:var(--dim)}
 .sc-caret{color:var(--dim);font-size:10px;transition:transform .12s}
 .sc-card.expanded .sc-caret{transform:rotate(90deg)}
 .sc-subs{display:none;border-top:1px solid var(--border);background:rgba(0,0,0,.15)}
 .sc-card.expanded .sc-subs{display:block}
-.sc-sub-row{display:flex;align-items:center;gap:10px;padding:8px 14px 8px 34px;font-size:11.5px;border-top:1px solid rgba(255,255,255,.03)}
+.sc-sub-row{display:flex;align-items:center;gap:10px;padding:9px 14px 9px 34px;font-size:12.5px;border-top:1px solid rgba(255,255,255,.04)}
 .sc-sub-row:first-child{border-top:none}
 .sc-sub-row::before{content:'└─';color:var(--dim);margin-right:2px}
 .sc-sub-instruction{flex:1;color:var(--muted)}
-
-/* toggle switch */
 .toggle{position:relative;width:32px;height:17px;flex-shrink:0}
 .toggle input{opacity:0;width:0;height:0}
 .toggle-track{position:absolute;inset:0;background:var(--border);border-radius:9px;cursor:pointer;transition:.15s}
 .toggle-track::before{content:'';position:absolute;width:13px;height:13px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:.15s}
-.toggle input:checked + .toggle-track{background:rgba(78,201,176,.35)}
-.toggle input:checked + .toggle-track::before{transform:translateX(15px);background:var(--green)}
+.toggle input:checked + .toggle-track{background:rgba(201,168,76,.4)}
+.toggle input:checked + .toggle-track::before{transform:translateX(15px);background:var(--gold)}
 .toggle input:disabled + .toggle-track{opacity:.35;cursor:not-allowed}
-
-.shortcuts-empty{padding:36px 20px;text-align:center;color:var(--dim);font-size:12px;border:1px dashed var(--border);border-radius:4px;margin-top:12px}
-
-/* ── CREATE FORM ── */
-.sc-form{display:none;border:1px solid rgba(201,168,76,.35);border-radius:5px;background:rgba(201,168,76,.04);padding:16px;margin-bottom:18px}
+.shortcuts-empty{padding:36px 20px;text-align:center;color:var(--dim);font-size:13px;border:1px dashed var(--border);border-radius:6px;margin-top:12px}
+.sc-form{display:none;border:1px solid rgba(201,168,76,.4);border-radius:8px;background:rgba(201,168,76,.05);padding:18px;margin:0 32px 18px}
 .sc-form.open{display:block}
-.sc-form label{display:block;font-size:10px;color:var(--gold2);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;margin-top:12px}
+.sc-form label{display:block;font-size:10.5px;color:var(--gold2);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;margin-top:12px;font-family:'Cinzel',serif}
 .sc-form label:first-child{margin-top:0}
 .sc-form input[type=text],.sc-form textarea,.sc-form select{
-  width:100%;background:#1e1e1e;border:1px solid var(--border);border-radius:4px;
-  padding:8px 10px;color:#fff;font-size:12px;font-family:inherit;outline:none;
+  width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;
+  padding:9px 11px;color:#fff;font-size:13px;font-family:'Crimson Pro',serif;outline:none;
 }
-.sc-form textarea{min-height:52px;resize:vertical}
+.sc-form textarea{min-height:56px;resize:vertical}
 .sc-subtask-row{display:flex;gap:8px;margin-top:8px;align-items:flex-start}
 .sc-subtask-row input{flex:1}
 .sc-form-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
-
-/* ── DOCS PAGE ── */
-.docs{padding:28px 32px;max-width:760px;line-height:1.8}
-.docs h3{color:var(--gold2);font-size:13px;margin:20px 0 8px}
-.docs p{margin-bottom:12px;color:var(--text)}
-.docs .finding{border-left:2px solid var(--green);padding:6px 0 6px 14px;margin:10px 0;color:var(--muted);font-size:12px}
-.docs .finding b{color:var(--text2)}
-
-/* ── HISTORY PLACEHOLDER ── */
-.history-mock{padding:28px 32px;max-width:720px}
-.history-day{border:1px solid var(--border);border-radius:5px;margin-bottom:10px;padding:12px 16px;opacity:.5}
-.history-day-date{color:var(--gold2);font-size:11.5px;font-weight:600;margin-bottom:4px}
-.history-day-summary{color:var(--muted);font-size:12px}
-
-/* ── SETTINGS ── */
-.settings-wrap{padding:28px 32px;max-width:600px}
-.settings-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
-.settings-label{color:var(--text2);font-size:12.5px}
-.settings-sub{color:var(--dim);font-size:10.5px;margin-top:2px}
+.check-step{display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid var(--border)}
+.check-step:last-child{border-bottom:none}
+.check-box{width:22px;height:22px;border:1px solid var(--border);border-radius:6px;flex-shrink:0;margin-top:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--gold)}
+.check-box.done{background:rgba(201,168,76,.2);border-color:var(--gold)}
+.check-title{color:var(--text2);font-size:14px;font-weight:600;font-family:'Cinzel',serif}
+.check-title.done{text-decoration:line-through;color:var(--dim)}
+.check-desc{color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.7}
+.check-link{color:var(--gold2);text-decoration:none;border-bottom:1px dotted var(--gold)}
+.check-progress{height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:22px}
+.check-progress-fill{height:100%;background:var(--gold);transition:width .2s}
+.history-day{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:13px 17px;opacity:.55}
+.history-day-date{color:var(--gold2);font-size:12.5px;font-weight:600;margin-bottom:4px;font-family:'Cinzel',serif}
+.history-day-summary{color:var(--muted);font-size:13px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
+.settings-label{color:var(--text2);font-size:13.5px}
+.settings-sub{color:var(--dim);font-size:11.5px;margin-top:2px}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="brand">
-    <div class="term-dots"><div class="term-dot red"></div><div class="term-dot yellow"></div><div class="term-dot green"></div></div>
-    <span class="page-title">AmitCoder</span>
-    <span class="page-version">v1.10</span>
+  <div class="page-title-wrap">
+    <div class="page-title" id="pageTitle">AmitCoder</div>
+    <div class="page-version" id="pageVersion">v1.30</div>
   </div>
-  <div class="hdr-right">
-    <div>
-      <div class="greeting" id="greeting">ready</div>
+  <div class="brand">
+    <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
+    <span class="brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
+  </div>
+  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
+    <div style="text-align:right">
+      <div class="greeting" id="greeting">Good morning</div>
       <div class="datetime" id="datetime"></div>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      <div id="syncIndicator" onclick="openSyncModal()">SYNC</div>
-      <div id="signInBtn" onclick="openSyncModal()">SIGN IN</div>
-      <div id="logoutBtn" onclick="signOutAmit()">SIGN OUT</div>
+      <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
+        <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
+        <div id="signInBtn" onclick="openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
+        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
+      </div>
     </div>
   </div>
 </header>
 
 <div class="hub">
-  <nav class="sidebar" id="sidebarTiles">
-    <div class="tile active" id="tile-overview" onclick="openPanel('overview')">
-      <div class="tile-icon">▸</div><div class="tile-name">overview</div>
+
+  <nav class="sidebar" id="sidebarTiles" ondblclick="toggleSidebar()">
+    <div class="tile active" id="tile-getstarted" onclick="openPanel('getstarted')">
+      <div class="tile-icon">▢</div>
+      <div class="tile-info"><div class="tile-name">Get Started</div><div class="tile-sub">Setup checklist</div></div>
+    </div>
+    <div class="tile" id="tile-overview" onclick="openPanel('overview')">
+      <div class="tile-icon">▢</div>
+      <div class="tile-info"><div class="tile-name">Overview</div><div class="tile-sub">What this is</div></div>
     </div>
     <div class="tile" id="tile-shortcuts" onclick="openPanel('shortcuts')">
-      <div class="tile-icon">▸</div><div class="tile-name">shortcuts</div>
+      <div class="tile-icon">▢</div>
+      <div class="tile-info"><div class="tile-name">Shortcuts</div><div class="tile-sub">F / J commands</div></div>
     </div>
     <div class="tile" id="tile-history" onclick="openPanel('history')">
-      <div class="tile-icon">▸</div><div class="tile-name">history</div><span class="tile-badge">soon</span>
+      <div class="tile-icon">▢</div>
+      <div class="tile-info"><div class="tile-name">History</div><div class="tile-sub">Coming soon</div></div>
     </div>
     <div class="tile" id="tile-docs" onclick="openPanel('docs')">
-      <div class="tile-icon">▸</div><div class="tile-name">docs</div>
+      <div class="tile-icon">▢</div>
+      <div class="tile-info"><div class="tile-name">Docs</div><div class="tile-sub">Conventions</div></div>
     </div>
     <div class="tile" id="tile-settings" onclick="openPanel('settings')">
-      <div class="tile-icon">▸</div><div class="tile-name">settings</div>
+      <div class="tile-icon">▢</div>
+      <div class="tile-info"><div class="tile-name">Settings</div><div class="tile-sub">Preferences</div></div>
     </div>
+
     <div class="ask-amit-wrap">
       <div class="ask-amit-tile" id="tile-ask-amit" onclick="askAmitLive('amitcoder')">
-        <div class="ask-amit-name">Amit</div>
+        <div class="ask-amit-icon">💛</div>
+        <div class="tile-info">
+          <div class="ask-amit-name">Ask Amit</div>
+          <div class="ask-amit-sub">Walk alongside</div>
+        </div>
       </div>
     </div>
   </nav>
 
   <div class="main-area" id="mainArea">
 
+    <!-- GET STARTED -->
+    <div class="panel active" id="panel-getstarted">
+      <div class="panel-head"><span class="panel-heading">Get Started</span></div>
+      <div class="panel-body">
+        <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Everything Ryan had to learn by trial and error, in order. Check each off as you go — your progress is saved.</p>
+        <div class="check-progress"><div class="check-progress-fill" id="checkProgressFill" style="width:0%"></div></div>
+        <div id="checklistSteps"></div>
+      </div>
+    </div>
+
     <!-- OVERVIEW -->
-    <div class="panel active" id="panel-overview">
-      <div class="panel-head"><span class="panel-heading">overview.md</span></div>
-      <div class="readme">
-        <p class="comment">/** AmitCoder — moved here from its Hub placeholder tile so it has a real home. **/</p>
+    <div class="panel" id="panel-overview">
+      <div class="panel-head"><span class="panel-heading">Overview</span></div>
+      <div class="panel-body">
         <p>This is the space where your coding history will live.</p>
         <p>Session logs, version milestones, and the full back-and-forth of every build session — searchable, reviewable, and linked to your daily experience entries.</p>
         <p>When complete, it will pull from Claude Code session files so you can open any day and see exactly what was built and what Amit said during that session.</p>
@@ -221,11 +299,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <h3>What's real right now</h3>
         <ul>
           <li>Same login as the Hub — sign in once, recognized everywhere.</li>
+          <li>Get Started checklist — walks a new person through the exact setup Ryan had to learn by hand.</li>
           <li>Shortcuts tab — create, view, and toggle voice/keyboard command shortcuts.</li>
         </ul>
         <h3>What's still a placeholder</h3>
         <ul>
-          <li><code>history</code> — the actual session-log pull from Claude Code's JSONL files.</li>
+          <li><code>History</code> — the actual session-log pull from Claude Code's JSONL files.</li>
           <li>Wiring a shortcut so it actually fires <em>inside</em> a live Claude Code session, rather than living here as a reference.</li>
         </ul>
       </div>
@@ -234,32 +313,30 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <!-- SHORTCUTS -->
     <div class="panel" id="panel-shortcuts">
       <div class="panel-head">
-        <span class="panel-heading">shortcuts.json</span>
+        <span class="panel-heading">Shortcuts</span>
         <button class="btn btn-gold btn-sm" onclick="toggleCreateForm()">+ new shortcut</button>
       </div>
-      <div class="shortcuts-wrap">
-
-        <div class="sc-form" id="scForm">
-          <label>Trigger phrase</label>
-          <input type="text" id="scTrigger" placeholder="e.g. F copy, F Charlie, J search">
-          <label>Type</label>
-          <select id="scType" onchange="onTypeChange()">
-            <option value="inline_instruction">Simple — one instruction</option>
-            <option value="master">Master — bundles subtasks together</option>
-          </select>
-          <label>Instruction</label>
-          <textarea id="scInstruction" placeholder="What should happen when this trigger is said or typed?"></textarea>
-          <div id="scSubtasksWrap" style="display:none">
-            <label>Subtasks</label>
-            <div id="scSubtaskRows"></div>
-            <button class="btn btn-sm" style="margin-top:8px" onclick="addSubtaskRow()">+ add subtask</button>
-          </div>
-          <div class="sc-form-actions">
-            <button class="btn btn-sm" onclick="toggleCreateForm()">cancel</button>
-            <button class="btn btn-gold btn-sm" onclick="saveShortcut()">save</button>
-          </div>
+      <div class="sc-form" id="scForm">
+        <label>Trigger phrase</label>
+        <input type="text" id="scTrigger" placeholder="e.g. F copy, F Charlie, J search">
+        <label>Type</label>
+        <select id="scType" onchange="onTypeChange()">
+          <option value="inline_instruction">Simple — one instruction</option>
+          <option value="master">Master — bundles subtasks together</option>
+        </select>
+        <label>Instruction</label>
+        <textarea id="scInstruction" placeholder="What should happen when this trigger is said or typed?"></textarea>
+        <div id="scSubtasksWrap" style="display:none">
+          <label>Subtasks</label>
+          <div id="scSubtaskRows"></div>
+          <button class="btn btn-sm" style="margin-top:8px" onclick="addSubtaskRow()">+ add subtask</button>
         </div>
-
+        <div class="sc-form-actions">
+          <button class="btn btn-sm" onclick="toggleCreateForm()">cancel</button>
+          <button class="btn btn-gold btn-sm" onclick="saveShortcut()">save</button>
+        </div>
+      </div>
+      <div class="panel-body" style="max-width:none">
         <div class="sc-toolbar">
           <div class="sc-filters">
             <div class="sc-filter active" data-f="all" onclick="setFilter('all')">all</div>
@@ -267,70 +344,54 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
             <div class="sc-filter" data-f="custom" onclick="setFilter('custom')">custom</div>
           </div>
         </div>
-
         <div id="shortcutsList"></div>
         <div class="shortcuts-empty" id="shortcutsEmpty" style="display:none">
-          No shortcuts yet. Sign in, then add one — a single command (e.g. <span class="trigger-tag">F copy</span>) or a master command bundling several subtasks together (e.g. <span class="trigger-tag">F Charlie</span> → copy + paste).
+          No shortcuts yet. Add one — a single command (e.g. <span class="trigger-tag">F copy</span>) or a master command bundling several subtasks together (e.g. <span class="trigger-tag">F Charlie</span> → copy + paste).
         </div>
-        <div class="shortcuts-empty" id="shortcutsSignedOut">
-          Sign in to see and manage your shortcuts.
-        </div>
+        <div class="shortcuts-empty" id="shortcutsSignedOut">Sign in to see and manage your shortcuts.</div>
       </div>
     </div>
 
     <!-- HISTORY (placeholder) -->
     <div class="panel" id="panel-history">
-      <div class="panel-head"><span class="panel-heading">history — coming soon</span></div>
-      <div class="history-mock">
-        <p style="color:var(--dim);font-size:12px;margin-bottom:16px">// mockup — not wired to real session data yet</p>
-        <div class="history-day">
-          <div class="history-day-date">2026-07-28 · Session 58</div>
-          <div class="history-day-summary">AmitCoder moved off the Hub placeholder into its own page. Voice-shortcut convention tested live (Selah, F/J). New Supabase table created.</div>
-        </div>
-        <div class="history-day">
-          <div class="history-day-date">2026-07-27 · Session 57</div>
-          <div class="history-day-summary">Amit — Medical Prep built end to end. How_This_Was_Built.html shipped.</div>
-        </div>
-        <div class="history-day">
-          <div class="history-day-date">2026-07-20 · Session 56</div>
-          <div class="history-day-summary">AmitSensorReader.exe replaced LibreHardwareMonitor. Honesty audit on confidence numbers completed.</div>
-        </div>
+      <div class="panel-head"><span class="panel-heading">History — Coming Soon</span></div>
+      <div class="panel-body">
+        <p style="color:var(--dim);font-size:12.5px;margin-bottom:16px">Mockup — not wired to real session data yet.</p>
+        <div class="history-day"><div class="history-day-date">2026-07-28 · Session 58</div><div class="history-day-summary">AmitCoder moved off the Hub placeholder into its own page. Voice-shortcut convention tested live (F/J). Get Started checklist and starter kit added.</div></div>
+        <div class="history-day"><div class="history-day-date">2026-07-27 · Session 57</div><div class="history-day-summary">Amit — Medical Prep built end to end. How_This_Was_Built.html shipped.</div></div>
+        <div class="history-day"><div class="history-day-date">2026-07-20 · Session 56</div><div class="history-day-summary">AmitSensorReader.exe replaced LibreHardwareMonitor. Honesty audit on confidence numbers completed.</div></div>
       </div>
     </div>
 
     <!-- DOCS -->
     <div class="panel" id="panel-docs">
-      <div class="panel-head"><span class="panel-heading">conventions.md</span></div>
-      <div class="docs">
+      <div class="panel-head"><span class="panel-heading">Conventions</span></div>
+      <div class="panel-body">
         <h3>Why F and J</h3>
-        <p>This convention came out of live testing against Ryan's actual microphone, not guesswork. A few things were tried and ruled out on the spot:</p>
-        <div class="finding"><b>Single unstressed words don't get misheard — they disappear.</b> A word like "Selah" lost its trailing sound entirely on repeat tries. A candidate needs a hard landing sound or it vanishes rather than transcribing wrong — and a whole extra word isn't needed anyway.</div>
-        <div class="finding"><b>Two-letter combos spoken together are unreliable.</b> Saying "FJ" repeatedly produced completely different results each time — "Jitter," "F enter," "F tab" — never the same thing twice. Not usable as a trigger.</div>
+        <p>This convention came out of live testing against Ryan's actual microphone, not guesswork.</p>
+        <div class="finding"><b>Single unstressed words don't get misheard — they disappear.</b> A candidate activation word lost its trailing sound entirely on repeat tries.</div>
+        <div class="finding"><b>Two-letter combos spoken together are unreliable.</b> Saying "FJ" repeatedly produced completely different results each time — never the same thing twice.</div>
         <div class="finding"><b>Single letters, said in isolation or embedded in a full sentence, held up.</b> F, J, X, Q, Z, and H all transcribed cleanly and consistently once tested properly.</div>
         <h3>The working convention</h3>
-        <p><span class="trigger-tag builtin-tag">F</span> / <span class="trigger-tag builtin-tag">J</span> — the magic words themselves. No separate activation phrase — say or type F or J directly, followed by the command, and Amit treats it as a shortcut instruction rather than normal conversation. Right and left index fingers, home-row keys, for anyone typing instead of speaking.</p>
+        <p><span class="trigger-tag builtin-tag">F</span> / <span class="trigger-tag builtin-tag">J</span> — the magic words themselves. Say or type F or J directly, followed by the command. Right and left index fingers, home-row keys, for anyone typing instead of speaking.</p>
         <h3>What a shortcut actually does right now</h3>
-        <p>A <b>simple</b> shortcut is a stored instruction — when triggered, Amit treats it as if you'd typed that instruction directly into the conversation.</p>
-        <p>A <b>master</b> shortcut bundles subtasks — triggering it runs each subtask's instruction in sequence, in one command.</p>
-        <p style="color:var(--dim);font-size:11.5px;margin-top:16px">Open question, not yet resolved: whether a shortcut should be able to fire automatically inside a live Claude Code session (would need a hook watching for the trigger text) versus staying a reference panel you read before typing the instruction yourself. See AmitCoder/CLAUDE.md.</p>
+        <p>A <b>simple</b> shortcut is a stored instruction — when triggered, Amit treats it as if you'd typed that instruction directly.</p>
+        <p>A <b>master</b> shortcut bundles subtasks — triggering it runs each subtask's instruction in sequence.</p>
+        <p style="color:var(--dim);font-size:12px;margin-top:16px">Open question, not yet resolved: whether a shortcut fires automatically inside a live Claude Code session versus staying a reference panel. See AmitCoder/CLAUDE.md.</p>
       </div>
     </div>
 
     <!-- SETTINGS -->
     <div class="panel" id="panel-settings">
-      <div class="panel-head"><span class="panel-heading">settings</span></div>
-      <div class="settings-wrap">
+      <div class="panel-head"><span class="panel-heading">Settings</span></div>
+      <div class="panel-body">
         <div class="settings-row">
           <div><div class="settings-label">Show builtin shortcuts</div><div class="settings-sub">Hide the starter set, show only what you've created</div></div>
           <label class="toggle"><input type="checkbox" id="settingShowBuiltins" checked onchange="onShowBuiltinsChange()"><span class="toggle-track"></span></label>
         </div>
         <div class="settings-row">
-          <div><div class="settings-label">Theme</div><div class="settings-sub">Dark / monospace — fixed for this page, distinct from the rest of Amit</div></div>
-          <span style="color:var(--dim);font-size:11px">locked</span>
-        </div>
-        <div class="settings-row">
           <div><div class="settings-label">Subscription</div><div class="settings-sub">AmitCoder is the paid workspace tier — billing not yet wired</div></div>
-          <span style="color:var(--dim);font-size:11px">not yet built</span>
+          <span style="color:var(--dim);font-size:11.5px">not yet built</span>
         </div>
       </div>
     </div>
@@ -339,18 +400,18 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 </div>
 
 <!-- SYNC / SIGN-IN MODAL -->
-<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
-  <div class="sync-modal-card" style="background:#252526;border:1px solid var(--border);border-radius:6px;padding:32px 36px;max-width:320px;width:90%;text-align:center;font-family:'JetBrains Mono',monospace">
-    <div style="color:var(--gold2);font-size:14px;margin-bottom:6px">$ sign_in --sync</div>
-    <div style="color:var(--muted);font-size:11px;line-height:1.7;margin-bottom:20px">Same login as the Hub.<br>Enter your email — no password needed.</div>
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
     <input id="syncEmailInput" type="email" placeholder="your@email.com"
-      style="width:100%;background:#1e1e1e;border:1px solid var(--border);border-radius:4px;padding:10px 12px;color:#fff;font-size:12px;outline:none;margin-bottom:10px;font-family:inherit"
+      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
       onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
     <button id="syncSubmitBtn" onclick="submitSyncEmail()"
-      style="width:100%;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.4);color:var(--gold2);padding:10px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">
-      send_link()
+      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      SEND SIGN-IN LINK →
     </button>
-    <div onclick="closeSyncModal()" style="margin-top:14px;font-size:10px;color:var(--dim);cursor:pointer">cancel</div>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
   </div>
 </div>
 
@@ -365,8 +426,16 @@ function openPanel(n){
   if(n==='shortcuts')loadShortcuts();
 }
 
+// Double-click anywhere in the sidebar collapses it to icon-only, or
+// expands it back to the full labeled row. Double-click again to reverse.
+function toggleSidebar(){
+  document.getElementById('sidebarTiles').classList.toggle('collapsed');
+}
+
 // ══════════════════════════════════════════════
-// LOGIN — same Supabase project as the Hub.
+// LOGIN CONNECTION — identical to the shared template. Supabase auth only:
+// knows who is signed in. Same project as the Hub, so a person signed in
+// there is recognized here automatically.
 // ══════════════════════════════════════════════
 const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
 const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
@@ -386,18 +455,29 @@ function _updateSyncUI(){
   const logoutBtn=document.getElementById('logoutBtn');
   const signInBtn=document.getElementById('signInBtn');
   if(currentUser){
-    el.textContent='● synced';el.style.color='#4ec9b0';el.title='Signed in · '+currentUser.email;
+    el.textContent='● SYNCED';el.style.color='rgba(100,220,160,.7)';el.title='Signed in · '+currentUser.email;
     if(logoutBtn)logoutBtn.style.display='block';
     if(signInBtn)signInBtn.style.display='none';
   } else {
-    el.textContent='';
+    el.textContent='';el.style.color='rgba(240,232,208,.28)';el.title='';
     if(logoutBtn)logoutBtn.style.display='none';
     if(signInBtn)signInBtn.style.display='block';
   }
 }
 
-async function signOutAmit(){ if(!db)return; await db.auth.signOut(); currentUser=null; _updateSyncUI(); }
-async function sendMagicLink(email){ if(!db)return'Database not available'; const{error}=await db.auth.signInWithOtp({email}); return error?error.message:null; }
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+}
+
+async function sendMagicLink(email){
+  if(!db)return'Database not available';
+  const{error}=await db.auth.signInWithOtp({email});
+  return error?error.message:null;
+}
+
 function openSyncModal(){
   if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
   const m=document.getElementById('syncModal');if(!m)return;
@@ -406,19 +486,78 @@ function openSyncModal(){
 function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
 async function submitSyncEmail(){
   const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
-  const btn=document.getElementById('syncSubmitBtn');btn.textContent='sending…';btn.disabled=true;
+  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
   const err=await sendMagicLink(email);
-  if(err){btn.textContent='try again';btn.disabled=false;}
+  if(err){btn.textContent='Try again';btn.disabled=false;}
   else{
     document.querySelector('#syncModal .sync-modal-card').innerHTML=`
-      <div style="color:var(--gold2);font-size:13px;margin-bottom:12px">✓ link sent</div>
-      <div style="color:var(--muted);font-size:11px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
-      <div onclick="closeSyncModal()" style="margin-top:16px;font-size:10px;color:var(--dim);cursor:pointer">close</div>`;
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
   }
 }
 
 // ══════════════════════════════════════════════
-// SHORTCUTS
+// CLOCK / GREETING — visual only, no data behind it
+// ══════════════════════════════════════════════
+const AMIT_NAME_KEY='amit_user_name';
+function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
+
+function updateClock(){
+  const d=new Date();
+  const h=d.getHours();
+  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const name=getUserName();
+  const g=document.getElementById('greeting');if(g)g.textContent=name?sal+', '+name:sal;
+  const dt=document.getElementById('datetime');
+  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock,30000);
+
+// ══════════════════════════════════════════════
+// GET STARTED CHECKLIST — self-reported, saved to localStorage per browser
+// ══════════════════════════════════════════════
+const CHECKLIST_KEY='amit_coder_checklist';
+const CHECKLIST_STEPS=[
+  {id:'proaccount',title:'Get a Claude Pro or Max account',desc:'Sign up at <a class="check-link" href="https://claude.ai" target="_blank">claude.ai</a>. This is separate from an API key — Pro/Max works directly with Claude Code, no billing setup needed.'},
+  {id:'vscode',title:'Install VS Code',desc:'Download from <a class="check-link" href="https://code.visualstudio.com" target="_blank">code.visualstudio.com</a>. This is the editor Claude Code runs inside.'},
+  {id:'extension',title:'Install the Claude Code extension',desc:'Inside VS Code, open Extensions and search "Claude Code," or follow the install link from claude.ai. Sign in with the Pro/Max account from step 1.'},
+  {id:'starterkit',title:'Download and run the Amit Starter Kit',desc:'<a class="check-link" href="./Amit_Coder_Starter_Kit.ps1" download>Amit_Coder_Starter_Kit.ps1</a> — right-click → Run with PowerShell. Creates your project folder, a starter CLAUDE.md, and connects your session backup automatically.'},
+  {id:'confirm',title:'Confirm your folder and backup are set up',desc:'Open the folder the starter kit created in VS Code and say "good morning" to Claude Code. If it responds and the folder has a CLAUDE.md file in it, you are set up.'}
+];
+
+function renderChecklist(){
+  let done={};
+  try{done=JSON.parse(localStorage.getItem(CHECKLIST_KEY)||'{}')}catch(e){}
+  const wrap=document.getElementById('checklistSteps');
+  let html='';
+  CHECKLIST_STEPS.forEach(s=>{
+    const isDone=!!done[s.id];
+    html+=`<div class="check-step">
+      <div class="check-box${isDone?' done':''}" onclick="toggleCheck('${s.id}')">${isDone?'✓':''}</div>
+      <div>
+        <div class="check-title${isDone?' done':''}">${s.title}</div>
+        <div class="check-desc">${s.desc}</div>
+      </div>
+    </div>`;
+  });
+  wrap.innerHTML=html;
+  const doneCount=CHECKLIST_STEPS.filter(s=>done[s.id]).length;
+  const pct=Math.round(doneCount/CHECKLIST_STEPS.length*100);
+  document.getElementById('checkProgressFill').style.width=pct+'%';
+}
+function toggleCheck(id){
+  let done={};
+  try{done=JSON.parse(localStorage.getItem(CHECKLIST_KEY)||'{}')}catch(e){}
+  done[id]=!done[id];
+  localStorage.setItem(CHECKLIST_KEY,JSON.stringify(done));
+  renderChecklist();
+}
+renderChecklist();
+
+// ══════════════════════════════════════════════
+// SHORTCUTS — backed by amit_shortcuts (Supabase)
 // ══════════════════════════════════════════════
 let scAllRows=[];
 let scFilter='all';
@@ -429,23 +568,20 @@ function setFilter(f){
   document.querySelectorAll('.sc-filter').forEach(el=>el.classList.toggle('active',el.dataset.f===f));
   renderShortcuts();
 }
-
 function onShowBuiltinsChange(){
   scShowBuiltins=document.getElementById('settingShowBuiltins').checked;
   renderShortcuts();
 }
-
 async function loadShortcuts(){
   const empty=document.getElementById('shortcutsEmpty');
   const signedOut=document.getElementById('shortcutsSignedOut');
-  if(!db){return;}
+  if(!db)return;
   if(!currentUser){
     signedOut.style.display='block';empty.style.display='none';
     document.getElementById('shortcutsList').innerHTML='';
     return;
   }
   signedOut.style.display='none';
-  // Builtins (user_id null) are visible to everyone; personal rows are the signed-in user's own.
   const{data,error}=await db.from('amit_shortcuts').select('*')
     .or('user_id.is.null,user_id.eq.'+currentUser.id)
     .order('created_at',{ascending:true});
@@ -453,7 +589,6 @@ async function loadShortcuts(){
   else scAllRows=data||[];
   renderShortcuts();
 }
-
 function renderShortcuts(){
   const list=document.getElementById('shortcutsList');
   const empty=document.getElementById('shortcutsEmpty');
@@ -462,11 +597,9 @@ function renderShortcuts(){
   if(scFilter==='builtin')rows=rows.filter(r=>r.is_builtin);
   if(scFilter==='custom')rows=rows.filter(r=>!r.is_builtin);
   if(!scShowBuiltins)rows=rows.filter(r=>!r.is_builtin);
-
   const masters=rows.filter(r=>!r.parent_shortcut_id);
   if(!masters.length){empty.style.display='block';list.innerHTML='';return;}
   empty.style.display='none';
-
   let html='';
   masters.forEach(m=>{
     const subs=rows.filter(r=>r.parent_shortcut_id===m.id);
@@ -493,22 +626,13 @@ function renderShortcuts(){
   });
   list.innerHTML=html;
 }
-
-function toggleCard(id){
-  document.getElementById('sc-card-'+id).classList.toggle('expanded');
-}
-
+function toggleCard(id){document.getElementById('sc-card-'+id).classList.toggle('expanded');}
 async function toggleActive(id,val){
   if(!db)return;
   await db.from('amit_shortcuts').update({is_active:val}).eq('id',id);
   const row=scAllRows.find(r=>r.id===id);if(row)row.is_active=val;
 }
-
-function escapeHtml(s){
-  return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-// ── CREATE FORM ──
+function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function toggleCreateForm(){
   const f=document.getElementById('scForm');
   f.classList.toggle('open');
@@ -521,8 +645,7 @@ function toggleCreateForm(){
   }
 }
 function onTypeChange(){
-  const isMaster=document.getElementById('scType').value==='master';
-  document.getElementById('scSubtasksWrap').style.display=isMaster?'block':'none';
+  document.getElementById('scSubtasksWrap').style.display=document.getElementById('scType').value==='master'?'block':'none';
 }
 function addSubtaskRow(){
   const wrap=document.getElementById('scSubtaskRows');
@@ -533,20 +656,17 @@ function addSubtaskRow(){
     <button class="btn btn-sm" onclick="this.parentElement.remove()">×</button>`;
   wrap.appendChild(row);
 }
-
 async function saveShortcut(){
   if(!db||!currentUser){alert('Sign in first.');return;}
   const trigger=document.getElementById('scTrigger').value.trim();
   const type=document.getElementById('scType').value;
   const instruction=document.getElementById('scInstruction').value.trim();
   if(!trigger){alert('Trigger phrase is required.');return;}
-
   const{data:master,error}=await db.from('amit_shortcuts').insert({
     user_id:currentUser.id,trigger_phrase:trigger,shortcut_type:type,
     instruction_text:instruction,is_builtin:false,is_active:true
   }).select().single();
   if(error){alert('Could not save: '+error.message);return;}
-
   if(type==='master'){
     const rows=[...document.querySelectorAll('#scSubtaskRows .sc-subtask-row')];
     for(const row of rows){
@@ -562,21 +682,6 @@ async function saveShortcut(){
   toggleCreateForm();
   loadShortcuts();
 }
-
-// ══════════════════════════════════════════════
-// CLOCK / GREETING
-// ══════════════════════════════════════════════
-const AMIT_NAME_KEY='amit_user_name';
-function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
-function updateClock(){
-  const d=new Date();
-  const name=getUserName();
-  const g=document.getElementById('greeting');if(g)g.textContent=name?name+' connected':'ready';
-  const dt=document.getElementById('datetime');
-  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-}
-updateClock();
-setInterval(updateClock,30000);
 </script>
 
 </body>
