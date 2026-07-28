@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NREMT Paramedic</title>
-<script src="../Amit_Ask_Live.js?v=5.82"></script>
+<script src="../Amit_Ask_Live.js?v=5.87"></script>
 <!-- Favicon: the shared Amit emblem — every page across the Amit system uses
      this same icon (see Hub/amit-hub.html), not a one-off per app. -->
 <link rel="icon" type="image/png" href="../amit_icon.png">
@@ -36,10 +36,26 @@
   main{max-width:1080px;margin:0 auto;padding:26px 20px 60px;}
 
   /* HOME / MODE SELECT */
-  .modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:10px;}
+  .modes{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:10px;}
+  @media(max-width:560px){ .modes{grid-template-columns:1fr;} }
   .mode-card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--border);
-    border-radius:14px;padding:20px;cursor:pointer;transition:.15s;position:relative;overflow:hidden;}
+    border-radius:14px;padding:22px 22px 22px 62px;cursor:pointer;transition:.15s;position:relative;overflow:hidden;min-height:118px;}
   .mode-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  /* Unscoped on purpose — used both inside mode cards (absolute-positioned)
+     and inside the Final Exam banner (position overridden inline to static).
+     Was previously ".mode-card .seq-num" which silently never matched the
+     Final Exam banner's "5" badge since that badge isn't inside a mode card. */
+  .seq-num{position:absolute;left:16px;top:20px;width:34px;height:34px;border-radius:50%;cursor:pointer;
+    background:radial-gradient(circle at 35% 30%,#1c3d63,#0b1c2e);border:1px solid var(--blue);color:var(--blue);
+    font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;}
+  /* Miniature version used in the sequence sidebar, colored per step status */
+  .seq-num-mini{width:22px;height:22px;border-radius:50%;flex:0 0 auto;cursor:pointer;
+    background:radial-gradient(circle at 35% 30%,#1c3d63,#0b1c2e);border:1px solid currentColor;
+    font-weight:700;font-size:10.5px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;}
+  .seq-num-mini.status-blue{color:var(--blue);}
+  .seq-num-mini.status-yellow{color:var(--accent2);}
+  .seq-num-mini.status-red{color:var(--bad);}
+  .seq-num-mini.status-green{color:var(--good);}
   .mode-card .tag{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--accent2);font-weight:700;}
   .mode-card h3{margin:8px 0 6px;font-size:17px;}
   .mode-card p{color:var(--dim);font-size:12.5px;line-height:1.5;margin:0;}
@@ -154,6 +170,43 @@
     color:var(--blue);font-family:Georgia,serif;margin-top:2px;}
   .amit-steps{font-size:12.5px;line-height:1.65;color:#c9d6e6;margin-top:8px;}
 
+  /* HOME LAYOUT — sidebar + main content */
+  .home-layout{display:flex;gap:20px;align-items:flex-start;}
+  .home-sidebar{flex:0 0 270px;position:sticky;top:14px;}
+  .home-main{flex:1;min-width:0;}
+  @media(max-width:820px){ .home-layout{flex-direction:column;} .home-sidebar{position:static;width:100%;flex:none;} }
+
+  /* SEQUENCE PANEL — the recommended walkthrough */
+  .seq-panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;}
+  .seq-panel .seq-title{font-size:13px;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:6px;}
+  .seq-panel .seq-sub{font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:14px;}
+  .seq-step{border:1px solid var(--border);border-radius:10px;padding:12px 12px 12px 14px;margin-bottom:10px;cursor:pointer;
+    background:var(--panel2);position:relative;border-left-width:4px;transition:.15s;}
+  .seq-step:hover{border-color:var(--blue);}
+  .seq-step:last-child{margin-bottom:0;}
+  .seq-step-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .seq-step-label{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px;}
+  .seq-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 6px currentColor;}
+  .seq-dot.status-blue{background:var(--blue);color:var(--blue);}
+  .seq-dot.status-yellow{background:var(--accent2);color:var(--accent2);}
+  .seq-dot.status-red{background:var(--bad);color:var(--bad);}
+  .seq-dot.status-green{background:var(--good);color:var(--good);}
+  .seq-progress-text{font-size:10.5px;color:var(--dim);white-space:nowrap;min-width:66px;text-align:right;margin-left:auto;padding-left:8px;}
+  .seq-barwrap{height:5px;background:#0b0f14;border-radius:3px;margin-top:8px;overflow:hidden;}
+  .seq-bar{height:100%;transition:.3s;}
+  .seq-bar.status-blue{background:var(--blue);}
+  .seq-bar.status-yellow{background:var(--accent2);}
+  .seq-bar.status-red{background:var(--bad);}
+  .seq-bar.status-green{background:var(--good);}
+  .seq-sub-list{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:7px;}
+  .seq-sub-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#c9d6e6;
+    background:rgba(0,0,0,.15);border-radius:6px;padding:6px 9px;cursor:pointer;}
+  .seq-sub-row:hover{background:rgba(77,163,255,.1);}
+  .seq-goal-line{font-size:10.5px;color:var(--dim);margin-top:12px;padding-top:10px;border-top:1px solid var(--border);text-align:center;}
+  .seq-goal-line b{color:var(--text);}
+  .seq-goal-line.status-yellow b{color:var(--accent2);}
+  .seq-goal-line.status-red b{color:var(--bad);}
+
   /* TOAST ENCOURAGEMENT */
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);z-index:60;
     background:linear-gradient(135deg,#1c2a3d,#141d29);border:1px solid var(--accent2);border-radius:14px;
@@ -213,7 +266,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.85</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.88</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -226,6 +279,7 @@
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <button class="btn secondary" id="level-badge-btn" style="font-size:11.5px;padding:8px 14px;" onclick="openLevelOnboarding(true)">🎓 Set Your Level</button>
+    <button class="btn secondary" id="goal-badge-btn" style="font-size:11.5px;padding:8px 14px;" onclick="openGoalOnboarding(true)">⏳ Set Your Goal</button>
     <button class="btn secondary" style="font-size:11.5px;padding:8px 14px;" onclick="askAmitLive('medicalprep')">💬 Ask Amit</button>
     <button class="btn secondary" style="font-size:11.5px;padding:8px 14px;" onclick="openSaveModal()">📌 Before You Go</button>
   </div>
@@ -246,6 +300,24 @@
       <button class="btn" onclick="setLevelProfile('Medic')">Paramedic — I'm testing at the Paramedic level</button>
     </div>
     <button class="btn secondary" onclick="setLevelProfile('ALL')" style="width:100%;">Not sure yet — just show me everything</button>
+  </div>
+</div>
+
+<!-- GOAL TIMELINE — chained right after level selection. This is what
+     drives the traffic-light urgency on the sequence sidebar. -->
+<div class="modal-overlay" id="goal-modal">
+  <div class="modal-box" style="border-color:var(--accent2);max-width:420px;">
+    <div class="amit-mark" style="border-color:var(--accent2);color:var(--accent2);box-shadow:0 0 16px rgba(255,179,71,.4);">⏳</div>
+    <h2 style="color:var(--accent2);">How Long Do You Want to Take?</h2>
+    <p>One more thing before you start — how much time do you actually want to give yourself to get ready? I'll use this to pace the sequence panel on your home screen: green while you're on track, yellow as it gets close, red if you're falling behind what you told me you wanted. You're not locked in — change it anytime from the header.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0 6px;">
+      <button class="btn" onclick="setStudyGoal(7)">1 Week</button>
+      <button class="btn" onclick="setStudyGoal(14)">2 Weeks</button>
+      <button class="btn" onclick="setStudyGoal(30)">1 Month</button>
+      <button class="btn" onclick="setStudyGoal(60)">2 Months</button>
+      <button class="btn" onclick="setStudyGoal(90)">3 Months</button>
+    </div>
+    <button class="btn secondary" onclick="setStudyGoal(null)" style="width:100%;">No deadline — just let me go at my own pace</button>
   </div>
 </div>
 
@@ -285,56 +357,73 @@
       <div class="amit-mark-sm">א</div>
       <div>
         <div style="font-weight:700;font-size:14px;">This is home base — you're not signed into anything, and nothing here can break.</div>
-        <div class="amit-steps">Tap one of the four cards below to start studying. Further down, you'll see your domain accuracy, level breakdown, and two sealed Final Exams — every tile and every stat up top is tappable, and I'll explain exactly what it means and how to fill it in if there's nothing there yet. You're never stuck; if a screen ever feels unclear, look for a box like this one — I'll always tell you where you are and what to do next.</div>
-      </div>
-    </div>
-    <div class="section-title">Choose a study mode</div>
-    <div class="modes">
-      <div class="mode-card" onclick="goCategory('flash')">
-        <div class="icon">🃏</div>
-        <div class="tag">Recall Training</div>
-        <h3>Flashcard Drill</h3>
-        <p>Flip-card review of definitions, values, protocols and pearls. Self-graded, untimed, good for daily warmup.</p>
-      </div>
-      <div class="mode-card" onclick="goCategory('practice')">
-        <div class="icon">🎯</div>
-        <div class="tag">Focused Practice</div>
-        <h3>Category Practice</h3>
-        <p>Pick one or more domains and difficulty level. Immediate feedback + rationale after every question.</p>
-      </div>
-      <div class="mode-card" onclick="goCategory('exam')">
-        <div class="icon">⏱️</div>
-        <div class="tag">Simulation</div>
-        <h3>Timed Exam Sim</h3>
-        <p>80-question randomized run pulled proportionally across all NREMT domains, under a clock, scored like the real thing.</p>
-      </div>
-      <div class="mode-card" onclick="startWeakness()">
-        <div class="icon">🔥</div>
-        <div class="tag">Adaptive</div>
-        <h3>Weak-Spot Review</h3>
-        <p>Pulls only the questions you've missed before or never gotten right, until they're solid.</p>
+        <div class="amit-steps">See the sequence panel on the left? That's your walkthrough — the order I actually recommend going through this in, with real numbers so you always know how much is left. Follow it top to bottom, or ignore it and jump straight into any mode below — both work, but if you're asking "what do I click first," start there.</div>
       </div>
     </div>
 
-    <!-- FINAL EXAM — deliberately outside the normal mode grid -->
-    <div class="final-exam-banner">
-      <div class="final-exam-inner">
-        <div style="display:flex;gap:16px;align-items:center;">
-          <div class="fe-icon">🎓</div>
-          <div>
-            <h2>FINAL EXAM DAY</h2>
-            <p>Two full, sealed 80-question exams pulled only from material you've never drilled in practice — locked away specifically so that when you sit for them, it's the real thing, not a rerun. Pass benchmark: 70%.</p>
+    <div class="home-layout">
+      <!-- SEQUENCE SIDEBAR — the recommended walkthrough, interactive, with
+           live progress + traffic-light urgency per step. Built entirely
+           from real DATA (no fake numbers) in renderSequenceSidebar(). -->
+      <aside class="home-sidebar">
+        <div class="seq-panel" id="seq-panel"></div>
+      </aside>
+
+      <div class="home-main">
+        <div class="section-title" style="margin-top:0;">Choose a study mode</div>
+        <div class="modes">
+          <div class="mode-card" onclick="goCategory('flash')">
+            <div class="seq-num" onclick="event.stopPropagation(); showSeqStepInfo(1);">1</div>
+            <div class="icon">🃏</div>
+            <div class="tag">Recall Training</div>
+            <h3>Flashcard Drill</h3>
+            <p>Flip-card review of definitions, values, protocols and pearls. Self-graded, untimed, good for daily warmup.</p>
+          </div>
+          <div class="mode-card" onclick="goCategory('practice')">
+            <div class="seq-num" onclick="event.stopPropagation(); showSeqStepInfo(2);">2</div>
+            <div class="icon">🎯</div>
+            <div class="tag">Focused Practice</div>
+            <h3>Category Practice</h3>
+            <p>Pick one or more domains and difficulty level. Immediate feedback + rationale after every question.</p>
+          </div>
+          <div class="mode-card" onclick="startWeakness()">
+            <div class="seq-num" onclick="event.stopPropagation(); showSeqStepInfo(3);">3</div>
+            <div class="icon">🔥</div>
+            <div class="tag">Adaptive</div>
+            <h3>Weak-Spot Review</h3>
+            <p>Pulls only the questions you've missed before or never gotten right, until they're solid.</p>
+          </div>
+          <div class="mode-card" onclick="goCategory('exam')">
+            <div class="seq-num" onclick="event.stopPropagation(); showSeqStepInfo(4);">4</div>
+            <div class="icon">⏱️</div>
+            <div class="tag">Simulation</div>
+            <h3>Timed Exam Sim</h3>
+            <p>80-question randomized run pulled proportionally across all NREMT domains, under a clock, scored like the real thing.</p>
           </div>
         </div>
-        <div class="fe-slots" id="fe-slots"></div>
+
+        <!-- FINAL EXAM — deliberately outside the normal mode grid -->
+        <div class="final-exam-banner">
+          <div class="final-exam-inner">
+            <div style="display:flex;gap:16px;align-items:center;">
+              <div class="seq-num" style="position:static;flex:0 0 auto;" onclick="event.stopPropagation(); showSeqStepInfo(5);">5</div>
+              <div class="fe-icon">🎓</div>
+              <div>
+                <h2>FINAL EXAM DAY</h2>
+                <p>Two full, sealed 80-question exams pulled only from material you've never drilled in practice — locked away specifically so that when you sit for them, it's the real thing, not a rerun. Pass benchmark: 70%.</p>
+              </div>
+            </div>
+            <div class="fe-slots" id="fe-slots"></div>
+          </div>
+        </div>
+
+        <div class="section-title">Your domain accuracy</div>
+        <div class="cats" id="domain-overview"></div>
+
+        <div class="section-title">Your level breakdown — EMT / AEMT / Paramedic</div>
+        <div class="cats" id="level-overview"></div>
       </div>
     </div>
-
-    <div class="section-title">Your domain accuracy</div>
-    <div class="cats" id="domain-overview"></div>
-
-    <div class="section-title">Your level breakdown — EMT / AEMT / Paramedic</div>
-    <div class="cats" id="level-overview"></div>
   </div>
 
   <!-- CATEGORY / SETUP -->
@@ -891,7 +980,7 @@ function showView(id){
   document.getElementById(id).classList.add('active');
   window.scrollTo(0,0);
 }
-function goHome(){ session=null; renderHeaderStats(); renderDomainOverview(); renderLevelOverview(); renderFeSlots(); showView('home-view'); }
+function goHome(){ session=null; renderHeaderStats(); renderDomainOverview(); renderLevelOverview(); renderFeSlots(); renderSequenceSidebar(); showView('home-view'); }
 
 function openSaveModal(){ document.getElementById('save-modal').classList.add('show'); }
 function closeSaveModal(){ document.getElementById('save-modal').classList.remove('show'); }
@@ -916,6 +1005,9 @@ function setLevelProfile(level){
   applyLevelProfileDefaults();
   closeLevelOnboarding();
   updateLevelBadge();
+  if(!DATA.studyGoalSet){
+    setTimeout(()=>openGoalOnboarding(false), 300);
+  }
 }
 function applyLevelProfileDefaults(){
   // Only steers the DEFAULT filter state — Setup's own chips remain fully
@@ -931,6 +1023,192 @@ function updateLevelBadge(){
   if(!btn) return;
   const label = DATA.levelProfile ? (LEVEL_PROFILE_LABELS[DATA.levelProfile] || DATA.levelProfile) : 'Set Your Level';
   btn.textContent = '🎓 ' + label;
+}
+
+/* ============ GOAL TIMELINE ============
+   Drives the traffic-light urgency on the sequence sidebar. Nothing here is
+   punitive — an unset goal simply means everything stays a calm blue with
+   no time pressure applied. */
+function openGoalOnboarding(manual){ document.getElementById('goal-modal').classList.add('show'); }
+function closeGoalOnboarding(){ document.getElementById('goal-modal').classList.remove('show'); }
+function setStudyGoal(days){
+  DATA.studyGoalSet = true;
+  if(!DATA.studyStartDate) DATA.studyStartDate = todayStr;
+  if(days===null){
+    DATA.studyTargetDate = null;
+  } else {
+    const d = new Date();
+    d.setDate(d.getDate()+days);
+    DATA.studyTargetDate = d.toISOString().slice(0,10);
+  }
+  saveData();
+  closeGoalOnboarding();
+  updateGoalBadge();
+  renderSequenceSidebar();
+}
+function daysUntil(dateStr){
+  const target = new Date(dateStr+'T23:59:59');
+  const now = new Date();
+  return Math.ceil((target-now)/(1000*60*60*24));
+}
+function computeUrgency(){
+  if(!DATA.studyGoalSet || !DATA.studyTargetDate) return 'blue';
+  const daysLeft = daysUntil(DATA.studyTargetDate);
+  const start = new Date((DATA.studyStartDate||todayStr)+'T00:00:00');
+  const target = new Date(DATA.studyTargetDate+'T23:59:59');
+  const totalDays = Math.max(1, Math.round((target-start)/(1000*60*60*24)));
+  if(daysLeft <= 0) return 'red';
+  if(daysLeft <= Math.max(2, totalDays*0.15)) return 'red';
+  if(daysLeft <= totalDays*0.4) return 'yellow';
+  return 'blue';
+}
+function updateGoalBadge(){
+  const btn = document.getElementById('goal-badge-btn');
+  if(!btn) return;
+  if(!DATA.studyGoalSet){ btn.textContent = '⏳ Set Your Goal'; return; }
+  if(!DATA.studyTargetDate){ btn.textContent = '⏳ No Deadline'; return; }
+  const days = daysUntil(DATA.studyTargetDate);
+  btn.textContent = days>=0 ? `⏳ ${days}d left` : `⏳ ${Math.abs(days)}d overdue`;
+}
+
+/* ============ SEQUENCE SIDEBAR ============
+   The recommended walkthrough: Flashcards -> Category Practice (per domain)
+   -> Weak-Spot Review -> Timed Exam Sim -> the two sealed Final Exams. Every
+   number here is real, computed from DATA — nothing is hardcoded or fake.
+   Recommended volume: every flashcard at least once, 20 practice questions
+   per domain (100 total), zero flagged weak items, one full timed sim run,
+   both final exams taken. */
+const SEQ_CAT_TARGET_PER_DOMAIN = 20;
+function statusColor(status){
+  return status==='green' ? 'var(--good)' : status==='yellow' ? 'var(--accent2)' : status==='red' ? 'var(--bad)' : 'var(--blue)';
+}
+function flashcardsAnsweredCount(){
+  let count=0;
+  Object.entries(DATA.history).forEach(([k,h])=>{ if(k.indexOf('flash|')===0 && h.attempts>0) count++; });
+  return count;
+}
+/* Tapping a step's number badge (not the card itself) explains that step
+   in place — the "help menu" that was missing before: what it is, why it's
+   this position in the sequence, and the live recommended target. */
+function showSeqStepInfo(n){
+  if(n===1){
+    const done = flashcardsAnsweredCount(), target = FLASH.length;
+    showInfoModal('Step 1 — Flashcard Drill', `This comes first because flip-card recall is the fastest way to load the raw facts — doses, values, definitions — before you're asked to apply them. Recommended: run through all <b>${target}</b> cards at least once. You're at <b>${done} of ${target}</b> right now.`,
+      `<button class="btn" onclick="closeInfoModal(); goCategory('flash')">Go Now →</button>`);
+  } else if(n===2){
+    showInfoModal('Step 2 — Category Practice', `Once the raw facts are loaded, this is where you apply them — real scored questions, immediate feedback, broken out by domain. Recommended: <b>20 questions</b> in each of the 5 domains (100 total) before moving on. Tap "2. Category Practice" in the sidebar to see your per-domain breakdown.`,
+      `<button class="btn" onclick="closeInfoModal(); goCategory('practice')">Go Now →</button>`);
+  } else if(n===3){
+    showInfoModal('Step 3 — Weak-Spot Review', `This comes after you've built up some real practice history, because it needs mistakes to work with — it automatically pulls whatever you're under 60% on. Recommended: get flagged weak items down to <b>zero</b>.`,
+      `<button class="btn" onclick="closeInfoModal(); startWeakness()">Go Now →</button>`);
+  } else if(n===4){
+    const runs = DATA.examSimRuns||0;
+    showInfoModal('Step 4 — Timed Exam Sim', `This is where everything comes together — a full 80-question run under a real clock, scored like the actual thing. Recommended: at least <b>1 complete run</b> before Final Exam day. You're at <b>${runs} of 1</b>.`,
+      `<button class="btn" onclick="closeInfoModal(); goCategory('exam')">Go Now →</button>`);
+  } else if(n===5){
+    const taken = DATA.examTaken ? DATA.examTaken.filter(Boolean).length : 0;
+    showInfoModal('Step 5 — Final Exam A + B', `The last step, on purpose — these two exams are sealed away from every practice mode from your very first visit, so by the time you sit for them, it's genuinely unseen material, the closest thing to the real exam this app can give you. You've taken <b>${taken} of 2</b>.`,
+      `<button class="btn" onclick="closeInfoModal(); document.querySelector('.final-exam-banner').scrollIntoView({behavior:'smooth',block:'center'});">Take Me There →</button>`);
+  }
+}
+
+function toggleSeqCat(){
+  const el = document.getElementById('seq-cat-sublist');
+  if(!el) return;
+  el.style.display = (el.style.display==='none' || !el.style.display) ? 'flex' : 'none';
+}
+function renderSequenceSidebar(){
+  const el = document.getElementById('seq-panel');
+  if(!el) return;
+  const urgency = computeUrgency();
+  const statusFor = (complete)=> complete ? 'green' : urgency;
+
+  const flashDone = flashcardsAnsweredCount();
+  const flashTarget = FLASH.length;
+  const flashComplete = flashDone >= flashTarget;
+  const flashStatus = statusFor(flashComplete);
+
+  const catRows = DOMAINS.map(d=>{
+    const s = domainStats(d);
+    const done = Math.min(s.answered, SEQ_CAT_TARGET_PER_DOMAIN);
+    return { d, label: DOMAIN_LABEL[d], done, raw:s.answered, target: SEQ_CAT_TARGET_PER_DOMAIN, complete: s.answered >= SEQ_CAT_TARGET_PER_DOMAIN };
+  });
+  const catDoneTotal = catRows.reduce((a,r)=>a+r.done,0);
+  const catTargetTotal = SEQ_CAT_TARGET_PER_DOMAIN * DOMAINS.length;
+  const catComplete = catRows.every(r=>r.complete);
+  const catStatus = statusFor(catComplete);
+
+  const weakEntries = Object.entries(DATA.history).filter(([k,h])=> h.attempts>0 && (h.correctCount/h.attempts)<0.6);
+  const weakStarted = DATA.totalAnswered>0;
+  const weakComplete = weakStarted && weakEntries.length===0;
+  const weakStatus = statusFor(weakComplete);
+
+  const simRuns = DATA.examSimRuns||0;
+  const simComplete = simRuns>=1;
+  const simStatus = statusFor(simComplete);
+
+  const examsTaken = (DATA.examTaken ? DATA.examTaken.filter(Boolean).length : 0);
+  const examsComplete = examsTaken>=2;
+  const examStatus = statusFor(examsComplete);
+
+  let goalLine;
+  if(DATA.studyGoalSet && DATA.studyTargetDate){
+    const dl = daysUntil(DATA.studyTargetDate);
+    goalLine = dl>=0
+      ? `<div class="seq-goal-line status-${urgency}"><b>${dl} day${dl===1?'':'s'}</b> left toward your goal</div>`
+      : `<div class="seq-goal-line status-red"><b>${Math.abs(dl)} day${Math.abs(dl)===1?'':'s'} overdue</b> — worth picking the pace back up</div>`;
+  } else if(DATA.studyGoalSet){
+    goalLine = `<div class="seq-goal-line">No deadline set — going at your own pace.</div>`;
+  } else {
+    goalLine = `<div class="seq-goal-line">Set a goal timeline from the header to get real pacing colors here.</div>`;
+  }
+
+  el.innerHTML = `
+    <div class="seq-title">🗺️ Your Study Sequence</div>
+    <div class="seq-sub">The order I'd actually walk you through: build recall first, drill every domain, hunt down what's weak, run one full timed simulation, then sit the two sealed finals. Tap any step to jump straight in.</div>
+
+    <div class="seq-step" style="border-left-color:${statusColor(flashStatus)}" onclick="goCategory('flash')">
+      <div class="seq-step-top">
+        <div class="seq-step-label"><span class="seq-num-mini status-${flashStatus}" onclick="event.stopPropagation(); showSeqStepInfo(1);">1</span>Flashcard Drill</div>
+        <div class="seq-progress-text">${flashDone} of ${flashTarget}</div>
+      </div>
+      <div class="seq-barwrap"><div class="seq-bar status-${flashStatus}" style="width:${Math.min(100,Math.round(100*flashDone/flashTarget))}%"></div></div>
+    </div>
+
+    <div class="seq-step" style="border-left-color:${statusColor(catStatus)}">
+      <div class="seq-step-top" onclick="event.stopPropagation(); toggleSeqCat();">
+        <div class="seq-step-label"><span class="seq-num-mini status-${catStatus}" onclick="event.stopPropagation(); showSeqStepInfo(2);">2</span>Category Practice</div>
+        <div class="seq-progress-text">${catDoneTotal} of ${catTargetTotal} ▾</div>
+      </div>
+      <div class="seq-barwrap"><div class="seq-bar status-${catStatus}" style="width:${Math.min(100,Math.round(100*catDoneTotal/catTargetTotal))}%"></div></div>
+      <div class="seq-sub-list" id="seq-cat-sublist" style="display:none;">
+        ${catRows.map(r=>`<div class="seq-sub-row" onclick="event.stopPropagation(); goPracticeDomain('${r.d}')"><span>${r.label}</span><span>${r.raw} / ${r.target} ${r.complete?'✅':''}</span></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="seq-step" style="border-left-color:${statusColor(weakStatus)}" onclick="startWeakness()">
+      <div class="seq-step-top">
+        <div class="seq-step-label"><span class="seq-num-mini status-${weakStatus}" onclick="event.stopPropagation(); showSeqStepInfo(3);">3</span>Weak-Spot Review</div>
+        <div class="seq-progress-text">${weakStarted ? weakEntries.length+' flagged' : 'not started'}</div>
+      </div>
+    </div>
+
+    <div class="seq-step" style="border-left-color:${statusColor(simStatus)}" onclick="goCategory('exam')">
+      <div class="seq-step-top">
+        <div class="seq-step-label"><span class="seq-num-mini status-${simStatus}" onclick="event.stopPropagation(); showSeqStepInfo(4);">4</span>Timed Exam Sim</div>
+        <div class="seq-progress-text">${simRuns} of 1 run</div>
+      </div>
+    </div>
+
+    <div class="seq-step" style="border-left-color:${statusColor(examStatus)}" onclick="document.querySelector('.final-exam-banner').scrollIntoView({behavior:'smooth',block:'center'})">
+      <div class="seq-step-top">
+        <div class="seq-step-label"><span class="seq-num-mini status-${examStatus}" onclick="event.stopPropagation(); showSeqStepInfo(5);">5</span>Final Exam A + B</div>
+        <div class="seq-progress-text">${examsTaken} of 2 taken</div>
+      </div>
+    </div>
+
+    ${goalLine}
+  `;
 }
 
 /* ============ AMIT'S SIGNATURE INFO MODAL ============
@@ -1543,6 +1821,11 @@ function showResults(){
     DATA.examTaken[session.examSlot] = true;
     DATA.examScores[session.examSlot] = pct;
     saveData();
+  } else if(session.isExam && !isFlash){
+    // regular Timed Exam Sim (not a final exam) — counts toward the
+    // sequence sidebar's "run at least one full simulation" step
+    DATA.examSimRuns = (DATA.examSimRuns||0) + 1;
+    saveData();
   }
 
   const missedPanel = document.getElementById('missed-panel');
@@ -1653,6 +1936,8 @@ renderHeaderStats();
 renderDomainOverview();
 renderLevelOverview();
 renderFeSlots();
+renderSequenceSidebar();
+updateGoalBadge();
 
 if(DATA.levelProfile){
   applyLevelProfileDefaults();

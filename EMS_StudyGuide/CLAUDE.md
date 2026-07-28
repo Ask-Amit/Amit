@@ -54,7 +54,21 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.85` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.88` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+
+## Study Sequence Sidebar + Goal Timeline — 2026-07-27
+
+Ryan's daughter also didn't know what order to do things in, or which button to press first. Added a left sidebar on the home screen (`.home-sidebar` / `#seq-panel`, rendered by `renderSequenceSidebar()`) laying out the actual recommended order: Flashcard Drill → Category Practice (expandable per-domain, target 20 questions/domain = 100 total) → Weak-Spot Review (target: zero flagged items) → Timed Exam Sim (target: 1 full run, tracked via `DATA.examSimRuns`) → the two sealed Final Exams. Every number shown is computed live from real `DATA`, nothing hardcoded/fake. Each step is clickable and jumps straight into that mode; the Category Practice step expands to show per-domain sub-rows.
+
+Paired with a goal-timeline onboarding (`#goal-modal`, chained automatically right after level calibration on first visit) that asks how long the person wants to give themselves — 1/2 weeks, 1/2/3 months, or no deadline — stored as `DATA.studyGoalSet` / `DATA.studyStartDate` / `DATA.studyTargetDate`. `computeUrgency()` turns that into a traffic-light color (blue = on track, yellow = getting close, red = overdue or nearly there) applied to every incomplete sequence step's dot/border/progress-bar; a completed step is always green regardless of timing. Reopenable anytime via the "⏳ [X]d left" header badge (`openGoalOnboarding(true)`).
+
+## Mode Grid Numbered to Match the Sequence — 2026-07-27
+
+The four mode cards were 3-on-top/1-on-bottom and unlabeled relative to the sidebar sequence — reordered to Flashcard(1)/Category Practice(2)/Weak-Spot Review(3)/Timed Exam Sim(4) in a strict 2×2 grid the same width as the Final Exam banner below it (which now carries a "5"). Each card has a `.seq-num` badge in the top-left; tapping the badge itself (not the card) calls `showSeqStepInfo(n)` — a per-step explanation via the same `showInfoModal()` system, addressing "there's no help menu" without adding a separate help system.
+
+## Number Badge Consistency Fix — 2026-07-27
+
+Two follow-up bugs from Ryan's own screenshot: (1) the Final Exam banner's "5" badge rendered as plain text, not a circle — the CSS was scoped `.mode-card .seq-num` and the banner badge isn't inside a `.mode-card`, so it silently never matched; `.seq-num` is now unscoped. (2) The sidebar's step indicators were small plain dots (`.seq-dot`), inconsistent with the numbered circles on the mode cards — replaced with `.seq-num-mini`, a smaller version of the exact same blue-circle badge, colored per the step's live status (blue/yellow/red/green). The redundant "1. "/"2. " text prefix was dropped from each step label since the circle now carries the number, and progress text (e.g. "16 of 100") is right-aligned to a consistent column via `.seq-progress-text{min-width:66px;text-align:right;margin-left:auto}`.
 
 ## Theophilus Routing — Ask Amit on This Page
 
