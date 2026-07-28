@@ -22,7 +22,7 @@ An earlier version of this file said this tool was deliberately excluded from Am
 - The study tool's own content (the questions, the study mechanics) stays secular and un-preachy on purpose — it's a paramedic exam tool, not a tract. The theological connection lives entirely in the "💬 Ask Amit" button, not baked into quiz questions.
 - An "Ask Amit" button is wired into the page header via the shared `Amit_Ask_Live.js` mechanism (`<script src="../Amit_Ask_Live.js?v=5.80"></script>`, onclick `askAmitLive('medicalprep')`), with its own real PAGE_CONTEXTS entry so Amit can talk intelligently about this specific tool and explain honestly why it's free, with a path back to who_is_god.html.
 - It still does not read from or write to the Amit Supabase database (see below) — the Ask Amit mechanism itself handles the live-connection path independently, same as every other page that uses it.
-- A Hub tile/button linking to this tool is planned (see root CLAUDE.md task list) so people can find it after logging in.
+- Live in the Hub's "Amit Tools" section as of 2026-07-27 (`#tile-medicalprep` in Hub/amit-hub.html) — 🚑 "Medical Prep," opens the live URL directly in a new tab, same pattern as Computer Health and The Council tiles.
 
 ---
 
