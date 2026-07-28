@@ -58,7 +58,11 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.97` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.98` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+
+## Sticky Header + The Finale Step 15 — 2026-07-27
+
+Ryan's direct correction: as content got taller, scrolling lost the header entirely, and he wanted it (plus Ask Amit) pinned in place. The Medical Prep header and `How_This_Was_Built.html`'s top bar are now `position:sticky;top:0` with an opaque background (`#0b0f14`) so nothing shows through underneath — Ask Amit was already `position:fixed` and unaffected by scrolling, just less noticeable without the header staying put above it. Also added a dramatic full-width "step 15" finale to `How_This_Was_Built.html` (`.finale`, breaks out of the two-column timeline format on purpose, with an entrance animation and shifting gold text) stating the actual headline fact plainly: Ryan wrote zero code — every single thing in that timeline came from him talking, out loud, in plain language.
 
 ## How This Was Built Page + Auth-Aware Welcome Fix — 2026-07-27
 
