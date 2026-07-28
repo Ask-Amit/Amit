@@ -114,9 +114,16 @@
 
   /* FLYING BACKGROUND SYMBOLS */
   #bg-fly{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none;}
-  .fly-symbol{position:absolute;opacity:.05;color:var(--blue);will-change:transform;animation:drift linear infinite, spin linear infinite;}
-  @keyframes drift{ from{transform:translate(-10vw,110vh);} to{transform:translate(110vw,-20vh);} }
-  @keyframes spin{ from{rotate:0deg;} to{rotate:360deg;} }
+  .fly-symbol{position:absolute;will-change:transform,opacity;animation-timing-function:linear,linear,ease-in-out;
+    animation-iteration-count:infinite,infinite,infinite;filter:drop-shadow(0 0 6px currentColor);}
+  /* Four independent drift paths so emblems cross the screen from every direction, not just one diagonal */
+  @keyframes drift-ne{ from{transform:translate(-12vw,112vh) rotate(0deg);} to{transform:translate(112vw,-18vh) rotate(360deg);} }
+  @keyframes drift-sw{ from{transform:translate(112vw,-15vh) rotate(0deg);} to{transform:translate(-15vw,115vh) rotate(-360deg);} }
+  @keyframes drift-nw{ from{transform:translate(112vw,112vh) rotate(0deg);} to{transform:translate(-15vw,-18vh) rotate(-360deg);} }
+  @keyframes drift-se{ from{transform:translate(-15vw,-15vh) rotate(0deg);} to{transform:translate(112vw,112vh) rotate(360deg);} }
+  @keyframes drift-ew{ from{transform:translate(-15vw,50vh) rotate(0deg);} to{transform:translate(115vw,50vh) rotate(360deg);} }
+  @keyframes drift-we{ from{transform:translate(115vw,50vh) rotate(0deg);} to{transform:translate(-15vw,50vh) rotate(-360deg);} }
+  @keyframes pulse-glow{ 0%,100%{opacity:.04;} 50%{opacity:.13;} }
   header, main, footer{position:relative;z-index:1;}
 
   /* MODAL */
@@ -840,21 +847,44 @@ function renderLevelOverview(){
   });
 }
 
-/* ============ FLYING BACKGROUND SYMBOLS ============ */
+/* ============ FLYING BACKGROUND SYMBOLS ============
+   Every emblem here means something specific to EMS/medicine — this isn't
+   decoration for its own sake, it's the whole discipline drifting behind her. */
+const FLY_EMBLEMS = [
+  {ch:'✚', color:'var(--blue)'},     // the field cross
+  {ch:'⚕', color:'var(--accent2)'},  // staff of Asclepius — medicine itself
+  {ch:'❤', color:'var(--accent)'},   // the heart — cardiology
+  {ch:'🫁', color:'var(--blue)'},     // lungs — airway/respiration
+  {ch:'🧠', color:'var(--purple)'},  // the brain — neuro/stroke
+  {ch:'🩸', color:'var(--accent)'},  // the drop — hemorrhage/shock
+  {ch:'💉', color:'var(--good)'},    // the needle — IV/pharmacology
+  {ch:'🩺', color:'var(--accent2)'}, // the stethoscope — assessment
+  {ch:'⚡', color:'var(--accent2)'}, // the shock — defibrillation
+  {ch:'🫀', color:'var(--accent)'},  // the anatomical heart
+  {ch:'🧬', color:'var(--purple)'},  // the double helix — physiology
+  {ch:'🚑', color:'var(--blue)'},    // the unit — the whole job
+  {ch:'∿∿∿', color:'var(--good)'},   // the rhythm strip — cardiac monitoring
+  {ch:'✚', color:'var(--good)'}
+];
+const FLY_PATHS = ['drift-ne','drift-sw','drift-nw','drift-se','drift-ew','drift-we'];
 function initFlyingSymbols(){
   const layer = document.getElementById('bg-fly');
-  const symbols = ['✚','⚕️','✚','⚕️','✚'];
-  for(let i=0;i<7;i++){
+  const count = 14; // double the original pass
+  for(let i=0;i<count;i++){
     const s = document.createElement('div');
     s.className='fly-symbol';
-    s.textContent = symbols[i%symbols.length];
-    const size = 40 + Math.random()*90;
+    const em = FLY_EMBLEMS[i % FLY_EMBLEMS.length];
+    s.textContent = em.ch;
+    s.style.color = em.color;
+    const size = 30 + Math.random()*95;
     s.style.fontSize = size+'px';
-    s.style.left = (Math.random()*90)+'vw';
-    const dur = 28 + Math.random()*30;
-    const spinDur = 10 + Math.random()*20;
-    s.style.animationDuration = dur+'s, '+spinDur+'s';
-    s.style.animationDelay = (-Math.random()*dur)+'s, '+(-Math.random()*spinDur)+'s';
+    s.style.left = 0; s.style.top = 0;
+    const path = FLY_PATHS[i % FLY_PATHS.length];
+    const dur = 24 + Math.random()*34;       // how long the crossing takes
+    const glowDur = 4 + Math.random()*6;      // independent pulse breathing
+    s.style.animationName = `${path}, pulse-glow`;
+    s.style.animationDuration = `${dur}s, ${glowDur}s`;
+    s.style.animationDelay = `${(-Math.random()*dur).toFixed(2)}s, ${(-Math.random()*glowDur).toFixed(2)}s`;
     layer.appendChild(s);
   }
 }
