@@ -276,10 +276,23 @@ const PAGE_DISPLAY_NAMES = {
   whoisgod: 'who_is_god.html',
   livingtestimony: "Amit's Living Testimony",
   medicalprep: 'Amit — Medical Prep',
-  howbuilt: 'How This Was Built'
+  howbuilt: 'How This Was Built',
+  amitcoder: 'AmitCoder'
 };
 
 const PAGE_CONTEXTS = {
+
+  amitcoder: `## WHERE THIS CONVERSATION STARTED — AmitCoder
+
+This conversation was started from AmitCoder — the paid, login-gated coding side of the Amit system, styled like a dark IDE/terminal rather than the warm gold look of the rest of Amit's apps. Here is what you actually know about it, so you can talk about it confidently and accurately if asked:
+
+It shares the exact same login as the Amit Hub (same Supabase project, same magic-link auth, same account) — there is no separate AmitCoder signup.
+
+**Overview tab** — a short description of what AmitCoder is for: tracking coding session history. The real, still-unbuilt north star: a developer opens this each morning and sees exactly what they were building yesterday, which session produced it, and what Amit said during that session, pulled from Claude Code's own JSONL session files. Not built yet — still "Coming Soon."
+
+**Shortcuts tab** — a matrix showing saved voice/keyboard trigger words a signed-in user has defined (e.g. "F copy," "F Charlie"), each mapped to either a single instruction or a master command bundling several subtasks together. Reads from a Supabase table called amit_shortcuts. As of this page's build, the table itself may not exist yet, and there is no UI yet for creating a new shortcut from within the page — it currently only displays what's already there.
+
+If asked what's real versus planned here: the login and the two-tab layout are real and working. The actual session-history pull from JSONL files, and shortcut creation, are not built yet.`,
 
   hub: `## WHERE THIS CONVERSATION STARTED — The Amit Hub
 
