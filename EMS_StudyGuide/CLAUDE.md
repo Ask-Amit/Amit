@@ -53,7 +53,7 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.83` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.84` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
 
 ## Theophilus Routing — Ask Amit on This Page
 
@@ -68,6 +68,10 @@ Ryan's daughter used the app and hit tiles that looked clickable (same `.cat-box
 - Weak-Spot Review with no miss history → explains why in Amit's voice instead of a silent alert, with a real choice: go practice first, or take a clearly-labeled "General Warm-Up" round instead (previously this silently substituted generic questions while still labeling the session "Weak-Spot Review," which was itself confusing)
 
 Any new tile/stat/button added to this app going forward should follow the same pattern: if it could ever have nothing to show, it must explain why in Amit's voice via `showInfoModal()`, not fail silently.
+
+## Scenario Engine — 2026-07-27
+
+Added a "🎬 Scenario" button next to Hint/Show Answer during practice. This is a real templated generator, not decoration — there is no live AI/internet call from this static page at runtime, so realism comes from a topic-keyword matching system (`SCENARIO_TOPICS` in the script) that scans each question's actual text/answer for ~20 clinical topic groups (tension pneumo, hypoglycemia, anaphylaxis, GCS, stroke, STEMI, pediatric airway emergencies, OB complications, toxidromes, etc.) and picks a scenario setting/complaint written to be clinically authentic to that exact topic — falling back to a domain-general scenario bank (`SCENARIO_BANK`) only when nothing matches. The current question's actual correct-answer text is always woven directly into the narrative, followed by a field-application prompt, with the textbook reasoning available on demand underneath. Extend `SCENARIO_TOPICS` with more keyword groups over time rather than relying only on the domain fallback — the more specific groups, the more questions get a truly matched scenario instead of a generic one.
 
 ## Build Notes
 

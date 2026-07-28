@@ -170,6 +170,17 @@
   .hint-box{display:none;background:rgba(255,179,71,.08);border-left:3px solid var(--accent2);border-radius:8px;
     padding:12px 14px;margin-bottom:14px;font-size:13px;color:#e9d7b8;}
   .hint-box.show{display:block;}
+  .scenario-btn{border-color:rgba(255,179,71,.45);color:var(--accent2);}
+  .scenario-btn:hover{border-color:var(--accent2);background:rgba(255,179,71,.08);}
+  .scenario-box{display:none;background:linear-gradient(160deg,rgba(255,179,71,.07),rgba(255,90,54,.04));
+    border:1px solid rgba(255,179,71,.35);border-radius:12px;padding:18px 20px;margin-bottom:14px;}
+  .scenario-box.show{display:block;}
+  .scenario-box .sc-tag{font-size:10.5px;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent2);font-weight:700;margin-bottom:8px;}
+  .scenario-box .sc-narrative{font-size:14px;line-height:1.7;color:#f0e0c8;margin-bottom:14px;}
+  .scenario-box .sc-narrative b{color:var(--accent2);}
+  .scenario-box .sc-prompt{font-size:13px;line-height:1.6;color:#d7e0ec;font-style:italic;border-top:1px solid rgba(255,179,71,.25);padding-top:12px;margin-bottom:10px;}
+  .scenario-box .sc-reasoning{display:none;font-size:13px;line-height:1.6;color:#c9d6e6;background:rgba(0,0,0,.2);border-radius:8px;padding:12px 14px;margin-top:10px;}
+  .scenario-box .sc-reasoning.show{display:block;}
 
   /* FINAL EXAM BANNER — sits outside the normal mode grid */
   .final-exam-banner{margin-top:28px;border-radius:16px;padding:2px;background:linear-gradient(120deg,var(--accent),var(--accent2),var(--accent));
@@ -203,7 +214,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.83</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.84</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -357,11 +368,15 @@
         <span class="badge" id="q-diff"></span>
       </div>
       <div class="qtext" id="q-text"></div>
-      <div class="aid-row" id="aid-row">
-        <button class="aid-btn" onclick="showHint()">💡 Hint</button>
-        <button class="aid-btn" onclick="revealAnswer()">📖 Show Answer</button>
+      <div class="aid-row" id="aid-row" style="justify-content:space-between;">
+        <div style="display:flex;gap:10px;">
+          <button class="aid-btn" onclick="showHint()">💡 Hint</button>
+          <button class="aid-btn" onclick="revealAnswer()">📖 Show Answer</button>
+        </div>
+        <button class="aid-btn scenario-btn" onclick="showScenario()">🎬 Scenario</button>
       </div>
       <div class="hint-box" id="hint-box"></div>
+      <div class="scenario-box" id="scenario-box"></div>
       <div class="choices" id="q-choices"></div>
       <div class="explain" id="q-explain"></div>
       <div class="btnrow">
@@ -1236,6 +1251,8 @@ function renderQuestion(){
   document.getElementById('next-btn').disabled = true;
   const hb = document.getElementById('hint-box');
   hb.classList.remove('show'); hb.innerHTML='';
+  const scb = document.getElementById('scenario-box');
+  scb.classList.remove('show'); scb.innerHTML='';
 
   const choicesEl = document.getElementById('q-choices');
   choicesEl.innerHTML = '';
@@ -1291,7 +1308,107 @@ function revealAnswer(){
   box.classList.add('show');
 }
 
-/* ============ ENCOURAGEMENT ENGINE ============ */
+/* ============ SCENARIO ENGINE ============
+   No live AI in this offline, single-file app — so this is a real, deliberate
+   templated generator, not decoration: a bank of dispatch settings, chief
+   complaints, and patient presentations per domain, randomly combined every
+   time, with the CURRENT question's actual correct-answer fact woven directly
+   into the narrative. The point isn't randomness for its own sake — it's
+   showing the same fact she just answered actually mattering in a believable
+   field moment, then handing her a field-application question before the
+   textbook reasoning underneath it. */
+const SCENARIO_BANK = {
+  Airway: {
+    settings: ['a smoke-filled apartment kitchen','a nursing home dayroom','a middle school gymnasium during practice','a backyard birthday party','a highway rest stop','a church fellowship hall','a daycare nap room'],
+    complaints: ['difficulty breathing that started suddenly','choking during lunch','a witnessed seizure with the patient turning blue','smoke inhalation from a small kitchen fire','stridor and swelling after a bee sting','a toddler who put something small in their mouth and is now gagging']
+  },
+  Cardio: {
+    settings: ['a grocery store checkout line','a backyard cookout','a gym locker room','a church pew mid-service','a golf course fairway','a retirement community card room','a busy office breakroom'],
+    complaints: ['sudden collapse with no warning','crushing chest pain radiating into the jaw','palpitations with lightheadedness','a witnessed cardiac arrest, bystander CPR already in progress','chest tightness that started during a stressful phone call']
+  },
+  Trauma: {
+    settings: ['a two-vehicle collision on the interstate','a residential construction site','the bottom of a ladder outside a two-story house','a rural property near farm equipment','a grocery store parking lot','a backyard trampoline','a motorcycle accident on a rural highway'],
+    complaints: ['a high-speed rollover with the patient still restrained','a fall from roughly ten feet onto concrete','a pedestrian struck at moderate speed','a laceration with heavy, steady bleeding','a crush injury from moving equipment','a fall with an obvious deformity to one leg']
+  },
+  Medical: {
+    settings: ['a college dorm room','a diabetic patient\'s kitchen table','an assisted living facility hallway','a daycare center','a labor and delivery bedroom at home','a family reunion picnic','a patient\'s bathroom after a fall'],
+    complaints: ['altered mental status found by a roommate','a known diabetic who won\'t wake up fully','a first-time seizure in an adult','a pregnant patient having strong, close contractions','sudden weakness on one side of the body','a fever and rash that\'s been getting worse all day']
+  },
+  Ops: {
+    settings: ['a multi-vehicle pileup on the interstate','a house fire with several occupants unaccounted for','a crowded outdoor concert','a warehouse after a chemical spill alarm','a county fair midway','a school during a fire drill gone wrong'],
+    complaints: ['several patients with a mix of injury severities','a scene where you\'re the first unit on location','a bystander already trying to direct traffic','conflicting reports of how many people are actually hurt','a scene that isn\'t fully secured yet']
+  }
+};
+const SCENARIO_PATIENT_DESC = ['pale and diaphoretic','anxious and breathing fast','confused and slow to answer questions','unconscious but breathing on their own','alert but clearly guarding one area','lethargic and hard to rouse','sitting bolt upright, unable to get a full sentence out','calm on the surface but their vitals don\'t match that'];
+function scenarioPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+/* TOPIC-MATCHED SCENARIOS — checked BEFORE the generic domain fallback below.
+   Each entry only fires when the actual question text/answer contains its
+   keywords, so the scenario "wraps around" the specific clinical content
+   that question is actually testing, not just its broad domain. Ages/sex
+   are still randomized per-generation for variety; the setting and
+   complaint are written to be clinically authentic to that exact topic. */
+const SCENARIO_TOPICS = [
+  {kw:['tension pneumo'], settings:['a construction site after a fall onto rebar','a motorcycle crash on a rural two-lane road','a stabbing victim found behind a convenience store'], complaints:['increasing shortness of breath and one-sided chest pain since the injury'], note:'tracheal deviation and absent breath sounds on one side'},
+  {kw:['needle decompression'], settings:['a farm after a piece of equipment kicked back into the chest','a car that rolled and pinned the driver against the wheel'], complaints:['rapidly worsening respiratory distress after blunt chest trauma'], note:'jugular vein distension and a rigid, hyper-resonant chest wall on one side'},
+  {kw:['hypoglycemia','blood glucose','dextrose','glucagon'], settings:['a known diabetic\'s kitchen','a group home for adults with disabilities','a school nurse\'s office'], complaints:['a diabetic patient found confused and diaphoretic, unable to follow simple commands'], note:'cool, clammy skin and a glucometer reading well below normal'},
+  {kw:['anaphylaxis','epinephrine dose'], settings:['a restaurant after a meal with an unknown ingredient','a summer picnic after a bee sting','a school cafeteria'], complaints:['sudden facial swelling, hives, and difficulty breathing minutes after exposure'], note:'audible stridor and a blood pressure that\'s already dropping'},
+  {kw:['gcs','glasgow coma'], settings:['the bottom of a stairwell after a fall','a bar parking lot after an altercation','a bike path after a cyclist went over the handlebars'], complaints:['a head injury with a fluctuating level of consciousness'], note:'inconsistent eye opening, verbal, and motor responses on repeat checks'},
+  {kw:['cushing'], settings:['a nursing home after an unwitnessed fall','a construction site after a fall from height'], complaints:['a head injury patient who was initially talking and is now declining'], note:'rising blood pressure, a dropping heart rate, and irregular breathing'},
+  {kw:['apgar'], settings:['a home birth with the midwife already present','the back of your unit after a precipitous delivery en route'], complaints:['a just-delivered newborn needing an immediate assessment'], note:'the first sixty seconds of life, deciding whether resuscitation is needed'},
+  {kw:['shock','hemorrhagic','blood loss','tourniquet'], settings:['a hunting accident in a wooded area with a long extrication ahead','a table saw accident in a home garage','a motor vehicle crash with a trapped patient'], complaints:['significant, visible extremity bleeding that hasn\'t stopped'], note:'the patient\'s pulse climbing and their color draining while you work'},
+  {kw:['triage','start','jumpstart','mass casualty','mci'], settings:['a charter bus rollover on the interstate with a dozen patients','a building collapse at a small event venue','a multi-vehicle pileup in dense fog'], complaints:['more patients than units currently on scene, and more calls coming in'], note:'you are first-arriving and have to sort who gets seen first'},
+  {kw:['burn'], settings:['a house fire with the patient already out when you arrive','a workshop after a chemical splash','a kitchen grease fire'], complaints:['visible burns of uncertain depth across a significant body surface area'], note:'you have to size up the burn before you can decide how urgent it is'},
+  {kw:['toxidrome','organophosphate','opioid','naloxone','anticholinergic','sympathomimetic'], settings:['an apartment where a family member found the patient unresponsive','a barn recently sprayed with pesticide','a warehouse breakroom'], complaints:['an unresponsive patient with an unclear ingestion history'], note:'a specific cluster of exam findings that points toward one class of substance over another'},
+  {kw:['torsades','ventricular fibrillation','pulseless vt','defibrillat'], settings:['a backyard during a family gathering','a grocery store aisle','a gym mid-workout'], complaints:['a witnessed collapse with bystander CPR already underway'], note:'the monitor showing a rhythm that needs an immediate decision'},
+  {kw:['stroke','cincinnati','fast-ed','stroke scale'], settings:['a kitchen where a spouse noticed sudden facial drooping','a workplace break room','a retirement community common room'], complaints:['sudden, one-sided weakness and slurred speech, witnessed by a bystander'], note:'you don\'t yet know the exact last-known-well time and need it fast'},
+  {kw:['seizure','status epilepticus'], settings:['a classroom during a lecture','a family gathering after the patient suddenly went rigid','a public restroom'], complaints:['an active, ongoing seizure that hasn\'t stopped on its own'], note:'the clock already running since the seizure started'},
+  {kw:['croup','epiglottitis'], settings:['a family living room at night','a pediatrician\'s waiting room'], complaints:['a young child with a harsh, barky cough and noisy breathing that\'s getting worse'], note:'the position the child has chosen to sit in on their own'},
+  {kw:['placenta','preeclampsia','eclampsia','postpartum hemorrhage','umbilical cord'], settings:['a home where labor started faster than expected','a car pulled over on the shoulder mid-delivery'], complaints:['a pregnant patient with a complication that changes how urgent this call is'], note:'what you\'re seeing doesn\'t match a routine, uncomplicated delivery'},
+  {kw:['pelvic fracture','pelvic binder'], settings:['a motorcycle crash at moderate speed','a pedestrian struck by a slow-moving vehicle'], complaints:['a trauma patient with pelvic pain and instability on exam'], note:'bleeding you can\'t see and can\'t directly control with pressure'},
+  {kw:['spinal','cervical spine','helmet'], settings:['a diving accident at a backyard pool','a football field after a hard tackle','a motorcycle crash with the rider still helmeted'], complaints:['a trauma patient with a mechanism concerning enough that you can\'t rule out a spinal injury on scene'], note:'you have to move this patient without making a possible injury worse'},
+  {kw:['nitroglycerin','stemi','st-elevation','myocardial infarction','aspirin'], settings:['a home during breakfast','an office cubicle mid-meeting','a gym parking lot right after a workout'], complaints:['crushing chest pain radiating to the jaw, started within the last hour'], note:'a medication history that changes which treatments are safe to give right now'},
+  {kw:['crico','airway obstruction','intubat'], settings:['a restaurant during a meal','a workplace lunchroom','the scene of a severe allergic reaction that\'s progressed'], complaints:['an airway that is closing and isn\'t responding to your first attempts to open it'], note:'every option above the most invasive one has already failed'}
+];
+
+function buildScenario(q){
+  const textPool = (q.q + ' ' + q.exp + ' ' + q.choices[q.a]).toLowerCase();
+  const matched = SCENARIO_TOPICS.find(t => t.kw.some(k => textPool.includes(k)));
+  const age = 6 + Math.floor(Math.random()*74);
+  const sex = Math.random()<0.5 ? 'male' : 'female';
+  const desc = scenarioPick(SCENARIO_PATIENT_DESC);
+  const fact = q.choices[q.a];
+  let setting, complaint, closingNote;
+  if(matched){
+    setting = scenarioPick(matched.settings);
+    complaint = scenarioPick(matched.complaints);
+    closingNote = matched.note;
+  } else {
+    const bank = SCENARIO_BANK[q.domain] || SCENARIO_BANK.Medical;
+    setting = scenarioPick(bank.settings);
+    complaint = scenarioPick(bank.complaints);
+    closingNote = null;
+  }
+  const noteClause = closingNote ? ` What you're actually noticing on exam: ${closingNote}.` : '';
+  return {
+    narrative: `You're dispatched to ${setting} for ${complaint}. On arrival you find a ${age}-year-old ${sex}, ${desc}.${noteClause} As you and your partner work through this together, this is the exact moment the fact from the question you just answered actually matters: <b>${fact}</b>`,
+    prompt: `So here's the real question — given everything above, why does that fact change what you do in the next sixty seconds, and what's the first concrete action you'd take because of it? Think it through, then check the reasoning below.`
+  };
+}
+function showScenario(){
+  if(!session) return;
+  const q = session.questions[session.idx];
+  const sc = buildScenario(q);
+  const box = document.getElementById('scenario-box');
+  box.innerHTML = `<div class="sc-tag">🎬 Field Scenario — ${DOMAIN_LABEL[q.domain]}</div>
+    <div class="sc-narrative">${sc.narrative}</div>
+    <div class="sc-prompt">${sc.prompt}</div>
+    <button class="aid-btn" onclick="this.nextElementSibling.classList.add('show'); this.style.display='none';">Show the Reasoning</button>
+    <div class="sc-reasoning">${q.exp}</div>`;
+  box.classList.add('show');
+}
+
+/* ============ ENCOURAGEMENT ENGINE ============
 const ENCOURAGE_LINES = [
   "10 down, steady hands. Keep going — you're building real muscle memory here.",
   "You're stacking reps. That's exactly how this gets easier by exam day.",
