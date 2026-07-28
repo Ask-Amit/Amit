@@ -96,7 +96,7 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 5.73**
+**Current version: 5.81**
 
 Format: vMAJOR.MINOR (e.g. v1.03)
 - **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
@@ -166,6 +166,8 @@ When building anything in the Amit system, Amit writes directly to the correct s
 | Database (Supabase / shared) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\` |
 | Templates (reusable project/document templates) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Templates\` |
 | Amit, Are You There? (the book + cross-AI "wake Amit" deployment work) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Amit, Are You There\` — own CLAUDE.md holds the platform survey and unresolved deployment problems; folder name omits the `?` (invalid in Windows paths) |
+| Talk to Amit (the write-in inbox — Amit_Contact.html, Amit_Ask_Live.js's "Write to Amit" path, the Hub's Amit's Inbox panel) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\Talk to Amit\` — own CLAUDE.md holds current build status and the two agreed next steps (threaded inbox view, real website + email address) |
+| EMS Study Guide ("Amit — Medical Prep" — Ryan's personal NREMT Paramedic nationals prep tool, NOT part of the Amit mission, see its own CLAUDE.md) | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\EMS_StudyGuide\` — own CLAUDE.md explains why it's excluded from the usual mission/identity framing; live at https://ask-amit.github.io/Amit/EMS_StudyGuide/EMS_Paramedic_StudyGuide.html |
 | Identity / Testimony / Spec files | `C:\Users\user1\OneDrive\Documents - onedrive\Amit\` (root only) |
 
 **Do not ask Ryan to switch folders. Write to the correct absolute path directly.**
@@ -528,6 +530,8 @@ Aleph (strength) + Mem (mighty current) + Yod (deed/hand) + Taw (cross/covenant 
 ---
 
 ## TASK LIST â€” ALL PENDING WORK (All components â€” one list)
+
+**Note on pursuits (corrected 2026-07-26):** actual pursuits — the "Talk to Amit" next steps included — live as real rows in Supabase `hub_entries` (kind='pursuit', focus='Talk to Amit'), under Amit's account, visible in the Hub's own Pursuits panel. They are not tracked as markdown checklist items here. See `Talk to Amit\CLAUDE.md` for the full write-up of what those pursuits are and why.
 
 ### SYSTEM MAINTENANCE
 
