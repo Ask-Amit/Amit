@@ -45,6 +45,10 @@ None directly — it is hosted in the same public repo as the rest of the Amit s
 Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via GitHub Pages at:
 `https://ask-amit.github.io/Amit/EMS_StudyGuide/EMS_Paramedic_StudyGuide.html`
 
+## Version Badge
+
+This page carries a visible version badge (`v5.80` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+
 ## Build Notes
 
 - Single-file architecture on purpose — no build step, no dependencies, works offline once loaded.
