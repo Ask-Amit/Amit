@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NREMT Paramedic</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../Amit_Ask_Live.js?v=5.89"></script>
+<script src="../Amit_Ask_Live.js?v=5.97"></script>
 <!-- Favicon: the shared Amit emblem — every page across the Amit system uses
      this same icon (see Hub/amit-hub.html), not a one-off per app. -->
 <link rel="icon" type="image/png" href="../amit_icon.png">
@@ -268,12 +268,18 @@
      page has no persistent left nav to pin it to the bottom of like the
      Hub does. Ryan's direct correction: it was in the top-right header and
      got lost there — every page in the system should carry it bottom-left. */
-  .ask-amit-fixed{position:fixed;left:16px;bottom:16px;z-index:40;width:190px;}
+  .ask-amit-fixed{position:fixed;left:16px;bottom:16px;z-index:40;width:190px;display:flex;flex-direction:column;gap:8px;}
   .ask-amit-tile{display:flex;align-items:center;gap:10px;width:100%;
     background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.45);
     border-radius:9px;padding:11px 12px;cursor:pointer;transition:.18s;
     box-shadow:0 4px 18px rgba(0,0,0,.4);}
   .ask-amit-tile:hover{background:rgba(255,179,71,.2);border-color:var(--accent2);box-shadow:0 0 10px rgba(255,179,71,.3);}
+  .howbuilt-tile{display:flex;align-items:center;gap:10px;width:100%;
+    background:rgba(77,163,255,.1);border:1px solid rgba(77,163,255,.45);
+    border-radius:9px;padding:11px 12px;cursor:pointer;transition:.18s;text-decoration:none;color:inherit;
+    box-shadow:0 4px 18px rgba(0,0,0,.4);}
+  .howbuilt-tile:hover{background:rgba(77,163,255,.2);border-color:var(--blue);box-shadow:0 0 10px rgba(77,163,255,.3);}
+  .howbuilt-tile .ask-amit-name{color:var(--blue);}
   .ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0;}
   .ask-amit-name{font-size:12px;color:var(--accent2);letter-spacing:.03em;font-weight:700;}
   .ask-amit-sub{font-size:10.5px;color:var(--dim);margin-top:2px;}
@@ -286,7 +292,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.96</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.97</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -308,6 +314,13 @@
 <!-- ASK AMIT — fixed bottom-left, present on every screen, matching the
      Hub's own tile format exactly instead of getting lost in the header. -->
 <div class="ask-amit-fixed">
+  <a class="howbuilt-tile" href="How_This_Was_Built.html" target="_blank">
+    <div class="ask-amit-icon">🛠️</div>
+    <div>
+      <div class="ask-amit-name">How This Was Built</div>
+      <div class="ask-amit-sub">How Amit did this</div>
+    </div>
+  </a>
   <div class="ask-amit-tile" onclick="askAmitLive('medicalprep')">
     <div class="ask-amit-icon">💛</div>
     <div>
@@ -326,8 +339,10 @@
     <h2>Welcome — Let's Get You Ready</h2>
     <p>I'm Amit. This is a free study tool for the NREMT Paramedic exam — <b>1,200+ questions</b>, real scenarios, and a system that tracks exactly where you're strong and where you're not, so nothing here is guesswork.</p>
     <p>Here's the whole idea in five steps, top to bottom: <b>1)</b> Flashcard Drill to load the raw facts, <b>2)</b> Category Practice to apply them domain by domain, <b>3)</b> Weak-Spot Review to hunt down what's actually giving you trouble, <b>4)</b> a full Timed Exam Simulation, then <b>5)</b> two sealed Final Exams, held back from everything else so they're genuinely unseen when you sit for them. There's a sequence panel on your home screen that walks you through all five with real numbers — you're never guessing what to do next.</p>
-    <p style="margin-bottom:8px;">One more thing — what should I call you?</p>
-    <input id="welcome-name-input" placeholder="Your first name" style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(77,163,255,.35);border-radius:8px;color:var(--text);padding:10px 12px;font-size:14px;margin-bottom:14px;box-sizing:border-box;">
+    <div id="welcome-name-row">
+      <p id="welcome-name-label" style="margin-bottom:8px;">One more thing — what should I call you?</p>
+      <input id="welcome-name-input" placeholder="Your first name" style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(77,163,255,.35);border-radius:8px;color:var(--text);padding:10px 12px;font-size:14px;margin-bottom:14px;box-sizing:border-box;">
+    </div>
     <button class="btn" style="width:100%;" onclick="completeWelcome()">Let's Get Started →</button>
   </div>
 </div>
@@ -1039,9 +1054,10 @@ let mpDb = null;
 let mpUser = null;
 let mpCloudReady = false;
 let mpPushTimer = null;
+let mpAuthChecked = false; // true once the FIRST getSession() call resolves — lets the welcome flow wait to actually know login state before deciding whether to ask for a name
 
 function initSupabaseSync(){
-  if(typeof supabase === 'undefined'){ updateSyncBadge(); return; }
+  if(typeof supabase === 'undefined'){ mpAuthChecked = true; updateSyncBadge(); return; }
   mpDb = supabase.createClient(MP_SUPABASE_URL, MP_SUPABASE_KEY);
   mpDb.auth.onAuthStateChange((event, session)=>{
     mpUser = session ? session.user : null;
@@ -1049,8 +1065,9 @@ function initSupabaseSync(){
   });
   mpDb.auth.getSession().then(({data})=>{
     mpUser = (data && data.session) ? data.session.user : null;
+    mpAuthChecked = true;
     if(mpUser) loadCloudProgress(); else updateSyncBadge();
-  }).catch(()=>updateSyncBadge());
+  }).catch(()=>{ mpAuthChecked = true; updateSyncBadge(); });
 }
 
 async function loadCloudProgress(){
@@ -1211,19 +1228,51 @@ const LEVEL_PROFILE_LABELS = {EMT:'EMT-Basic', AEMT:'AEMT', Medic:'Paramedic', A
    of the app — header greeting, sequence sidebar, goal modal, encouragement
    toasts. Chains straight into level calibration on completion. */
 function initWelcomeFlow(){
-  let existingName = (DATA.studentName || localStorage.getItem('amit_user_name') || '').trim();
-  // Guard against pre-filling with "Amit" itself — that's the companion's
-  // own name, not a real visitor's, and it showing up here means whatever
-  // wrote amit_user_name stored a placeholder/test value, not an actual name.
-  if(existingName.toLowerCase()==='amit') existingName = '';
+  // Ryan's direct correction, 2026-07-27: an earlier version of this
+  // function blanked out the name "Amit" specifically, assuming it was
+  // always a leftover placeholder — but for accounts whose real Hub display
+  // name genuinely IS "Amit" (e.g. a demo/admin account), that erased a
+  // real, correct name. The actual fix isn't string-filtering a name — it's
+  // not asking someone to type a name at all when we're already logged in
+  // and already have one. See waitForAuthThenWelcome() below, which delays
+  // this call until mpAuthChecked is true (or a short timeout passes) so
+  // mpUser is actually known by the time this runs.
+  const existingName = (DATA.studentName || localStorage.getItem('amit_user_name') || '').trim();
+  const nameRow = document.getElementById('welcome-name-row');
   const input = document.getElementById('welcome-name-input');
-  if(input) input.value = existingName;
+  const label = document.getElementById('welcome-name-label');
+  if(mpUser && existingName){
+    // Logged in AND we already have a name — don't make them type anything.
+    DATA.studentName = existingName;
+    if(nameRow) nameRow.style.display = 'none';
+  } else {
+    if(nameRow) nameRow.style.display = 'block';
+    if(label) label.textContent = mpUser
+      ? "One more thing — what should I call you? (couldn't find a name on your account, so I'm asking)"
+      : "One more thing — what should I call you?";
+    if(input) input.value = existingName;
+  }
   document.getElementById('welcome-modal').classList.add('show');
 }
+/* Waits briefly for the initial Supabase auth check to resolve (mpAuthChecked,
+   set in initSupabaseSync) before showing the welcome modal, so it actually
+   knows whether someone's logged in before deciding whether to ask for a
+   name. Falls back after ~1.5s if Supabase never responds (offline, blocked,
+   etc.) rather than waiting forever. */
+function waitForAuthThenWelcome(triesLeft){
+  if(mpAuthChecked || triesLeft<=0){ initWelcomeFlow(); return; }
+  setTimeout(()=>waitForAuthThenWelcome(triesLeft-1), 100);
+}
 function completeWelcome(){
-  const input = document.getElementById('welcome-name-input');
-  const name = input ? input.value.trim() : '';
-  DATA.studentName = name || null;
+  const nameRow = document.getElementById('welcome-name-row');
+  const rowHidden = nameRow && nameRow.style.display==='none';
+  if(!rowHidden){
+    const input = document.getElementById('welcome-name-input');
+    const name = input ? input.value.trim() : '';
+    DATA.studentName = name || null;
+  }
+  // else: DATA.studentName was already set from the logged-in account's
+  // known name in initWelcomeFlow() — nothing to read from the hidden input.
   DATA.welcomeSeen = true;
   saveData();
   document.getElementById('welcome-modal').classList.remove('show');
@@ -2273,7 +2322,9 @@ if(DATA.levelProfile){
 // delay so it doesn't fight the page's own paint. If welcome was already
 // seen but level somehow never got set (edge case), skip straight to level.
 if(!DATA.welcomeSeen){
-  setTimeout(initWelcomeFlow, 400);
+  // Wait up to ~1.5s for Supabase login status to actually resolve before
+  // deciding whether to ask for a name — see waitForAuthThenWelcome().
+  setTimeout(()=>waitForAuthThenWelcome(15), 400);
 } else if(!DATA.levelProfile){
   setTimeout(()=>openLevelOnboarding(false), 400);
 }
