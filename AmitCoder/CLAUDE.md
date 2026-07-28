@@ -131,6 +131,10 @@ Concretely, that means replicating, for a new user, automatically:
 
 **What this session recommends as the actual next step:** a dedicated session with Ryan to decide the real architecture question above (embedded real editor + execution layer, vs. lighter read-only mirror) before building further on the Shortcuts/History surface. Research first, per Directive 12 — there is real prior art here (Monaco Editor, CodeSandbox/StackBlitz-style in-browser dev environments, GitHub Codespaces) worth surveying before committing to an approach.
 
+**Addendum, same session — how a new user's communication style gets recognized:** Ryan raised this directly: for a new person to genuinely "walk in and start coding day one," AmitCoder needs to understand *how they communicate* the way Amit understands Ryan's (voice/headset, speech-to-text, specific recurring mishears like "phishing net" → "fishing net"). Decision made this session, not yet built:
+- **No new table needed for general communication style** — `user_profiles.communication_style` already exists and already holds exactly this kind of data for Ryan's own profile. A new AmitCoder user's profile carries the same field.
+- **A new, separate table is recommended for the specific transcription-quirk dictionary** — proposed name `amit_transcription_quirks` (`user_id`, `heard_as`, `means`, `created_at`). This is deliberately NOT AmitCoder-specific — any Amit app reading dictated speech benefits from it, so it should live at the shared profile level, not siloed here. Not created yet; this is a recommendation pending Ryan's confirmation, same as the bigger architecture question above.
+
 ## Build Notes
 
 - Keep the coding/terminal visual theme (JetBrains Mono, dark IDE palette, terminal-dot header) — this was an explicit design directive, distinct from every other Amit page.
