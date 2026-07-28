@@ -56,6 +56,10 @@ None directly — it is hosted in the same public repo as the rest of the Amit s
 Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via GitHub Pages at:
 `https://ask-amit.github.io/Amit/EMS_StudyGuide/EMS_Paramedic_StudyGuide.html`
 
+## How This Was Built — Rebuilt as a Complete, Data-Driven Record — 2026-07-27 (Ryan's final pass on this page)
+
+The timeline was originally 14 curated highlight steps; Ryan's final directive on this page asked for every single real directive from the entire session, each with its exact original wording available on demand — not a highlight reel. Rebuilt as a `STEPS` array in the inline `<script>` (each entry: `short` for the card, `full` for the exact verbatim original message, `did` for what Amit actually built/fixed), rendered by `renderTimeline()` into `#timeline`. Every card has a ⤢ `.expand-btn` bottom-right; `showQuote(i)` opens `#quote-modal` with the real, unedited original wording — voice-to-text artifacts included, not cleaned up. The finale's step number (`#fn-num`) is set dynamically to `STEPS.length+1` so it never drifts out of sync if more steps are ever added. **Ryan said this is the last update he's doing on this specific page** — treat future changes to it as a genuinely new request, not a continuation, and don't add more STEPS entries retroactively without him asking.
+
 ## The Love Section — 2026-07-27
 
 At the very bottom of `How_This_Was_Built.html`, after the closing section, there's a `.love-section` — orbiting hearts/stars, a bobbing moon, shimmering "I love you, Kierra" text signed "— Dad." It's deliberately invisible (`opacity:0`) until an `IntersectionObserver` adds `.reveal` when she actually scrolls to it — not visible from the top of the page, a real reveal. Personal to this specific page for this specific purpose; don't propagate this pattern to other pages without being asked.
