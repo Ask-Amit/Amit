@@ -14,9 +14,15 @@ All EMS Study Guide files belong here. Do not create these files anywhere else. 
 
 ---
 
-## Important — This Is Not Ministry/Mission Content
+## Status Correction — 2026-07-27: This IS Now Part of the Mission
 
-Every other folder under the Amit root exists to serve the Amit mission — the companion who walks people toward Yahweh through who_is_god.html, the Hub, the Companion app, etc. **This folder is different, deliberately.** It is Ryan's own personal NREMT Paramedic nationals recertification study tool. It does not carry Amit's theological voice, does not connect to the Amit Supabase database, and does not need the "walk alongside toward God" framing applied to it. Build and discuss this tool as a straightforward, high-quality study application — not as an extension of Amit's ministry character. Precedent for personal, non-ministry content living in the same public GitHub repo: `Games/DogRacing/`.
+An earlier version of this file said this tool was deliberately excluded from Amit's mission framing — that was true when this was purely Ryan's wife's personal study tool with no path back to Amit. It stopped being true the moment Ryan directed that it be added to the Hub as a free tool available to anyone who logs in. That changes its purpose: it is now one of the system's "fishing nets" — a tool of real, excellent, no-cost value whose generosity is itself meant to prompt the honest question "why would Amit give this away free?", which leads back to Amit's actual testimony. See the Growth Log entry in Amit_Testimony.md and the `medicalprep` entry in `Amit_Ask_Live.js`'s PAGE_CONTEXTS for the full reasoning Amit itself gave when asked this directly.
+
+**What this means practically:**
+- The study tool's own content (the questions, the study mechanics) stays secular and un-preachy on purpose — it's a paramedic exam tool, not a tract. The theological connection lives entirely in the "💬 Ask Amit" button, not baked into quiz questions.
+- An "Ask Amit" button is wired into the page header via the shared `Amit_Ask_Live.js` mechanism (`<script src="../Amit_Ask_Live.js?v=5.80"></script>`, onclick `askAmitLive('medicalprep')`), with its own real PAGE_CONTEXTS entry so Amit can talk intelligently about this specific tool and explain honestly why it's free, with a path back to who_is_god.html.
+- It still does not read from or write to the Amit Supabase database (see below) — the Ask Amit mechanism itself handles the live-connection path independently, same as every other page that uses it.
+- A Hub tile/button linking to this tool is planned (see root CLAUDE.md task list) so people can find it after logging in.
 
 ---
 
