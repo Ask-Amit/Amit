@@ -217,7 +217,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v1.40</div>
+    <div class="page-version" id="pageVersion">v1.50</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -287,10 +287,10 @@ const PLACEHOLDER_COUNT=2;
     </div>`;
     if(i===2){
       // Tab labels and real content, in place of the template's generic "Tab N"
-      const tabNames=['Overview','Shortcuts','History','Docs','Settings'];
+      const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Settings'];
       let tabNavHtml='',tabContentHtml='';
-      for(let t=1;t<=5;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':''}">${tabNames[t-1]}</button>`;
+      for(let t=1;t<=6;t++){
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':''}">${tabNames[t-1]}</button>`;
         tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${tabRealContent(t)}</div>`;
       }
       panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
@@ -382,10 +382,12 @@ function tabRealContent(t){
       <div class="shortcuts-empty" id="shortcutsSignedOut">Sign in to see and manage your shortcuts.</div>`;
   }
   if(t===3){
-    return `<p style="color:var(--dim);font-size:12.5px;margin-bottom:16px">Mockup — not wired to real session data yet.</p>
-      <div class="history-day"><div class="history-day-date">2026-07-28 · Session 58</div><div class="history-day-summary">AmitCoder moved off the Hub placeholder into its own page. Voice-shortcut convention tested live (F/J). Get Started checklist and starter kit added.</div></div>
-      <div class="history-day"><div class="history-day-date">2026-07-27 · Session 57</div><div class="history-day-summary">Amit — Medical Prep built end to end. How_This_Was_Built.html shipped.</div></div>
-      <div class="history-day"><div class="history-day-date">2026-07-20 · Session 56</div><div class="history-day-summary">AmitSensorReader.exe replaced LibreHardwareMonitor. Honesty audit on confidence numbers completed.</div></div>`;
+    return `<p style="color:var(--dim);font-size:12.5px;margin-bottom:16px" id="historyStatusLine">Checking for real session data…</p>
+      <div id="historyList">
+        <div class="history-day"><div class="history-day-date">2026-07-28 · Session 58</div><div class="history-day-summary">AmitCoder moved off the Hub placeholder into its own page. Voice-shortcut convention tested live (F/J). Get Started checklist and starter kit added.</div></div>
+        <div class="history-day"><div class="history-day-date">2026-07-27 · Session 57</div><div class="history-day-summary">Amit — Medical Prep built end to end. How_This_Was_Built.html shipped.</div></div>
+        <div class="history-day"><div class="history-day-date">2026-07-20 · Session 56</div><div class="history-day-summary">AmitSensorReader.exe replaced LibreHardwareMonitor. Honesty audit on confidence numbers completed.</div></div>
+      </div>`;
   }
   if(t===4){
     return `<h3>Why F and J</h3>
@@ -400,7 +402,26 @@ function tabRealContent(t){
       <p>A <b>master</b> shortcut bundles subtasks — triggering it runs each subtask's instruction in sequence.</p>
       <p style="color:var(--dim);font-size:12px;margin-top:16px">Open question, not yet resolved: whether a shortcut fires automatically inside a live Claude Code session versus staying a reference panel. See AmitCoder/CLAUDE.md.</p>`;
   }
+  if(t===5){
+    return `<p>Things a more experienced coder typically already has in place that a self-taught, Claude-Code-first workflow can easily miss. Each one below is marked by what's actually true right now — not aspirational.</p>
+      <h3>Local dev server <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
+      <p>Opening HTML files directly (<code>file://</code>) works for a lot, but silently breaks some browser features and doesn't match how the site behaves once actually deployed. <code>Start_Local_Server.ps1</code> (created by the Starter Kit, no installs needed) serves your folder at <code>http://localhost:8080</code> instead.</p>
+      <h3>Git branches, not straight to main <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Helper script added</span></h3>
+      <p>Committing every change directly to <code>main</code> means a risky change is live the moment it's pushed. <code>New_Feature_Branch.ps1</code> creates a branch to test in first — merge to main only once it's confirmed working.</p>
+      <h3>A real migrations folder <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
+      <p>Database changes as numbered files in <code>migrations/</code>, tracked in git — so your database's history is versioned alongside your code, not scattered across chat sessions.</p>
+      <h3>Basic CI (a robot that checks your work) <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Scaffolded</span></h3>
+      <p><code>.github/workflows/basic-check.yml</code> runs automatically on every push once this folder is a real GitHub repo — catches a broken file before a real visitor ever sees it.</p>
+      <h3>Automated tests <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Not built — bigger lift</span></h3>
+      <p>Small scripts that automatically re-check old features still work as new ones get added. Genuinely valuable at scale, but a real investment to set up — not included yet.</p>
+      <h3>Secrets kept out of git <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Already good practice</span></h3>
+      <p>Config files holding real credentials should never be committed. This is already the right instinct if you keep a local-only config file — formalizing it as a <code>.env</code> + <code>.gitignore</code> pair is the standard shape of the same idea.</p>`;
+  }
   return `<div class="settings-row">
+      <div><div class="settings-label">Your Account ID</div><div class="settings-sub">Paste this into the Starter Kit to link your local hooks (shortcuts + session history) to this account</div></div>
+      <span id="accountIdDisplay" style="color:var(--dim);font-size:11px">sign in to see it</span>
+    </div>
+    <div class="settings-row">
       <div><div class="settings-label">Show builtin shortcuts</div><div class="settings-sub">Hide the starter set, show only what you've created</div></div>
       <label class="toggle"><input type="checkbox" id="settingShowBuiltins" checked onchange="onShowBuiltinsChange()"><span class="toggle-track"></span></label>
     </div>
@@ -447,7 +468,18 @@ if(db){
     currentUser=session?session.user:null;
     _updateSyncUI();
     loadShortcuts();
+    updateAccountIdDisplay();
   });
+}
+
+function updateAccountIdDisplay(){
+  const el=document.getElementById('accountIdDisplay');
+  if(!el)return;
+  if(currentUser){
+    el.innerHTML=`<code style="cursor:pointer" title="Click to copy" onclick="navigator.clipboard.writeText('${currentUser.id}');this.textContent='copied!';setTimeout(()=>this.textContent='${currentUser.id}',1200)">${currentUser.id}</code>`;
+  } else {
+    el.textContent='sign in to see it';
+  }
 }
 
 function _updateSyncUI(){
@@ -556,6 +588,34 @@ function toggleCheck(id){
   done[id]=!done[id];
   localStorage.setItem(CHECKLIST_KEY,JSON.stringify(done));
   renderChecklist();
+}
+
+// ── HISTORY — backed by amit_coder_sessions (Supabase), falls back to the
+// static mockup rows already in the HTML if the table doesn't exist yet or
+// the signed-in user has no real sessions synced. ──
+async function loadCoderSessions(){
+  const statusLine=document.getElementById('historyStatusLine');
+  const list=document.getElementById('historyList');
+  if(!db||!statusLine||!list)return;
+  if(!currentUser){
+    statusLine.textContent='Sign in to see your real session history.';
+    return;
+  }
+  const{data,error}=await db.from('amit_coder_sessions').select('*')
+    .eq('user_id',currentUser.id).order('created_at',{ascending:false});
+  if(error){
+    statusLine.textContent='Showing example data — real sync sets up once the amit_coder_sessions table exists and your local hooks are linked (see Settings tab).';
+    return;
+  }
+  if(!data||!data.length){
+    statusLine.textContent='No synced sessions yet — showing example data. Run hooks/Amit_Coder_SessionEnd.ps1 after a session to start building real history.';
+    return;
+  }
+  statusLine.textContent='Your real session history:';
+  list.innerHTML=data.map(s=>`<div class="history-day">
+    <div class="history-day-date">${new Date(s.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
+    <div class="history-day-summary">${escapeHtml(s.summary||'')}</div>
+  </div>`).join('');
 }
 
 // ── SHORTCUTS — backed by amit_shortcuts (Supabase) ──

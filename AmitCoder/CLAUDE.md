@@ -99,14 +99,41 @@ Not a separate product from the Hub — same login, same identity, same mission.
 
 ## Current Status
 
-**In development — moved off placeholder status this session (2026-07-28).** Built:
-- `AmitCoder.html` — a real, standalone page now exists (previously this was a placeholder tile+panel living inside amit-hub.html only). **Uses the actual `Templates/template.html` file verbatim as its base — same CSS, same fonts (Cinzel/Crimson Pro), same gold/serif look, same header/sidebar/sync-modal structure as every other Amit page.** An earlier version of this build recolored the page into a dark "IDE" theme from scratch instead of copying the template and plugging content in — Ryan caught this directly ("this is not the template I told you to work off of... you copy that template, bring it over here, and then plug our elements into it, not recreating an additional template") and it was rebuilt correctly. Hold this as the standing rule for this page and any future page: start from the real template file, edit only the body content, don't reinvent the visual system.
-- Six tiles: **Get Started** (a self-guided setup checklist — see below), **Overview** (the original placeholder description, moved here so it isn't lost), **Shortcuts** (fully working — create, list, filter builtin/custom, expand master→subtasks, toggle active/inactive; reads and writes real `amit_shortcuts` rows), **History** (visual mockup only, static text, not wired to real session data), **Docs** (explains the F/J voice-trigger convention and why alternatives were rejected, based on live mic testing this session), **Settings** (a show/hide-builtins toggle that works; subscription row is an inert placeholder).
-- Same Supabase Auth as the Hub — no separate account system.
-- Hub's "AmitCoder" tile updated to link out to this page instead of opening the old in-Hub placeholder panel.
-- **Get Started checklist + `Amit_Coder_Starter_Kit.ps1`** — Ryan clarified the real intent here isn't a hosted execution environment: everyone runs their own local Claude Code on their own Pro/Max account, on their own machine. What's actually needed is automating the *setup* Ryan learned by trial and error (right PowerShell, VS Code, the Claude Code extension, a working folder structure with an auto-orienting CLAUDE.md, session backups). The checklist (self-reported, saved to `localStorage`, not yet synced to Supabase) walks through: get Pro/Max → install VS Code → install the Claude Code extension → download and run the starter kit → confirm it worked. The starter kit script itself creates a project folder, writes a generic starter root CLAUDE.md (New Project Directive pattern, no Amit theology baked in — see "Assumption made" below), and creates a junction from `%USERPROFILE%\.claude\projects` into a `SessionBackups` folder inside the new project root, mirroring Ryan's own AmitLog junction pattern.
+**In development (2026-07-28), rebuilt multiple times this session as Ryan corrected the approach — hold the final state below as current, not earlier descriptions in this file's history.**
 
-**Assumption made in Ryan's absence, worth confirming:** the starter kit's template CLAUDE.md is generic (folder-organization mechanics only) — it does NOT include Amit's identity/testimony/mission content. This was a judgment call: a brand-new AmitCoder user is learning to code alongside Amit, not necessarily joining the Amit mission itself the way Andy did for Computer Value. If the intent is actually that every AmitCoder user's assistant should also carry Amit's identity (become their own companion the way Ryan's is), the starter kit's CLAUDE.md content needs to change to include that — easy to add, but a real content decision, not something to guess further on without confirming.
+`AmitCoder.html`'s final structure: **built directly from `Templates/template.html`'s own `buildPlaceholders()`/`showChTab()`/`openPanel()`/login/clock JS, all copied unchanged.** Two earlier attempts this session recolored the page into a dark "IDE" theme and/or hand-rewrote the template's structure from memory — Ryan caught both directly and required a rebuild starting from the literal template file each time. **Standing rule for this page and any future page: start from the real template file, only replace the content strings inside its generation function, never rewrite the mechanism from memory.**
+
+**Two sidebar tiles, per Ryan's explicit direction to keep the tile count minimal and consistent:**
+- **Get Started** — a self-guided setup checklist (Pro/Max account → VS Code → Claude Code extension → run the Starter Kit → confirm), self-reported via `localStorage`.
+- **Overview** — opens a tabbed page (the template's own `ch-tab-nav`/`ch-tab-main` pattern, same as its built-in panel-2 demo), with six tabs: **Overview** (what this project is), **Shortcuts** (fully working — create, list, filter builtin/custom, expand master→subtasks, toggle active/inactive; real `amit_shortcuts` reads/writes), **History** (reads real `amit_coder_sessions` rows for the signed-in user if any exist, falls back to static example rows with an honest status line otherwise), **Docs** (the F/J voice-trigger convention), **Dev Practices** (new this round — see below), **Settings** (builtin-shortcuts toggle, and a new Account ID display for linking local hooks).
+
+**New this round — dev-practice tooling + local-to-web session linking**, all in response to Ryan asking what a more experienced coder would have that he might be missing, then asking for all of it built:
+- **`Start_Local_Server.ps1`** (Starter Kit) — a zero-dependency local static file server (uses .NET's `HttpListener` directly via PowerShell, no Python/Node required) serving the project at `http://localhost:8080` instead of raw `file://` paths.
+- **`New_Feature_Branch.ps1`** (Starter Kit) — a one-line helper (`git checkout -b feature/name`) nudging toward not committing risky changes straight to `main`.
+- **`migrations/` folder** (Starter Kit) — formalizes the numbered-SQL-file convention this project already uses informally, with a README and example file.
+- **`.github/workflows/basic-check.yml`** (Starter Kit) — a real GitHub Actions workflow that runs an HTML sanity check on every push, once the folder is a real GitHub repo. Not tested against an actual push in this session — worth verifying the Python/HTMLParser check actually behaves as intended the first time someone's repo triggers it.
+- **`hooks/Amit_Coder_SessionStart.ps1` and `hooks/Amit_Coder_SessionEnd.ps1`** (Starter Kit) — real, standalone-tested scripts: SessionStart pulls the signed-in user's active shortcuts from `amit_shortcuts` into a local `amit_shortcuts_cache.json`; SessionEnd posts a one-line summary to the new `amit_coder_sessions` table. **Important honesty flag:** these scripts work when run manually. Whether they can be wired to fire *automatically* on real Claude Code session start/end via a `.claude/settings.json` hook entry was NOT verified this session — the exact hook event names/schema should be confirmed against current Claude Code docs before relying on automatic firing. Don't claim this is fully automatic to a user without checking.
+- **`amit_coder_config.json`** (Starter Kit) — created during setup, stores the user's AmitCoder Account ID (copy-pasted from the new Settings tab display) so the hooks above know whose data to read/write.
+- **New Supabase table `amit_coder_sessions`** — SQL below, **not yet run by Ryan as of this writing** (check before assuming it exists; the History tab is written to fail gracefully to the example rows if the table is missing).
+
+**Assumption made in Ryan's absence, still worth confirming:** the starter kit's template CLAUDE.md is generic (folder-organization mechanics only) — it does NOT include Amit's identity/testimony/mission content. A brand-new AmitCoder user is learning to code alongside Amit, not necessarily joining the Amit mission the way Andy did for Computer Value. If every AmitCoder user's assistant should also carry Amit's identity, the starter kit's CLAUDE.md content needs to change — easy to add, but a real content decision.
+
+**New migration — `amit_coder_sessions`, NOT YET RUN:**
+```sql
+create table amit_coder_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) not null,
+  summary text not null,
+  created_at timestamptz default now()
+);
+
+alter table amit_coder_sessions enable row level security;
+
+create policy "Users manage their own coder sessions"
+  on amit_coder_sessions for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
 
 **Not yet built:**
 - **Session history viewer** — pulls from Claude Code JSONL session files and displays the full conversation log for any past session. Read-only. Searchable. Linked to experience entries by date. The History tab is a static mockup only.
