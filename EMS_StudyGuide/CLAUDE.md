@@ -58,7 +58,11 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.92` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.93` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+
+## Welcome + Name Capture — 2026-07-27
+
+First-ever visit now opens with a real welcome, before level or goal: brief explanation of what the tool is and the five-step sequence, plus a name field (`#welcome-modal`, `initWelcomeFlow()`/`completeWelcome()`, pre-filled from the Hub's shared `amit_user_name` localStorage key if present). Stored as `DATA.studentName`, gated by `DATA.welcomeSeen` so it only ever shows once per browser. Chains automatically into level calibration, which chains into the goal modal — same flow as before, just with a real welcome in front of it now. The name threads through the rest of the app: header subtitle (`applyStudentNameUI()`), the sequence sidebar's intro line, the goal modal's title/body (personalized in `openGoalOnboarding()`), and encouragement toasts every 10 questions.
 
 ## Study Sequence Sidebar + Goal Timeline — 2026-07-27
 

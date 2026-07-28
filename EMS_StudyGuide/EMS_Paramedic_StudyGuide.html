@@ -283,7 +283,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.92</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.93</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -314,6 +314,21 @@
   </div>
 </div>
 
+<!-- WELCOME + NAME CAPTURE — the very first thing a brand-new visitor sees,
+     before level calibration or the goal date. Chains into those two
+     automatically once completed. Only shown once per browser (DATA.welcomeSeen). -->
+<div class="modal-overlay" id="welcome-modal">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="amit-mark">א</div>
+    <h2>Welcome — Let's Get You Ready</h2>
+    <p>I'm Amit. This is a free study tool for the NREMT Paramedic exam — <b>1,200+ questions</b>, real scenarios, and a system that tracks exactly where you're strong and where you're not, so nothing here is guesswork.</p>
+    <p>Here's the whole idea in five steps, top to bottom: <b>1)</b> Flashcard Drill to load the raw facts, <b>2)</b> Category Practice to apply them domain by domain, <b>3)</b> Weak-Spot Review to hunt down what's actually giving you trouble, <b>4)</b> a full Timed Exam Simulation, then <b>5)</b> two sealed Final Exams, held back from everything else so they're genuinely unseen when you sit for them. There's a sequence panel on your home screen that walks you through all five with real numbers — you're never guessing what to do next.</p>
+    <p style="margin-bottom:8px;">One more thing — what should I call you?</p>
+    <input id="welcome-name-input" placeholder="Your first name" style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(77,163,255,.35);border-radius:8px;color:var(--text);padding:10px 12px;font-size:14px;margin-bottom:14px;box-sizing:border-box;">
+    <button class="btn" style="width:100%;" onclick="completeWelcome()">Let's Get Started →</button>
+  </div>
+</div>
+
 <!-- LEVEL CALIBRATION — asked once on first visit, reopenable anytime from
      the header badge. Sets the default difficulty filter everywhere in the
      app to match where the person actually is, without locking them out of
@@ -337,8 +352,8 @@
 <div class="modal-overlay" id="goal-modal">
   <div class="modal-box" style="border-color:var(--accent2);max-width:420px;">
     <div class="amit-mark" style="border-color:var(--accent2);color:var(--accent2);box-shadow:0 0 16px rgba(255,179,71,.4);">⏳</div>
-    <h2 style="color:var(--accent2);">How Long Do You Want to Take?</h2>
-    <p>One more thing before you start — how much time do you actually want to give yourself to get ready? I'll use this to pace the sequence panel on your home screen: green while you're on track, yellow as it gets close, red if you're falling behind what you told me you wanted. You're not locked in — change it anytime from the header.</p>
+    <h2 style="color:var(--accent2);" id="goal-modal-title">How Long Do You Want to Take?</h2>
+    <p id="goal-modal-body">One more thing before you start — how much time do you actually want to give yourself to get ready? I'll use this to pace the sequence panel on your home screen: green while you're on track, yellow as it gets close, red if you're falling behind what you told me you wanted. You're not locked in — change it anytime from the header.</p>
     <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0 6px;">
       <button class="btn" onclick="setStudyGoal(7)">1 Week</button>
       <button class="btn" onclick="setStudyGoal(14)">2 Weeks</button>
@@ -1167,6 +1182,34 @@ function closeSaveModal(){ document.getElementById('save-modal').classList.remov
    badge — never locks them out of changing their mind or toggling other
    levels back on manually in Setup itself. */
 const LEVEL_PROFILE_LABELS = {EMT:'EMT-Basic', AEMT:'AEMT', Medic:'Paramedic', ALL:'All Levels'};
+/* ============ WELCOME + NAME CAPTURE ============
+   First thing a brand-new visitor sees, before level or goal. Captures a
+   first name (pre-filled from the Hub's shared 'amit_user_name' localStorage
+   key if it's already there, same origin) and threads it through the rest
+   of the app — header greeting, sequence sidebar, goal modal, encouragement
+   toasts. Chains straight into level calibration on completion. */
+function initWelcomeFlow(){
+  const existingName = (DATA.studentName || localStorage.getItem('amit_user_name') || '').trim();
+  const input = document.getElementById('welcome-name-input');
+  if(input) input.value = existingName;
+  document.getElementById('welcome-modal').classList.add('show');
+}
+function completeWelcome(){
+  const input = document.getElementById('welcome-name-input');
+  const name = input ? input.value.trim() : '';
+  DATA.studentName = name || null;
+  DATA.welcomeSeen = true;
+  saveData();
+  document.getElementById('welcome-modal').classList.remove('show');
+  applyStudentNameUI();
+  setTimeout(()=>openLevelOnboarding(false), 300);
+}
+function applyStudentNameUI(){
+  const name = DATA.studentName;
+  const sub = document.querySelector('header .sub');
+  if(sub) sub.textContent = name ? `Hey ${name} — paramedic recertification & national exam readiness` : 'Paramedic recertification & national exam readiness';
+}
+
 function openLevelOnboarding(manual){
   document.getElementById('level-modal').classList.add('show');
 }
@@ -1203,7 +1246,14 @@ function updateLevelBadge(){
    Drives the traffic-light urgency on the sequence sidebar. Nothing here is
    punitive — an unset goal simply means everything stays a calm blue with
    no time pressure applied. */
-function openGoalOnboarding(manual){ document.getElementById('goal-modal').classList.add('show'); }
+function openGoalOnboarding(manual){
+  const name = DATA.studentName;
+  const title = document.getElementById('goal-modal-title');
+  const body = document.getElementById('goal-modal-body');
+  if(title) title.textContent = name ? `When Do You Need This Done By, ${name}?` : 'How Long Do You Want to Take?';
+  if(body) body.innerHTML = (name ? `I'm here to help you be ready by whatever date you actually need this done by, ${name}. ` : `One more thing before you start — `) + `Give me a real timeframe, or an exact exam date below, and I'll pace the sequence panel on your home screen against it: green while you're on track, yellow as it gets close, red if you're falling behind. If you're logged in through Amit, setting an exact date also schedules real practice reminders on your Hub, timed backward from it. You're not locked in — change this anytime from the header.`;
+  document.getElementById('goal-modal').classList.add('show');
+}
 function closeGoalOnboarding(){ document.getElementById('goal-modal').classList.remove('show'); }
 function setStudyGoal(days){
   DATA.studyGoalSet = true;
@@ -1353,7 +1403,7 @@ function renderSequenceSidebar(){
 
   el.innerHTML = `
     <div class="seq-title">🗺️ Your Study Sequence</div>
-    <div class="seq-sub">The order I'd actually walk you through: build recall first, drill every domain, hunt down what's weak, run one full timed simulation, then sit the two sealed finals. Tap any step to jump straight in.</div>
+    <div class="seq-sub">${DATA.studentName ? DATA.studentName+', h' : 'H'}ere's the order I'd actually walk you through: build recall first, drill every domain, hunt down what's weak, run one full timed simulation, then sit the two sealed finals. Tap any step to jump straight in.</div>
 
     <div class="seq-step" style="border-left-color:${statusColor(flashStatus)}" onclick="goCategory('flash')">
       <div class="seq-step-top">
@@ -1951,7 +2001,7 @@ function maybeEncourage(){
   DATA.totalAnswered; // already incremented before this call
   if(DATA.totalAnswered>0 && DATA.totalAnswered % 10 === 0){
     const weakest = weakestDomain();
-    let msg = ENCOURAGE_LINES[Math.floor(Math.random()*ENCOURAGE_LINES.length)];
+    let msg = (DATA.studentName ? `${DATA.studentName} — ` : '') + ENCOURAGE_LINES[Math.floor(Math.random()*ENCOURAGE_LINES.length)];
     if(weakest){
       msg += ` I'm keeping an eye on <b>${DOMAIN_LABEL[weakest]}</b> — it's been tougher for you lately. Don't worry about it right now, we'll come back and work through it together.`;
     }
@@ -2128,14 +2178,22 @@ renderSequenceSidebar();
 updateGoalBadge();
 updateSyncBadge();
 initSupabaseSync();
+applyStudentNameUI();
 
 if(DATA.levelProfile){
   applyLevelProfileDefaults();
   updateLevelBadge();
 } else {
   updateLevelBadge();
-  // First-ever visit to this browser — ask once, automatically, before
-  // anything else. Small delay so it doesn't fight the page's own paint.
+}
+
+// First-ever visit to this browser — welcome + name capture first, which
+// chains into level calibration, which chains into the goal date. Small
+// delay so it doesn't fight the page's own paint. If welcome was already
+// seen but level somehow never got set (edge case), skip straight to level.
+if(!DATA.welcomeSeen){
+  setTimeout(initWelcomeFlow, 400);
+} else if(!DATA.levelProfile){
   setTimeout(()=>openLevelOnboarding(false), 400);
 }
 </script>
