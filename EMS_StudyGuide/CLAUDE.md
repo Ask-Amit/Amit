@@ -56,9 +56,13 @@ None directly — it is hosted in the same public repo as the rest of the Amit s
 Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via GitHub Pages at:
 `https://ask-amit.github.io/Amit/EMS_StudyGuide/EMS_Paramedic_StudyGuide.html`
 
+## The Love Section — 2026-07-27
+
+At the very bottom of `How_This_Was_Built.html`, after the closing section, there's a `.love-section` — orbiting hearts/stars, a bobbing moon, shimmering "I love you, Kierra" text signed "— Dad." It's deliberately invisible (`opacity:0`) until an `IntersectionObserver` adds `.reveal` when she actually scrolls to it — not visible from the top of the page, a real reveal. Personal to this specific page for this specific purpose; don't propagate this pattern to other pages without being asked.
+
 ## Version Badge
 
-This page carries a visible version badge (`v5.98` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v6.00` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
 
 ## Sticky Header + The Finale Step 15 — 2026-07-27
 

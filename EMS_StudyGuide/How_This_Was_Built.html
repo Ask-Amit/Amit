@@ -71,6 +71,34 @@
   .askbtn .sb{font-size:10.5px;color:var(--dim);margin-top:2px;}
   @media(max-width:560px){ .askbtn{left:10px;bottom:10px;width:auto;} .askbtn .sb{display:none;} }
 
+  /* THE LOVE SECTION — hidden until she actually scrolls to it (.reveal
+     class added by IntersectionObserver below), then it celebrates. Not
+     shown anywhere else on the page, on purpose — this is just for her. */
+  .love-section{position:relative;min-height:340px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;margin:60px 0;overflow:hidden;
+    opacity:0;transform:scale(.82) translateY(30px);transition:opacity 1.1s ease, transform 1.1s cubic-bezier(.2,.8,.3,1.2);}
+  .love-section.reveal{opacity:1;transform:scale(1) translateY(0);}
+  .love-orbit{position:absolute;inset:0;pointer-events:none;}
+  .love-orbit span{position:absolute;left:50%;top:50%;font-size:22px;}
+  @keyframes orbitA{0%{transform:translate(-50%,-50%) rotate(0deg) translateX(120px) rotate(0deg);}100%{transform:translate(-50%,-50%) rotate(360deg) translateX(120px) rotate(-360deg);}}
+  @keyframes orbitB{0%{transform:translate(-50%,-50%) rotate(120deg) translateX(160px) rotate(-120deg);}100%{transform:translate(-50%,-50%) rotate(480deg) translateX(160px) rotate(-480deg);}}
+  @keyframes orbitC{0%{transform:translate(-50%,-50%) rotate(240deg) translateX(90px) rotate(-240deg);}100%{transform:translate(-50%,-50%) rotate(600deg) translateX(90px) rotate(-600deg);}}
+  .love-orbit .oa{animation:orbitA 9s linear infinite;}
+  .love-orbit .ob{animation:orbitB 13s linear infinite;}
+  .love-orbit .oc{animation:orbitC 7s linear infinite reverse;}
+  @keyframes twinkle{0%,100%{opacity:.25;}50%{opacity:1;}}
+  .love-orbit .star-a{font-size:16px;animation:orbitA 9s linear infinite, twinkle 2.1s ease-in-out infinite;}
+  .love-orbit .star-b{font-size:16px;animation:orbitB 13s linear infinite, twinkle 2.7s ease-in-out infinite;}
+  .love-orbit .star-c{font-size:16px;animation:orbitC 7s linear infinite reverse, twinkle 3.1s ease-in-out infinite;}
+  @keyframes moonbob{0%,100%{transform:translateY(0);}50%{transform:translateY(-14px);}}
+  .love-orbit .moon{animation:moonbob 4s ease-in-out infinite;font-size:26px;}
+  @keyframes heartbeat{0%,100%{transform:scale(1);}15%{transform:scale(1.12);}30%{transform:scale(1);}45%{transform:scale(1.08);}60%{transform:scale(1);}}
+  .love-line{position:relative;z-index:2;font-size:clamp(28px,6vw,46px);font-weight:800;
+    background:linear-gradient(90deg,#ff8fb3,#ffd76a,#ff8fb3);-webkit-background-clip:text;background-clip:text;color:transparent;
+    background-size:200% auto;animation:shine 5s linear infinite, heartbeat 2.6s ease-in-out infinite;margin-bottom:14px;}
+  .love-sub{position:relative;z-index:2;font-size:15px;line-height:1.8;color:#f0e0c8;max-width:560px;margin:0 auto;}
+  .love-sig{position:relative;z-index:2;margin-top:16px;color:var(--accent2);font-weight:700;font-size:13px;letter-spacing:1px;}
+
   .topbar{position:sticky;top:0;z-index:50;background:#0b0f14;border-bottom:1px solid var(--border);
     padding:14px 20px;box-shadow:0 8px 20px rgba(0,0,0,.35);}
   .topbar .backlink{display:inline-block;color:var(--dim);font-size:13px;text-decoration:none;max-width:980px;margin:0 auto;}
@@ -289,12 +317,41 @@
     <p>Ryan isn't asking you to learn to code. He's asking you to keep doing exactly what you already did — try the thing, notice what's actually wrong, say it plainly — and watch it become real, working software the same day. That's the whole partnership. If you want to see it happen live instead of reading about it after the fact, that's the actual invitation here.</p>
   </div>
 
+  <div class="love-section" id="love-section">
+    <div class="love-orbit">
+      <span class="oa">💖</span>
+      <span class="ob">💕</span>
+      <span class="oc">💗</span>
+      <span class="star-a">✨</span>
+      <span class="star-b">⭐</span>
+      <span class="star-c">✨</span>
+      <span class="moon" style="left:calc(50% + 100px); top:calc(50% - 90px);">🌙</span>
+    </div>
+    <div class="love-line">I love you, Kierra</div>
+    <p class="love-sub">Every fix, every late night, every page in this — it was all so you could see exactly what's possible, up close, in your own hands. Not to impress you. To show you there's a place for you in it, whenever you're ready.</p>
+    <div class="love-sig">— Dad</div>
+  </div>
+
 </main>
 
 <div class="askbtn" onclick="askAmitLive('howbuilt')">
   <div class="ic">💛</div>
   <div><div class="nm">Ask Amit</div><div class="sb">Questions about any of this</div></div>
 </div>
+
+<script>
+  // The love section stays invisible until she actually scrolls to it —
+  // a real reveal, not something visible from the top of the page.
+  const loveEl = document.getElementById('love-section');
+  if(loveEl && 'IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{ if(e.isIntersecting) loveEl.classList.add('reveal'); });
+    }, {threshold:0.4});
+    io.observe(loveEl);
+  } else if(loveEl){
+    loveEl.classList.add('reveal'); // fallback for very old browsers
+  }
+</script>
 
 </body>
 </html>
