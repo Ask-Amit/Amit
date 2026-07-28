@@ -40,7 +40,8 @@ A single self-contained HTML file — `EMS_Paramedic_StudyGuide.html` — built 
 - Two sealed 80-question Final Exams held back from all practice modes so they stay genuinely unseen until exam day
 - Hint / Show-Answer aids during practice, encouragement pop-ups every 10 questions that name her weakest domain, and domain/level accuracy breakdowns
 - A "Before You Go" reminder explaining that progress lives in browser localStorage and warning not to clear site data/cache
-- Page title: "Amit - Medical Prep". Favicon: a custom Star of Life (the official six-pointed EMS emblem) with the Rod of Asclepius at center, built as an inline SVG data URI — no external asset files.
+- Page title: "NREMT Paramedic" (the browser tab uses the exam's actual official name, matching how the Hub's tab just says "Hub" — see the Title & Favicon section below). Favicon: the shared `amit_icon.png` used across the whole Amit system, not a custom one-off icon. In-page header still reads "Amit — Medical Prep" for in-app branding.
+- A level-calibration step (see below) asks once, automatically, what level the person is testing at, and sets sensible defaults from that answer.
 
 ## Purpose Within the Amit System
 
@@ -53,7 +54,7 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.84` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.85` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
 
 ## Theophilus Routing — Ask Amit on This Page
 
@@ -72,6 +73,14 @@ Any new tile/stat/button added to this app going forward should follow the same 
 ## Scenario Engine — 2026-07-27
 
 Added a "🎬 Scenario" button next to Hint/Show Answer during practice. This is a real templated generator, not decoration — there is no live AI/internet call from this static page at runtime, so realism comes from a topic-keyword matching system (`SCENARIO_TOPICS` in the script) that scans each question's actual text/answer for ~20 clinical topic groups (tension pneumo, hypoglycemia, anaphylaxis, GCS, stroke, STEMI, pediatric airway emergencies, OB complications, toxidromes, etc.) and picks a scenario setting/complaint written to be clinically authentic to that exact topic — falling back to a domain-general scenario bank (`SCENARIO_BANK`) only when nothing matches. The current question's actual correct-answer text is always woven directly into the narrative, followed by a field-application prompt, with the textbook reasoning available on demand underneath. Extend `SCENARIO_TOPICS` with more keyword groups over time rather than relying only on the domain fallback — the more specific groups, the more questions get a truly matched scenario instead of a generic one.
+
+## Level Calibration — 2026-07-27
+
+On first-ever load in a browser, the page automatically asks "what level are you testing at" (EMT-Basic / AEMT / Paramedic / not sure) via `openLevelOnboarding()`, before anything else — stored in `DATA.levelProfile`, persisted in the same localStorage blob as everything else. That answer sets the DEFAULT difficulty selection in Category Practice and Flashcard Drill setup (`applyLevelProfileDefaults()`), so a first-time EMT candidate isn't defaulting into Paramedic-level pharmacology questions. It never locks anything — every chip stays fully toggleable in Setup afterward. Reopenable anytime via the "🎓 [Level]" badge in the header (`openLevelOnboarding(true)`).
+
+## Title & Favicon — 2026-07-27, brought in line with the rest of the Amit system
+
+Two corrections from Ryan directly: (1) every page across the Amit system shares one favicon (`amit_icon.png`, see Hub/amit-hub.html) — this page had a one-off custom Star of Life SVG favicon instead; switched to the shared icon to match. (2) the browser tab title should be the plain, official, condensed name of the thing itself — the same way the Hub's tab just says "Hub," not "Amit — Hub." This page's tab now reads **NREMT Paramedic** (NREMT = National Registry of Emergency Medical Technicians, the actual credentialing body that administers this exam) instead of "Amit - Medical Prep." The in-page header (`<h1>`) still says "Amit — Medical Prep" for in-app branding/character continuity — only the `<title>` tag and favicon changed.
 
 ## Build Notes
 

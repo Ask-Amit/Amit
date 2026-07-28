@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Amit - Medical Prep</title>
+<title>NREMT Paramedic</title>
 <script src="../Amit_Ask_Live.js?v=5.82"></script>
-<!-- Favicon: the Star of Life — the official six-pointed EMS/paramedic emblem, each bar representing
-     a phase of emergency care (Detection, Reporting, Response, On-Scene Care, Care in Transit, Transfer
-     to Definitive Care), with the Rod of Asclepius — the ancient symbol of medicine itself — at center. -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234da3ff'/%3E%3Cstop offset='1' stop-color='%230b3d91'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230b0f14'/%3E%3Cg transform='translate(32,32)'%3E%3Cg fill='url(%23g)' stroke='%23081018' stroke-width='1'%3E%3Crect x='-7' y='-29' width='14' height='24' rx='3'/%3E%3Crect x='-7' y='-29' width='14' height='24' rx='3' transform='rotate(60)'/%3E%3Crect x='-7' y='-29' width='14' height='24' rx='3' transform='rotate(120)'/%3E%3Crect x='-7' y='-29' width='14' height='24' rx='3' transform='rotate(180)'/%3E%3Crect x='-7' y='-29' width='14' height='24' rx='3' transform='rotate(240)'/%3E%3Crect x='-7' y='-29' width='14' height='24' rx='3' transform='rotate(300)'/%3E%3C/g%3E%3Ccircle r='11' fill='%23ffb347'/%3E%3Cpath d='M0,-8 L0,8 M-6,-3 Q0,-10 6,-3 M-6,3 Q0,10 6,3' stroke='%230b0f14' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E">
+<!-- Favicon: the shared Amit emblem — every page across the Amit system uses
+     this same icon (see Hub/amit-hub.html), not a one-off per app. -->
+<link rel="icon" type="image/png" href="../amit_icon.png">
 <style>
   :root{
     --bg:#0b0f14; --panel:#121924; --panel2:#182130; --border:#26364a;
@@ -214,7 +213,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.84</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.85</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -225,11 +224,30 @@
     <div onclick="showStatInfo('streak')"><b id="stat-streak">0</b>⚡ Streak</div>
     <div onclick="showStatInfo('days')"><b id="stat-daysin">0</b>📅 Days Studying</div>
   </div>
-  <div style="display:flex;gap:8px;">
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="btn secondary" id="level-badge-btn" style="font-size:11.5px;padding:8px 14px;" onclick="openLevelOnboarding(true)">🎓 Set Your Level</button>
     <button class="btn secondary" style="font-size:11.5px;padding:8px 14px;" onclick="askAmitLive('medicalprep')">💬 Ask Amit</button>
     <button class="btn secondary" style="font-size:11.5px;padding:8px 14px;" onclick="openSaveModal()">📌 Before You Go</button>
   </div>
 </header>
+
+<!-- LEVEL CALIBRATION — asked once on first visit, reopenable anytime from
+     the header badge. Sets the default difficulty filter everywhere in the
+     app to match where the person actually is, without locking them out of
+     changing it per-session in Setup. -->
+<div class="modal-overlay" id="level-modal">
+  <div class="modal-box" style="border-color:var(--blue);max-width:420px;">
+    <div class="amit-mark">א</div>
+    <h2 style="color:var(--blue);">Let's Calibrate This For You</h2>
+    <p>Before we dig in — what level are you actually testing at right now? I'll set every mode's default difficulty to match, so you're not wading through Paramedic-only pharmacology if you're sitting for your EMT, or getting softballed if you're going for your Paramedic patch. You can change this anytime — the button stays right there in the header.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0 6px;">
+      <button class="btn" onclick="setLevelProfile('EMT')">EMT-Basic — I'm testing at the EMT level</button>
+      <button class="btn" onclick="setLevelProfile('AEMT')">AEMT — I'm testing at the AEMT level</button>
+      <button class="btn" onclick="setLevelProfile('Medic')">Paramedic — I'm testing at the Paramedic level</button>
+    </div>
+    <button class="btn secondary" onclick="setLevelProfile('ALL')" style="width:100%;">Not sure yet — just show me everything</button>
+  </div>
+</div>
 
 <div class="modal-overlay" id="save-modal">
   <div class="modal-box">
@@ -878,6 +896,43 @@ function goHome(){ session=null; renderHeaderStats(); renderDomainOverview(); re
 function openSaveModal(){ document.getElementById('save-modal').classList.add('show'); }
 function closeSaveModal(){ document.getElementById('save-modal').classList.remove('show'); }
 
+/* ============ LEVEL CALIBRATION ============
+   Asked once, automatically, the first time this page ever loads for this
+   browser. Sets the DEFAULT difficulty selection in Category Practice and
+   Flashcard Drill setup to match where the person actually is, rather than
+   always defaulting to every level. Reopenable anytime from the header
+   badge — never locks them out of changing their mind or toggling other
+   levels back on manually in Setup itself. */
+const LEVEL_PROFILE_LABELS = {EMT:'EMT-Basic', AEMT:'AEMT', Medic:'Paramedic', ALL:'All Levels'};
+function openLevelOnboarding(manual){
+  document.getElementById('level-modal').classList.add('show');
+}
+function closeLevelOnboarding(){
+  document.getElementById('level-modal').classList.remove('show');
+}
+function setLevelProfile(level){
+  DATA.levelProfile = level;
+  saveData();
+  applyLevelProfileDefaults();
+  closeLevelOnboarding();
+  updateLevelBadge();
+}
+function applyLevelProfileDefaults(){
+  // Only steers the DEFAULT filter state — Setup's own chips remain fully
+  // toggleable afterward, this just decides what's pre-selected on open.
+  if(DATA.levelProfile && DATA.levelProfile !== 'ALL'){
+    setupDiffs = new Set([DATA.levelProfile]);
+  } else {
+    setupDiffs = new Set(["EMT","AEMT","Medic"]);
+  }
+}
+function updateLevelBadge(){
+  const btn = document.getElementById('level-badge-btn');
+  if(!btn) return;
+  const label = DATA.levelProfile ? (LEVEL_PROFILE_LABELS[DATA.levelProfile] || DATA.levelProfile) : 'Set Your Level';
+  btn.textContent = '🎓 ' + label;
+}
+
 /* ============ AMIT'S SIGNATURE INFO MODAL ============
    Every tile, stat, and mode in this app that could otherwise appear to do
    "nothing" when there's no history yet routes through here instead — in
@@ -1076,12 +1131,22 @@ function goCategory(mode){
   const catBlock = document.getElementById('cat-select-block');
   document.getElementById('setup-start-btn').textContent = mode==='exam' ? 'Begin 80-Question Sim →' : 'Start — Take Me In →';
 
-  if(mode==='flash'){ title.textContent="Flashcard Drill Setup"; sub.textContent="Pick domains and difficulty for your flip-card review."; catBlock.style.display='block'; }
-  if(mode==='practice'){ title.textContent="Category Practice Setup"; sub.textContent="Pick one or more domains and a difficulty range."; catBlock.style.display='block'; }
+  const levelNote = (DATA.levelProfile && DATA.levelProfile !== 'ALL')
+    ? ` Pre-set to your ${LEVEL_PROFILE_LABELS[DATA.levelProfile]} level — toggle more back on anytime below.`
+    : '';
+  if(mode==='flash'){ title.textContent="Flashcard Drill Setup"; sub.textContent="Pick domains and difficulty for your flip-card review."+levelNote; catBlock.style.display='block'; }
+  if(mode==='practice'){ title.textContent="Category Practice Setup"; sub.textContent="Pick one or more domains and a difficulty range."+levelNote; catBlock.style.display='block'; }
   if(mode==='exam'){ title.textContent="Timed Exam Simulation"; sub.textContent="80 randomized questions across all domains, proportional weighting, 70-minute clock. This uses the full bank regardless of selection below."; catBlock.style.display='none'; }
 
   renderSetupCats();
+  renderSetupDiffChips();
   showView('category-view');
+}
+
+function renderSetupDiffChips(){
+  document.querySelectorAll('#setup-diff .chip').forEach(chip=>{
+    chip.classList.toggle('on', setupDiffs.has(chip.dataset.d));
+  });
 }
 
 function renderSetupCats(){
@@ -1588,6 +1653,16 @@ renderHeaderStats();
 renderDomainOverview();
 renderLevelOverview();
 renderFeSlots();
+
+if(DATA.levelProfile){
+  applyLevelProfileDefaults();
+  updateLevelBadge();
+} else {
+  updateLevelBadge();
+  // First-ever visit to this browser — ask once, automatically, before
+  // anything else. Small delay so it doesn't fight the page's own paint.
+  setTimeout(()=>openLevelOnboarding(false), 400);
+}
 </script>
 </body>
 </html>
