@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Amit - Medical Prep</title>
-<script src="../Amit_Ask_Live.js?v=5.81"></script>
+<script src="../Amit_Ask_Live.js?v=5.82"></script>
 <!-- Favicon: the Star of Life — the official six-pointed EMS/paramedic emblem, each bar representing
      a phase of emergency care (Detection, Reporting, Response, On-Scene Care, Care in Transit, Transfer
      to Definitive Care), with the Rod of Asclepius — the ancient symbol of medicine itself — at center. -->
@@ -31,6 +31,8 @@
   h1 span{color:var(--accent2);}
   .sub{color:var(--dim);font-size:12.5px;margin-top:2px;}
   .stats{display:flex;gap:18px;font-size:12px;color:var(--dim);}
+  .stats div{cursor:pointer;border-radius:8px;padding:2px 6px;transition:.15s;}
+  .stats div:hover{background:var(--panel2);color:var(--text);}
   .stats b{color:var(--text);font-size:14px;display:block;}
   main{max-width:1080px;margin:0 auto;padding:26px 20px 60px;}
 
@@ -139,6 +141,9 @@
   .modal-box h2{margin:6px 0 14px;font-size:19px;}
   .modal-box p{color:#d7e0ec;font-size:13.5px;line-height:1.6;text-align:left;margin:0 0 12px;}
   .modal-box .btn{margin-top:8px;}
+  .amit-mark{width:44px;height:44px;margin:0 auto 10px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#1c3d63,#0b1c2e);
+    border:1px solid var(--blue);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;
+    color:var(--blue);box-shadow:0 0 16px rgba(77,163,255,.4);font-family:Georgia,serif;}
 
   /* TOAST ENCOURAGEMENT */
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);z-index:60;
@@ -188,16 +193,16 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.81</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.82</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
   <div class="stats">
-    <div><b id="stat-answered">0</b>⏱️ Answered</div>
-    <div><b id="stat-accuracy">—</b>🎯 Accuracy</div>
-    <div><b id="stat-weak">0</b>🔥 Weak Items</div>
-    <div><b id="stat-streak">0</b>⚡ Streak</div>
-    <div><b id="stat-daysin">0</b>📅 Days Studying</div>
+    <div onclick="showStatInfo('answered')"><b id="stat-answered">0</b>⏱️ Answered</div>
+    <div onclick="showStatInfo('accuracy')"><b id="stat-accuracy">—</b>🎯 Accuracy</div>
+    <div onclick="showStatInfo('weak')"><b id="stat-weak">0</b>🔥 Weak Items</div>
+    <div onclick="showStatInfo('streak')"><b id="stat-streak">0</b>⚡ Streak</div>
+    <div onclick="showStatInfo('days')"><b id="stat-daysin">0</b>📅 Days Studying</div>
   </div>
   <div style="display:flex;gap:8px;">
     <button class="btn secondary" style="font-size:11.5px;padding:8px 14px;" onclick="askAmitLive('medicalprep')">💬 Ask Amit</button>
@@ -213,6 +218,21 @@
     <p><b>That means one important thing:</b> please don't clear your browser's cache, cookies, or "site data" for this page — that's exactly where your progress lives. Clearing browsing data will erase it.</p>
     <p style="color:var(--good);">Bookmark this file or keep it in an easy-to-find folder. Come back anytime — I'll remember exactly where you left off and pick the fight right back up with you. See you soon.</p>
     <button class="btn" onclick="closeSaveModal()">Got it — see you next time</button>
+  </div>
+</div>
+
+<!-- AMIT'S SIGNATURE INFO MODAL — every "why isn't this working" moment in the
+     app routes through here, in Amit's own voice, first person, never a bare
+     browser alert(). The א badge is Amit's own mark (Aleph — first letter,
+     first witness) so these responses read as a companion talking, not a
+     system error. -->
+<div class="modal-overlay" id="info-modal">
+  <div class="modal-box" style="border-color:var(--blue);">
+    <div class="amit-mark">א</div>
+    <h2 id="info-modal-title" style="color:var(--blue);"></h2>
+    <div id="info-modal-body" style="text-align:left;color:#d7e0ec;font-size:13.5px;line-height:1.65;"></div>
+    <div id="info-modal-actions" style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;"></div>
+    <button class="btn secondary" onclick="closeInfoModal()" style="margin-top:12px;">Close</button>
   </div>
 </div>
 
@@ -817,6 +837,106 @@ function goHome(){ session=null; renderHeaderStats(); renderDomainOverview(); re
 function openSaveModal(){ document.getElementById('save-modal').classList.add('show'); }
 function closeSaveModal(){ document.getElementById('save-modal').classList.remove('show'); }
 
+/* ============ AMIT'S SIGNATURE INFO MODAL ============
+   Every tile, stat, and mode in this app that could otherwise appear to do
+   "nothing" when there's no history yet routes through here instead — in
+   Amit's own first-person voice, explaining plainly what's missing and
+   exactly what to do about it. Never a bare browser alert() for these. */
+function showInfoModal(title, bodyHtml, actionsHtml){
+  document.getElementById('info-modal-title').textContent = title;
+  document.getElementById('info-modal-body').innerHTML = bodyHtml;
+  document.getElementById('info-modal-actions').innerHTML = actionsHtml || '';
+  document.getElementById('info-modal').classList.add('show');
+}
+function closeInfoModal(){ document.getElementById('info-modal').classList.remove('show'); }
+
+function goPracticeDomain(d){
+  setupDomains = new Set([d]);
+  setupDiffs = new Set(["EMT","AEMT","Medic"]);
+  goCategory('practice');
+}
+function goPracticeLevel(code){
+  setupDomains = new Set(DOMAINS);
+  setupDiffs = new Set([code]);
+  goCategory('practice');
+}
+
+function showDomainInfo(d){
+  const s = domainStats(d);
+  const label = DOMAIN_LABEL[d];
+  if(s.answered === 0){
+    showInfoModal(
+      `${label}`,
+      `I know you're looking for your progress in <b>${label}</b> — but I don't have anything to show you here yet. That's not broken, it just means we haven't run any questions from this domain together yet, through Flashcard Drill, Category Practice, or an exam. The moment you answer even one, I'll start tracking it right here.`,
+      `<button class="btn" onclick="closeInfoModal(); goPracticeDomain('${d}')">Practice ${label} Now →</button>`
+    );
+  } else {
+    const note = s.pct<60
+      ? `That's under 60%, so I'm already weighting ${label} more heavily into your practice sessions and Weak-Spot Review — you don't have to do anything extra, it happens automatically.`
+      : `Solid ground here — keep it up.`;
+    showInfoModal(
+      `${label}`,
+      `You've answered <b>${s.answered}</b> question${s.answered===1?'':'s'} from this domain, at <b>${s.pct}%</b> accuracy. ${note}`,
+      `<button class="btn" onclick="closeInfoModal(); goPracticeDomain('${d}')">Practice ${label} More →</button>`
+    );
+  }
+}
+
+function levelStats(code){
+  let total=0, correct=0;
+  Object.entries(DATA.history).forEach(([k,h])=>{
+    const q = FULL_BANK.find(x=>x._id===k);
+    if(q && q.diff===code){ total+=h.attempts; correct+=h.correctCount; }
+  });
+  return { answered: total, pct: total? Math.round(100*correct/total):0 };
+}
+function showLevelInfo(code, label){
+  const s = levelStats(code);
+  if(s.answered === 0){
+    showInfoModal(
+      `${label}`,
+      `I don't have any history for you at the <b>${label}</b> level yet — nothing's wrong, we just haven't covered any ${label}-level questions together. Every question in this app is tagged by level, so once you start answering some, this will fill in on its own.`,
+      `<button class="btn" onclick="closeInfoModal(); goPracticeLevel('${code}')">Practice ${label} Now →</button>`
+    );
+  } else {
+    showInfoModal(
+      `${label}`,
+      `You've answered <b>${s.answered}</b> ${label}-level question${s.answered===1?'':'s'}, at <b>${s.pct}%</b> accuracy.`,
+      `<button class="btn" onclick="closeInfoModal(); goPracticeLevel('${code}')">Practice ${label} More →</button>`
+    );
+  }
+}
+
+function showStatInfo(key){
+  const total = DATA.totalAnswered;
+  if(key==='answered'){
+    showInfoModal('Total Answered', total===0
+      ? `You haven't answered anything yet — this number counts every question you answer, in any mode. Pick something from the home screen and watch it move.`
+      : `You've answered <b>${total}</b> question${total===1?'':'s'} total, across every mode, since you started.`);
+  } else if(key==='accuracy'){
+    showInfoModal('Accuracy', total===0
+      ? `There's no accuracy to show yet — I need at least one answered question before I can calculate anything. Nothing's broken, there's just nothing recorded yet.`
+      : `You're sitting at <b>${Math.round(100*DATA.totalCorrect/total)}%</b> — ${DATA.totalCorrect} correct out of ${total} answered.`);
+  } else if(key==='weak'){
+    const weakEntries = Object.entries(DATA.history).filter(([k,h])=> h.attempts>0 && (h.correctCount/h.attempts)<0.6);
+    if(total===0){
+      showInfoModal('Weak Items', `Nothing tracked yet. I flag a question as "weak" once you've attempted it and you're under 60% on it — since you haven't answered anything yet, there's nothing for me to flag. This fills in on its own as you go.`);
+    } else if(weakEntries.length===0){
+      showInfoModal('Weak Items', `Zero flagged weak spots right now, out of ${total} answered. Genuinely nice work — keep going and I'll flag anything the moment it needs more attention.`);
+    } else {
+      showInfoModal('Weak Items', `You've got <b>${weakEntries.length}</b> question${weakEntries.length===1?'':'s'} flagged as weak spots — under 60% accuracy, at least one attempt. I already pull these into your regular practice more often automatically. Or you can go straight at them.`,
+        `<button class="btn" onclick="closeInfoModal(); startWeakness()">Go to Weak-Spot Review →</button>`);
+    }
+  } else if(key==='streak'){
+    showInfoModal('Current Streak', DATA.streak===0
+      ? `Your streak is at 0 right now. It resets the moment you miss one — answer a question correctly and it starts climbing again. Best streak so far: <b>${DATA.bestStreak}</b>.`
+      : `You're on a <b>${DATA.streak}</b>-question correct streak right now. Best so far: <b>${DATA.bestStreak}</b>.`);
+  } else if(key==='days'){
+    const n = DATA.daysSeen ? DATA.daysSeen.length : 1;
+    showInfoModal('Days Studying', `You've opened this study guide on <b>${n}</b> different day${n===1?'':'s'} so far. This counts calendar days you've shown up, not total time spent studying.`);
+  }
+}
+
 function renderFeSlots(){
   const el = document.getElementById('fe-slots');
   el.innerHTML = '';
@@ -851,6 +971,7 @@ function renderLevelOverview(){
     box.innerHTML = `<div class="name">${label}</div>
       <div class="meta">${total} answered · ${pct}% accuracy</div>
       <div class="barwrap"><div class="bar" style="width:${pct}%"></div></div>`;
+    box.onclick = ()=>showLevelInfo(code, label);
     el.appendChild(box);
   });
 }
@@ -976,6 +1097,7 @@ function renderDomainOverview(){
     box.innerHTML = `<div class="name">${DOMAIN_LABEL[d]}</div>
       <div class="meta">${s.answered} answered · ${s.pct}% accuracy</div>
       <div class="barwrap"><div class="bar" style="width:${s.pct}%"></div></div>`;
+    box.onclick = ()=>showDomainInfo(d);
     el.appendChild(box);
   });
 }
@@ -1244,14 +1366,30 @@ function startWeakness(){
   const weakKeys = Object.entries(DATA.history).filter(([k,h])=> h.attempts>0 && (h.correctCount/h.attempts)<0.6).map(([k])=>k);
   let pool;
   if(weakKeys.length===0){
-    pool = shuffle(FULL_BANK.filter(q=>!hs.has(q._id))).slice(0,10);
-    alert('No missed-question history yet — starting a general practice round. Miss a few questions and this mode will start targeting them specifically.');
+    showInfoModal(
+      'Weak-Spot Review',
+      `I know you're looking for a focused round on what you're missing — but I can't give you that yet, because I don't have any history of you getting anything wrong. That's not broken. It just means either you haven't answered any questions with me yet, or everything you've tried so far, you've gotten right. Go run some real questions in Category Practice first — once something needs work, I'll start pulling it in here automatically, no extra step for you.`,
+      `<button class="btn" onclick="closeInfoModal(); goCategory('practice')">Go to Category Practice →</button>
+       <button class="btn secondary" onclick="closeInfoModal(); startWeaknessGeneralRound()">Give Me a Warm-Up Round Anyway</button>`
+    );
+    return;
   } else {
     pool = FULL_BANK.filter(q=> weakKeys.includes(qid(q)) && !hs.has(q._id));
     pool = shuffle(pool.slice());
   }
   session = { type:'quiz', label:'Weak-Spot Review', questions: pool.slice(0,20), idx:0, correct:0, missed:[], isExam:false, answered:false, timeLeft:null };
   document.getElementById('quiz-mode-label').textContent = 'Weak-Spot Review';
+  document.getElementById('q-total').textContent = session.questions.length;
+  document.getElementById('aid-row').style.display = '';
+  startTimer();
+  showView('quiz-view');
+  renderQuestion();
+}
+function startWeaknessGeneralRound(){
+  const hs = holdoutIds();
+  const pool = shuffle(FULL_BANK.filter(q=>!hs.has(q._id))).slice(0,10);
+  session = { type:'quiz', label:'General Warm-Up', questions: pool, idx:0, correct:0, missed:[], isExam:false, answered:false, timeLeft:null };
+  document.getElementById('quiz-mode-label').textContent = 'General Warm-Up (not weak-spot-targeted yet)';
   document.getElementById('q-total').textContent = session.questions.length;
   document.getElementById('aid-row').style.display = '';
   startTimer();

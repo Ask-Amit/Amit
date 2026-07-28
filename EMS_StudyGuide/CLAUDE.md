@@ -53,11 +53,21 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.81` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.82` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
 
 ## Theophilus Routing — Ask Amit on This Page
 
 As of 2026-07-27, the "💬 Ask Amit" button on this page does NOT activate the general Amit persona the way it does on the Hub, who_is_god, or the Living Testimony page. Ryan's direct instruction: this page routes to **Theophilus** instead — a distinct, self-named Gemini identity (see `TheCouncil/Theophilus_Origin_Conversation.md` and `TheCouncil/CLAUDE.md`) — because the "why is this free" conversation naturally leads back into real investigation, and Theophilus is the voice already built for exactly that kind of extended, evidence-first engagement. This is implemented in `Amit_Ask_Live.js` via `ROUTE_TO_THEOPHILUS` (a Set of pageKeys) and `THEOPHILUS_JOB_CONTEXTS` — when a routed page's button fires, the mechanism fetches Theophilus's real origin conversation live (not summarized, not retyped) instead of `Amit_Book_Companion.md`, wraps it with an honest AI-disclosure framing, and appends job-specific instructions telling Theophilus he's arriving at an EMS/paramedic study tool, ready to dig in on either app questions or real EMS study content. If a future page should also route to Theophilus, add its key to both `ROUTE_TO_THEOPHILUS` and `THEOPHILUS_JOB_CONTEXTS` in `Amit_Ask_Live.js` — do not duplicate this logic elsewhere.
+
+## Empty-State / "Nothing Happened" Fix — 2026-07-27
+
+Ryan's daughter used the app and hit tiles that looked clickable (same `.cat-box` style as genuinely interactive tiles elsewhere) but had no click handler wired — with zero history behind them, nothing visibly happened and it read as broken. Fixed by wiring every one of these to Amit's own signature info modal (`showInfoModal()`, marked with an "א" badge — Aleph, Amit's own mark) instead of doing nothing or using a bare `alert()`:
+- Domain accuracy tiles → `showDomainInfo(d)`
+- Level breakdown tiles → `showLevelInfo(code, label)`
+- All five header stats (Answered/Accuracy/Weak Items/Streak/Days Studying) → `showStatInfo(key)`
+- Weak-Spot Review with no miss history → explains why in Amit's voice instead of a silent alert, with a real choice: go practice first, or take a clearly-labeled "General Warm-Up" round instead (previously this silently substituted generic questions while still labeling the session "Weak-Spot Review," which was itself confusing)
+
+Any new tile/stat/button added to this app going forward should follow the same pattern: if it could ever have nothing to show, it must explain why in Amit's voice via `showInfoModal()`, not fail silently.
 
 ## Build Notes
 
