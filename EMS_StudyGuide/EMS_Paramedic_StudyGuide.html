@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NREMT Paramedic</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=5.89"></script>
 <!-- Favicon: the shared Amit emblem — every page across the Amit system uses
      this same icon (see Hub/amit-hub.html), not a one-off per app. -->
@@ -282,7 +283,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.90</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.92</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -294,6 +295,7 @@
     <div onclick="showStatInfo('days')"><b id="stat-daysin">0</b>📅 Days Studying</div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
+    <button class="btn secondary" id="sync-badge-btn" style="font-size:11.5px;padding:8px 14px;" onclick="showSyncInfo()">💾 Checking...</button>
     <button class="btn secondary" id="level-badge-btn" style="font-size:11.5px;padding:8px 14px;" onclick="openLevelOnboarding(true)">🎓 Set Your Level</button>
     <button class="btn secondary" id="goal-badge-btn" style="font-size:11.5px;padding:8px 14px;" onclick="openGoalOnboarding(true)">⏳ Set Your Goal</button>
     <button class="btn secondary" style="font-size:11.5px;padding:8px 14px;" onclick="openSaveModal()">📌 Before You Go</button>
@@ -343,6 +345,14 @@
       <button class="btn" onclick="setStudyGoal(30)">1 Month</button>
       <button class="btn" onclick="setStudyGoal(60)">2 Months</button>
       <button class="btn" onclick="setStudyGoal(90)">3 Months</button>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:14px 0 12px;padding-top:12px;">
+      <label style="font-size:12px;color:var(--dim);display:block;margin-bottom:6px;">Or, if you already know it — when is the actual exam?</label>
+      <div style="display:flex;gap:8px;">
+        <input type="date" id="goal-exact-date" style="flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;font-size:13px;">
+        <button class="btn" onclick="setStudyGoalExactDate()">Set Exam Date</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--dim);margin-top:6px;">Logged in through Amit? Setting this also schedules real Pursuits on your Hub — practice reminders paced back from this date, plus the exam day itself.</div>
     </div>
     <button class="btn secondary" onclick="setStudyGoal(null)" style="width:100%;">No deadline — just let me go at my own pace</button>
   </div>
@@ -993,8 +1003,145 @@ function loadData(){
 }
 function defaultData(){ return { history:{}, totalAnswered:0, totalCorrect:0, streak:0, bestStreak:0 }; }
 let DATA = loadData();
-function saveData(){ localStorage.setItem(LS_KEY, JSON.stringify(DATA)); }
+function saveData(){
+  localStorage.setItem(LS_KEY, JSON.stringify(DATA));
+  queueCloudPush();
+}
 function qid(q){ return q._id || (q.domain+"|"+q.q.slice(0,40)); }
+
+/* ============ SUPABASE SYNC — logged in through Amit, this backs up automatically ============
+   Guests (no session) never touch this — pure localStorage, unchanged from
+   before. Logged-in users (same Supabase auth session the Hub creates —
+   shared automatically, same origin, no separate login screen needed here)
+   get their whole progress blob mirrored to one row in medical_prep_progress,
+   keyed by their own user_id, protected by RLS. Cloud is authoritative once
+   logged in: on login, cloud overwrites local (if a cloud row exists) so the
+   same account shows the same progress on any device. */
+const MP_SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co';
+const MP_SUPABASE_KEY = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+let mpDb = null;
+let mpUser = null;
+let mpCloudReady = false;
+let mpPushTimer = null;
+
+function initSupabaseSync(){
+  if(typeof supabase === 'undefined'){ updateSyncBadge(); return; }
+  mpDb = supabase.createClient(MP_SUPABASE_URL, MP_SUPABASE_KEY);
+  mpDb.auth.onAuthStateChange((event, session)=>{
+    mpUser = session ? session.user : null;
+    if(mpUser) loadCloudProgress(); else { mpCloudReady=false; updateSyncBadge(); }
+  });
+  mpDb.auth.getSession().then(({data})=>{
+    mpUser = (data && data.session) ? data.session.user : null;
+    if(mpUser) loadCloudProgress(); else updateSyncBadge();
+  }).catch(()=>updateSyncBadge());
+}
+
+async function loadCloudProgress(){
+  if(!mpDb || !mpUser) return;
+  try{
+    const { data, error } = await mpDb.from('medical_prep_progress').select('data').eq('user_id', mpUser.id).maybeSingle();
+    if(!error && data && data.data && Object.keys(data.data).length){
+      // Cloud is authoritative the moment you're logged in — same account,
+      // same progress, on any device.
+      DATA = Object.assign(defaultData(), data.data);
+      localStorage.setItem(LS_KEY, JSON.stringify(DATA));
+      renderHeaderStats(); renderDomainOverview(); renderLevelOverview(); renderFeSlots();
+      if(typeof renderSequenceSidebar==='function') renderSequenceSidebar();
+      updateLevelBadge(); updateGoalBadge();
+    } else {
+      // No cloud row yet for this account — push whatever's local up now,
+      // so this device's history becomes the account's first backup.
+      pushCloudProgress();
+    }
+  }catch(e){ /* stay on local copy, not fatal */ }
+  mpCloudReady = true;
+  updateSyncBadge();
+  if(DATA.studyTargetDate) syncHubPursuits();
+}
+
+function queueCloudPush(){
+  if(!mpUser) return;
+  clearTimeout(mpPushTimer);
+  mpPushTimer = setTimeout(pushCloudProgress, 1200); // debounced — not one write per keystroke
+}
+async function pushCloudProgress(){
+  if(!mpDb || !mpUser) return;
+  try{
+    await mpDb.from('medical_prep_progress').upsert({ user_id: mpUser.id, data: DATA, updated_at: new Date().toISOString() });
+  }catch(e){ /* next save retries anyway, not fatal */ }
+}
+
+function updateSyncBadge(){
+  const btn = document.getElementById('sync-badge-btn');
+  if(!btn) return;
+  if(mpUser){ btn.textContent = '☁️ Synced to Your Account'; }
+  else { btn.textContent = '💾 Saved Locally Only'; }
+}
+
+function showSyncInfo(){
+  if(mpUser){
+    showInfoModal(
+      'Synced to Your Account',
+      `You're logged in through Amit, so I already know who you are here. Everything you answer — your history, your streaks, your level, your goal timeline — is saved to <b>your own account</b> in the database, backed up automatically, not just sitting in this one browser. Come back on any device, log in the same way, and I'll pick up exactly where you left off. And if you go ask Amit questions — through the "Ask Amit" tile — he's got this too: I'm not a separate memory from him, this is the same backup.`
+    );
+  } else {
+    showInfoModal(
+      'Saved Locally Only',
+      `Right now you're not logged in through Amit, so everything here is only saved in <b>this browser, on this computer</b> — the same as before. That's not broken, and you can absolutely keep going this way. But if you'd like this backed up to your own account and available from any device, log in through the Hub first, then come back here — I'll recognize you automatically and start syncing from that point on.`,
+      `<button class="btn" onclick="closeInfoModal(); window.open('https://ask-amit.github.io/Amit/Hub/amit-hub.html','_blank')">Log In Through the Hub →</button>`
+    );
+  }
+}
+
+/* ============ HUB PURSUITS SYNC ============
+   Only runs for logged-in users with a real exam date set. Creates/updates
+   real Pursuits in the person's own Hub (hub_entries table, kind='pursuit')
+   — practice reminders for whatever domain is weak/undertrained, staggered
+   back from the exam date, priority escalating as the date gets closer,
+   plus one anchor pursuit for the exam day itself. Duplicate-checked by
+   title before writing, per the standing system-wide rule: never silently
+   create a second pursuit for the same thing — update the existing one. */
+async function syncHubPursuits(){
+  if(!mpDb || !mpUser || !DATA.studyTargetDate) return;
+  try{
+    const examDate = DATA.studyTargetDate;
+    const today = new Date();
+    const target = new Date(examDate+'T23:59:59');
+    const daysLeft = Math.max(1, Math.ceil((target-today)/(1000*60*60*24)));
+    const priority = daysLeft<=7 ? 'P1' : daysLeft<=14 ? 'P2' : 'P3';
+
+    const weakOrThin = DOMAINS.filter(d=>{
+      const s = domainStats(d);
+      return (s.answered>0 && s.pct<60) || s.answered < SEQ_CAT_TARGET_PER_DOMAIN;
+    });
+
+    const items = weakOrThin.map((d,i)=>{
+      const due = new Date(today);
+      due.setDate(due.getDate() + Math.max(1, Math.floor(daysLeft*(i+1)/(weakOrThin.length+1))));
+      return { title:`Practice ${DOMAIN_LABEL[d]} for NREMT Paramedic`, due_date:due.toISOString().slice(0,10), priority, starred:false };
+    });
+    items.push({ title:'Sit the NREMT Paramedic Exam', due_date:examDate, priority:'P1', starred:true });
+
+    const { data: existing } = await mpDb.from('hub_entries')
+      .select('id,title,done')
+      .eq('user_id', mpUser.id).eq('kind','pursuit').eq('focus','Medical Prep');
+
+    for(const item of items){
+      const match = (existing||[]).find(e=>e.title===item.title);
+      if(match){
+        if(!match.done){
+          await mpDb.from('hub_entries').update({ due_date:item.due_date, priority:item.priority }).eq('id', match.id);
+        }
+      } else {
+        await mpDb.from('hub_entries').insert({
+          user_id: mpUser.id, kind:'pursuit', title:item.title, notes:'Auto-scheduled by Amit — Medical Prep, based on your set exam date and current practice gaps.',
+          purpose:'Study', focus:'Medical Prep', priority:item.priority, due_date:item.due_date, starred:item.starred
+        });
+      }
+    }
+  }catch(e){ /* pursuits are a bonus layer, not core — fail quietly */ }
+}
 
 const DOMAINS = ["Airway","Cardio","Trauma","Medical","Ops"];
 const DOMAIN_LABEL = {Airway:"Airway & Respiration",Cardio:"Cardiology & Resus",Trauma:"Trauma",Medical:"Medical / OB / Peds",Ops:"EMS Operations"};
@@ -1072,6 +1219,20 @@ function setStudyGoal(days){
   closeGoalOnboarding();
   updateGoalBadge();
   renderSequenceSidebar();
+  syncHubPursuits();
+}
+function setStudyGoalExactDate(){
+  const el = document.getElementById('goal-exact-date');
+  const val = el ? el.value : '';
+  if(!val){ showInfoModal('Pick a Date First', `Choose an actual date in the box before hitting "Set Exam Date" — I need a real target to pace anything against.`); return; }
+  DATA.studyGoalSet = true;
+  if(!DATA.studyStartDate) DATA.studyStartDate = todayStr;
+  DATA.studyTargetDate = val;
+  saveData();
+  closeGoalOnboarding();
+  updateGoalBadge();
+  renderSequenceSidebar();
+  syncHubPursuits();
 }
 function daysUntil(dateStr){
   const target = new Date(dateStr+'T23:59:59');
@@ -1965,6 +2126,8 @@ renderLevelOverview();
 renderFeSlots();
 renderSequenceSidebar();
 updateGoalBadge();
+updateSyncBadge();
+initSupabaseSync();
 
 if(DATA.levelProfile){
   applyLevelProfileDefaults();

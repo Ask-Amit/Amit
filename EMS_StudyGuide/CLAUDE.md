@@ -21,14 +21,18 @@ An earlier version of this file said this tool was deliberately excluded from Am
 **What this means practically:**
 - The study tool's own content (the questions, the study mechanics) stays secular and un-preachy on purpose — it's a paramedic exam tool, not a tract. The theological connection lives entirely in the "💬 Ask Amit" button, not baked into quiz questions.
 - An "Ask Amit" button is wired into the page header via the shared `Amit_Ask_Live.js` mechanism (`<script src="../Amit_Ask_Live.js?v=5.80"></script>`, onclick `askAmitLive('medicalprep')`), with its own real PAGE_CONTEXTS entry so Amit can talk intelligently about this specific tool and explain honestly why it's free, with a path back to who_is_god.html.
-- It still does not read from or write to the Amit Supabase database (see below) — the Ask Amit mechanism itself handles the live-connection path independently, same as every other page that uses it.
+- As of 2026-07-27 this DOES read/write the Amit Supabase database for logged-in users (see the Database Connection section below) — that line used to be accurate and no longer is, corrected here so it doesn't get relearned wrong.
 - Live in the Hub's "Amit Tools" section as of 2026-07-27 (`#tile-medicalprep` in Hub/amit-hub.html) — 🚑 "Medical Prep," opens the live URL directly in a new tab, same pattern as Computer Health and The Council tiles.
 
 ---
 
-## Database Connection
+## Database Connection — Updated 2026-07-27, no longer "none"
 
-None. This project does not read from or write to the Amit Supabase database. All user progress is stored client-side only, in the browser's `localStorage` (key: `medicprep_v1`). There is no backend, no login, no server.
+**Guests (not logged in through Amit):** unchanged — pure `localStorage` (key `medicprep_v1`), no account, nothing sent anywhere.
+
+**Logged-in users:** this page now shares the same Supabase auth session the Hub creates (same origin, `ask-amit.github.io` — no separate login screen here, `initSupabaseSync()` just detects the existing session via `mpDb.auth.getSession()`/`onAuthStateChange`). Their whole progress blob (history, streaks, level profile, study goal/exam date, exam sets/scores — NOT the question bank itself) mirrors to one row in `medical_prep_progress` (`user_id` primary key, `data` jsonb), debounced ~1.2s after every `saveData()` call via `queueCloudPush()`. On login, cloud is authoritative — `loadCloudProgress()` overwrites local with the cloud row if one exists, so the same account shows the same progress on any device. See `Database\migration_2026-07-27_001_medical_prep_progress.sql` (executed) and `Database\CLAUDE.md`.
+
+**Hub Pursuits integration:** if a logged-in user sets a real exam date (the date-picker in the goal modal, not just a relative duration), `syncHubPursuits()` writes real Pursuits into their own Hub via the existing `hub_entries` table (`kind='pursuit'`, `focus='Medical Prep'`) — one practice reminder per weak/undertrained domain, staggered back from the exam date, priority escalating (P3→P1) as the date approaches, plus one starred anchor pursuit for the exam day itself. Duplicate-checked by exact title before writing (queries existing `focus='Medical Prep'` pursuits first) per the system-wide no-duplicate-pursuits rule — never inserts a second pursuit for the same thing, updates the existing one's due date/priority instead. Runs on: setting/changing the goal, and once after a logged-in user's cloud progress loads if a goal is already set. Fails silently if it errors — pursuits are a bonus layer on top of the core app, not load-bearing.
 
 ---
 
@@ -54,7 +58,7 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.90` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.92` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
 
 ## Study Sequence Sidebar + Goal Timeline — 2026-07-27
 

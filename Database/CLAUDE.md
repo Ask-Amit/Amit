@@ -350,6 +350,7 @@ Add to both tables going forward whenever a real cross-session decision gets set
 | `directors_chair` | ✅ Live | Created as `module_registry` via `migration_2026-07-10_001_module_registry.sql`; renamed via `migration_2026-07-11_001_rename_directors_chair.sql` |
 | `dev_playbook` | ✅ Live | `migration_2026-07-10_002_dev_playbook.sql` |
 | `council_topics`, `council_seats`, `council_rounds`, `council_evidence`, `council_provider_keys` | ✅ Live (2026-07-21) | `migration_2026-07-21_006_council_tables.sql` — belongs to TheCouncil project, NOT the older `amit_brainstorm_*` tables (those stay as historical record under Brainstorming, untouched) |
+| `medical_prep_progress` | ✅ Live (2026-07-27) | `migration_2026-07-27_001_medical_prep_progress.sql` — one row per logged-in user, whole EMS_StudyGuide progress blob as JSONB (`data` column). Guests never touch this table — localStorage only. Also uses the existing `hub_entries` table (kind='pursuit', focus='Medical Prep') to auto-schedule practice pursuits once a user sets a real exam date — no new table needed for that part. |
 
 **Tables designed but NOT yet in Supabase (from Companion_Schema.md):**
 
