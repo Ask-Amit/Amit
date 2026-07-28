@@ -58,7 +58,15 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.94` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.96` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+
+## "Before You Go" Modal Now Branches on Login State — 2026-07-27
+
+Ryan's direct correction: the save-modal ("Your Progress Lives Right Here") unconditionally said "no login, no cloud account, nothing to remember" — accurate before Supabase sync shipped, false for logged-in users after. `openSaveModal()` now checks `mpUser` and builds one of two versions: logged-in gets "You're Logged In — This Is Backed Up, Not Just Local" (☁️), explaining the shared-login mechanism, the auto-sync, and the Hub Pursuits connection; guests get the original localStorage-only warning, still accurate for them. The modal's HTML (`#save-modal-icon`/`#save-modal-title`/`#save-modal-body`) is now populated dynamically rather than hardcoded — any future copy change to either version happens in `openSaveModal()`, not in the HTML.
+
+## Answer History / Missed-Question Review — 2026-07-27
+
+Clicking "Answered" or "Accuracy" in the header now opens a real review instead of just a number — `showAnswerHistory()`. Correctly-answered-every-time questions get a simple tally, no detail view (per Ryan's direction — not worth cluttering). Ever-missed questions become a clickable list, worst-accuracy first; tapping one opens `showQuestionReview()`, showing the actual question text, all choices with the correct one highlighted, the explanation, and the person's attempt record on it. No new storage was needed — both are reconstructed from `DATA.history` (already tracked) plus a lookup into `FULL_BANK` by question id (deterministic, same every load), which is also why this works identically for logged-in users on any device: `DATA.history` is already part of what syncs to Supabase.
 
 ## Real Amit Icon, Not a Guessed Glyph — 2026-07-27
 

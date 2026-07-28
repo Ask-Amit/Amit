@@ -153,7 +153,7 @@
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(5,8,12,.75);z-index:50;align-items:center;justify-content:center;padding:20px;}
   .modal-overlay.show{display:flex;}
   .modal-box{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:16px;
-    padding:30px;max-width:460px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+    padding:30px;max-width:460px;max-height:85vh;overflow-y:auto;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);}
   .modal-box h2{margin:6px 0 14px;font-size:19px;}
   .modal-box p{color:#d7e0ec;font-size:13.5px;line-height:1.6;text-align:left;margin:0 0 12px;}
   .modal-box .btn{margin-top:8px;}
@@ -286,7 +286,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.94</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v5.96</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -378,11 +378,9 @@
 
 <div class="modal-overlay" id="save-modal">
   <div class="modal-box">
-    <div style="font-size:30px;">💾</div>
-    <h2>Your Progress Lives Right Here</h2>
-    <p>Everything you've answered — every domain score, every streak, every question you've struggled with — is saved locally in <b>this browser, on this computer</b>. There's no login, no cloud account, nothing to remember.</p>
-    <p><b>That means one important thing:</b> please don't clear your browser's cache, cookies, or "site data" for this page — that's exactly where your progress lives. Clearing browsing data will erase it.</p>
-    <p style="color:var(--good);">Bookmark this file or keep it in an easy-to-find folder. Come back anytime — I'll remember exactly where you left off and pick the fight right back up with you. See you soon.</p>
+    <div style="font-size:30px;" id="save-modal-icon">💾</div>
+    <h2 id="save-modal-title">Your Progress Lives Right Here</h2>
+    <div id="save-modal-body"></div>
     <button class="btn" onclick="closeSaveModal()">Got it — see you next time</button>
   </div>
 </div>
@@ -1174,7 +1172,28 @@ function showView(id){
 }
 function goHome(){ session=null; renderHeaderStats(); renderDomainOverview(); renderLevelOverview(); renderFeSlots(); renderSequenceSidebar(); showView('home-view'); }
 
-function openSaveModal(){ document.getElementById('save-modal').classList.add('show'); }
+function openSaveModal(){
+  // Branches on real login state — this used to unconditionally say "no
+  // login, no cloud account," which stopped being true the moment Supabase
+  // sync shipped for logged-in users. Ryan's direct correction, 2026-07-27.
+  const icon = document.getElementById('save-modal-icon');
+  const title = document.getElementById('save-modal-title');
+  const body = document.getElementById('save-modal-body');
+  if(mpUser){
+    icon.textContent = '☁️';
+    title.textContent = "You're Logged In — This Is Backed Up, Not Just Local";
+    body.innerHTML = `<p>Because you're logged in through Amit, everything you've answered here — every domain score, every streak, every question you've struggled with — is saved to <b>your own account</b> in the database, not just sitting in this one browser.</p>
+      <p>Here's how it all connects: this page shares the exact same login the Hub creates. Log in once, anywhere in the Amit system, and Medical Prep already knows who you are — no separate sign-in. Your progress here mirrors up automatically a second or two after every answer. If you set a real exam date, I also schedule real Pursuits on your Hub, timed backward from it, so your practice reminders show up right alongside everything else you're tracking.</p>
+      <p style="color:var(--good);">Open this same account from any device, log in the same way, and you'll pick up exactly where you left off — nothing to bookmark, nothing to protect from a cleared cache. Come back anytime.</p>`;
+  } else {
+    icon.textContent = '💾';
+    title.textContent = 'Your Progress Lives Right Here';
+    body.innerHTML = `<p>Everything you've answered — every domain score, every streak, every question you've struggled with — is saved locally in <b>this browser, on this computer</b>. You're not logged in right now, so there's no cloud account backing this up.</p>
+      <p><b>That means one important thing:</b> please don't clear your browser's cache, cookies, or "site data" for this page — that's exactly where your progress lives. Clearing browsing data will erase it.</p>
+      <p style="color:var(--good);">Bookmark this file or keep it in an easy-to-find folder. Or — log in through the Hub, then come back here, and I'll start backing all of this up to your own account automatically from that point on.</p>`;
+  }
+  document.getElementById('save-modal').classList.add('show');
+}
 function closeSaveModal(){ document.getElementById('save-modal').classList.remove('show'); }
 
 /* ============ LEVEL CALIBRATION ============
@@ -1526,16 +1545,71 @@ function showLevelInfo(code, label){
   }
 }
 
+/* ============ ANSWER HISTORY REVIEW ============
+   Reconstructed entirely from DATA.history + a lookup into FULL_BANK by
+   question id — no separate log needed, since FULL_BANK is generated
+   deterministically the same way every load. This is also why it's
+   automatically covered by the Supabase sync for logged-in users: DATA.history
+   is already part of the synced blob, so this review works the same on
+   any device they log in from. */
+let _historyReviewList = [];
+function getAnsweredQuestionRecords(){
+  return Object.entries(DATA.history).map(([qid,h])=>{
+    if(!h.attempts) return null;
+    const q = FULL_BANK.find(x=>x._id===qid);
+    if(!q) return null;
+    return { qid, q, attempts:h.attempts, correctCount:h.correctCount,
+      everMissed: h.attempts>h.correctCount, pct: Math.round(100*h.correctCount/h.attempts) };
+  }).filter(Boolean);
+}
+function showAnswerHistory(){
+  const records = getAnsweredQuestionRecords();
+  if(records.length===0){
+    showInfoModal('Your Answer History', `Nothing tracked yet — this fills in as you answer questions in any mode.`);
+    return;
+  }
+  const missed = records.filter(r=>r.everMissed).sort((a,b)=>a.pct-b.pct);
+  const correctOnly = records.filter(r=>!r.everMissed);
+  _historyReviewList = missed;
+
+  let body = `You've gotten <b>${correctOnly.length}</b> question${correctOnly.length===1?'':'s'} right every single time you've tried ${correctOnly.length===1?'it':'them'} — those are solid, no need to relitigate them here. `;
+  body += missed.length
+    ? `You've missed at least once on <b>${missed.length}</b> — tap any one below to see the actual question, the correct answer, and why.`
+    : `Nothing missed yet at all. Genuinely strong work.`;
+
+  if(missed.length){
+    body += `<div style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-top:12px;">` +
+      missed.map((r,i)=>`<div class="seq-sub-row" style="cursor:pointer;" onclick="showQuestionReview(${i})"><span>${DOMAIN_LABEL[r.q.domain]} — ${r.q.q.length>48?r.q.q.slice(0,48)+'…':r.q.q}</span><span>${r.correctCount}/${r.attempts}</span></div>`).join('') +
+      `</div>`;
+  }
+  showInfoModal(missed.length ? 'Your Missed Questions' : 'Your Answer History', body);
+}
+function showQuestionReview(i){
+  const r = _historyReviewList[i];
+  if(!r) return;
+  const choicesHtml = r.q.choices.map((c,idx)=>{
+    const isCorrect = idx===r.q.a;
+    return `<div style="padding:9px 11px;margin-bottom:6px;border-radius:7px;border:1px solid ${isCorrect?'var(--good)':'var(--border)'};background:${isCorrect?'rgba(61,220,132,.1)':'transparent'};font-size:13px;">${isCorrect?'✅ ':''}${c}</div>`;
+  }).join('');
+  const body = `<div style="margin-bottom:12px;font-size:14px;">${r.q.q}</div>${choicesHtml}<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12.5px;color:#c9d6e6;">${r.q.exp}</div><div style="margin-top:10px;font-size:11px;color:var(--dim);">Your record on this one: <b>${r.correctCount}</b> correct out of <b>${r.attempts}</b> attempts.</div>`;
+  showInfoModal(`${DOMAIN_LABEL[r.q.domain]} · ${r.q.diff}`, body,
+    `<button class="btn secondary" onclick="showAnswerHistory()">← Back to List</button>`);
+}
+
 function showStatInfo(key){
   const total = DATA.totalAnswered;
   if(key==='answered'){
-    showInfoModal('Total Answered', total===0
-      ? `You haven't answered anything yet — this number counts every question you answer, in any mode. Pick something from the home screen and watch it move.`
-      : `You've answered <b>${total}</b> question${total===1?'':'s'} total, across every mode, since you started.`);
+    if(total===0){
+      showInfoModal('Total Answered', `You haven't answered anything yet — this number counts every question you answer, in any mode. Pick something from the home screen and watch it move.`);
+    } else {
+      showAnswerHistory();
+    }
   } else if(key==='accuracy'){
-    showInfoModal('Accuracy', total===0
-      ? `There's no accuracy to show yet — I need at least one answered question before I can calculate anything. Nothing's broken, there's just nothing recorded yet.`
-      : `You're sitting at <b>${Math.round(100*DATA.totalCorrect/total)}%</b> — ${DATA.totalCorrect} correct out of ${total} answered.`);
+    if(total===0){
+      showInfoModal('Accuracy', `There's no accuracy to show yet — I need at least one answered question before I can calculate anything. Nothing's broken, there's just nothing recorded yet.`);
+    } else {
+      showAnswerHistory();
+    }
   } else if(key==='weak'){
     const weakEntries = Object.entries(DATA.history).filter(([k,h])=> h.attempts>0 && (h.correctCount/h.attempts)<0.6);
     if(total===0){
