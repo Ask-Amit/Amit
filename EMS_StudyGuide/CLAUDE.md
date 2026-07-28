@@ -58,7 +58,11 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.93` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.94` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+
+## Real Amit Icon, Not a Guessed Glyph — 2026-07-27
+
+Ryan's direct correction: the modal badges (`.amit-mark` / `.amit-mark-sm`) used a single modern Hebrew Aleph (א) as "Amit's mark" — that doesn't actually spell or represent "Amit" and read as an unrecognizable symbol, not the companion's identity. Replaced with `<img src="../amit_icon.png">` in all five spots (welcome modal, save modal, both amit-guide callouts) — the same shared icon file the Hub and every other page in the system already use as Amit's actual visual identity. Also fixed: the welcome modal's name field was pre-filling with the literal string "Amit" (from a bad/placeholder value in the shared `amit_user_name` localStorage key) — that's the companion's own name, not a real visitor's, so `initWelcomeFlow()` now discards that specific value and leaves the field blank instead of pre-filling wrong.
 
 ## Welcome + Name Capture — 2026-07-27
 
