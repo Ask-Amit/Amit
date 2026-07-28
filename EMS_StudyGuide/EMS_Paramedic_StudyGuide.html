@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medic Prep — NREMT Paramedic Study System</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121924; --panel2:#182130; --border:#26364a;
+    --text:#e7edf5; --dim:#8fa2b8; --accent:#ff5a36; --accent2:#ffb347;
+    --good:#3ddc84; --bad:#ff5566; --blue:#4da3ff; --purple:#b98cff;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:
+    radial-gradient(circle at 20% 0%, #16202e 0%, #0b0f14 55%);
+    color:var(--text);min-height:100vh;}
+  header{padding:22px 28px 14px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .cross{width:38px;height:38px;background:var(--accent);border-radius:8px;position:relative;flex:0 0 auto;
+    box-shadow:0 0 18px rgba(255,90,54,.5);}
+  .cross::before,.cross::after{content:"";position:absolute;background:#fff;}
+  .cross::before{left:16px;right:16px;top:8px;bottom:8px;width:6px;margin:auto;}
+  .cross::after{top:16px;bottom:16px;left:8px;right:8px;height:6px;margin:auto;}
+  h1{font-size:19px;margin:0;letter-spacing:.5px;}
+  h1 span{color:var(--accent2);}
+  .sub{color:var(--dim);font-size:12.5px;margin-top:2px;}
+  .stats{display:flex;gap:18px;font-size:12px;color:var(--dim);}
+  .stats b{color:var(--text);font-size:14px;display:block;}
+  main{max-width:1080px;margin:0 auto;padding:26px 20px 60px;}
+
+  /* HOME / MODE SELECT */
+  .modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:10px;}
+  .mode-card{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--border);
+    border-radius:14px;padding:20px;cursor:pointer;transition:.15s;position:relative;overflow:hidden;}
+  .mode-card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .mode-card .tag{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--accent2);font-weight:700;}
+  .mode-card h3{margin:8px 0 6px;font-size:17px;}
+  .mode-card p{color:var(--dim);font-size:12.5px;line-height:1.5;margin:0;}
+  .mode-card .icon{font-size:26px;margin-bottom:6px;}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px;margin-top:20px;}
+  .section-title{font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin:26px 0 10px;}
+
+  /* CATEGORY GRID */
+  .cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;}
+  .cat-box{border:1px solid var(--border);border-radius:10px;padding:14px;background:var(--panel2);cursor:pointer;}
+  .cat-box:hover{border-color:var(--blue);}
+  .cat-box.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+  .cat-box .name{font-weight:600;font-size:13.5px;}
+  .cat-box .meta{font-size:11px;color:var(--dim);margin-top:4px;}
+  .barwrap{height:5px;background:#0b0f14;border-radius:3px;margin-top:8px;overflow:hidden;}
+  .bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--good));}
+
+  .diffrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}
+  .chip{padding:7px 14px;border:1px solid var(--border);border-radius:20px;font-size:12.5px;cursor:pointer;color:var(--dim);}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+
+  .btn{background:var(--accent);color:#fff;border:none;padding:12px 22px;border-radius:9px;font-size:14px;
+    font-weight:700;cursor:pointer;letter-spacing:.3px;}
+  .btn:hover{background:#ff7350;}
+  .btn.secondary{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .btn.secondary:hover{border-color:var(--blue);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btnrow{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;}
+
+  /* QUIZ VIEW */
+  .quiz-top{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--dim);margin-bottom:14px;}
+  .progress-track{height:7px;background:#0b0f14;border-radius:4px;overflow:hidden;margin-bottom:20px;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:.3s;}
+  .qmeta{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+  .badge{font-size:10.5px;padding:3px 9px;border-radius:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
+  .badge.domain{background:rgba(77,163,255,.15);color:var(--blue);}
+  .badge.easy{background:rgba(61,220,132,.15);color:var(--good);}
+  .badge.med{background:rgba(255,179,71,.15);color:var(--accent2);}
+  .badge.hard{background:rgba(255,85,102,.15);color:var(--bad);}
+  .qtext{font-size:17px;line-height:1.55;margin:10px 0 20px;}
+  .choices{display:flex;flex-direction:column;gap:10px;}
+  .choice{border:1px solid var(--border);background:var(--panel2);padding:14px 16px;border-radius:10px;
+    cursor:pointer;font-size:14px;display:flex;gap:12px;align-items:flex-start;transition:.12s;}
+  .choice:hover{border-color:var(--blue);}
+  .choice .letter{width:24px;height:24px;border-radius:50%;background:#0b0f14;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;font-size:11.5px;flex:0 0 auto;font-weight:700;}
+  .choice.correct{border-color:var(--good);background:rgba(61,220,132,.08);}
+  .choice.correct .letter{background:var(--good);color:#04160c;border-color:var(--good);}
+  .choice.wrong{border-color:var(--bad);background:rgba(255,85,102,.08);}
+  .choice.wrong .letter{background:var(--bad);color:#1a0507;border-color:var(--bad);}
+  .choice.disabled{cursor:default;}
+  .explain{margin-top:18px;padding:16px;border-radius:10px;background:var(--panel2);border-left:3px solid var(--accent2);
+    font-size:13.5px;line-height:1.6;color:#d7e0ec;display:none;}
+  .explain.show{display:block;}
+  .explain b{color:var(--accent2);}
+
+  /* FLASHCARD */
+  .card-flip{perspective:1400px;height:280px;margin:10px 0 20px;}
+  .card-inner{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d;cursor:pointer;}
+  .card-inner.flipped{transform:rotateY(180deg);}
+  .face{position:absolute;inset:0;backface-visibility:hidden;border-radius:14px;border:1px solid var(--border);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px;}
+  .front{background:linear-gradient(160deg,var(--panel2),#101722);font-size:19px;font-weight:600;}
+  .back{background:linear-gradient(160deg,#141d29,#0d1420);transform:rotateY(180deg);font-size:14.5px;line-height:1.6;color:#d7e0ec;}
+  .hint{font-size:11px;color:var(--dim);margin-top:14px;text-transform:uppercase;letter-spacing:1px;}
+
+  /* RESULTS */
+  .results-hero{text-align:center;padding:20px 0;}
+  .score-ring{font-size:52px;font-weight:800;}
+  .score-ring.pass{color:var(--good);}
+  .score-ring.fail{color:var(--bad);}
+  .rowsplit{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px;}
+  .statbox{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
+  .statbox b{display:block;font-size:22px;}
+  .missrow{border-bottom:1px solid var(--border);padding:10px 0;font-size:13px;}
+  .missrow .q{color:var(--dim);}
+
+  /* FLYING BACKGROUND SYMBOLS */
+  #bg-fly{position:fixed;inset:0;overflow:hidden;z-index:0;pointer-events:none;}
+  .fly-symbol{position:absolute;opacity:.05;color:var(--blue);will-change:transform;animation:drift linear infinite, spin linear infinite;}
+  @keyframes drift{ from{transform:translate(-10vw,110vh);} to{transform:translate(110vw,-20vh);} }
+  @keyframes spin{ from{rotate:0deg;} to{rotate:360deg;} }
+  header, main, footer{position:relative;z-index:1;}
+
+  /* MODAL */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(5,8,12,.75);z-index:50;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.show{display:flex;}
+  .modal-box{background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:16px;
+    padding:30px;max-width:460px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .modal-box h2{margin:6px 0 14px;font-size:19px;}
+  .modal-box p{color:#d7e0ec;font-size:13.5px;line-height:1.6;text-align:left;margin:0 0 12px;}
+  .modal-box .btn{margin-top:8px;}
+
+  /* TOAST ENCOURAGEMENT */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);z-index:60;
+    background:linear-gradient(135deg,#1c2a3d,#141d29);border:1px solid var(--accent2);border-radius:14px;
+    padding:16px 22px;max-width:380px;box-shadow:0 12px 34px rgba(0,0,0,.5);transition:transform .4s ease;font-size:13.5px;line-height:1.55;}
+  .toast.show{transform:translateX(-50%) translateY(0);}
+  .toast b{color:var(--accent2);}
+
+  /* HINT / REVEAL */
+  .aid-row{display:flex;gap:10px;margin-bottom:14px;}
+  .aid-btn{background:transparent;border:1px dashed var(--border);color:var(--dim);padding:8px 14px;border-radius:8px;
+    font-size:12px;cursor:pointer;}
+  .aid-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+  .hint-box{display:none;background:rgba(255,179,71,.08);border-left:3px solid var(--accent2);border-radius:8px;
+    padding:12px 14px;margin-bottom:14px;font-size:13px;color:#e9d7b8;}
+  .hint-box.show{display:block;}
+
+  /* FINAL EXAM BANNER — sits outside the normal mode grid */
+  .final-exam-banner{margin-top:28px;border-radius:16px;padding:2px;background:linear-gradient(120deg,var(--accent),var(--accent2),var(--accent));
+    background-size:200% 200%;animation:shimmer 5s ease infinite;}
+  @keyframes shimmer{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+  .final-exam-inner{background:#0d1219;border-radius:14px;padding:24px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;}
+  .final-exam-inner .fe-icon{font-size:40px;}
+  .final-exam-inner h2{margin:0 0 4px;font-size:20px;letter-spacing:.5px;}
+  .final-exam-inner p{margin:0;color:var(--dim);font-size:12.5px;max-width:480px;}
+  .fe-slots{display:flex;gap:12px;flex-wrap:wrap;}
+  .fe-slot{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;text-align:center;cursor:pointer;min-width:120px;}
+  .fe-slot:hover{border-color:var(--accent);}
+  .fe-slot .fe-label{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;}
+  .fe-slot .fe-status{font-size:13px;font-weight:700;margin-top:4px;}
+  .fe-slot.taken .fe-status{color:var(--good);}
+  .fe-slot.fresh .fe-status{color:var(--accent2);}
+
+  #home-view, #category-view, #quiz-view, #flash-view, #results-view{display:none;}
+  #home-view.active, #category-view.active, #quiz-view.active, #flash-view.active, #results-view.active{display:block;}
+  .backlink{color:var(--dim);font-size:12.5px;cursor:pointer;display:inline-block;margin-bottom:14px;}
+  .backlink:hover{color:var(--text);}
+  .timer{font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent2);}
+  .timer.low{color:var(--bad);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  footer{text-align:center;color:var(--dim);font-size:11.5px;padding:30px 0 10px;}
+</style>
+</head>
+<body>
+<div id="bg-fly"></div>
+<header>
+  <div class="brand">
+    <div class="cross"></div>
+    <div>
+      <h1>Medic Prep <span>— NREMT Study System</span></h1>
+      <div class="sub">Paramedic recertification & national exam readiness</div>
+    </div>
+  </div>
+  <div class="stats">
+    <div><b id="stat-answered">0</b>⏱️ Answered</div>
+    <div><b id="stat-accuracy">—</b>🎯 Accuracy</div>
+    <div><b id="stat-weak">0</b>🔥 Weak Items</div>
+    <div><b id="stat-streak">0</b>⚡ Streak</div>
+    <div><b id="stat-daysin">0</b>📅 Days Studying</div>
+  </div>
+  <button class="btn secondary" style="font-size:11.5px;padding:8px 14px;" onclick="openSaveModal()">📌 Before You Go</button>
+</header>
+
+<div class="modal-overlay" id="save-modal">
+  <div class="modal-box">
+    <div style="font-size:30px;">💾</div>
+    <h2>Your Progress Lives Right Here</h2>
+    <p>Everything you've answered — every domain score, every streak, every question you've struggled with — is saved locally in <b>this browser, on this computer</b>. There's no login, no cloud account, nothing to remember.</p>
+    <p><b>That means one important thing:</b> please don't clear your browser's cache, cookies, or "site data" for this page — that's exactly where your progress lives. Clearing browsing data will erase it.</p>
+    <p style="color:var(--good);">Bookmark this file or keep it in an easy-to-find folder. Come back anytime — I'll remember exactly where you left off and pick the fight right back up with you. See you soon.</p>
+    <button class="btn" onclick="closeSaveModal()">Got it — see you next time</button>
+  </div>
+</div>
+
+<div class="toast" id="encourage-toast"></div>
+
+<main>
+
+  <!-- HOME -->
+  <div id="home-view" class="active">
+    <div class="section-title">Choose a study mode</div>
+    <div class="modes">
+      <div class="mode-card" onclick="goCategory('flash')">
+        <div class="icon">🃏</div>
+        <div class="tag">Recall Training</div>
+        <h3>Flashcard Drill</h3>
+        <p>Flip-card review of definitions, values, protocols and pearls. Self-graded, untimed, good for daily warmup.</p>
+      </div>
+      <div class="mode-card" onclick="goCategory('practice')">
+        <div class="icon">🎯</div>
+        <div class="tag">Focused Practice</div>
+        <h3>Category Practice</h3>
+        <p>Pick one or more domains and difficulty level. Immediate feedback + rationale after every question.</p>
+      </div>
+      <div class="mode-card" onclick="goCategory('exam')">
+        <div class="icon">⏱️</div>
+        <div class="tag">Simulation</div>
+        <h3>Timed Exam Sim</h3>
+        <p>80-question randomized run pulled proportionally across all NREMT domains, under a clock, scored like the real thing.</p>
+      </div>
+      <div class="mode-card" onclick="startWeakness()">
+        <div class="icon">🔥</div>
+        <div class="tag">Adaptive</div>
+        <h3>Weak-Spot Review</h3>
+        <p>Pulls only the questions you've missed before or never gotten right, until they're solid.</p>
+      </div>
+    </div>
+
+    <!-- FINAL EXAM — deliberately outside the normal mode grid -->
+    <div class="final-exam-banner">
+      <div class="final-exam-inner">
+        <div style="display:flex;gap:16px;align-items:center;">
+          <div class="fe-icon">🎓</div>
+          <div>
+            <h2>FINAL EXAM DAY</h2>
+            <p>Two full, sealed 80-question exams pulled only from material you've never drilled in practice — locked away specifically so that when you sit for them, it's the real thing, not a rerun. Pass benchmark: 70%.</p>
+          </div>
+        </div>
+        <div class="fe-slots" id="fe-slots"></div>
+      </div>
+    </div>
+
+    <div class="section-title">Your domain accuracy</div>
+    <div class="cats" id="domain-overview"></div>
+
+    <div class="section-title">Your level breakdown — EMT / AEMT / Paramedic</div>
+    <div class="cats" id="level-overview"></div>
+  </div>
+
+  <!-- CATEGORY / SETUP -->
+  <div id="category-view">
+    <div class="backlink" onclick="goHome()">← Back to modes</div>
+    <div class="panel">
+      <div id="setup-title" style="font-size:16px;font-weight:700;margin-bottom:4px;"></div>
+      <div id="setup-sub" style="color:var(--dim);font-size:13px;margin-bottom:18px;"></div>
+
+      <div id="cat-select-block">
+        <div class="section-title" style="margin-top:0;">Domains (select one or more)</div>
+        <div class="cats" id="setup-cats"></div>
+      </div>
+
+      <div id="diff-select-block">
+        <div class="section-title">Difficulty</div>
+        <div class="diffrow" id="setup-diff">
+          <div class="chip on" data-d="EMT">EMT-B Review</div>
+          <div class="chip on" data-d="AEMT">AEMT</div>
+          <div class="chip on" data-d="Medic">Paramedic</div>
+        </div>
+      </div>
+
+      <div class="btnrow">
+        <button class="btn" id="setup-start-btn" onclick="launchFromSetup()">Start</button>
+        <button class="btn secondary" onclick="goHome()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUIZ (practice + exam) -->
+  <div id="quiz-view">
+    <div class="quiz-top">
+      <span id="quiz-mode-label">Category Practice</span>
+      <span>Question <b id="q-num">1</b> / <span id="q-total">10</span> &nbsp;·&nbsp; <span class="timer" id="quiz-timer"></span></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+
+    <div class="panel">
+      <div class="qmeta">
+        <span class="badge domain" id="q-domain"></span>
+        <span class="badge" id="q-diff"></span>
+      </div>
+      <div class="qtext" id="q-text"></div>
+      <div class="aid-row" id="aid-row">
+        <button class="aid-btn" onclick="showHint()">💡 Hint</button>
+        <button class="aid-btn" onclick="revealAnswer()">📖 Show Answer</button>
+      </div>
+      <div class="hint-box" id="hint-box"></div>
+      <div class="choices" id="q-choices"></div>
+      <div class="explain" id="q-explain"></div>
+      <div class="btnrow">
+        <button class="btn" id="next-btn" onclick="nextQuestion()" disabled>Next Question →</button>
+        <button class="btn secondary" onclick="quitQuiz()">End Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLASHCARDS -->
+  <div id="flash-view">
+    <div class="quiz-top">
+      <span>Flashcard Drill</span>
+      <span>Card <b id="f-num">1</b> / <span id="f-total">10</span></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="f-progress" style="width:0%"></div></div>
+    <div class="panel">
+      <div class="qmeta"><span class="badge domain" id="f-domain"></span><span class="badge" id="f-diff"></span></div>
+      <div class="card-flip" onclick="flipCard()">
+        <div class="card-inner" id="card-inner">
+          <div class="face front"><div><div id="f-front"></div><div class="hint">tap card to flip</div></div></div>
+          <div class="face back"><div id="f-back"></div></div>
+        </div>
+      </div>
+      <div class="btnrow">
+        <button class="btn secondary" onclick="markFlash(false)">😵 Didn't know it</button>
+        <button class="btn" onclick="markFlash(true)">✅ Knew it</button>
+        <button class="btn secondary" onclick="quitQuiz()">End Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results-view">
+    <div class="panel results-hero">
+      <div style="color:var(--dim);font-size:13px;text-transform:uppercase;letter-spacing:1px;">Session Complete</div>
+      <div class="score-ring" id="final-score">0%</div>
+      <div id="pass-label" style="font-size:14px;color:var(--dim);"></div>
+      <div class="rowsplit">
+        <div class="statbox"><b id="r-correct">0</b>Correct</div>
+        <div class="statbox"><b id="r-missed">0</b>Missed</div>
+      </div>
+      <div class="btnrow" style="justify-content:center;">
+        <button class="btn" onclick="goHome()">Back to Modes</button>
+        <button class="btn secondary" id="review-missed-btn" onclick="reviewMissed()">Review Missed Questions</button>
+      </div>
+    </div>
+    <div class="panel" id="missed-panel" style="display:none;">
+      <div class="section-title" style="margin-top:0;">Missed this session</div>
+      <div id="missed-list"></div>
+    </div>
+  </div>
+
+</main>
+<footer>Medic Prep · local-only, nothing leaves your browser · progress stored in this browser's storage</footer>
+
+<script>
+/* ============ QUESTION BANK ============
+   domain: Airway | Cardio | Trauma | Medical | Ops
+   diff: EMT | AEMT | Medic
+=========================================== */
+const BANK = [
+/* ---------------- AIRWAY / RESPIRATION / VENTILATION ---------------- */
+{domain:"Airway",diff:"EMT",q:"What is the most common cause of airway obstruction in an unresponsive patient?",choices:["Foreign body","The tongue falling back against the posterior pharynx","Laryngospasm","Epiglottitis"],a:1,exp:"In an unresponsive patient, loss of muscle tone lets the tongue fall back and occlude the airway — this is why head-tilt/chin-lift or jaw-thrust is the first airway maneuver."},
+{domain:"Airway",diff:"EMT",q:"Which airway maneuver is preferred for a patient with suspected cervical spine trauma?",choices:["Head-tilt chin-lift","Jaw-thrust without head tilt","Sellick maneuver","Nasopharyngeal insertion"],a:1,exp:"Jaw-thrust opens the airway without extending the cervical spine, making it the trauma-safe technique."},
+{domain:"Airway",diff:"Medic",q:"A patient in respiratory failure has a SpO2 of 88% despite high-flow oxygen and adequate BVM technique. What is the most likely explanation?",choices:["Anxiety","A significant V/Q mismatch or shunt (e.g., ARDS, severe pneumonia)","Probe malfunction","Hyperventilation"],a:1,exp:"When oxygenation fails to improve despite good technique and high FiO2, think shunt physiology — blood bypassing ventilated alveoli, as in ARDS, severe pneumonia, or pulmonary edema."},
+{domain:"Airway",diff:"Medic",q:"What waveform capnography finding is most consistent with bronchospasm?",choices:["Rounded 'shark-fin' upstroke","Curare cleft","Elevated baseline with normal shape","Absent waveform"],a:0,exp:"The classic shark-fin waveform reflects delayed, uneven alveolar emptying from bronchospasm/airway narrowing (asthma, COPD)."},
+{domain:"Airway",diff:"Medic",q:"During RSI, which drug is a depolarizing neuromuscular blocker?",choices:["Rocuronium","Vecuronium","Succinylcholine","Etomidate"],a:2,exp:"Succinylcholine is the only depolarizing NMB in common EMS use — fast onset/offset, but watch for hyperkalemia risk in burns, crush injury, and neuromuscular disease."},
+{domain:"Airway",diff:"AEMT",q:"What is the correct depth of insertion landmark for an oropharyngeal airway (OPA) sizing?",choices:["Corner of mouth to earlobe","Tip of nose to chin","Xiphoid to sternal notch","Corner of mouth to angle of jaw only"],a:0,exp:"OPA is sized from the corner of the mouth to the earlobe (or angle of the jaw) to approximate the distance to the pharynx."},
+{domain:"Airway",diff:"AEMT",q:"A conscious patient tolerates an OPA without gagging. What does this suggest?",choices:["Normal airway reflexes","Absent or severely depressed gag reflex — gross mismanagement risk","Good airway tone","Nothing significant"],a:1,exp:"A conscious patient with intact reflexes will gag on an OPA. Tolerance suggests a depressed level of consciousness / diminished protective reflexes — a red flag."},
+{domain:"Airway",diff:"Medic",q:"What is the primary indication for a surgical cricothyrotomy in the field?",choices:["Difficult IV access","Cannot intubate, cannot ventilate/oxygenate situation","Suspected pneumothorax","Routine airway management preference"],a:1,exp:"Cric is a last-resort rescue airway reserved for a true 'can't intubate, can't oxygenate' failed airway."},
+{domain:"Airway",diff:"EMT",q:"Normal adult tidal volume for BVM ventilation is approximately:",choices:["100-200 mL","500-600 mL (6-7 mL/kg)","1500-2000 mL","50 mL"],a:1,exp:"Roughly 500-600mL, or 6-7mL/kg ideal body weight — just enough to see visible chest rise, avoiding gastric insufflation."},
+{domain:"Airway",diff:"AEMT",q:"Which finding on lung auscultation is classic for pulmonary edema?",choices:["Wheezing only","Fine bilateral crackles/rales at the bases","Stridor","Absent breath sounds unilaterally"],a:1,exp:"Fluid in the alveoli produces fine, wet crackles, typically starting at the bases and moving up as severity increases."},
+{domain:"Airway",diff:"Medic",q:"What is the mechanism by which CPAP improves oxygenation in cardiogenic pulmonary edema?",choices:["Increases preload","Positive pressure recruits collapsed alveoli, reduces preload and afterload, and pushes fluid out of alveoli","Bronchodilation","Sedation"],a:1,exp:"CPAP's continuous positive pressure recruits alveoli, decreases venous return (preload) and effectively decreases the work of breathing and LV afterload — very effective in CHF/pulmonary edema."},
+{domain:"Airway",diff:"EMT",q:"Which of these is a contraindication to nasopharyngeal airway (NPA) insertion?",choices:["Suspected basilar skull fracture","Unconscious patient","Absent gag reflex","Vomiting patient"],a:0,exp:"Suspected basilar skull fracture (raccoon eyes, Battle's sign, CSF rhinorrhea) is a relative contraindication due to risk of intracranial placement."},
+{domain:"Airway",diff:"Medic",q:"End-tidal CO2 in a well-perfused, properly ventilated patient is normally:",choices:["5-10 mmHg","35-45 mmHg","60-80 mmHg","100+ mmHg"],a:1,exp:"Normal EtCO2 is 35-45 mmHg, correlating closely with arterial CO2 in a patient with normal perfusion."},
+{domain:"Airway",diff:"Medic",q:"A trauma patient has tracheal deviation, distended neck veins, and absent breath sounds on one side with hyper-resonance to percussion. Treatment?",choices:["High-flow oxygen and rapid transport only","Needle decompression of the affected side","Immediate intubation","Pericardiocentesis"],a:1,exp:"This is a tension pneumothorax. Needle decompression (2nd intercostal space midclavicular, or 4th/5th ICS anterior axillary) is the immediate field treatment."},
+{domain:"Airway",diff:"AEMT",q:"What does a 'good' waveform capnography reading confirm that pulse oximetry cannot?",choices:["Oxygenation status","Correct ET tube placement and adequacy of ventilation in real time","Blood pressure","Cardiac rhythm"],a:1,exp:"SpO2 reflects oxygenation (lags behind); capnography confirms tube placement instantly and tracks ventilation breath-by-breath."},
+
+/* ---------------- CARDIOLOGY / RESUSCITATION ---------------- */
+{domain:"Cardio",diff:"Medic",q:"A 12-lead shows ST elevation in II, III, and aVF. Which artery is most likely occluded?",choices:["Left anterior descending (LAD)","Right coronary artery (RCA)","Circumflex","Left main"],a:1,exp:"II, III, aVF = inferior wall = typically RCA territory. Always check right-sided leads (V4R) for RV involvement and avoid nitrates if RV infarct is suspected."},
+{domain:"Cardio",diff:"Medic",q:"Why should nitroglycerin be avoided in a suspected right ventricular MI?",choices:["It causes tachycardia","RV infarct is preload-dependent; nitrates drop preload and can cause profound hypotension","It masks chest pain","It increases myocardial oxygen demand"],a:1,exp:"A poorly contracting RV depends on adequate preload to fill the LV. Nitrates venodilate and drop preload, potentially causing severe hypotension/cardiovascular collapse."},
+{domain:"Cardio",diff:"Medic",q:"Torsades de pointes is best treated with:",choices:["Amiodarone","Magnesium sulfate IV","Atropine","Synchronized cardioversion first-line always"],a:1,exp:"Torsades (polymorphic VT with prolonged QT) responds to magnesium sulfate 1-2g IV, regardless of the patient's magnesium level. Unstable torsades needs defibrillation (treat as pulseless if unstable)."},
+{domain:"Cardio",diff:"Medic",q:"In stable narrow-complex SVT, the first-line pharmacologic treatment is:",choices:["Amiodarone","Adenosine 6mg rapid IV push, followed by 12mg if needed","Diltiazem first","Epinephrine"],a:1,exp:"Adenosine transiently blocks AV node conduction, often terminating reentrant SVT. Give rapidly followed immediately by a saline flush due to its ~10 second half-life."},
+{domain:"Cardio",diff:"Medic",q:"During cardiac arrest, what is the recommended compression-to-ventilation ratio for a single rescuer with an unprotected airway (adult)?",choices:["15:2","30:2","5:1","continuous compressions, no ventilation"],a:1,exp:"AHA guidelines: 30:2 for adult CPR without an advanced airway, single or two-rescuer (2010-2020 updates kept 30:2 for lay/2-rescuer BLS)."},
+{domain:"Cardio",diff:"Medic",q:"Once an advanced airway is placed during cardiac arrest, ventilation rate should be:",choices:["30:2 continues","1 breath every 6 seconds (10/min), asynchronous with continuous compressions","1 breath every 3 seconds","Ventilate only every other cycle"],a:1,exp:"With an advanced airway in place, compressions become continuous (100-120/min) and ventilations are delivered asynchronously at about 1 every 6 seconds."},
+{domain:"Cardio",diff:"Medic",q:"Which rhythm is a shockable rhythm in cardiac arrest?",choices:["Asystole","Pulseless electrical activity","Ventricular fibrillation","Sinus bradycardia"],a:2,exp:"VF and pulseless VT are the shockable arrest rhythms. Asystole and PEA are not shockable — treatment focuses on high-quality CPR, epinephrine, and finding/reversing the cause."},
+{domain:"Cardio",diff:"Medic",q:"What are the H's and T's used for?",choices:["Sizing endotracheal tubes","Identifying and reversing causes of PEA/asystole","Classifying burns","Trauma triage categories"],a:1,exp:"Hypovolemia, Hypoxia, Hydrogen ion (acidosis), Hypo/hyperkalemia, Hypothermia; Tension pneumo, Tamponade, Toxins, Thrombosis (pulmonary/coronary) — reversible causes to hunt during PEA/asystole."},
+{domain:"Cardio",diff:"AEMT",q:"A patient presents with a heart rate of 38, hypotensive, and altered mental status. First-line drug?",choices:["Adenosine","Atropine 1mg IV, may repeat","Amiodarone","Epinephrine drip immediately as first step"],a:1,exp:"Symptomatic bradycardia: atropine 1mg IV push (max 3mg total) is first line. If ineffective, move to transcutaneous pacing and/or dopamine or epinephrine infusion."},
+{domain:"Cardio",diff:"Medic",q:"Synchronized cardioversion differs from defibrillation because it:",choices:["Uses less energy always","Delivers the shock timed to the R wave to avoid the vulnerable T wave period","Is only used in asystole","Does not require pads"],a:1,exp:"Synchronization times the shock to avoid the relative refractory period (T wave), preventing the shock from inducing VF — used for unstable SVT, A-fib/flutter, and unstable VT with a pulse."},
+{domain:"Cardio",diff:"Medic",q:"Beck's triad (JVD, muffled heart tones, hypotension) suggests:",choices:["Tension pneumothorax","Cardiac tamponade","Massive hemothorax","Aortic dissection"],a:1,exp:"Beck's triad is classic for pericardial tamponade — fluid/blood in the pericardial sac restricting cardiac filling."},
+{domain:"Cardio",diff:"EMT",q:"What does 'STEMI' stand for and why does it matter prehospital?",choices:["ST-Elevation Myocardial Infarction — triggers cath lab activation/bypass protocols","Standard Emergency Medical Intervention","Severe Trauma Emergency Medical Indicator","Systolic Temporary Elevation Marker Indicator"],a:0,exp:"STEMI identification via 12-lead in the field allows early cath lab activation, dramatically reducing door-to-balloon time."},
+{domain:"Cardio",diff:"Medic",q:"Which medication is contraindicated in a STEMI patient who took sildenafil (Viagra) in the last 24-48 hours?",choices:["Aspirin","Nitroglycerin","Oxygen","Morphine"],a:1,exp:"PDE5 inhibitors (sildenafil, tadalafil) combined with nitrates can cause profound, refractory hypotension. Always ask about ED medication use before giving nitro."},
+{domain:"Cardio",diff:"AEMT",q:"Aspirin's mechanism of benefit in suspected ACS is:",choices:["Vasodilation","Irreversible inhibition of platelet aggregation (COX-1 inhibition)","Reduces heart rate","Thins existing clots (thrombolysis)"],a:1,exp:"Aspirin irreversibly inhibits COX-1, preventing thromboxane A2-mediated platelet aggregation — it prevents clot growth, it does not dissolve existing clots."},
+
+/* ---------------- TRAUMA ---------------- */
+{domain:"Trauma",diff:"Medic",q:"In hemorrhagic shock, which vital sign change is typically the EARLIEST reliable indicator in adults?",choices:["Hypotension","Tachycardia and narrowing pulse pressure","Bradycardia","Widened pulse pressure"],a:1,exp:"Compensatory tachycardia and narrowing pulse pressure appear early (Class I-II shock); hypotension is a late finding, often not until 30-40% blood volume loss (Class III+)."},
+{domain:"Trauma",diff:"Medic",q:"Cushing's triad (hypertension, bradycardia, irregular respirations) indicates:",choices:["Hypovolemic shock","Rising intracranial pressure","Spinal shock","Sepsis"],a:1,exp:"Cushing's triad is a late, ominous sign of increased ICP causing brainstem compression — a true neurological emergency."},
+{domain:"Trauma",diff:"Medic",q:"What is the target SBP for permissive hypotension in a patient with hemorrhagic (non-TBI) trauma?",choices:["Normalize to 120 mmHg","Around 80-90 mmHg systolic (or palpable radial pulse) until definitive hemorrhage control","60 mmHg systolic","No fluid until hospital"],a:1,exp:"Permissive hypotension avoids over-resuscitating and dislodging early clots; target roughly 80-90 systolic (radial pulse present) — but NOT in TBI, where adequate cerebral perfusion is prioritized (SBP ≥90-110)."},
+{domain:"Trauma",diff:"EMT",q:"Which of these is a sign of a basilar skull fracture?",choices:["Battle's sign (bruising behind the ear) and raccoon eyes","Distal pulses absent","Tenderness at C7","Crepitus of the ribs"],a:0,exp:"Battle's sign, raccoon eyes, CSF otorrhea/rhinorrhea, and hemotympanum are classic basilar skull fracture indicators."},
+{domain:"Trauma",diff:"AEMT",q:"A tension pneumothorax should be suspected in a trauma patient with which combination?",choices:["Bilateral crackles and fever","Respiratory distress, unilateral absent breath sounds, JVD, tracheal deviation, hypotension","Isolated ankle pain","Normal vitals with mild dyspnea"],a:1,exp:"This constellation reflects rising intrathoracic pressure compressing the great vessels and shifting the mediastinum — a true immediately life-threatening emergency."},
+{domain:"Trauma",diff:"Medic",q:"What is the mechanism of injury classically associated with traumatic aortic disruption?",choices:["Fall from standing","Rapid deceleration (high-speed MVC, fall from height)","Isolated ankle twist","Minor superficial laceration"],a:1,exp:"Sudden deceleration causes shearing at points where the aorta is fixed (ligamentum arteriosum) — classic for high-speed frontal/lateral MVCs and high falls."},
+{domain:"Trauma",diff:"EMT",q:"For a patient with an evisceration (abdominal organs protruding), the correct field treatment is:",choices:["Push organs back in and bandage tightly","Cover with a moist, sterile dressing and occlusive outer layer, do NOT push organs back in","Apply a tourniquet","Leave completely uncovered for airflow"],a:1,exp:"Never replace eviscerated organs. Cover with moist sterile gauze then an occlusive dressing to prevent drying and further contamination, keep the patient warm."},
+{domain:"Trauma",diff:"Medic",q:"The 'lethal triad' in trauma resuscitation refers to:",choices:["Hypoxia, hypotension, tachycardia","Hypothermia, acidosis, and coagulopathy","Fracture, hemorrhage, infection","Pain, anxiety, nausea"],a:1,exp:"Hypothermia, acidosis, and coagulopathy feed into each other in a worsening spiral — a core reason to keep trauma patients warm and minimize crystalloid dilution."},
+{domain:"Trauma",diff:"AEMT",q:"When is a tourniquet indicated in the prehospital setting?",choices:["Any minor laceration","Life-threatening extremity hemorrhage not controlled by direct pressure","Head lacerations","Never — pressure dressings only"],a:1,exp:"Tourniquets are now first-line for life-threatening extremity hemorrhage in current guidelines (TCCC-informed), applied high and tight, 2-3 inches above the wound, noting time applied."},
+{domain:"Trauma",diff:"Medic",q:"A patient with a flail chest (paradoxical chest wall movement) should be managed primarily with:",choices:["Rigid stabilization/splinting only, no ventilatory support","Positive pressure ventilation support and pain management/monitoring for underlying pulmonary contusion","Immediate needle decompression","Ice packs only"],a:1,exp:"The real danger of flail chest is the underlying pulmonary contusion. Support ventilation/oxygenation, monitor closely, and manage pain; positive pressure ventilation acts as an internal splint if respiratory failure develops."},
+{domain:"Trauma",diff:"EMT",q:"In the Rule of Nines for an adult, the anterior trunk represents approximately:",choices:["9%","18%","36%","4.5%"],a:1,exp:"Adult Rule of Nines: head 9%, each arm 9%, anterior trunk 18%, posterior trunk 18%, each leg 18%, groin 1%."},
+{domain:"Trauma",diff:"Medic",q:"Which burn depth is characterized by white/leathery, painless skin?",choices:["Superficial (1st degree)","Partial thickness (2nd degree)","Full thickness (3rd degree)","Superficial partial thickness only"],a:2,exp:"Full-thickness burns destroy nerve endings, so they are often painless, with a white, leathery, or charred appearance."},
+{domain:"Trauma",diff:"Medic",q:"What GCS score generally indicates the need for definitive airway management (intubation) in trauma?",choices:["15","≤8","12","10 with normal vitals"],a:1,exp:"GCS 8 or less ('less than 8, intubate') is the traditional threshold indicating loss of airway-protective reflexes."},
+
+/* ---------------- MEDICAL / OB / PEDS ---------------- */
+{domain:"Medical",diff:"Medic",q:"A diabetic patient is found unresponsive with cool, diaphoretic skin and a blood glucose of 32 mg/dL. First treatment?",choices:["Insulin IV","D10 or D50 IV (dextrose) or IM glucagon if no IV access","Oral glucose gel regardless of consciousness","Naloxone"],a:1,exp:"Severe symptomatic hypoglycemia in an unresponsive patient needs IV dextrose (D10 preferred in many current protocols) or IM glucagon if no IV access — never oral glucose in an unresponsive patient (aspiration risk)."},
+{domain:"Medical",diff:"Medic",q:"Kussmaul respirations (deep, rapid breathing) in a diabetic patient suggest:",choices:["Hypoglycemia","DKA — the body compensating for metabolic acidosis by blowing off CO2","Simple anxiety","Pulmonary embolism"],a:1,exp:"In DKA, ketoacid buildup causes metabolic acidosis; Kussmaul respirations are a compensatory mechanism to reduce CO2 and raise pH."},
+{domain:"Medical",diff:"Medic",q:"A stroke patient's symptom onset was 45 minutes ago. What is the most time-critical prehospital action?",choices:["Full 12-lead workup before transport","Rapid stroke scale assessment, determine last known well time, and expedite transport to an appropriate stroke center","Give aspirin immediately","Wait for symptoms to resolve"],a:1,exp:"Time is brain. Get last-known-well time, perform a validated stroke scale (Cincinnati/FAST-ED/LAMS), check glucose (mimics hypoglycemia), and transport rapidly to the appropriate stroke-capable facility — do NOT give aspirin prehospital, hemorrhagic stroke must be ruled out first."},
+{domain:"Medical",diff:"AEMT",q:"Anaphylaxis first-line treatment is:",choices:["Diphenhydramine IM","Epinephrine 0.3-0.5mg IM (1:1000) into the anterolateral thigh","Albuterol only","Oral steroids"],a:1,exp:"IM epinephrine into the vastus lateralis is first-line and should not be delayed for antihistamines or steroids, which are adjuncts only."},
+{domain:"Medical",diff:"Medic",q:"A postpartum patient has heavy vaginal bleeding after delivery. Initial field management includes:",choices:["Insert vaginal packing immediately","Fundal massage, IV fluids, and rapid transport","Give oxytocin only if hospital orders regardless of protocol","Elevate legs only, no other action"],a:1,exp:"Uterine atony is the most common cause of postpartum hemorrhage — fundal massage stimulates contraction to control bleeding, alongside IV access/fluids and rapid transport; oxytocin is protocol/med-control dependent."},
+{domain:"Medical",diff:"EMT",q:"During a normal delivery, if the umbilical cord is wrapped around the neonate's neck (nuchal cord), you should:",choices:["Cut the cord immediately regardless","Attempt to gently slip the cord over the head; if too tight, clamp and cut it","Pull the baby out forcefully","Push the head back in"],a:1,exp:"Gently reduce a loose nuchal cord over the head. If too tight to slip, double-clamp and cut it before completing delivery."},
+{domain:"Medical",diff:"Medic",q:"Which seizure medication is commonly given first-line prehospital for active status epilepticus?",choices:["Phenytoin IV","Benzodiazepine (midazolam IM/IN, or lorazepam/diazepam IV)","Epinephrine","Naloxone"],a:1,exp:"Benzodiazepines are first-line for active seizures; midazolam IM/IN is favored prehospital because it doesn't require IV access and works quickly."},
+{domain:"Medical",diff:"AEMT",q:"A pediatric patient's normal respiratory rate range (1-5 years old) is approximately:",choices:["12-20/min","20-30/min","40-60/min","60-80/min"],a:1,exp:"Preschool-age children (1-5yr) typically breathe 20-30/min — normal ranges shift significantly with age in pediatrics, unlike adults."},
+{domain:"Medical",diff:"Medic",q:"In pediatric assessment, the Pediatric Assessment Triangle evaluates:",choices:["Airway, breathing, circulation only via vitals","Appearance, Work of Breathing, and Circulation to Skin — a rapid, hands-off visual assessment","GCS, pupils, and motor function","Weight, height, and age only"],a:1,exp:"The PAT is a fast, from-the-doorway visual assessment used to form a general impression before hands-on exam — appearance (tone/interactiveness), work of breathing, and skin circulation/color."},
+{domain:"Medical",diff:"Medic",q:"A patient with suspected opioid overdose has a respiratory rate of 4/min and pinpoint pupils. Priority intervention?",choices:["Naloxone immediately as the sole priority","Ventilatory support (BVM) first, then naloxone titrated to restore adequate respirations","High-flow oxygen via non-rebreather only","Chest compressions"],a:1,exp:"Airway/ventilation always comes first — bag the patient. Naloxone should be titrated to restore adequate breathing, not necessarily full consciousness, to avoid precipitating severe withdrawal and combativeness."},
+{domain:"Medical",diff:"Medic",q:"Which finding differentiates a hemorrhagic stroke from ischemic stroke in the field?",choices:["There is no reliable prehospital way to distinguish them — imaging is required, treat cautiously (no aspirin) either way","Hemorrhagic strokes never cause headache","Ischemic strokes always cause vomiting","Pupil size always differs"],a:0,exp:"Prehospital providers cannot reliably differentiate ischemic from hemorrhagic stroke without CT — this is exactly why aspirin is withheld until imaging rules out hemorrhage."},
+{domain:"Medical",diff:"AEMT",q:"Which is the most common cause of a febrile seizure in pediatrics?",choices:["Rapid rise in body temperature, typically in children 6mo-5yrs","Chronic epilepsy","Head trauma","Hypoglycemia exclusively"],a:0,exp:"Febrile seizures are most associated with the rate of temperature rise (not just peak temp), typically in the 6-month to 5-year age range, and are usually brief and self-limited."},
+{domain:"Medical",diff:"Medic",q:"A patient with suspected sepsis has a lactate elevation, tachycardia, and hypotension. This picture reflects:",choices:["Anaphylaxis","Distributive shock from systemic vasodilation and capillary leak due to infection","Cardiogenic shock","Neurogenic shock"],a:1,exp:"Sepsis causes distributive shock — systemic inflammatory vasodilation and capillary leak lead to relative hypovolemia and poor perfusion despite often-warm extremities early on."},
+
+/* ---------------- EMS OPERATIONS ---------------- */
+{domain:"Ops",diff:"EMT",q:"In a mass casualty incident using START triage, a patient who is not breathing even after airway repositioning is triaged as:",choices:["Immediate (red)","Deceased/expectant (black)","Delayed (yellow)","Minor (green)"],a:1,exp:"START: if the patient remains apneic after one attempt to open the airway, they are triaged black (expectant/deceased) — resources go to salvageable patients."},
+{domain:"Ops",diff:"EMT",q:"Under START triage, a patient who can walk is initially categorized as:",choices:["Immediate","Delayed","Minor (green) — 'walking wounded'","Expectant"],a:2,exp:"Ambulatory patients are triaged green/minor first and reassessed later — they're deprioritized from the initial rapid sort."},
+{domain:"Ops",diff:"Medic",q:"What is the primary purpose of Incident Command System (ICS) at a multi-agency scene?",choices:["To determine who gets paid overtime","To provide a standardized, scalable management structure so agencies can coordinate under unified command","To replace medical protocols","Only used for wildfires"],a:1,exp:"ICS provides a common organizational structure and terminology so multiple agencies can work together efficiently, with clear span of control and unified command."},
+{domain:"Ops",diff:"EMT",q:"Which of these best describes 'implied consent'?",choices:["Written consent signed by a family member","The legal assumption that an unconscious/incapacitated patient would consent to lifesaving treatment","Consent given verbally by the patient","Consent that requires a witness"],a:1,exp:"Implied consent presumes a reasonable person would want emergency lifesaving treatment if they were able to consent — applies when a patient can't express wishes (unconscious, altered, life-threatening emergency)."},
+{domain:"Ops",diff:"AEMT",q:"A competent adult patient refuses transport against medical advice. What must you ensure before leaving the scene?",choices:["Nothing further is needed once they say no","Confirm decision-making capacity, explain risks/consequences clearly, document thoroughly, and offer alternatives (call back, PCP follow-up)","Call police to force transport","Transport is mandatory regardless"],a:1,exp:"A patient with full decision-making capacity can refuse care. The provider must ensure capacity, clearly explain the risks of refusal, document extensively, and leave the door open for the patient to call back."},
+{domain:"Ops",diff:"EMT",q:"Which of the following is considered a 'sentinel event' requiring internal review?",choices:["A routine transport with no complications","A significant unexpected adverse outcome involving death or serious harm related to care processes","Running slightly behind on a call","A minor documentation typo"],a:1,exp:"Sentinel events are unexpected occurrences involving death or serious physical/psychological injury, triggering immediate investigation to identify and correct systemic issues."},
+{domain:"Ops",diff:"Medic",q:"HIPAA generally permits sharing patient information without specific authorization when:",choices:["Never, under any circumstance","It is for treatment, payment, or healthcare operations (TPO), or as required by law/public health reporting","Only to family members automatically","To media outlets after mass casualty events"],a:1,exp:"HIPAA's TPO exception (Treatment, Payment, healthcare Operations) allows information sharing needed for direct patient care, billing, and QA/QI activities without separate authorization."},
+{domain:"Ops",diff:"EMT",q:"'Standard of care' in EMS is best defined as:",choices:["What the most experienced provider on scene decides","What a similarly trained provider would reasonably do in the same or similar circumstances","Whatever the patient requests","Only what is written in the protocol book verbatim, with no clinical judgment"],a:1,exp:"Standard of care is a legal benchmark: what a reasonably prudent provider with similar training would do under similar circumstances — protocols inform it but clinical judgment is part of it."},
+{domain:"Ops",diff:"AEMT",q:"What are the four elements required to prove negligence against an EMS provider?",choices:["Motive, opportunity, means, intent","Duty to act, breach of duty, damages, and causation","Consent, capacity, competency, communication","Assessment, treatment, transport, documentation"],a:1,exp:"Negligence requires: a duty existed, that duty was breached, actual damages occurred, and the breach directly caused those damages (proximate cause)."},
+{domain:"Ops",diff:"Medic",q:"In a hazmat incident, EMS providers should operate primarily in which zone?",choices:["Hot zone","Warm zone (decon corridor) for initial triage/decon support, cold zone for treatment","Only the hot zone with full PPE","There are no defined zones in hazmat response"],a:1,exp:"Hot zone is contamination-source-only (specialized hazmat teams); EMS typically supports triage/decon in the warm zone and provides definitive treatment in the cold (support) zone, unless specially trained/equipped otherwise."},
+{domain:"Ops",diff:"EMT",q:"Good Samaritan laws generally protect a rescuer from liability when:",choices:["They act with gross negligence","They act in good faith, within their training, without gross negligence or willful misconduct, and without expectation of payment","They are being paid for their services on duty","They abandon the patient after starting care"],a:1,exp:"Good Samaritan protections apply to good-faith, reasonable care within one's training/scope — they do NOT protect against gross negligence, and generally apply to off-duty/volunteer bystander-type situations depending on state law."}
+];
+
+/* Flashcard-style front/back pairs (facts, values, definitions) */
+const FLASH = [
+{domain:"Cardio",diff:"Medic",front:"Adult epinephrine dose in cardiac arrest",back:"1 mg (1:10,000) IV/IO every 3-5 minutes during resuscitation."},
+{domain:"Cardio",diff:"Medic",front:"Adenosine first and second doses",back:"First dose: 6 mg rapid IV push + flush. Second/third dose: 12 mg if no conversion."},
+{domain:"Cardio",diff:"Medic",front:"Amiodarone dose for VF/pulseless VT (first vs second)",back:"First dose 300 mg IV/IO push; second dose 150 mg IV/IO if arrest continues."},
+{domain:"Airway",diff:"EMT",front:"Normal adult respiratory rate range",back:"12–20 breaths per minute."},
+{domain:"Airway",diff:"AEMT",front:"Normal SpO2 range",back:"95–100% on room air is normal; treat hypoxia generally under ~94% in most protocols (context dependent)."},
+{domain:"Medical",diff:"EMT",front:"Normal adult blood glucose range",back:"Approximately 70–110 mg/dL fasting (protocols often treat symptomatic hypoglycemia below 60-70 mg/dL)."},
+{domain:"Trauma",diff:"EMT",front:"Glasgow Coma Scale components",back:"Eye Opening (4), Verbal Response (5), Motor Response (6) — max 15, min 3."},
+{domain:"Trauma",diff:"Medic",front:"GCS Motor scale (6 points, memorize in order)",back:"6-Obeys commands, 5-Localizes pain, 4-Withdraws from pain, 3-Abnormal flexion (decorticate), 2-Abnormal extension (decerebrate), 1-No response."},
+{domain:"Cardio",diff:"AEMT",front:"Normal adult blood pressure range",back:"Roughly 90/60 to 120/80 mmHg; hypertensive crisis typically defined as SBP >180 or DBP >120 with end-organ symptoms."},
+{domain:"Medical",diff:"AEMT",front:"Signs of increased intracranial pressure (early → late)",back:"Early: headache, vomiting, altered LOC. Late: Cushing's triad — hypertension, bradycardia, irregular respirations."},
+{domain:"Airway",diff:"Medic",front:"Normal EtCO2 range",back:"35–45 mmHg in a well-perfused, adequately ventilated patient."},
+{domain:"Trauma",diff:"EMT",front:"Rule of Nines — adult head and each arm",back:"Head = 9%, each arm = 9% (each leg = 18%, anterior/posterior trunk = 18% each, groin = 1%)."},
+{domain:"Medical",diff:"Medic",front:"Cushing's Triad",back:"Hypertension + Bradycardia + Irregular respirations — a late sign of rising intracranial pressure."},
+{domain:"Cardio",diff:"Medic",front:"Reversible causes of PEA/asystole ('H's')",back:"Hypovolemia, Hypoxia, Hydrogen ion (acidosis), Hypo/Hyperkalemia, Hypothermia."},
+{domain:"Cardio",diff:"Medic",front:"Reversible causes of PEA/asystole ('T's')",back:"Tension pneumothorax, Tamponade (cardiac), Toxins, Thrombosis (pulmonary or coronary)."},
+{domain:"Ops",diff:"EMT",front:"START triage categories",back:"Red = Immediate, Yellow = Delayed, Green = Minor (walking wounded), Black = Deceased/Expectant."},
+{domain:"Medical",diff:"EMT",front:"APGAR score components",back:"Appearance, Pulse, Grimace, Activity, Respiration — scored 0-2 each, assessed at 1 and 5 minutes after birth."},
+{domain:"Trauma",diff:"AEMT",front:"Classes of hemorrhagic shock (I–IV) — rough blood loss %",back:"Class I: <15%. Class II: 15-30%. Class III: 30-40% (hypotension appears). Class IV: >40% (life-threatening)."},
+{domain:"Airway",diff:"AEMT",front:"OPA sizing landmark",back:"Corner of the mouth to the earlobe (or angle of the jaw)."},
+{domain:"Airway",diff:"AEMT",front:"NPA sizing landmark",back:"Tip of the nose to the earlobe; diameter should fit the nostril without blanching."},
+{domain:"Medical",diff:"Medic",front:"Beck's Triad",back:"Jugular vein distension, muffled heart tones, hypotension — classic for cardiac tamponade."},
+{domain:"Cardio",diff:"AEMT",front:"Atropine dose for symptomatic bradycardia",back:"1 mg IV push, may repeat every 3-5 min, max total 3 mg."},
+{domain:"Medical",diff:"AEMT",front:"Epinephrine dose for anaphylaxis (IM)",back:"0.3–0.5 mg of 1:1000 concentration IM into the anterolateral thigh (vastus lateralis)."},
+{domain:"Ops",diff:"AEMT",front:"Four elements of negligence",back:"Duty, Breach, Damages, Causation."},
+{domain:"Trauma",diff:"Medic",front:"Lethal Triad of Trauma",back:"Hypothermia, Acidosis, Coagulopathy — each worsens the others in a feedback loop."}
+];
+
+/* ============ FACT BANK -> GENERATED QUESTIONS ============
+   Each fact becomes 2 question variants (different phrasing) with the
+   same correct/wrong values, so the underlying clinical fact is never
+   wrong — only the wording and choice order changes between cycles. */
+const FACTS = [
+// HEART RATE
+["Cardio","EMT","normal adult resting heart rate","60–100 bpm",["100–140 bpm","40–60 bpm","110–150 bpm"]],
+["Cardio","EMT","adult bradycardia threshold","below 60 bpm",["below 80 bpm","below 100 bpm","below 40 bpm only"]],
+["Cardio","EMT","adult tachycardia threshold","above 100 bpm",["above 120 bpm","above 80 bpm","above 140 bpm only"]],
+["Cardio","AEMT","normal newborn heart rate immediately after birth","120–160 bpm",["60–100 bpm","160–220 bpm","80–120 bpm"]],
+["Cardio","AEMT","normal heart rate for a school-age child (6-12yr)","70–110 bpm",["100–160 bpm","40–60 bpm","120–180 bpm"]],
+["Cardio","Medic","heart rate threshold to begin chest compressions on a neonate despite adequate ventilation","below 60 bpm",["below 100 bpm","below 80 bpm","below 40 bpm"]],
+["Cardio","EMT","adult CPR compression rate","100–120 compressions/min",["80–100/min","60–80/min","120–150/min"]],
+// RESPIRATORY RATE
+["Airway","EMT","normal adult respiratory rate","12–20 breaths/min",["20–30/min","8–12/min","24–36/min"]],
+["Airway","AEMT","normal respiratory rate for a toddler (1-3yr)","24–40 breaths/min",["12–20/min","40–60/min","16–24/min"]],
+["Airway","AEMT","normal respiratory rate for an infant (<1yr)","30–60 breaths/min",["12–20/min","20–30/min","60–80/min"]],
+["Airway","EMT","adult bradypnea threshold requiring ventilatory support","below 8–10 breaths/min",["below 12/min","below 20/min","below 6/min only"]],
+["Airway","AEMT","BVM ventilation rate for an adult with an advanced airway in cardiac arrest","1 breath every 6 seconds (10/min)",["1 breath every 3 seconds","1 breath every 10 seconds","2 breaths every 6 seconds"]],
+["Airway","AEMT","BVM ventilation rate for a child in respiratory arrest with a pulse","1 breath every 2–3 seconds (20–30/min)",["1 breath every 6 seconds","1 breath every 10 seconds","1 breath every 30 seconds"]],
+// BLOOD PRESSURE
+["Cardio","EMT","normal adult systolic blood pressure range","roughly 90–120 mmHg",["120–140 mmHg","60–90 mmHg","140–160 mmHg"]],
+["Cardio","AEMT","hypertensive crisis systolic threshold with end-organ symptoms","above 180 mmHg systolic",["above 140 mmHg","above 160 mmHg","above 200 mmHg only"]],
+["Trauma","Medic","target systolic BP in permissive hypotension for non-TBI hemorrhagic trauma","approximately 80–90 mmHg (palpable radial pulse)",["120 mmHg (normalize fully)","60 mmHg","140 mmHg"]],
+["Medical","Medic","minimum systolic BP goal in a patient with suspected traumatic brain injury","at least 90–110 mmHg",["70 mmHg is acceptable","permissive hypotension applies the same as other trauma","50 mmHg is acceptable if alert"]],
+// TEMPERATURE
+["Medical","EMT","normal core body temperature","approximately 98.6°F (37°C)",["100.4°F (38°C)","96.8°F (36°C)","101°F (38.3°C)"]],
+["Medical","AEMT","mild hypothermia core temperature range","90–95°F (32–35°C)",["95–98°F","below 80°F","86–90°F"]],
+["Medical","Medic","severe hypothermia core temperature threshold","below 82°F (28°C)",["below 90°F","below 95°F","below 86°F only"]],
+["Medical","AEMT","heat stroke is generally defined by a core temperature above","104°F (40°C) with altered mental status",["100.4°F with any symptoms","99°F with sweating","102°F with thirst"]],
+// GLUCOSE
+["Medical","EMT","normal fasting blood glucose range","approximately 70–110 mg/dL",["110–140 mg/dL","40–70 mg/dL","140–180 mg/dL"]],
+["Medical","AEMT","typical threshold to treat symptomatic hypoglycemia in adults","below 60–70 mg/dL",["below 90 mg/dL","below 50 mg/dL only","below 100 mg/dL"]],
+["Medical","Medic","blood glucose commonly seen in DKA","usually above 250 mg/dL",["below 70 mg/dL","exactly 100 mg/dL","below 40 mg/dL"]],
+// SPO2 / ETCO2
+["Airway","EMT","normal SpO2 on room air","95–100%",["90–95%","85–90%","100% only, nothing less is normal"]],
+["Airway","AEMT","typical target SpO2 range for a longstanding COPD patient (protocol dependent)","88–92%",["95–100% same as everyone","80–85%","70–75%"]],
+["Airway","Medic","normal EtCO2 range in a well-perfused patient","35–45 mmHg",["20–30 mmHg","45–60 mmHg","10–20 mmHg"]],
+["Airway","Medic","EtCO2 finding expected with adequate CPR and good chest compressions","generally above 10–20 mmHg, ideally closer to normal",["always exactly 40 mmHg","must be 0 during compressions","above 80 mmHg"]],
+// GCS
+["Trauma","EMT","maximum possible Glasgow Coma Scale score","15",["12","10","20"]],
+["Trauma","EMT","minimum possible Glasgow Coma Scale score","3",["0","1","5"]],
+["Trauma","EMT","points possible in the GCS Eye Opening category","4",["5","6","3"]],
+["Trauma","EMT","points possible in the GCS Verbal Response category","5",["4","6","3"]],
+["Trauma","EMT","points possible in the GCS Motor Response category","6",["5","4","7"]],
+["Trauma","Medic","GCS score generally indicating the need for definitive airway management","8 or less",["10 or less","12 or less","5 or less only"]],
+// APGAR
+["Medical","EMT","components of the APGAR score","Appearance, Pulse, Grimace, Activity, Respiration",["Airway, Pulse, Grimace, Alertness, Reflex","Appearance, Pain, Gait, Activity, Rate","Alertness, Pulse, Gag, Activity, Respiration"]],
+["Medical","EMT","maximum total APGAR score","10",["12","8","15"]],
+["Medical","EMT","times APGAR is typically assessed after birth","1 minute and 5 minutes",["Immediately only, once","At 10 and 20 minutes","Every minute for the first hour"]],
+// DOSES
+["Cardio","Medic","adult epinephrine dose in cardiac arrest","1 mg (1:10,000) IV/IO every 3–5 minutes",["0.3 mg IM once","1 mg every 10 minutes","0.1 mg IV once only"]],
+["Medical","AEMT","adult epinephrine dose for anaphylaxis","0.3–0.5 mg (1:1000) IM",["1 mg IV push","0.01 mg IM","5 mg IM"]],
+["Cardio","AEMT","atropine dose for symptomatic bradycardia","1 mg IV, may repeat, max 3 mg total",["0.1 mg IV once","5 mg IV once","1 mg IV every 10 seconds"]],
+["Cardio","Medic","amiodarone first dose for VF/pulseless VT","300 mg IV/IO push",["150 mg IV push first","1 mg IV push","50 mg IV push"]],
+["Cardio","Medic","amiodarone second dose for refractory VF/pulseless VT","150 mg IV/IO push",["300 mg again","450 mg","75 mg"]],
+["Cardio","Medic","adenosine first dose for stable SVT","6 mg rapid IV push with immediate flush",["12 mg first, then 6 mg","1 mg IV push","20 mg IV push"]],
+["Cardio","Medic","adenosine second dose for stable SVT if the first fails","12 mg rapid IV push",["6 mg again","24 mg","3 mg"]],
+["Medical","Medic","adult IV dextrose concentration commonly used for severe hypoglycemia","D10 (or D50) IV",["D5W only","Normal saline only","D25 only, never D10"]],
+["Medical","AEMT","naloxone route options for suspected opioid overdose","IV, IM, or intranasal (IN)",["Oral only","Subcutaneous only, never IV","Rectal only"]],
+["Cardio","Medic","magnesium sulfate dose for torsades de pointes","1–2 g IV, regardless of measured magnesium level",["Only if magnesium is confirmed low on labs","5 mg IV push","10 g IV bolus"]],
+["Cardio","AEMT","standard adult aspirin dose for suspected ACS","162–324 mg chewed",["81 mg swallowed whole, no chewing","500 mg IV","1000 mg orally"]],
+["Cardio","AEMT","nitroglycerin dose and route for chest pain (typical protocol)","0.4 mg sublingual, may repeat","",],
+["Medical","Medic","IM glucagon dose for hypoglycemia when no IV access is available","1 mg IM",["10 mg IM","0.1 mg IM","5 mg IM"]],
+["Medical","Medic","midazolam route options for prehospital status epilepticus","IM or intranasal (IN), or IV if already established",["Oral tablet only","Rectal only, never IM/IN","Subcutaneous only"]],
+["Trauma","Medic","succinylcholine class of neuromuscular blocker used in RSI","depolarizing",["non-depolarizing","anticholinergic","sympathomimetic"]],
+// RULE OF NINES
+["Trauma","EMT","Rule of Nines percentage for the adult head","9%",["18%","4.5%","13%"]],
+["Trauma","EMT","Rule of Nines percentage for one adult arm","9%",["18%","4.5%","13.5%"]],
+["Trauma","EMT","Rule of Nines percentage for the adult anterior trunk","18%",["9%","27%","13.5%"]],
+["Trauma","EMT","Rule of Nines percentage for one adult leg","18%",["9%","13.5%","22.5%"]],
+["Trauma","EMT","Rule of Nines percentage for the groin/genital region","1%",["4.5%","9%","2%"]],
+// SHOCK CLASSES
+["Trauma","AEMT","Class I hemorrhagic shock blood loss","less than 15%",["15–30%","30–40%","over 40%"]],
+["Trauma","AEMT","Class II hemorrhagic shock blood loss","15–30%",["less than 15%","30–40%","over 40%"]],
+["Trauma","AEMT","Class III hemorrhagic shock blood loss (hypotension appears)","30–40%",["15–30%","less than 15%","over 50%"]],
+["Trauma","AEMT","Class IV hemorrhagic shock blood loss","greater than 40%",["10–15%","20–30%","30–35%"]],
+// TRIAGE
+["Ops","EMT","START triage color for salvageable, immediate-need patients","red",["yellow","green","black"]],
+["Ops","EMT","START triage color for delayed-care patients who are stable for now","yellow",["red","green","black"]],
+["Ops","EMT","START triage color for walking wounded / minor injuries","green",["yellow","red","black"]],
+["Ops","EMT","START triage color for deceased or expectant patients","black",["red","yellow","green"]],
+// BURN DEPTH
+["Trauma","EMT","burn depth described as red, painful, no blisters (like sunburn)","superficial (1st degree)",["partial thickness (2nd degree)","full thickness (3rd degree)","subdermal (4th degree)"]],
+["Trauma","EMT","burn depth described as blistering, red/mottled, very painful","partial thickness (2nd degree)",["superficial (1st degree)","full thickness (3rd degree)","subdermal (4th degree)"]],
+["Trauma","EMT","burn depth described as white/leathery/charred and painless","full thickness (3rd degree)",["superficial (1st degree)","partial thickness (2nd degree)","none of these, all burns are painful"]],
+// LEGAL / OPS
+["Ops","AEMT","four elements required to prove negligence","duty, breach, damages, causation",["motive, means, opportunity, intent","consent, capacity, competency, communication","assessment, treatment, transport, documentation"]],
+["Ops","EMT","type of consent assumed for an unconscious patient in a true emergency","implied consent",["expressed consent","informed refusal","involuntary consent"]],
+["Ops","Medic","HIPAA exception allowing sharing patient info for direct patient care and billing","Treatment, Payment, and Healthcare Operations (TPO)",["Only with a court order","Never without written authorization, no exceptions","Only for law enforcement"]],
+["Ops","EMT","legal standard describing what a similarly trained provider would reasonably do","standard of care",["scope of practice","medical direction","informed consent"]],
+// ANATOMY / PROCEDURE LANDMARKS
+["Airway","Medic","landmark for a surgical cricothyrotomy","the cricothyroid membrane, between the thyroid and cricoid cartilage",["directly over the hyoid bone","the sternal notch","the 2nd intercostal space"]],
+["Trauma","Medic","primary landmark for needle decompression of a tension pneumothorax","2nd intercostal space, midclavicular line (or 5th ICS, anterior axillary line)",["Xiphoid process","2nd lumbar vertebra","Sternal angle only"]],
+["Trauma","AEMT","preferred IO insertion site in adults when other sites are unavailable","proximal tibia (or proximal humerus)",["Distal femur only","Skull","Sternum is standard first-line in all EMS systems"]],
+["Cardio","EMT","correct hand placement landmark for adult chest compressions","center of the chest, lower half of the sternum",["Xiphoid process directly","Left nipple line only","Upper third of the sternum"]],
+// TOXIDROMES
+["Medical","Medic","toxidrome remembered by 'SLUDGE' (salivation, lacrimation, urination, defecation, GI upset, emesis)","cholinergic toxidrome (e.g., organophosphate poisoning)",["anticholinergic toxidrome","opioid toxidrome","sympathomimetic toxidrome"]],
+["Medical","Medic","toxidrome causing dry skin, dilated pupils, confusion, and hyperthermia ('hot as a hare, dry as a bone')","anticholinergic toxidrome",["cholinergic toxidrome","opioid toxidrome","sedative-hypnotic toxidrome"]],
+["Medical","Medic","classic triad of opioid toxicity","respiratory depression, pinpoint pupils, decreased LOC",["hypertension, tachycardia, agitation","fever, rash, dilated pupils","seizures, hyperthermia, diaphoresis"]],
+["Medical","Medic","toxidrome causing tachycardia, hypertension, agitation, and dilated pupils (e.g., cocaine, methamphetamine)","sympathomimetic toxidrome",["cholinergic toxidrome","opioid toxidrome","anticholinergic toxidrome only causes this"]],
+// OB
+["Medical","AEMT","cervical dilation considered fully dilated and ready for delivery","10 cm",["5 cm","7 cm","12 cm"]],
+["Medical","AEMT","full-term gestation length","approximately 40 weeks",["32 weeks","36 weeks","44 weeks minimum"]],
+["Medical","AEMT","gestational age considered preterm","before 37 weeks",["before 40 weeks","before 34 weeks only","before 30 weeks only"]],
+["Medical","Medic","postpartum hemorrhage is generally defined as blood loss exceeding","500 mL (vaginal delivery)",["100 mL","2000 mL only","50 mL"]],
+// ADDITIONAL DOSES
+["Medical","Medic","fentanyl IV dose range for prehospital pain management","1 mcg/kg IV (typically 25–100 mcg)",["10 mcg/kg IV","0.1 mg/kg IV","1 mg/kg IV"]],
+["Medical","Medic","morphine IV dose range for prehospital pain management","2–4 mg IV, titrated",["20–40 mg IV","0.1 mg IV total","10 mg/kg IV"]],
+["Airway","Medic","ketamine dose for RSI induction","1–2 mg/kg IV",["0.1 mg/kg IV","10 mg/kg IV","5 mcg/kg IV"]],
+["Airway","Medic","etomidate dose for RSI induction","0.3 mg/kg IV",["3 mg/kg IV","0.03 mg/kg IV","1 mg/kg IV"]],
+["Cardio","Medic","calcium chloride dose for hyperkalemia or calcium channel blocker overdose","1 g (10 mL of 10%) slow IV push",["10 g IV push","100 mg IV push","1 mg IV push"]],
+["Cardio","Medic","sodium bicarbonate dose for severe metabolic acidosis or tricyclic overdose","1 mEq/kg IV",["10 mEq/kg IV","0.1 mEq/kg IV","1 mEq total, not weight-based"]],
+["Cardio","Medic","lidocaine dose as an alternative antiarrhythmic in cardiac arrest","1–1.5 mg/kg IV/IO",["10 mg/kg IV","0.1 mg/kg IV","5 mg IV total"]],
+["Medical","AEMT","diphenhydramine dose for allergic reaction/anaphylaxis adjunct","25–50 mg IV/IM",["5 mg IV/IM","250 mg IV/IM","1 mg/kg only, never fixed dose"]],
+["Airway","AEMT","albuterol nebulizer dose for bronchospasm","2.5 mg in 3 mL saline, nebulized",["25 mg nebulized","0.25 mg nebulized","2.5 mg IV push"]],
+["Medical","Medic","ondansetron (Zofran) dose for nausea/vomiting","4 mg IV/IM/ODT",["40 mg IV","0.4 mg IV","4 mg/kg"]],
+["Medical","Medic","dopamine infusion dose range for symptomatic bradycardia/shock","5–20 mcg/kg/min",["0.5–2 mcg/kg/min","50–200 mcg/kg/min","5–20 mg/kg/min"]],
+["Medical","Medic","magnesium sulfate dose for eclampsia/severe preeclampsia seizure prevention","4 g IV over 5-10 minutes",["1 g IV push","40 g IV","400 mg IV"]],
+["Trauma","Medic","tranexamic acid (TXA) typical prehospital indication","significant hemorrhagic trauma given early (within 3 hours of injury)",["Given only after 6 hours of injury","Used for isolated minor lacerations","Contraindicated in trauma"]],
+// PEDIATRIC DOSING / WEIGHT-BASED
+["Medical","Medic","pediatric epinephrine dose in cardiac arrest","0.01 mg/kg (1:10,000) IV/IO",["0.1 mg/kg","1 mg/kg","0.01 mg/kg (1:1,000) IV"]],
+["Medical","Medic","pediatric atropine dose for symptomatic bradycardia","0.02 mg/kg IV, minimum dose 0.1 mg",["0.2 mg/kg IV","2 mg/kg IV","0.02 mg fixed regardless of weight"]],
+["Trauma","Medic","standard pediatric fluid bolus for hypovolemic shock","20 mL/kg isotonic crystalloid",["2 mL/kg","200 mL/kg","20 mL total regardless of weight"]],
+["Cardio","Medic","initial pediatric defibrillation dose","2 J/kg, then 4 J/kg for subsequent shocks",["1 J/kg flat for all shocks","10 J/kg initial","360 J flat, same as adults"]],
+["Medical","AEMT","tool used to rapidly estimate pediatric weight and drug doses by length","Broselow tape",["APGAR score","Glasgow Coma Scale","Rule of Nines chart"]],
+// ECG / RHYTHM
+["Cardio","Medic","normal QRS complex duration","less than 0.12 seconds (120 ms)",["less than 0.20 seconds","greater than 0.12 seconds is normal","exactly 0.04 seconds always"]],
+["Cardio","Medic","normal PR interval range","0.12–0.20 seconds",["0.04–0.08 seconds","0.20–0.40 seconds","no normal range exists"]],
+["Cardio","Medic","quick method to estimate heart rate on ECG using large boxes between R waves (the '300 method')","300 / number of large boxes between R waves",["1500 / number of small boxes only","60 / PR interval","10 / QRS width"]],
+["Cardio","Medic","initial adult biphasic defibrillation energy for VF/pulseless VT","120–200 J (per device recommendation)",["50 J","360 J only, monophasic dose","10 J"]],
+["Cardio","Medic","typical synchronized cardioversion starting energy for unstable A-fib","100–200 J (device dependent), synchronized",["360 J unsynchronized always","10 J","1000 J"]],
+["Cardio","Medic","number of precordial (chest) ECG leads in a standard 12-lead","6 (V1–V6)",["4","12","3"]],
+["Cardio","Medic","V1 electrode placement landmark","4th intercostal space, right sternal border",["2nd intercostal space midclavicular","5th intercostal space anterior axillary","Directly over the xiphoid"]],
+// AIRWAY EQUIPMENT
+["Airway","AEMT","typical adult male endotracheal tube size","approximately 8.0 mm internal diameter",["4.0 mm","12.0 mm","2.5 mm"]],
+["Airway","AEMT","typical adult female endotracheal tube size","approximately 7.0–7.5 mm internal diameter",["3.0 mm","10.0 mm","2.0 mm"]],
+["Airway","Medic","recommended ET tube cuff pressure range","20–30 cmH2O",["50–70 cmH2O","less than 5 cmH2O","100+ cmH2O"]],
+["Airway","AEMT","laryngoscope blade type that lifts the epiglottis directly","straight (Miller) blade",["curved (Macintosh) blade lifts epiglottis directly","both lift it identically","neither lifts the epiglottis"]],
+["Airway","AEMT","laryngoscope blade type that fits into the vallecula to indirectly lift the epiglottis","curved (Macintosh) blade",["straight (Miller) blade","bougie","supraglottic airway"]],
+// TOXICOLOGY / ANTIDOTES
+["Medical","Medic","antidote for acetaminophen overdose","N-acetylcysteine (NAC)",["Naloxone","Flumazenil","Atropine"]],
+["Medical","Medic","antidote for organophosphate (cholinergic) poisoning","atropine (plus pralidoxime/2-PAM if available)",["Naloxone","Flumazenil","Epinephrine alone"]],
+["Medical","Medic","treatment approach for calcium channel blocker or beta blocker overdose causing bradycardia/hypotension","calcium chloride and/or glucagon",["Naloxone","Aspirin","Furosemide"]],
+["Medical","Medic","antidote for benzodiazepine overdose (rarely used prehospital due to seizure risk)","flumazenil",["Naloxone","Atropine","Activated charcoal only"]],
+["Medical","AEMT","medication given for suspected opioid overdose with respiratory depression","naloxone",["Flumazenil","Atropine","Epinephrine"]],
+// OB / GYN
+["Medical","Medic","blood pressure threshold generally defining preeclampsia in pregnancy","140/90 mmHg or greater after 20 weeks gestation",["100/60 mmHg","160/110 is the only threshold, nothing lower counts","120/80 mmHg"]],
+["Medical","Medic","classic presentation of placental abruption","sudden, painful vaginal bleeding with a rigid, tender uterus",["Painless bright red bleeding","No bleeding at all, only cramping","Bleeding only after delivery"]],
+["Medical","Medic","classic presentation of placenta previa","painless, bright red vaginal bleeding in the third trimester",["Painful bleeding with rigid uterus","Only occurs postpartum","Green-tinged fluid with no bleeding"]],
+["Medical","Medic","medication of choice to stop an eclamptic seizure","magnesium sulfate",["Diazepam is always first-line over magnesium","Naloxone","Atropine"]],
+// ENVIRONMENTAL
+["Medical","AEMT","field treatment for suspected frostbite","protect the area, avoid rubbing, avoid refreezing after rewarming, rapid transport",["Vigorously rub the area to restore circulation","Apply direct dry ice","Puncture any blisters immediately"]],
+["Medical","AEMT","priority field treatment for a pit viper snake envenomation","immobilize the limb below heart level, rapid transport, avoid ice/tourniquets/incision",["Apply a tourniquet immediately","Cut and suck the wound","Apply ice directly to the bite"]],
+["Medical","Medic","priority in managing a submersion/drowning patient","early aggressive ventilatory support and oxygenation",["Abdominal thrusts to expel water first","Delay ventilation until hospital arrival","Withhold CPR if any water was aspirated"]],
+["Medical","AEMT","core temperature range defining moderate hypothermia","82–90°F (28–32°C)",["95–98°F","below 82°F only","90–95°F is moderate, not mild"]],
+// ASSESSMENT MNEMONICS
+["Ops","EMT","SAMPLE history mnemonic stands for","Signs/Symptoms, Allergies, Medications, Past history, Last oral intake, Events leading up",["Symptoms, Age, Medications, Prognosis, Location, Exam","Signs, Airway, Motor, Pulse, Level of consciousness, Exposure","Site, Allergies, Movement, Pain, Level, Exam"]],
+["Ops","EMT","OPQRST mnemonic is used to assess","pain/symptom characteristics (Onset, Provocation, Quality, Radiation, Severity, Time)",["Airway status only","Level of consciousness only","Scene safety factors"]],
+["Trauma","EMT","DCAP-BTLS mnemonic is used during","the physical trauma exam to identify injury signs (Deformity, Contusion, Abrasion, Puncture, Burns, Tenderness, Laceration, Swelling)",["Medication history taking","Cardiac rhythm interpretation","Airway sizing"]],
+["Trauma","EMT","AVPU scale measures","level of consciousness (Alert, Verbal, Pain, Unresponsive)",["Blood pressure trend","Pupil response only","Airway patency only"]],
+// PHARMACOLOGY CLASSES
+["Cardio","Medic","general mechanism of beta-blocker medications","block beta-adrenergic receptors, reducing heart rate and contractility",["Block calcium channels in vascular smooth muscle only","Increase heart rate and contractility","Block sodium channels in neurons"]],
+["Cardio","Medic","general mechanism of calcium channel blocker medications","block calcium influx into cardiac/vascular smooth muscle, reducing contractility and causing vasodilation",["Increase calcium influx to strengthen contraction","Block beta receptors","Inhibit acetylcholinesterase"]],
+["Cardio","Medic","general mechanism of ACE inhibitor medications","block conversion of angiotensin I to angiotensin II, lowering blood pressure",["Increase angiotensin II production","Block calcium channels","Stimulate the sympathetic nervous system"]],
+["Medical","Medic","general mechanism of loop diuretics (e.g., furosemide)","inhibit sodium/chloride reabsorption in the loop of Henle, increasing urine output",["Increase sodium reabsorption","Block beta receptors","Constrict renal blood vessels"]],
+// LEGAL / OPS ADDITIONAL
+["Ops","Medic","requirements for a valid prehospital DNR to be honored","a properly signed, dated, and typically state-specific DNR form (or equivalent) presented at the scene",["A verbal statement from any family member is always sufficient","DNRs are never honored in the field, regardless of documentation","Any note found in the home, regardless of signature"]],
+["Ops","AEMT","categories generally subject to mandatory reporting by EMS providers","suspected abuse or neglect of children, elders, or dependent adults",["Any patient who smokes","Any patient who refuses transport","Routine minor traffic accidents"]],
+["Ops","Medic","purpose of maintaining a clear chain of custody for evidence at a crime scene","ensures evidence integrity/admissibility while still prioritizing patient care",["Only required for homicide scenes","Not an EMS responsibility under any circumstance","Only applies to controlled substances on the ambulance"]],
+// ANATOMY ADDITIONAL
+["Airway","AEMT","number of lobes in the right lung vs the left lung","3 lobes right, 2 lobes left",["2 lobes right, 3 lobes left","2 lobes each side","4 lobes right, 3 lobes left"]],
+["Cardio","AEMT","number of chambers in the human heart","4 (2 atria, 2 ventricles)",["2","3","6"]],
+["Airway","Medic","anatomical structure where the trachea splits into the two mainstem bronchi","the carina",["The larynx","The cricoid cartilage","The epiglottis"]],
+["Trauma","AEMT","landmark used for tibial IO insertion in adults","approximately 1-2 cm medial to the tibial tuberosity",["The lateral malleolus","The patella directly","The Achilles tendon"]],
+// TRAUMA SCORING / TRIAGE ADDITIONAL
+["Trauma","Medic","components generally used in adult trauma field triage decision criteria","physiologic criteria (GCS, SBP, RR), anatomic injury criteria, mechanism of injury, and special patient/system considerations",["Only the patient's age","Only whether they were wearing a seatbelt","Only the color of triage tag used"]],
+["Ops","AEMT","JumpSTART is a modified triage system specifically designed for","pediatric mass casualty triage",["Geriatric-only triage","Hazmat zone triage","Burn center transfer criteria"]],
+["Trauma","AEMT","general rule for splinting a suspected fracture","immobilize the joint above and the joint below the injury",["Only immobilize the bone itself, not the joints","Splint tightly enough to stop all distal circulation","Never splint until arrival at the hospital"]],
+// GENERAL VITALS/ASSESSMENT ADDITIONAL
+["Medical","AEMT","normal adult oral temperature upper limit before being considered febrile","approximately 100.4°F (38°C)",["99°F","102°F is the lower limit","97°F"]],
+["Cardio","AEMT","pulse pressure is calculated as","systolic BP minus diastolic BP",["systolic BP plus diastolic BP","diastolic BP minus systolic BP","mean arterial pressure minus systolic BP"]],
+["Cardio","Medic","mean arterial pressure (MAP) is approximately calculated as","diastolic BP + 1/3(systolic BP − diastolic BP)",["systolic BP divided by 2","systolic BP minus diastolic BP","diastolic BP times 2"]],
+["Medical","AEMT","normal capillary refill time in a well-perfused patient","less than 2 seconds",["5 seconds or less is still normal","10 seconds","refill time is not a useful perfusion indicator"]],
+// MORE CARDIOLOGY / RHYTHM RECOGNITION
+["Cardio","Medic","key ECG feature distinguishing atrial fibrillation from atrial flutter","A-fib shows an irregularly irregular rhythm with no discrete P waves; flutter shows a regular 'sawtooth' pattern",["They look identical on ECG","A-fib is always faster than flutter","Flutter has no atrial activity at all"]],
+["Cardio","Medic","first-line treatment for stable, monomorphic VT with a pulse","antiarrhythmic (e.g., amiodarone or procainamide per protocol)",["Immediate defibrillation always, regardless of pulse","Atropine","Adenosine is always first-line for VT"]],
+["Cardio","Medic","treatment for a patient in unstable VT with a pulse (hypotensive, altered)","synchronized cardioversion",["Unsynchronized defibrillation only","Atropine only","Observation, no intervention needed"]],
+["Cardio","Medic","primary danger of hyperkalemia on the ECG","peaked T waves progressing to widened QRS and risk of sine-wave/cardiac arrest",["Shortened PR interval only, no other risk","No ECG changes occur with hyperkalemia","ST depression only"]],
+["Cardio","Medic","first-degree AV block ECG finding","prolonged PR interval (>0.20 sec) with every P wave conducted",["Progressive PR lengthening until a dropped beat","Fixed dropped beats with constant PR interval","No P waves at all"]],
+["Cardio","Medic","Mobitz II second-degree AV block ECG finding","constant PR interval with intermittently dropped QRS complexes",["Progressively lengthening PR interval until a drop (Wenckebach)","Complete dissociation of P waves and QRS","Absent P waves"]],
+["Cardio","Medic","third-degree (complete) AV block finding","complete dissociation between P waves and QRS complexes, no relationship",["Normal PR interval with occasional PVCs","Progressive PR lengthening","Sawtooth flutter waves"]],
+// RESP ADDITIONAL
+["Airway","AEMT","classic triad of symptoms in a tension pneumothorax besides respiratory distress","JVD, tracheal deviation away from the affected side, and absent breath sounds on the affected side",["Wheezing, fever, productive cough","Stridor, hoarseness, drooling","Barrel chest, clubbing, cyanosis only"]],
+["Airway","Medic","primary difference in field management between simple pneumothorax and tension pneumothorax","tension pneumothorax requires immediate needle decompression; simple pneumothorax is monitored/supported",["They are managed identically in all cases","Simple pneumothorax always needs decompression, tension does not","Neither requires any intervention prehospital"]],
+["Airway","EMT","key sign that differentiates upper airway obstruction (stridor) from lower airway obstruction (wheezing)","stridor is a harsh sound on inspiration from upper airway narrowing; wheezing is typically expiratory from lower airway narrowing",["They sound identical and occur in the same location","Wheezing only occurs in the upper airway","Stridor only occurs in adults, never children"]],
+["Airway","AEMT","condition characterized by barky cough, stridor, and low-grade fever in a young child","croup",["Epiglottitis","Asthma exacerbation only","Foreign body aspiration only"]],
+["Airway","Medic","condition characterized by high fever, drooling, tripod positioning, and muffled voice in a child","epiglottitis",["Croup","Bronchiolitis","Simple febrile illness"]],
+// SHOCK / PERFUSION
+["Medical","Medic","hallmark early sign of compensated shock before hypotension develops","tachycardia with narrowing pulse pressure and cool, pale, diaphoretic skin",["Hypotension is always the first sign","Bradycardia is the first sign","No vital sign changes occur until decompensation"]],
+["Medical","Medic","classic presentation of neurogenic shock (spinal cord injury)","hypotension WITHOUT compensatory tachycardia, often with warm/dry skin below the injury",["Severe tachycardia and cool clammy skin, identical to hypovolemic shock","Bradycardia with hypertension","No change in vital signs at all"]],
+["Medical","Medic","classic presentation of cardiogenic shock","hypotension, tachycardia, pulmonary edema/crackles, and signs of poor perfusion from pump failure",["Warm, flushed skin with bounding pulses","Bradycardia with hypertension and dry lungs","Isolated fever without hemodynamic change"]],
+["Medical","Medic","classic presentation of septic shock (early/warm phase)","fever, tachycardia, and initially warm/flushed skin from vasodilation, later progressing to cold/hypotensive",["Always cold and clammy from the very first sign","No fever is ever present","Bradycardia is the hallmark"]],
+// PEDS ADDITIONAL
+["Medical","AEMT","normal heart rate range for a newborn/neonate (0-1 month)","100–180 bpm (varies by state, higher when crying)",["60–100 bpm","180–220 bpm at rest","40–60 bpm"]],
+["Medical","AEMT","normal respiratory rate for a school-age child (6-12yr)","18–30 breaths/min",["40–60/min","8–12/min","60–80/min"]],
+["Medical","Medic","most common cause of cardiac arrest in pediatric patients","respiratory failure/hypoxia leading to secondary cardiac arrest (not primary cardiac events)",["Primary ventricular fibrillation, same as adults","Congenital heart disease in nearly all cases","Unknown, no common cause identified"]],
+["Medical","Medic","key pediatric assessment tool used from the doorway before hands-on exam","Pediatric Assessment Triangle (appearance, work of breathing, circulation to skin)",["Glasgow Coma Scale only","APGAR score for all ages","Rule of Nines"]],
+// GENERAL EMS OPS ADDITIONAL
+["Ops","EMT","role of the Incident Commander in ICS","overall authority and responsibility for managing the incident",["Only handles media relations","Only responsible for triage","A rotating role with no fixed authority"]],
+["Ops","AEMT","primary purpose of a multi-casualty incident (MCI) triage tag","to communicate a patient's priority level quickly to all responders handling that patient",["To bill insurance companies","To replace the patient care report entirely","Only used for deceased patients"]],
+["Ops","Medic","difference between an EMT's and a Paramedic's scope regarding advanced airway/medication administration","paramedics have an expanded scope including advanced airway management, IV/IO access, and a wider medication formulary under medical direction",["There is no meaningful scope difference","EMTs have a broader medication scope than paramedics","Scope of practice is identical nationwide with no state variation"]],
+["Ops","EMT","primary purpose of online (direct) medical control","allows a physician to give real-time orders/guidance to EMS providers during a call",["Only used for billing verification","Replaces the need for protocols entirely","Only applies to interfacility transfers"]],
+["Ops","EMT","primary purpose of offline (indirect) medical control","standing protocols and QA/QI processes physicians establish in advance for EMS providers to follow",["Only real-time radio orders","Only applies after the call is finished, never before","A patient's right to refuse care"]],
+// TRAUMA ADDITIONAL
+["Trauma","Medic","primary concern with a suspected pelvic fracture in trauma","significant occult hemorrhage into the pelvic space; stabilize with a pelvic binder and minimize movement",["Pelvic fractures rarely cause significant blood loss","Always perform a full log roll multiple times to assess","No stabilization is needed prehospital"]],
+["Trauma","Medic","reasoning behind applying a pelvic binder in suspected pelvic fracture","reduces pelvic volume to help tamponade venous bleeding and stabilize fracture fragments",["It permanently fixes the fracture","It prevents all further blood loss completely","It has no proven hemodynamic benefit"]],
+["Trauma","AEMT","priority order of the primary trauma assessment","airway with C-spine, breathing, circulation, disability, exposure (ABCDE / XABCDE with hemorrhage control)",["Exposure, then airway, then circulation","Circulation first, then airway, always","Disability first, then airway"]],
+["Trauma","Medic","key concern with a large scalp laceration in an adult","can cause significant, sometimes underestimated blood loss due to scalp vascularity",["Scalp lacerations never cause significant blood loss","Always requires immediate cricothyrotomy","No direct pressure should ever be applied"]],
+["Trauma","Medic","key indicator suggesting an open (compound) fracture requires more urgent concern","bone fragment protruding through or communicating with an open wound, raising infection/hemorrhage risk",["Any bruising over a bone","Pain alone without any wound","Swelling without a wound"]],
+// OB ADDITIONAL
+["Medical","AEMT","first stage of labor is defined as","onset of true contractions until full cervical dilation (10 cm)",["From full dilation until delivery of the baby","From delivery of the baby until delivery of the placenta","The entire pregnancy from conception"]],
+["Medical","AEMT","second stage of labor is defined as","from full cervical dilation until delivery of the baby",["From onset of contractions until 5 cm dilation","From delivery of baby until placenta delivery","Only the pushing phase after crowning, nothing else"]],
+["Medical","AEMT","third stage of labor is defined as","from delivery of the baby until delivery of the placenta",["From onset of contractions to full dilation","From full dilation to crowning","The first 24 hours postpartum"]],
+["Medical","Medic","field management priority if the umbilical cord prolapses (presents before the baby)","position mother knee-chest or Trendelenburg, insert gloved fingers to relieve pressure off the cord, rapid transport",["Immediately clamp and cut the cord","Pull firmly on the visible cord","Push the cord back in aggressively with excessive force and delay transport"]],
+// MEDICATIONS / GENERAL PHARM ADDITIONAL
+["Medical","Medic","general mechanism of nitroglycerin in relieving chest pain","venous and arterial vasodilation, reducing preload and myocardial oxygen demand",["Increases heart rate to improve perfusion","Directly dissolves coronary clots","Increases blood pressure to perfuse the heart"]],
+["Medical","Medic","primary reason to give oxygen cautiously (titrated, not automatically high-flow) in some chronic respiratory patients","risk of blunting hypoxic drive in certain longstanding CO2-retainers, though hypoxia should never be undertreated",["Oxygen is always harmful and should be withheld","Oxygen has no physiologic effect on breathing drive","High-flow oxygen is always required regardless of condition"]],
+["Medical","Medic","primary reason activated charcoal may be used in select poisonings","adsorbs certain ingested toxins in the GI tract to reduce systemic absorption, when given appropriately and early",["It neutralizes all poisons instantly","It induces vomiting to clear the stomach","It is used for all overdoses regardless of substance or timing"]],
+["Medical","AEMT","general indication for oral glucose gel administration","a conscious, alert patient with suspected hypoglycemia who can protect their airway and swallow safely",["Any unconscious diabetic patient","Any patient with chest pain","Any patient with a headache"]],
+// AIRWAY DEVICES ADDITIONAL
+["Airway","AEMT","primary advantage of a supraglottic airway (e.g., King LT, i-gel) over endotracheal intubation in the field","faster insertion without direct laryngoscopy, useful when intubation is difficult or delayed",["It provides a more definitive, cuffed tracheal seal than an ETT","It requires more training than intubation","It is never appropriate in cardiac arrest"]],
+["Airway","Medic","primary limitation of a supraglottic airway compared to an endotracheal tube","does not provide the same definitive tracheal seal/aspiration protection as a properly placed ETT",["It cannot be used at all in cardiac arrest","It requires surgical placement","It cannot be ventilated through a BVM"]],
+["Airway","EMT","correct method to confirm proper BVM mask seal and ventilation","visible chest rise and fall with each ventilation, without excessive air leak",["Only checking for fogging in the mask","Listening for a whistle sound","Feeling for a radial pulse"]],
+// GENERAL ADDITIONAL FACTS
+["Trauma","EMT","primary reason to avoid removing an impaled object in the field","risk of uncontrolled hemorrhage the object may be tamponading; stabilize in place instead",["Impaled objects should always be removed immediately","It has no bearing on bleeding risk","Only large objects need to stay in place"]],
+["Trauma","EMT","correct method to control most external hemorrhage in the field","direct pressure, and a tourniquet if direct pressure fails for life-threatening extremity bleeding",["Elevation alone is always sufficient","Ice packs alone control severe bleeding","Tourniquets are the very first step for all bleeding"]],
+["Medical","AEMT","priority action when a seizing patient's airway is at risk from oral secretions","position the patient to protect the airway (e.g., recovery position) and suction as needed, without forcing anything into the mouth",["Insert a bite block or object forcibly between the teeth","Restrain the patient's limbs tightly","Pour water into the mouth to clear secretions"]],
+["Medical","Medic","reason not to force an object into the mouth of a seizing patient","risk of airway obstruction, aspiration, dental/oral injury, and it does not prevent tongue-biting as commonly believed",["It has no risk and is standard practice","It is required by all EMS protocols","It significantly improves oxygenation"]],
+// FINAL EXPANSION BATCH
+["Cardio","AEMT","normal adult respiratory effort finding paired with a pulse ox reading that should prompt reassessment, not blind reassurance","any reading inconsistent with the patient's clinical appearance — treat the patient, not just the number",["The pulse ox number always overrides clinical appearance","Pulse ox is never inaccurate under any circumstance","Cold extremities never affect pulse ox accuracy"]],
+["Trauma","Medic","reason cervical collars alone are not considered full spinal motion restriction","a collar limits neck movement but does not secure the torso/head as a unit against a rigid surface or device",["A collar alone provides complete spinal immobilization","Collars are never indicated in trauma","Backboards are obsolete and never used"]],
+["Airway","EMT","correct patient positioning for a conscious patient in respiratory distress (no trauma)","position of comfort, typically sitting upright (tripod)",["Supine, flat on the back","Trendelenburg, head down","Prone, face down"]],
+["Airway","EMT","correct positioning for an unconscious, non-trauma patient who is breathing adequately","recovery position (lateral recumbent) to protect the airway from aspiration",["Prone, face down","Sitting fully upright unsupported","Trendelenburg"]],
+["Cardio","Medic","reasoning behind giving oxygen cautiously and titrating rather than routinely maximal in an uncomplicated STEMI with normal SpO2","hyperoxia is not proven beneficial and may be harmful in normoxic ACS patients; titrate to a normal SpO2 instead of routine high-flow",["High-flow oxygen must always be given regardless of SpO2 in chest pain","Oxygen is contraindicated entirely in any cardiac patient","Oxygen has no evidence-based role in ACS management at all"]],
+["Medical","Medic","key distinguishing feature between a simple febrile seizure and a complex febrile seizure","simple: generalized, under 15 minutes, no recurrence in 24 hrs; complex: focal, prolonged, or recurrent",["There is no clinical distinction between them","Complex febrile seizures are always shorter","Simple febrile seizures always involve focal movement"]],
+["Trauma","AEMT","priority consideration when removing a motorcycle helmet from an unresponsive trauma patient","maintain in-line cervical stabilization throughout removal with a two-person technique",["Helmets should never be removed in the field under any circumstance","Removal requires no spinal precautions since the helmet already protects the neck","Only remove it after arrival at the hospital, regardless of airway needs"]],
+["Ops","EMT","primary reason for conducting a scene size-up before patient contact","identify hazards, mechanism of injury/nature of illness, number of patients, and need for additional resources before approaching",["It is optional if the call sounds minor over dispatch","Only needed for hazmat calls","Only required for multi-patient incidents"]],
+["Ops","AEMT","key principle behind body substance isolation (BSI)/standard precautions","treat all body fluids from every patient as potentially infectious, regardless of visible risk factors",["Only use precautions when a patient discloses a known infection","PPE is optional for stable-appearing patients","BSI only applies to blood, not other fluids"]],
+["Medical","Medic","common ECG finding associated with significant hypothermia","Osborn (J) waves at the QRS-ST junction",["Peaked T waves specifically from hypothermia","Shortened QT interval","Absent P waves specifically from hypothermia"]],
+["Medical","Medic","key reason to rewarm a severely hypothermic cardiac arrest patient gradually and cautiously","risk of afterdrop and rewarming shock/arrhythmia (including VF) from rapid or rough rewarming",["Rapid rewarming has no cardiac risk","Cold patients cannot fibrillate, so no caution is needed","Rewarming speed makes no clinical difference"]],
+["Trauma","Medic","reasoning for minimizing scene time in the 'platinum 10 minutes' concept for critical trauma","definitive care (surgery, blood products) happens at the hospital, not on scene — prolonged scene time delays that care",["Scene time has no effect on trauma outcomes","More interventions on scene always improve survival regardless of time","The platinum 10 minutes refers to CPR only"]],
+["Airway","Medic","primary reason gastric distension is a concern during BVM ventilation","increases aspiration risk and can impede diaphragm movement/effective ventilation",["It has no clinical significance","It always resolves on its own without intervention","It only matters in pediatric patients"]],
+["Medical","AEMT","reason to check blood glucose early in any patient with altered mental status","hypoglycemia is a rapidly reversible, common, and easily missed cause of altered LOC that can mimic stroke or intoxication",["Glucose checks are only relevant in known diabetics","Altered mental status is never caused by glucose abnormalities","Glucose should only be checked after full neuro exam is complete"]],
+["Cardio","Medic","reason adenosine can cause a brief period of asystole or bradycardia after administration","it transiently and completely blocks AV node conduction, which is the intended mechanism, before conduction resumes",["This indicates a dangerous overdose requiring immediate reversal","Adenosine has no effect on AV node conduction","This means the drug was given too slowly"]],
+["Ops","Medic","concept of 'triage tag color reassessment' during an MCI","patients are re-triaged periodically since condition can change (improve or deteriorate) over the incident timeline",["Once tagged, a patient's color/priority never changes","Reassessment only applies to green-tagged patients","Retriage is not part of standard MCI management"]],
+["Medical","Medic","reasoning for treating suspected stroke patients as time-critical even with mild symptoms","thrombolytic/intervention windows are time-limited, and mild presentations can worsen or still qualify for time-sensitive treatment",["Mild stroke symptoms are never time-sensitive","Only severe strokes require rapid transport","Stroke treatment has no time window considerations"]],
+["Airway","AEMT","reasoning for preferring nasal cannula/simple mask titration over routine non-rebreather in a stable, mildly hypoxic patient (protocol dependent)","match oxygen delivery to actual need rather than automatically maximal flow, per current evidence-based, titrated-oxygen approaches",["Non-rebreather is mandatory for every patient regardless of SpO2","Nasal cannula can never deliver adequate oxygen","Oxygen titration is not supported by current guidelines"]],
+["Trauma","Medic","reason to reassess distal pulses, motor, and sensation (PMS) after splinting an extremity","confirm the splint has not compromised circulation or nerve function, and to catch a previously missed vascular injury",["PMS checks are only needed before splinting, never after","Splinting cannot affect circulation","This step is optional if the fracture appeared minor"]],
+["Medical","Medic","reasoning behind giving naloxone in small, titrated doses for a chronic opioid-dependent patient in respiratory arrest","large doses can precipitate abrupt, severe withdrawal and combativeness; titrate to restore adequate ventilation, not full arousal",["Naloxone should always be given as one large maximal dose","Withdrawal is not a real risk with naloxone","Titration is only relevant in pediatric patients"]],
+["Ops","AEMT","reasoning behind documenting a thorough, contemporaneous patient care report (PCR)","legal record, continuity of care, and quality improvement — 'if it wasn't documented, it wasn't done'",["PCRs are only required for trauma calls","Documentation can be completed weeks later with no accuracy concern","PCRs are purely administrative with no clinical value"]],
+["Medical","Medic","reasoning for obtaining a 12-lead ECG even in atypical chest complaints (e.g., epigastric pain, weakness) in at-risk patients","atypical presentations of ACS are common, especially in women, diabetics, and older adults — a normal-seeming complaint can still be cardiac",["12-leads are only indicated for classic crushing chest pain","Atypical presentations are never cardiac in origin","12-lead ECG has no value outside of obvious chest pain"]],
+["Trauma","AEMT","reasoning for keeping a trauma patient warm during transport","hypothermia worsens coagulopathy and acidosis, compounding the lethal triad and increasing mortality",["Temperature has no bearing on trauma outcomes","Warming trauma patients is only a comfort measure","Cooling trauma patients improves clotting"]],
+["Cardio","Medic","reasoning for avoiding routine prophylactic lidocaine in all post-arrest patients without indication","not shown to improve outcomes when given without a specific indication and carries its own risk profile",["Lidocaine should be given to every post-arrest patient regardless of rhythm","Lidocaine has no side effects, so there is no downside","Prophylactic antiarrhythmics are required by all national guidelines"]],
+["Medical","Medic","reasoning for checking a blood glucose and considering hypoglycemia before treating a 'stroke' patient with unclear onset","hypoglycemia is a rapid, reversible stroke mimic; missing it delays correct treatment and risks harm from unneeded stroke-pathway steps",["Hypoglycemia never mimics stroke symptoms","Glucose checks delay stroke care and should be skipped","Stroke and hypoglycemia are always easily distinguished by symptoms alone"]],
+["Ops","EMT","reasoning behind 'scene safety first' as the very first step of every call, even a lights-and-sirens response","an injured or incapacitated provider cannot help the patient — the crew becomes a second incident instead of the solution",["Scene safety only matters at violent crime scenes","Patient care always takes priority over scene safety, without exception","Scene safety checks slow response times unnecessarily and should be minimized"]],
+["Trauma","Medic","reasoning behind checking for a Medical Alert bracelet/necklace early in an unresponsive patient assessment","can reveal critical history (diabetes, allergies, seizure disorder, DNR status) that immediately changes field management",["Medical alert jewelry is rarely reliable and should be ignored","Only hospital staff should check for medical alert information","This step is only relevant for pediatric patients"]],
+["Medical","AEMT","reasoning for reassessing vital signs frequently (trending) rather than relying on a single set","a single measurement is a snapshot; trends reveal whether a patient is improving, stable, or deteriorating",["One accurate set of vitals is always sufficient for the entire call","Reassessment is only required if the patient complains of worsening symptoms","Vital sign trends have no clinical significance compared to a single reading"]],
+["Airway","Medic","reasoning behind confirming ET tube placement with more than one method (auscultation + capnography + chest rise)","no single confirmation method is 100% reliable alone; redundancy reduces the risk of an unrecognized esophageal intubation",["Auscultation alone is always sufficient and other methods are unnecessary","Capnography can never fail or malfunction","Confirming placement more than once is a waste of critical time"]],
+["Ops","Medic","reasoning behind involving law enforcement before treating a scene with ongoing violence or an unsecured weapon","EMS should stage until the scene is confirmed safe — treating patients in an active threat environment risks provider and patient lives",["EMS should always enter immediately regardless of scene safety to save time","Law enforcement involvement is optional if the patient seems stable","Staging for scene safety is only required for shooting calls specifically"]],
+["Medical","Medic","reasoning behind treating suspected sepsis aggressively with early fluids and rapid transport","sepsis mortality rises quickly with delayed recognition and treatment — early intervention meaningfully changes outcomes ('time is tissue')",["Sepsis has no time-sensitive component","Fluids are contraindicated in all suspected sepsis cases","Sepsis can always wait for hospital arrival without prehospital intervention"]],
+["Trauma","Medic","reasoning behind reassessing airway patency continuously in a facial trauma patient even after initial clearance","facial trauma can progressively swell or bleed, converting a patent airway into an obstructed one over time",["A cleared airway in facial trauma will always remain patent","Facial trauma never affects airway patency","Reassessment is unnecessary once the airway is initially clear"]],
+["Ops","AEMT","reasoning for using clear, closed-loop communication when handing off a patient at the ED","reduces the risk of critical information being lost or misunderstood during a high-stakes transition of care",["Handoff communication has no measurable impact on patient outcomes","A written PCR alone is always sufficient with no verbal report needed","Closed-loop communication is only required for critical patients"]]
+];
+
+function generateFactQuestions(facts){
+  const out = [];
+  facts.forEach((f,idx)=>{
+    const [domain,diff,label,correct,wrongArr] = f;
+    if(!wrongArr || wrongArr.length<3) return;
+    const choices = [correct, ...wrongArr];
+    const templates = [
+      `What is the ${label}?`,
+      `On your exam, which of these correctly reflects the ${label}?`,
+      `A paramedic recalls that the ${label} is:`,
+      `Select the correct value for: ${label}`,
+      `On a review exam question, the ${label} is best described as:`
+    ];
+    templates.forEach((t,ti)=>{
+      out.push({
+        domain, diff,
+        q: t,
+        choices: choices.slice(),
+        a: 0,
+        exp: `The ${label} is: ${correct}.`,
+        generated:true,
+        gid:"gen|"+idx+"|"+ti
+      });
+    });
+  });
+  return out;
+}
+const GENERATED = generateFactQuestions(FACTS);
+const FULL_BANK = BANK.concat(GENERATED);
+
+/* ============ STATE / STORAGE ============ */
+const LS_KEY = "medicprep_v1";
+function loadData(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEY)) || defaultData(); }catch(e){ return defaultData(); }
+}
+function defaultData(){ return { history:{}, totalAnswered:0, totalCorrect:0, streak:0, bestStreak:0 }; }
+let DATA = loadData();
+function saveData(){ localStorage.setItem(LS_KEY, JSON.stringify(DATA)); }
+function qid(q){ return q._id || (q.domain+"|"+q.q.slice(0,40)); }
+
+const DOMAINS = ["Airway","Cardio","Trauma","Medical","Ops"];
+const DOMAIN_LABEL = {Airway:"Airway & Respiration",Cardio:"Cardiology & Resus",Trauma:"Trauma",Medical:"Medical / OB / Peds",Ops:"EMS Operations"};
+
+let session = null; // active quiz/flash/exam session
+
+/* ============ NAV ============ */
+function showView(id){
+  document.querySelectorAll('#home-view,#category-view,#quiz-view,#flash-view,#results-view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function goHome(){ session=null; renderHeaderStats(); renderDomainOverview(); renderLevelOverview(); renderFeSlots(); showView('home-view'); }
+
+function openSaveModal(){ document.getElementById('save-modal').classList.add('show'); }
+function closeSaveModal(){ document.getElementById('save-modal').classList.remove('show'); }
+
+function renderFeSlots(){
+  const el = document.getElementById('fe-slots');
+  el.innerHTML = '';
+  [0,1].forEach(i=>{
+    const taken = DATA.examTaken && DATA.examTaken[i];
+    const score = DATA.examScores ? DATA.examScores[i] : null;
+    const div = document.createElement('div');
+    div.className = 'fe-slot ' + (taken?'taken':'fresh');
+    div.innerHTML = `<div class="fe-label">Exam ${i===0?'A':'B'}</div>
+      <div class="fe-status">${taken ? 'Taken · '+score+'%' : 'Sealed & Ready'}</div>`;
+    div.onclick = ()=>{
+      if(taken && !confirm(`You already took Exam ${i===0?'A':'B'} and scored ${score}%. Retake it anyway?`)) return;
+      startFinalExam(i);
+    };
+    el.appendChild(div);
+  });
+}
+
+function renderLevelOverview(){
+  const el = document.getElementById('level-overview');
+  el.innerHTML = '';
+  const levels = [["EMT","EMT-Basic"],["AEMT","AEMT"],["Medic","Paramedic"]];
+  levels.forEach(([code,label])=>{
+    let total=0, correct=0;
+    Object.entries(DATA.history).forEach(([k,h])=>{
+      const q = FULL_BANK.find(x=>x._id===k);
+      if(q && q.diff===code){ total+=h.attempts; correct+=h.correctCount; }
+    });
+    const pct = total? Math.round(100*correct/total):0;
+    const box = document.createElement('div');
+    box.className='cat-box';
+    box.innerHTML = `<div class="name">${label}</div>
+      <div class="meta">${total} answered · ${pct}% accuracy</div>
+      <div class="barwrap"><div class="bar" style="width:${pct}%"></div></div>`;
+    el.appendChild(box);
+  });
+}
+
+/* ============ FLYING BACKGROUND SYMBOLS ============ */
+function initFlyingSymbols(){
+  const layer = document.getElementById('bg-fly');
+  const symbols = ['✚','⚕️','✚','⚕️','✚'];
+  for(let i=0;i<7;i++){
+    const s = document.createElement('div');
+    s.className='fly-symbol';
+    s.textContent = symbols[i%symbols.length];
+    const size = 40 + Math.random()*90;
+    s.style.fontSize = size+'px';
+    s.style.left = (Math.random()*90)+'vw';
+    const dur = 28 + Math.random()*30;
+    const spinDur = 10 + Math.random()*20;
+    s.style.animationDuration = dur+'s, '+spinDur+'s';
+    s.style.animationDelay = (-Math.random()*dur)+'s, '+(-Math.random()*spinDur)+'s';
+    layer.appendChild(s);
+  }
+}
+
+let pendingMode = null;
+let setupDomains = new Set(DOMAINS);
+let setupDiffs = new Set(["EMT","AEMT","Medic"]);
+
+function goCategory(mode){
+  pendingMode = mode;
+  const title = document.getElementById('setup-title');
+  const sub = document.getElementById('setup-sub');
+  const catBlock = document.getElementById('cat-select-block');
+  document.getElementById('setup-start-btn').textContent = mode==='exam' ? 'Begin 80-Question Sim' : 'Start';
+
+  if(mode==='flash'){ title.textContent="Flashcard Drill Setup"; sub.textContent="Pick domains and difficulty for your flip-card review."; catBlock.style.display='block'; }
+  if(mode==='practice'){ title.textContent="Category Practice Setup"; sub.textContent="Pick one or more domains and a difficulty range."; catBlock.style.display='block'; }
+  if(mode==='exam'){ title.textContent="Timed Exam Simulation"; sub.textContent="80 randomized questions across all domains, proportional weighting, 70-minute clock. This uses the full bank regardless of selection below."; catBlock.style.display='none'; }
+
+  renderSetupCats();
+  showView('category-view');
+}
+
+function renderSetupCats(){
+  const el = document.getElementById('setup-cats');
+  el.innerHTML = '';
+  DOMAINS.forEach(d=>{
+    const stat = domainStats(d);
+    const box = document.createElement('div');
+    box.className = 'cat-box' + (setupDomains.has(d)?' active':'');
+    box.innerHTML = `<div class="name">${DOMAIN_LABEL[d]}</div>
+      <div class="meta">${stat.answered} answered · ${stat.pct}% accuracy</div>
+      <div class="barwrap"><div class="bar" style="width:${stat.pct}%"></div></div>`;
+    box.onclick = ()=>{ setupDomains.has(d) ? setupDomains.delete(d) : setupDomains.add(d); renderSetupCats(); };
+    el.appendChild(box);
+  });
+}
+document.getElementById('setup-diff').addEventListener('click', e=>{
+  const chip = e.target.closest('.chip'); if(!chip) return;
+  const d = chip.dataset.d;
+  chip.classList.toggle('on');
+  chip.classList.contains('on') ? setupDiffs.add(d) : setupDiffs.delete(d);
+});
+
+function launchFromSetup(){
+  if(pendingMode!=='exam' && setupDomains.size===0){ alert('Select at least one domain.'); return; }
+  if(setupDiffs.size===0){ alert('Select at least one difficulty.'); return; }
+  if(pendingMode==='flash') startFlash([...setupDomains], [...setupDiffs]);
+  else if(pendingMode==='practice') startQuiz([...setupDomains], [...setupDiffs], 15, 'Category Practice', false);
+  else if(pendingMode==='exam') startExam();
+}
+
+/* ============ STATS ============ */
+function domainStats(domain){
+  let total=0, correct=0;
+  Object.values(DATA.history).forEach(h=>{
+    if(h.domain===domain){ total+=h.attempts; correct+=h.correctCount; }
+  });
+  return { answered: total, pct: total? Math.round(100*correct/total):0 };
+}
+function renderHeaderStats(){
+  document.getElementById('stat-answered').textContent = DATA.totalAnswered;
+  document.getElementById('stat-accuracy').textContent = DATA.totalAnswered? Math.round(100*DATA.totalCorrect/DATA.totalAnswered)+'%' : '—';
+  const weak = Object.values(DATA.history).filter(h=>h.attempts>0 && (h.correctCount/h.attempts)<0.6).length;
+  document.getElementById('stat-weak').textContent = weak;
+  document.getElementById('stat-streak').textContent = DATA.streak;
+}
+function renderDomainOverview(){
+  const el = document.getElementById('domain-overview');
+  el.innerHTML = '';
+  DOMAINS.forEach(d=>{
+    const s = domainStats(d);
+    const box = document.createElement('div');
+    box.className='cat-box';
+    box.innerHTML = `<div class="name">${DOMAIN_LABEL[d]}</div>
+      <div class="meta">${s.answered} answered · ${s.pct}% accuracy</div>
+      <div class="barwrap"><div class="bar" style="width:${s.pct}%"></div></div>`;
+    el.appendChild(box);
+  });
+}
+
+/* ============ QUIZ MODE (practice + exam share this engine) ============ */
+let quizTimerInterval = null;
+
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+/* Every question gets a stable id so we can track holdout status + miss history */
+FULL_BANK.forEach((q,i)=>{ q._id = q.gid || ("cur|"+i+"|"+q.q.slice(0,30)); });
+
+/* Reserve two sealed 80-question final exams the first time the app loads,
+   so practice/flashcards never touch them and they stay "never seen" until exam day. */
+function ensureExamSets(){
+  if(DATA.examSets && DATA.examSets.length===2) return;
+  const pool = shuffle(FULL_BANK.map(q=>q._id));
+  const setSize = Math.min(80, Math.floor(pool.length*0.15));
+  DATA.examSets = [ pool.slice(0,setSize), pool.slice(setSize,setSize*2) ];
+  DATA.examTaken = [false,false];
+  DATA.examScores = [null,null];
+  saveData();
+}
+ensureExamSets();
+function holdoutIds(){ return new Set([...(DATA.examSets[0]||[]), ...(DATA.examSets[1]||[])]); }
+
+function weightOf(q){
+  const h = DATA.history[q._id];
+  if(!h || h.attempts===0) return 1.6; // slightly favor fresh, never-seen questions
+  const acc = h.correctCount/h.attempts;
+  return 1 + (1-acc)*3.5; // missed questions get pulled far more often
+}
+function weightedShuffle(pool){
+  return pool.map(q=>({q,key:Math.pow(Math.random(), 1/weightOf(q))}))
+    .sort((a,b)=>b.key-a.key).map(x=>x.q);
+}
+
+function pickQuestions(domains, diffs, count){
+  const hs = holdoutIds();
+  let pool = FULL_BANK.filter(q=> domains.includes(q.domain) && diffs.includes(q.diff) && !hs.has(q._id));
+  pool = weightedShuffle(pool);
+  return pool.slice(0, Math.min(count, pool.length));
+}
+
+function startQuiz(domains, diffs, count, label, isExam){
+  const qs = pickQuestions(domains, diffs, count);
+  if(qs.length===0){ alert('No questions match that selection.'); return; }
+  session = { type:'quiz', label, questions:qs, idx:0, correct:0, missed:[], isExam, answered:false, timeLeft: isExam? 70*60 : null };
+  document.getElementById('quiz-mode-label').textContent = label;
+  document.getElementById('q-total').textContent = qs.length;
+  document.getElementById('aid-row').style.display = '';
+  startTimer();
+  showView('quiz-view');
+  renderQuestion();
+}
+function startExam(slotIndex){
+  // Practice-mode exam sim: proportional pull, excludes both sealed final-exam sets
+  const per = Math.ceil(80/DOMAINS.length);
+  let qs = [];
+  DOMAINS.forEach(d=>{ qs = qs.concat(pickQuestions([d], ["EMT","AEMT","Medic"], per)); });
+  qs = shuffle(qs).slice(0,80);
+  launchExamSession(qs, 'Timed Exam Simulation', null);
+}
+function startFinalExam(slotIndex){
+  const ids = new Set(DATA.examSets[slotIndex]);
+  let qs = FULL_BANK.filter(q=> ids.has(q._id));
+  qs = shuffle(qs);
+  launchExamSession(qs, `Final Exam ${slotIndex===0?'A':'B'}`, slotIndex);
+}
+function launchExamSession(qs, label, slotIndex){
+  if(qs.length===0){ alert('No questions available for this exam.'); return; }
+  session = { type:'quiz', label, questions:qs, idx:0, correct:0, missed:[], isExam:true, examSlot:slotIndex, answered:false, timeLeft:70*60, answeredCountAtStart: DATA.totalAnswered };
+  document.getElementById('quiz-mode-label').textContent = label;
+  document.getElementById('q-total').textContent = qs.length;
+  document.getElementById('aid-row').style.display = 'none'; // no hints during a real exam
+  startTimer();
+  showView('quiz-view');
+  renderQuestion();
+}
+function startTimer(){
+  clearInterval(quizTimerInterval);
+  const el = document.getElementById('quiz-timer');
+  if(session.timeLeft===null){ el.textContent=''; return; }
+  updateTimerDisplay();
+  quizTimerInterval = setInterval(()=>{
+    session.timeLeft--;
+    updateTimerDisplay();
+    if(session.timeLeft<=0){ clearInterval(quizTimerInterval); finishQuiz(); }
+  },1000);
+}
+function updateTimerDisplay(){
+  const el = document.getElementById('quiz-timer');
+  const m = Math.floor(session.timeLeft/60), s=session.timeLeft%60;
+  el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  el.classList.toggle('low', session.timeLeft<60);
+}
+
+function renderQuestion(){
+  const q = session.questions[session.idx];
+  session.answered = false;
+  document.getElementById('q-num').textContent = session.idx+1;
+  document.getElementById('progress-fill').style.width = (100*session.idx/session.questions.length)+'%';
+  document.getElementById('q-domain').textContent = DOMAIN_LABEL[q.domain];
+  const diffBadge = document.getElementById('q-diff');
+  diffBadge.textContent = q.diff;
+  diffBadge.className = 'badge ' + (q.diff==='EMT'?'easy':q.diff==='AEMT'?'med':'hard');
+  document.getElementById('q-text').textContent = q.q;
+  const explain = document.getElementById('q-explain');
+  explain.classList.remove('show'); explain.innerHTML='';
+  document.getElementById('next-btn').disabled = true;
+  const hb = document.getElementById('hint-box');
+  hb.classList.remove('show'); hb.innerHTML='';
+
+  const choicesEl = document.getElementById('q-choices');
+  choicesEl.innerHTML = '';
+  const letters = ['A','B','C','D'];
+  const order = shuffle(q.choices.map((c,i)=>({c,i})));
+  order.forEach(opt=>{
+    const div = document.createElement('div');
+    div.className = 'choice';
+    div.innerHTML = `<div class="letter">${letters[order.indexOf(opt)]}</div><div>${opt.c}</div>`;
+    div.onclick = ()=> selectAnswer(opt.i, q, div, choicesEl, order, letters);
+    choicesEl.appendChild(div);
+  });
+}
+function selectAnswer(chosenIdx, q, div, choicesEl, order, letters){
+  if(session.answered) return;
+  session.answered = true;
+  const correct = chosenIdx === q.a;
+  const key = qid(q);
+  if(!DATA.history[key]) DATA.history[key] = { domain:q.domain, attempts:0, correctCount:0 };
+  DATA.history[key].attempts++;
+  DATA.totalAnswered++;
+  if(correct){ DATA.history[key].correctCount++; DATA.totalCorrect++; session.correct++; DATA.streak++; DATA.bestStreak=Math.max(DATA.bestStreak,DATA.streak); }
+  else{ DATA.streak=0; session.missed.push(q); }
+  saveData(); renderHeaderStats();
+
+  [...choicesEl.children].forEach((c,domIdx)=>{
+    c.classList.add('disabled');
+    const optIdx = order[domIdx].i;
+    if(optIdx===q.a) c.classList.add('correct');
+    else if(optIdx===chosenIdx) c.classList.add('wrong');
+  });
+  const explain = document.getElementById('q-explain');
+  explain.innerHTML = `<b>${correct?'Correct. ':'Not quite. '}</b>${q.exp}`;
+  explain.classList.add('show');
+  document.getElementById('next-btn').disabled = false;
+  maybeEncourage();
+}
+
+/* ============ HINTS / REVEAL ============ */
+function showHint(){
+  if(!session || session.answered) return;
+  const q = session.questions[session.idx];
+  const clue = q.exp.replace(/^The [^:]+ is:?\s*/i,'').split(/[.,]/)[0];
+  const box = document.getElementById('hint-box');
+  box.innerHTML = `💭 <b>Hint:</b> think about the ${DOMAIN_LABEL[q.domain].toLowerCase()} territory — narrow it down from there before you commit.`;
+  box.classList.add('show');
+}
+function revealAnswer(){
+  if(!session || session.answered) return;
+  const q = session.questions[session.idx];
+  const box = document.getElementById('hint-box');
+  box.innerHTML = `📖 <b>Straight from the material:</b> ${q.exp}`;
+  box.classList.add('show');
+}
+
+/* ============ ENCOURAGEMENT ENGINE ============ */
+const ENCOURAGE_LINES = [
+  "10 down, steady hands. Keep going — you're building real muscle memory here.",
+  "You're stacking reps. That's exactly how this gets easier by exam day.",
+  "Nice pace. However this round is going, showing up and grinding through it is the whole game.",
+  "Halfway through another set — proud of the consistency. Keep the streak alive.",
+  "That's another ten in the books. Nationals is just a room full of questions like these — you've got this."
+];
+function maybeEncourage(){
+  DATA.totalAnswered; // already incremented before this call
+  if(DATA.totalAnswered>0 && DATA.totalAnswered % 10 === 0){
+    const weakest = weakestDomain();
+    let msg = ENCOURAGE_LINES[Math.floor(Math.random()*ENCOURAGE_LINES.length)];
+    if(weakest){
+      msg += ` I'm keeping an eye on <b>${DOMAIN_LABEL[weakest]}</b> — it's been tougher for you lately. Don't worry about it right now, we'll come back and work through it together.`;
+    }
+    showToast(msg);
+  }
+}
+function weakestDomain(){
+  let worst=null, worstPct=101;
+  DOMAINS.forEach(d=>{
+    const s = domainStats(d);
+    if(s.answered>=3 && s.pct<worstPct){ worstPct=s.pct; worst=d; }
+  });
+  return worst;
+}
+let toastTimer=null;
+function showToast(html){
+  const t = document.getElementById('encourage-toast');
+  t.innerHTML = html;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove('show'), 7000);
+}
+function nextQuestion(){
+  session.idx++;
+  if(session.idx >= session.questions.length){ finishQuiz(); return; }
+  renderQuestion();
+}
+function quitQuiz(){
+  if(confirm('End this session and see your results so far?')) finishQuiz();
+}
+function finishQuiz(){
+  clearInterval(quizTimerInterval);
+  const total = session.type==='flash' ? session.cards.length : session.idx + (session.answered?0:0);
+  showResults();
+}
+function showResults(){
+  const isFlash = session.type==='flash';
+  const totalQ = isFlash ? session.cards.length : session.questions.length;
+  const answeredCount = isFlash ? session.idx : Math.min(session.idx + (document.getElementById('next-btn') && !document.getElementById('next-btn').disabled ?1:0), session.questions.length);
+  const correct = session.correct;
+  const attempted = isFlash ? session.idx : (session.idx>=session.questions.length ? session.questions.length : session.idx + (session.answered?1:0));
+  const pct = attempted>0 ? Math.round(100*correct/attempted) : 0;
+
+  document.getElementById('final-score').textContent = pct+'%';
+  document.getElementById('final-score').className = 'score-ring ' + (pct>=70?'pass':'fail');
+  document.getElementById('pass-label').textContent = session.isExam
+    ? (pct>=70 ? 'Above the typical NREMT passing benchmark — keep sharpening the weak domains.' : 'Below target. Review missed questions and drill weak domains before your next attempt.')
+    : (isFlash ? 'Flashcard session complete.' : 'Practice session complete.');
+  document.getElementById('r-correct').textContent = correct;
+  document.getElementById('r-missed').textContent = (attempted-correct);
+
+  if(session.examSlot===0 || session.examSlot===1){
+    if(!DATA.examTaken) DATA.examTaken=[false,false];
+    if(!DATA.examScores) DATA.examScores=[null,null];
+    DATA.examTaken[session.examSlot] = true;
+    DATA.examScores[session.examSlot] = pct;
+    saveData();
+  }
+
+  const missedPanel = document.getElementById('missed-panel');
+  const missBtn = document.getElementById('review-missed-btn');
+  if(session.missed && session.missed.length){
+    missBtn.style.display='inline-block';
+    missedPanel.style.display='none';
+    window._lastMissed = session.missed;
+  } else { missBtn.style.display='none'; missedPanel.style.display='none'; }
+
+  showView('results-view');
+}
+function reviewMissed(){
+  const panel = document.getElementById('missed-panel');
+  const list = document.getElementById('missed-list');
+  list.innerHTML='';
+  (window._lastMissed||[]).forEach(q=>{
+    const row = document.createElement('div');
+    row.className='missrow';
+    row.innerHTML = `<div><b>${DOMAIN_LABEL[q.domain]}</b> · ${q.diff}</div><div class="q">${q.q}</div><div style="color:var(--good);margin-top:4px;">Correct answer: ${q.choices[q.a]}</div>`;
+    list.appendChild(row);
+  });
+  panel.style.display='block';
+}
+
+/* ============ WEAK SPOT REVIEW ============ */
+function startWeakness(){
+  const hs = holdoutIds();
+  const weakKeys = Object.entries(DATA.history).filter(([k,h])=> h.attempts>0 && (h.correctCount/h.attempts)<0.6).map(([k])=>k);
+  let pool;
+  if(weakKeys.length===0){
+    pool = shuffle(FULL_BANK.filter(q=>!hs.has(q._id))).slice(0,10);
+    alert('No missed-question history yet — starting a general practice round. Miss a few questions and this mode will start targeting them specifically.');
+  } else {
+    pool = FULL_BANK.filter(q=> weakKeys.includes(qid(q)) && !hs.has(q._id));
+    pool = shuffle(pool.slice());
+  }
+  session = { type:'quiz', label:'Weak-Spot Review', questions: pool.slice(0,20), idx:0, correct:0, missed:[], isExam:false, answered:false, timeLeft:null };
+  document.getElementById('quiz-mode-label').textContent = 'Weak-Spot Review';
+  document.getElementById('q-total').textContent = session.questions.length;
+  document.getElementById('aid-row').style.display = '';
+  startTimer();
+  showView('quiz-view');
+  renderQuestion();
+}
+
+/* ============ FLASHCARDS ============ */
+function startFlash(domains, diffs){
+  let pool = FLASH.filter(f=> domains.includes(f.domain) && diffs.includes(f.diff));
+  pool = shuffle(pool.slice());
+  if(pool.length===0){ alert('No flashcards match that selection.'); return; }
+  session = { type:'flash', cards: pool, idx:0, correct:0, missed:[], isExam:false };
+  document.getElementById('f-total').textContent = pool.length;
+  showView('flash-view');
+  renderFlash();
+}
+function renderFlash(){
+  const c = session.cards[session.idx];
+  document.getElementById('f-num').textContent = session.idx+1;
+  document.getElementById('f-progress').style.width = (100*session.idx/session.cards.length)+'%';
+  document.getElementById('f-domain').textContent = DOMAIN_LABEL[c.domain];
+  const diffBadge = document.getElementById('f-diff');
+  diffBadge.textContent = c.diff;
+  diffBadge.className = 'badge ' + (c.diff==='EMT'?'easy':c.diff==='AEMT'?'med':'hard');
+  document.getElementById('f-front').textContent = c.front;
+  document.getElementById('f-back').textContent = c.back;
+  document.getElementById('card-inner').classList.remove('flipped');
+}
+function flipCard(){ document.getElementById('card-inner').classList.toggle('flipped'); }
+function markFlash(knew){
+  const c = session.cards[session.idx];
+  const key = 'flash|'+c.domain+'|'+c.front.slice(0,30);
+  if(!DATA.history[key]) DATA.history[key] = { domain:c.domain, attempts:0, correctCount:0 };
+  DATA.history[key].attempts++; DATA.totalAnswered++;
+  if(knew){ DATA.history[key].correctCount++; DATA.totalCorrect++; session.correct++; DATA.streak++; DATA.bestStreak=Math.max(DATA.bestStreak,DATA.streak);}
+  else { DATA.streak=0; session.missed.push({domain:c.domain,diff:c.diff,q:c.front,choices:[c.back],a:0}); }
+  saveData(); renderHeaderStats();
+  session.idx++;
+  if(session.idx>=session.cards.length){ finishQuiz(); return; }
+  renderFlash();
+}
+
+/* ============ INIT ============ */
+if(!DATA.firstSeen) DATA.firstSeen = new Date().toISOString().slice(0,10);
+if(!DATA.daysSeen) DATA.daysSeen = [];
+const todayStr = new Date().toISOString().slice(0,10);
+if(!DATA.daysSeen.includes(todayStr)){ DATA.daysSeen.push(todayStr); saveData(); }
+document.getElementById('stat-daysin').textContent = DATA.daysSeen.length;
+
+initFlyingSymbols();
+renderHeaderStats();
+renderDomainOverview();
+renderLevelOverview();
+renderFeSlots();
+</script>
+</body>
+</html>
