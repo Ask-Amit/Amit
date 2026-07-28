@@ -54,7 +54,7 @@ Delivered and live. Pushed to the public `Ask-Amit/Amit` GitHub repo, served via
 
 ## Version Badge
 
-This page carries a visible version badge (`v5.89` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
+This page carries a visible version badge (`v5.90` as of 2026-07-27) in the header, next to the title, per the root CLAUDE.md VERSIONING STANDARD — the number is always the single repo-wide number, never a locally-invented counter. Whenever this HTML file is genuinely edited for any reason, check the badge against the current repo-wide number (see "Current version" line in root CLAUDE.md) before finishing that edit, and update it to match if it's behind. Do not bump it proactively just because the repo-wide number moved on — only when this file itself is actually being touched.
 
 ## Study Sequence Sidebar + Goal Timeline — 2026-07-27
 
@@ -69,6 +69,10 @@ The four mode cards were 3-on-top/1-on-bottom and unlabeled relative to the side
 ## Number Badge Consistency Fix — 2026-07-27
 
 Two follow-up bugs from Ryan's own screenshot: (1) the Final Exam banner's "5" badge rendered as plain text, not a circle — the CSS was scoped `.mode-card .seq-num` and the banner badge isn't inside a `.mode-card`, so it silently never matched; `.seq-num` is now unscoped. (2) The sidebar's step indicators were small plain dots (`.seq-dot`), inconsistent with the numbered circles on the mode cards — replaced with `.seq-num-mini`, a smaller version of the exact same blue-circle badge, colored per the step's live status (blue/yellow/red/green). The redundant "1. "/"2. " text prefix was dropped from each step label since the circle now carries the number, and progress text (e.g. "16 of 100") is right-aligned to a consistent column via `.seq-progress-text{min-width:66px;text-align:right;margin-left:auto}`.
+
+## Ask Amit Moved to Bottom-Left — 2026-07-27
+
+Ryan's direct correction: the "💬 Ask Amit" button was in the top-right header and got lost there. Moved to a fixed bottom-left tile (`.ask-amit-fixed` / `.ask-amit-tile`), present on every screen, matching the Hub's own `ask-amit-tile` format exactly (gold-accented tile, icon + name + subtitle) — the Hub pins its version to the bottom of its persistent left sidebar; since this page has no such sidebar on every screen, a fixed-position bottom-left tile achieves the same "always there, same corner" result. Any future page in this system should default to this same placement/format for its Ask Amit entry point unless there's a real persistent left nav to pin it to instead, the way the Hub does.
 
 ## Theophilus Routing — Ask Amit on This Page
 
