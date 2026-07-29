@@ -221,18 +221,28 @@ Ryan set this explicitly after several rounds of design discussion (data model f
 
 **Current J package (five subtasks, all builtin, all read-only to regular users):** `J copy` (reads OS clipboard), `J repeat` (reprints last response), `J search` (asks what to search this session for), and two new ones described below.
 
-## Future Improvements Now Route Through hub_entries, Not a Separate Table (decided 2026-07-29)
+## Future Improvements Now Route Through hub_entries, Not a Separate Table (decided 2026-07-29, refined same day)
 
 Ryan's real question: how do coders capture anything they want to remember or improve — not just debugging, anything — in a way that's actually findable later, without building a separate bespoke system per app (which is exactly what `amit_coder_ideas` was becoming). The answer: reuse `hub_entries` — already built, already tied to login via RLS, and already has a real browsing UI in the Hub's own Pursuits/Memories panels that a human can use with zero AI involved. The standard, to make this actually searchable rather than just possible:
 - **`purpose` = `'Craft'`, always** — the pursuit taxonomy's existing build/coding category (see root CLAUDE.md's morning-routine categorization), not a new one invented for this.
-- **`focus` = the exact canonical app name**, spelled identically every time, from the fixed list in root CLAUDE.md's path table (`AmitCoder`, `Hub`, `who_is_god`, etc.) — never free text, or search silently breaks.
-- **`notes` starts with a `File: path/to/file` line** when a specific file/function is relevant — a discipline, not a new column, so file-level traceability doesn't require a schema change.
+- **`program` = the exact canonical app name, in its own dedicated column** — `AmitCoder`, `Hub`, `who_is_god`, `Computer Health`, `The Council`, etc., spelled identically every time. **Revised same day:** the first draft of this standard reused `focus` for the app name, but Ryan correctly pointed out that `focus` already carries different meanings depending on context (e.g. `focus='Morning Prayer'` under Spiritual pursuits isn't the same *kind* of value as an app name under Craft pursuits) — overloading one field with two different meanings is fragile. `program` is a real, dedicated column (`alter table hub_entries add column program text`) specifically for this, added as a small, bounded addition to an existing table — not new sprawl.
+- **`notes` starts with a `File: path/to/file` line** when a specific file/function is relevant — a discipline, not a new column, so file-level traceability doesn't require a further schema change.
 
 **New builtin J shortcuts wired to this convention:**
 - **`J save idea`** — asks what app the idea is for and what it is, then inserts a `hub_entries` row following the standard above (`kind=pursuit`, `purpose=Craft`, `focus=<app>`, `starred=true`, `done=false`).
 - **`J pull ideas`** — queries `hub_entries` for the signed-in user's open Craft pursuits, optionally filtered by app, and lists them.
 
 **Real open decision, not yet made — do not silently act on this:** the AmitCoder page's own "+" Future Ideas button and its `amit_coder_ideas` table still exist and still work, built before this convention was settled. Whether to retire that table and rebuild the "+" button to read/write `hub_entries` directly instead (so there's genuinely one system, not two) is a real, deliberate decision Ryan has been asked about but had not yet confirmed as of this entry. Don't remove `amit_coder_ideas` without that explicit go-ahead — it's still live and functional in the meantime.
+
+## Hub Pursuits — New "App" Column, Wired to program (added 2026-07-29)
+
+Ryan wanted the Hub's own Pursuits table to be sortable/filterable by which HTML/app a pursuit belongs to, using the new `hub_entries.program` column. Built directly in `Hub\amit-hub.html` (not AmitCoder — this is a Hub feature, referenced here since it completes the loop `J save idea`/`J pull ideas` depend on):
+- New "APP" column added to the header row, positioned before Purpose, with its own filter popup (same dynamic-population pattern as the existing Focus filter — reads distinct `t.program` values from the data).
+- Local task object model gained a `program` field, wired through all four Supabase sync points (guest-data migration push, `_pullEntries`, `loadHubDemoData`, `_syncEntry`) so it round-trips correctly.
+- Row template shows the app name as a label, matching the existing subcat-label style, in both the Amit-locked and normal row variants — grid CSS (`.col-headers` and `.task`) both updated with a matching new column width.
+- Edit modal gained a plain "App / Program" text input with a datalist of canonical app names (`CANONICAL_PROGRAMS`, matching root CLAUDE.md's path table) plus any values already in use — **deliberately a simple input, not wired into the existing custom cdrop-dropdown-with-voice component** that Purpose/Focus use. That component is complex and this was built late in a long session; a plain input is safer and fully functional, just without voice input or the add/rename/delete-item management the cdrop system gives Purpose/Focus. Worth upgrading to match later, not urgent.
+
+**New builtin J shortcut — `J pursuit`:** searches the signed-in user's pursuits by keyword, ranks exact/near-exact title matches above similar/keyword-overlap matches (never mixed together), numbers every result, and asks which one was meant if more than one comes back.
 
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 

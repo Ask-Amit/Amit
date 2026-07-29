@@ -268,7 +268,7 @@ header{
 .sel-sm option{background:#0f2338}
 .sel-sm:focus{border-color:rgba(201,168,76,.5);color:#fff}
 /* ── COLUMN HEADER FILTER ROW ── */
-.col-headers{display:grid;grid-template-columns:16px 18px 110px 100px 60px 1fr 100px 80px 110px 20px 16px;gap:0 8px;padding:10px 14px;background:linear-gradient(to bottom,rgba(201,168,76,.1) 0%,rgba(10,22,36,.7) 100%);border-top:1px solid rgba(201,168,76,.35);border-bottom:2px solid rgba(201,168,76,.5);border-left:3px solid rgba(201,168,76,.55);flex-shrink:0;align-items:center}
+.col-headers{display:grid;grid-template-columns:16px 18px 90px 110px 100px 60px 1fr 100px 80px 110px 20px 16px;gap:0 8px;padding:10px 14px;background:linear-gradient(to bottom,rgba(201,168,76,.1) 0%,rgba(10,22,36,.7) 100%);border-top:1px solid rgba(201,168,76,.35);border-bottom:2px solid rgba(201,168,76,.5);border-left:3px solid rgba(201,168,76,.55);flex-shrink:0;align-items:center}
 @keyframes filterGlow{0%,100%{border-color:rgba(201,168,76,.3);color:rgba(201,168,76,.75);box-shadow:none}50%{border-color:rgba(201,168,76,.75);color:rgba(201,168,76,1);box-shadow:0 0 12px rgba(201,168,76,.3)}}
 .filter-desc{flex:1;min-width:0;font-family:'Cinzel',serif;font-size:11px;font-weight:600;letter-spacing:.1em;text-align:center;color:rgba(201,168,76,.8);padding:6px 14px;border:1px solid rgba(201,168,76,.35);border-radius:20px;cursor:pointer;user-select:none;animation:filterGlow 2.5s ease-in-out infinite;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .2s}
 .filter-desc:hover{background:rgba(201,168,76,.12);color:rgba(201,168,76,1)}
@@ -347,7 +347,7 @@ header{
 .sec-up{background:rgba(255,255,255,.05);color:var(--dim);border-left:4px solid rgba(255,255,255,.12)}
 .sec-up{background:rgba(255,255,255,.05);color:#aac4e0;border-left:4px solid rgba(170,196,224,.4)}
 .sec-just-done{background:rgba(39,174,96,.1);color:#6fcf97;border-left:4px solid rgba(39,174,96,.5)}
-.task{display:grid;grid-template-columns:16px 18px 110px 100px 60px 1fr 100px 80px 110px 20px 16px;align-items:center;gap:0 8px;padding:6px 14px;border-bottom:1px solid var(--sep);transition:background .12s;min-width:0}
+.task{display:grid;grid-template-columns:16px 18px 90px 110px 100px 60px 1fr 100px 80px 110px 20px 16px;align-items:center;gap:0 8px;padding:6px 14px;border-bottom:1px solid var(--sep);transition:background .12s;min-width:0}
 .task:last-child{border-bottom:none}
 .task:hover{background:rgba(255,255,255,.04)}
 .task-star{font-size:11px;cursor:pointer;color:var(--star-c);opacity:.25;transition:opacity .15s;user-select:none;line-height:1;text-align:center}
@@ -1231,7 +1231,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.13</div>
+    <div class="page-version" id="hubVersionBadge">v6.14</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1485,6 +1485,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div class="col-headers">
           <div class="ch" style="justify-content:center"><span class="ch-star" id="chStar" onclick="toggleStarFilter()" title="Starred only">⭐</span></div>
           <div class="ch"></div>
+          <div class="ch" style="position:relative">
+            <span class="ch-pri-btn" id="programBtn" onclick="toggleProgramPop(event)" title="Filter by app/program"><span id="programLabel" class="ch-lbl" style="cursor:pointer">APP</span></span>
+            <span class="ch-funnel" id="programFunnel" onclick="clearProgramFilter()" title="Clear app filter" style="display:none">▼</span>
+            <div class="pri-pop" id="programPop" style="display:none;min-width:160px"></div>
+          </div>
           <div class="ch" style="position:relative">
             <span class="ch-pri-btn" id="catBtn" onclick="toggleCatPop(event)" title="Filter by purpose"><span id="catLabel" class="ch-lbl" style="cursor:pointer">PURPOSE</span></span>
             <span class="ch-funnel" id="catFunnel" onclick="clearCatFilter()" title="Clear purpose filter" style="display:none">▼</span>
@@ -2088,6 +2093,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           </div>
           <button class="mic-btn" id="mic-mSubcat" type="button" onclick="voice.toggle('mSubcat')" title="Voice input">🎤</button>
         </div>
+      </div>
+    </div>
+    <div class="fg" id="programFieldWrap">
+      <label class="fg-label" data-tip="Which HTML/application this Craft pursuit belongs to - AmitCoder, Hub, who_is_god, etc. Keep the spelling exact so it can be found later by app.">App / Program</label>
+      <div class="input-row">
+        <input class="fg-input" id="mProgram" placeholder="e.g. AmitCoder, Hub, who_is_god…" list="programSuggestList"/>
+        <datalist id="programSuggestList"></datalist>
       </div>
     </div>
     <div class="fg">
@@ -2696,7 +2708,7 @@ async function _migrateGuestDataThenPull(){
       const rows=localData.map(t=>({
         id:t.id,user_id:currentUser.id,
         kind:t.kind||'pursuit',title:t.title||'',notes:t.notes||null,
-        purpose:t.cat||null,focus:t.subcat||null,
+        purpose:t.cat||null,focus:t.subcat||null,program:t.program||null,
         priority:'P'+(t.pri||5),due_date:t.due||null,
         done:t.done||false,completed_date:t.completedDate||null,
         completed_at:t.completedAt||null,recur:t.recur||'none',
@@ -2733,7 +2745,7 @@ async function _pullEntries(){
     const{data}=await db.from('hub_entries').select('*').eq('user_id',currentUser.id);
     const all=(data||[]).map(r=>({
       id:r.id,kind:r.kind||'pursuit',title:r.title,notes:r.notes||'',
-      cat:r.purpose||'',subcat:r.focus||'',pri:parseInt((r.priority||'P5').replace('P','')),
+      cat:r.purpose||'',subcat:r.focus||'',program:r.program||'',pri:parseInt((r.priority||'P5').replace('P','')),
       due:r.due_date||'',done:r.done||false,completedDate:r.completed_date||'',
       completedAt:r.completed_at||null,recur:r.recur||'none',
       starred:r.starred||false,isSample:r.is_sample||false,tags:r.tags||[],
@@ -2763,7 +2775,7 @@ async function loadHubDemoData(){
     const{data}=await db.from('hub_entries').select('*').eq('user_id',AMIT_DEMO_UID);
     demoPursuits=(data||[]).map(r=>({
       id:r.id,kind:r.kind||'pursuit',title:r.title,notes:r.notes||'',
-      cat:r.purpose||'',subcat:r.focus||'',pri:parseInt((r.priority||'P5').replace('P','')),
+      cat:r.purpose||'',subcat:r.focus||'',program:r.program||'',pri:parseInt((r.priority||'P5').replace('P','')),
       due:r.due_date||'',done:r.done||false,completedDate:r.completed_date||'',
       completedAt:r.completed_at||null,recur:r.recur||'none',
       starred:r.starred||false,isSample:true,tags:r.tags||[],_isDemo:true,
@@ -2813,7 +2825,7 @@ async function _syncEntry(entry){
     await db.from('hub_entries').upsert({
       id:entry.id,user_id:currentUser.id,kind:entry.kind||'pursuit',
       title:entry.title,notes:entry.notes||null,
-      purpose:entry.cat||null,focus:entry.subcat||null,
+      purpose:entry.cat||null,focus:entry.subcat||null,program:entry.program||null,
       priority:'P'+(entry.pri||5),due_date:entry.due||null,
       done:entry.done||false,completed_date:entry.completedDate||null,
       completed_at:entry.completedAt||null,recur:entry.recur||'none',
@@ -3917,6 +3929,7 @@ let _starFilterActive=false;
 let _priFilter=new Set();
 let _catFilter=new Set();
 let _focusFilter=new Set();
+let _programFilter=new Set();
 const _pendingCompleteIds=new Set();
 const _newlyDoneIds=new Set();
 function setTab(el,f){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el&&el.classList.add('active');curTab=f;render()}
@@ -3930,6 +3943,7 @@ function toggleStarFilter(){_starFilterActive=!_starFilterActive;updateFilterSta
 function togglePriPop(e){
   e.stopPropagation();
   const pop=document.getElementById('priPop');
+  const progP=document.getElementById('programPop');if(progP)progP.style.display='none';
   pop.style.display=pop.style.display==='none'?'flex':'none';
 }
 function togglePriChip(p){
@@ -3953,6 +3967,7 @@ function toggleCatPop(e){
   const pop=document.getElementById('catPop');
   const focP=document.getElementById('focusPop');if(focP)focP.style.display='none';
   const priP=document.getElementById('priPop');if(priP)priP.style.display='none';
+  const progP=document.getElementById('programPop');if(progP)progP.style.display='none';
   pop.style.display=pop.style.display==='none'?'flex':'none';
 }
 function toggleCatChip(val){
@@ -3975,6 +3990,7 @@ function toggleFocusPop(e){
   const pop=document.getElementById('focusPop');
   const catP=document.getElementById('catPop');if(catP)catP.style.display='none';
   const priP=document.getElementById('priPop');if(priP)priP.style.display='none';
+  const progP=document.getElementById('programPop');if(progP)progP.style.display='none';
   if(pop.style.display==='none'){populateFocusPop();pop.style.display='flex';}
   else pop.style.display='none';
 }
@@ -3998,6 +4014,48 @@ function populateFocusPop(){
   const vals=[...new Set(data.map(t=>t.subcat).filter(Boolean))].sort();
   pop.innerHTML=vals.map(v=>`<span class="pri-chip${_focusFilter.has(v)?' on':''}" data-val="${esc(v)}" onclick="event.stopPropagation();toggleFocusChip(this.dataset.val)">${esc(v)}</span>`).join('')+
     `<span class="pri-chip pri-chip-all" onclick="event.stopPropagation();clearFocusFilter()">All</span>`;
+}
+// ── PROGRAM (App) filter — which HTML/application a Craft pursuit belongs
+// to. Same dynamic-population pattern as Focus, just reading t.program.
+function toggleProgramPop(e){
+  e.stopPropagation();
+  const pop=document.getElementById('programPop');
+  const catP=document.getElementById('catPop');if(catP)catP.style.display='none';
+  const focP=document.getElementById('focusPop');if(focP)focP.style.display='none';
+  const priP=document.getElementById('priPop');if(priP)priP.style.display='none';
+  if(pop.style.display==='none'){populateProgramPop();pop.style.display='flex';}
+  else pop.style.display='none';
+}
+function toggleProgramChip(val){
+  if(_programFilter.has(val))_programFilter.delete(val);else _programFilter.add(val);
+  updateProgramChips();onFilterChange();
+}
+function clearProgramFilter(){_programFilter.clear();updateProgramChips();const p=document.getElementById('programPop');if(p)p.style.display='none';onFilterChange();}
+function updateProgramChips(){
+  document.querySelectorAll('#programPop .pri-chip:not(.pri-chip-all)').forEach(c=>c.classList.toggle('on',_programFilter.has(c.dataset.val)));
+  const lbl=document.getElementById('programLabel');if(!lbl)return;
+  if(_programFilter.size===0)lbl.textContent='APP';
+  else if(_programFilter.size===1)lbl.textContent=[..._programFilter][0];
+  else lbl.textContent=`${_programFilter.size} APP`;
+  const funnel=document.getElementById('programFunnel');
+  if(funnel)funnel.style.display=_programFilter.size?'inline':'none';
+}
+// Canonical app names, matching root CLAUDE.md's path table — kept as one
+// list so the modal's suggestions and the filter popup both point people
+// toward the same spelling, rather than letting free text drift.
+const CANONICAL_PROGRAMS=['AmitCoder','Hub','who_is_god','Companion','AmitAccounting','ComputerValue','ComputerHealth','TheCouncil','AmitHealth','TenCommandments','Database','Templates','TalkToAmit','EMS_StudyGuide'];
+function populateProgramSuggestions(){
+  const dl=document.getElementById('programSuggestList');if(!dl)return;
+  const existing=[...new Set(load().map(t=>t.program).filter(Boolean))];
+  const vals=[...new Set([...CANONICAL_PROGRAMS,...existing])].sort();
+  dl.innerHTML=vals.map(v=>`<option value="${esc(v)}">`).join('');
+}
+function populateProgramPop(){
+  const pop=document.getElementById('programPop');if(!pop)return;
+  const data=load();
+  const vals=[...new Set(data.map(t=>t.program).filter(Boolean))].sort();
+  pop.innerHTML=vals.map(v=>`<span class="pri-chip${_programFilter.has(v)?' on':''}" data-val="${esc(v)}" onclick="event.stopPropagation();toggleProgramChip(this.dataset.val)">${esc(v)}</span>`).join('')+
+    `<span class="pri-chip pri-chip-all" onclick="event.stopPropagation();clearProgramFilter()">All</span>`;
 }
 // Per-column funnel clear helpers
 function clearDateFilter(){document.getElementById('dateFilter').value='';document.getElementById('dateRangeRow').classList.remove('open');onFilterChange();}
@@ -4025,6 +4083,7 @@ function getWeekEnd(){const d=new Date();d.setDate(d.getDate()+(6-d.getDay()));r
 function clearAllFilters(){
   _catFilter.clear();updateCatChips();
   _focusFilter.clear();updateFocusChips();
+  _programFilter.clear();updateProgramChips();
   document.getElementById('searchIn').value='';
   document.getElementById('dateFilter').value='';
   document.getElementById('dateRangeRow').classList.remove('open');
@@ -4041,7 +4100,7 @@ function updateFilterState(){
   const q=(document.getElementById('searchIn').value||'').trim();
   const dateF=document.getElementById('dateFilter').value;
   const recF=document.getElementById('recurFilter').value;
-  const any=!!(_catFilter.size||_focusFilter.size||q||dateF||recF||_starFilterActive||_priFilter.size);
+  const any=!!(_catFilter.size||_focusFilter.size||_programFilter.size||q||dateF||recF||_starFilterActive||_priFilter.size);
   document.getElementById('searchIn').classList.toggle('active',!!q);
   document.getElementById('dateFilter').classList.toggle('active',!!dateF);
   document.getElementById('recurFilter').classList.toggle('active',!!recF);
@@ -4056,7 +4115,7 @@ function updateFilterState(){
   if(bar){const drOpen=document.getElementById('dateRangeRow')&&document.getElementById('dateRangeRow').classList.contains('open');bar.style.display=(any||drOpen)?'flex':'none';}
 }
 function anyFilterActive(){
-  return!!(_catFilter.size||_focusFilter.size||
+  return!!(_catFilter.size||_focusFilter.size||_programFilter.size||
     (document.getElementById('searchIn').value||'').trim()||
     document.getElementById('dateFilter').value||
     document.getElementById('recurFilter').value||
@@ -4066,11 +4125,12 @@ function anyFilterActive(){
 function loadViews(){return JSON.parse(localStorage.getItem('amit-pursuit-views')||'[]');}
 function saveViews(v){localStorage.setItem('amit-pursuit-views',JSON.stringify(v));}
 function captureFilterState(){
-  return{cat:[..._catFilter],focus:[..._focusFilter],search:document.getElementById('searchIn').value,date:document.getElementById('dateFilter').value,dateFrom:document.getElementById('dateFrom').value,dateTo:document.getElementById('dateTo').value,recur:document.getElementById('recurFilter').value,pri:[..._priFilter],starred:_starFilterActive,sort:document.getElementById('sortSel').value};
+  return{cat:[..._catFilter],focus:[..._focusFilter],program:[..._programFilter],search:document.getElementById('searchIn').value,date:document.getElementById('dateFilter').value,dateFrom:document.getElementById('dateFrom').value,dateTo:document.getElementById('dateTo').value,recur:document.getElementById('recurFilter').value,pri:[..._priFilter],starred:_starFilterActive,sort:document.getElementById('sortSel').value};
 }
 function applyViewState(s){
   _catFilter=new Set(Array.isArray(s.cat)?s.cat:(s.cat?[s.cat]:[]));updateCatChips();
   _focusFilter=new Set(Array.isArray(s.focus)?s.focus:(s.focus?[s.focus]:[]));updateFocusChips();
+  _programFilter=new Set(Array.isArray(s.program)?s.program:(s.program?[s.program]:[]));updateProgramChips();
   document.getElementById('searchIn').value=s.search||'';
   document.getElementById('dateFilter').value=s.date||'';
   document.getElementById('dateRangeRow').classList.toggle('open',s.date==='range');
@@ -4187,6 +4247,7 @@ function render(){
   }
   if(_catFilter.size) filtered=filtered.filter(t=>_catFilter.has(t.cat));
   if(_focusFilter.size) filtered=filtered.filter(t=>_focusFilter.has(t.subcat||''));
+  if(_programFilter.size) filtered=filtered.filter(t=>_programFilter.has(t.program||''));
   const q=(document.getElementById('searchIn').value||'').trim().toLowerCase();
   if(q) filtered=filtered.filter(t=>t.title.toLowerCase().includes(q)||(t.notes&&t.notes.toLowerCase().includes(q))||(t.subcat&&t.subcat.toLowerCase().includes(q))||(t.tags&&t.tags.some(tg=>tg.toLowerCase().includes(q))));
   if(_priFilter.size>0) filtered=filtered.filter(t=>_priFilter.has(migrateOldPri(t.pri)));
@@ -4218,6 +4279,7 @@ function render(){
     let doneF=done;
     if(_catFilter.size) doneF=doneF.filter(t=>_catFilter.has(t.cat));
     if(_focusFilter.size) doneF=doneF.filter(t=>_focusFilter.has(t.subcat||''));
+    if(_programFilter.size) doneF=doneF.filter(t=>_programFilter.has(t.program||''));
     if(q) doneF=doneF.filter(t=>t.title.toLowerCase().includes(q));
     if(_priFilter.size>0) doneF=doneF.filter(t=>_priFilter.has(migrateOldPri(t.pri)));
     if(recF==='yes') doneF=doneF.filter(t=>t.recur&&t.recur!=='none');
@@ -4377,6 +4439,7 @@ function rowHTML(t,forceComplete,isCalDay){
     <input type="checkbox" class="task-sel-cb" data-id="${t.id}" disabled style="opacity:0;pointer-events:none">
     <div class="task-star${t.starred?' lit':''}" style="pointer-events:none;opacity:.4">⭐</div>
     <div class="cb${isDone?' done':''}" style="pointer-events:none;opacity:.4"></div>
+    <div class="task-col-program">${t.program?`<span class="subcat-label">${esc(t.program)}</span>`:''}</div>
     <div class="task-col-cat">${catLabel?`<span class="cat-badge">${esc(catLabel)}</span>`:''}</div>
     <div class="task-col-sub">${t.subcat?`<span class="subcat-label">${esc(t.subcat)}</span>`:''}</div>
     <div class="task-col-prog">${isProject?projectProgHtml(children):rowProgHtml(t,isDone)}</div>
@@ -4390,6 +4453,7 @@ function rowHTML(t,forceComplete,isCalDay){
     <input type="checkbox" class="task-sel-cb" data-id="${t.id}" onchange="bulkCbChange()" onclick="event.stopPropagation()">
     <div class="task-star${t.starred?' lit':''}" onclick="event.stopPropagation();toggleStar(${oid})">⭐</div>
     <div class="cb${isDone?' done':''}" onclick="event.stopPropagation();toggleDoneTask(${oid},'${_rowDate}',${isCalDay?1:0})"></div>
+    <div class="task-col-program" onclick="openEdit(${oid})">${t.program?`<span class="subcat-label" title="${esc(t.program)}">${esc(t.program)}</span>`:''}</div>
     <div class="task-col-cat" onclick="openEdit(${oid})">${catLabel?`<span class="cat-badge" title="${esc(catLabel)}">${esc(catLabel)}</span>`:''}</div>
     <div class="task-col-sub" onclick="openEdit(${oid})">${t.subcat?`<span class="subcat-label" title="${esc(t.subcat)}">${esc(t.subcat)}</span>`:''}</div>
     <div class="task-col-prog">${isProject?projectProgHtml(children):rowProgHtml(t,isDone)}</div>
@@ -4885,9 +4949,10 @@ function openExperienceModal(ds){
 function openModal(){
   editId=null;modalTags=[];modalSubtasks=[];modalPri=5;
   modalIsEdit=false;setModalMode('pursuit');setModalKind('pursuit');
-  ['mTitle','mNotes','mSubcat','mDate','mTime'].forEach(id=>{document.getElementById(id).value=''});
+  ['mTitle','mNotes','mSubcat','mDate','mTime','mProgram'].forEach(id=>{document.getElementById(id).value=''});
   document.getElementById('mCat').value='inbox';
   document.getElementById('mSubcat').value='';
+  populateProgramSuggestions();
   document.getElementById('mRecur').value='none';
   setTog('togStar',false);setTog('togDay',false);
   renderTags();renderSubtasks();renderPriBtns();
@@ -4932,6 +4997,8 @@ function openEdit(id){
   document.getElementById('mSessionNote').value=t.sessionNote||'';
   document.getElementById('mCat').value=t.cat||'inbox';
   document.getElementById('mSubcat').value=t.subcat||'';
+  document.getElementById('mProgram').value=t.program||'';
+  populateProgramSuggestions();
   document.getElementById('mDate').value=t.due||'';
   document.getElementById('mTime').value=t.dueTime||'';
   modalPri=migrateOldPri(t.pri);
@@ -5270,7 +5337,8 @@ function _commitSaveTask(title,cat,subcat,isExp,isMem){
   const isDone=isExp||isMem;
   const sessionNote=document.getElementById('mSessionNote').value.trim();
   const parentIdVal=document.getElementById('mParentId').value||null;
-  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,kind:modalKind,due:dueVal,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode,done:isDone,completedAt:isDone?Date.now():null,completedDate:isDone?dueVal:null,isExperience:isExp,...(isExp&&sessionNote?{sessionNote}:{}),parentId:parentIdVal};
+  const program=document.getElementById('mProgram').value.trim()||null;
+  const obj={title,notes:document.getElementById('mNotes').value.trim(),cat,subcat,program,kind:modalKind,due:dueVal,dueTime:document.getElementById('mTime').value||null,pri:modalPri,recur:document.getElementById('mRecur').value,starred:togVal('togStar'),myDay:togVal('togDay'),tags:[...modalTags],subtasks:modalSubtasks.map(s=>({...s})),mode:modalMode,done:isDone,completedAt:isDone?Date.now():null,completedDate:isDone?dueVal:null,isExperience:isExp,...(isExp&&sessionNote?{sessionNote}:{}),parentId:parentIdVal};
   if(subcat&&!isExp&&!isMem)addFocusItem(cat,subcat);
   const d=load();
   let _syncId;
