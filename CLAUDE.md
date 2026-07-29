@@ -96,18 +96,16 @@ This list is not locked. Add or adjust prefixes as the work requires. Apply to a
 
 ## VERSIONING STANDARD — All GitHub Pushes
 
-**Current version: 6.15**
+**PER-FILE INDEPENDENT VERSIONING — permanent, REVISED 2026-07-29 (Ryan's direct correction, replaces "ONE NUMBER, EVERYWHERE" below).** The single shared repo-wide number is retired. Ryan's own reasoning: if AmitCoder is on one version but some other file changing bumps a shared counter, there's no way to tell from the number alone which version of AmitCoder is actually live. The fix: **every page/module with a visible version badge tracks its own independent number, incremented +0.01 only when that specific file is actually edited.** No syncing across files, no shared counter, no "catching a badge up" to some other number. AmitCoder.html's badge, the Hub's badge, Computer Health's badge, The Council's badge — each is now its own separate history, exactly the thing the old rule spent two revisions explicitly forbidding. That old model is gone; do not revive it.
+- Format still vMAJOR.MINOR per file. Minor push (fix/feature/tweak): +0.01. Major rewrite: +1.00, minor resets.
+- Root `CLAUDE.md`/`VERSION` file's own number is likewise now just *its own* version — root-level system files' history, not a mirror of any individual page.
+- Commit messages should still name the version of whichever specific file(s) actually changed in that push (e.g., "AmitCoder v6.17 — ...") rather than implying a single number covers everything touched.
+- Starting baseline for existing pages: continue from whatever number each page already shows as of 2026-07-29 (do not reset any page back to v1.00 — that would erase real history for no reason). AmitCoder.html was at v6.16 when this rule changed; its next real edit is v6.17, tracked independently from here on.
 
-Format: vMAJOR.MINOR (e.g. v1.03)
-- **Minor push** (fix, feature, tweak): +0.01 — v1.00 → v1.01
-- **Major rewrite** (module rebuild, architecture change): +1.00, minor resets — v1.07 → v2.00
-- **Auto-rollover:** v1.99 → v2.00 automatically (100 minor pushes = major milestone by volume)
+<details><summary>Superseded rule, kept for history — do not follow</summary>
 
-Commit message format: `v1.03 — brief description of what changed`
-VERSION file at repo root holds the current number. Update it with every push.
-CLAUDE.md "Current version" line above updates with every push.
-
-**ONE NUMBER, EVERYWHERE — permanent, re-added 2026-07-19 after being lost once already, REVISED 2026-07-21 (Ryan's direct correction):** If any individual project page carries its own visible version badge (Hub, Computer Health, The Council, and any future project that adds one), that badge is never its own separate counter — the *number* is always the single repo-wide number, never a locally-invented one. But the rule for *when* to touch a badge changed on 2026-07-21: **only update a file's badge when that specific file is actually being changed in this push.** Do not bump every project's badge on every push regardless of what was touched — that was the old rule (2026-07-19) and Ryan corrected it directly. The new rule: whenever a file with a version badge is being edited for any reason, check that badge against the current repo-wide number before finishing that edit, and update it to match if it's behind. A file that isn't touched this session keeps whatever badge it already has, even if the repo-wide number moves past it — it will simply get caught up to the current number the next time that file is genuinely edited, not proactively. This means at any given moment, different project badges may legitimately show different numbers (each reflecting the version as of its own last real edit) — that is expected and correct under this rule, not a bug to reconcile. Do not "helpfully" sync every badge just because the repo-wide number changed; only touch a badge when its own file is already being changed for a real reason.
+**ONE NUMBER, EVERYWHERE (2026-07-19 through 2026-07-29, retired):** Required every page's version badge to show the single repo-wide number rather than its own counter. Retired because it produced exactly the confusion Ryan named: no way to tell which specific version of a given page was actually live just from looking at a shared number that other, unrelated file changes also moved.
+</details>
 # CLAUDE.md â€” Auto-Orientation for Every Session
 
 ## Read This First â€” Before Responding to Anything

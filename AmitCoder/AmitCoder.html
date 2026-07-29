@@ -217,7 +217,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.15</div>
+    <div class="page-version" id="pageVersion">v6.17</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -307,10 +307,10 @@ const PLACEHOLDER_COUNT=2;
     </div>`;
     if(i===2){
       // Tab labels and real content, in place of the template's generic "Tab N"
-      const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Pairing','Settings'];
+      const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Pairing','Library','Settings'];
       let tabNavHtml='',tabContentHtml='';
-      for(let t=1;t<=7;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':t===6?';loadPairingSessions()':''}">${tabNames[t-1]}</button>`;
+      for(let t=1;t<=8;t++){
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':t===6?';loadPairingSessions()':t===7?';loadLibrary()':''}">${tabNames[t-1]}</button>`;
         tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${tabRealContent(t)}</div>`;
       }
       panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
@@ -374,6 +374,7 @@ function tabRealContent(t){
         <button class="btn btn-gold btn-sm" onclick="toggleCreateForm()">+ new shortcut</button>
       </div>
       <div class="sc-form" id="scForm">
+        <div id="scFormTitle" style="color:var(--gold2);font-family:'Cinzel',serif;font-size:12px;letter-spacing:.05em;margin-bottom:10px">+ new shortcut</div>
         <label>Trigger phrase</label>
         <input type="text" id="scTrigger" placeholder="e.g. F copy, F Charlie, J search">
         <label>Type</label>
@@ -390,7 +391,7 @@ function tabRealContent(t){
         </div>
         <div class="sc-form-actions">
           <button class="btn btn-sm" onclick="toggleCreateForm()">cancel</button>
-          <button class="btn btn-gold btn-sm" onclick="saveShortcut()">save</button>
+          <button class="btn btn-gold btn-sm" id="scSaveBtn" onclick="saveShortcut()">save</button>
         </div>
       </div>
       <div class="sc-toolbar">
@@ -463,6 +464,40 @@ function tabRealContent(t){
       <div id="pairingList" style="margin-top:16px"></div>
       <div class="shortcuts-empty" id="pairingEmpty" style="display:none">No pairing sessions logged yet.</div>
       <div class="shortcuts-empty" id="pairingSignedOut">Sign in to log and see your pairing history.</div>`;
+  }
+  if(t===7){
+    return `<p>Share code, layouts, or functions you've built so other AmitCoder users can browse, search, and pull them into their own project — the same idea as npm or GitHub Gists, just for this community.</p>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn btn-gold btn-sm" onclick="toggleLibraryForm()">+ share code</button>
+      </div>
+      <div class="sc-form" id="libForm">
+        <label>Title</label>
+        <input type="text" id="libTitle" placeholder="e.g. Responsive card grid layout">
+        <label>Language / type</label>
+        <select id="libLanguage">
+          <option value="html">HTML</option>
+          <option value="css">CSS</option>
+          <option value="js">JavaScript</option>
+          <option value="sql">SQL</option>
+          <option value="powershell">PowerShell</option>
+          <option value="other">Other</option>
+        </select>
+        <label>Description</label>
+        <textarea id="libDescription" placeholder="What it does, how to use it" style="min-height:44px"></textarea>
+        <label>Code</label>
+        <textarea id="libCode" placeholder="Paste the actual code here" style="min-height:120px;font-family:monospace;font-size:12px"></textarea>
+        <div class="sc-form-actions">
+          <button class="btn btn-sm" onclick="toggleLibraryForm()">cancel</button>
+          <button class="btn btn-gold btn-sm" onclick="saveLibraryEntry()">share</button>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <input type="text" id="libSearchInput" placeholder="Search by title or language…" oninput="renderLibrary()"
+          style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;padding:9px 11px;color:#fff;font-size:13px;font-family:'Crimson Pro',serif">
+      </div>
+      <div id="libraryList"></div>
+      <div class="shortcuts-empty" id="libraryEmpty" style="display:none">Nothing shared yet — be the first.</div>
+      <div class="shortcuts-empty" id="librarySignedOut">Sign in to browse and share the code library.</div>`;
   }
   return `<div class="settings-row">
       <div><div class="settings-label">Your Account ID</div><div class="settings-sub">Paste this into the Starter Kit to link your local hooks (shortcuts + session history) to this account</div></div>
@@ -703,6 +738,79 @@ async function removeIdea(id){
   loadIdeas();
 }
 
+// ── COMMUNITY CODE LIBRARY — backed by amit_code_library (Supabase).
+// Shared/public read (any signed-in user sees everyone's entries), authors
+// manage their own. Download builds a real file client-side (Blob + <a
+// download>) so "pull it to their system" actually produces a saved file,
+// not just a copy-paste.
+let libAllEntries=[];
+function toggleLibraryForm(){
+  document.getElementById('libForm').classList.toggle('open');
+}
+async function loadLibrary(){
+  const list=document.getElementById('libraryList');
+  const empty=document.getElementById('libraryEmpty');
+  const signedOut=document.getElementById('librarySignedOut');
+  if(!db||!list)return;
+  if(!currentUser){signedOut.style.display='block';empty.style.display='none';list.innerHTML='';return;}
+  signedOut.style.display='none';
+  const{data,error}=await db.from('amit_code_library').select('*').order('created_at',{ascending:false});
+  if(error){list.innerHTML='<div style="color:var(--dim);font-size:12px">Could not load the library yet - has the amit_code_library table been created?</div>';return;}
+  libAllEntries=data||[];
+  renderLibrary();
+}
+function renderLibrary(){
+  const list=document.getElementById('libraryList');
+  const empty=document.getElementById('libraryEmpty');
+  if(!list)return;
+  const q=(document.getElementById('libSearchInput')?.value||'').toLowerCase();
+  const rows=libAllEntries.filter(e=>!q||e.title.toLowerCase().includes(q)||(e.language||'').toLowerCase().includes(q));
+  if(!rows.length){empty.style.display='block';list.innerHTML='';return;}
+  empty.style.display='none';
+  list.innerHTML=rows.map(e=>`<div class="sc-card">
+    <div class="sc-card-head" style="cursor:default">
+      <span class="trigger-tag">${escapeHtml(e.language||'other')}</span>
+      <span class="sc-instruction" style="font-weight:600;color:var(--text2);white-space:normal">${escapeHtml(e.title)}</span>
+      <button class="btn btn-sm" onclick="downloadLibraryEntry('${e.id}')">⬇ download</button>
+      ${e.user_id===currentUser.id?`<button class="btn btn-sm" onclick="removeLibraryEntry('${e.id}')">remove</button>`:''}
+    </div>
+    <div class="sc-sub-row" style="padding:10px 14px"><span class="sc-sub-instruction">${escapeHtml(e.description||'')}</span></div>
+  </div>`).join('');
+}
+async function saveLibraryEntry(){
+  if(!db||!currentUser){alert('Sign in first.');return;}
+  const title=document.getElementById('libTitle').value.trim();
+  const language=document.getElementById('libLanguage').value;
+  const description=document.getElementById('libDescription').value.trim();
+  const code=document.getElementById('libCode').value;
+  if(!title||!code.trim()){alert('Title and code are both required.');return;}
+  const{error}=await db.from('amit_code_library').insert({
+    user_id:currentUser.id,title,language,description,code
+  });
+  if(error){alert('Could not share: '+error.message);return;}
+  document.getElementById('libTitle').value='';
+  document.getElementById('libDescription').value='';
+  document.getElementById('libCode').value='';
+  toggleLibraryForm();
+  loadLibrary();
+}
+function downloadLibraryEntry(id){
+  const e=libAllEntries.find(r=>r.id===id);
+  if(!e)return;
+  const ext={html:'html',css:'css',js:'js',sql:'sql',powershell:'ps1',other:'txt'}[e.language]||'txt';
+  const blob=new Blob([e.code],{type:'text/plain'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(e.title.replace(/[^a-z0-9]+/gi,'_')||'shared_code')+'.'+ext;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+async function removeLibraryEntry(id){
+  if(!db)return;
+  await db.from('amit_code_library').delete().eq('id',id);
+  loadLibrary();
+}
+
 // ── PAIRING LOG — backed by amit_pairing_sessions (Supabase). Manual, not
 // automatic - Live Share itself has no API to auto-detect a session from
 // here; this just gives the invite link and notes a permanent, discoverable
@@ -790,12 +898,13 @@ function renderShortcuts(){
     const canLink=!m.is_builtin; // builtins stay read-only for regular users, per RLS
     const otherMasters=masters.filter(o=>o.id!==m.id&&!o.is_builtin);
     html+=`<div class="sc-card${m.is_builtin?' builtin':''}" id="sc-card-${m.id}">
-      <div class="sc-card-head" onclick="toggleCard('${m.id}')">
+      <div class="sc-card-head" onclick="toggleCard('${m.id}')" ${canLink?`ondblclick="event.stopPropagation();editShortcut('${m.id}')"`:''} title="${canLink?'Double-click to edit':'Builtin — read-only'}">
         <span class="sc-caret">▶</span>
         <span class="${tagClass}">${escapeHtml(m.trigger_phrase)}</span>
         <span class="sc-type">${m.shortcut_type.replace('_',' ')}</span>
         <span class="sc-instruction">${escapeHtml(displaySource.instruction_text||'')}</span>
         ${aliasTarget?`<span class="sc-origin">🔗 linked to ${escapeHtml(aliasTarget.trigger_phrase)}</span>`:`<span class="sc-origin">${m.is_builtin?'builtin':'custom'}</span>`}
+        ${canLink?`<button class="btn btn-sm" onclick="event.stopPropagation();editShortcut('${m.id}')">✎ edit</button>`:''}
         ${canLink?`<button class="btn btn-sm" onclick="event.stopPropagation();toggleLinkPicker('${m.id}')">${aliasTarget?'unlink':'🔗 link'}</button>`:''}
         <label class="toggle" onclick="event.stopPropagation()">
           <input type="checkbox" ${m.is_active?'checked':''} ${m.is_builtin?'disabled':''} onchange="toggleActive('${m.id}',this.checked)">
@@ -850,16 +959,53 @@ async function toggleActive(id,val){
   const row=scAllRows.find(r=>r.id===id);if(row)row.is_active=val;
 }
 function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+let scEditingId=null;
 function toggleCreateForm(){
   const f=document.getElementById('scForm');
+  const wasOpenForEdit=scEditingId!==null;
   f.classList.toggle('open');
-  if(f.classList.contains('open')){
+  scEditingId=null; // opening fresh (or closing) always clears edit mode
+  document.getElementById('scFormTitle').textContent='+ new shortcut';
+  document.getElementById('scSaveBtn').textContent='save';
+  if(f.classList.contains('open')&&!wasOpenForEdit){
     document.getElementById('scTrigger').value='';
     document.getElementById('scInstruction').value='';
     document.getElementById('scType').value='inline_instruction';
     document.getElementById('scSubtaskRows').innerHTML='';
     onTypeChange();
+  } else if(!f.classList.contains('open')){
+    // closed
   }
+}
+// Double-click a custom shortcut's card to edit it - pre-fills the same
+// form used for creating, but in update mode. Builtins never reach this
+// (the card head only wires ondblclick when canLink/!is_builtin is true).
+function editShortcut(id){
+  const m=scAllRows.find(r=>r.id===id);
+  if(!m||m.is_builtin)return;
+  const f=document.getElementById('scForm');
+  scEditingId=id;
+  document.getElementById('scFormTitle').textContent='editing: '+m.trigger_phrase;
+  document.getElementById('scSaveBtn').textContent='update';
+  document.getElementById('scTrigger').value=m.trigger_phrase;
+  document.getElementById('scType').value=m.shortcut_type;
+  document.getElementById('scInstruction').value=m.instruction_text||'';
+  const subs=scAllRows.filter(r=>r.parent_shortcut_id===id).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  document.getElementById('scSubtaskRows').innerHTML='';
+  subs.forEach(s=>{
+    addSubtaskRow();
+    const row=document.getElementById('scSubtaskRows').lastElementChild;
+    if(s.referenced_shortcut_id){
+      row.querySelector('.sub-mode').value='existing';
+      toggleSubMode(row.querySelector('.sub-mode'));
+      row.querySelector('.sub-existing').value=s.referenced_shortcut_id;
+    } else {
+      row.querySelector('.sub-trigger').value=s.trigger_phrase||'';
+      row.querySelector('.sub-instruction').value=s.instruction_text||'';
+    }
+  });
+  onTypeChange();
+  if(!f.classList.contains('open'))f.classList.add('open');
 }
 function onTypeChange(){
   document.getElementById('scSubtasksWrap').style.display=document.getElementById('scType').value==='master'?'block':'none';
@@ -900,11 +1046,27 @@ async function saveShortcut(){
   const type=document.getElementById('scType').value;
   const instruction=document.getElementById('scInstruction').value.trim();
   if(!trigger){alert('Trigger phrase is required.');return;}
-  const{data:master,error}=await db.from('amit_shortcuts').insert({
-    user_id:currentUser.id,trigger_phrase:trigger,shortcut_type:type,
-    instruction_text:instruction,is_builtin:false,is_active:true
-  }).select().single();
-  if(error){alert('Could not save: '+error.message);return;}
+
+  let master;
+  if(scEditingId){
+    // Editing an existing shortcut: update the master row in place, then
+    // replace its subtasks wholesale (delete + reinsert) rather than diff
+    // them - simpler and safe since subtasks have no identity outside their
+    // parent.
+    const{data,error}=await db.from('amit_shortcuts').update({
+      trigger_phrase:trigger,shortcut_type:type,instruction_text:instruction
+    }).eq('id',scEditingId).select().single();
+    if(error){alert('Could not update: '+error.message);return;}
+    master=data;
+    await db.from('amit_shortcuts').delete().eq('parent_shortcut_id',master.id);
+  } else {
+    const{data,error}=await db.from('amit_shortcuts').insert({
+      user_id:currentUser.id,trigger_phrase:trigger,shortcut_type:type,
+      instruction_text:instruction,is_builtin:false,is_active:true
+    }).select().single();
+    if(error){alert('Could not save: '+error.message);return;}
+    master=data;
+  }
   if(type==='master'){
     const rows=[...document.querySelectorAll('#scSubtaskRows .sc-subtask-row')];
     for(let i=0;i<rows.length;i++){

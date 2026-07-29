@@ -215,6 +215,49 @@ Concretely, that means replicating, for a new user, automatically:
 - **No new table needed for general communication style** — `user_profiles.communication_style` already exists and already holds exactly this kind of data for Ryan's own profile. A new AmitCoder user's profile carries the same field.
 - **A new, separate table is recommended for the specific transcription-quirk dictionary** — proposed name `amit_transcription_quirks` (`user_id`, `heard_as`, `means`, `created_at`). This is deliberately NOT AmitCoder-specific — any Amit app reading dictated speech benefits from it, so it should live at the shared profile level, not siloed here. Not created yet; this is a recommendation pending Ryan's confirmation, same as the bigger architecture question above.
 
+## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
+
+Ryan retired the shared repo-wide version number this session — every page's badge, including this one, is now its own independent counter, incremented +0.01 only when that specific file is actually edited. See root `CLAUDE.md`'s VERSIONING STANDARD for the full rule and why. AmitCoder.html continues from v6.16 (its value when the rule changed) — do not reset it to v1.00.
+
+## Double-Click to Edit Shortcuts (added 2026-07-29)
+
+Double-clicking a **custom** shortcut's card header opens the same create-form, pre-filled, in edit mode (an explicit "✎ edit" button does the same thing, since double-click alone isn't very discoverable). Saving in edit mode updates the existing row in place and replaces its subtasks wholesale (delete all + reinsert) rather than diffing them — simpler and safe since subtasks have no identity outside their parent shortcut. Builtins never get this — the card header only wires `ondblclick`/shows the edit button when `!is_builtin`.
+
+## Community Code Library (added 2026-07-29) — New 7th Tab, "Library"
+
+Direct response to Ryan's real question: what makes AmitCoder worth paying for, not just a setup wizard. Any signed-in user can share code/templates (title, language, description, the actual code) into a shared table, and any other signed-in user can browse, search (client-side, by title/language), and **download a real file** (a `<a download>` Blob, not just copy-paste) built from the shared entry. This is the "community library" idea from the Future Ideas backlog — built for real this round, not just logged.
+
+**Migration — `amit_code_library`, pending confirmation:**
+```sql
+create table amit_code_library (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) not null,
+  title text not null,
+  language text,
+  description text,
+  code text not null,
+  created_at timestamptz default now()
+);
+
+alter table amit_code_library enable row level security;
+
+create policy "Any signed-in user can read the library"
+  on amit_code_library for select
+  using (auth.uid() is not null);
+
+create policy "Signed-in users can share code"
+  on amit_code_library for insert
+  with check (auth.uid() = user_id);
+
+create policy "Authors can remove their own entries"
+  on amit_code_library for delete
+  using (auth.uid() = user_id);
+```
+
+**Real, honest limits, not yet solved:** no code review, moderation, or malicious-code screening — someone downloading a shared entry is trusting the listed author, same as npm/Gists trust their own contributors. No versioning of a shared entry (editing/re-sharing creates a new row, doesn't update the original) — worth a real decision if this gets used seriously. No syntax highlighting in the preview (the code textarea when creating an entry is plain, not highlighted) — a nice-to-have, not built.
+
+**Real bug found and fixed this round, worth remembering:** the original `amit_coder_ideas` RLS policy was a single combined `FOR ALL ... USING (...) WITH CHECK (...)`. Ryan reported it live and reproducibly: data existed (confirmed via service key), the page correctly detected he was signed in, but the SELECT still returned zero rows. Fixed by splitting into three separate, single-purpose policies (`FOR SELECT`, `FOR INSERT`, `FOR DELETE`) instead of one combined policy. **Going forward, prefer split single-action policies over one combined `FOR ALL` policy for any new shared/multi-user table** — easier to reason about and apparently more reliable in practice.
+
 ## Future Ideas — Brainstormed 2026-07-29, Not Built, Also Live in the Page's "+" Button
 
 Ryan's real question underneath this list: right now AmitCoder is mostly setup/scaffolding — what would actually make it worth paying for, worth being the premium tier that funds the Hub? These are captured here AND as real, editable rows in the `amit_coder_ideas` table (visible via the "+" button on the page itself) so the list can be added to or pruned without needing a CLAUDE.md edit each time.
