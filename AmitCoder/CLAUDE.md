@@ -215,6 +215,25 @@ Concretely, that means replicating, for a new user, automatically:
 - **No new table needed for general communication style** — `user_profiles.communication_style` already exists and already holds exactly this kind of data for Ryan's own profile. A new AmitCoder user's profile carries the same field.
 - **A new, separate table is recommended for the specific transcription-quirk dictionary** — proposed name `amit_transcription_quirks` (`user_id`, `heard_as`, `means`, `created_at`). This is deliberately NOT AmitCoder-specific — any Amit app reading dictated speech benefits from it, so it should live at the shared profile level, not siloed here. Not created yet; this is a recommendation pending Ryan's confirmation, same as the bigger architecture question above.
 
+## F = User's Own, J = Amit's Builtin Package (permanent convention, set 2026-07-29)
+
+Ryan set this explicitly after several rounds of design discussion (data model for coding memory/pursuits, then this final naming decision): **F is reserved for shortcuts the user creates — fully custom, fully theirs. J is the fixed builtin package that ships with AmitCoder, and can never be edited or removed by any user** (already enforced structurally by `is_builtin` + RLS, not just a UI convention — a regular signed-in user's write against a builtin row fails the RLS `with check` clause). This is a real correction from earlier in the session, where F and J were just "same convention, either hand" with builtins seeded under both — that ambiguity is exactly the kind of inconsistent taxonomy Ryan has been naming as the recurring problem tonight (in CLAUDE.md sprawl, in pursuit `focus` values, now here too). Fixed by migrating the two builtins that had been seeded under F (`F copy`, `F repeat`) to J (`J copy`, `J repeat`) via the service key, since Amit built them - they were never actually user-custom. F now correctly has zero builtin subtasks.
+
+**Current J package (five subtasks, all builtin, all read-only to regular users):** `J copy` (reads OS clipboard), `J repeat` (reprints last response), `J search` (asks what to search this session for), and two new ones described below.
+
+## Future Improvements Now Route Through hub_entries, Not a Separate Table (decided 2026-07-29)
+
+Ryan's real question: how do coders capture anything they want to remember or improve — not just debugging, anything — in a way that's actually findable later, without building a separate bespoke system per app (which is exactly what `amit_coder_ideas` was becoming). The answer: reuse `hub_entries` — already built, already tied to login via RLS, and already has a real browsing UI in the Hub's own Pursuits/Memories panels that a human can use with zero AI involved. The standard, to make this actually searchable rather than just possible:
+- **`purpose` = `'Craft'`, always** — the pursuit taxonomy's existing build/coding category (see root CLAUDE.md's morning-routine categorization), not a new one invented for this.
+- **`focus` = the exact canonical app name**, spelled identically every time, from the fixed list in root CLAUDE.md's path table (`AmitCoder`, `Hub`, `who_is_god`, etc.) — never free text, or search silently breaks.
+- **`notes` starts with a `File: path/to/file` line** when a specific file/function is relevant — a discipline, not a new column, so file-level traceability doesn't require a schema change.
+
+**New builtin J shortcuts wired to this convention:**
+- **`J save idea`** — asks what app the idea is for and what it is, then inserts a `hub_entries` row following the standard above (`kind=pursuit`, `purpose=Craft`, `focus=<app>`, `starred=true`, `done=false`).
+- **`J pull ideas`** — queries `hub_entries` for the signed-in user's open Craft pursuits, optionally filtered by app, and lists them.
+
+**Real open decision, not yet made — do not silently act on this:** the AmitCoder page's own "+" Future Ideas button and its `amit_coder_ideas` table still exist and still work, built before this convention was settled. Whether to retire that table and rebuild the "+" button to read/write `hub_entries` directly instead (so there's genuinely one system, not two) is a real, deliberate decision Ryan has been asked about but had not yet confirmed as of this entry. Don't remove `amit_coder_ideas` without that explicit go-ahead — it's still live and functional in the meantime.
+
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 
 Ryan retired the shared repo-wide version number this session — every page's badge, including this one, is now its own independent counter, incremented +0.01 only when that specific file is actually edited. See root `CLAUDE.md`'s VERSIONING STANDARD for the full rule and why. AmitCoder.html continues from v6.16 (its value when the rule changed) — do not reset it to v1.00.
