@@ -217,7 +217,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.10</div>
+    <div class="page-version" id="pageVersion">v6.11</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -320,7 +320,12 @@ const PLACEHOLDER_COUNT=2;
   </div>`;
   nav.innerHTML=navHtml;
   main.innerHTML=panelHtml;
-  renderChecklist();
+  // renderChecklist() is intentionally NOT called here — it's defined much
+  // later in this script (const CHECKLIST_STEPS lives in the additive
+  // section below), and calling it this early would throw a temporal-dead-
+  // zone ReferenceError, which silently aborted every line after this IIFE,
+  // including the login-state listener below. See the real call at the
+  // bottom of this script, after CHECKLIST_STEPS is actually declared.
 })();
 
 // Real content for each of the 5 Overview tabs. Kept as a plain function
