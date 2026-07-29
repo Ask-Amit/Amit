@@ -246,6 +246,10 @@ Ryan wanted the Hub's own Pursuits table to be sortable/filterable by which HTML
 
 **`J save idea` corrected same session:** originally asked the user what app/program an idea was for. Same mistake as the modal above — fixed so it infers `program` itself from the actual current working context (which project folder/CLAUDE.md the session is in) and never asks.
 
+**Generalization confirmed by Ryan, same session — this is not just for Ryan's own Amit apps.** Any AmitCoder user building their own separate application (his example: someone developing an app called "mushrooms") gets the exact same treatment — `program` is stamped from whatever project folder/context they're actually working in, whatever they've named it, never from a fixed list. This already works correctly as built: the datalist/suggestions tied to a fixed canonical-app list were removed entirely as part of the same fix, so `program` is genuinely free-text, inferred from context — not an enum of Amit's own apps. Applies identically whether the pursuit is Craft (coding), Spiritual, or any other purpose — the field identifies *where a pursuit came from*, universally, not just for coding projects.
+
+**Naming note, not yet resolved:** Ryan flagged that "App / Program" may not be the clearest name for this concept, given it needs to describe "whichever application or context originated this" across every purpose category, not just coding. No renaming done yet — revisit if a clearer term surfaces (something like "Source," "Origin," or similar), but not urgent enough to touch the column name or code right now.
+
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 
 Ryan retired the shared repo-wide version number this session — every page's badge, including this one, is now its own independent counter, incremented +0.01 only when that specific file is actually edited. See root `CLAUDE.md`'s VERSIONING STANDARD for the full rule and why. AmitCoder.html continues from v6.16 (its value when the rule changed) — do not reset it to v1.00.
