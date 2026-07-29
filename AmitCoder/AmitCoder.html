@@ -217,7 +217,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.12</div>
+    <div class="page-version" id="pageVersion">v6.14</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -287,10 +287,10 @@ const PLACEHOLDER_COUNT=2;
     </div>`;
     if(i===2){
       // Tab labels and real content, in place of the template's generic "Tab N"
-      const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Settings'];
+      const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Pairing','Settings'];
       let tabNavHtml='',tabContentHtml='';
-      for(let t=1;t<=6;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':''}">${tabNames[t-1]}</button>`;
+      for(let t=1;t<=7;t++){
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':t===6?';loadPairingSessions()':''}">${tabNames[t-1]}</button>`;
         tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${tabRealContent(t)}</div>`;
       }
       panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
@@ -420,7 +420,29 @@ function tabRealContent(t){
       <h3>Automated tests <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Not built — bigger lift</span></h3>
       <p>Small scripts that automatically re-check old features still work as new ones get added. Genuinely valuable at scale, but a real investment to set up — not included yet.</p>
       <h3>Secrets kept out of git <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Already good practice</span></h3>
-      <p>Config files holding real credentials should never be committed. This is already the right instinct if you keep a local-only config file — formalizing it as a <code>.env</code> + <code>.gitignore</code> pair is the standard shape of the same idea.</p>`;
+      <p>Config files holding real credentials should never be committed. This is already the right instinct if you keep a local-only config file — formalizing it as a <code>.env</code> + <code>.gitignore</code> pair is the standard shape of the same idea.</p>
+      <h3>Workspace settings, committed to the project <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
+      <p><code>.vscode/settings.json</code> (format-on-save, consistent editor rules) and <code>.vscode/extensions.json</code> (recommended extensions — Prettier, ESLint, GitLens, Error Lens, Thunder Client, Live Share) are committed to the project, so anyone who opens it gets the same setup automatically instead of configuring it by hand.</p>
+      <h3>A Dev Container <span class="badge" style="margin:0 0 0 8px;vertical-align:middle">Built into Starter Kit</span></h3>
+      <p><code>.devcontainer/devcontainer.json</code> is VS Code's own built-in answer to "give someone my exact environment" — open the project, and VS Code offers to reopen it inside a fully reproducible container with the same tools, same extensions, every time.</p>`;
+  }
+  if(t===6){
+    return `<p>Live Share is free — built into VS Code, no premium tier. It's for real-time coding collaboration (co-editing, shared terminal, shared debugging), not for connecting two people's separate Hub or AmitCoder accounts — that's a different thing entirely, handled by your own sign-in, not by Live Share.</p>
+      <p>Start a session in VS Code, copy the invite link it gives you, and log it below — your pairing history stays with your AmitCoder account, discoverable later, instead of disappearing once the session ends.</p>
+      <div class="sc-form" id="pairForm" style="margin-top:16px">
+        <label>Who you paired with</label>
+        <input type="text" id="pairPartner" placeholder="e.g. Andy">
+        <label>Live Share link</label>
+        <input type="text" id="pairLink" placeholder="https://prod.liveshare.vsengsaas.visualstudio.com/join?...">
+        <label>Notes</label>
+        <textarea id="pairNotes" placeholder="What you worked on"></textarea>
+        <div class="sc-form-actions">
+          <button class="btn btn-gold btn-sm" onclick="savePairingSession()">save</button>
+        </div>
+      </div>
+      <div id="pairingList" style="margin-top:16px"></div>
+      <div class="shortcuts-empty" id="pairingEmpty" style="display:none">No pairing sessions logged yet.</div>
+      <div class="shortcuts-empty" id="pairingSignedOut">Sign in to log and see your pairing history.</div>`;
   }
   return `<div class="settings-row">
       <div><div class="settings-label">Your Account ID</div><div class="settings-sub">Paste this into the Starter Kit to link your local hooks (shortcuts + session history) to this account</div></div>
@@ -621,6 +643,40 @@ async function loadCoderSessions(){
     <div class="history-day-date">${new Date(s.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
     <div class="history-day-summary">${escapeHtml(s.summary||'')}</div>
   </div>`).join('');
+}
+
+// ── PAIRING LOG — backed by amit_pairing_sessions (Supabase). Manual, not
+// automatic - Live Share itself has no API to auto-detect a session from
+// here; this just gives the invite link and notes a permanent, discoverable
+// home instead of disappearing once the session ends. ──
+async function loadPairingSessions(){
+  const list=document.getElementById('pairingList');
+  const empty=document.getElementById('pairingEmpty');
+  const signedOut=document.getElementById('pairingSignedOut');
+  if(!db||!list)return;
+  if(!currentUser){signedOut.style.display='block';empty.style.display='none';list.innerHTML='';return;}
+  signedOut.style.display='none';
+  const{data,error}=await db.from('amit_pairing_sessions').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false});
+  if(error||!data||!data.length){empty.style.display='block';list.innerHTML='';return;}
+  empty.style.display='none';
+  list.innerHTML=data.map(p=>`<div class="history-day">
+    <div class="history-day-date">${new Date(p.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · with ${escapeHtml(p.partner_name||'—')}</div>
+    <div class="history-day-summary">${escapeHtml(p.notes||'')}${p.live_share_link?` — <a href="${escapeHtml(p.live_share_link)}" target="_blank" style="color:var(--gold)">link</a>`:''}</div>
+  </div>`).join('');
+}
+async function savePairingSession(){
+  if(!db||!currentUser){alert('Sign in first.');return;}
+  const partner=document.getElementById('pairPartner').value.trim();
+  const link=document.getElementById('pairLink').value.trim();
+  const notes=document.getElementById('pairNotes').value.trim();
+  const{error}=await db.from('amit_pairing_sessions').insert({
+    user_id:currentUser.id,partner_name:partner,live_share_link:link,notes:notes
+  });
+  if(error){alert('Could not save: '+error.message);return;}
+  document.getElementById('pairPartner').value='';
+  document.getElementById('pairLink').value='';
+  document.getElementById('pairNotes').value='';
+  loadPairingSessions();
 }
 
 // ── SHORTCUTS — backed by amit_shortcuts (Supabase) ──

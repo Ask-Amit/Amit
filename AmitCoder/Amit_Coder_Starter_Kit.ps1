@@ -298,9 +298,72 @@ try {
 Set-Content -Path (Join-Path $hooksPath "Amit_Coder_SessionEnd.ps1") -Value $sessionEndScript -Encoding utf8
 Write-Host "Created hooks/Amit_Coder_SessionStart.ps1 and hooks/Amit_Coder_SessionEnd.ps1" -ForegroundColor Green
 
+# 10. .vscode/ config - workspace settings + recommended extensions, committed
+# to the project so anyone opening it gets the same editor behavior
+# automatically (format-on-save, same lint rules) without configuring it
+# by hand. Researched 2026-07-29 against current VS Code best-practice
+# guidance - see AmitCoder/CLAUDE.md for sources.
+$vscodePath = Join-Path $projectRoot ".vscode"
+if (-not (Test-Path $vscodePath)) {
+    New-Item -ItemType Directory -Path $vscodePath -Force | Out-Null
+    $settingsJson = @'
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "files.autoSave": "onFocusChange",
+  "editor.rulers": [100]
+}
+'@
+    Set-Content -Path (Join-Path $vscodePath "settings.json") -Value $settingsJson -Encoding utf8
+    $extensionsJson = @'
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "eamodio.gitlens",
+    "usernamehw.errorlens",
+    "rangav.vscode-thunder-client",
+    "ms-vsliveshare.vsliveshare"
+  ]
+}
+'@
+    Set-Content -Path (Join-Path $vscodePath "extensions.json") -Value $extensionsJson -Encoding utf8
+    Write-Host "Created .vscode/settings.json and .vscode/extensions.json (VS Code will prompt to install the recommended extensions on first open)" -ForegroundColor Green
+}
+
+# 11. Dev Container template - Microsoft's own built-in answer to "give
+# someone my exact setup," arguably stronger than scripts alone since VS
+# Code natively offers to reopen the folder inside it. Kept minimal since
+# most Amit projects are static HTML/JS with no real build step - this is
+# a starting point to extend, not a full Node/Python toolchain.
+$devcontainerPath = Join-Path $projectRoot ".devcontainer"
+if (-not (Test-Path $devcontainerPath)) {
+    New-Item -ItemType Directory -Path $devcontainerPath -Force | Out-Null
+    $devcontainerJson = @'
+{
+  "name": "Amit Coder Project",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "eamodio.gitlens"
+      ]
+    }
+  }
+}
+'@
+    Set-Content -Path (Join-Path $devcontainerPath "devcontainer.json") -Value $devcontainerJson -Encoding utf8
+    Write-Host "Created .devcontainer/devcontainer.json (VS Code will offer to reopen the project in this container)" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "=== Done ===" -ForegroundColor Yellow
 Write-Host "Your project folder is ready at: $projectRoot"
 Write-Host "Next: open this folder in VS Code, open the Claude Code extension, and say `"good morning`"."
-Write-Host "Also created: migrations/, .github/workflows/basic-check.yml, Start_Local_Server.ps1, New_Feature_Branch.ps1, and hooks/ (session-linking scripts)."
+Write-Host "Also created: migrations/, .github/workflows/basic-check.yml, Start_Local_Server.ps1, New_Feature_Branch.ps1, hooks/ (session-linking scripts), .vscode/ (settings + recommended extensions incl. Live Share), and .devcontainer/ (reproducible setup)."
 Write-Host ""

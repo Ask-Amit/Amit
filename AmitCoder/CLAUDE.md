@@ -136,6 +136,36 @@ alter table amit_shortcuts
 alter table amit_shortcuts add column alias_of uuid references amit_shortcuts(id);
 ```
 
+**New this round — VS Code best practices research applied + Pairing Log:** Researched current (2026) VS Code best-practice guidance (see Sources below) before adding anything, rather than guessing. Added to the Starter Kit: `.vscode/settings.json` + `.vscode/extensions.json` (format-on-save, recommended extensions — Prettier, ESLint, GitLens, Error Lens, Thunder Client, Live Share), and a minimal `.devcontainer/devcontainer.json` (VS Code's own built-in mechanism for "give someone my exact environment," arguably stronger than scripts alone). Also clarified for Ryan directly: Live Share is free (no premium tier), but it's a real-time *coding* collaboration tool (co-editing, shared terminal/debugging) — it does NOT connect two people's separate Hub/AmitCoder accounts or data; that would be a different, Supabase-level feature if ever wanted.
+
+Built a 7th tab, **Pairing** — a manual log, not an automatic bridge. Live Share has no API for this page to detect a session starting or ending on its own; building that would require a real custom VS Code extension, a materially bigger project than this session's scope. What exists instead: paste in the Live Share invite link, who you paired with, and notes, saved to a new `amit_pairing_sessions` table — gives pairing sessions a permanent, discoverable home instead of vanishing once the Live Share session ends.
+
+**Migration — `amit_pairing_sessions`, NOT YET RUN:**
+```sql
+create table amit_pairing_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) not null,
+  partner_name text,
+  live_share_link text,
+  notes text,
+  created_at timestamptz default now()
+);
+
+alter table amit_pairing_sessions enable row level security;
+
+create policy "Users manage their own pairing sessions"
+  on amit_pairing_sessions for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
+
+**Sources for the VS Code best-practices research (2026-07-29):**
+- [User and workspace settings](https://code.visualstudio.com/docs/getstarted/settings)
+- [Create a Dev Container](https://code.visualstudio.com/docs/devcontainers/create-dev-container)
+- [Developing inside a Container](https://code.visualstudio.com/docs/devcontainers/containers)
+- [Live Share: Real-Time Code Collaboration](https://visualstudio.microsoft.com/services/live-share/)
+- [Top 14 VS Code Extensions for 2026](https://www.aikido.dev/blog/top-vs-code-extensions)
+
 **Migration — `amit_coder_sessions`, RUN, confirmed live:**
 ```sql
 create table amit_coder_sessions (
