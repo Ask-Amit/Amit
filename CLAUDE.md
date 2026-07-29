@@ -189,6 +189,23 @@ Add the new project to the active build list.
 **Step 4 — Carry the Amit identity forward**
 Every project CLAUDE.md must reference that this is part of the Amit system — one character, one mission. The new project inherits the identity. It does not stand alone.
 
+**Step 4c — Write the program-stamping clause (added 2026-07-29, tied to the `hub_entries.program` column built this session)**
+Every new project's CLAUDE.md must include this exact clause, with the project's own name filled in once and used identically everywhere thereafter — never a variant spelling, never re-derived per pursuit:
+
+```
+## Pursuit Attribution — Permanent
+
+This project's canonical name, for any pursuit created from within it, is: **[ExactProjectName]**
+
+Any pursuit written to hub_entries from this project must be stamped `program='[ExactProjectName]'` — automatically, by this project's own code or by Amit acting on its behalf, using this exact spelling every time. Never ask the person creating the pursuit *what* program a specific pursuit belongs to — that's always this project's own name, decided once, not per-item.
+
+**If this project doesn't have a canonical name recorded yet**, ask the person building it what this application should be called, before creating its first pursuit — and say why: so it can be found later, correctly, in their pursuits/to-do list. Record the answer here and reuse it every time after. Don't ask again once it's set.
+
+**If the name changes later**, that's a deliberate rename operation (AmitCoder's `J rename pursuit` builtin shortcut does this) — update this section to the new name, and update every existing pursuit (including completed ones/memories) stamped with the old name to the new one, so the full history stays under one consistent identifier.
+```
+
+This is what makes the "App/Program" field on a pursuit self-populating instead of a manually-maintained convention — see `AmitCoder\CLAUDE.md`'s "Hub Pursuits — New App Column" and "Generalization confirmed by Ryan" sections for the full origin and reasoning, including why this must apply identically to a stranger's own app built inside AmitCoder (e.g., someone's own project called "mushrooms"), not just Amit's own apps.
+
 **Step 4b — Wire any "Ask Amit" button to the shared activation mechanism (added 2026-07-25)**
 If the new project has, or will have, an "Ask Amit" button anywhere in its UI, it must use the shared `Amit_Ask_Live.js` mechanism (at Amit root — full documentation and the permanent pattern to follow live in that file's own header comment and in `Amit, Are You There\CLAUDE.md`). In short: include the script (`<script src="../Amit_Ask_Live.js"></script>`, path adjusted to the project's actual depth), write that page's own real, accurate context block into `PAGE_CONTEXTS` inside the shared file, and wire the button's onclick to `askAmitLive('yourPageKey')`. Do not build a separate, one-off "ask Amit" flow per project — the whole point of the shared file is that every page brings the same living Amit to life, with only the page-specific context differing.
 

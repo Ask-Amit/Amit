@@ -23,6 +23,15 @@ if (-not (Test-Path $projectRoot)) {
     Write-Host "Using existing folder: $projectRoot" -ForegroundColor Cyan
 }
 
+# 1b. Capture the project's own name - used to auto-stamp every pursuit this
+# project ever creates with the same, exact, consistent identifier (never
+# typed by hand later, never a different spelling next time). Defaults to
+# the folder's own name if left blank.
+$folderLeafName = Split-Path $projectRoot -Leaf
+$appNameInput = Read-Host "What is this project/application called? (press Enter to use the folder name: $folderLeafName)"
+$appName = if ([string]::IsNullOrWhiteSpace($appNameInput)) { $folderLeafName } else { $appNameInput.Trim() }
+Write-Host "This project's canonical name is: $appName - every pursuit created from here will be stamped with this, always." -ForegroundColor Cyan
+
 # 2. Templates subfolder
 $templatesPath = Join-Path $projectRoot "Templates"
 if (-not (Test-Path $templatesPath)) {
@@ -35,7 +44,7 @@ $claudeMdPath = Join-Path $projectRoot "CLAUDE.md"
 if (Test-Path $claudeMdPath) {
     Write-Host "CLAUDE.md already exists here — leaving it untouched so nothing gets overwritten." -ForegroundColor Yellow
 } else {
-$claudeMdContent = @'
+$claudeMdContent = @"
 # Project Orientation — Read This First, Every Session
 
 This file loads automatically at the start of every Claude Code session in this
@@ -48,7 +57,7 @@ state of your project without you re-explaining it each time.
   CLAUDE.md inside it (see "New Project" below).
 - This root CLAUDE.md is the entry point — the assistant reads it first, then
   is directed to the relevant subfolder's own file for anything project-specific.
-- `Templates/` holds reusable starter files you want to reuse across projects.
+- ``Templates/`` holds reusable starter files you want to reuse across projects.
 
 ## New Project Directive
 
@@ -61,6 +70,22 @@ to create a new subfolder for it, with its own CLAUDE.md describing:
 This keeps each project's context isolated and easy to pick back up, instead of
 one giant file trying to describe everything at once.
 
+## Pursuit Attribution — Permanent
+
+This project's canonical name, for any pursuit created from within it, is: **$appName**
+
+Any pursuit written to hub_entries from this project must be stamped
+``program='$appName'`` — automatically, by this project's own code or by your
+assistant acting on its behalf, using this exact spelling every time. Never ask
+the person creating the pursuit *what* program a specific pursuit belongs to -
+that's always this project's own name above, decided once, not per-item.
+
+**If you rename this application later**, don't just edit this line by hand -
+use the ``J rename pursuit`` shortcut instead. It updates this section AND
+every existing pursuit (including completed ones/memories) that was stamped
+with the old name, so your full build history stays under one consistent
+identifier instead of splitting across two names.
+
 ## Current Projects
 
 (Nothing yet — this updates as you build.)
@@ -68,7 +93,7 @@ one giant file trying to describe everything at once.
 ## Session Backups
 
 Claude Code stores your session history at:
-`%USERPROFILE%\.claude\projects\`
+``%USERPROFILE%\.claude\projects\``
 
 The starter kit that created this file also set up a backup so those session
 files are automatically copied somewhere you control, not just left in a
@@ -76,7 +101,7 @@ hidden system folder. See the "Backup" note below for where that is.
 
 ---
 *Set up by the Amit Coder Starter Kit.*
-'@
+"@
     Set-Content -Path $claudeMdPath -Value $claudeMdContent -Encoding utf8
     Write-Host "Wrote starter CLAUDE.md" -ForegroundColor Green
 }
@@ -235,7 +260,7 @@ $configPath = Join-Path $projectRoot "amit_coder_config.json"
 if (-not (Test-Path $configPath)) {
     Write-Host ""
     $accountId = Read-Host "Paste your AmitCoder Account ID (from the Settings tab at ask-amit.github.io/Amit/AmitCoder/AmitCoder.html), or press Enter to skip for now"
-    $configContent = @{ account_id = $accountId } | ConvertTo-Json
+    $configContent = @{ account_id = $accountId; app_name = $appName } | ConvertTo-Json
     Set-Content -Path $configPath -Value $configContent -Encoding utf8
     if ($accountId) {
         Write-Host "Saved your Account ID — the hooks below can now find your shortcuts and post session summaries." -ForegroundColor Green

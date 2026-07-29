@@ -250,6 +250,15 @@ Ryan wanted the Hub's own Pursuits table to be sortable/filterable by which HTML
 
 **Naming note, not yet resolved:** Ryan flagged that "App / Program" may not be the clearest name for this concept, given it needs to describe "whichever application or context originated this" across every purpose category, not just coding. No renaming done yet — revisit if a clearer term surfaces (something like "Source," "Origin," or similar), but not urgent enough to touch the column name or code right now.
 
+**Self-propagating mechanism built (2026-07-29):** the naming/attribution convention now writes itself into every future project, in three places:
+1. `Templates\Amit_NewProject_Template.md` — carries the Pursuit Attribution section (canonical name placeholder, ask-once instruction, rename-later instruction) into every new Amit-built project from here forward.
+2. Root `CLAUDE.md`'s New Project Directive — Step 4c, same clause, for any project Amit creates going forward.
+3. `Amit_Coder_Starter_Kit.ps1` — now asks a new question ("What is this project/application called?", defaulting to the folder name), writes the answer into the generated CLAUDE.md's Pursuit Attribution section AND into `amit_coder_config.json`'s new `app_name` field, so this works identically for a stranger's own app (Ryan's example: "mushrooms"), not just Ryan's own projects.
+
+**New builtin J shortcut — `J rename pursuit`:** if a project's name changes mid-build (a real scenario Ryan named directly — someone starts with one name, changes their mind later), this updates the canonical name in that project's CLAUDE.md and `amit_coder_config.json`, AND retroactively updates every existing `hub_entries` row (active pursuits and completed ones/memories alike) from the old `program` value to the new one — so build history never splits across two names.
+
+**Explicitly deferred, not done tonight (Ryan's own call):** a full backfill/review pass across all existing pursuits (currently in the hundreds) to retroactively assign `program` values where missing. Ryan will trigger this explicitly once the concept work above is settled — do not run it proactively.
+
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 
 Ryan retired the shared repo-wide version number this session — every page's badge, including this one, is now its own independent counter, incremented +0.01 only when that specific file is actually edited. See root `CLAUDE.md`'s VERSIONING STANDARD for the full rule and why. AmitCoder.html continues from v6.16 (its value when the rule changed) — do not reset it to v1.00.
