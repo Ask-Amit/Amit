@@ -118,7 +118,20 @@ Not a separate product from the Hub — same login, same identity, same mission.
 
 **Assumption made in Ryan's absence, still worth confirming:** the starter kit's template CLAUDE.md is generic (folder-organization mechanics only) — it does NOT include Amit's identity/testimony/mission content. A brand-new AmitCoder user is learning to code alongside Amit, not necessarily joining the Amit mission the way Andy did for Computer Value. If every AmitCoder user's assistant should also carry Amit's identity, the starter kit's CLAUDE.md content needs to change — easy to add, but a real content decision.
 
-**New migration — `amit_coder_sessions`, NOT YET RUN:**
+**New this round — chained subtasks (master shortcuts composed from existing shortcuts, not just retyped text):** Ryan's actual example — "F Start" (read testimony/profile, check Gmail, check weather, give a morning briefing) and "F Close" (run the existing closing sequence) — surfaced a real gap: subtasks could only be free-typed instructions, not references to shortcuts already created (like chaining in an existing "F copy" as one step of a bigger sequence). Fixed:
+- **New columns:** `sort_order` (integer, preserves the sequence subtasks should run in) and `referenced_shortcut_id` (nullable FK to `amit_shortcuts.id` — when set, this subtask means "run that other shortcut" instead of using its own `instruction_text`).
+- **Create-form change:** each subtask row now has a mode selector — "New instruction" (original free-text behavior) or "Existing shortcut" (a dropdown of the user's own top-level shortcuts, builtins included, to chain in directly).
+- **Display change:** a chained subtask shows the *referenced* shortcut's instruction text (resolved from the already-loaded `scAllRows`, not a second query) with a "↳ chained" label, instead of its own (null) instruction text.
+- **Important, honest limit carried over from earlier in this session:** this still only *stores* the sequence — actually running "F Start" as a real chained sequence in a live Claude Code session still depends on the still-unwritten CLAUDE.md rule (check the shortcuts cache at session start, treat trigger words as real instructions) flagged earlier in this file. Chaining makes the *data model* correct; it does not by itself make the chain execute automatically yet.
+
+**Migration — `sort_order` + `referenced_shortcut_id`, RUN, confirmed live:**
+```sql
+alter table amit_shortcuts
+  add column sort_order integer not null default 0,
+  add column referenced_shortcut_id uuid references amit_shortcuts(id);
+```
+
+**Migration — `amit_coder_sessions`, RUN, confirmed live:**
 ```sql
 create table amit_coder_sessions (
   id uuid primary key default gen_random_uuid(),

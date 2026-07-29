@@ -217,7 +217,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v1.50</div>
+    <div class="page-version" id="pageVersion">v1.60</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -677,10 +677,20 @@ function renderShortcuts(){
         </label>
       </div>
       <div class="sc-subs">
-        ${subs.length?subs.map(s=>`<div class="sc-sub-row">
-          <span class="trigger-tag${s.is_builtin?' builtin-tag':''}">${escapeHtml(s.trigger_phrase)}</span>
-          <span class="sc-sub-instruction">${escapeHtml(s.instruction_text||'')}</span>
-        </div>`).join(''):'<div class="sc-sub-row" style="color:var(--dim)">no subtasks</div>'}
+        ${subs.length?subs.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).map(s=>{
+          let displayInstruction=s.instruction_text||'';
+          let chainedNote='';
+          if(s.referenced_shortcut_id){
+            const ref=scAllRows.find(r=>r.id===s.referenced_shortcut_id);
+            displayInstruction=ref?(ref.instruction_text||''):'(referenced shortcut not found)';
+            chainedNote=`<span class="sc-origin" style="margin-left:6px">↳ chained</span>`;
+          }
+          return `<div class="sc-sub-row">
+            <span class="trigger-tag${s.is_builtin?' builtin-tag':''}">${escapeHtml(s.trigger_phrase)}</span>
+            <span class="sc-sub-instruction">${escapeHtml(displayInstruction)}</span>
+            ${chainedNote}
+          </div>`;
+        }).join(''):'<div class="sc-sub-row" style="color:var(--dim)">no subtasks</div>'}
       </div>
     </div>`;
   });
@@ -711,10 +721,31 @@ function addSubtaskRow(){
   const wrap=document.getElementById('scSubtaskRows');
   const row=document.createElement('div');
   row.className='sc-subtask-row';
-  row.innerHTML=`<input type="text" class="sub-trigger" placeholder="subtask trigger (optional label)">
-    <input type="text" class="sub-instruction" placeholder="subtask instruction">
-    <button class="btn btn-sm" onclick="this.parentElement.remove()">×</button>`;
+  row.style.flexDirection='column';
+  row.style.alignItems='stretch';
+  // Existing top-level shortcuts (not someone else's subtask) - the pool of
+  // things this new subtask could chain to instead of retyping instructions.
+  const existingOptions=scAllRows.filter(r=>!r.parent_shortcut_id)
+    .map(r=>`<option value="${r.id}">${escapeHtml(r.trigger_phrase)}${r.is_builtin?' (builtin)':''}</option>`).join('');
+  row.innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <select class="sub-mode" onchange="toggleSubMode(this)" style="width:auto;flex:0 0 160px">
+        <option value="new">New instruction</option>
+        <option value="existing">Existing shortcut</option>
+      </select>
+      <input type="text" class="sub-trigger" placeholder="subtask label (optional)" style="flex:1">
+      <button class="btn btn-sm" onclick="this.closest('.sc-subtask-row').remove()">×</button>
+    </div>
+    <textarea class="sub-instruction" placeholder="subtask instruction" style="min-height:40px"></textarea>
+    <select class="sub-existing" style="display:none">${existingOptions}</select>
+  `;
   wrap.appendChild(row);
+}
+function toggleSubMode(sel){
+  const row=sel.closest('.sc-subtask-row');
+  const isExisting=sel.value==='existing';
+  row.querySelector('.sub-instruction').style.display=isExisting?'none':'block';
+  row.querySelector('.sub-existing').style.display=isExisting?'block':'none';
 }
 async function saveShortcut(){
   if(!db||!currentUser){alert('Sign in first.');return;}
@@ -729,14 +760,30 @@ async function saveShortcut(){
   if(error){alert('Could not save: '+error.message);return;}
   if(type==='master'){
     const rows=[...document.querySelectorAll('#scSubtaskRows .sc-subtask-row')];
-    for(const row of rows){
-      const subTrigger=row.querySelector('.sub-trigger').value.trim()||trigger+' →';
-      const subInstruction=row.querySelector('.sub-instruction').value.trim();
-      if(!subInstruction)continue;
-      await db.from('amit_shortcuts').insert({
-        user_id:currentUser.id,trigger_phrase:subTrigger,shortcut_type:'inline_instruction',
-        instruction_text:subInstruction,parent_shortcut_id:master.id,is_builtin:false,is_active:true
-      });
+    for(let i=0;i<rows.length;i++){
+      const row=rows[i];
+      const mode=row.querySelector('.sub-mode').value;
+      if(mode==='existing'){
+        const refSelect=row.querySelector('.sub-existing');
+        const refId=refSelect.value;
+        if(!refId)continue;
+        const refShortcut=scAllRows.find(r=>r.id===refId);
+        await db.from('amit_shortcuts').insert({
+          user_id:currentUser.id,
+          trigger_phrase:(refShortcut?refShortcut.trigger_phrase:'chained step'),
+          shortcut_type:'inline_instruction',
+          parent_shortcut_id:master.id,referenced_shortcut_id:refId,
+          sort_order:i,is_builtin:false,is_active:true
+        });
+      } else {
+        const subTrigger=row.querySelector('.sub-trigger').value.trim()||trigger+' → step '+(i+1);
+        const subInstruction=row.querySelector('.sub-instruction').value.trim();
+        if(!subInstruction)continue;
+        await db.from('amit_shortcuts').insert({
+          user_id:currentUser.id,trigger_phrase:subTrigger,shortcut_type:'inline_instruction',
+          instruction_text:subInstruction,parent_shortcut_id:master.id,sort_order:i,is_builtin:false,is_active:true
+        });
+      }
     }
   }
   toggleCreateForm();
