@@ -131,6 +131,11 @@ alter table amit_shortcuts
   add column referenced_shortcut_id uuid references amit_shortcuts(id);
 ```
 
+**New this round — Link/Combine (top-level alias), migration pending confirmation:** Ryan liked having independent masters (F and J) but wanted a way for two shortcuts to share one instruction set entirely, rather than each subtask individually chaining. Added `alias_of` (nullable FK to `amit_shortcuts.id`) — when set, a shortcut's card displays the *target's* instruction/subtasks instead of its own, labeled "🔗 linked to X." A "link"/"unlink" button appears on each **custom** shortcut's card (deliberately not on builtins — RLS already blocks regular users from editing `is_builtin` rows, and this keeps that boundary consistent rather than special-casing it). If Ryan wants the builtin F/J themselves linked together, that needs a direct service-key update, not the UI button.
+```sql
+alter table amit_shortcuts add column alias_of uuid references amit_shortcuts(id);
+```
+
 **Migration — `amit_coder_sessions`, RUN, confirmed live:**
 ```sql
 create table amit_coder_sessions (

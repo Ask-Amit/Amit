@@ -217,7 +217,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.11</div>
+    <div class="page-version" id="pageVersion">v6.12</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -667,20 +667,36 @@ function renderShortcuts(){
   empty.style.display='none';
   let html='';
   masters.forEach(m=>{
-    const subs=rows.filter(r=>r.parent_shortcut_id===m.id);
+    // If this shortcut is linked (alias_of set), pull its display data from
+    // the target instead of its own - the whole point is "same data source."
+    const aliasTarget=m.alias_of?rows.find(r=>r.id===m.alias_of):null;
+    const displaySource=aliasTarget||m;
+    const subs=rows.filter(r=>r.parent_shortcut_id===displaySource.id);
     const tagClass=m.is_builtin?'trigger-tag builtin-tag':'trigger-tag';
+    const canLink=!m.is_builtin; // builtins stay read-only for regular users, per RLS
+    const otherMasters=masters.filter(o=>o.id!==m.id&&!o.is_builtin);
     html+=`<div class="sc-card${m.is_builtin?' builtin':''}" id="sc-card-${m.id}">
       <div class="sc-card-head" onclick="toggleCard('${m.id}')">
         <span class="sc-caret">▶</span>
         <span class="${tagClass}">${escapeHtml(m.trigger_phrase)}</span>
         <span class="sc-type">${m.shortcut_type.replace('_',' ')}</span>
-        <span class="sc-instruction">${escapeHtml(m.instruction_text||'')}</span>
-        <span class="sc-origin">${m.is_builtin?'builtin':'custom'}</span>
+        <span class="sc-instruction">${escapeHtml(displaySource.instruction_text||'')}</span>
+        ${aliasTarget?`<span class="sc-origin">🔗 linked to ${escapeHtml(aliasTarget.trigger_phrase)}</span>`:`<span class="sc-origin">${m.is_builtin?'builtin':'custom'}</span>`}
+        ${canLink?`<button class="btn btn-sm" onclick="event.stopPropagation();toggleLinkPicker('${m.id}')">${aliasTarget?'unlink':'🔗 link'}</button>`:''}
         <label class="toggle" onclick="event.stopPropagation()">
           <input type="checkbox" ${m.is_active?'checked':''} ${m.is_builtin?'disabled':''} onchange="toggleActive('${m.id}',this.checked)">
           <span class="toggle-track"></span>
         </label>
       </div>
+      ${canLink?`<div class="sc-sub-row" id="link-picker-${m.id}" style="display:none;background:rgba(201,168,76,.06)" onclick="event.stopPropagation()">
+        ${aliasTarget?`<span style="color:var(--muted);font-size:12px">Linked to <b>${escapeHtml(aliasTarget.trigger_phrase)}</b> — same instructions and subtasks as that shortcut.</span>
+          <button class="btn btn-sm" style="margin-left:auto" onclick="setAlias('${m.id}',null)">Unlink</button>`
+        :`<select id="link-select-${m.id}" style="width:auto;flex:1;background:#1a3352;border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:#fff;font-family:inherit">
+            <option value="">Choose a shortcut to link to…</option>
+            ${otherMasters.map(o=>`<option value="${o.id}">${escapeHtml(o.trigger_phrase)}</option>`).join('')}
+          </select>
+          <button class="btn btn-gold btn-sm" onclick="setAlias('${m.id}',document.getElementById('link-select-${m.id}').value)">Link</button>`}
+      </div>`:''}
       <div class="sc-subs">
         ${subs.length?subs.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).map(s=>{
           let displayInstruction=s.instruction_text||'';
@@ -702,6 +718,18 @@ function renderShortcuts(){
   list.innerHTML=html;
 }
 function toggleCard(id){document.getElementById('sc-card-'+id).classList.toggle('expanded');}
+function toggleLinkPicker(id){
+  const el=document.getElementById('link-picker-'+id);
+  if(!el)return;
+  el.style.display=el.style.display==='none'?'flex':'none';
+}
+async function setAlias(id,targetId){
+  if(!db)return;
+  const{error}=await db.from('amit_shortcuts').update({alias_of:targetId||null}).eq('id',id);
+  if(error){alert('Could not update link: '+error.message);return;}
+  const row=scAllRows.find(r=>r.id===id);if(row)row.alias_of=targetId||null;
+  renderShortcuts();
+}
 async function toggleActive(id,val){
   if(!db)return;
   await db.from('amit_shortcuts').update({is_active:val}).eq('id',id);
