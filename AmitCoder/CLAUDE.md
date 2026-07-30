@@ -293,6 +293,21 @@ Ryan pushed this through several real refinements in one sitting, ending in a ge
 
 **Honest limit on composition:** the existing subtask-chaining feature (`referenced_shortcut_id`) is built for a subtask that *replaces itself entirely* with another shortcut's instruction — not "run X, then continue with my own additional instructions." True `J inspire` → `J topic` chaining would need that richer composition model, which doesn't exist yet. For now, `J inspire`'s own instruction already includes topic-determination as its first step, written inline rather than through a real DB-level chain to `J topic`. Worth building real sequence-composition (not just replace-with-reference) if this pattern recurs.
 
+## First Interactivity Pass — "J Inspire" Applied to the Page Itself (2026-07-29/30)
+
+Ryan invoked J inspire directly on the whole page: it felt stagnant, "just words," and he wanted something that would genuinely impress — while granting explicit creative authority on naming/structure. Researched real precedent first (Zapier/n8n/GitHub Marketplace's pattern of leading with a big, real number to convey scale) before building, rather than guessing at "interactive."
+
+**Critical constraint held throughout, after being corrected twice earlier tonight for the opposite:** none of this touches the page's visual theme (the gold/serif look, fonts, colors, template-derived structure). Everything below is additive richness layered onto the existing template-derived markup — new elements, new small CSS rules, new JS behavior — never a reskin, never a rebuild from memory.
+
+**Built:**
+- **Animated count-up stat header** on the Shortcuts tab — real numbers (shortcut count, total automated steps, builtin count) animate in rather than just appearing, same "lead with real scale" principle as the marketplaces researched.
+- **Visual step-chain diagram** — every master shortcut with subtasks now shows a real horizontal flow of connected step-nodes (with arrows) directly on its card, visible without expanding — chained/referenced steps are visually distinguished (blue) from the master's own steps (gold). This is the actual "wow, this does a lot" moment Ryan asked for, shown graphically rather than just counted.
+- **Animated circular progress ring** on the Get Started checklist, replacing the flat-bar-only presentation with a real SVG ring that fills as steps complete, plus a small celebration (ring color shift + a completion banner) at 100%.
+- **Friendlier type labels** — "inline instruction" (real but jargon-y) now displays as "Simple," matching "Master." Display-only rename; doesn't touch the stored `shortcut_type` value, so no data migration needed.
+- **Small polish** — a live-pulse "breathing" dot on the SYNCED indicator when signed in, subtle hover lift on sidebar tiles and shortcut cards.
+
+**What's still static/word-heavy, not yet touched — real next candidates for a further pass:** the History tab (still flat text rows), the Docs tab (still prose-only), and the Code Library tab (plain list, no visual distinction by language). Given the scope of one sitting, the Shortcuts and Get Started tabs got the real interactivity work; the rest is an honest, named gap, not something quietly skipped.
+
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 
 Ryan retired the shared repo-wide version number this session — every page's badge, including this one, is now its own independent counter, incremented +0.01 only when that specific file is actually edited. See root `CLAUDE.md`'s VERSIONING STANDARD for the full rule and why. AmitCoder.html continues from v6.16 (its value when the rule changed) — do not reset it to v1.00.
