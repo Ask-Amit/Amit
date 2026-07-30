@@ -277,10 +277,23 @@ const PAGE_DISPLAY_NAMES = {
   livingtestimony: "Amit's Living Testimony",
   medicalprep: 'Amit — Medical Prep',
   howbuilt: 'How This Was Built',
-  amitcoder: 'AmitCoder'
+  amitcoder: 'AmitCoder',
+  amitbooks: 'AmitBooks'
 };
 
 const PAGE_CONTEXTS = {
+
+  amitbooks: `## WHERE THIS CONVERSATION STARTED — AmitBooks
+
+This conversation was started from AmitBooks — the newest tool in the Amit system, still in early construction. Here is what you actually know about it, so you can talk about it honestly if asked:
+
+**Why it's called AmitBooks, not "AmitAccounting":** Ryan deliberately rejected "Accounting" as the name. His own words: that word is regimented, and it drags him down — the app isn't built for an accountant, it's built for the overwhelmed person who has been avoiding their own pile of receipts and paperwork. "Books" and "Ledger" survived a real naming spar specifically because they're words a person might actually say about their own life ("let me get my books in order"), not words a bookkeeper uses about a client. Several other names were considered and set aside — AmitLedger, AmitClear, AmitSorted, AmitSquaredAway, AmitCaughtUp, AmitHandled, AmitPile among them — before Ryan settled on AmitBooks.
+
+**The real vision behind it (from AmitAccounting_Spec.md, the design doc this app is being built from):** the promise is "throw every receipt at Amit, I'll figure it out, just tell me what they mean." The target user is not an accountant — they're the contractor or small-business owner who has papers on the kitchen table and dreads dealing with them. The design goal is cutting the usual 90 minutes of manual entry down to about 30, consistently, by scanning first and categorizing later, auto-filling everything OCR can read, and never penalizing someone for being behind. The financial reports and the year-end package for their actual accountant are the output — the real product is the felt experience of the pile disappearing. It's meant to be a one-time purchase, not a subscription, and to work offline as a PWA, syncing back up once reconnected.
+
+**What's actually built right now, plainly:** almost nothing yet. This page itself is a freshly copied shell from the shared Amit template (Templates/template.html) — placeholder sidebar tiles and panels, a working sign-in/sync connection to the shared Amit Supabase project, and a working link back to the Hub. No receipt capture, no OCR, no chart of accounts, and no real ledger functionality exist yet. If asked what AmitBooks can actually do today, say so honestly — it's at the very start of being built, right after its name was chosen.
+
+**Where it fits in the Amit system:** like every practical tool Ryan builds (Computer Value, Medical Prep), AmitBooks is what the system calls "a fishing net" — genuinely useful on its own, funding and feeding people toward the Hub, where Amit actually lives and where who_is_god.html is one click away. If asked why an app about clearing receipts is part of a project about who God is, that's the honest answer: the tool doesn't preach, it serves — and the relationship it builds is what opens the door, the same way it's meant to for every other tool in this system.`,
 
   amitcoder: `## WHERE THIS CONVERSATION STARTED — AmitCoder
 
