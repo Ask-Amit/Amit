@@ -148,6 +148,27 @@ header{
 .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
+
+/* ── ABOOKS OPERATIONAL UI — added when Layer 0 came alive ── */
+.ab-section{margin-bottom:26px}
+.ab-h{font-family:'Cinzel',serif;color:var(--gold2);font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+.ab-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:12px;margin-bottom:14px}
+.ab-form input,.ab-form select{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;font-family:inherit}
+.ab-form label{font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:3px}
+.ab-field{display:flex;flex-direction:column}
+.ab-btn{background:rgba(201,168,76,.16);border:1px solid var(--gold);color:var(--gold2);padding:8px 16px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;align-self:flex-end}
+.ab-btn:hover{background:rgba(201,168,76,.3)}
+.ab-table{width:100%;border-collapse:collapse;font-size:13px}
+.ab-table th{text-align:left;color:var(--muted);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid rgba(201,168,76,.3)}
+.ab-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--text2)}
+.ab-table tr:hover td{background:rgba(255,255,255,.03)}
+.ab-empty{color:var(--dim);font-style:italic;padding:16px;text-align:center;font-size:13px}
+.ab-book-bar{display:flex;align-items:center;gap:10px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:10px 14px;margin-bottom:20px}
+.ab-book-bar select{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:6px 10px;color:#fff;font-size:13px}
+.ab-signin-notice{background:rgba(255,255,255,.03);border:1px dashed rgba(201,168,76,.3);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:13px}
+.ab-card{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:14px 18px;flex:1;min-width:160px}
+.ab-card .n{font-family:'Cinzel',serif;font-size:22px;color:var(--gold2)}
+.ab-card .l{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:4px}
 </style>
 </head>
 <body>
@@ -302,6 +323,239 @@ const TODO_CONTENT = `
 <div class="td-h1">Pricing Model (from the spec, not yet finalized)</div>
 <div class="td-item"><div class="td-title">Two tiers, base free of subscription</div>
 <div class="td-why">AmitBooks Base — one-time purchase, full core bookkeeping, no API required. Amit Connect (~$10/month) — vendor memory, AI receipt extraction, auto-categorization, Ask Amit chat. The base product is never crippled; Connect is what makes the pile disappear faster, not what makes the app usable at all.</div></div>
+
+<div class="td-h1">The Real Priority — Speed to Finished Books (2026-07-29)</div>
+<div class="td-item"><div class="td-title">Amit does the entry AND the reconciliation<span class="td-tag now">CORE PRIORITY</span></div>
+<div class="td-why">Ryan's direct framing: this is 75% of the actual headache for a small business, and it's the priority over IRS-form correctness, not after it. Flow: user scans/photographs multiple bills at once → Amit extracts vendor, address, phone, date, amount and either matches an existing vendor or creates one → assigns the receipt code → files as a bill payable. Then the user scans a bank or credit-card statement → Amit matches each statement line against the bills already on file, marks what reconciles, flags what's unmatched or ambiguous. The goal is a finished, reconciled set of books with the user doing almost no typing.</div></div>
+
+<div class="td-item"><div class="td-title">book_members table — multi-user access with roles<span class="td-tag next">NEXT</span></div>
+<div class="td-why">One company, one owner, several employees — each with their own Amit login, granted access into the company's specific book rather than a shared password. Needs real roles (owner, bookkeeper, entry-only) enforced through Supabase Row Level Security, not just a UI toggle — payroll data specifically needs to be gated so entry-level staff can see bills but not wages.</div></div>
+
+<div class="td-item"><div class="td-title">Cash vs. accrual basis — set per book</div>
+<div class="td-why">Each company chooses its own basis when the book is created; this changes how/when a transaction hits the ledger, not just a label on a report.</div></div>
+
+<div class="td-item"><div class="td-title">Industry-aware bill categories (research below)</div>
+<div class="td-why">Bill types — labor, material, subcontractor, other — vary by industry and need real category tables, not invented ones. Construction is the first reference case since it has an actual published standard (CSI codes, below).</div></div>
+
+<div class="td-h1">Researched Just Now — Real Requirements, Not Guesses</div>
+
+<div class="td-item"><div class="td-title">IRS record retention — 3 years standard, 7 recommended<span class="td-tag open">RESEARCHED</span></div>
+<div class="td-why">Per IRS Publication 583: supporting documents (sales slips, paid bills, invoices, receipts, deposit slips, canceled checks) must show gross income, deductions, and credits. The statute of limitations is generally 3 years, but 7 years is the practical safe number — it covers the 4-year employment-tax window and the 6-year window for substantial income underreporting. Electronic records are held to the exact same requirements as paper — confirms the audit-log + immutable-document model already decided is the right shape, not overbuilt.</div></div>
+
+<div class="td-item"><div class="td-title">1099-NEC threshold is changing — $2,000 starting tax year 2026<span class="td-tag open">RESEARCHED</span></div>
+<div class="td-why">Big one to build correctly: the 1099-NEC/1099-MISC threshold rises from $600 to $2,000 for payments made on/after January 1, 2026 (first filings under the new rule due January 2027; starting 2027 the IRS adjusts it annually for inflation). The contractors_1099 table needs a threshold field tied to the tax year, not a hardcoded $600 — this is exactly the kind of "live tax rules" the original spec promised.</div></div>
+
+<div class="td-item"><div class="td-title">Form 941 — quarterly, per-employer, only when there's payroll<span class="td-tag open">RESEARCHED</span></div>
+<div class="td-why">Reports withheld income tax plus employee and employer shares of Social Security/Medicare. Required quarterly for any employer with $1,000+ quarterly payroll tax liability — and still required even in a quarter with zero employees if the business has filed before. Confirms the employees table needs quarter-level aggregation, not just a running total.</div></div>
+
+<div class="td-item"><div class="td-title">Sales tax — economic nexus, not just physical presence<span class="td-tag open">RESEARCHED</span></div>
+<div class="td-why">Since South Dakota v. Wayfair, nearly every sales-tax state now taxes based on economic activity alone — most use a $100,000/year sales threshold, no physical presence required. sales_tax_jurisdictions can't just be "the state the business is in" — a business selling across state lines can trigger nexus (and a filing obligation) in states it has never set foot in. This needs its own nexus-tracking logic eventually, not just a flat rate table.</div></div>
+
+<div class="td-item"><div class="td-title">Reconciliation matching — blocking + fuzzy match + confidence score<span class="td-tag open">RESEARCHED</span></div>
+<div class="td-why">The real technique industry reconciliation tools use: first narrow candidates with cheap filters (date within ±2 days, amount within a small dollar range) before running any expensive fuzzy-text comparison — this is what makes matching thousands of bills against a statement fast instead of slow. Each match gets a confidence score, so high-confidence matches auto-reconcile and low-confidence ones surface for the user to confirm in seconds, not get buried. This is the actual algorithm the statement-reconciliation engine should use.</div></div>
+
+<div class="td-item"><div class="td-title">Construction industry standard — CSI MasterFormat codes<span class="td-tag open">RESEARCHED</span></div>
+<div class="td-why">Construction already has a real, universally recognized cost-code standard (materials/labor/subcontractor/equipment/permits in defined numeric ranges, e.g. 5xxx for direct job costs, 6xxx for overhead) that QuickBooks-based contractor accounting is typically built around. Rather than inventing bill categories from scratch, the first industry template should map directly to this — it's what Tim and any construction client would already recognize.</div></div>
+
+<div class="td-h1">Existing Pursuits on Record (pulled from hub_entries, 2026-07-29)</div>
+
+<div class="td-item"><div class="td-title">SPEC — Tim's chart of accounts shapes the schema, Tim first, schema second<span class="td-tag next">STARRED, OPEN</span></div>
+<div class="td-why">Standing pursuit: no accounts tables get built before the Tim conversation. One hour with Tim saves weeks of refactoring. Still the real blocker on the tax-form-correctness side of this build (not the reconciliation/entry side, which doesn't depend on his chart of accounts to start).</div></div>
+
+<div class="td-item"><div class="td-title">FIX — AmitAccounting CLAUDE.md still shows Supabase vs. Azure as undecided</div>
+<div class="td-why">Backend was decided as Supabase in Session 29, but the old subfolder CLAUDE.md was never updated to reflect it. Small correction, still open.</div></div>
+
+<div class="td-item"><div class="td-title">FIX — Tim's proposal reply-to mailto link has no recipient address</div>
+<div class="td-why">Live bug on the (now-archived) Tim_Proposal.html — if Tim ever clicked Reply, it went nowhere. Low priority now that the proposal page is archived rather than live, but worth fixing if it's ever resurfaced.</div></div>
+
+<div class="td-item"><div class="td-title">DONE — AmitAccounting full vision spec written</div>
+<div class="td-why">Marked complete already — The Promise, Vendor Memory, the five-stage Relationship Arc, receipt capture, proactive notifications. This is the document panel 4 bookmarks.</div></div>
+
+<div class="td-h1">New Item, Added Just Now — Legacy Book Import</div>
+<div class="td-item"><div class="td-title">Import path from QuickBooks and other prior systems<span class="td-tag next">NEXT</span></div>
+<div class="td-why">Ryan is starting his own books fresh in QuickBooks right now to get caught up personally — which surfaced the real, universal problem: every user converting to AmitBooks has existing history somewhere else (QuickBooks, Wave, spreadsheets, a shoebox someone else already typed up). AmitBooks needs a real import path — QuickBooks' standard exports are IIF and CSV/Excel formats — that maps their existing chart of accounts and transaction history into a new book on creation, not just a cold-start empty ledger. This is a genuine onboarding requirement, not a nice-to-have, and it needs its own mapping logic since no two prior systems categorize things the same way.</div></div>
+
+<div class="td-h1">Captured Intent — Named Subsystems, Not Yet Scheduled (2026-07-29)</div>
+
+<div class="td-item"><div class="td-title">Extensible chart of accounts + multi-industry templates<span class="td-tag open">DESIGN CHANGE</span></div>
+<div class="td-why">Not locked to one industry field. chart_of_accounts gets a custom_fields jsonb column for user-added structured data; a separate account_category_templates table holds starter category sets (construction, rental/real estate, retail, etc.) a book can pull from more than one of, added to over time without a schema change.</div></div>
+
+<div class="td-item"><div class="td-title">fixed_assets — asset tracking + depreciation</div>
+<div class="td-why">Its own table, not crammed into chart_of_accounts: asset name, category, purchase date, cost basis, depreciation method, useful life, accumulated depreciation, disposal date. Covers equipment and rental-property depreciation the same way.</div></div>
+
+<div class="td-item"><div class="td-title">Customer financing / payment plans</div>
+<div class="td-why">Receivables need more than "paid or not" — financing terms, installment schedules on what a customer owes.</div></div>
+
+<div class="td-item"><div class="td-title">Cash flow analysis + alert system</div>
+<div class="td-why">Genuine forward-looking projection engine, not just due-date reminders — bills due, invoices needing payment, and a real cash-flow-and-profit forecast (matches QuickBooks' "Forecast cash flow and profit").</div></div>
+
+<div class="td-item"><div class="td-title">Job costing per line item + AIA billing documents</div>
+<div class="td-why">Labor/material/equipment/subcontractor tracked against the original budget/estimate, percent-complete tracking, and AIA G702/G703 — the real construction-industry standard progress billing forms.</div></div>
+
+<div class="td-item"><div class="td-title">Point of sale — separate program, direct integration point</div>
+<div class="td-why">Likely its own build, not part of AmitBooks itself, but POS sales need to feed straight into this ledger as income when it exists.</div></div>
+
+<div class="td-item"><div class="td-title">Warranty tracking</div>
+<div class="td-why">A warranty not billed to the owner (e.g. a TV shop's repair warranty) — what's covered, who it's on, when it expires. Distinct object from a normal bill/invoice.</div></div>
+
+<div class="td-item"><div class="td-title">Service agreements</div>
+<div class="td-why">Recurring service contracts, separate from one-off invoices.</div></div>
+
+<div class="td-item"><div class="td-title">Employee tracking, scheduling, and self-service timesheets</div>
+<div class="td-why">Employee records, shift scheduling, and time entry an employee can log themselves from their phone, per job, directly through Amit.</div></div>
+
+<div class="td-item"><div class="td-title">Sensitive-data tiering extended to SSNs</div>
+<div class="td-why">Same Tier 2 client-side-encryption model already in the spec for account/routing numbers, extended explicitly to Social Security numbers — administrator role can decrypt, general book access cannot. Ties directly to the role system in item 3 below.</div></div>
+
+<div class="td-item"><div class="td-title">Amit's Expense Claim Helper<span class="td-tag open">NEW — RYAN'S DIRECT INSTRUCTION</span></div>
+<div class="td-why">Ryan's explicit instruction: Amit is part of this whole thing, not a silent database underneath it — make sure that shows up here specifically. When a user isn't sure whether something is a legitimate deductible business expense, Amit walks them through it directly, in plain language, the same voice as the rest of the system: "here's what this category usually qualifies for, here's the IRS rule that applies, here's what I'd flag if Tim reviewed this." This isn't a separate bolt-on feature — it's Amit's Bookkeeper Mode (already on the list) made concrete and named on its own, because expense-claim uncertainty is one of the single biggest sources of the "headache" this whole app exists to remove. Every screen where a user is deciding how to categorize or claim something is a place Amit should be actively present, not just AmitBooks quietly recording what they typed.</div></div>
+
+<div class="td-item"><div class="td-title">Purchase order system<span class="td-tag open">NEW</span></div>
+<div class="td-why">A real PO workflow — issue a purchase order to a vendor before the bill exists, then match the eventual bill back against the open PO (quantity/price agreement check), not just free-floating bills. Needs its own purchase_orders table, distinct from invoices_bills, with a status lifecycle (draft → sent → partially received → closed).</div></div>
+
+<div class="td-item"><div class="td-title">Inventory + inventory control<span class="td-tag open">NEW</span></div>
+<div class="td-why">Item-level stock tracking — quantity on hand, reorder points, cost per unit (ties to COGS on the P&L). A material bill can decrement inventory; a sale/invoice can too. Needs its own inventory_items table plus an inventory_transactions ledger (received, consumed on a job, sold, adjusted) — this is genuinely its own subsystem, not a field on invoices_bills.</div></div>
+
+<div class="td-item"><div class="td-title">Quotes<span class="td-tag open">NEW — NEEDS CLARIFICATION</span></div>
+<div class="td-why">estimates already exists on the schema for job bids. Worth confirming with Ryan whether "quotes" here means the same thing under a different name (a sales quote for goods/services, vs. an estimate for a construction job) or a genuinely separate object — if separate, it likely needs its own quotes table so a product-sale quote and a job estimate don't get forced into one shape that fits neither well.</div></div>
+
+<div class="td-item"><div class="td-title">Fixed assets — confirmed, already captured</div>
+<div class="td-why">Already added as its own fixed_assets table in the last design pass (asset name, cost basis, depreciation method/schedule, disposal date). No change needed — just confirming it's on the list as asked.</div></div>
+
+<div class="td-item"><div class="td-title">Sales tax — confirmed, already captured</div>
+<div class="td-why">Already covered: sales_tax_jurisdictions (item 2) plus real economic-nexus tracking (item 10), including the researched finding that most states now use a $100,000/year threshold with no physical presence required.</div></div>
+
+<div class="td-item"><div class="td-title">Standard report suite<span class="td-tag open">NEW</span></div>
+<div class="td-why">The full set any real accounting system needs, named explicitly so none get missed: Profit & Loss (income statement), Balance Sheet, Cash Flow Statement, Trial Balance (already planned), General Ledger detail (already planned), Accounts Receivable Aging, Accounts Payable Aging, Sales Tax Liability report, 1099 Summary, Job Profitability report. This becomes the backbone the custom report builder (already on the list) is built on top of — these standard reports come first, the custom builder comes after.</div></div>
+
+<div class="td-item"><div class="td-title">Employment management application<span class="td-tag open">NEW</span></div>
+<div class="td-why">Broader than the timesheets/scheduling already on the list (item 19) — a real HR layer: onboarding records, benefits enrollment, PTO/sick-time balances and requests, performance reviews, employee documents (I-9, W-4, offer letters). This is genuinely a bigger subsystem than "clock in/clock out" — it's its own module that happens to share the employees table with payroll/941.</div></div>
+
+<div class="td-item"><div class="td-title">Customer Relationship Management (CRM)<span class="td-tag open">NEW</span></div>
+<div class="td-why">A real CRM layer on top of the existing customers table — lead/pipeline tracking, communication history (calls, emails, notes), follow-up reminders, and a sales pipeline stage (lead → quoted → won/lost). Right now customers is a flat billing-address record; CRM turns that same record into a relationship history, which is very on-mission for a system built around Amit actually knowing the people involved, not just their invoices.</div></div>
+
+<div class="td-item"><div class="td-title">Payment processor integration — Square, Stripe, etc.<span class="td-tag open">NEW</span></div>
+<div class="td-why">Credit card processing needs a real connection to an existing processor (Square, Stripe, or similar) rather than AmitBooks trying to become its own payment processor — that's a licensed, regulated business in its own right, not something to build from scratch. The integration point: a payment_connections table per book (which processor, their account/API credentials, encrypted per the same sensitive-data tiering already planned) and processor transactions landing directly in invoices_bills/transactions as they clear, tying back to the POS integration point already on the list (item 25) — Square in particular is both a POS and a payment processor, so these two items may end up served by the same connection.</div></div>
+
+<div class="td-item"><div class="td-title">Mileage tracking<span class="td-tag open">NEW</span></div>
+<div class="td-why">Its own mileage_logs table — date, starting/ending location or odometer, purpose, business vs. personal, miles driven, linked to a project where relevant. Feeds directly into the standard IRS mileage deduction (vs. actual vehicle expense method) already named back in the tax-form research pass.</div></div>
+
+<div class="td-item"><div class="td-title">Repairs / maintenance log</div>
+<div class="td-why">Ties directly to fixed_assets (already on the list) — a repair_log table linked to a specific asset: date, description, cost, who performed it. Distinct from a bill's category, because it needs to roll up per-asset over the asset's life, not just sit as one expense line.</div></div>
+
+<div class="td-item"><div class="td-title">Cash App / Venmo / P2P payment integration</div>
+<div class="td-why">Same shape of problem as Square/Stripe (item 33) but for peer-to-peer apps specifically — these often mix personal and business activity in one account, so the real work here is a clean way to import/tag P2P transactions and flag which ones are actually business income or expense, not just a raw feed.</div></div>
+
+<div class="td-item"><div class="td-title">Tie-in to the future estimating software system<span class="td-tag open">FLAGGED — LIKELY BOSStimator</span></div>
+<div class="td-why">Worth naming directly: BOSStimator already exists as a planned, named tool in the Amit system (currently "Coming Soon" on the Hub) — described elsewhere as "the estimator who needs the tool." If that's the estimating system Ryan means here, this isn't a new build, it's confirming AmitBooks' estimates/quotes (item 29, still open) should be designed to receive data from BOSStimator directly rather than duplicating estimating logic inside AmitBooks itself. Needs Ryan to confirm whether "the estimating software system that will be developed" is BOSStimator or something separate.</div></div>
+
+<div class="td-item"><div class="td-title">General ledger, AP, AR — confirmed, already core</div>
+<div class="td-why">General ledger is the transactions table itself (item 1). Accounts payable is invoices_bills where direction = bill_payable; accounts receivable is the same table where direction = invoice_receivable. No new tables needed — naming it here so it's explicitly confirmed present, not assumed.</div></div>
+
+<div class="td-item"><div class="td-title">Revenue recognition engine<span class="td-tag open">NEW</span></div>
+<div class="td-why">When revenue actually gets recognized on the books doesn't always match when cash arrives or an invoice is sent — this needs real logic (not just the cash/accrual toggle already planned) especially once subscription billing and milestone payments exist below. A genuinely technical subsystem, likely its own recognition_schedules table tied to invoices_bills.</div></div>
+
+<div class="td-item"><div class="td-title">Subscription billing</div>
+<div class="td-why">Recurring, auto-generated invoices on a schedule — distinct from the one-off invoices already planned. Needs a subscriptions table (customer, plan, billing interval, next-bill date) that spins off real invoices_bills rows on schedule.</div></div>
+
+<div class="td-item"><div class="td-title">Milestone / progress payments</div>
+<div class="td-why">Ties directly to the AIA billing / percent-complete job costing already on the list (item 16) — a job's total contract value gets billed in defined chunks tied to completion milestones rather than one lump sum. Likely a milestones table under projects, each milestone generating its own invoice when marked complete.</div></div>
+
+<div class="td-item"><div class="td-title">Job costing + activity-based costing (manufacturing) + bill of materials</div>
+<div class="td-why">Beyond construction job costing already planned — a manufacturing-specific costing model where a bill_of_materials table defines what raw components/quantities go into a finished item, and activity-based costing allocates overhead by actual activity rather than a flat rate. This is a second industry template (alongside construction/CSI) with real structural differences, not just different account names.</div></div>
+
+<div class="td-item"><div class="td-title">Capital expenditures + investments</div>
+<div class="td-why">CapEx ties to fixed_assets (already planned) — large purchases capitalized and depreciated rather than expensed immediately. Investments (stocks, other holdings a business owns) is a genuinely separate object — its own investments table tracking cost basis, current value, and realized/unrealized gain, since that doesn't fit the fixed_assets depreciation model at all.</div></div>
+
+<div class="td-item"><div class="td-title">Sales/usage tax + GST engines (international)</div>
+<div class="td-why">Sales/usage tax is largely covered by the sales_tax_jurisdictions + nexus work already planned (items 2 and 10). GST is the international equivalent (Canada, Australia, etc.) — worth flagging now that if AmitBooks ever serves a non-US business, the tax-jurisdiction model needs to be country-aware from the start, not US-only by assumption.</div></div>
+
+<div class="td-item"><div class="td-title">Corporate tax</div>
+<div class="td-why">Entity-specific tax output (1120 for C-corps, 1120-S for S-corps, 1065 for partnerships) — ties to the entity_type field already on the books table and to item 11 (held until Tim's conversation, since this is exactly the kind of form correctness his review is meant to protect).</div></div>
+
+<div class="td-item"><div class="td-title">Audit trails + forensics</div>
+<div class="td-why">The append-only audit_log table (already built into item 1) is the audit-trail foundation. "Forensics" is the layer on top of it — the ability to actually query and reconstruct what happened (who changed what, when, in what order) rather than just having the raw log sitting there unused. Worth planning as its own reporting view once the audit log has real data in it.</div></div>
+
+<div class="td-h1">QuickBooks Feature Comparison — 2026-07-29</div>
+
+<div class="td-item"><div class="td-title">Classes & Locations (unlimited)<span class="td-tag open">NEW</span></div>
+<div class="td-why">A real, distinct QuickBooks dimension: tag a transaction by department/class AND by physical location/branch, independent of which job it's on. Needs its own generic tagging table, not folded into projects.</div></div>
+
+<div class="td-item"><div class="td-title">Custom dashboards + personalized KPIs<span class="td-tag open">NEW</span></div>
+<div class="td-why">User-defined metrics surfaced visually, not just fixed reports.</div></div>
+
+<div class="td-item"><div class="td-title">Custom management-ready report builder<span class="td-tag open">NEW</span></div>
+<div class="td-why">Build-your-own report, beyond the fixed trial-balance/GL output already planned.</div></div>
+
+<div class="td-item"><div class="td-title">Workflow automation<span class="td-tag open">NEW</span></div>
+<div class="td-why">User-configured "when X happens, do Y" rules — distinct from Amit's own proactive notifications, which are Amit-initiated, not user-defined.</div></div>
+
+<div class="td-item"><div class="td-title">Sync with Excel<span class="td-tag open">NEW</span></div>
+<div class="td-why">Export/import bridge — also relevant to the legacy-import item (6 below).</div></div>
+
+<div class="td-item"><div class="td-title">Batch invoices and expenses<span class="td-tag open">NEW</span></div>
+<div class="td-why">Bulk entry/bulk actions, not strictly one-at-a-time.</div></div>
+
+<div class="td-item"><div class="td-title">Backup and restore your data<span class="td-tag open">NEW</span></div>
+<div class="td-why">Explicit user-triggered snapshot/restore — distinct from the audit log (audit log proves history happened correctly; backup/restore recovers from a mistake or disaster).</div></div>
+
+<div class="td-item"><div class="td-title">Guided setup / onboarding wizard<span class="td-tag open">NEW</span></div>
+<div class="td-why">A real first-run walkthrough, not just an empty app the user has to figure out alone.</div></div>
+
+<div class="td-item"><div class="td-title">AI auto-creates projects and allocates costs<span class="td-tag open">NEW</span></div>
+<div class="td-why">Amit noticing a pattern in incoming bills and proposing a new project/job automatically, rather than requiring the user to create it first.</div></div>
+
+<div class="td-h1">Master Build Order — the one list, worked one item at a time</div>
+<div class="td-item" style="background:rgba(201,168,76,.06);border-color:rgba(201,168,76,.4)">
+<div class="td-why" style="color:var(--text2)">
+Everything above, combined into the actual working order. Ryan doesn't need to hold this — Amit works it top to bottom, one piece at a time, surfacing only what needs a human decision, a pasted SQL command, or an answer to a direct question along the way. Items 14+ are captured but not yet slotted into strict order — Ryan is still gathering competitor comparisons before that gets finalized.
+<br><br>
+<b>1.</b> Core schema — books, chart_of_accounts (with custom_fields + account_category_templates), vendors, customers, projects, estimates, invoices_bills, transactions, documents, audit_log, fixed_assets<br>
+<b>2.</b> Tax-form skeleton tables — sales_tax_jurisdictions, employees, contractors_1099 (with the real $2,000 2026 threshold, not $600)<br>
+<b>3.</b> book_members + roles — multi-user access, payroll AND sensitive-data (SSNs, etc.) gated separately from general entry<br>
+<b>4.</b> "Which book?" picker + real sign-in gate on AmitBooks.html<br>
+<b>5.</b> Bill capture + vendor auto-match (scan → extract → match/create vendor → assign receipt code → file as bill payable)<br>
+<b>6.</b> Legacy import path — QuickBooks IIF/CSV/Excel mapping into a new book, so switching to AmitBooks doesn't mean starting from zero<br>
+<b>7.</b> Statement reconciliation engine — blocking + fuzzy match + confidence score against bills already on file<br>
+<b>8.</b> Industry-aware bill categories via account_category_templates — construction/CSI codes + AIA billing first (real reference case), rental/real estate and other industries researched as they come up<br>
+<b>9.</b> Cash vs. accrual basis setting per book<br>
+<b>10.</b> Sales tax nexus tracking — beyond a flat rate table, tracks where economic nexus has actually been triggered<br>
+<b>11.</b> Trial balance / general ledger / entity-specific IRS form output — held until Tim's chart of accounts conversation happens<br>
+<b>12.</b> Hub integration — bills as calendar chips, sessions as experience entries, jobs as pursuits (Shared-Amit Mode only)<br>
+<b>13.</b> Vendor memory, proactive notifications, Amit Bookkeeper Mode — the Amit Connect vision layer, once the base is solid<br>
+<b>14.</b> Customer financing / payment plans on receivables<br>
+<b>15.</b> Cash flow analysis + forecast engine<br>
+<b>16.</b> Job costing per line item + percent-complete + AIA billing documents<br>
+<b>17.</b> Warranty tracking (non-owner-billed)<br>
+<b>18.</b> Service agreements<br>
+<b>19.</b> Employee scheduling + self-service mobile timesheets<br>
+<b>20.</b> Classes & Locations tagging dimension<br>
+<b>21.</b> Custom dashboards, KPIs, and report builder<br>
+<b>22.</b> Workflow automation (user-defined rules)<br>
+<b>23.</b> Excel sync, batch invoice/expense entry, backup/restore, guided onboarding<br>
+<b>24.</b> AI auto-project-creation from incoming bill patterns<br>
+<b>25.</b> Point of sale integration point (separate program, feeds this ledger)<br>
+<b>26.</b> Amit's Expense Claim Helper — plain-language, IRS-aware guidance at the moment a user is unsure how to categorize or claim something<br>
+<b>27.</b> Purchase order system — PO issued to vendor, matched against the eventual bill<br>
+<b>28.</b> Inventory + inventory control — stock levels, reorder points, COGS tracking<br>
+<b>29.</b> Quotes — pending clarification on whether distinct from estimates<br>
+<b>30.</b> Standard report suite — P&L, Balance Sheet, Cash Flow Statement, AR/AP Aging, Sales Tax Liability, 1099 Summary, Job Profitability (foundation the custom report builder sits on top of)<br>
+<b>31.</b> Employment management application — onboarding, benefits, PTO, reviews, employee documents (HR layer, beyond scheduling/timesheets)<br>
+<b>32.</b> Customer Relationship Management (CRM) — lead/pipeline tracking, communication history, follow-up reminders on top of the existing customers table<br>
+<b>33.</b> Payment processor integration (Square, Stripe, etc.) — credit card processing connection, likely shares infrastructure with the POS integration point (item 25)<br>
+<b>34.</b> Mileage tracking — mileage_logs table, feeds the IRS mileage deduction<br>
+<b>35.</b> Repairs / maintenance log — tied to fixed_assets, rolls up per-asset over its life<br>
+<b>36.</b> Cash App / Venmo / P2P payment integration — import + business/personal tagging<br>
+<b>37.</b> Estimating software tie-in — likely BOSStimator, pending Ryan's confirmation, feeds directly into item 29 (estimates/quotes)<br>
+<b>38.</b> Revenue recognition engine — recognition_schedules, distinct from cash arrival or invoice date<br>
+<b>39.</b> Subscription billing — recurring auto-generated invoices on a schedule<br>
+<b>40.</b> Milestone / progress payments — ties to AIA billing (item 16)<br>
+<b>41.</b> Manufacturing job costing — activity-based costing + bill of materials (second industry template, alongside construction)<br>
+<b>42.</b> Capital expenditures (ties to fixed_assets) + investments (own table — cost basis, current value, gain/loss)<br>
+<b>43.</b> GST / international tax-jurisdiction awareness — sales/usage tax already covered, GST flags US-only assumption to revisit<br>
+<b>44.</b> Corporate tax output — 1120/1120-S/1065, held until Tim's conversation (item 11)<br>
+<b>45.</b> Audit forensics — a real query/reconstruction layer on top of the audit_log already in item 1
+</div></div>
 `;
 
 // ══════════════════════════════════════════════
@@ -330,29 +584,205 @@ const FULL_SPEC_CONTENT = `
 </div>
 `;
 
+// ══════════════════════════════════════════════
+// FEATURE MAP — panel 5. The synthesized architecture, merged from nine
+// independent Council voices (Bolt, Theo, DeepSeek, Gemini, Meta AI,
+// ChatGPT, Copilot, Grok, Perplexity) plus everything already captured in
+// the To Do tab and AmitAccounting_Spec.md. This is the real product
+// shape, deduped — not a chronological log of every idea mentioned.
+// ══════════════════════════════════════════════
+const FEATURE_MAP_CONTENT = `
+<div class="td-item" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
+<div class="td-title" style="font-size:15px">How to read this</div>
+<div class="td-why">Nine independent AI voices answered the same architecture question cold, without seeing each other's work. Where several converged on the same structural call independently, that's real signal — flagged below as CONFIRMED. Everything else is a synthesized best-of. Nothing here has been built yet; this replaces guessing with a real target.</div>
+</div>
+
+<div class="td-h1">Everything Captured Before the Council — Still In Scope, One Item at a Time</div>
+
+<div class="td-item"><div class="td-title">Purchase order system</div><div class="td-why">PO issued to a vendor, matched against the eventual bill (3-way match: PO → Bill → Payment).</div></div>
+<div class="td-item"><div class="td-title">Inventory + inventory control</div><div class="td-why">Stock levels, reorder points, COGS tracking — beyond just retail SKUs.</div></div>
+<div class="td-item"><div class="td-title">Quotes vs. estimates</div><div class="td-why">Still needs your call — a sales quote for goods/services vs. a construction job estimate may be the same object or genuinely different ones.</div></div>
+<div class="td-item"><div class="td-title">Standard report suite, named explicitly</div><div class="td-why">P&L, Balance Sheet, Cash Flow Statement, Trial Balance, GL detail, AR/AP Aging, Sales Tax Liability, 1099 Summary, Job Profitability.</div></div>
+<div class="td-item"><div class="td-title">Warranty tracking</div><div class="td-why">A warranty not billed to the owner — e.g. a TV shop's repair warranty — coverage, who it's on, expiration date.</div></div>
+<div class="td-item"><div class="td-title">Service agreements</div><div class="td-why">Recurring service contracts, separate from one-off invoices.</div></div>
+<div class="td-item"><div class="td-title">Revenue recognition engine</div><div class="td-why">When revenue is recognized doesn't always match cash arrival or invoice date — its own recognition_schedules concept.</div></div>
+<div class="td-item"><div class="td-title">Subscription billing</div><div class="td-why">Recurring, auto-generated invoices on a schedule, distinct from one-off invoicing.</div></div>
+<div class="td-item"><div class="td-title">Milestone / progress payments</div><div class="td-why">As a general Layer 1 capability, not just construction's AIA-specific version.</div></div>
+<div class="td-item"><div class="td-title">Capital expenditures + investments</div><div class="td-why">CapEx ties to fixed_assets. Investments is its own table — cost basis, current value, gain/loss — doesn't fit the depreciation model.</div></div>
+<div class="td-item"><div class="td-title">GST / international tax awareness</div><div class="td-why">Flags the US-only assumption to revisit if AmitBooks ever serves a non-US business.</div></div>
+<div class="td-item"><div class="td-title">Corporate tax output</div><div class="td-why">1120 / 1120-S / 1065, tied to the entity_type field on books, held until Tim's review per the standing rule.</div></div>
+<div class="td-item"><div class="td-title">Audit forensics</div><div class="td-why">A real query/reconstruction layer on top of audit_log — not just the raw log sitting unused.</div></div>
+<div class="td-item"><div class="td-title">Employment management application</div><div class="td-why">A real HR layer beyond scheduling/timesheets — onboarding, benefits, PTO, reviews, employee documents.</div></div>
+<div class="td-item"><div class="td-title">Full CRM</div><div class="td-why">Lead/pipeline tracking, communication history, follow-up reminders on top of the shared contacts table — beyond the "light CRM" core-integrated basics.</div></div>
+<div class="td-item"><div class="td-title">Mileage tracking</div><div class="td-why">Its own mileage_logs table, feeds the IRS mileage deduction.</div></div>
+<div class="td-item"><div class="td-title">Repairs / maintenance log</div><div class="td-why">Tied to fixed_assets, rolls up per-asset over its life.</div></div>
+<div class="td-item"><div class="td-title">Payment processor integration — Square, Stripe, etc.</div><div class="td-why">Credit card processing; likely shares infrastructure with the POS integration point, since Square is both a POS and a processor.</div></div>
+<div class="td-item"><div class="td-title">Cash App / Venmo / P2P payment integration</div><div class="td-why">The real work is cleanly separating personal from business activity in a mixed-use account, not just importing a raw feed.</div></div>
+<div class="td-item"><div class="td-title">Estimating tie-in — BOSStimator</div><div class="td-why">The estimating tool already planned elsewhere in the Amit system should feed AmitBooks' estimates directly rather than AmitBooks duplicating estimating logic — still needs your confirmation this is the intended tie-in.</div></div>
+<div class="td-item" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)"><div class="td-title">Amit's Expense Claim Helper — your direct instruction, not optional</div><div class="td-why">When a user isn't sure whether something is deductible, Amit walks them through it in plain language, names the IRS rule that applies, and what Tim would flag. This is Amit Bookkeeper Mode made concrete, not a bolt-on.</div></div>
+<div class="td-item"><div class="td-title">Sensitive-data tiering, extended to SSNs</div><div class="td-why">Same client-side, zero-knowledge encryption model as account/routing numbers — administrator-only decrypt, tied to the role system.</div></div>
+<div class="td-item"><div class="td-title">Classes & Locations, as a named dimension</div><div class="td-why">The generic Tags/Dimensions primitive covers this mechanically, but it needs its own UI surface, not just be implied.</div></div>
+<div class="td-item"><div class="td-title">Custom dashboards + personalized KPIs</div><div class="td-why">From the QuickBooks comparison pass.</div></div>
+<div class="td-item"><div class="td-title">Custom management-ready report builder</div><div class="td-why">Beyond the fixed standard reports listed above.</div></div>
+<div class="td-item"><div class="td-title">Workflow automation</div><div class="td-why">User-defined "when X happens, do Y" rules — distinct from Amit's own proactive notifications, which are Amit-initiated.</div></div>
+<div class="td-item"><div class="td-title">Excel sync</div><div class="td-why">Export/import bridge.</div></div>
+<div class="td-item"><div class="td-title">Batch invoice/expense entry</div><div class="td-why">Bulk actions, not strictly one-at-a-time.</div></div>
+<div class="td-item"><div class="td-title">Backup and restore</div><div class="td-why">Explicit user-triggered snapshot/restore — distinct from the audit log, which proves history, not a recovery tool.</div></div>
+<div class="td-item"><div class="td-title">Guided onboarding wizard</div><div class="td-why">A real first-run walkthrough, not a blank app.</div></div>
+<div class="td-item"><div class="td-title">AI auto-project-creation</div><div class="td-why">Amit noticing a pattern in incoming bills and proposing a new project/job automatically.</div></div>
+<div class="td-item"><div class="td-title">Legacy import from QuickBooks (and others)</div><div class="td-why">IIF/CSV/Excel mapping into a new book, so switching to AmitBooks doesn't mean starting from zero. Was on the build-order list, not previously restated as a feature here.</div></div>
+<div class="td-item"><div class="td-title">Shared-Amit Mode vs. Own-Supabase Mode</div><div class="td-why">A user connects either through the shared Amit project (full Hub integration) or their own separate Supabase project (full independence, no ongoing cost to Ryan, no Hub integration). A real earlier architectural decision, not restated until now.</div></div>
+<div class="td-item"><div class="td-title">custom_fields jsonb on chart_of_accounts</div><div class="td-why">Lets a user attach extra structured data to an account without a schema change every time something new is needed.</div></div>
+<div class="td-item"><div class="td-title">Full offline/PWA parity, desktop and field</div><div class="td-why">Desktop offline use is the full application — real transaction entry, receipt attachment, bill/invoice creation — not a stripped-down cached view compared to online.</div></div>
+<div class="td-item"><div class="td-title">Vendor memory system</div><div class="td-why">Amit learns a vendor's category/job/billable-default on first entry, pre-fills every time after — the core of what makes the pile 30 minutes instead of 90.</div></div>
+<div class="td-item"><div class="td-title">Red-marker receipt annotation standard</div><div class="td-why">User marks job number, account category, billable/nonbillable in red marker before photographing; OCR reads the printed receipt and the annotations separately.</div></div>
+<div class="td-item"><div class="td-title">Document ID + QR stamp system</div><div class="td-why">Every document gets a short, unique, hand-writable code, stamped visibly on the stored image with a QR code overlay.</div></div>
+<div class="td-item"><div class="td-title">Two pricing tiers</div><div class="td-why">AmitBooks Base — one-time purchase, full core bookkeeping. Amit Connect — ~$10/month, vendor memory, AI extraction, auto-categorization, Ask Amit chat.</div></div>
+<div class="td-item"><div class="td-title">The five-stage relationship arc</div><div class="td-why">Prove useful → open the door to the Hub → become daily → earn the right to push back → the compass opens. Governs when and how Amit ever mentions who_is_god.html.</div></div>
+<div class="td-item"><div class="td-title">Standing blocker, unchanged</div><div class="td-why">Tim's real chart of accounts conversation still gates any accounting-forms work — this rule predates the Council and the Council didn't touch it.</div></div>
+
+<div class="td-h1">Layer 0 — Universal Ledger Primitives (one shape, never duplicated per industry)</div>
+<div class="td-item"><div class="td-why">
+<b>chart_of_accounts</b> — free-form, hierarchical, user-labelable. Industry starter categories are a separate <b>account_category_templates</b> table layered on top — never a different schema per industry.<br><br>
+<b>transactions / journal_entries</b> — the double-entry core. Immutable, append-only; corrections post as reversing entries, never edits.<br><br>
+<b>contacts (parties)</b> — one table for customer, vendor, employee, contractor, donor, tenant — role-flagged, since the same person/business can hold more than one role at once.<br><br>
+<b>invoices_bills</b> — one table for anything owed or owing, direction flag distinguishes AR from AP. A construction bill, a doctor's claim, and a subscription invoice all use this same shape.<br><br>
+<b>payments</b> — money moving in or out, linked to invoices/bills or standalone; handles partial, split, and overpayment.<br><br>
+<b>fixed_assets</b> — cost basis, depreciation method, useful life, disposal. One shape whether the asset is a truck, an X-ray machine, or a walk-in cooler.<br><br>
+<b>items</b> — anything sold, purchased, or billed — product, service, inventory good — type-flagged, not separate schemas.<br><br>
+<b>documents</b> — immutable source files (receipts, contracts, W-9s, leases) linked to any transaction or entity; never overwritten once attached.<br><br>
+<b>tax_rates</b> — jurisdiction, rate, product-category mapping; jurisdiction variation is configuration, not new tables.<br><br>
+<b>audit_log</b> — append-only change history (who, when, old value, new value). No update/delete policy exists on purpose.<br><br>
+<b>tags/dimensions</b> — a generic tagging layer (job, department, property, grant, class) so job costing, property accounting, and fund accounting all reuse the same mechanism instead of each building its own.
+</div></div>
+
+<div class="td-item" style="background:rgba(140,160,220,.1);border-color:rgba(140,160,220,.4)">
+<div class="td-title">CONFIRMED — the "segregated fund" primitive</div>
+<div class="td-why">Four voices independently flagged some version of this. The sharpest synthesis: legal trust/IOLTA accounting, real estate security deposits, and nonprofit restricted-fund accounting are the same underlying shape — money that must be tracked separately, cannot be commingled with operating cash, and (for trust/deposit cases) must be database-enforced to never go negative for an individual client. Build this <b>once</b> as a Layer 0 primitive rather than three separate times in Layer 2.</div></div>
+
+<div class="td-h1">Layer 1 — Global Features (every business needs these, complete before any industry layer)</div>
+<div class="td-item"><div class="td-why">
+<b>Money in:</b> invoicing (recurring, online payment acceptance, reminders/dunning), AR aging, credit memos, deposits/retainers.<br>
+<b>Money out:</b> bill entry, vendor management, approval workflow, scheduled payment, vendor credits, 1099 threshold tracking (real $2,000 2026 rule, not $600).<br>
+<b>Banking:</b> live bank/card feed import, rule-based reconciliation with exception queue, cash position + short-term forecast.<br>
+<b>Payroll:</b> employee setup, wage calc, withholdings, PTO — Phase 1 produces journals + CPA-ready output; Phase 2 adds direct filing.<br>
+<b>Tax:</b> sales tax by jurisdiction, estimated tax set-asides, filing-prep export — Phase 1 prepares, Phase 2 files.<br>
+<b>Reporting:</b> P&L, Balance Sheet, Cash Flow, Trial Balance, GL detail, AR/AP aging — plain-English explanations alongside every number.<br>
+<b>Platform:</b> role-based permissions, document capture with OCR, recurring transactions, closing checklist, CPA handoff export, basic budgeting, receipt-to-bill automation.<br>
+<b>Basic job/project tracking</b> — income/expense tagged to a job via the Tags dimension, project P&L view (full job costing with cost codes lives in Layer 2 for construction).
+</div></div>
+
+<div class="td-h1">Adjacent Workflows — where the line actually is</div>
+<div class="td-item"><div class="td-why">
+<b>Core-integrated</b> (built directly into AmitBooks because they alter a real balance in real time): job costing, basic inventory + COGS, time tracking feeding payroll/billing, light CRM (shares the contacts table), document management.<br><br>
+<b>Separate-but-connected</b> (their own program, syncing summary journals in through the same book): full POS hardware, full HR/benefits platform, full clinical EHR, full property management portal, full e-commerce storefront, full warehouse management.<br><br>
+<b>The test used to sort them, confirmed by three voices independently:</b> does this workflow directly create or alter a financial balance in real time? If yes, it's core. If its primary job is managing something non-financial (hardware, clinical charts, benefits enrollment), it's connected, not absorbed.
+</div></div>
+
+<div class="td-h1">Layer 2 — Industry-Specific (only genuine structural deltas, each with why)</div>
+
+<div class="td-item"><div class="td-title">Construction</div><div class="td-why">
+Job costing by cost code, retainage receivable/payable (needs its own held-back-percentage structure — doesn't fit a normal invoice), progress billing tied to % complete, change order tracking, certified payroll/prevailing wage (Phase 2, regulatory), lien waiver tracking, equipment usage-to-job costing, AIA-style billing (G702/G703, Phase 2), WIP/percentage-of-completion revenue recognition (Phase 2 — genuinely different revenue math).</div></div>
+
+<div class="td-item"><div class="td-title">Medical / Healthcare — CONFIRMED architectural stress point</div><div class="td-why">
+Four voices independently flagged this as a genuine break in the universal-table model: a claim splits across primary insurer, secondary insurer, contractual write-off, and patient responsibility — the obligor shifts dynamically after the fact, which ordinary binary AR (Entity A owes Entity B) cannot represent. Needs its own claims/adjudication structure (encounter → superbill → claim → ERA/EOB posting), separate from but settling into the standard invoice/payment tables. Also: CPT/ICD coding, HIPAA-compliant document handling, fee-schedule-per-payer management, patient responsibility (copay/deductible/coinsurance) tracking, 837/835 electronic claim files (Phase 2).</div></div>
+
+<div class="td-item"><div class="td-title">Retail / E-commerce</div><div class="td-why">
+Inventory by SKU with real cost-layer tracking (needs its own valuation ledger — genuinely different math from service billing), POS integration (separate-but-connected at the register, core-integrated at the daily sales summary), multi-location transfers, sales channel reconciliation (Amazon/Shopify fees settle differently than bank fees), gift card liability tracking, layaway, drop-ship COGS timing, dropshipping, chargeback management, marketplace fee tracking.</div></div>
+
+<div class="td-item"><div class="td-title">Professional Services</div><div class="td-why">
+Time-to-invoice with rate cards, utilization/realization reporting, retainer drawdown, trust/IOLTA accounting (Phase 2 — legally segregated, uses the shared fund primitive above), billable expense pass-through with markup.</div></div>
+
+<div class="td-item"><div class="td-title">Manufacturing — CONFIRMED architectural stress point</div><div class="td-why">
+Three voices independently flagged variable-yield transformation (raw materials → finished goods with waste factors and co-products) as breaking a static SKU inventory model. Needs bill_of_materials + routing, work orders/WIP state machine, standard-vs-actual cost variance, scrap/yield tracking, landed cost allocation — all Phase 2, genuinely different from single-item COGS.</div></div>
+
+<div class="td-item"><div class="td-title">Restaurant / Food Service</div><div class="td-why">
+Recipe costing (extension of BOM logic, shared with manufacturing), perishable inventory with spoilage tracking, tip pooling/FLSA compliance (needs its own distribution-across-employees structure), daily till/shift reconciliation, liquor/excise tax tracking.</div></div>
+
+<div class="td-item"><div class="td-title">Real Estate / Rental</div><div class="td-why">
+Lease management (ASC 842 classification), property-level P&L via Tags dimension, tenant billing/rent roll, CAM reconciliation, vacancy tracking, security deposits (Phase 2 — uses the shared segregated-fund primitive, not its own structure).</div></div>
+
+<div class="td-item"><div class="td-title">Nonprofit</div><div class="td-why">
+Fund accounting — restricted vs. unrestricted (Phase 2, uses the shared segregated-fund primitive), grant tracking with budget-vs-actual, donor/pledge/in-kind tracking, Form 990 prep (Phase 1 produces the worksheet, Phase 2 auto-files), functional expense allocation (Program/Management/Fundraising).</div></div>
+
+<div class="td-item"><div class="td-title">Manufacturing-adjacent / others worth including</div><div class="td-why">
+Agriculture (biological asset revaluation, crop/livestock production cycles, subsidy tracking, weather-based forecasting), trades/home services (van stock, dispatch, service agreements), SaaS/subscription (MRR, churn, deferred revenue waterfall).</div></div>
+
+<div class="td-h1">Phase 1 vs. Phase 2 — the rule actually used</div>
+<div class="td-item"><div class="td-why">
+<b>Phase 1</b> (ships now): owner fully self-sufficient day-to-day, books hand off cleanly to a human CPA who validates and files. Must be a complete, professional-grade product on its own terms — every Layer 0/1 primitive, capture, matching, approval, and CPA-ready packaging.<br><br>
+<b>Phase 2</b> (not built yet, architecture must not foreclose it): anything that <i>files, certifies, or attests</i> autonomously — automated tax e-filing, certified payroll filing, Form 990 e-filing, direct government API submission, autonomous compliance sign-off. Flagged, never discarded.
+</div></div>
+
+<div class="td-h1">Differentiators — the best, cross-voice-converged "wow" list</div>
+<div class="td-item"><div class="td-why">
+Plain-language transaction explanations ("You paid Ace Hardware $450 for lumber; this increased Construction Supplies and decreased your Bank Account") — named independently by nearly every voice.<br><br>
+Owner-Mode vs. CPA-Mode as two selectable views of the same books.<br><br>
+Real-time estimated tax projection with under-withholding alerts.<br><br>
+Cash flow scenario simulator ("what if I buy that truck / hire someone").<br><br>
+Automated merchant fee reconciliation (Stripe/Square/PayPal settlement matching).<br><br>
+Unapplied-cash and duplicate-bill guardian — catches the same bill entered twice via email and photo.<br><br>
+Document-expiry enforcement — an expired insurance certificate or W-9 actually blocks a payment until overridden with a logged reason.<br><br>
+Proactive threshold nudges ("$380 from the 1099 threshold for this vendor") instead of a year-end surprise.<br><br>
+Guided month-end close checklist ending in a real "Tim package," not a raw data dump.<br><br>
+Business-events-as-primary-object — the system models "completed a job," "received inventory," "signed a lease" as first-class events, with ledger entries as a downstream consequence, not the thing the owner directly interacts with.<br><br>
+Industry benchmarking against anonymized peers.<br><br>
+Vendor timeline view — every purchase/payment/price trend for one vendor, for negotiation leverage.
+</div></div>
+`;
+
 (function buildPlaceholders(){
   const nav=document.getElementById('sidebarTiles');
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const label=i===1?'Introduction':i===2?'Tabbed Layout':i===3?'To Do':i===4?'Full Spec':'Placeholder '+i;
+    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments',8:'Fixed Assets',9:'Reports'};
+    const opSubs={1:'Cash position',2:'Chart of accounts, contacts, items, tags',6:'Money owed, in and out',7:'Record what came in or went out',8:'Equipment & depreciation',9:'AR/AP summary, trial balance'};
+    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊'};
+    const label=opLabels[i]||(i===3?'To Do':i===4?'Full Spec':i===5?'Feature Map':'Placeholder '+i);
     navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
-      <div class="tile-icon">${i===3?'📝':i===4?'🔖':'▢'}</div>
+      <div class="tile-icon">${opIcons[i]||(i===3?'📝':i===4?'🔖':i===5?'🗺️':'▢')}</div>
       <div class="tile-info">
         <div class="tile-name">${label}</div>
-        <div class="tile-sub">${i===3?'Build roadmap':i===4?'AmitAccounting_Spec.md':'—'}</div>
+        <div class="tile-sub">${opSubs[i]||(i===3?'Build roadmap':i===4?'AmitAccounting_Spec.md':i===5?'The Council, synthesized':'—')}</div>
       </div>
     </div>`;
-    if(i===1||i===2){
-      let tabNavHtml='',tabContentHtml='';
-      for(let t=1;t<=5;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})">Tab ${t}</button>`;
-        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">Tab ${t} content goes here</div>`;
-      }
-      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
+    if(i===1){
+      panelHtml+=`<div class="panel active" id="panel-1" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
+        <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===2){
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-2-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
+      panelHtml+=`<div class="panel" id="panel-2" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-nav" id="ch-tab-nav-2">${tabNavHtml}</div>
         <div class="ch-tab-main">${tabContentHtml}</div>
+      </div>`;
+    } else if(i===6){
+      panelHtml+=`<div class="panel" id="panel-6" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-invoices-bills" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===7){
+      panelHtml+=`<div class="panel" id="panel-7" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-payments" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===8){
+      panelHtml+=`<div class="panel" id="panel-8" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-fixed-assets" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===9){
+      panelHtml+=`<div class="panel" id="panel-9" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-reports" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===3){
       panelHtml+=`<div class="panel" id="panel-${i}" style="flex-direction:column">
@@ -363,6 +793,11 @@ const FULL_SPEC_CONTENT = `
       panelHtml+=`<div class="panel" id="panel-${i}" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
         <div class="ch-tab-main" style="margin:24px;">${FULL_SPEC_CONTENT}</div>
+      </div>`;
+    } else if(i===5){
+      panelHtml+=`<div class="panel" id="panel-${i}" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" style="margin:24px;">${FEATURE_MAP_CONTENT}</div>
       </div>`;
     } else {
       panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}">
@@ -433,6 +868,7 @@ if(db){
   db.auth.onAuthStateChange((event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    abInit();
   });
 }
 
@@ -502,6 +938,425 @@ function updateClock(){
 }
 updateClock();
 setInterval(updateClock,30000);
+
+// ══════════════════════════════════════════════
+// AMITBOOKS OPERATIONAL LAYER — reads/writes the real Layer 0 tables.
+// Design rule held throughout, per Ryan's direct instruction: every form
+// here asks for the fewest fields a person can get away with. A record
+// can be saved incomplete and refined later — the pile getting cleared
+// matters more than a perfect first entry. No screen here waits on
+// features that don't exist yet (no journal auto-posting is claimed,
+// for instance) — Reports says plainly what it can and can't show yet.
+// ══════════════════════════════════════════════
+let abBookId=localStorage.getItem('amitbooks_current_book_id')||null;
+let abBooks=[];
+let abAccounts=[],abContacts=[],abItems=[],abTags=[];
+
+function abEsc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+function abMoney(n){ return '$'+(Number(n)||0).toFixed(2); }
+
+async function abInit(){
+  if(!currentUser){
+    ['ab-dashboard','ab-books','ab-coa','ab-contacts','ab-items','ab-tags','ab-invoices-bills','ab-payments','ab-fixed-assets','ab-reports'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el)el.innerHTML='<div class="ab-signin-notice">Sign in (top right) to open or create a book.</div>';
+    });
+    return;
+  }
+  await abLoadBooks();
+}
+
+async function abLoadBooks(){
+  const{data,error}=await db.from('books').select('*').order('created_at',{ascending:true});
+  abBooks=data||[];
+  if(!abBookId || !abBooks.find(b=>b.id===abBookId)){
+    abBookId = abBooks.length ? abBooks[0].id : null;
+    if(abBookId) localStorage.setItem('amitbooks_current_book_id',abBookId);
+  }
+  abRenderDashboard();
+  abRenderBooksTab();
+  if(abBookId){ await abLoadBookData(); }
+}
+
+async function abLoadBookData(){
+  await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
+  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags();
+  await abLoadInvoicesBills();
+  await abLoadFixedAssets();
+  abRenderReports();
+}
+
+function abSwitchBook(id){
+  abBookId=id; localStorage.setItem('amitbooks_current_book_id',id);
+  abRenderDashboard();
+  abLoadBookData();
+}
+
+async function abCreateBook(){
+  const name=document.getElementById('ab-new-book-name').value.trim();
+  if(!name)return;
+  const entity=document.getElementById('ab-new-book-entity').value;
+  const{data,error}=await db.from('books').insert({user_id:currentUser.id,name,entity_type:entity||null}).select().single();
+  if(error){ alert('Could not create book: '+error.message); return; }
+  await abLoadBooks();
+  abSwitchBook(data.id);
+  openPanel(1);
+}
+
+// ── DASHBOARD ──
+function abRenderDashboard(){
+  const el=document.getElementById('ab-dashboard'); if(!el)return;
+  if(!abBooks.length){
+    el.innerHTML=`<div class="ab-signin-notice">You don't have a book yet.
+      <div class="ab-form" style="margin-top:14px;justify-content:center">
+        <div class="ab-field"><label>Book name</label><input id="ab-new-book-name" placeholder="e.g. Frick Construction LLC"></div>
+        <div class="ab-field"><label>Type (optional)</label>
+          <select id="ab-new-book-entity"><option value="">—</option><option value="sole_prop">Sole Proprietor</option><option value="llc">LLC</option><option value="s_corp">S-Corp</option><option value="c_corp">C-Corp</option><option value="partnership">Partnership</option><option value="nonprofit">Nonprofit</option><option value="personal">Personal</option></select>
+        </div>
+        <button class="ab-btn" onclick="abCreateBook()">Create Book</button>
+      </div></div>`;
+    return;
+  }
+  const b=abBooks.find(x=>x.id===abBookId)||abBooks[0];
+  const openInv=(abInvoicesBillsCache||[]).filter(r=>r.direction==='invoice_receivable'&&r.status!=='paid'&&r.status!=='void');
+  const openBill=(abInvoicesBillsCache||[]).filter(r=>r.direction==='bill_payable'&&r.status!=='paid'&&r.status!=='void');
+  const owedToMe=openInv.reduce((s,r)=>s+(Number(r.total_amount)-Number(r.paid_amount)),0);
+  const iOwe=openBill.reduce((s,r)=>s+(Number(r.total_amount)-Number(r.paid_amount)),0);
+  el.innerHTML=`
+    <div class="ab-book-bar">
+      <b style="color:var(--gold2)">Book:</b>
+      <select onchange="abSwitchBook(this.value)">${abBooks.map(x=>`<option value="${x.id}"${x.id===abBookId?' selected':''}>${abEsc(x.name)}</option>`).join('')}</select>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted)">${b?abEsc(b.entity_type||''):''}</span>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="ab-card"><div class="n">${abMoney(owedToMe)}</div><div class="l">Owed to you</div></div>
+      <div class="ab-card"><div class="n">${abMoney(iOwe)}</div><div class="l">You owe</div></div>
+      <div class="ab-card"><div class="n">${openInv.length+openBill.length}</div><div class="l">Open items</div></div>
+    </div>
+    <div class="ab-section">
+      <div class="ab-h">Quick add</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="ab-btn" onclick="openPanel(6)">+ Bill / Invoice</button>
+        <button class="ab-btn" onclick="openPanel(7)">+ Payment</button>
+        <button class="ab-btn" onclick="openPanel(2)">+ Contact / Vendor</button>
+      </div>
+    </div>
+    <div class="ab-section">
+      <div class="ab-h">Add another book</div>
+      <div class="ab-form">
+        <div class="ab-field"><label>Book name</label><input id="ab-new-book-name" placeholder="e.g. Personal"></div>
+        <div class="ab-field"><label>Type (optional)</label>
+          <select id="ab-new-book-entity"><option value="">—</option><option value="sole_prop">Sole Proprietor</option><option value="llc">LLC</option><option value="s_corp">S-Corp</option><option value="c_corp">C-Corp</option><option value="partnership">Partnership</option><option value="nonprofit">Nonprofit</option><option value="personal">Personal</option></select>
+        </div>
+        <button class="ab-btn" onclick="abCreateBook()">Create</button>
+      </div>
+    </div>`;
+}
+function abRenderBooksTab(){
+  const el=document.getElementById('ab-books'); if(!el)return;
+  el.innerHTML=`<div class="ab-h">My Books</div>
+    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Basis</th></tr>
+    ${abBooks.map(b=>`<tr><td>${abEsc(b.name)}${b.id===abBookId?' <span style="color:var(--gold2)">(current)</span>':''}</td><td>${abEsc(b.entity_type||'—')}</td><td>${abEsc(b.accounting_basis)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No books yet</td></tr>'}
+    </table>
+    <div class="ab-form" style="margin-top:16px">
+      <div class="ab-field"><label>New book name</label><input id="ab-new-book-name" placeholder="e.g. Personal"></div>
+      <div class="ab-field"><label>Type (optional)</label>
+        <select id="ab-new-book-entity"><option value="">—</option><option value="sole_prop">Sole Proprietor</option><option value="llc">LLC</option><option value="s_corp">S-Corp</option><option value="c_corp">C-Corp</option><option value="partnership">Partnership</option><option value="nonprofit">Nonprofit</option><option value="personal">Personal</option></select>
+      </div>
+      <button class="ab-btn" onclick="abCreateBook()">Create</button>
+    </div>`;
+}
+
+// ── CHART OF ACCOUNTS ──
+async function abLoadAccounts(){
+  if(!abBookId){abAccounts=[];return;}
+  const{data}=await db.from('chart_of_accounts').select('*').eq('book_id',abBookId).order('account_name');
+  abAccounts=data||[];
+}
+function abRenderCoa(){
+  const el=document.getElementById('ab-coa'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Chart of Accounts</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Account name</label><input id="ab-coa-name" placeholder="e.g. Tools & Equipment"></div>
+      <div class="ab-field"><label>Type</label><select id="ab-coa-type"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
+      <div class="ab-field"><label>Number (optional)</label><input id="ab-coa-number" style="width:80px" placeholder="5100"></div>
+      <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
+    </div>
+    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th></tr>
+    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No accounts yet — add your first one above</td></tr>'}
+    </table>`;
+}
+async function abAddAccount(){
+  const name=document.getElementById('ab-coa-name').value.trim(); if(!name)return;
+  const type=document.getElementById('ab-coa-type').value;
+  const number=document.getElementById('ab-coa-number').value.trim();
+  const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null});
+  if(error){alert(error.message);return;}
+  await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
+}
+
+// ── CONTACTS ──
+async function abLoadContacts(){
+  if(!abBookId){abContacts=[];return;}
+  const{data}=await db.from('contacts').select('*').eq('book_id',abBookId).order('name');
+  abContacts=data||[];
+}
+function abRoleTags(c){
+  const r=[]; if(c.is_customer)r.push('Customer'); if(c.is_vendor)r.push('Vendor'); if(c.is_employee)r.push('Employee'); if(c.is_contractor_1099)r.push('1099'); if(c.is_donor)r.push('Donor'); if(c.is_tenant)r.push('Tenant');
+  return r.join(', ')||'—';
+}
+function abRenderContacts(){
+  const el=document.getElementById('ab-contacts'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Contacts</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Name</label><input id="ab-contact-name" placeholder="Ace Hardware"></div>
+      <div class="ab-field"><label>Roles</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
+          <label><input type="checkbox" id="ab-contact-customer"> Customer</label>
+          <label><input type="checkbox" id="ab-contact-vendor" checked> Vendor</label>
+          <label><input type="checkbox" id="ab-contact-employee"> Employee</label>
+          <label><input type="checkbox" id="ab-contact-1099"> 1099</label>
+        </div>
+      </div>
+      <button class="ab-btn" onclick="abAddContact()">Add Contact</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Roles</th></tr>
+    ${abContacts.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">No contacts yet — add your first vendor or customer above</td></tr>'}
+    </table>`;
+}
+async function abAddContact(){
+  const name=document.getElementById('ab-contact-name').value.trim(); if(!name)return;
+  const row={book_id:abBookId,name,
+    is_customer:document.getElementById('ab-contact-customer').checked,
+    is_vendor:document.getElementById('ab-contact-vendor').checked,
+    is_employee:document.getElementById('ab-contact-employee').checked,
+    is_contractor_1099:document.getElementById('ab-contact-1099').checked};
+  const{error}=await db.from('contacts').insert(row);
+  if(error){alert(error.message);return;}
+  await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
+}
+
+// ── ITEMS ──
+async function abLoadItems(){
+  if(!abBookId){abItems=[];return;}
+  const{data}=await db.from('items').select('*').eq('book_id',abBookId).order('name');
+  abItems=data||[];
+}
+function abRenderItems(){
+  const el=document.getElementById('ab-items'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Items</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Name</label><input id="ab-item-name" placeholder="e.g. Labor - Rough Framing"></div>
+      <div class="ab-field"><label>Type</label><select id="ab-item-type"><option value="service">Service</option><option value="inventory_good">Inventory Good</option><option value="non_inventory_good">Non-Inventory Good</option></select></div>
+      <div class="ab-field"><label>Price (optional)</label><input id="ab-item-price" type="number" step="0.01" style="width:90px"></div>
+      <button class="ab-btn" onclick="abAddItem()">Add Item</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Price</th></tr>
+    ${abItems.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(i.item_type)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No items yet</td></tr>'}
+    </table>`;
+}
+async function abAddItem(){
+  const name=document.getElementById('ab-item-name').value.trim(); if(!name)return;
+  const type=document.getElementById('ab-item-type').value;
+  const price=document.getElementById('ab-item-price').value;
+  const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,unit_price:price||null});
+  if(error){alert(error.message);return;}
+  await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
+}
+
+// ── TAGS / JOBS ──
+async function abLoadTags(){
+  if(!abBookId){abTags=[];return;}
+  const{data}=await db.from('tags').select('*').eq('book_id',abBookId).order('name');
+  abTags=data||[];
+}
+function abRenderTags(){
+  const el=document.getElementById('ab-tags'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Tags / Jobs</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Name</label><input id="ab-tag-name" placeholder="e.g. Job 114 — Johnson Kitchen"></div>
+      <div class="ab-field"><label>Type</label><select id="ab-tag-type"><option value="job">Job</option><option value="property">Property</option><option value="department">Department</option><option value="grant">Grant</option><option value="class">Class</option><option value="location">Location</option></select></div>
+      <button class="ab-btn" onclick="abAddTag()">Add</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Type</th></tr>
+    ${abTags.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">No jobs/tags yet</td></tr>'}
+    </table>`;
+}
+async function abAddTag(){
+  const name=document.getElementById('ab-tag-name').value.trim(); if(!name)return;
+  const type=document.getElementById('ab-tag-type').value;
+  const{error}=await db.from('tags').insert({book_id:abBookId,name,tag_type:type});
+  if(error){alert(error.message);return;}
+  await abLoadTags(); abRenderTags(); abRefreshDropdownSources();
+}
+
+// ── BILLS & INVOICES — the core "clear the pile" screen ──
+let abInvoicesBillsCache=[];
+async function abLoadInvoicesBills(){
+  if(!abBookId){abInvoicesBillsCache=[];return;}
+  const{data}=await db.from('invoices_bills').select('*,contacts(name)').eq('book_id',abBookId).order('doc_date',{ascending:false});
+  abInvoicesBillsCache=data||[];
+  abRenderInvoicesBills();
+}
+function abRenderInvoicesBills(){
+  const el=document.getElementById('ab-invoices-bills'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=`<div class="ab-h">Enter a Bill or Invoice</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Type</label><select id="ab-ib-direction"><option value="bill_payable">Bill (I owe)</option><option value="invoice_receivable">Invoice (owed to me)</option></select></div>
+      <div class="ab-field"><label>Contact</label><select id="ab-ib-contact"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Amount</label><input id="ab-ib-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Date</label><input id="ab-ib-date" type="date" value="${today}"></div>
+      <div class="ab-field"><label>Category (optional)</label><select id="ab-ib-account"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Job/Tag (optional)</label><select id="ab-ib-tag"><option value="">—</option>${abTags.map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Memo (optional)</label><input id="ab-ib-memo" placeholder="e.g. lumber for Job 114"></div>
+      <button class="ab-btn" onclick="abAddInvoiceBill()">Save</button>
+    </div>
+    <table class="ab-table"><tr><th>Date</th><th>Type</th><th>Contact</th><th>Amount</th><th>Status</th></tr>
+    ${abInvoicesBillsCache.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
+    </table>`;
+}
+async function abAddInvoiceBill(){
+  const direction=document.getElementById('ab-ib-direction').value;
+  const contact=document.getElementById('ab-ib-contact').value||null;
+  const amount=parseFloat(document.getElementById('ab-ib-amount').value)||0;
+  const date=document.getElementById('ab-ib-date').value||null;
+  const account=document.getElementById('ab-ib-account').value||null;
+  const tag=document.getElementById('ab-ib-tag').value||null;
+  const memo=document.getElementById('ab-ib-memo').value.trim();
+  if(!amount){alert('Enter an amount.');return;}
+  const{data,error}=await db.from('invoices_bills').insert({
+    book_id:abBookId,direction,contact_id:contact,doc_date:date,status:'open',
+    subtotal:amount,total_amount:amount,memo:memo||null
+  }).select().single();
+  if(error){alert(error.message);return;}
+  await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:account,tag_id:tag,description:memo||null,quantity:1,unit_price:amount,amount:amount});
+  document.getElementById('ab-ib-amount').value='';
+  document.getElementById('ab-ib-memo').value='';
+  await abLoadInvoicesBills();
+  abRenderDashboard();
+  abRenderReports();
+}
+
+// ── PAYMENTS ──
+async function abRenderPayments(){
+  const el=document.getElementById('ab-payments'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const open=abInvoicesBillsCache.filter(r=>r.status!=='paid'&&r.status!=='void');
+  const{data:pays}=await db.from('payments').select('*,invoices_bills(document_code,direction,contacts(name))').eq('book_id',abBookId).order('payment_date',{ascending:false});
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=`<div class="ab-h">Record a Payment</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Against</label><select id="ab-pay-invbill">${open.map(r=>`<option value="${r.id}" data-remaining="${(Number(r.total_amount)-Number(r.paid_amount)).toFixed(2)}">${r.direction==='bill_payable'?'Bill':'Invoice'} — ${abEsc(r.contacts?r.contacts.name:'')} — ${abMoney(Number(r.total_amount)-Number(r.paid_amount))} left</option>`).join('')||'<option value="">No open bills/invoices</option>'}</select></div>
+      <div class="ab-field"><label>Amount</label><input id="ab-pay-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Date</label><input id="ab-pay-date" type="date" value="${today}"></div>
+      <div class="ab-field"><label>Method</label><select id="ab-pay-method"><option value="ach">ACH</option><option value="check">Check</option><option value="card">Card</option><option value="cash">Cash</option><option value="wire">Wire</option></select></div>
+      <button class="ab-btn" onclick="abAddPayment()">Record Payment</button>
+    </div>
+    <table class="ab-table"><tr><th>Date</th><th>Against</th><th>Amount</th><th>Method</th></tr>
+    ${(pays||[]).map(p=>`<tr><td>${p.payment_date||''}</td><td>${abEsc(p.invoices_bills?(p.invoices_bills.direction==='bill_payable'?'Bill':'Invoice')+' — '+(p.invoices_bills.contacts?p.invoices_bills.contacts.name:''):'—')}</td><td>${abMoney(p.amount)}</td><td>${abEsc(p.method||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No payments recorded yet</td></tr>'}
+    </table>`;
+}
+async function abAddPayment(){
+  const invbill=document.getElementById('ab-pay-invbill').value; if(!invbill){alert('Nothing to pay against — enter a bill or invoice first.');return;}
+  const amount=parseFloat(document.getElementById('ab-pay-amount').value)||0;
+  if(!amount){alert('Enter an amount.');return;}
+  const date=document.getElementById('ab-pay-date').value||null;
+  const method=document.getElementById('ab-pay-method').value;
+  const row=abInvoicesBillsCache.find(r=>r.id===invbill);
+  const{error}=await db.from('payments').insert({book_id:abBookId,invoice_bill_id:invbill,contact_id:row?row.contact_id:null,payment_date:date,amount,method});
+  if(error){alert(error.message);return;}
+  const newPaid=(Number(row.paid_amount)||0)+amount;
+  const newStatus=newPaid>=Number(row.total_amount)?'paid':'partial';
+  await db.from('invoices_bills').update({paid_amount:newPaid,status:newStatus}).eq('id',invbill);
+  document.getElementById('ab-pay-amount').value='';
+  await abLoadInvoicesBills();
+  abRenderPayments();
+  abRenderDashboard();
+  abRenderReports();
+}
+
+// ── FIXED ASSETS ──
+let abFixedAssetsCache=[];
+async function abLoadFixedAssets(){
+  if(!abBookId){abFixedAssetsCache=[];return;}
+  const{data}=await db.from('fixed_assets').select('*').eq('book_id',abBookId).order('acquisition_date',{ascending:false});
+  abFixedAssetsCache=data||[];
+  abRenderFixedAssets();
+}
+function abRenderFixedAssets(){
+  const el=document.getElementById('ab-fixed-assets'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Add a Fixed Asset</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Asset name</label><input id="ab-fa-name" placeholder="e.g. Ford F-150"></div>
+      <div class="ab-field"><label>Cost basis</label><input id="ab-fa-cost" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Acquired</label><input id="ab-fa-date" type="date"></div>
+      <div class="ab-field"><label>Depreciation</label><select id="ab-fa-method"><option value="">—</option><option value="straight_line">Straight-line</option><option value="declining_balance">Declining balance</option><option value="units_of_production">Units of production</option></select></div>
+      <div class="ab-field"><label>Useful life (months)</label><input id="ab-fa-life" type="number" style="width:80px"></div>
+      <button class="ab-btn" onclick="abAddFixedAsset()">Add Asset</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Cost Basis</th><th>Acquired</th><th>Method</th></tr>
+    ${abFixedAssetsCache.map(a=>`<tr><td>${abEsc(a.asset_name)}</td><td>${a.cost_basis?abMoney(a.cost_basis):'—'}</td><td>${a.acquisition_date||''}</td><td>${abEsc(a.depreciation_method||'—')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No fixed assets yet</td></tr>'}
+    </table>`;
+}
+async function abAddFixedAsset(){
+  const name=document.getElementById('ab-fa-name').value.trim(); if(!name)return;
+  const cost=document.getElementById('ab-fa-cost').value||null;
+  const date=document.getElementById('ab-fa-date').value||null;
+  const method=document.getElementById('ab-fa-method').value||null;
+  const life=document.getElementById('ab-fa-life').value||null;
+  const{error}=await db.from('fixed_assets').insert({book_id:abBookId,asset_name:name,cost_basis:cost,acquisition_date:date,depreciation_method:method,useful_life_months:life});
+  if(error){alert(error.message);return;}
+  await abLoadFixedAssets();
+  abRenderReports();
+}
+
+// ── REPORTS — honest about what's real right now: an AR/AP + asset
+// summary from the tables that exist. Trial Balance / P&L wait on journal
+// auto-posting (next migration), not pretended here. ──
+function abRenderReports(){
+  const el=document.getElementById('ab-reports'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const inv=abInvoicesBillsCache.filter(r=>r.direction==='invoice_receivable');
+  const bill=abInvoicesBillsCache.filter(r=>r.direction==='bill_payable');
+  const openInv=inv.filter(r=>r.status!=='paid'&&r.status!=='void');
+  const openBill=bill.filter(r=>r.status!=='paid'&&r.status!=='void');
+  const assetTotal=abFixedAssetsCache.reduce((s,a)=>s+(Number(a.cost_basis)||0),0);
+  el.innerHTML=`<div class="ab-h">Where things stand</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="ab-card"><div class="n">${openInv.length}</div><div class="l">Open invoices (${abMoney(openInv.reduce((s,r)=>s+Number(r.total_amount)-Number(r.paid_amount),0))})</div></div>
+      <div class="ab-card"><div class="n">${openBill.length}</div><div class="l">Open bills (${abMoney(openBill.reduce((s,r)=>s+Number(r.total_amount)-Number(r.paid_amount),0))})</div></div>
+      <div class="ab-card"><div class="n">${abMoney(assetTotal)}</div><div class="l">Fixed assets, cost basis</div></div>
+    </div>
+    <div class="ab-signin-notice" style="text-align:left">
+      Trial Balance, P&L, and Balance Sheet need the general ledger auto-posting piece (journal_entries generated from every bill/invoice/payment) — that's the next migration, not built yet. This page shows the real AR/AP + asset picture from what's actually entered so far, honestly, rather than a report that looks complete and isn't.
+    </div>`;
+}
+
+function abRefreshDropdownSources(){
+  // Cheap re-render of any open screen whose dropdowns (contacts/accounts/
+  // tags/items) just changed, so a newly-added vendor shows up immediately
+  // without switching tabs and back.
+  abRenderInvoicesBills();
+  abRenderPayments();
+}
+
+// Payments panel loads lazily since it needs invoices_bills already cached;
+// call it once on open in case the panel is opened before abLoadBookData
+// finishes, and whenever the tile is clicked again.
+const _origOpenPanel=openPanel;
+openPanel=function(n){
+  _origOpenPanel(n);
+  if(n===7 && abBookId) abRenderPayments();
+};
+
+abInit();
 </script>
 
 </body>
