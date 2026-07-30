@@ -64,13 +64,24 @@ Any pursuit written to `hub_entries` from this project must be stamped `program=
 
 ## Shortcut Activation — Permanent
 
-At the start of every session in this project, check whether `amit_shortcuts_cache.json` exists at the project root (written by `hooks/Amit_Coder_SessionStart.ps1`, pulled from the signed-in user's AmitCoder account). If it exists, read it — it holds that person's active F/J shortcuts.
+At the start of every session, and any time the person says something like "update shortcuts," "recheck shortcuts," or "update J shortcuts" — query Supabase directly yourself, right then, using your own tool access (Bash/PowerShell). This is not a file some separate script pre-writes for you — it is a live request you make as part of following this instruction, the same way you'd read a project's own CLAUDE.md at the start of a session. There is no local cache file to check and no separate hook script that needs to have run first.
 
-When a message begins with a trigger word from that cache (a single letter — F or J — followed by a phrase), match it against the cached entries:
-- If the match is a plain instruction, treat its `instruction_text` as the actual request and act on it directly — the same as if the person had typed that instruction themselves.
-- If the match is a master shortcut with subtasks, run each subtask's instruction in order. If a subtask has a `referenced_shortcut_id`, resolve it by looking up that other cached entry's own `instruction_text` and run that instead of the subtask's own (which will be empty for a chained reference).
+For J shortcuts (global, shared by everyone, no login needed):
+```
+GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_shortcuts?activation_key=eq.J&is_active=eq.true
+Header: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF
+```
 
-If the cache file doesn't exist yet, or nothing matches, treat the message as ordinary conversation — never guess at an unrecognized trigger, and never fabricate a shortcut's meaning from the letter alone.
+For the person's own F shortcuts, you additionally need their AmitCoder Account ID (from `amit_coder_config.json` at the project root, if they have set one) and query:
+```
+GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_shortcuts?activation_key=eq.F&user_id=eq.[their account id]&is_active=eq.true
+```
+
+Hold the results in your own working context for the session — no need to write them to a file, since you can simply re-query any time it's asked to be rechecked. When a message begins with a trigger word (F or J, followed by a phrase), match it against what you fetched:
+- Plain instruction: treat `instruction_text` as the actual request and act on it directly.
+- Master with subtasks: run each subtask in order. If a subtask has a `referenced_shortcut_id`, resolve it by looking up that other fetched entry's own `instruction_text` and run that instead.
+
+If you have not fetched shortcuts yet this session, do so now before concluding nothing matches — never guess at an unrecognized trigger without having actually checked.
 
 ## Shortcut Awareness — Permanent
 

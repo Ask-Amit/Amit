@@ -12,7 +12,7 @@
 # Awareness). Bump this by hand whenever a clause below is added or changed,
 # and update the matching dev_playbook row (topic_key=amit_coder_directive_package)
 # so installed copies can detect they are behind.
-$DIRECTIVE_VERSION = "1.1"
+$DIRECTIVE_VERSION = "1.2"
 
 Write-Host ""
 Write-Host "=== Amit Coder Starter Kit ===" -ForegroundColor Yellow
@@ -76,9 +76,11 @@ ask-amit.github.io/Amit/AmitCoder/AmitCoder.html
 - Your project's real working instructions: the CLAUDE.md one level up (the
   root of this project) - Pursuit Attribution, Shortcut Activation, Shortcut
   Awareness, and the Directive Package Version are all there, not here.
-- Your active shortcuts cache: amit_shortcuts_cache.json at the project root.
-- Your synced session data: amit_coder_config.json and the hooks/ folder,
-  also at the project root.
+- Your shortcuts are not cached to a file - every session queries Supabase
+  directly for the current list, live, each time (see Shortcut Activation
+  in the root CLAUDE.md).
+- Your synced session data: amit_coder_config.json at the project root
+  (your AmitCoder Account ID, used to fetch your own F shortcuts).
 
 ## Current Projects
 
@@ -161,22 +163,37 @@ identifier instead of splitting across two names.
 
 ## Shortcut Activation - Permanent
 
-At the start of every session in this project, check whether
-amit_shortcuts_cache.json exists at the project root (written by
-hooks/Amit_Coder_SessionStart.ps1, pulled from your AmitCoder account). If
-it exists, read it - it holds your active F/J shortcuts.
+At the start of every session, and any time the person says something like
+"update shortcuts," "recheck shortcuts," or "update J shortcuts" - query
+Supabase directly yourself, right then, using your own tool access
+(Bash/PowerShell). This is not a file some separate script pre-writes for
+you - it is a live request you make as part of following this instruction,
+the same way you'd read a project's own CLAUDE.md at the start of a session.
+There is no local cache file to check and no separate hook script that needs
+to have run first.
 
-When a message begins with a trigger word from that cache (a single letter -
-F or J - followed by a phrase), match it against the cached entries:
-- If the match is a plain instruction, treat its instruction_text as the
-  actual request and act on it directly.
-- If the match is a master shortcut with subtasks, run each subtask's
-  instruction in order. If a subtask has a referenced_shortcut_id, resolve it
-  by looking up that other cached entry's own instruction_text and run that
-  instead.
+For J shortcuts (global, shared by everyone, no login needed):
+GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_shortcuts?activation_key=eq.J&is_active=eq.true
+Header: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF
 
-If the cache file doesn't exist yet, or nothing matches, treat the message as
-ordinary conversation - never guess at an unrecognized trigger.
+For the person's own F shortcuts, you additionally need their AmitCoder
+Account ID (from amit_coder_config.json at the project root, if they have
+set one) and query:
+GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_shortcuts?activation_key=eq.F&user_id=eq.[their account id]&is_active=eq.true
+
+Hold the results in your own working context for the session - no need to
+write them to a file, since you can simply re-query any time it's asked to
+be rechecked. When a message begins with a trigger word (F or J, followed by
+a phrase), match it against what you fetched:
+- Plain instruction: treat instruction_text as the actual request and act
+  on it directly.
+- Master with subtasks: run each subtask in order. If a subtask has a
+  referenced_shortcut_id, resolve it by looking up that other fetched
+  entry's own instruction_text and run that instead.
+
+If you have not fetched shortcuts yet this session, do so now before
+concluding nothing matches - never guess at an unrecognized trigger without
+having actually checked.
 
 ## Shortcut Awareness - Permanent
 
@@ -188,12 +205,12 @@ own, since it depends on watching what actually happens across real sessions:
    Don't wait to be asked whether a shortcut exists for this.
 
 2. Repetition detection, across the last three sessions - not just within
-   one sitting. At the start of a session, check amit_shortcuts_cache.json
-   (see Shortcut Activation above) and also look back over this project's
-   last three sessions (session-log files, or hub_entries/experience
-   records if this project writes them) for the same or similar instruction
-   recurring across them - whether that's several times in one afternoon or
-   spread across those three sessions. When a real pattern shows up, name it
+   one sitting. Look back over this project's last three sessions (the
+   shortcuts you just queried live from Supabase - see Shortcut Activation
+   above - plus session-log files or hub_entries/experience records if this
+   project writes them) for the same or similar instruction recurring
+   across them - whether that's several times in one afternoon or spread
+   across those three sessions. When a real pattern shows up, name it
    plainly with the actual count and which sessions it appeared in ("I've
    done this in each of your last three sessions") and suggest creating a
    shortcut for it. Auto-suggested shortcuts are always proposed as F
@@ -212,12 +229,18 @@ the master. If you are reading this file and you are not in Ryan's own
 root Amit folder, you are running on someone else's installed copy - this
 is expected and correct, not an error.
 
-At the start of a session, if hooks/Amit_Coder_SessionStart.ps1 has run,
-check whether amit_directive_status.json exists at the project root. If it
-reports a newer directive package version is available than the one
-stamped above, tell the person plainly (name the version gap) and offer to
-help them pull the updated clause text in by hand - never overwrite their
-CLAUDE.md automatically, since they may have customized it since install.
+At the start of a session, query dev_playbook directly yourself, the same
+way you query shortcuts above - no separate script or pre-written file
+needed:
+```
+GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/dev_playbook?topic_key=eq.amit_coder_directive_package&select=method
+Header: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF
+```
+The `method` field states the current master version ("Current version:
+X.Y"). Compare that to the version stamped above. If the master is newer,
+tell the person plainly (name the version gap) and offer to help them pull
+the updated clause text in by hand - never overwrite their CLAUDE.md
+automatically, since they may have customized it since install.
 
 ## Login-Based Profile - Permanent
 
@@ -444,13 +467,16 @@ if (-not (Test-Path $configPath)) {
 }
 
 $sessionStartScript = @'
-# Amit_Coder_SessionStart.ps1 - pulls your saved shortcuts from AmitCoder
-# (Supabase) and writes them to a local cache file you can reference at the
-# start of a session. Run manually for now: `.\hooks\Amit_Coder_SessionStart.ps1`
-# (Wiring this to fire automatically requires a Claude Code hook entry in
-# .claude\settings.json - verify the exact hook event name against Claude
-# Code's current docs before relying on automatic firing; this script is
-# tested standalone, the automatic-trigger wiring is not yet confirmed.)
+# Amit_Coder_SessionStart.ps1 - OPTIONAL, not required for shortcuts to work.
+# Corrected 2026-07-29: shortcuts and the directive-version check are no
+# longer read from a cache file this script writes - the root CLAUDE.md now
+# instructs Claude Code to query Supabase directly, live, itself, at the
+# start of every session (see "Shortcut Activation" and "Directive Package
+# Version" in that file). That removed the need for this script to run
+# automatically at all, and with it the earlier open question of whether
+# Claude Code's own hook-firing would ever reliably trigger it.
+# This script still works standalone as a manual diagnostic / local record
+# if you want one - run it yourself any time: `.\hooks\Amit_Coder_SessionStart.ps1`
 $configPath = Join-Path (Split-Path $PSScriptRoot -Parent) "amit_coder_config.json"
 if (-not (Test-Path $configPath)) { Write-Host "No amit_coder_config.json found - run the starter kit first."; exit }
 $config = Get-Content $configPath | ConvertFrom-Json

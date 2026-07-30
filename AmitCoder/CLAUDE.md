@@ -14,6 +14,18 @@ All AmitCoder development files belong here. Do not create AmitCoder files anywh
 
 ---
 
+## Shortcut Activation — Real Simplification, 2026-07-29 (Ryan's own insight)
+
+The original design routed shortcut activation through a local file: `hooks/Amit_Coder_SessionStart.ps1` would query Supabase and write `amit_shortcuts_cache.json`, which the project's `CLAUDE.md` then told Claude to read. Ryan corrected this directly, and he was right: a Claude Code session already has live Bash/PowerShell tool access every session - the same access I've used all night to query Supabase directly. There was never a real need for a separate script to pre-fetch anything into a file first.
+
+**Fixed:** `CLAUDE.md`'s Shortcut Activation clause (root, `Amit_Coder_Starter_Kit.ps1`'s generated file, and `Templates/Amit_NewProject_Template.md`) now instructs a session to query `amit_shortcuts` directly - at session start, and any time the person says "update shortcuts" or "recheck shortcuts." No cache file, no dependency on whether a separate hook script happened to run first, no more open question about whether Claude Code's own hook-firing would reliably trigger it. The same fix applied to the Directive Package Version check (queries `dev_playbook` directly instead of reading `amit_directive_status.json`).
+
+**This also resolved the real question underneath Ryan's several questions this session:** is there a per-user copy of J shortcuts anywhere that needs to be "refreshed" or "wiped and replaced"? No - J shortcuts are global (`user_id is null`), one shared set for everyone. There is nothing per-user to go stale, because nothing per-user exists for J - every session just reads the same live rows. The RLS policies from the earlier admin-edit work (`migration_2026-07-29_002`) already guarantee only Ryan's account can write them; everyone else reads the same canonical set, always current, with no separate sync step required.
+
+`hooks/Amit_Coder_SessionStart.ps1` is no longer required for any of this - its header now says so plainly. It still works standalone as an optional manual diagnostic if someone wants a local record, but nothing depends on it running.
+
+---
+
 ## Master vs Step — Real Correction, 2026-07-29 (Ryan's direct catch)
 
 Ryan caught a real architectural error: the original "J" master shown with "17 STEPS" was wrong. It was bundling 17 unrelated, standalone shortcuts (J copy, J search, J pursuit, J inspire, etc.) as if they were subtasks of one big sequence, when in truth each does its own separate thing and should be sorted and toggled individually. Ryan's own example of what a REAL master looks like: "J global search" - a shortcut that genuinely combines J copy + J search + J repeat + J pursuit into one actual sequence.

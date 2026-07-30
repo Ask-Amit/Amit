@@ -214,28 +214,45 @@ Any pursuit written to hub_entries from this project must be stamped `program='[
 **If the name changes later**, that's a deliberate rename operation (AmitCoder's `J rename pursuit` builtin shortcut does this) — update this section to the new name, and update every existing pursuit (including completed ones/memories) stamped with the old name to the new one, so the full history stays under one consistent identifier.
 ```
 
-**Step 4d — Write the Shortcut Activation clause (added 2026-07-29, closes a real gap Ryan caught directly)**
-Every new project's CLAUDE.md must also include this clause — without it, F/J shortcuts only ever work inside a live conversation where the instruction is already known; a fresh session on someone else's machine has no way to recognize a trigger word at all:
+**Step 4d — Write the Shortcut Activation clause (added 2026-07-29, closes a real gap Ryan caught directly; simplified 2026-07-29 same night, Ryan's further correction)**
+Every new project's CLAUDE.md must also include this clause. Ryan's real insight that produced the current form: a Claude Code session already has live tool access (Bash/PowerShell) every session — it doesn't need a separate script to pre-fetch shortcuts into a local cache file. It can just query Supabase directly, itself, the same way it would read any other file at session start:
 
 ```
 ## Shortcut Activation — Permanent
 
-At the start of every session in this project, check whether amit_shortcuts_cache.json
-exists at the project root (written by hooks/Amit_Coder_SessionStart.ps1, pulled from
-the signed-in user's AmitCoder account). If it exists, read it - it holds that
-person's active F/J shortcuts.
+At the start of every session, and any time the person says something like
+"update shortcuts," "recheck shortcuts," or "update J shortcuts" - query
+Supabase directly yourself, right then, using your own tool access
+(Bash/PowerShell). This is not a file some separate script pre-writes for
+you - it is a live request you make as part of following this instruction.
+There is no local cache file to check and no separate hook script that
+needs to have run first.
 
-When a message begins with a trigger word from that cache (a single letter - F or J -
-followed by a phrase), match it against the cached entries:
-- If the match is a plain instruction, treat its instruction_text as the actual
-  request and act on it directly.
-- If the match is a master shortcut with subtasks, run each subtask's instruction in
-  order. If a subtask has a referenced_shortcut_id, resolve it by looking up that
-  other cached entry's own instruction_text and run that instead.
+For J shortcuts (global, shared by everyone, no login needed):
+GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_shortcuts?activation_key=eq.J&is_active=eq.true
+Header: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF
 
-If the cache file doesn't exist yet, or nothing matches, treat the message as
-ordinary conversation - never guess at an unrecognized trigger.
+For the person's own F shortcuts, you additionally need their AmitCoder
+Account ID (from amit_coder_config.json at the project root, if set) and
+query:
+GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/amit_shortcuts?activation_key=eq.F&user_id=eq.[their account id]&is_active=eq.true
+
+Hold the results in your own working context for the session - no need to
+write them to a file, since you can simply re-query any time it's asked to
+be rechecked. When a message begins with a trigger word (F or J, followed
+by a phrase), match it against what you fetched:
+- Plain instruction: treat instruction_text as the actual request and act
+  on it directly.
+- Master with subtasks: run each subtask in order. If a subtask has a
+  referenced_shortcut_id, resolve it by looking up that other fetched
+  entry's own instruction_text and run that instead.
+
+If you have not fetched shortcuts yet this session, do so now before
+concluding nothing matches - never guess at an unrecognized trigger without
+having actually checked.
 ```
+
+**Only Ryan's own account can write J shortcuts** — enforced at the database level via RLS (`migration_2026-07-29_002_shortcuts_admin_edit.sql`), not just a UI restriction. Every other signed-in user, regardless of computer, reads the same shared J set and can only write their own separate F shortcuts. One canonical J package, curated by Ryan, used identically everywhere.
 
 This is what makes the "App/Program" field on a pursuit self-populating instead of a manually-maintained convention — see `AmitCoder\CLAUDE.md`'s "Hub Pursuits — New App Column" and "Generalization confirmed by Ryan" sections for the full origin and reasoning, including why this must apply identically to a stranger's own app built inside AmitCoder (e.g., someone's own project called "mushrooms"), not just Amit's own apps.
 
@@ -252,19 +269,18 @@ since it depends on watching what actually happens across real sessions:
    F or J shortcut already does, say so before doing the work by hand.
    Don't wait to be asked whether a shortcut exists for this.
 
-2. Repetition detection, across sessions - not just within one sitting.
-   At the start of a session, check amit_shortcuts_cache.json (see Shortcut
-   Activation above) and also look back over recent session history for this
-   project (session-log files, or hub_entries/experience records if this
+2. Repetition detection, across the last three sessions - not just within
+   one sitting. Look back over this project's last three sessions (the
+   shortcuts you queried live from Supabase - see Shortcut Activation above
+   - plus session-log files or hub_entries/experience records if this
    project writes them) for the same or similar instruction recurring
-   several times - whether that's five times in one afternoon or five times
-   spread across different days. When a real pattern shows up, name it
-   plainly with the actual count and rough timeframe you observed ("I've
-   done this five times over the last two weeks") and suggest creating a
-   shortcut for it. Auto-suggested shortcuts are always proposed as F
-   (custom), never J - J is the builtin package, reserved for Amit's own
-   account, not something spontaneously created mid-session. Suggest, never
-   create unprompted - the person coding always decides.
+   across them. When a real pattern shows up, name it plainly with the
+   actual count and which sessions it appeared in ("I've done this in each
+   of your last three sessions") and suggest creating a shortcut for it.
+   Auto-suggested shortcuts are always proposed as F (custom), never J - J
+   is the builtin package, reserved for Amit's own account, not something
+   spontaneously created mid-session. Suggest, never create unprompted -
+   the person coding always decides.
 ```
 
 **Step 4b — Wire any "Ask Amit" button to the shared activation mechanism (added 2026-07-25)**
