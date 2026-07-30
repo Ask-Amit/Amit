@@ -176,7 +176,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.05</div>
+    <div class="page-version" id="pageVersion">v1.06</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -749,9 +749,9 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments',8:'Fixed Assets',9:'Reports'};
-    const opSubs={1:'Cash position',2:'Chart of accounts, contacts, items, tags',6:'Money owed, in and out',7:'Record what came in or went out',8:'Equipment & depreciation',9:'AR/AP summary, trial balance'};
-    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊'};
+    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments',8:'Fixed Assets',9:'Reports',10:'Review Queue'};
+    const opSubs={1:'Cash position',2:'Chart of accounts, contacts, items, tags',6:'Money owed, in and out',7:'Record what came in or went out',8:'Equipment & depreciation',9:'AR/AP summary, trial balance',10:'Payment sources & flagged mismatches'};
+    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩'};
     const label=opLabels[i]||(i===3?'To Do':i===4?'Full Spec':i===5?'Feature Map':'Placeholder '+i);
     navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
       <div class="tile-icon">${opIcons[i]||(i===3?'📝':i===4?'🔖':i===5?'🗺️':'▢')}</div>
@@ -796,6 +796,18 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
       panelHtml+=`<div class="panel" id="panel-9" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
         <div class="ch-tab-main" id="ab-reports" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===10){
+      const tabs=[['Flagged for Review','ab-flagged'],['Payment Sources','ab-payment-sources']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(10,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-10-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
+      panelHtml+=`<div class="panel" id="panel-10" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-nav" id="ch-tab-nav-10">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
       </div>`;
     } else if(i===3){
       panelHtml+=`<div class="panel" id="panel-${i}" style="flex-direction:column">
@@ -1503,29 +1515,42 @@ async function abAddEstimate(){
 
 // ── BILLS & INVOICES — the core "clear the pile" screen ──
 let abInvoicesBillsCache=[];
+let abPaymentSourcesCache=[];
 async function abLoadInvoicesBills(){
   if(!abBookId){abInvoicesBillsCache=[];return;}
   const{data}=await db.from('invoices_bills').select('*,contacts(name)').eq('book_id',abBookId).order('doc_date',{ascending:false});
   abInvoicesBillsCache=data||[];
+  await abLoadPaymentSources();
   abRenderInvoicesBills();
+}
+async function abLoadPaymentSources(){
+  // Every payment source the current user can see across all their books,
+  // plus any personal (owning_book_id null) sources — the whole point is
+  // a source from ANY book can be selected while entering a bill in THIS
+  // book, so the mismatch can actually be detected.
+  const{data}=await db.from('payment_sources').select('*').order('name');
+  abPaymentSourcesCache=data||[];
 }
 function abRenderInvoicesBills(){
   const el=document.getElementById('ab-invoices-bills'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   const today=new Date().toISOString().slice(0,10);
+  const flaggedCount=abInvoicesBillsCache.filter(r=>r.resolution_status==='pending').length;
   el.innerHTML=`<div class="ab-h">Enter a Bill or Invoice</div>
+    ${flaggedCount?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">🚩 ${flaggedCount} entry(ies) paid from a source that doesn't belong to this book — <a href="#" onclick="openPanel(10);return false" style="color:var(--gold2)">resolve them in the Review Queue →</a></div>`:''}
     <div class="ab-form">
       <div class="ab-field"><label>Type</label><select id="ab-ib-direction"><option value="bill_payable">Bill (I owe)</option><option value="invoice_receivable">Invoice (owed to me)</option></select></div>
       <div class="ab-field"><label>Contact</label><select id="ab-ib-contact"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Amount</label><input id="ab-ib-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
       <div class="ab-field"><label>Date</label><input id="ab-ib-date" type="date" value="${today}"></div>
+      <div class="ab-field"><label>Paid from (optional)</label><select id="ab-ib-payment-source"><option value="">—</option>${abPaymentSourcesCache.map(p=>`<option value="${p.id}">${abEsc(p.name)}${p.owning_book_id&&p.owning_book_id!==abBookId?' (other book)':p.owning_book_id?'':' (personal)'}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Category (optional)</label><select id="ab-ib-account"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Job/Tag (optional)</label><select id="ab-ib-tag"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Memo (optional)</label><input id="ab-ib-memo" placeholder="e.g. lumber for Job 114"></div>
       <button class="ab-btn" onclick="abAddInvoiceBill()">Save</button>
     </div>
     <table class="ab-table"><tr><th>Date</th><th>Type</th><th>Contact</th><th>Amount</th><th>Status</th></tr>
-    ${abInvoicesBillsCache.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
+    ${abInvoicesBillsCache.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
     </table>`;
 }
 async function abAddInvoiceBill(){
@@ -1533,18 +1558,28 @@ async function abAddInvoiceBill(){
   const contact=document.getElementById('ab-ib-contact').value||null;
   const amount=parseFloat(document.getElementById('ab-ib-amount').value)||0;
   const date=document.getElementById('ab-ib-date').value||null;
+  const paymentSource=document.getElementById('ab-ib-payment-source').value||null;
   const account=document.getElementById('ab-ib-account').value||null;
   const tag=document.getElementById('ab-ib-tag').value||null;
   const memo=document.getElementById('ab-ib-memo').value.trim();
   if(!amount){alert('Enter an amount.');return;}
+  // Mismatch detection: if the chosen payment source belongs to a
+  // different book than the one this entry is being saved under (or to a
+  // person, not a book at all), flag it for review instead of guessing.
+  const src=paymentSource?abPaymentSourcesCache.find(p=>p.id===paymentSource):null;
+  const mismatch = src ? (src.owning_book_id !== abBookId) : false;
   const{data,error}=await db.from('invoices_bills').insert({
     book_id:abBookId,direction,contact_id:contact,doc_date:date,status:'open',
-    subtotal:amount,total_amount:amount,memo:memo||null
+    subtotal:amount,total_amount:amount,memo:memo||null,
+    payment_source_id:paymentSource,resolution_status:mismatch?'pending':'none'
   }).select().single();
   if(error){alert(error.message);return;}
   await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:account,tag_id:tag,description:memo||null,quantity:1,unit_price:amount,amount:amount});
   document.getElementById('ab-ib-amount').value='';
   document.getElementById('ab-ib-memo').value='';
+  if(mismatch){
+    alert("Flagged for review — this was paid from \""+src.name+"\", which doesn't belong to this book. Go to Review Queue to decide: Wages, Distribution, Loan, or Reimbursement.");
+  }
   await abLoadInvoicesBills();
   abRenderDashboard();
   abRenderReports();
@@ -1624,6 +1659,101 @@ async function abAddFixedAsset(){
   abRenderReports();
 }
 
+// ── PAYMENT SOURCES + REVIEW QUEUE — the interconnectivity engine.
+// Payment sources are global to the user (not scoped to one book) because
+// the whole point is picking a source from ANY of the user's books while
+// entering a bill under THIS book, so a mismatch can be caught. ──
+async function abRenderPaymentSourcesTab(){
+  const el=document.getElementById('ab-payment-sources'); if(!el)return;
+  await abLoadPaymentSources();
+  el.innerHTML=`<div class="ab-h">Payment Sources</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Tell AmitBooks once which book (or which person, if it's not a formal book) each bank account or card actually belongs to. Do this for every account you might pay something with — this is what makes the mismatch detection work at all.
+    </div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Name</label><input id="ab-ps-name" placeholder="e.g. Capital One - 5462"></div>
+      <div class="ab-field"><label>Type</label><select id="ab-ps-type"><option value="credit_card">Credit Card</option><option value="bank_checking">Bank Checking</option><option value="bank_savings">Bank Savings</option><option value="cash">Cash</option></select></div>
+      <div class="ab-field"><label>Belongs to</label>
+        <select id="ab-ps-owner">
+          <option value="">This book (${abEsc((abBooks.find(b=>b.id===abBookId)||{}).name||'')})</option>
+          ${abBooks.filter(b=>b.id!==abBookId).map(b=>`<option value="book:${b.id}">${abEsc(b.name)}</option>`).join('')}
+          <option value="personal">A person (personal, no formal book)</option>
+        </select>
+      </div>
+      <div id="ab-ps-contact-wrap" style="display:none" class="ab-field"><label>Which person</label><select id="ab-ps-contact">${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <button class="ab-btn" onclick="abAddPaymentSource()">Add Source</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Belongs to</th></tr>
+    ${abPaymentSourcesCache.map(p=>{
+      const ownerLabel = p.owning_book_id ? abEsc((abBooks.find(b=>b.id===p.owning_book_id)||{}).name || 'another book') : (p.owning_contact_id ? abEsc(abContactName(p.owning_contact_id))+' (personal)' : '—');
+      return `<tr><td>${abEsc(p.name)}</td><td>${abEsc(p.source_type)}</td><td>${ownerLabel}</td></tr>`;
+    }).join('')||'<tr><td class="ab-empty" colspan="3">No payment sources set up yet</td></tr>'}
+    </table>`;
+  const ownerSel=document.getElementById('ab-ps-owner');
+  if(ownerSel) ownerSel.onchange=function(){
+    document.getElementById('ab-ps-contact-wrap').style.display=(this.value==='personal')?'block':'none';
+  };
+}
+async function abAddPaymentSource(){
+  const name=document.getElementById('ab-ps-name').value.trim(); if(!name)return;
+  const type=document.getElementById('ab-ps-type').value;
+  const ownerVal=document.getElementById('ab-ps-owner').value;
+  let owning_book_id=abBookId, owning_contact_id=null;
+  if(ownerVal.startsWith('book:')) owning_book_id=ownerVal.slice(5);
+  else if(ownerVal==='personal'){ owning_book_id=null; owning_contact_id=document.getElementById('ab-ps-contact').value||null; }
+  const{error}=await db.from('payment_sources').insert({name,source_type:type,owning_book_id,owning_contact_id});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-ps-name').value='';
+  await abRenderPaymentSourcesTab();
+}
+
+async function abRenderFlaggedQueue(){
+  const el=document.getElementById('ab-flagged'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const flagged=abInvoicesBillsCache.filter(r=>r.resolution_status==='pending');
+  el.innerHTML=`<div class="ab-h">Flagged for Review</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Entered under this book, but paid from a source that belongs somewhere else. Nothing here blocked the pile from clearing — these just wait until you decide how each one should really be classified: Wages, Distribution, Loan, or Reimbursement.
+    </div>
+    ${flagged.map(r=>{
+      const src=abPaymentSourcesCache.find(p=>p.id===r.payment_source_id);
+      return `<div class="ab-item" style="background:rgba(220,120,120,.06);border-color:rgba(220,120,120,.3)">
+        <div class="td-title">${abEsc(r.contacts?r.contacts.name:'(no contact)')} — ${abMoney(r.total_amount)} — ${r.doc_date||''}</div>
+        <div class="td-why" style="margin-bottom:10px">Paid from "${abEsc(src?src.name:'unknown source')}" — not a source that belongs to this book.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select id="ab-flag-type-${r.id}">
+            <option value="wages">Wages / Compensation</option>
+            <option value="distribution">Distribution / Owner Draw</option>
+            <option value="loan_equity">Loan / Equity</option>
+            <option value="reimbursement">Reimbursement Bill</option>
+          </select>
+          <select id="ab-flag-contact-${r.id}">
+            <option value="">Person this resolves to/from…</option>
+            ${abContacts.map(c=>`<option value="${c.id}"${c.id===r.contact_id?' selected':''}>${abEsc(c.name)}</option>`).join('')}
+          </select>
+          <button class="ab-btn" onclick="abResolveFlag('${r.id}', ${r.total_amount})">Resolve</button>
+        </div>
+      </div>`;
+    }).join('') || '<div class="ab-empty">Nothing flagged right now.</div>'}`;
+}
+async function abResolveFlag(invoiceBillId, amount){
+  const type=document.getElementById('ab-flag-type-'+invoiceBillId).value;
+  const contact=document.getElementById('ab-flag-contact-'+invoiceBillId).value||null;
+  // Records the decision. Actually generating the correcting journal
+  // entries (posting to Wages expense, a Loan/Equity liability account,
+  // etc.) is real double-entry work that depends on the book's chart of
+  // accounts being set up — tracked as the next build step, not silently
+  // skipped here. The decision itself is saved now so nothing is lost.
+  const{error}=await db.from('inter_book_resolutions').insert({
+    source_invoice_bill_id:invoiceBillId, paying_book_id:abBookId,
+    resolution_type:type, contact_id:contact, amount
+  });
+  if(error){alert(error.message);return;}
+  await db.from('invoices_bills').update({resolution_status:'resolved'}).eq('id',invoiceBillId);
+  await abLoadInvoicesBills();
+  abRenderFlaggedQueue();
+}
+
 // ── REPORTS — honest about what's real right now: an AR/AP + asset
 // summary from the tables that exist. Trial Balance / P&L wait on journal
 // auto-posting (next migration), not pretended here. ──
@@ -1661,6 +1791,7 @@ const _origOpenPanel=openPanel;
 openPanel=function(n){
   _origOpenPanel(n);
   if(n===7 && abBookId) abRenderPayments();
+  if(n===10 && abBookId){ abRenderFlaggedQueue(); abRenderPaymentSourcesTab(); }
 };
 
 abInit();
