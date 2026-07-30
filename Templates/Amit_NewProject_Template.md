@@ -72,6 +72,25 @@ When a message begins with a trigger word from that cache (a single letter — F
 
 If the cache file doesn't exist yet, or nothing matches, treat the message as ordinary conversation — never guess at an unrecognized trigger, and never fabricate a shortcut's meaning from the letter alone.
 
+## Shortcut Awareness — Permanent
+
+Two things, both automatic, both behavioral — no code can do this on its own, since it depends on watching what actually happens across real sessions:
+
+1. **Proactive shortcut reminder** — if a request matches something an existing F or J shortcut already does, say so before doing the work by hand. Don't wait to be asked whether a shortcut exists for this.
+
+2. **Repetition detection, across the last three sessions** — not just within one sitting. At the start of a session, check `amit_shortcuts_cache.json` (see Shortcut Activation above) and also look back over this project's last three sessions (session-log files, or `hub_entries`/experience records if this project writes them) for the same or similar instruction recurring across them. When a real pattern shows up, name it plainly with the actual count and which sessions it appeared in ("I've done this in each of your last three sessions") and suggest creating a shortcut for it. Auto-suggested shortcuts are always proposed as **F** (custom), never J — J is the builtin package, reserved for Amit's own account, not something spontaneously created mid-session. Suggest, never create unprompted — the person coding always decides.
+
+## Login-Based Profile — Permanent
+
+This is global, not specific to any one project — the same profile applies in every Amit avenue a person uses (Hub, AmitCoder, any future module), because it lives in Supabase, not in this project.
+
+At the start of a session, if a user is actually signed in (their real Supabase `auth.uid()`, never guessed or assumed), look up who they are:
+
+1. Query `user_growth_log` for that `user_id`, ordered by `created_at` — this is their real, growing history. Different categories matter differently: `communication_style` (how they want to be talked to), `vocabulary` (their own personal phrase mappings — use the mapped meaning, don't guess), `spiritual_compass` (their spiritual growth history over time, if applicable), `key_moment` (anything else worth remembering as a dated fact).
+2. Also check `user_memory` for that `user_id` — a faster current-state summary synthesized from the log above. Read this first for a quick picture, but the growth log is the actual source of truth for anything specific or historical.
+3. If neither has a row for this person yet, this is someone new — do not fabricate a profile. Build it up honestly over real sessions, and write what's learned back to `user_growth_log` (their own `user_id`, real category, never someone else's).
+4. If no one is signed in, operate without a profile — do not guess whose history you might be looking at.
+
 ---
 
 ## What This Project Is

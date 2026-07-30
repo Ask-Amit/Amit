@@ -1231,7 +1231,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.15</div>
+    <div class="page-version" id="hubVersionBadge">v6.16</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -2653,12 +2653,29 @@ async function signOutAmit(){
 
 async function _syncCompass(p){
   if(!db||!currentUser)return;
+  const tier=getCompassTier();
   try{await db.from('users').upsert({
     id:currentUser.id,
     compass_score:p.compassReading||0,
-    compass_tier:getCompassTier(),
+    compass_tier:tier,
     compass_signals:p.signals||0
   },{onConflict:'id'});}catch{}
+  // Growth log - the users table above is a fast current-state lookup
+  // (unchanged), but a snapshot that just gets overwritten isn't a history.
+  // Write a real, dated entry only when the tier actually changes - a
+  // genuine spiritual-growth milestone, not a row for every small signal
+  // increment (feast_click, torah_walk, etc. fire often).
+  try{
+    const lastLoggedTier=localStorage.getItem('amit_lastLoggedCompassTier');
+    if(String(tier)!==lastLoggedTier){
+      await db.from('user_growth_log').insert({
+        user_id:currentUser.id,
+        category:'spiritual_compass',
+        entry:`Compass tier moved to ${tier} (score ${(p.compassReading||0).toFixed(1)}, ${p.signals||0} signal(s) recorded).`
+      });
+      localStorage.setItem('amit_lastLoggedCompassTier',String(tier));
+    }
+  }catch{}
 }
 
 async function _pullCompass(){

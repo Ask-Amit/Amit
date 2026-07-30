@@ -79,6 +79,40 @@ Ryan caught a deeper naming error underneath the earlier Master/Step fix: the ho
 
 ---
 
+## Amit's Builds — Third Sidebar Tile, 2026-07-29
+
+Ryan's ask: a real page, reachable from the sidebar, showing the last 5 real AmitCoder build sessions so anyone (not just a signed-in user) can see how Amit actually uses its own tool - not a new feature or table, the same `hub_entries` record everything else already lives in, just surfaced here too. Built as a third tile (`PLACEHOLDER_COUNT` raised 2 → 3, following the same generation pattern already used for tile 2 - the template's loop mechanism itself was not touched, only content added for `i===3`). `loadAmitBuilds()` queries `hub_entries` where `user_id=AMIT_DEMO_UID, program='AmitCoder', kind='experience'`, no sign-in required - the same public demo read the Hub already exposes to every visitor. Real caught bug while wiring this in: the original `if(i===2){...} else {...}` chain would have silently also rendered tile 3's panel body as the Get Started checklist, since tile 3 isn't `2` and would have fallen into the `else`. Fixed to `if(i===3){...} else if(i===2){...} else{...}` before it ever rendered wrong.
+
+## Shortcut Awareness — Standing Behavior, 2026-07-29 (Ryan's direct ask)
+
+Two things Ryan asked Amit to start doing automatically, going forward, in every AmitCoder coding session - not code, since this depends on watching a live conversation, which only the assistant itself can do:
+
+1. **Proactive shortcut reminder.** If what's being asked matches something an existing F or J shortcut already does, say so before just doing the work by hand - "That's what `push` does - want me to run it?" - rather than waiting to be asked whether a shortcut exists.
+2. **Repetition detection, across the last three sessions** - not just one sitting. Watch for the same or similar instruction recurring across a project's last three sessions. When that happens, name it plainly with the real count and which sessions it showed up in, and suggest creating a new shortcut for it. New auto-suggested shortcuts are always proposed as **F** (custom), never J - J is the builtin package, reserved for Amit's own account, not something spontaneously created mid-session. Suggest, never create unprompted - Ryan (or whoever's coding) still decides.
+
+Added to root `CLAUDE.md`'s NEW PROJECT DIRECTIVE as Step 4e (Ryan authorized it directly), and to `Templates/Amit_NewProject_Template.md` and `Amit_Coder_Starter_Kit.ps1`'s own generated CLAUDE.md content, so every future coder's own AmitCoder project inherits this same behavior from day one, not just this one.
+
+---
+
+## Directive Package Version + Distribution — Standing Rule, 2026-07-29
+
+Ryan asked the real question underneath all of the above: is the CLAUDE.md a stranger receives actually "whatever the current condition is," or a stale snapshot? Honest answer, confirmed by checking rather than assuming: **it is a static snapshot.** `Amit_Coder_Starter_Kit.ps1` has its own embedded copy of the directive text (Pursuit Attribution, Shortcut Activation, Shortcut Awareness) baked directly into the script - it does not pull from `AmitCoder.html` or root `CLAUDE.md` at runtime. `AmitCoder.html` has nothing to do with this at all - it's the web dashboard, not the file-generator. The `.ps1` script is the one and only file whose content determines what a new coder's `CLAUDE.md` says.
+
+**The version-tracking mechanism (built, using existing infrastructure - no new table):**
+- `$DIRECTIVE_VERSION` (currently `1.1`) lives at the top of `Amit_Coder_Starter_Kit.ps1` and gets stamped into every generated `CLAUDE.md` as a plain line: `Directive Package Version: X.Y (generated YYYY-MM-DD)`.
+- The current master version is recorded in the existing `dev_playbook` table (`topic_key='amit_coder_directive_package'`, public read via publishable key, service-key write - the same pattern already used for every other cross-session settled reference, no new schema needed).
+- `hooks/Amit_Coder_SessionStart.ps1` was extended to read the local stamp from that project's own `CLAUDE.md`, fetch the master version from `dev_playbook`, and write both into `amit_directive_status.json`. If they differ, it prints a note immediately and the CLAUDE.md instruction (in the Directive Package Version section) tells Claude to check that file at session start and tell the person plainly if they're behind. **It never auto-overwrites their CLAUDE.md** - they may have customized it since install.
+
+**The standing rule - every time a directive clause changes (Pursuit Attribution, Shortcut Activation, Shortcut Awareness, or any future one), do all four, in order, not just the code edit:**
+1. Update the embedded text inside `Amit_Coder_Starter_Kit.ps1`.
+2. Bump `$DIRECTIVE_VERSION` in that same script.
+3. Update the `dev_playbook` row's "Current version" text to match (`topic_key='amit_coder_directive_package'`).
+4. Push the updated `.ps1` file to GitHub - a push only reaches future downloads, never someone who already installed it; that gap is exactly what the version-check exists to surface, not fix silently.
+
+Skipping any one of these four means either the shipped file is stale, or an already-installed copy has no way to learn it's behind.
+
+---
+
 ## Who Amit Is — Carried Forward Into This Project
 
 This project is part of the Amit system. One character. One mission.

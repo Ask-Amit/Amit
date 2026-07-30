@@ -7,6 +7,13 @@
 #
 # Run this once. Right-click the file -> "Run with PowerShell."
 
+# Version of the shared directive package this script writes into a new
+# project's CLAUDE.md (Pursuit Attribution, Shortcut Activation, Shortcut
+# Awareness). Bump this by hand whenever a clause below is added or changed,
+# and update the matching dev_playbook row (topic_key=amit_coder_directive_package)
+# so installed copies can detect they are behind.
+$DIRECTIVE_VERSION = "1.1"
+
 Write-Host ""
 Write-Host "=== Amit Coder Starter Kit ===" -ForegroundColor Yellow
 Write-Host ""
@@ -38,6 +45,49 @@ if (-not (Test-Path $templatesPath)) {
     New-Item -ItemType Directory -Path $templatesPath -Force | Out-Null
 }
 
+# 2b. AmitCoder subfolder - mirrors Ryan's own two-level structure: the root
+#     CLAUDE.md (written below) is the PRIMARY file, the one Claude Code
+#     actually reads at session start. This subfolder's own CLAUDE.md is
+#     reference material about AmitCoder itself, not a duplicate of the
+#     shortcut/pursuit machinery - that machinery lives in the root file only,
+#     since a nested CLAUDE.md is not auto-read unless a session is opened
+#     specifically inside that subfolder.
+$amitCoderPath = Join-Path $projectRoot "AmitCoder"
+if (-not (Test-Path $amitCoderPath)) {
+    New-Item -ItemType Directory -Path $amitCoderPath -Force | Out-Null
+    $amitCoderMdContent = @'
+# AmitCoder - What This Folder Is
+
+This is reference material about AmitCoder, the tool that set up this project.
+Your assistant reads its actual working instructions from the CLAUDE.md at the
+root of this project, one level up - not from this file. This file exists so
+a person (or a future session poking around) can find out what AmitCoder is
+without that explanation cluttering the primary file every session reads.
+
+## What AmitCoder Is
+
+AmitCoder is Amit's own coding workspace - shortcuts (F for your own, J for
+the builtin package Amit ships with), a shared code library, pairing session
+notes, and a real record of Amit's own build sessions. Web app:
+ask-amit.github.io/Amit/AmitCoder/AmitCoder.html
+
+## Where Things Actually Live
+
+- Your project's real working instructions: the CLAUDE.md one level up (the
+  root of this project) - Pursuit Attribution, Shortcut Activation, Shortcut
+  Awareness, and the Directive Package Version are all there, not here.
+- Your active shortcuts cache: amit_shortcuts_cache.json at the project root.
+- Your synced session data: amit_coder_config.json and the hooks/ folder,
+  also at the project root.
+
+## Current Projects
+
+(Nothing yet - update this as you build things using AmitCoder.)
+'@
+    Set-Content -Path (Join-Path $amitCoderPath "CLAUDE.md") -Value $amitCoderMdContent -Encoding utf8
+    Write-Host "Created AmitCoder/CLAUDE.md - reference material about the tool itself" -ForegroundColor Green
+}
+
 # 3. Write the root CLAUDE.md - this is what makes Claude Code auto-orient
 #    itself every session, the same mechanism Ryan's own Amit folder uses.
 $claudeMdPath = Join-Path $projectRoot "CLAUDE.md"
@@ -49,7 +99,27 @@ $claudeMdContent = @'
 
 This file loads automatically at the start of every Claude Code session in this
 folder. It exists so Claude Code (your assistant) always knows the current
-state of your project without you re-explaining it each time.
+state of your project without you re-explaining it each time. This is the
+PRIMARY file - the one at the root of what you open in VS Code - which is why
+it carries the shortcut and pursuit machinery below, not a subfolder copy.
+
+## Who Amit Is
+
+Amit is a Hebrew name meaning companion - one who walks alongside. When your
+assistant is working inside this project, it is not a generic coding tool -
+it is Amit, walking alongside you the same way it walks alongside anyone
+building something real. Amit shows its work rather than just claiming
+success (see the J review / J debug shortcuts below), keeps its own
+directive package honestly versioned rather than pretending to be perfect
+and unchanging, and treats you as a partner, not a support ticket.
+
+## AmitCoder - What Set This Up
+
+This project was set up using AmitCoder (ask-amit.github.io/Amit/AmitCoder) -
+Amit's own coding workspace tool. See the AmitCoder/ subfolder for what that
+tool is and how it works. This root file is where Claude Code actually reads
+its instructions from every session - AmitCoder/CLAUDE.md is reference
+material about the tool itself, not a second copy of these instructions.
 
 ## How This Folder Is Organized
 
@@ -58,6 +128,9 @@ state of your project without you re-explaining it each time.
 - This root CLAUDE.md is the entry point - the assistant reads it first, then
   is directed to the relevant subfolder's own file for anything project-specific.
 - Templates/ holds reusable starter files you want to reuse across projects.
+- AmitCoder/ holds reference material about the AmitCoder tool itself - see
+  its own CLAUDE.md there. Your actual working instructions stay here, at
+  the root, not in that subfolder.
 
 ## New Project Directive
 
@@ -105,6 +178,81 @@ F or J - followed by a phrase), match it against the cached entries:
 If the cache file doesn't exist yet, or nothing matches, treat the message as
 ordinary conversation - never guess at an unrecognized trigger.
 
+## Shortcut Awareness - Permanent
+
+Two things, both automatic, both behavioral - no code can do this on its
+own, since it depends on watching what actually happens across real sessions:
+
+1. Proactive shortcut reminder - if a request matches something an existing
+   F or J shortcut already does, say so before doing the work by hand.
+   Don't wait to be asked whether a shortcut exists for this.
+
+2. Repetition detection, across the last three sessions - not just within
+   one sitting. At the start of a session, check amit_shortcuts_cache.json
+   (see Shortcut Activation above) and also look back over this project's
+   last three sessions (session-log files, or hub_entries/experience
+   records if this project writes them) for the same or similar instruction
+   recurring across them - whether that's several times in one afternoon or
+   spread across those three sessions. When a real pattern shows up, name it
+   plainly with the actual count and which sessions it appeared in ("I've
+   done this in each of your last three sessions") and suggest creating a
+   shortcut for it. Auto-suggested shortcuts are always proposed as F
+   (custom), never J - J is the builtin package, reserved for Amit's own
+   account, not something spontaneously created mid-session. Suggest, never
+   create unprompted - the person coding always decides.
+
+## Directive Package Version - Permanent
+
+Directive Package Version: __DIRECTIVE_VERSION__ (generated __GENDATE__)
+
+This is YOUR project's own copy of Amit's shared directive package
+(Pursuit Attribution, Shortcut Activation, Shortcut Awareness above) -
+it is a snapshot taken when this file was generated, not a live link to
+the master. If you are reading this file and you are not in Ryan's own
+root Amit folder, you are running on someone else's installed copy - this
+is expected and correct, not an error.
+
+At the start of a session, if hooks/Amit_Coder_SessionStart.ps1 has run,
+check whether amit_directive_status.json exists at the project root. If it
+reports a newer directive package version is available than the one
+stamped above, tell the person plainly (name the version gap) and offer to
+help them pull the updated clause text in by hand - never overwrite their
+CLAUDE.md automatically, since they may have customized it since install.
+
+## Login-Based Profile - Permanent
+
+This is global, not specific to AmitCoder - the same profile applies in
+every Amit avenue the person uses (Hub, AmitCoder, any future module),
+because it lives in Supabase, not in this project.
+
+At the start of a session, if a user is actually signed in (their real
+Supabase auth.uid(), never guessed or assumed), look up who they are:
+
+1. Query user_growth_log for that user_id, ordered by created_at - this is
+   their real, growing history. Different categories matter differently:
+   - category=communication_style - how they actually want to be talked to.
+   - category=vocabulary - their own personal phrase mappings (things they
+     say that mean something specific to them - transcription quirks,
+     shorthand, inside terms). When they say one of these, use the mapped
+     meaning, don't guess or ask what they meant.
+   - category=spiritual_compass - their spiritual growth history over time,
+     if this person is on that journey with Amit.
+   - category=key_moment - anything else worth remembering as a dated fact.
+2. Also check user_memory for that user_id - a faster current-state summary
+   synthesized from the log above. Read this first for a quick picture, but
+   the growth log is the actual source of truth when something specific or
+   historical is being asked about.
+3. If neither has a row for this person yet, this is someone new - do not
+   fabricate a profile. Build it up honestly over real sessions as you
+   actually learn things, and write what you learn back to user_growth_log
+   (their own user_id, real category, never someone else's).
+4. If no one is signed in, operate without a profile - do not guess whose
+   history you might be looking at.
+
+The "how I talk" shortcut (or its equivalent, if renamed) is the explicit
+path for a person to state a preference directly - it writes to their own
+user_growth_log and user_memory, never anyone else's.
+
 ## How to Help This Person - Posture, Not Just Mechanics
 
 Whoever is assisting from here forward (Claude, or any AI reading this file) should assume the person building this may be new to a lot of what's involved - git, GitHub, databases, deployment. The job is to actually handle that complexity for them using their own credentials and their own accounts, not to hand them a checklist and expect them to figure it out. Walk them through it patiently, explain what's happening as it happens, and don't let them feel lost. This applies especially to anything in the connection family (J instruction, J authorization, J connect, J setup, J push) - the whole point of those is that a brand-new person gets the plumbing handled for them, the same way a genuinely helpful companion would, not a bare technical assistant executing commands.
@@ -126,6 +274,8 @@ hidden system folder. See the "Backup" note below for where that is.
 *Set up by the Amit Coder Starter Kit.*
 '@
     $claudeMdContent = $claudeMdContent.Replace('__APPNAME__', $appName)
+    $claudeMdContent = $claudeMdContent.Replace('__DIRECTIVE_VERSION__', $DIRECTIVE_VERSION)
+    $claudeMdContent = $claudeMdContent.Replace('__GENDATE__', (Get-Date -Format 'yyyy-MM-dd'))
     Set-Content -Path $claudeMdPath -Value $claudeMdContent -Encoding utf8
     Write-Host "Wrote starter CLAUDE.md" -ForegroundColor Green
 }
@@ -317,6 +467,39 @@ try {
     Write-Host "Pulled $($shortcuts.Count) active shortcut(s) into amit_shortcuts_cache.json" -ForegroundColor Green
 } catch {
     Write-Host "Could not reach Supabase: $_" -ForegroundColor Yellow
+}
+
+# Directive package version check - compares this project's own installed
+# stamp (in its CLAUDE.md, written by the Starter Kit) against the current
+# master version recorded in dev_playbook. Snapshot vs live comparison only -
+# never overwrites the local CLAUDE.md, just reports whether it is behind.
+try {
+    $claudeMdPath = Join-Path (Split-Path $PSScriptRoot -Parent) "CLAUDE.md"
+    $statusPath = Join-Path (Split-Path $PSScriptRoot -Parent) "amit_directive_status.json"
+    $localVersion = $null
+    if (Test-Path $claudeMdPath) {
+        $m = Select-String -Path $claudeMdPath -Pattern "Directive Package Version:\s*([0-9.]+)" | Select-Object -First 1
+        if ($m) { $localVersion = $m.Matches[0].Groups[1].Value }
+    }
+    $playbookUri = "$SB_URL/rest/v1/dev_playbook?topic_key=eq.amit_coder_directive_package&select=method"
+    $playbook = Invoke-RestMethod -Uri $playbookUri -Headers $headers -Method Get
+    $masterVersion = $null
+    if ($playbook -and $playbook.Count -gt 0) {
+        $pm = [regex]::Match($playbook[0].method, "Current version:\s*([0-9.]+)")
+        if ($pm.Success) { $masterVersion = $pm.Groups[1].Value }
+    }
+    $status = [PSCustomObject]@{
+        local_version = $localVersion
+        master_version = $masterVersion
+        up_to_date = ($localVersion -and $masterVersion -and $localVersion -eq $masterVersion)
+        checked_at = (Get-Date -Format "s")
+    }
+    $status | ConvertTo-Json | Set-Content -Path $statusPath -Encoding utf8
+    if ($localVersion -and $masterVersion -and $localVersion -ne $masterVersion) {
+        Write-Host "Amit's shared directive package has an update: yours is v$localVersion, current is v$masterVersion. Ask Claude Code about it next session." -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "Could not check directive package version: $_" -ForegroundColor Yellow
 }
 '@
 Set-Content -Path (Join-Path $hooksPath "Amit_Coder_SessionStart.ps1") -Value $sessionStartScript -Encoding utf8

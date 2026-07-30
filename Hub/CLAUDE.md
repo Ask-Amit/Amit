@@ -14,6 +14,16 @@ All Hub development files belong here. Do not create Hub files anywhere else. Bu
 
 > **ACCURACY NOTE:** Architecture, witness design, and theology sections below are authoritative and current. Build history reflects Session 4 only — Hub has been significantly developed through Sessions 5–12. For current build state, pending tasks, and WHERE WE LEFT OFF: read the root CLAUDE.md. Do not rely on the "IMMEDIATE NEXT TASK" or "Next priorities" sections — they are outdated and removed below.
 
+## PROFILE ARCHITECTURE — How a Person's History Actually Connects (added 2026-07-29)
+
+Two tables, two different jobs — do not confuse them or write to the wrong one:
+
+- **`user_growth_log`** — the real history. One row per observation, many rows per person, `category` + `entry` + `created_at`, never overwritten. This is where communication-style preferences (see the "how I talk" shortcut), spiritual-compass tier changes (see `_syncCompass()` below), key moments, and anything else worth remembering as a dated fact all live. If a future session needs to know someone's actual history — not just their current state — query this table by `user_id`, ordered by `created_at`.
+- **`user_memory`** — the current synthesis. One row per person, big text fields (`summary`, `communication_style`, `spiritual_background`, `known_facts`) representing the latest understanding. This is what gets read quickly at session start. It should be periodically re-synthesized FROM `user_growth_log`, not hand-maintained as a separate source of truth.
+- **`users.compass_score/compass_tier/compass_signals`** — the fast current-state compass reading, written by `_syncCompass()` on every signal change (unchanged, still fires every time). As of 2026-07-29, `_syncCompass()` also writes a dated row to `user_growth_log` (`category='spiritual_compass'`) whenever the tier itself actually changes — a real milestone, not a row per tiny signal increment. This is the connection Ryan asked to make sure existed: the Hub's spiritual-growth tracking is not just a snapshot that gets silently overwritten anymore, it has a real dated history now.
+
+Any future module reading someone's profile should follow this same pattern: read `user_memory` for the fast current picture, query `user_growth_log` when the actual history/timeline matters.
+
 ## COMPETITIVE RESEARCH — 2026-06-08 (Session 17)
 
 ### What Exists in the Market

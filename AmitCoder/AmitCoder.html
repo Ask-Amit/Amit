@@ -248,7 +248,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.31</div>
+    <div class="page-version" id="pageVersion">v6.32</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -322,21 +322,29 @@ header{
 // with 5 real tabs) were replaced — the mechanism itself was not touched.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=2;
+const PLACEHOLDER_COUNT=3;
 (function buildPlaceholders(){
   const nav=document.getElementById('sidebarTiles');
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const label=i===1?'Get Started':'Overview';
-    navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
+    const label=i===1?'Get Started':i===2?'Overview':"Amit's Builds";
+    navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})${i===3?';loadAmitBuilds()':''}">
       <div class="tile-icon">▢</div>
       <div class="tile-info">
         <div class="tile-name">${label}</div>
-        <div class="tile-sub">${i===1?'Setup checklist':'Overview · Shortcuts · History · Docs · Settings'}</div>
+        <div class="tile-sub">${i===1?'Setup checklist':i===2?'Overview · Shortcuts · History · Docs · Settings':'Watch Amit use its own tool'}</div>
       </div>
     </div>`;
-    if(i===2){
+    if(i===3){
+      panelHtml+=`<div class="panel" id="panel-${i}">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="panel-body" style="padding:28px 32px;max-width:720px">
+          <p style="color:var(--muted);font-size:13px;margin-bottom:18px">This isn't a separate feature - it's the same real build record every AmitCoder pursuit and experience already lives in, just filtered to Amit's own work on this tool. The last five real sessions, honestly written, no staging.</p>
+          <div id="amitBuildsList"><p style="color:var(--dim);font-size:12.5px">Loading...</p></div>
+        </div>
+      </div>`;
+    } else if(i===2){
       // Tab labels and real content, in place of the template's generic "Tab N"
       const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Pairing','Library','Settings'];
       let tabNavHtml='',tabContentHtml='';
@@ -803,6 +811,27 @@ async function loadCoderSessions(){
     <div class="history-day-date">${new Date(s.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
     <div class="history-day-summary">${escapeHtml(s.summary||'')}</div>
   </div></div>`).join('');
+}
+
+// ── AMIT'S BUILDS — the same hub_entries table every pursuit/experience
+// already lives in, filtered to program='AmitCoder'. Not a separate feature,
+// not gated to a signed-in user - the same public demo record the Hub
+// already shows everyone, just surfaced here so a visitor can see how Amit
+// actually uses its own tool without leaving AmitCoder.
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+async function loadAmitBuilds(){
+  const wrap=document.getElementById('amitBuildsList');
+  if(!db||!wrap)return;
+  const{data,error}=await db.from('hub_entries').select('*')
+    .eq('user_id',AMIT_DEMO_UID).eq('program','AmitCoder').eq('kind','experience')
+    .order('completed_date',{ascending:false}).limit(5);
+  if(error){wrap.innerHTML=`<p style="color:var(--dim);font-size:12.5px">Could not load - ${escapeHtml(error.message)}</p>`;return;}
+  if(!data||!data.length){wrap.innerHTML=`<p style="color:var(--dim);font-size:12.5px">Nothing logged yet. Amit's own build sessions will appear here as they happen.</p>`;return;}
+  wrap.innerHTML=`<div class="timeline">`+data.map(e=>`<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content">
+      <div class="history-day-date">${e.completed_date?new Date(e.completed_date+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):''}</div>
+      <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:14px;margin:4px 0">${escapeHtml(e.title||'')}</div>
+      <div class="history-day-summary" style="opacity:1">${escapeHtml(e.notes||'')}</div>
+    </div></div>`).join('')+`</div>`;
 }
 
 // ── FUTURE IDEAS — backed by amit_coder_ideas (Supabase). Shared across
