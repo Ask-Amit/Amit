@@ -176,7 +176,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.06</div>
+    <div class="page-version" id="pageVersion">v1.20</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -230,7 +230,7 @@ header{
 // the "Accounting" framing of.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=14;
+const PLACEHOLDER_COUNT=18;
 
 // ══════════════════════════════════════════════
 // TO-DO CONTENT — the running build list for AmitBooks, panel 3.
@@ -255,6 +255,20 @@ const TODO_CONTENT = `
   .td-tag.vision{background:rgba(140,160,220,.12);color:#a8b8e8;border:1px solid rgba(140,160,220,.35)}
   .td-tag.bug{background:rgba(220,120,120,.14);color:#f0a8a8;border:1px solid rgba(220,120,120,.4)}
 </style>
+
+<div class="td-h1">This Session — Autonomous Build, 2026-07-30 (Ryan away 3-4 hrs)</div>
+<div class="td-item"><div class="td-title">Real double-entry journal auto-posting<span class="td-tag now">BUILT</span></div>
+<div class="td-why">Every bill, invoice, and payment now posts a real journal_entries/journal_lines pair the moment it's saved — control accounts (Accounts Payable/Receivable, Uncategorized Expense/Income, Cash - Unspecified Source) are found-or-created automatically so nothing blocks on setup. No more "wait for the next migration" — this is live now.</div></div>
+<div class="td-item"><div class="td-title">Real Trial Balance, P&L, and Balance Sheet<span class="td-tag now">BUILT</span></div>
+<div class="td-why">Reports tab computes all three directly from journal_lines — not a display-time filter, the actual account balances. Flags itself honestly if debits/credits ever go out of balance.</div></div>
+<div class="td-item"><div class="td-title">Resolution engine now posts real correcting journal entries + running-balance ledger<span class="td-tag now">BUILT</span></div>
+<div class="td-why">Resolving a flagged bill (Wages/Distribution/Loan/Reimbursement) clears the fake AP/AR and posts to a real "Due to/from [Contact] — [Type]" account. Splitting one bill across multiple resolution types is supported. Review Queue now shows a running-balance table per person/type, read straight off the ledger so it can't drift.</div></div>
+<div class="td-item"><div class="td-title">Purchase Orders, Inventory, Rental Properties, Payroll, Mileage, Repairs, Warranties, Service Agreements, CRM, Investments, Subscriptions<span class="td-tag now">BUILT</span></div>
+<div class="td-why">All eleven remaining Layer-1/Layer-2 tables from the connectivity migrations now have real screens — smallest-possible forms, real Supabase reads/writes, no mockups. Rental Properties supports shared/percentage ownership and component-level depreciation (Dwelling/Roof/HVAC etc., each its own fixed_assets row) — matches Ryan's real Trial Balance structure. Payroll posts a real Wages Expense / Cash / Payroll Liabilities journal entry per pay run.</div></div>
+<div class="td-item"><div class="td-title">QuickBooks Journal CSV importer<span class="td-tag now">BUILT</span></div>
+<div class="td-why">Books & Setup → Import QuickBooks. Paste or upload a QB "Journal" report export; it auto-detects the Date/Account/Debit/Credit columns (doesn't assume a fixed column order, since QB exports vary), groups lines into transactions, previews before writing anything, then commits as real posted journal entries tagged to a qb_import_batches row — so an import can be identified and is never silently unrecoverable. Not yet run against Ryan's real BOSS export inside the tool itself — worth doing together next session as the real first test.</div></div>
+<div class="td-item"><div class="td-title">Sign-in gate + book picker — already real, re-verified this session</div>
+<div class="td-why">Turned out to already be fully built (magic-link auth genuinely blocks every panel when signed out; RLS blocks the database layer independently of the UI; Dashboard has a real multi-book switcher). The TODO item calling this "not built" was stale — corrected here rather than left misleading.</div></div>
 
 <div class="td-h1">Known Gaps — Found During Real Use (Ryan clicking through it live)</div>
 <div class="td-item"><div class="td-why">This section exists specifically to catch things live testing surfaces that the build order didn't anticipate — added as they're found, not batched up and forgotten. Newest at the top.</div></div>
@@ -290,11 +304,11 @@ const TODO_CONTENT = `
 
 <div class="td-h1">Phase 2 — Right After the Tables Exist</div>
 
-<div class="td-item"><div class="td-title">"Which book?" picker on open<span class="td-tag next">NEXT</span></div>
-<div class="td-why">The first thing AmitBooks shows a signed-in user with more than one book — before anything else loads.</div></div>
+<div class="td-item"><div class="td-title">"Which book?" picker on open<span class="td-tag now">DONE</span></div>
+<div class="td-why">Dashboard shows a real book switcher dropdown the moment a signed-in user has more than one book, plus an "Add another book" form right there.</div></div>
 
-<div class="td-item"><div class="td-title">Real sign-in / password gate</div>
-<div class="td-why">The Sign In button already exists (Supabase magic-link, same as every other Amit page) — it just needs to actually block access to a book's data until the right user is authenticated, not just show a "signed in" badge.</div></div>
+<div class="td-item"><div class="td-title">Real sign-in / password gate<span class="td-tag now">DONE</span></div>
+<div class="td-why">Confirmed this session: signed-out users see a plain "sign in" notice on every panel and no book data loads; RLS enforces the same boundary independently at the database layer.</div></div>
 
 <div class="td-item"><div class="td-title">Receipt capture — red-marker annotation standard</div>
 <div class="td-why">User marks job number, account category, billable/nonbillable in red marker before photographing. OCR reads the printed receipt and the red annotations separately. Full spec already written — see AmitAccounting_Spec.md, "Receipt Capture System."</div></div>
@@ -749,9 +763,9 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments',8:'Fixed Assets',9:'Reports',10:'Review Queue'};
-    const opSubs={1:'Cash position',2:'Chart of accounts, contacts, items, tags',6:'Money owed, in and out',7:'Record what came in or went out',8:'Equipment & depreciation',9:'AR/AP summary, trial balance',10:'Payment sources & flagged mismatches'};
-    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩'};
+    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory',13:'Rental Properties',14:'Payroll',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions'};
+    const opSubs={1:'Cash position',2:'Chart of accounts, contacts, items, tags',6:'Money owed, in and out',7:'Record what came in or went out',8:'Equipment & depreciation',9:'AR/AP summary, trial balance',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, every movement',13:'Ownership, components, P&L per property',14:'Employees, pay runs, withholding',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing'};
+    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩',11:'📦',12:'📋',13:'🏠',14:'👷',15:'🚗',16:'🛡️',17:'🤝',18:'📈'};
     const label=opLabels[i]||(i===3?'To Do':i===4?'Full Spec':i===5?'Feature Map':'Placeholder '+i);
     navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
       <div class="tile-icon">${opIcons[i]||(i===3?'📝':i===4?'🔖':i===5?'🗺️':'▢')}</div>
@@ -766,7 +780,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -807,6 +821,67 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
       panelHtml+=`<div class="panel" id="panel-10" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
         <div class="ch-tab-nav" id="ch-tab-nav-10">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
+      </div>`;
+    } else if(i===11){
+      panelHtml+=`<div class="panel" id="panel-11" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-pos" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===12){
+      panelHtml+=`<div class="panel" id="panel-12" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-inventory" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===13){
+      panelHtml+=`<div class="panel" id="panel-13" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-properties" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===14){
+      panelHtml+=`<div class="panel" id="panel-14" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-payroll" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===15){
+      const tabs=[['Mileage','ab-mileage'],['Repairs','ab-repairs']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(15,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-15-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
+      panelHtml+=`<div class="panel" id="panel-15" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-nav" id="ch-tab-nav-15">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
+      </div>`;
+    } else if(i===16){
+      const tabs=[['Warranties','ab-warranties'],['Service Agreements','ab-service-agreements']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(16,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-16-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
+      panelHtml+=`<div class="panel" id="panel-16" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-nav" id="ch-tab-nav-16">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
+      </div>`;
+    } else if(i===17){
+      panelHtml+=`<div class="panel" id="panel-17" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-crm" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===18){
+      const tabs=[['Investments','ab-investments'],['Subscriptions','ab-subscriptions']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(18,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-18-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
+      panelHtml+=`<div class="panel" id="panel-18" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-nav" id="ch-tab-nav-18">${tabNavHtml}</div>
         <div class="ch-tab-main">${tabContentHtml}</div>
       </div>`;
     } else if(i===3){
@@ -1005,10 +1080,19 @@ async function abLoadBooks(){
 
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
-  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags();
+  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags(); abRenderQbImportTab();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
+  await abLoadJournalLines();
   abRenderReports();
+}
+
+let abJournalLinesCache=[];
+async function abLoadJournalLines(){
+  if(!abBookId){abJournalLinesCache=[];return;}
+  const{data,error}=await db.from('journal_lines').select('*,journal_entries!inner(book_id,entry_date,status)').eq('journal_entries.book_id',abBookId).eq('journal_entries.status','posted');
+  if(error){console.error(error);abJournalLinesCache=[];return;}
+  abJournalLinesCache=data||[];
 }
 
 function abSwitchBook(id){
@@ -1553,6 +1637,58 @@ function abRenderInvoicesBills(){
     ${abInvoicesBillsCache.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
     </table>`;
 }
+// ══════════════════════════════════════════════
+// JOURNAL AUTO-POSTING — the piece that makes Reports real instead of a
+// placeholder. Every bill/invoice and every payment posts a real,
+// balanced double-entry journal_entries + journal_lines pair. Control
+// accounts (Accounts Payable, Accounts Receivable, an unassigned cash
+// bucket, an "Uncategorized" catch-all) are found by name or created
+// automatically the first time a book needs one — never blocks entry
+// waiting on setup, per the core design rule.
+// ══════════════════════════════════════════════
+async function abFindOrCreateAccount(name, type){
+  let existing=abAccounts.find(a=>a.account_name.toLowerCase()===name.toLowerCase());
+  if(existing) return existing.id;
+  const{data,error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type}).select().single();
+  if(error){ console.error(error); return null; }
+  abAccounts.push(data);
+  return data.id;
+}
+async function abPostJournalEntry(entryDate, memo, source, sourceRefId, lines){
+  // lines: [{account_id, debit, credit, tag_id}]
+  const{data:je,error}=await db.from('journal_entries').insert({
+    book_id:abBookId, entry_date:entryDate||new Date().toISOString().slice(0,10),
+    memo, source, source_ref_id:sourceRefId, status:'posted'
+  }).select().single();
+  if(error){ console.error(error); return null; }
+  const rows=lines.filter(l=>l.account_id).map(l=>({journal_entry_id:je.id,account_id:l.account_id,tag_id:l.tag_id||null,debit:l.debit||0,credit:l.credit||0}));
+  if(rows.length) await db.from('journal_lines').insert(rows);
+  return je.id;
+}
+async function abPostJournalForInvoiceBill(invoiceBillRow, lineAccountId, tag, amount){
+  const controlName = invoiceBillRow.direction==='bill_payable' ? 'Accounts Payable' : 'Accounts Receivable';
+  const controlType = invoiceBillRow.direction==='bill_payable' ? 'liability' : 'asset';
+  const controlId = await abFindOrCreateAccount(controlName, controlType);
+  const categoryId = lineAccountId || await abFindOrCreateAccount(
+    invoiceBillRow.direction==='bill_payable' ? 'Uncategorized Expense' : 'Uncategorized Income',
+    invoiceBillRow.direction==='bill_payable' ? 'expense' : 'income'
+  );
+  const lines = invoiceBillRow.direction==='bill_payable'
+    ? [{account_id:categoryId, debit:amount, credit:0, tag_id:tag},{account_id:controlId, debit:0, credit:amount}]
+    : [{account_id:controlId, debit:amount, credit:0},{account_id:categoryId, debit:0, credit:amount, tag_id:tag}];
+  return abPostJournalEntry(invoiceBillRow.doc_date, invoiceBillRow.memo, 'invoice_bill', invoiceBillRow.id, lines);
+}
+async function abPostJournalForPayment(paymentRow, invoiceBillRow, cashAccountId){
+  const controlName = invoiceBillRow.direction==='bill_payable' ? 'Accounts Payable' : 'Accounts Receivable';
+  const controlType = invoiceBillRow.direction==='bill_payable' ? 'liability' : 'asset';
+  const controlId = await abFindOrCreateAccount(controlName, controlType);
+  const cashId = cashAccountId || await abFindOrCreateAccount('Cash - Unspecified Source', 'asset');
+  const lines = invoiceBillRow.direction==='bill_payable'
+    ? [{account_id:controlId, debit:paymentRow.amount, credit:0},{account_id:cashId, debit:0, credit:paymentRow.amount}]
+    : [{account_id:cashId, debit:paymentRow.amount, credit:0},{account_id:controlId, debit:0, credit:paymentRow.amount}];
+  return abPostJournalEntry(paymentRow.payment_date, 'Payment', 'payment', paymentRow.id, lines);
+}
+
 async function abAddInvoiceBill(){
   const direction=document.getElementById('ab-ib-direction').value;
   const contact=document.getElementById('ab-ib-contact').value||null;
@@ -1575,12 +1711,14 @@ async function abAddInvoiceBill(){
   }).select().single();
   if(error){alert(error.message);return;}
   await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:account,tag_id:tag,description:memo||null,quantity:1,unit_price:amount,amount:amount});
+  await abPostJournalForInvoiceBill(data, account, tag, amount);
   document.getElementById('ab-ib-amount').value='';
   document.getElementById('ab-ib-memo').value='';
   if(mismatch){
     alert("Flagged for review — this was paid from \""+src.name+"\", which doesn't belong to this book. Go to Review Queue to decide: Wages, Distribution, Loan, or Reimbursement.");
   }
   await abLoadInvoicesBills();
+  await abLoadJournalLines();
   abRenderDashboard();
   abRenderReports();
 }
@@ -1610,14 +1748,20 @@ async function abAddPayment(){
   if(!amount){alert('Enter an amount.');return;}
   const date=document.getElementById('ab-pay-date').value||null;
   const method=document.getElementById('ab-pay-method').value;
+  const paymentSourceId=document.getElementById('ab-pay-source')?document.getElementById('ab-pay-source').value||null:null;
   const row=abInvoicesBillsCache.find(r=>r.id===invbill);
-  const{error}=await db.from('payments').insert({book_id:abBookId,invoice_bill_id:invbill,contact_id:row?row.contact_id:null,payment_date:date,amount,method});
+  const{data:payRow,error}=await db.from('payments').insert({book_id:abBookId,invoice_bill_id:invbill,contact_id:row?row.contact_id:null,payment_date:date,amount,method}).select().single();
   if(error){alert(error.message);return;}
   const newPaid=(Number(row.paid_amount)||0)+amount;
   const newStatus=newPaid>=Number(row.total_amount)?'paid':'partial';
   await db.from('invoices_bills').update({paid_amount:newPaid,status:newStatus}).eq('id',invbill);
+  // Post the cash-side journal entry — clears AP/AR against the actual
+  // cash/card account the payment source is linked to.
+  const src=paymentSourceId?abPaymentSourcesCache.find(p=>p.id===paymentSourceId):null;
+  await abPostJournalForPayment(payRow, row, src?src.linked_account_id:null);
   document.getElementById('ab-pay-amount').value='';
   await abLoadInvoicesBills();
+  await abLoadJournalLines();
   abRenderPayments();
   abRenderDashboard();
   abRenderReports();
@@ -1707,56 +1851,128 @@ async function abAddPaymentSource(){
   await abRenderPaymentSourcesTab();
 }
 
+const AB_RESOLUTION_LABELS={wages:'Wages / Compensation',distribution:'Distribution / Owner Draw',loan_equity:'Loan / Equity',reimbursement:'Reimbursement Bill'};
 async function abRenderFlaggedQueue(){
   const el=document.getElementById('ab-flagged'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   const flagged=abInvoicesBillsCache.filter(r=>r.resolution_status==='pending');
   el.innerHTML=`<div class="ab-h">Flagged for Review</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
-      Entered under this book, but paid from a source that belongs somewhere else. Nothing here blocked the pile from clearing — these just wait until you decide how each one should really be classified: Wages, Distribution, Loan, or Reimbursement.
+      Entered under this book, but paid from a source that belongs somewhere else. Nothing here blocked the pile from clearing — these just wait until you decide how each one should really be classified: Wages, Distribution, Loan, or Reimbursement. A single bill can be split across more than one type — add a split row if part of it is wages and part is a loan repayment.
     </div>
     ${flagged.map(r=>{
       const src=abPaymentSourcesCache.find(p=>p.id===r.payment_source_id);
       return `<div class="ab-item" style="background:rgba(220,120,120,.06);border-color:rgba(220,120,120,.3)">
         <div class="td-title">${abEsc(r.contacts?r.contacts.name:'(no contact)')} — ${abMoney(r.total_amount)} — ${r.doc_date||''}</div>
         <div class="td-why" style="margin-bottom:10px">Paid from "${abEsc(src?src.name:'unknown source')}" — not a source that belongs to this book.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <select id="ab-flag-type-${r.id}">
-            <option value="wages">Wages / Compensation</option>
-            <option value="distribution">Distribution / Owner Draw</option>
-            <option value="loan_equity">Loan / Equity</option>
-            <option value="reimbursement">Reimbursement Bill</option>
-          </select>
-          <select id="ab-flag-contact-${r.id}">
-            <option value="">Person this resolves to/from…</option>
-            ${abContacts.map(c=>`<option value="${c.id}"${c.id===r.contact_id?' selected':''}>${abEsc(c.name)}</option>`).join('')}
-          </select>
+        <div id="ab-flag-splits-${r.id}">
+          ${abFlagSplitRowHtml(r.id,0,r.total_amount,r.contact_id)}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="ab-btn ab-btn-ghost" onclick="abAddFlagSplitRow('${r.id}', ${r.total_amount}, '${r.contact_id||''}')">+ Split into another type</button>
           <button class="ab-btn" onclick="abResolveFlag('${r.id}', ${r.total_amount})">Resolve</button>
         </div>
       </div>`;
-    }).join('') || '<div class="ab-empty">Nothing flagged right now.</div>'}`;
+    }).join('') || '<div class="ab-empty">Nothing flagged right now.</div>'}
+    <div id="ab-resolution-ledger"></div>`;
+  abRenderResolutionLedger();
 }
-async function abResolveFlag(invoiceBillId, amount){
-  const type=document.getElementById('ab-flag-type-'+invoiceBillId).value;
-  const contact=document.getElementById('ab-flag-contact-'+invoiceBillId).value||null;
-  // Records the decision. Actually generating the correcting journal
-  // entries (posting to Wages expense, a Loan/Equity liability account,
-  // etc.) is real double-entry work that depends on the book's chart of
-  // accounts being set up — tracked as the next build step, not silently
-  // skipped here. The decision itself is saved now so nothing is lost.
-  const{error}=await db.from('inter_book_resolutions').insert({
-    source_invoice_bill_id:invoiceBillId, paying_book_id:abBookId,
-    resolution_type:type, contact_id:contact, amount
-  });
-  if(error){alert(error.message);return;}
+function abFlagSplitRowHtml(invoiceBillId, idx, remaining, defaultContact){
+  return `<div class="ab-flag-split" data-idx="${idx}" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px">
+    <select class="ab-flag-type" data-bill="${invoiceBillId}">
+      ${Object.entries(AB_RESOLUTION_LABELS).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}
+    </select>
+    <select class="ab-flag-contact" data-bill="${invoiceBillId}">
+      <option value="">Person this resolves to/from…</option>
+      ${abContacts.map(c=>`<option value="${c.id}"${c.id===defaultContact?' selected':''}>${abEsc(c.name)}</option>`).join('')}
+    </select>
+    <input class="ab-flag-amount" data-bill="${invoiceBillId}" type="number" step="0.01" style="width:100px" value="${Number(remaining).toFixed(2)}">
+  </div>`;
+}
+function abAddFlagSplitRow(invoiceBillId, totalAmount, defaultContact){
+  const wrap=document.getElementById('ab-flag-splits-'+invoiceBillId);
+  const existing=wrap.querySelectorAll('.ab-flag-split');
+  const usedSoFar=[...wrap.querySelectorAll('.ab-flag-amount')].reduce((s,i)=>s+(parseFloat(i.value)||0),0);
+  // Halve the last row's remaining amount into the new row so the two
+  // fields still roughly sum to the total — user can retype exact splits.
+  const remaining=Math.max(0,totalAmount-usedSoFar);
+  wrap.insertAdjacentHTML('beforeend', abFlagSplitRowHtml(invoiceBillId, existing.length, remaining, defaultContact));
+}
+async function abResolveFlag(invoiceBillId, totalAmount){
+  const wrap=document.getElementById('ab-flag-splits-'+invoiceBillId);
+  const rows=[...wrap.querySelectorAll('.ab-flag-split')].map(row=>({
+    type: row.querySelector('.ab-flag-type').value,
+    contact: row.querySelector('.ab-flag-contact').value||null,
+    amount: parseFloat(row.querySelector('.ab-flag-amount').value)||0
+  })).filter(r=>r.amount>0);
+  if(!rows.length){alert('Enter at least one split amount.');return;}
+  const splitTotal=rows.reduce((s,r)=>s+r.amount,0);
+  if(Math.abs(splitTotal-totalAmount)>0.01 && !confirm(`Splits total ${abMoney(splitTotal)}, the bill is ${abMoney(totalAmount)}. Resolve anyway?`)) return;
+  const bill=abInvoicesBillsCache.find(r=>r.id===invoiceBillId);
+  for(const r of rows){
+    const{error}=await db.from('inter_book_resolutions').insert({
+      source_invoice_bill_id:invoiceBillId, paying_book_id:abBookId,
+      resolution_type:r.type, contact_id:r.contact, amount:r.amount
+    });
+    if(error){alert(error.message);return;}
+    await abPostResolutionJournal(bill, r.type, r.contact, r.amount);
+  }
   await db.from('invoices_bills').update({resolution_status:'resolved'}).eq('id',invoiceBillId);
   await abLoadInvoicesBills();
+  await abLoadJournalLines();
   abRenderFlaggedQueue();
+  abRenderReports();
+}
+// Clears the fake AP/AR this book posted at entry time and replaces it
+// with a real "Due to/from [Contact] — [Type]" account, so the book's own
+// balance sheet no longer shows an obligation it was never actually going
+// to pay itself. That per-contact/per-type account IS the running balance
+// (see abRenderResolutionLedger) — no separate ledger table needed.
+async function abPostResolutionJournal(bill, type, contactId, amount){
+  if(!bill) return;
+  const controlName = bill.direction==='bill_payable' ? 'Accounts Payable' : 'Accounts Receivable';
+  const controlType = bill.direction==='bill_payable' ? 'liability' : 'asset';
+  const controlId = await abFindOrCreateAccount(controlName, controlType);
+  const contactName = contactId ? abContactName(contactId) : 'Unassigned';
+  const dueName = `Due to/from ${contactName} — ${AB_RESOLUTION_LABELS[type]||type}`;
+  const dueId = await abFindOrCreateAccount(dueName, 'liability');
+  const lines = bill.direction==='bill_payable'
+    ? [{account_id:controlId, debit:amount, credit:0},{account_id:dueId, debit:0, credit:amount}]
+    : [{account_id:dueId, debit:amount, credit:0},{account_id:controlId, debit:0, credit:amount}];
+  await abPostJournalEntry(bill.doc_date, `Resolution: ${AB_RESOLUTION_LABELS[type]||type}`, 'inter_book_resolution', bill.id, lines);
+}
+// Running balance per contact+type — reads directly off the "Due to/from"
+// accounts abPostResolutionJournal posts to, so it's always exact, never
+// a separately-maintained number that can drift from the ledger.
+function abRenderResolutionLedger(){
+  const el=document.getElementById('ab-resolution-ledger'); if(!el)return;
+  const rows=abAccountBalances().filter(r=>r.account.account_name.startsWith('Due to/from '));
+  el.innerHTML=`<div class="ab-h" style="font-size:15px;margin-top:24px">Running Balances — Wages, Distributions, Loans &amp; Reimbursements</div>
+    <table class="ab-table"><tr><th>Who / Type</th><th style="text-align:right">Balance</th></tr>
+    ${rows.map(r=>`<tr><td>${abEsc(r.account.account_name.replace('Due to/from ',''))}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">No resolutions posted yet</td></tr>'}
+    </table>`;
 }
 
 // ── REPORTS — honest about what's real right now: an AR/AP + asset
 // summary from the tables that exist. Trial Balance / P&L wait on journal
 // auto-posting (next migration), not pretended here. ──
+// Normal balance side per account_type — determines whether a positive
+// balance is shown as a debit-side or credit-side number on the TB.
+const AB_DEBIT_TYPES=['asset','expense'];
+function abAccountBalances(){
+  const byAccount={};
+  abJournalLinesCache.forEach(l=>{
+    if(!byAccount[l.account_id]) byAccount[l.account_id]={debit:0,credit:0};
+    byAccount[l.account_id].debit+=Number(l.debit)||0;
+    byAccount[l.account_id].credit+=Number(l.credit)||0;
+  });
+  return abAccounts.map(a=>{
+    const b=byAccount[a.id]||{debit:0,credit:0};
+    const isDebit=AB_DEBIT_TYPES.includes(a.account_type);
+    const net=isDebit?(b.debit-b.credit):(b.credit-b.debit);
+    return {account:a, debit:b.debit, credit:b.credit, net};
+  }).filter(r=>r.debit||r.credit);
+}
 function abRenderReports(){
   const el=document.getElementById('ab-reports'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
@@ -1765,15 +1981,673 @@ function abRenderReports(){
   const openInv=inv.filter(r=>r.status!=='paid'&&r.status!=='void');
   const openBill=bill.filter(r=>r.status!=='paid'&&r.status!=='void');
   const assetTotal=abFixedAssetsCache.reduce((s,a)=>s+(Number(a.cost_basis)||0),0);
+  const rows=abAccountBalances();
+  const tbDebitTotal=rows.reduce((s,r)=>s+r.debit,0);
+  const tbCreditTotal=rows.reduce((s,r)=>s+r.credit,0);
+  const income=rows.filter(r=>r.account.account_type==='income');
+  const expense=rows.filter(r=>r.account.account_type==='expense');
+  const totalIncome=income.reduce((s,r)=>s+r.net,0);
+  const totalExpense=expense.reduce((s,r)=>s+r.net,0);
+  const netIncome=totalIncome-totalExpense;
+  const assets=rows.filter(r=>r.account.account_type==='asset');
+  const liabilities=rows.filter(r=>r.account.account_type==='liability');
+  const equity=rows.filter(r=>r.account.account_type==='equity');
+  const totalAssets=assets.reduce((s,r)=>s+r.net,0);
+  const totalLiabilities=liabilities.reduce((s,r)=>s+r.net,0);
+  const totalEquity=equity.reduce((s,r)=>s+r.net,0)+netIncome;
+  const abRow=(r)=>`<tr><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`;
+
   el.innerHTML=`<div class="ab-h">Where things stand</div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
       <div class="ab-card"><div class="n">${openInv.length}</div><div class="l">Open invoices (${abMoney(openInv.reduce((s,r)=>s+Number(r.total_amount)-Number(r.paid_amount),0))})</div></div>
       <div class="ab-card"><div class="n">${openBill.length}</div><div class="l">Open bills (${abMoney(openBill.reduce((s,r)=>s+Number(r.total_amount)-Number(r.paid_amount),0))})</div></div>
       <div class="ab-card"><div class="n">${abMoney(assetTotal)}</div><div class="l">Fixed assets, cost basis</div></div>
+      <div class="ab-card"><div class="n">${abMoney(netIncome)}</div><div class="l">Net income, all-time</div></div>
     </div>
-    <div class="ab-signin-notice" style="text-align:left">
-      Trial Balance, P&L, and Balance Sheet need the general ledger auto-posting piece (journal_entries generated from every bill/invoice/payment) — that's the next migration, not built yet. This page shows the real AR/AP + asset picture from what's actually entered so far, honestly, rather than a report that looks complete and isn't.
-    </div>`;
+    ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+      <div>
+        <div class="ab-h" style="font-size:15px">Profit &amp; Loss</div>
+        <table class="ab-table"><tbody>
+          <tr><td colspan="2" style="font-weight:600;padding-top:8px">Income</td></tr>
+          ${income.map(abRow).join('')||'<tr><td class="ab-empty" colspan="2">—</td></tr>'}
+          <tr><td style="font-weight:600">Total Income</td><td style="text-align:right;font-weight:600">${abMoney(totalIncome)}</td></tr>
+          <tr><td colspan="2" style="font-weight:600;padding-top:8px">Expense</td></tr>
+          ${expense.map(abRow).join('')||'<tr><td class="ab-empty" colspan="2">—</td></tr>'}
+          <tr><td style="font-weight:600">Total Expense</td><td style="text-align:right;font-weight:600">${abMoney(totalExpense)}</td></tr>
+          <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Net Income</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(netIncome)}</td></tr>
+        </tbody></table>
+
+        <div class="ab-h" style="font-size:15px;margin-top:24px">Balance Sheet</div>
+        <table class="ab-table"><tbody>
+          <tr><td colspan="2" style="font-weight:600;padding-top:8px">Assets</td></tr>
+          ${assets.map(abRow).join('')||'<tr><td class="ab-empty" colspan="2">—</td></tr>'}
+          <tr><td style="font-weight:600">Total Assets</td><td style="text-align:right;font-weight:600">${abMoney(totalAssets)}</td></tr>
+          <tr><td colspan="2" style="font-weight:600;padding-top:8px">Liabilities</td></tr>
+          ${liabilities.map(abRow).join('')||'<tr><td class="ab-empty" colspan="2">—</td></tr>'}
+          <tr><td style="font-weight:600">Total Liabilities</td><td style="text-align:right;font-weight:600">${abMoney(totalLiabilities)}</td></tr>
+          <tr><td colspan="2" style="font-weight:600;padding-top:8px">Equity</td></tr>
+          ${equity.map(abRow).join('')}
+          <tr><td>Net Income (current)</td><td style="text-align:right">${abMoney(netIncome)}</td></tr>
+          <tr><td style="font-weight:600">Total Equity</td><td style="text-align:right;font-weight:600">${abMoney(totalEquity)}</td></tr>
+          <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Liabilities + Equity</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(totalLiabilities+totalEquity)}</td></tr>
+        </tbody></table>
+      </div>
+      <div>
+        <div class="ab-h" style="font-size:15px">Trial Balance</div>
+        <table class="ab-table"><thead><tr><th>Account</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr></thead><tbody>
+          ${rows.map(r=>`<tr><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${r.debit?abMoney(r.debit):''}</td><td style="text-align:right">${r.credit?abMoney(r.credit):''}</td></tr>`).join('')}
+          <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Total</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(tbDebitTotal)}</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(tbCreditTotal)}</td></tr>
+        </tbody></table>
+        ${Math.abs(tbDebitTotal-tbCreditTotal)>0.01?`<div class="ab-signin-notice" style="text-align:left;margin-top:10px">Debits and credits are out of balance by ${abMoney(Math.abs(tbDebitTotal-tbCreditTotal))} — this points to a posting bug, not a data-entry error, since every journal entry is built debit=credit at insert time.</div>`:''}
+      </div>
+    </div>`}`;
+}
+
+// ══════════════════════════════════════════════
+// PHASE 2 PANELS — every screen below follows the same rule as everything
+// above: fewest fields to save, list view under the form, nothing blocks
+// on a feature that doesn't exist yet.
+// ══════════════════════════════════════════════
+
+// ── PURCHASE ORDERS — issued before a bill exists; a bill can be matched
+// back to one later via the "Matched to PO" dropdown on Bills & Invoices
+// (abAddInvoiceBill already writes purchase_order_id when set there — see
+// the 3-way match note below the table). ──
+let abPurchaseOrdersCache=[];
+async function abLoadPurchaseOrders(){
+  if(!abBookId){abPurchaseOrdersCache=[];return;}
+  const{data}=await db.from('purchase_orders').select('*,contacts(name)').eq('book_id',abBookId).order('order_date',{ascending:false});
+  abPurchaseOrdersCache=data||[];
+  abRenderPOs();
+}
+function abRenderPOs(){
+  const el=document.getElementById('ab-pos'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=`<div class="ab-h">New Purchase Order</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Vendor</label><select id="ab-po-contact"><option value="">—</option>${abContacts.filter(c=>c.is_vendor).map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>PO #</label><input id="ab-po-number" style="width:90px" placeholder="optional"></div>
+      <div class="ab-field"><label>Date</label><input id="ab-po-date" type="date" value="${today}"></div>
+      <div class="ab-field"><label>Total</label><input id="ab-po-total" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddPO()">Create PO</button>
+    </div>
+    <table class="ab-table"><tr><th>PO #</th><th>Vendor</th><th>Date</th><th>Total</th><th>Status</th><th>Received</th></tr>
+    ${abPurchaseOrdersCache.map(p=>`<tr><td>${abEsc(p.po_number||'—')}</td><td>${abEsc(p.contacts?p.contacts.name:'')}</td><td>${p.order_date||''}</td><td>${abMoney(p.total_amount)}</td><td>
+      <select onchange="abUpdatePOStatus('${p.id}',this.value)">
+        ${['draft','sent','partially_received','closed'].map(s=>`<option value="${s}"${p.status===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}
+      </select></td><td>${p.status==='closed'||p.status==='partially_received'?'✓':'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No purchase orders yet</td></tr>'}
+    </table>
+    <div class="ab-signin-notice" style="text-align:left;margin-top:14px">3-way match: when entering a Bill on the Bills &amp; Invoices tab, pick this PO's number in the "Matched PO" field so the bill, the order, and the eventual payment all trace back to one another.</div>`;
+}
+async function abAddPO(){
+  const contact=document.getElementById('ab-po-contact').value||null;
+  const po_number=document.getElementById('ab-po-number').value.trim()||null;
+  const order_date=document.getElementById('ab-po-date').value||null;
+  const total=parseFloat(document.getElementById('ab-po-total').value)||0;
+  const{error}=await db.from('purchase_orders').insert({book_id:abBookId,contact_id:contact,po_number,order_date,total_amount:total});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-po-total').value='';
+  await abLoadPurchaseOrders();
+}
+async function abUpdatePOStatus(id,status){
+  await db.from('purchase_orders').update({status}).eq('id',id);
+  await abLoadPurchaseOrders();
+}
+
+// ── INVENTORY — the movement ledger is the source of truth; items.
+// quantity_on_hand is just a running cache updated alongside it. ──
+let abInventoryCache=[];
+async function abLoadInventory(){
+  if(!abBookId){abInventoryCache=[];return;}
+  const{data}=await db.from('inventory_transactions').select('*,items(name)').eq('book_id',abBookId).order('created_at',{ascending:false}).limit(100);
+  abInventoryCache=data||[];
+  abRenderInventory();
+}
+function abRenderInventory(){
+  const el=document.getElementById('ab-inventory'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const stockItems=abItems.filter(i=>i.item_type==='inventory'||i.item_type==='inventory_part');
+  el.innerHTML=`<div class="ab-h">Record a Stock Movement</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Item</label><select id="ab-inv-item">${abItems.map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')||'<option value="">Add an item first</option>'}</select></div>
+      <div class="ab-field"><label>Type</label><select id="ab-inv-type"><option value="purchase">Purchased (+)</option><option value="sale">Sold (-)</option><option value="adjustment">Adjustment</option><option value="count">Physical count</option><option value="scrap">Scrapped (-)</option></select></div>
+      <div class="ab-field"><label>Qty</label><input id="ab-inv-qty" type="number" step="0.01" style="width:80px" placeholder="0"></div>
+      <div class="ab-field"><label>Unit cost</label><input id="ab-inv-cost" type="number" step="0.01" style="width:90px" placeholder="optional"></div>
+      <button class="ab-btn" onclick="abAddInventoryMove()">Record</button>
+    </div>
+    <table class="ab-table"><tr><th>Item</th><th>Type</th><th>Qty</th><th>Unit Cost</th><th>Date</th></tr>
+    ${abInventoryCache.map(t=>`<tr><td>${abEsc(t.items?t.items.name:'')}</td><td>${abEsc(t.move_type)}</td><td>${t.quantity}</td><td>${t.unit_cost?abMoney(t.unit_cost):'—'}</td><td>${(t.created_at||'').slice(0,10)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No stock movements recorded yet</td></tr>'}
+    </table>`;
+}
+async function abAddInventoryMove(){
+  const item=document.getElementById('ab-inv-item').value; if(!item){alert('Add an item first (Books & Setup → Items).');return;}
+  const move_type=document.getElementById('ab-inv-type').value;
+  let qty=parseFloat(document.getElementById('ab-inv-qty').value)||0;
+  if(!qty){alert('Enter a quantity.');return;}
+  if((move_type==='sale'||move_type==='scrap') && qty>0) qty=-qty;
+  const unit_cost=document.getElementById('ab-inv-cost').value||null;
+  const{error}=await db.from('inventory_transactions').insert({book_id:abBookId,item_id:item,move_type,quantity:qty,unit_cost});
+  if(error){alert(error.message);return;}
+  const it=abItems.find(i=>i.id===item);
+  if(it){
+    const newQty=(Number(it.quantity_on_hand)||0)+qty;
+    await db.from('items').update({quantity_on_hand:newQty}).eq('id',item);
+    it.quantity_on_hand=newQty;
+  }
+  document.getElementById('ab-inv-qty').value='';
+  await abLoadInventory();
+}
+
+// ── RENTAL PROPERTIES — ownership can be shared (percentage-based);
+// component-level depreciation reuses fixed_assets (property_id +
+// component_name) rather than a parallel table. ──
+let abPropertiesCache=[];
+async function abLoadProperties(){
+  if(!abBookId){abPropertiesCache=[];return;}
+  const{data}=await db.from('properties').select('*,property_owners(*,contacts(name))').eq('book_id',abBookId).order('created_at',{ascending:false});
+  abPropertiesCache=data||[];
+  abRenderProperties();
+}
+function abRenderProperties(){
+  const el=document.getElementById('ab-properties'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Add a Rental Property</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Name</label><input id="ab-prop-name" placeholder="e.g. 2016 Blue Knoll Rd"></div>
+      <div class="ab-field"><label>Address</label><input id="ab-prop-address" placeholder="optional"></div>
+      <div class="ab-field"><label>Purchase price</label><input id="ab-prop-price" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Land value</label><input id="ab-prop-land" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddProperty()">Add Property</button>
+    </div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Assign ownership percentage and add components (Dwelling, Roof, HVAC, etc.) from each property's row below once it's created.</div>
+    ${abPropertiesCache.map(p=>{
+      const comps=abFixedAssetsCache.filter(a=>a.property_id===p.id);
+      const owners=(p.property_owners||[]).map(o=>`${abEsc(o.contacts?o.contacts.name:'')} (${o.ownership_percentage}%)`).join(', ')||'Unassigned';
+      return `<div class="ab-item">
+        <div class="td-title">${abEsc(p.name)} ${p.status!=='active'?`<span style="color:var(--muted);font-size:11px">(${p.status})</span>`:''}</div>
+        <div class="td-why">${abEsc(p.address||'')} — Owners: ${owners}</div>
+        <div style="margin-top:8px;font-size:12px">
+          <b>Components:</b> ${comps.length?comps.map(c=>`${abEsc(c.component_name||c.asset_name)} — ${c.cost_basis?abMoney(c.cost_basis):'—'}`).join(' · '):'none yet'}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center">
+          <input id="ab-prop-comp-name-${p.id}" placeholder="Component (e.g. Roof)" style="width:130px">
+          <input id="ab-prop-comp-cost-${p.id}" type="number" step="0.01" placeholder="Cost" style="width:80px">
+          <button class="ab-btn" onclick="abAddPropertyComponent('${p.id}')">+ Component</button>
+          <span style="margin-left:12px">Owner:</span>
+          <select id="ab-prop-owner-contact-${p.id}">${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select>
+          <input id="ab-prop-owner-pct-${p.id}" type="number" style="width:60px" placeholder="%">
+          <button class="ab-btn" onclick="abAddPropertyOwner('${p.id}')">+ Owner</button>
+        </div>
+      </div>`;
+    }).join('')||'<div class="ab-empty">No rental properties yet</div>'}`;
+}
+async function abAddProperty(){
+  const name=document.getElementById('ab-prop-name').value.trim(); if(!name)return;
+  const address=document.getElementById('ab-prop-address').value.trim()||null;
+  const purchase_price=document.getElementById('ab-prop-price').value||null;
+  const land_value=document.getElementById('ab-prop-land').value||null;
+  const{error}=await db.from('properties').insert({book_id:abBookId,name,address,purchase_price,land_value});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-prop-name').value='';
+  await abLoadProperties();
+}
+async function abAddPropertyComponent(propertyId){
+  const name=document.getElementById('ab-prop-comp-name-'+propertyId).value.trim(); if(!name)return;
+  const cost=document.getElementById('ab-prop-comp-cost-'+propertyId).value||null;
+  const{error}=await db.from('fixed_assets').insert({book_id:abBookId,property_id:propertyId,component_name:name,asset_name:name,cost_basis:cost});
+  if(error){alert(error.message);return;}
+  await abLoadFixedAssets();
+  await abLoadProperties();
+}
+async function abAddPropertyOwner(propertyId){
+  const contact=document.getElementById('ab-prop-owner-contact-'+propertyId).value; if(!contact)return;
+  const pct=parseFloat(document.getElementById('ab-prop-owner-pct-'+propertyId).value)||0;
+  if(!pct){alert('Enter an ownership percentage.');return;}
+  const{error}=await db.from('property_owners').insert({property_id:propertyId,contact_id:contact,ownership_percentage:pct});
+  if(error){alert(error.message);return;}
+  await abLoadProperties();
+}
+
+// ── EMPLOYEES / PAYROLL — Phase 1: produces the numbers a CPA needs.
+// No e-filing here; that's Phase 2, deliberately not built yet. ──
+let abEmployeesCache=[],abPayrollRunsCache=[];
+async function abLoadPayroll(){
+  if(!abBookId){abEmployeesCache=[];abPayrollRunsCache=[];return;}
+  const[{data:emp},{data:runs}]=await Promise.all([
+    db.from('employees').select('*,contacts(name)').eq('book_id',abBookId),
+    db.from('payroll_runs').select('*,payroll_run_lines(*,employees(contacts(name)))').eq('book_id',abBookId).order('pay_date',{ascending:false})
+  ]);
+  abEmployeesCache=emp||[];
+  abPayrollRunsCache=runs||[];
+  abRenderPayroll();
+}
+function abRenderPayroll(){
+  const el=document.getElementById('ab-payroll'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Add an Employee</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Person</label><select id="ab-emp-contact">${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')||'<option value="">Add a contact first</option>'}</select></div>
+      <div class="ab-field"><label>Pay type</label><select id="ab-emp-type"><option value="hourly">Hourly</option><option value="salary">Salary</option></select></div>
+      <div class="ab-field"><label>Rate</label><input id="ab-emp-rate" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddEmployee()">Add Employee</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Pay Type</th><th>Rate</th></tr>
+    ${abEmployeesCache.map(e=>`<tr><td>${abEsc(e.contacts?e.contacts.name:'')}</td><td>${abEsc(e.pay_type||'')}</td><td>${e.pay_rate?abMoney(e.pay_rate):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No employees yet</td></tr>'}
+    </table>
+    <div class="ab-h" style="margin-top:20px">Run Payroll</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Employee</label><select id="ab-pr-emp">${abEmployeesCache.map(e=>`<option value="${e.id}">${abEsc(e.contacts?e.contacts.name:'')}</option>`).join('')||'<option value="">Add an employee first</option>'}</select></div>
+      <div class="ab-field"><label>Pay date</label><input id="ab-pr-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="ab-field"><label>Gross</label><input id="ab-pr-gross" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Net</label><input id="ab-pr-net" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddPayrollRun()">Post Pay Run</button>
+    </div>
+    <table class="ab-table"><tr><th>Pay Date</th><th>Employee</th><th>Gross</th><th>Net</th></tr>
+    ${abPayrollRunsCache.flatMap(r=>(r.payroll_run_lines||[]).map(l=>`<tr><td>${r.pay_date||''}</td><td>${abEsc(l.employees&&l.employees.contacts?l.employees.contacts.name:'')}</td><td>${abMoney(l.gross_pay)}</td><td>${abMoney(l.net_pay)}</td></tr>`)).join('')||'<tr><td class="ab-empty" colspan="4">No pay runs posted yet</td></tr>'}
+    </table>`;
+}
+async function abAddEmployee(){
+  const contact=document.getElementById('ab-emp-contact').value; if(!contact){alert('Add a contact first (Books & Setup → Contacts).');return;}
+  const pay_type=document.getElementById('ab-emp-type').value;
+  const pay_rate=document.getElementById('ab-emp-rate').value||null;
+  const{error}=await db.from('employees').insert({book_id:abBookId,contact_id:contact,pay_type,pay_rate});
+  if(error){alert(error.message);return;}
+  await db.from('contacts').update({is_employee:true}).eq('id',contact);
+  await abLoadPayroll();
+}
+async function abAddPayrollRun(){
+  const employee_id=document.getElementById('ab-pr-emp').value; if(!employee_id){alert('Add an employee first.');return;}
+  const pay_date=document.getElementById('ab-pr-date').value||null;
+  const gross_pay=parseFloat(document.getElementById('ab-pr-gross').value)||0;
+  const net_pay=parseFloat(document.getElementById('ab-pr-net').value)||gross_pay;
+  if(!gross_pay){alert('Enter a gross pay amount.');return;}
+  const{data:run,error}=await db.from('payroll_runs').insert({book_id:abBookId,pay_date,status:'posted'}).select().single();
+  if(error){alert(error.message);return;}
+  await db.from('payroll_run_lines').insert({payroll_run_id:run.id,employee_id,gross_pay,net_pay,federal_withholding:0,fica_withholding:0,state_withholding:0,other_deductions:Math.max(0,gross_pay-net_pay)});
+  // Post the journal: debit Wages Expense for the full gross, credit Cash
+  // for what actually went out, credit Payroll Liabilities for the
+  // withheld difference — so withholding never just vanishes.
+  const wagesId=await abFindOrCreateAccount('Wages Expense','expense');
+  const cashId=await abFindOrCreateAccount('Cash - Unspecified Source','asset');
+  const liabId=await abFindOrCreateAccount('Payroll Liabilities','liability');
+  const withheld=Math.max(0,gross_pay-net_pay);
+  const lines=[{account_id:wagesId,debit:gross_pay,credit:0},{account_id:cashId,debit:0,credit:net_pay}];
+  if(withheld>0) lines.push({account_id:liabId,debit:0,credit:withheld});
+  await abPostJournalEntry(pay_date,'Payroll run','payroll_run',run.id,lines);
+  document.getElementById('ab-pr-gross').value=''; document.getElementById('ab-pr-net').value='';
+  await abLoadPayroll();
+  await abLoadJournalLines();
+  abRenderReports();
+}
+
+// ── MILEAGE + REPAIRS ──
+let abMileageCache=[];
+async function abLoadMileage(){
+  if(!abBookId){abMileageCache=[];return;}
+  const{data}=await db.from('mileage_logs').select('*').eq('book_id',abBookId).order('log_date',{ascending:false});
+  abMileageCache=data||[];
+  abRenderMileage();
+}
+function abRenderMileage(){
+  const el=document.getElementById('ab-mileage'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=`<div class="ab-h">Log Mileage</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Date</label><input id="ab-mi-date" type="date" value="${today}"></div>
+      <div class="ab-field"><label>Miles</label><input id="ab-mi-miles" type="number" step="0.1" style="width:80px" placeholder="0"></div>
+      <div class="ab-field"><label>Purpose</label><input id="ab-mi-purpose" placeholder="e.g. Supply run"></div>
+      <button class="ab-btn" onclick="abAddMileage()">Log</button>
+    </div>
+    <table class="ab-table"><tr><th>Date</th><th>Miles</th><th>Purpose</th></tr>
+    ${abMileageCache.map(m=>`<tr><td>${m.log_date||''}</td><td>${m.miles}</td><td>${abEsc(m.purpose||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No mileage logged yet</td></tr>'}
+    </table>`;
+}
+async function abAddMileage(){
+  const log_date=document.getElementById('ab-mi-date').value||null;
+  const miles=parseFloat(document.getElementById('ab-mi-miles').value)||0;
+  if(!miles){alert('Enter miles.');return;}
+  const purpose=document.getElementById('ab-mi-purpose').value.trim()||null;
+  const{error}=await db.from('mileage_logs').insert({book_id:abBookId,log_date,miles,purpose});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-mi-miles').value=''; document.getElementById('ab-mi-purpose').value='';
+  await abLoadMileage();
+}
+let abRepairsCache=[];
+async function abLoadRepairs(){
+  if(!abBookId){abRepairsCache=[];return;}
+  const assetIds=abFixedAssetsCache.map(a=>a.id);
+  if(!assetIds.length){abRepairsCache=[];abRenderRepairs();return;}
+  const{data}=await db.from('repair_logs').select('*,fixed_assets(asset_name)').in('fixed_asset_id',assetIds).order('repair_date',{ascending:false});
+  abRepairsCache=data||[];
+  abRenderRepairs();
+}
+function abRenderRepairs(){
+  const el=document.getElementById('ab-repairs'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Log a Repair</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Asset</label><select id="ab-rp-asset">${abFixedAssetsCache.map(a=>`<option value="${a.id}">${abEsc(a.asset_name)}</option>`).join('')||'<option value="">Add a fixed asset first</option>'}</select></div>
+      <div class="ab-field"><label>Date</label><input id="ab-rp-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="ab-field"><label>Cost</label><input id="ab-rp-cost" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Description</label><input id="ab-rp-desc" placeholder="What was fixed"></div>
+      <button class="ab-btn" onclick="abAddRepair()">Log Repair</button>
+    </div>
+    <table class="ab-table"><tr><th>Date</th><th>Asset</th><th>Cost</th><th>Description</th></tr>
+    ${abRepairsCache.map(r=>`<tr><td>${r.repair_date||''}</td><td>${abEsc(r.fixed_assets?r.fixed_assets.asset_name:'')}</td><td>${r.cost?abMoney(r.cost):'—'}</td><td>${abEsc(r.description||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No repairs logged yet</td></tr>'}
+    </table>`;
+}
+async function abAddRepair(){
+  const fixed_asset_id=document.getElementById('ab-rp-asset').value; if(!fixed_asset_id){alert('Add a fixed asset first.');return;}
+  const repair_date=document.getElementById('ab-rp-date').value||null;
+  const cost=document.getElementById('ab-rp-cost').value||null;
+  const description=document.getElementById('ab-rp-desc').value.trim()||null;
+  const{error}=await db.from('repair_logs').insert({fixed_asset_id,repair_date,cost,description});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-rp-cost').value=''; document.getElementById('ab-rp-desc').value='';
+  await abLoadRepairs();
+}
+
+// ── WARRANTIES + SERVICE AGREEMENTS ──
+let abWarrantiesCache=[];
+async function abLoadWarranties(){
+  if(!abBookId){abWarrantiesCache=[];return;}
+  const{data}=await db.from('warranties').select('*,contacts(name)').eq('book_id',abBookId).order('coverage_end',{ascending:true});
+  abWarrantiesCache=data||[];
+  abRenderWarranties();
+}
+function abRenderWarranties(){
+  const el=document.getElementById('ab-warranties'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Add a Warranty</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Description</label><input id="ab-wa-desc" placeholder="e.g. Roof — 10yr manufacturer"></div>
+      <div class="ab-field"><label>Coverage ends</label><input id="ab-wa-end" type="date"></div>
+      <button class="ab-btn" onclick="abAddWarranty()">Add</button>
+    </div>
+    <table class="ab-table"><tr><th>Description</th><th>Ends</th><th>Status</th></tr>
+    ${abWarrantiesCache.map(w=>`<tr><td>${abEsc(w.description||'')}</td><td>${w.coverage_end||''}</td><td>${abEsc(w.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No warranties tracked yet</td></tr>'}
+    </table>`;
+}
+async function abAddWarranty(){
+  const description=document.getElementById('ab-wa-desc').value.trim(); if(!description)return;
+  const coverage_end=document.getElementById('ab-wa-end').value||null;
+  const{error}=await db.from('warranties').insert({book_id:abBookId,description,coverage_end});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-wa-desc').value='';
+  await abLoadWarranties();
+}
+let abServiceAgreementsCache=[];
+async function abLoadServiceAgreements(){
+  if(!abBookId){abServiceAgreementsCache=[];return;}
+  const{data}=await db.from('service_agreements').select('*,contacts(name)').eq('book_id',abBookId).order('next_bill_date',{ascending:true});
+  abServiceAgreementsCache=data||[];
+  abRenderServiceAgreements();
+}
+function abRenderServiceAgreements(){
+  const el=document.getElementById('ab-service-agreements'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Add a Service Agreement</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Name</label><input id="ab-sa-name" placeholder="e.g. Lawn care — Smith property"></div>
+      <div class="ab-field"><label>Contact</label><select id="ab-sa-contact"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Amount</label><input id="ab-sa-amount" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Interval</label><select id="ab-sa-interval"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div>
+      <button class="ab-btn" onclick="abAddServiceAgreement()">Add</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Contact</th><th>Amount</th><th>Interval</th><th>Status</th></tr>
+    ${abServiceAgreementsCache.map(s=>`<tr><td>${abEsc(s.name)}</td><td>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${s.amount?abMoney(s.amount):'—'}</td><td>${abEsc(s.billing_interval)}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No service agreements yet</td></tr>'}
+    </table>`;
+}
+async function abAddServiceAgreement(){
+  const name=document.getElementById('ab-sa-name').value.trim(); if(!name)return;
+  const contact_id=document.getElementById('ab-sa-contact').value||null;
+  const amount=document.getElementById('ab-sa-amount').value||null;
+  const billing_interval=document.getElementById('ab-sa-interval').value;
+  const{error}=await db.from('service_agreements').insert({book_id:abBookId,name,contact_id,amount,billing_interval,next_bill_date:new Date().toISOString().slice(0,10)});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-sa-name').value='';
+  await abLoadServiceAgreements();
+}
+
+// ── CRM ACTIVITIES — communication log on top of the shared contacts table ──
+let abCrmCache=[];
+async function abLoadCrm(){
+  if(!abBookId){abCrmCache=[];return;}
+  const{data}=await db.from('crm_activities').select('*,contacts(name)').eq('book_id',abBookId).order('activity_date',{ascending:false}).limit(100);
+  abCrmCache=data||[];
+  abRenderCrm();
+}
+function abRenderCrm(){
+  const el=document.getElementById('ab-crm'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=`<div class="ab-h">Log an Activity</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Contact</label><select id="ab-crm-contact">${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')||'<option value="">Add a contact first</option>'}</select></div>
+      <div class="ab-field"><label>Type</label><select id="ab-crm-type"><option value="call">Call</option><option value="email">Email</option><option value="meeting">Meeting</option><option value="note">Note</option><option value="follow_up">Follow-up</option></select></div>
+      <div class="ab-field"><label>Date</label><input id="ab-crm-date" type="date" value="${today}"></div>
+      <div class="ab-field"><label>Notes</label><input id="ab-crm-notes" placeholder="What happened"></div>
+      <button class="ab-btn" onclick="abAddCrm()">Log</button>
+    </div>
+    <table class="ab-table"><tr><th>Date</th><th>Contact</th><th>Type</th><th>Notes</th></tr>
+    ${abCrmCache.map(c=>`<tr><td>${c.activity_date||''}</td><td>${abEsc(c.contacts?c.contacts.name:'')}</td><td>${abEsc(c.activity_type||'')}</td><td>${abEsc(c.notes||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No activity logged yet</td></tr>'}
+    </table>`;
+}
+async function abAddCrm(){
+  const contact_id=document.getElementById('ab-crm-contact').value; if(!contact_id){alert('Add a contact first.');return;}
+  const activity_type=document.getElementById('ab-crm-type').value;
+  const activity_date=document.getElementById('ab-crm-date').value||null;
+  const notes=document.getElementById('ab-crm-notes').value.trim()||null;
+  const{error}=await db.from('crm_activities').insert({book_id:abBookId,contact_id,activity_type,activity_date,notes});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-crm-notes').value='';
+  await abLoadCrm();
+}
+
+// ── INVESTMENTS + SUBSCRIPTIONS ──
+let abInvestmentsCache=[];
+async function abLoadInvestments(){
+  if(!abBookId){abInvestmentsCache=[];return;}
+  const{data}=await db.from('investments').select('*').eq('book_id',abBookId).order('acquired_date',{ascending:false});
+  abInvestmentsCache=data||[];
+  abRenderInvestments();
+}
+function abRenderInvestments(){
+  const el=document.getElementById('ab-investments'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Add an Investment</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Name</label><input id="ab-iv-name" placeholder="e.g. Vanguard S&P 500"></div>
+      <div class="ab-field"><label>Cost basis</label><input id="ab-iv-cost" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Current value</label><input id="ab-iv-value" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddInvestment()">Add</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Cost Basis</th><th>Current Value</th><th>Gain/Loss</th></tr>
+    ${abInvestmentsCache.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${i.cost_basis?abMoney(i.cost_basis):'—'}</td><td>${i.current_value?abMoney(i.current_value):'—'}</td><td>${(i.cost_basis&&i.current_value)?abMoney(i.current_value-i.cost_basis):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No investments tracked yet</td></tr>'}
+    </table>`;
+}
+async function abAddInvestment(){
+  const name=document.getElementById('ab-iv-name').value.trim(); if(!name)return;
+  const cost_basis=document.getElementById('ab-iv-cost').value||null;
+  const current_value=document.getElementById('ab-iv-value').value||null;
+  const{error}=await db.from('investments').insert({book_id:abBookId,name,cost_basis,current_value});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-iv-name').value='';
+  await abLoadInvestments();
+}
+let abSubscriptionsCache=[];
+async function abLoadSubscriptions(){
+  if(!abBookId){abSubscriptionsCache=[];return;}
+  const{data}=await db.from('subscriptions').select('*,contacts(name)').eq('book_id',abBookId).order('next_bill_date',{ascending:true});
+  abSubscriptionsCache=data||[];
+  abRenderSubscriptions();
+}
+function abRenderSubscriptions(){
+  const el=document.getElementById('ab-subscriptions'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Add a Subscription</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Contact</label><select id="ab-sub-contact"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Amount</label><input id="ab-sub-amount" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Interval</label><select id="ab-sub-interval"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div>
+      <div class="ab-field"><label>Next bill</label><input id="ab-sub-next" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <button class="ab-btn" onclick="abAddSubscription()">Add</button>
+    </div>
+    <table class="ab-table"><tr><th>Contact</th><th>Amount</th><th>Interval</th><th>Next Bill</th><th>Status</th></tr>
+    ${abSubscriptionsCache.map(s=>`<tr><td>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${abMoney(s.amount)}</td><td>${abEsc(s.billing_interval)}</td><td>${s.next_bill_date||''}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No subscriptions yet</td></tr>'}
+    </table>`;
+}
+async function abAddSubscription(){
+  const contact_id=document.getElementById('ab-sub-contact').value||null;
+  const amount=parseFloat(document.getElementById('ab-sub-amount').value)||0;
+  if(!amount){alert('Enter an amount.');return;}
+  const billing_interval=document.getElementById('ab-sub-interval').value;
+  const next_bill_date=document.getElementById('ab-sub-next').value||null;
+  const{error}=await db.from('subscriptions').insert({book_id:abBookId,contact_id,amount,billing_interval,next_bill_date});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-sub-amount').value='';
+  await abLoadSubscriptions();
+}
+
+// ══════════════════════════════════════════════
+// QUICKBOOKS JOURNAL CSV IMPORT — generic column-name detection rather
+// than hardcoded positions, since a QuickBooks "Journal" report export's
+// exact column set varies by QB version/settings. Two-step: Parse &
+// Preview (client-side only, nothing written yet) then Commit (writes a
+// qb_import_batches row + real journal_entries/journal_lines, so a bad
+// import can be identified and rolled back by batch, not by guesswork).
+// ══════════════════════════════════════════════
+let abQbParsedGroups=null;
+function abRenderQbImportTab(){
+  const el=document.getElementById('ab-qbimport'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Import a QuickBooks Journal Export</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      In QuickBooks: Reports → Accountant &amp; Taxes → Journal → export to CSV/Excel, for the date range you need. Paste the CSV content below or choose the file — nothing gets written to your book until you review the preview and click Commit.
+    </div>
+    <div class="ab-form">
+      <div class="ab-field" style="flex:1"><label>CSV file</label><input type="file" id="ab-qb-file" accept=".csv,.txt" onchange="abQbFileChosen(event)"></div>
+    </div>
+    <textarea id="ab-qb-paste" placeholder="…or paste the raw CSV text here" style="width:100%;min-height:110px;margin-top:8px;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.25);border-radius:6px;color:inherit;padding:10px;font-family:monospace;font-size:12px"></textarea>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="ab-btn" onclick="abQbParse()">Parse &amp; Preview</button>
+      <button class="ab-btn" id="ab-qb-commit-btn" style="display:none" onclick="abQbCommit()">Commit to Book</button>
+    </div>
+    <div id="ab-qb-preview" style="margin-top:16px"></div>`;
+}
+function abQbFileChosen(ev){
+  const f=ev.target.files[0]; if(!f)return;
+  const reader=new FileReader();
+  reader.onload=e=>{ document.getElementById('ab-qb-paste').value=e.target.result; };
+  reader.readAsText(f);
+}
+// Minimal CSV parser — handles quoted fields containing commas, which
+// QuickBooks exports use for Memo/Name text.
+function abParseCsv(text){
+  const rows=[]; let row=[],field='',inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQuotes=false; }
+      else field+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===','){ row.push(field); field=''; }
+      else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n')i++; row.push(field); rows.push(row); row=[]; field=''; }
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r=>r.some(f=>f.trim()!==''));
+}
+function abQbParse(){
+  const text=document.getElementById('ab-qb-paste').value.trim();
+  if(!text){alert('Paste or choose a CSV file first.');return;}
+  const rows=abParseCsv(text);
+  if(rows.length<2){alert('That doesn\'t look like a CSV with a header row plus data.');return;}
+  const header=rows[0].map(h=>h.trim().toLowerCase());
+  const find=(...names)=>{ for(const n of names){ const idx=header.findIndex(h=>h===n); if(idx>=0) return idx; } return -1; };
+  const idx={
+    transNum: find('trans #','trans#','transaction number','num'),
+    date: find('date'),
+    type: find('transaction type','type'),
+    name: find('name'),
+    memo: find('memo','memo/description','description'),
+    account: find('account'),
+    debit: find('debit'),
+    credit: find('credit')
+  };
+  if(idx.account<0 || idx.date<0 || (idx.debit<0 && idx.credit<0)){
+    document.getElementById('ab-qb-preview').innerHTML=`<div class="ab-signin-notice" style="text-align:left">Couldn't find the columns this needs (Date, Account, Debit/Credit). Detected headers: ${header.map(h=>abEsc(h)).join(', ')}. Make sure the export is QuickBooks' standard "Journal" report format.</div>`;
+    return;
+  }
+  // Group lines into transactions. QuickBooks Journal exports usually
+  // repeat Date/Type/Num across every line of one transaction — group on
+  // whichever identifying combo is present, falling back to Date+Memo.
+  const groups=[]; let current=null,lastKey=null;
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r];
+    const account=(row[idx.account]||'').trim();
+    if(!account) continue;
+    const debit=parseFloat((row[idx.debit]||'').replace(/[^0-9.-]/g,''))||0;
+    const credit=parseFloat((row[idx.credit]||'').replace(/[^0-9.-]/g,''))||0;
+    const date=(row[idx.date]||'').trim();
+    const key=(idx.transNum>=0?row[idx.transNum]:'') || (date+'|'+(idx.memo>=0?row[idx.memo]:'')+'|'+(idx.type>=0?row[idx.type]:''));
+    if(!date && !debit && !credit) continue;
+    if(key!==lastKey || !current){
+      current={date,type:idx.type>=0?row[idx.type]:'',name:idx.name>=0?row[idx.name]:'',memo:idx.memo>=0?row[idx.memo]:'',lines:[]};
+      groups.push(current);
+      lastKey=key;
+    }
+    if(!current.date && date) current.date=date;
+    current.lines.push({account,debit,credit});
+  }
+  abQbParsedGroups=groups.filter(g=>g.lines.length);
+  const totalLines=abQbParsedGroups.reduce((s,g)=>s+g.lines.length,0);
+  const unknownAccounts=[...new Set(abQbParsedGroups.flatMap(g=>g.lines.map(l=>l.account)).filter(a=>!abAccounts.find(x=>x.account_name.toLowerCase()===a.toLowerCase())))];
+  document.getElementById('ab-qb-preview').innerHTML=`
+    <div class="ab-card" style="display:inline-block;margin-bottom:12px"><div class="n">${abQbParsedGroups.length}</div><div class="l">Transactions found (${totalLines} lines)</div></div>
+    ${unknownAccounts.length?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:12px">${unknownAccounts.length} account(s) not in this book's Chart of Accounts yet — Commit will create them automatically: ${unknownAccounts.map(abEsc).join(', ')}</div>`:''}
+    <table class="ab-table"><tr><th>Date</th><th>Type</th><th>Name</th><th>Memo</th><th>Lines</th></tr>
+    ${abQbParsedGroups.slice(0,25).map(g=>`<tr><td>${abEsc(g.date)}</td><td>${abEsc(g.type)}</td><td>${abEsc(g.name)}</td><td>${abEsc(g.memo)}</td><td>${g.lines.length}</td></tr>`).join('')}
+    </table>
+    ${abQbParsedGroups.length>25?`<div style="font-size:11px;color:var(--muted);margin-top:6px">…and ${abQbParsedGroups.length-25} more</div>`:''}`;
+  document.getElementById('ab-qb-commit-btn').style.display='inline-block';
+}
+async function abQbCommit(){
+  if(!abQbParsedGroups||!abQbParsedGroups.length){alert('Parse a file first.');return;}
+  if(!confirm(`Commit ${abQbParsedGroups.length} transactions to this book? Each becomes a real posted journal entry.`))return;
+  const btn=document.getElementById('ab-qb-commit-btn'); btn.disabled=true; btn.textContent='Importing…';
+  const{data:batch,error:batchErr}=await db.from('qb_import_batches').insert({book_id:abBookId,source_filename:document.getElementById('ab-qb-file').files[0]?document.getElementById('ab-qb-file').files[0].name:'pasted',row_count:abQbParsedGroups.length,status:'review'}).select().single();
+  if(batchErr){alert(batchErr.message);btn.disabled=false;return;}
+  let imported=0;
+  for(const g of abQbParsedGroups){
+    const lines=[];
+    for(const l of g.lines){
+      const accountId=await abFindOrCreateAccount(l.account,'expense');
+      lines.push({account_id:accountId,debit:l.debit,credit:l.credit});
+    }
+    const dateIso=abQbDateToIso(g.date);
+    const{data:je}=await db.from('journal_entries').insert({book_id:abBookId,entry_date:dateIso,memo:(g.memo||g.name||g.type||'QuickBooks import'),source:'qb_import',status:'posted',qb_import_batch_id:batch.id}).select().single();
+    if(je) await db.from('journal_lines').insert(lines.map(l=>({...l,journal_entry_id:je.id})));
+    imported++;
+  }
+  await db.from('qb_import_batches').update({status:'committed'}).eq('id',batch.id);
+  await abLoadAccounts();
+  await abLoadJournalLines();
+  abRenderReports();
+  btn.textContent='Imported ✓'; btn.disabled=false;
+  document.getElementById('ab-qb-preview').insertAdjacentHTML('afterbegin',`<div class="ab-signin-notice" style="text-align:left;background:rgba(100,220,160,.08);border-color:rgba(100,220,160,.4);margin-bottom:12px">Imported ${imported} transactions. Check Reports for the updated Trial Balance.</div>`);
+}
+function abQbDateToIso(d){
+  if(!d) return null;
+  const m=d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if(m){ let[,mo,day,yr]=m; if(yr.length===2)yr='20'+yr; return `${yr}-${mo.padStart(2,'0')}-${day.padStart(2,'0')}`; }
+  const iso=d.match(/^\d{4}-\d{2}-\d{2}/); if(iso) return iso[0];
+  return d;
 }
 
 function abRefreshDropdownSources(){
@@ -1792,6 +2666,14 @@ openPanel=function(n){
   _origOpenPanel(n);
   if(n===7 && abBookId) abRenderPayments();
   if(n===10 && abBookId){ abRenderFlaggedQueue(); abRenderPaymentSourcesTab(); }
+  if(n===11 && abBookId) abLoadPurchaseOrders();
+  if(n===12 && abBookId) abLoadInventory();
+  if(n===13 && abBookId) abLoadProperties();
+  if(n===14 && abBookId) abLoadPayroll();
+  if(n===15 && abBookId){ abLoadMileage(); abLoadRepairs(); }
+  if(n===16 && abBookId){ abLoadWarranties(); abLoadServiceAgreements(); }
+  if(n===17 && abBookId) abLoadCrm();
+  if(n===18 && abBookId){ abLoadInvestments(); abLoadSubscriptions(); }
 };
 
 abInit();
