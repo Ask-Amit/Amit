@@ -1,4 +1,4 @@
-# Amit Coder Starter Kit
+﻿# Amit Coder Starter Kit
 # Sets up a new coding project folder the same way Ryan's own Amit environment
 # is structured: a root CLAUDE.md that auto-orients Claude Code every session,
 # a Templates subfolder for reusable project scaffolding, and a backup junction
@@ -38,14 +38,14 @@ if (-not (Test-Path $templatesPath)) {
     New-Item -ItemType Directory -Path $templatesPath -Force | Out-Null
 }
 
-# 3. Write the root CLAUDE.md — this is what makes Claude Code auto-orient
+# 3. Write the root CLAUDE.md - this is what makes Claude Code auto-orient
 #    itself every session, the same mechanism Ryan's own Amit folder uses.
 $claudeMdPath = Join-Path $projectRoot "CLAUDE.md"
 if (Test-Path $claudeMdPath) {
-    Write-Host "CLAUDE.md already exists here — leaving it untouched so nothing gets overwritten." -ForegroundColor Yellow
+    Write-Host "CLAUDE.md already exists here - leaving it untouched so nothing gets overwritten." -ForegroundColor Yellow
 } else {
-$claudeMdContent = @"
-# Project Orientation — Read This First, Every Session
+$claudeMdContent = @'
+# Project Orientation - Read This First, Every Session
 
 This file loads automatically at the start of every Claude Code session in this
 folder. It exists so Claude Code (your assistant) always knows the current
@@ -55,9 +55,9 @@ state of your project without you re-explaining it each time.
 
 - Each distinct project or feature gets its OWN subfolder, with its own
   CLAUDE.md inside it (see "New Project" below).
-- This root CLAUDE.md is the entry point — the assistant reads it first, then
+- This root CLAUDE.md is the entry point - the assistant reads it first, then
   is directed to the relevant subfolder's own file for anything project-specific.
-- ``Templates/`` holds reusable starter files you want to reuse across projects.
+- Templates/ holds reusable starter files you want to reuse across projects.
 
 ## New Project Directive
 
@@ -70,27 +70,27 @@ to create a new subfolder for it, with its own CLAUDE.md describing:
 This keeps each project's context isolated and easy to pick back up, instead of
 one giant file trying to describe everything at once.
 
-## Pursuit Attribution — Permanent
+## Pursuit Attribution - Permanent
 
-This project's canonical name, for any pursuit created from within it, is: **$appName**
+This project's canonical name, for any pursuit created from within it, is: __APPNAME__
 
 Any pursuit written to hub_entries from this project must be stamped
-``program='$appName'`` — automatically, by this project's own code or by your
+program='__APPNAME__' - automatically, by this project's own code or by your
 assistant acting on its behalf, using this exact spelling every time. Never ask
-the person creating the pursuit *what* program a specific pursuit belongs to -
+the person creating the pursuit what program a specific pursuit belongs to -
 that's always this project's own name above, decided once, not per-item.
 
-**If you rename this application later**, don't just edit this line by hand -
-use the ``J rename pursuit`` shortcut instead. It updates this section AND
+If you rename this application later, don't just edit this line by hand -
+use the J rename pursuit shortcut instead. It updates this section AND
 every existing pursuit (including completed ones/memories) that was stamped
 with the old name, so your full build history stays under one consistent
 identifier instead of splitting across two names.
 
-## Shortcut Activation — Permanent
+## Shortcut Activation - Permanent
 
 At the start of every session in this project, check whether
-``amit_shortcuts_cache.json`` exists at the project root (written by
-``hooks/Amit_Coder_SessionStart.ps1``, pulled from your AmitCoder account). If
+amit_shortcuts_cache.json exists at the project root (written by
+hooks/Amit_Coder_SessionStart.ps1, pulled from your AmitCoder account). If
 it exists, read it - it holds your active F/J shortcuts.
 
 When a message begins with a trigger word from that cache (a single letter -
@@ -105,18 +105,18 @@ F or J - followed by a phrase), match it against the cached entries:
 If the cache file doesn't exist yet, or nothing matches, treat the message as
 ordinary conversation - never guess at an unrecognized trigger.
 
-## How to Help This Person — Posture, Not Just Mechanics
+## How to Help This Person - Posture, Not Just Mechanics
 
-Whoever is assisting from here forward (Claude, or any AI reading this file) should assume the person building this may be new to a lot of what's involved - git, GitHub, databases, deployment. The job is to actually handle that complexity for them using their own credentials and their own accounts, not to hand them a checklist and expect them to figure it out. Walk them through it patiently, explain what's happening as it happens, and don't let them feel lost. This applies especially to anything in the connection family (``J instruction``, ``J authorization``, ``J connect``, ``J setup``, ``J push``) - the whole point of those is that a brand-new person gets the plumbing handled for them, the same way a genuinely helpful companion would, not a bare technical assistant executing commands.
+Whoever is assisting from here forward (Claude, or any AI reading this file) should assume the person building this may be new to a lot of what's involved - git, GitHub, databases, deployment. The job is to actually handle that complexity for them using their own credentials and their own accounts, not to hand them a checklist and expect them to figure it out. Walk them through it patiently, explain what's happening as it happens, and don't let them feel lost. This applies especially to anything in the connection family (J instruction, J authorization, J connect, J setup, J push) - the whole point of those is that a brand-new person gets the plumbing handled for them, the same way a genuinely helpful companion would, not a bare technical assistant executing commands.
 
 ## Current Projects
 
-(Nothing yet — this updates as you build.)
+(Nothing yet - this updates as you build.)
 
 ## Session Backups
 
 Claude Code stores your session history at:
-``%USERPROFILE%\.claude\projects\``
+%USERPROFILE%\.claude\projects\
 
 The starter kit that created this file also set up a backup so those session
 files are automatically copied somewhere you control, not just left in a
@@ -124,12 +124,13 @@ hidden system folder. See the "Backup" note below for where that is.
 
 ---
 *Set up by the Amit Coder Starter Kit.*
-"@
+'@
+    $claudeMdContent = $claudeMdContent.Replace('__APPNAME__', $appName)
     Set-Content -Path $claudeMdPath -Value $claudeMdContent -Encoding utf8
     Write-Host "Wrote starter CLAUDE.md" -ForegroundColor Green
 }
 
-# 4. Backup connection — mirrors Ryan's own setup: a real backup folder inside
+# 4. Backup connection - mirrors Ryan's own setup: a real backup folder inside
 #    the project root, with a junction pointing back to Claude Code's session
 #    storage, so JSONL files sync there automatically without extra steps.
 $backupPath = Join-Path $projectRoot "SessionBackups"
@@ -151,10 +152,10 @@ if (Test-Path $claudeProjectsPath) {
         Write-Host "Session backup link already exists." -ForegroundColor Cyan
     }
 } else {
-    Write-Host "No Claude Code session folder found yet at $claudeProjectsPath — this is normal if you haven't run Claude Code here yet. Run this script again after your first session if you want the backup link created." -ForegroundColor Yellow
+    Write-Host "No Claude Code session folder found yet at $claudeProjectsPath - this is normal if you haven't run Claude Code here yet. Run this script again after your first session if you want the backup link created." -ForegroundColor Yellow
 }
 
-# 5. Migrations folder — a real, versioned home for your database changes,
+# 5. Migrations folder - a real, versioned home for your database changes,
 #    the same pattern Ryan's own Amit project uses informally (numbered SQL
 #    files). Formalizing it here means your database history lives in git
 #    alongside your code, not scattered across chat history.
@@ -166,7 +167,7 @@ if (-not (Test-Path $migrationsPath)) {
 
 Each database change gets its own numbered file here: `0001_description.sql`,
 `0002_description.sql`, and so on. Never edit an old migration file after it's
-been run — write a new one instead. This keeps your database's real history
+been run - write a new one instead. This keeps your database's real history
 versioned in git, the same as your code.
 '@
     Set-Content -Path (Join-Path $migrationsPath "README.md") -Value $migrationsReadme -Encoding utf8
@@ -179,7 +180,7 @@ versioned in git, the same as your code.
     Write-Host "Created migrations/ folder" -ForegroundColor Green
 }
 
-# 6. A basic CI check — GitHub Actions, so every push gets a free automatic
+# 6. A basic CI check - GitHub Actions, so every push gets a free automatic
 #    sanity check before it goes live. Only activates once this folder is a
 #    real git repo pushed to GitHub.
 $workflowsPath = Join-Path $projectRoot ".github\workflows"
@@ -213,11 +214,11 @@ Check().feed(open('$f', encoding='utf-8', errors='ignore').read())
     Write-Host "Created .github/workflows/basic-check.yml (activates once pushed to GitHub)" -ForegroundColor Green
 }
 
-# 7. Local dev server — no external installs needed (uses .NET's built-in
+# 7. Local dev server - no external installs needed (uses .NET's built-in
 #    HttpListener via PowerShell), serves this folder at localhost so files
 #    behave like they will once actually deployed, instead of raw file:// paths.
 $serverScript = @'
-# Start_Local_Server.ps1 — serves this folder at http://localhost:8080
+# Start_Local_Server.ps1 - serves this folder at http://localhost:8080
 # No installs needed (Python/Node not required) - uses .NET HttpListener directly.
 param([int]$Port = 8080)
 $root = $PSScriptRoot
@@ -253,13 +254,13 @@ try {
 $serverScriptPath = Join-Path $projectRoot "Start_Local_Server.ps1"
 if (-not (Test-Path $serverScriptPath)) {
     Set-Content -Path $serverScriptPath -Value $serverScript -Encoding utf8
-    Write-Host "Created Start_Local_Server.ps1 — run it any time to preview your site at http://localhost:8080" -ForegroundColor Green
+    Write-Host "Created Start_Local_Server.ps1 - run it any time to preview your site at http://localhost:8080" -ForegroundColor Green
 }
 
-# 8. Branch helper — a real, if small, nudge toward not committing risky
+# 8. Branch helper - a real, if small, nudge toward not committing risky
 #    changes straight to main. Not a workflow enforcement, just a fast on-ramp.
 $branchScript = @'
-# New_Feature_Branch.ps1 — creates and switches to a new git branch
+# New_Feature_Branch.ps1 - creates and switches to a new git branch
 param([Parameter(Mandatory=$true)][string]$Name)
 git checkout -b "feature/$Name"
 Write-Host "Now on branch feature/$Name. Merge back to main when it's tested and ready." -ForegroundColor Green
@@ -267,10 +268,10 @@ Write-Host "Now on branch feature/$Name. Merge back to main when it's tested and
 $branchScriptPath = Join-Path $projectRoot "New_Feature_Branch.ps1"
 if (-not (Test-Path $branchScriptPath)) {
     Set-Content -Path $branchScriptPath -Value $branchScript -Encoding utf8
-    Write-Host "Created New_Feature_Branch.ps1 — usage: .\New_Feature_Branch.ps1 -Name `"my-change`"" -ForegroundColor Green
+    Write-Host "Created New_Feature_Branch.ps1 - usage: .\New_Feature_Branch.ps1 -Name `"my-change`"" -ForegroundColor Green
 }
 
-# 9. Session-linking hooks — connects this LOCAL Claude Code install back to
+# 9. Session-linking hooks - connects this LOCAL Claude Code install back to
 #    your AmitCoder web account through Supabase, with no server and no cost
 #    beyond what AmitCoder already uses. Needs your Account ID, shown in
 #    AmitCoder's Settings tab once you're signed in there.
@@ -286,14 +287,14 @@ if (-not (Test-Path $configPath)) {
     $configContent = @{ account_id = $accountId; app_name = $appName } | ConvertTo-Json
     Set-Content -Path $configPath -Value $configContent -Encoding utf8
     if ($accountId) {
-        Write-Host "Saved your Account ID — the hooks below can now find your shortcuts and post session summaries." -ForegroundColor Green
+        Write-Host "Saved your Account ID - the hooks below can now find your shortcuts and post session summaries." -ForegroundColor Green
     } else {
-        Write-Host "Skipped — you can add your Account ID to amit_coder_config.json later to enable the hooks below." -ForegroundColor Yellow
+        Write-Host "Skipped - you can add your Account ID to amit_coder_config.json later to enable the hooks below." -ForegroundColor Yellow
     }
 }
 
 $sessionStartScript = @'
-# Amit_Coder_SessionStart.ps1 — pulls your saved shortcuts from AmitCoder
+# Amit_Coder_SessionStart.ps1 - pulls your saved shortcuts from AmitCoder
 # (Supabase) and writes them to a local cache file you can reference at the
 # start of a session. Run manually for now: `.\hooks\Amit_Coder_SessionStart.ps1`
 # (Wiring this to fire automatically requires a Claude Code hook entry in
@@ -321,7 +322,7 @@ try {
 Set-Content -Path (Join-Path $hooksPath "Amit_Coder_SessionStart.ps1") -Value $sessionStartScript -Encoding utf8
 
 $sessionEndScript = @'
-# Amit_Coder_SessionEnd.ps1 — posts a one-line session summary back to your
+# Amit_Coder_SessionEnd.ps1 - posts a one-line session summary back to your
 # AmitCoder History tab. Run manually for now:
 # `.\hooks\Amit_Coder_SessionEnd.ps1 -Summary "what you built today"`
 # (Same caveat as SessionStart - automatic firing on Claude Code session end

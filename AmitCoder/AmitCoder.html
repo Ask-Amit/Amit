@@ -234,6 +234,13 @@ header{
 .settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
 .settings-label{color:var(--text2);font-size:13.5px}
 .settings-sub{color:var(--dim);font-size:11.5px;margin-top:2px}
+.tut-overlay{position:fixed;inset:0;background:rgba(6,14,26,.72);z-index:9000;display:flex;align-items:center;justify-content:center;padding:30px}
+.tut-modal{background:#0f2038;border:1px solid rgba(201,168,76,.35);border-radius:12px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto;padding:26px 30px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.tut-modal h2{color:var(--gold2);font-family:'Cinzel',serif;font-size:18px;margin:0 0 14px}
+.tut-modal h4{color:var(--gold2);font-family:'Cinzel',serif;font-size:12.5px;letter-spacing:.05em;margin:18px 0 6px;text-transform:uppercase}
+.tut-modal p,.tut-modal li{color:var(--muted);font-size:13px;line-height:1.7}
+.tut-modal .trigger-tag{margin:0 2px}
+.tut-close{float:right;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px}
 </style>
 </head>
 <body>
@@ -241,7 +248,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.28</div>
+    <div class="page-version" id="pageVersion">v6.29</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -334,7 +341,7 @@ const PLACEHOLDER_COUNT=2;
       const tabNames=['Overview','Shortcuts','History','Docs','Dev Practices','Pairing','Library','Settings'];
       let tabNavHtml='',tabContentHtml='';
       for(let t=1;t<=8;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':t===6?';loadPairingSessions()':t===7?';loadLibrary()':''}">${tabNames[t-1]}</button>`;
+        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})${t===2?';loadShortcuts()':t===3?';loadCoderSessions()':t===6?';loadPairingSessions()':t===7?';loadLibrary()':''}"${t===2?' ondblclick="openShortcutsTutorial()"':t===7?' ondblclick="openCodeTutorial()"':''}>${tabNames[t-1]}</button>`;
         tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">${tabRealContent(t)}</div>`;
       }
       panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
@@ -384,7 +391,11 @@ const PLACEHOLDER_COUNT=2;
 // find and edit later without touching the generation mechanism.
 function tabRealContent(t){
   if(t===1){
-    return `<p>This is the space where your coding history will live.</p>
+    return `<div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:16px 20px;margin-bottom:18px">
+        <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:6px">⚡ VERIFIED, NOT ASSUMED</div>
+        <p style="margin:0">Most AI coding tools ship code that looks right and quietly isn't - real 2026 developer research puts trust in AI-generated output at under half. AmitCoder's answer isn't more automation, it's proof: <span class="trigger-tag">J review</span> reads the code honestly, <span class="trigger-tag">J debug</span> actually runs it end to end and watches it happen, and nothing gets "fixed" without asking first. That's the standard this whole workspace is built to.</p>
+      </div>
+      <p>This is the space where your coding history will live.</p>
       <p>Session logs, version milestones, and the full back-and-forth of every build session — searchable, reviewable, and linked to your daily experience entries.</p>
       <p>When complete, it will pull from Claude Code session files so you can open any day and see exactly what was built and what Amit said during that session.</p>
       <div class="badge">In Development</div>
@@ -427,11 +438,16 @@ function tabRealContent(t){
         </div>
       </div>
       <div id="shortcutsStatHeader" style="margin-bottom:16px;padding:14px 18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);border-radius:8px;display:flex;gap:28px;flex-wrap:wrap"></div>
-      <div class="sc-toolbar">
+      <div class="sc-toolbar" style="flex-direction:column;align-items:flex-start;gap:8px">
         <div class="sc-filters">
           <div class="sc-filter active" data-f="all" onclick="setFilter('all')">all</div>
           <div class="sc-filter" data-f="builtin" onclick="setFilter('builtin')">builtin</div>
           <div class="sc-filter" data-f="custom" onclick="setFilter('custom')">custom</div>
+        </div>
+        <div class="sc-filters" id="scTypeFilters" title="A Master combines several steps together into one sequence. A Step is a single standalone shortcut on its own.">
+          <div class="sc-filter active" data-tf="all" onclick="setTypeFilter('all')">all types</div>
+          <div class="sc-filter" data-tf="master" onclick="setTypeFilter('master')">masters only</div>
+          <div class="sc-filter" data-tf="step" onclick="setTypeFilter('step')">steps only</div>
         </div>
       </div>
       <div id="shortcutsList"></div>
@@ -929,12 +945,66 @@ async function savePairingSession(){
 // ── SHORTCUTS — backed by amit_shortcuts (Supabase) ──
 let scAllRows=[];
 let scFilter='all';
+let scTypeFilter='all';
 let scShowBuiltins=true;
 
 function setFilter(f){
   scFilter=f;
-  document.querySelectorAll('.sc-filter').forEach(el=>el.classList.toggle('active',el.dataset.f===f));
+  document.querySelectorAll('.sc-filter[data-f]').forEach(el=>el.classList.toggle('active',el.dataset.f===f));
   renderShortcuts();
+}
+function setTypeFilter(f){
+  scTypeFilter=f;
+  document.querySelectorAll('.sc-filter[data-tf]').forEach(el=>el.classList.toggle('active',el.dataset.tf===f));
+  renderShortcuts();
+}
+
+// ── TUTORIAL SYSTEM — double-click "Shortcuts" or "Library" in the tab
+// nav to get a full walkthrough, not just the working feature itself.
+function renderTutorialModal(title,bodyHtml){
+  let overlay=document.getElementById('tutOverlay');
+  if(!overlay){
+    overlay=document.createElement('div');
+    overlay.id='tutOverlay';
+    overlay.className='tut-overlay';
+    overlay.onclick=(e)=>{if(e.target===overlay)closeTutorialModal();};
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML=`<div class="tut-modal">
+      <button class="tut-close" onclick="closeTutorialModal()">✕ close</button>
+      <h2>${title}</h2>
+      ${bodyHtml}
+    </div>`;
+  overlay.style.display='flex';
+}
+function closeTutorialModal(){
+  const overlay=document.getElementById('tutOverlay');
+  if(overlay)overlay.style.display='none';
+}
+function openShortcutsTutorial(){
+  renderTutorialModal('How Shortcuts Work',`
+    <p>Two home-row keys, two different jobs. <span class="trigger-tag">F</span> is yours - every shortcut you create yourself lives under F. <span class="trigger-tag builtin-tag">J</span> is the builtin package that ships with AmitCoder - Amit's own shortcuts, read-only, always there.</p>
+    <h4>Master vs Step - the real difference</h4>
+    <p>A <b>Step</b> is one standalone command that does one thing - <span class="trigger-tag">J copy</span>, <span class="trigger-tag">J search</span>, <span class="trigger-tag">J pursuit</span>. Each is its own shortcut, sorted and toggled on its own.</p>
+    <p>A <b>Master</b> only exists when a shortcut genuinely combines several steps into one sequence - like <span class="trigger-tag">J push</span> (checks GitHub is connected, then checks status and pushes) or <span class="trigger-tag">J global search</span> (chains copy, search, repeat, and pursuit together). If nothing is actually being combined, it's a Step, not a Master - even if it looks important.</p>
+    <h4>Chaining</h4>
+    <p>A master's subtask can either hold its own instruction, or <i>reference</i> an existing shortcut instead of retyping it - shown in blue on the step-chain diagram. That's how <span class="trigger-tag">J push</span> reuses <span class="trigger-tag">J authorization GitHub</span> without duplicating its logic.</p>
+    <h4>Using the filters</h4>
+    <p>The <b>all / builtin / custom</b> row filters by who made it. The <b>all types / masters only / steps only</b> row filters by whether it's a combined sequence or a single standalone command. Use them together to find exactly what you're looking for.</p>
+    <p style="margin-top:16px;color:var(--dim);font-size:11.5px">Double-click the <b>Shortcuts</b> tab any time to see this again.</p>`);
+}
+function openCodeTutorial(){
+  renderTutorialModal("What's Actually Taking Place",`
+    <p>The Code Library isn't a separate app - it's a real table in the same Supabase database (<code>amit_coder_library</code>) that every signed-in AmitCoder user shares, gated the same way your pursuits and shortcuts are: row-level security tied to your account.</p>
+    <h4>What happens when you save an entry</h4>
+    <ul>
+      <li>The code/template text you paste in is written as one row, tagged with a language and a short description.</li>
+      <li>It becomes visible to any signed-in user - this is a shared library, not a private notes file.</li>
+      <li>Downloading an entry just reads that row back out and saves it to a file on your machine - nothing runs automatically.</li>
+    </ul>
+    <h4>Why this exists</h4>
+    <p>The same reason the shortcut system exists: so something one person figures out gets reused instead of re-solved from scratch by the next person who hits it.</p>
+    <p style="margin-top:16px;color:var(--dim);font-size:11.5px">Double-click the <b>Library</b> tab any time to see this again.</p>`);
 }
 function onShowBuiltinsChange(){
   scShowBuiltins=document.getElementById('settingShowBuiltins').checked;
@@ -965,7 +1035,12 @@ function renderShortcuts(){
   if(scFilter==='builtin')rows=rows.filter(r=>r.is_builtin);
   if(scFilter==='custom')rows=rows.filter(r=>!r.is_builtin);
   if(!scShowBuiltins)rows=rows.filter(r=>!r.is_builtin);
-  const masters=rows.filter(r=>!r.parent_shortcut_id);
+  let masters=rows.filter(r=>!r.parent_shortcut_id);
+  // A "Master" genuinely combines subtasks (shortcut_type==='master' AND has
+  // real children). A "Step" is any standalone shortcut with nothing under
+  // it - sortable and treated as its own thing, not a piece of a fake master.
+  if(scTypeFilter==='master')masters=masters.filter(m=>m.shortcut_type==='master'&&rows.some(r=>r.parent_shortcut_id===m.id));
+  if(scTypeFilter==='step')masters=masters.filter(m=>!(m.shortcut_type==='master'&&rows.some(r=>r.parent_shortcut_id===m.id)));
   if(!masters.length){empty.style.display='block';list.innerHTML='';document.getElementById('shortcutsStatHeader').innerHTML='';return;}
   empty.style.display='none';
 

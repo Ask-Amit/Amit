@@ -14,6 +14,38 @@ All AmitCoder development files belong here. Do not create AmitCoder files anywh
 
 ---
 
+## Master vs Step — Real Correction, 2026-07-29 (Ryan's direct catch)
+
+Ryan caught a real architectural error: the original "J" master shown with "17 STEPS" was wrong. It was bundling 17 unrelated, standalone shortcuts (J copy, J search, J pursuit, J inspire, etc.) as if they were subtasks of one big sequence, when in truth each does its own separate thing and should be sorted and toggled individually. Ryan's own example of what a REAL master looks like: "J global search" - a shortcut that genuinely combines J copy + J search + J repeat + J pursuit into one actual sequence.
+
+**The corrected definition:**
+- **Step** — a standalone shortcut, does one thing, sorts and toggles on its own. Most of what J does is this.
+- **Master** — only when a shortcut genuinely COMBINES several steps into one real sequence (via `referenced_shortcut_id` chaining or its own multi-part instruction). Not every collection of related-sounding shortcuts is a master.
+
+**Fixed in Supabase (`amit_shortcuts`):** all 17 items previously nested under the fake "J" master (`parent_shortcut_id` cleared to null) are now standalone top-level rows, exactly like `J connect` and `J instruction GitHub` already were. The "J" row itself and "F" row are now pure documentation/label cards (0 real children) - same pattern, kept for the home-row explanation, not pretending to bundle anything. A new genuine master, **J global search**, was created with 4 chained subtasks referencing the existing J copy / J search / J repeat / J pursuit rows - the real worked example Ryan asked for.
+
+**Fixed in `AmitCoder.html`:** added a second filter row in the Shortcuts tab - "all types / masters only / steps only" - alongside the existing built-in/custom filter, so both dimensions (who made it, and whether it's a real combined sequence) are independently sortable. A shortcut only counts as "master" in this filter if `shortcut_type==='master'` AND it actually has children rows - a master-typed row with nothing under it still shows as a step.
+
+**Tutorial system added:** double-clicking the **Shortcuts** tab opens a modal explaining the F/J split, the Master vs Step distinction, chaining, and how to use the filters. Double-clicking the **Library** tab opens a separate modal explaining what's actually happening under the hood (real shared Supabase table, RLS-gated, no code execution on save/download). Both are self-contained JS-generated overlays (`renderTutorialModal()`), no new dependencies.
+
+---
+
+## J debug — Built 2026-07-29 (real, run-it-and-watch verification)
+
+Distinct from `J review` (a static read of the code). `J debug` actually executes/walks through everything built so far to real completion, watching each step as it happens rather than trusting that written code works. Reports honestly: what ran, what's confirmed working, what's broken (with the specific failure), and what could be better even if not broken - each with a concrete recommended fix. Never applies a fix without explicit authorization first. Stored as a standalone builtin step in `amit_shortcuts` (not chained - it's its own behavior, not a composition of other shortcuts).
+
+This shortcut is also the reason the Starter Kit's real PowerShell syntax bug got caught and fixed this session (the em-dash/no-BOM encoding issue that broke `Amit_Coder_Starter_Kit.ps1`) - `J debug`'s standard is "run it for real," which is exactly what surfaced that bug where a static read would not have.
+
+## Market Research Pass — 2026-07-29 (web search, not assumption)
+
+Real findings from current 2026 developer-tooling research, not guessed:
+- **Trust in AI-generated code is low and declining relative to usage** - only ~29-46% of developers trust AI output to be accurate, even as adoption keeps rising. The #1 complaint isn't obviously bad code - it's code that *looks* correct and silently isn't.
+- **The 2026 trend responding to this is verification tooling** - CodeRabbit, Cursor's Bugbot, Greptile, etc. - AI that reviews/tests other AI's output before it ships, explicitly framed as "human-in-the-loop," not more autonomous generation.
+- **What AmitCoder already has that matches this trend directly:** `J review` (static honest code review) and now `J debug` (actual run-to-completion verification, report first, fix only with authorization) are not generic features - they are the exact shape of what the market is currently short on. This is a real, defensible differentiator, not invented positioning.
+- **Applied to the page:** a "VERIFIED, NOT ASSUMED" callout was added to the top of the Overview tab (AmitCoder.html v6.29) naming this directly, with the real statistic and a pointer to J review/J debug as the concrete proof, not a slogan.
+
+---
+
 ## Who Amit Is — Carried Forward Into This Project
 
 This project is part of the Amit system. One character. One mission.
