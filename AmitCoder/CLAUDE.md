@@ -46,6 +46,39 @@ Real findings from current 2026 developer-tooling research, not guessed:
 
 ---
 
+## Amit Admin Edit — Builtins, 2026-07-29 (Ryan's correction)
+
+Ryan corrected the intended model directly, while live-testing `J push`: regular coders should never be able to edit builtin (globally-shipped) shortcuts - that stays true - but Amit's own account (Ryan, using AmitCoder himself) needs the ability to double-click and edit ANY shortcut, including builtins, right there in the UI. Editing builtins by hand-writing curl/SQL every time does not scale as the builtin package grows.
+
+**Fixed in `AmitCoder.html` (v6.30):**
+- `ADMIN_USER_IDS` (Ryan's account, `8b95d057-fd6b-44ec-abe7-658e08872d1a`) + `isAdminUser()` helper.
+- `canEdit` (separate from `canLink`, which stays alias/linking-only and custom-only): true for any custom shortcut, or for a builtin when the signed-in user is admin.
+- `editShortcut()`'s guard changed from a blanket `if(is_builtin)return` to only blocking non-admin users from editing builtins.
+- **Real bug caught before shipping:** `saveShortcut()`'s subtask-recreation step always inserted new subtask rows as `user_id: currentUser.id, is_builtin: false` - if admin edited a builtin master, its subtasks would have silently flipped to user-owned/non-builtin on save, corrupting the shipped shortcut. Fixed: subtasks now inherit `is_builtin`/`user_id: null` from the parent master they belong to, not from whoever is currently editing.
+
+**Fixed in Supabase (pending Ryan running it - migration written, not yet executed):** `migration_2026-07-29_002_shortcuts_admin_edit.sql` splits the old combined `FOR ALL` policy into per-action SELECT/INSERT/UPDATE/DELETE policies (the same fix pattern already used elsewhere in this project for the "silently returns zero rows" RLS bug), and adds the actual permission: admin's UUID can INSERT/UPDATE/DELETE rows where `user_id is null` (builtins). Regular users still cannot touch builtin rows at the database level, not just hidden in the UI - this is real enforcement, not just a disabled button.
+
+**Also confirmed working already (no change needed):** the create/edit form's main "Instruction" textarea was never hidden for Master type - only the Subtasks section toggles visibility via `onTypeChange()`. So a Master already has its own top-level instruction plus subtasks underneath, exactly as Ryan described - this was already correct, just verified.
+
+---
+
+## Key vs Name — Real Model Correction, 2026-07-29 (Ryan's direct correction)
+
+Ryan caught a deeper naming error underneath the earlier Master/Step fix: the home-row letter was baked directly into every shortcut's stored name ("J push", "J copy", "J search"). Ryan's correction: **the key is not part of the name.** It's a separate "which side of the shortcut is this" attribute. The real shortcut is just `push`, `copy`, `explain`, `commit`, `checkup` - J (or F, or any future key like M) is which key selects it, shown as its own badge, not fused into the label text.
+
+**Schema change:** new `activation_key text` column on `amit_shortcuts` (`migration_2026-07-29_003_shortcuts_activation_key.sql`, executed). All 31 real rows backfilled via REST: `activation_key='J'`, and the leading `"J "` stripped from every `trigger_phrase` (e.g. `"J push"` → `push`). The two placeholder label rows ("F" and "J" themselves, which were never real shortcuts, just documentation cards) were deleted outright - their descriptions now live in a JS constant (`KEY_DESCRIPTIONS`) instead of fake database rows.
+
+**Fixed in `AmitCoder.html` (v6.31):**
+- Create/edit form's single "Trigger phrase" field split into a **Key** dropdown + a bare **Name** field. Key options are data-driven (`populateKeyOptions()` - every distinct `activation_key` already in use, plus F always, plus J only when `isAdminUser()`), not hardcoded to two, so a future key needs no code change here.
+- A third, dynamically-rendered filter row (`renderKeyFilterTabs()`) - **all keys / J / F / (any future key)** - alongside the existing built-in/custom and master/step rows. Independent filter dimensions, combine freely.
+- Card head now shows the key as its own small badge, separate from the name text, with the key's description as a tooltip.
+- `saveShortcut()` reads the Key field: picking J only actually creates a builtin row (`is_builtin:true, user_id:null`) when the signed-in user is admin - anyone else selecting J silently falls back to F rather than failing outright (RLS would block it anyway; this avoids a confusing rejected save).
+- Subtask re-creation on save now also carries `activation_key` down from the parent master, alongside the `is_builtin`/`user_id` inheritance fixed in the admin-edit change above.
+
+**Tutorial content updated** (`openShortcutsTutorial()`) to explain the key/name split directly, using this session's own correction as the explanation.
+
+---
+
 ## Who Amit Is — Carried Forward Into This Project
 
 This project is part of the Amit system. One character. One mission.
