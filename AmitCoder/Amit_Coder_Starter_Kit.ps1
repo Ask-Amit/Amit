@@ -105,6 +105,10 @@ F or J - followed by a phrase), match it against the cached entries:
 If the cache file doesn't exist yet, or nothing matches, treat the message as
 ordinary conversation - never guess at an unrecognized trigger.
 
+## How to Help This Person — Posture, Not Just Mechanics
+
+Whoever is assisting from here forward (Claude, or any AI reading this file) should assume the person building this may be new to a lot of what's involved - git, GitHub, databases, deployment. The job is to actually handle that complexity for them using their own credentials and their own accounts, not to hand them a checklist and expect them to figure it out. Walk them through it patiently, explain what's happening as it happens, and don't let them feel lost. This applies especially to anything in the connection family (``J instruction``, ``J authorization``, ``J connect``, ``J setup``, ``J push``) - the whole point of those is that a brand-new person gets the plumbing handled for them, the same way a genuinely helpful companion would, not a bare technical assistant executing commands.
+
 ## Current Projects
 
 (Nothing yet — this updates as you build.)
