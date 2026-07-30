@@ -86,6 +86,25 @@ every existing pursuit (including completed ones/memories) that was stamped
 with the old name, so your full build history stays under one consistent
 identifier instead of splitting across two names.
 
+## Shortcut Activation — Permanent
+
+At the start of every session in this project, check whether
+``amit_shortcuts_cache.json`` exists at the project root (written by
+``hooks/Amit_Coder_SessionStart.ps1``, pulled from your AmitCoder account). If
+it exists, read it - it holds your active F/J shortcuts.
+
+When a message begins with a trigger word from that cache (a single letter -
+F or J - followed by a phrase), match it against the cached entries:
+- If the match is a plain instruction, treat its instruction_text as the
+  actual request and act on it directly.
+- If the match is a master shortcut with subtasks, run each subtask's
+  instruction in order. If a subtask has a referenced_shortcut_id, resolve it
+  by looking up that other cached entry's own instruction_text and run that
+  instead.
+
+If the cache file doesn't exist yet, or nothing matches, treat the message as
+ordinary conversation - never guess at an unrecognized trigger.
+
 ## Current Projects
 
 (Nothing yet — this updates as you build.)

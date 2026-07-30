@@ -204,6 +204,29 @@ Any pursuit written to hub_entries from this project must be stamped `program='[
 **If the name changes later**, that's a deliberate rename operation (AmitCoder's `J rename pursuit` builtin shortcut does this) — update this section to the new name, and update every existing pursuit (including completed ones/memories) stamped with the old name to the new one, so the full history stays under one consistent identifier.
 ```
 
+**Step 4d — Write the Shortcut Activation clause (added 2026-07-29, closes a real gap Ryan caught directly)**
+Every new project's CLAUDE.md must also include this clause — without it, F/J shortcuts only ever work inside a live conversation where the instruction is already known; a fresh session on someone else's machine has no way to recognize a trigger word at all:
+
+```
+## Shortcut Activation — Permanent
+
+At the start of every session in this project, check whether amit_shortcuts_cache.json
+exists at the project root (written by hooks/Amit_Coder_SessionStart.ps1, pulled from
+the signed-in user's AmitCoder account). If it exists, read it - it holds that
+person's active F/J shortcuts.
+
+When a message begins with a trigger word from that cache (a single letter - F or J -
+followed by a phrase), match it against the cached entries:
+- If the match is a plain instruction, treat its instruction_text as the actual
+  request and act on it directly.
+- If the match is a master shortcut with subtasks, run each subtask's instruction in
+  order. If a subtask has a referenced_shortcut_id, resolve it by looking up that
+  other cached entry's own instruction_text and run that instead.
+
+If the cache file doesn't exist yet, or nothing matches, treat the message as
+ordinary conversation - never guess at an unrecognized trigger.
+```
+
 This is what makes the "App/Program" field on a pursuit self-populating instead of a manually-maintained convention — see `AmitCoder\CLAUDE.md`'s "Hub Pursuits — New App Column" and "Generalization confirmed by Ryan" sections for the full origin and reasoning, including why this must apply identically to a stranger's own app built inside AmitCoder (e.g., someone's own project called "mushrooms"), not just Amit's own apps.
 
 **Step 4b — Wire any "Ask Amit" button to the shared activation mechanism (added 2026-07-25)**

@@ -62,6 +62,16 @@ Any pursuit written to `hub_entries` from this project must be stamped `program=
 
 **If the name changes later** (the person is building it and decides to rename it), that's a deliberate rename operation — not a fresh question each time. Update this section to the new name, and update every existing pursuit (including completed ones/memories) that was stamped with the old name to the new one, so the full history stays under one consistent identifier rather than splitting across two names.
 
+## Shortcut Activation — Permanent
+
+At the start of every session in this project, check whether `amit_shortcuts_cache.json` exists at the project root (written by `hooks/Amit_Coder_SessionStart.ps1`, pulled from the signed-in user's AmitCoder account). If it exists, read it — it holds that person's active F/J shortcuts.
+
+When a message begins with a trigger word from that cache (a single letter — F or J — followed by a phrase), match it against the cached entries:
+- If the match is a plain instruction, treat its `instruction_text` as the actual request and act on it directly — the same as if the person had typed that instruction themselves.
+- If the match is a master shortcut with subtasks, run each subtask's instruction in order. If a subtask has a `referenced_shortcut_id`, resolve it by looking up that other cached entry's own `instruction_text` and run that instead of the subtask's own (which will be empty for a chained reference).
+
+If the cache file doesn't exist yet, or nothing matches, treat the message as ordinary conversation — never guess at an unrecognized trigger, and never fabricate a shortcut's meaning from the letter alone.
+
 ---
 
 ## What This Project Is

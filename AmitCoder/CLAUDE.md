@@ -265,6 +265,18 @@ Deliberately different in kind from the other J shortcuts — those recall or or
 
 **Reserved, not built:** `J hack` — Ryan named this as a strong word for a future identifier, deliberately not this one. Hold the name; don't assign it a meaning yet.
 
+## The Real Gap, Finally Closed — Shortcut Activation (2026-07-29)
+
+Ryan caught this directly, and it needed to be caught: every F/J shortcut built this session only ever worked *in this specific conversation*, because I already knew what each trigger meant from having just discussed it. A real developer, on their own machine, in a fresh Claude Code session that has never seen this conversation, had no way to recognize "J inspire" as anything at all — the `amit_shortcuts_cache.json` file `Amit_Coder_SessionStart.ps1` writes was just sitting there, unread, because nothing ever told a session to open it and act on it.
+
+**Fixed by writing the actual "Shortcut Activation" clause** into all three propagation points (`Templates\Amit_NewProject_Template.md`, root `CLAUDE.md`'s New Project Directive Step 4d, and the Starter Kit's generated CLAUDE.md content) — the same three-place propagation pattern already used for Pursuit Attribution. The clause: read `amit_shortcuts_cache.json` at session start if present; when a message starts with a cached trigger, treat its `instruction_text` as the real request (resolving chained/referenced subtasks by looking up the referenced entry); if nothing matches, treat it as ordinary conversation.
+
+**This is the single most load-bearing fix of the night** — every J/F shortcut built this session (copy, repeat, search, save idea, pull ideas, pursuit, rename pursuit, inspire, topic) was data sitting in a table until this existed. This is what actually makes them real for someone other than Ryan, in a session other than this one.
+
+## New Builtin — `J topic` (added 2026-07-29)
+
+A small, deliberately standalone shortcut: states plainly what's actually being worked on in the current session, meant to be reused as a shared first step rather than every other shortcut re-deriving it independently. **Honest limit on composition:** the existing subtask-chaining feature (`referenced_shortcut_id`) is built for a subtask that *replaces itself entirely* with another shortcut's instruction — not "run X, then continue with my own additional instructions." True `J inspire` → `J topic` chaining would need that richer composition model, which doesn't exist yet. For now, `J inspire`'s own instruction already includes topic-determination as its first step, written inline rather than through a real DB-level chain to `J topic`. Worth building real sequence-composition (not just replace-with-reference) if this pattern recurs.
+
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 
 Ryan retired the shared repo-wide version number this session — every page's badge, including this one, is now its own independent counter, incremented +0.01 only when that specific file is actually edited. See root `CLAUDE.md`'s VERSIONING STANDARD for the full rule and why. AmitCoder.html continues from v6.16 (its value when the rule changed) — do not reset it to v1.00.
