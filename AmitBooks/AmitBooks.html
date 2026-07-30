@@ -176,7 +176,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.02</div>
+    <div class="page-version" id="pageVersion">v1.03</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -259,8 +259,14 @@ const TODO_CONTENT = `
 <div class="td-h1">Known Gaps — Found During Real Use (Ryan clicking through it live)</div>
 <div class="td-item"><div class="td-why">This section exists specifically to catch things live testing surfaces that the build order didn't anticipate — added as they're found, not batched up and forgotten. Newest at the top.</div></div>
 
-<div class="td-item"><div class="td-title">No way to edit a book after creating it<span class="td-tag bug">GAP</span></div>
-<div class="td-why">Right now Dashboard/Books & Setup only lets you create a new book — there's no edit screen for an existing one's name, entity type, or accounting basis. Found live: Ryan created "B.O.S.S. Inc" and asked whether the Type could be changed later — it can't yet. Needs a small edit form on the My Books tab (or clicking a book's name opens it for editing) before this is genuinely usable day-to-day.</div></div>
+<div class="td-item"><div class="td-title">Team invites require pasting a raw account ID — no email invite yet<span class="td-tag bug">STOPGAP</span></div>
+<div class="td-why">Adding someone to a book's Team/Authorizations requires their actual Amit account UUID, pasted in by hand — there's no lookup-by-email, because that needs a server-side function (an Edge Function with elevated access) that this client-side page can't run with just the public key. Real invite-by-email is real work, not a quick fix — flagged, not silently accepted as final.</div></div>
+
+<div class="td-item"><div class="td-title">Invited team members can't see the rest of the roster, only their own row<span class="td-tag bug">GAP</span></div>
+<div class="td-why">The book_members RLS policy lets the owner see/manage every row on their book, but an invited staff/bookkeeper/manager can currently only see their own membership row, not who else is on the team. Minor for now since the owner manages the roster, but worth fixing before real multi-user use.</div></div>
+
+<div class="td-item"><div class="td-title">No way to edit a book after creating it<span class="td-tag bug">FIXED</span></div>
+<div class="td-why">Right now Dashboard/Books & Setup only lets you create a new book — there's no edit screen for an existing one's name, entity type, or accounting basis. Found live: Ryan created "B.O.S.S. Inc" and asked whether the Type could be changed later — it can't yet. Needs a small edit form on the My Books tab (or clicking a book's name opens it for editing) before this is genuinely usable day-to-day. FIXED this pass — My Books tab is now a real Company Profile editor (name, type, basis, address, phone, EIN) plus a Team/Authorizations panel.</div></div>
 
 <div class="td-h1">Phase 1 — The Database, Starting Now</div>
 
@@ -1059,11 +1065,49 @@ function abRenderDashboard(){
       </div>
     </div>`;
 }
-function abRenderBooksTab(){
+async function abRenderBooksTab(){
   const el=document.getElementById('ab-books'); if(!el)return;
-  el.innerHTML=`<div class="ab-h">My Books</div>
+  if(!abBookId){
+    el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';
+    return;
+  }
+  const b=abBooks.find(x=>x.id===abBookId);
+  el.innerHTML=`<div class="ab-h">Company Profile — ${abEsc(b.name)}</div>
+    <div class="ab-form" style="flex-direction:column;align-items:stretch;gap:12px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="ab-field"><label>Name</label><input id="ab-prof-name" value="${abEsc(b.name)}"></div>
+        <div class="ab-field"><label>Type</label>
+          <select id="ab-prof-entity">${['','sole_prop','llc','s_corp','c_corp','partnership','nonprofit','personal'].map(v=>`<option value="${v}"${b.entity_type===v?' selected':''}>${v?v.replace('_',' '):'—'}</option>`).join('')}</select>
+        </div>
+        <div class="ab-field"><label>Basis</label>
+          <select id="ab-prof-basis"><option value="cash"${b.accounting_basis==='cash'?' selected':''}>Cash</option><option value="accrual"${b.accounting_basis==='accrual'?' selected':''}>Accrual</option></select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="ab-field" style="flex:1;min-width:220px"><label>Address</label><input id="ab-prof-address" value="${abEsc(b.address||'')}" placeholder="Street, City, State ZIP"></div>
+        <div class="ab-field"><label>Phone</label><input id="ab-prof-phone" value="${abEsc(b.phone||'')}" placeholder="(555) 555-5555"></div>
+        <div class="ab-field"><label>EIN</label><input id="ab-prof-ein" value="${abEsc(b.ein||'')}" placeholder="12-3456789"></div>
+      </div>
+      <button class="ab-btn" style="align-self:flex-start" onclick="abSaveBookProfile()">Save Company Profile</button>
+    </div>
+
+    <div class="ab-h" style="margin-top:26px">Team / Authorizations</div>
+    <div id="ab-team-table"><div class="ab-empty">Loading…</div></div>
+    <div class="ab-form" style="margin-top:10px">
+      <div class="ab-field"><label>Their Amit account ID</label><input id="ab-team-userid" placeholder="pasted from their own account" style="width:280px"></div>
+      <div class="ab-field"><label>Role</label>
+        <select id="ab-team-role"><option value="staff">Staff</option><option value="bookkeeper">Bookkeeper</option><option value="manager">Manager</option><option value="accountant_readonly">Accountant (read-only)</option></select>
+      </div>
+      <div class="ab-field"><label>Payroll access?</label><select id="ab-team-payroll"><option value="false">No</option><option value="true">Yes</option></select></div>
+      <button class="ab-btn" onclick="abInviteMember()">Add to Book</button>
+    </div>
+    <div class="ab-signin-notice" style="text-align:left;margin-top:10px">
+      Stopgap for now: invites need the other person's Amit account ID pasted in directly — there's no email-based invite yet, since that requires a server-side function this client-side page can't run on its own (looking someone up by email isn't possible with the public key alone). Real email invites are on the build list.
+    </div>
+
+    <div class="ab-h" style="margin-top:26px">Other Books</div>
     <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Basis</th></tr>
-    ${abBooks.map(b=>`<tr><td>${abEsc(b.name)}${b.id===abBookId?' <span style="color:var(--gold2)">(current)</span>':''}</td><td>${abEsc(b.entity_type||'—')}</td><td>${abEsc(b.accounting_basis)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No books yet</td></tr>'}
+    ${abBooks.filter(x=>x.id!==abBookId).map(x=>`<tr><td>${abEsc(x.name)}</td><td>${abEsc(x.entity_type||'—')}</td><td>${abEsc(x.accounting_basis)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">This is your only book so far</td></tr>'}
     </table>
     <div class="ab-form" style="margin-top:16px">
       <div class="ab-field"><label>New book name</label><input id="ab-new-book-name" placeholder="e.g. Personal"></div>
@@ -1072,6 +1116,43 @@ function abRenderBooksTab(){
       </div>
       <button class="ab-btn" onclick="abCreateBook()">Create</button>
     </div>`;
+  abRenderTeamTable();
+}
+
+async function abSaveBookProfile(){
+  const updates={
+    name:document.getElementById('ab-prof-name').value.trim(),
+    entity_type:document.getElementById('ab-prof-entity').value||null,
+    accounting_basis:document.getElementById('ab-prof-basis').value,
+    address:document.getElementById('ab-prof-address').value.trim()||null,
+    phone:document.getElementById('ab-prof-phone').value.trim()||null,
+    ein:document.getElementById('ab-prof-ein').value.trim()||null
+  };
+  if(!updates.name){alert('Name is required.');return;}
+  const{error}=await db.from('books').update(updates).eq('id',abBookId);
+  if(error){alert(error.message);return;}
+  await abLoadBooks();
+  abRenderBooksTab();
+}
+
+async function abRenderTeamTable(){
+  const el=document.getElementById('ab-team-table'); if(!el)return;
+  const{data,error}=await db.from('book_members').select('*').eq('book_id',abBookId).order('invited_at');
+  if(error){el.innerHTML='<div class="ab-empty">Could not load team.</div>';return;}
+  el.innerHTML=`<table class="ab-table"><tr><th>User ID</th><th>Role</th><th>Payroll</th></tr>
+    ${(data||[]).map(m=>`<tr><td style="font-size:11px">${abEsc(m.user_id)}${m.user_id===currentUser.id?' (you)':''}</td><td>${abEsc(m.role)}</td><td>${m.can_view_payroll?'Yes':'No'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">Just you so far</td></tr>'}
+    </table>`;
+}
+
+async function abInviteMember(){
+  const userId=document.getElementById('ab-team-userid').value.trim();
+  if(!userId){alert("Paste the person's Amit account ID first.");return;}
+  const role=document.getElementById('ab-team-role').value;
+  const payroll=document.getElementById('ab-team-payroll').value==='true';
+  const{error}=await db.from('book_members').insert({book_id:abBookId,user_id:userId,role,can_view_payroll:payroll});
+  if(error){alert(error.message);return;}
+  document.getElementById('ab-team-userid').value='';
+  abRenderTeamTable();
 }
 
 // ── CHART OF ACCOUNTS ──
