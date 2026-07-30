@@ -176,7 +176,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.03</div>
+    <div class="page-version" id="pageVersion">v1.04</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1165,6 +1165,13 @@ function abRenderCoa(){
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   el.innerHTML=`<div class="ab-h">Chart of Accounts</div>
+    ${abAccounts.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
+      <div class="ab-field"><label>Start from an industry template</label>
+        <select id="ab-coa-template-industry"><option value="construction">Construction</option></select>
+      </div>
+      <button class="ab-btn" onclick="abLoadDefaultAccounts()">Load Defaults</button>
+      <span style="font-size:12px;color:var(--muted);align-self:center">More industries added as they're built — only Construction exists so far.</span>
+    </div>`}
     <div class="ab-form">
       <div class="ab-field"><label>Account name</label><input id="ab-coa-name" placeholder="e.g. Tools & Equipment"></div>
       <div class="ab-field"><label>Type</label><select id="ab-coa-type"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
@@ -1172,7 +1179,7 @@ function abRenderCoa(){
       <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
     </div>
     <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th></tr>
-    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No accounts yet — add your first one above</td></tr>'}
+    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No accounts yet — add your first one above, or load an industry template</td></tr>'}
     </table>`;
 }
 async function abAddAccount(){
@@ -1181,6 +1188,20 @@ async function abAddAccount(){
   const number=document.getElementById('ab-coa-number').value.trim();
   const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null});
   if(error){alert(error.message);return;}
+  await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
+}
+async function abLoadDefaultAccounts(){
+  const industry=document.getElementById('ab-coa-template-industry').value;
+  const{data:templates,error}=await db.from('account_category_templates').select('*').eq('industry',industry).order('account_number');
+  if(error){alert(error.message);return;}
+  if(!templates||!templates.length){alert('No template found for that industry yet.');return;}
+  const existingNumbers=new Set(abAccounts.map(a=>a.account_number));
+  const rows=templates.filter(t=>!existingNumbers.has(t.account_number)).map(t=>({
+    book_id:abBookId,account_number:t.account_number,account_name:t.account_name,account_type:t.account_type
+  }));
+  if(!rows.length){alert('Already loaded.');return;}
+  const{error:insErr}=await db.from('chart_of_accounts').insert(rows);
+  if(insErr){alert(insErr.message);return;}
   await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
 }
 
