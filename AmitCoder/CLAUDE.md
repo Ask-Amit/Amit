@@ -306,7 +306,12 @@ Ryan invoked J inspire directly on the whole page: it felt stagnant, "just words
 - **Friendlier type labels** — "inline instruction" (real but jargon-y) now displays as "Simple," matching "Master." Display-only rename; doesn't touch the stored `shortcut_type` value, so no data migration needed.
 - **Small polish** — a live-pulse "breathing" dot on the SYNCED indicator when signed in, subtle hover lift on sidebar tiles and shortcut cards.
 
-**What's still static/word-heavy, not yet touched — real next candidates for a further pass:** the History tab (still flat text rows), the Docs tab (still prose-only), and the Code Library tab (plain list, no visual distinction by language). Given the scope of one sitting, the Shortcuts and Get Started tabs got the real interactivity work; the rest is an honest, named gap, not something quietly skipped.
+**Second round, same sitting — the three named gaps closed:**
+- **History** — flat rows replaced with a real vertical timeline (connecting line, dot markers), both the mockup and the real-data render path (`loadCoderSessions`) updated consistently.
+- **Docs** — the connection-family list replaced with an icon-card grid (📖🔑🧭✅🚀), not just prose bullets.
+- **Code Library** — entries now color-coded and icon-marked by language (a left accent border + tinted badge per language), so scanning the library visually distinguishes HTML from JS from SQL etc. at a glance.
+
+Nothing left named-and-skipped from the first round's honesty note — if a further pass identifies new static areas, name them the same way rather than letting them sit unmentioned.
 
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 
