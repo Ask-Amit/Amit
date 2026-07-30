@@ -176,7 +176,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.04</div>
+    <div class="page-version" id="pageVersion">v1.05</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -230,7 +230,7 @@ header{
 // the "Accounting" framing of.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=20;
+const PLACEHOLDER_COUNT=14;
 
 // ══════════════════════════════════════════════
 // TO-DO CONTENT — the running build list for AmitBooks, panel 3.
@@ -1161,17 +1161,20 @@ async function abLoadAccounts(){
   const{data}=await db.from('chart_of_accounts').select('*').eq('book_id',abBookId).order('account_name');
   abAccounts=data||[];
 }
+let abTemplatePreview=null; // holds fetched template rows while the user is picking which ones to import
+let abTemplateIndustry='construction';
+
 function abRenderCoa(){
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   el.innerHTML=`<div class="ab-h">Chart of Accounts</div>
-    ${abAccounts.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
+    ${abTemplatePreview ? abTemplatePickerHtml() : (abAccounts.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
       <div class="ab-field"><label>Start from an industry template</label>
         <select id="ab-coa-template-industry"><option value="construction">Construction</option></select>
       </div>
-      <button class="ab-btn" onclick="abLoadDefaultAccounts()">Load Defaults</button>
+      <button class="ab-btn" onclick="abPreviewTemplate()">Browse Template</button>
       <span style="font-size:12px;color:var(--muted);align-self:center">More industries added as they're built — only Construction exists so far.</span>
-    </div>`}
+    </div>`)}
     <div class="ab-form">
       <div class="ab-field"><label>Account name</label><input id="ab-coa-name" placeholder="e.g. Tools & Equipment"></div>
       <div class="ab-field"><label>Type</label><select id="ab-coa-type"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
@@ -1179,8 +1182,74 @@ function abRenderCoa(){
       <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
     </div>
     <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th></tr>
-    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No accounts yet — add your first one above, or load an industry template</td></tr>'}
+    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No accounts yet — add your first one above, or browse a template</td></tr>'}
     </table>`;
+}
+
+// The picker: every template account shown with its own checkbox, checked
+// by default, so a user can uncheck the handful they don't want instead of
+// an all-or-nothing import. "For now" (import everything checked, as-is)
+// and "I don't need any of these" (Deselect All, close without importing)
+// are both one click away.
+function abTemplatePickerHtml(){
+  const existingNumbers=new Set(abAccounts.map(a=>a.account_number));
+  const groups={asset:[],liability:[],equity:[],income:[],expense:[]};
+  abTemplatePreview.forEach(t=>{ if(groups[t.account_type]) groups[t.account_type].push(t); });
+  const typeLabel={asset:'Assets',liability:'Liabilities',equity:'Equity',income:'Income',expense:'Expenses'};
+  let rows='';
+  Object.keys(groups).forEach(type=>{
+    if(!groups[type].length)return;
+    rows+=`<div style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.06em;text-transform:uppercase;margin:12px 0 4px">${typeLabel[type]}</div>`;
+    groups[type].forEach(t=>{
+      const already=existingNumbers.has(t.account_number);
+      rows+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;color:${already?'var(--dim)':'var(--text2)'};cursor:${already?'default':'pointer'}">
+        <input type="checkbox" class="ab-tmpl-check" value="${t.id}" ${already?'disabled':'checked'}>
+        <span style="font-family:monospace;color:var(--muted);width:44px;display:inline-block">${abEsc(t.account_number||'')}</span>
+        ${abEsc(t.account_name)}${already?' <span style="font-size:11px;color:var(--dim)">(already in your book)</span>':''}
+      </label>`;
+    });
+  });
+  return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="ab-h" style="margin:0">Construction Template — pick what you want</div>
+      <div style="display:flex;gap:8px">
+        <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="abTemplateSelectAll(true)">Select All</button>
+        <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="abTemplateSelectAll(false)">Deselect All</button>
+      </div>
+    </div>
+    <div style="max-height:340px;overflow-y:auto;padding-right:6px">${rows}</div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="ab-btn" onclick="abImportSelectedTemplate()">Import Selected</button>
+      <button class="ab-btn" style="background:transparent;border-color:rgba(240,232,208,.3);color:var(--muted)" onclick="abCancelTemplatePreview()">Cancel — I'll build my own</button>
+    </div>
+  </div>`;
+}
+function abTemplateSelectAll(state){
+  document.querySelectorAll('.ab-tmpl-check:not(:disabled)').forEach(cb=>cb.checked=state);
+}
+async function abPreviewTemplate(){
+  const industry=document.getElementById('ab-coa-template-industry').value;
+  const{data:templates,error}=await db.from('account_category_templates').select('*').eq('industry',industry).order('account_number');
+  if(error){alert(error.message);return;}
+  if(!templates||!templates.length){alert('No template found for that industry yet.');return;}
+  abTemplateIndustry=industry;
+  abTemplatePreview=templates;
+  abRenderCoa();
+}
+function abCancelTemplatePreview(){
+  abTemplatePreview=null;
+  abRenderCoa();
+}
+async function abImportSelectedTemplate(){
+  const checked=Array.from(document.querySelectorAll('.ab-tmpl-check:checked')).map(cb=>cb.value);
+  if(!checked.length){ abCancelTemplatePreview(); return; }
+  const rows=abTemplatePreview.filter(t=>checked.includes(t.id)).map(t=>({
+    book_id:abBookId,account_number:t.account_number,account_name:t.account_name,account_type:t.account_type
+  }));
+  const{error}=await db.from('chart_of_accounts').insert(rows);
+  if(error){alert(error.message);return;}
+  abTemplatePreview=null;
+  await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
 }
 async function abAddAccount(){
   const name=document.getElementById('ab-coa-name').value.trim(); if(!name)return;
@@ -1188,20 +1257,6 @@ async function abAddAccount(){
   const number=document.getElementById('ab-coa-number').value.trim();
   const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null});
   if(error){alert(error.message);return;}
-  await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
-}
-async function abLoadDefaultAccounts(){
-  const industry=document.getElementById('ab-coa-template-industry').value;
-  const{data:templates,error}=await db.from('account_category_templates').select('*').eq('industry',industry).order('account_number');
-  if(error){alert(error.message);return;}
-  if(!templates||!templates.length){alert('No template found for that industry yet.');return;}
-  const existingNumbers=new Set(abAccounts.map(a=>a.account_number));
-  const rows=templates.filter(t=>!existingNumbers.has(t.account_number)).map(t=>({
-    book_id:abBookId,account_number:t.account_number,account_name:t.account_name,account_type:t.account_type
-  }));
-  if(!rows.length){alert('Already loaded.');return;}
-  const{error:insErr}=await db.from('chart_of_accounts').insert(rows);
-  if(insErr){alert(insErr.message);return;}
   await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
 }
 
@@ -1215,15 +1270,22 @@ function abRoleTags(c){
   const r=[]; if(c.is_customer)r.push('Customer'); if(c.is_vendor)r.push('Vendor'); if(c.is_employee)r.push('Employee'); if(c.is_contractor_1099)r.push('1099'); if(c.is_donor)r.push('Donor'); if(c.is_tenant)r.push('Tenant');
   return r.join(', ')||'—';
 }
+let abContactFilter='all';
+function abSetContactFilter(f){ abContactFilter=f; abRenderContacts(); }
 function abRenderContacts(){
   const el=document.getElementById('ab-contacts'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const filters=[['all','All'],['is_customer','Customers'],['is_vendor','Vendors'],['is_employee','Employees'],['is_contractor_1099','1099s']];
+  const shown = abContactFilter==='all' ? abContacts : abContacts.filter(c=>c[abContactFilter]);
   el.innerHTML=`<div class="ab-h">Contacts</div>
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+      ${filters.map(f=>`<button class="ab-btn" style="${abContactFilter===f[0]?'':'background:transparent;color:var(--muted)'}" onclick="abSetContactFilter('${f[0]}')">${f[1]} ${f[0]==='all'?'('+abContacts.length+')':'('+abContacts.filter(c=>c[f[0]]).length+')'}</button>`).join('')}
+    </div>
     <div class="ab-form">
-      <div class="ab-field"><label>Name</label><input id="ab-contact-name" placeholder="Ace Hardware"></div>
+      <div class="ab-field"><label>Name</label><input id="ab-contact-name" placeholder="Ace Hardware, or a client's name"></div>
       <div class="ab-field"><label>Roles</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
-          <label><input type="checkbox" id="ab-contact-customer"> Customer</label>
+          <label><input type="checkbox" id="ab-contact-customer"> Customer / Client</label>
           <label><input type="checkbox" id="ab-contact-vendor" checked> Vendor</label>
           <label><input type="checkbox" id="ab-contact-employee"> Employee</label>
           <label><input type="checkbox" id="ab-contact-1099"> 1099</label>
@@ -1232,7 +1294,7 @@ function abRenderContacts(){
       <button class="ab-btn" onclick="abAddContact()">Add Contact</button>
     </div>
     <table class="ab-table"><tr><th>Name</th><th>Roles</th></tr>
-    ${abContacts.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">No contacts yet — add your first vendor or customer above</td></tr>'}
+    ${shown.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td></tr>`).join('')||`<tr><td class="ab-empty" colspan="2">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
     </table>`;
 }
 async function abAddContact(){
@@ -1253,26 +1315,106 @@ async function abLoadItems(){
   const{data}=await db.from('items').select('*').eq('book_id',abBookId).order('name');
   abItems=data||[];
 }
+let abItemTemplatePreview=null;
+function abAccountLabel(id){ const a=abAccounts.find(x=>x.id===id); return a?(a.account_number?a.account_number+' — ':'')+a.account_name:'—'; }
 function abRenderItems(){
   const el=document.getElementById('ab-items'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   el.innerHTML=`<div class="ab-h">Items</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      An Item is something you actually buy or sell — "Labor - Rough Framing," "Lumber," "Electrical Subcontractor" — not the same as a Chart of Accounts entry. Every Item can point at two accounts: where the cost lands when you buy it (<b>Expense Account</b>), and where the revenue lands when you bill someone for it (<b>Income Account</b>). That's what connects an Item to your books.
+    </div>
+    ${abItemTemplatePreview ? abItemTemplatePickerHtml() : (abItems.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
+      <div class="ab-field"><label>Start from an industry template</label>
+        <select id="ab-item-template-industry"><option value="construction">Construction</option></select>
+      </div>
+      <button class="ab-btn" onclick="abPreviewItemTemplate()">Browse Template</button>
+      <span style="font-size:12px;color:var(--muted);align-self:center">Wires up income/expense accounts automatically if your Chart of Accounts is already loaded.</span>
+    </div>`)}
     <div class="ab-form">
       <div class="ab-field"><label>Name</label><input id="ab-item-name" placeholder="e.g. Labor - Rough Framing"></div>
-      <div class="ab-field"><label>Type</label><select id="ab-item-type"><option value="service">Service</option><option value="inventory_good">Inventory Good</option><option value="non_inventory_good">Non-Inventory Good</option></select></div>
+      <div class="ab-field"><label>What is it?</label>
+        <select id="ab-item-type">
+          <option value="service">Labor / Service (time you bill for)</option>
+          <option value="inventory_good">Material you track stock of</option>
+          <option value="non_inventory_good">One-off purchase (not tracked as stock)</option>
+        </select>
+      </div>
+      <div class="ab-field"><label>Expense Account (optional)</label><select id="ab-item-expense-acct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Income Account (optional)</label><select id="ab-item-income-acct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Price (optional)</label><input id="ab-item-price" type="number" step="0.01" style="width:90px"></div>
       <button class="ab-btn" onclick="abAddItem()">Add Item</button>
     </div>
-    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Price</th></tr>
-    ${abItems.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(i.item_type)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No items yet</td></tr>'}
+    <table class="ab-table"><tr><th>Name</th><th>What is it?</th><th>Expense Account</th><th>Income Account</th><th>Price</th></tr>
+    ${abItems.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(abItemTypeLabel(i.item_type))}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No items yet — add your first one above, or browse a template</td></tr>'}
     </table>`;
 }
+function abItemTypeLabel(t){ return t==='service'?'Labor/Service':t==='inventory_good'?'Tracked Material':t==='non_inventory_good'?'One-off Purchase':t; }
 async function abAddItem(){
   const name=document.getElementById('ab-item-name').value.trim(); if(!name)return;
   const type=document.getElementById('ab-item-type').value;
   const price=document.getElementById('ab-item-price').value;
-  const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,unit_price:price||null});
+  const expenseAcct=document.getElementById('ab-item-expense-acct').value||null;
+  const incomeAcct=document.getElementById('ab-item-income-acct').value||null;
+  const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
   if(error){alert(error.message);return;}
+  await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
+}
+
+// ── Item template picker — same select-before-import pattern as Chart of
+// Accounts, plus resolves each template's account_number to this book's
+// real account_id so the income/expense wiring is live on import, not
+// just a label. ──
+function abItemTemplatePickerHtml(){
+  const existingNames=new Set(abItems.map(i=>i.name));
+  const byNumber={}; abAccounts.forEach(a=>{ if(a.account_number) byNumber[a.account_number]=a.id; });
+  let rows='';
+  abItemTemplatePreview.forEach(t=>{
+    const already=existingNames.has(t.name);
+    const expOk=!t.default_expense_account_number || byNumber[t.default_expense_account_number];
+    const incOk=!t.default_income_account_number || byNumber[t.default_income_account_number];
+    rows+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;color:${already?'var(--dim)':'var(--text2)'};cursor:${already?'default':'pointer'}">
+      <input type="checkbox" class="ab-item-tmpl-check" value="${t.id}" ${already?'disabled':'checked'}>
+      ${abEsc(t.name)} <span style="font-size:11px;color:var(--muted)">(${abItemTypeLabel(t.item_type)})</span>
+      ${already?' <span style="font-size:11px;color:var(--dim)">already added</span>':''}
+      ${(!expOk||!incOk)?' <span style="font-size:11px;color:#f0a8a8">— load Chart of Accounts first to wire this one up</span>':''}
+    </label>`;
+  });
+  return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="ab-h" style="margin:0">Construction Items Template</div>
+      <div style="display:flex;gap:8px">
+        <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="document.querySelectorAll('.ab-item-tmpl-check:not(:disabled)').forEach(c=>c.checked=true)">Select All</button>
+        <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="document.querySelectorAll('.ab-item-tmpl-check:not(:disabled)').forEach(c=>c.checked=false)">Deselect All</button>
+      </div>
+    </div>
+    <div style="max-height:300px;overflow-y:auto;padding-right:6px">${rows}</div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="ab-btn" onclick="abImportSelectedItemTemplate()">Import Selected</button>
+      <button class="ab-btn" style="background:transparent;border-color:rgba(240,232,208,.3);color:var(--muted)" onclick="abItemTemplatePreview=null;abRenderItems()">Cancel — I'll build my own</button>
+    </div>
+  </div>`;
+}
+async function abPreviewItemTemplate(){
+  const industry=document.getElementById('ab-item-template-industry').value;
+  const{data,error}=await db.from('item_category_templates').select('*').eq('industry',industry).order('name');
+  if(error){alert(error.message);return;}
+  if(!data||!data.length){alert('No item template for that industry yet.');return;}
+  abItemTemplatePreview=data;
+  abRenderItems();
+}
+async function abImportSelectedItemTemplate(){
+  const checked=Array.from(document.querySelectorAll('.ab-item-tmpl-check:checked')).map(cb=>cb.value);
+  if(!checked.length){ abItemTemplatePreview=null; abRenderItems(); return; }
+  const byNumber={}; abAccounts.forEach(a=>{ if(a.account_number) byNumber[a.account_number]=a.id; });
+  const rows=abItemTemplatePreview.filter(t=>checked.includes(t.id)).map(t=>({
+    book_id:abBookId,name:t.name,item_type:t.item_type,
+    expense_account_id:t.default_expense_account_number?(byNumber[t.default_expense_account_number]||null):null,
+    income_account_id:t.default_income_account_number?(byNumber[t.default_income_account_number]||null):null
+  }));
+  const{error}=await db.from('items').insert(rows);
+  if(error){alert(error.message);return;}
+  abItemTemplatePreview=null;
   await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
 }
 
@@ -1282,25 +1424,81 @@ async function abLoadTags(){
   const{data}=await db.from('tags').select('*').eq('book_id',abBookId).order('name');
   abTags=data||[];
 }
+function abContactName(id){ const c=abContacts.find(x=>x.id===id); return c?c.name:''; }
+let abTagStatusFilter='active';
+function abSetTagStatusFilter(f){ abTagStatusFilter=f; abRenderTags(); }
 function abRenderTags(){
   const el=document.getElementById('ab-tags'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
-  el.innerHTML=`<div class="ab-h">Tags / Jobs</div>
+  const clients=abContacts.filter(c=>c.is_customer);
+  const shown = abTagStatusFilter==='all' ? abTags : abTags.filter(t=>(t.status||'active')===abTagStatusFilter);
+  const activeCount=abTags.filter(t=>(t.status||'active')==='active').length;
+  const completeCount=abTags.filter(t=>t.status==='complete').length;
+  el.innerHTML=`<div class="ab-h">Tags / Jobs / Projects</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      A job belongs to a client, but often works at a different address than the client's own — so a job gets its own address here. Every bill or invoice you enter later gets tagged to one of these, and only <b>Active</b> jobs show up in that picker — mark a job Complete when it's done and it stops cluttering the list without deleting the history.
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button class="ab-btn" style="${abTagStatusFilter==='active'?'':'background:transparent;color:var(--muted)'}" onclick="abSetTagStatusFilter('active')">Active (${activeCount})</button>
+      <button class="ab-btn" style="${abTagStatusFilter==='complete'?'':'background:transparent;color:var(--muted)'}" onclick="abSetTagStatusFilter('complete')">Complete (${completeCount})</button>
+      <button class="ab-btn" style="${abTagStatusFilter==='all'?'':'background:transparent;color:var(--muted)'}" onclick="abSetTagStatusFilter('all')">All (${abTags.length})</button>
+    </div>
     <div class="ab-form">
       <div class="ab-field"><label>Name</label><input id="ab-tag-name" placeholder="e.g. Job 114 — Johnson Kitchen"></div>
       <div class="ab-field"><label>Type</label><select id="ab-tag-type"><option value="job">Job</option><option value="property">Property</option><option value="department">Department</option><option value="grant">Grant</option><option value="class">Class</option><option value="location">Location</option></select></div>
+      <div class="ab-field"><label>Client (optional)</label><select id="ab-tag-contact"><option value="">—</option>${clients.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div class="ab-field" style="flex:1;min-width:200px"><label>Job address (optional, if different from client's)</label><input id="ab-tag-address" placeholder="123 Site St, City, State"></div>
       <button class="ab-btn" onclick="abAddTag()">Add</button>
     </div>
-    <table class="ab-table"><tr><th>Name</th><th>Type</th></tr>
-    ${abTags.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">No jobs/tags yet</td></tr>'}
-    </table>`;
+    ${!clients.length?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">No contacts marked as Customer/Client yet — check "Customer / Client" on someone in the Contacts tab to link a job to them.</div>`:''}
+    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Client</th><th>Address</th><th>Status</th><th></th><th></th></tr>
+    ${shown.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Estimates →</a></td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="7">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
+    </table>
+    <div id="ab-estimates-panel"></div>`;
 }
 async function abAddTag(){
   const name=document.getElementById('ab-tag-name').value.trim(); if(!name)return;
   const type=document.getElementById('ab-tag-type').value;
-  const{error}=await db.from('tags').insert({book_id:abBookId,name,tag_type:type});
+  const contact=document.getElementById('ab-tag-contact').value||null;
+  const address=document.getElementById('ab-tag-address').value.trim()||null;
+  const{error}=await db.from('tags').insert({book_id:abBookId,name,tag_type:type,contact_id:contact,address,status:'active'});
   if(error){alert(error.message);return;}
   await abLoadTags(); abRenderTags(); abRefreshDropdownSources();
+}
+async function abToggleTagStatus(tagId,newStatus){
+  const{error}=await db.from('tags').update({status:newStatus}).eq('id',tagId);
+  if(error){alert(error.message);return;}
+  await abLoadTags(); abRenderTags(); abRefreshDropdownSources();
+}
+
+// ── ESTIMATES — one project/job can carry more than one estimate over time ──
+let abEstimatesTagId=null;
+async function abShowEstimatesFor(tagId){
+  abEstimatesTagId=tagId;
+  const tag=abTags.find(t=>t.id===tagId);
+  const{data}=await db.from('estimates').select('*').eq('tag_id',tagId).order('created_at',{ascending:false});
+  const el=document.getElementById('ab-estimates-panel'); if(!el)return;
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+    <div class="ab-h">Estimates for ${abEsc(tag?tag.name:'')}</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Amount</label><input id="ab-est-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Estimate #</label><input id="ab-est-number" style="width:100px" placeholder="optional"></div>
+      <div class="ab-field"><label>Status</label><select id="ab-est-status"><option value="draft">Draft</option><option value="sent">Sent</option><option value="accepted">Accepted</option><option value="declined">Declined</option></select></div>
+      <button class="ab-btn" onclick="abAddEstimate()">Add Estimate</button>
+    </div>
+    <table class="ab-table"><tr><th>#</th><th>Amount</th><th>Status</th></tr>
+    ${(data||[]).map(e=>`<tr><td>${abEsc(e.estimate_number||'')}</td><td>${abMoney(e.amount)}</td><td>${abEsc(e.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No estimates yet for this project</td></tr>'}
+    </table>
+  </div>`;
+}
+async function abAddEstimate(){
+  const amount=parseFloat(document.getElementById('ab-est-amount').value)||0;
+  const number=document.getElementById('ab-est-number').value.trim();
+  const status=document.getElementById('ab-est-status').value;
+  const tag=abTags.find(t=>t.id===abEstimatesTagId);
+  const{error}=await db.from('estimates').insert({book_id:abBookId,tag_id:abEstimatesTagId,contact_id:tag?tag.contact_id:null,amount,estimate_number:number||null,status});
+  if(error){alert(error.message);return;}
+  abShowEstimatesFor(abEstimatesTagId);
 }
 
 // ── BILLS & INVOICES — the core "clear the pile" screen ──
@@ -1322,7 +1520,7 @@ function abRenderInvoicesBills(){
       <div class="ab-field"><label>Amount</label><input id="ab-ib-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
       <div class="ab-field"><label>Date</label><input id="ab-ib-date" type="date" value="${today}"></div>
       <div class="ab-field"><label>Category (optional)</label><select id="ab-ib-account"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
-      <div class="ab-field"><label>Job/Tag (optional)</label><select id="ab-ib-tag"><option value="">—</option>${abTags.map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Job/Tag (optional)</label><select id="ab-ib-tag"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Memo (optional)</label><input id="ab-ib-memo" placeholder="e.g. lumber for Job 114"></div>
       <button class="ab-btn" onclick="abAddInvoiceBill()">Save</button>
     </div>
