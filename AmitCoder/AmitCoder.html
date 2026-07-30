@@ -248,7 +248,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.33</div>
+    <div class="page-version" id="pageVersion">v6.34</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -730,6 +730,16 @@ const CHECKLIST_STEPS=[
   {id:'starterkit',title:'Download and run the Amit Starter Kit',desc:'<a class="btn btn-gold btn-sm" style="display:inline-flex;margin:8px 0" href="./Amit_Coder_Starter_Kit.ps1" download>⬇ Download Amit_Coder_Starter_Kit.ps1</a><br>Right-click the downloaded file → Run with PowerShell. Creates your project folder, a starter CLAUDE.md, and connects your session backup automatically.'},
   {id:'confirm',title:'Confirm your folder and backup are set up',desc:'Open the folder the starter kit created in VS Code and say "good morning" to Claude Code. If it responds and the folder has a CLAUDE.md file in it, you are set up.'}
 ];
+// Real bug found and fixed 2026-07-29: this is the call the comment near the
+// top of this script promised ("the real call at the bottom, after
+// CHECKLIST_STEPS is actually declared") but it was never actually added -
+// renderChecklist() was only ever called from toggleCheck(), so the
+// checklist (including the starter kit download button) never rendered on
+// page load at all. This line is that missing call, placed here because
+// CHECKLIST_STEPS now genuinely exists and buildPlaceholders() has already
+// run (it's an IIFE earlier in this same script), so #checklistSteps exists
+// in the DOM by the time this executes.
+renderChecklist();
 function renderChecklist(){
   const wrap=document.getElementById('checklistSteps');
   if(!wrap)return;
