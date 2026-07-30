@@ -275,7 +275,17 @@ Ryan caught this directly, and it needed to be caught: every F/J shortcut built 
 
 ## New Builtin — `J topic` (added 2026-07-29)
 
-A small, deliberately standalone shortcut: states plainly what's actually being worked on in the current session, meant to be reused as a shared first step rather than every other shortcut re-deriving it independently. **Honest limit on composition:** the existing subtask-chaining feature (`referenced_shortcut_id`) is built for a subtask that *replaces itself entirely* with another shortcut's instruction — not "run X, then continue with my own additional instructions." True `J inspire` → `J topic` chaining would need that richer composition model, which doesn't exist yet. For now, `J inspire`'s own instruction already includes topic-determination as its first step, written inline rather than through a real DB-level chain to `J topic`. Worth building real sequence-composition (not just replace-with-reference) if this pattern recurs.
+A small, deliberately standalone shortcut: states plainly what's actually being worked on in the current session, meant to be reused as a shared first step rather than every other shortcut re-deriving it independently. ## New Builtins — J review / J test / J explain / J commit / J checkup / J docs (added 2026-07-29)
+
+Researched against real 2026 developer/AI-assistant conventions before building (Claude Code's own `/code-review`, `/checkup`, industry-standard test/lint/docs practices — see chat log for sources) rather than guessed. Deliberately avoid replicating anything the OS already does (Ctrl+C, Ctrl+V) — these are AI-assistant-specific actions with no OS equivalent. `J checkup` specifically mirrors this project's own hard-earned CLAUDE.md-bloat lesson from earlier tonight, applied as a reusable shortcut for any project.
+
+## New Builtins — J push / J authorization GitHub / J authorization Supabase (added 2026-07-29)
+
+`J push` checks git status/log against the remote first — if nothing changed since the last push, says so plainly and stops; if something did, asks before pushing, never silently. Never auto-pushes.
+
+**The "J authorization X" family** — Ryan's generalization: any external service a coder's own application needs should follow this naming pattern, each one checking what's connected using *that person's own account*, never Amit's or Ryan's, and guiding setup if missing. Built two to start: `J authorization GitHub` (git remote/user config/gh CLI auth status) and `J authorization Supabase` (distinguishes the already-connected shared Amit project from a genuinely separate Supabase project a person's own app might need for its own data). More services can follow the same pattern as they come up.
+
+**Honest limit on composition:** the existing subtask-chaining feature (`referenced_shortcut_id`) is built for a subtask that *replaces itself entirely* with another shortcut's instruction — not "run X, then continue with my own additional instructions." True `J inspire` → `J topic` chaining would need that richer composition model, which doesn't exist yet. For now, `J inspire`'s own instruction already includes topic-determination as its first step, written inline rather than through a real DB-level chain to `J topic`. Worth building real sequence-composition (not just replace-with-reference) if this pattern recurs.
 
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 
