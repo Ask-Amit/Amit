@@ -259,6 +259,12 @@ Ryan wanted the Hub's own Pursuits table to be sortable/filterable by which HTML
 
 **Explicitly deferred, not done tonight (Ryan's own call):** a full backfill/review pass across all existing pursuits (currently in the hundreds) to retroactively assign `program` values where missing. Ryan will trigger this explicitly once the concept work above is settled — do not run it proactively.
 
+## New Builtin — `J inspire` (added 2026-07-29)
+
+Deliberately different in kind from the other J shortcuts — those recall or organize; this one synthesizes and expands. When triggered: reviews the current session's actual development (working honestly from the session summary where full detail isn't retained after compaction — never inventing what isn't there), then thinks beyond the literal task — other applications, other scales (individual/local/global), not confined to the current project. **Explicitly authorized to run a real web search** on the topic to see what others are already building in similar spaces — a genuine, real capability, not aspirational. Responds framed as "You asked me to inspire what you've done — here's what I came up with," structured as: honest current-state assessment, concrete near-term improvements, and at least one genuinely surprising extension beyond the current app. The bar Ryan set explicitly: the person should say "I never thought of that" — not receive a generic suggestion list.
+
+**Reserved, not built:** `J hack` — Ryan named this as a strong word for a future identifier, deliberately not this one. Hold the name; don't assign it a meaning yet.
+
 ## Versioning — Now Independent, Not Repo-Wide (changed 2026-07-29)
 
 Ryan retired the shared repo-wide version number this session — every page's badge, including this one, is now its own independent counter, incremented +0.01 only when that specific file is actually edited. See root `CLAUDE.md`'s VERSIONING STANDARD for the full rule and why. AmitCoder.html continues from v6.16 (its value when the rule changed) — do not reset it to v1.00.
