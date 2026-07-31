@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.60</div>
+    <div class="page-version" id="pageVersion">v1.61</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1671,9 +1671,51 @@ function abRenderCoa(){
       <div class="ab-field"><label>Number (optional)</label><input id="ab-coa-number" style="width:80px" placeholder="5100"></div>
       <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
     </div>
-    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th></tr>
-    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No accounts yet — add your first one above, or browse a template</td></tr>'}
-    </table>`;
+    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Custom Fields</th></tr>
+    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No accounts yet — add your first one above, or browse a template</td></tr>'}
+    </table>
+    <div id="ab-customfields-panel"></div>`;
+}
+
+// ── CUSTOM FIELDS — free-form key/value data on any Chart of Accounts
+// row, for whatever the person needs to track that doesn't warrant a
+// schema change (a grant number, a property parcel ID, an internal code
+// from their old system). Stored as jsonb — the column already existed
+// in the schema, this is just the first real UI on top of it.
+let abCustomFieldsAccountId=null;
+function abEditCustomFields(accountId){
+  abCustomFieldsAccountId=accountId;
+  const a=abAccounts.find(x=>x.id===accountId); if(!a)return;
+  const fields=a.custom_fields||{};
+  const el=document.getElementById('ab-customfields-panel');
+  el.innerHTML=`<div class="ab-form" style="flex-direction:column;align-items:stretch;margin-top:14px">
+    <div class="ab-h" style="margin:0 0 8px">Custom Fields — ${abEsc(a.account_name)}</div>
+    <div id="ab-cf-rows">
+      ${Object.entries(fields).map(([k,v],i)=>`<div style="display:flex;gap:8px;margin-bottom:6px" data-cf-row="${i}"><input placeholder="Field name" value="${abEsc(k)}" class="ab-cf-key" style="width:160px"><input placeholder="Value" value="${abEsc(v)}" class="ab-cf-val" style="flex:1"><a href="#" onclick="this.closest('[data-cf-row]').remove();return false" style="color:var(--muted)">✕</a></div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abAddCustomFieldRow()">+ Add Field</button>
+      <button class="ab-btn" onclick="abSaveCustomFields()">Save</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-customfields-panel').innerHTML=''">Cancel</button>
+    </div>
+  </div>`;
+}
+function abAddCustomFieldRow(){
+  const rows=document.getElementById('ab-cf-rows');
+  const i=rows.children.length;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:8px;margin-bottom:6px';
+  div.setAttribute('data-cf-row',i);
+  div.innerHTML=`<input placeholder="Field name" class="ab-cf-key" style="width:160px"><input placeholder="Value" class="ab-cf-val" style="flex:1"><a href="#" onclick="this.closest('[data-cf-row]').remove();return false" style="color:var(--muted)">✕</a>`;
+  rows.appendChild(div);
+}
+async function abSaveCustomFields(){
+  const rows=document.querySelectorAll('#ab-cf-rows [data-cf-row]');
+  const fields={};
+  rows.forEach(r=>{ const k=r.querySelector('.ab-cf-key').value.trim(); const v=r.querySelector('.ab-cf-val').value.trim(); if(k) fields[k]=v; });
+  const{error}=await db.from('chart_of_accounts').update({custom_fields:fields}).eq('id',abCustomFieldsAccountId);
+  if(error){abAlert(error.message);return;}
+  await abLoadAccounts(); abRenderCoa();
 }
 
 // The picker: every template account shown with its own checkbox, checked
@@ -2240,16 +2282,37 @@ async function abViewReceiptImage(path){
   if(error||!data){ abAlert('Could not open that receipt image: '+(error?error.message:'unknown error')); return; }
   window.open(data.signedUrl,'_blank');
 }
+// Reads BOTH the printed receipt (vendor, subtotal, tax, total, date) AND
+// any hand-written annotations on it (job/sub-job like "Change Order 1",
+// category, whether it's split across more than one job/category) — the
+// red-marker-before-you-scan standard. If a receipt was marked up with
+// more than one job/category, "lines" comes back with more than one
+// entry and each becomes its own row at the batch-entry stage. Anything
+// not legible or not annotated comes back null/empty — filled in by hand
+// afterward, never guessed.
 async function abExtractReceiptsFromImage(file,key){
   const b64=await abFileToBase64(file);
   const res=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({
-      model:'claude-sonnet-5',max_tokens:1500,
+      model:'claude-sonnet-5',max_tokens:2500,
       messages:[{role:'user',content:[
         {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},
-        {type:'text',text:'This image may contain ONE receipt/bill or MULTIPLE separate receipts (e.g. a flatbed scan of a stack, or several receipts photographed together). Find every distinct receipt in the image. Reply with ONLY a JSON array, no other text, no markdown fences: [{"vendor":"...", "amount":0.00, "date":"YYYY-MM-DD", "memo":"short description of what was bought"}, ...] — one object per receipt found. If a field can\'t be read, use null for it. Use today\'s date if no date is visible on that receipt.'}
+        {type:'text',text:`This image may contain ONE receipt/bill or MULTIPLE separate receipts (a flatbed scan of a stack, or several photographed together). Find every distinct receipt. For each one, read BOTH the printed text AND any hand-written notes on it (someone may have marked a job name, a sub-job like "Change Order 1", or a category directly on the receipt before scanning it, sometimes in a different color pen/marker).
+
+Reply with ONLY a JSON array, no other text, no markdown fences:
+[{
+  "vendor": "...",
+  "date": "YYYY-MM-DD",
+  "subtotal": 0.00,
+  "tax": 0.00,
+  "total": 0.00,
+  "memo": "short description of what was bought",
+  "lines": [{"job":"hand-written job/sub-job if marked, else null","category":"hand-written category if marked, else null","amount":0.00}]
+}, ...]
+
+Rules: "total" is the printed grand total actually charged. "subtotal" and "tax" should add up to it — if tax is 0 or missing on the printed receipt, still report 0, don't guess a number (that absence is meaningful — it may mean sales tax wasn't collected). "lines" should have exactly ONE entry covering the whole total if nothing is hand-annotated, or MULTIPLE entries — each with its own amount — if the receipt was clearly hand-marked as split across more than one job or category (the amounts across all lines should add up to "total"). Use null for anything not legible or not present. Use today's date only if no date is visible anywhere on that receipt.`}
       ]}]
     })
   });
@@ -2278,20 +2341,54 @@ async function abScanReceipts(fileList){
   }
   if(!allReceipts.length){ status.textContent=failed?`Couldn't read anything usable from ${failed} image(s).`:'No receipts found in that image.'; return; }
   abBatchRows=abBatchRows.filter(r=>r.amount); // keep any rows already in progress, drop the empty starter row
+  let noTaxCount=0, mismatchCount=0, unmatchedJobs=new Set(), unmatchedScopes=new Set(), splitCount=0;
   allReceipts.forEach(r=>{
     let contactId='';
     if(r.vendor){
       const match=abContacts.find(c=>c.name.toLowerCase()===String(r.vendor).toLowerCase());
       if(match) contactId=match.id; else unmatchedVendors.add(r.vendor);
     }
-    abBatchRows.push({direction:'bill_payable',contact_id:contactId,amount:r.amount||'',date:r.date||new Date().toISOString().slice(0,10),item_id:'',cost_type:'',account_id:'',tag_id:'',memo:(r.memo||'')+(!contactId&&r.vendor?` (vendor: ${r.vendor})`:''),receipt_image_path:r._imagePath||null});
+    const total=Number(r.total)||0, subtotal=Number(r.subtotal)||0, tax=Number(r.tax)||0;
+    if(!tax) noTaxCount++;
+    if(subtotal&&tax&&total&&Math.abs((subtotal+tax)-total)>0.02) mismatchCount++;
+    const taxNote=!tax?' [no tax captured — verify tax-exempt, or use-tax may be owed]':'';
+    const mismatchNote=(subtotal&&tax&&total&&Math.abs((subtotal+tax)-total)>0.02)?' [subtotal+tax doesn\'t match total — check by hand]':'';
+    // One receipt can be hand-marked as split across more than one
+    // job/category — each split becomes its own row, sharing the same
+    // vendor/date/receipt image, since it's really one document being
+    // divided rather than several separate purchases.
+    const lines=(Array.isArray(r.lines)&&r.lines.length)?r.lines:[{job:null,category:null,amount:total}];
+    if(lines.length>1) splitCount++;
+    lines.forEach(line=>{
+      let tagId='', itemId='', jobNote='', scopeNote='';
+      if(line.job){
+        const tm=abTags.find(t=>t.name.toLowerCase()===String(line.job).toLowerCase()&&(t.status||'active')==='active');
+        if(tm) tagId=tm.id; else { unmatchedJobs.add(line.job); jobNote=` (job written: ${line.job})`; }
+      }
+      if(line.category){
+        const im=abItems.find(x=>x.name.toLowerCase()===String(line.category).toLowerCase());
+        if(im) itemId=im.id; else { unmatchedScopes.add(line.category); scopeNote=` (category written: ${line.category})`; }
+      }
+      abBatchRows.push({
+        direction:'bill_payable',contact_id:contactId,amount:line.amount||total||'',date:r.date||new Date().toISOString().slice(0,10),
+        item_id:itemId,cost_type:'',account_id:'',tag_id:tagId,
+        memo:(r.memo||'')+(!contactId&&r.vendor?` (vendor: ${r.vendor})`:'')+jobNote+scopeNote+taxNote+mismatchNote,
+        receipt_image_path:r._imagePath||null
+      });
+    });
   });
   if(!abBatchRows.length) abBatchAddRow();
   abBatchMode=true;
   abRenderInvoicesBills();
   const msg=[`✓ Found ${allReceipts.length} receipt(s) across ${files.length} image(s) — review in Batch Entry below.`];
-  if(unmatchedVendors.size) msg.push(`${unmatchedVendors.size} vendor(s) not in Contacts yet — noted in the memo, pick or add a Contact manually before saving those rows.`);
+  if(splitCount) msg.push(`${splitCount} receipt(s) were hand-marked split across multiple jobs/categories — broken into separate rows.`);
+  if(unmatchedVendors.size) msg.push(`${unmatchedVendors.size} vendor(s) not in Contacts yet.`);
+  if(unmatchedJobs.size) msg.push(`${unmatchedJobs.size} hand-written job name(s) didn't match an existing Tag/Job.`);
+  if(unmatchedScopes.size) msg.push(`${unmatchedScopes.size} hand-written category didn't match an existing Scope.`);
+  if(noTaxCount) msg.push(`${noTaxCount} receipt(s) show no tax — flagged in the memo for review.`);
+  if(mismatchCount) msg.push(`${mismatchCount} receipt(s) have subtotal+tax not matching the total — flagged in the memo.`);
   if(failed) msg.push(`${failed} image(s) couldn't be read.`);
+  msg.push('Unmatched fields are noted in the memo, not guessed — pick or add the real Contact/Tag/Scope before saving those rows.');
   const freshStatus=document.getElementById('ab-scan-status');
   if(freshStatus) freshStatus.textContent=msg.join(' ');
 }
@@ -2301,7 +2398,7 @@ function abRenderIntegrations(){
   const ocrPref=abGetOcrPref();
   el.innerHTML=`<div class="ab-h">Integrations</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:20px">
-      Nothing on this page is live yet — these are placeholders for connections that need real API credentials or accounts before they can do anything. This is where those decisions get made and held visibly, not lost in a chat.
+      The Anthropic key below is real and live — it powers Scan Receipt(s) on the Bills &amp; Invoices tab right now. Payment Processors below are still placeholders, waiting on real developer accounts/credentials.
     </div>
 
     <div class="ab-h" style="font-size:15px">Payment Processors</div>
@@ -2416,7 +2513,7 @@ async function abBillMilestone(id){
   const incomeId=await abFindOrCreateAccount('Uncategorized Income','income');
   const{data,error}=await db.from('invoices_bills').insert({
     book_id:abBookId,direction:'invoice_receivable',contact_id:tag?tag.contact_id:null,doc_date:new Date().toISOString().slice(0,10),status:'draft',
-    subtotal:m.amount,total_amount:m.amount,memo:'Milestone: '+m.name
+    subtotal:m.amount,total_amount:m.amount,memo:'Milestone: '+m.name,document_code:await abNextDocumentCode()
   }).select().single();
   if(error){abAlert(error.message);return;}
   await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:incomeId,tag_id:m.tag_id,description:m.name,quantity:1,unit_price:m.amount,amount:m.amount});
@@ -2552,7 +2649,7 @@ async function abConvertQuoteToInvoice(id){
   const incomeId=await abFindOrCreateAccount('Uncategorized Income','income');
   const{data,error}=await db.from('invoices_bills').insert({
     book_id:abBookId,direction:'invoice_receivable',contact_id:q.contact_id,doc_date:new Date().toISOString().slice(0,10),status:'draft',
-    subtotal:q.amount,total_amount:q.amount,memo:'Converted from quote'+(q.estimate_number?' #'+q.estimate_number:'')
+    subtotal:q.amount,total_amount:q.amount,memo:'Converted from quote'+(q.estimate_number?' #'+q.estimate_number:''),document_code:await abNextDocumentCode()
   }).select().single();
   if(error){abAlert(error.message);return;}
   await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:incomeId,tag_id:q.tag_id,description:'Quote conversion',quantity:1,unit_price:q.amount,amount:q.amount});
@@ -2564,6 +2661,19 @@ async function abConvertQuoteToInvoice(id){
 }
 
 // ── BILLS & INVOICES — the core "clear the pile" screen ──
+// ── DOCUMENT ID SYSTEM — every bill/invoice gets a short, unique,
+// hand-writable code: YYYY-MM-DD-NNNNNNN, date of entry + a per-book
+// sequential counter. This is what a red-marker annotation or a QR stamp
+// on a physical receipt would eventually reference back to — the code
+// has to exist first. Sequential per book, not global, so numbering
+// stays meaningful even with many books.
+async function abNextDocumentCode(){
+  const{count}=await db.from('invoices_bills').select('id',{count:'exact',head:true}).eq('book_id',abBookId);
+  const seq=String((count||0)+1).padStart(7,'0');
+  const d=new Date();
+  const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${ds}-${seq}`;
+}
 let abInvoicesBillsCache=[];
 let abPaymentSourcesCache=[];
 let abInvoiceBillLinesCache=[];
@@ -2641,7 +2751,7 @@ async function abBatchSaveAll(){
     const amount=parseFloat(r.amount)||0;
     const{data,error}=await db.from('invoices_bills').insert({
       book_id:abBookId,direction:r.direction,contact_id:r.contact_id||null,doc_date:r.date||null,status:'draft',
-      subtotal:amount,total_amount:amount,memo:r.memo||null,receipt_image_path:r.receipt_image_path||null
+      subtotal:amount,total_amount:amount,memo:r.memo||null,receipt_image_path:r.receipt_image_path||null,document_code:await abNextDocumentCode()
     }).select().single();
     if(error){ failed++; continue; }
     await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,item_id:r.item_id||null,account_id:r.account_id||null,tag_id:r.tag_id||null,cost_type:r.cost_type||null,description:r.memo||null,quantity:1,unit_price:amount,amount:amount});
@@ -2689,8 +2799,8 @@ function abRenderInvoicesBills(){
       const getters={date:r=>r.doc_date||'',type:r=>r.direction==='bill_payable'?'Bill':'Invoice',contact:r=>r.contacts?r.contacts.name:'',amount:r=>Number(r.total_amount)||0,status:r=>r.status||''};
       const sorted=abSmartApply(tk,abInvoicesBillsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',type:'Type',contact:'Contact',amount:'Amount',status:'Status'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th><th></th></tr>
-      ${sorted.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">Nothing entered yet — the pile starts here</td></tr>'}
+      <table class="ab-table"><tr><th style="font-size:11px">Doc #</th>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th><th></th></tr>
+      ${sorted.map(r=>`<tr><td style="font-size:10px;font-family:monospace;color:var(--muted)">${abEsc(r.document_code||'—')}</td><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="8">Nothing entered yet — the pile starts here</td></tr>'}
       </table>
       <div id="ab-planpanel"></div>`;
     })():`
@@ -2783,7 +2893,7 @@ async function abAddInvoiceBill(){
   const{data,error}=await db.from('invoices_bills').insert({
     book_id:abBookId,direction,contact_id:contact,doc_date:date,status:'draft',
     subtotal:amount,total_amount:amount,memo:memo||null,
-    payment_source_id:paymentSource,resolution_status:mismatch?'pending':'none'
+    payment_source_id:paymentSource,resolution_status:mismatch?'pending':'none',document_code:await abNextDocumentCode()
   }).select().single();
   if(error){abAlert(error.message);return;}
   await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,item_id:item,account_id:account,tag_id:tag,cost_type:costType,secondary_class:secondaryClass,description:memo||null,quantity:1,unit_price:amount,amount:amount});
