@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.42</div>
+    <div class="page-version" id="pageVersion">v1.43</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1833,7 +1833,7 @@ function abRenderTags(){
       const sorted=abSmartApply(tk,shown,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'Type',client:'Client',address:'Address',status:'Status'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'client','Client')}${abSmartTh(tk,'address','Address')}${abSmartTh(tk,'status','Status')}<th></th><th></th></tr>
-      ${sorted.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Estimates →</a></td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="7">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
+      ${sorted.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td${t.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${t.contact_id}','${abEsc(abContactName(t.contact_id)||'')}')" title="Double-click to open this contact"`:''}>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Estimates →</a></td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="7">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
       </table>`;
     })()}
     <div id="ab-estimates-panel"></div>`;
@@ -1929,7 +1929,7 @@ function abRenderInvoicesBills(){
       const sorted=abSmartApply(tk,abInvoicesBillsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',type:'Type',contact:'Contact',amount:'Amount',status:'Status'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}</tr>
-      ${sorted.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
+      ${sorted.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
@@ -2083,7 +2083,7 @@ async function abRenderPayments(){
       const sorted=abSmartApply(tk,abPaymentsRowsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',against:'Against',amount:'Amount',method:'Method'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'against','Against')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'method','Method')}</tr>
-      ${sorted.map(p=>`<tr><td>${p.payment_date||''}</td><td>${abEsc(p.invoices_bills?(p.invoices_bills.direction==='bill_payable'?'Bill':'Invoice')+' — '+(p.invoices_bills.contacts?p.invoices_bills.contacts.name:''):'—')}</td><td>${abMoney(p.amount)}</td><td>${abEsc(p.method||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No payments recorded yet</td></tr>'}
+      ${sorted.map(p=>`<tr><td>${p.payment_date||''}</td><td${p.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${p.contact_id}','${abEsc(p.invoices_bills&&p.invoices_bills.contacts?p.invoices_bills.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(p.invoices_bills?(p.invoices_bills.direction==='bill_payable'?'Bill':'Invoice')+' — '+(p.invoices_bills.contacts?p.invoices_bills.contacts.name:''):'—')}</td><td>${abMoney(p.amount)}</td><td>${abEsc(p.method||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No payments recorded yet</td></tr>'}
       </table>`;
     })():''}`;
   if(visual){
@@ -2669,6 +2669,19 @@ function abOpenAccountInChartOfAccounts(accountId,accountName){
     if(btns[1]) btns[1].click();
   });
 }
+// Same cross-link pattern, extended to the other two entity types named
+// throughout the app: a contact (vendor/customer/employee) shown on any
+// screen jumps to Contacts; a job/tag name jumps to Tags/Jobs.
+function abOpenContact(contactId,name){
+  const jump=()=>{ openPanel(2); const btns=document.querySelectorAll('#ch-tab-nav-2 .ch-tab-btn'); if(btns[2]) btns[2].click(); };
+  jump();
+  abPushOpenPage('contact-'+contactId,'👤',name,'Contacts',jump);
+}
+function abOpenJob(tagId,name){
+  const jump=()=>{ openPanel(2); const btns=document.querySelectorAll('#ch-tab-nav-2 .ch-tab-btn'); if(btns[4]) btns[4].click(); };
+  jump();
+  abPushOpenPage('job-'+tagId,'🏗️',name,'Tags / Jobs',jump);
+}
 async function abLoadJournalFull(){
   const{data,error}=await db.from('journal_entries').select('*,journal_lines(*,chart_of_accounts(account_name))').eq('book_id',abBookId).order('entry_date',{ascending:true});
   if(error){ document.getElementById('journalModalBody').innerHTML=`<div class="ab-empty">${abEsc(error.message)}</div>`; return; }
@@ -2868,7 +2881,7 @@ function abRenderPOs(){
       const sorted=abSmartApply(tk,abPurchaseOrdersCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{po:'PO #',vendor:'Vendor',date:'Date',total:'Total',status:'Status'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'po','PO #')}${abSmartTh(tk,'vendor','Vendor')}${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'total','Total')}${abSmartTh(tk,'status','Status')}<th>Received</th></tr>
-      ${sorted.map(p=>`<tr><td>${abEsc(p.po_number||'—')}</td><td>${abEsc(p.contacts?p.contacts.name:'')}</td><td>${p.order_date||''}</td><td>${abMoney(p.total_amount)}</td><td>
+      ${sorted.map(p=>`<tr><td>${abEsc(p.po_number||'—')}</td><td${p.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${p.contact_id}','${abEsc(p.contacts?p.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(p.contacts?p.contacts.name:'')}</td><td>${p.order_date||''}</td><td>${abMoney(p.total_amount)}</td><td>
         <select onchange="abUpdatePOStatus('${p.id}',this.value)">
           ${['draft','sent','partially_received','closed'].map(s=>`<option value="${s}"${p.status===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}
         </select></td><td>${p.status==='closed'||p.status==='partially_received'?'✓':'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No purchase orders yet</td></tr>'}
