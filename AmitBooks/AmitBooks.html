@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.52</div>
+    <div class="page-version" id="pageVersion">v1.53</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1472,8 +1472,81 @@ async function abRenderBooksTab(){
         <select id="ab-new-book-entity"><option value="">—</option><option value="sole_prop">Sole Proprietor</option><option value="llc">LLC</option><option value="s_corp">S-Corp</option><option value="c_corp">C-Corp</option><option value="partnership">Partnership</option><option value="nonprofit">Nonprofit</option><option value="personal">Personal</option></select>
       </div>
       <button class="ab-btn" onclick="abCreateBook()">Create</button>
+    </div>
+
+    <div class="ab-h" style="margin-top:26px">Backup &amp; Restore</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
+      A full snapshot of every table in <b>${abEsc(b.name)}</b> — accounts, contacts, Scopes, tags/jobs, bills/invoices, payments, journal entries, fixed assets, and everything else — as one downloadable file. This is a manual, user-triggered copy for your own safekeeping; it's separate from the Audit Log, which proves history rather than restoring it. Restoring inserts the snapshot's rows into <b>this</b> book — it does not touch or delete anything currently in it.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="ab-btn" onclick="abBackupBook()">⬇ Download Backup</button>
+      <label class="ab-btn" style="cursor:pointer">⬆ Restore From Backup<input type="file" accept="application/json" style="display:none" onchange="abRestoreBook(this.files[0])"></label>
+      <span id="ab-backup-status" style="font-size:12px;color:var(--muted)"></span>
     </div>`;
   abRenderTeamTable();
+}
+
+// ── BACKUP / RESTORE — a real snapshot/restore tool, distinct from the
+// audit log (which proves history but was never meant to be a recovery
+// mechanism). Every book-scoped table gets pulled and bundled into one
+// JSON file; restore re-inserts rows into the current book, gracefully
+// skipping tables/rows the browser's own account can't reach under RLS.
+const AB_BACKUP_TABLES=['chart_of_accounts','contacts','items','tags','invoices_bills','invoice_bill_lines','payments','fixed_assets','journal_entries','journal_lines','estimates','milestones','payment_plans','payment_plan_installments','recognition_schedules','sales_tax_jurisdictions','crm_activities','investments','subscriptions','mileage_logs','repair_logs'];
+async function abBackupBook(){
+  if(!abBookId)return;
+  const status=document.getElementById('ab-backup-status');
+  status.textContent='Gathering…';
+  const b=abBooks.find(x=>x.id===abBookId);
+  const snapshot={amitbooks_backup_version:1,book_id:abBookId,book_name:b?b.name:'',exported_at:new Date().toISOString(),tables:{}};
+  for(const t of AB_BACKUP_TABLES){
+    try{
+      const{data,error}=await db.from(t).select('*').eq('book_id',abBookId);
+      if(!error) snapshot.tables[t]=data||[];
+    }catch(e){/* table scoped differently (e.g. via a parent's book_id) — skip, not fatal */}
+  }
+  // A few tables aren't directly scoped by book_id (journal_lines lives under
+  // journal_entries, invoice_bill_lines under invoices_bills) — pull those via
+  // their parent relationship instead of a flat book_id filter.
+  try{
+    const{data}=await db.from('journal_lines').select('*,journal_entries!inner(book_id)').eq('journal_entries.book_id',abBookId);
+    snapshot.tables['journal_lines']=data||[];
+  }catch(e){}
+  try{
+    const{data}=await db.from('invoice_bill_lines').select('*,invoices_bills!inner(book_id)').eq('invoices_bills.book_id',abBookId);
+    snapshot.tables['invoice_bill_lines']=data||[];
+  }catch(e){}
+  const blob=new Blob([JSON.stringify(snapshot,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`amitbooks-backup-${(b?b.name:'book').replace(/[^a-z0-9]+/gi,'_')}-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  status.textContent='Downloaded.';
+}
+async function abRestoreBook(file){
+  if(!file||!abBookId)return;
+  const status=document.getElementById('ab-backup-status');
+  if(!await abConfirm(`Restore this backup INTO the current book ("${abBooks.find(x=>x.id===abBookId)?.name||''}")? This adds the backup's rows here — it does not delete or overwrite anything already in this book.`)){return;}
+  status.textContent='Reading file…';
+  let snapshot;
+  try{ snapshot=JSON.parse(await file.text()); }catch(e){ abAlert('That file is not valid JSON.'); status.textContent=''; return; }
+  if(!snapshot||!snapshot.tables){ abAlert('That file doesn\'t look like an AmitBooks backup.'); status.textContent=''; return; }
+  let restored=0, failed=0;
+  // Restore in dependency order so foreign keys resolve — accounts/contacts/
+  // items/tags first, then things that reference them.
+  const order=['chart_of_accounts','contacts','items','tags','invoices_bills','invoice_bill_lines','payments','fixed_assets','journal_entries','journal_lines','estimates','milestones','payment_plans','payment_plan_installments','recognition_schedules','sales_tax_jurisdictions','crm_activities','investments','subscriptions','mileage_logs','repair_logs'];
+  status.textContent='Restoring…';
+  for(const t of order){
+    const rows=snapshot.tables[t]; if(!rows||!rows.length)continue;
+    for(const row of rows){
+      const clean={...row}; delete clean.id; // new rows, new ids — this book keeps its own identity, backup rows don't collide with anything live
+      if('book_id' in clean) clean.book_id=abBookId;
+      const{error}=await db.from(t).insert(clean);
+      if(error) failed++; else restored++;
+    }
+  }
+  status.textContent=`Restored ${restored} row(s)${failed?`, ${failed} skipped (likely a reference to something not in this backup)`:''}.`;
+  await abLoadBookData();
 }
 
 async function abSaveBookProfile(){
@@ -2156,12 +2229,19 @@ async function abConvertQuoteToInvoice(id){
 // ── BILLS & INVOICES — the core "clear the pile" screen ──
 let abInvoicesBillsCache=[];
 let abPaymentSourcesCache=[];
+let abInvoiceBillLinesCache=[];
 async function abLoadInvoicesBills(){
   if(!abBookId){abInvoicesBillsCache=[];return;}
   const{data}=await db.from('invoices_bills').select('*,contacts(name)').eq('book_id',abBookId).order('doc_date',{ascending:false});
   abInvoicesBillsCache=data||[];
   await abLoadPaymentSources();
+  await abLoadInvoiceBillLines();
   abRenderInvoicesBills();
+}
+async function abLoadInvoiceBillLines(){
+  if(!abBookId){abInvoiceBillLinesCache=[];return;}
+  const{data}=await db.from('invoice_bill_lines').select('*,invoices_bills!inner(book_id,direction,status)').eq('invoices_bills.book_id',abBookId);
+  abInvoiceBillLinesCache=data||[];
 }
 async function abLoadPaymentSources(){
   // Every payment source the current user can see across all their books,
@@ -2171,6 +2251,70 @@ async function abLoadPaymentSources(){
   const{data}=await db.from('payment_sources').select('*').order('name');
   abPaymentSourcesCache=data||[];
 }
+// ── BATCH ENTRY — a spreadsheet-style grid for entering several bills or
+// invoices in one pass, instead of one form submission per document. Each
+// row saves as its own real invoices_bills + invoice_bill_lines + posted
+// journal entry, same as the single-entry form — batch only changes how
+// fast you can get the rows in, not what gets created underneath.
+let abBatchMode=false;
+let abBatchRows=[];
+function abToggleBatchMode(){
+  abBatchMode=!abBatchMode;
+  if(abBatchMode && !abBatchRows.length) abBatchAddRow();
+  abRenderInvoicesBills();
+}
+function abBatchAddRow(){
+  abBatchRows.push({direction:'bill_payable',contact_id:'',amount:'',date:new Date().toISOString().slice(0,10),item_id:'',cost_type:'',account_id:'',tag_id:'',memo:''});
+}
+function abBatchUpdateRow(idx,field,value){ abBatchRows[idx][field]=value; }
+function abBatchRemoveRow(idx){ abBatchRows.splice(idx,1); abRenderInvoicesBills(); }
+function abRenderBatchEntry(){
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
+      Fill in as many rows as you have, then Save All at the bottom. Each row becomes its own real bill/invoice, posted to the books exactly like the single-entry form — this is just a faster way to get a stack of them in.
+    </div>
+    <div style="overflow-x:auto">
+    <table class="ab-table"><tr><th>Type</th><th>Contact</th><th>Amount</th><th>Date</th><th>Scope</th><th>Cost Type</th><th>Category</th><th>Job/Tag</th><th>Memo</th><th></th></tr>
+    ${abBatchRows.map((r,i)=>`<tr>
+      <td><select onchange="abBatchUpdateRow(${i},'direction',this.value)"><option value="bill_payable"${r.direction==='bill_payable'?' selected':''}>Bill</option><option value="invoice_receivable"${r.direction==='invoice_receivable'?' selected':''}>Invoice</option></select></td>
+      <td><select onchange="abBatchUpdateRow(${i},'contact_id',this.value)"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}"${r.contact_id===c.id?' selected':''}>${abEsc(c.name)}</option>`).join('')}</select></td>
+      <td><input type="number" step="0.01" style="width:80px" value="${r.amount}" onchange="abBatchUpdateRow(${i},'amount',this.value)"></td>
+      <td><input type="date" value="${r.date}" onchange="abBatchUpdateRow(${i},'date',this.value)"></td>
+      <td><select onchange="abBatchUpdateRow(${i},'item_id',this.value)"><option value="">—</option>${abItems.map(it=>`<option value="${it.id}"${r.item_id===it.id?' selected':''}>${abEsc(it.name)}</option>`).join('')}</select></td>
+      <td><select onchange="abBatchUpdateRow(${i},'cost_type',this.value)"><option value="">—</option>${abCostTypeOptions()}</select></td>
+      <td><select onchange="abBatchUpdateRow(${i},'account_id',this.value)"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}"${r.account_id===a.id?' selected':''}>${abEsc(a.account_name)}</option>`).join('')}</select></td>
+      <td><select onchange="abBatchUpdateRow(${i},'tag_id',this.value)"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}"${r.tag_id===t.id?' selected':''}>${abEsc(t.name)}</option>`).join('')}</select></td>
+      <td><input style="width:120px" value="${abEsc(r.memo)}" onchange="abBatchUpdateRow(${i},'memo',this.value)"></td>
+      <td><a href="#" onclick="abBatchRemoveRow(${i});return false" style="color:var(--muted)">✕</a></td>
+    </tr>`).join('')}
+    </table>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abBatchAddRow();abRenderInvoicesBills()">+ Add Row</button>
+      <button class="ab-btn" onclick="abBatchSaveAll()">Save All (${abBatchRows.filter(r=>r.amount).length})</button>
+    </div>
+    <div id="ab-batch-status" style="font-size:12px;color:var(--muted);margin-top:6px"></div>`;
+}
+async function abBatchSaveAll(){
+  const status=document.getElementById('ab-batch-status');
+  const rows=abBatchRows.filter(r=>r.amount&&Number(r.amount));
+  if(!rows.length){ abAlert('No rows with an amount to save.'); return; }
+  let saved=0, failed=0;
+  for(const r of rows){
+    const amount=parseFloat(r.amount)||0;
+    const{data,error}=await db.from('invoices_bills').insert({
+      book_id:abBookId,direction:r.direction,contact_id:r.contact_id||null,doc_date:r.date||null,status:'draft',
+      subtotal:amount,total_amount:amount,memo:r.memo||null
+    }).select().single();
+    if(error){ failed++; continue; }
+    await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,item_id:r.item_id||null,account_id:r.account_id||null,tag_id:r.tag_id||null,cost_type:r.cost_type||null,description:r.memo||null,quantity:1,unit_price:amount,amount:amount});
+    await abPostJournalForInvoiceBill(data, r.account_id||null, r.tag_id||null, amount);
+    saved++;
+  }
+  status.textContent=`Saved ${saved}${failed?`, ${failed} failed`:''}.`;
+  abBatchRows=abBatchRows.filter(r=>!r.amount);
+  if(!abBatchRows.length) abBatchAddRow();
+  await abLoadInvoicesBills();
+}
 function abRenderInvoicesBills(){
   const el=document.getElementById('ab-invoices-bills'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
@@ -2179,8 +2323,9 @@ function abRenderInvoicesBills(){
   const visual=abIsVisual('invbills');
   const bookName=abEsc((abBooks.find(b=>b.id===abBookId)||{}).name||'');
   el.innerHTML=`${abVisualSwitch('invbills','abRenderInvoicesBills')}
-    <div class="ab-h">Enter a Bill or Invoice</div>
+    <div class="ab-h">Enter a Bill or Invoice <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abToggleBatchMode()">${abBatchMode?'← Back to one at a time':'⊞ Batch Entry (multiple at once) →'}</span></div>
     ${flaggedCount?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">🚩 ${flaggedCount} entry(ies) paid from a source that doesn't belong to this book — <a href="#" onclick="openPanel(10);return false" style="color:var(--gold2)">resolve them in the Review Queue →</a></div>`:''}
+    ${abBatchMode?abRenderBatchEntry():`
     <div class="ab-form">
       <div class="ab-field"><label>Type</label><select id="ab-ib-direction"><option value="bill_payable">Bill (I owe)</option><option value="invoice_receivable">Invoice (owed to me)</option></select></div>
       <div class="ab-field"><label>Contact</label><select id="ab-ib-contact"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
@@ -2195,7 +2340,7 @@ function abRenderInvoicesBills(){
       <div class="ab-field"><label>Memo (optional)</label><input id="ab-ib-memo" placeholder="e.g. lumber for Job 114"></div>
       <button class="ab-btn" onclick="abAddInvoiceBill()">Save</button>
     </div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick a Scope (e.g. "HVAC"), then set Cost Type to whatever this specific bill actually is — Labor, Material, or Subcontractor. Same Scope, different Cost Type each time, exactly as it happens on a real job.</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick a Scope (e.g. "HVAC"), then set Cost Type to whatever this specific bill actually is — Labor, Material, or Subcontractor. Same Scope, different Cost Type each time, exactly as it happens on a real job.</div>`}
     ${!visual?(()=>{
       const tk='invbills';
       abSmartRerender[tk]=abRenderInvoicesBills;
@@ -2658,8 +2803,9 @@ function abRenderReports(){
       <span class="${abReportsView==='1099'?'on':''}" onclick="abSetReportsView('1099')">1099 Summary</span>
       <span class="${abReportsView==='cashflow'?'on':''}" onclick="abSetReportsView('cashflow')">Cash Flow</span>
       <span class="${abReportsView==='salestax'?'on':''}" onclick="abSetReportsView('salestax')">Sales Tax Liability</span>
+      <span class="${abReportsView==='jobprofit'?'on':''}" onclick="abSetReportsView('jobprofit')">Job Profitability</span>
     </div>
-    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():`
+    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():`
     ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
       <div>
@@ -2842,6 +2988,37 @@ function abPrintPreviewSalesTax(){
   abPrintPreview('Sales Tax Liability',
     [{key:'jurisdiction',label:'Jurisdiction'},{key:'rate',label:'Rate'},{key:'base',label:'Taxable Base',num:true},{key:'tax',label:'Est. Tax Owed',num:true}],
     d.rows.map(r=>({jurisdiction:r.jurisdiction.name,rate:(r.rate*100).toFixed(2)+'%',base:abMoney(r.taxableBase),tax:abMoney(r.estTax)}))
+  );
+}
+
+// ── JOB PROFITABILITY — revenue vs. cost grouped by Tag (job/property/
+// class), sourced straight from invoice_bill_lines.tag_id, not from the
+// journal — so it reflects what was actually coded to that job, line by
+// line, regardless of which account it hit.
+function abRenderJobProfitability(){
+  const jobTags=abTags.filter(t=>t.tag_type==='job'||t.tag_type==='property');
+  const rows=jobTags.map(t=>{
+    const lines=abInvoiceBillLinesCache.filter(l=>l.tag_id===t.id && l.invoices_bills && l.invoices_bills.status!=='void');
+    const revenue=lines.filter(l=>l.invoices_bills.direction==='invoice_receivable').reduce((s,l)=>s+Number(l.amount||0),0);
+    const cost=lines.filter(l=>l.invoices_bills.direction==='bill_payable').reduce((s,l)=>s+Number(l.amount||0),0);
+    const profit=revenue-cost;
+    const margin=revenue?((profit/revenue)*100):null;
+    return{tag:t,revenue,cost,profit,margin};
+  }).filter(r=>r.revenue||r.cost);
+  window._abLastJobProfit=rows;
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Revenue and cost per Job/Property Tag, straight from what's actually been coded to it on bills and invoices — including every Scope and Cost Type line underneath. Jobs/Properties with no activity yet are left off.
+    </div>
+    <table class="ab-table"><tr><th>Job / Property</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Profit</th><th style="text-align:right">Margin</th></tr>
+    ${rows.map(r=>`<tr style="cursor:pointer" onclick="abOpenJob('${r.tag.id}','${abEsc(r.tag.name).replace(/'/g,"\\'")}')"><td>${abEsc(r.tag.name)}</td><td style="text-align:right">${abMoney(r.revenue)}</td><td style="text-align:right">${abMoney(r.cost)}</td><td style="text-align:right;${r.profit<0?'color:#f0a8a8':''}">${abMoney(r.profit)}</td><td style="text-align:right">${r.margin===null?'—':r.margin.toFixed(1)+'%'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No job/property activity yet — code a bill or invoice line to a Job or Property tag to see it here</td></tr>'}
+    </table>
+    <div style="margin-top:12px"><button class="ab-btn" onclick="abPrintPreviewJobProfit()">🖨 Print Preview</button></div>`;
+}
+function abPrintPreviewJobProfit(){
+  const rows=window._abLastJobProfit||[];
+  abPrintPreview('Job Profitability',
+    [{key:'job',label:'Job / Property'},{key:'revenue',label:'Revenue',num:true},{key:'cost',label:'Cost',num:true},{key:'profit',label:'Profit',num:true},{key:'margin',label:'Margin'}],
+    rows.map(r=>({job:r.tag.name,revenue:abMoney(r.revenue),cost:abMoney(r.cost),profit:abMoney(r.profit),margin:r.margin===null?'—':r.margin.toFixed(1)+'%'}))
   );
 }
 // ══════════════════════════════════════════════
