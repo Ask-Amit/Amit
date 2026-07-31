@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.45</div>
+    <div class="page-version" id="pageVersion">v1.46</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -892,7 +892,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Roadmap','ab-roadmap']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog'],['Roadmap','ab-roadmap']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -1327,7 +1327,7 @@ async function abLoadBooks(){
 
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
-  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags(); abRenderQbImportTab(); abLoadRoadmap();
+  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags(); abRenderQbImportTab(); abLoadRoadmap(); abLoadAuditLog();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
@@ -1810,9 +1810,9 @@ function abRenderTags(){
   const shown = abTagStatusFilter==='all' ? abTags : abTags.filter(t=>(t.status||'active')===abTagStatusFilter);
   const activeCount=abTags.filter(t=>(t.status||'active')==='active').length;
   const completeCount=abTags.filter(t=>t.status==='complete').length;
-  el.innerHTML=`<div class="ab-h">Tags / Jobs / Projects</div>
+  el.innerHTML=`<div class="ab-h">Tags — Jobs, Classes, Locations, Departments, Grants</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
-      A job belongs to a client, but often works at a different address than the client's own — so a job gets its own address here. Every bill or invoice you enter later gets tagged to one of these, and only <b>Active</b> jobs show up in that picker — mark a job Complete when it's done and it stops cluttering the list without deleting the history.
+      One list, six Types. A Job belongs to a client and often works at a different address than the client's own, so a job gets its own address here. <b>Class</b> and <b>Location</b> work the same way but without a client — use them to slice reports by department, division, or branch instead of by project. Every bill or invoice you enter later gets tagged to one of these (any type), and only <b>Active</b> ones show up in that picker — mark it Complete when it's done and it stops cluttering the list without deleting the history.
     </div>
     <div style="display:flex;gap:6px;margin-bottom:14px">
       <button class="ab-btn" style="${abTagStatusFilter==='active'?'':'background:transparent;color:var(--muted)'}" onclick="abSetTagStatusFilter('active')">Active (${activeCount})</button>
@@ -3776,6 +3776,47 @@ function abQbDateToIso(d){
   if(m){ let[,mo,day,yr]=m; if(yr.length===2)yr='20'+yr; return `${yr}-${mo.padStart(2,'0')}-${day.padStart(2,'0')}`; }
   const iso=d.match(/^\d{4}-\d{2}-\d{2}/); if(iso) return iso[0];
   return d;
+}
+
+// ══════════════════════════════════════════════
+// AUDIT LOG VIEWER — item #45 on the Master Build Order. The audit_log
+// table has been capturing real deletion snapshots since the Journal
+// viewer's bulk-delete feature was built, but there was never a way to
+// actually see them — this is that real "query/reconstruction layer,"
+// not a mockup: reads the live table, sortable/filterable like every
+// other list, each row shows exactly what existed before it was deleted.
+// ══════════════════════════════════════════════
+let abAuditLogCache=[];
+async function abLoadAuditLog(){
+  if(!abBookId){abAuditLogCache=[];abRenderAuditLog();return;}
+  const{data,error}=await db.from('audit_log').select('*').eq('book_id',abBookId).order('created_at',{ascending:false}).limit(500);
+  if(error){ abAuditLogCache=[]; abRenderAuditLog(error.message); return; }
+  abAuditLogCache=data||[];
+  abRenderAuditLog();
+}
+let abAuditLogExpanded=new Set();
+function abToggleAuditRow(id){
+  if(abAuditLogExpanded.has(id)) abAuditLogExpanded.delete(id); else abAuditLogExpanded.add(id);
+  abRenderAuditLog();
+}
+function abRenderAuditLog(errMsg){
+  const el=document.getElementById('ab-auditlog'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  if(errMsg){ el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">${abEsc(errMsg)}</div>`; return; }
+  const tk='auditlog'; abSmartRerender[tk]=()=>abRenderAuditLog();
+  const getters={when:a=>a.created_at||'',table:a=>a.table_name||'',action:a=>a.action||''};
+  const sorted=abSmartApply(tk,abAuditLogCache,getters);
+  el.innerHTML=`<div class="ab-h">Audit Log — every deletion, permanently recorded</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Append-only — nothing here, including this list, can be edited or removed through the app, by anyone, including you. This is the permanent record backing the "real deletion, always tracked" rule.</div>
+    ${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{when:'When',table:'Table',action:'Action'})}
+    <table class="ab-table" style="font-size:12px"><tr>${abSmartTh(tk,'when','When')}${abSmartTh(tk,'table','Table')}${abSmartTh(tk,'action','Action')}<th></th></tr>
+    ${sorted.map(a=>{
+      const open=abAuditLogExpanded.has(a.id);
+      const rows=[`<tr style="cursor:pointer" ondblclick="abToggleAuditRow('${a.id}')" title="Double-click to ${open?'collapse':'expand'}"><td>${(a.created_at||'').replace('T',' ').slice(0,19)}</td><td>${abEsc(a.table_name)}</td><td>${abEsc(a.action)}</td><td>${open?'▾':'▸'}</td></tr>`];
+      if(open) rows.push(`<tr><td colspan="4" style="background:rgba(255,255,255,.02)"><pre style="white-space:pre-wrap;font-size:11px;margin:8px 0;color:var(--muted)">${abEsc(JSON.stringify(a.old_value,null,2))}</pre></td></tr>`);
+      return rows.join('');
+    }).join('')||'<tr><td class="ab-empty" colspan="4">Nothing has been deleted yet — this log fills in automatically the moment something is</td></tr>'}
+    </table>`;
 }
 
 // ══════════════════════════════════════════════
