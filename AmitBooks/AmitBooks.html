@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.48</div>
+    <div class="page-version" id="pageVersion">v1.49</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1698,13 +1698,16 @@ function abRenderItems(){
       <span style="font-size:12px;color:var(--muted);align-self:center">Wires up income/expense accounts automatically if your Chart of Accounts is already loaded.</span>
     </div>`)}
     <div class="ab-form">
-      <div class="ab-field"><label>Name</label><input id="ab-item-name" placeholder="e.g. Labor - Rough Framing"></div>
+      <div class="ab-field"><label>Name</label><input id="ab-item-name" placeholder="e.g. Lumber, HVAC, Plumbing"></div>
       <div class="ab-field"><label>What is it?</label>
         <select id="ab-item-type">
           <option value="service">Labor / Service (time you bill for)</option>
           <option value="inventory_good">Material you track stock of</option>
           <option value="non_inventory_good">One-off purchase (not tracked as stock)</option>
         </select>
+      </div>
+      <div class="ab-field"><label>Default Cost Type (optional)</label>
+        <select id="ab-item-costtype"><option value="">—</option>${abCostTypeOptions()}</select>
       </div>
       <div class="ab-field"><label>Expense Account (optional)</label><select id="ab-item-expense-acct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Income Account (optional)</label><select id="ab-item-income-acct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
@@ -1713,16 +1716,16 @@ function abRenderItems(){
     </div>
     ${!visual?(()=>{
       const tk='items'; abSmartRerender[tk]=abRenderItems;
-      const getters={name:i=>i.name||'',type:i=>abItemTypeLabel(i.item_type),expense:i=>abAccountLabel(i.expense_account_id),income:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
+      const getters={name:i=>i.name||'',type:i=>abItemTypeLabel(i.item_type),costtype:i=>abCostTypeLabel(i.cost_type),expense:i=>abAccountLabel(i.expense_account_id),income:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
       const sorted=abSmartApply(tk,abItems,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'What is it?',expense:'Expense Account',income:'Income Account',price:'Price'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','What is it?')}${abSmartTh(tk,'expense','Expense Account')}${abSmartTh(tk,'income','Income Account')}${abSmartTh(tk,'price','Price')}</tr>
-      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(abItemTypeLabel(i.item_type))}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No items yet — add your first one above, or browse a template</td></tr>'}
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'What is it?',costtype:'Default Cost Type',expense:'Expense Account',income:'Income Account',price:'Price'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','What is it?')}${abSmartTh(tk,'costtype','Default Cost Type')}${abSmartTh(tk,'expense','Expense Account')}${abSmartTh(tk,'income','Income Account')}${abSmartTh(tk,'price','Price')}</tr>
+      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(abItemTypeLabel(i.item_type))}</td><td style="font-size:12px">${abEsc(abCostTypeLabel(i.cost_type))}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No items yet — add your first one above, or browse a template</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
     ${abItems.map(i=>`<div class="ab-rolo">
-      <div class="ro-kicker">${abEsc(abItemTypeLabel(i.item_type))}</div>
+      <div class="ro-kicker">${abEsc(abItemTypeLabel(i.item_type))}${i.cost_type?' · '+abEsc(abCostTypeLabel(i.cost_type)):''}</div>
       <div class="ro-title">${abEsc(i.name)}</div>
       <div class="ro-line">Expense: ${abAccountLabel(i.expense_account_id)}</div>
       <div class="ro-line">Income: ${abAccountLabel(i.income_account_id)}</div>
@@ -1731,13 +1734,23 @@ function abRenderItems(){
     </div>`}`;
 }
 function abItemTypeLabel(t){ return t==='service'?'Labor/Service':t==='inventory_good'?'Tracked Material':t==='non_inventory_good'?'One-off Purchase':t; }
+// Cost Type — a real, standalone toggle (Labor / Material / Subcontractor
+// / Equipment / Permit or Fee / Other), independent of what the item is
+// named or its item_type. The same item — "HVAC," per Ryan's own example
+// 2026-07-31 — can be Subcontractor cost on one bill and Labor on the
+// next, so this is never fixed to the item itself; the item only carries
+// a default that pre-fills the toggle on a new line, always overridable.
+const AB_COST_TYPES=[['labor','Labor'],['material','Material'],['subcontractor','Subcontractor'],['equipment','Equipment'],['permit_fee','Permit / Fee'],['other','Other']];
+function abCostTypeOptions(selected){ return AB_COST_TYPES.map(([v,l])=>`<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join(''); }
+function abCostTypeLabel(v){ const f=AB_COST_TYPES.find(([val])=>val===v); return f?f[1]:'—'; }
 async function abAddItem(){
   const name=document.getElementById('ab-item-name').value.trim(); if(!name)return;
   const type=document.getElementById('ab-item-type').value;
+  const costType=document.getElementById('ab-item-costtype').value||null;
   const price=document.getElementById('ab-item-price').value;
   const expenseAcct=document.getElementById('ab-item-expense-acct').value||null;
   const incomeAcct=document.getElementById('ab-item-income-acct').value||null;
-  const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
+  const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,cost_type:costType,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
   if(error){abAlert(error.message);return;}
   await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
 }
@@ -1756,7 +1769,7 @@ function abItemTemplatePickerHtml(){
     const incOk=!t.default_income_account_number || byNumber[t.default_income_account_number];
     rows+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;color:${already?'var(--dim)':'var(--text2)'};cursor:${already?'default':'pointer'}">
       <input type="checkbox" class="ab-item-tmpl-check" value="${t.id}" ${already?'disabled':'checked'}>
-      ${abEsc(t.name)} <span style="font-size:11px;color:var(--muted)">(${abItemTypeLabel(t.item_type)})</span>
+      ${abEsc(t.name)} <span style="font-size:11px;color:var(--muted)">(${abItemTypeLabel(t.item_type)}${t.cost_type?', default '+abCostTypeLabel(t.cost_type):''})</span>
       ${already?' <span style="font-size:11px;color:var(--dim)">already added</span>':''}
       ${(!expOk||!incOk)?' <span style="font-size:11px;color:#f0a8a8">— load Chart of Accounts first to wire this one up</span>':''}
     </label>`;
@@ -1789,7 +1802,7 @@ async function abImportSelectedItemTemplate(){
   if(!checked.length){ abItemTemplatePreview=null; abRenderItems(); return; }
   const byNumber={}; abAccounts.forEach(a=>{ if(a.account_number) byNumber[a.account_number]=a.id; });
   const rows=abItemTemplatePreview.filter(t=>checked.includes(t.id)).map(t=>({
-    book_id:abBookId,name:t.name,item_type:t.item_type,
+    book_id:abBookId,name:t.name,item_type:t.item_type,cost_type:t.cost_type||null,
     expense_account_id:t.default_expense_account_number?(byNumber[t.default_expense_account_number]||null):null,
     income_account_id:t.default_income_account_number?(byNumber[t.default_income_account_number]||null):null
   }));
@@ -1837,11 +1850,12 @@ function abRenderTags(){
       const getters={name:t=>t.name||'',type:t=>t.tag_type||'',client:t=>abContactName(t.contact_id)||'',address:t=>t.address||'',status:t=>t.status||'active'};
       const sorted=abSmartApply(tk,shown,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'Type',client:'Client',address:'Address',status:'Status'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'client','Client')}${abSmartTh(tk,'address','Address')}${abSmartTh(tk,'status','Status')}<th></th><th></th></tr>
-      ${sorted.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td${t.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${t.contact_id}','${abEsc(abContactName(t.contact_id)||'')}')" title="Double-click to open this contact"`:''}>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Estimates →</a></td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="7">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'client','Client')}${abSmartTh(tk,'address','Address')}${abSmartTh(tk,'status','Status')}<th></th><th></th><th></th></tr>
+      ${sorted.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td${t.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${t.contact_id}','${abEsc(abContactName(t.contact_id)||'')}')" title="Double-click to open this contact"`:''}>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Quotes →</a></td><td><a href="#" onclick="abShowMilestonesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Milestones →</a></td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="8">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
       </table>`;
     })()}
-    <div id="ab-estimates-panel"></div>`;
+    <div id="ab-estimates-panel"></div>
+    <div id="ab-milestones-panel"></div>`;
 }
 async function abAddTag(){
   const name=document.getElementById('ab-tag-name').value.trim(); if(!name)return;
@@ -1886,6 +1900,119 @@ async function abAddEstimate(){
   const{error}=await db.from('estimates').insert({book_id:abBookId,tag_id:abEstimatesTagId,contact_id:tag?tag.contact_id:null,amount,estimate_number:number||null,status});
   if(error){abAlert(error.message);return;}
   abShowEstimatesFor(abEstimatesTagId);
+}
+
+// ── MILESTONES / PROGRESS PAYMENTS — item #40, ties to job costing
+// (item #16). A job's total contract value billed in defined chunks
+// rather than one lump sum. "Bill This Milestone" posts a real invoice
+// for that milestone's amount, same journal-posting path as any other
+// invoice — a milestone otherwise has no bearing on the actual books. ──
+let abMilestonesTagId=null;
+async function abShowMilestonesFor(tagId){
+  abMilestonesTagId=tagId;
+  const tag=abTags.find(t=>t.id===tagId);
+  const{data}=await db.from('milestones').select('*').eq('tag_id',tagId).order('sort_order',{ascending:true});
+  const el=document.getElementById('ab-milestones-panel'); if(!el)return;
+  const rows=data||[];
+  const total=rows.reduce((s,m)=>s+Number(m.amount||0),0);
+  const billed=rows.filter(m=>m.status!=='pending').reduce((s,m)=>s+Number(m.amount||0),0);
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+    <div class="ab-h">Milestones for ${abEsc(tag?tag.name:'')}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${abMoney(billed)} billed of ${abMoney(total)} total contract value</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Name</label><input id="ab-ms-name" placeholder="e.g. Foundation complete"></div>
+      <div class="ab-field"><label>Amount</label><input id="ab-ms-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddMilestone()">Add Milestone</button>
+    </div>
+    <table class="ab-table"><tr><th>Name</th><th>Amount</th><th>Status</th><th></th></tr>
+    ${rows.map(m=>`<tr><td>${abEsc(m.name)}</td><td>${abMoney(m.amount)}</td><td>${abEsc(m.status)}</td><td>${m.status==='pending'?`<button class="ab-btn" style="padding:5px 10px;font-size:10px" onclick="abBillMilestone('${m.id}')">Bill This Milestone</button>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No milestones yet for this job</td></tr>'}
+    </table>
+  </div>`;
+}
+async function abAddMilestone(){
+  const name=document.getElementById('ab-ms-name').value.trim(); if(!name)return;
+  const amount=parseFloat(document.getElementById('ab-ms-amount').value)||0;
+  if(!amount){abAlert('Enter an amount.');return;}
+  const{error}=await db.from('milestones').insert({book_id:abBookId,tag_id:abMilestonesTagId,name,amount});
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-ms-amount').value='';
+  abShowMilestonesFor(abMilestonesTagId);
+}
+async function abBillMilestone(id){
+  const{data:m}=await db.from('milestones').select('*').eq('id',id).single();
+  if(!m)return;
+  const tag=abTags.find(t=>t.id===m.tag_id);
+  if(!(await abConfirm(`Bill this ${abMoney(m.amount)} milestone as a real invoice now?`)))return;
+  const incomeId=await abFindOrCreateAccount('Uncategorized Income','income');
+  const{data,error}=await db.from('invoices_bills').insert({
+    book_id:abBookId,direction:'invoice_receivable',contact_id:tag?tag.contact_id:null,doc_date:new Date().toISOString().slice(0,10),status:'draft',
+    subtotal:m.amount,total_amount:m.amount,memo:'Milestone: '+m.name
+  }).select().single();
+  if(error){abAlert(error.message);return;}
+  await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:incomeId,tag_id:m.tag_id,description:m.name,quantity:1,unit_price:m.amount,amount:m.amount});
+  await abPostJournalForInvoiceBill(data, incomeId, m.tag_id, m.amount);
+  await db.from('milestones').update({status:'billed',invoice_bill_id:data.id}).eq('id',id);
+  await abLoadInvoicesBills(); await abLoadJournalLines();
+  abRenderReports();
+  abShowMilestonesFor(abMilestonesTagId);
+  abAlert('Billed — the new invoice is now on the Bills & Invoices tab.');
+}
+
+// ── PAYMENT PLANS — item #14, customer financing on receivables. Splits
+// one open invoice into scheduled installments a customer pays over
+// time. Installments are tracking/scheduling only — an installment is
+// marked paid by linking it to a real Payment row once that payment is
+// actually recorded on the Payments tab, never by itself creating money
+// that didn't happen. ──
+let abPaymentPlanInvoiceId=null;
+async function abShowPaymentPlanFor(invoiceBillId){
+  abPaymentPlanInvoiceId=invoiceBillId;
+  const inv=abInvoicesBillsCache.find(r=>r.id===invoiceBillId);
+  const{data:plan}=await db.from('payment_plans').select('*,payment_plan_installments(*)').eq('invoice_bill_id',invoiceBillId).maybeSingle();
+  const el=document.getElementById('ab-planpanel'); if(!el)return;
+  if(!plan){
+    el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+      <div class="ab-h">Set Up a Payment Plan — ${abEsc(inv?inv.contacts.name:'')}, ${abMoney(inv?Number(inv.total_amount)-Number(inv.paid_amount):0)} remaining</div>
+      <div class="ab-form">
+        <div class="ab-field"><label># of Installments</label><input id="ab-pp-count" type="number" min="2" value="3" style="width:70px"></div>
+        <div class="ab-field"><label>Frequency</label><select id="ab-pp-freq"><option value="monthly">Monthly</option><option value="biweekly">Every 2 weeks</option><option value="weekly">Weekly</option></select></div>
+        <div class="ab-field"><label>Start date</label><input id="ab-pp-start" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+        <button class="ab-btn" onclick="abCreatePaymentPlan()">Create Plan</button>
+      </div>
+    </div>`;
+    return;
+  }
+  const rows=plan.payment_plan_installments||[];
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+    <div class="ab-h">Payment Plan — ${abEsc(inv?inv.contacts.name:'')}</div>
+    <table class="ab-table"><tr><th>Due</th><th>Amount</th><th>Status</th></tr>
+    ${rows.sort((a,b)=>a.due_date<b.due_date?-1:1).map(r=>`<tr><td>${r.due_date}</td><td>${abMoney(r.amount)}</td><td>${abEsc(r.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No installments</td></tr>'}
+    </table>
+  </div>`;
+}
+async function abCreatePaymentPlan(){
+  const inv=abInvoicesBillsCache.find(r=>r.id===abPaymentPlanInvoiceId);
+  const count=parseInt(document.getElementById('ab-pp-count').value)||2;
+  const freq=document.getElementById('ab-pp-freq').value;
+  const start=document.getElementById('ab-pp-start').value||new Date().toISOString().slice(0,10);
+  const total=Number(inv.total_amount)-Number(inv.paid_amount);
+  const installmentAmount=Math.round((total/count)*100)/100;
+  const{data:plan,error}=await db.from('payment_plans').insert({
+    book_id:abBookId,invoice_bill_id:abPaymentPlanInvoiceId,contact_id:inv.contact_id,
+    total_amount:total,installment_count:count,installment_amount:installmentAmount,frequency:freq,start_date:start
+  }).select().single();
+  if(error){abAlert(error.message);return;}
+  const daysStep=freq==='weekly'?7:freq==='biweekly'?14:30;
+  const installments=[];
+  let runningTotal=0;
+  for(let i=0;i<count;i++){
+    const d=new Date(start); d.setDate(d.getDate()+daysStep*i);
+    const amt = i===count-1 ? Math.round((total-runningTotal)*100)/100 : installmentAmount; // last one absorbs rounding
+    runningTotal+=amt;
+    installments.push({payment_plan_id:plan.id,due_date:d.toISOString().slice(0,10),amount:amt});
+  }
+  await db.from('payment_plan_installments').insert(installments);
+  abShowPaymentPlanFor(abPaymentPlanInvoiceId);
 }
 
 // ── QUOTES — item #29 on the Master Build Order. QuickBooks calls this
@@ -2000,20 +2127,24 @@ function abRenderInvoicesBills(){
       <div class="ab-field"><label>Amount</label><input id="ab-ib-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
       <div class="ab-field"><label>Date</label><input id="ab-ib-date" type="date" value="${today}"></div>
       <div class="ab-field"><label>Paid from (optional)</label><select id="ab-ib-payment-source"><option value="">—</option>${abPaymentSourcesCache.map(p=>`<option value="${p.id}">${abEsc(p.name)}${p.owning_book_id&&p.owning_book_id!==abBookId?' (other book)':p.owning_book_id?'':' (personal)'}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Item (optional)</label><select id="ab-ib-item" onchange="const it=abItems.find(x=>x.id===this.value); document.getElementById('ab-ib-costtype').value = it&&it.cost_type ? it.cost_type : '';"><option value="">—</option>${abItems.map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Cost Type (optional)</label><select id="ab-ib-costtype"><option value="">—</option>${abCostTypeOptions()}</select></div>
       <div class="ab-field"><label>Category (optional)</label><select id="ab-ib-account"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Job/Tag (optional)</label><select id="ab-ib-tag"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Memo (optional)</label><input id="ab-ib-memo" placeholder="e.g. lumber for Job 114"></div>
       <button class="ab-btn" onclick="abAddInvoiceBill()">Save</button>
     </div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick an Item (e.g. "HVAC"), then set Cost Type to whatever this specific bill actually is — Labor, Material, or Subcontractor. Same item, different Cost Type each time, exactly as it happens on a real job.</div>
     ${!visual?(()=>{
       const tk='invbills';
       abSmartRerender[tk]=abRenderInvoicesBills;
       const getters={date:r=>r.doc_date||'',type:r=>r.direction==='bill_payable'?'Bill':'Invoice',contact:r=>r.contacts?r.contacts.name:'',amount:r=>Number(r.total_amount)||0,status:r=>r.status||''};
       const sorted=abSmartApply(tk,abInvoicesBillsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',type:'Type',contact:'Contact',amount:'Amount',status:'Status'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}</tr>
-      ${sorted.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
-      </table>`;
+      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th></tr>
+      ${sorted.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">Nothing entered yet — the pile starts here</td></tr>'}
+      </table>
+      <div id="ab-planpanel"></div>`;
     })():`
     <div class="ab-doc-wrap">
     ${abInvoicesBillsCache.map(r=>{
@@ -2089,6 +2220,8 @@ async function abAddInvoiceBill(){
   const amount=parseFloat(document.getElementById('ab-ib-amount').value)||0;
   const date=document.getElementById('ab-ib-date').value||null;
   const paymentSource=document.getElementById('ab-ib-payment-source').value||null;
+  const item=document.getElementById('ab-ib-item').value||null;
+  const costType=document.getElementById('ab-ib-costtype').value||null;
   const account=document.getElementById('ab-ib-account').value||null;
   const tag=document.getElementById('ab-ib-tag').value||null;
   const memo=document.getElementById('ab-ib-memo').value.trim();
@@ -2104,10 +2237,12 @@ async function abAddInvoiceBill(){
     payment_source_id:paymentSource,resolution_status:mismatch?'pending':'none'
   }).select().single();
   if(error){abAlert(error.message);return;}
-  await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:account,tag_id:tag,description:memo||null,quantity:1,unit_price:amount,amount:amount});
+  await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,item_id:item,account_id:account,tag_id:tag,cost_type:costType,description:memo||null,quantity:1,unit_price:amount,amount:amount});
   await abPostJournalForInvoiceBill(data, account, tag, amount);
   document.getElementById('ab-ib-amount').value='';
   document.getElementById('ab-ib-memo').value='';
+  document.getElementById('ab-ib-item').value='';
+  document.getElementById('ab-ib-costtype').value='';
   if(mismatch){
     abAlert("Flagged for review — this was paid from \""+src.name+"\", which doesn't belong to this book. Go to Review Queue to decide: Wages, Distribution, Loan, or Reimbursement.");
   }
