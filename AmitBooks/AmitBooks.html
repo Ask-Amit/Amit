@@ -166,6 +166,17 @@ header{
 .ab-h{font-family:'Cinzel',serif;color:var(--gold2);font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
 .ab-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:12px;margin-bottom:14px}
 .ab-form input,.ab-form select{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;font-family:inherit}
+/* ── Fallback theming for any select/input/textarea NOT inside a
+   styled .ab-form (table row pickers, inline row editors, etc.) — never
+   let a native control fall back to browser white. Cream, matching the
+   document-visual palette (checks, bills, the Hub's calendar), not
+   stark white. Lower specificity than .ab-form's own rule on purpose,
+   so entry forms keep their dark-on-navy look and only bare/unstyled
+   controls pick this up. ── */
+select,input[type=text],input[type=number],input[type=date],input[type=email],input[type=search],textarea{
+  background:#f4f1e6;color:#2a2418;border:1px solid rgba(201,168,76,.4);border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12px
+}
+select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);outline-offset:1px}
 .ab-form label{font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:3px}
 .ab-field{display:flex;flex-direction:column}
 .ab-btn{background:rgba(201,168,76,.16);border:1px solid var(--gold);color:var(--gold2);padding:8px 16px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;align-self:flex-end}
@@ -238,7 +249,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.37</div>
+    <div class="page-version" id="pageVersion">v1.38</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -3405,6 +3416,16 @@ function abQbBuildMapping(){
   });
 }
 function abRenderQbMapping(){
+  // Full-panel re-render on every single dropdown change used to reset
+  // both scroll boxes back to the top — with 80+ rows that looked and
+  // felt like the click "didn't work" even though the value did save.
+  // Capture and restore scroll position across the re-render so editing
+  // row 60 doesn't fling the person back to row 1.
+  const accScrollEl=document.getElementById('ab-qb-acct-scroll');
+  const nameScrollEl=document.getElementById('ab-qb-name-scroll');
+  const accScrollTop=accScrollEl?accScrollEl.scrollTop:0;
+  const nameScrollTop=nameScrollEl?nameScrollEl.scrollTop:0;
+
   const totalLines=abQbParsedGroups.reduce((s,g)=>s+g.lines.length,0);
   const newAccCount=abQbAccountRows.filter(r=>r.action==='new').length;
   const newNameCount=abQbNameRows.filter(r=>r.action==='new').length;
@@ -3417,7 +3438,7 @@ function abRenderQbMapping(){
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Review every account and every name below before importing. Each one either matches something already in this book (pre-selected) or is proposed as new, with a type/role you can change. Nothing is written until you click Commit at the bottom.</div>
 
     <div class="ab-h" style="font-size:14px">Accounts (${abQbAccountRows.length})</div>
-    <div style="max-height:340px;overflow-y:auto;border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-bottom:20px">
+    <div id="ab-qb-acct-scroll" style="max-height:340px;overflow-y:auto;border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-bottom:20px">
       <table class="ab-table"><thead><tr><th>Import name</th><th>Used</th><th>Action</th><th>Type</th></tr></thead><tbody>
       ${abQbAccountRows.map((r,i)=>`<tr>
         <td>${abEsc(r.name)}</td><td>${r.count}</td>
@@ -3433,7 +3454,7 @@ function abRenderQbMapping(){
     </div>
 
     <div class="ab-h" style="font-size:14px">Vendors / Customers / Jobs (${abQbNameRows.length})</div>
-    <div style="max-height:340px;overflow-y:auto;border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-bottom:16px">
+    <div id="ab-qb-name-scroll" style="max-height:340px;overflow-y:auto;border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-bottom:16px">
       <table class="ab-table"><thead><tr><th>Import name</th><th>Used</th><th>Action</th><th>Role (if new)</th></tr></thead><tbody>
       ${abQbNameRows.map((r,i)=>`<tr>
         <td>${abEsc(r.name)}</td><td>${r.count}</td>
@@ -3449,6 +3470,11 @@ function abRenderQbMapping(){
     </div>
     <button class="ab-btn" id="ab-qb-commit-btn" onclick="abQbCommit()">Commit ${abQbParsedGroups.length} Transactions</button>
     <div id="ab-qb-result" style="margin-top:14px"></div>`;
+
+  const newAccScrollEl=document.getElementById('ab-qb-acct-scroll');
+  const newNameScrollEl=document.getElementById('ab-qb-name-scroll');
+  if(newAccScrollEl) newAccScrollEl.scrollTop=accScrollTop;
+  if(newNameScrollEl) newNameScrollEl.scrollTop=nameScrollTop;
 }
 function abQbSetAccountAction(i,val){
   if(val==='new'){ abQbAccountRows[i].action='new'; abQbAccountRows[i].accountId=null; }
