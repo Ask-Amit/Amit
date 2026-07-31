@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.39</div>
+    <div class="page-version" id="pageVersion">v1.40</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1639,9 +1639,15 @@ function abRenderContacts(){
       </div>
       <button class="ab-btn" onclick="abAddContact()">Add Contact</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Name</th><th>Roles</th></tr>
-    ${shown.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td></tr>`).join('')||`<tr><td class="ab-empty" colspan="2">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='contacts'; abSmartRerender[tk]=abRenderContacts;
+      const getters={name:c=>c.name,roles:c=>['is_customer','is_vendor','is_employee','is_contractor_1099'].filter(k=>c[k]).join(' ')};
+      const sorted=abSmartApply(tk,shown,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',roles:'Roles'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}</tr>
+      ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td></tr>`).join('')||`<tr><td class="ab-empty" colspan="2">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${shown.map(c=>`<div class="ab-rolo">
       <div class="ro-kicker">Contact</div>
@@ -1700,9 +1706,15 @@ function abRenderItems(){
       <div class="ab-field"><label>Price (optional)</label><input id="ab-item-price" type="number" step="0.01" style="width:90px"></div>
       <button class="ab-btn" onclick="abAddItem()">Add Item</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Name</th><th>What is it?</th><th>Expense Account</th><th>Income Account</th><th>Price</th></tr>
-    ${abItems.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(abItemTypeLabel(i.item_type))}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No items yet — add your first one above, or browse a template</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='items'; abSmartRerender[tk]=abRenderItems;
+      const getters={name:i=>i.name||'',type:i=>abItemTypeLabel(i.item_type),expense:i=>abAccountLabel(i.expense_account_id),income:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
+      const sorted=abSmartApply(tk,abItems,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'What is it?',expense:'Expense Account',income:'Income Account',price:'Price'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','What is it?')}${abSmartTh(tk,'expense','Expense Account')}${abSmartTh(tk,'income','Income Account')}${abSmartTh(tk,'price','Price')}</tr>
+      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(abItemTypeLabel(i.item_type))}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No items yet — add your first one above, or browse a template</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abItems.map(i=>`<div class="ab-rolo">
       <div class="ro-kicker">${abEsc(abItemTypeLabel(i.item_type))}</div>
@@ -1815,9 +1827,15 @@ function abRenderTags(){
       <button class="ab-btn" onclick="abAddTag()">Add</button>
     </div>
     ${!clients.length?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">No contacts marked as Customer/Client yet — check "Customer / Client" on someone in the Contacts tab to link a job to them.</div>`:''}
-    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Client</th><th>Address</th><th>Status</th><th></th><th></th></tr>
-    ${shown.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Estimates →</a></td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="7">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
-    </table>
+    ${(()=>{
+      const tk='tags'; abSmartRerender[tk]=abRenderTags;
+      const getters={name:t=>t.name||'',type:t=>t.tag_type||'',client:t=>abContactName(t.contact_id)||'',address:t=>t.address||'',status:t=>t.status||'active'};
+      const sorted=abSmartApply(tk,shown,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'Type',client:'Client',address:'Address',status:'Status'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'client','Client')}${abSmartTh(tk,'address','Address')}${abSmartTh(tk,'status','Status')}<th></th><th></th></tr>
+      ${sorted.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Estimates →</a></td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="7">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
+      </table>`;
+    })()}
     <div id="ab-estimates-panel"></div>`;
 }
 async function abAddTag(){
@@ -2059,9 +2077,15 @@ async function abRenderPayments(){
     </div>`;
   el.innerHTML=`${abVisualSwitch('payments','abRenderPayments')}
     ${entryHtml}
-    ${!visual?`<table class="ab-table"><tr><th>Date</th><th>Against</th><th>Amount</th><th>Method</th></tr>
-    ${abPaymentsRowsCache.map(p=>`<tr><td>${p.payment_date||''}</td><td>${abEsc(p.invoices_bills?(p.invoices_bills.direction==='bill_payable'?'Bill':'Invoice')+' — '+(p.invoices_bills.contacts?p.invoices_bills.contacts.name:''):'—')}</td><td>${abMoney(p.amount)}</td><td>${abEsc(p.method||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No payments recorded yet</td></tr>'}
-    </table>`:''}`;
+    ${!visual?(()=>{
+      const tk='payments'; abSmartRerender[tk]=abRenderPayments;
+      const getters={date:p=>p.payment_date||'',against:p=>p.invoices_bills&&p.invoices_bills.contacts?p.invoices_bills.contacts.name:'',amount:p=>Number(p.amount)||0,method:p=>p.method||''};
+      const sorted=abSmartApply(tk,abPaymentsRowsCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',against:'Against',amount:'Amount',method:'Method'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'against','Against')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'method','Method')}</tr>
+      ${sorted.map(p=>`<tr><td>${p.payment_date||''}</td><td>${abEsc(p.invoices_bills?(p.invoices_bills.direction==='bill_payable'?'Bill':'Invoice')+' — '+(p.invoices_bills.contacts?p.invoices_bills.contacts.name:''):'—')}</td><td>${abMoney(p.amount)}</td><td>${abEsc(p.method||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No payments recorded yet</td></tr>'}
+      </table>`;
+    })():''}`;
   if(visual){
     const amtEl=document.getElementById('ab-pay-amount');
     const wordsEl=document.getElementById('ab-pay-words');
@@ -2115,9 +2139,15 @@ function abRenderFixedAssets(){
       <div class="ab-field"><label>Useful life (months)</label><input id="ab-fa-life" type="number" style="width:80px"></div>
       <button class="ab-btn" onclick="abAddFixedAsset()">Add Asset</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Name</th><th>Cost Basis</th><th>Acquired</th><th>Method</th></tr>
-    ${abFixedAssetsCache.map(a=>`<tr><td>${abEsc(a.asset_name)}</td><td>${a.cost_basis?abMoney(a.cost_basis):'—'}</td><td>${a.acquisition_date||''}</td><td>${abEsc(a.depreciation_method||'—')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No fixed assets yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='fixedassets'; abSmartRerender[tk]=abRenderFixedAssets;
+      const getters={name:a=>a.asset_name||'',cost:a=>Number(a.cost_basis)||0,acquired:a=>a.acquisition_date||'',method:a=>a.depreciation_method||''};
+      const sorted=abSmartApply(tk,abFixedAssetsCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',cost:'Cost Basis',acquired:'Acquired',method:'Method'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'cost','Cost Basis')}${abSmartTh(tk,'acquired','Acquired')}${abSmartTh(tk,'method','Method')}</tr>
+      ${sorted.map(a=>`<tr><td>${abEsc(a.asset_name)}</td><td>${a.cost_basis?abMoney(a.cost_basis):'—'}</td><td>${a.acquisition_date||''}</td><td>${abEsc(a.depreciation_method||'—')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No fixed assets yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abFixedAssetsCache.map(a=>`<div class="ab-rolo">
       <div class="ro-kicker">${abEsc(a.component_name?'Property component':'Fixed asset')}</div>
