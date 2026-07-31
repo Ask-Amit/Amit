@@ -226,7 +226,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.30</div>
+    <div class="page-version" id="pageVersion">v1.31</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2816,9 +2816,8 @@ function abRenderQbImportTab(){
       <div class="ab-field" style="flex:1"><label>CSV file</label><input type="file" id="ab-qb-file" accept=".csv,.txt" onchange="abQbFileChosen(event)"></div>
     </div>
     <textarea id="ab-qb-paste" placeholder="…or paste the raw CSV text here" style="width:100%;min-height:110px;margin-top:8px;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.25);border-radius:6px;color:inherit;padding:10px;font-family:monospace;font-size:12px"></textarea>
-    <div style="margin-top:10px;display:flex;gap:8px">
-      <button class="ab-btn" onclick="abQbParse()">Parse &amp; Preview</button>
-      <button class="ab-btn" id="ab-qb-commit-btn" style="display:none" onclick="abQbCommit()">Commit to Book</button>
+    <div style="margin-top:10px">
+      <button class="ab-btn" onclick="abQbParse()">Parse &amp; Review</button>
     </div>
     <div id="ab-qb-preview" style="margin-top:16px"></div>`;
 }
@@ -2868,63 +2867,190 @@ function abQbParse(){
     document.getElementById('ab-qb-preview').innerHTML=`<div class="ab-signin-notice" style="text-align:left">Couldn't find the columns this needs (Date, Account, Debit/Credit). Detected headers: ${header.map(h=>abEsc(h)).join(', ')}. Make sure the export is QuickBooks' standard "Journal" report format.</div>`;
     return;
   }
-  // Group lines into transactions. QuickBooks Journal exports usually
-  // repeat Date/Type/Num across every line of one transaction — group on
-  // whichever identifying combo is present, falling back to Date+Memo.
-  const groups=[]; let current=null,lastKey=null;
+  // Group lines into transactions. QuickBooks' real Journal export only
+  // stamps Trans #/Date/Type/Name on the FIRST line of a transaction —
+  // every continuation line leaves those columns blank and carries only
+  // Account/Memo/Debit/Credit. So a new group starts only when a row
+  // actually has a non-blank Trans # (or Date+Type, if no Trans # column
+  // exists) — every other row with an Account value belongs to whichever
+  // group is currently open, never re-matched by key.
+  const groups=[]; let current=null;
   for(let r=1;r<rows.length;r++){
     const row=rows[r];
     const account=(row[idx.account]||'').trim();
-    if(!account) continue;
     const debit=parseFloat((row[idx.debit]||'').replace(/[^0-9.-]/g,''))||0;
     const credit=parseFloat((row[idx.credit]||'').replace(/[^0-9.-]/g,''))||0;
     const date=(row[idx.date]||'').trim();
-    const key=(idx.transNum>=0?row[idx.transNum]:'') || (date+'|'+(idx.memo>=0?row[idx.memo]:'')+'|'+(idx.type>=0?row[idx.type]:''));
-    if(!date && !debit && !credit) continue;
-    if(key!==lastKey || !current){
-      current={date,type:idx.type>=0?row[idx.type]:'',name:idx.name>=0?row[idx.name]:'',memo:idx.memo>=0?row[idx.memo]:'',lines:[]};
+    const transNum=(idx.transNum>=0?(row[idx.transNum]||'').trim():'');
+    const type=(idx.type>=0?(row[idx.type]||'').trim():'');
+    const isNewTxn = idx.transNum>=0 ? !!transNum : !!(date && type);
+    if(isNewTxn){
+      current={date,type,name:idx.name>=0?row[idx.name]:'',memo:idx.memo>=0?row[idx.memo]:'',lines:[]};
       groups.push(current);
-      lastKey=key;
     }
+    if(!account) continue; // totals/blank-account rows carry no line
+    if(!current) continue; // stray line before any transaction header — skip
     if(!current.date && date) current.date=date;
-    current.lines.push({account,debit,credit});
+    // QuickBooks repeats the Name (vendor, or Customer:Job) column on
+    // every line — unlike Trans #/Date/Type, which only appear once.
+    const lineName=(idx.name>=0?(row[idx.name]||'').trim():'');
+    current.lines.push({account,debit,credit,name:lineName});
   }
   abQbParsedGroups=groups.filter(g=>g.lines.length);
+  abQbBuildMapping();
+  abRenderQbMapping();
+}
+// ══════════════════════════════════════════════
+// INTERACTIVE REVIEW — Ryan's direct correction: never silently guess
+// account types or auto-create vendors/customers/jobs on real books.
+// Instead: derive the complete list of every account and every name
+// (vendor/customer/job) the import touches, compare each against what
+// already exists in this book, and let him decide per item — use an
+// existing match, or create new with a chosen type/role — before a
+// single row is written. Nothing commits until this review is resolved.
+// ══════════════════════════════════════════════
+let abQbAccountRows=[]; // [{name, action:'existing'|'new', accountId, accountType}]
+let abQbNameRows=[];    // [{name, parent, job, action:'existing'|'new', contactId, isCustomer, isVendor, makeJob, jobTagId}]
+function abGuessAccountType(name){
+  const n=name.toLowerCase();
+  if(/checking|savings|compass -|wells -(?!.*card)|undeposited|petty cash|^cash/.test(n)) return 'asset';
+  if(/capital one|card|amex|americanexpress|citi -|bmo |pnc -|line of credit|^loan/i.test(n)) return 'liability';
+  if(/income|rent -|interest income/.test(n)) return 'income';
+  return 'expense';
+}
+function abQbBuildMapping(){
+  const accSet=new Map(); // name -> count
+  const nameSet=new Map();
+  abQbParsedGroups.forEach(g=>{
+    g.lines.forEach(l=>{
+      accSet.set(l.account,(accSet.get(l.account)||0)+1);
+      if(l.name) nameSet.set(l.name,(nameSet.get(l.name)||0)+1);
+    });
+  });
+  abQbAccountRows=[...accSet.keys()].sort().map(name=>{
+    const existing=abAccounts.find(a=>a.account_name.toLowerCase()===name.toLowerCase());
+    return { name, count:accSet.get(name), action: existing?'existing':'new', accountId: existing?existing.id:null, accountType: abGuessAccountType(name) };
+  });
+  abQbNameRows=[...nameSet.keys()].sort().map(full=>{
+    const parts=full.split(':');
+    const parent=parts[0].trim();
+    const job=parts.length>1?parts.slice(1).join(':').trim():null;
+    const existing=abContacts.find(c=>c.name.toLowerCase()===parent.toLowerCase());
+    const existingJob=job?abTags.find(t=>t.name.toLowerCase()===job.toLowerCase()):null;
+    return { name:full, count:nameSet.get(full), parent, job, action: existing?'existing':'new', contactId: existing?existing.id:null, isCustomer:!!job, isVendor:!job, makeJob:!!job, jobTagId: existingJob?existingJob.id:null };
+  });
+}
+function abRenderQbMapping(){
   const totalLines=abQbParsedGroups.reduce((s,g)=>s+g.lines.length,0);
-  const unknownAccounts=[...new Set(abQbParsedGroups.flatMap(g=>g.lines.map(l=>l.account)).filter(a=>!abAccounts.find(x=>x.account_name.toLowerCase()===a.toLowerCase())))];
+  const newAccCount=abQbAccountRows.filter(r=>r.action==='new').length;
+  const newNameCount=abQbNameRows.filter(r=>r.action==='new').length;
   document.getElementById('ab-qb-preview').innerHTML=`
-    <div class="ab-card" style="display:inline-block;margin-bottom:12px"><div class="n">${abQbParsedGroups.length}</div><div class="l">Transactions found (${totalLines} lines)</div></div>
-    ${unknownAccounts.length?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:12px">${unknownAccounts.length} account(s) not in this book's Chart of Accounts yet — Commit will create them automatically: ${unknownAccounts.map(abEsc).join(', ')}</div>`:''}
-    <table class="ab-table"><tr><th>Date</th><th>Type</th><th>Name</th><th>Memo</th><th>Lines</th></tr>
-    ${abQbParsedGroups.slice(0,25).map(g=>`<tr><td>${abEsc(g.date)}</td><td>${abEsc(g.type)}</td><td>${abEsc(g.name)}</td><td>${abEsc(g.memo)}</td><td>${g.lines.length}</td></tr>`).join('')}
-    </table>
-    ${abQbParsedGroups.length>25?`<div style="font-size:11px;color:var(--muted);margin-top:6px">…and ${abQbParsedGroups.length-25} more</div>`:''}`;
-  document.getElementById('ab-qb-commit-btn').style.display='inline-block';
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="ab-card"><div class="n">${abQbParsedGroups.length}</div><div class="l">Transactions (${totalLines} lines)</div></div>
+      <div class="ab-card"><div class="n">${newAccCount}/${abQbAccountRows.length}</div><div class="l">Accounts to create</div></div>
+      <div class="ab-card"><div class="n">${newNameCount}/${abQbNameRows.length}</div><div class="l">Vendors/Customers/Jobs to create</div></div>
+    </div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Review every account and every name below before importing. Each one either matches something already in this book (pre-selected) or is proposed as new, with a type/role you can change. Nothing is written until you click Commit at the bottom.</div>
+
+    <div class="ab-h" style="font-size:14px">Accounts (${abQbAccountRows.length})</div>
+    <div style="max-height:340px;overflow-y:auto;border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-bottom:20px">
+      <table class="ab-table"><thead><tr><th>Import name</th><th>Used</th><th>Action</th><th>Type</th></tr></thead><tbody>
+      ${abQbAccountRows.map((r,i)=>`<tr>
+        <td>${abEsc(r.name)}</td><td>${r.count}</td>
+        <td><select onchange="abQbSetAccountAction(${i},this.value)">
+          <option value="new"${r.action==='new'?' selected':''}>Create new</option>
+          ${abAccounts.map(a=>`<option value="${a.id}"${r.action==='existing'&&r.accountId===a.id?' selected':''}>Use: ${abEsc(a.account_name)}</option>`).join('')}
+        </select></td>
+        <td>${r.action==='new'?`<select onchange="abQbAccountRows[${i}].accountType=this.value">
+          ${['asset','liability','equity','income','expense'].map(t=>`<option value="${t}"${r.accountType===t?' selected':''}>${t}</option>`).join('')}
+        </select>`:'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>
+
+    <div class="ab-h" style="font-size:14px">Vendors / Customers / Jobs (${abQbNameRows.length})</div>
+    <div style="max-height:340px;overflow-y:auto;border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-bottom:16px">
+      <table class="ab-table"><thead><tr><th>Import name</th><th>Used</th><th>Action</th><th>Role (if new)</th></tr></thead><tbody>
+      ${abQbNameRows.map((r,i)=>`<tr>
+        <td>${abEsc(r.name)}</td><td>${r.count}</td>
+        <td><select onchange="abQbSetNameAction(${i},this.value)">
+          <option value="new"${r.action==='new'?' selected':''}>Create new</option>
+          ${abContacts.map(c=>`<option value="${c.id}"${r.action==='existing'&&r.contactId===c.id?' selected':''}>Use: ${abEsc(c.name)}</option>`).join('')}
+        </select></td>
+        <td>${r.action==='new'?`<label style="font-size:11px"><input type="checkbox" ${r.isVendor?'checked':''} onchange="abQbNameRows[${i}].isVendor=this.checked"> Vendor</label>
+          <label style="font-size:11px;margin-left:8px"><input type="checkbox" ${r.isCustomer?'checked':''} onchange="abQbNameRows[${i}].isCustomer=this.checked"> Customer</label>
+          ${r.job?`<label style="font-size:11px;margin-left:8px"><input type="checkbox" ${r.makeJob?'checked':''} onchange="abQbNameRows[${i}].makeJob=this.checked"> Job: "${abEsc(r.job)}"</label>`:''}`:'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>
+    <button class="ab-btn" id="ab-qb-commit-btn" onclick="abQbCommit()">Commit ${abQbParsedGroups.length} Transactions</button>
+    <div id="ab-qb-result" style="margin-top:14px"></div>`;
+}
+function abQbSetAccountAction(i,val){
+  if(val==='new'){ abQbAccountRows[i].action='new'; abQbAccountRows[i].accountId=null; }
+  else { abQbAccountRows[i].action='existing'; abQbAccountRows[i].accountId=val; }
+  abRenderQbMapping();
+}
+function abQbSetNameAction(i,val){
+  if(val==='new'){ abQbNameRows[i].action='new'; abQbNameRows[i].contactId=null; }
+  else { abQbNameRows[i].action='existing'; abQbNameRows[i].contactId=val; }
+  abRenderQbMapping();
 }
 async function abQbCommit(){
   if(!abQbParsedGroups||!abQbParsedGroups.length){alert('Parse a file first.');return;}
-  if(!confirm(`Commit ${abQbParsedGroups.length} transactions to this book? Each becomes a real posted journal entry.`))return;
+  if(!confirm(`Commit ${abQbParsedGroups.length} transactions using the reviewed accounts and names above?`))return;
   const btn=document.getElementById('ab-qb-commit-btn'); btn.disabled=true; btn.textContent='Importing…';
+
+  // 1. Resolve every account row to a real ID — create only what was
+  // left as "Create new", with whatever type was chosen in review.
+  const accountIdByName={};
+  for(const r of abQbAccountRows){
+    accountIdByName[r.name] = r.action==='existing' ? r.accountId : await abFindOrCreateAccount(r.name, r.accountType);
+  }
+  // 2. Resolve every name row to a contact, and create a job Tag under
+  // that contact for any row where a job was requested.
+  const contactIdByName={};
+  const jobTagIdByFullName={};
+  for(const r of abQbNameRows){
+    let contactId=r.contactId;
+    if(r.action==='new'){
+      const{data,error}=await db.from('contacts').insert({book_id:abBookId,name:r.parent,is_vendor:r.isVendor,is_customer:r.isCustomer}).select().single();
+      if(error){ console.error(error); continue; }
+      contactId=data.id; abContacts.push(data);
+    }
+    contactIdByName[r.name]=contactId;
+    if(r.job && r.makeJob){
+      let tagId=r.jobTagId;
+      if(!tagId){
+        const{data,error}=await db.from('tags').insert({book_id:abBookId,tag_type:'job',name:r.job,contact_id:contactId,status:'active'}).select().single();
+        if(!error){ tagId=data.id; abTags.push(data); }
+      }
+      jobTagIdByFullName[r.name]=tagId;
+    }
+  }
+  // 3. Post the journal entries using the resolved account IDs. Where a
+  // line's Name maps to a job, tag that line so job-costing works.
   const{data:batch,error:batchErr}=await db.from('qb_import_batches').insert({book_id:abBookId,source_filename:document.getElementById('ab-qb-file').files[0]?document.getElementById('ab-qb-file').files[0].name:'pasted',row_count:abQbParsedGroups.length,status:'review'}).select().single();
   if(batchErr){alert(batchErr.message);btn.disabled=false;return;}
   let imported=0;
   for(const g of abQbParsedGroups){
-    const lines=[];
-    for(const l of g.lines){
-      const accountId=await abFindOrCreateAccount(l.account,'expense');
-      lines.push({account_id:accountId,debit:l.debit,credit:l.credit});
-    }
+    const lines=g.lines.map(l=>({
+      account_id: accountIdByName[l.account],
+      tag_id: l.name ? (jobTagIdByFullName[l.name]||null) : null,
+      debit:l.debit, credit:l.credit
+    })).filter(l=>l.account_id);
+    if(!lines.length) continue;
     const dateIso=abQbDateToIso(g.date);
     const{data:je}=await db.from('journal_entries').insert({book_id:abBookId,entry_date:dateIso,memo:(g.memo||g.name||g.type||'QuickBooks import'),source:'qb_import',status:'posted',qb_import_batch_id:batch.id}).select().single();
     if(je) await db.from('journal_lines').insert(lines.map(l=>({...l,journal_entry_id:je.id})));
     imported++;
   }
   await db.from('qb_import_batches').update({status:'committed'}).eq('id',batch.id);
-  await abLoadAccounts();
+  await abLoadAccounts(); await abLoadContacts(); await abLoadTags();
   await abLoadJournalLines();
-  abRenderReports();
+  abRenderReports(); abRenderContacts(); abRenderTags();
   btn.textContent='Imported ✓'; btn.disabled=false;
-  document.getElementById('ab-qb-preview').insertAdjacentHTML('afterbegin',`<div class="ab-signin-notice" style="text-align:left;background:rgba(100,220,160,.08);border-color:rgba(100,220,160,.4);margin-bottom:12px">Imported ${imported} transactions. Check Reports for the updated Trial Balance.</div>`);
+  document.getElementById('ab-qb-result').innerHTML=`<div class="ab-signin-notice" style="text-align:left;background:rgba(100,220,160,.08);border-color:rgba(100,220,160,.4)">Imported ${imported} transactions. Check Reports for the updated Trial Balance, and Contacts/Tags for the new vendors, customers, and jobs.</div>`;
 }
 function abQbDateToIso(d){
   if(!d) return null;
