@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.38</div>
+    <div class="page-version" id="pageVersion">v1.39</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -297,6 +297,24 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
       SEND SIGN-IN LINK →
     </button>
     <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+  </div>
+</div>
+
+<!-- AMITBOOKS-BRANDED DIALOG — replaces native alert/confirm/prompt so
+     every popup says "AmitBooks", not the browser's own "ask-amit.github.io
+     says" chrome, which no page can override. See abAlert/abConfirm/abPrompt. -->
+<div id="abDialogModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <div style="font-size:18px">🐵</div>
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:15px;letter-spacing:.05em">AmitBooks</div>
+    </div>
+    <div id="abDialogMessage" style="color:rgba(240,232,208,.85);font-size:13px;line-height:1.6;margin-bottom:16px;white-space:pre-wrap"></div>
+    <input id="abDialogInput" type="text" style="display:none;width:100%;margin-bottom:16px;box-sizing:border-box">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="abDialogCancelBtn" class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25);display:none">Cancel</button>
+      <button id="abDialogOkBtn" class="ab-btn">OK</button>
+    </div>
   </div>
 </div>
 
@@ -1050,6 +1068,55 @@ function toggleSidebar(){
 }
 
 // ══════════════════════════════════════════════
+// BRANDED DIALOGS — real replacements for window.alert/confirm/prompt.
+// The browser's native versions always prefix themselves with the site's
+// own origin ("ask-amit.github.io says") for security — no page can
+// remove or relabel that, so the only real fix is not using them at all.
+// These three are drop-in async replacements: `await abConfirm(msg)`
+// instead of `confirm(msg)`, etc. Standard going forward per Ryan's
+// direct instruction 2026-07-31 — see AmitBooks/CLAUDE.md.
+// ══════════════════════════════════════════════
+function abAlert(message){
+  return new Promise(resolve=>{
+    const modal=document.getElementById('abDialogModal');
+    document.getElementById('abDialogMessage').textContent=message;
+    document.getElementById('abDialogInput').style.display='none';
+    const cancelBtn=document.getElementById('abDialogCancelBtn'); cancelBtn.style.display='none';
+    const okBtn=document.getElementById('abDialogOkBtn'); okBtn.textContent='OK';
+    modal.style.display='flex';
+    okBtn.onclick=()=>{ modal.style.display='none'; resolve(); };
+  });
+}
+function abConfirm(message){
+  return new Promise(resolve=>{
+    const modal=document.getElementById('abDialogModal');
+    document.getElementById('abDialogMessage').textContent=message;
+    document.getElementById('abDialogInput').style.display='none';
+    const cancelBtn=document.getElementById('abDialogCancelBtn'); cancelBtn.style.display='inline-block';
+    const okBtn=document.getElementById('abDialogOkBtn'); okBtn.textContent='OK';
+    modal.style.display='flex';
+    okBtn.onclick=()=>{ modal.style.display='none'; resolve(true); };
+    cancelBtn.onclick=()=>{ modal.style.display='none'; resolve(false); };
+  });
+}
+function abPrompt(message,defaultValue){
+  return new Promise(resolve=>{
+    const modal=document.getElementById('abDialogModal');
+    document.getElementById('abDialogMessage').textContent=message;
+    const input=document.getElementById('abDialogInput');
+    input.style.display='block'; input.value=defaultValue||'';
+    const cancelBtn=document.getElementById('abDialogCancelBtn'); cancelBtn.style.display='inline-block';
+    const okBtn=document.getElementById('abDialogOkBtn'); okBtn.textContent='OK';
+    modal.style.display='flex';
+    setTimeout(()=>input.focus(),50);
+    const submit=()=>{ modal.style.display='none'; resolve(input.value); };
+    okBtn.onclick=submit;
+    input.onkeydown=(e)=>{ if(e.key==='Enter') submit(); };
+    cancelBtn.onclick=()=>{ modal.style.display='none'; resolve(null); };
+  });
+}
+
+// ══════════════════════════════════════════════
 // OPEN PAGES — the right-hand mirror of the left nav. Per the
 // Interactivity Standard (AmitBooks/CLAUDE.md), any drill-down or
 // cross-linked detail view registers itself here so navigating away
@@ -1134,8 +1201,8 @@ async function sendMagicLink(email){
   return error?error.message:null;
 }
 
-function openSyncModal(){
-  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
+async function openSyncModal(){
+  if(currentUser){if(await abConfirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
   const m=document.getElementById('syncModal');if(!m)return;
   m.style.display='flex';
 }
@@ -1286,7 +1353,7 @@ async function abCreateBook(){
   if(!name)return;
   const entity=document.getElementById('ab-new-book-entity').value;
   const{data,error}=await db.from('books').insert({user_id:currentUser.id,name,entity_type:entity||null}).select().single();
-  if(error){ alert('Could not create book: '+error.message); return; }
+  if(error){ abAlert('Could not create book: '+error.message); return; }
   await abLoadBooks();
   abSwitchBook(data.id);
   openPanel(1);
@@ -1405,9 +1472,9 @@ async function abSaveBookProfile(){
     phone:document.getElementById('ab-prof-phone').value.trim()||null,
     ein:document.getElementById('ab-prof-ein').value.trim()||null
   };
-  if(!updates.name){alert('Name is required.');return;}
+  if(!updates.name){abAlert('Name is required.');return;}
   const{error}=await db.from('books').update(updates).eq('id',abBookId);
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadBooks();
   abRenderBooksTab();
 }
@@ -1423,11 +1490,11 @@ async function abRenderTeamTable(){
 
 async function abInviteMember(){
   const userId=document.getElementById('ab-team-userid').value.trim();
-  if(!userId){alert("Paste the person's Amit account ID first.");return;}
+  if(!userId){abAlert("Paste the person's Amit account ID first.");return;}
   const role=document.getElementById('ab-team-role').value;
   const payroll=document.getElementById('ab-team-payroll').value==='true';
   const{error}=await db.from('book_members').insert({book_id:abBookId,user_id:userId,role,can_view_payroll:payroll});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-team-userid').value='';
   abRenderTeamTable();
 }
@@ -1507,8 +1574,8 @@ function abTemplateSelectAll(state){
 async function abPreviewTemplate(){
   const industry=document.getElementById('ab-coa-template-industry').value;
   const{data:templates,error}=await db.from('account_category_templates').select('*').eq('industry',industry).order('account_number');
-  if(error){alert(error.message);return;}
-  if(!templates||!templates.length){alert('No template found for that industry yet.');return;}
+  if(error){abAlert(error.message);return;}
+  if(!templates||!templates.length){abAlert('No template found for that industry yet.');return;}
   abTemplateIndustry=industry;
   abTemplatePreview=templates;
   abRenderCoa();
@@ -1524,7 +1591,7 @@ async function abImportSelectedTemplate(){
     book_id:abBookId,account_number:t.account_number,account_name:t.account_name,account_type:t.account_type
   }));
   const{error}=await db.from('chart_of_accounts').insert(rows);
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   abTemplatePreview=null;
   await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
 }
@@ -1533,7 +1600,7 @@ async function abAddAccount(){
   const type=document.getElementById('ab-coa-type').value;
   const number=document.getElementById('ab-coa-number').value.trim();
   const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
 }
 
@@ -1591,7 +1658,7 @@ async function abAddContact(){
     is_employee:document.getElementById('ab-contact-employee').checked,
     is_contractor_1099:document.getElementById('ab-contact-1099').checked};
   const{error}=await db.from('contacts').insert(row);
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
 }
 
@@ -1654,7 +1721,7 @@ async function abAddItem(){
   const expenseAcct=document.getElementById('ab-item-expense-acct').value||null;
   const incomeAcct=document.getElementById('ab-item-income-acct').value||null;
   const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
 }
 
@@ -1695,8 +1762,8 @@ function abItemTemplatePickerHtml(){
 async function abPreviewItemTemplate(){
   const industry=document.getElementById('ab-item-template-industry').value;
   const{data,error}=await db.from('item_category_templates').select('*').eq('industry',industry).order('name');
-  if(error){alert(error.message);return;}
-  if(!data||!data.length){alert('No item template for that industry yet.');return;}
+  if(error){abAlert(error.message);return;}
+  if(!data||!data.length){abAlert('No item template for that industry yet.');return;}
   abItemTemplatePreview=data;
   abRenderItems();
 }
@@ -1710,7 +1777,7 @@ async function abImportSelectedItemTemplate(){
     income_account_id:t.default_income_account_number?(byNumber[t.default_income_account_number]||null):null
   }));
   const{error}=await db.from('items').insert(rows);
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   abItemTemplatePreview=null;
   await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
 }
@@ -1759,12 +1826,12 @@ async function abAddTag(){
   const contact=document.getElementById('ab-tag-contact').value||null;
   const address=document.getElementById('ab-tag-address').value.trim()||null;
   const{error}=await db.from('tags').insert({book_id:abBookId,name,tag_type:type,contact_id:contact,address,status:'active'});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadTags(); abRenderTags(); abRefreshDropdownSources();
 }
 async function abToggleTagStatus(tagId,newStatus){
   const{error}=await db.from('tags').update({status:newStatus}).eq('id',tagId);
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadTags(); abRenderTags(); abRefreshDropdownSources();
 }
 
@@ -1794,7 +1861,7 @@ async function abAddEstimate(){
   const status=document.getElementById('ab-est-status').value;
   const tag=abTags.find(t=>t.id===abEstimatesTagId);
   const{error}=await db.from('estimates').insert({book_id:abBookId,tag_id:abEstimatesTagId,contact_id:tag?tag.contact_id:null,amount,estimate_number:number||null,status});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   abShowEstimatesFor(abEstimatesTagId);
 }
 
@@ -1924,7 +1991,7 @@ async function abAddInvoiceBill(){
   const account=document.getElementById('ab-ib-account').value||null;
   const tag=document.getElementById('ab-ib-tag').value||null;
   const memo=document.getElementById('ab-ib-memo').value.trim();
-  if(!amount){alert('Enter an amount.');return;}
+  if(!amount){abAlert('Enter an amount.');return;}
   // Mismatch detection: if the chosen payment source belongs to a
   // different book than the one this entry is being saved under (or to a
   // person, not a book at all), flag it for review instead of guessing.
@@ -1935,13 +2002,13 @@ async function abAddInvoiceBill(){
     subtotal:amount,total_amount:amount,memo:memo||null,
     payment_source_id:paymentSource,resolution_status:mismatch?'pending':'none'
   }).select().single();
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:account,tag_id:tag,description:memo||null,quantity:1,unit_price:amount,amount:amount});
   await abPostJournalForInvoiceBill(data, account, tag, amount);
   document.getElementById('ab-ib-amount').value='';
   document.getElementById('ab-ib-memo').value='';
   if(mismatch){
-    alert("Flagged for review — this was paid from \""+src.name+"\", which doesn't belong to this book. Go to Review Queue to decide: Wages, Distribution, Loan, or Reimbursement.");
+    abAlert("Flagged for review — this was paid from \""+src.name+"\", which doesn't belong to this book. Go to Review Queue to decide: Wages, Distribution, Loan, or Reimbursement.");
   }
   await abLoadInvoicesBills();
   await abLoadJournalLines();
@@ -2002,15 +2069,15 @@ async function abRenderPayments(){
   }
 }
 async function abAddPayment(){
-  const invbill=document.getElementById('ab-pay-invbill').value; if(!invbill){alert('Nothing to pay against — enter a bill or invoice first.');return;}
+  const invbill=document.getElementById('ab-pay-invbill').value; if(!invbill){abAlert('Nothing to pay against — enter a bill or invoice first.');return;}
   const amount=parseFloat(document.getElementById('ab-pay-amount').value)||0;
-  if(!amount){alert('Enter an amount.');return;}
+  if(!amount){abAlert('Enter an amount.');return;}
   const date=document.getElementById('ab-pay-date').value||null;
   const method=document.getElementById('ab-pay-method').value;
   const paymentSourceId=document.getElementById('ab-pay-source')?document.getElementById('ab-pay-source').value||null:null;
   const row=abInvoicesBillsCache.find(r=>r.id===invbill);
   const{data:payRow,error}=await db.from('payments').insert({book_id:abBookId,invoice_bill_id:invbill,contact_id:row?row.contact_id:null,payment_date:date,amount,method}).select().single();
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   const newPaid=(Number(row.paid_amount)||0)+amount;
   const newStatus=newPaid>=Number(row.total_amount)?'paid':'partial';
   await db.from('invoices_bills').update({paid_amount:newPaid,status:newStatus}).eq('id',invbill);
@@ -2068,7 +2135,7 @@ async function abAddFixedAsset(){
   const method=document.getElementById('ab-fa-method').value||null;
   const life=document.getElementById('ab-fa-life').value||null;
   const{error}=await db.from('fixed_assets').insert({book_id:abBookId,asset_name:name,cost_basis:cost,acquisition_date:date,depreciation_method:method,useful_life_months:life});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadFixedAssets();
   abRenderReports();
 }
@@ -2116,7 +2183,7 @@ async function abAddPaymentSource(){
   if(ownerVal.startsWith('book:')) owning_book_id=ownerVal.slice(5);
   else if(ownerVal==='personal'){ owning_book_id=null; owning_contact_id=document.getElementById('ab-ps-contact').value||null; }
   const{error}=await db.from('payment_sources').insert({name,source_type:type,owning_book_id,owning_contact_id});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-ps-name').value='';
   await abRenderPaymentSourcesTab();
 }
@@ -2175,16 +2242,16 @@ async function abResolveFlag(invoiceBillId, totalAmount){
     contact: row.querySelector('.ab-flag-contact').value||null,
     amount: parseFloat(row.querySelector('.ab-flag-amount').value)||0
   })).filter(r=>r.amount>0);
-  if(!rows.length){alert('Enter at least one split amount.');return;}
+  if(!rows.length){abAlert('Enter at least one split amount.');return;}
   const splitTotal=rows.reduce((s,r)=>s+r.amount,0);
-  if(Math.abs(splitTotal-totalAmount)>0.01 && !confirm(`Splits total ${abMoney(splitTotal)}, the bill is ${abMoney(totalAmount)}. Resolve anyway?`)) return;
+  if(Math.abs(splitTotal-totalAmount)>0.01 && !(await abConfirm(`Splits total ${abMoney(splitTotal)}, the bill is ${abMoney(totalAmount)}. Resolve anyway?`))) return;
   const bill=abInvoicesBillsCache.find(r=>r.id===invoiceBillId);
   for(const r of rows){
     const{error}=await db.from('inter_book_resolutions').insert({
       source_invoice_bill_id:invoiceBillId, paying_book_id:abBookId,
       resolution_type:r.type, contact_id:r.contact, amount:r.amount
     });
-    if(error){alert(error.message);return;}
+    if(error){abAlert(error.message);return;}
     await abPostResolutionJournal(bill, r.type, r.contact, r.amount);
   }
   await db.from('invoices_bills').update({resolution_status:'resolved'}).eq('id',invoiceBillId);
@@ -2331,7 +2398,7 @@ function abRenderReports(){
 // ══════════════════════════════════════════════
 function abPrintPreview(title,columns,rowsData){
   const w=window.open('','_blank','width=900,height=700');
-  if(!w){ alert('Your browser blocked the print preview popup — allow popups for this site and try again.'); return; }
+  if(!w){ abAlert('Your browser blocked the print preview popup — allow popups for this site and try again.'); return; }
   const colsJson=JSON.stringify(columns);
   const rowsJson=JSON.stringify(rowsData);
   w.document.write(`<!doctype html><html><head><title>${title} — Print Preview</title>
@@ -2404,10 +2471,10 @@ function abSmartSort(tableKey,col){
   else { st.sortCol=col; st.sortDir='asc'; }
   if(abSmartRerender[tableKey]) abSmartRerender[tableKey]();
 }
-function abSmartFilterPrompt(tableKey,col,label){
+async function abSmartFilterPrompt(tableKey,col,label){
   const st=abSmartGet(tableKey);
   const cur=st.filters[col]?st.filters[col].value:'';
-  const val=prompt(`Filter "${label}" — contains:`,cur);
+  const val=await abPrompt(`Filter "${label}" — contains:`,cur);
   if(val===null) return; // cancelled
   if(val.trim()==='') delete st.filters[col];
   else st.filters[col]={value:val.trim().toLowerCase()};
@@ -2442,12 +2509,12 @@ function abSmartStatusBar(tableKey,labels){
     <span style="cursor:pointer;color:var(--muted);margin-left:10px;text-decoration:underline" onclick="abSmartSaveView('${tableKey}')">📌 Remember this view</span>
   </div>`;
 }
-function abSmartSaveView(tableKey){
-  const name=prompt('Name this view (e.g. "Overdue vendor bills"):'); if(!name) return;
+async function abSmartSaveView(tableKey){
+  const name=await abPrompt('Name this view (e.g. "Overdue vendor bills"):'); if(!name) return;
   const saved=JSON.parse(localStorage.getItem('ab_saved_views_'+tableKey)||'{}');
   saved[name]=JSON.parse(JSON.stringify(abSmartGet(tableKey)));
   localStorage.setItem('ab_saved_views_'+tableKey,JSON.stringify(saved));
-  alert(`Saved "${name}". Load it any time from the ⭐ Saved Views menu above this table.`);
+  abAlert(`Saved "${name}". Load it any time from the ⭐ Saved Views menu above this table.`);
   if(abSmartRerender[tableKey]) abSmartRerender[tableKey]();
 }
 function abSmartLoadView(tableKey,name){
@@ -2502,7 +2569,7 @@ function abJournalSortEntries(list){
 }
 
 function openJournalModal(){
-  if(!abBookId){alert('Create a book first (Dashboard tab).');return;}
+  if(!abBookId){abAlert('Create a book first (Dashboard tab).');return;}
   abJournalMode='date'; abJournalPath=[]; abJournalSelected.clear();
   document.getElementById('journalModal').style.display='flex';
   document.getElementById('journalModalBody').innerHTML='Loading…';
@@ -2580,7 +2647,7 @@ function abJournalRowMouseEnter(id){
 }
 async function abJournalDeleteSelected(){
   if(!abJournalSelected.size) return;
-  if(!confirm(`Delete ${abJournalSelected.size} journal entr${abJournalSelected.size===1?'y':'ies'}? This removes them from the ledger — a full record of what was deleted is kept in the audit log, but Reports will no longer include them.`))return;
+  if(!(await abConfirm(`Delete ${abJournalSelected.size} journal entr${abJournalSelected.size===1?'y':'ies'}? This removes them from the ledger — a full record of what was deleted is kept in the audit log, but Reports will no longer include them.`)))return;
   const ids=[...abJournalSelected];
   for(const id of ids){
     const je=abJournalFull.find(x=>x.id===id); if(!je) continue;
@@ -2758,7 +2825,7 @@ async function abAddPO(){
   const order_date=document.getElementById('ab-po-date').value||null;
   const total=parseFloat(document.getElementById('ab-po-total').value)||0;
   const{error}=await db.from('purchase_orders').insert({book_id:abBookId,contact_id:contact,po_number,order_date,total_amount:total});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-po-total').value='';
   await abLoadPurchaseOrders();
 }
@@ -2793,14 +2860,14 @@ function abRenderInventory(){
     </table>`;
 }
 async function abAddInventoryMove(){
-  const item=document.getElementById('ab-inv-item').value; if(!item){alert('Add an item first (Books & Setup → Items).');return;}
+  const item=document.getElementById('ab-inv-item').value; if(!item){abAlert('Add an item first (Books & Setup → Items).');return;}
   const move_type=document.getElementById('ab-inv-type').value;
   let qty=parseFloat(document.getElementById('ab-inv-qty').value)||0;
-  if(!qty){alert('Enter a quantity.');return;}
+  if(!qty){abAlert('Enter a quantity.');return;}
   if((move_type==='sale'||move_type==='scrap') && qty>0) qty=-qty;
   const unit_cost=document.getElementById('ab-inv-cost').value||null;
   const{error}=await db.from('inventory_transactions').insert({book_id:abBookId,item_id:item,move_type,quantity:qty,unit_cost});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   const it=abItems.find(i=>i.id===item);
   if(it){
     const newQty=(Number(it.quantity_on_hand)||0)+qty;
@@ -2860,7 +2927,7 @@ async function abAddProperty(){
   const purchase_price=document.getElementById('ab-prop-price').value||null;
   const land_value=document.getElementById('ab-prop-land').value||null;
   const{error}=await db.from('properties').insert({book_id:abBookId,name,address,purchase_price,land_value});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-prop-name').value='';
   await abLoadProperties();
 }
@@ -2868,16 +2935,16 @@ async function abAddPropertyComponent(propertyId){
   const name=document.getElementById('ab-prop-comp-name-'+propertyId).value.trim(); if(!name)return;
   const cost=document.getElementById('ab-prop-comp-cost-'+propertyId).value||null;
   const{error}=await db.from('fixed_assets').insert({book_id:abBookId,property_id:propertyId,component_name:name,asset_name:name,cost_basis:cost});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadFixedAssets();
   await abLoadProperties();
 }
 async function abAddPropertyOwner(propertyId){
   const contact=document.getElementById('ab-prop-owner-contact-'+propertyId).value; if(!contact)return;
   const pct=parseFloat(document.getElementById('ab-prop-owner-pct-'+propertyId).value)||0;
-  if(!pct){alert('Enter an ownership percentage.');return;}
+  if(!pct){abAlert('Enter an ownership percentage.');return;}
   const{error}=await db.from('property_owners').insert({property_id:propertyId,contact_id:contact,ownership_percentage:pct});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await abLoadProperties();
 }
 
@@ -2939,22 +3006,22 @@ function abRenderPayroll(){
     </div>`}`;
 }
 async function abAddEmployee(){
-  const contact=document.getElementById('ab-emp-contact').value; if(!contact){alert('Add a contact first (Books & Setup → Contacts).');return;}
+  const contact=document.getElementById('ab-emp-contact').value; if(!contact){abAlert('Add a contact first (Books & Setup → Contacts).');return;}
   const pay_type=document.getElementById('ab-emp-type').value;
   const pay_rate=document.getElementById('ab-emp-rate').value||null;
   const{error}=await db.from('employees').insert({book_id:abBookId,contact_id:contact,pay_type,pay_rate});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await db.from('contacts').update({is_employee:true}).eq('id',contact);
   await abLoadPayroll();
 }
 async function abAddPayrollRun(){
-  const employee_id=document.getElementById('ab-pr-emp').value; if(!employee_id){alert('Add an employee first.');return;}
+  const employee_id=document.getElementById('ab-pr-emp').value; if(!employee_id){abAlert('Add an employee first.');return;}
   const pay_date=document.getElementById('ab-pr-date').value||null;
   const gross_pay=parseFloat(document.getElementById('ab-pr-gross').value)||0;
   const net_pay=parseFloat(document.getElementById('ab-pr-net').value)||gross_pay;
-  if(!gross_pay){alert('Enter a gross pay amount.');return;}
+  if(!gross_pay){abAlert('Enter a gross pay amount.');return;}
   const{data:run,error}=await db.from('payroll_runs').insert({book_id:abBookId,pay_date,status:'posted'}).select().single();
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   await db.from('payroll_run_lines').insert({payroll_run_id:run.id,employee_id,gross_pay,net_pay,federal_withholding:0,fica_withholding:0,state_withholding:0,other_deductions:Math.max(0,gross_pay-net_pay)});
   // Post the journal: debit Wages Expense for the full gross, credit Cash
   // for what actually went out, credit Payroll Liabilities for the
@@ -3004,10 +3071,10 @@ function abRenderMileage(){
 async function abAddMileage(){
   const log_date=document.getElementById('ab-mi-date').value||null;
   const miles=parseFloat(document.getElementById('ab-mi-miles').value)||0;
-  if(!miles){alert('Enter miles.');return;}
+  if(!miles){abAlert('Enter miles.');return;}
   const purpose=document.getElementById('ab-mi-purpose').value.trim()||null;
   const{error}=await db.from('mileage_logs').insert({book_id:abBookId,log_date,miles,purpose});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-mi-miles').value=''; document.getElementById('ab-mi-purpose').value='';
   await abLoadMileage();
 }
@@ -3046,12 +3113,12 @@ function abRenderRepairs(){
     </div>`}`;
 }
 async function abAddRepair(){
-  const fixed_asset_id=document.getElementById('ab-rp-asset').value; if(!fixed_asset_id){alert('Add a fixed asset first.');return;}
+  const fixed_asset_id=document.getElementById('ab-rp-asset').value; if(!fixed_asset_id){abAlert('Add a fixed asset first.');return;}
   const repair_date=document.getElementById('ab-rp-date').value||null;
   const cost=document.getElementById('ab-rp-cost').value||null;
   const description=document.getElementById('ab-rp-desc').value.trim()||null;
   const{error}=await db.from('repair_logs').insert({fixed_asset_id,repair_date,cost,description});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-rp-cost').value=''; document.getElementById('ab-rp-desc').value='';
   await abLoadRepairs();
 }
@@ -3091,7 +3158,7 @@ async function abAddWarranty(){
   const description=document.getElementById('ab-wa-desc').value.trim(); if(!description)return;
   const coverage_end=document.getElementById('ab-wa-end').value||null;
   const{error}=await db.from('warranties').insert({book_id:abBookId,description,coverage_end});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-wa-desc').value='';
   await abLoadWarranties();
 }
@@ -3133,7 +3200,7 @@ async function abAddServiceAgreement(){
   const amount=document.getElementById('ab-sa-amount').value||null;
   const billing_interval=document.getElementById('ab-sa-interval').value;
   const{error}=await db.from('service_agreements').insert({book_id:abBookId,name,contact_id,amount,billing_interval,next_bill_date:new Date().toISOString().slice(0,10)});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-sa-name').value='';
   await abLoadServiceAgreements();
 }
@@ -3173,12 +3240,12 @@ function abRenderCrm(){
     </div>`}`;
 }
 async function abAddCrm(){
-  const contact_id=document.getElementById('ab-crm-contact').value; if(!contact_id){alert('Add a contact first.');return;}
+  const contact_id=document.getElementById('ab-crm-contact').value; if(!contact_id){abAlert('Add a contact first.');return;}
   const activity_type=document.getElementById('ab-crm-type').value;
   const activity_date=document.getElementById('ab-crm-date').value||null;
   const notes=document.getElementById('ab-crm-notes').value.trim()||null;
   const{error}=await db.from('crm_activities').insert({book_id:abBookId,contact_id,activity_type,activity_date,notes});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-crm-notes').value='';
   await abLoadCrm();
 }
@@ -3223,7 +3290,7 @@ async function abAddInvestment(){
   const cost_basis=document.getElementById('ab-iv-cost').value||null;
   const current_value=document.getElementById('ab-iv-value').value||null;
   const{error}=await db.from('investments').insert({book_id:abBookId,name,cost_basis,current_value});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-iv-name').value='';
   await abLoadInvestments();
 }
@@ -3262,11 +3329,11 @@ function abRenderSubscriptions(){
 async function abAddSubscription(){
   const contact_id=document.getElementById('ab-sub-contact').value||null;
   const amount=parseFloat(document.getElementById('ab-sub-amount').value)||0;
-  if(!amount){alert('Enter an amount.');return;}
+  if(!amount){abAlert('Enter an amount.');return;}
   const billing_interval=document.getElementById('ab-sub-interval').value;
   const next_bill_date=document.getElementById('ab-sub-next').value||null;
   const{error}=await db.from('subscriptions').insert({book_id:abBookId,contact_id,amount,billing_interval,next_bill_date});
-  if(error){alert(error.message);return;}
+  if(error){abAlert(error.message);return;}
   document.getElementById('ab-sub-amount').value='';
   await abLoadSubscriptions();
 }
@@ -3323,9 +3390,9 @@ function abParseCsv(text){
 }
 function abQbParse(){
   const text=document.getElementById('ab-qb-paste').value.trim();
-  if(!text){alert('Paste or choose a CSV file first.');return;}
+  if(!text){abAlert('Paste or choose a CSV file first.');return;}
   const rows=abParseCsv(text);
-  if(rows.length<2){alert('That doesn\'t look like a CSV with a header row plus data.');return;}
+  if(rows.length<2){abAlert('That doesn\'t look like a CSV with a header row plus data.');return;}
   const header=rows[0].map(h=>h.trim().toLowerCase());
   const find=(...names)=>{ for(const n of names){ const idx=header.findIndex(h=>h===n); if(idx>=0) return idx; } return -1; };
   const idx={
@@ -3487,9 +3554,11 @@ function abQbSetNameAction(i,val){
   abRenderQbMapping();
 }
 async function abQbCommit(){
-  if(!abQbParsedGroups||!abQbParsedGroups.length){alert('Parse a file first.');return;}
-  if(!confirm(`Commit ${abQbParsedGroups.length} transactions using the reviewed accounts and names above?`))return;
+  if(!abQbParsedGroups||!abQbParsedGroups.length){abAlert('Parse a file first.');return;}
+  if(!(await abConfirm(`Commit ${abQbParsedGroups.length} transactions using the reviewed accounts and names above? With this many transactions this can take a few minutes — the button will show live progress the whole way, it is not stuck.`)))return;
   const btn=document.getElementById('ab-qb-commit-btn'); btn.disabled=true; btn.textContent='Importing…';
+  const resultEl=document.getElementById('ab-qb-result');
+  resultEl.innerHTML=`<div class="ab-signin-notice" style="text-align:left">Setting up accounts and vendors/customers/jobs first…</div>`;
 
   // 1. Resolve every account row to a real ID — create only what was
   // left as "Create new", with whatever type was chosen in review.
@@ -3501,11 +3570,12 @@ async function abQbCommit(){
   // that contact for any row where a job was requested.
   const contactIdByName={};
   const jobTagIdByFullName={};
+  const nameErrors=[];
   for(const r of abQbNameRows){
     let contactId=r.contactId;
     if(r.action==='new'){
       const{data,error}=await db.from('contacts').insert({book_id:abBookId,name:r.parent,is_vendor:r.isVendor,is_customer:r.isCustomer}).select().single();
-      if(error){ console.error(error); continue; }
+      if(error){ nameErrors.push(r.parent+': '+error.message); continue; }
       contactId=data.id; abContacts.push(data);
     }
     contactIdByName[r.name]=contactId;
@@ -3519,28 +3589,43 @@ async function abQbCommit(){
     }
   }
   // 3. Post the journal entries using the resolved account IDs. Where a
-  // line's Name maps to a job, tag that line so job-costing works.
+  // line's Name maps to a job, tag that line so job-costing works. This
+  // is one insert per transaction (sequential, so accurate progress can
+  // be shown) — with 1000+ real transactions this genuinely takes a few
+  // minutes; the button text and result panel update live so it never
+  // looks silently hung, and any real insert error is collected and
+  // shown at the end instead of vanishing.
   const{data:batch,error:batchErr}=await db.from('qb_import_batches').insert({book_id:abBookId,source_filename:document.getElementById('ab-qb-file').files[0]?document.getElementById('ab-qb-file').files[0].name:'pasted',row_count:abQbParsedGroups.length,status:'review'}).select().single();
-  if(batchErr){alert(batchErr.message);btn.disabled=false;return;}
-  let imported=0;
-  for(const g of abQbParsedGroups){
+  if(batchErr){abAlert(batchErr.message);btn.disabled=false;btn.textContent='Commit '+abQbParsedGroups.length+' Transactions';return;}
+  let imported=0, skipped=0;
+  const txnErrors=[];
+  for(let gi=0; gi<abQbParsedGroups.length; gi++){
+    const g=abQbParsedGroups[gi];
     const lines=g.lines.map(l=>({
       account_id: accountIdByName[l.account],
       tag_id: l.name ? (jobTagIdByFullName[l.name]||null) : null,
       debit:l.debit, credit:l.credit
     })).filter(l=>l.account_id);
-    if(!lines.length) continue;
+    if(!lines.length){ skipped++; continue; }
     const dateIso=abQbDateToIso(g.date);
-    const{data:je}=await db.from('journal_entries').insert({book_id:abBookId,entry_date:dateIso,memo:(g.memo||g.name||g.type||'QuickBooks import'),source:'qb_import',status:'posted',qb_import_batch_id:batch.id}).select().single();
-    if(je) await db.from('journal_lines').insert(lines.map(l=>({...l,journal_entry_id:je.id})));
+    const{data:je,error:jeErr}=await db.from('journal_entries').insert({book_id:abBookId,entry_date:dateIso,memo:(g.memo||g.name||g.type||'QuickBooks import'),source:'qb_import',status:'posted',qb_import_batch_id:batch.id}).select().single();
+    if(jeErr){ txnErrors.push((g.date||'?')+' — '+jeErr.message); continue; }
+    const{error:jlErr}=await db.from('journal_lines').insert(lines.map(l=>({...l,journal_entry_id:je.id})));
+    if(jlErr){ txnErrors.push((g.date||'?')+' — '+jlErr.message); continue; }
     imported++;
+    if(gi%10===0 || gi===abQbParsedGroups.length-1){
+      btn.textContent=`Importing… ${gi+1}/${abQbParsedGroups.length}`;
+      resultEl.innerHTML=`<div class="ab-signin-notice" style="text-align:left">Posting transaction ${gi+1} of ${abQbParsedGroups.length} — ${imported} imported so far. This window stays open until it's done.</div>`;
+    }
   }
   await db.from('qb_import_batches').update({status:'committed'}).eq('id',batch.id);
   await abLoadAccounts(); await abLoadContacts(); await abLoadTags();
   await abLoadJournalLines();
   abRenderReports(); abRenderContacts(); abRenderTags();
   btn.textContent='Imported ✓'; btn.disabled=false;
-  document.getElementById('ab-qb-result').innerHTML=`<div class="ab-signin-notice" style="text-align:left;background:rgba(100,220,160,.08);border-color:rgba(100,220,160,.4)">Imported ${imported} transactions. Check Reports for the updated Trial Balance, and Contacts/Tags for the new vendors, customers, and jobs.</div>`;
+  const problems=[...nameErrors,...txnErrors];
+  resultEl.innerHTML=`<div class="ab-signin-notice" style="text-align:left;background:rgba(100,220,160,.08);border-color:rgba(100,220,160,.4)">Imported ${imported} transactions${skipped?` (${skipped} skipped — no resolved account on any line)`:''}. Check Reports for the updated Trial Balance, and Contacts/Tags for the new vendors, customers, and jobs.</div>`
+    +(problems.length?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4);margin-top:8px">${problems.length} row(s) had a real error and were skipped:<br>${problems.slice(0,20).map(abEsc).join('<br>')}${problems.length>20?`<br>…and ${problems.length-20} more`:''}</div>`:'');
 }
 function abQbDateToIso(d){
   if(!d) return null;
