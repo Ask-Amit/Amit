@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.40</div>
+    <div class="page-version" id="pageVersion">v1.41</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2829,12 +2829,18 @@ function abRenderPOs(){
       <div class="ab-field"><label>Total</label><input id="ab-po-total" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
       <button class="ab-btn" onclick="abAddPO()">Create PO</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>PO #</th><th>Vendor</th><th>Date</th><th>Total</th><th>Status</th><th>Received</th></tr>
-    ${abPurchaseOrdersCache.map(p=>`<tr><td>${abEsc(p.po_number||'—')}</td><td>${abEsc(p.contacts?p.contacts.name:'')}</td><td>${p.order_date||''}</td><td>${abMoney(p.total_amount)}</td><td>
-      <select onchange="abUpdatePOStatus('${p.id}',this.value)">
-        ${['draft','sent','partially_received','closed'].map(s=>`<option value="${s}"${p.status===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}
-      </select></td><td>${p.status==='closed'||p.status==='partially_received'?'✓':'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No purchase orders yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='pos'; abSmartRerender[tk]=abRenderPOs;
+      const getters={po:p=>p.po_number||'',vendor:p=>p.contacts?p.contacts.name:'',date:p=>p.order_date||'',total:p=>Number(p.total_amount)||0,status:p=>p.status||''};
+      const sorted=abSmartApply(tk,abPurchaseOrdersCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{po:'PO #',vendor:'Vendor',date:'Date',total:'Total',status:'Status'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'po','PO #')}${abSmartTh(tk,'vendor','Vendor')}${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'total','Total')}${abSmartTh(tk,'status','Status')}<th>Received</th></tr>
+      ${sorted.map(p=>`<tr><td>${abEsc(p.po_number||'—')}</td><td>${abEsc(p.contacts?p.contacts.name:'')}</td><td>${p.order_date||''}</td><td>${abMoney(p.total_amount)}</td><td>
+        <select onchange="abUpdatePOStatus('${p.id}',this.value)">
+          ${['draft','sent','partially_received','closed'].map(s=>`<option value="${s}"${p.status===s?' selected':''}>${s.replace('_',' ')}</option>`).join('')}
+        </select></td><td>${p.status==='closed'||p.status==='partially_received'?'✓':'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No purchase orders yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abPurchaseOrdersCache.map(p=>`<div class="ab-doc-card po">
       <div class="doc-kind">Purchase Order ${p.po_number?'#'+abEsc(p.po_number):''}</div>
@@ -2885,9 +2891,15 @@ function abRenderInventory(){
       <div class="ab-field"><label>Unit cost</label><input id="ab-inv-cost" type="number" step="0.01" style="width:90px" placeholder="optional"></div>
       <button class="ab-btn" onclick="abAddInventoryMove()">Record</button>
     </div>
-    <table class="ab-table"><tr><th>Item</th><th>Type</th><th>Qty</th><th>Unit Cost</th><th>Date</th></tr>
-    ${abInventoryCache.map(t=>`<tr><td>${abEsc(t.items?t.items.name:'')}</td><td>${abEsc(t.move_type)}</td><td>${t.quantity}</td><td>${t.unit_cost?abMoney(t.unit_cost):'—'}</td><td>${(t.created_at||'').slice(0,10)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No stock movements recorded yet</td></tr>'}
-    </table>`;
+    ${(()=>{
+      const tk='inventory'; abSmartRerender[tk]=abRenderInventory;
+      const getters={item:t=>t.items?t.items.name:'',type:t=>t.move_type||'',qty:t=>Number(t.quantity)||0,cost:t=>Number(t.unit_cost)||0,date:t=>(t.created_at||'').slice(0,10)};
+      const sorted=abSmartApply(tk,abInventoryCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{item:'Item',type:'Type',qty:'Qty',cost:'Unit Cost',date:'Date'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'item','Item')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'qty','Qty')}${abSmartTh(tk,'cost','Unit Cost')}${abSmartTh(tk,'date','Date')}</tr>
+      ${sorted.map(t=>`<tr><td>${abEsc(t.items?t.items.name:'')}</td><td>${abEsc(t.move_type)}</td><td>${t.quantity}</td><td>${t.unit_cost?abMoney(t.unit_cost):'—'}</td><td>${(t.created_at||'').slice(0,10)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No stock movements recorded yet</td></tr>'}
+      </table>`;
+    })()}`;
 }
 async function abAddInventoryMove(){
   const item=document.getElementById('ab-inv-item').value; if(!item){abAlert('Add an item first (Books & Setup → Items).');return;}
@@ -3003,9 +3015,15 @@ function abRenderPayroll(){
       <div class="ab-field"><label>Rate</label><input id="ab-emp-rate" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
       <button class="ab-btn" onclick="abAddEmployee()">Add Employee</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Name</th><th>Pay Type</th><th>Rate</th></tr>
-    ${abEmployeesCache.map(e=>`<tr><td>${abEsc(e.contacts?e.contacts.name:'')}</td><td>${abEsc(e.pay_type||'')}</td><td>${e.pay_rate?abMoney(e.pay_rate):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No employees yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='employees'; abSmartRerender[tk]=abRenderPayroll;
+      const getters={name:e=>e.contacts?e.contacts.name:'',type:e=>e.pay_type||'',rate:e=>Number(e.pay_rate)||0};
+      const sorted=abSmartApply(tk,abEmployeesCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'Pay Type',rate:'Rate'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Pay Type')}${abSmartTh(tk,'rate','Rate')}</tr>
+      ${sorted.map(e=>`<tr><td>${abEsc(e.contacts?e.contacts.name:'')}</td><td>${abEsc(e.pay_type||'')}</td><td>${e.pay_rate?abMoney(e.pay_rate):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No employees yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abEmployeesCache.map(e=>`<div class="ab-rolo">
       <div class="ro-kicker">Employee</div>
@@ -3021,9 +3039,16 @@ function abRenderPayroll(){
       <div class="ab-field"><label>Net</label><input id="ab-pr-net" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
       <button class="ab-btn" onclick="abAddPayrollRun()">Post Pay Run</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Pay Date</th><th>Employee</th><th>Gross</th><th>Net</th></tr>
-    ${abPayrollRunsCache.flatMap(r=>(r.payroll_run_lines||[]).map(l=>`<tr><td>${r.pay_date||''}</td><td>${abEsc(l.employees&&l.employees.contacts?l.employees.contacts.name:'')}</td><td>${abMoney(l.gross_pay)}</td><td>${abMoney(l.net_pay)}</td></tr>`)).join('')||'<tr><td class="ab-empty" colspan="4">No pay runs posted yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='payrollruns'; abSmartRerender[tk]=abRenderPayroll;
+      const rows=abPayrollRunsCache.flatMap(r=>(r.payroll_run_lines||[]).map(l=>({payDate:r.pay_date,name:l.employees&&l.employees.contacts?l.employees.contacts.name:'',gross:l.gross_pay,net:l.net_pay})));
+      const getters={payDate:r=>r.payDate||'',name:r=>r.name||'',gross:r=>Number(r.gross)||0,net:r=>Number(r.net)||0};
+      const sorted=abSmartApply(tk,rows,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{payDate:'Pay Date',name:'Employee',gross:'Gross',net:'Net'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'payDate','Pay Date')}${abSmartTh(tk,'name','Employee')}${abSmartTh(tk,'gross','Gross')}${abSmartTh(tk,'net','Net')}</tr>
+      ${sorted.map(r=>`<tr><td>${r.payDate||''}</td><td>${abEsc(r.name)}</td><td>${abMoney(r.gross)}</td><td>${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No pay runs posted yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abPayrollRunsCache.flatMap(r=>(r.payroll_run_lines||[]).map(l=>`<div class="ab-doc-card" style="border-top:5px solid #6b5a2a">
       <div class="doc-kind">Pay Stub — ${r.pay_date||''}</div>
@@ -3090,9 +3115,15 @@ function abRenderMileage(){
       <div class="ab-field"><label>Purpose</label><input id="ab-mi-purpose" placeholder="e.g. Supply run"></div>
       <button class="ab-btn" onclick="abAddMileage()">Log</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Date</th><th>Miles</th><th>Purpose</th></tr>
-    ${abMileageCache.map(m=>`<tr><td>${m.log_date||''}</td><td>${m.miles}</td><td>${abEsc(m.purpose||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No mileage logged yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='mileage'; abSmartRerender[tk]=abRenderMileage;
+      const getters={date:m=>m.log_date||'',miles:m=>Number(m.miles)||0,purpose:m=>m.purpose||''};
+      const sorted=abSmartApply(tk,abMileageCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',miles:'Miles',purpose:'Purpose'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'miles','Miles')}${abSmartTh(tk,'purpose','Purpose')}</tr>
+      ${sorted.map(m=>`<tr><td>${m.log_date||''}</td><td>${m.miles}</td><td>${abEsc(m.purpose||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No mileage logged yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-register" style="max-width:100%">
       <div class="rg-row hd" style="grid-template-columns:70px 1fr 60px"><span>Date</span><span>Purpose</span><span>Miles</span></div>
       ${abMileageCache.map(m=>`<div class="rg-row" style="grid-template-columns:70px 1fr 60px"><span>${(m.log_date||'').slice(5)}</span><span>${abEsc(m.purpose||'')}</span><span class="rg-bal">${m.miles}</span></div>`).join('')||'<div class="ab-empty">No mileage logged yet</div>'}
@@ -3130,9 +3161,15 @@ function abRenderRepairs(){
       <div class="ab-field"><label>Description</label><input id="ab-rp-desc" placeholder="What was fixed"></div>
       <button class="ab-btn" onclick="abAddRepair()">Log Repair</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Date</th><th>Asset</th><th>Cost</th><th>Description</th></tr>
-    ${abRepairsCache.map(r=>`<tr><td>${r.repair_date||''}</td><td>${abEsc(r.fixed_assets?r.fixed_assets.asset_name:'')}</td><td>${r.cost?abMoney(r.cost):'—'}</td><td>${abEsc(r.description||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No repairs logged yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='repairs'; abSmartRerender[tk]=abRenderRepairs;
+      const getters={date:r=>r.repair_date||'',asset:r=>r.fixed_assets?r.fixed_assets.asset_name:'',cost:r=>Number(r.cost)||0,desc:r=>r.description||''};
+      const sorted=abSmartApply(tk,abRepairsCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',asset:'Asset',cost:'Cost',desc:'Description'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'asset','Asset')}${abSmartTh(tk,'cost','Cost')}${abSmartTh(tk,'desc','Description')}</tr>
+      ${sorted.map(r=>`<tr><td>${r.repair_date||''}</td><td>${abEsc(r.fixed_assets?r.fixed_assets.asset_name:'')}</td><td>${r.cost?abMoney(r.cost):'—'}</td><td>${abEsc(r.description||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No repairs logged yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abRepairsCache.map(r=>`<div class="ab-rolo">
       <div class="ro-kicker">Repair — ${r.repair_date||''}</div>
@@ -3172,9 +3209,15 @@ function abRenderWarranties(){
       <div class="ab-field"><label>Coverage ends</label><input id="ab-wa-end" type="date"></div>
       <button class="ab-btn" onclick="abAddWarranty()">Add</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Description</th><th>Ends</th><th>Status</th></tr>
-    ${abWarrantiesCache.map(w=>`<tr><td>${abEsc(w.description||'')}</td><td>${w.coverage_end||''}</td><td>${abEsc(w.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No warranties tracked yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='warranties'; abSmartRerender[tk]=abRenderWarranties;
+      const getters={desc:w=>w.description||'',ends:w=>w.coverage_end||'',status:w=>w.status||''};
+      const sorted=abSmartApply(tk,abWarrantiesCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{desc:'Description',ends:'Ends',status:'Status'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'desc','Description')}${abSmartTh(tk,'ends','Ends')}${abSmartTh(tk,'status','Status')}</tr>
+      ${sorted.map(w=>`<tr><td>${abEsc(w.description||'')}</td><td>${w.coverage_end||''}</td><td>${abEsc(w.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No warranties tracked yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abWarrantiesCache.map(w=>`<div class="ab-rolo" style="border-left-color:#4a6fb2">
       <div class="ro-kicker">Warranty</div>
@@ -3212,9 +3255,15 @@ function abRenderServiceAgreements(){
       <div class="ab-field"><label>Interval</label><select id="ab-sa-interval"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div>
       <button class="ab-btn" onclick="abAddServiceAgreement()">Add</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Name</th><th>Contact</th><th>Amount</th><th>Interval</th><th>Status</th></tr>
-    ${abServiceAgreementsCache.map(s=>`<tr><td>${abEsc(s.name)}</td><td>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${s.amount?abMoney(s.amount):'—'}</td><td>${abEsc(s.billing_interval)}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No service agreements yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='serviceagreements'; abSmartRerender[tk]=abRenderServiceAgreements;
+      const getters={name:s=>s.name||'',contact:s=>s.contacts?s.contacts.name:'',amount:s=>Number(s.amount)||0,interval:s=>s.billing_interval||'',status:s=>s.status||''};
+      const sorted=abSmartApply(tk,abServiceAgreementsCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',contact:'Contact',amount:'Amount',interval:'Interval',status:'Status'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'interval','Interval')}${abSmartTh(tk,'status','Status')}</tr>
+      ${sorted.map(s=>`<tr><td>${abEsc(s.name)}</td><td>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${s.amount?abMoney(s.amount):'—'}</td><td>${abEsc(s.billing_interval)}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No service agreements yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abServiceAgreementsCache.map(s=>`<div class="ab-rolo" style="border-left-color:#2f7a4f">
       <div class="ro-kicker">Contract — ${abEsc(s.billing_interval)}</div>
