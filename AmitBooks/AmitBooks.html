@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.44</div>
+    <div class="page-version" id="pageVersion">v1.45</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -892,7 +892,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Roadmap','ab-roadmap']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -1327,7 +1327,7 @@ async function abLoadBooks(){
 
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
-  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags(); abRenderQbImportTab();
+  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags(); abRenderQbImportTab(); abLoadRoadmap();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
@@ -3776,6 +3776,52 @@ function abQbDateToIso(d){
   if(m){ let[,mo,day,yr]=m; if(yr.length===2)yr='20'+yr; return `${yr}-${mo.padStart(2,'0')}-${day.padStart(2,'0')}`; }
   const iso=d.match(/^\d{4}-\d{2}-\d{2}/); if(iso) return iso[0];
   return d;
+}
+
+// ══════════════════════════════════════════════
+// ROADMAP — the real, persistent, checkable Master Build Order. Ryan's
+// direct instruction 2026-07-31: turn the 45-item feature list (from The
+// Council + pursuits + AmitAccounting_Spec.md) into an actual checklist,
+// not more prose — and prioritize it by real dependency, not just the
+// order items were brainstormed in. Backed by a real Supabase table
+// (amitbooks_roadmap, global — this is the product roadmap, not one
+// book's data) so status persists and is honest across sessions.
+// ══════════════════════════════════════════════
+let abRoadmapCache=[];
+async function abLoadRoadmap(){
+  const{data,error}=await db.from('amitbooks_roadmap').select('*').order('priority_tier',{ascending:true}).order('item_number',{ascending:true});
+  if(error){ abRoadmapCache=[]; abRenderRoadmap(error.message); return; }
+  abRoadmapCache=data||[];
+  abRenderRoadmap();
+}
+const AB_ROADMAP_STATUS_CYCLE=['not_started','in_progress','partial','done'];
+const AB_ROADMAP_STATUS_LABEL={not_started:'Not started',in_progress:'In progress',partial:'Partial',done:'Done ✓',blocked:'Blocked'};
+const AB_ROADMAP_STATUS_COLOR={not_started:'rgba(240,232,208,.08)',in_progress:'rgba(201,168,76,.18)',partial:'rgba(140,160,220,.18)',done:'rgba(100,220,160,.18)',blocked:'rgba(220,120,120,.18)'};
+function abRenderRoadmap(errMsg){
+  const el=document.getElementById('ab-roadmap'); if(!el)return;
+  if(errMsg){
+    el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">Roadmap table isn't set up in Supabase yet — ${abEsc(errMsg)}. Run migration_2026-07-31_001_amitbooks_roadmap.sql, then reopen this tab.</div>`;
+    return;
+  }
+  const done=abRoadmapCache.filter(r=>r.status==='done').length;
+  const total=abRoadmapCache.length;
+  const tk='roadmap'; abSmartRerender[tk]=()=>abRenderRoadmap();
+  const getters={num:r=>r.item_number,title:r=>r.title||'',category:r=>r.category||'',status:r=>r.status||'',tier:r=>r.priority_tier};
+  const sorted=abSmartApply(tk,abRoadmapCache,getters);
+  el.innerHTML=`<div class="ab-h">Master Build Order — the real checklist</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">${done} of ${total} complete. Priority tier 1 = do first (either already the foundation, or unblocks the most other work) — click a status pill to cycle Not started → In progress → Partial → Done. Sortable/filterable like every other list in AmitBooks.</div>
+    ${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{num:'#',title:'Title',category:'Category',status:'Status',tier:'Tier'})}
+    <table class="ab-table"><tr>${abSmartTh(tk,'tier','Tier')}${abSmartTh(tk,'num','#')}${abSmartTh(tk,'title','Title')}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'status','Status')}</tr>
+    ${sorted.map(r=>`<tr><td>${r.priority_tier}</td><td>${r.item_number}</td><td>${abEsc(r.title)}${r.blocked_reason?`<div style="font-size:10px;color:var(--muted)">${abEsc(r.blocked_reason)}</div>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(r.category||'')}</td><td><span style="cursor:pointer;padding:3px 9px;border-radius:10px;font-size:11px;background:${AB_ROADMAP_STATUS_COLOR[r.status]||''}" onclick="abCycleRoadmapStatus('${r.id}','${r.status}')">${AB_ROADMAP_STATUS_LABEL[r.status]||r.status}</span></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No roadmap items yet</td></tr>'}
+    </table>`;
+}
+async function abCycleRoadmapStatus(id,current){
+  if(current==='blocked') return; // blocked items are cleared manually, not cycled
+  const idx=AB_ROADMAP_STATUS_CYCLE.indexOf(current);
+  const next=AB_ROADMAP_STATUS_CYCLE[(idx+1)%AB_ROADMAP_STATUS_CYCLE.length];
+  const{error}=await db.from('amitbooks_roadmap').update({status:next,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){abAlert(error.message);return;}
+  await abLoadRoadmap();
 }
 
 function abRefreshDropdownSources(){
