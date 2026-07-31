@@ -226,7 +226,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.31</div>
+    <div class="page-version" id="pageVersion">v1.34</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -268,6 +268,17 @@ header{
       SEND SIGN-IN LINK →
     </button>
     <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+  </div>
+</div>
+
+<div id="journalModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:900px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;margin-bottom:6px">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">General Journal</div>
+      <div onclick="closeJournalModal()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+    </div>
+    <div style="color:rgba(240,232,208,.45);font-size:11px;margin-bottom:14px">Every posted entry, by date. Double-click a row to see its debit/credit lines.</div>
+    <div id="journalModalBody" style="overflow-y:auto;flex:1">Loading…</div>
   </div>
 </div>
 
@@ -1248,6 +1259,7 @@ function abRenderDashboard(){
         <button class="ab-btn" onclick="openPanel(6)">+ Bill / Invoice</button>
         <button class="ab-btn" onclick="openPanel(7)">+ Payment</button>
         <button class="ab-btn" onclick="openPanel(2)">+ Contact / Vendor</button>
+        <button class="ab-btn" onclick="openJournalModal()">📖 Journal</button>
       </div>
     </div>
     <div class="ab-section">
@@ -2177,7 +2189,7 @@ function abRenderReports(){
   const totalAssets=assets.reduce((s,r)=>s+r.net,0);
   const totalLiabilities=liabilities.reduce((s,r)=>s+r.net,0);
   const totalEquity=equity.reduce((s,r)=>s+r.net,0)+netIncome;
-  const abRow=(r)=>`<tr><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`;
+  const abRow=(r)=>`<tr style="cursor:pointer" onclick="abOpenJournalForAccount('${r.account.id}','${abEsc(r.account.account_name)}')" title="Click to see every transaction in this account"><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`;
 
   el.innerHTML=`<div class="ab-h">Where things stand</div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
@@ -2218,13 +2230,232 @@ function abRenderReports(){
       <div>
         <div class="ab-h" style="font-size:15px">Trial Balance</div>
         <table class="ab-table"><thead><tr><th>Account</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr></thead><tbody>
-          ${rows.map(r=>`<tr><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${r.debit?abMoney(r.debit):''}</td><td style="text-align:right">${r.credit?abMoney(r.credit):''}</td></tr>`).join('')}
+          ${rows.map(r=>`<tr style="cursor:pointer" onclick="abOpenJournalForAccount('${r.account.id}','${abEsc(r.account.account_name)}')" title="Click to see every transaction in this account"><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${r.debit?abMoney(r.debit):''}</td><td style="text-align:right">${r.credit?abMoney(r.credit):''}</td></tr>`).join('')}
           <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Total</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(tbDebitTotal)}</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(tbCreditTotal)}</td></tr>
         </tbody></table>
         ${Math.abs(tbDebitTotal-tbCreditTotal)>0.01?`<div class="ab-signin-notice" style="text-align:left;margin-top:10px">Debits and credits are out of balance by ${abMoney(Math.abs(tbDebitTotal-tbCreditTotal))} — this points to a posting bug, not a data-entry error, since every journal entry is built debit=credit at insert time.</div>`:''}
       </div>
     </div>`}`;
 }
+
+// ══════════════════════════════════════════════
+// GENERAL JOURNAL VIEWER — drill-down, not one flat list. Two starting
+// points: By Date (Year → Month → Transactions → Lines) or By Account
+// (Chart of Accounts summary → Year → Month → Transactions → Lines).
+// Double-click zooms in one level; the breadcrumb zooms back out.
+// Checkboxes (and click-drag across rows) select transactions at the
+// Transactions level for bulk delete — every delete is snapshotted to
+// audit_log first (full entry + lines, as JSON) so the books can always
+// show what was removed, by whom, and when, even though the row itself
+// is gone. This is real deletion, not a status flag — journal_entries
+// has no "voided" state, and a permanent audit trail is the honest
+// substitute per Ryan's direct requirement.
+// ══════════════════════════════════════════════
+let abJournalFull=[];
+let abJournalMode='date';   // 'date' | 'account'
+let abJournalPath=[];        // e.g. [{level:'year',key:'2025',label:'2025'}, ...]
+let abJournalSelected=new Set();
+let abJournalDragging=false, abJournalDragValue=true;
+let abJournalSort={col:'date',dir:'asc'};
+function abJournalSetSort(col){
+  if(abJournalSort.col===col) abJournalSort.dir=(abJournalSort.dir==='asc'?'desc':'asc');
+  else abJournalSort={col,dir:'asc'};
+  abRenderJournalModal();
+}
+function abJournalSortEntries(list){
+  const {col,dir}=abJournalSort; const mul=dir==='asc'?1:-1;
+  const val=(je)=>{
+    if(col==='date') return je.entry_date||'';
+    if(col==='memo') return (je.memo||'').toLowerCase();
+    if(col==='source') return (je.source||'').toLowerCase();
+    if(col==='amount') return (je.journal_lines||[]).reduce((s,l)=>s+(Number(l.debit)||0),0);
+    return '';
+  };
+  return list.slice().sort((a,b)=>{ const av=val(a),bv=val(b); return av<bv?-1*mul:av>bv?1*mul:0; });
+}
+
+function openJournalModal(){
+  if(!abBookId){alert('Create a book first (Dashboard tab).');return;}
+  abJournalMode='date'; abJournalPath=[]; abJournalSelected.clear();
+  document.getElementById('journalModal').style.display='flex';
+  document.getElementById('journalModalBody').innerHTML='Loading…';
+  abLoadJournalFull();
+  document.onmouseup=()=>{ abJournalDragging=false; };
+}
+// Reports rows (Trial Balance, P&L, Balance Sheet) call this directly —
+// every number on those screens drills straight into its real
+// transactions, per the Interactivity Standard in this project's
+// CLAUDE.md: nothing displayed is ever a dead end.
+async function abOpenJournalForAccount(accountId,accountName){
+  abJournalMode='account'; abJournalPath=[{level:'account',key:accountId,label:accountName}]; abJournalSelected.clear();
+  document.getElementById('journalModal').style.display='flex';
+  document.getElementById('journalModalBody').innerHTML='Loading…';
+  document.onmouseup=()=>{ abJournalDragging=false; };
+  if(!abJournalFull.length) await abLoadJournalFull(); else abRenderJournalModal();
+}
+function closeJournalModal(){
+  document.getElementById('journalModal').style.display='none';
+}
+async function abLoadJournalFull(){
+  const{data,error}=await db.from('journal_entries').select('*,journal_lines(*,chart_of_accounts(account_name))').eq('book_id',abBookId).order('entry_date',{ascending:true});
+  if(error){ document.getElementById('journalModalBody').innerHTML=`<div class="ab-empty">${abEsc(error.message)}</div>`; return; }
+  abJournalFull=data||[];
+  abRenderJournalModal();
+}
+function abJournalSetMode(m){ abJournalMode=m; abJournalPath=[]; abJournalSelected.clear(); abRenderJournalModal(); }
+function abJournalDrill(level,key,label){ abJournalPath.push({level,key,label}); abJournalSelected.clear(); abRenderJournalModal(); }
+function abJournalJumpTo(idx){ abJournalPath=abJournalPath.slice(0,idx+1); abJournalSelected.clear(); abRenderJournalModal(); }
+function abJournalJumpToRoot(){ abJournalPath=[]; abJournalSelected.clear(); abRenderJournalModal(); }
+
+function abJournalFilteredEntries(){
+  let entries=abJournalFull;
+  const acct=abJournalPath.find(p=>p.level==='account');
+  if(acct) entries=entries.filter(je=>(je.journal_lines||[]).some(l=>l.account_id===acct.key));
+  const yr=abJournalPath.find(p=>p.level==='year');
+  if(yr) entries=entries.filter(je=>(je.entry_date||'').slice(0,4)===yr.key);
+  const mo=abJournalPath.find(p=>p.level==='month');
+  if(mo) entries=entries.filter(je=>(je.entry_date||'').slice(0,7)===mo.key);
+  return entries;
+}
+const AB_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function abJournalCheckboxToggle(id,checked){
+  if(checked) abJournalSelected.add(id); else abJournalSelected.delete(id);
+  abRenderJournalModal();
+}
+function abJournalRowMouseDown(id,ev){
+  ev.preventDefault();
+  abJournalDragging=true;
+  abJournalDragValue=!abJournalSelected.has(id);
+  if(abJournalDragValue) abJournalSelected.add(id); else abJournalSelected.delete(id);
+  abRenderJournalModal();
+}
+function abJournalRowMouseEnter(id){
+  if(!abJournalDragging) return;
+  if(abJournalDragValue) abJournalSelected.add(id); else abJournalSelected.delete(id);
+  abRenderJournalModal();
+}
+async function abJournalDeleteSelected(){
+  if(!abJournalSelected.size) return;
+  if(!confirm(`Delete ${abJournalSelected.size} journal entr${abJournalSelected.size===1?'y':'ies'}? This removes them from the ledger — a full record of what was deleted is kept in the audit log, but Reports will no longer include them.`))return;
+  const ids=[...abJournalSelected];
+  for(const id of ids){
+    const je=abJournalFull.find(x=>x.id===id); if(!je) continue;
+    await db.from('audit_log').insert({
+      book_id:abBookId, table_name:'journal_entries', row_id:id, action:'delete',
+      changed_by: currentUser?currentUser.id:null,
+      old_value:{ entry:{entry_date:je.entry_date,memo:je.memo,source:je.source,status:je.status}, lines:(je.journal_lines||[]).map(l=>({account_name:l.chart_of_accounts?l.chart_of_accounts.account_name:null,debit:l.debit,credit:l.credit})) }
+    });
+    await db.from('journal_lines').delete().eq('journal_entry_id',id);
+    await db.from('journal_entries').delete().eq('id',id);
+  }
+  abJournalSelected.clear();
+  await abLoadJournalFull();
+  await abLoadJournalLines();
+  abRenderReports();
+}
+
+function abRenderJournalModal(){
+  const el=document.getElementById('journalModalBody'); if(!el)return;
+  if(!abJournalFull.length){ el.innerHTML='<div class="ab-empty">No journal entries posted yet — they appear automatically as bills, invoices, payments, and pay runs are entered.</div>'; return; }
+
+  const modeSwitch=`<div class="ab-vswitch" style="margin-bottom:10px">
+    <span class="${abJournalMode==='date'?'on':''}" onclick="abJournalSetMode('date')">By Date</span>
+    <span class="${abJournalMode==='account'?'on':''}" onclick="abJournalSetMode('account')">By Account</span>
+  </div>`;
+  const crumbs=[`<span style="cursor:pointer;color:var(--gold2)" onclick="abJournalJumpToRoot()">${abJournalMode==='date'?'All Dates':'All Accounts'}</span>`]
+    .concat(abJournalPath.map((p,i)=>`<span style="cursor:pointer;color:var(--gold2)" onclick="abJournalJumpTo(${i})"> / ${abEsc(p.label)}</span>`));
+  const breadcrumb=`<div style="font-size:12px;margin-bottom:12px">${crumbs.join('')}</div>`;
+
+  // ── Level: account list (root of "By Account" mode) ──
+  if(abJournalMode==='account' && !abJournalPath.length){
+    const rows=abAccountBalances();
+    el.innerHTML=modeSwitch+breadcrumb+`<table class="ab-table"><thead><tr><th>Account</th><th style="text-align:right">Balance</th></tr></thead><tbody>
+      ${rows.map(r=>`<tr style="cursor:pointer" ondblclick="abJournalDrill('account','${r.account.id}','${abEsc(r.account.account_name)}')"><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">No activity yet</td></tr>'}
+      </tbody></table>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">Double-click an account to drill into the years/months/transactions that touch it.</div>`;
+    return;
+  }
+
+  const filtered=abJournalFilteredEntries();
+  const hasYear=abJournalPath.some(p=>p.level==='year');
+  const hasMonth=abJournalPath.some(p=>p.level==='month');
+
+  // ── Level: years ──
+  if(!hasYear){
+    const years=[...new Set(filtered.map(je=>(je.entry_date||'').slice(0,4)).filter(Boolean))].sort();
+    el.innerHTML=modeSwitch+breadcrumb+`<table class="ab-table"><thead><tr><th>Year</th><th>Transactions</th><th style="text-align:right">Total</th></tr></thead><tbody>
+      ${years.map(y=>{
+        const yEntries=filtered.filter(je=>(je.entry_date||'').slice(0,4)===y);
+        const total=yEntries.reduce((s,je)=>s+(je.journal_lines||[]).reduce((s2,l)=>s2+(Number(l.debit)||0),0),0);
+        return `<tr style="cursor:pointer" ondblclick="abJournalDrill('year','${y}','${y}')"><td>${y}</td><td>${yEntries.length}</td><td style="text-align:right">${abMoney(total)}</td></tr>`;
+      }).join('')||'<tr><td class="ab-empty" colspan="3">No activity</td></tr>'}
+      </tbody></table>`;
+    return;
+  }
+
+  // ── Level: months ──
+  if(!hasMonth){
+    const months=[...new Set(filtered.map(je=>(je.entry_date||'').slice(0,7)).filter(Boolean))].sort();
+    el.innerHTML=modeSwitch+breadcrumb+`<table class="ab-table"><thead><tr><th>Month</th><th>Transactions</th><th style="text-align:right">Total</th></tr></thead><tbody>
+      ${months.map(m=>{
+        const mEntries=filtered.filter(je=>(je.entry_date||'').slice(0,7)===m);
+        const total=mEntries.reduce((s,je)=>s+(je.journal_lines||[]).reduce((s2,l)=>s2+(Number(l.debit)||0),0),0);
+        const label=AB_MONTH_NAMES[parseInt(m.slice(5,7),10)-1]||m;
+        return `<tr style="cursor:pointer" ondblclick="abJournalDrill('month','${m}','${label}')"><td>${label}</td><td>${mEntries.length}</td><td style="text-align:right">${abMoney(total)}</td></tr>`;
+      }).join('')||'<tr><td class="ab-empty" colspan="3">No activity</td></tr>'}
+      </tbody></table>`;
+    return;
+  }
+
+  // ── Level: transactions — selectable (checkbox or click-drag), sortable
+  // by any column, double-click a row zooms to its lines ──
+  const allChecked=filtered.length>0 && filtered.every(je=>abJournalSelected.has(je.id));
+  const sorted=abJournalSortEntries(filtered);
+  const arrow=(col)=>abJournalSort.col===col?(abJournalSort.dir==='asc'?' ▲':' ▼'):'';
+  const sortTh=(col,label,extra)=>`<th style="cursor:pointer;${extra||''}" onclick="abJournalSetSort('${col}')">${label}${arrow(col)}</th>`;
+  el.innerHTML=modeSwitch+breadcrumb+
+    (abJournalSelected.size?`<button class="ab-btn" style="background:rgba(220,120,120,.2);border-color:#b23a3a;color:#f0a8a8;margin-bottom:10px" onclick="abJournalDeleteSelected()">🗑 Delete Selected (${abJournalSelected.size})</button>`:'')+
+    `<table class="ab-table" style="font-size:12px;user-select:none"><thead><tr>
+      <th style="width:24px"><input type="checkbox" id="ab-journal-selectall" ${allChecked?'checked':''}></th>
+      ${sortTh('date','Date','width:80px')}${sortTh('memo','Memo')}${sortTh('source','Source','width:70px')}${sortTh('amount','Amount','width:90px;text-align:right')}</tr></thead><tbody>
+    ${sorted.map(je=>{
+      const amount=(je.journal_lines||[]).reduce((s,l)=>s+(Number(l.debit)||0),0);
+      const checked=abJournalSelected.has(je.id);
+      return `<tr style="cursor:pointer;${checked?'background:rgba(201,168,76,.12)':''}"
+        onmousedown="abJournalRowMouseDown('${je.id}',event)" onmouseenter="abJournalRowMouseEnter('${je.id}')"
+        ondblclick="abJournalDrill('txn','${je.id}','${je.entry_date||''} — ${abEsc((je.memo||'').slice(0,24))}')">
+        <td><input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation()" onchange="abJournalCheckboxToggle('${je.id}',this.checked)"></td>
+        <td>${je.entry_date||''}</td><td>${abEsc(je.memo||'')}</td><td style="font-size:10px;color:var(--muted)">${abEsc(je.source||'')}</td><td style="text-align:right">${abMoney(amount)}</td>
+      </tr>`;
+    }).join('')||'<tr><td class="ab-empty" colspan="5">No transactions this period</td></tr>'}
+    </tbody></table>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Click a checkbox, or click-and-drag down a column of rows to select several. Double-click a row (not its checkbox) to see its debit/credit lines.</div>`;
+  // Wire the header "select all" checkbox now that the table exists.
+  const headCb=document.getElementById('ab-journal-selectall');
+  if(headCb) headCb.onclick=()=>{ if(allChecked) filtered.forEach(je=>abJournalSelected.delete(je.id)); else filtered.forEach(je=>abJournalSelected.add(je.id)); abRenderJournalModal(); };
+  return;
+}
+// Separate render path for the deepest level — a single transaction's lines.
+const _abRenderJournalModalTop=abRenderJournalModal;
+abRenderJournalModal=function(){
+  const txnStep=abJournalPath[abJournalPath.length-1];
+  if(txnStep && txnStep.level==='txn'){
+    const el=document.getElementById('journalModalBody'); if(!el)return;
+    const je=abJournalFull.find(x=>x.id===txnStep.key);
+    const crumbs=[`<span style="cursor:pointer;color:var(--gold2)" onclick="abJournalJumpToRoot()">${abJournalMode==='date'?'All Dates':'All Accounts'}</span>`]
+      .concat(abJournalPath.map((p,i)=>`<span style="cursor:pointer;color:var(--gold2)" onclick="abJournalJumpTo(${i})"> / ${abEsc(p.label)}</span>`));
+    if(!je){ el.innerHTML=`<div style="font-size:12px;margin-bottom:12px">${crumbs.join('')}</div><div class="ab-empty">That entry no longer exists.</div>`; return; }
+    el.innerHTML=`<div style="font-size:12px;margin-bottom:12px">${crumbs.join('')}</div>
+      <div class="ab-h" style="font-size:14px">${je.entry_date||''} — ${abEsc(je.memo||'')}</div>
+      <table class="ab-table"><tr><th>Account</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr>
+      ${(je.journal_lines||[]).map(l=>`<tr><td>${abEsc(l.chart_of_accounts?l.chart_of_accounts.account_name:'')}</td><td style="text-align:right">${l.debit?abMoney(l.debit):''}</td><td style="text-align:right">${l.credit?abMoney(l.credit):''}</td></tr>`).join('')}
+      </table>
+      <button class="ab-btn" style="background:rgba(220,120,120,.2);border-color:#b23a3a;color:#f0a8a8;margin-top:12px" onclick="abJournalSelected=new Set(['${je.id}']);abJournalDeleteSelected();abJournalJumpTo(${abJournalPath.length-2})">🗑 Delete This Entry</button>`;
+    return;
+  }
+  _abRenderJournalModalTop();
+};
 
 // ══════════════════════════════════════════════
 // PHASE 2 PANELS — every screen below follows the same rule as everything
