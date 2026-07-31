@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.58</div>
+    <div class="page-version" id="pageVersion">v1.59</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2162,6 +2162,101 @@ const AB_PAYMENT_PROCESSORS=[
 function abOcrPrefKey(){ return 'ab_ocr_engine_'+(abBookId||'none'); }
 function abGetOcrPref(){ return localStorage.getItem(abOcrPrefKey())||'google_vision'; }
 function abSetOcrPref(v){ localStorage.setItem(abOcrPrefKey(),v); abRenderIntegrations(); }
+
+// ── ANTHROPIC API KEY — a real "bring your own key" credential. Stored
+// only in this browser's own localStorage, never sent to Ryan or saved to
+// Supabase — this is the person's own key, billed to their own Anthropic
+// account. It's what makes Scan Receipt (Bills & Invoices tab) work.
+const AB_ANTHROPIC_KEY_LS='ab_anthropic_api_key';
+function abGetAnthropicKey(){ return localStorage.getItem(AB_ANTHROPIC_KEY_LS)||''; }
+function abSaveAnthropicKey(){
+  const v=document.getElementById('ab-anthropic-key').value.trim();
+  localStorage.setItem(AB_ANTHROPIC_KEY_LS,v);
+  document.getElementById('ab-anthropic-status').textContent=v?'Saved on this computer.':'Cleared.';
+  abRenderIntegrations();
+}
+async function abTestAnthropicKey(){
+  const status=document.getElementById('ab-anthropic-status');
+  const key=abGetAnthropicKey();
+  if(!key){ status.textContent='Paste and save a key first.'; return; }
+  status.textContent='Testing…';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-5',max_tokens:16,messages:[{role:'user',content:'Reply with OK.'}]})
+    });
+    if(res.ok){ status.textContent='✓ Key works.'; } else { const t=await res.text(); status.textContent='Key rejected: '+t.slice(0,150); }
+  }catch(e){ status.textContent='Could not reach Anthropic — '+e.message; }
+}
+
+// ── SCAN RECEIPT(S) — reads one or more images using the person's own
+// Anthropic key (Integrations tab). Each image can hold ONE receipt (a
+// single phone photo) or MANY (a flatbed/multi-feed scan of a stack) —
+// Claude is asked to find every distinct receipt in each image, not just
+// the first one. Every receipt found, across every image, lands as a row
+// in Batch Entry for review — nothing saves until the person clicks Save
+// All, same as any other entry.
+function abFileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result.split(',')[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function abExtractReceiptsFromImage(file,key){
+  const b64=await abFileToBase64(file);
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({
+      model:'claude-sonnet-5',max_tokens:1500,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},
+        {type:'text',text:'This image may contain ONE receipt/bill or MULTIPLE separate receipts (e.g. a flatbed scan of a stack, or several receipts photographed together). Find every distinct receipt in the image. Reply with ONLY a JSON array, no other text, no markdown fences: [{"vendor":"...", "amount":0.00, "date":"YYYY-MM-DD", "memo":"short description of what was bought"}, ...] — one object per receipt found. If a field can\'t be read, use null for it. Use today\'s date if no date is visible on that receipt.'}
+      ]}]
+    })
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error(t.slice(0,150)); }
+  const data=await res.json();
+  const raw=(data.content&&data.content[0]&&data.content[0].text)||'';
+  const parsed=JSON.parse(raw.replace(/^```json\s*|```\s*$/g,'').trim());
+  return Array.isArray(parsed)?parsed:[parsed];
+}
+async function abScanReceipts(fileList){
+  const files=Array.from(fileList||[]);
+  if(!files.length)return;
+  const status=document.getElementById('ab-scan-status');
+  const key=abGetAnthropicKey();
+  if(!key){ status.textContent='Add your Anthropic API key first — Books & Setup → Integrations.'; return; }
+  let allReceipts=[],unmatchedVendors=new Set(),failed=0;
+  for(let i=0;i<files.length;i++){
+    status.textContent=`Reading image ${i+1} of ${files.length}…`;
+    try{
+      const found=await abExtractReceiptsFromImage(files[i],key);
+      allReceipts.push(...found);
+    }catch(e){ failed++; }
+  }
+  if(!allReceipts.length){ status.textContent=failed?`Couldn't read anything usable from ${failed} image(s).`:'No receipts found in that image.'; return; }
+  abBatchRows=abBatchRows.filter(r=>r.amount); // keep any rows already in progress, drop the empty starter row
+  allReceipts.forEach(r=>{
+    let contactId='';
+    if(r.vendor){
+      const match=abContacts.find(c=>c.name.toLowerCase()===String(r.vendor).toLowerCase());
+      if(match) contactId=match.id; else unmatchedVendors.add(r.vendor);
+    }
+    abBatchRows.push({direction:'bill_payable',contact_id:contactId,amount:r.amount||'',date:r.date||new Date().toISOString().slice(0,10),item_id:'',cost_type:'',account_id:'',tag_id:'',memo:(r.memo||'')+(!contactId&&r.vendor?` (vendor: ${r.vendor})`:'')});
+  });
+  if(!abBatchRows.length) abBatchAddRow();
+  abBatchMode=true;
+  abRenderInvoicesBills();
+  const msg=[`✓ Found ${allReceipts.length} receipt(s) across ${files.length} image(s) — review in Batch Entry below.`];
+  if(unmatchedVendors.size) msg.push(`${unmatchedVendors.size} vendor(s) not in Contacts yet — noted in the memo, pick or add a Contact manually before saving those rows.`);
+  if(failed) msg.push(`${failed} image(s) couldn't be read.`);
+  const freshStatus=document.getElementById('ab-scan-status');
+  if(freshStatus) freshStatus.textContent=msg.join(' ');
+}
 function abRenderIntegrations(){
   const el=document.getElementById('ab-integrations'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
@@ -2195,7 +2290,18 @@ function abRenderIntegrations(){
         <div style="font-size:12px;color:var(--muted)">No ongoing free tier — costs from the first image. Better at reading messy handwriting and the red-marker job/category annotations once that standard is built. Good fallback for receipts Google's OCR gets wrong.</div>
       </label>
     </div>
-    <div class="ab-signin-notice" style="text-align:left">Current pick: <b>${ocrPref==='google_vision'?'Google Cloud Vision':'Claude Vision'}</b>. Saved on this computer — the actual OCR pipeline still needs to be built against this choice.</div>`;
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:24px">Current pick: <b>${ocrPref==='google_vision'?'Google Cloud Vision':'Claude Vision'}</b>. Saved on this computer — the actual OCR pipeline still needs to be built against this choice.</div>
+
+    <div class="ab-h" style="font-size:15px">Your Anthropic API Key — Scan Receipt</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
+      This is what powers <b>Scan Receipt</b> on the Bills &amp; Invoices tab — it reads a photo of a receipt and pulls out the vendor, amount, and date. This is <b>your own key</b>, billed to your own Anthropic account, not Ryan's — get one free at <b>console.anthropic.com</b> → API Keys → Create Key (a few minutes, pay-per-use, usually just cents per receipt). It's stored only in this browser, never sent anywhere but Anthropic itself.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="ab-anthropic-key" type="password" placeholder="sk-ant-..." value="${abEsc(abGetAnthropicKey())}" style="width:320px;padding:8px 10px;border-radius:6px;border:1px solid rgba(240,232,208,.25);background:rgba(240,232,208,.06);color:var(--text2)">
+      <button class="ab-btn" onclick="abSaveAnthropicKey()">Save</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abTestAnthropicKey()">Test Key</button>
+      <span id="ab-anthropic-status" style="font-size:12px;color:var(--muted)"></span>
+    </div>`;
 }
 
 // ── ESTIMATES — one project/job can carry more than one estimate over time ──
@@ -2518,6 +2624,10 @@ function abRenderInvoicesBills(){
   el.innerHTML=`${abVisualSwitch('invbills','abRenderInvoicesBills')}
     <div class="ab-h">Enter a Bill or Invoice <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abToggleBatchMode()">${abBatchMode?'← Back to one at a time':'⊞ Batch Entry (multiple at once) →'}</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportInvoicesBillsCsv()">⬇ Export CSV</span></div>
     ${flaggedCount?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">🚩 ${flaggedCount} entry(ies) paid from a source that doesn't belong to this book — <a href="#" onclick="openPanel(10);return false" style="color:var(--gold2)">resolve them in the Review Queue →</a></div>`:''}
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <label class="ab-btn" style="cursor:pointer">📷 Scan Receipt(s)<input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="abScanReceipts(this.files);this.value=''"></label>
+      <span id="ab-scan-status" style="font-size:12px;color:var(--muted)">${abGetAnthropicKey()?'One photo, a stack of photos, or one scan with several receipts on it — all fine, each one gets pulled out separately.':'Add your Anthropic API key under Books & Setup → Integrations to use this.'}</span>
+    </div>
     ${abBatchMode?abRenderBatchEntry():`
     <div class="ab-form">
       <div class="ab-field"><label>Type</label><select id="ab-ib-direction" onchange="abApplyWorkflowAutofill()"><option value="bill_payable">Bill (I owe)</option><option value="invoice_receivable">Invoice (owed to me)</option></select></div>
