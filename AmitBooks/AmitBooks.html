@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.61</div>
+    <div class="page-version" id="pageVersion">v1.62</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2662,16 +2662,18 @@ async function abConvertQuoteToInvoice(id){
 
 // ── BILLS & INVOICES — the core "clear the pile" screen ──
 // ── DOCUMENT ID SYSTEM — every bill/invoice gets a short, unique,
-// hand-writable code: YYYY-MM-DD-NNNNNNN, date of entry + a per-book
-// sequential counter. This is what a red-marker annotation or a QR stamp
-// on a physical receipt would eventually reference back to — the code
-// has to exist first. Sequential per book, not global, so numbering
-// stays meaningful even with many books.
+// hand-writable code: MM-DD-YY-NNNNNNN, date of entry (month/day/year,
+// two-digit year — matching how most receipts are already printed, and
+// short enough to hand-write) + a per-book sequential counter. This is
+// what a red-marker annotation or a QR stamp on a physical receipt would
+// eventually reference back to — the code has to exist first. Sequential
+// per book, not global, so numbering stays meaningful even with many
+// books.
 async function abNextDocumentCode(){
   const{count}=await db.from('invoices_bills').select('id',{count:'exact',head:true}).eq('book_id',abBookId);
   const seq=String((count||0)+1).padStart(7,'0');
   const d=new Date();
-  const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const ds=`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${String(d.getFullYear()).slice(-2)}`;
   return `${ds}-${seq}`;
 }
 let abInvoicesBillsCache=[];
