@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.57</div>
+    <div class="page-version" id="pageVersion">v1.58</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -892,7 +892,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Workflow Rules','ab-workflow'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Workflow Rules','ab-workflow'],['Integrations','ab-integrations'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -1333,7 +1333,7 @@ async function abLoadBooks(){
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
   await abLoadWorkflowRules();
-  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderWorkflowRules(); abRenderQbImportTab(); abLoadAuditLog();
+  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderWorkflowRules(); abRenderIntegrations(); abRenderQbImportTab(); abLoadAuditLog();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
@@ -2145,6 +2145,57 @@ function abApplyWorkflowAutofill(){
   if(rule.action_cost_type) document.getElementById('ab-ib-costtype').value=rule.action_cost_type;
   if(rule.action_account_id) document.getElementById('ab-ib-account').value=rule.action_account_id;
   if(rule.action_tag_id) document.getElementById('ab-ib-tag').value=rule.action_tag_id;
+}
+
+// ── INTEGRATIONS — placeholder screen for Payment Processors and OCR
+// engine. Nothing here actually connects to anything yet; this is where
+// those decisions get made and held visibly until real API credentials
+// exist for each one. OCR preference is saved (localStorage, per book) so
+// the choice is real even though the pipeline behind it isn't built —
+// picking it now means the first OCR build targets the right engine
+// instead of guessing.
+const AB_PAYMENT_PROCESSORS=[
+  {key:'square',name:'Square',note:'Card processing + POS in one — the likely first pick since it covers both the "payment processor" and "point of sale" items on the build list at once.'},
+  {key:'stripe',name:'Stripe',note:'Card + ACH processing, no POS hardware — better fit if there\'s no physical register/terminal involved.'},
+  {key:'cashapp_venmo',name:'Cash App / Venmo',note:'The real work here isn\'t the API — it\'s cleanly separating personal from business activity in a mixed-use account, same problem the payment-source resolution engine already solves for bank accounts.'}
+];
+function abOcrPrefKey(){ return 'ab_ocr_engine_'+(abBookId||'none'); }
+function abGetOcrPref(){ return localStorage.getItem(abOcrPrefKey())||'google_vision'; }
+function abSetOcrPref(v){ localStorage.setItem(abOcrPrefKey(),v); abRenderIntegrations(); }
+function abRenderIntegrations(){
+  const el=document.getElementById('ab-integrations'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const ocrPref=abGetOcrPref();
+  el.innerHTML=`<div class="ab-h">Integrations</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:20px">
+      Nothing on this page is live yet — these are placeholders for connections that need real API credentials or accounts before they can do anything. This is where those decisions get made and held visibly, not lost in a chat.
+    </div>
+
+    <div class="ab-h" style="font-size:15px">Payment Processors</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">Not connected — each needs its own developer account and API keys before it can do anything real.</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+      ${AB_PAYMENT_PROCESSORS.map(p=>`<div style="flex:1;min-width:220px;background:rgba(240,232,208,.04);border:1px solid rgba(240,232,208,.15);border-radius:8px;padding:14px">
+        <div style="font-weight:600;margin-bottom:6px">${p.name} <span style="font-size:10px;color:var(--muted);font-weight:400;border:1px solid rgba(240,232,208,.25);border-radius:10px;padding:1px 8px;margin-left:4px">Not Connected</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${p.note}</div>
+        <button class="ab-btn" style="background:transparent;color:var(--muted);cursor:not-allowed" disabled>Connect (needs API keys)</button>
+      </div>`).join('')}
+    </div>
+
+    <div class="ab-h" style="font-size:15px">OCR Engine — Receipt Capture</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
+      Which engine reads your receipts once OCR is built. Pick now so the first build targets the right one instead of guessing later.
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+      <label style="flex:1;min-width:220px;cursor:pointer;background:${ocrPref==='google_vision'?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${ocrPref==='google_vision'?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="radio" name="ab-ocr" ${ocrPref==='google_vision'?'checked':''} onchange="abSetOcrPref('google_vision')"><span style="font-weight:600">Google Cloud Vision</span><span style="font-size:10px;color:#8fd19e;border:1px solid rgba(143,209,158,.4);border-radius:10px;padding:1px 8px">Free tier — 1,000/mo</span></div>
+        <div style="font-size:12px;color:var(--muted)">Real recurring free tier, not a trial. The right one to start with since it costs nothing until volume is real. Weaker on messy handwriting than Claude Vision.</div>
+      </label>
+      <label style="flex:1;min-width:220px;cursor:pointer;background:${ocrPref==='claude_vision'?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${ocrPref==='claude_vision'?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="radio" name="ab-ocr" ${ocrPref==='claude_vision'?'checked':''} onchange="abSetOcrPref('claude_vision')"><span style="font-weight:600">Claude Vision</span><span style="font-size:10px;color:#e8b866;border:1px solid rgba(232,184,102,.4);border-radius:10px;padding:1px 8px">Pay per image</span></div>
+        <div style="font-size:12px;color:var(--muted)">No ongoing free tier — costs from the first image. Better at reading messy handwriting and the red-marker job/category annotations once that standard is built. Good fallback for receipts Google's OCR gets wrong.</div>
+      </label>
+    </div>
+    <div class="ab-signin-notice" style="text-align:left">Current pick: <b>${ocrPref==='google_vision'?'Google Cloud Vision':'Claude Vision'}</b>. Saved on this computer — the actual OCR pipeline still needs to be built against this choice.</div>`;
 }
 
 // ── ESTIMATES — one project/job can carry more than one estimate over time ──
