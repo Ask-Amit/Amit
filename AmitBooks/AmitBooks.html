@@ -238,7 +238,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.35</div>
+    <div class="page-version" id="pageVersion">v1.36</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1826,9 +1826,16 @@ function abRenderInvoicesBills(){
       <div class="ab-field"><label>Memo (optional)</label><input id="ab-ib-memo" placeholder="e.g. lumber for Job 114"></div>
       <button class="ab-btn" onclick="abAddInvoiceBill()">Save</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Date</th><th>Type</th><th>Contact</th><th>Amount</th><th>Status</th></tr>
-    ${abInvoicesBillsCache.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='invbills';
+      abSmartRerender[tk]=abRenderInvoicesBills;
+      const getters={date:r=>r.doc_date||'',type:r=>r.direction==='bill_payable'?'Bill':'Invoice',contact:r=>r.contacts?r.contacts.name:'',amount:r=>Number(r.total_amount)||0,status:r=>r.status||''};
+      const sorted=abSmartApply(tk,abInvoicesBillsCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',type:'Type',contact:'Contact',amount:'Amount',status:'Status'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}</tr>
+      ${sorted.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">Nothing entered yet — the pile starts here</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abInvoicesBillsCache.map(r=>{
       const isBill=r.direction==='bill_payable';
@@ -2286,14 +2293,165 @@ function abRenderReports(){
         </tbody></table>
       </div>
       <div>
-        <div class="ab-h" style="font-size:15px">Trial Balance</div>
-        <table class="ab-table"><thead><tr><th>Account</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr></thead><tbody>
-          ${rows.map(r=>`<tr style="cursor:pointer" onclick="abOpenJournalForAccount('${r.account.id}','${abEsc(r.account.account_name)}')" title="Click to see every transaction in this account"><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${r.debit?abMoney(r.debit):''}</td><td style="text-align:right">${r.credit?abMoney(r.credit):''}</td></tr>`).join('')}
+        <div class="ab-h" style="font-size:15px">Trial Balance <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abPrintPreviewTrialBalance()">🖨 Print Preview</span></div>
+        ${(()=>{
+          const tk='trialbalance';
+          abSmartRerender[tk]=abRenderReports;
+          const getters={account:r=>r.account.account_name,debit:r=>r.debit||0,credit:r=>r.credit||0};
+          const sortedTB=abSmartApply(tk,rows,getters);
+          return `${abSmartStatusBar(tk,{account:'Account',debit:'Debit',credit:'Credit'})}
+          <table class="ab-table"><thead><tr>${abSmartTh(tk,'account','Account')}${abSmartTh(tk,'debit','Debit','text-align:right')}${abSmartTh(tk,'credit','Credit','text-align:right')}</tr></thead><tbody>
+          ${sortedTB.map(r=>`<tr style="cursor:pointer" onclick="abOpenJournalForAccount('${r.account.id}','${abEsc(r.account.account_name)}')" title="Click to see every transaction in this account"><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${r.debit?abMoney(r.debit):''}</td><td style="text-align:right">${r.credit?abMoney(r.credit):''}</td></tr>`).join('')}
           <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Total</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(tbDebitTotal)}</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(tbCreditTotal)}</td></tr>
-        </tbody></table>
+          </tbody></table>`;
+        })()}
         ${Math.abs(tbDebitTotal-tbCreditTotal)>0.01?`<div class="ab-signin-notice" style="text-align:left;margin-top:10px">Debits and credits are out of balance by ${abMoney(Math.abs(tbDebitTotal-tbCreditTotal))} — this points to a posting bug, not a data-entry error, since every journal entry is built debit=credit at insert time.</div>`:''}
       </div>
     </div>`}`;
+  window._abLastTBRows=rows;
+}
+// ══════════════════════════════════════════════
+// PRINT PREVIEW — a real, standalone, self-contained window (not just
+// window.print() on the live app) so the printed copy can be sorted and
+// filtered on its own before anything goes to paper, per Ryan's direct
+// spec: "print preview always populates with the ability to sort it
+// right there... that should be a standard in all the books." Reusable
+// for any report table — pass the title, column defs, and row data.
+// ══════════════════════════════════════════════
+function abPrintPreview(title,columns,rowsData){
+  const w=window.open('','_blank','width=900,height=700');
+  if(!w){ alert('Your browser blocked the print preview popup — allow popups for this site and try again.'); return; }
+  const colsJson=JSON.stringify(columns);
+  const rowsJson=JSON.stringify(rowsData);
+  w.document.write(`<!doctype html><html><head><title>${title} — Print Preview</title>
+  <style>
+    body{font-family:Georgia,serif;color:#1a1a1a;padding:24px;max-width:900px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:2px} .sub{font-size:12px;color:#666;margin-bottom:18px}
+    table{width:100%;border-collapse:collapse;font-size:13px} th,td{padding:6px 10px;border-bottom:1px solid #ddd;text-align:left}
+    th{cursor:pointer;background:#f4f1e6;user-select:none} th.num,td.num{text-align:right}
+    input.pp-filter{width:100%;box-sizing:border-box;font-size:11px;padding:3px 5px;margin-top:3px;border:1px solid #ccc}
+    .pp-bar{margin-bottom:14px} button{font-family:inherit;padding:8px 16px;border:1px solid #999;background:#eee;cursor:pointer;border-radius:4px}
+    @media print{ .pp-bar,.pp-filters{display:none} }
+  </style></head><body>
+  <h1>${title}</h1><div class="sub">Print Preview — click a header to sort, type in the boxes below the headers to filter. Nothing here is saved; it's just for arranging the page before you print.</div>
+  <div class="pp-bar"><button onclick="window.print()">🖨 Print</button></div>
+  <table id="ppTable"><thead></thead><tbody></tbody></table>
+  <script>
+    const cols=${colsJson}; let rows=${rowsJson};
+    let sortCol=null,sortDir='asc'; const filters={};
+    function render(){
+      const thead=document.querySelector('#ppTable thead'), tbody=document.querySelector('#ppTable tbody');
+      thead.innerHTML='<tr>'+cols.map(c=>'<th class="'+(c.num?'num':'')+'" onclick="setSort(&quot;'+c.key+'&quot;)">'+c.label+(sortCol===c.key?(sortDir==='asc'?' \\u25B2':' \\u25BC'):'')+'</th>').join('')+'</tr>'
+        +'<tr class="pp-filters">'+cols.map(c=>'<th><input class="pp-filter" placeholder="filter…" oninput="setFilter(&quot;'+c.key+'&quot;,this.value)"></th>').join('')+'</tr>';
+      let out=rows.filter(r=>cols.every(c=>{ const f=filters[c.key]; if(!f) return true; return String(r[c.key]==null?'':r[c.key]).toLowerCase().includes(f.toLowerCase()); }));
+      if(sortCol) out=out.slice().sort((a,b)=>{ const av=a[sortCol],bv=b[sortCol]; const m=sortDir==='asc'?1:-1; return av<bv?-1*m:av>bv?1*m:0; });
+      tbody.innerHTML=out.map(r=>'<tr>'+cols.map(c=>'<td class="'+(c.num?'num':'')+'">'+(r[c.key]==null?'':r[c.key])+'</td>').join('')+'</tr>').join('');
+    }
+    function setSort(k){ if(sortCol===k) sortDir=sortDir==='asc'?'desc':'asc'; else { sortCol=k; sortDir='asc'; } render(); }
+    function setFilter(k,v){ if(v) filters[k]=v; else delete filters[k]; render(); }
+    render();
+  </script>
+  </body></html>`);
+  w.document.close();
+}
+function abPrintPreviewTrialBalance(){
+  const rows=window._abLastTBRows||[];
+  abPrintPreview('Trial Balance',
+    [{key:'account',label:'Account'},{key:'debit',label:'Debit',num:true},{key:'credit',label:'Credit',num:true}],
+    rows.map(r=>({account:r.account.account_name,debit:r.debit?abMoney(r.debit):'',credit:r.credit?abMoney(r.credit):''}))
+  );
+}
+
+// ══════════════════════════════════════════════
+// SMART TABLE HEADERS — the generic, reusable sort/filter engine every
+// list-style table in AmitBooks should use, per the Interactivity
+// Standard (AmitBooks/CLAUDE.md). Excel-like on purpose, per Ryan's own
+// spec: single click a header = sort by that column, ascending; click
+// again = descending (single active sort column, replaced each click —
+// not a combined multi-column sort). Double-click a header = a
+// "contains" text filter for that column; filters from different
+// columns compose with AND, in the order they were set, and stay active
+// across re-sorts until cleared. A status strip shows exactly what's
+// sorted/filtered right now, with one-click Clear and a "Remember this
+// view" save (named, per table, in localStorage) so a person doesn't
+// have to rebuild a filter they use often.
+// ══════════════════════════════════════════════
+let abSmartState={};          // tableKey -> {sortCol,sortDir,filters:{col:{value}}}
+let abSmartRerender={};       // tableKey -> the screen's own render function, registered on first use
+function abSmartGet(tableKey){
+  return abSmartState[tableKey] || (abSmartState[tableKey]={sortCol:null,sortDir:'asc',filters:{}});
+}
+function abSmartTh(tableKey,col,label,extraStyle){
+  const st=abSmartGet(tableKey);
+  const arrow=st.sortCol===col?(st.sortDir==='asc'?' ▲':' ▼'):'';
+  const filterMark=st.filters[col]?' 🔎':'';
+  return `<th style="cursor:pointer;${extraStyle||''}" onclick="abSmartSort('${tableKey}','${col}')" ondblclick="event.stopPropagation();abSmartFilterPrompt('${tableKey}','${col}','${abEsc(label)}')" title="Click to sort, double-click to filter">${abEsc(label)}${arrow}${filterMark}</th>`;
+}
+function abSmartSort(tableKey,col){
+  const st=abSmartGet(tableKey);
+  if(st.sortCol===col) st.sortDir=(st.sortDir==='asc'?'desc':'asc');
+  else { st.sortCol=col; st.sortDir='asc'; }
+  if(abSmartRerender[tableKey]) abSmartRerender[tableKey]();
+}
+function abSmartFilterPrompt(tableKey,col,label){
+  const st=abSmartGet(tableKey);
+  const cur=st.filters[col]?st.filters[col].value:'';
+  const val=prompt(`Filter "${label}" — contains:`,cur);
+  if(val===null) return; // cancelled
+  if(val.trim()==='') delete st.filters[col];
+  else st.filters[col]={value:val.trim().toLowerCase()};
+  if(abSmartRerender[tableKey]) abSmartRerender[tableKey]();
+}
+function abSmartClear(tableKey){
+  abSmartState[tableKey]={sortCol:null,sortDir:'asc',filters:{}};
+  if(abSmartRerender[tableKey]) abSmartRerender[tableKey]();
+}
+function abSmartApply(tableKey,rows,getters){
+  const st=abSmartGet(tableKey);
+  let out=rows;
+  Object.keys(st.filters).forEach(col=>{
+    const g=getters[col]; if(!g) return;
+    const needle=st.filters[col].value;
+    out=out.filter(r=>String(g(r)==null?'':g(r)).toLowerCase().includes(needle));
+  });
+  if(st.sortCol && getters[st.sortCol]){
+    const g=getters[st.sortCol]; const mul=st.sortDir==='asc'?1:-1;
+    out=out.slice().sort((a,b)=>{ const av=g(a),bv=g(b); return av<bv?-1*mul:av>bv?1*mul:0; });
+  }
+  return out;
+}
+function abSmartStatusBar(tableKey,labels){
+  const st=abSmartGet(tableKey);
+  const parts=[];
+  if(st.sortCol) parts.push(`Sorted by ${abEsc(labels[st.sortCol]||st.sortCol)} (${st.sortDir==='asc'?'A→Z / oldest first':'Z→A / newest first'})`);
+  Object.keys(st.filters).forEach(c=>parts.push(`${abEsc(labels[c]||c)} contains "${abEsc(st.filters[c].value)}"`));
+  if(!parts.length) return '';
+  return `<div style="font-size:11px;color:var(--gold2);margin-bottom:8px">🔎 ${parts.join(' · ')}
+    <span style="cursor:pointer;color:var(--muted);margin-left:10px;text-decoration:underline" onclick="abSmartClear('${tableKey}')">Clear</span>
+    <span style="cursor:pointer;color:var(--muted);margin-left:10px;text-decoration:underline" onclick="abSmartSaveView('${tableKey}')">📌 Remember this view</span>
+  </div>`;
+}
+function abSmartSaveView(tableKey){
+  const name=prompt('Name this view (e.g. "Overdue vendor bills"):'); if(!name) return;
+  const saved=JSON.parse(localStorage.getItem('ab_saved_views_'+tableKey)||'{}');
+  saved[name]=JSON.parse(JSON.stringify(abSmartGet(tableKey)));
+  localStorage.setItem('ab_saved_views_'+tableKey,JSON.stringify(saved));
+  alert(`Saved "${name}". Load it any time from the ⭐ Saved Views menu above this table.`);
+  if(abSmartRerender[tableKey]) abSmartRerender[tableKey]();
+}
+function abSmartLoadView(tableKey,name){
+  const saved=JSON.parse(localStorage.getItem('ab_saved_views_'+tableKey)||'{}');
+  if(saved[name]) abSmartState[tableKey]=saved[name];
+  if(abSmartRerender[tableKey]) abSmartRerender[tableKey]();
+}
+function abSmartSavedViewsMenu(tableKey){
+  const saved=JSON.parse(localStorage.getItem('ab_saved_views_'+tableKey)||'{}');
+  const names=Object.keys(saved);
+  if(!names.length) return '';
+  return `<select style="font-size:11px;margin-bottom:8px" onchange="if(this.value)abSmartLoadView('${tableKey}',this.value)">
+    <option value="">⭐ Saved views…</option>
+    ${names.map(n=>`<option value="${abEsc(n)}">${abEsc(n)}</option>`).join('')}
+  </select>`;
 }
 
 // ══════════════════════════════════════════════
