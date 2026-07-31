@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.62</div>
+    <div class="page-version" id="pageVersion">v1.63</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -909,9 +909,16 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-invoices-bills" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===7){
+      const tabs=[['Payments','ab-payments'],['Reconciliation','ab-reconcile'],['Loans','ab-loans']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(7,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-7-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
       panelHtml+=`<div class="panel" id="panel-7" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="ch-tab-main" id="ab-payments" style="margin:24px;">Loading…</div>
+        <div class="ch-tab-nav" id="ch-tab-nav-7">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
       </div>`;
     } else if(i===8){
       panelHtml+=`<div class="panel" id="panel-8" style="flex-direction:column">
@@ -2997,6 +3004,324 @@ async function abAddPayment(){
   abRenderReports();
 }
 
+// ══════════════════════════════════════════════
+// RECONCILIATION — bring in a bank/credit card statement (CSV export or a
+// photo/screenshot of it), then fuzzy-match every line against what's
+// already in the books: open bills/invoices, recorded payments, and
+// scheduled loan payments — all three, one matching pass, since a
+// statement line doesn't know or care which kind of thing it's going to
+// turn out to be. Anything that doesn't match becomes a real bill posted
+// on the spot (bank fees, interest charged, interest earned), with
+// keyword-based category guesses, never left as an unexplained gap.
+// ══════════════════════════════════════════════
+let abBankStatementLinesCache=[];
+async function abLoadBankStatementLines(){
+  if(!abBookId){abBankStatementLinesCache=[];return;}
+  const{data}=await db.from('bank_statement_lines').select('*,payment_sources(name)').eq('book_id',abBookId).order('stmt_date',{ascending:false});
+  abBankStatementLinesCache=data||[];
+  abRenderReconciliation();
+}
+function abTriggerStatementCsvImport(){ document.getElementById('ab-stmt-csv-input').click(); }
+async function abImportStatementCsv(file){
+  if(!file)return;
+  const sourceId=document.getElementById('ab-recon-source').value||null;
+  const text=await file.text();
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){ abAlert('That CSV has no data rows.'); return; }
+  const parseLine=l=>{ const out=[]; let cur='',inQ=false; for(let i=0;i<l.length;i++){ const c=l[i]; if(inQ){ if(c==='"'&&l[i+1]==='"'){cur+='"';i++;} else if(c==='"'){inQ=false;} else cur+=c; } else { if(c==='"')inQ=true; else if(c===','){out.push(cur);cur='';} else cur+=c; } } out.push(cur); return out; };
+  const header=parseLine(lines[0]).map(h=>h.trim().toLowerCase());
+  const dateIdx=header.findIndex(h=>h.includes('date'));
+  const descIdx=header.findIndex(h=>h.includes('desc')||h.includes('memo')||h.includes('name'));
+  const amtIdx=header.findIndex(h=>h.includes('amount'));
+  const debitIdx=header.findIndex(h=>h.includes('debit')||h.includes('withdrawal'));
+  const creditIdx=header.findIndex(h=>h.includes('credit')||h.includes('deposit'));
+  if(dateIdx===-1||(amtIdx===-1&&debitIdx===-1&&creditIdx===-1)){ abAlert('CSV needs at least a Date column and an Amount column (or separate Debit/Credit columns).'); return; }
+  let imported=0;
+  for(let i=1;i<lines.length;i++){
+    const cells=parseLine(lines[i]);
+    const dateRaw=(cells[dateIdx]||'').trim(); if(!dateRaw)continue;
+    const d=new Date(dateRaw); if(isNaN(d))continue;
+    const stmt_date=d.toISOString().slice(0,10);
+    let amount=0;
+    if(amtIdx>-1) amount=parseFloat((cells[amtIdx]||'0').replace(/[$,]/g,''))||0;
+    else amount=(parseFloat((cells[creditIdx]||'0').replace(/[$,]/g,''))||0)-(parseFloat((cells[debitIdx]||'0').replace(/[$,]/g,''))||0);
+    const description=descIdx>-1?(cells[descIdx]||'').trim():'';
+    const{error}=await db.from('bank_statement_lines').insert({book_id:abBookId,payment_source_id:sourceId,stmt_date,description,amount});
+    if(!error) imported++;
+  }
+  abAlert(`Imported ${imported} statement line(s).`);
+  await abLoadBankStatementLines();
+}
+async function abScanStatementImage(file){
+  if(!file)return;
+  const status=document.getElementById('ab-recon-status');
+  const key=abGetAnthropicKey();
+  if(!key){ status.textContent='Add your Anthropic API key first — Books & Setup → Integrations.'; return; }
+  const sourceId=document.getElementById('ab-recon-source').value||null;
+  status.textContent='Reading statement…';
+  try{
+    const b64=await abFileToBase64(file);
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-5',max_tokens:3000,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},
+          {type:'text',text:'This is a photo or screenshot of a bank or credit card statement. Reply with ONLY a JSON array, no other text, no markdown fences: [{"date":"YYYY-MM-DD","description":"...","amount":0.00}, ...] — one object per transaction line. Money OUT (withdrawals, purchases, charges) should be NEGATIVE. Money IN (deposits, refunds, interest earned) should be POSITIVE. Skip the header/summary rows, only actual transaction lines.'}
+        ]}]
+      })
+    });
+    if(!res.ok){ const t=await res.text(); status.textContent='Could not read statement: '+t.slice(0,150); return; }
+    const data=await res.json();
+    const raw=(data.content&&data.content[0]&&data.content[0].text)||'';
+    const parsed=JSON.parse(raw.replace(/^```json\s*|```\s*$/g,'').trim());
+    let imported=0;
+    for(const line of parsed){
+      if(!line.date||line.amount==null)continue;
+      const{error}=await db.from('bank_statement_lines').insert({book_id:abBookId,payment_source_id:sourceId,stmt_date:line.date,description:line.description||'',amount:line.amount});
+      if(!error) imported++;
+    }
+    status.textContent=`✓ Imported ${imported} line(s) from the statement.`;
+    await abLoadBankStatementLines();
+  }catch(e){ status.textContent='Something went wrong: '+e.message; }
+}
+// Keyword guesses for the common non-bill charges every statement has —
+// never auto-posted blind, always shown as a suggestion the person
+// confirms with one click.
+const AB_RECON_KEYWORD_HINTS=[
+  {re:/\b(interest (charged|paid)|finance charge)\b/i,label:'Interest Expense',accountType:'expense'},
+  {re:/\binterest (earned|income)\b/i,label:'Interest Income',accountType:'income'},
+  {re:/\b(service (fee|charge)|maintenance fee|monthly fee|atm fee|overdraft|nsf)\b/i,label:'Bank Fees',accountType:'expense'},
+  {re:/\bcheck ?(order|printing)\b/i,label:'Bank Fees',accountType:'expense'},
+];
+function abGuessStatementCategory(description){
+  const hit=AB_RECON_KEYWORD_HINTS.find(h=>h.re.test(description||''));
+  return hit||null;
+}
+// Fuzzy match: exact amount within a small tolerance, date within a
+// window (tighter window = higher confidence), against open bills,
+// recorded payments not yet reconciled, and scheduled-but-unpaid loan
+// payments — all three candidate pools in one pass.
+function abFindReconciliationMatches(line){
+  const target=Math.abs(Number(line.amount));
+  const ld=new Date(line.stmt_date);
+  const dayDiff=dstr=>Math.abs((new Date(dstr)-ld)/86400000);
+  const candidates=[];
+  abInvoicesBillsCache.filter(r=>r.status!=='paid'&&r.status!=='void').forEach(r=>{
+    const amt=Number(r.total_amount)-Number(r.paid_amount);
+    if(Math.abs(amt-target)<0.02){
+      const dd=dayDiff(r.doc_date||r.due_date||line.stmt_date);
+      if(dd<=10) candidates.push({type:'invoice_bill',id:r.id,label:`${r.direction==='bill_payable'?'Bill':'Invoice'} — ${r.contacts?r.contacts.name:'(no contact)'} — ${abMoney(amt)}`,confidence:dd<=2?'high':dd<=5?'medium':'low',dd});
+    }
+  });
+  (abLoanPaymentsCache||[]).filter(p=>!p.paid).forEach(p=>{
+    if(Math.abs(Number(p.scheduled_total)-target)<0.02){
+      const dd=dayDiff(p.due_date);
+      if(dd<=10) candidates.push({type:'loan_payment',id:p.id,label:`Loan payment #${p.payment_number} — ${abMoney(p.scheduled_total)} (${abMoney(p.scheduled_interest)} interest)`,confidence:dd<=2?'high':dd<=5?'medium':'low',dd});
+    }
+  });
+  candidates.sort((a,b)=>a.dd-b.dd);
+  return candidates;
+}
+function abRenderReconciliation(){
+  const el=document.getElementById('ab-reconcile'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const unreconciled=abBankStatementLinesCache.filter(l=>!l.reconciled);
+  const reconciledCount=abBankStatementLinesCache.length-unreconciled.length;
+  el.innerHTML=`<div class="ab-h">Reconciliation</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Bring in a bank or credit card statement — a CSV export, or a photo/screenshot of it — and each line gets matched against what's already in the books (open bills, recorded payments, scheduled loan payments). Anything that doesn't match becomes its own real entry, with a category guess for the common stuff (bank fees, interest) that you confirm with one click.
+    </div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Which account is this statement for?</label><select id="ab-recon-source"><option value="">—</option>${abPaymentSourcesCache.map(p=>`<option value="${p.id}">${abEsc(p.name)}</option>`).join('')}</select></div>
+      <label class="ab-btn" style="cursor:pointer">📄 Import CSV<input type="file" id="ab-stmt-csv-input" accept=".csv" style="display:none" onchange="abImportStatementCsv(this.files[0]);this.value=''"></label>
+      <label class="ab-btn" style="cursor:pointer">📷 Scan Statement<input type="file" accept="image/*" style="display:none" onchange="abScanStatementImage(this.files[0]);this.value=''"></label>
+    </div>
+    <div id="ab-recon-status" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
+    <div class="ab-h" style="font-size:15px">Unreconciled (${unreconciled.length}) <span style="font-size:11px;color:var(--muted);font-family:inherit;text-transform:none;letter-spacing:0">— ${reconciledCount} already reconciled</span></div>
+    <table class="ab-table"><tr><th>Date</th><th>Description</th><th style="text-align:right">Amount</th><th>Account</th><th>Suggested Match</th><th></th></tr>
+    ${unreconciled.map(l=>{
+      const matches=abFindReconciliationMatches(l);
+      const best=matches[0];
+      const guess=abGuessStatementCategory(l.description);
+      return `<tr>
+        <td>${l.stmt_date}</td>
+        <td style="font-size:12px">${abEsc(l.description||'')}</td>
+        <td style="text-align:right;${Number(l.amount)<0?'color:#f0a8a8':''}">${abMoney(l.amount)}</td>
+        <td style="font-size:11px;color:var(--muted)">${abEsc(l.payment_sources?l.payment_sources.name:'')}</td>
+        <td style="font-size:12px">${best?`${best.label} <span style="color:${best.confidence==='high'?'#8fd19e':best.confidence==='medium'?'#e8b866':'var(--muted)'}">(${best.confidence})</span>`:(guess?`Looks like ${guess.label}`:'No match found')}</td>
+        <td>${best?`<a href="#" onclick="abConfirmReconMatch('${l.id}','${best.type}','${best.id}');return false" style="color:var(--gold2);font-size:12px">Confirm →</a>`:`<a href="#" onclick="abCreateFromStatementLine('${l.id}');return false" style="color:var(--gold2);font-size:12px">Add as Expense →</a>`}</td>
+      </tr>`;
+    }).join('')||'<tr><td class="ab-empty" colspan="6">No unreconciled statement lines — import one above</td></tr>'}
+    </table>`;
+}
+async function abConfirmReconMatch(lineId,type,id){
+  const{error}=await db.from('bank_statement_lines').update({reconciled:true,matched_type:type,matched_id:id}).eq('id',lineId);
+  if(error){abAlert(error.message);return;}
+  if(type==='loan_payment'){
+    await abPostLoanPayment(id);
+  }
+  await abLoadBankStatementLines();
+}
+// For an unmatched line — mostly bank fees, interest charged, or
+// interest earned — this posts a real bill (or income entry) on the
+// spot, pre-categorized by keyword guess when one applies, defaulting to
+// Uncategorized when it doesn't. Never left as a mystery gap in the
+// books just because it didn't match anything already entered.
+async function abCreateFromStatementLine(lineId){
+  const line=abBankStatementLinesCache.find(l=>l.id===lineId); if(!line)return;
+  const guess=abGuessStatementCategory(line.description);
+  const isOutflow=Number(line.amount)<0;
+  const accountName=guess?guess.label:(isOutflow?'Uncategorized Expense':'Uncategorized Income');
+  const accountType=guess?guess.accountType:(isOutflow?'expense':'income');
+  const accountId=await abFindOrCreateAccount(accountName,accountType);
+  const amount=Math.abs(Number(line.amount));
+  const{data,error}=await db.from('invoices_bills').insert({
+    book_id:abBookId,direction:isOutflow?'bill_payable':'invoice_receivable',doc_date:line.stmt_date,status:'paid',
+    subtotal:amount,total_amount:amount,paid_amount:amount,memo:line.description||accountName,document_code:await abNextDocumentCode()
+  }).select().single();
+  if(error){abAlert(error.message);return;}
+  await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:accountId,description:line.description||accountName,quantity:1,unit_price:amount,amount:amount});
+  await abPostJournalForInvoiceBill(data, accountId, null, amount);
+  await db.from('bank_statement_lines').update({reconciled:true,matched_type:'invoice_bill',matched_id:data.id}).eq('id',lineId);
+  await abLoadBankStatementLines();
+  await abLoadInvoicesBills();
+}
+
+// ══════════════════════════════════════════════
+// LOANS — real amortization math (standard declining-balance formula),
+// generates the full payment schedule up front so "how much of this
+// payment is interest" is never a manual calculation, and posts real
+// split journal entries (interest to expense, the rest to reducing the
+// liability) when a payment is confirmed — whether confirmed directly
+// here or matched off a bank statement above.
+// ══════════════════════════════════════════════
+let abLoansCache=[];
+let abLoanPaymentsCache=[];
+async function abLoadLoans(){
+  if(!abBookId){abLoansCache=[];return;}
+  const{data}=await db.from('loans').select('*,contacts(name)').eq('book_id',abBookId).order('start_date',{ascending:false});
+  abLoansCache=data||[];
+  const{data:payData}=await db.from('loan_payments').select('*,loans!inner(book_id)').eq('loans.book_id',abBookId).order('due_date',{ascending:true});
+  abLoanPaymentsCache=payData||[];
+  abRenderLoans();
+}
+// Standard amortization: payment = P × r(1+r)^n / ((1+r)^n − 1), where r
+// is the periodic rate and n the number of payments. Each period's
+// interest = remaining balance × r; principal = payment − interest.
+function abComputeAmortization(principal,annualRate,termMonths,frequency,startDate){
+  const periodsPerYear=frequency==='weekly'?52:frequency==='biweekly'?26:12;
+  const n=frequency==='monthly'?termMonths:Math.round(termMonths/12*periodsPerYear);
+  const r=annualRate/periodsPerYear;
+  const payment=r===0?principal/n:principal*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+  const schedule=[];
+  let balance=principal;
+  const start=new Date(startDate);
+  for(let i=1;i<=n;i++){
+    const interest=balance*r;
+    let princ=payment-interest;
+    if(i===n) princ=balance; // last payment mops up any rounding drift
+    balance=Math.max(0,balance-princ);
+    const due=new Date(start);
+    if(frequency==='weekly') due.setDate(due.getDate()+7*i);
+    else if(frequency==='biweekly') due.setDate(due.getDate()+14*i);
+    else due.setMonth(due.getMonth()+i);
+    schedule.push({payment_number:i,due_date:due.toISOString().slice(0,10),scheduled_principal:Math.round(princ*100)/100,scheduled_interest:Math.round(interest*100)/100,scheduled_total:Math.round((princ+interest)*100)/100,remaining_balance:Math.round(balance*100)/100});
+  }
+  return{payment:Math.round(payment*100)/100,schedule};
+}
+function abRenderLoans(){
+  const el=document.getElementById('ab-loans'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Add a Loan</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Real amortization — principal and interest are split for every scheduled payment the moment you add the loan, using the standard declining-balance formula. "Post Payment" below books the real split (interest to expense, the rest reducing the liability); a matching statement line does the same thing automatically once confirmed in Reconciliation.
+    </div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Loan Name</label><input id="ab-loan-name" placeholder="e.g. Ford F-250 loan"></div>
+      <div class="ab-field"><label>Lender (optional)</label><select id="ab-loan-lender"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Liability Account</label><select id="ab-loan-liability-acct"><option value="">—</option>${abAccounts.filter(a=>a.account_type==='liability').map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Interest Expense Account</label><select id="ab-loan-interest-acct"><option value="">—</option>${abAccounts.filter(a=>a.account_type==='expense').map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Principal</label><input id="ab-loan-principal" type="number" step="0.01" style="width:110px" placeholder="0.00" oninput="abPreviewLoanPayment()"></div>
+      <div class="ab-field"><label>Annual Rate %</label><input id="ab-loan-rate" type="number" step="0.01" style="width:80px" placeholder="6.50" oninput="abPreviewLoanPayment()"></div>
+      <div class="ab-field"><label>Term (months)</label><input id="ab-loan-term" type="number" style="width:70px" placeholder="60" oninput="abPreviewLoanPayment()"></div>
+      <div class="ab-field"><label>Frequency</label><select id="ab-loan-freq" onchange="abPreviewLoanPayment()"><option value="monthly">Monthly</option><option value="biweekly">Biweekly</option><option value="weekly">Weekly</option></select></div>
+      <div class="ab-field"><label>Start Date</label><input id="ab-loan-start" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <button class="ab-btn" onclick="abAddLoan()">Add Loan &amp; Generate Schedule</button>
+    </div>
+    <div id="ab-loan-preview" style="font-size:12px;color:var(--muted);margin-bottom:14px"></div>
+    <table class="ab-table"><tr><th>Loan</th><th>Lender</th><th style="text-align:right">Principal</th><th style="text-align:right">Rate</th><th>Term</th><th>Status</th><th></th></tr>
+    ${abLoansCache.map(l=>`<tr><td>${abEsc(l.name)}</td><td>${abEsc(l.contacts?l.contacts.name:'—')}</td><td style="text-align:right">${abMoney(l.principal)}</td><td style="text-align:right">${(l.annual_rate*100).toFixed(2)}%</td><td>${l.term_months}mo ${l.payment_frequency}</td><td>${abEsc(l.status)}</td><td><a href="#" onclick="abShowLoanSchedule('${l.id}');return false" style="color:var(--gold2);font-size:12px">Schedule →</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No loans yet</td></tr>'}
+    </table>
+    <div id="ab-loan-schedule-panel"></div>`;
+}
+// Live preview of payment amount as the person types, before saving —
+// the whole point of doing real amortization math is showing the answer
+// immediately, not after a round trip.
+function abPreviewLoanPayment(){
+  const principal=parseFloat(document.getElementById('ab-loan-principal').value)||0;
+  const rate=(parseFloat(document.getElementById('ab-loan-rate').value)||0)/100;
+  const term=parseInt(document.getElementById('ab-loan-term').value)||0;
+  const freq=document.getElementById('ab-loan-freq').value;
+  const el=document.getElementById('ab-loan-preview');
+  if(!principal||!term){ el.textContent=''; return; }
+  const{payment}=abComputeAmortization(principal,rate,term,freq,new Date().toISOString().slice(0,10));
+  el.textContent=`Estimated payment: ${abMoney(payment)} per ${freq==='monthly'?'month':freq==='biweekly'?'two weeks':'week'}`;
+}
+async function abAddLoan(){
+  const name=document.getElementById('ab-loan-name').value.trim(); if(!name)return;
+  const principal=parseFloat(document.getElementById('ab-loan-principal').value)||0;
+  const rate=(parseFloat(document.getElementById('ab-loan-rate').value)||0)/100;
+  const term=parseInt(document.getElementById('ab-loan-term').value)||0;
+  const freq=document.getElementById('ab-loan-freq').value;
+  const start=document.getElementById('ab-loan-start').value||new Date().toISOString().slice(0,10);
+  if(!principal||!term){ abAlert('Enter a principal amount and a term in months.'); return; }
+  const{data,error}=await db.from('loans').insert({
+    book_id:abBookId,name,lender_contact_id:document.getElementById('ab-loan-lender').value||null,
+    liability_account_id:document.getElementById('ab-loan-liability-acct').value||null,
+    interest_expense_account_id:document.getElementById('ab-loan-interest-acct').value||null,
+    principal,annual_rate:rate,term_months:term,payment_frequency:freq,start_date:start
+  }).select().single();
+  if(error){abAlert(error.message);return;}
+  const{schedule}=abComputeAmortization(principal,rate,term,freq,start);
+  const rows=schedule.map(s=>({loan_id:data.id,...s}));
+  await db.from('loan_payments').insert(rows);
+  document.getElementById('ab-loan-name').value='';
+  document.getElementById('ab-loan-principal').value='';
+  await abLoadLoans();
+}
+function abShowLoanSchedule(loanId){
+  const loan=abLoansCache.find(l=>l.id===loanId); if(!loan)return;
+  const payments=abLoanPaymentsCache.filter(p=>p.loan_id===loanId);
+  const paidCount=payments.filter(p=>p.paid).length;
+  const el=document.getElementById('ab-loan-schedule-panel');
+  el.innerHTML=`<div class="ab-h" style="margin-top:20px;font-size:15px">Amortization Schedule — ${abEsc(loan.name)} (${paidCount}/${payments.length} paid)</div>
+    <table class="ab-table"><tr><th>#</th><th>Due</th><th style="text-align:right">Principal</th><th style="text-align:right">Interest</th><th style="text-align:right">Total</th><th style="text-align:right">Balance After</th><th></th></tr>
+    ${payments.map(p=>`<tr style="${p.paid?'opacity:.5':''}"><td>${p.payment_number}</td><td>${p.due_date}</td><td style="text-align:right">${abMoney(p.scheduled_principal)}</td><td style="text-align:right">${abMoney(p.scheduled_interest)}</td><td style="text-align:right">${abMoney(p.scheduled_total)}</td><td style="text-align:right">${abMoney(p.remaining_balance)}</td><td>${p.paid?'✓ Paid':`<a href="#" onclick="abPostLoanPayment('${p.id}');return false" style="color:var(--gold2);font-size:12px">Post Payment →</a>`}</td></tr>`).join('')}
+    </table>`;
+}
+// Posts the real split journal entry: Interest Expense (debit) +
+// Liability reduction (debit, the principal portion) against the payment
+// source's cash account (credit) — exactly what a loan payment actually
+// does to the books, not a single undifferentiated expense line.
+async function abPostLoanPayment(loanPaymentId){
+  const lp=abLoanPaymentsCache.find(p=>p.id===loanPaymentId); if(!lp||lp.paid)return;
+  const loan=abLoansCache.find(l=>l.id===lp.loan_id); if(!loan)return;
+  if(!loan.liability_account_id||!loan.interest_expense_account_id){ abAlert('This loan needs both a Liability Account and an Interest Expense Account set before payments can post — edit it isn\'t built yet, so for now re-add the loan with both set, or ask to add an edit screen.'); return; }
+  const cashAccountId=abPaymentSourcesCache.length?abPaymentSourcesCache[0].linked_account_id:null;
+  const cashId=cashAccountId||await abFindOrCreateAccount('Cash - Unspecified Source','asset');
+  const{data:payRow,error:payErr}=await db.from('payments').insert({book_id:abBookId,contact_id:loan.lender_contact_id,payment_date:lp.due_date,amount:lp.scheduled_total,method:'loan_payment',reference:'Loan payment #'+lp.payment_number}).select().single();
+  if(payErr){abAlert(payErr.message);return;}
+  await abPostJournalEntry(lp.due_date,`Loan payment #${lp.payment_number} — ${loan.name}`,'loan_payment',lp.id,[
+    {account_id:loan.interest_expense_account_id,debit:lp.scheduled_interest,credit:0},
+    {account_id:loan.liability_account_id,debit:lp.scheduled_principal,credit:0},
+    {account_id:cashId,debit:0,credit:lp.scheduled_total}
+  ]);
+  await db.from('loan_payments').update({paid:true,payment_id:payRow.id}).eq('id',loanPaymentId);
+  await abLoadLoans(); await abLoadJournalLines(); abRenderReports();
+}
+
 // ── FIXED ASSETS ──
 let abFixedAssetsCache=[];
 async function abLoadFixedAssets(){
@@ -5013,7 +5338,7 @@ function abRefreshDropdownSources(){
 const _origOpenPanel=openPanel;
 openPanel=function(n){
   _origOpenPanel(n);
-  if(n===7 && abBookId) abRenderPayments();
+  if(n===7 && abBookId){ abRenderPayments(); abLoadBankStatementLines(); abLoadLoans(); }
   if(n===10 && abBookId){ abRenderFlaggedQueue(); abRenderPaymentSourcesTab(); }
   if(n===11 && abBookId) abLoadPurchaseOrders();
   if(n===12 && abBookId) abLoadInventory();
