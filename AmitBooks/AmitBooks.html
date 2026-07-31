@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.41</div>
+    <div class="page-version" id="pageVersion">v1.42</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2374,7 +2374,7 @@ function abRenderReports(){
     ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
       <div>
-        <div class="ab-h" style="font-size:15px">Profit &amp; Loss</div>
+        <div class="ab-h" style="font-size:15px">Profit &amp; Loss <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abPrintPreviewPL()">🖨 Print Preview</span></div>
         <table class="ab-table"><tbody>
           <tr><td colspan="2" style="font-weight:600;padding-top:8px">Income</td></tr>
           ${income.map(abRow).join('')||'<tr><td class="ab-empty" colspan="2">—</td></tr>'}
@@ -2385,7 +2385,7 @@ function abRenderReports(){
           <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Net Income</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(netIncome)}</td></tr>
         </tbody></table>
 
-        <div class="ab-h" style="font-size:15px;margin-top:24px">Balance Sheet</div>
+        <div class="ab-h" style="font-size:15px;margin-top:24px">Balance Sheet <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abPrintPreviewBS()">🖨 Print Preview</span></div>
         <table class="ab-table"><tbody>
           <tr><td colspan="2" style="font-weight:600;padding-top:8px">Assets</td></tr>
           ${assets.map(abRow).join('')||'<tr><td class="ab-empty" colspan="2">—</td></tr>'}
@@ -2417,6 +2417,8 @@ function abRenderReports(){
       </div>
     </div>`}`;
   window._abLastTBRows=rows;
+  window._abLastPL={income,expense,totalIncome,totalExpense,netIncome};
+  window._abLastBS={assets,liabilities,equity,totalAssets,totalLiabilities,totalEquity,netIncome};
 }
 // ══════════════════════════════════════════════
 // PRINT PREVIEW — a real, standalone, self-contained window (not just
@@ -2467,6 +2469,37 @@ function abPrintPreviewTrialBalance(){
   abPrintPreview('Trial Balance',
     [{key:'account',label:'Account'},{key:'debit',label:'Debit',num:true},{key:'credit',label:'Credit',num:true}],
     rows.map(r=>({account:r.account.account_name,debit:r.debit?abMoney(r.debit):'',credit:r.credit?abMoney(r.credit):''}))
+  );
+}
+function abPrintPreviewPL(){
+  const d=window._abLastPL||{income:[],expense:[],totalIncome:0,totalExpense:0,netIncome:0};
+  const rows=[
+    ...d.income.map(r=>({section:'Income',account:r.account.account_name,amount:abMoney(r.net)})),
+    {section:'',account:'Total Income',amount:abMoney(d.totalIncome)},
+    ...d.expense.map(r=>({section:'Expense',account:r.account.account_name,amount:abMoney(r.net)})),
+    {section:'',account:'Total Expense',amount:abMoney(d.totalExpense)},
+    {section:'',account:'Net Income',amount:abMoney(d.netIncome)}
+  ];
+  abPrintPreview('Profit & Loss',
+    [{key:'section',label:'Section'},{key:'account',label:'Account'},{key:'amount',label:'Amount',num:true}],
+    rows
+  );
+}
+function abPrintPreviewBS(){
+  const d=window._abLastBS||{assets:[],liabilities:[],equity:[],totalAssets:0,totalLiabilities:0,totalEquity:0,netIncome:0};
+  const rows=[
+    ...d.assets.map(r=>({section:'Assets',account:r.account.account_name,amount:abMoney(r.net)})),
+    {section:'',account:'Total Assets',amount:abMoney(d.totalAssets)},
+    ...d.liabilities.map(r=>({section:'Liabilities',account:r.account.account_name,amount:abMoney(r.net)})),
+    {section:'',account:'Total Liabilities',amount:abMoney(d.totalLiabilities)},
+    ...d.equity.map(r=>({section:'Equity',account:r.account.account_name,amount:abMoney(r.net)})),
+    {section:'',account:'Net Income (current)',amount:abMoney(d.netIncome)},
+    {section:'',account:'Total Equity',amount:abMoney(d.totalEquity)},
+    {section:'',account:'Liabilities + Equity',amount:abMoney(d.totalLiabilities+d.totalEquity)}
+  ];
+  abPrintPreview('Balance Sheet',
+    [{key:'section',label:'Section'},{key:'account',label:'Account'},{key:'amount',label:'Amount',num:true}],
+    rows
   );
 }
 
@@ -3349,9 +3382,15 @@ function abRenderInvestments(){
       <div class="ab-field"><label>Current value</label><input id="ab-iv-value" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
       <button class="ab-btn" onclick="abAddInvestment()">Add</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Name</th><th>Cost Basis</th><th>Current Value</th><th>Gain/Loss</th></tr>
-    ${abInvestmentsCache.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${i.cost_basis?abMoney(i.cost_basis):'—'}</td><td>${i.current_value?abMoney(i.current_value):'—'}</td><td>${(i.cost_basis&&i.current_value)?abMoney(i.current_value-i.cost_basis):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No investments tracked yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='investments'; abSmartRerender[tk]=abRenderInvestments;
+      const getters={name:i=>i.name||'',cost:i=>Number(i.cost_basis)||0,value:i=>Number(i.current_value)||0,gain:i=>(i.cost_basis&&i.current_value)?(Number(i.current_value)-Number(i.cost_basis)):0};
+      const sorted=abSmartApply(tk,abInvestmentsCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',cost:'Cost Basis',value:'Current Value',gain:'Gain/Loss'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'cost','Cost Basis')}${abSmartTh(tk,'value','Current Value')}${abSmartTh(tk,'gain','Gain/Loss')}</tr>
+      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${i.cost_basis?abMoney(i.cost_basis):'—'}</td><td>${i.current_value?abMoney(i.current_value):'—'}</td><td>${(i.cost_basis&&i.current_value)?abMoney(i.current_value-i.cost_basis):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No investments tracked yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abInvestmentsCache.map(i=>{
       const gain=(i.cost_basis&&i.current_value)?(i.current_value-i.cost_basis):null;
@@ -3393,9 +3432,15 @@ function abRenderSubscriptions(){
       <div class="ab-field"><label>Next bill</label><input id="ab-sub-next" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
       <button class="ab-btn" onclick="abAddSubscription()">Add</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Contact</th><th>Amount</th><th>Interval</th><th>Next Bill</th><th>Status</th></tr>
-    ${abSubscriptionsCache.map(s=>`<tr><td>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${abMoney(s.amount)}</td><td>${abEsc(s.billing_interval)}</td><td>${s.next_bill_date||''}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No subscriptions yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='subscriptions'; abSmartRerender[tk]=abRenderSubscriptions;
+      const getters={contact:s=>s.contacts?s.contacts.name:'',amount:s=>Number(s.amount)||0,interval:s=>s.billing_interval||'',next:s=>s.next_bill_date||'',status:s=>s.status||''};
+      const sorted=abSmartApply(tk,abSubscriptionsCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{contact:'Contact',amount:'Amount',interval:'Interval',next:'Next Bill',status:'Status'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'interval','Interval')}${abSmartTh(tk,'next','Next Bill')}${abSmartTh(tk,'status','Status')}</tr>
+      ${sorted.map(s=>`<tr><td>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${abMoney(s.amount)}</td><td>${abEsc(s.billing_interval)}</td><td>${s.next_bill_date||''}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No subscriptions yet</td></tr>'}
+      </table>`;
+    })():`
     <div class="ab-doc-wrap">
     ${abSubscriptionsCache.map(s=>`<div class="ab-rolo">
       <div class="ro-kicker">Subscription — ${abEsc(s.billing_interval)}</div>
