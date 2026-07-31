@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.43</div>
+    <div class="page-version" id="pageVersion">v1.44</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -3067,7 +3067,7 @@ function abRenderPayroll(){
       const sorted=abSmartApply(tk,abEmployeesCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'Pay Type',rate:'Rate'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Pay Type')}${abSmartTh(tk,'rate','Rate')}</tr>
-      ${sorted.map(e=>`<tr><td>${abEsc(e.contacts?e.contacts.name:'')}</td><td>${abEsc(e.pay_type||'')}</td><td>${e.pay_rate?abMoney(e.pay_rate):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No employees yet</td></tr>'}
+      ${sorted.map(e=>`<tr><td${e.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${e.contact_id}','${abEsc(e.contacts?e.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(e.contacts?e.contacts.name:'')}</td><td>${abEsc(e.pay_type||'')}</td><td>${e.pay_rate?abMoney(e.pay_rate):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No employees yet</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
@@ -3307,7 +3307,7 @@ function abRenderServiceAgreements(){
       const sorted=abSmartApply(tk,abServiceAgreementsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',contact:'Contact',amount:'Amount',interval:'Interval',status:'Status'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'interval','Interval')}${abSmartTh(tk,'status','Status')}</tr>
-      ${sorted.map(s=>`<tr><td>${abEsc(s.name)}</td><td>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${s.amount?abMoney(s.amount):'—'}</td><td>${abEsc(s.billing_interval)}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No service agreements yet</td></tr>'}
+      ${sorted.map(s=>`<tr><td>${abEsc(s.name)}</td><td${s.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${s.contact_id}','${abEsc(s.contacts?s.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${s.amount?abMoney(s.amount):'—'}</td><td>${abEsc(s.billing_interval)}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No service agreements yet</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
@@ -3353,13 +3353,19 @@ function abRenderCrm(){
       <div class="ab-field"><label>Notes</label><input id="ab-crm-notes" placeholder="What happened"></div>
       <button class="ab-btn" onclick="abAddCrm()">Log</button>
     </div>
-    ${!visual?`<table class="ab-table"><tr><th>Date</th><th>Contact</th><th>Type</th><th>Notes</th></tr>
-    ${abCrmCache.map(c=>`<tr><td>${c.activity_date||''}</td><td>${abEsc(c.contacts?c.contacts.name:'')}</td><td>${abEsc(c.activity_type||'')}</td><td>${abEsc(c.notes||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No activity logged yet</td></tr>'}
-    </table>`:`
+    ${!visual?(()=>{
+      const tk='crm'; abSmartRerender[tk]=abRenderCrm;
+      const getters={date:c=>c.activity_date||'',contact:c=>c.contacts?c.contacts.name:'',type:c=>c.activity_type||'',notes:c=>c.notes||''};
+      const sorted=abSmartApply(tk,abCrmCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',contact:'Contact',type:'Type',notes:'Notes'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'notes','Notes')}</tr>
+      ${sorted.map(c=>`<tr><td>${c.activity_date||''}</td><td${c.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${c.contact_id}','${abEsc(c.contacts?c.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(c.contacts?c.contacts.name:'')}</td><td>${abEsc(c.activity_type||'')}</td><td>${abEsc(c.notes||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No activity logged yet</td></tr>'}
+      </table>`;
+    })():`
     <div style="border-left:2px solid rgba(201,168,76,.35);margin-left:10px;padding-left:20px">
     ${abCrmCache.map(c=>`<div style="position:relative;margin-bottom:16px">
       <div style="position:absolute;left:-27px;top:2px;width:14px;height:14px;border-radius:50%;background:rgba(201,168,76,.25);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:8px">${typeIcon[c.activity_type]||'•'}</div>
-      <div style="font-size:11px;color:var(--muted)">${c.activity_date||''} — ${abEsc(c.contacts?c.contacts.name:'')}</div>
+      <div style="font-size:11px;color:var(--muted)">${c.activity_date||''} — <span${c.contact_id?` style="cursor:pointer;text-decoration:underline" ondblclick="abOpenContact('${c.contact_id}','${abEsc(c.contacts?c.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(c.contacts?c.contacts.name:'')}</span></div>
       <div style="font-size:13px;color:var(--text2)">${abEsc(c.notes||abEsc(c.activity_type))}</div>
     </div>`).join('')||'<div class="ab-empty">No activity logged yet</div>'}
     </div>`}`;
@@ -3451,7 +3457,7 @@ function abRenderSubscriptions(){
       const sorted=abSmartApply(tk,abSubscriptionsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{contact:'Contact',amount:'Amount',interval:'Interval',next:'Next Bill',status:'Status'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'interval','Interval')}${abSmartTh(tk,'next','Next Bill')}${abSmartTh(tk,'status','Status')}</tr>
-      ${sorted.map(s=>`<tr><td>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${abMoney(s.amount)}</td><td>${abEsc(s.billing_interval)}</td><td>${s.next_bill_date||''}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No subscriptions yet</td></tr>'}
+      ${sorted.map(s=>`<tr><td${s.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${s.contact_id}','${abEsc(s.contacts?s.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(s.contacts?s.contacts.name:'')}</td><td>${abMoney(s.amount)}</td><td>${abEsc(s.billing_interval)}</td><td>${s.next_bill_date||''}</td><td>${abEsc(s.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No subscriptions yet</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
