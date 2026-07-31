@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.49</div>
+    <div class="page-version" id="pageVersion">v1.50</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -892,7 +892,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -1685,10 +1685,10 @@ function abRenderItems(){
   const el=document.getElementById('ab-items'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   const visual=abIsVisual('items');
-  el.innerHTML=`<div class="ab-h">Items</div>
+  el.innerHTML=`<div class="ab-h">Scopes</div>
     ${abVisualSwitch('items','abRenderItems')}
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
-      An Item is something you actually buy or sell — "Labor - Rough Framing," "Lumber," "Electrical Subcontractor" — not the same as a Chart of Accounts entry. Every Item can point at two accounts: where the cost lands when you buy it (<b>Expense Account</b>), and where the revenue lands when you bill someone for it (<b>Income Account</b>). That's what connects an Item to your books.
+      A Scope is the real-world category of work or material — "Framing," "HVAC," "Concrete" — not the same as a Chart of Accounts entry. Everything charged to a job gets grouped under a Scope for job costing, no matter whether it ends up being labor, material, subcontractor, or equipment on any given bill — that's picked per line when you enter the bill, not fixed here. Every Scope can point at two accounts: where the cost lands when you buy it (<b>Expense Account</b>), and where the revenue lands when you bill someone for it (<b>Income Account</b>).
     </div>
     ${abItemTemplatePreview ? abItemTemplatePickerHtml() : (abItems.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
       <div class="ab-field"><label>Start from an industry template</label>
@@ -1698,7 +1698,7 @@ function abRenderItems(){
       <span style="font-size:12px;color:var(--muted);align-self:center">Wires up income/expense accounts automatically if your Chart of Accounts is already loaded.</span>
     </div>`)}
     <div class="ab-form">
-      <div class="ab-field"><label>Name</label><input id="ab-item-name" placeholder="e.g. Lumber, HVAC, Plumbing"></div>
+      <div class="ab-field"><label>Scope Name</label><input id="ab-item-name" placeholder="e.g. Framing, HVAC, Concrete"></div>
       <div class="ab-field"><label>What is it?</label>
         <select id="ab-item-type">
           <option value="service">Labor / Service (time you bill for)</option>
@@ -1709,18 +1709,19 @@ function abRenderItems(){
       <div class="ab-field"><label>Default Cost Type (optional)</label>
         <select id="ab-item-costtype"><option value="">—</option>${abCostTypeOptions()}</select>
       </div>
+      <div class="ab-field"><label>Tag (future use, optional)</label><input id="ab-item-secondary" placeholder="reserved for later"></div>
       <div class="ab-field"><label>Expense Account (optional)</label><select id="ab-item-expense-acct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Income Account (optional)</label><select id="ab-item-income-acct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Price (optional)</label><input id="ab-item-price" type="number" step="0.01" style="width:90px"></div>
-      <button class="ab-btn" onclick="abAddItem()">Add Item</button>
+      <button class="ab-btn" onclick="abAddItem()">Add Scope</button>
     </div>
     ${!visual?(()=>{
       const tk='items'; abSmartRerender[tk]=abRenderItems;
-      const getters={name:i=>i.name||'',type:i=>abItemTypeLabel(i.item_type),costtype:i=>abCostTypeLabel(i.cost_type),expense:i=>abAccountLabel(i.expense_account_id),income:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
+      const getters={name:i=>i.name||'',type:i=>abItemTypeLabel(i.item_type),costtype:i=>abCostTypeLabel(i.cost_type),secondary:i=>i.secondary_class||'',expense:i=>abAccountLabel(i.expense_account_id),income:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
       const sorted=abSmartApply(tk,abItems,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'What is it?',costtype:'Default Cost Type',expense:'Expense Account',income:'Income Account',price:'Price'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','What is it?')}${abSmartTh(tk,'costtype','Default Cost Type')}${abSmartTh(tk,'expense','Expense Account')}${abSmartTh(tk,'income','Income Account')}${abSmartTh(tk,'price','Price')}</tr>
-      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(abItemTypeLabel(i.item_type))}</td><td style="font-size:12px">${abEsc(abCostTypeLabel(i.cost_type))}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No items yet — add your first one above, or browse a template</td></tr>'}
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Scope',type:'What is it?',costtype:'Default Cost Type',secondary:'Tag',expense:'Expense Account',income:'Income Account',price:'Price'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Scope')}${abSmartTh(tk,'type','What is it?')}${abSmartTh(tk,'costtype','Default Cost Type')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'expense','Expense Account')}${abSmartTh(tk,'income','Income Account')}${abSmartTh(tk,'price','Price')}</tr>
+      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(abItemTypeLabel(i.item_type))}</td><td style="font-size:12px">${abEsc(abCostTypeLabel(i.cost_type))}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoney(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No Scopes yet — add your first one above, or browse a template</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
@@ -1729,8 +1730,9 @@ function abRenderItems(){
       <div class="ro-title">${abEsc(i.name)}</div>
       <div class="ro-line">Expense: ${abAccountLabel(i.expense_account_id)}</div>
       <div class="ro-line">Income: ${abAccountLabel(i.income_account_id)}</div>
+      ${i.secondary_class?`<div class="ro-line">Tag: ${abEsc(i.secondary_class)}</div>`:''}
       ${i.unit_price?`<div class="ro-badge">${abMoney(i.unit_price)}</div>`:''}
-    </div>`).join('')||'<div class="ab-empty">No items yet</div>'}
+    </div>`).join('')||'<div class="ab-empty">No Scopes yet</div>'}
     </div>`}`;
 }
 function abItemTypeLabel(t){ return t==='service'?'Labor/Service':t==='inventory_good'?'Tracked Material':t==='non_inventory_good'?'One-off Purchase':t; }
@@ -1747,10 +1749,11 @@ async function abAddItem(){
   const name=document.getElementById('ab-item-name').value.trim(); if(!name)return;
   const type=document.getElementById('ab-item-type').value;
   const costType=document.getElementById('ab-item-costtype').value||null;
+  const secondaryClass=document.getElementById('ab-item-secondary').value.trim()||null;
   const price=document.getElementById('ab-item-price').value;
   const expenseAcct=document.getElementById('ab-item-expense-acct').value||null;
   const incomeAcct=document.getElementById('ab-item-income-acct').value||null;
-  const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,cost_type:costType,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
+  const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,cost_type:costType,secondary_class:secondaryClass,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
   if(error){abAlert(error.message);return;}
   await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
 }
@@ -1776,7 +1779,7 @@ function abItemTemplatePickerHtml(){
   });
   return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:16px 18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div class="ab-h" style="margin:0">Construction Items Template</div>
+      <div class="ab-h" style="margin:0">Construction Scopes Template</div>
       <div style="display:flex;gap:8px">
         <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="document.querySelectorAll('.ab-item-tmpl-check:not(:disabled)').forEach(c=>c.checked=true)">Select All</button>
         <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="document.querySelectorAll('.ab-item-tmpl-check:not(:disabled)').forEach(c=>c.checked=false)">Deselect All</button>
@@ -2127,14 +2130,15 @@ function abRenderInvoicesBills(){
       <div class="ab-field"><label>Amount</label><input id="ab-ib-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
       <div class="ab-field"><label>Date</label><input id="ab-ib-date" type="date" value="${today}"></div>
       <div class="ab-field"><label>Paid from (optional)</label><select id="ab-ib-payment-source"><option value="">—</option>${abPaymentSourcesCache.map(p=>`<option value="${p.id}">${abEsc(p.name)}${p.owning_book_id&&p.owning_book_id!==abBookId?' (other book)':p.owning_book_id?'':' (personal)'}</option>`).join('')}</select></div>
-      <div class="ab-field"><label>Item (optional)</label><select id="ab-ib-item" onchange="const it=abItems.find(x=>x.id===this.value); document.getElementById('ab-ib-costtype').value = it&&it.cost_type ? it.cost_type : '';"><option value="">—</option>${abItems.map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Scope (optional)</label><select id="ab-ib-item" onchange="const it=abItems.find(x=>x.id===this.value); document.getElementById('ab-ib-costtype').value = it&&it.cost_type ? it.cost_type : '';"><option value="">—</option>${abItems.map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Cost Type (optional)</label><select id="ab-ib-costtype"><option value="">—</option>${abCostTypeOptions()}</select></div>
+      <div class="ab-field"><label>Tag (future use, optional)</label><input id="ab-ib-secondary" placeholder="reserved for later"></div>
       <div class="ab-field"><label>Category (optional)</label><select id="ab-ib-account"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Job/Tag (optional)</label><select id="ab-ib-tag"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Memo (optional)</label><input id="ab-ib-memo" placeholder="e.g. lumber for Job 114"></div>
       <button class="ab-btn" onclick="abAddInvoiceBill()">Save</button>
     </div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick an Item (e.g. "HVAC"), then set Cost Type to whatever this specific bill actually is — Labor, Material, or Subcontractor. Same item, different Cost Type each time, exactly as it happens on a real job.</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick a Scope (e.g. "HVAC"), then set Cost Type to whatever this specific bill actually is — Labor, Material, or Subcontractor. Same Scope, different Cost Type each time, exactly as it happens on a real job.</div>
     ${!visual?(()=>{
       const tk='invbills';
       abSmartRerender[tk]=abRenderInvoicesBills;
@@ -2222,6 +2226,7 @@ async function abAddInvoiceBill(){
   const paymentSource=document.getElementById('ab-ib-payment-source').value||null;
   const item=document.getElementById('ab-ib-item').value||null;
   const costType=document.getElementById('ab-ib-costtype').value||null;
+  const secondaryClass=document.getElementById('ab-ib-secondary').value.trim()||null;
   const account=document.getElementById('ab-ib-account').value||null;
   const tag=document.getElementById('ab-ib-tag').value||null;
   const memo=document.getElementById('ab-ib-memo').value.trim();
@@ -2237,12 +2242,13 @@ async function abAddInvoiceBill(){
     payment_source_id:paymentSource,resolution_status:mismatch?'pending':'none'
   }).select().single();
   if(error){abAlert(error.message);return;}
-  await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,item_id:item,account_id:account,tag_id:tag,cost_type:costType,description:memo||null,quantity:1,unit_price:amount,amount:amount});
+  await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,item_id:item,account_id:account,tag_id:tag,cost_type:costType,secondary_class:secondaryClass,description:memo||null,quantity:1,unit_price:amount,amount:amount});
   await abPostJournalForInvoiceBill(data, account, tag, amount);
   document.getElementById('ab-ib-amount').value='';
   document.getElementById('ab-ib-memo').value='';
   document.getElementById('ab-ib-item').value='';
   document.getElementById('ab-ib-costtype').value='';
+  document.getElementById('ab-ib-secondary').value='';
   if(mismatch){
     abAlert("Flagged for review — this was paid from \""+src.name+"\", which doesn't belong to this book. Go to Review Queue to decide: Wages, Distribution, Loan, or Reimbursement.");
   }
