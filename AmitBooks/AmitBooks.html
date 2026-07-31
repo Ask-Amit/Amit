@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.53</div>
+    <div class="page-version" id="pageVersion">v1.54</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1373,6 +1373,34 @@ async function abCreateBook(){
 }
 
 // ── DASHBOARD ──
+// ── CUSTOM DASHBOARD KPIs — a fixed library of tiles the person can pick
+// from, so the top of the Dashboard shows what THEY care about, not a
+// hardcoded three cards. Selection is per-book, stored in localStorage —
+// no server round-trip needed for a personal display preference.
+const AB_KPI_DEFS=[
+  {key:'owed_to_you',label:'Owed to you',compute:()=>abMoney((abInvoicesBillsCache||[]).filter(r=>r.direction==='invoice_receivable'&&r.status!=='paid'&&r.status!=='void').reduce((s,r)=>s+(Number(r.total_amount)-Number(r.paid_amount)),0))},
+  {key:'you_owe',label:'You owe',compute:()=>abMoney((abInvoicesBillsCache||[]).filter(r=>r.direction==='bill_payable'&&r.status!=='paid'&&r.status!=='void').reduce((s,r)=>s+(Number(r.total_amount)-Number(r.paid_amount)),0))},
+  {key:'open_items',label:'Open items',compute:()=>String((abInvoicesBillsCache||[]).filter(r=>r.status!=='paid'&&r.status!=='void').length)},
+  {key:'net_income',label:'Net income, all-time',compute:()=>{ const rows=abAccountBalances(); const inc=rows.filter(r=>r.account.account_type==='income').reduce((s,r)=>s+r.net,0); const exp=rows.filter(r=>r.account.account_type==='expense').reduce((s,r)=>s+r.net,0); return abMoney(inc-exp); }},
+  {key:'total_assets',label:'Total assets',compute:()=>abMoney(abAccountBalances().filter(r=>r.account.account_type==='asset').reduce((s,r)=>s+r.net,0))},
+  {key:'fixed_assets',label:'Fixed assets, cost basis',compute:()=>abMoney((abFixedAssetsCache||[]).reduce((s,a)=>s+(Number(a.cost_basis)||0),0))},
+  {key:'active_jobs',label:'Active jobs/properties',compute:()=>String((abTags||[]).filter(t=>(t.status||'active')==='active'&&(t.tag_type==='job'||t.tag_type==='property')).length)},
+  {key:'pipeline_value',label:'Open pipeline value',compute:()=>abMoney((abContacts||[]).filter(c=>c.lead_stage&&c.lead_stage!=='lost').reduce((s,c)=>s+(Number(c.lead_value)||0),0))},
+  {key:'contact_count',label:'Total contacts',compute:()=>String((abContacts||[]).length)},
+];
+function abDashKpiKey(){ return 'ab_dashboard_kpis_'+(abBookId||'none'); }
+function abGetDashKpis(){
+  try{ const saved=JSON.parse(localStorage.getItem(abDashKpiKey())||'null'); if(saved&&saved.length)return saved; }catch(e){}
+  return ['owed_to_you','you_owe','open_items','net_income'];
+}
+let abDashCustomizing=false;
+function abToggleDashCustomize(){ abDashCustomizing=!abDashCustomizing; abRenderDashboard(); }
+function abToggleDashKpi(key){
+  const cur=abGetDashKpis();
+  const next=cur.includes(key)?cur.filter(k=>k!==key):[...cur,key];
+  localStorage.setItem(abDashKpiKey(),JSON.stringify(next));
+  abRenderDashboard();
+}
 function abRenderDashboard(){
   const el=document.getElementById('ab-dashboard'); if(!el)return;
   if(!abBooks.length){
@@ -1387,21 +1415,20 @@ function abRenderDashboard(){
     return;
   }
   const b=abBooks.find(x=>x.id===abBookId)||abBooks[0];
-  const openInv=(abInvoicesBillsCache||[]).filter(r=>r.direction==='invoice_receivable'&&r.status!=='paid'&&r.status!=='void');
-  const openBill=(abInvoicesBillsCache||[]).filter(r=>r.direction==='bill_payable'&&r.status!=='paid'&&r.status!=='void');
-  const owedToMe=openInv.reduce((s,r)=>s+(Number(r.total_amount)-Number(r.paid_amount)),0);
-  const iOwe=openBill.reduce((s,r)=>s+(Number(r.total_amount)-Number(r.paid_amount)),0);
+  const activeKpis=abGetDashKpis();
   el.innerHTML=`
     <div class="ab-book-bar">
       <b style="color:var(--gold2)">Book:</b>
       <select onchange="abSwitchBook(this.value)">${abBooks.map(x=>`<option value="${x.id}"${x.id===abBookId?' selected':''}>${abEsc(x.name)}</option>`).join('')}</select>
-      <span style="margin-left:auto;font-size:11px;color:var(--muted)">${b?abEsc(b.entity_type||''):''}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--muted);cursor:pointer" onclick="abToggleDashCustomize()">${abDashCustomizing?'Done customizing':'⚙ Customize KPIs'}</span>
     </div>
+    ${abDashCustomizing?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick which KPI tiles show up top — your choice is remembered per book.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
+      ${AB_KPI_DEFS.map(k=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:1px solid rgba(201,168,76,.3);border-radius:6px;cursor:pointer;${activeKpis.includes(k.key)?'background:rgba(201,168,76,.12)':''}"><input type="checkbox" ${activeKpis.includes(k.key)?'checked':''} onchange="abToggleDashKpi('${k.key}')">${k.label}</label>`).join('')}
+    </div>`:`
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
-      <div class="ab-card"><div class="n">${abMoney(owedToMe)}</div><div class="l">Owed to you</div></div>
-      <div class="ab-card"><div class="n">${abMoney(iOwe)}</div><div class="l">You owe</div></div>
-      <div class="ab-card"><div class="n">${openInv.length+openBill.length}</div><div class="l">Open items</div></div>
-    </div>
+      ${activeKpis.map(key=>{ const k=AB_KPI_DEFS.find(d=>d.key===key); if(!k)return''; return `<div class="ab-card"><div class="n">${k.compute()}</div><div class="l">${k.label}</div></div>`; }).join('')||'<div class="ab-empty">No KPIs selected — click Customize KPIs above</div>'}
+    </div>`}
     <div class="ab-section">
       <div class="ab-h">Quick add</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -2804,8 +2831,9 @@ function abRenderReports(){
       <span class="${abReportsView==='cashflow'?'on':''}" onclick="abSetReportsView('cashflow')">Cash Flow</span>
       <span class="${abReportsView==='salestax'?'on':''}" onclick="abSetReportsView('salestax')">Sales Tax Liability</span>
       <span class="${abReportsView==='jobprofit'?'on':''}" onclick="abSetReportsView('jobprofit')">Job Profitability</span>
+      <span class="${abReportsView==='custom'?'on':''}" onclick="abSetReportsView('custom')">Custom Report</span>
     </div>
-    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():`
+    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():abReportsView==='custom'?abRenderCustomReport():`
     ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
       <div>
@@ -3019,6 +3047,69 @@ function abPrintPreviewJobProfit(){
   abPrintPreview('Job Profitability',
     [{key:'job',label:'Job / Property'},{key:'revenue',label:'Revenue',num:true},{key:'cost',label:'Cost',num:true},{key:'profit',label:'Profit',num:true},{key:'margin',label:'Margin'}],
     rows.map(r=>({job:r.tag.name,revenue:abMoney(r.revenue),cost:abMoney(r.cost),profit:abMoney(r.profit),margin:r.margin===null?'—':r.margin.toFixed(1)+'%'}))
+  );
+}
+
+// ── CUSTOM REPORT BUILDER — the foundation the standard reports already
+// sit on (abAccountBalances), exposed directly: pick which account types
+// and which individual accounts to include, optionally filter by date
+// range, get a live table with a total — this is what the fixed reports
+// above are each just one preset configuration of.
+let abCustomReportCfg={types:['asset','liability','equity','income','expense'],accountIds:null,dateFrom:'',dateTo:''};
+function abCustomReportToggleType(t){
+  const i=abCustomReportCfg.types.indexOf(t);
+  if(i>-1) abCustomReportCfg.types.splice(i,1); else abCustomReportCfg.types.push(t);
+  abRenderReports();
+}
+function abCustomReportSetDate(field,val){ abCustomReportCfg[field]=val; abRenderReports(); }
+function abAccountBalancesInRange(dateFrom,dateTo){
+  const byAccount={};
+  abJournalLinesCache.forEach(l=>{
+    const d=l.journal_entries?l.journal_entries.entry_date:null;
+    if(dateFrom && d && d<dateFrom) return;
+    if(dateTo && d && d>dateTo) return;
+    if(!byAccount[l.account_id]) byAccount[l.account_id]={debit:0,credit:0};
+    byAccount[l.account_id].debit+=Number(l.debit)||0;
+    byAccount[l.account_id].credit+=Number(l.credit)||0;
+  });
+  return abAccounts.map(a=>{
+    const b=byAccount[a.id]||{debit:0,credit:0};
+    const isDebit=AB_DEBIT_TYPES.includes(a.account_type);
+    const net=isDebit?(b.debit-b.credit):(b.credit-b.debit);
+    return {account:a, debit:b.debit, credit:b.credit, net};
+  }).filter(r=>r.debit||r.credit);
+}
+function abRenderCustomReport(){
+  const cfg=abCustomReportCfg;
+  const allRows=(cfg.dateFrom||cfg.dateTo)?abAccountBalancesInRange(cfg.dateFrom,cfg.dateTo):abAccountBalances();
+  const rows=allRows.filter(r=>cfg.types.includes(r.account.account_type));
+  const total=rows.reduce((s,r)=>s+r.net,0);
+  window._abLastCustomReport={rows,total};
+  const typeLabels=[['asset','Assets'],['liability','Liabilities'],['equity','Equity'],['income','Income'],['expense','Expense']];
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Build your own view: pick which account types to include, optionally narrow to a date range, and get a live total. This is the same engine the standard reports above run on — just exposed directly.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      ${typeLabels.map(([t,label])=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:1px solid rgba(201,168,76,.3);border-radius:6px;cursor:pointer;${cfg.types.includes(t)?'background:rgba(201,168,76,.12)':''}"><input type="checkbox" ${cfg.types.includes(t)?'checked':''} onchange="abCustomReportToggleType('${t}')">${label}</label>`).join('')}
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;font-size:12px">
+      <span>Date range (optional):</span>
+      <input type="date" value="${cfg.dateFrom}" onchange="abCustomReportSetDate('dateFrom',this.value)">
+      <span>to</span>
+      <input type="date" value="${cfg.dateTo}" onchange="abCustomReportSetDate('dateTo',this.value)">
+      ${(cfg.dateFrom||cfg.dateTo)?`<a href="#" onclick="abCustomReportCfg.dateFrom='';abCustomReportCfg.dateTo='';abRenderReports();return false" style="color:var(--muted)">clear</a>`:''}
+    </div>
+    <table class="ab-table"><tr><th>Account</th><th>Type</th><th style="text-align:right">Amount</th></tr>
+    ${rows.map(r=>`<tr style="cursor:pointer" onclick="abOpenJournalForAccount('${r.account.id}','${abEsc(r.account.account_name)}')"><td>${abEsc(r.account.account_name)}</td><td style="font-size:12px;color:var(--muted)">${abEsc(r.account.account_type)}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No accounts match this selection</td></tr>'}
+    <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)" colspan="2">Total</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(total)}</td></tr>
+    </table>
+    <div style="margin-top:12px"><button class="ab-btn" onclick="abPrintPreviewCustomReport()">🖨 Print Preview</button></div>`;
+}
+function abPrintPreviewCustomReport(){
+  const d=window._abLastCustomReport||{rows:[],total:0};
+  abPrintPreview('Custom Report',
+    [{key:'account',label:'Account'},{key:'type',label:'Type'},{key:'amount',label:'Amount',num:true}],
+    d.rows.map(r=>({account:r.account.account_name,type:r.account.account_type,amount:abMoney(r.net)}))
   );
 }
 // ══════════════════════════════════════════════
