@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.47</div>
+    <div class="page-version" id="pageVersion">v1.48</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -338,7 +338,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 // the "Accounting" framing of.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=18;
+const PLACEHOLDER_COUNT=19;
 
 // ══════════════════════════════════════════════
 // TO-DO CONTENT — the running build list for AmitBooks, panel 3.
@@ -875,9 +875,9 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory',13:'Rental Properties',14:'Payroll',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions'};
-    const opSubs={1:'Cash position',2:'Chart of accounts, contacts, items, tags',6:'Money owed, in and out',7:'Record what came in or went out',8:'Equipment & depreciation',9:'AR/AP summary, trial balance',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, every movement',13:'Ownership, components, P&L per property',14:'Employees, pay runs, withholding',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing'};
-    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩',11:'📦',12:'📋',13:'🏠',14:'👷',15:'🚗',16:'🛡️',17:'🤝',18:'📈'};
+    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory',13:'Rental Properties',14:'Payroll',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions',19:'Quotes'};
+    const opSubs={1:'Cash position',2:'Chart of accounts, contacts, items, tags',6:'Money owed, in and out',7:'Record what came in or went out',8:'Equipment & depreciation',9:'AR/AP summary, trial balance',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, every movement',13:'Ownership, components, P&L per property',14:'Employees, pay runs, withholding',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing',19:'Price it before you book it'};
+    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩',11:'📦',12:'📋',13:'🏠',14:'👷',15:'🚗',16:'🛡️',17:'🤝',18:'📈',19:'📝'};
     const label=opLabels[i]||(i===3?'To Do':i===4?'Full Spec':i===5?'Feature Map':'Placeholder '+i);
     navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
       <div class="tile-icon">${opIcons[i]||(i===3?'📝':i===4?'🔖':i===5?'🗺️':'▢')}</div>
@@ -892,7 +892,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog'],['Roadmap','ab-roadmap']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Items','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -995,6 +995,11 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
         <div class="ch-tab-nav" id="ch-tab-nav-18">${tabNavHtml}</div>
         <div class="ch-tab-main">${tabContentHtml}</div>
+      </div>`;
+    } else if(i===19){
+      panelHtml+=`<div class="panel" id="panel-19" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-quotes" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===3){
       panelHtml+=`<div class="panel" id="panel-${i}" style="flex-direction:column">
@@ -1327,7 +1332,7 @@ async function abLoadBooks(){
 
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
-  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags(); abRenderQbImportTab(); abLoadRoadmap(); abLoadAuditLog();
+  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags(); abRenderQbImportTab(); abLoadAuditLog();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
@@ -1881,6 +1886,84 @@ async function abAddEstimate(){
   const{error}=await db.from('estimates').insert({book_id:abBookId,tag_id:abEstimatesTagId,contact_id:tag?tag.contact_id:null,amount,estimate_number:number||null,status});
   if(error){abAlert(error.message);return;}
   abShowEstimatesFor(abEstimatesTagId);
+}
+
+// ── QUOTES — item #29 on the Master Build Order. QuickBooks calls this
+// "Estimates," most trades call it a "Quote" — same real object either
+// way, so this reuses the same `estimates` table rather than building a
+// parallel one. The per-job "Estimates for [Job]" mini-panel above still
+// works for quick add-from-a-job; this is the standalone screen that
+// shows every quote across the whole book in one place, and can create
+// one directly against a client without navigating to their job first —
+// plus the one thing a per-job panel can't do: turn an accepted quote
+// straight into a real Bill/Invoice with one click. ──
+let abQuotesCache=[];
+async function abLoadQuotes(){
+  if(!abBookId){abQuotesCache=[];abRenderQuotes();return;}
+  const{data,error}=await db.from('estimates').select('*,contacts(name),tags(name)').eq('book_id',abBookId).order('created_at',{ascending:false});
+  if(error){ abQuotesCache=[]; abRenderQuotes(error.message); return; }
+  abQuotesCache=data||[];
+  abRenderQuotes();
+}
+function abRenderQuotes(errMsg){
+  const el=document.getElementById('ab-quotes'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  if(errMsg){ el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">${abEsc(errMsg)}</div>`; return; }
+  const clients=abContacts.filter(c=>c.is_customer);
+  el.innerHTML=`<div class="ab-h">New Quote</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Client</label><select id="ab-quote-contact"><option value="">—</option>${clients.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')||'<option value="">Add a customer contact first</option>'}</select></div>
+      <div class="ab-field"><label>Job (optional)</label><select id="ab-quote-tag"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Quote #</label><input id="ab-quote-number" style="width:100px" placeholder="optional"></div>
+      <div class="ab-field"><label>Amount</label><input id="ab-quote-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddQuote()">Create Quote</button>
+    </div>
+    ${(()=>{
+      const tk='quotes'; abSmartRerender[tk]=()=>abRenderQuotes();
+      const getters={number:q=>q.estimate_number||'',client:q=>q.contacts?q.contacts.name:'',job:q=>q.tags?q.tags.name:'',amount:q=>Number(q.amount)||0,status:q=>q.status||''};
+      const sorted=abSmartApply(tk,abQuotesCache,getters);
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{number:'#',client:'Client',job:'Job',amount:'Amount',status:'Status'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'number','#')}${abSmartTh(tk,'client','Client')}${abSmartTh(tk,'job','Job')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th></tr>
+      ${sorted.map(q=>`<tr><td>${abEsc(q.estimate_number||'—')}</td><td${q.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${q.contact_id}','${abEsc(q.contacts?q.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(q.contacts?q.contacts.name:'')}</td><td>${abEsc(q.tags?q.tags.name:'—')}</td><td>${abMoney(q.amount)}</td><td>
+        <select onchange="abUpdateQuoteStatus('${q.id}',this.value)">
+          ${['draft','sent','accepted','declined'].map(s=>`<option value="${s}"${q.status===s?' selected':''}>${s}</option>`).join('')}
+        </select></td><td>${q.status==='accepted'&&!q.converted_at?`<button class="ab-btn" style="padding:5px 10px;font-size:10px" onclick="abConvertQuoteToInvoice('${q.id}')">→ Invoice</button>`:(q.converted_at?'<span style="font-size:10px;color:var(--muted)">Converted ✓</span>':'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No quotes yet</td></tr>'}
+      </table>`;
+    })()}`;
+}
+async function abAddQuote(){
+  const contact_id=document.getElementById('ab-quote-contact').value||null;
+  const tag_id=document.getElementById('ab-quote-tag').value||null;
+  const estimate_number=document.getElementById('ab-quote-number').value.trim()||null;
+  const amount=parseFloat(document.getElementById('ab-quote-amount').value)||0;
+  if(!amount){abAlert('Enter an amount.');return;}
+  const{error}=await db.from('estimates').insert({book_id:abBookId,contact_id,tag_id,estimate_number,amount,status:'draft'});
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-quote-amount').value='';
+  await abLoadQuotes();
+}
+async function abUpdateQuoteStatus(id,status){
+  await db.from('estimates').update({status}).eq('id',id);
+  await abLoadQuotes();
+}
+// Turns an accepted quote into a real Invoice, posting the actual
+// journal entry the same way any other invoice does — a quote is
+// otherwise just a number on a screen with no bearing on the books.
+async function abConvertQuoteToInvoice(id){
+  const q=abQuotesCache.find(x=>x.id===id); if(!q)return;
+  if(!(await abConfirm(`Convert this ${abMoney(q.amount)} quote into a real Invoice for ${q.contacts?q.contacts.name:'this client'}?`)))return;
+  const incomeId=await abFindOrCreateAccount('Uncategorized Income','income');
+  const{data,error}=await db.from('invoices_bills').insert({
+    book_id:abBookId,direction:'invoice_receivable',contact_id:q.contact_id,doc_date:new Date().toISOString().slice(0,10),status:'draft',
+    subtotal:q.amount,total_amount:q.amount,memo:'Converted from quote'+(q.estimate_number?' #'+q.estimate_number:'')
+  }).select().single();
+  if(error){abAlert(error.message);return;}
+  await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,account_id:incomeId,tag_id:q.tag_id,description:'Quote conversion',quantity:1,unit_price:q.amount,amount:q.amount});
+  await abPostJournalForInvoiceBill(data, incomeId, q.tag_id, q.amount);
+  await db.from('estimates').update({converted_at:new Date().toISOString()}).eq('id',id);
+  await abLoadInvoicesBills(); await abLoadJournalLines(); await abLoadQuotes();
+  abRenderReports();
+  abAlert('Converted — the new invoice is now on the Bills & Invoices tab.');
 }
 
 // ── BILLS & INVOICES — the core "clear the pile" screen ──
@@ -3889,52 +3972,6 @@ function abRenderAuditLog(errMsg){
     </table>`;
 }
 
-// ══════════════════════════════════════════════
-// ROADMAP — the real, persistent, checkable Master Build Order. Ryan's
-// direct instruction 2026-07-31: turn the 45-item feature list (from The
-// Council + pursuits + AmitAccounting_Spec.md) into an actual checklist,
-// not more prose — and prioritize it by real dependency, not just the
-// order items were brainstormed in. Backed by a real Supabase table
-// (amitbooks_roadmap, global — this is the product roadmap, not one
-// book's data) so status persists and is honest across sessions.
-// ══════════════════════════════════════════════
-let abRoadmapCache=[];
-async function abLoadRoadmap(){
-  const{data,error}=await db.from('amitbooks_roadmap').select('*').order('priority_tier',{ascending:true}).order('item_number',{ascending:true});
-  if(error){ abRoadmapCache=[]; abRenderRoadmap(error.message); return; }
-  abRoadmapCache=data||[];
-  abRenderRoadmap();
-}
-const AB_ROADMAP_STATUS_CYCLE=['not_started','in_progress','partial','done'];
-const AB_ROADMAP_STATUS_LABEL={not_started:'Not started',in_progress:'In progress',partial:'Partial',done:'Done ✓',blocked:'Blocked'};
-const AB_ROADMAP_STATUS_COLOR={not_started:'rgba(240,232,208,.08)',in_progress:'rgba(201,168,76,.18)',partial:'rgba(140,160,220,.18)',done:'rgba(100,220,160,.18)',blocked:'rgba(220,120,120,.18)'};
-function abRenderRoadmap(errMsg){
-  const el=document.getElementById('ab-roadmap'); if(!el)return;
-  if(errMsg){
-    el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">Roadmap table isn't set up in Supabase yet — ${abEsc(errMsg)}. Run migration_2026-07-31_001_amitbooks_roadmap.sql, then reopen this tab.</div>`;
-    return;
-  }
-  const done=abRoadmapCache.filter(r=>r.status==='done').length;
-  const total=abRoadmapCache.length;
-  const tk='roadmap'; abSmartRerender[tk]=()=>abRenderRoadmap();
-  const getters={num:r=>r.item_number,title:r=>r.title||'',category:r=>r.category||'',status:r=>r.status||'',tier:r=>r.priority_tier};
-  const sorted=abSmartApply(tk,abRoadmapCache,getters);
-  el.innerHTML=`<div class="ab-h">Master Build Order — the real checklist</div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">${done} of ${total} complete. Priority tier 1 = do first (either already the foundation, or unblocks the most other work) — click a status pill to cycle Not started → In progress → Partial → Done. Sortable/filterable like every other list in AmitBooks.</div>
-    ${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{num:'#',title:'Title',category:'Category',status:'Status',tier:'Tier'})}
-    <table class="ab-table"><tr>${abSmartTh(tk,'tier','Tier')}${abSmartTh(tk,'num','#')}${abSmartTh(tk,'title','Title')}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'status','Status')}</tr>
-    ${sorted.map(r=>`<tr><td>${r.priority_tier}</td><td>${r.item_number}</td><td>${abEsc(r.title)}${r.blocked_reason?`<div style="font-size:10px;color:var(--muted)">${abEsc(r.blocked_reason)}</div>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(r.category||'')}</td><td><span style="cursor:pointer;padding:3px 9px;border-radius:10px;font-size:11px;background:${AB_ROADMAP_STATUS_COLOR[r.status]||''}" onclick="abCycleRoadmapStatus('${r.id}','${r.status}')">${AB_ROADMAP_STATUS_LABEL[r.status]||r.status}</span></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No roadmap items yet</td></tr>'}
-    </table>`;
-}
-async function abCycleRoadmapStatus(id,current){
-  if(current==='blocked') return; // blocked items are cleared manually, not cycled
-  const idx=AB_ROADMAP_STATUS_CYCLE.indexOf(current);
-  const next=AB_ROADMAP_STATUS_CYCLE[(idx+1)%AB_ROADMAP_STATUS_CYCLE.length];
-  const{error}=await db.from('amitbooks_roadmap').update({status:next,updated_at:new Date().toISOString()}).eq('id',id);
-  if(error){abAlert(error.message);return;}
-  await abLoadRoadmap();
-}
-
 function abRefreshDropdownSources(){
   // Cheap re-render of any open screen whose dropdowns (contacts/accounts/
   // tags/items) just changed, so a newly-added vendor shows up immediately
@@ -3959,6 +3996,7 @@ openPanel=function(n){
   if(n===16 && abBookId){ abLoadWarranties(); abLoadServiceAgreements(); }
   if(n===17 && abBookId) abLoadCrm();
   if(n===18 && abBookId){ abLoadInvestments(); abLoadSubscriptions(); }
+  if(n===19 && abBookId) abLoadQuotes();
 };
 
 abInit();
