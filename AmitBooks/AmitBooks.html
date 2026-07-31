@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.55</div>
+    <div class="page-version" id="pageVersion">v1.56</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1767,7 +1767,7 @@ function abRenderContacts(){
   const filters=[['all','All'],['is_customer','Customers'],['is_vendor','Vendors'],['is_employee','Employees'],['is_contractor_1099','1099s']];
   const shown = abContactFilter==='all' ? abContacts : abContacts.filter(c=>c[abContactFilter]);
   const visual=abIsVisual('contacts');
-  el.innerHTML=`<div class="ab-h">Contacts</div>
+  el.innerHTML=`<div class="ab-h">Contacts <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span><input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''"></div>
     ${abVisualSwitch('contacts','abRenderContacts')}
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
       ${filters.map(f=>`<button class="ab-btn" style="${abContactFilter===f[0]?'':'background:transparent;color:var(--muted)'}" onclick="abSetContactFilter('${f[0]}')">${f[1]} ${f[0]==='all'?'('+abContacts.length+')':'('+abContacts.filter(c=>c[f[0]]).length+')'}</button>`).join('')}
@@ -1874,7 +1874,7 @@ function abRenderItems(){
   const el=document.getElementById('ab-items'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   const visual=abIsVisual('items');
-  el.innerHTML=`<div class="ab-h">Scopes</div>
+  el.innerHTML=`<div class="ab-h">Scopes <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportItemsCsv()">⬇ Export CSV</span></div>
     ${abVisualSwitch('items','abRenderItems')}
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
       A Scope is the real-world category of work or material — "Framing," "HVAC," "Concrete" — not the same as a Chart of Accounts entry. Everything charged to a job gets grouped under a Scope for job costing, no matter whether it ends up being labor, material, subcontractor, or equipment on any given bill — that's picked per line when you enter the bill, not fixed here. Every Scope can point at two accounts: where the cost lands when you buy it (<b>Expense Account</b>), and where the revenue lands when you bill someone for it (<b>Income Account</b>).
@@ -2382,7 +2382,7 @@ function abRenderInvoicesBills(){
   const visual=abIsVisual('invbills');
   const bookName=abEsc((abBooks.find(b=>b.id===abBookId)||{}).name||'');
   el.innerHTML=`${abVisualSwitch('invbills','abRenderInvoicesBills')}
-    <div class="ab-h">Enter a Bill or Invoice <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abToggleBatchMode()">${abBatchMode?'← Back to one at a time':'⊞ Batch Entry (multiple at once) →'}</span></div>
+    <div class="ab-h">Enter a Bill or Invoice <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abToggleBatchMode()">${abBatchMode?'← Back to one at a time':'⊞ Batch Entry (multiple at once) →'}</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportInvoicesBillsCsv()">⬇ Export CSV</span></div>
     ${flaggedCount?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">🚩 ${flaggedCount} entry(ies) paid from a source that doesn't belong to this book — <a href="#" onclick="openPanel(10);return false" style="color:var(--gold2)">resolve them in the Review Queue →</a></div>`:''}
     ${abBatchMode?abRenderBatchEntry():`
     <div class="ab-form">
@@ -3187,6 +3187,67 @@ function abPrintPreview(title,columns,rowsData){
   <\/script>
   </body></html>`);
   w.document.close();
+}
+// ── EXCEL / CSV SYNC — the export half is a generic bridge off the same
+// {columns,rowsData} shape abPrintPreview already uses, so any screen that
+// can print-preview can also export to CSV with one more call. Import is
+// its own simple per-table mapper for Contacts, the most common bulk-load
+// need outside the QuickBooks Journal importer that already exists.
+function abExportCsv(filename,columns,rowsData){
+  const esc=v=>{ const s=v==null?'':String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const lines=[columns.map(c=>esc(c.label)).join(',')];
+  rowsData.forEach(r=>lines.push(columns.map(c=>esc(r[c.key])).join(',')));
+  const blob=new Blob([lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=filename.endsWith('.csv')?filename:filename+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function abExportContactsCsv(){
+  abExportCsv('amitbooks-contacts',
+    [{key:'name',label:'Name'},{key:'roles',label:'Roles'},{key:'lead_stage',label:'Lead Stage'}],
+    abContacts.map(c=>({name:c.name,roles:abRoleTags(c),lead_stage:c.lead_stage||''}))
+  );
+}
+function abExportItemsCsv(){
+  abExportCsv('amitbooks-scopes',
+    [{key:'name',label:'Scope'},{key:'type',label:'What is it?'},{key:'costtype',label:'Default Cost Type'},{key:'price',label:'Price'}],
+    abItems.map(i=>({name:i.name,type:abItemTypeLabel(i.item_type),costtype:abCostTypeLabel(i.cost_type),price:i.unit_price||''}))
+  );
+}
+function abExportInvoicesBillsCsv(){
+  abExportCsv('amitbooks-bills-invoices',
+    [{key:'date',label:'Date'},{key:'type',label:'Type'},{key:'contact',label:'Contact'},{key:'amount',label:'Amount'},{key:'status',label:'Status'}],
+    abInvoicesBillsCache.map(r=>({date:r.doc_date||'',type:r.direction==='bill_payable'?'Bill':'Invoice',contact:r.contacts?r.contacts.name:'',amount:r.total_amount,status:r.status}))
+  );
+}
+function abTriggerContactsCsvImport(){ document.getElementById('ab-contacts-csv-input').click(); }
+async function abImportContactsCsv(file){
+  if(!file)return;
+  const text=await file.text();
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){ abAlert('That CSV has no data rows.'); return; }
+  const parseLine=l=>{ const out=[]; let cur='',inQ=false; for(let i=0;i<l.length;i++){ const c=l[i]; if(inQ){ if(c==='"'&&l[i+1]==='"'){cur+='"';i++;} else if(c==='"'){inQ=false;} else cur+=c; } else { if(c==='"')inQ=true; else if(c===','){out.push(cur);cur='';} else cur+=c; } } out.push(cur); return out; };
+  const header=parseLine(lines[0]).map(h=>h.trim().toLowerCase());
+  const nameIdx=header.indexOf('name');
+  if(nameIdx===-1){ abAlert('CSV needs a "Name" column, at minimum. Optional columns: Roles, Lead Stage.'); return; }
+  const rolesIdx=header.indexOf('roles');
+  let imported=0;
+  for(let i=1;i<lines.length;i++){
+    const cells=parseLine(lines[i]);
+    const name=(cells[nameIdx]||'').trim(); if(!name)continue;
+    const rolesStr=(rolesIdx>-1?cells[rolesIdx]:'')||'';
+    const{error}=await db.from('contacts').insert({
+      book_id:abBookId,name,
+      is_customer:/customer/i.test(rolesStr),
+      is_vendor:/vendor/i.test(rolesStr)||!rolesStr,
+      is_employee:/employee/i.test(rolesStr),
+      is_contractor_1099:/1099/i.test(rolesStr)
+    });
+    if(!error) imported++;
+  }
+  abAlert(`Imported ${imported} contact(s).`);
+  await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
 }
 function abPrintPreviewTrialBalance(){
   const rows=window._abLastTBRows||[];
