@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.54</div>
+    <div class="page-version" id="pageVersion">v1.55</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1401,6 +1401,37 @@ function abToggleDashKpi(key){
   localStorage.setItem(abDashKpiKey(),JSON.stringify(next));
   abRenderDashboard();
 }
+// ── GUIDED ONBOARDING — a real first-run walkthrough for a fresh book,
+// not a blank app. Shows automatically while the book is still empty on
+// the basics, checks itself off live as each step becomes true, and can
+// be dismissed for good (per book) once the person doesn't need it
+// anymore.
+const AB_ONBOARD_STEPS=[
+  {key:'coa',label:'Set up your Chart of Accounts',done:()=>abAccounts.length>0,panel:2},
+  {key:'contact',label:'Add your first Contact (a vendor or customer)',done:()=>abContacts.length>0,panel:2},
+  {key:'item',label:'Add your first Scope (what you buy or sell)',done:()=>abItems.length>0,panel:2},
+  {key:'entry',label:'Enter your first Bill or Invoice',done:()=>abInvoicesBillsCache.length>0,panel:6},
+  {key:'report',label:'Look at your Reports — they update live as you enter things',done:()=>abJournalLinesCache.length>0,panel:9},
+];
+function abOnboardDismissKey(){ return 'ab_onboard_dismissed_'+(abBookId||'none'); }
+function abDismissOnboarding(){ localStorage.setItem(abOnboardDismissKey(),'1'); abRenderDashboard(); }
+function abRenderOnboardingChecklist(){
+  if(localStorage.getItem(abOnboardDismissKey())==='1') return '';
+  const steps=AB_ONBOARD_STEPS.map(s=>({...s,isDone:s.done()}));
+  const doneCount=steps.filter(s=>s.isDone).length;
+  if(doneCount===steps.length) return '';
+  return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:14px;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="ab-h" style="margin:0">Getting Started (${doneCount}/${steps.length})</div>
+      <a href="#" onclick="abDismissOnboarding();return false" style="font-size:11px;color:var(--muted)">Dismiss</a>
+    </div>
+    ${steps.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;${s.isDone?'opacity:.55':''}">
+      <span style="width:16px;text-align:center">${s.isDone?'✓':'○'}</span>
+      <span style="flex:1;font-size:13px">${s.label}</span>
+      ${!s.isDone?`<a href="#" onclick="openPanel(${s.panel});return false" style="font-size:12px;color:var(--gold2)">Go →</a>`:''}
+    </div>`).join('')}
+    </div>`;
+}
 function abRenderDashboard(){
   const el=document.getElementById('ab-dashboard'); if(!el)return;
   if(!abBooks.length){
@@ -1422,6 +1453,7 @@ function abRenderDashboard(){
       <select onchange="abSwitchBook(this.value)">${abBooks.map(x=>`<option value="${x.id}"${x.id===abBookId?' selected':''}>${abEsc(x.name)}</option>`).join('')}</select>
       <span style="margin-left:auto;font-size:11px;color:var(--muted);cursor:pointer" onclick="abToggleDashCustomize()">${abDashCustomizing?'Done customizing':'⚙ Customize KPIs'}</span>
     </div>
+    ${abRenderOnboardingChecklist()}
     ${abDashCustomizing?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick which KPI tiles show up top — your choice is remembered per book.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
       ${AB_KPI_DEFS.map(k=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:1px solid rgba(201,168,76,.3);border-radius:6px;cursor:pointer;${activeKpis.includes(k.key)?'background:rgba(201,168,76,.12)':''}"><input type="checkbox" ${activeKpis.includes(k.key)?'checked':''} onchange="abToggleDashKpi('${k.key}')">${k.label}</label>`).join('')}
