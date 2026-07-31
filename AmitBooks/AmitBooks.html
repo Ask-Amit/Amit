@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.56</div>
+    <div class="page-version" id="pageVersion">v1.57</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -892,7 +892,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Workflow Rules','ab-workflow'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -1332,7 +1332,8 @@ async function abLoadBooks(){
 
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
-  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderQbImportTab(); abLoadAuditLog();
+  await abLoadWorkflowRules();
+  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderWorkflowRules(); abRenderQbImportTab(); abLoadAuditLog();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
@@ -2064,6 +2065,88 @@ async function abToggleTagStatus(tagId,newStatus){
   await abLoadTags(); abRenderTags(); abRefreshDropdownSources();
 }
 
+// ── WORKFLOW AUTOMATION — user-defined "when X happens, do Y" rules,
+// distinct from Amit's own proactive notifications (Amit-initiated, not
+// user-configured). First trigger: picking a Contact on a Bill/Invoice
+// auto-fills the Scope/Cost Type/Category/Job that person has already
+// told the system that vendor always gets — the exact thing that turns
+// "the pile" from 90 minutes into 30.
+let abWorkflowRulesCache=[];
+async function abLoadWorkflowRules(){
+  if(!abBookId){abWorkflowRulesCache=[];return;}
+  const{data,error}=await db.from('workflow_rules').select('*,contacts(name)').eq('book_id',abBookId).order('created_at',{ascending:false});
+  if(error){ abWorkflowRulesCache=[]; return; } // table not migrated yet on this book — fail quiet, not fatal
+  abWorkflowRulesCache=data||[];
+}
+function abRenderWorkflowRules(){
+  const el=document.getElementById('ab-workflow'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Workflow Rules</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      "When I pick this Contact on a Bill or Invoice, always fill in these fields." Set it once per vendor/customer, and every future entry for them pre-fills instead of you re-picking the same Scope, Cost Type, Category, and Job every time. This is separate from Amit's own proactive notifications — these are rules you define, not ones Amit decides on its own.
+    </div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Rule Name</label><input id="ab-wf-name" placeholder="e.g. Home Depot → Materials"></div>
+      <div class="ab-field"><label>When Contact is</label><select id="ab-wf-contact"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>And Type is</label><select id="ab-wf-direction"><option value="">Either</option><option value="bill_payable">Bill</option><option value="invoice_receivable">Invoice</option></select></div>
+      <div class="ab-field"><label>Set Scope</label><select id="ab-wf-item"><option value="">—</option>${abItems.map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Set Cost Type</label><select id="ab-wf-costtype"><option value="">—</option>${abCostTypeOptions()}</select></div>
+      <div class="ab-field"><label>Set Category</label><select id="ab-wf-account"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Set Job/Tag</label><select id="ab-wf-tag"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
+      <button class="ab-btn" onclick="abAddWorkflowRule()">Add Rule</button>
+    </div>
+    <table class="ab-table"><tr><th>Rule</th><th>Contact</th><th>Type</th><th>Fills In</th><th>Active</th><th></th></tr>
+    ${abWorkflowRulesCache.map(r=>`<tr>
+      <td>${abEsc(r.name)}</td>
+      <td>${abEsc(r.contacts?r.contacts.name:'—')}</td>
+      <td style="font-size:12px">${r.trigger_direction?(r.trigger_direction==='bill_payable'?'Bill':'Invoice'):'Either'}</td>
+      <td style="font-size:12px">${[r.action_item_id?abItemName(r.action_item_id):'',r.action_cost_type?abCostTypeLabel(r.action_cost_type):'',r.action_account_id?abAccountLabel(r.action_account_id):''].filter(Boolean).join(' · ')||'—'}</td>
+      <td><a href="#" onclick="abToggleWorkflowRule('${r.id}',${!r.active});return false" style="color:${r.active?'var(--gold2)':'var(--muted)'}">${r.active?'Active':'Off'}</a></td>
+      <td><a href="#" onclick="abDeleteWorkflowRule('${r.id}');return false" style="color:var(--muted)">✕</a></td>
+    </tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No rules yet — the table below only works after you run the Workflow Rules migration; if this stays empty after adding one, that\'s why</td></tr>'}
+    </table>`;
+}
+function abItemName(id){ const i=abItems.find(x=>x.id===id); return i?i.name:''; }
+async function abAddWorkflowRule(){
+  const name=document.getElementById('ab-wf-name').value.trim(); if(!name)return;
+  const row={
+    book_id:abBookId,name,
+    trigger_contact_id:document.getElementById('ab-wf-contact').value||null,
+    trigger_direction:document.getElementById('ab-wf-direction').value||null,
+    action_item_id:document.getElementById('ab-wf-item').value||null,
+    action_cost_type:document.getElementById('ab-wf-costtype').value||null,
+    action_account_id:document.getElementById('ab-wf-account').value||null,
+    action_tag_id:document.getElementById('ab-wf-tag').value||null
+  };
+  const{error}=await db.from('workflow_rules').insert(row);
+  if(error){ abAlert('Workflow Rules table isn\'t set up on this book yet — see the note above. ('+error.message+')'); return; }
+  document.getElementById('ab-wf-name').value='';
+  await abLoadWorkflowRules(); abRenderWorkflowRules();
+}
+async function abToggleWorkflowRule(id,active){
+  await db.from('workflow_rules').update({active}).eq('id',id);
+  await abLoadWorkflowRules(); abRenderWorkflowRules();
+}
+async function abDeleteWorkflowRule(id){
+  if(!await abConfirm('Remove this rule?'))return;
+  await db.from('workflow_rules').delete().eq('id',id);
+  await abLoadWorkflowRules(); abRenderWorkflowRules();
+}
+// Applied live when a Contact is chosen on the single-entry Bills &
+// Invoices form — finds the best-matching active rule (direction-specific
+// beats "Either") and fills the fields the person hasn't already touched.
+function abApplyWorkflowAutofill(){
+  const contactId=document.getElementById('ab-ib-contact')?.value; if(!contactId)return;
+  const direction=document.getElementById('ab-ib-direction')?.value;
+  const candidates=abWorkflowRulesCache.filter(r=>r.active&&r.trigger_contact_id===contactId&&(!r.trigger_direction||r.trigger_direction===direction));
+  if(!candidates.length)return;
+  const rule=candidates.find(r=>r.trigger_direction===direction)||candidates[0];
+  if(rule.action_item_id) document.getElementById('ab-ib-item').value=rule.action_item_id;
+  if(rule.action_cost_type) document.getElementById('ab-ib-costtype').value=rule.action_cost_type;
+  if(rule.action_account_id) document.getElementById('ab-ib-account').value=rule.action_account_id;
+  if(rule.action_tag_id) document.getElementById('ab-ib-tag').value=rule.action_tag_id;
+}
+
 // ── ESTIMATES — one project/job can carry more than one estimate over time ──
 let abEstimatesTagId=null;
 async function abShowEstimatesFor(tagId){
@@ -2386,8 +2469,8 @@ function abRenderInvoicesBills(){
     ${flaggedCount?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">🚩 ${flaggedCount} entry(ies) paid from a source that doesn't belong to this book — <a href="#" onclick="openPanel(10);return false" style="color:var(--gold2)">resolve them in the Review Queue →</a></div>`:''}
     ${abBatchMode?abRenderBatchEntry():`
     <div class="ab-form">
-      <div class="ab-field"><label>Type</label><select id="ab-ib-direction"><option value="bill_payable">Bill (I owe)</option><option value="invoice_receivable">Invoice (owed to me)</option></select></div>
-      <div class="ab-field"><label>Contact</label><select id="ab-ib-contact"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Type</label><select id="ab-ib-direction" onchange="abApplyWorkflowAutofill()"><option value="bill_payable">Bill (I owe)</option><option value="invoice_receivable">Invoice (owed to me)</option></select></div>
+      <div class="ab-field"><label>Contact</label><select id="ab-ib-contact" onchange="abApplyWorkflowAutofill()"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Amount</label><input id="ab-ib-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
       <div class="ab-field"><label>Date</label><input id="ab-ib-date" type="date" value="${today}"></div>
       <div class="ab-field"><label>Paid from (optional)</label><select id="ab-ib-payment-source"><option value="">—</option>${abPaymentSourcesCache.map(p=>`<option value="${p.id}">${abEsc(p.name)}${p.owning_book_id&&p.owning_book_id!==abBookId?' (other book)':p.owning_book_id?'':' (personal)'}</option>`).join('')}</select></div>
