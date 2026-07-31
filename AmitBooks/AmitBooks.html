@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.50</div>
+    <div class="page-version" id="pageVersion">v1.51</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -892,7 +892,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -1332,7 +1332,7 @@ async function abLoadBooks(){
 
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
-  abRenderCoa(); abRenderContacts(); abRenderItems(); abRenderTags(); abRenderQbImportTab(); abLoadAuditLog();
+  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderQbImportTab(); abLoadAuditLog();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
@@ -1642,6 +1642,11 @@ function abRenderContacts(){
           <label><input type="checkbox" id="ab-contact-1099"> 1099</label>
         </div>
       </div>
+      <div class="ab-field"><label>Lead Stage (optional)</label>
+        <select id="ab-contact-leadstage"><option value="">—</option>${AB_LEAD_STAGES.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('')}</select>
+      </div>
+      <div class="ab-field"><label>Lead Value (optional)</label><input id="ab-contact-leadvalue" type="number" step="0.01" style="width:100px"></div>
+      <div class="ab-field"><label>Lead Source (optional)</label><input id="ab-contact-leadsource" placeholder="referral, website, ad..."></div>
       <button class="ab-btn" onclick="abAddContact()">Add Contact</button>
     </div>
     ${!visual?(()=>{
@@ -1667,10 +1672,54 @@ async function abAddContact(){
     is_customer:document.getElementById('ab-contact-customer').checked,
     is_vendor:document.getElementById('ab-contact-vendor').checked,
     is_employee:document.getElementById('ab-contact-employee').checked,
-    is_contractor_1099:document.getElementById('ab-contact-1099').checked};
+    is_contractor_1099:document.getElementById('ab-contact-1099').checked,
+    lead_stage:document.getElementById('ab-contact-leadstage').value||null,
+    lead_value:document.getElementById('ab-contact-leadvalue').value||null,
+    lead_source:document.getElementById('ab-contact-leadsource').value.trim()||null};
   const{error}=await db.from('contacts').insert(row);
   if(error){abAlert(error.message);return;}
-  await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
+  document.getElementById('ab-contact-leadvalue').value='';
+  document.getElementById('ab-contact-leadsource').value='';
+  await abLoadContacts(); abRenderContacts(); abRenderPipeline(); abRefreshDropdownSources();
+}
+
+// ── CRM PIPELINE — Kanban board over contacts.lead_stage. Click a card's
+// stage chip to advance/move it; the underlying record is still just a
+// contact, no parallel "leads" table. ──
+const AB_LEAD_STAGES=[['lead','Lead'],['contacted','Contacted'],['quoted','Quoted'],['won','Won'],['lost','Lost']];
+async function abSetLeadStage(contactId,stage){
+  const{error}=await db.from('contacts').update({lead_stage:stage}).eq('id',contactId);
+  if(error){abAlert(error.message);return;}
+  await abLoadContacts(); abRenderPipeline(); abRenderContacts();
+}
+function abRenderPipeline(){
+  const el=document.getElementById('ab-pipeline'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const leads=abContacts.filter(c=>c.lead_stage);
+  const totalValue=leads.filter(c=>c.lead_stage!=='lost').reduce((s,c)=>s+(Number(c.lead_value)||0),0);
+  el.innerHTML=`<div class="ab-h">Pipeline</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Every contact with a Lead Stage set shows up here. Set or change a Lead Stage from the Contacts tab, or move a card straight from its stage buttons below. Open pipeline value (excludes Lost): <b>${abMoney(totalValue)}</b>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start">
+      ${AB_LEAD_STAGES.map(([key,label])=>{
+        const cards=leads.filter(c=>c.lead_stage===key);
+        const colValue=cards.reduce((s,c)=>s+(Number(c.lead_value)||0),0);
+        return `<div style="background:rgba(240,232,208,.04);border:1px solid rgba(240,232,208,.15);border-radius:8px;padding:10px;min-height:120px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:2px">${label} <span style="color:var(--muted);font-weight:400">(${cards.length})</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${colValue?abMoney(colValue):'—'}</div>
+          ${cards.map(c=>`<div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:8px;margin-bottom:8px;cursor:pointer" onclick="abOpenContact('${c.id}','${abEsc(c.name).replace(/'/g,"\\'")}')">
+            <div style="font-size:13px;font-weight:600">${abEsc(c.name)}</div>
+            ${c.lead_value?`<div style="font-size:12px;color:var(--muted)">${abMoney(c.lead_value)}</div>`:''}
+            ${c.lead_source?`<div style="font-size:11px;color:var(--dim)">via ${abEsc(c.lead_source)}</div>`:''}
+            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px" onclick="event.stopPropagation()">
+              ${AB_LEAD_STAGES.filter(s=>s[0]!==key).map(s=>`<button class="ab-btn" style="font-size:10px;padding:2px 6px" onclick="abSetLeadStage('${c.id}','${s[0]}')">→ ${s[1]}</button>`).join('')}
+            </div>
+          </div>`).join('')}
+        </div>`;
+      }).join('')}
+    </div>
+    ${!leads.length?'<div class="ab-empty" style="margin-top:14px">No leads yet — set a Lead Stage on a contact to see it here.</div>':''}`;
 }
 
 // ── ITEMS ──
