@@ -54,7 +54,7 @@ insert into amitbooks_roadmap (item_number, title, category, status, priority_ti
 (6,'Legacy import — full QuickBooks IIF + vendor-mapping into operational bills/invoices','Import','partial',2,'Journal CSV import exists (posts to ledger only) — does not yet create Bills/Invoices/Contacts records'),
 (8,'Industry-aware bill categories — templates beyond construction','Setup','partial',2,'Construction/CSI template only so far'),
 (28,'Inventory control — reorder points, COGS automation','Inventory','partial',2,'Movement ledger exists; no reorder points or COGS automation yet'),
-(30,'Standard report suite — Cash Flow, AR/AP Aging, Sales Tax Liability, 1099 Summary','Reports','partial',2,'Trial Balance, P&L, Balance Sheet done — 4 of 7 reports remain'),
+(30,'Standard report suite — Cash Flow Statement, Sales Tax Liability remain','Reports','partial',2,'5 of 7 done: Trial Balance, P&L, Balance Sheet, AR/AP Aging, 1099 Summary. Cash Flow Statement and Sales Tax Liability still not built.'),
 (42,'CapEx + investments','Assets','partial',2,'Investments table/screen exists; explicit CapEx tie-in to fixed_assets not built'),
 (7,'Statement reconciliation — manual/CSV-based matching against bills on file','Banking','not_started',3,null),
 (10,'Sales tax nexus tracking','Tax','not_started',3,null),

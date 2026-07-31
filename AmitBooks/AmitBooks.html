@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.46</div>
+    <div class="page-version" id="pageVersion">v1.47</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2371,6 +2371,12 @@ function abRenderReports(){
       <div class="ab-card"><div class="n">${abMoney(assetTotal)}</div><div class="l">Fixed assets, cost basis</div></div>
       <div class="ab-card"><div class="n">${abMoney(netIncome)}</div><div class="l">Net income, all-time</div></div>
     </div>
+    <div class="ab-vswitch" style="display:inline-flex">
+      <span class="${abReportsView==='summary'?'on':''}" onclick="abSetReportsView('summary')">Summary</span>
+      <span class="${abReportsView==='aging'?'on':''}" onclick="abSetReportsView('aging')">AR/AP Aging</span>
+      <span class="${abReportsView==='1099'?'on':''}" onclick="abSetReportsView('1099')">1099 Summary</span>
+    </div>
+    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():`
     ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
       <div>
@@ -2415,10 +2421,74 @@ function abRenderReports(){
         })()}
         ${Math.abs(tbDebitTotal-tbCreditTotal)>0.01?`<div class="ab-signin-notice" style="text-align:left;margin-top:10px">Debits and credits are out of balance by ${abMoney(Math.abs(tbDebitTotal-tbCreditTotal))} — this points to a posting bug, not a data-entry error, since every journal entry is built debit=credit at insert time.</div>`:''}
       </div>
-    </div>`}`;
+    </div>`}`}
+    </div>`;
   window._abLastTBRows=rows;
   window._abLastPL={income,expense,totalIncome,totalExpense,netIncome};
   window._abLastBS={assets,liabilities,equity,totalAssets,totalLiabilities,totalEquity,netIncome};
+}
+let abReportsView='summary';
+function abSetReportsView(v){ abReportsView=v; abRenderReports(); }
+function abRenderARAPAging(){
+  const today=new Date();
+  const bucket=(dueDateStr)=>{
+    if(!dueDateStr) return '0-30';
+    const days=Math.floor((today-new Date(dueDateStr))/86400000);
+    if(days<=30) return '0-30'; if(days<=60) return '31-60'; if(days<=90) return '61-90'; return '90+';
+  };
+  const buildAging=(direction)=>{
+    const open=abInvoicesBillsCache.filter(r=>r.direction===direction&&r.status!=='paid'&&r.status!=='void');
+    const buckets={'0-30':0,'31-60':0,'61-90':0,'90+':0};
+    const rowsOut=open.map(r=>{
+      const remaining=Number(r.total_amount)-Number(r.paid_amount);
+      const b=bucket(r.doc_date);
+      buckets[b]+=remaining;
+      return{contact:r.contacts?r.contacts.name:'(no contact)',date:r.doc_date||'',remaining,bucket:b};
+    });
+    return{buckets,rowsOut};
+  };
+  const ar=buildAging('invoice_receivable');
+  const ap=buildAging('bill_payable');
+  const bucketRow=(label,buckets)=>`<tr><td>${label}</td>${['0-30','31-60','61-90','90+'].map(b=>`<td style="text-align:right">${abMoney(buckets[b])}</td>`).join('')}</tr>`;
+  return `<div class="ab-h" style="font-size:15px;margin-top:10px">Accounts Receivable Aging</div>
+    <table class="ab-table"><tr><th></th><th style="text-align:right">0-30 days</th><th style="text-align:right">31-60 days</th><th style="text-align:right">61-90 days</th><th style="text-align:right">90+ days</th></tr>
+    ${bucketRow('Total Owed to You',ar.buckets)}
+    </table>
+    <table class="ab-table" style="margin-top:10px"><tr><th>Customer</th><th>Date</th><th style="text-align:right">Remaining</th><th>Bucket</th></tr>
+    ${ar.rowsOut.map(r=>`<tr><td>${abEsc(r.contact)}</td><td>${r.date}</td><td style="text-align:right">${abMoney(r.remaining)}</td><td>${r.bucket}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">Nothing outstanding</td></tr>'}
+    </table>
+
+    <div class="ab-h" style="font-size:15px;margin-top:24px">Accounts Payable Aging</div>
+    <table class="ab-table"><tr><th></th><th style="text-align:right">0-30 days</th><th style="text-align:right">31-60 days</th><th style="text-align:right">61-90 days</th><th style="text-align:right">90+ days</th></tr>
+    ${bucketRow('Total You Owe',ap.buckets)}
+    </table>
+    <table class="ab-table" style="margin-top:10px"><tr><th>Vendor</th><th>Date</th><th style="text-align:right">Remaining</th><th>Bucket</th></tr>
+    ${ap.rowsOut.map(r=>`<tr><td>${abEsc(r.contact)}</td><td>${r.date}</td><td style="text-align:right">${abMoney(r.remaining)}</td><td>${r.bucket}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">Nothing outstanding</td></tr>'}
+    </table>`;
+}
+function abRender1099Summary(){
+  const contractors=abContacts.filter(c=>c.is_contractor_1099);
+  const year=new Date().getFullYear();
+  const rows=contractors.map(c=>{
+    const paidThisYear=abInvoicesBillsCache
+      .filter(r=>r.direction==='bill_payable'&&r.contact_id===c.id&&(r.doc_date||'').slice(0,4)===String(year))
+      .reduce((s,r)=>s+Number(r.paid_amount||0),0);
+    return{name:c.name,paid:paidThisYear};
+  }).filter(r=>r.paid>0);
+  const threshold=2000; // real 2026 1099-NEC threshold, not the old $600
+  window._abLast1099={year,threshold,rows};
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Contacts marked <b>1099</b> (Contacts tab) with total ${year} payments. The 2026 federal 1099-NEC threshold is $2,000 — rows below that are shown but flagged, not hidden, since state thresholds can be lower.</div>
+    <table class="ab-table"><tr><th>Contractor</th><th style="text-align:right">Paid in ${year}</th><th>1099 Required?</th></tr>
+    ${rows.map(r=>`<tr><td>${abEsc(r.name)}</td><td style="text-align:right">${abMoney(r.paid)}</td><td>${r.paid>=threshold?'Yes':'Below threshold'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No 1099 contractor payments recorded yet</td></tr>'}
+    </table>
+    <div style="margin-top:12px"><button class="ab-btn" onclick="abPrintPreview1099()">🖨 Print Preview</button></div>`;
+}
+function abPrintPreview1099(){
+  const d=window._abLast1099||{year:new Date().getFullYear(),threshold:2000,rows:[]};
+  abPrintPreview(`1099 Summary — ${d.year}`,
+    [{key:'name',label:'Contractor'},{key:'paid',label:'Paid',num:true},{key:'required',label:'1099 Required?'}],
+    d.rows.map(r=>({name:r.name,paid:abMoney(r.paid),required:r.paid>=d.threshold?'Yes':'Below threshold'}))
+  );
 }
 // ══════════════════════════════════════════════
 // PRINT PREVIEW — a real, standalone, self-contained window (not just
