@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.51</div>
+    <div class="page-version" id="pageVersion">v1.52</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1336,7 +1336,15 @@ async function abLoadBookData(){
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
+  await abLoadTaxJurisdictions();
   abRenderReports();
+}
+
+let abTaxJurisdictionsCache=[];
+async function abLoadTaxJurisdictions(){
+  if(!abBookId){abTaxJurisdictionsCache=[];return;}
+  const{data}=await db.from('sales_tax_jurisdictions').select('*').eq('book_id',abBookId).order('name');
+  abTaxJurisdictionsCache=data||[];
 }
 
 let abJournalLinesCache=[];
@@ -2648,8 +2656,10 @@ function abRenderReports(){
       <span class="${abReportsView==='summary'?'on':''}" onclick="abSetReportsView('summary')">Summary</span>
       <span class="${abReportsView==='aging'?'on':''}" onclick="abSetReportsView('aging')">AR/AP Aging</span>
       <span class="${abReportsView==='1099'?'on':''}" onclick="abSetReportsView('1099')">1099 Summary</span>
+      <span class="${abReportsView==='cashflow'?'on':''}" onclick="abSetReportsView('cashflow')">Cash Flow</span>
+      <span class="${abReportsView==='salestax'?'on':''}" onclick="abSetReportsView('salestax')">Sales Tax Liability</span>
     </div>
-    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():`
+    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():`
     ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
       <div>
@@ -2761,6 +2771,77 @@ function abPrintPreview1099(){
   abPrintPreview(`1099 Summary — ${d.year}`,
     [{key:'name',label:'Contractor'},{key:'paid',label:'Paid',num:true},{key:'required',label:'1099 Required?'}],
     d.rows.map(r=>({name:r.name,paid:abMoney(r.paid),required:r.paid>=d.threshold?'Yes':'Below threshold'}))
+  );
+}
+
+// ── CASH FLOW STATEMENT — groups posted journal activity by each
+// account's cash_flow_category (Chart of Accounts field), operating vs.
+// investing vs. financing. This is a direct-method approximation — it
+// shows net cash impact per categorized account, not a full GAAP indirect
+// reconciliation from net income — flagged plainly on screen so it isn't
+// mistaken for more than it is. Accounts with no category set are left
+// out of the three buckets and shown separately as "Uncategorized."
+function abRenderCashFlow(){
+  const rows=abAccountBalances();
+  const catRows=(cat)=>rows.filter(r=>r.account.cash_flow_category===cat);
+  const catTotal=(cat)=>catRows(cat).reduce((s,r)=>s+r.net,0);
+  const uncategorized=rows.filter(r=>!r.account.cash_flow_category && r.account.account_type!=='income' && r.account.account_type!=='expense');
+  const cats=[['operating','Operating Activities'],['investing','Investing Activities'],['financing','Financing Activities']];
+  const netChange=cats.reduce((s,[k])=>s+catTotal(k),0);
+  window._abLastCashFlow={cats:cats.map(([k,label])=>({label,rows:catRows(k),total:catTotal(k)})),netChange,uncategorized};
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Direct-method approximation: net posted activity per account, grouped by the <b>Cash Flow Category</b> set on that account in Chart of Accounts (Operating/Investing/Financing). This is not a full GAAP indirect reconciliation from Net Income — it's a working view of where cash is actually moving. Tag accounts with a Cash Flow Category to have them appear in the right bucket below.
+    </div>
+    ${cats.map(([k,label])=>{
+      const cr=catRows(k), t=catTotal(k);
+      return `<div class="ab-h" style="font-size:15px;margin-top:10px">${label}</div>
+      <table class="ab-table"><tbody>
+      ${cr.map(r=>`<tr style="cursor:pointer" onclick="abOpenJournalForAccount('${r.account.id}','${abEsc(r.account.account_name)}')"><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">No accounts tagged for this category yet</td></tr>'}
+      <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Net ${label}</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(t)}</td></tr>
+      </tbody></table>`;
+    }).join('')}
+    <div class="ab-h" style="font-size:15px;margin-top:14px;border-top:2px solid var(--ab-line,#ccc);padding-top:10px">Net Change in Cash: ${abMoney(netChange)}</div>
+    ${uncategorized.length?`<div class="ab-h" style="font-size:15px;margin-top:20px">Uncategorized (set a Cash Flow Category in Chart of Accounts)</div>
+    <table class="ab-table"><tbody>${uncategorized.map(r=>`<tr><td>${abEsc(r.account.account_name)}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`).join('')}</tbody></table>`:''}
+    <div style="margin-top:12px"><button class="ab-btn" onclick="abPrintPreviewCashFlow()">🖨 Print Preview</button></div>`;
+}
+function abPrintPreviewCashFlow(){
+  const d=window._abLastCashFlow||{cats:[],netChange:0,uncategorized:[]};
+  const out=[];
+  d.cats.forEach(c=>{ out.push({account:c.label,amount:''}); c.rows.forEach(r=>out.push({account:'  '+r.account.account_name,amount:abMoney(r.net)})); out.push({account:'Net '+c.label,amount:abMoney(c.total)}); });
+  out.push({account:'Net Change in Cash',amount:abMoney(d.netChange)});
+  abPrintPreview('Cash Flow Statement',[{key:'account',label:'Account'},{key:'amount',label:'Amount',num:true}],out);
+}
+
+// ── SALES TAX LIABILITY — sums subtotal on receivable invoices tied to
+// each Sales Tax Jurisdiction, applies that jurisdiction's rate to
+// estimate tax collected/owed. Jurisdictions are managed as their own
+// table (Database migration_2026-07-31_002); this report is read-only
+// over that + invoices_bills.tax_jurisdiction_id.
+function abRenderSalesTaxLiability(){
+  const jurisdictions=abTaxJurisdictionsCache;
+  const rows=jurisdictions.map(j=>{
+    const invs=abInvoicesBillsCache.filter(r=>r.direction==='invoice_receivable'&&r.tax_jurisdiction_id===j.id&&r.status!=='void');
+    const taxableBase=invs.reduce((s,r)=>s+Number(r.subtotal||r.total_amount||0),0);
+    const estTax=taxableBase*Number(j.rate||0);
+    return{jurisdiction:j,invoiceCount:invs.length,taxableBase,rate:Number(j.rate||0),estTax};
+  });
+  const totalTax=rows.reduce((s,r)=>s+r.estTax,0);
+  window._abLastSalesTax={rows,totalTax};
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Estimated tax liability per jurisdiction: (sum of taxable invoice subtotals assigned to that jurisdiction) × (jurisdiction's rate). Jurisdictions with economic nexus triggered are flagged. Add or edit jurisdictions and rates directly in Supabase (sales_tax_jurisdictions) until a dedicated screen is built.
+    </div>
+    <table class="ab-table"><tr><th>Jurisdiction</th><th style="text-align:right">Rate</th><th style="text-align:right"># Invoices</th><th style="text-align:right">Taxable Base</th><th style="text-align:right">Est. Tax Owed</th><th>Nexus?</th></tr>
+    ${rows.map(r=>`<tr><td>${abEsc(r.jurisdiction.name)}</td><td style="text-align:right">${(r.rate*100).toFixed(2)}%</td><td style="text-align:right">${r.invoiceCount}</td><td style="text-align:right">${abMoney(r.taxableBase)}</td><td style="text-align:right">${abMoney(r.estTax)}</td><td>${r.jurisdiction.nexus_triggered?'Yes — '+ (r.jurisdiction.nexus_triggered_date||''):'No'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No sales tax jurisdictions set up yet for this book</td></tr>'}
+    <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)" colspan="4">Total Estimated Tax Owed</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(totalTax)}</td><td style="border-top:2px solid var(--ab-line,#ccc)"></td></tr>
+    </table>
+    <div style="margin-top:12px"><button class="ab-btn" onclick="abPrintPreviewSalesTax()">🖨 Print Preview</button></div>`;
+}
+function abPrintPreviewSalesTax(){
+  const d=window._abLastSalesTax||{rows:[],totalTax:0};
+  abPrintPreview('Sales Tax Liability',
+    [{key:'jurisdiction',label:'Jurisdiction'},{key:'rate',label:'Rate'},{key:'base',label:'Taxable Base',num:true},{key:'tax',label:'Est. Tax Owed',num:true}],
+    d.rows.map(r=>({jurisdiction:r.jurisdiction.name,rate:(r.rate*100).toFixed(2)+'%',base:abMoney(r.taxableBase),tax:abMoney(r.estTax)}))
   );
 }
 // ══════════════════════════════════════════════
