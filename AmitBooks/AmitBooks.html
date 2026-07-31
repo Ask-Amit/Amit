@@ -83,6 +83,18 @@ header{
 .sidebar.collapsed{width:60px}
 .sidebar.collapsed .tile{justify-content:center;padding:10px 0}
 .sidebar.collapsed .tile-info{display:none}
+.sidebar.collapsed .op-close{display:none}
+/* ── OPEN PAGES SIDEBAR — right-hand mirror of the left nav. Tracks
+   drill-down history (Journal, cross-linked entity detail views, etc.)
+   so navigating away never loses where you were. Collapsed to icons by
+   default per Ryan's direct spec; double-click expands to full names,
+   exactly like the left sidebar. ── */
+.right-sidebar{border-right:none;border-left:2px solid var(--border);width:230px}
+.right-sidebar.collapsed{width:60px}
+.op-empty{text-align:center;color:var(--muted);font-size:10px;padding:14px 6px;line-height:1.6}
+.right-sidebar.collapsed .op-empty{display:none}
+.op-close{margin-left:auto;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px;flex-shrink:0}
+.op-close:hover{color:#f0a8a8;background:rgba(220,120,120,.15)}
 .tile{
   display:flex;align-items:center;gap:10px;
   padding:10px 11px;border-radius:9px;cursor:pointer;
@@ -226,7 +238,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.34</div>
+    <div class="page-version" id="pageVersion">v1.35</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -252,6 +264,12 @@ header{
 
   <!-- ── MAIN CONTENT AREA — PLACEHOLDER PANELS (1-20) ── -->
   <div class="main-area" id="mainArea"></div>
+
+  <!-- ── OPEN PAGES SIDEBAR — right rail, drill-down history. Starts
+       collapsed to icons; double-click to expand, same as the left nav. ── -->
+  <nav class="sidebar right-sidebar collapsed" id="openPagesTiles" ondblclick="toggleOpenPagesSidebar()">
+    <div class="op-empty">No open pages yet — drill into a report, account, or entry and it stays listed here so you can jump back without losing your place.</div>
+  </nav>
 
 </div>
 
@@ -1018,6 +1036,46 @@ function openPanel(n){
 // expands it back to the full labeled row. Double-click again to reverse.
 function toggleSidebar(){
   document.getElementById('sidebarTiles').classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════════
+// OPEN PAGES — the right-hand mirror of the left nav. Per the
+// Interactivity Standard (AmitBooks/CLAUDE.md), any drill-down or
+// cross-linked detail view registers itself here so navigating away
+// (switching panels, opening a different drill) never loses it — the
+// person clicks it in this rail to jump straight back to exactly where
+// they were, state intact. Same collapse/expand mechanic as the left
+// sidebar: starts collapsed to icons, double-click to expand.
+// ══════════════════════════════════════════════
+let abOpenPages=[]; // [{id, icon, label, sub, opener}]
+function toggleOpenPagesSidebar(){
+  document.getElementById('openPagesTiles').classList.toggle('collapsed');
+}
+function abPushOpenPage(id,icon,label,sub,opener){
+  const existing=abOpenPages.find(p=>p.id===id);
+  if(existing){ existing.icon=icon; existing.label=label; existing.sub=sub; existing.opener=opener; }
+  else abOpenPages.push({id,icon,label,sub,opener});
+  abRenderOpenPages();
+}
+function abFocusOpenPage(id){
+  const p=abOpenPages.find(x=>x.id===id);
+  if(p && p.opener) p.opener();
+}
+function abCloseOpenPage(id){
+  abOpenPages=abOpenPages.filter(p=>p.id!==id);
+  abRenderOpenPages();
+}
+function abRenderOpenPages(){
+  const nav=document.getElementById('openPagesTiles'); if(!nav)return;
+  if(!abOpenPages.length){
+    nav.innerHTML='<div class="op-empty">No open pages yet — drill into a report, account, or entry and it stays listed here so you can jump back without losing your place.</div>';
+    return;
+  }
+  nav.innerHTML=abOpenPages.map(p=>`<div class="tile" onclick="abFocusOpenPage('${p.id}')">
+    <div class="tile-icon">${p.icon}</div>
+    <div class="tile-info"><div class="tile-name">${abEsc(p.label)}</div><div class="tile-sub">${abEsc(p.sub||'')}</div></div>
+    <div class="op-close" onclick="event.stopPropagation();abCloseOpenPage('${p.id}')" title="Close">✕</div>
+  </div>`).join('');
 }
 
 // ══════════════════════════════════════════════
@@ -2281,6 +2339,7 @@ function openJournalModal(){
   document.getElementById('journalModalBody').innerHTML='Loading…';
   abLoadJournalFull();
   document.onmouseup=()=>{ abJournalDragging=false; };
+  abPushOpenPage('journal','📖','General Journal','Every posted entry',()=>{ document.getElementById('journalModal').style.display='flex'; abRenderJournalModal(); });
 }
 // Reports rows (Trial Balance, P&L, Balance Sheet) call this directly —
 // every number on those screens drills straight into its real
@@ -2292,9 +2351,24 @@ async function abOpenJournalForAccount(accountId,accountName){
   document.getElementById('journalModalBody').innerHTML='Loading…';
   document.onmouseup=()=>{ abJournalDragging=false; };
   if(!abJournalFull.length) await abLoadJournalFull(); else abRenderJournalModal();
+  abPushOpenPage('journal','📖','Journal — '+accountName,'Drilled from Reports',()=>{ document.getElementById('journalModal').style.display='flex'; abRenderJournalModal(); });
 }
 function closeJournalModal(){
   document.getElementById('journalModal').style.display='none';
+}
+// Cross-link: any account name shown inside the Journal's line detail is
+// double-clickable straight into its Chart of Accounts record — "every
+// name connects to the other parts and pieces," per the Interactivity
+// Standard, not just numbers drilling into transactions.
+function abOpenAccountInChartOfAccounts(accountId,accountName){
+  openPanel(2);
+  const tabBtns=document.querySelectorAll('#ch-tab-nav-2 .ch-tab-btn');
+  if(tabBtns[1]) tabBtns[1].click(); // "Chart of Accounts" is the 2nd tab in panel 2
+  abPushOpenPage('coa-'+accountId,'📗',accountName,'Chart of Accounts',()=>{
+    openPanel(2);
+    const btns=document.querySelectorAll('#ch-tab-nav-2 .ch-tab-btn');
+    if(btns[1]) btns[1].click();
+  });
 }
 async function abLoadJournalFull(){
   const{data,error}=await db.from('journal_entries').select('*,journal_lines(*,chart_of_accounts(account_name))').eq('book_id',abBookId).order('entry_date',{ascending:true});
@@ -2448,8 +2522,9 @@ abRenderJournalModal=function(){
     if(!je){ el.innerHTML=`<div style="font-size:12px;margin-bottom:12px">${crumbs.join('')}</div><div class="ab-empty">That entry no longer exists.</div>`; return; }
     el.innerHTML=`<div style="font-size:12px;margin-bottom:12px">${crumbs.join('')}</div>
       <div class="ab-h" style="font-size:14px">${je.entry_date||''} — ${abEsc(je.memo||'')}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Double-click an account name to open its record in the Chart of Accounts.</div>
       <table class="ab-table"><tr><th>Account</th><th style="text-align:right">Debit</th><th style="text-align:right">Credit</th></tr>
-      ${(je.journal_lines||[]).map(l=>`<tr><td>${abEsc(l.chart_of_accounts?l.chart_of_accounts.account_name:'')}</td><td style="text-align:right">${l.debit?abMoney(l.debit):''}</td><td style="text-align:right">${l.credit?abMoney(l.credit):''}</td></tr>`).join('')}
+      ${(je.journal_lines||[]).map(l=>`<tr><td style="cursor:pointer" ondblclick="abOpenAccountInChartOfAccounts('${l.account_id}','${abEsc(l.chart_of_accounts?l.chart_of_accounts.account_name:'')}')">${abEsc(l.chart_of_accounts?l.chart_of_accounts.account_name:'')}</td><td style="text-align:right">${l.debit?abMoney(l.debit):''}</td><td style="text-align:right">${l.credit?abMoney(l.credit):''}</td></tr>`).join('')}
       </table>
       <button class="ab-btn" style="background:rgba(220,120,120,.2);border-color:#b23a3a;color:#f0a8a8;margin-top:12px" onclick="abJournalSelected=new Set(['${je.id}']);abJournalDeleteSelected();abJournalJumpTo(${abJournalPath.length-2})">🗑 Delete This Entry</button>`;
     return;
