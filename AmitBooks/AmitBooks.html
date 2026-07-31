@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.59</div>
+    <div class="page-version" id="pageVersion">v1.60</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2205,6 +2205,41 @@ function abFileToBase64(file){
     reader.readAsDataURL(file);
   });
 }
+// Compressed to a max dimension of 1600px, JPEG quality .75 — well past
+// what's needed to read a printed receipt years from now, nowhere near
+// the raw camera file's size, and openable on absolutely anything (unlike
+// WebP, which some older software from before ~2020 can't read at all —
+// a real risk on records that may need to be produced on demand 7+ years
+// out, on hardware nobody controls). One compressed copy is uploaded per
+// source image, then shared across every receipt line pulled from that
+// image — if a flatbed scan holds five receipts, all five point back to
+// that one stored image, since that image IS the proof for each of them.
+async function abCompressImageForStorage(file){
+  const img=await new Promise((resolve,reject)=>{ const i=new Image(); i.onload=()=>resolve(i); i.onerror=reject; i.src=URL.createObjectURL(file); });
+  const maxDim=1600;
+  let w=img.width,h=img.height;
+  if(w>maxDim||h>maxDim){ if(w>h){ h=Math.round(h*maxDim/w); w=maxDim; } else { w=Math.round(w*maxDim/h); h=maxDim; } }
+  const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+  canvas.getContext('2d').drawImage(img,0,0,w,h);
+  URL.revokeObjectURL(img.src);
+  const blob=await new Promise(resolve=>canvas.toBlob(b=>resolve(b),'image/jpeg',0.75));
+  return{blob,ext:'jpg'};
+}
+async function abUploadReceiptImage(file){
+  try{
+    const{blob,ext}=await abCompressImageForStorage(file);
+    const path=`${abBookId}/${crypto.randomUUID()}.${ext}`;
+    const{error}=await db.storage.from('amitbooks-receipts').upload(path,blob,{contentType:blob.type});
+    if(error){ console.error(error); return null; }
+    return path;
+  }catch(e){ console.error(e); return null; }
+}
+async function abViewReceiptImage(path){
+  if(!path)return;
+  const{data,error}=await db.storage.from('amitbooks-receipts').createSignedUrl(path,300);
+  if(error||!data){ abAlert('Could not open that receipt image: '+(error?error.message:'unknown error')); return; }
+  window.open(data.signedUrl,'_blank');
+}
 async function abExtractReceiptsFromImage(file,key){
   const b64=await abFileToBase64(file);
   const res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -2235,6 +2270,9 @@ async function abScanReceipts(fileList){
     status.textContent=`Reading image ${i+1} of ${files.length}…`;
     try{
       const found=await abExtractReceiptsFromImage(files[i],key);
+      status.textContent=`Storing image ${i+1} of ${files.length}…`;
+      const imagePath=await abUploadReceiptImage(files[i]);
+      found.forEach(r=>r._imagePath=imagePath);
       allReceipts.push(...found);
     }catch(e){ failed++; }
   }
@@ -2246,7 +2284,7 @@ async function abScanReceipts(fileList){
       const match=abContacts.find(c=>c.name.toLowerCase()===String(r.vendor).toLowerCase());
       if(match) contactId=match.id; else unmatchedVendors.add(r.vendor);
     }
-    abBatchRows.push({direction:'bill_payable',contact_id:contactId,amount:r.amount||'',date:r.date||new Date().toISOString().slice(0,10),item_id:'',cost_type:'',account_id:'',tag_id:'',memo:(r.memo||'')+(!contactId&&r.vendor?` (vendor: ${r.vendor})`:'')});
+    abBatchRows.push({direction:'bill_payable',contact_id:contactId,amount:r.amount||'',date:r.date||new Date().toISOString().slice(0,10),item_id:'',cost_type:'',account_id:'',tag_id:'',memo:(r.memo||'')+(!contactId&&r.vendor?` (vendor: ${r.vendor})`:''),receipt_image_path:r._imagePath||null});
   });
   if(!abBatchRows.length) abBatchAddRow();
   abBatchMode=true;
@@ -2563,7 +2601,7 @@ function abToggleBatchMode(){
   abRenderInvoicesBills();
 }
 function abBatchAddRow(){
-  abBatchRows.push({direction:'bill_payable',contact_id:'',amount:'',date:new Date().toISOString().slice(0,10),item_id:'',cost_type:'',account_id:'',tag_id:'',memo:''});
+  abBatchRows.push({direction:'bill_payable',contact_id:'',amount:'',date:new Date().toISOString().slice(0,10),item_id:'',cost_type:'',account_id:'',tag_id:'',memo:'',receipt_image_path:null});
 }
 function abBatchUpdateRow(idx,field,value){ abBatchRows[idx][field]=value; }
 function abBatchRemoveRow(idx){ abBatchRows.splice(idx,1); abRenderInvoicesBills(); }
@@ -2572,7 +2610,7 @@ function abRenderBatchEntry(){
       Fill in as many rows as you have, then Save All at the bottom. Each row becomes its own real bill/invoice, posted to the books exactly like the single-entry form — this is just a faster way to get a stack of them in.
     </div>
     <div style="overflow-x:auto">
-    <table class="ab-table"><tr><th>Type</th><th>Contact</th><th>Amount</th><th>Date</th><th>Scope</th><th>Cost Type</th><th>Category</th><th>Job/Tag</th><th>Memo</th><th></th></tr>
+    <table class="ab-table"><tr><th>Type</th><th>Contact</th><th>Amount</th><th>Date</th><th>Scope</th><th>Cost Type</th><th>Category</th><th>Job/Tag</th><th>Memo</th><th></th><th></th></tr>
     ${abBatchRows.map((r,i)=>`<tr>
       <td><select onchange="abBatchUpdateRow(${i},'direction',this.value)"><option value="bill_payable"${r.direction==='bill_payable'?' selected':''}>Bill</option><option value="invoice_receivable"${r.direction==='invoice_receivable'?' selected':''}>Invoice</option></select></td>
       <td><select onchange="abBatchUpdateRow(${i},'contact_id',this.value)"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}"${r.contact_id===c.id?' selected':''}>${abEsc(c.name)}</option>`).join('')}</select></td>
@@ -2583,6 +2621,7 @@ function abRenderBatchEntry(){
       <td><select onchange="abBatchUpdateRow(${i},'account_id',this.value)"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}"${r.account_id===a.id?' selected':''}>${abEsc(a.account_name)}</option>`).join('')}</select></td>
       <td><select onchange="abBatchUpdateRow(${i},'tag_id',this.value)"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}"${r.tag_id===t.id?' selected':''}>${abEsc(t.name)}</option>`).join('')}</select></td>
       <td><input style="width:120px" value="${abEsc(r.memo)}" onchange="abBatchUpdateRow(${i},'memo',this.value)"></td>
+      <td>${r.receipt_image_path?'📎':''}</td>
       <td><a href="#" onclick="abBatchRemoveRow(${i});return false" style="color:var(--muted)">✕</a></td>
     </tr>`).join('')}
     </table>
@@ -2602,7 +2641,7 @@ async function abBatchSaveAll(){
     const amount=parseFloat(r.amount)||0;
     const{data,error}=await db.from('invoices_bills').insert({
       book_id:abBookId,direction:r.direction,contact_id:r.contact_id||null,doc_date:r.date||null,status:'draft',
-      subtotal:amount,total_amount:amount,memo:r.memo||null
+      subtotal:amount,total_amount:amount,memo:r.memo||null,receipt_image_path:r.receipt_image_path||null
     }).select().single();
     if(error){ failed++; continue; }
     await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,item_id:r.item_id||null,account_id:r.account_id||null,tag_id:r.tag_id||null,cost_type:r.cost_type||null,description:r.memo||null,quantity:1,unit_price:amount,amount:amount});
@@ -2625,7 +2664,7 @@ function abRenderInvoicesBills(){
     <div class="ab-h">Enter a Bill or Invoice <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abToggleBatchMode()">${abBatchMode?'← Back to one at a time':'⊞ Batch Entry (multiple at once) →'}</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportInvoicesBillsCsv()">⬇ Export CSV</span></div>
     ${flaggedCount?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">🚩 ${flaggedCount} entry(ies) paid from a source that doesn't belong to this book — <a href="#" onclick="openPanel(10);return false" style="color:var(--gold2)">resolve them in the Review Queue →</a></div>`:''}
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
-      <label class="ab-btn" style="cursor:pointer">📷 Scan Receipt(s)<input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="abScanReceipts(this.files);this.value=''"></label>
+      <label class="ab-btn" style="cursor:pointer">📷 Scan Receipt(s)<input type="file" accept="image/*" multiple style="display:none" onchange="abScanReceipts(this.files);this.value=''"></label>
       <span id="ab-scan-status" style="font-size:12px;color:var(--muted)">${abGetAnthropicKey()?'One photo, a stack of photos, or one scan with several receipts on it — all fine, each one gets pulled out separately.':'Add your Anthropic API key under Books & Setup → Integrations to use this.'}</span>
     </div>
     ${abBatchMode?abRenderBatchEntry():`
@@ -2650,8 +2689,8 @@ function abRenderInvoicesBills(){
       const getters={date:r=>r.doc_date||'',type:r=>r.direction==='bill_payable'?'Bill':'Invoice',contact:r=>r.contacts?r.contacts.name:'',amount:r=>Number(r.total_amount)||0,status:r=>r.status||''};
       const sorted=abSmartApply(tk,abInvoicesBillsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',type:'Type',contact:'Contact',amount:'Amount',status:'Status'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th></tr>
-      ${sorted.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">Nothing entered yet — the pile starts here</td></tr>'}
+      <table class="ab-table"><tr>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th><th></th></tr>
+      ${sorted.map(r=>`<tr><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">Nothing entered yet — the pile starts here</td></tr>'}
       </table>
       <div id="ab-planpanel"></div>`;
     })():`
