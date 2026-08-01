@@ -845,6 +845,36 @@ try {
                     Send-Json $response @{ error = $_.Exception.Message } 500
                 }
             }
+            "/amit-inbox" {
+                # AmitBooks "Send Selected to Local Processing" (2026-08-01).
+                # Pulls a Pending Scan's image out of Supabase and drops it
+                # as a plain local file - not an automated OCR pipeline, just
+                # getting the file onto this computer so Amit can read it
+                # directly in a live VS Code (or Claude Desktop) session.
+                # Fixed local folder, independent of wherever this script
+                # itself happens to be running from.
+                try {
+                    $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
+                    $json = $body | ConvertFrom-Json
+                    $inboxDir = "C:\Users\user1\AmitInbox"
+                    if (-not (Test-Path $inboxDir)) { New-Item -ItemType Directory -Path $inboxDir -Force | Out-Null }
+                    $safeName = ($json.filename -replace '[^\w\.\-]', '_')
+                    $imgPath = Join-Path $inboxDir $safeName
+                    [System.IO.File]::WriteAllBytes($imgPath, [Convert]::FromBase64String($json.image))
+                    $meta = [ordered]@{
+                        scan_id = $json.scan_id
+                        mode = $json.mode
+                        captured_at = $json.captured_at
+                        filename = $safeName
+                        received_at = (Get-Date).ToString("o")
+                    }
+                    $metaPath = [System.IO.Path]::ChangeExtension($imgPath, ".json")
+                    ($meta | ConvertTo-Json) | Set-Content -Path $metaPath -Encoding utf8
+                    Send-Json $response @{ success = $true; savedAs = $safeName }
+                } catch {
+                    Send-Json $response @{ error = $_.Exception.Message } 500
+                }
+            }
             "/api/installed-programs" {
                 # Ryan's direct request 2026-07-19: same technique verified live
                 # in chat that evening (registry Uninstall keys, cross-checked

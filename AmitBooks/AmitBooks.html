@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.99</div>
+    <div class="page-version" id="pageVersion">v2.00</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -3060,6 +3060,7 @@ async function abRenderScanPending(){
     abScanPendingRows[idx]={row:r,url:thumb};
     const when=new Date(r.captured_at).toLocaleString();
     return `<div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:10px">
+      <input type="checkbox" class="ab-scan-pick" data-idx="${idx}" onchange="abScanUpdateSelectedCount()" style="width:18px;height:18px;flex:0 0 auto">
       ${thumb?`<img src="${thumb}" ondblclick="abOpenScanLightbox(${idx})" style="width:64px;height:64px;object-fit:cover;border-radius:6px;background:#111;cursor:zoom-in" title="Double-click to view larger">`:'<div style="width:64px;height:64px;border-radius:6px;background:#111"></div>'}
       <div style="flex:1">
         <div style="font-weight:600">${modeLabel[r.mode]||r.mode}</div>
@@ -3069,7 +3070,89 @@ async function abRenderScanPending(){
   }));
   el.innerHTML=`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
       ${data.length} waiting. Full review — turning these into real Bills, Contacts, or Mileage entries — is the next build phase; for now this confirms what your phone has sent in.
-    </div>${rows.join('')}`;
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanSelectAll()">Select All</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanSelectNone()">Select None</button>
+      <span id="abScanSelectedCount" style="font-size:12px;color:var(--muted)">0 selected</span>
+      <button class="ab-btn" onclick="abScanSendSelectedToLocal()">Send Selected to Local Processing</button>
+    </div>
+    <div id="abScanSendStatus" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
+    ${rows.join('')}`;
+  abScanUpdateSelectedCount();
+}
+
+function abScanUpdateSelectedCount(){
+  const n=document.querySelectorAll('.ab-scan-pick:checked').length;
+  const el=document.getElementById('abScanSelectedCount');
+  if(el) el.textContent=n+' selected';
+}
+function abScanSelectAll(){
+  document.querySelectorAll('.ab-scan-pick').forEach(c=>c.checked=true);
+  abScanUpdateSelectedCount();
+}
+function abScanSelectNone(){
+  document.querySelectorAll('.ab-scan-pick').forEach(c=>c.checked=false);
+  abScanUpdateSelectedCount();
+}
+
+// ── Send selected Pending Scans to the local bridge's inbox folder, so
+// they're sitting as plain files on this computer for Amit to read
+// directly in a live VS Code session — not an automated pipeline, just
+// getting the images from the cloud down to local files ready to look
+// at together. Verifies/launches the bridge first since it may have
+// been sitting off for days (same check->launch->poll pattern as Scan
+// Now). Getting the extracted results back INTO AmitBooks is a
+// separate, not-yet-built next step — this only gets the files local. ──
+async function abScanSendSelectedToLocal(){
+  const status=document.getElementById('abScanSendStatus');
+  const checked=[...document.querySelectorAll('.ab-scan-pick:checked')].map(c=>parseInt(c.dataset.idx));
+  if(!checked.length){ status.textContent='Select at least one scan first.'; return; }
+
+  status.textContent='Checking for the Amit bridge on this computer...';
+  try{
+    await abBridgePing();
+  }catch(e){
+    status.textContent='Not running — asking Windows to start it (you may see a permission prompt)...';
+    window.location.href='amit-tracker://start';
+    let up=false;
+    for(let i=0;i<8&&!up;i++){
+      await new Promise(r=>setTimeout(r,1500));
+      try{ await abBridgePing(); up=true; }catch(e2){}
+    }
+    if(!up){
+      status.innerHTML='Could not start the bridge — install it from <a href="../ComputerHealth/ComputerHealth_Dashboard.html" target="_blank" style="color:var(--gold)">Computer Health</a> first, or check Smart App Control isn\'t blocking it.';
+      return;
+    }
+  }
+
+  let done=0;
+  for(const idx of checked){
+    const entry=abScanPendingRows[idx]; if(!entry)continue;
+    status.textContent=`Sending ${done+1} of ${checked.length}...`;
+    try{
+      const imgRes=await fetch(entry.url);
+      const blob=await imgRes.blob();
+      const b64=await new Promise(res=>{
+        const reader=new FileReader();
+        reader.onloadend=()=>res(reader.result.split(',')[1]);
+        reader.readAsDataURL(blob);
+      });
+      const filename=entry.row.mode+'-'+entry.row.id+'.jpg';
+      const bridgeRes=await fetch(AB_BRIDGE_URL+'/amit-inbox',{
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({image:b64,filename,mode:entry.row.mode,captured_at:entry.row.captured_at,scan_id:entry.row.id})
+      });
+      const out=await bridgeRes.json();
+      if(!bridgeRes.ok||out.error) throw new Error(out.error||('HTTP '+bridgeRes.status));
+      done++;
+    }catch(e){
+      status.textContent='Stopped after '+done+' of '+checked.length+' — '+(e?.message||String(e));
+      return;
+    }
+  }
+  status.textContent=done+' sent to this computer, ready for Amit to look at in an open session (C:\\Users\\user1\\AmitInbox).';
 }
 
 // ══════════════════════════════════════════════
