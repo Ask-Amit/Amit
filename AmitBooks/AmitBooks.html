@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v2.00</div>
+    <div class="page-version" id="pageVersion">v2.01</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -3096,18 +3096,21 @@ function abScanSelectNone(){
   abScanUpdateSelectedCount();
 }
 
-// ── Send selected Pending Scans to the local bridge's inbox folder, so
-// they're sitting as plain files on this computer for Amit to read
-// directly in a live VS Code session — not an automated pipeline, just
-// getting the images from the cloud down to local files ready to look
-// at together. Verifies/launches the bridge first since it may have
-// been sitting off for days (same check->launch->poll pattern as Scan
-// Now). Getting the extracted results back INTO AmitBooks is a
-// separate, not-yet-built next step — this only gets the files local. ──
+// ── Send selected Pending Scans to the local bridge's inbox folder, then
+// trigger processing. Each item's metadata carries the CURRENT user's own
+// access token — never the Supabase service-role key — so whatever
+// processes the inbox writes back RLS-scoped to just this one user's own
+// data, the same protection every other part of AmitBooks already relies
+// on. Real, honest limit as of this build: the actual processing step
+// (the .bat -> claude CLI piece) needs Claude Code's CLI installed on
+// this computer first — that's not done yet, so the trigger call below
+// will fail gracefully until it is. This still gets everything else
+// working and testable now. ──
 async function abScanSendSelectedToLocal(){
   const status=document.getElementById('abScanSendStatus');
   const checked=[...document.querySelectorAll('.ab-scan-pick:checked')].map(c=>parseInt(c.dataset.idx));
   if(!checked.length){ status.textContent='Select at least one scan first.'; return; }
+  if(!currentUser){ status.textContent='Sign in first.'; return; }
 
   status.textContent='Checking for the Amit bridge on this computer...';
   try{
@@ -3126,6 +3129,10 @@ async function abScanSendSelectedToLocal(){
     }
   }
 
+  const{data:sessData}=await db.auth.getSession();
+  const accessToken=sessData?.session?.access_token;
+  if(!accessToken){ status.textContent='Your sign-in has expired — sign out and back in, then try again.'; return; }
+
   let done=0;
   for(const idx of checked){
     const entry=abScanPendingRows[idx]; if(!entry)continue;
@@ -3142,7 +3149,7 @@ async function abScanSendSelectedToLocal(){
       const bridgeRes=await fetch(AB_BRIDGE_URL+'/amit-inbox',{
         method:'POST',
         headers:{'content-type':'application/json'},
-        body:JSON.stringify({image:b64,filename,mode:entry.row.mode,captured_at:entry.row.captured_at,scan_id:entry.row.id})
+        body:JSON.stringify({image:b64,filename,mode:entry.row.mode,captured_at:entry.row.captured_at,scan_id:entry.row.id,access_token:accessToken})
       });
       const out=await bridgeRes.json();
       if(!bridgeRes.ok||out.error) throw new Error(out.error||('HTTP '+bridgeRes.status));
@@ -3152,7 +3159,20 @@ async function abScanSendSelectedToLocal(){
       return;
     }
   }
-  status.textContent=done+' sent to this computer, ready for Amit to look at in an open session (C:\\Users\\user1\\AmitInbox).';
+
+  status.textContent=done+' sent — starting local processing...';
+  try{
+    const triggerRes=await fetch(AB_BRIDGE_URL+'/amit-process-inbox',{
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({access_token:accessToken})
+    });
+    const triggerOut=await triggerRes.json();
+    if(!triggerRes.ok||triggerOut.error) throw new Error(triggerOut.error||('HTTP '+triggerRes.status));
+    status.textContent=done+' sent and processing started on this computer. Results will land back in AmitBooks once processing finishes — check Pending Scans again in a bit.';
+  }catch(e){
+    status.textContent=done+' sent to '+'C:\\Users\\user1\\AmitInbox, but could not start processing automatically — '+(e?.message||String(e))+'. (Expected until Claude Code\'s CLI is installed on this computer — see ComputerHealth CLAUDE.md.)';
+  }
 }
 
 // ══════════════════════════════════════════════

@@ -861,16 +861,51 @@ try {
                     $safeName = ($json.filename -replace '[^\w\.\-]', '_')
                     $imgPath = Join-Path $inboxDir $safeName
                     [System.IO.File]::WriteAllBytes($imgPath, [Convert]::FromBase64String($json.image))
+                    # access_token is the SIGNED-IN USER's own token, never the
+                    # Supabase service-role key - RLS-scoped to just their own
+                    # data, same protection every other AmitBooks call relies
+                    # on. It sits here in plain text briefly (expires ~1hr,
+                    # deleted alongside the image once processed) - acceptable
+                    # specifically because it's user-scoped, not admin-scoped.
+                    # See ComputerHealth CLAUDE.md for the full reasoning.
                     $meta = [ordered]@{
                         scan_id = $json.scan_id
                         mode = $json.mode
                         captured_at = $json.captured_at
                         filename = $safeName
                         received_at = (Get-Date).ToString("o")
+                        access_token = $json.access_token
                     }
                     $metaPath = [System.IO.Path]::ChangeExtension($imgPath, ".json")
                     ($meta | ConvertTo-Json) | Set-Content -Path $metaPath -Encoding utf8
                     Send-Json $response @{ success = $true; savedAs = $safeName }
+                } catch {
+                    Send-Json $response @{ error = $_.Exception.Message } 500
+                }
+            }
+            "/amit-process-inbox" {
+                # AmitBooks "Send Selected to Local Processing" - the trigger
+                # step, called once after all selected items have already
+                # landed via /amit-inbox above. Event-triggered by design
+                # (Ryan's own correction, 2026-08-01) - this fires because
+                # something was just sent, not on a timer. Launches the
+                # processing .bat, which needs Claude Code's CLI installed as
+                # "claude" on this computer - NOT done yet as of this build,
+                # so this will report success (the .bat launches) but the
+                # .bat itself will fail until that install happens. See
+                # ComputerHealth CLAUDE.md for the full design and the
+                # still-open unattended-permission-scope decision.
+                try {
+                    $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
+                    $json = $body | ConvertFrom-Json
+                    $inboxDir = "C:\Users\user1\AmitInbox"
+                    $batPath = "$watcherDir\process_inbox.bat"
+                    if (-not (Test-Path $batPath)) {
+                        Send-Json $response @{ error = "process_inbox.bat not found at $batPath" } 500
+                    } else {
+                        Start-Process -FilePath $batPath -WindowStyle Hidden
+                        Send-Json $response @{ success = $true }
+                    }
                 } catch {
                     Send-Json $response @{ error = $_.Exception.Message } 500
                 }
