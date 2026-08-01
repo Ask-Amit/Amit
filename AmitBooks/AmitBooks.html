@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.65</div>
+    <div class="page-version" id="pageVersion">v1.66</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1345,6 +1345,7 @@ async function abLoadBookData(){
   await abLoadFixedAssets();
   await abLoadJournalLines();
   await abLoadTaxJurisdictions();
+  await abLoadBankStatementLines();
   abRenderReports();
 }
 
@@ -3678,8 +3679,9 @@ function abRenderReports(){
       <span class="${abReportsView==='salestax'?'on':''}" onclick="abSetReportsView('salestax')">Sales Tax Liability</span>
       <span class="${abReportsView==='jobprofit'?'on':''}" onclick="abSetReportsView('jobprofit')">Job Profitability</span>
       <span class="${abReportsView==='custom'?'on':''}" onclick="abSetReportsView('custom')">Custom Report</span>
+      <span class="${abReportsView==='irsaudit'?'on':''}" onclick="abSetReportsView('irsaudit')">IRS Audit View</span>
     </div>
-    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():abReportsView==='custom'?abRenderCustomReport():`
+    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():abReportsView==='custom'?abRenderCustomReport():abReportsView==='irsaudit'?abRenderIrsAuditView():`
     ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
       <div>
@@ -3956,6 +3958,75 @@ function abPrintPreviewCustomReport(){
   abPrintPreview('Custom Report',
     [{key:'account',label:'Account'},{key:'type',label:'Type'},{key:'amount',label:'Amount',num:true}],
     d.rows.map(r=>({account:r.account.account_name,type:r.account.account_type,amount:abMoney(r.net)}))
+  );
+}
+
+// ── IRS AUDIT VIEW — every transaction in a date range, presented the way
+// an actual examiner works: source document present or missing (the #1
+// thing they check), business purpose stated or not, and proof of
+// payment (matched to an actual bank statement line, not just entered).
+// Nothing here changes any data — this is read-only, built to make an
+// actual audit fast and boring instead of a scramble.
+let abIrsAuditRange={from:'',to:''};
+function abIrsAuditSetRange(field,val){ abIrsAuditRange[field]=val; abRenderReports(); }
+function abRenderIrsAuditView(){
+  const{from,to}=abIrsAuditRange;
+  const rows=abInvoicesBillsCache.filter(r=>{
+    if(r.status==='void')return false;
+    if(from&&(r.doc_date||'')<from)return false;
+    if(to&&(r.doc_date||'')>to)return false;
+    return true;
+  }).sort((a,b)=>(a.doc_date||'').localeCompare(b.doc_date||''));
+  const matchedIds=new Set(abBankStatementLinesCache.filter(l=>l.reconciled&&l.matched_type==='invoice_bill').map(l=>l.matched_id));
+  const withReceipt=rows.filter(r=>r.receipt_image_path).length;
+  const withPurpose=rows.filter(r=>r.memo&&r.memo.trim()).length;
+  const withProofOfPayment=rows.filter(r=>matchedIds.has(r.id)||r.status==='paid').length;
+  const missingReceipt=rows.length-withReceipt;
+  const totalIncome=rows.filter(r=>r.direction==='invoice_receivable').reduce((s,r)=>s+Number(r.total_amount||0),0);
+  const totalExpense=rows.filter(r=>r.direction==='bill_payable').reduce((s,r)=>s+Number(r.total_amount||0),0);
+  window._abLastIrsAudit={rows,matchedIds};
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Every transaction in the period below, laid out the way an examiner actually works through a file: is there a source document, does it state a business purpose, and is there proof it was actually paid — not just entered. Nothing here changes any data.
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;font-size:12px">
+      <span>Audit period:</span>
+      <input type="date" value="${from}" onchange="abIrsAuditSetRange('from',this.value)"> to
+      <input type="date" value="${to}" onchange="abIrsAuditSetRange('to',this.value)">
+      ${(from||to)?`<a href="#" onclick="abIrsAuditRange={from:'',to:''};abRenderReports();return false" style="color:var(--muted)">clear</a>`:''}
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
+      <div class="ab-card"><div class="n">${rows.length}</div><div class="l">Transactions in period</div></div>
+      <div class="ab-card"><div class="n">${rows.length?Math.round(withReceipt/rows.length*100):0}%</div><div class="l">Have a source document (${withReceipt}/${rows.length})</div></div>
+      <div class="ab-card"><div class="n" style="${missingReceipt?'color:#f0a8a8':''}">${missingReceipt}</div><div class="l">Missing a receipt/document</div></div>
+      <div class="ab-card"><div class="n">${rows.length?Math.round(withPurpose/rows.length*100):0}%</div><div class="l">State a business purpose</div></div>
+      <div class="ab-card"><div class="n">${rows.length?Math.round(withProofOfPayment/rows.length*100):0}%</div><div class="l">Have proof of actual payment</div></div>
+      <div class="ab-card"><div class="n">${abMoney(totalIncome)}</div><div class="l">Total income, period</div></div>
+      <div class="ab-card"><div class="n">${abMoney(totalExpense)}</div><div class="l">Total expense, period</div></div>
+    </div>
+    <table class="ab-table" style="font-size:12px"><tr><th>Doc #</th><th>Date</th><th>Type</th><th>Vendor/Client</th><th style="text-align:right">Amount</th><th>Business Purpose</th><th>Source Doc</th><th>Proof of Payment</th></tr>
+    ${rows.map(r=>{
+      const hasReceipt=!!r.receipt_image_path;
+      const hasPurpose=!!(r.memo&&r.memo.trim());
+      const hasProof=matchedIds.has(r.id)||r.status==='paid';
+      return `<tr>
+        <td style="font-family:monospace;font-size:10px;color:var(--muted)">${abEsc(r.document_code||'—')}</td>
+        <td>${r.doc_date||''}</td>
+        <td>${r.direction==='bill_payable'?'Expense':'Income'}</td>
+        <td>${abEsc(r.contacts?r.contacts.name:'(no contact)')}</td>
+        <td style="text-align:right">${abMoney(r.total_amount)}</td>
+        <td style="${hasPurpose?'':'color:#f0a8a8'}">${hasPurpose?abEsc(r.memo):'⚠ none stated'}</td>
+        <td>${hasReceipt?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:#8fd19e">✓ view</a>`:'<span style="color:#f0a8a8">⚠ missing</span>'}</td>
+        <td style="${hasProof?'color:#8fd19e':'color:#f0a8a8'}">${hasProof?'✓ matched/paid':'⚠ unverified'}</td>
+      </tr>`;
+    }).join('')||'<tr><td class="ab-empty" colspan="8">No transactions in this period</td></tr>'}
+    </table>
+    <div style="margin-top:12px"><button class="ab-btn" onclick="abPrintPreviewIrsAudit()">🖨 Print Preview — Audit Packet</button></div>`;
+}
+function abPrintPreviewIrsAudit(){
+  const d=window._abLastIrsAudit||{rows:[],matchedIds:new Set()};
+  abPrintPreview('IRS Audit View',
+    [{key:'doc',label:'Doc #'},{key:'date',label:'Date'},{key:'type',label:'Type'},{key:'vendor',label:'Vendor/Client'},{key:'amount',label:'Amount',num:true},{key:'purpose',label:'Business Purpose'},{key:'receipt',label:'Source Doc'},{key:'proof',label:'Proof of Payment'}],
+    d.rows.map(r=>({doc:r.document_code||'',date:r.doc_date||'',type:r.direction==='bill_payable'?'Expense':'Income',vendor:r.contacts?r.contacts.name:'',amount:abMoney(r.total_amount),purpose:r.memo||'MISSING',receipt:r.receipt_image_path?'Yes':'MISSING',proof:(d.matchedIds.has(r.id)||r.status==='paid')?'Yes':'Unverified'}))
   );
 }
 // ══════════════════════════════════════════════
@@ -5398,23 +5469,64 @@ function abToggleAuditRow(id){
   if(abAuditLogExpanded.has(id)) abAuditLogExpanded.delete(id); else abAuditLogExpanded.add(id);
   abRenderAuditLog();
 }
+// ── AUDIT FORENSICS — a real query/reconstruction layer on top of the raw
+// log, not just a list. Free-text search across the actual deleted data
+// (not just table/action — "did anyone ever delete anything touching
+// Home Depot" is a real question the raw list alone can't answer), plus
+// a dollar-value summary so a pattern of deletions is visible at a
+// glance instead of buried in individual rows.
+let abAuditSearchText='';
+function abAuditSetSearch(v){ abAuditSearchText=v; abRenderAuditLog(); }
+// Best-effort human summary of what a deleted row actually was — reads
+// whichever fields are present rather than assuming one shape, since
+// old_value can be a journal entry, a bill, or anything else deletable.
+function abSummarizeAuditEntry(a){
+  const v=a.old_value||{};
+  const parts=[];
+  if(v.memo) parts.push(v.memo);
+  if(v.description) parts.push(v.description);
+  if(v.name) parts.push(v.name);
+  const amt=v.amount??v.total_amount??v.debit??v.credit;
+  if(amt) parts.push(abMoney(amt));
+  if(v.entry_date||v.doc_date) parts.push('dated '+(v.entry_date||v.doc_date));
+  return parts.join(' — ')||'(no summary available — see raw record)';
+}
+// Extracts any numeric amount-like field so deletions can be totaled —
+// approximate on purpose (different tables use different field names),
+// clearly labeled as an estimate, not a reconciled figure.
+function abExtractAuditAmount(a){
+  const v=a.old_value||{};
+  return Number(v.amount??v.total_amount??v.debit??0)||0;
+}
 function abRenderAuditLog(errMsg){
   const el=document.getElementById('ab-auditlog'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   if(errMsg){ el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">${abEsc(errMsg)}</div>`; return; }
   const tk='auditlog'; abSmartRerender[tk]=()=>abRenderAuditLog();
-  const getters={when:a=>a.created_at||'',table:a=>a.table_name||'',action:a=>a.action||''};
-  const sorted=abSmartApply(tk,abAuditLogCache,getters);
+  const searchLower=abAuditSearchText.toLowerCase();
+  const searched=searchLower?abAuditLogCache.filter(a=>JSON.stringify(a.old_value||{}).toLowerCase().includes(searchLower)):abAuditLogCache;
+  const getters={when:a=>a.created_at||'',table:a=>a.table_name||'',action:a=>a.action||'',summary:a=>abSummarizeAuditEntry(a)};
+  const sorted=abSmartApply(tk,searched,getters);
+  const totalDeletedValue=searched.reduce((s,a)=>s+abExtractAuditAmount(a),0);
+  const byTable={}; searched.forEach(a=>{ byTable[a.table_name]=(byTable[a.table_name]||0)+1; });
   el.innerHTML=`<div class="ab-h">Audit Log — every deletion, permanently recorded</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Append-only — nothing here, including this list, can be edited or removed through the app, by anyone, including you. This is the permanent record backing the "real deletion, always tracked" rule.</div>
-    ${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{when:'When',table:'Table',action:'Action'})}
-    <table class="ab-table" style="font-size:12px"><tr>${abSmartTh(tk,'when','When')}${abSmartTh(tk,'table','Table')}${abSmartTh(tk,'action','Action')}<th></th></tr>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="ab-card"><div class="n">${searched.length}</div><div class="l">${abAuditSearchText?'Matching':'Total'} deletion(s)</div></div>
+      <div class="ab-card"><div class="n">${abMoney(totalDeletedValue)}</div><div class="l">Est. total dollar value deleted</div></div>
+      <div class="ab-card"><div class="n">${Object.keys(byTable).length}</div><div class="l">Table(s) affected${Object.keys(byTable).length?' — '+Object.entries(byTable).map(([t,c])=>`${abEsc(t)} (${c})`).join(', '):''}</div></div>
+    </div>
+    <div style="margin-bottom:12px">
+      <input placeholder="Search everything ever deleted — a vendor name, a job, an amount…" value="${abEsc(abAuditSearchText)}" oninput="abAuditSetSearch(this.value)" style="width:100%;max-width:420px;padding:8px 10px;border-radius:6px;border:1px solid rgba(240,232,208,.25);background:rgba(240,232,208,.06);color:var(--text2)">
+    </div>
+    ${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{when:'When',table:'Table',action:'Action',summary:'What'})}
+    <table class="ab-table" style="font-size:12px"><tr>${abSmartTh(tk,'when','When')}${abSmartTh(tk,'table','Table')}${abSmartTh(tk,'action','Action')}${abSmartTh(tk,'summary','What')}<th></th></tr>
     ${sorted.map(a=>{
       const open=abAuditLogExpanded.has(a.id);
-      const rows=[`<tr style="cursor:pointer" ondblclick="abToggleAuditRow('${a.id}')" title="Double-click to ${open?'collapse':'expand'}"><td>${(a.created_at||'').replace('T',' ').slice(0,19)}</td><td>${abEsc(a.table_name)}</td><td>${abEsc(a.action)}</td><td>${open?'▾':'▸'}</td></tr>`];
-      if(open) rows.push(`<tr><td colspan="4" style="background:rgba(255,255,255,.02)"><pre style="white-space:pre-wrap;font-size:11px;margin:8px 0;color:var(--muted)">${abEsc(JSON.stringify(a.old_value,null,2))}</pre></td></tr>`);
+      const rows=[`<tr style="cursor:pointer" ondblclick="abToggleAuditRow('${a.id}')" title="Double-click to ${open?'collapse':'expand'}"><td>${(a.created_at||'').replace('T',' ').slice(0,19)}</td><td>${abEsc(a.table_name)}</td><td>${abEsc(a.action)}</td><td>${abEsc(abSummarizeAuditEntry(a))}</td><td>${open?'▾':'▸'}</td></tr>`];
+      if(open) rows.push(`<tr><td colspan="5" style="background:rgba(255,255,255,.02)"><pre style="white-space:pre-wrap;font-size:11px;margin:8px 0;color:var(--muted)">${abEsc(JSON.stringify(a.old_value,null,2))}</pre></td></tr>`);
       return rows.join('');
-    }).join('')||'<tr><td class="ab-empty" colspan="4">Nothing has been deleted yet — this log fills in automatically the moment something is</td></tr>'}
+    }).join('')||`<tr><td class="ab-empty" colspan="5">${abAuditSearchText?'Nothing deleted matches that search':'Nothing has been deleted yet — this log fills in automatically the moment something is'}</td></tr>`}
     </table>`;
 }
 
