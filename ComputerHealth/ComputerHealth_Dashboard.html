@@ -481,6 +481,16 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="issueGuidanceModal">
+  <div class="overlay-card" style="max-width:560px;max-height:85vh;overflow-y:auto">
+    <h2 id="issueGuidanceTitle">Why this is flagged</h2>
+    <div id="issueGuidanceBody"></div>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('issueGuidanceModal').classList.add('hidden')">Got it</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="historyCapWarningModal">
   <div class="overlay-card" style="max-width:480px">
     <h2>Your free history is almost full</h2>
@@ -498,11 +508,20 @@
 
     <div class="walkthrough-step" style="border-left-color:#4caf6d;background:#12241a">
       <strong>✅ Already installed this before? Try this first.</strong>
-      <p>Browsers sometimes silently block the automatic launch after the first time, with no visible warning - if that's happened, the fastest fix is to skip the browser entirely: <strong>double-click the "Amit" icon on your desktop.</strong> That opens the same tracker directly, with no browser permission involved at all, so it always works regardless of any browser setting.</p>
+      <p>Browsers sometimes silently block the automatic launch after the first time, with no visible warning - if that's happened, the fastest fix is to skip the browser entirely: <strong>double-click the "Amit" icon on your desktop.</strong> That opens the same tracker directly, with no browser permission involved at all.</p>
       <div class="actions" style="margin-top:8px">
         <button class="btn secondary" onclick="document.getElementById('notRunningScreen').classList.add('hidden'); launchTracker()">Try the browser launch again</button>
         <button class="btn secondary" onclick="document.getElementById('notRunningScreen').classList.add('hidden')">Close</button>
       </div>
+    </div>
+
+    <div class="walkthrough-step" style="border-left-color:#e0a020;background:#241c12">
+      <strong>⚠️ Did Windows show a "blocked" message — even when double-clicking the desktop icon?</strong>
+      <p>That's not a bug in Amit, and the desktop-icon trick above won't fix it — this is a separate, newer Windows security feature called <strong>Smart App Control</strong>, which blocks any program it doesn't yet recognize, no matter how it's opened. This is genuinely new: it wasn't blocking this before, and can start blocking a program it previously allowed, with no warning, usually after a Windows update. The permanent fix (a paid security certificate for this program) isn't in place yet — until it is, here's how to let it through:</p>
+      <p style="margin-top:8px"><strong>1.</strong> Open <strong>Windows Security</strong> → <strong>App &amp; browser control</strong> → <strong>Smart App Control settings</strong>.</p>
+      <p style="margin-top:4px"><strong>2.</strong> Switch it to <strong>Off</strong>.</p>
+      <p style="margin-top:4px"><strong>3.</strong> Try the desktop icon (or the browser launch button) again — it should open clean now.</p>
+      <p style="margin-top:8px;color:#e0a020"><strong>One thing worth knowing before you do this:</strong> once Smart App Control is turned off, Windows only lets it be turned back on by doing a clean reinstall of Windows — it's not a switch you can flip back later. That's Microsoft's own restriction, not something Amit or this installer controls.</p>
     </div>
 
     <div id="notRunningFullWalkthrough">
@@ -3633,36 +3652,36 @@ function analyzeComponentRows(component, rows, specs) {
     const isThresholdField = /warning|critical|threshold|limit/.test(name);
     if (!isThresholdField && (/temp/.test(name) || /temp/.test(cat))) {
       if (max > IMPLAUSIBLE_TEMP_C) {
-        flagged = { severity: 'info', reason: `Peaked at ${max}°C - not a physically real reading for this sensor, almost certainly a misreport. Safe to ignore, but worth confirming nothing else relies on this exact sensor.` };
+        flagged = { severity: 'info', key: 'implausible_temp', reason: `Peaked at ${max}°C - not a physically real reading for this sensor, almost certainly a misreport. Safe to ignore, but worth confirming nothing else relies on this exact sensor.` };
       } else {
         const known = (specs || []).find(s => s.max_temp_c != null && s.regex && s.regex.test(r.title || ''));
         if (known) {
           const headroom = known.max_temp_c - max;
-          if (headroom <= 0) flagged = { severity: 'investigate', reason: `Peaked at ${max}°C, at or above the typical safe limit (~${known.max_temp_c}°C) for this hardware - worth investigating cooling.` };
-          else if (headroom <= 15) flagged = { severity: 'investigate', reason: `Peaked at ${max}°C, only ~${Math.round(headroom)}°C below the typical safe limit (~${known.max_temp_c}°C) - getting close, worth keeping an eye on.` };
+          if (headroom <= 0) flagged = { severity: 'investigate', key: 'temperature', reason: `Peaked at ${max}°C, at or above the typical safe limit (~${known.max_temp_c}°C) for this hardware - worth investigating cooling.` };
+          else if (headroom <= 15) flagged = { severity: 'investigate', key: 'temperature', reason: `Peaked at ${max}°C, only ~${Math.round(headroom)}°C below the typical safe limit (~${known.max_temp_c}°C) - getting close, worth keeping an eye on.` };
         }
       }
     } else if (/interrupt time|dpc time/.test(name)) {
-      if (max > 5) flagged = { severity: 'investigate', reason: `Peaked at ${max}% - above 5% is a real, noticeable input-lag risk.` };
-      else if (max > 2) flagged = { severity: 'watch', reason: `Peaked at ${max}% - elevated but not yet a clear problem.` };
+      if (max > 5) flagged = { severity: 'investigate', key: 'dpc_interrupt', reason: `Peaked at ${max}% - above 5% is a real, noticeable input-lag risk.` };
+      else if (max > 2) flagged = { severity: 'watch', key: 'dpc_interrupt', reason: `Peaked at ${max}% - elevated but not yet a clear problem.` };
     } else if (/disk read latency|disk write latency/.test(name)) {
-      if (max > 20) flagged = { severity: 'investigate', reason: `Peaked at ${max}ms - above 20ms is a real, noticeable slowdown for storage access.` };
-      else if (max > 10) flagged = { severity: 'watch', reason: `Peaked at ${max}ms - a bit elevated, worth watching if it becomes consistent.` };
+      if (max > 20) flagged = { severity: 'investigate', key: 'disk_latency', reason: `Peaked at ${max}ms - above 20ms is a real, noticeable slowdown for storage access.` };
+      else if (max > 10) flagged = { severity: 'watch', key: 'disk_latency', reason: `Peaked at ${max}ms - a bit elevated, worth watching if it becomes consistent.` };
     } else if (/free space/.test(name)) {
-      if (min < 10) flagged = { severity: 'investigate', reason: `Dropped as low as ${min}% free - below 10% free space can cause real performance and update problems.` };
-      else if (min < 20) flagged = { severity: 'watch', reason: `Dropped as low as ${min}% free - worth freeing up space before it gets tighter.` };
+      if (min < 10) flagged = { severity: 'investigate', key: 'free_space', reason: `Dropped as low as ${min}% free - below 10% free space can cause real performance and update problems.` };
+      else if (min < 20) flagged = { severity: 'watch', key: 'free_space', reason: `Dropped as low as ${min}% free - worth freeing up space before it gets tighter.` };
     } else if (/processor queue length/.test(name)) {
-      if (max > 10) flagged = { severity: 'investigate', reason: `Peaked at ${max} threads waiting for CPU time - the processor couldn't keep up with demand at that moment.` };
-      else if (max > 5) flagged = { severity: 'watch', reason: `Peaked at ${max} threads waiting - some backlog, worth watching.` };
+      if (max > 10) flagged = { severity: 'investigate', key: 'processor_queue', reason: `Peaked at ${max} threads waiting for CPU time - the processor couldn't keep up with demand at that moment.` };
+      else if (max > 5) flagged = { severity: 'watch', key: 'processor_queue', reason: `Peaked at ${max} threads waiting - some backlog, worth watching.` };
     } else if (/page faults\/sec/.test(name)) {
-      if (max > 5000) flagged = { severity: 'watch', reason: `Peaked at ${max}/sec - elevated, can be normal during heavy multitasking but worth noting.` };
+      if (max > 5000) flagged = { severity: 'watch', key: 'page_faults', reason: `Peaked at ${max}/sec - elevated, can be normal during heavy multitasking but worth noting.` };
     } else if (/^(load|utilization|usage)/.test(name) || cat === 'load') {
-      if (typeof avg === 'number' && avg > 90) flagged = { severity: 'watch', reason: `Averaged ${Math.round(avg)}% throughout the session - sustained near-maximum load.` };
+      if (typeof avg === 'number' && avg > 90) flagged = { severity: 'watch', key: 'load_usage', reason: `Averaged ${Math.round(avg)}% throughout the session - sustained near-maximum load.` };
     } else if (/fan/.test(name) && max === 0) {
-      flagged = { severity: 'watch', reason: `Read 0 RPM for the entire session - worth confirming this fan is actually spinning, if the system genuinely has one at this position.` };
+      flagged = { severity: 'watch', key: 'fan_zero', reason: `Read 0 RPM for the entire session - worth confirming this fan is actually spinning, if the system genuinely has one at this position.` };
     } else if (/voltage|vcore|vid/.test(name) && typeof avg === 'number' && avg > 0) {
       const swing = (max - min) / avg;
-      if (swing > 0.15) flagged = { severity: 'watch', reason: `Swung from ${min} to ${max} (about ${Math.round(swing * 100)}% variation) - more movement than typical, not necessarily a problem on its own.` };
+      if (swing > 0.15) flagged = { severity: 'watch', key: 'voltage_swing', reason: `Swung from ${min} to ${max} (about ${Math.round(swing * 100)}% variation) - more movement than typical, not necessarily a problem on its own.` };
     }
 
     if (flagged) {
@@ -3670,6 +3689,141 @@ function analyzeComponentRows(component, rows, specs) {
     }
   });
   return { component, sensorCount: rows.length, issues };
+}
+
+// Ryan's direct request 2026-07-27: clicking a flagged item shouldn't just
+// show the number again. A "Watch" item needs a short tutorial - why this
+// is being watched at all, and what the actual standard is, so it reads
+// as "here is why I'm keeping an eye on this" instead of an unexplained
+// yellow label. An "Investigate" item is the one that actually panics
+// people, so it needs the opposite instinct: reassure first (this is a
+// possible condition, not a diagnosis), explain plainly what it means,
+// then hand over real, concrete next steps - not just "something might
+// be wrong." Content is keyed off the same rule ("key") that flagged the
+// issue in analyzeComponentRows, so the explanation always matches the
+// actual reason it was flagged, not a generic guess from the metric name.
+const ISSUE_GUIDANCE = {
+  temperature: {
+    standard: 'Every component has a manufacturer-published safe operating ceiling. This one is compared against that number, not a guess - Watch means it is getting close, Investigate means it is at or past it.',
+    why: 'Heat is the single most common cause of long-term hardware wear and sudden shutdowns. Catching it early, while it is still just "worth watching," is what keeps it from ever becoming a real problem.',
+    suggestions: [
+      'Check that the case has clear airflow - nothing blocking intake or exhaust vents.',
+      'Open the case (if comfortable) and look for dust buildup on fans and heatsinks - this is the single most common cause of rising temperatures over time.',
+      'Confirm the relevant fans are actually spinning (see the Fan section if this component has one flagged too).',
+      'If this is a CPU or GPU and the machine is a few years old, thermal paste naturally dries out and loses effectiveness - a repaste can meaningfully lower peak temps.',
+      'If temps stay elevated with clean airflow and fresh paste, that is worth a closer hardware look rather than something to keep tolerating.'
+    ]
+  },
+  implausible_temp: {
+    standard: 'This reading is outside the physical range any real sensor of this kind can produce - it is being noted, not treated as a genuine temperature.',
+    why: 'Some sensors occasionally misreport a nonsense value for one sample. Flagging it here is just honesty about what the data actually shows, not a hidden hardware problem.',
+    suggestions: [
+      'No action needed - this is almost certainly a one-off sensor glitch, not a real reading.',
+      'If this same sensor keeps producing implausible numbers session after session, that pattern itself is worth mentioning, since it could mean the sensor mapping is wrong rather than the value.'
+    ]
+  },
+  dpc_interrupt: {
+    standard: 'DPC/interrupt time above about 2% starts to be noticeable; above 5% is a real, measurable source of input lag - stutter, audio crackle, mouse/keyboard delay.',
+    why: 'This is time the processor spends handling urgent hardware requests instead of your programs. It is one of the most common, most fixable causes of a computer that "feels laggy" for no obvious reason.',
+    suggestions: [
+      'Update chipset, network, USB, and audio drivers first - outdated or buggy drivers are the most common cause of DPC spikes.',
+      'Temporarily unplug non-essential USB devices (webcams, external drives, some Wi-Fi adapters) one at a time to see if the spikes stop - this narrows down the culprit fast.',
+      'If it started after a specific new device or driver update, that is the first place to look.',
+      'Windows\' free "LatencyMon" tool can point at the exact driver causing it, if this keeps showing up.'
+    ]
+  },
+  disk_latency: {
+    standard: 'Under about 10ms response time is normal for most drives; above 20ms is a real, noticeable slowdown accessing files, opening programs, or loading anything from that drive.',
+    why: 'High disk latency is one of the most common reasons a computer feels slow even when CPU and RAM look fine - everything is waiting on storage to respond.',
+    suggestions: [
+      'Check how full the drive is - drives that are nearly full (especially SSDs) slow down measurably; freeing space often helps directly.',
+      'Close background programs that sync or scan continuously (cloud backup, antivirus full scans, indexing) during the times this is worst.',
+      'For a traditional spinning hard drive, this can be normal under heavy load - for an SSD or NVMe drive, sustained high latency is more worth investigating.',
+      'If this is a mechanical hard drive and latency keeps climbing over time, that can be an early sign of the drive wearing out - worth backing up important files sooner rather than later.'
+    ]
+  },
+  free_space: {
+    standard: 'Below 20% free space, performance and update reliability start to suffer; below 10% free is where real problems - failed updates, slow performance, apps refusing to save - become common.',
+    why: 'Windows and most programs need working room on the drive, not just storage for files - running low affects the whole system, not just how much you can save.',
+    suggestions: [
+      'Run Windows\' built-in Disk Cleanup (or Storage Sense) to clear temp files, old update files, and the recycle bin - usually the fastest real win.',
+      'Check the Downloads folder specifically - it quietly fills up with installers and files that already served their purpose.',
+      'Uninstall programs no longer used - Settings → Apps shows what is actually taking the most space.',
+      'If space is tight because of large personal files (photos, videos), moving them to an external drive or cloud storage frees real room without deleting anything.'
+    ]
+  },
+  processor_queue: {
+    standard: 'A queue length above 2 sustained threads is worth noting; above 5-10 means the processor genuinely could not keep up with demand at that moment.',
+    why: 'This measures actual work waiting in line for the CPU - a direct sign the processor was the bottleneck, not just busy.',
+    suggestions: [
+      'Check Task Manager during a slow moment to see which specific program is consuming the most CPU.',
+      'If one program is consistently the cause, check whether it needs an update - runaway CPU use is often a bug fixed in a newer version.',
+      'Too many programs set to start automatically with Windows can create sustained background load - review Task Manager\'s Startup tab.',
+      'If this only happens during genuinely heavy tasks (video editing, gaming, exports), that can be entirely normal for what was being asked of the machine.'
+    ]
+  },
+  page_faults: {
+    standard: 'Occasional spikes are normal; a sustained high rate (above ~5000/sec) can mean the system is leaning on virtual memory more than is ideal.',
+    why: 'This often shows up when RAM is under real pressure and the system has to fall back on the page file (disk) more than usual, which is slower.',
+    suggestions: [
+      'Check how much RAM is actually being used during heavy multitasking - if it is consistently near full, more RAM (or closing fewer things at once) would help directly.',
+      'This is frequently just normal behavior during heavy multitasking and resolves on its own once fewer programs are running.',
+      'If it is sustained even at idle or light use, that is more worth a closer look.'
+    ]
+  },
+  load_usage: {
+    standard: 'A sustained average above 90% for an entire session (not just a brief peak) means the component was working near its limit for most of the time it was measured.',
+    why: 'Brief spikes to 100% are completely normal - it is sustained near-maximum load that suggests the component may be a genuine bottleneck for what is being asked of it.',
+    suggestions: [
+      'Check what was actually running during that session - if it matches heavy, intentional work (gaming, rendering, exports), this can be entirely expected.',
+      'If it was sustained during ordinary, lighter use, check Task Manager for a specific program consuming more than expected.',
+      'Consistently maxed-out usage during normal tasks can be a sign this component is the limiting factor for the machine\'s overall performance.'
+    ]
+  },
+  fan_zero: {
+    standard: 'A fan sensor reading exactly 0 RPM for an entire session is worth confirming - either the fan genuinely is not spinning, or this position does not have a real fan reporting to it.',
+    why: 'A fan that should be spinning but is not can lead directly to a temperature problem, so it is worth ruling out early rather than waiting for heat to show it.',
+    suggestions: [
+      'Physically check (if comfortable opening the case) whether the fan at this position is actually spinning.',
+      'Some motherboards have unused fan headers that always read 0 - if there is genuinely no fan connected there, this reading is expected and not a concern.',
+      'If a fan that should be running is not, check its power connector is fully seated, and check the corresponding temperature reading for that component for signs it is actually running hot.'
+    ]
+  },
+  voltage_swing: {
+    standard: 'Some voltage movement under changing load is completely normal - this flags swings noticeably larger than typical (more than about 15% variation from the average).',
+    why: 'Very unstable voltage can occasionally point at a power delivery issue, though it is one of the least urgent flags on this list on its own.',
+    suggestions: [
+      'This is frequently just normal behavior as the system moves between idle and load - especially common and expected on CPU core voltages.',
+      'Worth a closer look mainly if it comes with other symptoms - random reboots, freezes, or instability during the same sessions.',
+      'If instability is also happening, checking the power supply and its connections is the most direct next step.'
+    ]
+  }
+};
+
+function openIssueGuidance(severity, key, title, metricName, reason) {
+  const g = ISSUE_GUIDANCE[key];
+  const titleEl = document.getElementById('issueGuidanceTitle');
+  const bodyEl = document.getElementById('issueGuidanceBody');
+  if (severity === 'watch') {
+    titleEl.textContent = '◐ Watch: ' + title + ' - ' + metricName;
+    bodyEl.innerHTML =
+      `<p style="color:#c7cad1"><strong>What was seen:</strong> ${escHtml(reason)}</p>` +
+      (g ? `<p style="color:#c7cad1"><strong>Why this is being watched:</strong> ${escHtml(g.why)}</p>
+      <p style="color:#c7cad1"><strong>The standard being measured against:</strong> ${escHtml(g.standard)}</p>` : '') +
+      `<p style="color:#8a8f99;font-size:12px;margin-top:10px">Watch items are not a problem right now - they are here so a real pattern gets caught early instead of arriving as a surprise later.</p>`;
+  } else {
+    titleEl.textContent = '⚠ ' + title + ' - ' + metricName;
+    bodyEl.innerHTML =
+      `<p style="padding:10px 14px;background:#12141a;border-left:4px solid #e0a72e;border-radius:6px;color:#e0c477">This is a warning, not a diagnosis. It flags a real, possible condition worth a look - most of the time these resolve with one simple step below. Nothing has been damaged just because it showed up here.</p>` +
+      `<p style="color:#c7cad1;margin-top:10px"><strong>What was seen:</strong> ${escHtml(reason)}</p>` +
+      (g ? `<p style="color:#c7cad1"><strong>What this actually means:</strong> ${escHtml(g.why)}</p>
+      <p style="color:#c7cad1"><strong>The standard being measured against:</strong> ${escHtml(g.standard)}</p>
+      <div style="margin-top:14px;padding:12px 14px;background:#12141a;border-radius:6px">
+        <div style="font-weight:600;color:#e8e9ec;margin-bottom:8px">Suggestions - ways to correct or investigate this</div>
+        <ul style="margin:0 0 0 18px;color:#c7cad1">${g.suggestions.map(s => `<li style="margin:6px 0">${escHtml(s)}</li>`).join('')}</ul>
+      </div>` : '');
+  }
+  document.getElementById('issueGuidanceModal').classList.remove('hidden');
 }
 
 function renderComponentRollup(analysis) {
@@ -3706,8 +3860,13 @@ function openComponentSpreadsheet(component) {
   rows.forEach(r => {
     const issue = issueMap[r.title + '|' + r.metric_name];
     const rowBg = issue ? (issue.severity === 'investigate' ? 'background:#2a1414' : issue.severity === 'watch' ? 'background:#2a2410' : 'background:#12141a') : '';
+    const clickableStyle = (issue && issue.severity !== 'info') ? 'cursor:pointer;text-decoration:underline dotted' : '';
+    const attrSafe = (s) => escHtml(s).replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    const statusOnclick = (issue && issue.severity !== 'info')
+      ? ` onclick="openIssueGuidance('${issue.severity}','${issue.key || ''}','${attrSafe(r.title)}','${attrSafe(r.metric_name)}','${attrSafe(issue.reason)}')" title="Click for why this is flagged and what to do about it"`
+      : '';
     const statusText = issue
-      ? `<span style="color:${issue.severity === 'investigate' ? '#e07a7a' : issue.severity === 'watch' ? '#e0c477' : '#8a8f99'}">${issue.severity === 'investigate' ? '⚠ Investigate' : issue.severity === 'watch' ? '◐ Watch' : 'ℹ Note'}</span>`
+      ? `<span style="color:${issue.severity === 'investigate' ? '#e07a7a' : issue.severity === 'watch' ? '#e0c477' : '#8a8f99'};${clickableStyle}"${statusOnclick}>${issue.severity === 'investigate' ? '⚠ Investigate' : issue.severity === 'watch' ? '◐ Watch' : 'ℹ Note'}</span>`
       : '<span style="color:#4caf6d">OK</span>';
     html += `<tr style="border-bottom:1px solid #22242c;${rowBg}"><td style="padding:6px 8px">${escHtml(r.title)} - ${escHtml(r.metric_name)}</td><td style="padding:6px 8px;color:#8a8f99">${escHtml(r.category)}</td><td style="padding:6px 8px">${r.min_value}</td><td style="padding:6px 8px">${r.max_value}</td><td style="padding:6px 8px">${r.avg_value != null ? Math.round(r.avg_value * 100) / 100 : ''}</td><td style="padding:6px 8px">${statusText}</td></tr>`;
     if (issue) {
