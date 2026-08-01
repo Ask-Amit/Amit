@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.81</div>
+    <div class="page-version" id="pageVersion">v1.82</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -397,22 +397,22 @@ const TODO_CONTENT = `
 
 <div class="td-h1">Phase 1 — The Database, Starting Now</div>
 
-<div class="td-item"><div class="td-title">books table (one user, many books)<span class="td-tag now">BUILDING</span></div>
-<div class="td-why">Every user can own more than one book — personal, one per company, a family member's. Every other table (transactions, vendors, projects) hangs off a book_id, not directly off the user, so opening AmitBooks always starts with "which book are you opening?" and everything underneath scopes automatically.</div></div>
+<div class="td-item"><div class="td-title">books table (one user, many books)<span class="td-tag now">DONE</span></div>
+<div class="td-why">Every user can own more than one book — personal, one per company, a family member's. Every other table (transactions, vendors, projects) hangs off a book_id, not directly off the user, so opening AmitBooks always starts with "which book are you opening?" and everything underneath scopes automatically. Confirmed live — real multi-book switcher on the Dashboard, dozens of tables all scoped by book_id.</div></div>
 
-<div class="td-item"><div class="td-title">Linked to the shared Amit login<span class="td-tag now">BUILDING</span></div>
-<div class="td-why">Books are owned by the same Supabase auth account the Hub and AmitCoder already use — one login, one identity, no separate AmitBooks signup. The actual password-gate on this page comes later; the data is being shaped correctly for it now so nothing has to be rebuilt.</div></div>
+<div class="td-item"><div class="td-title">Linked to the shared Amit login<span class="td-tag now">DONE</span></div>
+<div class="td-why">Books are owned by the same Supabase auth account (same project, hleqtjqojksurvkyqixt.supabase.co) the Hub and AmitCoder already use — one login, one identity, no separate AmitBooks signup. The password-gate this note said "comes later" is built too — real magic-link sign-in blocks every panel when signed out, and RLS enforces it independently at the database layer regardless of the UI.</div></div>
 
-<div class="td-item"><div class="td-title">Audit-log table (append-only)<span class="td-tag now">BUILDING</span></div>
-<div class="td-why">This is the real answer to "the IRS needs two forms of the data." Not a second copy of the same numbers — a permanent, never-edited history of every change (old value, new value, who, when) on top of the live ledger. That's what actually protects a user in an audit: proof the record wasn't quietly altered after the fact.</div></div>
+<div class="td-item"><div class="td-title">Audit-log table (append-only)<span class="td-tag now">DONE</span></div>
+<div class="td-why">This is the real answer to "the IRS needs two forms of the data." Not a second copy of the same numbers — a permanent, never-edited history of every change (old value, new value, who, when) on top of the live ledger. That's what actually protects a user in an audit: proof the record wasn't quietly altered after the fact. Confirmed live — real deletion tracking plus a full Audit Forensics upgrade (free-text search across every deletion ever made, dollar-value totals, per-table breakdown).</div></div>
 
-<div class="td-item"><div class="td-title">Immutable source documents<span class="td-tag now">BUILDING</span></div>
-<div class="td-why">The original receipt photo/PDF is never overwritten once scanned. The ledger entry can be corrected later; the evidence behind it can't — the second "form of the data" the IRS actually cares about is the transaction record and its source document corroborating each other.</div></div>
+<div class="td-item"><div class="td-title">Immutable source documents<span class="td-tag now">DONE</span></div>
+<div class="td-why">The original receipt photo/PDF is never overwritten once scanned. The ledger entry can be corrected later; the evidence behind it can't — the second "form of the data" the IRS actually cares about is the transaction record and its source document corroborating each other. Confirmed live — real receipt image storage (compressed JPEG, its own Supabase Storage bucket, book-scoped), a new file every time, never overwritten, with a viewer link on the saved bill.</div></div>
 
-<div class="td-item"><div class="td-title">Core operational tables<span class="td-tag now">BUILDING</span></div>
-<div class="td-why">chart_of_accounts, vendors, customers, projects, estimates, invoices_bills, transactions (double-entry, sales-tax-aware) — the everyday tables every book needs regardless of what kind of business it's tracking.</div></div>
+<div class="td-item"><div class="td-title">Core operational tables<span class="td-tag now">DONE</span></div>
+<div class="td-why">chart_of_accounts, vendors, customers, projects, estimates, invoices_bills, transactions (double-entry, sales-tax-aware) — the everyday tables every book needs regardless of what kind of business it's tracking. Confirmed live and in heavy real use across every panel in the app.</div></div>
 
-<div class="td-item"><div class="td-title">Tax-form skeleton tables<span class="td-tag now">BUILDING</span></div>
+<div class="td-item"><div class="td-title">Tax-form skeleton tables<span class="td-tag now">DONE</span></div>
 <div class="td-why">sales_tax_jurisdictions (city + state rates), employees (941/W-2/benefits fields), contractors_1099 (1099-NEC recipient tracking) — structurally correct and linked to book_id tonight, even though the actual form-generation logic (a real 941 or 1099 PDF) is later work.</div></div>
 
 <div class="td-h1">Phase 2 — Right After the Tables Exist</div>
@@ -423,22 +423,22 @@ const TODO_CONTENT = `
 <div class="td-item"><div class="td-title">Real sign-in / password gate<span class="td-tag now">DONE</span></div>
 <div class="td-why">Confirmed this session: signed-out users see a plain "sign in" notice on every panel and no book data loads; RLS enforces the same boundary independently at the database layer.</div></div>
 
-<div class="td-item"><div class="td-title">Receipt capture — red-marker annotation standard</div>
-<div class="td-why">User marks job number, account category, billable/nonbillable in red marker before photographing. OCR reads the printed receipt and the red annotations separately. Full spec already written — see AmitAccounting_Spec.md, "Receipt Capture System."</div></div>
+<div class="td-item"><div class="td-title">Receipt capture — red-marker annotation standard<span class="td-tag now">DONE</span></div>
+<div class="td-why">User marks job number, account category, billable/nonbillable in red marker before photographing. OCR reads the printed receipt and the annotations separately. Confirmed live — Scan Receipt(s) reads hand-written job/category annotations, matches them against real Tags/Scopes, and splits one receipt into multiple bill lines when it was hand-marked as split across more than one job or category. Not literally color-restricted to red marker specifically — any legible handwriting works.</div></div>
 
-<div class="td-item"><div class="td-title">Document ID system — YYYY-MM-DD-NNNNNNN</div>
-<div class="td-why">Every document (receipt, bill, invoice) gets a globally sequential, date-prefixed ID, stamped visibly on the stored image with a QR code overlay. Even if the database were lost, every image carries its own identity.</div></div>
+<div class="td-item"><div class="td-title">Document ID system — YYYY-MM-DD-NNNNNNN<span class="td-tag now">DONE (format changed)</span></div>
+<div class="td-why">Every document (receipt, bill, invoice) gets a sequential, date-prefixed ID, stamped visibly on the stored image with a QR code overlay. Even if the database were lost, every image carries its own identity. Confirmed live, with two real changes from this original spec: the date format is MM-DD-YY (Ryan's direct correction — most receipts print month/day/year, and a 2-digit year is enough), and the code is sequential per book, not globally across all books. The QR code overlay on the stored image itself is NOT built yet — the code exists as data (shown in the Bills & Invoices table) but isn't visually stamped onto the receipt image.</div></div>
 
 <div class="td-h1">Open Questions — Not Yet Decided</div>
 
 <div class="td-item"><div class="td-title">Tim's chart of accounts<span class="td-tag open">OPEN</span></div>
-<div class="td-why">Tim (Ryan's CPA and best friend) has not been consulted yet. His standard chart of accounts is meant to become the default template for every new book. Standing rule from the spec: do not build any accounting forms before this conversation happens.</div></div>
+<div class="td-why">Tim (Ryan's CPA and best friend) has not been consulted yet. His standard chart of accounts is meant to become the default template for every new book. Standing rule from the spec: do not build any accounting forms before this conversation happens. Still genuinely open — nothing has changed here.</div></div>
 
-<div class="td-item"><div class="td-title">OCR engine — Claude Vision vs Google Vision<span class="td-tag open">OPEN</span></div>
-<div class="td-why">Claude Vision is already in the Amit ecosystem; Google Vision is more receipt-specialized. Needs a real test on sample receipts before committing.</div></div>
+<div class="td-item"><div class="td-title">OCR engine — Claude Vision vs Google Vision<span class="td-tag now">DECIDED — Claude Vision</span></div>
+<div class="td-why">Claude Vision is already in the Amit ecosystem; Google Vision is more receipt-specialized. Needs a real test on sample receipts before committing. DECIDED 2026-07-31 — went with Claude Vision. Each user brings their own Anthropic API key (Integrations tab), billed to their own account, not Ryan's — real, live, and already powering Scan Receipt(s), Bank Statement scanning, and the Expense Claim Helper.</div></div>
 
-<div class="td-item"><div class="td-title">Mobile receipt capture path<span class="td-tag open">OPEN</span></div>
-<div class="td-why">How a phone photo actually reaches this app — direct mobile upload, syncing through OneDrive/Google Drive, or a dedicated companion later.</div></div>
+<div class="td-item"><div class="td-title">Mobile receipt capture path<span class="td-tag now">DONE — direct upload</span></div>
+<div class="td-why">How a phone photo actually reaches this app — direct mobile upload, syncing through OneDrive/Google Drive, or a dedicated companion later. Confirmed live — Scan Receipt(s) uses a plain file picker with no camera restriction, so it opens either the camera or the photo library on mobile, or a file browser on desktop. No OneDrive/Google Drive sync path or dedicated companion app was built — direct upload turned out to be sufficient.</div></div>
 
 <div class="td-item"><div class="td-title">Sensitive data tiering</div>
 <div class="td-why">Three tiers from the spec: standard financial data in Supabase with Row Level Security; full account/routing numbers client-side encrypted (zero-knowledge, server never sees plaintext); actual banking passwords never go to the cloud at all. Needs to be built into the schema from the start, not retrofitted.</div></div>
