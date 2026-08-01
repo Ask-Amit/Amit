@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.82</div>
+    <div class="page-version" id="pageVersion">v1.83</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -434,8 +434,8 @@ const TODO_CONTENT = `
 <div class="td-item"><div class="td-title">Tim's chart of accounts<span class="td-tag open">OPEN</span></div>
 <div class="td-why">Tim (Ryan's CPA and best friend) has not been consulted yet. His standard chart of accounts is meant to become the default template for every new book. Standing rule from the spec: do not build any accounting forms before this conversation happens. Still genuinely open — nothing has changed here.</div></div>
 
-<div class="td-item"><div class="td-title">OCR engine — Claude Vision vs Google Vision<span class="td-tag now">DECIDED — Claude Vision</span></div>
-<div class="td-why">Claude Vision is already in the Amit ecosystem; Google Vision is more receipt-specialized. Needs a real test on sample receipts before committing. DECIDED 2026-07-31 — went with Claude Vision. Each user brings their own Anthropic API key (Integrations tab), billed to their own account, not Ryan's — real, live, and already powering Scan Receipt(s), Bank Statement scanning, and the Expense Claim Helper.</div></div>
+<div class="td-item"><div class="td-title">OCR engine — Claude Vision vs Google Vision<span class="td-tag open">OPEN — still up for debate</span></div>
+<div class="td-why">Claude Vision is already in the Amit ecosystem; Google Vision is more receipt-specialized. Needs a real test on sample receipts before committing. NOT decided as of 2026-07-31 — Ryan corrected this directly, this is still genuinely open. What IS built and live right now: Claude Vision, via each user's own Anthropic API key (Integrations tab), powering Scan Receipt(s), Bank Statement scanning, and the Expense Claim Helper — that's the current implementation, not a final commitment. Google Vision (with its real free tier) remains on the table if a real side-by-side test favors it.</div></div>
 
 <div class="td-item"><div class="td-title">Mobile receipt capture path<span class="td-tag now">DONE — direct upload</span></div>
 <div class="td-why">How a phone photo actually reaches this app — direct mobile upload, syncing through OneDrive/Google Drive, or a dedicated companion later. Confirmed live — Scan Receipt(s) uses a plain file picker with no camera restriction, so it opens either the camera or the photo library on mobile, or a file browser on desktop. No OneDrive/Google Drive sync path or dedicated companion app was built — direct upload turned out to be sufficient.</div></div>
@@ -445,8 +445,8 @@ const TODO_CONTENT = `
 
 <div class="td-h1">The Vision — What This Is Funding Toward</div>
 
-<div class="td-item"><div class="td-title">Vendor memory (Amit Connect)<span class="td-tag vision">VISION</span></div>
-<div class="td-why">Amit learns a vendor the first time — category, job, billable default, typical amount range — and pre-fills it every time after. This is what turns a 90-minute pile into a 30-minute one.</div></div>
+<div class="td-item"><div class="td-title">Vendor memory (Amit Connect)<span class="td-tag now">DONE</span></div>
+<div class="td-why">Amit learns a vendor the first time — category, job, billable default, typical amount range — and pre-fills it every time after. This is what turns a 90-minute pile into a 30-minute one. DONE 2026-07-31 — real, automatic, no manual setup required: picking a Contact on a bill infers Scope/Cost Type/Category/Job from that vendor's actual past bill history (most common pattern wins), with an explicit saved Workflow Rule always taking priority when one exists. A visible history panel shows the vendor's last 5 bills right on the entry form, so a person can actually see "yes, this is where it always goes" before saving — not just trust an invisible autofill.</div></div>
 
 <div class="td-item"><div class="td-title">Proactive notifications — Amit reaches out</div>
 <div class="td-why">Bill due in 72 hours, invoice unpaid 30+ days, a job crossing its budget, an expense spike the IRS tends to scrutinize — Amit notices and says so, in its own voice, not a software alert.</div></div>
@@ -2428,16 +2428,70 @@ async function abDeleteWorkflowRule(id){
 // Applied live when a Contact is chosen on the single-entry Bills &
 // Invoices form — finds the best-matching active rule (direction-specific
 // beats "Either") and fills the fields the person hasn't already touched.
+// ── VENDOR MEMORY — real, automatic, no saved rule required. Two layers:
+// (1) an explicit Workflow Rule, if one exists, always wins — that's a
+// deliberate human decision. (2) Failing that, look at every real past
+// bill for this vendor and infer the most common Scope/Cost Type/
+// Category/Job from actual history — the pattern IS the memory, nothing
+// has to be manually taught first. Per Ryan's direct spec 2026-07-31:
+// "watch over time and create a history for this vendor... always
+// prepopulated... easy for them to look at the bill and say, you've got
+// it in the right spot, press sign."
+function abMostCommon(arr){
+  if(!arr.length)return null;
+  const counts={}; arr.forEach(v=>{ if(v) counts[v]=(counts[v]||0)+1; });
+  const entries=Object.entries(counts); if(!entries.length)return null;
+  return entries.sort((a,b)=>b[1]-a[1])[0][0];
+}
+function abVendorHistoryLines(contactId){
+  return abInvoiceBillLinesCache.filter(l=>l.invoices_bills&&l.invoices_bills.contact_id===contactId&&l.invoices_bills.status!=='void');
+}
 function abApplyWorkflowAutofill(){
-  const contactId=document.getElementById('ab-ib-contact')?.value; if(!contactId)return;
+  const contactId=document.getElementById('ab-ib-contact')?.value;
+  const historyEl=document.getElementById('ab-ib-vendor-history');
+  if(!contactId){ if(historyEl) historyEl.innerHTML=''; return; }
   const direction=document.getElementById('ab-ib-direction')?.value;
-  const candidates=abWorkflowRulesCache.filter(r=>r.active&&r.trigger_contact_id===contactId&&(!r.trigger_direction||r.trigger_direction===direction));
-  if(!candidates.length)return;
-  const rule=candidates.find(r=>r.trigger_direction===direction)||candidates[0];
-  if(rule.action_item_id) document.getElementById('ab-ib-item').value=rule.action_item_id;
-  if(rule.action_cost_type) document.getElementById('ab-ib-costtype').value=rule.action_cost_type;
-  if(rule.action_account_id) document.getElementById('ab-ib-account').value=rule.action_account_id;
-  if(rule.action_tag_id) document.getElementById('ab-ib-tag').value=rule.action_tag_id;
+  const ruleCandidates=abWorkflowRulesCache.filter(r=>r.active&&r.trigger_contact_id===contactId&&(!r.trigger_direction||r.trigger_direction===direction));
+  const rule=ruleCandidates.find(r=>r.trigger_direction===direction)||ruleCandidates[0];
+  if(rule){
+    if(rule.action_item_id) document.getElementById('ab-ib-item').value=rule.action_item_id;
+    if(rule.action_cost_type) document.getElementById('ab-ib-costtype').value=rule.action_cost_type;
+    if(rule.action_account_id) document.getElementById('ab-ib-account').value=rule.action_account_id;
+    if(rule.action_tag_id) document.getElementById('ab-ib-tag').value=rule.action_tag_id;
+  }else{
+    // No saved rule — infer straight from real history, no setup needed.
+    const lines=abVendorHistoryLines(contactId);
+    if(lines.length){
+      const commonItem=abMostCommon(lines.map(l=>l.item_id));
+      const commonCostType=abMostCommon(lines.map(l=>l.cost_type));
+      const commonAccount=abMostCommon(lines.map(l=>l.account_id));
+      const commonTag=abMostCommon(lines.map(l=>l.tag_id));
+      if(commonItem) document.getElementById('ab-ib-item').value=commonItem;
+      if(commonCostType) document.getElementById('ab-ib-costtype').value=commonCostType;
+      if(commonAccount) document.getElementById('ab-ib-account').value=commonAccount;
+      if(commonTag) document.getElementById('ab-ib-tag').value=commonTag;
+    }
+  }
+  if(historyEl) abRenderVendorHistoryPanel(contactId);
+}
+// The visible half of vendor memory — so a person reviewing the entry
+// can actually see "yes, this vendor always goes here" instead of
+// trusting an invisible autofill. Shows the last 5 real bills for this
+// vendor with what they were coded to.
+function abRenderVendorHistoryPanel(contactId){
+  const el=document.getElementById('ab-ib-vendor-history'); if(!el)return;
+  const contact=abContacts.find(c=>c.id===contactId);
+  const lines=abVendorHistoryLines(contactId).slice(0,5);
+  if(!lines.length){ el.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-top:4px">No prior bills on file yet for ${abEsc(contact?contact.name:'this vendor')} — this will be the first.</div>`; return; }
+  el.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-top:6px;margin-bottom:4px">Recent history for ${abEsc(contact?contact.name:'')} — where it normally goes:</div>
+    <table class="ab-table" style="font-size:11px"><tr><th>Date</th><th>Scope</th><th>Cost Type</th><th>Category</th><th>Job</th></tr>
+    ${lines.map(l=>{
+      const item=abItems.find(i=>i.id===l.item_id);
+      const acct=abAccounts.find(a=>a.id===l.account_id);
+      const tag=abTags.find(t=>t.id===l.tag_id);
+      return `<tr><td>${l.invoices_bills?.doc_date||''}</td><td>${abEsc(item?item.name:'—')}</td><td>${abEsc(abCostTypeLabel(l.cost_type))}</td><td>${abEsc(acct?acct.account_name:'—')}</td><td>${abEsc(tag?tag.name:'—')}</td></tr>`;
+    }).join('')}
+    </table>`;
 }
 
 // ── AMIT'S EXPENSE CLAIM HELPER — Ryan's direct instruction: when someone
@@ -3182,6 +3236,7 @@ function abRenderInvoicesBills(){
     <div class="ab-form">
       <div class="ab-field"><label>Type</label><select id="ab-ib-direction" onchange="abApplyWorkflowAutofill()"><option value="bill_payable">Bill (I owe)</option><option value="invoice_receivable">Invoice (owed to me)</option></select></div>
       <div class="ab-field"><label>Contact</label><select id="ab-ib-contact" onchange="abApplyWorkflowAutofill()"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
+      <div id="ab-ib-vendor-history" style="flex-basis:100%"></div>
       <div class="ab-field"><label>Amount</label><input id="ab-ib-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
       <div class="ab-field"><label>Date</label><input id="ab-ib-date" type="date" value="${today}"></div>
       <div class="ab-field"><label>Paid from (optional)</label><select id="ab-ib-payment-source"><option value="">—</option>${abPaymentSourcesCache.map(p=>`<option value="${p.id}">${abEsc(p.name)}${p.owning_book_id&&p.owning_book_id!==abBookId?' (other book)':p.owning_book_id?'':' (personal)'}</option>`).join('')}</select></div>
@@ -3202,7 +3257,7 @@ function abRenderInvoicesBills(){
       const sorted=abSmartApply(tk,abInvoicesBillsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',type:'Type',contact:'Contact',amount:'Amount',status:'Status'})}
       <table class="ab-table"><tr><th style="font-size:11px">Doc #</th>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th><th></th><th></th></tr>
-      ${sorted.map(r=>`<tr><td style="font-size:10px;font-family:monospace;color:var(--muted)">${abEsc(r.document_code||'—')}</td><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td><td>${r.direction==='bill_payable'?`<a href="#" onclick="abAskDeductibleFromRow('${r.id}');return false" style="color:var(--gold2);font-size:12px">🤔</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="9">Nothing entered yet — the pile starts here</td></tr>'}
+      ${sorted.map(r=>`<tr><td style="font-size:10px;font-family:monospace;color:var(--muted)">${abEsc(r.document_code||'—')}</td><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abSmartFilterByValue('${tk}','contact','${abEsc(r.contacts?r.contacts.name:'').replace(/'/g,"\\'")}')" title="Double-click to filter to this vendor/client"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td><td>${r.direction==='bill_payable'?`<a href="#" onclick="abAskDeductibleFromRow('${r.id}');return false" style="color:var(--gold2);font-size:12px">🤔</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="9">Nothing entered yet — the pile starts here</td></tr>'}
       </table>
       <div id="ab-planpanel"></div>`;
     })():`
@@ -3878,12 +3933,14 @@ async function abRenderPaymentSourcesTab(){
       <div id="ab-ps-contact-wrap" style="display:none" class="ab-field"><label>Which person</label><select id="ab-ps-contact">${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</select></div>
       <button class="ab-btn" onclick="abAddPaymentSource()">Add Source</button>
     </div>
-    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Belongs to</th></tr>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">Account/routing numbers are encrypted the same way SSNs are (AES-256-GCM, client-side, the database never sees a plaintext number) — only the last 4 digits are ever shown here. Viewing the full number requires the SSN/banking vault passphrase.</div>
+    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Belongs to</th><th>Account</th><th>Routing</th><th></th></tr>
     ${abPaymentSourcesCache.map(p=>{
       const ownerLabel = p.owning_book_id ? abEsc((abBooks.find(b=>b.id===p.owning_book_id)||{}).name || 'another book') : (p.owning_contact_id ? abEsc(abContactName(p.owning_contact_id))+' (personal)' : '—');
-      return `<tr><td>${abEsc(p.name)}</td><td>${abEsc(p.source_type)}</td><td>${ownerLabel}</td></tr>`;
-    }).join('')||'<tr><td class="ab-empty" colspan="3">No payment sources set up yet</td></tr>'}
-    </table>`;
+      return `<tr><td>${abEsc(p.name)}</td><td>${abEsc(p.source_type)}</td><td>${ownerLabel}</td><td style="font-family:monospace">${p.account_last4?'••••••'+abEsc(p.account_last4):'—'}</td><td style="font-family:monospace">${p.routing_last4?'•••'+abEsc(p.routing_last4):'—'}</td><td>${p.account_number_encrypted?`<a href="#" onclick="abViewPaymentSourceNumbers('${p.id}');return false" style="color:var(--gold2);font-size:12px">View Full</a>`:`<a href="#" onclick="abSetPaymentSourceNumbers('${p.id}');return false" style="color:var(--gold2);font-size:12px">Set Numbers</a>`}</td></tr>`;
+    }).join('')||'<tr><td class="ab-empty" colspan="6">No payment sources set up yet</td></tr>'}
+    </table>
+    <div id="ab-ps-numbers-panel"></div>`;
   const ownerSel=document.getElementById('ab-ps-owner');
   if(ownerSel) ownerSel.onchange=function(){
     document.getElementById('ab-ps-contact-wrap').style.display=(this.value==='personal')?'block':'none';
@@ -3900,6 +3957,37 @@ async function abAddPaymentSource(){
   if(error){abAlert(error.message);return;}
   document.getElementById('ab-ps-name').value='';
   await abRenderPaymentSourcesTab();
+}
+// Account/routing numbers use the exact same AES-256-GCM vault as SSNs
+// (abEncryptSSN/abDecryptSSN are generic string encrypt/decrypt, not
+// SSN-specific despite the name) — one vault passphrase covers both.
+// Only the last 4 digits are ever stored in plaintext, and that's all
+// that's ever shown without unlocking the vault.
+async function abSetPaymentSourceNumbers(sourceId){
+  if(!abIsVaultUnlocked()){ if(!await abUnlockVault())return; }
+  const acct=await abPrompt('Enter the full account number:');
+  if(!acct)return;
+  const routing=await abPrompt('Enter the routing number (leave blank to skip):');
+  try{
+    const acctEnc=await abEncryptSSN(acct.trim());
+    const update={account_number_encrypted:acctEnc.ssn_encrypted,account_number_iv:acctEnc.ssn_iv,account_last4:acct.trim().slice(-4)};
+    if(routing&&routing.trim()){
+      const routEnc=await abEncryptSSN(routing.trim());
+      update.routing_number_encrypted=routEnc.ssn_encrypted; update.routing_number_iv=routEnc.ssn_iv; update.routing_last4=routing.trim().slice(-4);
+    }
+    const{error}=await db.from('payment_sources').update(update).eq('id',sourceId);
+    if(error){abAlert(error.message);return;}
+    await abRenderPaymentSourcesTab();
+  }catch(e){ abAlert('Could not encrypt: '+e.message); }
+}
+async function abViewPaymentSourceNumbers(sourceId){
+  const src=abPaymentSourcesCache.find(p=>p.id===sourceId); if(!src)return;
+  if(!abIsVaultUnlocked()){ if(!await abUnlockVault())return; }
+  try{
+    const acct=await abDecryptSSN(src.account_number_encrypted,src.account_number_iv);
+    const routing=src.routing_number_encrypted?await abDecryptSSN(src.routing_number_encrypted,src.routing_number_iv):'(not set)';
+    await abAlert(`${src.name}\n\nAccount: ${acct}\nRouting: ${routing}\n\nShown once, not left on screen — close this and it's gone.`);
+  }catch(e){ abAlert('Could not decrypt — wrong passphrase, or this vault was set up with a different one.'); }
 }
 
 const AB_RESOLUTION_LABELS={wages:'Wages / Compensation',distribution:'Distribution / Owner Draw',loan_equity:'Loan / Equity',reimbursement:'Reimbursement Bill'};
@@ -4761,6 +4849,19 @@ let abSmartState={};          // tableKey -> {sortCol,sortDir,filters:{col:{valu
 let abSmartRerender={};       // tableKey -> the screen's own render function, registered on first use
 function abSmartGet(tableKey){
   return abSmartState[tableKey] || (abSmartState[tableKey]={sortCol:null,sortDir:'asc',filters:{}});
+}
+// ── Standing convention, revised 2026-07-31 (Ryan's direct correction):
+// double-clicking a NAME VALUE inside a table row (not a column header)
+// filters that table down to just that value — the fast "show me
+// everything for this one vendor/account/job" shortcut. This replaces
+// double-click-opens-record as the double-click meaning wherever it's
+// wired; opening the underlying record moves to its own small explicit
+// trigger (a "→" link) instead of overloading double-click for two
+// different things. Roll out table by table — Bills & Invoices first.
+function abSmartFilterByValue(tableKey,col,value){
+  const st=abSmartGet(tableKey);
+  st.filters[col]={value:String(value).toLowerCase()};
+  if(abSmartRerender[tableKey]) abSmartRerender[tableKey]();
 }
 function abSmartTh(tableKey,col,label,extraStyle){
   const st=abSmartGet(tableKey);
