@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.97</div>
+    <div class="page-version" id="pageVersion">v1.98</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -312,9 +312,29 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
   </div>
 </div>
 
-<div id="abScanLightbox" onclick="abCloseScanLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;align-items:center;justify-content:center;padding:30px;cursor:zoom-out">
-  <img id="abScanLightboxImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;box-shadow:0 10px 50px rgba(0,0,0,.6)">
-  <div onclick="abCloseScanLightbox()" style="position:absolute;top:20px;right:28px;color:#fff;font-size:28px;cursor:pointer;line-height:1">×</div>
+<div id="abScanLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;flex-direction:column">
+  <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,.04)">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="ab-btn" style="background:transparent;color:var(--text2)" onclick="abScanRotate()">⟳ Rotate</button>
+      <button class="ab-btn" id="abScanCropBtn" style="background:transparent;color:var(--text2)" onclick="abScanEnterCrop()">▦ Crop</button>
+      <button class="ab-btn" id="abScanSaveCropBtn" style="display:none" onclick="abScanSaveCrop()">Save Crop</button>
+      <button class="ab-btn" id="abScanCancelCropBtn" style="display:none;background:transparent;color:var(--muted)" onclick="abScanExitCrop()">Cancel Crop</button>
+      <button class="ab-btn" id="abScanDeleteBtn" style="background:transparent;color:#c0553f;border-color:#c0553f" onclick="abScanDeleteCapture()">Delete</button>
+    </div>
+    <div onclick="abCloseScanLightbox()" style="color:#fff;font-size:26px;cursor:pointer;line-height:1;padding:4px 8px">×</div>
+  </div>
+  <div id="abScanLightboxStage" style="flex:1 1 auto;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px">
+    <div id="abScanCanvasWrap" style="position:relative;max-width:100%;max-height:100%;line-height:0">
+      <canvas id="abScanCanvas" style="display:block;max-width:100%;max-height:calc(100vh - 110px);box-shadow:0 10px 50px rgba(0,0,0,.6)"></canvas>
+      <div id="abScanCropBox" style="display:none;position:absolute;border:2px solid var(--gold);box-shadow:0 0 0 9999px rgba(0,0,0,.55);cursor:move">
+        <div class="ab-scan-handle" data-h="tl" style="position:absolute;top:0;left:0;width:24px;height:24px;margin:-12px;background:var(--gold);border:2px solid #1a1206;border-radius:50%;cursor:nwse-resize"></div>
+        <div class="ab-scan-handle" data-h="tr" style="position:absolute;top:0;left:100%;width:24px;height:24px;margin:-12px;background:var(--gold);border:2px solid #1a1206;border-radius:50%;cursor:nesw-resize"></div>
+        <div class="ab-scan-handle" data-h="bl" style="position:absolute;top:100%;left:0;width:24px;height:24px;margin:-12px;background:var(--gold);border:2px solid #1a1206;border-radius:50%;cursor:nesw-resize"></div>
+        <div class="ab-scan-handle" data-h="br" style="position:absolute;top:100%;left:100%;width:24px;height:24px;margin:-12px;background:var(--gold);border:2px solid #1a1206;border-radius:50%;cursor:nwse-resize"></div>
+      </div>
+    </div>
+  </div>
+  <div id="abScanLightboxStatus" style="flex:0 0 auto;padding:8px 20px 16px;color:var(--muted);font-size:12px;text-align:center"></div>
 </div>
 
 <!-- AMITBOOKS-BRANDED DIALOG — replaces native alert/confirm/prompt so
@@ -3015,11 +3035,11 @@ async function abRenderScanPending(){
   if(!data||!data.length){ el.innerHTML='<div class="ab-signin-notice">Nothing pending — anything sent from your phone or uploaded here shows up in this list.</div>'; return; }
 
   const modeLabel={bill:'Bill',receipt:'Receipt',contact:'Contact',mileage:'Mileage',other:'Other'};
-  abScanPendingUrls=[]; // indexed lookup for the lightbox — avoids embedding raw signed URLs (query strings, special chars) inside onclick attributes
+  abScanPendingRows=[]; // indexed lookup for the lightbox — row + signed URL together
   const rows=await Promise.all(data.map(async(r,idx)=>{
     const{data:signed}=await db.storage.from('amitscan-captures').createSignedUrl(r.storage_path,3600);
     const thumb=signed?.signedUrl||'';
-    abScanPendingUrls[idx]=thumb;
+    abScanPendingRows[idx]={row:r,url:thumb};
     const when=new Date(r.captured_at).toLocaleString();
     return `<div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:10px">
       ${thumb?`<img src="${thumb}" ondblclick="abOpenScanLightbox(${idx})" style="width:64px;height:64px;object-fit:cover;border-radius:6px;background:#111;cursor:zoom-in" title="Double-click to view larger">`:'<div style="width:64px;height:64px;border-radius:6px;background:#111"></div>'}
@@ -3034,15 +3054,200 @@ async function abRenderScanPending(){
     </div>${rows.join('')}`;
 }
 
-let abScanPendingUrls=[];
+// ══════════════════════════════════════════════
+// Pending Scans lightbox — rotate, crop-to-new-record, delete.
+// Rotation and "already cropped" shading are working-view state only,
+// reset each time the lightbox opens — they don't rewrite the original
+// stored file. A crop is saved as a genuinely NEW scan_captures row
+// (inherits the parent's mode), which is what lets one scanned page of
+// several receipts turn into several separate pending items without
+// losing the original. Delete is only offered while reviewed=false —
+// once the real review pipeline exists and marks something reviewed,
+// it's already part of a real Bill/Contact/Mileage record and this
+// button won't touch it.
+// ══════════════════════════════════════════════
+let abScanPendingRows=[];
+let abScanCurrent=null; // {row, url}
+let abScanRotation=0;
+let abScanImg=null; // the loaded source Image
+let abScanCroppedRects=[]; // already-extracted regions this session, in canvas pixel space at current rotation
+let abScanCropping=false;
+
 function abOpenScanLightbox(idx){
-  const url=abScanPendingUrls[idx]; if(!url)return;
-  document.getElementById('abScanLightboxImg').src=url;
+  const entry=abScanPendingRows[idx]; if(!entry||!entry.url)return;
+  abScanCurrent=entry;
+  abScanRotation=0;
+  abScanCroppedRects=[];
+  abScanCropping=false;
+  document.getElementById('abScanLightboxStatus').textContent='';
+  const img=new Image();
+  img.crossOrigin='anonymous';
+  img.onload=()=>{ abScanImg=img; abScanDrawCanvas(); };
+  img.onerror=()=>{ document.getElementById('abScanLightboxStatus').textContent='Could not load the full image.'; };
+  img.src=entry.url;
   document.getElementById('abScanLightbox').style.display='flex';
+  abScanExitCropUI();
 }
 function abCloseScanLightbox(){
   document.getElementById('abScanLightbox').style.display='none';
-  document.getElementById('abScanLightboxImg').src='';
+  abScanCurrent=null; abScanImg=null; abScanCroppedRects=[];
+}
+
+function abScanDrawCanvas(){
+  if(!abScanImg)return;
+  const canvas=document.getElementById('abScanCanvas');
+  const rotated90=(abScanRotation===90||abScanRotation===270);
+  const w=abScanImg.naturalWidth, h=abScanImg.naturalHeight;
+  canvas.width=rotated90?h:w;
+  canvas.height=rotated90?w:h;
+  const ctx=canvas.getContext('2d');
+  ctx.save();
+  ctx.translate(canvas.width/2,canvas.height/2);
+  ctx.rotate(abScanRotation*Math.PI/180);
+  ctx.drawImage(abScanImg,-w/2,-h/2,w,h);
+  ctx.restore();
+  // Shade regions already saved as their own crop this session, so it's
+  // visually obvious what's left to do on a multi-item scan.
+  ctx.fillStyle='rgba(0,0,0,.55)';
+  ctx.strokeStyle='rgba(212,175,106,.9)';
+  ctx.lineWidth=3;
+  abScanCroppedRects.forEach(r=>{
+    ctx.fillRect(r.x,r.y,r.w,r.h);
+    ctx.strokeRect(r.x,r.y,r.w,r.h);
+  });
+}
+function abScanRotate(){
+  abScanRotation=(abScanRotation+90)%360;
+  abScanCroppedRects=[]; // rotation changes the coordinate space — start the shading over
+  abScanDrawCanvas();
+  if(abScanCropping) abScanPositionCropBoxDefault();
+}
+
+// ── Crop box (same drag-corners/drag-to-move pattern as AmitScan.html) ──
+function abScanEnterCrop(){
+  abScanCropping=true;
+  document.getElementById('abScanCropBtn').style.display='none';
+  document.getElementById('abScanSaveCropBtn').style.display='inline-block';
+  document.getElementById('abScanCancelCropBtn').style.display='inline-block';
+  document.getElementById('abScanDeleteBtn').style.display='none';
+  document.getElementById('abScanCropBox').style.display='block';
+  abScanPositionCropBoxDefault();
+}
+function abScanExitCropUI(){
+  abScanCropping=false;
+  document.getElementById('abScanCropBtn').style.display='inline-block';
+  document.getElementById('abScanSaveCropBtn').style.display='none';
+  document.getElementById('abScanCancelCropBtn').style.display='none';
+  document.getElementById('abScanDeleteBtn').style.display='inline-block';
+  document.getElementById('abScanCropBox').style.display='none';
+}
+function abScanExitCrop(){ abScanExitCropUI(); }
+function abScanPositionCropBoxDefault(){
+  const canvas=document.getElementById('abScanCanvas');
+  const rect=canvas.getBoundingClientRect();
+  const insetX=rect.width*0.1, insetY=rect.height*0.1;
+  abScanSetCropBoxPx(insetX,insetY,rect.width-insetX*2,rect.height-insetY*2);
+}
+function abScanSetCropBoxPx(x,y,w,h){
+  const box=document.getElementById('abScanCropBox');
+  box.style.left=x+'px'; box.style.top=y+'px'; box.style.width=w+'px'; box.style.height=h+'px';
+}
+function abScanClamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+
+let abScanDragMode=null, abScanDragStart=null, abScanBoxStart=null;
+function abScanPt(e){ return e.touches?{x:e.touches[0].clientX,y:e.touches[0].clientY}:{x:e.clientX,y:e.clientY}; }
+function abScanBeginDrag(mode){
+  return e=>{
+    if(!abScanCropping)return;
+    e.preventDefault(); e.stopPropagation();
+    abScanDragMode=mode; abScanDragStart=abScanPt(e);
+    const box=document.getElementById('abScanCropBox');
+    abScanBoxStart={
+      x:parseFloat(box.style.left), y:parseFloat(box.style.top),
+      w:parseFloat(box.style.width), h:parseFloat(box.style.height)
+    };
+  };
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('#abScanCropBox .ab-scan-handle').forEach(h=>{
+    h.addEventListener('mousedown',abScanBeginDrag(h.dataset.h));
+    h.addEventListener('touchstart',abScanBeginDrag(h.dataset.h),{passive:false});
+  });
+  const cropBox=document.getElementById('abScanCropBox');
+  cropBox.addEventListener('mousedown',e=>{ if(e.target===cropBox) abScanBeginDrag('move')(e); });
+  cropBox.addEventListener('touchstart',e=>{ if(e.target===cropBox) abScanBeginDrag('move')(e); },{passive:false});
+});
+document.addEventListener('mousemove',abScanOnDragMove);
+document.addEventListener('touchmove',abScanOnDragMove,{passive:false});
+document.addEventListener('mouseup',()=>{abScanDragMode=null;});
+document.addEventListener('touchend',()=>{abScanDragMode=null;});
+function abScanOnDragMove(e){
+  if(!abScanDragMode)return;
+  e.preventDefault();
+  const canvas=document.getElementById('abScanCanvas');
+  const rect=canvas.getBoundingClientRect();
+  const p=abScanPt(e);
+  const dx=p.x-abScanDragStart.x, dy=p.y-abScanDragStart.y;
+  const minX=0,minY=0,maxX=rect.width,maxY=rect.height,MIN_SIZE=30;
+  let{x,y,w,h}=abScanBoxStart;
+  if(abScanDragMode==='move'){
+    x=abScanClamp(abScanBoxStart.x+dx,minX,maxX-w);
+    y=abScanClamp(abScanBoxStart.y+dy,minY,maxY-h);
+  }else{
+    if(abScanDragMode.includes('l')){ const nx=abScanClamp(abScanBoxStart.x+dx,minX,abScanBoxStart.x+abScanBoxStart.w-MIN_SIZE); w=abScanBoxStart.w-(nx-abScanBoxStart.x); x=nx; }
+    if(abScanDragMode.includes('r')){ w=abScanClamp(abScanBoxStart.w+dx,MIN_SIZE,maxX-abScanBoxStart.x); }
+    if(abScanDragMode.includes('t')){ const ny=abScanClamp(abScanBoxStart.y+dy,minY,abScanBoxStart.y+abScanBoxStart.h-MIN_SIZE); h=abScanBoxStart.h-(ny-abScanBoxStart.y); y=ny; }
+    if(abScanDragMode.includes('b')){ h=abScanClamp(abScanBoxStart.h+dy,MIN_SIZE,maxY-abScanBoxStart.y); }
+  }
+  abScanSetCropBoxPx(x,y,w,h);
+}
+
+async function abScanSaveCrop(){
+  if(!abScanCurrent||!abScanImg)return;
+  const status=document.getElementById('abScanLightboxStatus');
+  const canvas=document.getElementById('abScanCanvas');
+  const rendered=canvas.getBoundingClientRect();
+  const scaleX=canvas.width/rendered.width, scaleY=canvas.height/rendered.height;
+  const box=document.getElementById('abScanCropBox');
+  const cx=parseFloat(box.style.left)*scaleX, cy=parseFloat(box.style.top)*scaleY;
+  const cw=parseFloat(box.style.width)*scaleX, ch=parseFloat(box.style.height)*scaleY;
+
+  const out=document.createElement('canvas');
+  out.width=Math.round(cw); out.height=Math.round(ch);
+  out.getContext('2d').drawImage(canvas,cx,cy,cw,ch,0,0,out.width,out.height);
+
+  status.textContent='Saving crop...';
+  try{
+    const blob=await new Promise(res=>out.toBlob(res,'image/jpeg',0.9));
+    await abUploadOneScanBlob(blob,'crop-'+Date.now()+'.jpg',abScanCurrent.row.mode);
+    abScanCroppedRects.push({x:cx,y:cy,w:cw,h:ch});
+    abScanDrawCanvas();
+    status.textContent='Saved as a new pending scan. Position the box over the next item, or Cancel Crop when done.';
+    abScanPositionCropBoxDefault();
+    abRenderScanPending();
+  }catch(e){
+    status.textContent='Could not save the crop: '+(e?.message||String(e));
+  }
+}
+
+async function abScanDeleteCapture(){
+  if(!abScanCurrent)return;
+  if(abScanCurrent.row.reviewed){
+    await abAlert('This one is already part of a real record — it can\'t be deleted from here anymore.');
+    return;
+  }
+  if(!(await abConfirm('Delete this scan? This removes the image entirely — it has not been connected to any Bill, Contact, or Mileage entry yet, so there\'s nothing else referencing it.')))return;
+  const status=document.getElementById('abScanLightboxStatus');
+  status.textContent='Deleting...';
+  try{
+    await db.storage.from('amitscan-captures').remove([abScanCurrent.row.storage_path]);
+    const{error}=await db.from('scan_captures').delete().eq('id',abScanCurrent.row.id);
+    if(error) throw error;
+    abCloseScanLightbox();
+    abRenderScanPending();
+  }catch(e){
+    status.textContent='Could not delete: '+(e?.message||String(e));
+  }
 }
 
 // ── AmitScan Connect QR ──
