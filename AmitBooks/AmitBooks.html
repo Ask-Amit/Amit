@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.80</div>
+    <div class="page-version" id="pageVersion">v1.81</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -386,11 +386,11 @@ const TODO_CONTENT = `
 <div class="td-h1">Known Gaps — Found During Real Use (Ryan clicking through it live)</div>
 <div class="td-item"><div class="td-why">This section exists specifically to catch things live testing surfaces that the build order didn't anticipate — added as they're found, not batched up and forgotten. Newest at the top.</div></div>
 
-<div class="td-item"><div class="td-title">Team invites require pasting a raw account ID — no email invite yet<span class="td-tag bug">STOPGAP</span></div>
-<div class="td-why">Adding someone to a book's Team/Authorizations requires their actual Amit account UUID, pasted in by hand — there's no lookup-by-email, because that needs a server-side function (an Edge Function with elevated access) that this client-side page can't run with just the public key. Real invite-by-email is real work, not a quick fix — flagged, not silently accepted as final.</div></div>
+<div class="td-item"><div class="td-title">Team invites require pasting a raw account ID — no email invite yet<span class="td-tag bug">FIXED</span></div>
+<div class="td-why">Adding someone to a book's Team/Authorizations used to require their actual Amit account UUID, pasted in by hand — no lookup-by-email, because that needs a server-side function (an Edge Function with elevated access) a client-side page can't run with just the public key. FIXED 2026-07-31 — a real `invite-team-member` Supabase Edge Function is deployed and live: it verifies the caller owns the book, calls Supabase Auth's own invite-by-email (same email pipeline that already sends magic-link sign-in), and adds the resolved user to book_members. The service-role key never touches the browser — it lives only inside the Edge Function. The old raw-UUID field is kept underneath as a manual fallback, clearly labeled, not removed.</div></div>
 
-<div class="td-item"><div class="td-title">Invited team members can't see the rest of the roster, only their own row<span class="td-tag bug">GAP</span></div>
-<div class="td-why">The book_members RLS policy lets the owner see/manage every row on their book, but an invited staff/bookkeeper/manager can currently only see their own membership row, not who else is on the team. Minor for now since the owner manages the roster, but worth fixing before real multi-user use.</div></div>
+<div class="td-item"><div class="td-title">Invited team members can't see the rest of the roster, only their own row<span class="td-tag bug">FIXED</span></div>
+<div class="td-why">The book_members RLS policy used to let the owner see/manage every row on their book, but an invited staff/bookkeeper/manager could only see their own membership row, not who else was on the team. FIXED 2026-07-31 — a new `book_members_team_read` policy lets any member of a book see every row on that book's roster (still scoped to books they actually belong to, not every book in the system).</div></div>
 
 <div class="td-item"><div class="td-title">No way to edit a book after creating it<span class="td-tag bug">FIXED</span></div>
 <div class="td-why">Right now Dashboard/Books & Setup only lets you create a new book — there's no edit screen for an existing one's name, entity type, or accounting basis. Found live: Ryan created "B.O.S.S. Inc" and asked whether the Type could be changed later — it can't yet. Needs a small edit form on the My Books tab (or clicking a book's name opens it for editing) before this is genuinely usable day-to-day. FIXED this pass — My Books tab is now a real Company Profile editor (name, type, basis, address, phone, EIN) plus a Team/Authorizations panel.</div></div>
