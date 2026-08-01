@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.73</div>
+    <div class="page-version" id="pageVersion">v1.74</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -966,7 +966,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-properties" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===14){
-      const tabs=[['Payroll','ab-payroll'],['IRS Tax Tables','ab-taxtables'],['Background Checks','ab-bgcheck']];
+      const tabs=[['Payroll','ab-payroll'],['IRS Tax Tables','ab-taxtables'],['State/Local Jurisdictions','ab-jurisdictions'],['Background Checks','ab-bgcheck']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(14,${idx+1})">${t[0]}</button>`;
@@ -1593,6 +1593,7 @@ async function abRenderBooksTab(){
         <div class="ab-field" style="flex:1;min-width:220px"><label>Address</label><input id="ab-prof-address" value="${abEsc(b.address||'')}" placeholder="Street, City, State ZIP"></div>
         <div class="ab-field"><label>Phone</label><input id="ab-prof-phone" value="${abEsc(b.phone||'')}" placeholder="(555) 555-5555"></div>
         <div class="ab-field"><label>EIN</label><input id="ab-prof-ein" value="${abEsc(b.ein||'')}" placeholder="12-3456789"></div>
+        <div class="ab-field"><label>Payroll State</label><input id="ab-prof-payrollstate" value="${abEsc(b.payroll_state_code||'')}" placeholder="e.g. ID" style="width:60px;text-transform:uppercase" maxlength="2"></div>
       </div>
       <button class="ab-btn" style="align-self:flex-start" onclick="abSaveBookProfile()">Save Company Profile</button>
     </div>
@@ -1705,7 +1706,8 @@ async function abSaveBookProfile(){
     accounting_basis:document.getElementById('ab-prof-basis').value,
     address:document.getElementById('ab-prof-address').value.trim()||null,
     phone:document.getElementById('ab-prof-phone').value.trim()||null,
-    ein:document.getElementById('ab-prof-ein').value.trim()||null
+    ein:document.getElementById('ab-prof-ein').value.trim()||null,
+    payroll_state_code:document.getElementById('ab-prof-payrollstate').value.trim().toUpperCase()||null
   };
   if(!updates.name){abAlert('Name is required.');return;}
   const{error}=await db.from('books').update(updates).eq('id',abBookId);
@@ -5319,20 +5321,49 @@ async function abAddPropertyOwner(propertyId){
 // leave it unchecked for the standard calculation to apply correctly.
 // ══════════════════════════════════════════════
 let abEmployeesCache=[],abPayrollRunsCache=[],abPayrollTaxYearsCache=[],abPayrollTaxBracketsCache=[];
+let abStateJurisdictionsCache=[],abTaxJurisdictionBracketsCache=[];
 async function abLoadPayroll(){
   if(!abBookId){abEmployeesCache=[];abPayrollRunsCache=[];return;}
-  const[{data:emp},{data:runs},{data:years},{data:brackets}]=await Promise.all([
+  const[{data:emp},{data:runs},{data:years},{data:brackets},{data:jurisdictions},{data:jbrackets}]=await Promise.all([
     db.from('employees').select('*,contacts(name)').eq('book_id',abBookId),
     db.from('payroll_runs').select('*,payroll_run_lines(*,employees(contacts(name)))').eq('book_id',abBookId).order('pay_date',{ascending:false}),
     db.from('payroll_tax_years').select('*').order('tax_year',{ascending:false}),
-    db.from('payroll_tax_brackets').select('*').order('tax_year',{ascending:false}).order('bracket_order',{ascending:true})
+    db.from('payroll_tax_brackets').select('*').order('tax_year',{ascending:false}).order('bracket_order',{ascending:true}),
+    db.from('tax_jurisdictions').select('*').order('state_code',{ascending:true}),
+    db.from('tax_jurisdiction_brackets').select('*').order('bracket_order',{ascending:true})
   ]);
   abEmployeesCache=emp||[];
   abPayrollRunsCache=runs||[];
   abPayrollTaxYearsCache=years||[];
   abPayrollTaxBracketsCache=brackets||[];
+  abStateJurisdictionsCache=jurisdictions||[];
+  abTaxJurisdictionBracketsCache=jbrackets||[];
   abRenderPayroll();
   abRenderTaxTables();
+  abRenderJurisdictions();
+}
+// Finds the book's state jurisdiction (from Company Profile → Payroll
+// State) and computes withholding: flat-rate states are gross×rate;
+// bracket states use the same annualize→bracket→de-annualize method as
+// federal; no-tax states and unassigned books both return 0, but for
+// different, clearly labeled reasons.
+function abComputeStateWithholding(employee,grossThisPeriod,taxYear){
+  const book=abBooks.find(b=>b.id===abBookId);
+  const stateCode=book?book.payroll_state_code:null;
+  if(!stateCode) return{amount:0,note:'No Payroll State set on this book (Books & Setup → My Books) — state withholding not calculated.'};
+  const jurisdiction=abStateJurisdictionsCache.find(j=>j.level==='state'&&j.state_code===stateCode);
+  if(!jurisdiction) return{amount:0,note:`No tax jurisdiction on file for "${stateCode}" yet — real state withholding data hasn't been loaded for it.`};
+  if(!jurisdiction.has_income_tax||jurisdiction.rate_type==='none') return{amount:0,note:`${jurisdiction.name} has no state income tax.`,jurisdiction};
+  const periods=AB_PAY_PERIODS_PER_YEAR[employee.pay_frequency||'biweekly']||26;
+  if(jurisdiction.rate_type==='flat'){
+    return{amount:grossThisPeriod*Number(jurisdiction.flat_rate||0),jurisdiction};
+  }
+  const brackets=abTaxJurisdictionBracketsCache.filter(b=>b.jurisdiction_id===jurisdiction.id&&(!b.filing_status||b.filing_status===(employee.filing_status||'single'))).sort((a,b)=>a.bracket_order-b.bracket_order);
+  if(!brackets.length) return{amount:0,note:`${jurisdiction.name} is marked bracket-based but no bracket rows are on file yet.`,jurisdiction};
+  const annualizedWage=grossThisPeriod*periods;
+  const bracket=[...brackets].reverse().find(b=>annualizedWage>=b.income_floor)||brackets[0];
+  const annualTax=Number(bracket.base_tax)+(annualizedWage-Number(bracket.income_floor))*Number(bracket.rate);
+  return{amount:Math.max(0,annualTax/periods),jurisdiction};
 }
 const AB_PAY_PERIODS_PER_YEAR={weekly:52,biweekly:26,semimonthly:24,monthly:12};
 // The actual IRS Percentage Method (Worksheet 1A + Standard Withholding
@@ -5427,12 +5458,12 @@ function abRenderPayroll(){
     <div id="ab-pr-preview" style="margin-bottom:16px"></div>
     ${!visual?(()=>{
       const tk='payrollruns'; abSmartRerender[tk]=abRenderPayroll;
-      const rows=abPayrollRunsCache.flatMap(r=>(r.payroll_run_lines||[]).map(l=>({payDate:r.pay_date,name:l.employees&&l.employees.contacts?l.employees.contacts.name:'',gross:l.gross_pay,fed:l.federal_withholding,fica:l.fica_withholding,net:l.net_pay})));
-      const getters={payDate:r=>r.payDate||'',name:r=>r.name||'',gross:r=>Number(r.gross)||0,fed:r=>Number(r.fed)||0,fica:r=>Number(r.fica)||0,net:r=>Number(r.net)||0};
+      const rows=abPayrollRunsCache.flatMap(r=>(r.payroll_run_lines||[]).map(l=>({payDate:r.pay_date,name:l.employees&&l.employees.contacts?l.employees.contacts.name:'',gross:l.gross_pay,fed:l.federal_withholding,fica:l.fica_withholding,state:l.state_withholding,net:l.net_pay})));
+      const getters={payDate:r=>r.payDate||'',name:r=>r.name||'',gross:r=>Number(r.gross)||0,fed:r=>Number(r.fed)||0,fica:r=>Number(r.fica)||0,state:r=>Number(r.state)||0,net:r=>Number(r.net)||0};
       const sorted=abSmartApply(tk,rows,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{payDate:'Pay Date',name:'Employee',gross:'Gross',fed:'Federal W/H',fica:'FICA',net:'Net'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'payDate','Pay Date')}${abSmartTh(tk,'name','Employee')}${abSmartTh(tk,'gross','Gross')}${abSmartTh(tk,'fed','Federal W/H')}${abSmartTh(tk,'fica','FICA')}${abSmartTh(tk,'net','Net')}</tr>
-      ${sorted.map(r=>`<tr><td>${r.payDate||''}</td><td>${abEsc(r.name)}</td><td>${abMoney(r.gross)}</td><td>${abMoney(r.fed)}</td><td>${abMoney(r.fica)}</td><td style="font-weight:600">${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No pay runs posted yet</td></tr>'}
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{payDate:'Pay Date',name:'Employee',gross:'Gross',fed:'Federal W/H',fica:'FICA',state:'State W/H',net:'Net'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'payDate','Pay Date')}${abSmartTh(tk,'name','Employee')}${abSmartTh(tk,'gross','Gross')}${abSmartTh(tk,'fed','Federal W/H')}${abSmartTh(tk,'fica','FICA')}${abSmartTh(tk,'state','State W/H')}${abSmartTh(tk,'net','Net')}</tr>
+      ${sorted.map(r=>`<tr><td>${r.payDate||''}</td><td>${abEsc(r.name)}</td><td>${abMoney(r.gross)}</td><td>${abMoney(r.fed)}</td><td>${abMoney(r.fica)}</td><td>${abMoney(r.state)}</td><td style="font-weight:600">${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No pay runs posted yet</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
@@ -5461,15 +5492,18 @@ function abPreviewPayrollCalc(){
   const fed=abComputeFederalWithholding(emp,gross,taxYear);
   const ytd=abYtdWagesForEmployee(empId,taxYear,payDate);
   const fica=abComputeFica(emp,gross,taxYear,ytd);
+  const state=abComputeStateWithholding(emp,gross,taxYear);
   if(fed===null||fica===null){ el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">No IRS tax table loaded for ${taxYear} — add one on the IRS Tax Tables tab first.</div>`; return; }
-  const net=gross-fed-fica.employeeFica;
+  const net=gross-fed-fica.employeeFica-state.amount;
   el.innerHTML=`<table class="ab-table" style="max-width:420px"><tr><td>Gross Pay</td><td style="text-align:right">${abMoney(gross)}</td></tr>
     <tr><td>Federal Withholding</td><td style="text-align:right">${abMoney(fed)}</td></tr>
     <tr><td>Social Security (6.2%)</td><td style="text-align:right">${abMoney(fica.ssTax)}</td></tr>
     <tr><td>Medicare (1.45%)</td><td style="text-align:right">${abMoney(fica.medicareTax)}</td></tr>
     ${fica.addlMedicareTax?`<tr><td>Additional Medicare (0.9%)</td><td style="text-align:right">${abMoney(fica.addlMedicareTax)}</td></tr>`:''}
+    <tr><td>State Withholding${state.jurisdiction?' ('+abEsc(state.jurisdiction.name)+')':''}</td><td style="text-align:right">${abMoney(state.amount)}</td></tr>
     <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Net Pay</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(net)}</td></tr>
-    </table>`;
+    </table>
+    ${state.note?`<div class="ab-signin-notice" style="text-align:left;margin-top:6px;font-size:11px">${abEsc(state.note)}</div>`:''}`;
 }
 async function abAddEmployee(){
   const contact=document.getElementById('ab-emp-contact').value; if(!contact){abAlert('Add a contact first (Books & Setup → Contacts).');return;}
@@ -5496,11 +5530,12 @@ async function abAddPayrollRun(){
   const federal_withholding=abComputeFederalWithholding(emp,gross_pay,taxYear);
   const ytd=abYtdWagesForEmployee(employee_id,taxYear,pay_date);
   const fica=abComputeFica(emp,gross_pay,taxYear,ytd);
+  const state=abComputeStateWithholding(emp,gross_pay,taxYear);
   if(federal_withholding===null||fica===null){ abAlert(`No IRS tax table loaded for ${taxYear} — add one on the IRS Tax Tables tab first.`); return; }
-  const net_pay=gross_pay-federal_withholding-fica.employeeFica;
+  const net_pay=gross_pay-federal_withholding-fica.employeeFica-state.amount;
   const{data:run,error}=await db.from('payroll_runs').insert({book_id:abBookId,pay_date,status:'posted'}).select().single();
   if(error){abAlert(error.message);return;}
-  await db.from('payroll_run_lines').insert({payroll_run_id:run.id,employee_id,gross_pay,net_pay,federal_withholding,fica_withholding:fica.employeeFica,state_withholding:0,other_deductions:0});
+  await db.from('payroll_run_lines').insert({payroll_run_id:run.id,employee_id,gross_pay,net_pay,federal_withholding,fica_withholding:fica.employeeFica,state_withholding:state.amount,other_deductions:0});
   // Real split entry — employee side: gross expensed, each withholding
   // bucket credited to its own payable (never lumped into one vague
   // "Payroll Liabilities"), net pay out the door. Employer side: the
@@ -5513,6 +5548,10 @@ async function abAddPayrollRun(){
   const empLines=[{account_id:wagesId,debit:gross_pay,credit:0}];
   if(federal_withholding>0) empLines.push({account_id:fedPayableId,debit:0,credit:federal_withholding});
   if(fica.employeeFica>0) empLines.push({account_id:ficaPayableId,debit:0,credit:fica.employeeFica});
+  if(state.amount>0){
+    const statePayableId=await abFindOrCreateAccount(`State Withholding Payable${state.jurisdiction?' - '+state.jurisdiction.state_code:''}`,'liability');
+    empLines.push({account_id:statePayableId,debit:0,credit:state.amount});
+  }
   empLines.push({account_id:cashId,debit:0,credit:net_pay});
   await abPostJournalEntry(pay_date,`Payroll — ${emp&&emp.contacts?emp.contacts.name:'employee'}`,'payroll_run',run.id,empLines);
 
@@ -5571,6 +5610,40 @@ function abShowTaxYearBrackets(taxYear){
       </div>`;
     }).join('')}
     <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-taxyear-panel').innerHTML=''">Close</button>`;
+}
+
+// ══════════════════════════════════════════════
+// STATE/LOCAL TAX JURISDICTIONS — the "growing" system: any state,
+// county, or city taxing authority, each recording its own agency name,
+// source URL, and how often it should be re-checked. Overdue
+// jurisdictions are flagged automatically the moment this screen loads
+// — that's the real "automatic" mechanism: a live, honest staleness
+// check, not an unsupervised bot rewriting tax data. Global, read-only
+// in the app, maintained by Amit — same pattern as the federal tables.
+// ══════════════════════════════════════════════
+function abRenderJurisdictions(){
+  const el=document.getElementById('ab-jurisdictions'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const today=new Date().toISOString().slice(0,10);
+  const overdue=abStateJurisdictionsCache.filter(j=>j.next_review_date&&j.next_review_date<today);
+  const withTax=abStateJurisdictionsCache.filter(j=>j.has_income_tax);
+  const noTax=abStateJurisdictionsCache.filter(j=>!j.has_income_tax);
+  el.innerHTML=`<div class="ab-h">State / Local Tax Jurisdictions</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      A real, growing list — every state, county, or city taxing authority gets its own row here: the actual agency name, the source URL to re-verify against, and how often it needs a fresh look. ${overdue.length?`<b style="color:#f0a8a8">${overdue.length} jurisdiction(s) are overdue for review right now.</b>`:'Nothing is currently overdue.'} This is far from all 50 states plus every county/city yet — real coverage grows one verified jurisdiction at a time, not guessed all at once.
+    </div>
+    ${overdue.length?`<div class="ab-h" style="font-size:15px;color:#f0a8a8">⚠ Overdue for Review</div>
+    <table class="ab-table"><tr><th>Jurisdiction</th><th>Agency</th><th>Due</th><th></th></tr>
+    ${overdue.map(j=>`<tr><td>${abEsc(j.name)}</td><td style="font-size:12px">${abEsc(j.agency_name||'')}</td><td style="color:#f0a8a8">${j.next_review_date}</td><td>${j.agency_url?`<a href="${abEsc(j.agency_url)}" target="_blank" rel="noopener" style="color:var(--gold2);font-size:12px">Source →</a>`:''}</td></tr>`).join('')}
+    </table>`:''}
+    <div class="ab-h" style="font-size:15px;margin-top:20px">States With Income Tax on File (${withTax.length})</div>
+    <table class="ab-table"><tr><th>State</th><th>Agency</th><th style="text-align:right">Rate</th><th>Last Reviewed</th><th>Next Review</th><th></th></tr>
+    ${withTax.map(j=>`<tr><td>${abEsc(j.name)} (${j.state_code})</td><td style="font-size:12px">${abEsc(j.agency_name||'')}</td><td style="text-align:right">${j.rate_type==='flat'?(Number(j.flat_rate)*100).toFixed(2)+'%':j.rate_type==='bracket'?'bracket':'—'}</td><td>${j.last_reviewed_date||'—'}</td><td style="color:${j.next_review_date&&j.next_review_date<today?'#f0a8a8':'inherit'}">${j.next_review_date||'—'}</td><td>${j.agency_url?`<a href="${abEsc(j.agency_url)}" target="_blank" rel="noopener" style="color:var(--gold2);font-size:12px">Source →</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">None loaded yet</td></tr>'}
+    </table>
+    <div class="ab-h" style="font-size:15px;margin-top:20px">No-Income-Tax States on File (${noTax.length})</div>
+    <table class="ab-table"><tr><th>State</th><th>Note</th></tr>
+    ${noTax.map(j=>`<tr><td>${abEsc(j.name)} (${j.state_code})</td><td style="font-size:12px;color:var(--muted)">${abEsc(j.notes||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">None loaded yet</td></tr>'}
+    </table>`;
 }
 
 // ══════════════════════════════════════════════
