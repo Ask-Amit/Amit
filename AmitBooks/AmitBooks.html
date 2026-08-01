@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.94</div>
+    <div class="page-version" id="pageVersion">v1.95</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2940,18 +2940,50 @@ async function abUploadScanFiles(fileList){
 // 2026-08-01). Not a browser capability — a real local Windows process
 // using WIA to drive the hardware, which this page calls over localhost. ──
 const AB_BRIDGE_URL='http://localhost:8710';
+async function abBridgePing(){
+  const r=await fetch(AB_BRIDGE_URL+'/api/device',{cache:'no-store',signal:AbortSignal.timeout(2500)});
+  if(!r.ok) throw new Error('Bridge responded but not cleanly (HTTP '+r.status+').');
+  return r.json();
+}
+
+// Same shared bridge as Computer Health, same launch mechanism — per the
+// Single Local Connection Standard (root CLAUDE.md), a new app never gets
+// its own local server or its own protocol handler. amit-tracker:// is
+// already registered by Computer Health's installer; navigating to it is
+// the one legitimate way a webpage can ask Windows to start a local
+// program (Windows itself gates this with a permission prompt — that's
+// the one unavoidable click, not something skippable).
 async function abScanFromBridge(){
   const status=document.getElementById('ab-scan-bridge-status');
   if(!currentUser){ status.textContent='Sign in to AmitBooks first.'; return; }
+
   status.textContent='Checking for the Amit bridge on this computer...';
   try{
-    const ping=await fetch(AB_BRIDGE_URL+'/api/device',{signal:AbortSignal.timeout(2500)});
-    if(!ping.ok) throw new Error('Bridge responded but not cleanly (HTTP '+ping.status+').');
-  }catch(e){
-    status.textContent='Amit bridge isn\'t running on this computer — it\'s the same local helper Computer Health installs. Install/start that first, then try again.';
-    return;
-  }
-  status.textContent='Opening the scan dialog — check for a Windows popup...';
+    await abBridgePing();
+    return abRunScan(status); // already running — straight to the scan
+  }catch(e){ /* not running yet — try to start it */ }
+
+  status.textContent='Not running yet — asking Windows to start it (you may see a permission prompt)...';
+  window.location.href='amit-tracker://start';
+
+  let attempts=0;
+  const poller=setInterval(async()=>{
+    attempts++;
+    try{
+      await abBridgePing();
+      clearInterval(poller);
+      abRunScan(status);
+      return;
+    }catch(e){}
+    if(attempts>=6){
+      clearInterval(poller);
+      status.innerHTML='Could not connect — either it\'s not installed yet on this computer, or the browser silently blocked the launch. If it\'s never been installed here, install the Amit bridge from <a href="../ComputerHealth/ComputerHealth_Dashboard.html" target="_blank" style="color:var(--gold)">Computer Health</a> first — same one-time setup either app uses, then come back and try Scan Now again.';
+    }
+  },1500);
+}
+
+async function abRunScan(status){
+  status.textContent='Connected — opening the scan dialog, check for a Windows popup...';
   try{
     const res=await fetch(AB_BRIDGE_URL+'/scan',{signal:AbortSignal.timeout(120000)});
     const out=await res.json();
