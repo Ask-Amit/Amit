@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.71</div>
+    <div class="page-version" id="pageVersion">v1.72</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -949,7 +949,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-pos" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===12){
-      const tabs=[['Inventory','ab-inventory'],['Bill of Materials','ab-bom']];
+      const tabs=[['Inventory','ab-inventory'],['Bill of Materials','ab-bom'],['Defects & RMAs','ab-defects']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(12,${idx+1})">${t[0]}</button>`;
@@ -4983,24 +4983,36 @@ async function abAddInventoryMove(){
 
 // ══════════════════════════════════════════════
 // BILL OF MATERIALS — a finished Scope/Item built from component Items in
-// known quantities, with cost rolling up from each component's own unit
+// known quantities, cost rolling up from each component's own unit
 // price. Generic enough for a construction assembly, a real manufacturing
-// BOM, or any "this is made of these other things" case — not scoped to
-// one industry, since the underlying shape (parent item, child items,
-// quantities, cost rollup) is the same regardless.
+// BOM, or any "this is made of these other things" case.
+//
+// Upgraded per Ryan's direct instruction: every component can be traced
+// to the actual Purchase Order line it was sourced from (real 3-way
+// traceability — component → PO line → vendor), and any component can
+// have a defect logged against it with a full RMA workflow back to the
+// supplier, including posting the real credit when the vendor makes it
+// right.
 // ══════════════════════════════════════════════
 let abBomCache=[];
 let abBomLinesCache=[];
+let abPoLinesCache=[];
+let abMaterialDefectsCache=[];
 async function abLoadBom(){
-  if(!abBookId){abBomCache=[];abBomLinesCache=[];return;}
+  if(!abBookId){abBomCache=[];abBomLinesCache=[];abPoLinesCache=[];abMaterialDefectsCache=[];return;}
   const{data:boms}=await db.from('bill_of_materials').select('*,items(name)').eq('book_id',abBookId);
   abBomCache=boms||[];
   const bomIds=abBomCache.map(b=>b.id);
   if(bomIds.length){
-    const{data:lines}=await db.from('bom_lines').select('*,items(name,unit_price)').in('bom_id',bomIds);
+    const{data:lines}=await db.from('bom_lines').select('*,items(name,unit_price),purchase_order_lines(id,quantity,quantity_received,unit_price,purchase_orders(po_number,order_date,contacts(name)))').in('bom_id',bomIds);
     abBomLinesCache=lines||[];
   } else abBomLinesCache=[];
+  const{data:poLines}=await db.from('purchase_order_lines').select('*,items(name),purchase_orders!inner(book_id,po_number,order_date,status,contacts(name))').eq('purchase_orders.book_id',abBookId);
+  abPoLinesCache=poLines||[];
+  const{data:defects}=await db.from('material_defects').select('*,contacts(name),items(name)').eq('book_id',abBookId).order('reported_date',{ascending:false});
+  abMaterialDefectsCache=defects||[];
   abRenderBom();
+  abRenderDefects();
 }
 function abBomRolledCost(bomId){
   return abBomLinesCache.filter(l=>l.bom_id===bomId).reduce((s,l)=>s+(Number(l.quantity)||0)*(Number(l.items?.unit_price)||0),0);
@@ -5010,7 +5022,7 @@ function abRenderBom(){
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   el.innerHTML=`<div class="ab-h">Bill of Materials</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
-      Build a finished Scope/Item out of component Items in known quantities — cost rolls up automatically from each component's Price (set on the Scopes tab). Works for a construction assembly or a real manufacturing BOM alike.
+      Build a finished Scope out of component Scopes in known quantities — cost rolls up automatically from each component's Price. Link a component to the actual Purchase Order line it came from for real 3-way traceability, and report a defect straight back to that PO's vendor if something's wrong with it.
     </div>
     <div class="ab-form">
       <div class="ab-field"><label>Finished Item</label><select id="ab-bom-finished"><option value="">—</option>${abItems.map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')||'<option value="">Add a Scope first</option>'}</select></div>
@@ -5030,7 +5042,9 @@ async function abAddBom(){
   document.getElementById('ab-bom-name').value='';
   await abLoadBom();
 }
+let abBomShownId=null;
 function abShowBomLines(bomId){
+  abBomShownId=bomId;
   const bom=abBomCache.find(b=>b.id===bomId); if(!bom)return;
   const lines=abBomLinesCache.filter(l=>l.bom_id===bomId);
   const el=document.getElementById('ab-bom-lines-panel');
@@ -5040,10 +5054,23 @@ function abShowBomLines(bomId){
       <div class="ab-field"><label>Quantity</label><input id="ab-bomline-qty" type="number" step="0.0001" style="width:90px" value="1"></div>
       <button class="ab-btn" onclick="abAddBomLine('${bomId}')">Add Component</button>
     </div>
-    <table class="ab-table"><tr><th>Component</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Line Cost</th><th></th></tr>
-    ${lines.map(l=>`<tr><td>${abEsc(l.items?.name||'')}</td><td style="text-align:right">${l.quantity}</td><td style="text-align:right">${abMoney(l.items?.unit_price||0)}</td><td style="text-align:right">${abMoney((Number(l.quantity)||0)*(Number(l.items?.unit_price)||0))}</td><td><a href="#" onclick="abRemoveBomLine('${l.id}','${bomId}');return false" style="color:var(--muted)">✕</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No components added yet</td></tr>'}
-    <tr><td style="font-weight:700" colspan="3">Total Rolled-Up Cost</td><td style="text-align:right;font-weight:700">${abMoney(abBomRolledCost(bomId))}</td><td></td></tr>
-    </table>`;
+    <table class="ab-table"><tr><th>Component</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Line Cost</th><th>Sourced From (PO)</th><th></th><th></th></tr>
+    ${lines.map(l=>{
+      const po=l.purchase_order_lines;
+      const defectCount=abMaterialDefectsCache.filter(d=>d.bom_line_id===l.id&&d.status!=='closed'&&d.status!=='rejected').length;
+      return `<tr>
+        <td>${abEsc(l.items?.name||'')}${defectCount?` <span style="color:#f0a8a8;font-size:11px">⚠ ${defectCount} open defect(s)</span>`:''}</td>
+        <td style="text-align:right">${l.quantity}</td>
+        <td style="text-align:right">${abMoney(l.items?.unit_price||0)}</td>
+        <td style="text-align:right">${abMoney((Number(l.quantity)||0)*(Number(l.items?.unit_price)||0))}</td>
+        <td style="font-size:11px">${po?`PO ${abEsc(po.purchase_orders?.po_number||'—')} — ${abEsc(po.purchase_orders?.contacts?.name||'no vendor')}`:`<a href="#" onclick="abLinkBomLineToPO('${l.id}','${l.component_item_id}');return false" style="color:var(--gold2)">🔗 Link to PO</a>`}</td>
+        <td><a href="#" onclick="abReportDefect('${l.id}');return false" style="color:#e8b866;font-size:12px">⚠ Report Defect</a></td>
+        <td><a href="#" onclick="abRemoveBomLine('${l.id}','${bomId}');return false" style="color:var(--muted)">✕</a></td>
+      </tr>`;
+    }).join('')||'<tr><td class="ab-empty" colspan="7">No components added yet</td></tr>'}
+    <tr><td style="font-weight:700" colspan="3">Total Rolled-Up Cost</td><td style="text-align:right;font-weight:700">${abMoney(abBomRolledCost(bomId))}</td><td colspan="3"></td></tr>
+    </table>
+    <div id="ab-bomline-po-panel"></div>`;
 }
 async function abAddBomLine(bomId){
   const componentId=document.getElementById('ab-bomline-item').value; if(!componentId){abAlert('Pick a component.');return;}
@@ -5057,6 +5084,147 @@ async function abRemoveBomLine(lineId,bomId){
   await db.from('bom_lines').delete().eq('id',lineId);
   await abLoadBom();
   abShowBomLines(bomId);
+}
+// Real 3-way match: pick which actual PO line this component came from,
+// out of every PO line ever entered for that same Item — not a guess,
+// a real link to the vendor and order it was actually bought on.
+function abLinkBomLineToPO(bomLineId,itemId){
+  const candidates=abPoLinesCache.filter(p=>p.item_id===itemId);
+  const el=document.getElementById('ab-bomline-po-panel');
+  el.innerHTML=`<div class="ab-form" style="margin-top:14px">
+    <div class="ab-field"><label>Sourced from which PO line?</label>
+      <select id="ab-bomline-po-select"><option value="">—</option>${candidates.map(p=>`<option value="${p.id}">PO ${abEsc(p.purchase_orders?.po_number||'—')} — ${abEsc(p.purchase_orders?.contacts?.name||'no vendor')} — ${p.purchase_orders?.order_date||''} — qty ${p.quantity} @ ${abMoney(p.unit_price)}</option>`).join('')||''}</select>
+    </div>
+    <button class="ab-btn" onclick="abSaveBomLinePO('${bomLineId}')">Link</button>
+    <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-bomline-po-panel').innerHTML=''">Cancel</button>
+    ${!candidates.length?'<div class="ab-signin-notice" style="text-align:left;margin-top:8px;flex-basis:100%">No Purchase Order lines exist yet for this Item — create one on the Purchase Orders tab first, or this component was never bought via a tracked PO.</div>':''}
+  </div>`;
+}
+async function abSaveBomLinePO(bomLineId){
+  const poLineId=document.getElementById('ab-bomline-po-select').value||null;
+  const{error}=await db.from('bom_lines').update({purchase_order_line_id:poLineId}).eq('id',bomLineId);
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-bomline-po-panel').innerHTML='';
+  await abLoadBom();
+  if(abBomShownId) abShowBomLines(abBomShownId);
+}
+
+// ══════════════════════════════════════════════
+// DEFECTS & RMAs — a real path back to the supplier when a component
+// turns out bad: report it, request an RMA, track the vendor's response,
+// and if they issue a credit, post the actual journal entry for it —
+// not just a note that a defect happened.
+// ══════════════════════════════════════════════
+const AB_DEFECT_STATUSES=[['open','Open — Reported'],['rma_requested','RMA Requested'],['rma_approved','RMA Approved'],['replacement_shipped','Replacement Shipped'],['credited','Credited'],['closed','Closed'],['rejected','Rejected by Vendor']];
+function abReportDefect(bomLineId){
+  const line=abBomLinesCache.find(l=>l.id===bomLineId); if(!line)return;
+  const po=line.purchase_order_lines;
+  const el=document.getElementById('ab-bomline-po-panel');
+  el.innerHTML=`<div class="ab-form" style="flex-direction:column;align-items:stretch;margin-top:14px">
+    <div class="ab-h" style="margin:0 0 8px">Report a Defect — ${abEsc(line.items?.name||'')}</div>
+    ${!po?'<div class="ab-signin-notice" style="text-align:left;margin-bottom:8px">This component isn\'t linked to a PO line yet — link it first so the defect can trace back to a real supplier and order.</div>':''}
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="ab-field"><label>Quantity Defective</label><input id="ab-defect-qty" type="number" step="0.0001" value="1" style="width:90px"></div>
+      <div class="ab-field"><label>Severity</label><select id="ab-defect-severity"><option value="minor">Minor</option><option value="major">Major</option><option value="critical">Critical</option></select></div>
+    </div>
+    <div class="ab-field" style="margin-top:6px"><label>Description</label><input id="ab-defect-desc" placeholder="What's wrong with it" style="width:100%"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="ab-btn" onclick="abSaveDefect('${bomLineId}')">Report Defect</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-bomline-po-panel').innerHTML=''">Cancel</button>
+    </div>
+  </div>`;
+}
+async function abSaveDefect(bomLineId){
+  const line=abBomLinesCache.find(l=>l.id===bomLineId); if(!line)return;
+  const desc=document.getElementById('ab-defect-desc').value.trim(); if(!desc){abAlert('Describe the defect.');return;}
+  const qty=parseFloat(document.getElementById('ab-defect-qty').value)||1;
+  const severity=document.getElementById('ab-defect-severity').value;
+  const po=line.purchase_order_lines;
+  const supplierName=po?.purchase_orders?.contacts?.name;
+  const supplierContact=supplierName?abContacts.find(c=>c.name===supplierName):null;
+  const{error}=await db.from('material_defects').insert({
+    book_id:abBookId,bom_line_id:bomLineId,purchase_order_line_id:line.purchase_order_line_id,
+    component_item_id:line.component_item_id,contact_id:supplierContact?supplierContact.id:null,
+    description:desc,quantity_defective:qty,severity,status:'open'
+  });
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-bomline-po-panel').innerHTML='';
+  await abLoadBom();
+  if(abBomShownId) abShowBomLines(abBomShownId);
+  abAlert('Defect logged. Track it and request an RMA from the Defects & RMAs tab.');
+}
+function abRenderDefects(){
+  const el=document.getElementById('ab-defects'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  const openCount=abMaterialDefectsCache.filter(d=>!['closed','rejected'].includes(d.status)).length;
+  el.innerHTML=`<div class="ab-h">Defects &amp; RMAs</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Every defect reported against a BOM component, with its real path back to the supplier — request an RMA, track their response, and post the actual credit to the books when they make it right. ${openCount} open right now.
+    </div>
+    <table class="ab-table" style="font-size:12px"><tr><th>Reported</th><th>Component</th><th>Supplier</th><th style="text-align:right">Qty</th><th>Severity</th><th>Status</th><th>RMA #</th><th></th></tr>
+    ${abMaterialDefectsCache.map(d=>`<tr>
+      <td>${d.reported_date||''}</td>
+      <td>${abEsc(d.items?.name||'')}</td>
+      <td${d.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${d.contact_id}','${abEsc(d.contacts?d.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(d.contacts?d.contacts.name:'—')}</td>
+      <td style="text-align:right">${d.quantity_defective}</td>
+      <td style="color:${d.severity==='critical'?'#f0a8a8':d.severity==='major'?'#e8b866':'var(--muted)'}">${abEsc(d.severity)}</td>
+      <td>${abEsc(AB_DEFECT_STATUSES.find(s=>s[0]===d.status)?.[1]||d.status)}</td>
+      <td>${abEsc(d.rma_number||'—')}</td>
+      <td><a href="#" onclick="abManageDefect('${d.id}');return false" style="color:var(--gold2);font-size:12px">Manage →</a></td>
+    </tr>`).join('')||'<tr><td class="ab-empty" colspan="8">No defects reported — good news</td></tr>'}
+    </table>
+    <div id="ab-defect-manage-panel"></div>`;
+}
+function abManageDefect(defectId){
+  const d=abMaterialDefectsCache.find(x=>x.id===defectId); if(!d)return;
+  const el=document.getElementById('ab-defect-manage-panel');
+  el.innerHTML=`<div class="ab-form" style="flex-direction:column;align-items:stretch;margin-top:14px">
+    <div class="ab-h" style="margin:0 0 8px">Manage Defect — ${abEsc(d.items?.name||'')}</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${abEsc(d.description)}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="ab-field"><label>Status</label><select id="ab-defect-status">${AB_DEFECT_STATUSES.map(s=>`<option value="${s[0]}"${d.status===s[0]?' selected':''}>${s[1]}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>RMA Number</label><input id="ab-defect-rma" value="${abEsc(d.rma_number||'')}" placeholder="from the supplier" style="width:140px"></div>
+      <div class="ab-field"><label>Credit Amount (if credited)</label><input id="ab-defect-credit" type="number" step="0.01" value="${d.credit_amount||''}" style="width:100px"></div>
+      <div class="ab-field"><label>Credit To Account</label><select id="ab-defect-creditacct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}"${d.credit_account_id===a.id?' selected':''}>${abEsc(a.account_name)}</option>`).join('')}</select></div>
+    </div>
+    <div class="ab-field" style="margin-top:6px"><label>Resolution Notes</label><input id="ab-defect-notes" value="${abEsc(d.resolution_notes||'')}" style="width:100%"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="ab-btn" onclick="abSaveDefectStatus('${defectId}')">Save</button>
+      ${d.contact_id?`<button class="ab-btn" style="background:transparent;color:var(--gold2)" onclick="abOpenContact('${d.contact_id}','${abEsc(d.contacts?.name||'')}')">Open Supplier →</button>`:''}
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-defect-manage-panel').innerHTML=''">Close</button>
+    </div>
+  </div>`;
+}
+// Saving a status of "credited" with a real amount and account posts the
+// actual journal entry — the vendor made it right, and the books show it,
+// not just a status flag with no financial trace.
+async function abSaveDefectStatus(defectId){
+  const d=abMaterialDefectsCache.find(x=>x.id===defectId); if(!d)return;
+  const status=document.getElementById('ab-defect-status').value;
+  const rma_number=document.getElementById('ab-defect-rma').value.trim()||null;
+  const credit_amount=parseFloat(document.getElementById('ab-defect-credit').value)||null;
+  const credit_account_id=document.getElementById('ab-defect-creditacct').value||null;
+  const resolution_notes=document.getElementById('ab-defect-notes').value.trim()||null;
+  const wasAlreadyCredited=d.status==='credited';
+  const{error}=await db.from('material_defects').update({
+    status,rma_number,credit_amount,credit_account_id,resolution_notes,
+    resolved_date:['closed','credited'].includes(status)?new Date().toISOString().slice(0,10):d.resolved_date
+  }).eq('id',defectId);
+  if(error){abAlert(error.message);return;}
+  if(status==='credited' && !wasAlreadyCredited && credit_amount && credit_account_id){
+    // Real posting: the vendor's credit reduces what was originally
+    // expensed/inventoried for this component, and increases a payable
+    // or cash-equivalent — a genuine two-sided entry, not a memo.
+    const apId=await abFindOrCreateAccount('Accounts Payable','liability');
+    await abPostJournalEntry(new Date().toISOString().slice(0,10),`Vendor credit — defect RMA${rma_number?' #'+rma_number:''} — ${d.items?.name||''}`,'material_defect_credit',defectId,[
+      {account_id:apId,debit:credit_amount,credit:0},
+      {account_id:credit_account_id,debit:0,credit:credit_amount}
+    ]);
+    await abLoadJournalLines(); abRenderReports();
+    abAlert(`Credit of ${abMoney(credit_amount)} posted to the books.`);
+  }
+  document.getElementById('ab-defect-manage-panel').innerHTML='';
+  await abLoadBom();
 }
 
 // ── RENTAL PROPERTIES — ownership can be shared (percentage-based);
