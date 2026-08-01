@@ -29,26 +29,19 @@
 
   /* Top bar */
   #topbar{
-    display:flex;align-items:center;gap:8px;padding:8px 10px;
-    background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line);
+    flex:0 0 auto;
   }
-  #modeRow{
-    flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+  #pendingCount{
+    font-size:15px;font-weight:600;color:var(--text);
   }
-  #modeRow::-webkit-scrollbar{display:none;}
-  .mode-pill{
-    position:relative;flex:0 0 auto;padding:7px 16px 7px 12px;border-radius:999px;
-    border:1px solid var(--line);background:#0a1622;color:var(--dim);
-    font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;
+  #pendingCount b{color:var(--gold);font-size:17px;}
+  #topConnectBtn{
+    padding:9px 16px;border-radius:999px;border:1px solid var(--gold-dim);
+    background:transparent;color:var(--gold);font-size:14px;font-weight:700;cursor:pointer;
   }
-  .mode-pill.active{background:var(--gold);color:#1a1206;border-color:var(--gold);}
-  .mode-pill .cnt{
-    display:inline-block;min-width:16px;height:16px;line-height:16px;
-    border-radius:999px;background:var(--danger);color:#fff;font-size:10px;
-    font-weight:700;text-align:center;padding:0 3px;margin-left:6px;
-    vertical-align:middle;
-  }
-  .mode-pill.active .cnt{background:#1a1206;color:var(--gold);}
+  #topConnectBtn.connected{border-color:var(--ok);color:var(--ok);}
 
   /* Camera stage */
   #stage{
@@ -94,12 +87,37 @@
     position:absolute;left:14px;top:50%;transform:translateY(-50%);
     color:var(--dim);font-size:10px;letter-spacing:.03em;opacity:.7;
   }
-  #connectBtn{
-    position:absolute;right:16px;top:50%;transform:translateY(-50%);
-    padding:8px 14px;border-radius:999px;border:1px solid var(--gold-dim);
-    background:transparent;color:var(--gold);font-size:12.5px;font-weight:700;cursor:pointer;
+
+  /* Classify screen (shown after Accept, before it's saved) */
+  #classifyWrap{
+    display:none;position:absolute;inset:0;background:var(--bg);
+    flex-direction:column;z-index:10;
   }
-  #connectBtn.connected{border-color:var(--ok);color:var(--ok);}
+  #classifyImgWrap{
+    flex:1 1 auto;background:#000;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  #classifyImg{max-width:100%;max-height:100%;object-fit:contain;}
+  #classifyPanel{
+    flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);
+    padding:18px 20px;padding-bottom:calc(18px + env(safe-area-inset-bottom));
+  }
+  #classifyPanel label{
+    display:block;font-size:13px;color:var(--dim);margin-bottom:8px;font-weight:600;
+  }
+  #classifySelect{
+    width:100%;padding:14px 12px;border-radius:10px;border:1px solid var(--line);
+    background:#0a1622;color:var(--text);font-size:17px;font-weight:600;margin-bottom:14px;
+    -webkit-appearance:none;appearance:none;
+  }
+  #btnVerified{
+    width:100%;padding:15px 0;border-radius:10px;border:none;background:var(--ok);
+    color:#08150d;font-weight:700;font-size:16px;cursor:pointer;margin-bottom:10px;
+  }
+  #btnDiscard{
+    width:100%;padding:10px 0;border-radius:10px;border:1px solid var(--danger);
+    background:transparent;color:var(--danger);font-size:13.5px;cursor:pointer;
+  }
 
   /* Preview action bar (after capture) */
   #actionBar{
@@ -175,7 +193,8 @@
 <div id="app">
 
   <div id="topbar">
-    <div id="modeRow"></div>
+    <div id="pendingCount">Pending: <b id="pendingNum">0</b></div>
+    <button id="topConnectBtn">Connect</button>
   </div>
 
   <div id="stage">
@@ -194,18 +213,27 @@
         <div id="cropHint">Drag corners to crop, or drag the box to move it</div>
       </div>
     </div>
+
+    <div id="classifyWrap">
+      <div id="classifyImgWrap"><img id="classifyImg" alt="captured"></div>
+      <div id="classifyPanel">
+        <label for="classifySelect">What is this?</label>
+        <select id="classifySelect"></select>
+        <button id="btnVerified">Verified ✓</button>
+        <button id="btnDiscard">Discard this capture</button>
+      </div>
+    </div>
   </div>
 
   <div id="bottombar">
-    <div id="pageVersion">v1.03</div>
+    <div id="pageVersion">v1.04</div>
     <div id="shutter"></div>
-    <button id="connectBtn">Connect</button>
   </div>
 
   <div id="actionBar">
     <button id="btnDelete">Delete</button>
     <button id="btnRetake">Retake</button>
-    <button id="btnKeep">Keep ✓</button>
+    <button id="btnKeep">Accept ✓</button>
   </div>
 
 </div>
@@ -253,29 +281,19 @@ const MODES=[
   {id:'mileage',label:'Mileage'},
   {id:'other',label:'Other'}
 ];
-let activeMode=localStorage.getItem('as_mode')||'receipt';
 let currentUser=null;
 let stream=null;
 let pendingBlob=null;
 
-// ── Mode toggle ──
-// Each pill shows how many captures of that specific type are queued and
-// not yet published — a per-mode count instead of one combined "N
-// waiting" figure, so it's clear at a glance what kind of backlog exists.
-async function renderModes(){
-  const row=document.getElementById('modeRow');
-  const counts=await countQueueByMode();
-  row.innerHTML='';
-  MODES.forEach(m=>{
-    const b=document.createElement('div');
-    b.className='mode-pill'+(m.id===activeMode?' active':'');
-    const n=counts[m.id]||0;
-    b.innerHTML=m.label+(n>0?'<span class="cnt">'+n+'</span>':'');
-    b.onclick=()=>{ activeMode=m.id; localStorage.setItem('as_mode',activeMode); renderModes(); };
-    row.appendChild(b);
-  });
+// ── Pending count (top bar) ──
+// One total across every mode — classification now happens AFTER capture
+// (see the classify screen below), so there's no per-mode pill row to
+// break the count out by anymore.
+async function updatePendingCount(){
+  const n=await countQueueTotal();
+  document.getElementById('pendingNum').textContent=n;
 }
-renderModes();
+updatePendingCount();
 
 // ── Camera ──
 async function startCamera(){
@@ -321,9 +339,35 @@ document.getElementById('btnDelete').onclick=closePreview;
 document.getElementById('btnRetake').onclick=closePreview;
 document.getElementById('btnKeep').onclick=async()=>{
   const blob=await cropToBlob();
-  if(blob) await queueCapture(activeMode,blob);
   closePreview();
-  renderModes();
+  if(blob) openClassify(blob);
+};
+
+// ── Classify screen — shown after Accept, before anything is saved.
+// Defaults to whatever mode was picked last time, so a run of the same
+// document type (a stack of receipts, say) only needs confirming, not
+// re-selecting every time. ──
+let pendingClassifyBlob=null;
+function openClassify(blob){
+  pendingClassifyBlob=blob;
+  document.getElementById('classifyImg').src=URL.createObjectURL(blob);
+  const sel=document.getElementById('classifySelect');
+  sel.innerHTML=MODES.map(m=>`<option value="${m.id}">${m.label}</option>`).join('');
+  sel.value=localStorage.getItem('as_last_mode')||'receipt';
+  document.getElementById('classifyWrap').style.display='flex';
+}
+function closeClassify(){
+  document.getElementById('classifyWrap').style.display='none';
+  pendingClassifyBlob=null;
+}
+document.getElementById('btnDiscard').onclick=closeClassify;
+document.getElementById('btnVerified').onclick=async()=>{
+  if(!pendingClassifyBlob) return;
+  const mode=document.getElementById('classifySelect').value;
+  await queueCapture(mode,pendingClassifyBlob);
+  localStorage.setItem('as_last_mode',mode); // becomes the default for next time
+  closeClassify();
+  updatePendingCount();
 };
 
 // ── Crop box (drag corners to resize, drag body to move) ──
@@ -426,28 +470,23 @@ async function queueCapture(mode,blob){
     tx.onerror=()=>rej(tx.error);
   });
 }
-async function countQueueByMode(){
+async function countQueueTotal(){
   const d=await idb();
   return new Promise((res)=>{
     const tx=d.transaction('queue','readonly');
-    const counts={};
-    const req=tx.objectStore('queue').openCursor();
-    req.onsuccess=()=>{
-      const cursor=req.result;
-      if(cursor){ counts[cursor.value.mode]=(counts[cursor.value.mode]||0)+1; cursor.continue(); }
-      else res(counts);
-    };
-    req.onerror=()=>res(counts);
+    const req=tx.objectStore('queue').count();
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>res(0);
   });
 }
 
 // ── Connect (sign-in) ──
 function refreshConnectUI(){
-  const btn=document.getElementById('connectBtn');
+  const btn=document.getElementById('topConnectBtn');
   if(currentUser){ btn.textContent=currentUser.email.split('@')[0]; btn.classList.add('connected'); }
   else{ btn.textContent='Connect'; btn.classList.remove('connected'); }
 }
-document.getElementById('connectBtn').onclick=()=>{
+document.getElementById('topConnectBtn').onclick=()=>{
   document.getElementById('connectModal').style.display='flex';
 };
 document.getElementById('connectClose').onclick=()=>{
