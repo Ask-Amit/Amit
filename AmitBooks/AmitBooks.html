@@ -8,7 +8,7 @@
 <link rel="manifest" href="./manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="../Amit_Ask_Live.js?v=6.12"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.90</div>
+    <div class="page-version" id="pageVersion">v1.91</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2889,7 +2889,7 @@ async function abOpenScanConnect(){
     const{data:sessData,error:sessErr}=await db.auth.getSession();
     const session=sessData?.session;
     if(sessErr||!session){ status.textContent='Your sign-in has expired — sign out and back in, then try again.'; return; }
-    if(typeof QRCode==='undefined'){ status.textContent='The QR library didn\'t load — check your connection and reload the page.'; return; }
+    if(typeof qrcode==='undefined'){ status.textContent='The QR library didn\'t load — check your connection and reload the page.'; return; }
 
     const res=await fetch(AB_GET_SCAN_LINK_URL,{
       method:'POST',
@@ -2902,10 +2902,17 @@ async function abOpenScanConnect(){
     if(!res.ok||!out.link){ status.textContent=out.error||('Could not generate a code (HTTP '+res.status+').'); return; }
 
     status.textContent='Point your phone\'s camera at this code:';
-    QRCode.toCanvas(out.link,{width:200,margin:1},(err,canvas)=>{
-      if(err){ status.textContent='Could not draw the code: '+err.message; return; }
-      wrap.appendChild(canvas);
-    });
+    try{
+      const qr=qrcode(0,'M');
+      qr.addData(out.link);
+      qr.make();
+      const img=document.createElement('img');
+      img.src=qr.createDataURL(6,2);
+      img.width=200; img.height=200;
+      wrap.appendChild(img);
+    }catch(qrErr){
+      status.textContent='Could not draw the code: '+(qrErr?.message||String(qrErr));
+    }
   }catch(e){
     status.textContent='Could not reach the connect service: '+(e?.message||String(e));
   }
