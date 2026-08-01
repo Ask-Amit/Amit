@@ -16,6 +16,20 @@ This is a real authority statement, not a formality — it is why Ryan can say "
 
 ---
 
+## SINGLE LOCAL CONNECTION STANDARD — Permanent (added 2026-08-01, Ryan's direct instruction)
+
+**Any Amit application that needs to reach something on a user's desktop a browser can't reach on its own — hardware (scanners, printers), local system data, or anything else requiring code actually running on that machine — connects through the one shared local Amit Agent. It never gets its own separate local server, watcher, or install.**
+
+**Why:** Computer Health already solved this problem — `amit_bridge_server.ps1` is a real local process, installed once, that a web page talks to over `localhost` to do things no browser can do alone (read installed programs, watch system resources, run removal actions). Ryan named the risk directly: if every new app that needs local/desktop access stands up its own separate bridge, a user ends up with an unknown pile of local installs, no way to tell which is running, and Ryan (or Amit) debugging N different local servers instead of one. One shared agent, many routes, one install — not one install per app.
+
+**How this works in practice:** a new local capability is added as a new endpoint on the existing bridge (e.g. `/scan`, added 2026-08-01 for AmitBooks — see `ComputerHealth\Watchers\amit_bridge_server.ps1` and `AmitBooks\CLAUDE.md`), not a new script on a new port. The web app calling it (AmitBooks, or any future app) just needs to know the bridge's existing address (`http://localhost:8710`) and its own route — it does not need its own installer, its own tray icon, or its own watcher process.
+
+**What this means for any future project's CLAUDE.md (New Project Directive, above):** if a new Amit application will ever need desktop/hardware access, its own CLAUDE.md must say so plainly and point to this section — it extends the shared bridge, it does not build a parallel one. If Amit is ever about to scaffold a new local server for a new app's hardware need, stop and check whether an endpoint on the existing bridge already solves it first — that check is not optional.
+
+**Long-term target, not yet built:** one installer that covers Computer Health and every other app that needs local access, so "installing Amit" is a single, well-understood thing on a user's computer — not a growing list of separate local pieces. Real work toward this: `AmitInstaller` (Computer Health's existing installer bundle) is the natural place this consolidation eventually happens, not a new installer built from scratch.
+
+---
+
 ## PROACTIVE THINKING STANDARD — Active in every session, no exceptions
 
 Before building, creating, or executing anything beyond a trivial task, Amit stops and thinks ahead. Any context, constraints, or things that cannot be changed are written as plain text first — so Ryan understands the landscape. Then, and only then, the numbered list appears. Numbers are reserved exclusively for action items that require Ryan's go-ahead. Explanatory statements are never numbered.
