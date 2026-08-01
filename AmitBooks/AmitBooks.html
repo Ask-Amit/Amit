@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.79</div>
+    <div class="page-version" id="pageVersion">v1.80</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1601,15 +1601,23 @@ async function abRenderBooksTab(){
     <div class="ab-h" style="margin-top:26px">Team / Authorizations</div>
     <div id="ab-team-table"><div class="ab-empty">Loading…</div></div>
     <div class="ab-form" style="margin-top:10px">
-      <div class="ab-field"><label>Their Amit account ID</label><input id="ab-team-userid" placeholder="pasted from their own account" style="width:280px"></div>
+      <div class="ab-field"><label>Their Email</label><input id="ab-team-email" type="email" placeholder="name@example.com" style="width:220px"></div>
       <div class="ab-field"><label>Role</label>
         <select id="ab-team-role"><option value="staff">Staff</option><option value="bookkeeper">Bookkeeper</option><option value="manager">Manager</option><option value="accountant_readonly">Accountant (read-only)</option></select>
       </div>
       <div class="ab-field"><label>Payroll access?</label><select id="ab-team-payroll"><option value="false">No</option><option value="true">Yes</option></select></div>
-      <button class="ab-btn" onclick="abInviteMember()">Add to Book</button>
+      <button class="ab-btn" onclick="abInviteMemberByEmail()">Send Invite</button>
     </div>
+    <div id="ab-team-invite-status" style="font-size:12px;color:var(--muted);margin-top:6px"></div>
     <div class="ab-signin-notice" style="text-align:left;margin-top:10px">
-      Stopgap for now: invites need the other person's Amit account ID pasted in directly — there's no email-based invite yet, since that requires a server-side function this client-side page can't run on its own (looking someone up by email isn't possible with the public key alone). Real email invites are on the build list.
+      Real email invite — sends through Supabase's own invite email (the same pipeline as magic-link sign-in). If the invite function isn't deployed yet, or the send fails, fall back to pasting their Amit account UUID directly below.
+    </div>
+    <div class="ab-form" style="margin-top:10px">
+      <div class="ab-field"><label>Fallback — Their Amit Account ID</label><input id="ab-team-userid" placeholder="pasted from their own account" style="width:280px"></div>
+      <div class="ab-field"><label>Role</label>
+        <select id="ab-team-role-fallback"><option value="staff">Staff</option><option value="bookkeeper">Bookkeeper</option><option value="manager">Manager</option><option value="accountant_readonly">Accountant (read-only)</option></select>
+      </div>
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abInviteMember()">Add by ID</button>
     </div>
 
     <div class="ab-h" style="margin-top:26px">Other Books</div>
@@ -1728,12 +1736,41 @@ async function abRenderTeamTable(){
 async function abInviteMember(){
   const userId=document.getElementById('ab-team-userid').value.trim();
   if(!userId){abAlert("Paste the person's Amit account ID first.");return;}
-  const role=document.getElementById('ab-team-role').value;
-  const payroll=document.getElementById('ab-team-payroll').value==='true';
-  const{error}=await db.from('book_members').insert({book_id:abBookId,user_id:userId,role,can_view_payroll:payroll});
+  const role=document.getElementById('ab-team-role-fallback').value;
+  const{error}=await db.from('book_members').insert({book_id:abBookId,user_id:userId,role,can_view_payroll:false});
   if(error){abAlert(error.message);return;}
   document.getElementById('ab-team-userid').value='';
   abRenderTeamTable();
+}
+// Real email invite — calls the invite-team-member Edge Function, which
+// holds the service-role key server-side (never in this file) and sends
+// through Supabase's own existing invite email pipeline. If the function
+// isn't deployed yet, this fails cleanly with a message pointing at the
+// manual fallback below it, instead of pretending to succeed.
+async function abInviteMemberByEmail(){
+  const email=document.getElementById('ab-team-email').value.trim();
+  const status=document.getElementById('ab-team-invite-status');
+  if(!email){abAlert('Enter an email address.');return;}
+  const role=document.getElementById('ab-team-role').value;
+  const can_view_payroll=document.getElementById('ab-team-payroll').value==='true';
+  status.textContent='Sending invite…';
+  try{
+    const{data:sessionData}=await db.auth.getSession();
+    const token=sessionData&&sessionData.session?sessionData.session.access_token:null;
+    if(!token){ status.textContent='You need to be signed in to send an invite.'; return; }
+    const res=await fetch(`${SB_URL}/functions/v1/invite-team-member`,{
+      method:'POST',
+      headers:{'content-type':'application/json','Authorization':`Bearer ${token}`,'apikey':SB_KEY},
+      body:JSON.stringify({email,book_id:abBookId,role,can_view_payroll})
+    });
+    const result=await res.json();
+    if(!res.ok){ status.textContent='Could not send invite: '+(result.error||res.statusText)+' — use the fallback below if this keeps happening.'; return; }
+    status.textContent=`✓ Invited ${email}.`;
+    document.getElementById('ab-team-email').value='';
+    abRenderTeamTable();
+  }catch(e){
+    status.textContent='Invite function may not be deployed yet — use the fallback below. ('+e.message+')';
+  }
 }
 
 // ── CHART OF ACCOUNTS ──
