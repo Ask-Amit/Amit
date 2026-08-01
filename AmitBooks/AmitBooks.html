@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.83</div>
+    <div class="page-version" id="pageVersion">v1.84</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2446,6 +2446,48 @@ function abMostCommon(arr){
 function abVendorHistoryLines(contactId){
   return abInvoiceBillLinesCache.filter(l=>l.invoices_bills&&l.invoices_bills.contact_id===contactId&&l.invoices_bills.status!=='void');
 }
+// ── BILL DETAIL — the real per-row "open this record in full" behavior.
+// Double-clicking anywhere in a Bills & Invoices row opens this instead
+// of filtering or opening the contact — per Ryan's direct clarification
+// 2026-08-01: header single/double-click is sort/filter, ROW double-
+// click is always "open this specific record," full stop. Shows every
+// real line item, the receipt if one's attached, and actual payment
+// history against this bill — not just the summary row.
+async function abShowBillDetail(billId){
+  const r=abInvoicesBillsCache.find(x=>x.id===billId); if(!r)return;
+  const lines=abInvoiceBillLinesCache.filter(l=>l.invoice_bill_id===billId);
+  const{data:pays}=await db.from('payments').select('*').eq('invoice_bill_id',billId).order('payment_date',{ascending:false});
+  const el=document.getElementById('ab-billdetail-panel'); if(!el)return;
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div class="ab-h" style="margin:0">${r.direction==='bill_payable'?'Bill':'Invoice'} — ${abEsc(r.document_code||'')}</div>
+      <a href="#" onclick="document.getElementById('ab-billdetail-panel').innerHTML='';return false" style="color:var(--muted);font-size:12px">✕ Close</a>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:10px;font-size:13px">
+      <div><b>Contact:</b> ${abEsc(r.contacts?r.contacts.name:'—')}</div>
+      <div><b>Date:</b> ${r.doc_date||'—'}</div>
+      <div><b>Status:</b> ${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩 flagged for review':''}</div>
+      <div><b>Total:</b> ${abMoney(r.total_amount)}</div>
+      <div><b>Paid:</b> ${abMoney(r.paid_amount||0)}</div>
+      ${r.memo?`<div style="flex-basis:100%"><b>Memo:</b> ${abEsc(r.memo)}</div>`:''}
+    </div>
+    <div class="ab-h" style="font-size:13px;margin-top:16px">Line Items</div>
+    <table class="ab-table" style="font-size:12px"><tr><th>Scope</th><th>Cost Type</th><th>Category</th><th>Job</th><th style="text-align:right">Amount</th></tr>
+    ${lines.map(l=>{
+      const item=abItems.find(i=>i.id===l.item_id);
+      const acct=abAccounts.find(a=>a.id===l.account_id);
+      const tag=abTags.find(t=>t.id===l.tag_id);
+      return `<tr><td>${abEsc(item?item.name:'—')}</td><td>${abEsc(abCostTypeLabel(l.cost_type))}</td><td>${abEsc(acct?acct.account_name:'—')}</td><td>${abEsc(tag?tag.name:'—')}</td><td style="text-align:right">${abMoney(l.amount)}</td></tr>`;
+    }).join('')||'<tr><td class="ab-empty" colspan="5">No line detail on this record</td></tr>'}
+    </table>
+    <div class="ab-h" style="font-size:13px;margin-top:16px">Payment History</div>
+    <table class="ab-table" style="font-size:12px"><tr><th>Date</th><th>Method</th><th>Reference</th><th style="text-align:right">Amount</th></tr>
+    ${(pays||[]).map(p=>`<tr><td>${p.payment_date||''}</td><td>${abEsc(p.method||'—')}</td><td>${abEsc(p.reference||'—')}</td><td style="text-align:right">${abMoney(p.amount)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No payments recorded against this yet</td></tr>'}
+    </table>
+    ${r.receipt_image_path?`<div style="margin-top:12px"><a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:13px">📎 View Receipt Image</a></div>`:''}
+  </div>`;
+  el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function abApplyWorkflowAutofill(){
   const contactId=document.getElementById('ab-ib-contact')?.value;
   const historyEl=document.getElementById('ab-ib-vendor-history');
@@ -3257,9 +3299,10 @@ function abRenderInvoicesBills(){
       const sorted=abSmartApply(tk,abInvoicesBillsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',type:'Type',contact:'Contact',amount:'Amount',status:'Status'})}
       <table class="ab-table"><tr><th style="font-size:11px">Doc #</th>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th><th></th><th></th></tr>
-      ${sorted.map(r=>`<tr><td style="font-size:10px;font-family:monospace;color:var(--muted)">${abEsc(r.document_code||'—')}</td><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abSmartFilterByValue('${tk}','contact','${abEsc(r.contacts?r.contacts.name:'').replace(/'/g,"\\'")}')" title="Double-click to filter to this vendor/client"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td><td>${r.direction==='bill_payable'?`<a href="#" onclick="abAskDeductibleFromRow('${r.id}');return false" style="color:var(--gold2);font-size:12px">🤔</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="9">Nothing entered yet — the pile starts here</td></tr>'}
+      ${sorted.map(r=>`<tr style="cursor:pointer" ondblclick="abShowBillDetail('${r.id}')" title="Double-click to open this record in full"><td style="font-size:10px;font-family:monospace;color:var(--muted)">${abEsc(r.document_code||'—')}</td><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="event.stopPropagation();abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="event.stopPropagation();abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td><td>${r.direction==='bill_payable'?`<a href="#" onclick="event.stopPropagation();abAskDeductibleFromRow('${r.id}');return false" style="color:var(--gold2);font-size:12px">🤔</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="9">Nothing entered yet — the pile starts here</td></tr>'}
       </table>
-      <div id="ab-planpanel"></div>`;
+      <div id="ab-planpanel"></div>
+      <div id="ab-billdetail-panel"></div>`;
     })():`
     <div class="ab-doc-wrap">
     ${abInvoicesBillsCache.map(r=>{
