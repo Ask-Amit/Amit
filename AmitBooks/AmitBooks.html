@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.96</div>
+    <div class="page-version" id="pageVersion">v1.97</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -310,6 +310,11 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
     <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.65;margin-top:16px">Open your phone's Camera app and point it at the code. Tap the banner that appears. This code expires after a few minutes for security — reopen this if it stops working.</div>
     <div onclick="closeScanConnectModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CLOSE</div>
   </div>
+</div>
+
+<div id="abScanLightbox" onclick="abCloseScanLightbox()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;align-items:center;justify-content:center;padding:30px;cursor:zoom-out">
+  <img id="abScanLightboxImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;box-shadow:0 10px 50px rgba(0,0,0,.6)">
+  <div onclick="abCloseScanLightbox()" style="position:absolute;top:20px;right:28px;color:#fff;font-size:28px;cursor:pointer;line-height:1">×</div>
 </div>
 
 <!-- AMITBOOKS-BRANDED DIALOG — replaces native alert/confirm/prompt so
@@ -2983,7 +2988,7 @@ async function abScanFromBridge(){
 }
 
 async function abRunScan(status){
-  status.textContent='Connected — opening the scan dialog, check for a Windows popup...';
+  status.textContent='Connected — scanning now...';
   try{
     const res=await fetch(AB_BRIDGE_URL+'/scan',{signal:AbortSignal.timeout(120000)});
     const out=await res.json();
@@ -3010,12 +3015,14 @@ async function abRenderScanPending(){
   if(!data||!data.length){ el.innerHTML='<div class="ab-signin-notice">Nothing pending — anything sent from your phone or uploaded here shows up in this list.</div>'; return; }
 
   const modeLabel={bill:'Bill',receipt:'Receipt',contact:'Contact',mileage:'Mileage',other:'Other'};
-  const rows=await Promise.all(data.map(async r=>{
+  abScanPendingUrls=[]; // indexed lookup for the lightbox — avoids embedding raw signed URLs (query strings, special chars) inside onclick attributes
+  const rows=await Promise.all(data.map(async(r,idx)=>{
     const{data:signed}=await db.storage.from('amitscan-captures').createSignedUrl(r.storage_path,3600);
     const thumb=signed?.signedUrl||'';
+    abScanPendingUrls[idx]=thumb;
     const when=new Date(r.captured_at).toLocaleString();
     return `<div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:10px">
-      ${thumb?`<img src="${thumb}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;background:#111">`:'<div style="width:64px;height:64px;border-radius:6px;background:#111"></div>'}
+      ${thumb?`<img src="${thumb}" ondblclick="abOpenScanLightbox(${idx})" style="width:64px;height:64px;object-fit:cover;border-radius:6px;background:#111;cursor:zoom-in" title="Double-click to view larger">`:'<div style="width:64px;height:64px;border-radius:6px;background:#111"></div>'}
       <div style="flex:1">
         <div style="font-weight:600">${modeLabel[r.mode]||r.mode}</div>
         <div style="font-size:12px;color:var(--muted)">${abEsc(when)}</div>
@@ -3025,6 +3032,17 @@ async function abRenderScanPending(){
   el.innerHTML=`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
       ${data.length} waiting. Full review — turning these into real Bills, Contacts, or Mileage entries — is the next build phase; for now this confirms what your phone has sent in.
     </div>${rows.join('')}`;
+}
+
+let abScanPendingUrls=[];
+function abOpenScanLightbox(idx){
+  const url=abScanPendingUrls[idx]; if(!url)return;
+  document.getElementById('abScanLightboxImg').src=url;
+  document.getElementById('abScanLightbox').style.display='flex';
+}
+function abCloseScanLightbox(){
+  document.getElementById('abScanLightbox').style.display='none';
+  document.getElementById('abScanLightboxImg').src='';
 }
 
 // ── AmitScan Connect QR ──
