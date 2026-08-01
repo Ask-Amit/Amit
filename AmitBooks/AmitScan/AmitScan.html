@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#09141f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AmitScan">
+<link rel="apple-touch-icon" href="../../amit_icon.png">
+<link rel="manifest" href="manifest.json">
+<title>AmitScan</title>
+<style>
+  :root{
+    --bg:#09141f; --panel:#0f1e2e; --line:#1c3244; --gold:#d4af6a; --gold-dim:#8a6f3f;
+    --text:#eaf0f5; --dim:#8ea3b3; --danger:#c0553f; --ok:#4c9a6a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100dvh;overflow:hidden;
+    background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    position:fixed;inset:0;
+  }
+  #app{
+    display:flex;flex-direction:column;height:100dvh;
+    padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
+  }
+
+  /* Top bar */
+  #topbar{
+    display:flex;align-items:center;gap:8px;padding:8px 10px;
+    background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto;
+  }
+  #modeRow{
+    flex:1;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+  }
+  #modeRow::-webkit-scrollbar{display:none;}
+  .mode-pill{
+    flex:0 0 auto;padding:7px 12px;border-radius:999px;border:1px solid var(--line);
+    background:#0a1622;color:var(--dim);font-size:12.5px;font-weight:600;
+    white-space:nowrap;cursor:pointer;
+  }
+  .mode-pill.active{background:var(--gold);color:#1a1206;border-color:var(--gold);}
+  #connectBtn{
+    flex:0 0 auto;padding:7px 12px;border-radius:999px;border:1px solid var(--gold-dim);
+    background:transparent;color:var(--gold);font-size:12px;font-weight:700;cursor:pointer;
+  }
+  #connectBtn.connected{border-color:var(--ok);color:var(--ok);}
+
+  /* Camera stage */
+  #stage{
+    position:relative;flex:1 1 auto;background:#000;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #video{width:100%;height:100%;object-fit:cover;display:block;}
+  #camMsg{position:absolute;color:var(--dim);font-size:13px;text-align:center;padding:0 24px;}
+
+  #previewWrap{position:absolute;inset:0;background:#000;display:none;align-items:center;justify-content:center;}
+  #cropStage{position:relative;max-width:100%;max-height:100%;line-height:0;}
+  #previewCanvas{display:block;max-width:100vw;max-height:100dvh;touch-action:none;}
+  #cropBox{
+    position:absolute;border:2px solid var(--gold);
+    box-shadow:0 0 0 9999px rgba(0,0,0,.55);touch-action:none;cursor:move;
+  }
+  .handle{
+    position:absolute;width:26px;height:26px;margin:-13px;background:var(--gold);
+    border:2px solid #1a1206;border-radius:50%;touch-action:none;
+  }
+  .handle.tl{top:0;left:0;cursor:nwse-resize;}
+  .handle.tr{top:0;left:100%;cursor:nesw-resize;}
+  .handle.bl{top:100%;left:0;cursor:nesw-resize;}
+  .handle.br{top:100%;left:100%;cursor:nwse-resize;}
+  #cropHint{
+    position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+    color:var(--dim);font-size:11px;background:rgba(9,20,31,.8);
+    padding:4px 10px;border-radius:999px;white-space:nowrap;
+  }
+
+  /* Queue badge */
+  #queueBadge{
+    position:absolute;top:10px;right:10px;background:rgba(9,20,31,.85);
+    border:1px solid var(--line);color:var(--dim);font-size:11px;
+    padding:4px 9px;border-radius:999px;display:none;
+  }
+  #queueBadge.show{display:block;}
+
+  /* Bottom bar */
+  #bottombar{
+    flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);
+    padding:14px 20px;display:flex;align-items:center;justify-content:center;position:relative;
+  }
+  #shutter{
+    width:66px;height:66px;border-radius:50%;background:#fff;border:4px solid var(--gold);
+    cursor:pointer;
+  }
+  #shutter:active{background:var(--gold);}
+
+  #reviewLink{
+    position:absolute;right:20px;top:50%;transform:translateY(-50%);
+    color:var(--dim);font-size:11px;text-align:center;line-height:1.3;cursor:pointer;
+  }
+  #reviewLink b{display:block;color:var(--gold);font-size:15px;}
+
+  /* Preview action bar (after capture) */
+  #actionBar{
+    display:none;flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);
+    padding:14px 16px;gap:10px;justify-content:center;
+  }
+  #actionBar button{
+    flex:1;max-width:160px;padding:13px 0;border-radius:10px;border:none;
+    font-size:14px;font-weight:700;cursor:pointer;
+  }
+  #btnDelete{background:transparent;border:1px solid var(--danger);color:var(--danger);}
+  #btnRetake{background:transparent;border:1px solid var(--line);color:var(--dim);}
+  #btnKeep{background:var(--gold);color:#1a1206;}
+
+  /* Connect modal */
+  #connectModal{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);
+    align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  #connectModal .box{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:20px;width:100%;max-width:340px;
+  }
+  #connectModal h3{margin:0 0 6px;font-size:16px;}
+  #connectModal p{margin:0 0 14px;font-size:12.5px;color:var(--dim);line-height:1.5;}
+  #connectModal input{
+    width:100%;padding:11px 12px;border-radius:8px;border:1px solid var(--line);
+    background:#0a1622;color:var(--text);font-size:14px;margin-bottom:10px;
+  }
+  #connectModal button{
+    width:100%;padding:12px 0;border-radius:8px;border:none;background:var(--gold);
+    color:#1a1206;font-weight:700;font-size:14px;cursor:pointer;
+  }
+  #connectStatus{font-size:12px;color:var(--dim);margin-top:10px;min-height:16px;}
+  #connectClose{
+    position:absolute;top:10px;right:14px;background:none;border:none;
+    color:var(--dim);font-size:20px;cursor:pointer;width:auto;padding:0;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div id="modeRow"></div>
+    <button id="connectBtn">Connect</button>
+  </div>
+
+  <div id="stage">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="camMsg">Tap to enable camera</div>
+    <div id="queueBadge"></div>
+
+    <div id="previewWrap">
+      <div id="cropStage">
+        <canvas id="previewCanvas"></canvas>
+        <div id="cropBox">
+          <div class="handle tl" data-h="tl"></div>
+          <div class="handle tr" data-h="tr"></div>
+          <div class="handle bl" data-h="bl"></div>
+          <div class="handle br" data-h="br"></div>
+        </div>
+        <div id="cropHint">Drag corners to crop, or drag the box to move it</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="bottombar">
+    <div id="shutter"></div>
+    <div id="reviewLink"><b id="reviewCount">0</b>waiting</div>
+  </div>
+
+  <div id="actionBar">
+    <button id="btnDelete">Delete</button>
+    <button id="btnRetake">Retake</button>
+    <button id="btnKeep">Keep ✓</button>
+  </div>
+
+</div>
+
+<div id="connectModal">
+  <div class="box" style="position:relative;">
+    <button id="connectClose">×</button>
+    <h3>Connect AmitScan</h3>
+    <p>Sign in with the same email you use for the Hub. Captures save under your account.</p>
+    <input id="connectEmail" type="email" placeholder="you@email.com" autocomplete="email">
+    <button id="connectSend">Send sign-in link</button>
+    <div id="connectStatus"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+// ══════════════════════════════════════════════
+// AmitScan — one-screen capture app. Mode-first, camera-first, review-later.
+// Every capture queues locally (IndexedDB) until explicitly synced — nothing
+// is posted to a book/contact/mileage-log without a human confirming it in
+// the review queue (built in the next pass). This file is the capture shell:
+// mode select, camera, and local queueing. Classification/OCR/posting logic
+// comes next.
+// ══════════════════════════════════════════════
+
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=window.supabase?window.supabase.createClient(SB_URL,SB_KEY):null;
+
+const MODES=[
+  {id:'bill',label:'Bill'},
+  {id:'receipt',label:'Receipt'},
+  {id:'contact',label:'Contact'},
+  {id:'mileage',label:'Mileage'},
+  {id:'other',label:'Other'}
+];
+let activeMode=localStorage.getItem('as_mode')||'receipt';
+let currentUser=null;
+let stream=null;
+let pendingBlob=null;
+
+// ── Mode toggle ──
+function renderModes(){
+  const row=document.getElementById('modeRow');
+  row.innerHTML='';
+  MODES.forEach(m=>{
+    const b=document.createElement('div');
+    b.className='mode-pill'+(m.id===activeMode?' active':'');
+    b.textContent=m.label;
+    b.onclick=()=>{ activeMode=m.id; localStorage.setItem('as_mode',activeMode); renderModes(); };
+    row.appendChild(b);
+  });
+}
+renderModes();
+
+// ── Camera ──
+async function startCamera(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    const v=document.getElementById('video');
+    v.srcObject=stream;
+    document.getElementById('camMsg').style.display='none';
+  }catch(e){
+    document.getElementById('camMsg').textContent='Camera unavailable — check permissions ('+e.message+')';
+  }
+}
+document.getElementById('camMsg').onclick=startCamera;
+startCamera();
+
+// ── Capture ──
+const previewCanvas=document.getElementById('previewCanvas');
+let fullResWidth=0, fullResHeight=0;
+
+document.getElementById('shutter').onclick=()=>{
+  const v=document.getElementById('video');
+  if(!v.videoWidth) return;
+  fullResWidth=v.videoWidth; fullResHeight=v.videoHeight;
+  previewCanvas.width=fullResWidth; previewCanvas.height=fullResHeight;
+  previewCanvas.getContext('2d').drawImage(v,0,0);
+
+  document.getElementById('previewWrap').style.display='flex';
+  document.getElementById('bottombar').style.display='none';
+  document.getElementById('actionBar').style.display='flex';
+
+  // Size the on-screen canvas so its rendered box matches the viewport,
+  // then place the initial crop box once layout settles.
+  requestAnimationFrame(initCropBox);
+};
+
+function closePreview(){
+  document.getElementById('previewWrap').style.display='none';
+  document.getElementById('bottombar').style.display='flex';
+  document.getElementById('actionBar').style.display='none';
+  pendingBlob=null;
+}
+document.getElementById('btnDelete').onclick=closePreview;
+document.getElementById('btnRetake').onclick=closePreview;
+document.getElementById('btnKeep').onclick=async()=>{
+  const blob=await cropToBlob();
+  if(blob) await queueCapture(activeMode,blob);
+  closePreview();
+  updateQueueBadge();
+};
+
+// ── Crop box (drag corners to resize, drag body to move) ──
+const cropBox=document.getElementById('cropBox');
+function initCropBox(){
+  const rect=previewCanvas.getBoundingClientRect();
+  const insetX=rect.width*0.08, insetY=rect.height*0.08;
+  setCropBoxPx(insetX,insetY,rect.width-insetX*2,rect.height-insetY*2);
+}
+function setCropBoxPx(x,y,w,h){
+  cropBox.style.left=x+'px'; cropBox.style.top=y+'px';
+  cropBox.style.width=w+'px'; cropBox.style.height=h+'px';
+}
+function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+
+let dragMode=null, dragStart=null, boxStart=null;
+function pt(e){ return e.touches?{x:e.touches[0].clientX,y:e.touches[0].clientY}:{x:e.clientX,y:e.clientY}; }
+
+function beginDrag(mode){
+  return e=>{
+    e.preventDefault(); e.stopPropagation();
+    dragMode=mode; dragStart=pt(e);
+    const stageRect=document.getElementById('cropStage').getBoundingClientRect();
+    boxStart={
+      x:parseFloat(cropBox.style.left), y:parseFloat(cropBox.style.top),
+      w:parseFloat(cropBox.style.width), h:parseFloat(cropBox.style.height),
+      stage:stageRect, canvas:previewCanvas.getBoundingClientRect()
+    };
+  };
+}
+['tl','tr','bl','br'].forEach(h=>{
+  document.querySelector('.handle.'+h).addEventListener('mousedown',beginDrag(h));
+  document.querySelector('.handle.'+h).addEventListener('touchstart',beginDrag(h),{passive:false});
+});
+cropBox.addEventListener('mousedown',e=>{ if(e.target===cropBox) beginDrag('move')(e); });
+cropBox.addEventListener('touchstart',e=>{ if(e.target===cropBox) beginDrag('move')(e); },{passive:false});
+
+function onDragMove(e){
+  if(!dragMode) return;
+  e.preventDefault();
+  const p=pt(e);
+  const dx=p.x-dragStart.x, dy=p.y-dragStart.y;
+  const canvasRect=boxStart.canvas;
+  const minX=0, minY=0, maxX=canvasRect.width, maxY=canvasRect.height;
+  const MIN_SIZE=40;
+  let {x,y,w,h}=boxStart;
+
+  if(dragMode==='move'){
+    x=clamp(boxStart.x+dx,minX,maxX-w);
+    y=clamp(boxStart.y+dy,minY,maxY-h);
+  }else{
+    if(dragMode.includes('l')){ const nx=clamp(boxStart.x+dx,minX,boxStart.x+boxStart.w-MIN_SIZE); w=boxStart.w-(nx-boxStart.x); x=nx; }
+    if(dragMode.includes('r')){ w=clamp(boxStart.w+dx,MIN_SIZE,maxX-boxStart.x); }
+    if(dragMode.includes('t')){ const ny=clamp(boxStart.y+dy,minY,boxStart.y+boxStart.h-MIN_SIZE); h=boxStart.h-(ny-boxStart.y); y=ny; }
+    if(dragMode.includes('b')){ h=clamp(boxStart.h+dy,MIN_SIZE,maxY-boxStart.y); }
+  }
+  setCropBoxPx(x,y,w,h);
+}
+function onDragEnd(){ dragMode=null; }
+document.addEventListener('mousemove',onDragMove);
+document.addEventListener('mouseup',onDragEnd);
+document.addEventListener('touchmove',onDragMove,{passive:false});
+document.addEventListener('touchend',onDragEnd);
+
+async function cropToBlob(){
+  if(!fullResWidth) return null;
+  const rendered=previewCanvas.getBoundingClientRect();
+  const scaleX=fullResWidth/rendered.width, scaleY=fullResHeight/rendered.height;
+  const sx=parseFloat(cropBox.style.left)*scaleX;
+  const sy=parseFloat(cropBox.style.top)*scaleY;
+  const sw=parseFloat(cropBox.style.width)*scaleX;
+  const sh=parseFloat(cropBox.style.height)*scaleY;
+
+  const out=document.createElement('canvas');
+  out.width=Math.round(sw); out.height=Math.round(sh);
+  out.getContext('2d').drawImage(previewCanvas,sx,sy,sw,sh,0,0,out.width,out.height);
+  return new Promise(res=>out.toBlob(res,'image/jpeg',0.9));
+}
+
+// ── Local queue (IndexedDB) ──
+let idbPromise=null;
+function idb(){
+  if(idbPromise) return idbPromise;
+  idbPromise=new Promise((res,rej)=>{
+    const req=indexedDB.open('amitscan',1);
+    req.onupgradeneeded=()=>{
+      req.result.createObjectStore('queue',{keyPath:'id',autoIncrement:true});
+    };
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>rej(req.error);
+  });
+  return idbPromise;
+}
+async function queueCapture(mode,blob){
+  const d=await idb();
+  return new Promise((res,rej)=>{
+    const tx=d.transaction('queue','readwrite');
+    tx.objectStore('queue').add({mode,blob,ts:Date.now(),synced:false});
+    tx.oncomplete=()=>res();
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+async function countQueue(){
+  const d=await idb();
+  return new Promise((res)=>{
+    const tx=d.transaction('queue','readonly');
+    const req=tx.objectStore('queue').count();
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>res(0);
+  });
+}
+async function updateQueueBadge(){
+  const n=await countQueue();
+  document.getElementById('reviewCount').textContent=n;
+  const badge=document.getElementById('queueBadge');
+  if(n>0){ badge.textContent=n+' unsynced'; badge.classList.add('show'); }
+  else{ badge.classList.remove('show'); }
+}
+updateQueueBadge();
+
+// ── Connect (sign-in) ──
+function refreshConnectUI(){
+  const btn=document.getElementById('connectBtn');
+  if(currentUser){ btn.textContent=currentUser.email.split('@')[0]; btn.classList.add('connected'); }
+  else{ btn.textContent='Connect'; btn.classList.remove('connected'); }
+}
+document.getElementById('connectBtn').onclick=()=>{
+  document.getElementById('connectModal').style.display='flex';
+};
+document.getElementById('connectClose').onclick=()=>{
+  document.getElementById('connectModal').style.display='none';
+};
+document.getElementById('connectSend').onclick=async()=>{
+  const email=document.getElementById('connectEmail').value.trim();
+  const status=document.getElementById('connectStatus');
+  if(!email){ status.textContent='Enter an email first.'; return; }
+  if(!db){ status.textContent='Database not available.'; return; }
+  status.textContent='Sending...';
+  const{error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
+  status.textContent=error?error.message:'Check your email — tap the link to finish connecting.';
+};
+
+async function initAuth(){
+  if(!db) return;
+  const{data}=await db.auth.getSession();
+  currentUser=data?.session?.user||null;
+  refreshConnectUI();
+  db.auth.onAuthStateChange((_evt,session)=>{
+    currentUser=session?.user||null;
+    refreshConnectUI();
+    if(currentUser) document.getElementById('connectModal').style.display='none';
+  });
+}
+initAuth();
+
+// ── PWA install ──
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

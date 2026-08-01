@@ -84,6 +84,8 @@ Same purpose as Computer Value: a real, useful tool that can carry its own reven
 
 **⚠ If you are about to build something below, STOP and check this list first — it is very likely already built.** This project moved fast; rebuilding an existing feature the wrong way because a prior session's work wasn't checked is the exact failure mode this section exists to prevent. When in doubt, grep AmitBooks.html for the relevant `ab*` function names before writing new ones.
 
+**AmitScan (2026-08-01) — field capture companion, own subfolder `AmitBooks\AmitScan\`, own CLAUDE.md there.** A separate small PWA meant to install as a phone home-screen icon for capturing bills/receipts/contacts/mileage away from a desk. v1 shell built (mode toggle, camera, drag-to-crop, local IndexedDB queue, independent sign-in) — not yet wired to AmitBooks' actual data (sync, review queue, OCR, Payment Source/book routing, mileage ledger). Read its own CLAUDE.md before touching it.
+
 **Sidebar tile labels/subtitles were rewritten 2026-07-31 to reflect actual current contents** — several panels (Payments, Inventory, Payroll, Reports, Books & Setup) grew far beyond their original one-line description; the tile subtitles are now the authoritative quick-reference for what's inside each panel. Read them before assuming a panel is thin.
 
 ### Full feature inventory (by panel)
