@@ -33,10 +33,16 @@
     padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line);
     flex:0 0 auto;
   }
+  #pendingWrap{display:flex;align-items:center;gap:10px;}
   #pendingCount{
     font-size:15px;font-weight:600;color:var(--text);
   }
   #pendingCount b{color:var(--gold);font-size:17px;}
+  #sendToAmitBtn{
+    display:none;padding:8px 14px;border-radius:999px;border:none;
+    background:var(--ok);color:#08150d;font-size:13px;font-weight:700;cursor:pointer;
+  }
+  #sendToAmitBtn:disabled{opacity:.6;}
   #topConnectBtn{
     padding:9px 16px;border-radius:999px;border:1px solid var(--gold-dim);
     background:transparent;color:var(--gold);font-size:14px;font-weight:700;cursor:pointer;
@@ -193,7 +199,10 @@
 <div id="app">
 
   <div id="topbar">
-    <div id="pendingCount">Pending: <b id="pendingNum">0</b></div>
+    <div id="pendingWrap">
+      <div id="pendingCount">Pending: <b id="pendingNum">0</b></div>
+      <button id="sendToAmitBtn">Send to Amit →</button>
+    </div>
     <button id="topConnectBtn">Connect</button>
   </div>
 
@@ -226,7 +235,7 @@
   </div>
 
   <div id="bottombar">
-    <div id="pageVersion">v1.04</div>
+    <div id="pageVersion">v1.05</div>
     <div id="shutter"></div>
   </div>
 
@@ -292,6 +301,7 @@ let pendingBlob=null;
 async function updatePendingCount(){
   const n=await countQueueTotal();
   document.getElementById('pendingNum').textContent=n;
+  document.getElementById('sendToAmitBtn').style.display=n>0?'block':'none';
 }
 updatePendingCount();
 
@@ -479,6 +489,66 @@ async function countQueueTotal(){
     req.onerror=()=>res(0);
   });
 }
+async function getAllQueued(){
+  const d=await idb();
+  return new Promise((res)=>{
+    const tx=d.transaction('queue','readonly');
+    const req=tx.objectStore('queue').getAll();
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>res([]);
+  });
+}
+async function deleteQueued(id){
+  const d=await idb();
+  return new Promise((res,rej)=>{
+    const tx=d.transaction('queue','readwrite');
+    tx.objectStore('queue').delete(id);
+    tx.oncomplete=()=>res();
+    tx.onerror=()=>rej(tx.error);
+  });
+}
+
+// ── Send to Amit — uploads everything queued to Supabase Storage +
+// scan_captures. This is staging, not the full review pipeline (that
+// still needs to be built — see AmitScan's CLAUDE.md); it just gets
+// captures safely off the phone and into the cloud, tagged with what
+// kind of thing each one is. ──
+async function sendToAmit(){
+  const btn=document.getElementById('sendToAmitBtn');
+  if(!currentUser){
+    document.getElementById('connectModal').style.display='flex';
+    return;
+  }
+  const items=await getAllQueued();
+  if(!items.length) return;
+  btn.disabled=true;
+  let done=0;
+  for(const item of items){
+    btn.textContent=`Sending ${done+1} of ${items.length}...`;
+    try{
+      const path=`${currentUser.id}/${item.ts}-${item.mode}.jpg`;
+      const{error:upErr}=await db.storage.from('amitscan-captures').upload(path,item.blob,{contentType:'image/jpeg'});
+      if(upErr) throw upErr;
+      const{error:insErr}=await db.from('scan_captures').insert({
+        user_id:currentUser.id, mode:item.mode, storage_path:path,
+        captured_at:new Date(item.ts).toISOString()
+      });
+      if(insErr) throw insErr;
+      await deleteQueued(item.id);
+      done++;
+    }catch(e){
+      btn.textContent='Send to Amit →';
+      btn.disabled=false;
+      alert('Stopped after '+done+' of '+items.length+' — '+(e?.message||String(e))+'. What sent is safe; the rest is still queued, try again.');
+      updatePendingCount();
+      return;
+    }
+  }
+  btn.textContent='Send to Amit →';
+  btn.disabled=false;
+  updatePendingCount();
+}
+document.getElementById('sendToAmitBtn').onclick=sendToAmit;
 
 // ── Connect (sign-in) ──
 function refreshConnectUI(){
