@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.64</div>
+    <div class="page-version" id="pageVersion">v1.65</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2196,6 +2196,66 @@ function abApplyWorkflowAutofill(){
   if(rule.action_tag_id) document.getElementById('ab-ib-tag').value=rule.action_tag_id;
 }
 
+// ── AMIT'S EXPENSE CLAIM HELPER — Ryan's direct instruction: when someone
+// isn't sure whether something is deductible, Amit walks them through it
+// in plain language, names the actual IRS concept that applies, and says
+// what a bookkeeper/accountant like Tim would likely flag or ask about.
+// This is Amit Bookkeeper Mode made concrete — not a bolt-on FAQ, a real
+// answer about THIS specific entry. Uses the same Anthropic key as
+// receipt scanning; never files anything, never changes the entry —
+// purely explains, the person still decides and still enters it.
+async function abAskDeductible(vendor,amount,memo,category,tagName){
+  const key=abGetAnthropicKey();
+  if(!key){ abAlert('Add your Anthropic API key first — Books & Setup → Integrations.'); return; }
+  const modal=document.getElementById('abDialogModal');
+  const msgEl=document.getElementById('abDialogMessage');
+  document.getElementById('abDialogInput').style.display='none';
+  document.getElementById('abDialogCancelBtn').style.display='none';
+  const okBtn=document.getElementById('abDialogOkBtn'); okBtn.textContent='OK';
+  okBtn.onclick=()=>{ modal.style.display='none'; };
+  msgEl.innerHTML='🐵 Thinking this through…';
+  modal.style.display='flex';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-5',max_tokens:600,
+        messages:[{role:'user',content:`You are Amit, a plain-language bookkeeping companion for a small-business owner with no accounting background — not their accountant, not giving formal tax advice, just walking them through the question honestly the way a knowledgeable friend would before their real accountant reviews it. They're asking whether this expense is deductible:
+
+Vendor: ${vendor||'(not specified)'}
+Amount: ${amount?abMoney(amount):'(not specified)'}
+Memo/description: ${memo||'(none entered)'}
+Category picked: ${category||'(none picked yet)'}
+Job/Tag: ${tagName||'(none)'}
+
+Answer in 3 short parts, plain sentences, no legal jargon: (1) Your honest read — likely deductible, likely not, or genuinely depends on X. (2) The actual IRS concept that applies (name it plainly — e.g. "ordinary and necessary business expense," "de minimis," "capital expenditure vs. repair," "meals at 50%," whatever's actually relevant — don't invent a citation you're not sure of). (3) What a real bookkeeper/accountant reviewing this would likely ask or flag before signing off. Keep the whole answer under 150 words. This is not formal tax advice and you should say so briefly at the end, one sentence.`}]
+      })
+    });
+    if(!res.ok){ const t=await res.text(); msgEl.innerHTML='Could not reach Anthropic: '+abEsc(t.slice(0,150)); return; }
+    const data=await res.json();
+    const answer=(data.content&&data.content[0]&&data.content[0].text)||'No answer came back.';
+    msgEl.innerHTML=abEsc(answer).replace(/\n/g,'<br>');
+  }catch(e){
+    msgEl.innerHTML='Something went wrong: '+abEsc(e.message);
+  }
+}
+function abAskDeductibleFromForm(){
+  const contactId=document.getElementById('ab-ib-contact')?.value;
+  const contact=contactId?abContacts.find(c=>c.id===contactId):null;
+  const amount=document.getElementById('ab-ib-amount')?.value;
+  const memo=document.getElementById('ab-ib-memo')?.value;
+  const accountId=document.getElementById('ab-ib-account')?.value;
+  const account=accountId?abAccounts.find(a=>a.id===accountId):null;
+  const tagId=document.getElementById('ab-ib-tag')?.value;
+  const tag=tagId?abTags.find(t=>t.id===tagId):null;
+  abAskDeductible(contact?contact.name:'',amount,memo,account?account.account_name:'',tag?tag.name:'');
+}
+function abAskDeductibleFromRow(rowId){
+  const r=abInvoicesBillsCache.find(x=>x.id===rowId); if(!r)return;
+  abAskDeductible(r.contacts?r.contacts.name:'',r.total_amount,r.memo,'','');
+}
+
 // ── INTEGRATIONS — placeholder screen for Payment Processors and OCR
 // engine. Nothing here actually connects to anything yet; this is where
 // those decisions get made and held visibly until real API credentials
@@ -2800,6 +2860,7 @@ function abRenderInvoicesBills(){
       <div class="ab-field"><label>Job/Tag (optional)</label><select id="ab-ib-tag"><option value="">—</option>${abTags.filter(t=>(t.status||'active')==='active').map(t=>`<option value="${t.id}">${abEsc(t.name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Memo (optional)</label><input id="ab-ib-memo" placeholder="e.g. lumber for Job 114"></div>
       <button class="ab-btn" onclick="abAddInvoiceBill()">Save</button>
+      <button class="ab-btn" style="background:transparent;color:var(--gold2)" onclick="abAskDeductibleFromForm()">🤔 Is this deductible?</button>
     </div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick a Scope (e.g. "HVAC"), then set Cost Type to whatever this specific bill actually is — Labor, Material, or Subcontractor. Same Scope, different Cost Type each time, exactly as it happens on a real job.</div>`}
     ${!visual?(()=>{
@@ -2808,8 +2869,8 @@ function abRenderInvoicesBills(){
       const getters={date:r=>r.doc_date||'',type:r=>r.direction==='bill_payable'?'Bill':'Invoice',contact:r=>r.contacts?r.contacts.name:'',amount:r=>Number(r.total_amount)||0,status:r=>r.status||''};
       const sorted=abSmartApply(tk,abInvoicesBillsCache,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{date:'Date',type:'Type',contact:'Contact',amount:'Amount',status:'Status'})}
-      <table class="ab-table"><tr><th style="font-size:11px">Doc #</th>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th><th></th></tr>
-      ${sorted.map(r=>`<tr><td style="font-size:10px;font-family:monospace;color:var(--muted)">${abEsc(r.document_code||'—')}</td><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="8">Nothing entered yet — the pile starts here</td></tr>'}
+      <table class="ab-table"><tr><th style="font-size:11px">Doc #</th>${abSmartTh(tk,'date','Date')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'contact','Contact')}${abSmartTh(tk,'amount','Amount')}${abSmartTh(tk,'status','Status')}<th></th><th></th><th></th></tr>
+      ${sorted.map(r=>`<tr><td style="font-size:10px;font-family:monospace;color:var(--muted)">${abEsc(r.document_code||'—')}</td><td>${r.doc_date||''}</td><td>${r.direction==='bill_payable'?'Bill':'Invoice'}</td><td${r.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${r.contact_id}','${abEsc(r.contacts?r.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(r.contacts?r.contacts.name:'')}</td><td>${abMoney(r.total_amount)}</td><td>${abEsc(r.status)}${r.resolution_status==='pending'?' 🚩':''}</td><td>${r.direction==='invoice_receivable'&&r.status!=='paid'?`<a href="#" onclick="abShowPaymentPlanFor('${r.id}');return false" style="color:var(--gold2);font-size:12px">Payment Plan →</a>`:''}</td><td>${r.receipt_image_path?`<a href="#" onclick="abViewReceiptImage('${r.receipt_image_path}');return false" style="color:var(--gold2);font-size:12px">📎 Receipt</a>`:''}</td><td>${r.direction==='bill_payable'?`<a href="#" onclick="abAskDeductibleFromRow('${r.id}');return false" style="color:var(--gold2);font-size:12px">🤔</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="9">Nothing entered yet — the pile starts here</td></tr>'}
       </table>
       <div id="ab-planpanel"></div>`;
     })():`
