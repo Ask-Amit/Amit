@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.92</div>
+    <div class="page-version" id="pageVersion">v1.93</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -350,7 +350,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 // the "Accounting" framing of.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=19;
+const PLACEHOLDER_COUNT=20;
 
 // ══════════════════════════════════════════════
 // TO-DO CONTENT — the running build list for AmitBooks, panel 3.
@@ -887,9 +887,9 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments & Reconciliation',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory & BOM',13:'Rental Properties',14:'Payroll & HR',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions',19:'Quotes'};
-    const opSubs={1:'Cash position',2:'Accounts, contacts, Scopes, tags, Pipeline, Workflow Rules, Integrations',6:'Money owed, in and out',7:'Payments, bank/CC reconciliation, loan amortization',8:'Equipment & depreciation',9:'P&L, aging, cash flow, job profit, IRS audit view, corporate tax prep, custom reports',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, Bill of Materials, Defects & RMAs',13:'Ownership, components, P&L per property',14:'Payroll, PTO, Benefits & Profit Sharing, IRS/State tax tables, Background Checks',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing',19:'Price it before you book it'};
-    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩',11:'📦',12:'📋',13:'🏠',14:'👷',15:'🚗',16:'🛡️',17:'🤝',18:'📈',19:'📝'};
+    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments & Reconciliation',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory & BOM',13:'Rental Properties',14:'Payroll & HR',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions',19:'Quotes',20:'AmitScan'};
+    const opSubs={1:'Cash position',2:'Accounts, contacts, Scopes, tags, Pipeline, Workflow Rules, Integrations',6:'Money owed, in and out',7:'Payments, bank/CC reconciliation, loan amortization',8:'Equipment & depreciation',9:'P&L, aging, cash flow, job profit, IRS audit view, corporate tax prep, custom reports',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, Bill of Materials, Defects & RMAs',13:'Ownership, components, P&L per property',14:'Payroll, PTO, Benefits & Profit Sharing, IRS/State tax tables, Background Checks',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing',19:'Price it before you book it',20:'Connect your phone, see what came in'};
+    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩',11:'📦',12:'📋',13:'🏠',14:'👷',15:'🚗',16:'🛡️',17:'🤝',18:'📈',19:'📝',20:'📸'};
     const label=opLabels[i]||(i===3?'To Do':i===4?'Full Spec':i===5?'Feature Map':'Placeholder '+i);
     navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
       <div class="tile-icon">${opIcons[i]||(i===3?'📝':i===4?'🔖':i===5?'🗺️':'▢')}</div>
@@ -1033,6 +1033,18 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
       panelHtml+=`<div class="panel" id="panel-19" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
         <div class="ch-tab-main" id="ab-quotes" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===20){
+      const tabs=[['Connect Phone','ab-scan-connect'],['Pending Scans','ab-scan-pending']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(20,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-20-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
+      panelHtml+=`<div class="panel" id="panel-20" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-nav" id="ch-tab-nav-20">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
       </div>`;
     } else if(i===3){
       panelHtml+=`<div class="panel" id="panel-${i}" style="flex-direction:column">
@@ -1366,7 +1378,7 @@ async function abLoadBooks(){
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
   await abLoadWorkflowRules();
-  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderWorkflowRules(); abRenderIntegrations(); abRenderQbImportTab(); abLoadAuditLog();
+  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderWorkflowRules(); abRenderIntegrations(); abRenderQbImportTab(); abLoadAuditLog(); abRenderScanConnect(); abRenderScanPending();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
@@ -2856,11 +2868,82 @@ function abRenderIntegrations(){
       <span id="ab-anthropic-status" style="font-size:12px;color:var(--muted)"></span>
     </div>
 
-    <div class="ab-h" style="font-size:15px;margin-top:28px">AmitScan — Connect Your Phone</div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
-      AmitScan is the field-capture app — point your phone at a bill, receipt, or business card in the moment, review later. Scan the code below with your phone's camera (no app needed to scan it) and it opens AmitScan already signed in as you — no typing, no separate link to look up.
+    <div class="ab-signin-notice" style="text-align:left;margin-top:24px">
+      Connecting your phone to AmitScan, and reviewing what's come in from it, now has its own home — see the <b>AmitScan</b> tab in the left sidebar.
+    </div>`;
+}
+
+// ══════════════════════════════════════════════
+// AmitScan panel (20) — Connect Phone + Pending Scans
+// ══════════════════════════════════════════════
+function abRenderScanConnect(){
+  const el=document.getElementById('ab-scan-connect'); if(!el)return;
+  el.innerHTML=`<div class="ab-h">Connect Your Phone</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:16px">
+      AmitScan is the field-capture app — point your phone at a bill, receipt, or business card in the moment, review what came in later, right here. Tap Connect Scan, then scan the code that appears with your phone's own Camera app (no separate app needed to scan it) — it opens AmitScan already signed in as you, no typing.
     </div>
-    <button class="ab-btn" onclick="abOpenScanConnect()">Connect Scan</button>`;
+    <button class="ab-btn" onclick="abOpenScanConnect()">Connect Scan</button>
+
+    <div class="ab-h" style="font-size:15px;margin-top:32px">Already Have a Scanned File?</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
+      Browsers can't talk directly to a physical scanner or printer driver — there's no general way for a webpage to reach out and operate that hardware. If your scanner already saved a file to this computer (or you have a photo/PDF from anywhere else), pick it here instead and it goes into the same Pending Scans list as a phone capture.
+    </div>
+    <input type="file" id="ab-scan-upload-input" accept="image/*,.pdf" multiple style="display:none" onchange="abUploadScanFiles(this.files)">
+    <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-scan-upload-input').click()">Choose File(s) From This Computer</button>
+    <div id="ab-scan-upload-status" style="font-size:12px;color:var(--muted);margin-top:8px"></div>`;
+}
+
+async function abUploadScanFiles(fileList){
+  const status=document.getElementById('ab-scan-upload-status');
+  if(!currentUser){ status.textContent='Sign in to AmitBooks first.'; return; }
+  const files=Array.from(fileList||[]);
+  if(!files.length) return;
+  let done=0;
+  for(const file of files){
+    status.textContent=`Uploading ${done+1} of ${files.length}...`;
+    try{
+      const path=`${currentUser.id}/${Date.now()}-${abEsc(file.name)}`;
+      const{error:upErr}=await db.storage.from('amitscan-captures').upload(path,file,{contentType:file.type||'application/octet-stream'});
+      if(upErr) throw upErr;
+      const{error:insErr}=await db.from('scan_captures').insert({
+        user_id:currentUser.id, mode:'other', storage_path:path, captured_at:new Date().toISOString()
+      });
+      if(insErr) throw insErr;
+      done++;
+    }catch(e){
+      status.textContent='Stopped after '+done+' of '+files.length+' — '+(e?.message||String(e));
+      abRenderScanPending();
+      return;
+    }
+  }
+  status.textContent=`${done} file(s) added to Pending Scans — tagged "Other," reclassify there once review is built.`;
+  abRenderScanPending();
+}
+
+async function abRenderScanPending(){
+  const el=document.getElementById('ab-scan-pending'); if(!el)return;
+  if(!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in to see what your phone has sent in.</div>'; return; }
+  el.innerHTML='<div class="ab-signin-notice">Loading…</div>';
+  const{data,error}=await db.from('scan_captures').select('id,mode,storage_path,captured_at,reviewed').eq('reviewed',false).order('captured_at',{ascending:false});
+  if(error){ el.innerHTML='<div class="ab-signin-notice">Could not load — '+abEsc(error.message)+'</div>'; return; }
+  if(!data||!data.length){ el.innerHTML='<div class="ab-signin-notice">Nothing pending — anything sent from your phone or uploaded here shows up in this list.</div>'; return; }
+
+  const modeLabel={bill:'Bill',receipt:'Receipt',contact:'Contact',mileage:'Mileage',other:'Other'};
+  const rows=await Promise.all(data.map(async r=>{
+    const{data:signed}=await db.storage.from('amitscan-captures').createSignedUrl(r.storage_path,3600);
+    const thumb=signed?.signedUrl||'';
+    const when=new Date(r.captured_at).toLocaleString();
+    return `<div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:10px">
+      ${thumb?`<img src="${thumb}" style="width:64px;height:64px;object-fit:cover;border-radius:6px;background:#111">`:'<div style="width:64px;height:64px;border-radius:6px;background:#111"></div>'}
+      <div style="flex:1">
+        <div style="font-weight:600">${modeLabel[r.mode]||r.mode}</div>
+        <div style="font-size:12px;color:var(--muted)">${abEsc(when)}</div>
+      </div>
+    </div>`;
+  }));
+  el.innerHTML=`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      ${data.length} waiting. Full review — turning these into real Bills, Contacts, or Mileage entries — is the next build phase; for now this confirms what your phone has sent in.
+    </div>${rows.join('')}`;
 }
 
 // ── AmitScan Connect QR ──
