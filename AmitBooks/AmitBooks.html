@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.75</div>
+    <div class="page-version" id="pageVersion">v1.76</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -5420,6 +5420,28 @@ function abYtdWagesForEmployee(employeeId,taxYear,beforeDate){
     .filter(l=>l.employee_id===employeeId)
     .reduce((s,l)=>s+(Number(l.gross_pay)||0),0);
 }
+// Every active enrollment shows up as its own identified line — the
+// plan's real name, e.g. "401(k) — Fidelity" — even when the amount is
+// $0 because nobody's entered a real contribution value yet. Nothing is
+// guessed or defaulted to a nonzero number; a $0 line still labels
+// exactly what it's for, so the structure is visible and correct the
+// moment real numbers are entered later.
+function abComputeBenefitDeductions(employeeId,grossThisPeriod){
+  return abBenefitEnrollmentsCache.filter(e=>e.employee_id===employeeId&&e.status==='active').map(e=>{
+    const plan=abBenefitPlansCache.find(p=>p.id===e.benefit_plan_id);
+    const label=plan?plan.name:'Benefit';
+    const employeeAmount=e.employee_contribution_type==='percent_of_pay'
+      ?grossThisPeriod*(Number(e.employee_contribution_value)||0)/100
+      :(Number(e.employee_contribution_value)||0);
+    let employerAmount=0;
+    if(plan){
+      if(plan.employer_contribution_type==='flat') employerAmount=Number(plan.employer_contribution_value)||0;
+      else if(plan.employer_contribution_type==='percent_of_pay') employerAmount=grossThisPeriod*(Number(plan.employer_contribution_value)||0)/100;
+      else if(plan.employer_contribution_type==='match_percent') employerAmount=Math.min(employeeAmount,grossThisPeriod*(Number(plan.employer_contribution_value)||0)/100);
+    }
+    return{planId:e.benefit_plan_id,label,planType:plan?plan.plan_type:'other',employeeAmount,employerAmount};
+  });
+}
 function abRenderPayroll(){
   const el=document.getElementById('ab-payroll'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
@@ -5505,13 +5527,16 @@ function abPreviewPayrollCalc(){
   const fica=abComputeFica(emp,gross,taxYear,ytd);
   const state=abComputeStateWithholding(emp,gross,taxYear);
   if(fed===null||fica===null){ el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">No IRS tax table loaded for ${taxYear} — add one on the IRS Tax Tables tab first.</div>`; return; }
-  const net=gross-fed-fica.employeeFica-state.amount;
+  const benefits=abComputeBenefitDeductions(empId,gross);
+  const benefitsTotal=benefits.reduce((s,b)=>s+b.employeeAmount,0);
+  const net=gross-fed-fica.employeeFica-state.amount-benefitsTotal;
   el.innerHTML=`<table class="ab-table" style="max-width:420px"><tr><td>Gross Pay</td><td style="text-align:right">${abMoney(gross)}</td></tr>
     <tr><td>Federal Withholding</td><td style="text-align:right">${abMoney(fed)}</td></tr>
     <tr><td>Social Security (6.2%)</td><td style="text-align:right">${abMoney(fica.ssTax)}</td></tr>
     <tr><td>Medicare (1.45%)</td><td style="text-align:right">${abMoney(fica.medicareTax)}</td></tr>
     ${fica.addlMedicareTax?`<tr><td>Additional Medicare (0.9%)</td><td style="text-align:right">${abMoney(fica.addlMedicareTax)}</td></tr>`:''}
     <tr><td>State Withholding${state.jurisdiction?' ('+abEsc(state.jurisdiction.name)+')':''}</td><td style="text-align:right">${abMoney(state.amount)}</td></tr>
+    ${benefits.map(b=>`<tr><td>${abEsc(b.label)}</td><td style="text-align:right">${abMoney(b.employeeAmount)}</td></tr>`).join('')}
     <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Net Pay</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(net)}</td></tr>
     </table>
     ${state.note?`<div class="ab-signin-notice" style="text-align:left;margin-top:6px;font-size:11px">${abEsc(state.note)}</div>`:''}`;
@@ -5543,10 +5568,12 @@ async function abAddPayrollRun(){
   const fica=abComputeFica(emp,gross_pay,taxYear,ytd);
   const state=abComputeStateWithholding(emp,gross_pay,taxYear);
   if(federal_withholding===null||fica===null){ abAlert(`No IRS tax table loaded for ${taxYear} — add one on the IRS Tax Tables tab first.`); return; }
-  const net_pay=gross_pay-federal_withholding-fica.employeeFica-state.amount;
+  const benefits=abComputeBenefitDeductions(employee_id,gross_pay);
+  const benefitsEmployeeTotal=benefits.reduce((s,b)=>s+b.employeeAmount,0);
+  const net_pay=gross_pay-federal_withholding-fica.employeeFica-state.amount-benefitsEmployeeTotal;
   const{data:run,error}=await db.from('payroll_runs').insert({book_id:abBookId,pay_date,status:'posted'}).select().single();
   if(error){abAlert(error.message);return;}
-  await db.from('payroll_run_lines').insert({payroll_run_id:run.id,employee_id,gross_pay,net_pay,federal_withholding,fica_withholding:fica.employeeFica,state_withholding:state.amount,other_deductions:0});
+  await db.from('payroll_run_lines').insert({payroll_run_id:run.id,employee_id,gross_pay,net_pay,federal_withholding,fica_withholding:fica.employeeFica,state_withholding:state.amount,other_deductions:benefitsEmployeeTotal});
   // Real split entry — employee side: gross expensed, each withholding
   // bucket credited to its own payable (never lumped into one vague
   // "Payroll Liabilities"), net pay out the door. Employer side: the
@@ -5563,6 +5590,16 @@ async function abAddPayrollRun(){
     const statePayableId=await abFindOrCreateAccount(`State Withholding Payable${state.jurisdiction?' - '+state.jurisdiction.state_code:''}`,'liability');
     empLines.push({account_id:statePayableId,debit:0,credit:state.amount});
   }
+  // Each benefit gets its own identified line — the real plan name, even
+  // at $0 — so the structure exists correctly the moment a real
+  // contribution amount is entered. Nothing guessed, nothing defaulted
+  // to a nonzero number.
+  for(const b of benefits){
+    if(b.employeeAmount>0){
+      const benefitPayableId=await abFindOrCreateAccount(`${b.label} Payable`,'liability');
+      empLines.push({account_id:benefitPayableId,debit:0,credit:b.employeeAmount});
+    }
+  }
   empLines.push({account_id:cashId,debit:0,credit:net_pay});
   await abPostJournalEntry(pay_date,`Payroll — ${emp&&emp.contacts?emp.contacts.name:'employee'}`,'payroll_run',run.id,empLines);
 
@@ -5577,6 +5614,18 @@ async function abAddPayrollRun(){
     if(employerFicaMatch>0) erLines.push({account_id:ficaPayableId,debit:0,credit:employerFicaMatch});
     if(futaTax>0) erLines.push({account_id:futaPayableId,debit:0,credit:futaTax});
     await abPostJournalEntry(pay_date,`Employer payroll taxes — ${emp&&emp.contacts?emp.contacts.name:'employee'}`,'payroll_run_employer',run.id,erLines);
+  }
+  const benefitsEmployerTotal=benefits.reduce((s,b)=>s+b.employerAmount,0);
+  if(benefitsEmployerTotal>0){
+    const benefitsExpenseId=await abFindOrCreateAccount('Employee Benefits Expense','expense');
+    const erBenefitLines=[{account_id:benefitsExpenseId,debit:benefitsEmployerTotal,credit:0}];
+    for(const b of benefits){
+      if(b.employerAmount>0){
+        const benefitPayableId=await abFindOrCreateAccount(`${b.label} Payable`,'liability');
+        erBenefitLines.push({account_id:benefitPayableId,debit:0,credit:b.employerAmount});
+      }
+    }
+    await abPostJournalEntry(pay_date,`Employer benefit contributions — ${emp&&emp.contacts?emp.contacts.name:'employee'}`,'payroll_run_benefits',run.id,erBenefitLines);
   }
   document.getElementById('ab-pr-gross').value='';
   document.getElementById('ab-pr-preview').innerHTML='';
