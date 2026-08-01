@@ -1,5 +1,15 @@
 # AmitScan — Field Capture Companion for AmitBooks
 
+## Local Inbox Check — Read First, Every Session (added 2026-08-01, Ryan's direct instruction)
+
+At the start of every session working in this project — and any time Ryan asks something like "check the inbox" or "process what's pending" — check for local processing work waiting on this computer:
+
+1. Confirm the local bridge is actually up: `curl -s -m 3 http://localhost:8710/api/device`. If it doesn't respond, say so plainly and stop — don't assume anything about the inbox until the bridge is confirmed reachable.
+2. Check `C:\Users\user1\AmitInbox` for files (`ls` or `Glob`). Each item sent there from AmitBooks' "Send Selected to Local Processing" button arrives as an image file plus a matching `.json` metadata file (`scan_id`, `mode`, `captured_at`, `filename`, `received_at`).
+3. If files are waiting, don't process them silently in the background — tell Ryan what's there (count, types) and process them with him in the conversation: read each image directly, pull out what's actually on it (vendor, date, amount, whatever the mode calls for), and hold the results in the conversation rather than writing anywhere yet.
+4. **Writing results back into AmitBooks' real tables (`chart_of_accounts`-linked bills, contacts, mileage_log) is not built yet.** That still needs the review/posting logic scoped in the original AmitScan design conversation (vendor-history autofill, PO lookup, Payment Source, cross-book liability). Until that exists, the honest output of processing an inbox item is: the extracted data, told to Ryan directly, not a database write. Only write directly to Supabase using the service-role key if Ryan explicitly asks for that in the moment — never as a default/automatic action, per the Single Local Connection Standard's reasoning about that key (root CLAUDE.md).
+5. This check only happens because a Claude Code session reads this file at start — there's no background process watching the folder between sessions. If Ryan wants genuine periodic re-checking *within* an already-open session (not prompting each time), that's a live `ScheduleWakeup` loop set up in that session, not something this file can do on its own.
+
 **This is not a standalone Amit project.** AmitScan is part of AmitBooks — it has no life outside the accounting system. Do not create a top-level path-table entry for it, do not give it its own Pursuit Attribution, and read `AmitBooks\CLAUDE.md` first for anything not answered here; that file is the real authority for this folder's context, database access, and identity carry-forward. This file only tracks what's specific to the capture app itself.
 
 ## What This Is
