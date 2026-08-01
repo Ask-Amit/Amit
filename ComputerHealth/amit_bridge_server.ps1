@@ -767,28 +767,34 @@ try {
             }
             "/api/device" { Send-Json $response @{ deviceId = $deviceId; deviceName = $deviceName } }
             "/scan" {
-                # AmitBooks/AmitScan - "Scan from this computer" (2026-08-01).
-                # WIA (Windows Image Acquisition) is the real, built-in Windows
-                # API for talking to a connected scanner/printer's scan
-                # function - this is what lets a plain PowerShell process
-                # (already running as this bridge, no new install) drive real
-                # hardware a browser alone could never reach. ShowAcquireImage
-                # pops the native Windows "Scan a Document" dialog - device
-                # picker if more than one scanner exists, then the actual scan.
-                # First real pass - WIA driver behavior varies by scanner
-                # manufacturer, so treat this as needing verification against
-                # Ryan's actual connected hardware, not assumed correct.
+                # AmitBooks/AmitScan - "Scan from this computer" (2026-08-01,
+                # rewritten same day after live testing on Ryan's machine).
+                #
+                # First version used WIA.CommonDialog.ShowAcquireImage(),
+                # which pops Windows' native "Scan a Document" UI dialog -
+                # that version connected fine but the dialog itself never
+                # actually appeared on screen. Real cause: even with this
+                # runspace pool correctly set to STA (required for WIA COM
+                # objects), a background thread handling an HTTP request has
+                # no active Windows message loop - a modal dialog can get
+                # created without one ever actually pumping/painting it, so
+                # it just sits invisible while the call blocks waiting for a
+                # user interaction that can never happen.
+                #
+                # Fix: skip the interactive dialog entirely and drive WIA
+                # headlessly - pick the real scanner from DeviceManager
+                # (Type=1) and call Transfer() directly on its scan item, no
+                # window involved at all, nothing that needs a message pump.
                 try {
                     $wiaFormatJPEG = "{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}"
-                    $dialog = New-Object -ComObject WIA.CommonDialog
-                    # DeviceType=1 (scanner), Intent/Bias=null (device default),
-                    # FormatID=JPEG, AlwaysSelectDevice=true (device picker if
-                    # more than one), UseCommonUI=true (native scan dialog),
-                    # CancelError=false (cancel returns $null, not a thrown error).
-                    $image = $dialog.ShowAcquireImage(1, $null, $null, $wiaFormatJPEG, $true, $true, $false)
-                    if ($null -eq $image) {
-                        Send-Json $response @{ error = "No scan received - cancelled, or no scanner found." } 400
+                    $deviceManager = New-Object -ComObject WIA.DeviceManager
+                    $scannerInfo = $deviceManager.DeviceInfos | Where-Object { $_.Type -eq 1 } | Select-Object -First 1
+                    if ($null -eq $scannerInfo) {
+                        Send-Json $response @{ error = "No scanner found - check it's connected and powered on." } 400
                     } else {
+                        $device = $scannerInfo.Connect()
+                        $scanItem = $device.Items.Item(1)
+                        $image = $scanItem.Transfer($wiaFormatJPEG)
                         $tempPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "amitscan_" + [guid]::NewGuid().ToString() + ".jpg")
                         $image.SaveFile($tempPath)
                         $bytes = [System.IO.File]::ReadAllBytes($tempPath)
