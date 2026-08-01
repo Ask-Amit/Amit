@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.78</div>
+    <div class="page-version" id="pageVersion">v1.79</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -4028,8 +4028,9 @@ function abRenderReports(){
       <span class="${abReportsView==='custom'?'on':''}" onclick="abSetReportsView('custom')">Custom Report</span>
       <span class="${abReportsView==='irsaudit'?'on':''}" onclick="abSetReportsView('irsaudit')">IRS Audit View</span>
       <span class="${abReportsView==='corptax'?'on':''}" onclick="abSetReportsView('corptax')">Corporate Tax Prep</span>
+      <span class="${abReportsView==='companybudget'?'on':''}" onclick="abSetReportsView('companybudget')">Company Budget</span>
     </div>
-    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():abReportsView==='custom'?abRenderCustomReport():abReportsView==='irsaudit'?abRenderIrsAuditView():abReportsView==='corptax'?abRenderCorpTaxPrep():`
+    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():abReportsView==='custom'?abRenderCustomReport():abReportsView==='irsaudit'?abRenderIrsAuditView():abReportsView==='corptax'?abRenderCorpTaxPrep():abReportsView==='companybudget'?abRenderCompanyBudget():`
     ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
       <div>
@@ -4081,7 +4082,11 @@ function abRenderReports(){
   window._abLastBS={assets,liabilities,equity,totalAssets,totalLiabilities,totalEquity,netIncome};
 }
 let abReportsView='summary';
-function abSetReportsView(v){ abReportsView=v; abRenderReports(); }
+function abSetReportsView(v){
+  abReportsView=v;
+  if(v==='companybudget'){ abLoadCompanyBudget().then(abRenderReports); return; }
+  abRenderReports();
+}
 function abRenderARAPAging(){
   const today=new Date();
   const bucket=(dueDateStr)=>{
@@ -4461,6 +4466,102 @@ function abPrintPreviewCorpTax(){
   d.unmapped.forEach(r=>out.push({line:'—',label:'(Unmapped) '+r.account.account_name,amount:abMoney(r.net)}));
   abPrintPreview(d.map.formName,[{key:'line',label:'Line'},{key:'label',label:'Description'},{key:'amount',label:'Amount',num:true}],out);
 }
+
+// ══════════════════════════════════════════════
+// COMPANY BUDGET — the same Budget/Actual/%Complete/Forecast mechanic as
+// the Job Cost Budget, generalized to the whole company: keyed by Chart
+// of Accounts category × fiscal year instead of Scope × Job. A company
+// budget is ongoing, not project-finishable, so % Complete here
+// defaults to "% of the fiscal year elapsed so far" (still fully
+// editable) rather than requiring a cold-start manual guess — that
+// default is just a starting point, not a forced assumption.
+// ══════════════════════════════════════════════
+let abCompanyBudgetYear=new Date().getFullYear();
+let abCompanyBudgetLinesCache=[];
+async function abLoadCompanyBudget(){
+  const{data}=await db.from('company_budget_lines').select('*,chart_of_accounts(account_name,account_type)').eq('book_id',abBookId).eq('budget_year',abCompanyBudgetYear);
+  abCompanyBudgetLinesCache=data||[];
+}
+function abPctOfYearElapsed(year){
+  const now=new Date();
+  if(year<now.getFullYear())return 100;
+  if(year>now.getFullYear())return 0;
+  const start=new Date(year,0,1), end=new Date(year+1,0,1);
+  return Math.round(((now-start)/(end-start))*100);
+}
+function abRenderCompanyBudget(){
+  const yearNow=new Date().getFullYear();
+  const jan1=`${abCompanyBudgetYear}-01-01`, dec31=`${abCompanyBudgetYear}-12-31`;
+  const balances=abAccountBalancesInRange(jan1,dec31);
+  const actualFor=accountId=>{ const r=balances.find(b=>b.account.id===accountId); return r?r.net:0; };
+  const yearElapsedPct=abPctOfYearElapsed(abCompanyBudgetYear);
+  const rows=abCompanyBudgetLinesCache.map(l=>{
+    const actual=actualFor(l.account_id);
+    const pct=l.pct_complete!=null?Number(l.pct_complete):yearElapsedPct;
+    const forecast=pct===0?Number(l.budgeted_amount):(actual/(pct/100));
+    return{...l,actual,pct,forecast,variance:forecast-Number(l.budgeted_amount)};
+  });
+  const totalBudget=rows.reduce((s,r)=>s+Number(r.budgeted_amount),0);
+  const totalActual=rows.reduce((s,r)=>s+r.actual,0);
+  const totalForecast=rows.reduce((s,r)=>s+r.forecast,0);
+  const totalVariance=totalForecast-totalBudget;
+  window._abLastCompanyBudget={rows,totalBudget,totalActual,totalForecast,totalVariance,year:abCompanyBudgetYear};
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Same idea as a Job Budget, applied to the whole company: set what you expect to spend/earn per account for the year, track real actuals against it, and see a forecast at year-end. Since a company doesn't "finish" like a job does, % Complete defaults to how much of the fiscal year has elapsed (${yearElapsedPct}% so far for ${abCompanyBudgetYear}) — fully editable per line if a category runs ahead or behind the calendar.
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
+      <span style="font-size:12px">Fiscal Year:</span>
+      <select onchange="abCompanyBudgetYear=parseInt(this.value);abLoadCompanyBudget().then(abRenderReports)">${[yearNow-1,yearNow,yearNow+1].map(y=>`<option value="${y}"${y===abCompanyBudgetYear?' selected':''}>${y}</option>`).join('')}</select>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="ab-card"><div class="n">${abMoney(totalBudget)}</div><div class="l">Total Budget</div></div>
+      <div class="ab-card"><div class="n">${abMoney(totalActual)}</div><div class="l">Actual to Date</div></div>
+      <div class="ab-card"><div class="n" style="${totalVariance>0?'color:#f0a8a8':totalVariance<0?'color:#8fd19e':''}">${abMoney(totalForecast)}</div><div class="l">Forecast at Year-End</div></div>
+      <div class="ab-card"><div class="n" style="${totalVariance>0?'color:#f0a8a8':totalVariance<0?'color:#8fd19e':''}">${totalVariance>0?'+':''}${abMoney(totalVariance)}</div><div class="l">Projected Variance</div></div>
+    </div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Account</label><select id="ab-cb-account">${abAccounts.map(a=>`<option value="${a.id}">${abEsc(a.account_name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Budgeted Amount</label><input id="ab-cb-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddCompanyBudgetLine()">Add Budget Line</button>
+    </div>
+    <table class="ab-table"><tr><th>Account</th><th style="text-align:right">Budget</th><th style="text-align:right">Actual</th><th style="text-align:right">% Complete</th><th style="text-align:right">Forecast</th><th style="text-align:right">Variance</th><th></th></tr>
+    ${rows.map(r=>`<tr>
+      <td>${abEsc(r.chart_of_accounts?.account_name||'')}</td>
+      <td style="text-align:right">${abMoney(r.budgeted_amount)}</td>
+      <td style="text-align:right">${abMoney(r.actual)}</td>
+      <td style="text-align:right"><input type="number" min="0" max="100" step="1" value="${r.pct}" style="width:55px;text-align:right" onchange="abUpdateCompanyBudgetPct('${r.id}',this.value)">%</td>
+      <td style="text-align:right">${abMoney(r.forecast)}</td>
+      <td style="text-align:right;${r.variance>0.01?'color:#f0a8a8':r.variance<-0.01?'color:#8fd19e':''}">${r.variance>0?'+':''}${abMoney(r.variance)}</td>
+      <td><a href="#" onclick="abRemoveCompanyBudgetLine('${r.id}');return false" style="color:var(--muted)">✕</a></td>
+    </tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No budget lines yet for '+abCompanyBudgetYear+' — add one per account above</td></tr>'}
+    </table>
+    <div style="margin-top:12px"><button class="ab-btn" onclick="abPrintPreviewCompanyBudget()">🖨 Print Preview</button></div>`;
+}
+async function abAddCompanyBudgetLine(){
+  const account_id=document.getElementById('ab-cb-account').value; if(!account_id){abAlert('Pick an account.');return;}
+  const budgeted_amount=parseFloat(document.getElementById('ab-cb-amount').value)||0;
+  const{error}=await db.from('company_budget_lines').insert({book_id:abBookId,budget_year:abCompanyBudgetYear,account_id,budgeted_amount});
+  if(error){abAlert(error.message.includes('duplicate')?'This account already has a budget line for '+abCompanyBudgetYear+' — edit its amount instead of adding a second one.':error.message);return;}
+  document.getElementById('ab-cb-amount').value='';
+  await abLoadCompanyBudget(); abRenderReports();
+}
+async function abUpdateCompanyBudgetPct(lineId,value){
+  const pct=Math.max(0,Math.min(100,parseFloat(value)||0));
+  await db.from('company_budget_lines').update({pct_complete:pct}).eq('id',lineId);
+  await abLoadCompanyBudget(); abRenderReports();
+}
+async function abRemoveCompanyBudgetLine(lineId){
+  await db.from('company_budget_lines').delete().eq('id',lineId);
+  await abLoadCompanyBudget(); abRenderReports();
+}
+function abPrintPreviewCompanyBudget(){
+  const d=window._abLastCompanyBudget; if(!d)return;
+  abPrintPreview(`Company Budget — ${d.year}`,
+    [{key:'account',label:'Account'},{key:'budget',label:'Budget',num:true},{key:'actual',label:'Actual',num:true},{key:'pct',label:'% Complete'},{key:'forecast',label:'Forecast',num:true},{key:'variance',label:'Variance',num:true}],
+    d.rows.map(r=>({account:r.chart_of_accounts?.account_name||'',budget:abMoney(r.budgeted_amount),actual:abMoney(r.actual),pct:r.pct+'%',forecast:abMoney(r.forecast),variance:abMoney(r.variance)}))
+  );
+}
+
 // ══════════════════════════════════════════════
 // PRINT PREVIEW — a real, standalone, self-contained window (not just
 // window.print() on the live app) so the printed copy can be sorted and
