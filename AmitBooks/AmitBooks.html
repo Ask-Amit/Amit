@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.76</div>
+    <div class="page-version" id="pageVersion">v1.77</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -876,8 +876,8 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
   const main=document.getElementById('mainArea');
   let navHtml='',panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory',13:'Rental Properties',14:'Payroll',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions',19:'Quotes'};
-    const opSubs={1:'Cash position',2:'Chart of accounts, contacts, items, tags',6:'Money owed, in and out',7:'Record what came in or went out',8:'Equipment & depreciation',9:'AR/AP summary, trial balance',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, every movement',13:'Ownership, components, P&L per property',14:'Employees, pay runs, withholding',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing',19:'Price it before you book it'};
+    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments & Reconciliation',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory & BOM',13:'Rental Properties',14:'Payroll & HR',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions',19:'Quotes'};
+    const opSubs={1:'Cash position',2:'Accounts, contacts, Scopes, tags, Pipeline, Workflow Rules, Integrations',6:'Money owed, in and out',7:'Payments, bank/CC reconciliation, loan amortization',8:'Equipment & depreciation',9:'P&L, aging, cash flow, job profit, IRS audit view, corporate tax prep, custom reports',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, Bill of Materials, Defects & RMAs',13:'Ownership, components, P&L per property',14:'Payroll, PTO, Benefits & Profit Sharing, IRS/State tax tables, Background Checks',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing',19:'Price it before you book it'};
     const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩',11:'📦',12:'📋',13:'🏠',14:'👷',15:'🚗',16:'🛡️',17:'🤝',18:'📈',19:'📝'};
     const label=opLabels[i]||(i===3?'To Do':i===4?'Full Spec':i===5?'Feature Map':'Placeholder '+i);
     navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
@@ -5322,10 +5322,10 @@ async function abAddPropertyOwner(propertyId){
 // ══════════════════════════════════════════════
 let abEmployeesCache=[],abPayrollRunsCache=[],abPayrollTaxYearsCache=[],abPayrollTaxBracketsCache=[];
 let abStateJurisdictionsCache=[],abTaxJurisdictionBracketsCache=[];
-let abPtoRequestsCache=[],abBenefitPlansCache=[],abBenefitEnrollmentsCache=[],abProfitSharingCache=[];
+let abPtoRequestsCache=[],abBenefitPlansCache=[],abBenefitEnrollmentsCache=[],abProfitSharingCache=[],abAllBenefitPlanTiersCache=[];
 async function abLoadPayroll(){
   if(!abBookId){abEmployeesCache=[];abPayrollRunsCache=[];return;}
-  const[{data:emp},{data:runs},{data:years},{data:brackets},{data:jurisdictions},{data:jbrackets},{data:pto},{data:plans},{data:enroll},{data:profit}]=await Promise.all([
+  const[{data:emp},{data:runs},{data:years},{data:brackets},{data:jurisdictions},{data:jbrackets},{data:pto},{data:plans},{data:enroll},{data:profit},{data:alltiers}]=await Promise.all([
     db.from('employees').select('*,contacts(name)').eq('book_id',abBookId),
     db.from('payroll_runs').select('*,payroll_run_lines(*,employees(contacts(name)))').eq('book_id',abBookId).order('pay_date',{ascending:false}),
     db.from('payroll_tax_years').select('*').order('tax_year',{ascending:false}),
@@ -5335,7 +5335,8 @@ async function abLoadPayroll(){
     db.from('pto_requests').select('*,employees(contacts(name))').eq('book_id',abBookId).order('start_date',{ascending:false}),
     db.from('benefit_plans').select('*').eq('book_id',abBookId),
     db.from('benefit_enrollments').select('*,employees(contacts(name)),benefit_plans(name,plan_type)').eq('book_id',abBookId),
-    db.from('profit_sharing_distributions').select('*,employees(contacts(name))').eq('book_id',abBookId).order('distribution_date',{ascending:false})
+    db.from('profit_sharing_distributions').select('*,employees(contacts(name))').eq('book_id',abBookId).order('distribution_date',{ascending:false}),
+    db.from('benefit_plan_tiers').select('*,benefit_plans!inner(book_id)').eq('benefit_plans.book_id',abBookId)
   ]);
   abEmployeesCache=emp||[];
   abPayrollRunsCache=runs||[];
@@ -5347,6 +5348,7 @@ async function abLoadPayroll(){
   abBenefitPlansCache=plans||[];
   abBenefitEnrollmentsCache=enroll||[];
   abProfitSharingCache=profit||[];
+  abAllBenefitPlanTiersCache=alltiers||[];
   abRenderPayroll();
   abRenderTaxTables();
   abRenderJurisdictions();
@@ -5426,18 +5428,29 @@ function abYtdWagesForEmployee(employeeId,taxYear,beforeDate){
 // guessed or defaulted to a nonzero number; a $0 line still labels
 // exactly what it's for, so the structure is visible and correct the
 // moment real numbers are entered later.
-function abComputeBenefitDeductions(employeeId,grossThisPeriod){
+function abComputeBenefitDeductions(employeeId,grossThisPeriod,employee){
+  const periodsPerYear=employee?(AB_PAY_PERIODS_PER_YEAR[employee.pay_frequency||'biweekly']||26):26;
   return abBenefitEnrollmentsCache.filter(e=>e.employee_id===employeeId&&e.status==='active').map(e=>{
     const plan=abBenefitPlansCache.find(p=>p.id===e.benefit_plan_id);
     const label=plan?plan.name:'Benefit';
-    const employeeAmount=e.employee_contribution_type==='percent_of_pay'
-      ?grossThisPeriod*(Number(e.employee_contribution_value)||0)/100
-      :(Number(e.employee_contribution_value)||0);
-    let employerAmount=0;
-    if(plan){
-      if(plan.employer_contribution_type==='flat') employerAmount=Number(plan.employer_contribution_value)||0;
-      else if(plan.employer_contribution_type==='percent_of_pay') employerAmount=grossThisPeriod*(Number(plan.employer_contribution_value)||0)/100;
-      else if(plan.employer_contribution_type==='match_percent') employerAmount=Math.min(employeeAmount,grossThisPeriod*(Number(plan.employer_contribution_value)||0)/100);
+    // A tier's numbers are real monthly premiums — converted to this
+    // employee's actual pay frequency (12 months/year ÷ periods/year)
+    // rather than assumed to already match the pay period.
+    let employeeAmount,employerAmount=0;
+    if(e.benefit_plan_tier_id){
+      const tier=abAllBenefitPlanTiersCache.find(t=>t.id===e.benefit_plan_tier_id);
+      const monthsPerPeriod=12/periodsPerYear;
+      employeeAmount=tier?Number(tier.employee_pays)*monthsPerPeriod:0;
+      employerAmount=tier?Number(tier.employer_pays)*monthsPerPeriod:0;
+    }else{
+      employeeAmount=e.employee_contribution_type==='percent_of_pay'
+        ?grossThisPeriod*(Number(e.employee_contribution_value)||0)/100
+        :(Number(e.employee_contribution_value)||0);
+      if(plan){
+        if(plan.employer_contribution_type==='flat') employerAmount=Number(plan.employer_contribution_value)||0;
+        else if(plan.employer_contribution_type==='percent_of_pay') employerAmount=grossThisPeriod*(Number(plan.employer_contribution_value)||0)/100;
+        else if(plan.employer_contribution_type==='match_percent') employerAmount=Math.min(employeeAmount,grossThisPeriod*(Number(plan.employer_contribution_value)||0)/100);
+      }
     }
     return{planId:e.benefit_plan_id,label,planType:plan?plan.plan_type:'other',employeeAmount,employerAmount};
   });
@@ -5527,7 +5540,7 @@ function abPreviewPayrollCalc(){
   const fica=abComputeFica(emp,gross,taxYear,ytd);
   const state=abComputeStateWithholding(emp,gross,taxYear);
   if(fed===null||fica===null){ el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">No IRS tax table loaded for ${taxYear} — add one on the IRS Tax Tables tab first.</div>`; return; }
-  const benefits=abComputeBenefitDeductions(empId,gross);
+  const benefits=abComputeBenefitDeductions(empId,gross,emp);
   const benefitsTotal=benefits.reduce((s,b)=>s+b.employeeAmount,0);
   const net=gross-fed-fica.employeeFica-state.amount-benefitsTotal;
   el.innerHTML=`<table class="ab-table" style="max-width:420px"><tr><td>Gross Pay</td><td style="text-align:right">${abMoney(gross)}</td></tr>
@@ -5568,7 +5581,7 @@ async function abAddPayrollRun(){
   const fica=abComputeFica(emp,gross_pay,taxYear,ytd);
   const state=abComputeStateWithholding(emp,gross_pay,taxYear);
   if(federal_withholding===null||fica===null){ abAlert(`No IRS tax table loaded for ${taxYear} — add one on the IRS Tax Tables tab first.`); return; }
-  const benefits=abComputeBenefitDeductions(employee_id,gross_pay);
+  const benefits=abComputeBenefitDeductions(employee_id,gross_pay,emp);
   const benefitsEmployeeTotal=benefits.reduce((s,b)=>s+b.employeeAmount,0);
   const net_pay=gross_pay-federal_withholding-fica.employeeFica-state.amount-benefitsEmployeeTotal;
   const{data:run,error}=await db.from('payroll_runs').insert({book_id:abBookId,pay_date,status:'posted'}).select().single();
@@ -5712,6 +5725,7 @@ function abRenderJurisdictions(){
 // approved hours actually reduce the balance — not a disconnected log.
 // ══════════════════════════════════════════════
 const AB_PTO_STATUSES=[['pending','Pending'],['approved','Approved'],['denied','Denied'],['taken','Taken']];
+const AB_PTO_TYPE_LABELS={vacation:'Vacation',sick:'Sick',personal:'Personal Day',holiday:'Holiday',bereavement:'Bereavement',jury_duty:'Jury Duty',parental_leave:'Parental/Family Leave',unpaid:'Unpaid',other:'Other'};
 function abRenderPto(){
   const el=document.getElementById('ab-pto'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
@@ -5727,14 +5741,14 @@ function abRenderPto(){
     <div class="ab-h" style="margin-top:20px">Request Time Off</div>
     <div class="ab-form">
       <div class="ab-field"><label>Employee</label><select id="ab-pto-emp">${abEmployeesCache.map(e=>`<option value="${e.id}">${abEsc(e.contacts?e.contacts.name:'')}</option>`).join('')||'<option value="">Add an employee first</option>'}</select></div>
-      <div class="ab-field"><label>Type</label><select id="ab-pto-type"><option value="vacation">Vacation</option><option value="sick">Sick</option><option value="unpaid">Unpaid</option><option value="other">Other</option></select></div>
+      <div class="ab-field"><label>Type</label><select id="ab-pto-type"><option value="vacation">Vacation</option><option value="sick">Sick</option><option value="personal">Personal Day</option><option value="holiday">Holiday</option><option value="bereavement">Bereavement</option><option value="jury_duty">Jury Duty</option><option value="parental_leave">Parental/Family Leave</option><option value="unpaid">Unpaid</option><option value="other">Other</option></select></div>
       <div class="ab-field"><label>Start</label><input id="ab-pto-start" type="date"></div>
       <div class="ab-field"><label>End</label><input id="ab-pto-end" type="date"></div>
       <div class="ab-field"><label>Hours</label><input id="ab-pto-hours" type="number" step="0.5" style="width:80px" value="8"></div>
       <button class="ab-btn" onclick="abAddPtoRequest()">Submit Request</button>
     </div>
     <table class="ab-table"><tr><th>Employee</th><th>Type</th><th>Dates</th><th style="text-align:right">Hours</th><th>Status</th><th></th></tr>
-    ${abPtoRequestsCache.map(r=>`<tr><td>${abEsc(r.employees?.contacts?.name||'')}</td><td>${abEsc(r.request_type)}</td><td style="font-size:12px">${r.start_date} – ${r.end_date}</td><td style="text-align:right">${r.hours_requested}</td><td>${abEsc(AB_PTO_STATUSES.find(s=>s[0]===r.status)?.[1]||r.status)}</td><td>${r.status==='pending'?`<a href="#" onclick="abDecidePto('${r.id}','approved')" style="color:#8fd19e;font-size:12px">Approve</a> <a href="#" onclick="abDecidePto('${r.id}','denied')" style="color:#f0a8a8;font-size:12px">Deny</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No requests yet</td></tr>'}
+    ${abPtoRequestsCache.map(r=>`<tr><td>${abEsc(r.employees?.contacts?.name||'')}</td><td>${abEsc(AB_PTO_TYPE_LABELS[r.request_type]||r.request_type)}</td><td style="font-size:12px">${r.start_date} – ${r.end_date}</td><td style="text-align:right">${r.hours_requested}</td><td>${abEsc(AB_PTO_STATUSES.find(s=>s[0]===r.status)?.[1]||r.status)}</td><td>${r.status==='pending'?`<a href="#" onclick="abDecidePto('${r.id}','approved')" style="color:#8fd19e;font-size:12px">Approve</a> <a href="#" onclick="abDecidePto('${r.id}','denied')" style="color:#f0a8a8;font-size:12px">Deny</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No requests yet</td></tr>'}
     </table>`;
 }
 function abEditPtoAccrual(employeeId){
@@ -5801,12 +5815,15 @@ function abRenderBenefits(){
       <div class="ab-field"><label>Plan Name</label><input id="ab-plan-name" placeholder="e.g. Blue Cross PPO"></div>
       <div class="ab-field"><label>Type</label><select id="ab-plan-type">${Object.entries(AB_BENEFIT_TYPE_LABELS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Provider</label><input id="ab-plan-provider" placeholder="optional"></div>
+      <div class="ab-field"><label>Carrier</label><input id="ab-plan-carrier" placeholder="e.g. Blue Cross" style="width:120px"></div>
+      <div class="ab-field"><label>Group #</label><input id="ab-plan-groupnum" placeholder="optional" style="width:100px"></div>
+      <div class="ab-field"><label>Plan Year</label><input id="ab-plan-year" type="number" style="width:70px" value="${new Date().getFullYear()}"></div>
       <div class="ab-field"><label>Employer Contribution</label><select id="ab-plan-erctype"><option value="none">None</option><option value="flat">Flat $</option><option value="percent_of_pay">% of Pay</option><option value="match_percent">% Match</option></select></div>
       <div class="ab-field"><label>Value</label><input id="ab-plan-ercvalue" type="number" step="0.01" style="width:80px" value="0"></div>
       <button class="ab-btn" onclick="abAddBenefitPlan()">Add Plan</button>
     </div>
-    <table class="ab-table"><tr><th>Plan</th><th>Type</th><th>Provider</th><th>Employer Contribution</th><th></th></tr>
-    ${abBenefitPlansCache.map(p=>`<tr><td>${abEsc(p.name)}</td><td>${abEsc(AB_BENEFIT_TYPE_LABELS[p.plan_type]||p.plan_type)}</td><td style="font-size:12px">${abEsc(p.provider||'—')}</td><td style="font-size:12px">${p.employer_contribution_type&&p.employer_contribution_type!=='none'?`${p.employer_contribution_value}${p.employer_contribution_type==='flat'?' $/period':'%'}`:'—'}</td><td><a href="#" onclick="abShowEnrollments('${p.id}');return false" style="color:var(--gold2);font-size:12px">Enrollments →</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No benefit plans yet</td></tr>'}
+    <table class="ab-table"><tr><th>Plan</th><th>Type</th><th>Carrier / Group #</th><th>Employer Contribution</th><th></th></tr>
+    ${abBenefitPlansCache.map(p=>`<tr><td>${abEsc(p.name)}</td><td>${abEsc(AB_BENEFIT_TYPE_LABELS[p.plan_type]||p.plan_type)}</td><td style="font-size:12px">${abEsc(p.carrier_name||'—')}${p.group_number?' — Grp '+abEsc(p.group_number):''}</td><td style="font-size:12px">${p.employer_contribution_type&&p.employer_contribution_type!=='none'?`${p.employer_contribution_value}${p.employer_contribution_type==='flat'?' $/period':'%'}`:'—'}</td><td><a href="#" onclick="abShowEnrollments('${p.id}');return false" style="color:var(--gold2);font-size:12px">Enrollments &amp; Tiers →</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No benefit plans yet</td></tr>'}
     </table>
     <div id="ab-enrollments-panel"></div>
 
@@ -5827,36 +5844,73 @@ async function abAddBenefitPlan(){
   const name=document.getElementById('ab-plan-name').value.trim(); if(!name)return;
   const plan_type=document.getElementById('ab-plan-type').value;
   const provider=document.getElementById('ab-plan-provider').value.trim()||null;
+  const carrier_name=document.getElementById('ab-plan-carrier').value.trim()||null;
+  const group_number=document.getElementById('ab-plan-groupnum').value.trim()||null;
+  const plan_year=parseInt(document.getElementById('ab-plan-year').value)||null;
   const employer_contribution_type=document.getElementById('ab-plan-erctype').value;
   const employer_contribution_value=parseFloat(document.getElementById('ab-plan-ercvalue').value)||0;
-  const{error}=await db.from('benefit_plans').insert({book_id:abBookId,name,plan_type,provider,employer_contribution_type,employer_contribution_value});
+  const{error}=await db.from('benefit_plans').insert({book_id:abBookId,name,plan_type,provider,carrier_name,group_number,plan_year,employer_contribution_type,employer_contribution_value});
   if(error){abAlert(error.message);return;}
   document.getElementById('ab-plan-name').value='';
   await abLoadPayroll();
 }
-function abShowEnrollments(planId){
+let abBenefitPlanTiersCache=[];
+async function abLoadBenefitTiers(planId){
+  const{data}=await db.from('benefit_plan_tiers').select('*').eq('benefit_plan_id',planId).order('created_at',{ascending:true});
+  abBenefitPlanTiersCache=data||[];
+}
+async function abShowEnrollments(planId){
   const plan=abBenefitPlansCache.find(p=>p.id===planId); if(!plan)return;
+  await abLoadBenefitTiers(planId);
   const enrolled=abBenefitEnrollmentsCache.filter(e=>e.benefit_plan_id===planId);
   const el=document.getElementById('ab-enrollments-panel');
-  el.innerHTML=`<div class="ab-h" style="margin-top:14px;font-size:15px">Enrollments — ${abEsc(plan.name)}</div>
+  el.innerHTML=`<div class="ab-h" style="margin-top:14px;font-size:15px">Coverage Tiers — ${abEsc(plan.name)}</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:8px">Real insurance premiums, split employer/employee — e.g. "Employee Only" $400/mo (employer pays $350, employee pays $50). Enrollments pick one of these instead of a hand-typed number.</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Tier Name</label><input id="ab-tier-name" placeholder="e.g. Employee Only" style="width:140px"></div>
+      <div class="ab-field"><label>Monthly Premium</label><input id="ab-tier-premium" type="number" step="0.01" style="width:90px" value="0"></div>
+      <div class="ab-field"><label>Employer Pays/mo</label><input id="ab-tier-erpays" type="number" step="0.01" style="width:90px" value="0"></div>
+      <div class="ab-field"><label>Employee Pays/mo</label><input id="ab-tier-eepays" type="number" step="0.01" style="width:90px" value="0"></div>
+      <button class="ab-btn" onclick="abAddBenefitTier('${planId}')">Add Tier</button>
+    </div>
+    <table class="ab-table"><tr><th>Tier</th><th style="text-align:right">Monthly Premium</th><th style="text-align:right">Employer/mo</th><th style="text-align:right">Employee/mo</th></tr>
+    ${abBenefitPlanTiersCache.map(t=>`<tr><td>${abEsc(t.tier_name)}</td><td style="text-align:right">${abMoney(t.monthly_premium)}</td><td style="text-align:right">${abMoney(t.employer_pays)}</td><td style="text-align:right">${abMoney(t.employee_pays)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No tiers yet — enrollments below fall back to a flat/percent amount instead</td></tr>'}
+    </table>
+
+    <div class="ab-h" style="margin-top:14px;font-size:15px">Enrollments — ${abEsc(plan.name)}</div>
     <div class="ab-form">
       <div class="ab-field"><label>Employee</label><select id="ab-enroll-emp">${abEmployeesCache.map(e=>`<option value="${e.id}">${abEsc(e.contacts?e.contacts.name:'')}</option>`).join('')||'<option value="">Add an employee first</option>'}</select></div>
-      <div class="ab-field"><label>Employee Contribution</label><select id="ab-enroll-type"><option value="flat">Flat $ / period</option><option value="percent_of_pay">% of Pay</option></select></div>
+      ${abBenefitPlanTiersCache.length?`<div class="ab-field"><label>Coverage Tier</label><select id="ab-enroll-tier"><option value="">— use flat/percent instead —</option>${abBenefitPlanTiersCache.map(t=>`<option value="${t.id}">${abEsc(t.tier_name)} (${abMoney(t.employee_pays)}/mo employee)</option>`).join('')}</select></div>`:''}
+      <div class="ab-field"><label>Employee Contribution (if no tier)</label><select id="ab-enroll-type"><option value="flat">Flat $ / period</option><option value="percent_of_pay">% of Pay</option></select></div>
       <div class="ab-field"><label>Value</label><input id="ab-enroll-value" type="number" step="0.01" style="width:80px" value="0"></div>
       <button class="ab-btn" onclick="abAddEnrollment('${planId}')">Enroll</button>
     </div>
-    <table class="ab-table"><tr><th>Employee</th><th>Contribution</th><th>Status</th></tr>
-    ${enrolled.map(e=>`<tr><td>${abEsc(e.employees?.contacts?.name||'')}</td><td style="font-size:12px">${e.employee_contribution_value}${e.employee_contribution_type==='flat'?' $/period':'%'}</td><td>${abEsc(e.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">Nobody enrolled yet</td></tr>'}
+    <table class="ab-table"><tr><th>Employee</th><th>Coverage</th><th>Contribution</th><th>Status</th></tr>
+    ${enrolled.map(e=>{
+      const tier=e.benefit_plan_tier_id?abBenefitPlanTiersCache.find(t=>t.id===e.benefit_plan_tier_id):null;
+      return `<tr><td>${abEsc(e.employees?.contacts?.name||'')}</td><td style="font-size:12px">${tier?abEsc(tier.tier_name):'—'}</td><td style="font-size:12px">${tier?abMoney(tier.employee_pays)+'/mo':e.employee_contribution_value+(e.employee_contribution_type==='flat'?' $/period':'%')}</td><td>${abEsc(e.status)}</td></tr>`;
+    }).join('')||'<tr><td class="ab-empty" colspan="4">Nobody enrolled yet</td></tr>'}
     </table>`;
+}
+async function abAddBenefitTier(planId){
+  const tier_name=document.getElementById('ab-tier-name').value.trim(); if(!tier_name){abAlert('Name the tier.');return;}
+  const monthly_premium=parseFloat(document.getElementById('ab-tier-premium').value)||0;
+  const employer_pays=parseFloat(document.getElementById('ab-tier-erpays').value)||0;
+  const employee_pays=parseFloat(document.getElementById('ab-tier-eepays').value)||0;
+  const{error}=await db.from('benefit_plan_tiers').insert({benefit_plan_id:planId,tier_name,monthly_premium,employer_pays,employee_pays});
+  if(error){abAlert(error.message);return;}
+  await abShowEnrollments(planId);
 }
 async function abAddEnrollment(planId){
   const employee_id=document.getElementById('ab-enroll-emp').value; if(!employee_id){abAlert('Add an employee first.');return;}
+  const tierEl=document.getElementById('ab-enroll-tier');
+  const benefit_plan_tier_id=tierEl&&tierEl.value?tierEl.value:null;
   const employee_contribution_type=document.getElementById('ab-enroll-type').value;
   const employee_contribution_value=parseFloat(document.getElementById('ab-enroll-value').value)||0;
-  const{error}=await db.from('benefit_enrollments').insert({book_id:abBookId,employee_id,benefit_plan_id:planId,employee_contribution_type,employee_contribution_value});
+  const{error}=await db.from('benefit_enrollments').insert({book_id:abBookId,employee_id,benefit_plan_id:planId,benefit_plan_tier_id,employee_contribution_type,employee_contribution_value});
   if(error){abAlert(error.message);return;}
   await abLoadPayroll();
-  abShowEnrollments(planId);
+  await abShowEnrollments(planId);
 }
 async function abAddProfitSharing(){
   const employee_id=document.getElementById('ab-ps-emp').value; if(!employee_id){abAlert('Add an employee first.');return;}
