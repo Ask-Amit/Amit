@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.77</div>
+    <div class="page-version" id="pageVersion">v1.78</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2298,12 +2298,13 @@ function abRenderTags(){
       const getters={name:t=>t.name||'',type:t=>t.tag_type||'',client:t=>abContactName(t.contact_id)||'',address:t=>t.address||'',status:t=>t.status||'active'};
       const sorted=abSmartApply(tk,shown,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'Type',client:'Client',address:'Address',status:'Status'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'client','Client')}${abSmartTh(tk,'address','Address')}${abSmartTh(tk,'status','Status')}<th></th><th></th><th></th></tr>
-      ${sorted.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td${t.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${t.contact_id}','${abEsc(abContactName(t.contact_id)||'')}')" title="Double-click to open this contact"`:''}>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Quotes →</a></td><td><a href="#" onclick="abShowMilestonesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Milestones →</a></td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="8">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Type')}${abSmartTh(tk,'client','Client')}${abSmartTh(tk,'address','Address')}${abSmartTh(tk,'status','Status')}<th></th><th></th><th></th><th></th></tr>
+      ${sorted.map(t=>`<tr><td>${abEsc(t.name)}</td><td>${abEsc(t.tag_type)}</td><td${t.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${t.contact_id}','${abEsc(abContactName(t.contact_id)||'')}')" title="Double-click to open this contact"`:''}>${abEsc(abContactName(t.contact_id)||'—')}</td><td style="font-size:12px">${abEsc(t.address||'—')}</td><td>${abEsc(t.status||'active')}</td><td><a href="#" onclick="abShowEstimatesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Quotes →</a></td><td><a href="#" onclick="abShowMilestonesFor('${t.id}');return false" style="color:var(--gold2);font-size:12px">Milestones →</a></td><td>${t.tag_type==='job'?`<a href="#" onclick="abShowJobBudget('${t.id}');return false" style="color:var(--gold2);font-size:12px">Budget →</a>`:''}</td><td><a href="#" onclick="abToggleTagStatus('${t.id}','${(t.status||'active')==='active'?'complete':'active'}');return false" style="color:var(--muted);font-size:12px">${(t.status||'active')==='active'?'Mark Complete':'Reopen'}</a></td></tr>`).join('')||`<tr><td class="ab-empty" colspan="9">${abTagStatusFilter==='active'?'No active jobs/projects':'Nothing here'}</td></tr>`}
       </table>`;
     })()}
     <div id="ab-estimates-panel"></div>
-    <div id="ab-milestones-panel"></div>`;
+    <div id="ab-milestones-panel"></div>
+    <div id="ab-jobbudget-panel"></div>`;
 }
 async function abAddTag(){
   const name=document.getElementById('ab-tag-name').value.trim(); if(!name)return;
@@ -2796,6 +2797,83 @@ async function abBillMilestone(id){
   abRenderReports();
   abShowMilestonesFor(abMilestonesTagId);
   abAlert('Billed — the new invoice is now on the Bills & Invoices tab.');
+}
+
+// ══════════════════════════════════════════════
+// JOB COST BUDGET — Budget vs. Actual by Scope, with a real earned-value
+// forecast at completion. Actual-to-date is always computed live from
+// invoice_bill_lines (never stored redundantly, never stale). Forecast
+// logic, per Ryan's exact spec: 0% complete means "nothing done yet, the
+// full budgeted amount is still expected" → forecast = budget. Above 0%,
+// forecast = actual ÷ (% complete) — real earned value. The more Scope
+// lines a budget is broken into, each with its own honest % complete,
+// the more accurate the summed job forecast is — that's why this lives
+// at the line level and rolls up, not one blanket number per job.
+// ══════════════════════════════════════════════
+let abJobBudgetTagId=null;
+async function abShowJobBudget(tagId){
+  abJobBudgetTagId=tagId;
+  const tag=abTags.find(t=>t.id===tagId);
+  const{data}=await db.from('job_budget_lines').select('*,items(name)').eq('tag_id',tagId).order('created_at',{ascending:true});
+  const lines=data||[];
+  const el=document.getElementById('ab-jobbudget-panel'); if(!el)return;
+  const actualFor=itemId=>abInvoiceBillLinesCache.filter(l=>l.tag_id===tagId&&l.item_id===itemId&&l.invoices_bills&&l.invoices_bills.status!=='void').reduce((s,l)=>s+Number(l.amount||0),0);
+  const rows=lines.map(l=>{
+    const actual=actualFor(l.item_id);
+    const pct=Number(l.pct_complete)||0;
+    const forecast=pct===0?Number(l.budgeted_amount):(actual/(pct/100));
+    return{...l,actual,pct,forecast,remaining:Math.max(0,forecast-actual),variance:forecast-Number(l.budgeted_amount)};
+  });
+  const totalBudget=rows.reduce((s,r)=>s+Number(r.budgeted_amount),0);
+  const totalActual=rows.reduce((s,r)=>s+r.actual,0);
+  const totalForecast=rows.reduce((s,r)=>s+r.forecast,0);
+  const totalVariance=totalForecast-totalBudget;
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+    <div class="ab-h">Job Cost Budget — ${abEsc(tag?tag.name:'')}</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
+      Set a budget per Scope, enter real % Physically Complete as work happens (0% = nothing spent yet, full budget still expected). Forecast at Completion = Actual ÷ % Complete once work has started — the standard earned-value formula. More Scope lines, each with an honest % complete, means a more accurate total forecast.
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="ab-card"><div class="n">${abMoney(totalBudget)}</div><div class="l">Total Budget</div></div>
+      <div class="ab-card"><div class="n">${abMoney(totalActual)}</div><div class="l">Actual to Date</div></div>
+      <div class="ab-card"><div class="n" style="${totalVariance>0?'color:#f0a8a8':totalVariance<0?'color:#8fd19e':''}">${abMoney(totalForecast)}</div><div class="l">Forecast at Completion</div></div>
+      <div class="ab-card"><div class="n" style="${totalVariance>0?'color:#f0a8a8':totalVariance<0?'color:#8fd19e':''}">${totalVariance>0?'+':''}${abMoney(totalVariance)}</div><div class="l">Projected Variance</div></div>
+    </div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Scope</label><select id="ab-jb-item">${abItems.map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')||'<option value="">Add a Scope first</option>'}</select></div>
+      <div class="ab-field"><label>Budgeted Amount</label><input id="ab-jb-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
+      <button class="ab-btn" onclick="abAddJobBudgetLine()">Add Budget Line</button>
+    </div>
+    <table class="ab-table"><tr><th>Scope</th><th style="text-align:right">Budget</th><th style="text-align:right">Actual</th><th style="text-align:right">% Complete</th><th style="text-align:right">Remaining</th><th style="text-align:right">Forecast</th><th style="text-align:right">Variance</th><th></th></tr>
+    ${rows.map(r=>`<tr>
+      <td>${abEsc(r.items?.name||'')}</td>
+      <td style="text-align:right">${abMoney(r.budgeted_amount)}</td>
+      <td style="text-align:right">${abMoney(r.actual)}</td>
+      <td style="text-align:right"><input type="number" min="0" max="100" step="1" value="${r.pct}" style="width:55px;text-align:right" onchange="abUpdateJobBudgetPct('${r.id}',this.value)">%</td>
+      <td style="text-align:right">${abMoney(r.remaining)}</td>
+      <td style="text-align:right">${abMoney(r.forecast)}</td>
+      <td style="text-align:right;${r.variance>0.01?'color:#f0a8a8':r.variance<-0.01?'color:#8fd19e':''}">${r.variance>0?'+':''}${abMoney(r.variance)}</td>
+      <td><a href="#" onclick="abRemoveJobBudgetLine('${r.id}');return false" style="color:var(--muted)">✕</a></td>
+    </tr>`).join('')||'<tr><td class="ab-empty" colspan="8">No budget lines yet — add one per Scope above</td></tr>'}
+    </table>
+  </div>`;
+}
+async function abAddJobBudgetLine(){
+  const item_id=document.getElementById('ab-jb-item').value; if(!item_id){abAlert('Pick a Scope.');return;}
+  const budgeted_amount=parseFloat(document.getElementById('ab-jb-amount').value)||0;
+  const{error}=await db.from('job_budget_lines').insert({book_id:abBookId,tag_id:abJobBudgetTagId,item_id,budgeted_amount});
+  if(error){abAlert(error.message.includes('duplicate')?'This Scope already has a budget line for this job — edit its amount instead of adding a second one.':error.message);return;}
+  document.getElementById('ab-jb-amount').value='';
+  abShowJobBudget(abJobBudgetTagId);
+}
+async function abUpdateJobBudgetPct(lineId,value){
+  const pct=Math.max(0,Math.min(100,parseFloat(value)||0));
+  await db.from('job_budget_lines').update({pct_complete:pct}).eq('id',lineId);
+  abShowJobBudget(abJobBudgetTagId);
+}
+async function abRemoveJobBudgetLine(lineId){
+  await db.from('job_budget_lines').delete().eq('id',lineId);
+  abShowJobBudget(abJobBudgetTagId);
 }
 
 // ── PAYMENT PLANS — item #14, customer financing on receivables. Splits
