@@ -12,7 +12,7 @@ A small, single-screen PWA meant to install as a home-screen icon on a phone —
 
 ## Current Status
 
-**v1 shell built 2026-08-01 — capture-only, not yet wired to AmitBooks' data.** Built: six-mode toggle (front-end tagging only), camera capture via `getUserMedia`, a drag-to-crop step (corner handles + move, mapped from rendered pixels to full-resolution canvas coordinates before export), a local IndexedDB queue that kept captures land in, a queue counter, and an independent magic-link sign-in (own `emailRedirectTo`, same Supabase auth as every other Amit app — this one is deliberately NOT dependent on the Hub session, since it's meant to be opened cold on a phone that may never have visited the Hub).
+**v1.00, built 2026-08-01 — capture-only, not yet wired to AmitBooks' data.** Own independent version badge (bottom-left of the bottom bar), tracked separately per the per-file versioning standard — not tied to AmitBooks.html's own number. Built: six-mode toggle (front-end tagging only), camera capture via `getUserMedia`, a drag-to-crop step (corner handles + move, mapped from rendered pixels to full-resolution canvas coordinates before export), a local IndexedDB queue that kept captures land in, a queue counter, and an independent magic-link sign-in (own `emailRedirectTo`, same Supabase auth as every other Amit app — this one is deliberately NOT dependent on the Hub session, since it's meant to be opened cold on a phone that may never have visited the Hub).
 
 **Not yet built:**
 - Syncing the local IndexedDB queue up to Supabase (the actual "Publish" step).
