@@ -143,6 +143,37 @@
     position:absolute;top:10px;right:14px;background:none;border:none;
     color:var(--dim);font-size:20px;cursor:pointer;width:auto;padding:0;
   }
+
+  /* Install prompt (first successful sign-in) */
+  #installModal{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+    align-items:center;justify-content:center;z-index:60;padding:20px;
+  }
+  #installModal .box{
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px 20px;width:100%;max-width:340px;
+  }
+  #installModal h3{margin:0 0 6px;font-size:16px;color:var(--gold);}
+  #installModal p{margin:0 0 14px;font-size:12.5px;color:var(--dim);line-height:1.5;}
+  #installSteps{list-style:none;margin:0 0 16px;padding:0;}
+  #installSteps li{
+    display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--text);
+    margin-bottom:12px;line-height:1.4;
+  }
+  #installSteps .num{
+    flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--gold);
+    color:#1a1206;font-size:12px;font-weight:700;display:flex;align-items:center;
+    justify-content:center;
+  }
+  #installSteps .ic{font-size:16px;}
+  #installBtn{
+    width:100%;padding:12px 0;border-radius:8px;border:none;background:var(--gold);
+    color:#1a1206;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px;
+  }
+  #installSkip{
+    width:100%;padding:10px 0;border-radius:8px;border:1px solid var(--line);
+    background:transparent;color:var(--dim);font-size:12.5px;cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -173,7 +204,7 @@
   </div>
 
   <div id="bottombar">
-    <div id="pageVersion">v1.00</div>
+    <div id="pageVersion">v1.01</div>
     <div id="shutter"></div>
     <div id="reviewLink"><b id="reviewCount">0</b>waiting</div>
   </div>
@@ -194,6 +225,16 @@
     <input id="connectEmail" type="email" placeholder="you@email.com" autocomplete="email">
     <button id="connectSend">Send sign-in link</button>
     <div id="connectStatus"></div>
+  </div>
+</div>
+
+<div id="installModal">
+  <div class="box">
+    <h3>You're connected ✓</h3>
+    <p id="installIntro">Save AmitScan to your home screen so it opens like a real app — one tap, camera ready, no browser bar.</p>
+    <ol id="installSteps"></ol>
+    <button id="installBtn" style="display:none">Add to Home Screen</button>
+    <button id="installSkip">Not now</button>
   </div>
 </div>
 
@@ -432,13 +473,74 @@ async function initAuth(){
   const{data}=await db.auth.getSession();
   currentUser=data?.session?.user||null;
   refreshConnectUI();
-  db.auth.onAuthStateChange((_evt,session)=>{
+  db.auth.onAuthStateChange((evt,session)=>{
     currentUser=session?.user||null;
     refreshConnectUI();
-    if(currentUser) document.getElementById('connectModal').style.display='none';
+    if(currentUser){
+      document.getElementById('connectModal').style.display='none';
+      // SIGNED_IN fires on a fresh sign-in this load (email link or QR
+      // link) — this is the moment to offer saving to the home screen.
+      // A restored existing session (already-installed, reopened normally)
+      // fires a different path and never reaches here.
+      if(evt==='SIGNED_IN') maybeShowInstallPrompt();
+    }
   });
 }
 initAuth();
+
+// ── First-connection "save to home screen" prompt ──
+// iOS gives websites no way to trigger Add to Home Screen programmatically
+// — that's an Apple platform restriction, not something we can build
+// around — so iPhone gets a clear guided walkthrough instead. Android/
+// Chrome DOES expose a real one-tap install via beforeinstallprompt, so
+// that path gets an actual working button.
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+});
+function isStandalone(){
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+}
+function isIOS(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+}
+function maybeShowInstallPrompt(){
+  if(isStandalone()) return; // already installed and running as the app — nothing to do
+  if(localStorage.getItem('as_install_prompted')) return; // only offer this once per device
+  const steps=document.getElementById('installSteps');
+  const btn=document.getElementById('installBtn');
+  const intro=document.getElementById('installIntro');
+
+  if(deferredInstallPrompt){
+    intro.textContent='Save AmitScan to your home screen so it opens like a real app — one tap, camera ready, no browser bar.';
+    steps.innerHTML='';
+    btn.style.display='block';
+    btn.onclick=async()=>{
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt=null;
+      closeInstallModal();
+    };
+  }else if(isIOS()){
+    intro.textContent='Save AmitScan to your home screen — Apple only allows this two-tap manual way, there\'s no one-button install on iPhone:';
+    btn.style.display='none';
+    steps.innerHTML=`
+      <li><span class="num">1</span><span><span class="ic">⬆️</span> Tap the <b>Share</b> icon at the bottom of Safari</span></li>
+      <li><span class="num">2</span>Scroll down and tap <b>Add to Home Screen</b></li>
+      <li><span class="num">3</span>Tap <b>Add</b> in the top right</li>`;
+  }else{
+    intro.textContent='Bookmark this page so you can find AmitScan again quickly.';
+    btn.style.display='none';
+    steps.innerHTML='';
+  }
+  document.getElementById('installModal').style.display='flex';
+  localStorage.setItem('as_install_prompted','1');
+}
+document.getElementById('installSkip').onclick=closeInstallModal;
+function closeInstallModal(){
+  document.getElementById('installModal').style.display='none';
+}
 
 // ── PWA install ──
 if('serviceWorker' in navigator){
