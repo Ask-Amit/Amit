@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AmitBooks</title>
 <link rel="icon" type="image/png" href="../amit_icon.png">
+<link rel="manifest" href="./manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.12"></script>
@@ -249,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.68</div>
+    <div class="page-version" id="pageVersion">v1.69</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -5743,6 +5744,29 @@ openPanel=function(n){
   if(n===18 && abBookId){ abLoadInvestments(); abLoadSubscriptions(); }
   if(n===19 && abBookId) abLoadQuotes();
 };
+
+// ── OFFLINE (PWA) — installs the service worker (sw.js) that caches the
+// app shell + the last-synced read data, so AmitBooks still loads and
+// shows what was last seen with zero connection. A small banner appears
+// only while actually offline — invisible the rest of the time.
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+}
+function abUpdateOfflineBanner(){
+  let banner=document.getElementById('ab-offline-banner');
+  if(!navigator.onLine){
+    if(!banner){
+      banner=document.createElement('div');
+      banner.id='ab-offline-banner';
+      banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;background:#5a3a1a;color:#f0e0c0;text-align:center;font-size:12px;padding:6px;';
+      banner.textContent='📡 Offline — showing the last data that was synced. New entries will need a connection to save.';
+      document.body.prepend(banner);
+    }
+  } else if(banner){ banner.remove(); }
+}
+window.addEventListener('online',abUpdateOfflineBanner);
+window.addEventListener('offline',abUpdateOfflineBanner);
+abUpdateOfflineBanner();
 
 abInit();
 </script>
