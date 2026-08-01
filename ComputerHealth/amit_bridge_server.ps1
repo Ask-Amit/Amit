@@ -794,6 +794,22 @@ try {
                     } else {
                         $device = $scannerInfo.Connect()
                         $scanItem = $device.Items.Item(1)
+                        # Cap resolution before scanning - without this the
+                        # device uses its own default, which on a real
+                        # document scanner (unlike a phone photo) is often
+                        # 300+ DPI, producing a multi-megabyte image that's
+                        # slow to scan, slow to transfer over localhost, slow
+                        # to upload, and slow to load as a thumbnail later.
+                        # 150 DPI is still plenty readable for a bill/receipt.
+                        # WIA property IDs 6147/6148 = horizontal/vertical
+                        # DPI - wrapped in try/catch since not every
+                        # scanner/driver exposes them the same way; falls
+                        # back to device default rather than failing the
+                        # whole scan if this specific device doesn't.
+                        try {
+                            $scanItem.Properties.Item("6147").Value = 150
+                            $scanItem.Properties.Item("6148").Value = 150
+                        } catch { }
                         $image = $scanItem.Transfer($wiaFormatJPEG)
                         $tempPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "amitscan_" + [guid]::NewGuid().ToString() + ".jpg")
                         $image.SaveFile($tempPath)
