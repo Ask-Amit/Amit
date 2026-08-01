@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.69</div>
+    <div class="page-version" id="pageVersion">v1.70</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -949,9 +949,16 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-pos" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===12){
+      const tabs=[['Inventory','ab-inventory'],['Bill of Materials','ab-bom']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(12,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-12-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
       panelHtml+=`<div class="panel" id="panel-12" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="ch-tab-main" id="ab-inventory" style="margin:24px;">Loading…</div>
+        <div class="ch-tab-nav" id="ch-tab-nav-12">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
       </div>`;
     } else if(i===13){
       panelHtml+=`<div class="panel" id="panel-13" style="flex-direction:column">
@@ -1915,13 +1922,98 @@ function abRoleTags(c){
 }
 let abContactFilter='all';
 function abSetContactFilter(f){ abContactFilter=f; abRenderContacts(); }
+// ══════════════════════════════════════════════
+// SSN VAULT — client-side, zero-knowledge encryption for Social Security
+// Numbers, same model already used for account/routing numbers: the
+// server (Supabase) only ever stores ciphertext + a non-secret salt/iv,
+// never a plaintext SSN, never the passphrase itself. AES-256-GCM, key
+// derived via PBKDF2 (200,000 iterations) from a passphrase the book
+// owner sets once and shares with whoever needs SSN access.
+//
+// Honest scope of this V1: it's KNOWLEDGE-gated (whoever has the
+// passphrase can decrypt), not full per-admin RSA key-wrapping tied to
+// the role system the original spec described. Real per-admin wrapping
+// (each admin has their own keypair, the data key gets rewrapped for
+// each one) is a genuinely larger project — documented as still open,
+// not silently skipped. If the passphrase is lost, the data is
+// permanently unrecoverable — that is the correct behavior for real
+// zero-knowledge encryption, not a bug to fix later.
+// ══════════════════════════════════════════════
+let abVaultKey=null; // CryptoKey, in-memory only, cleared on reload — never persisted anywhere
+function abB64FromBuf(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function abBufFromB64(b64){ const bin=atob(b64); const arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); return arr; }
+async function abDeriveVaultKey(passphrase,saltB64){
+  const enc=new TextEncoder();
+  const keyMaterial=await crypto.subtle.importKey('raw',enc.encode(passphrase),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2',salt:abBufFromB64(saltB64),iterations:200000,hash:'SHA-256'},
+    keyMaterial,{name:'AES-GCM',length:256},false,['encrypt','decrypt']
+  );
+}
+function abIsVaultUnlocked(){ return !!abVaultKey; }
+async function abUnlockVault(){
+  const book=abBooks.find(b=>b.id===abBookId); if(!book)return false;
+  let salt=book.vault_salt;
+  if(!salt){
+    // First time this book has ever used the vault — generate a real
+    // random salt (not secret, safe to store) and save it once.
+    if(!await abConfirm('No SSN vault has been set up for this book yet. Set one up now? You\'ll choose a passphrase — write it down somewhere safe. If it\'s lost, anything encrypted with it is permanently unrecoverable. Nobody, including Ryan, can reset it.')) return false;
+    salt=abB64FromBuf(crypto.getRandomValues(new Uint8Array(16)));
+    const{error}=await db.from('books').update({vault_salt:salt}).eq('id',abBookId);
+    if(error){ abAlert(error.message); return false; }
+    book.vault_salt=salt;
+  }
+  const pass=await abPrompt('Enter the vault passphrase to view or enter SSNs:');
+  if(!pass) return false;
+  try{
+    abVaultKey=await abDeriveVaultKey(pass,salt);
+    return true;
+  }catch(e){ abAlert('Could not unlock the vault: '+e.message); return false; }
+}
+function abLockVault(){ abVaultKey=null; abRenderContacts(); }
+async function abEncryptSSN(plaintext){
+  if(!abVaultKey) throw new Error('Vault is locked.');
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const enc=new TextEncoder();
+  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv},abVaultKey,enc.encode(plaintext));
+  return{ssn_encrypted:abB64FromBuf(ciphertext),ssn_iv:abB64FromBuf(iv)};
+}
+async function abDecryptSSN(ciphertextB64,ivB64){
+  if(!abVaultKey) throw new Error('Vault is locked.');
+  const plainBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv:abBufFromB64(ivB64)},abVaultKey,abBufFromB64(ciphertextB64));
+  return new TextDecoder().decode(plainBuf);
+}
+async function abToggleVaultLock(){
+  if(abIsVaultUnlocked()){ abLockVault(); }
+  else{ if(await abUnlockVault()) abRenderContacts(); }
+}
+async function abViewDecryptedSSN(contactId){
+  const c=abContacts.find(x=>x.id===contactId); if(!c||!c.ssn_encrypted)return;
+  if(!abIsVaultUnlocked()){ if(!await abUnlockVault())return; }
+  try{
+    const plain=await abDecryptSSN(c.ssn_encrypted,c.ssn_iv);
+    await abAlert(`SSN for ${c.name}: ${plain}\n\nThis is shown once and not left on screen — close this and it's gone.`);
+  }catch(e){ abAlert('Could not decrypt — wrong passphrase, or this vault was set up with a different one.'); }
+}
+async function abSetContactSSN(contactId){
+  if(!abIsVaultUnlocked()){ if(!await abUnlockVault())return; }
+  const ssn=await abPrompt('Enter the SSN to encrypt and store:');
+  if(!ssn)return;
+  try{
+    const{ssn_encrypted,ssn_iv}=await abEncryptSSN(ssn.trim());
+    const{error}=await db.from('contacts').update({ssn_encrypted,ssn_iv}).eq('id',contactId);
+    if(error){abAlert(error.message);return;}
+    await abLoadContacts(); abRenderContacts();
+  }catch(e){ abAlert('Could not encrypt: '+e.message); }
+}
 function abRenderContacts(){
   const el=document.getElementById('ab-contacts'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   const filters=[['all','All'],['is_customer','Customers'],['is_vendor','Vendors'],['is_employee','Employees'],['is_contractor_1099','1099s']];
   const shown = abContactFilter==='all' ? abContacts : abContacts.filter(c=>c[abContactFilter]);
   const visual=abIsVisual('contacts');
-  el.innerHTML=`<div class="ab-h">Contacts <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span><input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''"></div>
+  el.innerHTML=`<div class="ab-h">Contacts <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:${abIsVaultUnlocked()?'#8fd19e':'var(--muted)'}" onclick="abToggleVaultLock()">${abIsVaultUnlocked()?'🔓 SSN Vault Unlocked':'🔒 SSN Vault Locked'}</span><input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''"></div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">SSNs are encrypted client-side (AES-256-GCM) before they ever leave this browser — the database never sees a plaintext SSN. A vault passphrase gates viewing/setting them; if it's ever lost, encrypted SSNs are permanently unrecoverable by design — that's real zero-knowledge encryption, not a limitation to fix.</div>
     ${abVisualSwitch('contacts','abRenderContacts')}
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
       ${filters.map(f=>`<button class="ab-btn" style="${abContactFilter===f[0]?'':'background:transparent;color:var(--muted)'}" onclick="abSetContactFilter('${f[0]}')">${f[1]} ${f[0]==='all'?'('+abContacts.length+')':'('+abContacts.filter(c=>c[f[0]]).length+')'}</button>`).join('')}
@@ -1948,8 +2040,8 @@ function abRenderContacts(){
       const getters={name:c=>c.name,roles:c=>['is_customer','is_vendor','is_employee','is_contractor_1099'].filter(k=>c[k]).join(' ')};
       const sorted=abSmartApply(tk,shown,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',roles:'Roles'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}</tr>
-      ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td></tr>`).join('')||`<tr><td class="ab-empty" colspan="2">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}<th>SSN</th></tr>
+      ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td></tr>`).join('')||`<tr><td class="ab-empty" colspan="3">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
@@ -4824,6 +4916,84 @@ async function abAddInventoryMove(){
   await abLoadInventory();
 }
 
+// ══════════════════════════════════════════════
+// BILL OF MATERIALS — a finished Scope/Item built from component Items in
+// known quantities, with cost rolling up from each component's own unit
+// price. Generic enough for a construction assembly, a real manufacturing
+// BOM, or any "this is made of these other things" case — not scoped to
+// one industry, since the underlying shape (parent item, child items,
+// quantities, cost rollup) is the same regardless.
+// ══════════════════════════════════════════════
+let abBomCache=[];
+let abBomLinesCache=[];
+async function abLoadBom(){
+  if(!abBookId){abBomCache=[];abBomLinesCache=[];return;}
+  const{data:boms}=await db.from('bill_of_materials').select('*,items(name)').eq('book_id',abBookId);
+  abBomCache=boms||[];
+  const bomIds=abBomCache.map(b=>b.id);
+  if(bomIds.length){
+    const{data:lines}=await db.from('bom_lines').select('*,items(name,unit_price)').in('bom_id',bomIds);
+    abBomLinesCache=lines||[];
+  } else abBomLinesCache=[];
+  abRenderBom();
+}
+function abBomRolledCost(bomId){
+  return abBomLinesCache.filter(l=>l.bom_id===bomId).reduce((s,l)=>s+(Number(l.quantity)||0)*(Number(l.items?.unit_price)||0),0);
+}
+function abRenderBom(){
+  const el=document.getElementById('ab-bom'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Bill of Materials</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Build a finished Scope/Item out of component Items in known quantities — cost rolls up automatically from each component's Price (set on the Scopes tab). Works for a construction assembly or a real manufacturing BOM alike.
+    </div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Finished Item</label><select id="ab-bom-finished"><option value="">—</option>${abItems.map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')||'<option value="">Add a Scope first</option>'}</select></div>
+      <div class="ab-field"><label>BOM Name (optional)</label><input id="ab-bom-name" placeholder="e.g. Standard Assembly"></div>
+      <button class="ab-btn" onclick="abAddBom()">Create BOM</button>
+    </div>
+    <table class="ab-table"><tr><th>Finished Item</th><th>Name</th><th style="text-align:right">Rolled-Up Cost</th><th></th></tr>
+    ${abBomCache.map(b=>`<tr><td>${abEsc(b.items?.name||'')}</td><td>${abEsc(b.name||'—')}</td><td style="text-align:right">${abMoney(abBomRolledCost(b.id))}</td><td><a href="#" onclick="abShowBomLines('${b.id}');return false" style="color:var(--gold2);font-size:12px">Components →</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No Bills of Materials yet</td></tr>'}
+    </table>
+    <div id="ab-bom-lines-panel"></div>`;
+}
+async function abAddBom(){
+  const finishedId=document.getElementById('ab-bom-finished').value; if(!finishedId){abAlert('Pick a finished Item first.');return;}
+  const name=document.getElementById('ab-bom-name').value.trim()||null;
+  const{error}=await db.from('bill_of_materials').insert({book_id:abBookId,finished_item_id:finishedId,name});
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-bom-name').value='';
+  await abLoadBom();
+}
+function abShowBomLines(bomId){
+  const bom=abBomCache.find(b=>b.id===bomId); if(!bom)return;
+  const lines=abBomLinesCache.filter(l=>l.bom_id===bomId);
+  const el=document.getElementById('ab-bom-lines-panel');
+  el.innerHTML=`<div class="ab-h" style="margin-top:20px;font-size:15px">Components — ${abEsc(bom.items?.name||'')}${bom.name?' ('+abEsc(bom.name)+')':''}</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Component Item</label><select id="ab-bomline-item">${abItems.filter(i=>i.id!==bom.finished_item_id).map(i=>`<option value="${i.id}">${abEsc(i.name)}</option>`).join('')||'<option value="">Add more Scopes first</option>'}</select></div>
+      <div class="ab-field"><label>Quantity</label><input id="ab-bomline-qty" type="number" step="0.0001" style="width:90px" value="1"></div>
+      <button class="ab-btn" onclick="abAddBomLine('${bomId}')">Add Component</button>
+    </div>
+    <table class="ab-table"><tr><th>Component</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Line Cost</th><th></th></tr>
+    ${lines.map(l=>`<tr><td>${abEsc(l.items?.name||'')}</td><td style="text-align:right">${l.quantity}</td><td style="text-align:right">${abMoney(l.items?.unit_price||0)}</td><td style="text-align:right">${abMoney((Number(l.quantity)||0)*(Number(l.items?.unit_price)||0))}</td><td><a href="#" onclick="abRemoveBomLine('${l.id}','${bomId}');return false" style="color:var(--muted)">✕</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No components added yet</td></tr>'}
+    <tr><td style="font-weight:700" colspan="3">Total Rolled-Up Cost</td><td style="text-align:right;font-weight:700">${abMoney(abBomRolledCost(bomId))}</td><td></td></tr>
+    </table>`;
+}
+async function abAddBomLine(bomId){
+  const componentId=document.getElementById('ab-bomline-item').value; if(!componentId){abAlert('Pick a component.');return;}
+  const quantity=parseFloat(document.getElementById('ab-bomline-qty').value)||1;
+  const{error}=await db.from('bom_lines').insert({bom_id:bomId,component_item_id:componentId,quantity});
+  if(error){abAlert(error.message);return;}
+  await abLoadBom();
+  abShowBomLines(bomId);
+}
+async function abRemoveBomLine(lineId,bomId){
+  await db.from('bom_lines').delete().eq('id',lineId);
+  await abLoadBom();
+  abShowBomLines(bomId);
+}
+
 // ── RENTAL PROPERTIES — ownership can be shared (percentage-based);
 // component-level depreciation reuses fixed_assets (property_id +
 // component_name) rather than a parallel table. ──
@@ -5735,7 +5905,7 @@ openPanel=function(n){
   if(n===7 && abBookId){ abRenderPayments(); abLoadBankStatementLines(); abLoadLoans(); }
   if(n===10 && abBookId){ abRenderFlaggedQueue(); abRenderPaymentSourcesTab(); }
   if(n===11 && abBookId) abLoadPurchaseOrders();
-  if(n===12 && abBookId) abLoadInventory();
+  if(n===12 && abBookId){ abLoadInventory(); abLoadBom(); }
   if(n===13 && abBookId) abLoadProperties();
   if(n===14 && abBookId) abLoadPayroll();
   if(n===15 && abBookId){ abLoadMileage(); abLoadRepairs(); }
