@@ -2,8 +2,15 @@
 // AmitBooks Service Worker — Offline VIEWING parity, not offline writing.
 // Two strategies:
 //  1. App shell (this HTML/CSS/JS file, the manifest, the icon) —
-//     cache-first, so the app itself loads instantly and works with zero
-//     connection, same as installed.
+//     NETWORK-FIRST, falling back to cache only when actually offline.
+//     Changed 2026-08-01 from an earlier cache-first version that caused
+//     a real bug: a normal reload (F5) could keep serving a stale cached
+//     copy of AmitBooks.html for many versions after a new one was
+//     pushed, while only a hard refresh (Ctrl+Shift+R) bypassed it — Ryan
+//     hit this directly (page flip-flopping between v1.71 and v1.84).
+//     Network-first means the live version always wins whenever there's
+//     a connection; the cache is purely the offline fallback now, never
+//     the default.
 //  2. Supabase REST GET requests (reading books, accounts, bills, etc.) —
 //     network-first, falling back to the last successful cached response
 //     when offline, so whatever was last synced stays visible after a
@@ -14,7 +21,7 @@
 //     needs its own design pass before it's safe to build, not a shortcut
 //     bolted on here.
 // ══════════════════════════════════════════════
-const AB_CACHE='amitbooks-shell-v1';
+const AB_CACHE='amitbooks-shell-v2';
 const AB_APP_SHELL=['./AmitBooks.html','./manifest.json'];
 
 self.addEventListener('install',e=>{
@@ -50,13 +57,16 @@ self.addEventListener('fetch',e=>{
   }
 
   if(url.origin===self.location.origin){
-    // App shell: cache-first, so the app itself always loads instantly.
+    // App shell: network-first. Always try to get the live, current file;
+    // only fall back to whatever's cached if the network request itself
+    // fails (i.e. genuinely offline). This is what makes a normal reload
+    // always show the version that's actually been pushed.
     e.respondWith(
-      caches.match(req).then(cached=>cached||fetch(req).then(res=>{
+      fetch(req).then(res=>{
         const copy=res.clone();
         caches.open(AB_CACHE).then(c=>c.put(req,copy));
         return res;
-      }))
+      }).catch(()=>caches.match(req))
     );
   }
 });
