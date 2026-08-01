@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.98</div>
+    <div class="page-version" id="pageVersion">v1.99</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -321,7 +321,9 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
       <button class="ab-btn" id="abScanCancelCropBtn" style="display:none;background:transparent;color:var(--muted)" onclick="abScanExitCrop()">Cancel Crop</button>
       <button class="ab-btn" id="abScanDeleteBtn" style="background:transparent;color:#c0553f;border-color:#c0553f" onclick="abScanDeleteCapture()">Delete</button>
     </div>
-    <div onclick="abCloseScanLightbox()" style="color:#fff;font-size:26px;cursor:pointer;line-height:1;padding:4px 8px">×</div>
+    <div onclick="abCloseScanLightbox()" title="Close" style="display:flex;align-items:center;gap:6px;color:#fff;font-size:14px;cursor:pointer;padding:6px 10px;border:1px solid rgba(255,255,255,.25);border-radius:6px">
+      <span>Close</span><span style="font-size:20px;line-height:1">×</span>
+    </div>
   </div>
   <div id="abScanLightboxStage" style="flex:1 1 auto;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:20px">
     <div id="abScanCanvasWrap" style="position:relative;max-width:100%;max-height:100%;line-height:0">
@@ -331,6 +333,22 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
         <div class="ab-scan-handle" data-h="tr" style="position:absolute;top:0;left:100%;width:24px;height:24px;margin:-12px;background:var(--gold);border:2px solid #1a1206;border-radius:50%;cursor:nesw-resize"></div>
         <div class="ab-scan-handle" data-h="bl" style="position:absolute;top:100%;left:0;width:24px;height:24px;margin:-12px;background:var(--gold);border:2px solid #1a1206;border-radius:50%;cursor:nesw-resize"></div>
         <div class="ab-scan-handle" data-h="br" style="position:absolute;top:100%;left:100%;width:24px;height:24px;margin:-12px;background:var(--gold);border:2px solid #1a1206;border-radius:50%;cursor:nwse-resize"></div>
+      </div>
+    </div>
+
+    <!-- Shown after a successful Save Crop — impossible-to-miss confirmation
+         with explicit next-step choices, replacing the easy-to-miss status
+         line Ryan found unclear. Blocks the canvas on purpose so the person
+         must choose before continuing. -->
+    <div id="abScanCropConfirm" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center;z-index:5">
+      <div style="background:#1a3352;border:1px solid rgba(201,168,76,.5);border-radius:14px;padding:28px 34px;max-width:380px;text-align:center;box-shadow:0 10px 50px rgba(0,0,0,.6)">
+        <div style="font-size:32px;margin-bottom:10px">✓</div>
+        <div style="color:rgba(201,168,76,.95);font-family:'Cinzel',serif;font-size:16px;margin-bottom:8px">Crop area captured</div>
+        <div style="color:rgba(240,232,208,.75);font-size:13px;line-height:1.6;margin-bottom:20px">Saved as its own new pending scan. What next?</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="ab-btn" onclick="abScanConfirmCropNext()">Crop the Next One</button>
+          <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanConfirmCropDone()">Done — Close This Scan</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3086,6 +3104,7 @@ function abOpenScanLightbox(idx){
   img.onerror=()=>{ document.getElementById('abScanLightboxStatus').textContent='Could not load the full image.'; };
   img.src=entry.url;
   document.getElementById('abScanLightbox').style.display='flex';
+  document.getElementById('abScanCropConfirm').style.display='none';
   abScanExitCropUI();
 }
 function abCloseScanLightbox(){
@@ -3140,6 +3159,7 @@ function abScanExitCropUI(){
   document.getElementById('abScanCancelCropBtn').style.display='none';
   document.getElementById('abScanDeleteBtn').style.display='inline-block';
   document.getElementById('abScanCropBox').style.display='none';
+  document.getElementById('abScanCropConfirm').style.display='none';
 }
 function abScanExitCrop(){ abScanExitCropUI(); }
 function abScanPositionCropBoxDefault(){
@@ -3222,12 +3242,23 @@ async function abScanSaveCrop(){
     await abUploadOneScanBlob(blob,'crop-'+Date.now()+'.jpg',abScanCurrent.row.mode);
     abScanCroppedRects.push({x:cx,y:cy,w:cw,h:ch});
     abScanDrawCanvas();
-    status.textContent='Saved as a new pending scan. Position the box over the next item, or Cancel Crop when done.';
-    abScanPositionCropBoxDefault();
+    status.textContent='';
+    document.getElementById('abScanCropBox').style.display='none';
+    document.getElementById('abScanCropConfirm').style.display='flex';
     abRenderScanPending();
   }catch(e){
     status.textContent='Could not save the crop: '+(e?.message||String(e));
   }
+}
+function abScanConfirmCropNext(){
+  document.getElementById('abScanCropConfirm').style.display='none';
+  document.getElementById('abScanCropBox').style.display='block';
+  abScanPositionCropBoxDefault();
+}
+function abScanConfirmCropDone(){
+  document.getElementById('abScanCropConfirm').style.display='none';
+  abScanExitCropUI();
+  abCloseScanLightbox();
 }
 
 async function abScanDeleteCapture(){
