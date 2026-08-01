@@ -249,7 +249,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.67</div>
+    <div class="page-version" id="pageVersion">v1.68</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1744,10 +1744,47 @@ function abRenderCoa(){
       <div class="ab-field"><label>Number (optional)</label><input id="ab-coa-number" style="width:80px" placeholder="5100"></div>
       <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
     </div>
-    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Custom Fields</th></tr>
-    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No accounts yet — add your first one above, or browse a template</td></tr>'}
+    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Tax Category</th><th>Custom Fields</th></tr>
+    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No accounts yet — add your first one above, or browse a template</td></tr>'}
     </table>
-    <div id="ab-customfields-panel"></div>`;
+    <div id="ab-customfields-panel"></div>
+    <div id="ab-taxcategory-panel"></div>`;
+}
+
+// ── TAX CATEGORY — one unified list of categories that covers 1120,
+// 1120-S, and 1065, since the deduction lines are ~80% shared across all
+// three. The Corporate Tax Prep report (Reports tab) maps whichever ones
+// are set to the correct line NUMBER for the book's actual entity_type —
+// line numbers differ by form even when the category is the same. Left
+// unset on purpose for any account that doesn't need it; unmapped
+// accounts are shown separately in that report, never silently dropped.
+const AB_TAX_CATEGORIES=[
+  ['gross_receipts','Gross Receipts / Sales'],['cogs','Cost of Goods Sold'],
+  ['officer_compensation','Officer Compensation'],['salaries_wages','Salaries & Wages'],['guaranteed_payments','Guaranteed Payments to Partners'],
+  ['repairs','Repairs & Maintenance'],['bad_debts','Bad Debts'],['rents','Rent'],['taxes_licenses','Taxes & Licenses'],
+  ['interest_expense','Interest Expense'],['charitable_contributions','Charitable Contributions'],['depreciation','Depreciation'],
+  ['depletion','Depletion'],['advertising','Advertising'],['retirement_plans','Retirement Plans'],['employee_benefits','Employee Benefit Programs'],
+  ['dividends_income','Dividend Income'],['interest_income','Interest Income'],['gross_rents_income','Gross Rental Income'],
+  ['gross_royalties_income','Gross Royalty Income'],['capital_gain','Capital Gain (Net)'],['other_income','Other Income'],['other_deductions','Other Deductions'],
+];
+function abTaxCategoryLabel(key){ const c=AB_TAX_CATEGORIES.find(x=>x[0]===key); return c?c[1]:'—'; }
+function abEditTaxCategory(accountId){
+  const a=abAccounts.find(x=>x.id===accountId); if(!a)return;
+  const el=document.getElementById('ab-taxcategory-panel');
+  el.innerHTML=`<div class="ab-form" style="margin-top:14px">
+    <div class="ab-field"><label>Tax Category — ${abEsc(a.account_name)}</label>
+      <select id="ab-taxcat-select"><option value="">— none —</option>${AB_TAX_CATEGORIES.map(c=>`<option value="${c[0]}"${a.tax_category===c[0]?' selected':''}>${c[1]}</option>`).join('')}</select>
+    </div>
+    <button class="ab-btn" onclick="abSaveTaxCategory('${accountId}')">Save</button>
+    <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-taxcategory-panel').innerHTML=''">Cancel</button>
+  </div>`;
+}
+async function abSaveTaxCategory(accountId){
+  const val=document.getElementById('ab-taxcat-select').value||null;
+  const{error}=await db.from('chart_of_accounts').update({tax_category:val}).eq('id',accountId);
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-taxcategory-panel').innerHTML='';
+  await abLoadAccounts(); abRenderCoa();
 }
 
 // ── CUSTOM FIELDS — free-form key/value data on any Chart of Accounts
@@ -3745,8 +3782,9 @@ function abRenderReports(){
       <span class="${abReportsView==='jobprofit'?'on':''}" onclick="abSetReportsView('jobprofit')">Job Profitability</span>
       <span class="${abReportsView==='custom'?'on':''}" onclick="abSetReportsView('custom')">Custom Report</span>
       <span class="${abReportsView==='irsaudit'?'on':''}" onclick="abSetReportsView('irsaudit')">IRS Audit View</span>
+      <span class="${abReportsView==='corptax'?'on':''}" onclick="abSetReportsView('corptax')">Corporate Tax Prep</span>
     </div>
-    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():abReportsView==='custom'?abRenderCustomReport():abReportsView==='irsaudit'?abRenderIrsAuditView():`
+    ${abReportsView==='aging'?abRenderARAPAging():abReportsView==='1099'?abRender1099Summary():abReportsView==='cashflow'?abRenderCashFlow():abReportsView==='salestax'?abRenderSalesTaxLiability():abReportsView==='jobprofit'?abRenderJobProfitability():abReportsView==='custom'?abRenderCustomReport():abReportsView==='irsaudit'?abRenderIrsAuditView():abReportsView==='corptax'?abRenderCorpTaxPrep():`
     ${!rows.length?`<div class="ab-signin-notice" style="text-align:left">No journal entries posted yet. Entries post automatically the moment a bill, invoice, or payment is saved — enter one to see real reports here.</div>`:`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
       <div>
@@ -4093,6 +4131,90 @@ function abPrintPreviewIrsAudit(){
     [{key:'doc',label:'Doc #'},{key:'date',label:'Date'},{key:'type',label:'Type'},{key:'vendor',label:'Vendor/Client'},{key:'amount',label:'Amount',num:true},{key:'purpose',label:'Business Purpose'},{key:'receipt',label:'Source Doc'},{key:'proof',label:'Proof of Payment'}],
     d.rows.map(r=>({doc:r.document_code||'',date:r.doc_date||'',type:r.direction==='bill_payable'?'Expense':'Income',vendor:r.contacts?r.contacts.name:'',amount:abMoney(r.total_amount),purpose:r.memo||'MISSING',receipt:r.receipt_image_path?'Yes':'MISSING',proof:(d.matchedIds.has(r.id)||r.status==='paid')?'Yes':'Unverified'}))
   );
+}
+
+// ══════════════════════════════════════════════
+// CORPORATE TAX PREP — maps chart_of_accounts (via each account's Tax
+// Category, set on the Chart of Accounts tab) to the actual IRS line
+// numbers for the book's entity_type: Form 1120 (C-corp), 1120-S
+// (S-corp), or 1065 (partnership). This is a REVIEW PACKAGE for Tim, not
+// an attempted filing — it does not calculate tax owed, does not handle
+// Schedule M-1/M-2/M-3 book-tax differences, and anything not mapped is
+// shown separately, never silently dropped or guessed into a line.
+//
+// Real, sourced nuance most simple tools get wrong: on 1120-S and 1065,
+// dividends, interest, rents, royalties, and capital gains are
+// SEPARATELY-STATED items that pass through on Schedule K — they are NOT
+// ordinary page-1 income. Lumping them into page-1 income would misstate
+// ordinary business income. Sources: IRS Form 1120/1120-S/1065 and
+// instructions (irs.gov/pub/irs-pdf/f1120.pdf, f1120s.pdf, f1065.pdf).
+// ══════════════════════════════════════════════
+const AB_TAX_LINE_MAPS={
+  c_corp:{
+    formName:'Form 1120 — U.S. Corporation Income Tax Return',
+    income:[['gross_receipts','1a','Gross receipts or sales'],['cogs','2','Cost of goods sold (deducted from gross receipts)'],['dividends_income','4','Dividends and inclusions'],['interest_income','5','Interest'],['gross_rents_income','6','Gross rents'],['gross_royalties_income','7','Gross royalties'],['capital_gain','8','Capital gain net income'],['other_income','10','Other income']],
+    deductions:[['officer_compensation','12','Compensation of officers'],['salaries_wages','13','Salaries and wages'],['repairs','14','Repairs and maintenance'],['bad_debts','15','Bad debts'],['rents','16','Rents'],['taxes_licenses','17','Taxes and licenses'],['interest_expense','18','Interest expense'],['charitable_contributions','19','Charitable contributions'],['depreciation','20','Depreciation'],['depletion','21','Depletion'],['advertising','22','Advertising'],['retirement_plans','23','Pension, profit-sharing, etc. plans'],['employee_benefits','24','Employee benefit programs'],['other_deductions','26','Other deductions']],
+    separatelyStated:[]
+  },
+  s_corp:{
+    formName:'Form 1120-S — U.S. Income Tax Return for an S Corporation',
+    income:[['gross_receipts','1a','Gross receipts or sales'],['cogs','2','Cost of goods sold'],['other_income','5','Other income (loss)']],
+    deductions:[['officer_compensation','7','Compensation of officers'],['salaries_wages','8','Salaries and wages'],['repairs','9','Repairs and maintenance'],['bad_debts','10','Bad debts'],['rents','11','Rents'],['taxes_licenses','12','Taxes and licenses'],['interest_expense','13','Interest'],['depreciation','14','Depreciation'],['depletion','15','Depletion'],['advertising','16','Advertising'],['retirement_plans','17','Pension, profit-sharing, etc. plans'],['employee_benefits','18','Employee benefit programs'],['other_deductions','20','Other deductions']],
+    separatelyStated:[['dividends_income','Dividend Income'],['interest_income','Interest Income'],['gross_rents_income','Rental Income'],['gross_royalties_income','Royalty Income'],['capital_gain','Capital Gain (Net)'],['charitable_contributions','Charitable Contributions']]
+  },
+  partnership:{
+    formName:'Form 1065 — U.S. Return of Partnership Income',
+    income:[['gross_receipts','1a','Gross receipts or sales'],['cogs','2','Cost of goods sold'],['other_income','7','Other income (loss)']],
+    deductions:[['salaries_wages','9','Salaries and wages (other than to partners)'],['guaranteed_payments','10','Guaranteed payments to partners'],['repairs','11','Repairs and maintenance'],['bad_debts','12','Bad debts'],['rents','13','Rent'],['taxes_licenses','14','Taxes and licenses'],['interest_expense','15','Interest'],['depreciation','16','Depreciation'],['depletion','17','Depletion'],['retirement_plans','18','Retirement plans, etc.'],['employee_benefits','19','Employee benefit programs'],['other_deductions','21','Other deductions']],
+    separatelyStated:[['dividends_income','Dividend Income'],['interest_income','Interest Income'],['gross_rents_income','Rental Income'],['gross_royalties_income','Royalty Income'],['capital_gain','Capital Gain (Net)'],['charitable_contributions','Charitable Contributions'],['officer_compensation','Officer Compensation (not applicable — partners are not employees)']]
+  }
+};
+function abRenderCorpTaxPrep(){
+  const b=abBooks.find(x=>x.id===abBookId);
+  const entityKey=b&&b.entity_type==='c_corp'?'c_corp':(b&&b.entity_type==='s_corp'?'s_corp':(b&&b.entity_type==='partnership'?'partnership':null));
+  if(!entityKey){
+    const et=b?b.entity_type||'—':'—';
+    const llcNote=et==='llc'?' An LLC itself isn\'t one of these three — it\'s taxed AS a sole prop, partnership, S-corp, or C-corp depending on its election. Confirm the actual election with Tim, then this report can be built once that\'s known.':'';
+    return `<div class="ab-signin-notice" style="text-align:left">This book's Company Type (Books &amp; Setup → My Books) is set to "${abEsc(et)}" — Corporate Tax Prep only applies to C-Corp, S-Corp, or Partnership.${llcNote} Sole proprietors and personal books file differently (Schedule C, not a separate corporate return), so there's nothing to map here.</div>`;
+  }
+  const map=AB_TAX_LINE_MAPS[entityKey];
+  const balances=abAccountBalances();
+  const byCat={}; balances.forEach(r=>{ if(r.account.tax_category){ byCat[r.account.tax_category]=byCat[r.account.tax_category]||[]; byCat[r.account.tax_category].push(r); } });
+  const lineTotal=cat=>(byCat[cat]||[]).reduce((s,r)=>s+r.net,0);
+  const mappedCats=new Set([...map.income,...map.deductions,...map.separatelyStated].map(x=>x[0]));
+  const unmapped=balances.filter(r=>!r.account.tax_category&&(r.account.account_type==='income'||r.account.account_type==='expense'));
+  window._abLastCorpTax={map,byCat,unmapped,entityKey};
+  return `<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      <b>This is a review package for Tim, not a filed return.</b> It maps accounts (by the Tax Category set on each one, in Chart of Accounts) to the actual line numbers on <b>${abEsc(map.formName)}</b> — it does not calculate tax owed, does not handle book-tax reconciliation (Schedule M-1/M-2/M-3), and does not itself constitute tax advice. Sourced from the actual IRS form and instructions (irs.gov).
+    </div>
+    <div class="ab-h" style="font-size:15px">Income</div>
+    <table class="ab-table"><tr><th>Line</th><th>Description</th><th style="text-align:right">Amount</th></tr>
+    ${map.income.map(([cat,line,label])=>`<tr><td style="font-family:monospace">${line}</td><td>${abEsc(label)}</td><td style="text-align:right">${abMoney(lineTotal(cat))}</td></tr>`).join('')}
+    </table>
+    <div class="ab-h" style="font-size:15px;margin-top:20px">Deductions</div>
+    <table class="ab-table"><tr><th>Line</th><th>Description</th><th style="text-align:right">Amount</th></tr>
+    ${map.deductions.map(([cat,line,label])=>`<tr><td style="font-family:monospace">${line}</td><td>${abEsc(label)}</td><td style="text-align:right">${abMoney(lineTotal(cat))}</td></tr>`).join('')}
+    </table>
+    ${map.separatelyStated.length?`<div class="ab-h" style="font-size:15px;margin-top:20px">Separately-Stated Items — Schedule K, NOT page 1 ordinary income</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">These pass through to owners/partners separately and would misstate ordinary business income if lumped into the totals above — shown here on purpose, kept apart.</div>
+    <table class="ab-table"><tr><th>Category</th><th style="text-align:right">Amount</th></tr>
+    ${map.separatelyStated.map(([cat,label])=>`<tr><td>${abEsc(label)}</td><td style="text-align:right">${abMoney(lineTotal(cat))}</td></tr>`).join('')}
+    </table>`:''}
+    ${unmapped.length?`<div class="ab-h" style="font-size:15px;margin-top:20px">Unmapped Accounts — need a Tax Category before this package is complete</div>
+    <table class="ab-table"><tr><th>Account</th><th>Type</th><th style="text-align:right">Amount</th></tr>
+    ${unmapped.map(r=>`<tr><td>${abEsc(r.account.account_name)}</td><td>${abEsc(r.account.account_type)}</td><td style="text-align:right">${abMoney(r.net)}</td></tr>`).join('')}
+    </table>`:''}
+    <div style="margin-top:12px"><button class="ab-btn" onclick="abPrintPreviewCorpTax()">🖨 Print Preview — Tim's Package</button></div>`;
+}
+function abPrintPreviewCorpTax(){
+  const d=window._abLastCorpTax; if(!d)return;
+  const lineTotal=cat=>(d.byCat[cat]||[]).reduce((s,r)=>s+r.net,0);
+  const out=[];
+  d.map.income.forEach(([cat,line,label])=>out.push({line,label,amount:abMoney(lineTotal(cat))}));
+  d.map.deductions.forEach(([cat,line,label])=>out.push({line,label:'(Deduction) '+label,amount:abMoney(lineTotal(cat))}));
+  d.map.separatelyStated.forEach(([cat,label])=>out.push({line:'K',label:'(Sch. K) '+label,amount:abMoney(lineTotal(cat))}));
+  d.unmapped.forEach(r=>out.push({line:'—',label:'(Unmapped) '+r.account.account_name,amount:abMoney(r.net)}));
+  abPrintPreview(d.map.formName,[{key:'line',label:'Line'},{key:'label',label:'Description'},{key:'amount',label:'Amount',num:true}],out);
 }
 // ══════════════════════════════════════════════
 // PRINT PREVIEW — a real, standalone, self-contained window (not just
