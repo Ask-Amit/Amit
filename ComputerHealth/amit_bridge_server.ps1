@@ -766,6 +766,40 @@ try {
                 else { Send-Html $response "<h1>Dashboard file not found at $dashboardPath</h1>" }
             }
             "/api/device" { Send-Json $response @{ deviceId = $deviceId; deviceName = $deviceName } }
+            "/scan" {
+                # AmitBooks/AmitScan - "Scan from this computer" (2026-08-01).
+                # WIA (Windows Image Acquisition) is the real, built-in Windows
+                # API for talking to a connected scanner/printer's scan
+                # function - this is what lets a plain PowerShell process
+                # (already running as this bridge, no new install) drive real
+                # hardware a browser alone could never reach. ShowAcquireImage
+                # pops the native Windows "Scan a Document" dialog - device
+                # picker if more than one scanner exists, then the actual scan.
+                # First real pass - WIA driver behavior varies by scanner
+                # manufacturer, so treat this as needing verification against
+                # Ryan's actual connected hardware, not assumed correct.
+                try {
+                    $wiaFormatJPEG = "{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}"
+                    $dialog = New-Object -ComObject WIA.CommonDialog
+                    # DeviceType=1 (scanner), Intent/Bias=null (device default),
+                    # FormatID=JPEG, AlwaysSelectDevice=true (device picker if
+                    # more than one), UseCommonUI=true (native scan dialog),
+                    # CancelError=false (cancel returns $null, not a thrown error).
+                    $image = $dialog.ShowAcquireImage(1, $null, $null, $wiaFormatJPEG, $true, $true, $false)
+                    if ($null -eq $image) {
+                        Send-Json $response @{ error = "No scan received - cancelled, or no scanner found." } 400
+                    } else {
+                        $tempPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "amitscan_" + [guid]::NewGuid().ToString() + ".jpg")
+                        $image.SaveFile($tempPath)
+                        $bytes = [System.IO.File]::ReadAllBytes($tempPath)
+                        $base64 = [Convert]::ToBase64String($bytes)
+                        Remove-Item $tempPath -ErrorAction SilentlyContinue
+                        Send-Json $response @{ image = $base64; filename = ("scan-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".jpg") }
+                    }
+                } catch {
+                    Send-Json $response @{ error = $_.Exception.Message } 500
+                }
+            }
             "/api/installed-programs" {
                 # Ryan's direct request 2026-07-19: same technique verified live
                 # in chat that evening (registry Uninstall keys, cross-checked

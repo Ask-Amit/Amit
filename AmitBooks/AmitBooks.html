@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.93</div>
+    <div class="page-version" id="pageVersion">v1.94</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2884,13 +2884,33 @@ function abRenderScanConnect(){
     </div>
     <button class="ab-btn" onclick="abOpenScanConnect()">Connect Scan</button>
 
-    <div class="ab-h" style="font-size:15px;margin-top:32px">Already Have a Scanned File?</div>
+    <div class="ab-h" style="font-size:15px;margin-top:32px">Scan From a Connected Scanner or Printer</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
-      Browsers can't talk directly to a physical scanner or printer driver — there's no general way for a webpage to reach out and operate that hardware. If your scanner already saved a file to this computer (or you have a photo/PDF from anywhere else), pick it here instead and it goes into the same Pending Scans list as a phone capture.
+      A browser page alone can't reach out and operate scanner/printer hardware directly — but the same local Amit bridge that Computer Health installs can. If it's installed and running on this computer, this opens the real Windows scan dialog and sends the result straight into Pending Scans.
+    </div>
+    <button class="ab-btn" onclick="abScanFromBridge()">Scan Now</button>
+    <div id="ab-scan-bridge-status" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+
+    <div class="ab-h" style="font-size:15px;margin-top:28px">Already Have a Scanned File?</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
+      If your scanner already saved a file to this computer (or you have a photo/PDF from anywhere else), pick it here instead — same Pending Scans list either way.
     </div>
     <input type="file" id="ab-scan-upload-input" accept="image/*,.pdf" multiple style="display:none" onchange="abUploadScanFiles(this.files)">
     <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-scan-upload-input').click()">Choose File(s) From This Computer</button>
     <div id="ab-scan-upload-status" style="font-size:12px;color:var(--muted);margin-top:8px"></div>`;
+}
+
+// Shared by the file-picker path and the local-scanner-bridge path — one
+// place that actually talks to Storage + scan_captures, so both stay
+// consistent instead of drifting.
+async function abUploadOneScanBlob(blob,filename,mode){
+  const path=`${currentUser.id}/${Date.now()}-${abEsc(filename)}`;
+  const{error:upErr}=await db.storage.from('amitscan-captures').upload(path,blob,{contentType:blob.type||'application/octet-stream'});
+  if(upErr) throw upErr;
+  const{error:insErr}=await db.from('scan_captures').insert({
+    user_id:currentUser.id, mode:mode||'other', storage_path:path, captured_at:new Date().toISOString()
+  });
+  if(insErr) throw insErr;
 }
 
 async function abUploadScanFiles(fileList){
@@ -2902,13 +2922,7 @@ async function abUploadScanFiles(fileList){
   for(const file of files){
     status.textContent=`Uploading ${done+1} of ${files.length}...`;
     try{
-      const path=`${currentUser.id}/${Date.now()}-${abEsc(file.name)}`;
-      const{error:upErr}=await db.storage.from('amitscan-captures').upload(path,file,{contentType:file.type||'application/octet-stream'});
-      if(upErr) throw upErr;
-      const{error:insErr}=await db.from('scan_captures').insert({
-        user_id:currentUser.id, mode:'other', storage_path:path, captured_at:new Date().toISOString()
-      });
-      if(insErr) throw insErr;
+      await abUploadOneScanBlob(file,file.name,'other');
       done++;
     }catch(e){
       status.textContent='Stopped after '+done+' of '+files.length+' — '+(e?.message||String(e));
@@ -2918,6 +2932,41 @@ async function abUploadScanFiles(fileList){
   }
   status.textContent=`${done} file(s) added to Pending Scans — tagged "Other," reclassify there once review is built.`;
   abRenderScanPending();
+}
+
+// ── Scan directly from a connected scanner/printer via the local Amit
+// bridge (the same local agent Computer Health already installs — see
+// ComputerHealth\Watchers\amit_bridge_server.ps1's /scan endpoint, added
+// 2026-08-01). Not a browser capability — a real local Windows process
+// using WIA to drive the hardware, which this page calls over localhost. ──
+const AB_BRIDGE_URL='http://localhost:8710';
+async function abScanFromBridge(){
+  const status=document.getElementById('ab-scan-bridge-status');
+  if(!currentUser){ status.textContent='Sign in to AmitBooks first.'; return; }
+  status.textContent='Checking for the Amit bridge on this computer...';
+  try{
+    const ping=await fetch(AB_BRIDGE_URL+'/api/device',{signal:AbortSignal.timeout(2500)});
+    if(!ping.ok) throw new Error('Bridge responded but not cleanly (HTTP '+ping.status+').');
+  }catch(e){
+    status.textContent='Amit bridge isn\'t running on this computer — it\'s the same local helper Computer Health installs. Install/start that first, then try again.';
+    return;
+  }
+  status.textContent='Opening the scan dialog — check for a Windows popup...';
+  try{
+    const res=await fetch(AB_BRIDGE_URL+'/scan',{signal:AbortSignal.timeout(120000)});
+    const out=await res.json();
+    if(!res.ok||out.error){ status.textContent=out.error||('Scan failed (HTTP '+res.status+').'); return; }
+    const byteChars=atob(out.image);
+    const byteNums=new Array(byteChars.length);
+    for(let i=0;i<byteChars.length;i++) byteNums[i]=byteChars.charCodeAt(i);
+    const blob=new Blob([new Uint8Array(byteNums)],{type:'image/jpeg'});
+    status.textContent='Uploading scan...';
+    await abUploadOneScanBlob(blob,out.filename||'scan.jpg','other');
+    status.textContent='Scanned and added to Pending Scans — tagged "Other," reclassify there once review is built.';
+    abRenderScanPending();
+  }catch(e){
+    status.textContent='Could not complete the scan: '+(e?.message||String(e));
+  }
 }
 
 async function abRenderScanPending(){
