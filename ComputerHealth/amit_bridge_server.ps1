@@ -794,28 +794,51 @@ try {
                     } else {
                         $device = $scannerInfo.Connect()
                         $scanItem = $device.Items.Item(1)
-                        # Cap resolution before scanning - without this the
-                        # device uses its own default, which on a real
-                        # document scanner (unlike a phone photo) is often
-                        # 300+ DPI, producing a multi-megabyte image that's
-                        # slow to scan, slow to transfer over localhost, slow
-                        # to upload, and slow to load as a thumbnail later.
-                        # 150 DPI is still plenty readable for a bill/receipt.
-                        # WIA property IDs 6147/6148 = horizontal/vertical
-                        # DPI - wrapped in try/catch since not every
-                        # scanner/driver exposes them the same way; falls
-                        # back to device default rather than failing the
-                        # whole scan if this specific device doesn't.
-                        try {
-                            $scanItem.Properties.Item("6147").Value = 150
-                            $scanItem.Properties.Item("6148").Value = 150
-                        } catch { }
+                        # Setting the WIA resolution properties (6147/6148)
+                        # was tried first but confirmed NOT to work on Ryan's
+                        # actual scanner (Brother MFC-J6545DW) - three real
+                        # scans all came back at the exact same 49.5MB
+                        # regardless, meaning this driver silently ignores
+                        # that property and always returns its own fixed
+                        # default. Rather than keep chasing driver-specific
+                        # WIA property quirks, this now resizes/recompresses
+                        # AFTER transfer, unconditionally - guaranteed small
+                        # output no matter what the scanner actually hands
+                        # back, on any device.
+                        try { $scanItem.Properties.Item("6147").Value = 150; $scanItem.Properties.Item("6148").Value = 150 } catch { }
                         $image = $scanItem.Transfer($wiaFormatJPEG)
-                        $tempPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "amitscan_" + [guid]::NewGuid().ToString() + ".jpg")
-                        $image.SaveFile($tempPath)
-                        $bytes = [System.IO.File]::ReadAllBytes($tempPath)
+                        $rawPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "amitscan_raw_" + [guid]::NewGuid().ToString() + ".jpg")
+                        $image.SaveFile($rawPath)
+
+                        Add-Type -AssemblyName System.Drawing
+                        $maxDim = 1600
+                        $bmp = [System.Drawing.Image]::FromFile($rawPath)
+                        try {
+                            if ($bmp.Width -gt $maxDim -or $bmp.Height -gt $maxDim) {
+                                $ratio = [Math]::Min($maxDim / $bmp.Width, $maxDim / $bmp.Height)
+                                $newW = [int]($bmp.Width * $ratio)
+                                $newH = [int]($bmp.Height * $ratio)
+                                $resized = New-Object System.Drawing.Bitmap $newW, $newH
+                                $g = [System.Drawing.Graphics]::FromImage($resized)
+                                $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                                $g.DrawImage($bmp, 0, 0, $newW, $newH)
+                                $g.Dispose()
+                                $bmp.Dispose()
+                                $bmp = $resized
+                            }
+                            $jpegCodec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
+                            $encParams = New-Object System.Drawing.Imaging.EncoderParameters(1)
+                            $encParams.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, [int64]75)
+                            $finalPath = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "amitscan_" + [guid]::NewGuid().ToString() + ".jpg")
+                            $bmp.Save($finalPath, $jpegCodec, $encParams)
+                        } finally {
+                            $bmp.Dispose()
+                        }
+                        Remove-Item $rawPath -ErrorAction SilentlyContinue
+
+                        $bytes = [System.IO.File]::ReadAllBytes($finalPath)
                         $base64 = [Convert]::ToBase64String($bytes)
-                        Remove-Item $tempPath -ErrorAction SilentlyContinue
+                        Remove-Item $finalPath -ErrorAction SilentlyContinue
                         Send-Json $response @{ image = $base64; filename = ("scan-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".jpg") }
                     }
                 } catch {
