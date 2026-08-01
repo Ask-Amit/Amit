@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.74</div>
+    <div class="page-version" id="pageVersion">v1.75</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -966,7 +966,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-properties" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===14){
-      const tabs=[['Payroll','ab-payroll'],['IRS Tax Tables','ab-taxtables'],['State/Local Jurisdictions','ab-jurisdictions'],['Background Checks','ab-bgcheck']];
+      const tabs=[['Payroll','ab-payroll'],['PTO & Time Off','ab-pto'],['Benefits & Profit Sharing','ab-benefits'],['IRS Tax Tables','ab-taxtables'],['State/Local Jurisdictions','ab-jurisdictions'],['Background Checks','ab-bgcheck']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(14,${idx+1})">${t[0]}</button>`;
@@ -5322,15 +5322,20 @@ async function abAddPropertyOwner(propertyId){
 // ══════════════════════════════════════════════
 let abEmployeesCache=[],abPayrollRunsCache=[],abPayrollTaxYearsCache=[],abPayrollTaxBracketsCache=[];
 let abStateJurisdictionsCache=[],abTaxJurisdictionBracketsCache=[];
+let abPtoRequestsCache=[],abBenefitPlansCache=[],abBenefitEnrollmentsCache=[],abProfitSharingCache=[];
 async function abLoadPayroll(){
   if(!abBookId){abEmployeesCache=[];abPayrollRunsCache=[];return;}
-  const[{data:emp},{data:runs},{data:years},{data:brackets},{data:jurisdictions},{data:jbrackets}]=await Promise.all([
+  const[{data:emp},{data:runs},{data:years},{data:brackets},{data:jurisdictions},{data:jbrackets},{data:pto},{data:plans},{data:enroll},{data:profit}]=await Promise.all([
     db.from('employees').select('*,contacts(name)').eq('book_id',abBookId),
     db.from('payroll_runs').select('*,payroll_run_lines(*,employees(contacts(name)))').eq('book_id',abBookId).order('pay_date',{ascending:false}),
     db.from('payroll_tax_years').select('*').order('tax_year',{ascending:false}),
     db.from('payroll_tax_brackets').select('*').order('tax_year',{ascending:false}).order('bracket_order',{ascending:true}),
     db.from('tax_jurisdictions').select('*').order('state_code',{ascending:true}),
-    db.from('tax_jurisdiction_brackets').select('*').order('bracket_order',{ascending:true})
+    db.from('tax_jurisdiction_brackets').select('*').order('bracket_order',{ascending:true}),
+    db.from('pto_requests').select('*,employees(contacts(name))').eq('book_id',abBookId).order('start_date',{ascending:false}),
+    db.from('benefit_plans').select('*').eq('book_id',abBookId),
+    db.from('benefit_enrollments').select('*,employees(contacts(name)),benefit_plans(name,plan_type)').eq('book_id',abBookId),
+    db.from('profit_sharing_distributions').select('*,employees(contacts(name))').eq('book_id',abBookId).order('distribution_date',{ascending:false})
   ]);
   abEmployeesCache=emp||[];
   abPayrollRunsCache=runs||[];
@@ -5338,9 +5343,15 @@ async function abLoadPayroll(){
   abPayrollTaxBracketsCache=brackets||[];
   abStateJurisdictionsCache=jurisdictions||[];
   abTaxJurisdictionBracketsCache=jbrackets||[];
+  abPtoRequestsCache=pto||[];
+  abBenefitPlansCache=plans||[];
+  abBenefitEnrollmentsCache=enroll||[];
+  abProfitSharingCache=profit||[];
   abRenderPayroll();
   abRenderTaxTables();
   abRenderJurisdictions();
+  abRenderPto();
+  abRenderBenefits();
 }
 // Finds the book's state jurisdiction (from Company Profile → Payroll
 // State) and computes withholding: flat-rate states are gross×rate;
@@ -5644,6 +5655,171 @@ function abRenderJurisdictions(){
     <table class="ab-table"><tr><th>State</th><th>Note</th></tr>
     ${noTax.map(j=>`<tr><td>${abEsc(j.name)} (${j.state_code})</td><td style="font-size:12px;color:var(--muted)">${abEsc(j.notes||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="2">None loaded yet</td></tr>'}
     </table>`;
+}
+
+// ══════════════════════════════════════════════
+// PTO & TIME OFF — a real accrual balance per employee (hours per pay
+// period, set on the employee record), a request/approval workflow, and
+// approved hours actually reduce the balance — not a disconnected log.
+// ══════════════════════════════════════════════
+const AB_PTO_STATUSES=[['pending','Pending'],['approved','Approved'],['denied','Denied'],['taken','Taken']];
+function abRenderPto(){
+  const el=document.getElementById('ab-pto'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">PTO Balances</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      Set each employee's accrual rate (hours added per pay period) on their record below. Requesting time off doesn't touch the balance until it's Approved — approving deducts the hours for real.
+    </div>
+    <table class="ab-table"><tr><th>Employee</th><th style="text-align:right">Accrual/Period</th><th style="text-align:right">Current Balance</th><th></th></tr>
+    ${abEmployeesCache.map(e=>`<tr><td>${abEsc(e.contacts?e.contacts.name:'')}</td><td style="text-align:right">${e.pto_accrual_hours_per_period||0} hrs</td><td style="text-align:right;font-weight:600">${e.pto_balance_hours||0} hrs</td><td><a href="#" onclick="abEditPtoAccrual('${e.id}');return false" style="color:var(--gold2);font-size:12px">Edit →</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No employees yet</td></tr>'}
+    </table>
+    <div id="ab-pto-accrual-panel"></div>
+
+    <div class="ab-h" style="margin-top:20px">Request Time Off</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Employee</label><select id="ab-pto-emp">${abEmployeesCache.map(e=>`<option value="${e.id}">${abEsc(e.contacts?e.contacts.name:'')}</option>`).join('')||'<option value="">Add an employee first</option>'}</select></div>
+      <div class="ab-field"><label>Type</label><select id="ab-pto-type"><option value="vacation">Vacation</option><option value="sick">Sick</option><option value="unpaid">Unpaid</option><option value="other">Other</option></select></div>
+      <div class="ab-field"><label>Start</label><input id="ab-pto-start" type="date"></div>
+      <div class="ab-field"><label>End</label><input id="ab-pto-end" type="date"></div>
+      <div class="ab-field"><label>Hours</label><input id="ab-pto-hours" type="number" step="0.5" style="width:80px" value="8"></div>
+      <button class="ab-btn" onclick="abAddPtoRequest()">Submit Request</button>
+    </div>
+    <table class="ab-table"><tr><th>Employee</th><th>Type</th><th>Dates</th><th style="text-align:right">Hours</th><th>Status</th><th></th></tr>
+    ${abPtoRequestsCache.map(r=>`<tr><td>${abEsc(r.employees?.contacts?.name||'')}</td><td>${abEsc(r.request_type)}</td><td style="font-size:12px">${r.start_date} – ${r.end_date}</td><td style="text-align:right">${r.hours_requested}</td><td>${abEsc(AB_PTO_STATUSES.find(s=>s[0]===r.status)?.[1]||r.status)}</td><td>${r.status==='pending'?`<a href="#" onclick="abDecidePto('${r.id}','approved')" style="color:#8fd19e;font-size:12px">Approve</a> <a href="#" onclick="abDecidePto('${r.id}','denied')" style="color:#f0a8a8;font-size:12px">Deny</a>`:''}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No requests yet</td></tr>'}
+    </table>`;
+}
+function abEditPtoAccrual(employeeId){
+  const e=abEmployeesCache.find(x=>x.id===employeeId); if(!e)return;
+  const el=document.getElementById('ab-pto-accrual-panel');
+  el.innerHTML=`<div class="ab-form" style="margin-top:10px">
+    <div class="ab-field"><label>Accrual Hours / Pay Period</label><input id="ab-pto-accrualrate" type="number" step="0.01" value="${e.pto_accrual_hours_per_period||0}" style="width:90px"></div>
+    <div class="ab-field"><label>Set Balance To</label><input id="ab-pto-setbalance" type="number" step="0.01" value="${e.pto_balance_hours||0}" style="width:90px"></div>
+    <button class="ab-btn" onclick="abSavePtoAccrual('${employeeId}')">Save</button>
+    <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-pto-accrual-panel').innerHTML=''">Cancel</button>
+  </div>`;
+}
+async function abSavePtoAccrual(employeeId){
+  const rate=parseFloat(document.getElementById('ab-pto-accrualrate').value)||0;
+  const balance=parseFloat(document.getElementById('ab-pto-setbalance').value)||0;
+  const{error}=await db.from('employees').update({pto_accrual_hours_per_period:rate,pto_balance_hours:balance}).eq('id',employeeId);
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-pto-accrual-panel').innerHTML='';
+  await abLoadPayroll();
+}
+async function abAddPtoRequest(){
+  const employee_id=document.getElementById('ab-pto-emp').value; if(!employee_id){abAlert('Add an employee first.');return;}
+  const request_type=document.getElementById('ab-pto-type').value;
+  const start_date=document.getElementById('ab-pto-start').value;
+  const end_date=document.getElementById('ab-pto-end').value;
+  const hours_requested=parseFloat(document.getElementById('ab-pto-hours').value)||0;
+  if(!start_date||!end_date||!hours_requested){abAlert('Enter dates and hours.');return;}
+  const{error}=await db.from('pto_requests').insert({book_id:abBookId,employee_id,request_type,start_date,end_date,hours_requested,status:'pending'});
+  if(error){abAlert(error.message);return;}
+  await abLoadPayroll();
+}
+// Approving actually deducts the hours from the real balance — denying
+// leaves it untouched. This is the only place the balance moves outside
+// of a manual accrual-rate edit.
+async function abDecidePto(requestId,decision){
+  const req=abPtoRequestsCache.find(r=>r.id===requestId); if(!req)return;
+  const{error}=await db.from('pto_requests').update({status:decision}).eq('id',requestId);
+  if(error){abAlert(error.message);return;}
+  if(decision==='approved'&&req.request_type!=='unpaid'){
+    const emp=abEmployeesCache.find(e=>e.id===req.employee_id);
+    if(emp){
+      const newBalance=Math.max(0,(Number(emp.pto_balance_hours)||0)-Number(req.hours_requested));
+      await db.from('employees').update({pto_balance_hours:newBalance}).eq('id',emp.id);
+    }
+  }
+  await abLoadPayroll();
+}
+
+// ══════════════════════════════════════════════
+// BENEFITS & PROFIT SHARING — a real plan catalog, per-employee
+// enrollments with actual contribution amounts, and profit sharing
+// distributions tracked with vesting. This is display/tracking only for
+// now — wiring enrollment deductions into the live payroll run posting
+// is the natural next step once this catalog is actually populated with
+// real plans.
+// ══════════════════════════════════════════════
+const AB_BENEFIT_TYPE_LABELS={health:'Health',dental:'Dental',vision:'Vision',retirement_401k:'401(k)',hsa:'HSA',fsa:'FSA',profit_sharing:'Profit Sharing',life_insurance:'Life Insurance',other:'Other'};
+function abRenderBenefits(){
+  const el=document.getElementById('ab-benefits'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Benefit Plans</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Health, dental, vision, 401(k)/HSA/FSA savings, or any other plan offered. Create the plan once, then enroll employees in it below.</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Plan Name</label><input id="ab-plan-name" placeholder="e.g. Blue Cross PPO"></div>
+      <div class="ab-field"><label>Type</label><select id="ab-plan-type">${Object.entries(AB_BENEFIT_TYPE_LABELS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Provider</label><input id="ab-plan-provider" placeholder="optional"></div>
+      <div class="ab-field"><label>Employer Contribution</label><select id="ab-plan-erctype"><option value="none">None</option><option value="flat">Flat $</option><option value="percent_of_pay">% of Pay</option><option value="match_percent">% Match</option></select></div>
+      <div class="ab-field"><label>Value</label><input id="ab-plan-ercvalue" type="number" step="0.01" style="width:80px" value="0"></div>
+      <button class="ab-btn" onclick="abAddBenefitPlan()">Add Plan</button>
+    </div>
+    <table class="ab-table"><tr><th>Plan</th><th>Type</th><th>Provider</th><th>Employer Contribution</th><th></th></tr>
+    ${abBenefitPlansCache.map(p=>`<tr><td>${abEsc(p.name)}</td><td>${abEsc(AB_BENEFIT_TYPE_LABELS[p.plan_type]||p.plan_type)}</td><td style="font-size:12px">${abEsc(p.provider||'—')}</td><td style="font-size:12px">${p.employer_contribution_type&&p.employer_contribution_type!=='none'?`${p.employer_contribution_value}${p.employer_contribution_type==='flat'?' $/period':'%'}`:'—'}</td><td><a href="#" onclick="abShowEnrollments('${p.id}');return false" style="color:var(--gold2);font-size:12px">Enrollments →</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No benefit plans yet</td></tr>'}
+    </table>
+    <div id="ab-enrollments-panel"></div>
+
+    <div class="ab-h" style="margin-top:20px">Profit Sharing</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Employee</label><select id="ab-ps-emp">${abEmployeesCache.map(e=>`<option value="${e.id}">${abEsc(e.contacts?e.contacts.name:'')}</option>`).join('')||'<option value="">Add an employee first</option>'}</select></div>
+      <div class="ab-field"><label>Plan Name</label><input id="ab-ps-plan" placeholder="optional"></div>
+      <div class="ab-field"><label>Date</label><input id="ab-ps-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="ab-field"><label>Amount</label><input id="ab-ps-amount" type="number" step="0.01" style="width:100px"></div>
+      <div class="ab-field"><label>Vested Amount</label><input id="ab-ps-vested" type="number" step="0.01" style="width:100px" placeholder="optional"></div>
+      <button class="ab-btn" onclick="abAddProfitSharing()">Record Distribution</button>
+    </div>
+    <table class="ab-table"><tr><th>Date</th><th>Employee</th><th>Plan</th><th style="text-align:right">Amount</th><th style="text-align:right">Vested</th></tr>
+    ${abProfitSharingCache.map(p=>`<tr><td>${p.distribution_date}</td><td>${abEsc(p.employees?.contacts?.name||'')}</td><td style="font-size:12px">${abEsc(p.plan_name||'—')}</td><td style="text-align:right">${abMoney(p.amount)}</td><td style="text-align:right">${p.vested_amount!=null?abMoney(p.vested_amount):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No distributions recorded yet</td></tr>'}
+    </table>`;
+}
+async function abAddBenefitPlan(){
+  const name=document.getElementById('ab-plan-name').value.trim(); if(!name)return;
+  const plan_type=document.getElementById('ab-plan-type').value;
+  const provider=document.getElementById('ab-plan-provider').value.trim()||null;
+  const employer_contribution_type=document.getElementById('ab-plan-erctype').value;
+  const employer_contribution_value=parseFloat(document.getElementById('ab-plan-ercvalue').value)||0;
+  const{error}=await db.from('benefit_plans').insert({book_id:abBookId,name,plan_type,provider,employer_contribution_type,employer_contribution_value});
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-plan-name').value='';
+  await abLoadPayroll();
+}
+function abShowEnrollments(planId){
+  const plan=abBenefitPlansCache.find(p=>p.id===planId); if(!plan)return;
+  const enrolled=abBenefitEnrollmentsCache.filter(e=>e.benefit_plan_id===planId);
+  const el=document.getElementById('ab-enrollments-panel');
+  el.innerHTML=`<div class="ab-h" style="margin-top:14px;font-size:15px">Enrollments — ${abEsc(plan.name)}</div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Employee</label><select id="ab-enroll-emp">${abEmployeesCache.map(e=>`<option value="${e.id}">${abEsc(e.contacts?e.contacts.name:'')}</option>`).join('')||'<option value="">Add an employee first</option>'}</select></div>
+      <div class="ab-field"><label>Employee Contribution</label><select id="ab-enroll-type"><option value="flat">Flat $ / period</option><option value="percent_of_pay">% of Pay</option></select></div>
+      <div class="ab-field"><label>Value</label><input id="ab-enroll-value" type="number" step="0.01" style="width:80px" value="0"></div>
+      <button class="ab-btn" onclick="abAddEnrollment('${planId}')">Enroll</button>
+    </div>
+    <table class="ab-table"><tr><th>Employee</th><th>Contribution</th><th>Status</th></tr>
+    ${enrolled.map(e=>`<tr><td>${abEsc(e.employees?.contacts?.name||'')}</td><td style="font-size:12px">${e.employee_contribution_value}${e.employee_contribution_type==='flat'?' $/period':'%'}</td><td>${abEsc(e.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">Nobody enrolled yet</td></tr>'}
+    </table>`;
+}
+async function abAddEnrollment(planId){
+  const employee_id=document.getElementById('ab-enroll-emp').value; if(!employee_id){abAlert('Add an employee first.');return;}
+  const employee_contribution_type=document.getElementById('ab-enroll-type').value;
+  const employee_contribution_value=parseFloat(document.getElementById('ab-enroll-value').value)||0;
+  const{error}=await db.from('benefit_enrollments').insert({book_id:abBookId,employee_id,benefit_plan_id:planId,employee_contribution_type,employee_contribution_value});
+  if(error){abAlert(error.message);return;}
+  await abLoadPayroll();
+  abShowEnrollments(planId);
+}
+async function abAddProfitSharing(){
+  const employee_id=document.getElementById('ab-ps-emp').value; if(!employee_id){abAlert('Add an employee first.');return;}
+  const plan_name=document.getElementById('ab-ps-plan').value.trim()||null;
+  const distribution_date=document.getElementById('ab-ps-date').value;
+  const amount=parseFloat(document.getElementById('ab-ps-amount').value)||0;
+  const vested_amount=document.getElementById('ab-ps-vested').value?parseFloat(document.getElementById('ab-ps-vested').value):null;
+  if(!amount){abAlert('Enter an amount.');return;}
+  const{error}=await db.from('profit_sharing_distributions').insert({book_id:abBookId,employee_id,plan_name,distribution_date,amount,vested_amount});
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-ps-amount').value='';
+  await abLoadPayroll();
 }
 
 // ══════════════════════════════════════════════
