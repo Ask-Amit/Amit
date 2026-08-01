@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.70</div>
+    <div class="page-version" id="pageVersion">v1.71</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1355,6 +1355,7 @@ async function abLoadBookData(){
   await abLoadTaxJurisdictions();
   await abLoadBankStatementLines();
   abRenderReports();
+  if(navigator.onLine) abSyncOfflineQueue();
 }
 
 let abTaxJurisdictionsCache=[];
@@ -3011,6 +3012,17 @@ async function abBatchSaveAll(){
   const status=document.getElementById('ab-batch-status');
   const rows=abBatchRows.filter(r=>r.amount&&Number(r.amount));
   if(!rows.length){ abAlert('No rows with an amount to save.'); return; }
+  if(!navigator.onLine){
+    rows.forEach(r=>{
+      const amount=parseFloat(r.amount)||0;
+      abQueueOfflineEntry({book_id:abBookId,direction:r.direction,contact_id:r.contact_id||null,doc_date:r.date||null,amount,memo:r.memo||null,item_id:r.item_id||null,account_id:r.account_id||null,tag_id:r.tag_id||null,cost_type:r.cost_type||null,receipt_image_path:r.receipt_image_path||null});
+    });
+    status.textContent=`Saved ${rows.length} row(s) offline — will finish posting automatically once you're back online.`;
+    abBatchRows=abBatchRows.filter(r=>!r.amount);
+    if(!abBatchRows.length) abBatchAddRow();
+    abRenderInvoicesBills();
+    return;
+  }
   let saved=0, failed=0;
   for(const r of rows){
     const amount=parseFloat(r.amount)||0;
@@ -3036,7 +3048,7 @@ function abRenderInvoicesBills(){
   const visual=abIsVisual('invbills');
   const bookName=abEsc((abBooks.find(b=>b.id===abBookId)||{}).name||'');
   el.innerHTML=`${abVisualSwitch('invbills','abRenderInvoicesBills')}
-    <div class="ab-h">Enter a Bill or Invoice <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abToggleBatchMode()">${abBatchMode?'← Back to one at a time':'⊞ Batch Entry (multiple at once) →'}</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportInvoicesBillsCsv()">⬇ Export CSV</span></div>
+    <div class="ab-h">Enter a Bill or Invoice <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abToggleBatchMode()">${abBatchMode?'← Back to one at a time':'⊞ Batch Entry (multiple at once) →'}</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportInvoicesBillsCsv()">⬇ Export CSV</span>${abGetOfflineQueue().length?` <span style="font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:#e8b866">⏳ ${abGetOfflineQueue().length} pending sync <a href="#" onclick="abSyncOfflineQueue();return false" style="color:var(--gold2)">Sync Now</a></span>`:''}</div>
     ${flaggedCount?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">🚩 ${flaggedCount} entry(ies) paid from a source that doesn't belong to this book — <a href="#" onclick="openPanel(10);return false" style="color:var(--gold2)">resolve them in the Review Queue →</a></div>`:''}
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
       <label class="ab-btn" style="cursor:pointer">📷 Scan Receipt(s)<input type="file" accept="image/*" multiple style="display:none" onchange="abScanReceipts(this.files);this.value=''"></label>
@@ -3138,6 +3150,51 @@ async function abPostJournalForPayment(paymentRow, invoiceBillRow, cashAccountId
   return abPostJournalEntry(paymentRow.payment_date, 'Payment', 'payment', paymentRow.id, lines);
 }
 
+// ══════════════════════════════════════════════
+// OFFLINE WRITE QUEUE — scoped deliberately narrow and safe: only brand
+// NEW bill/invoice entries queue offline, never edits or deletes to
+// existing rows. That's the real reason this is safe without a
+// conflict-resolution engine — a new entry can never collide with
+// anything else, since nothing else has claimed that row yet. Editing or
+// deleting something that might have changed elsewhere in the meantime
+// stays online-only, on purpose, not because it's unbuilt.
+// ══════════════════════════════════════════════
+function abOfflineQueueKey(){ return 'ab_offline_queue_'+(abBookId||'none'); }
+function abGetOfflineQueue(){ try{ return JSON.parse(localStorage.getItem(abOfflineQueueKey())||'[]'); }catch(e){ return []; } }
+function abSaveOfflineQueue(q){ localStorage.setItem(abOfflineQueueKey(),JSON.stringify(q)); }
+function abQueueOfflineEntry(entry){
+  const q=abGetOfflineQueue();
+  q.push({...entry,_queuedAt:new Date().toISOString()});
+  abSaveOfflineQueue(q);
+}
+// Runs the exact same insert → lines → journal sequence the live path
+// uses, just deferred until there's a real connection. Stops at the
+// first failure and leaves the rest queued, rather than losing track of
+// what did/didn't make it in.
+async function abSyncOfflineQueue(){
+  const q=abGetOfflineQueue();
+  if(!q.length)return;
+  let synced=0;
+  while(q.length){
+    const entry=q[0];
+    try{
+      const{data,error}=await db.from('invoices_bills').insert({
+        book_id:entry.book_id,direction:entry.direction,contact_id:entry.contact_id,doc_date:entry.doc_date,status:'draft',
+        subtotal:entry.amount,total_amount:entry.amount,memo:entry.memo,document_code:await abNextDocumentCode(),
+        receipt_image_path:entry.receipt_image_path||null
+      }).select().single();
+      if(error) break; // still offline or a real problem — stop, leave the rest queued
+      await db.from('invoice_bill_lines').insert({invoice_bill_id:data.id,item_id:entry.item_id,account_id:entry.account_id,tag_id:entry.tag_id,cost_type:entry.cost_type,secondary_class:entry.secondary_class,description:entry.memo,quantity:1,unit_price:entry.amount,amount:entry.amount});
+      await abPostJournalForInvoiceBill(data,entry.account_id,entry.tag_id,entry.amount);
+      q.shift(); synced++;
+    }catch(e){ break; }
+  }
+  abSaveOfflineQueue(q);
+  if(synced){ await abLoadInvoicesBills(); await abLoadJournalLines(); abRenderDashboard(); abRenderReports(); }
+  abRenderInvoicesBills();
+}
+window.addEventListener('online',()=>{ if(abBookId) abSyncOfflineQueue(); });
+
 async function abAddInvoiceBill(){
   const direction=document.getElementById('ab-ib-direction').value;
   const contact=document.getElementById('ab-ib-contact').value||null;
@@ -3151,6 +3208,14 @@ async function abAddInvoiceBill(){
   const tag=document.getElementById('ab-ib-tag').value||null;
   const memo=document.getElementById('ab-ib-memo').value.trim();
   if(!amount){abAlert('Enter an amount.');return;}
+  if(!navigator.onLine){
+    abQueueOfflineEntry({book_id:abBookId,direction,contact_id:contact,doc_date:date,amount,memo:memo||null,item_id:item,account_id:account,tag_id:tag,cost_type:costType,secondary_class:secondaryClass});
+    document.getElementById('ab-ib-amount').value='';
+    document.getElementById('ab-ib-memo').value='';
+    abAlert('Saved offline — this will finish posting automatically the moment you\'re back online. Editing or deleting existing entries still needs a live connection.');
+    abRenderInvoicesBills();
+    return;
+  }
   // Mismatch detection: if the chosen payment source belongs to a
   // different book than the one this entry is being saved under (or to a
   // person, not a book at all), flag it for review instead of guessing.
