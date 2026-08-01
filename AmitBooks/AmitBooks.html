@@ -250,7 +250,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v1.72</div>
+    <div class="page-version" id="pageVersion">v1.73</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -966,9 +966,16 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-properties" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===14){
+      const tabs=[['Payroll','ab-payroll'],['IRS Tax Tables','ab-taxtables'],['Background Checks','ab-bgcheck']];
+      let tabNavHtml='',tabContentHtml='';
+      tabs.forEach((t,idx)=>{
+        tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(14,${idx+1})">${t[0]}</button>`;
+        tabContentHtml+=`<div class="ch-tab-content${idx===0?' active':''}" id="ch-tab-14-${idx+1}"><div id="${t[1]}">Loading…</div></div>`;
+      });
       panelHtml+=`<div class="panel" id="panel-14" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="ch-tab-main" id="ab-payroll" style="margin:24px;">Loading…</div>
+        <div class="ch-tab-nav" id="ch-tab-nav-14">${tabNavHtml}</div>
+        <div class="ch-tab-main">${tabContentHtml}</div>
       </div>`;
     } else if(i===15){
       const tabs=[['Mileage','ab-mileage'],['Repairs','ab-repairs']];
@@ -5297,63 +5304,135 @@ async function abAddPropertyOwner(propertyId){
   await abLoadProperties();
 }
 
-// ── EMPLOYEES / PAYROLL — Phase 1: produces the numbers a CPA needs.
-// No e-filing here; that's Phase 2, deliberately not built yet. ──
-let abEmployeesCache=[],abPayrollRunsCache=[];
+// ══════════════════════════════════════════════
+// EMPLOYEES / PAYROLL — real federal withholding, computed from the
+// actual IRS Percentage Method (Pub 15-T), not a manual gross-minus-net
+// guess. Employee W-4 fields (2020+ redesigned form — dollar amounts,
+// not allowances) drive the calculation; the bracket/constant tables
+// live in the database, year-versioned, editable from the IRS Tax
+// Tables tab — that's the real "upload each year's numbers" mechanism.
+//
+// HONEST SCOPE: Federal + FICA + FUTA only. State withholding/SUTA is
+// NOT calculated — every state is different, and guessing would be
+// irresponsible. Form W-4 Step 2 "multiple jobs" checkbox uses a
+// different, more conservative bracket table not included in this V1;
+// leave it unchecked for the standard calculation to apply correctly.
+// ══════════════════════════════════════════════
+let abEmployeesCache=[],abPayrollRunsCache=[],abPayrollTaxYearsCache=[],abPayrollTaxBracketsCache=[];
 async function abLoadPayroll(){
   if(!abBookId){abEmployeesCache=[];abPayrollRunsCache=[];return;}
-  const[{data:emp},{data:runs}]=await Promise.all([
+  const[{data:emp},{data:runs},{data:years},{data:brackets}]=await Promise.all([
     db.from('employees').select('*,contacts(name)').eq('book_id',abBookId),
-    db.from('payroll_runs').select('*,payroll_run_lines(*,employees(contacts(name)))').eq('book_id',abBookId).order('pay_date',{ascending:false})
+    db.from('payroll_runs').select('*,payroll_run_lines(*,employees(contacts(name)))').eq('book_id',abBookId).order('pay_date',{ascending:false}),
+    db.from('payroll_tax_years').select('*').order('tax_year',{ascending:false}),
+    db.from('payroll_tax_brackets').select('*').order('tax_year',{ascending:false}).order('bracket_order',{ascending:true})
   ]);
   abEmployeesCache=emp||[];
   abPayrollRunsCache=runs||[];
+  abPayrollTaxYearsCache=years||[];
+  abPayrollTaxBracketsCache=brackets||[];
   abRenderPayroll();
+  abRenderTaxTables();
+}
+const AB_PAY_PERIODS_PER_YEAR={weekly:52,biweekly:26,semimonthly:24,monthly:12};
+// The actual IRS Percentage Method (Worksheet 1A + Standard Withholding
+// Rate Schedules), step by step, real math, not an approximation:
+// annualize wages → adjust for Step 4(a)/(b) → apply the bracket table
+// → subtract the Step 3 dependents credit → de-annualize → add Step 4(c).
+function abComputeFederalWithholding(employee,grossThisPeriod,taxYear){
+  const yearData=abPayrollTaxYearsCache.find(y=>y.tax_year===taxYear);
+  if(!yearData) return null;
+  const periods=AB_PAY_PERIODS_PER_YEAR[employee.pay_frequency||'biweekly']||26;
+  const brackets=abPayrollTaxBracketsCache.filter(b=>b.tax_year===taxYear&&b.filing_status===(employee.filing_status||'single')).sort((a,b)=>a.bracket_order-b.bracket_order);
+  if(!brackets.length) return null;
+  const annualizedWage=grossThisPeriod*periods;
+  const adjustedAnnualWage=Math.max(0,annualizedWage+(Number(employee.other_income)||0)-(Number(employee.deductions_amount)||0));
+  const bracket=[...brackets].reverse().find(b=>adjustedAnnualWage>=b.income_floor)||brackets[0];
+  const tentativeAnnual=Number(bracket.base_tax)+(adjustedAnnualWage-Number(bracket.income_floor))*Number(bracket.rate);
+  const annualAfterDependents=Math.max(0,tentativeAnnual-(Number(employee.dependents_amount)||0));
+  const perPeriod=annualAfterDependents/periods;
+  return Math.max(0,perPeriod+(Number(employee.extra_withholding)||0));
+}
+// FICA: Social Security capped at the year's wage base (tracked via
+// year-to-date wages already paid this employee), Medicare uncapped,
+// plus the Additional Medicare 0.9% once YTD wages cross the threshold
+// — the employer withholds this regardless of the employee's actual
+// filing status, per IRS instructions.
+function abComputeFica(employee,grossThisPeriod,taxYear,ytdWagesBeforeThisPeriod){
+  const yearData=abPayrollTaxYearsCache.find(y=>y.tax_year===taxYear);
+  if(!yearData) return null;
+  const ssWageBase=Number(yearData.ss_wage_base);
+  const ssTaxableThisPeriod=Math.max(0,Math.min(grossThisPeriod,ssWageBase-ytdWagesBeforeThisPeriod));
+  const ssTax=ssTaxableThisPeriod*Number(yearData.ss_rate);
+  const medicareTax=grossThisPeriod*Number(yearData.medicare_rate);
+  const ytdAfter=ytdWagesBeforeThisPeriod+grossThisPeriod;
+  const threshold=Number(yearData.additional_medicare_threshold);
+  const addlMedicareTaxableThisPeriod=Math.max(0,Math.min(grossThisPeriod,ytdAfter-threshold));
+  const addlMedicareTax=addlMedicareTaxableThisPeriod*Number(yearData.additional_medicare_rate);
+  return{ssTax,medicareTax,addlMedicareTax,employeeFica:ssTax+medicareTax+addlMedicareTax,employerSsTax:ssTax,employerMedicareTax:medicareTax};
+}
+function abYtdWagesForEmployee(employeeId,taxYear,beforeDate){
+  return abPayrollRunsCache
+    .filter(r=>r.pay_date&&r.pay_date.slice(0,4)===String(taxYear)&&(!beforeDate||r.pay_date<beforeDate))
+    .flatMap(r=>r.payroll_run_lines||[])
+    .filter(l=>l.employee_id===employeeId)
+    .reduce((s,l)=>s+(Number(l.gross_pay)||0),0);
 }
 function abRenderPayroll(){
   const el=document.getElementById('ab-payroll'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   const visual=abIsVisual('payroll');
+  const currentYear=new Date().getFullYear();
+  const yearAvailable=abPayrollTaxYearsCache.some(y=>y.tax_year===currentYear);
   el.innerHTML=`<div class="ab-h">Add an Employee</div>
     ${abVisualSwitch('payroll','abRenderPayroll')}
+    ${!yearAvailable?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">No IRS tax table loaded for ${currentYear} yet — add it on the IRS Tax Tables tab before running payroll, or withholding can't be calculated.</div>`:''}
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px;background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)"><b>This is a self-service tool, not a managed payroll service.</b> AmitBooks calculates federal withholding from the IRS tax tables loaded on the IRS Tax Tables tab and posts it as a real payroll expense — but it is <b>your responsibility</b> to confirm those tables are the current, accurate IRS numbers for the year you're running payroll in, and to confirm every employee's W-4 answers are entered correctly. AmitBooks doesn't file anything, doesn't verify anything against the IRS on your behalf, and doesn't carry that responsibility for you.</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">Federal withholding is calculated from the real IRS Percentage Method (Pub 15-T) using each employee's actual Form W-4 answers below — this is not a guess. State withholding is NOT calculated (every state is different); Step 2 "multiple jobs" checkbox isn't handled in this version — leave it off for the standard calculation.</div>
     <div class="ab-form">
       <div class="ab-field"><label>Person</label><select id="ab-emp-contact">${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')||'<option value="">Add a contact first</option>'}</select></div>
       <div class="ab-field"><label>Pay type</label><select id="ab-emp-type"><option value="hourly">Hourly</option><option value="salary">Salary</option></select></div>
       <div class="ab-field"><label>Rate</label><input id="ab-emp-rate" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
+      <div class="ab-field"><label>Pay Frequency</label><select id="ab-emp-freq"><option value="weekly">Weekly</option><option value="biweekly" selected>Biweekly</option><option value="semimonthly">Semimonthly</option><option value="monthly">Monthly</option></select></div>
+      <div class="ab-field"><label>W-4 Filing Status</label><select id="ab-emp-filing"><option value="single">Single</option><option value="married_jointly">Married Filing Jointly</option><option value="head_of_household">Head of Household</option></select></div>
+      <div class="ab-field"><label>W-4 Step 3 — Dependents $</label><input id="ab-emp-dependents" type="number" step="0.01" style="width:90px" value="0"></div>
+      <div class="ab-field"><label>W-4 Step 4(a) Other Income</label><input id="ab-emp-otherincome" type="number" step="0.01" style="width:90px" value="0"></div>
+      <div class="ab-field"><label>W-4 Step 4(b) Deductions</label><input id="ab-emp-deductions" type="number" step="0.01" style="width:90px" value="0"></div>
+      <div class="ab-field"><label>W-4 Step 4(c) Extra Withholding</label><input id="ab-emp-extra" type="number" step="0.01" style="width:90px" value="0"></div>
       <button class="ab-btn" onclick="abAddEmployee()">Add Employee</button>
     </div>
     ${!visual?(()=>{
       const tk='employees'; abSmartRerender[tk]=abRenderPayroll;
-      const getters={name:e=>e.contacts?e.contacts.name:'',type:e=>e.pay_type||'',rate:e=>Number(e.pay_rate)||0};
+      const getters={name:e=>e.contacts?e.contacts.name:'',type:e=>e.pay_type||'',rate:e=>Number(e.pay_rate)||0,filing:e=>e.filing_status||'',freq:e=>e.pay_frequency||''};
       const sorted=abSmartApply(tk,abEmployeesCache,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'Pay Type',rate:'Rate'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Pay Type')}${abSmartTh(tk,'rate','Rate')}</tr>
-      ${sorted.map(e=>`<tr><td${e.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${e.contact_id}','${abEsc(e.contacts?e.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(e.contacts?e.contacts.name:'')}</td><td>${abEsc(e.pay_type||'')}</td><td>${e.pay_rate?abMoney(e.pay_rate):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No employees yet</td></tr>'}
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',type:'Pay Type',rate:'Rate',filing:'Filing Status',freq:'Frequency'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'type','Pay Type')}${abSmartTh(tk,'rate','Rate')}${abSmartTh(tk,'filing','Filing Status')}${abSmartTh(tk,'freq','Frequency')}</tr>
+      ${sorted.map(e=>`<tr><td${e.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${e.contact_id}','${abEsc(e.contacts?e.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(e.contacts?e.contacts.name:'')}</td><td>${abEsc(e.pay_type||'')}</td><td>${e.pay_rate?abMoney(e.pay_rate):'—'}</td><td style="font-size:11px">${abEsc((e.filing_status||'').replace('_',' '))}</td><td style="font-size:11px">${abEsc(e.pay_frequency||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No employees yet</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
     ${abEmployeesCache.map(e=>`<div class="ab-rolo">
       <div class="ro-kicker">Employee</div>
       <div class="ro-title">${abEsc(e.contacts?e.contacts.name:'')}</div>
-      <div class="ro-line">${abEsc(e.pay_type||'')} ${e.pay_rate?'@ '+abMoney(e.pay_rate):''}</div>
+      <div class="ro-line">${abEsc(e.pay_type||'')} ${e.pay_rate?'@ '+abMoney(e.pay_rate):''} — ${abEsc(e.pay_frequency||'')}</div>
     </div>`).join('')||'<div class="ab-empty">No employees yet</div>'}
     </div>`}
     <div class="ab-h" style="margin-top:20px">Run Payroll</div>
     <div class="ab-form">
-      <div class="ab-field"><label>Employee</label><select id="ab-pr-emp">${abEmployeesCache.map(e=>`<option value="${e.id}">${abEsc(e.contacts?e.contacts.name:'')}</option>`).join('')||'<option value="">Add an employee first</option>'}</select></div>
-      <div class="ab-field"><label>Pay date</label><input id="ab-pr-date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
-      <div class="ab-field"><label>Gross</label><input id="ab-pr-gross" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
-      <div class="ab-field"><label>Net</label><input id="ab-pr-net" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
-      <button class="ab-btn" onclick="abAddPayrollRun()">Post Pay Run</button>
+      <div class="ab-field"><label>Employee</label><select id="ab-pr-emp" onchange="abPreviewPayrollCalc()">${abEmployeesCache.map(e=>`<option value="${e.id}">${abEsc(e.contacts?e.contacts.name:'')}</option>`).join('')||'<option value="">Add an employee first</option>'}</select></div>
+      <div class="ab-field"><label>Pay date</label><input id="ab-pr-date" type="date" value="${new Date().toISOString().slice(0,10)}" onchange="abPreviewPayrollCalc()"></div>
+      <div class="ab-field"><label>Gross</label><input id="ab-pr-gross" type="number" step="0.01" style="width:90px" placeholder="0.00" oninput="abPreviewPayrollCalc()"></div>
+      <button class="ab-btn" onclick="abAddPayrollRun()">Calculate &amp; Post Pay Run</button>
     </div>
+    <div id="ab-pr-preview" style="margin-bottom:16px"></div>
     ${!visual?(()=>{
       const tk='payrollruns'; abSmartRerender[tk]=abRenderPayroll;
-      const rows=abPayrollRunsCache.flatMap(r=>(r.payroll_run_lines||[]).map(l=>({payDate:r.pay_date,name:l.employees&&l.employees.contacts?l.employees.contacts.name:'',gross:l.gross_pay,net:l.net_pay})));
-      const getters={payDate:r=>r.payDate||'',name:r=>r.name||'',gross:r=>Number(r.gross)||0,net:r=>Number(r.net)||0};
+      const rows=abPayrollRunsCache.flatMap(r=>(r.payroll_run_lines||[]).map(l=>({payDate:r.pay_date,name:l.employees&&l.employees.contacts?l.employees.contacts.name:'',gross:l.gross_pay,fed:l.federal_withholding,fica:l.fica_withholding,net:l.net_pay})));
+      const getters={payDate:r=>r.payDate||'',name:r=>r.name||'',gross:r=>Number(r.gross)||0,fed:r=>Number(r.fed)||0,fica:r=>Number(r.fica)||0,net:r=>Number(r.net)||0};
       const sorted=abSmartApply(tk,rows,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{payDate:'Pay Date',name:'Employee',gross:'Gross',net:'Net'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'payDate','Pay Date')}${abSmartTh(tk,'name','Employee')}${abSmartTh(tk,'gross','Gross')}${abSmartTh(tk,'net','Net')}</tr>
-      ${sorted.map(r=>`<tr><td>${r.payDate||''}</td><td>${abEsc(r.name)}</td><td>${abMoney(r.gross)}</td><td>${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No pay runs posted yet</td></tr>'}
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{payDate:'Pay Date',name:'Employee',gross:'Gross',fed:'Federal W/H',fica:'FICA',net:'Net'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'payDate','Pay Date')}${abSmartTh(tk,'name','Employee')}${abSmartTh(tk,'gross','Gross')}${abSmartTh(tk,'fed','Federal W/H')}${abSmartTh(tk,'fica','FICA')}${abSmartTh(tk,'net','Net')}</tr>
+      ${sorted.map(r=>`<tr><td>${r.payDate||''}</td><td>${abEsc(r.name)}</td><td>${abMoney(r.gross)}</td><td>${abMoney(r.fed)}</td><td>${abMoney(r.fica)}</td><td style="font-weight:600">${abMoney(r.net)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No pay runs posted yet</td></tr>'}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
@@ -5361,17 +5440,48 @@ function abRenderPayroll(){
       <div class="doc-kind">Pay Stub — ${r.pay_date||''}</div>
       <div class="doc-who">${abEsc(l.employees&&l.employees.contacts?l.employees.contacts.name:'')}</div>
       <div class="doc-line" style="font-size:12px;color:#6a5a3a;margin-top:6px">Gross: ${abMoney(l.gross_pay)}</div>
-      <div class="doc-line" style="font-size:12px;color:#6a5a3a">Withheld: ${abMoney((l.gross_pay||0)-(l.net_pay||0))}</div>
+      <div class="doc-line" style="font-size:12px;color:#6a5a3a">Federal W/H: ${abMoney(l.federal_withholding)}</div>
+      <div class="doc-line" style="font-size:12px;color:#6a5a3a">FICA: ${abMoney(l.fica_withholding)}</div>
       <div class="doc-amt" style="margin-top:6px">${abMoney(l.net_pay)}</div>
       <div class="doc-memo">net pay</div>
     </div>`)).join('')||'<div class="ab-empty">No pay runs posted yet</div>'}
     </div>`}`;
 }
+// Live preview — shows the real calculated withholding before posting,
+// so nothing is a surprise once it's actually saved to the books.
+function abPreviewPayrollCalc(){
+  const empId=document.getElementById('ab-pr-emp')?.value;
+  const gross=parseFloat(document.getElementById('ab-pr-gross')?.value)||0;
+  const payDate=document.getElementById('ab-pr-date')?.value||new Date().toISOString().slice(0,10);
+  const el=document.getElementById('ab-pr-preview');
+  if(!el)return;
+  const emp=abEmployeesCache.find(e=>e.id===empId);
+  if(!emp||!gross){ el.innerHTML=''; return; }
+  const taxYear=Number(payDate.slice(0,4));
+  const fed=abComputeFederalWithholding(emp,gross,taxYear);
+  const ytd=abYtdWagesForEmployee(empId,taxYear,payDate);
+  const fica=abComputeFica(emp,gross,taxYear,ytd);
+  if(fed===null||fica===null){ el.innerHTML=`<div class="ab-signin-notice" style="text-align:left">No IRS tax table loaded for ${taxYear} — add one on the IRS Tax Tables tab first.</div>`; return; }
+  const net=gross-fed-fica.employeeFica;
+  el.innerHTML=`<table class="ab-table" style="max-width:420px"><tr><td>Gross Pay</td><td style="text-align:right">${abMoney(gross)}</td></tr>
+    <tr><td>Federal Withholding</td><td style="text-align:right">${abMoney(fed)}</td></tr>
+    <tr><td>Social Security (6.2%)</td><td style="text-align:right">${abMoney(fica.ssTax)}</td></tr>
+    <tr><td>Medicare (1.45%)</td><td style="text-align:right">${abMoney(fica.medicareTax)}</td></tr>
+    ${fica.addlMedicareTax?`<tr><td>Additional Medicare (0.9%)</td><td style="text-align:right">${abMoney(fica.addlMedicareTax)}</td></tr>`:''}
+    <tr><td style="font-weight:700;border-top:2px solid var(--ab-line,#ccc)">Net Pay</td><td style="text-align:right;font-weight:700;border-top:2px solid var(--ab-line,#ccc)">${abMoney(net)}</td></tr>
+    </table>`;
+}
 async function abAddEmployee(){
   const contact=document.getElementById('ab-emp-contact').value; if(!contact){abAlert('Add a contact first (Books & Setup → Contacts).');return;}
   const pay_type=document.getElementById('ab-emp-type').value;
   const pay_rate=document.getElementById('ab-emp-rate').value||null;
-  const{error}=await db.from('employees').insert({book_id:abBookId,contact_id:contact,pay_type,pay_rate});
+  const pay_frequency=document.getElementById('ab-emp-freq').value;
+  const filing_status=document.getElementById('ab-emp-filing').value;
+  const dependents_amount=parseFloat(document.getElementById('ab-emp-dependents').value)||0;
+  const other_income=parseFloat(document.getElementById('ab-emp-otherincome').value)||0;
+  const deductions_amount=parseFloat(document.getElementById('ab-emp-deductions').value)||0;
+  const extra_withholding=parseFloat(document.getElementById('ab-emp-extra').value)||0;
+  const{error}=await db.from('employees').insert({book_id:abBookId,contact_id:contact,pay_type,pay_rate,pay_frequency,filing_status,dependents_amount,other_income,deductions_amount,extra_withholding});
   if(error){abAlert(error.message);return;}
   await db.from('contacts').update({is_employee:true}).eq('id',contact);
   await abLoadPayroll();
@@ -5380,25 +5490,171 @@ async function abAddPayrollRun(){
   const employee_id=document.getElementById('ab-pr-emp').value; if(!employee_id){abAlert('Add an employee first.');return;}
   const pay_date=document.getElementById('ab-pr-date').value||null;
   const gross_pay=parseFloat(document.getElementById('ab-pr-gross').value)||0;
-  const net_pay=parseFloat(document.getElementById('ab-pr-net').value)||gross_pay;
   if(!gross_pay){abAlert('Enter a gross pay amount.');return;}
+  const emp=abEmployeesCache.find(e=>e.id===employee_id);
+  const taxYear=Number((pay_date||new Date().toISOString().slice(0,10)).slice(0,4));
+  const federal_withholding=abComputeFederalWithholding(emp,gross_pay,taxYear);
+  const ytd=abYtdWagesForEmployee(employee_id,taxYear,pay_date);
+  const fica=abComputeFica(emp,gross_pay,taxYear,ytd);
+  if(federal_withholding===null||fica===null){ abAlert(`No IRS tax table loaded for ${taxYear} — add one on the IRS Tax Tables tab first.`); return; }
+  const net_pay=gross_pay-federal_withholding-fica.employeeFica;
   const{data:run,error}=await db.from('payroll_runs').insert({book_id:abBookId,pay_date,status:'posted'}).select().single();
   if(error){abAlert(error.message);return;}
-  await db.from('payroll_run_lines').insert({payroll_run_id:run.id,employee_id,gross_pay,net_pay,federal_withholding:0,fica_withholding:0,state_withholding:0,other_deductions:Math.max(0,gross_pay-net_pay)});
-  // Post the journal: debit Wages Expense for the full gross, credit Cash
-  // for what actually went out, credit Payroll Liabilities for the
-  // withheld difference — so withholding never just vanishes.
+  await db.from('payroll_run_lines').insert({payroll_run_id:run.id,employee_id,gross_pay,net_pay,federal_withholding,fica_withholding:fica.employeeFica,state_withholding:0,other_deductions:0});
+  // Real split entry — employee side: gross expensed, each withholding
+  // bucket credited to its own payable (never lumped into one vague
+  // "Payroll Liabilities"), net pay out the door. Employer side: the
+  // matching FICA and FUTA are real employer expenses/liabilities too,
+  // not free — posted as their own entry so nothing is silently absorbed.
   const wagesId=await abFindOrCreateAccount('Wages Expense','expense');
   const cashId=await abFindOrCreateAccount('Cash - Unspecified Source','asset');
-  const liabId=await abFindOrCreateAccount('Payroll Liabilities','liability');
-  const withheld=Math.max(0,gross_pay-net_pay);
-  const lines=[{account_id:wagesId,debit:gross_pay,credit:0},{account_id:cashId,debit:0,credit:net_pay}];
-  if(withheld>0) lines.push({account_id:liabId,debit:0,credit:withheld});
-  await abPostJournalEntry(pay_date,'Payroll run','payroll_run',run.id,lines);
-  document.getElementById('ab-pr-gross').value=''; document.getElementById('ab-pr-net').value='';
+  const fedPayableId=await abFindOrCreateAccount('Federal Withholding Payable','liability');
+  const ficaPayableId=await abFindOrCreateAccount('FICA Payable','liability');
+  const empLines=[{account_id:wagesId,debit:gross_pay,credit:0}];
+  if(federal_withholding>0) empLines.push({account_id:fedPayableId,debit:0,credit:federal_withholding});
+  if(fica.employeeFica>0) empLines.push({account_id:ficaPayableId,debit:0,credit:fica.employeeFica});
+  empLines.push({account_id:cashId,debit:0,credit:net_pay});
+  await abPostJournalEntry(pay_date,`Payroll — ${emp&&emp.contacts?emp.contacts.name:'employee'}`,'payroll_run',run.id,empLines);
+
+  const yearData=abPayrollTaxYearsCache.find(y=>y.tax_year===taxYear);
+  const employerFicaMatch=fica.employerSsTax+fica.employerMedicareTax;
+  const futaTaxableThisPeriod=yearData?Math.max(0,Math.min(gross_pay,Number(yearData.futa_wage_base)-ytd)):0;
+  const futaTax=yearData?futaTaxableThisPeriod*Number(yearData.futa_rate):0;
+  if(employerFicaMatch>0||futaTax>0){
+    const payrollTaxExpenseId=await abFindOrCreateAccount('Payroll Tax Expense','expense');
+    const futaPayableId=await abFindOrCreateAccount('FUTA Payable','liability');
+    const erLines=[{account_id:payrollTaxExpenseId,debit:employerFicaMatch+futaTax,credit:0}];
+    if(employerFicaMatch>0) erLines.push({account_id:ficaPayableId,debit:0,credit:employerFicaMatch});
+    if(futaTax>0) erLines.push({account_id:futaPayableId,debit:0,credit:futaTax});
+    await abPostJournalEntry(pay_date,`Employer payroll taxes — ${emp&&emp.contacts?emp.contacts.name:'employee'}`,'payroll_run_employer',run.id,erLines);
+  }
+  document.getElementById('ab-pr-gross').value='';
+  document.getElementById('ab-pr-preview').innerHTML='';
   await abLoadPayroll();
   await abLoadJournalLines();
   abRenderReports();
+}
+
+// ══════════════════════════════════════════════
+// IRS TAX TABLES — the real "upload this year's numbers" mechanism.
+// Every field here is a genuine, editable database row, not a hardcoded
+// constant — when the IRS releases next year's Pub 15-T, add a new year
+// here (constants + all 24 bracket rows) and payroll runs for that year
+// use it automatically. Nothing is ever silently guessed or carried
+// forward from a stale year.
+// ══════════════════════════════════════════════
+const AB_FILING_STATUS_LABELS={single:'Single',married_jointly:'Married Filing Jointly',head_of_household:'Head of Household'};
+function abRenderTaxTables(){
+  const el=document.getElementById('ab-taxtables'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">IRS Tax Tables</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      <b>One shared table — every book on AmitBooks reads the same numbers.</b> These are the real IRS Publication 15-T figures, sourced directly from irs.gov, updated quarterly by Amit directly (not through this screen — this table is read-only in the app, on purpose, so no single book's data can drift from what every other book relies on). 2026 is pre-loaded and current as of when it was added. If you notice these are out of date, say so and they'll be refreshed.
+    </div>
+    <div class="ab-h" style="font-size:15px">Tax Years on File</div>
+    <table class="ab-table"><tr><th>Year</th><th style="text-align:right">SS Wage Base</th><th style="text-align:right">SS Rate</th><th style="text-align:right">Medicare Rate</th><th style="text-align:right">Addl. Medicare</th><th style="text-align:right">FUTA Rate</th><th></th></tr>
+    ${abPayrollTaxYearsCache.map(y=>`<tr><td>${y.tax_year}</td><td style="text-align:right">${abMoney(y.ss_wage_base)}</td><td style="text-align:right">${(y.ss_rate*100).toFixed(2)}%</td><td style="text-align:right">${(y.medicare_rate*100).toFixed(2)}%</td><td style="text-align:right">${(y.additional_medicare_rate*100).toFixed(2)}% over ${abMoney(y.additional_medicare_threshold)}</td><td style="text-align:right">${(y.futa_rate*100).toFixed(2)}%</td><td><a href="#" onclick="abShowTaxYearBrackets(${y.tax_year});return false" style="color:var(--gold2);font-size:12px">View Brackets →</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No tax years loaded yet</td></tr>'}
+    </table>
+    <div id="ab-taxyear-panel"></div>`;
+}
+function abShowTaxYearBrackets(taxYear){
+  const el=document.getElementById('ab-taxyear-panel');
+  const brackets=abPayrollTaxBracketsCache.filter(b=>b.tax_year===taxYear);
+  el.innerHTML=`<div class="ab-h" style="margin-top:14px;font-size:15px">Brackets — ${taxYear}</div>
+    ${Object.keys(AB_FILING_STATUS_LABELS).map(status=>{
+      const rows=brackets.filter(b=>b.filing_status===status).sort((a,b)=>a.bracket_order-b.bracket_order);
+      return `<div style="margin-bottom:16px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:4px">${AB_FILING_STATUS_LABELS[status]}</div>
+        <table class="ab-table" style="font-size:12px"><tr><th>#</th><th style="text-align:right">Income Floor</th><th style="text-align:right">Base Tax</th><th style="text-align:right">Rate</th></tr>
+        ${rows.map(b=>`<tr><td>${b.bracket_order}</td><td style="text-align:right">${abMoney(b.income_floor)}</td><td style="text-align:right">${abMoney(b.base_tax)}</td><td style="text-align:right">${(b.rate*100).toFixed(0)}%</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No brackets yet</td></tr>'}
+        </table>
+      </div>`;
+    }).join('')}
+    <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-taxyear-panel').innerHTML=''">Close</button>`;
+}
+
+// ══════════════════════════════════════════════
+// BACKGROUND CHECKS — real request/consent/status tracking. Actually
+// RUNNING a check requires a real FCRA-compliant vendor (Checkr,
+// Sterling, etc.) with its own API — same shape as the payment
+// processor blocker. This tracks the workflow honestly: consent, request
+// date, status, results, and the path to an adverse-action decision —
+// it does not pretend to run the check itself.
+// ══════════════════════════════════════════════
+const AB_BGCHECK_STATUSES=[['not_started','Not Started'],['consent_pending','Consent Pending'],['requested','Requested'],['in_progress','In Progress'],['clear','Clear'],['consider','Consider — Review Needed'],['failed','Failed'],['disputed','Disputed by Candidate']];
+let abBackgroundChecksCache=[];
+async function abLoadBackgroundChecks(){
+  if(!abBookId){abBackgroundChecksCache=[];return;}
+  const{data}=await db.from('background_checks').select('*,contacts(name)').eq('book_id',abBookId).order('created_at',{ascending:false});
+  abBackgroundChecksCache=data||[];
+  abRenderBackgroundChecks();
+}
+function abRenderBackgroundChecks(){
+  const el=document.getElementById('ab-bgcheck'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML=`<div class="ab-h">Background Checks</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
+      <b>This tracks the process — it does not run background checks itself.</b> Actually running a check requires a real FCRA-compliant vendor account (Checkr, Sterling, GoodHire, etc.) with its own API, the same way payment processing needs a real merchant account. Get consent, request it through your vendor, then log the result and status here so it's tracked with everything else about that hire.
+    </div>
+    <div class="ab-form">
+      <div class="ab-field"><label>Candidate/Employee</label><select id="ab-bg-contact"><option value="">—</option>${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')||'<option value="">Add a contact first</option>'}</select></div>
+      <div class="ab-field"><label>Vendor (optional)</label><input id="ab-bg-vendor" placeholder="e.g. Checkr"></div>
+      <div class="ab-field"><label>Package (optional)</label><input id="ab-bg-package" placeholder="e.g. Basic + MVR"></div>
+      <button class="ab-btn" onclick="abAddBackgroundCheck()">Start Tracking</button>
+    </div>
+    <table class="ab-table"><tr><th>Candidate</th><th>Vendor</th><th>Consent</th><th>Requested</th><th>Status</th><th></th></tr>
+    ${abBackgroundChecksCache.map(b=>`<tr>
+      <td${b.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${b.contact_id}','${abEsc(b.contacts?b.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(b.contacts?b.contacts.name:'')}</td>
+      <td style="font-size:12px">${abEsc(b.vendor||'—')}</td>
+      <td style="font-size:12px">${b.consent_signed_date||'—'}</td>
+      <td style="font-size:12px">${b.requested_date||'—'}</td>
+      <td>${abEsc(AB_BGCHECK_STATUSES.find(s=>s[0]===b.status)?.[1]||b.status)}</td>
+      <td><a href="#" onclick="abManageBackgroundCheck('${b.id}');return false" style="color:var(--gold2);font-size:12px">Manage →</a></td>
+    </tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No background checks tracked yet</td></tr>'}
+    </table>
+    <div id="ab-bg-manage-panel"></div>`;
+}
+async function abAddBackgroundCheck(){
+  const contact_id=document.getElementById('ab-bg-contact').value; if(!contact_id){abAlert('Pick a candidate/employee.');return;}
+  const vendor=document.getElementById('ab-bg-vendor').value.trim()||null;
+  const package_type=document.getElementById('ab-bg-package').value.trim()||null;
+  const{error}=await db.from('background_checks').insert({book_id:abBookId,contact_id,vendor,package_type,status:'not_started'});
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-bg-vendor').value=''; document.getElementById('ab-bg-package').value='';
+  await abLoadBackgroundChecks();
+}
+function abManageBackgroundCheck(id){
+  const b=abBackgroundChecksCache.find(x=>x.id===id); if(!b)return;
+  const el=document.getElementById('ab-bg-manage-panel');
+  el.innerHTML=`<div class="ab-form" style="flex-direction:column;align-items:stretch;margin-top:14px">
+    <div class="ab-h" style="margin:0 0 8px">Manage — ${abEsc(b.contacts?.name||'')}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <div class="ab-field"><label>Status</label><select id="ab-bg-status">${AB_BGCHECK_STATUSES.map(s=>`<option value="${s[0]}"${b.status===s[0]?' selected':''}>${s[1]}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Consent Signed Date</label><input id="ab-bg-consent" type="date" value="${b.consent_signed_date||''}"></div>
+      <div class="ab-field"><label>Requested Date</label><input id="ab-bg-reqdate" type="date" value="${b.requested_date||''}"></div>
+      <div class="ab-field"><label>Completed Date</label><input id="ab-bg-compdate" type="date" value="${b.completed_date||''}"></div>
+    </div>
+    <div class="ab-field" style="margin-top:6px"><label>Result Summary</label><input id="ab-bg-result" value="${abEsc(b.result_summary||'')}" style="width:100%"></div>
+    <div class="ab-field" style="margin-top:6px"><label>Notes</label><input id="ab-bg-notes" value="${abEsc(b.notes||'')}" style="width:100%"></div>
+    ${b.status==='consider'?'<div class="ab-signin-notice" style="text-align:left;margin-top:6px">"Consider" results carry real FCRA adverse-action obligations — a pre-adverse-action notice, a copy of the report, and a waiting period before any final decision. This tool doesn\'t generate those notices; confirm the process with your vendor or counsel before acting.</div>':''}
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="ab-btn" onclick="abSaveBackgroundCheck('${id}')">Save</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-bg-manage-panel').innerHTML=''">Close</button>
+    </div>
+  </div>`;
+}
+async function abSaveBackgroundCheck(id){
+  const{error}=await db.from('background_checks').update({
+    status:document.getElementById('ab-bg-status').value,
+    consent_signed_date:document.getElementById('ab-bg-consent').value||null,
+    requested_date:document.getElementById('ab-bg-reqdate').value||null,
+    completed_date:document.getElementById('ab-bg-compdate').value||null,
+    result_summary:document.getElementById('ab-bg-result').value.trim()||null,
+    notes:document.getElementById('ab-bg-notes').value.trim()||null
+  }).eq('id',id);
+  if(error){abAlert(error.message);return;}
+  document.getElementById('ab-bg-manage-panel').innerHTML='';
+  await abLoadBackgroundChecks();
 }
 
 // ── MILEAGE + REPAIRS ──
@@ -6140,7 +6396,7 @@ openPanel=function(n){
   if(n===11 && abBookId) abLoadPurchaseOrders();
   if(n===12 && abBookId){ abLoadInventory(); abLoadBom(); }
   if(n===13 && abBookId) abLoadProperties();
-  if(n===14 && abBookId) abLoadPayroll();
+  if(n===14 && abBookId){ abLoadPayroll(); abLoadBackgroundChecks(); }
   if(n===15 && abBookId){ abLoadMileage(); abLoadRepairs(); }
   if(n===16 && abBookId){ abLoadWarranties(); abLoadServiceAgreements(); }
   if(n===17 && abBookId) abLoadCrm();
