@@ -15,6 +15,21 @@ REM REQUIRES Claude Code's CLI installed as "claude" on this computer,
 REM AND a one-time "claude auth login" + "claude setup-token" already
 REM run by the account owner (see ComputerHealth\CLAUDE.md).
 REM
+REM Uses the FULL PATH to the compiled claude.exe directly - NOT
+REM claude.cmd (the npm shim wrapper). Confirmed live 2026-08-01: calling
+REM claude.exe directly with these exact arguments works cleanly; calling
+REM it through claude.cmd from this same automated context failed with
+REM "the system cannot find the file specified" for reasons not fully
+REM root-caused (possibly the shim's own relative-path resolution
+REM behaving differently in a non-interactive/hidden-window context) -
+REM the direct .exe path sidesteps the wrapper entirely and is proven to
+REM work, so that's what's used here rather than chasing the shim issue
+REM further. Separately, also confirmed: the bridge process that launches
+REM this .bat may have been started long before Node/npm were installed,
+REM so it can carry a stale PATH that never picks up a new install - using
+REM any full path here (exe or shim) avoids depending on PATH at all.
+set "CLAUDE_EXE=%APPDATA%\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"
+REM
 REM --safe-mode, not --bare: confirmed live 2026-08-01 via "claude --help"
 REM that --bare strictly requires an ANTHROPIC_API_KEY and NEVER reads a
 REM signed-in subscription (OAuth/keychain are explicitly never read in
@@ -43,7 +58,13 @@ echo.
 
 REM Check sign-in status first and speak plainly if it's not ready yet,
 REM instead of letting the actual claude call fail with a cryptic error.
-for /f "usebackq delims=" %%A in (`powershell -NoProfile -Command "try { (claude auth status 2>$null | ConvertFrom-Json).loggedIn } catch { 'false' }"`) do set CLAUDE_LOGGED_IN=%%A
+if not exist "%CLAUDE_EXE%" (
+    echo  Claude Code CLI not found at %CLAUDE_EXE%
+    echo  This computer needs it installed first - see ComputerHealth\CLAUDE.md.
+    echo ================================================================
+    exit /b 1
+)
+for /f "usebackq delims=" %%A in (`powershell -NoProfile -Command "try { (& '%CLAUDE_EXE%' auth status | ConvertFrom-Json).loggedIn } catch { 'false' }"`) do set CLAUDE_LOGGED_IN=%%A
 
 if /I not "%CLAUDE_LOGGED_IN%"=="True" (
     echo  NOT CONNECTED YET.
@@ -69,4 +90,15 @@ echo  Connected. Processing now...
 echo ================================================================
 echo.
 
-claude --safe-mode -p "Process every image file in C:\Users\user1\AmitInbox that has a matching .json metadata file. For each pair: (1) Read the image directly and extract what's actually on it - vendor/business name, date, total amount, and every individual line item if it's an itemized receipt or invoice. (2) A single receipt can span more than one trade or Scope at once - do not force everything into one bucket. In this system, 'Scope' is the established term for what a QuickBooks user might call a cost code - the umbrella grouping a line item belongs to. Group the line items into as many distinct Scopes as the content actually supports (for example: a hardware store run might genuinely contain both plumbing materials - PVC pipe, fittings, valves - AND framing materials - 2x4 lumber, joist hangers - on the same receipt, which is two separate Scopes). For each group, propose a Scope and Cost Type from what's actually written, plus a subtotal for that group if it can be determined. Anything that doesn't clearly fit an identifiable Scope goes into its own 'Unidentified materials' group rather than being force-fit into the wrong one or silently dropped - an honest 'unidentified' is more useful than a wrong guess. Only propose what the content actually supports. (3) Build a JSON object with fields: vendor, date, amount, line_items (array), scope_breakdown (array of objects: {scope, cost_type, items, subtotal, confidence_note}), confidence_note (overall honest note on how confident this whole proposal is and why). (4) Write that JSON back to Supabase using curl: PATCH https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/scan_captures?id=eq.SCAN_ID (SCAN_ID from that item's .json metadata 'scan_id' field), headers: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF, Authorization: Bearer ACCESS_TOKEN (ACCESS_TOKEN from that item's .json metadata 'access_token' field), Content-Type: application/json, Prefer: return=minimal, body: {\"extracted_data\": <your JSON object>, \"processed_at\": \"<current ISO timestamp>\"}. Never use any other credential for this - only the access_token found in that specific item's own metadata file, which is scoped to that one user's own data. (5) Only after the curl call succeeds, delete both that item's image file and its .json metadata file from the inbox. (6) Report a plain-language summary at the end: how many processed, how many failed and why, and for each one, what Scopes were found." --allowedTools "Read,Bash" --output-format json
+REM The prompt lives in its own text file (process_inbox_prompt.txt, same
+REM folder) and gets piped in via stdin, NOT passed as a command-line
+REM argument. Confirmed live 2026-08-01: embedding this prompt directly
+REM on the command line failed ("the system cannot find the file
+REM specified") because it contains literal \" sequences (JSON syntax)
+REM that cmd.exe's own argument-boundary parsing doesn't handle the way
+REM a Win32 program's argv parser would - a real, documented mismatch
+REM between batch-level quoting and child-process quoting, not
+REM something worth fighting further. Piping via stdin (claude -p with
+REM no inline prompt argument) sidesteps cmd.exe's parsing entirely -
+REM confirmed working with this exact flag combination.
+type "%~dp0process_inbox_prompt.txt" | "%CLAUDE_EXE%" --safe-mode -p --allowedTools "Read,Bash" --output-format json
