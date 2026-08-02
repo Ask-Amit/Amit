@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v2.04</div>
+    <div class="page-version" id="pageVersion">v2.05</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2890,6 +2890,8 @@ async function abScanReceipts(fileList){
 let abNomenclaturePresetsCache=null;   // [{id,preset_key,display_name}]
 let abNomenclatureFieldsCache=null;    // this book's book_field_settings rows
 let abNomenclatureMasterFields=null;   // master_fields rows, for the editor
+let abNomenclatureValuesCache=null;    // this book's book_field_values rows (picklist children)
+let abNomenclatureNewValueSeq=0;       // counter for not-yet-saved value rows added in the editor
 
 async function abLoadNomenclatureRefData(){
   if(abNomenclaturePresetsCache && abNomenclatureMasterFields) return;
@@ -2908,6 +2910,8 @@ async function abRenderNomenclature(){
   await abLoadNomenclatureRefData();
   const{data:bookFields}=await db.from('book_field_settings').select('*').eq('book_id',abBookId).order('field_key',{ascending:true});
   abNomenclatureFieldsCache=bookFields||[];
+  const{data:bookValues}=await db.from('book_field_values').select('*').eq('book_id',abBookId).order('sort_order',{ascending:true});
+  abNomenclatureValuesCache=bookValues||[];
   const{data:bookRow}=await db.from('books').select('industry_preset_id').eq('id',abBookId).single();
   const currentPresetId=bookRow?bookRow.industry_preset_id:null;
   const currentPreset=abNomenclaturePresetsCache.find(p=>p.id===currentPresetId);
@@ -2943,6 +2947,20 @@ async function abApplyNomenclaturePreset(presetKey){
   await abRenderNomenclature();
 }
 
+function abNomSlugify(label){
+  return String(label||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||('value_'+Date.now());
+}
+
+function abNomValueRowHtml(fieldKey,v){
+  // v.id is a real book_field_values id for existing rows, or a "new-N" string for
+  // rows added in this editing session and not yet persisted.
+  return`<div class="ab-nom-value-row" data-value-id="${v.id}" data-field-key="${fieldKey}" style="display:flex;align-items:center;gap:8px;padding:4px 0 4px 30px">
+    <input type="checkbox" class="ab-nom-value-active" ${v.active?'checked':''} style="flex-shrink:0">
+    <input type="text" class="ab-nom-value-label" value="${abEsc(v.display_label)}" style="flex:1;font-size:12px" placeholder="Value name">
+    <span style="font-size:10px;color:var(--muted);width:110px;text-align:right">${v.id.toString().startsWith('new-')?'(new)':abEsc(v.value_key)}</span>
+  </div>`;
+}
+
 function abOpenNomenclatureEditor(){
   const body=document.getElementById('abNomenclatureEditorBody');
   const rows=(abNomenclatureFieldsCache||[]).slice().sort((a,b)=>{
@@ -2950,12 +2968,45 @@ function abOpenNomenclatureEditor(){
     const mb=(abNomenclatureMasterFields||[]).find(m=>m.field_key===b.field_key);
     return(ma?ma.sort_order:999)-(mb?mb.sort_order:999);
   });
-  body.innerHTML=rows.map(f=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(240,232,208,.08)">
-    <input type="checkbox" id="ab-nom-active-${f.field_key}" ${f.active?'checked':''} style="flex-shrink:0">
-    <input type="text" id="ab-nom-label-${f.field_key}" value="${abEsc(f.display_label)}" style="flex:1" placeholder="${abEsc(f.field_key)}">
-    <span style="font-size:11px;color:var(--muted);width:110px;text-align:right">${abEsc(f.field_key)}</span>
-  </div>`).join('');
+  body.innerHTML=rows.map(f=>{
+    const master=(abNomenclatureMasterFields||[]).find(m=>m.field_key===f.field_key);
+    const isPicklist=master&&master.is_picklist;
+    const values=(abNomenclatureValuesCache||[]).filter(v=>v.field_key===f.field_key);
+    return`<div class="ab-nom-field-block" data-field-key="${f.field_key}">
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(240,232,208,.08)">
+        ${isPicklist?`<span onclick="abNomToggleValues('${f.field_key}')" style="cursor:pointer;font-size:11px;color:var(--gold2);width:14px;flex-shrink:0" id="ab-nom-caret-${f.field_key}">▸</span>`:'<span style="width:14px;flex-shrink:0"></span>'}
+        <input type="checkbox" id="ab-nom-active-${f.field_key}" ${f.active?'checked':''} style="flex-shrink:0">
+        <input type="text" id="ab-nom-label-${f.field_key}" value="${abEsc(f.display_label)}" style="flex:1" placeholder="${abEsc(f.field_key)}">
+        <span style="font-size:11px;color:var(--muted);width:110px;text-align:right">${abEsc(f.field_key)}</span>
+      </div>
+      ${isPicklist?`<div class="ab-nom-values-wrap" id="ab-nom-values-${f.field_key}" style="display:none">
+        <div class="ab-nom-values-list" id="ab-nom-values-list-${f.field_key}">${values.map(v=>abNomValueRowHtml(f.field_key,v)).join('')}</div>
+        <div style="display:flex;gap:8px;padding:4px 0 8px 30px">
+          <input type="text" id="ab-nom-newvalue-${f.field_key}" placeholder="New value name…" style="flex:1;font-size:12px">
+          <button class="ab-btn" style="font-size:11px;padding:4px 10px" onclick="abNomAddValueRow('${f.field_key}')">+ Add</button>
+        </div>
+      </div>`:''}
+    </div>`;
+  }).join('');
   document.getElementById('abNomenclatureModal').style.display='flex';
+}
+
+function abNomToggleValues(fieldKey){
+  const wrap=document.getElementById('ab-nom-values-'+fieldKey);
+  const caret=document.getElementById('ab-nom-caret-'+fieldKey);
+  const open=wrap.style.display!=='none';
+  wrap.style.display=open?'none':'block';
+  caret.textContent=open?'▸':'▾';
+}
+
+function abNomAddValueRow(fieldKey){
+  const input=document.getElementById('ab-nom-newvalue-'+fieldKey);
+  const label=input.value.trim();
+  if(!label)return;
+  const tempId='new-'+(++abNomenclatureNewValueSeq);
+  const list=document.getElementById('ab-nom-values-list-'+fieldKey);
+  list.insertAdjacentHTML('beforeend',abNomValueRowHtml(fieldKey,{id:tempId,active:true,display_label:label,value_key:abNomSlugify(label)}));
+  input.value='';
 }
 
 function abCloseNomenclatureEditor(){
@@ -2963,14 +3014,31 @@ function abCloseNomenclatureEditor(){
 }
 
 async function abSaveNomenclatureEditor(){
-  const updates=(abNomenclatureFieldsCache||[]).map(f=>{
+  const fieldUpdates=(abNomenclatureFieldsCache||[]).map(f=>{
     const activeEl=document.getElementById('ab-nom-active-'+f.field_key);
     const labelEl=document.getElementById('ab-nom-label-'+f.field_key);
     return{id:f.id,active:activeEl?activeEl.checked:f.active,display_label:labelEl&&labelEl.value.trim()?labelEl.value.trim():f.display_label};
   });
-  for(const u of updates){
+  for(const u of fieldUpdates){
     await db.from('book_field_settings').update({active:u.active,display_label:u.display_label}).eq('id',u.id);
   }
+
+  const valueRows=document.querySelectorAll('#abNomenclatureEditorBody .ab-nom-value-row');
+  let newSortOrder=((abNomenclatureValuesCache||[]).reduce((m,v)=>Math.max(m,v.sort_order||0),0))+10;
+  for(const row of valueRows){
+    const valueId=row.getAttribute('data-value-id');
+    const fieldKey=row.getAttribute('data-field-key');
+    const active=row.querySelector('.ab-nom-value-active').checked;
+    const label=row.querySelector('.ab-nom-value-label').value.trim();
+    if(!label)continue;
+    if(valueId.startsWith('new-')){
+      await db.from('book_field_values').insert({book_id:abBookId,field_key:fieldKey,value_key:abNomSlugify(label),active,display_label:label,sort_order:newSortOrder});
+      newSortOrder+=10;
+    }else{
+      await db.from('book_field_values').update({active,display_label:label}).eq('id',valueId);
+    }
+  }
+
   abCloseNomenclatureEditor();
   await abRenderNomenclature();
 }
