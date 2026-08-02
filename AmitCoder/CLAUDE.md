@@ -296,6 +296,7 @@ create policy "Users manage their own coder sessions"
 
 **Not yet built:**
 - **Session history viewer** — pulls from Claude Code JSONL session files and displays the full conversation log for any past session. Read-only. Searchable. Linked to experience entries by date. The History tab is a static mockup only.
+- **Worth investigating before building the above: an OAuth API path instead of JSONL parsing.** Noticed live 2026-08-01 (Ryan, during the Claude Code CLI OAuth login for AmitBooks' local processing) — Anthropic's own OAuth consent screen for `claude auth login` explicitly lists "Access your Claude Code sessions" as a granted scope. That may mean there's a real, sanctioned API for pulling a signed-in user's own Claude Code session history, instead of (or alongside) the current plan of reading local JSONL files directly via the File System Access API. Worth checking Anthropic's docs for what that scope actually exposes before building the JSONL-parsing approach — an official API, if one exists, would likely be more reliable than parsing local files by hand.
 - **Version milestone log** — what was built in each version, indexed by date.
 - **VS Code integration** — captures coding activity the same way the Hub captures panel visits.
 - **Ask Amit on session** — after viewing a session log, open Ask Amit with that session as context.
