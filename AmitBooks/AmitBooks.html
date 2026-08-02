@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v2.03</div>
+    <div class="page-version" id="pageVersion">v2.04</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -369,6 +369,21 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button id="abDialogCancelBtn" class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25);display:none">Cancel</button>
       <button id="abDialogOkBtn" class="ab-btn">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="abNomenclatureModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;margin-bottom:6px">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">Customize Field Names — This Book</div>
+      <div onclick="abCloseNomenclatureEditor()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Turn a field on or off, or rename what it's called on screen. Off fields stay off everywhere — reports, forms, headers — until turned back on.</div>
+    <div id="abNomenclatureEditorBody" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abCloseNomenclatureEditor()">Cancel</button>
+      <button class="ab-btn" onclick="abSaveNomenclatureEditor()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -947,7 +962,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Workflow Rules','ab-workflow'],['Integrations','ab-integrations'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
+      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Nomenclature','ab-nomenclature'],['Workflow Rules','ab-workflow'],['Integrations','ab-integrations'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -1421,7 +1436,7 @@ async function abLoadBooks(){
 async function abLoadBookData(){
   await Promise.all([abLoadAccounts(),abLoadContacts(),abLoadItems(),abLoadTags()]);
   await abLoadWorkflowRules();
-  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderWorkflowRules(); abRenderIntegrations(); abRenderQbImportTab(); abLoadAuditLog(); abRenderScanConnect(); abRenderScanPending(); abRenderScanWorking();
+  abRenderCoa(); abRenderContacts(); abRenderPipeline(); abRenderItems(); abRenderTags(); abRenderWorkflowRules(); abRenderIntegrations(); abRenderQbImportTab(); abLoadAuditLog(); abRenderScanConnect(); abRenderScanPending(); abRenderScanWorking(); abRenderNomenclature();
   await abLoadInvoicesBills();
   await abLoadFixedAssets();
   await abLoadJournalLines();
@@ -2865,6 +2880,101 @@ async function abScanReceipts(fileList){
   const freshStatus=document.getElementById('ab-scan-status');
   if(freshStatus) freshStatus.textContent=msg.join(' ');
 }
+// ── NOMENCLATURE — landing pad for the industry field-label system
+// (master_fields / industry_presets / preset_field_defaults /
+// book_field_settings — see Database/migration_2026-08-02_00{1,2,3,4}).
+// Scoped to whichever book is currently selected (abBookId), same as
+// every other Books & Setup tab — a company's several checking accounts
+// all point back to one book, so nomenclature lives at the book level,
+// not the account level.
+let abNomenclaturePresetsCache=null;   // [{id,preset_key,display_name}]
+let abNomenclatureFieldsCache=null;    // this book's book_field_settings rows
+let abNomenclatureMasterFields=null;   // master_fields rows, for the editor
+
+async function abLoadNomenclatureRefData(){
+  if(abNomenclaturePresetsCache && abNomenclatureMasterFields) return;
+  const[{data:presets},{data:fields}]=await Promise.all([
+    db.from('industry_presets').select('*').order('display_name',{ascending:true}),
+    db.from('master_fields').select('*').order('sort_order',{ascending:true})
+  ]);
+  abNomenclaturePresetsCache=presets||[];
+  abNomenclatureMasterFields=fields||[];
+}
+
+async function abRenderNomenclature(){
+  const el=document.getElementById('ab-nomenclature'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
+  el.innerHTML='Loading…';
+  await abLoadNomenclatureRefData();
+  const{data:bookFields}=await db.from('book_field_settings').select('*').eq('book_id',abBookId).order('field_key',{ascending:true});
+  abNomenclatureFieldsCache=bookFields||[];
+  const{data:bookRow}=await db.from('books').select('industry_preset_id').eq('id',abBookId).single();
+  const currentPresetId=bookRow?bookRow.industry_preset_id:null;
+  const currentPreset=abNomenclaturePresetsCache.find(p=>p.id===currentPresetId);
+
+  const activeFields=abNomenclatureFieldsCache.filter(f=>f.active);
+
+  el.innerHTML=`<div class="ab-h">Nomenclature</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:20px">
+      Every classification field in this book — Job, Scope, Cost Code, whatever your industry calls it — has its own label, set here. Reports, forms, and headers throughout AmitBooks read the label from here rather than a fixed word, so a Restaurant book can call this field "Shift / Service" while a Construction book calls the same underlying field "Phase."
+    </div>
+
+    <div class="ab-h" style="font-size:15px">This Book's Current Setup</div>
+    ${currentPreset?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Started from the <b>${abEsc(currentPreset.display_name)}</b> preset.</div>`:'<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">No preset applied yet — pick one below to get started.</div>'}
+    ${activeFields.length?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      ${activeFields.map(f=>`<span style="font-size:12px;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.18);border-radius:12px;padding:4px 12px">${abEsc(f.display_label)}</span>`).join('')}
+    </div>`:''}
+    <button class="ab-btn" ${activeFields.length?'':'disabled style="background:transparent;color:var(--muted);cursor:not-allowed"'} onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
+
+    <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Set as Default for This Book</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Applying a preset fills in sensible field names and turns on what that industry typically uses. It never overwrites a field you've already customized — safe to re-apply.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      ${abNomenclaturePresetsCache.map(p=>`<div style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px">
+        <div style="font-weight:600;margin-bottom:8px">${abEsc(p.display_name)}${p.id===currentPresetId?' <span style="font-size:10px;color:#8fd19e;font-weight:400">— current</span>':''}</div>
+        <button class="ab-btn" style="font-size:12px;padding:6px 12px" onclick="abApplyNomenclaturePreset('${p.preset_key}')">${p.id===currentPresetId?'Re-Apply':'Set as Default'}</button>
+      </div>`).join('')}
+    </div>`;
+}
+
+async function abApplyNomenclaturePreset(presetKey){
+  if(!abBookId)return;
+  const{error}=await db.rpc('apply_preset_to_book',{p_book_id:abBookId,p_preset_key:presetKey});
+  if(error){abAlert('Could not apply preset: '+error.message);return;}
+  await abRenderNomenclature();
+}
+
+function abOpenNomenclatureEditor(){
+  const body=document.getElementById('abNomenclatureEditorBody');
+  const rows=(abNomenclatureFieldsCache||[]).slice().sort((a,b)=>{
+    const ma=(abNomenclatureMasterFields||[]).find(m=>m.field_key===a.field_key);
+    const mb=(abNomenclatureMasterFields||[]).find(m=>m.field_key===b.field_key);
+    return(ma?ma.sort_order:999)-(mb?mb.sort_order:999);
+  });
+  body.innerHTML=rows.map(f=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(240,232,208,.08)">
+    <input type="checkbox" id="ab-nom-active-${f.field_key}" ${f.active?'checked':''} style="flex-shrink:0">
+    <input type="text" id="ab-nom-label-${f.field_key}" value="${abEsc(f.display_label)}" style="flex:1" placeholder="${abEsc(f.field_key)}">
+    <span style="font-size:11px;color:var(--muted);width:110px;text-align:right">${abEsc(f.field_key)}</span>
+  </div>`).join('');
+  document.getElementById('abNomenclatureModal').style.display='flex';
+}
+
+function abCloseNomenclatureEditor(){
+  document.getElementById('abNomenclatureModal').style.display='none';
+}
+
+async function abSaveNomenclatureEditor(){
+  const updates=(abNomenclatureFieldsCache||[]).map(f=>{
+    const activeEl=document.getElementById('ab-nom-active-'+f.field_key);
+    const labelEl=document.getElementById('ab-nom-label-'+f.field_key);
+    return{id:f.id,active:activeEl?activeEl.checked:f.active,display_label:labelEl&&labelEl.value.trim()?labelEl.value.trim():f.display_label};
+  });
+  for(const u of updates){
+    await db.from('book_field_settings').update({active:u.active,display_label:u.display_label}).eq('id',u.id);
+  }
+  abCloseNomenclatureEditor();
+  await abRenderNomenclature();
+}
+
 function abRenderIntegrations(){
   const el=document.getElementById('ab-integrations'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
