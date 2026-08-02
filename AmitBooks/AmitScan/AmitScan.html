@@ -228,14 +228,15 @@
       <div id="classifyPanel">
         <label for="classifySelect">What is this?</label>
         <select id="classifySelect"></select>
-        <button id="btnVerified">Verified ✓</button>
+        <button id="btnVerified">Process</button>
+        <div id="btnVerifiedError" style="display:none;color:var(--danger);font-size:13px;margin-top:6px"></div>
         <button id="btnDiscard">Discard this capture</button>
       </div>
     </div>
   </div>
 
   <div id="bottombar">
-    <div id="pageVersion">v1.05</div>
+    <div id="pageVersion">v1.08</div>
     <div id="shutter"></div>
   </div>
 
@@ -250,11 +251,19 @@
 <div id="connectModal">
   <div class="box" style="position:relative;">
     <button id="connectClose">×</button>
-    <h3>Connect AmitScan</h3>
-    <p>Sign in with the same email you use for the Hub. Captures save under your account.</p>
-    <input id="connectEmail" type="email" placeholder="you@email.com" autocomplete="email">
-    <button id="connectSend">Send sign-in link</button>
-    <div id="connectStatus"></div>
+    <div id="connectSignedInView" style="display:none">
+      <h3>You're connected ✓</h3>
+      <p id="connectSignedInEmail" style="color:var(--ok)"></p>
+      <p>Captures save under this account. No need to sign in again on this device.</p>
+      <button id="connectSwitchAccount" style="background:transparent;border:1px solid var(--line);color:var(--dim)">Use a different email instead</button>
+    </div>
+    <div id="connectSignInView">
+      <h3>Connect AmitScan</h3>
+      <p>Sign in with the same email you use for the Hub. Captures save under your account.</p>
+      <input id="connectEmail" type="email" placeholder="you@email.com" autocomplete="email">
+      <button id="connectSend">Send sign-in link</button>
+      <div id="connectStatus"></div>
+    </div>
   </div>
 </div>
 
@@ -281,7 +290,14 @@
 
 const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
 const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
-const db=window.supabase?window.supabase.createClient(SB_URL,SB_KEY):null;
+// Explicit rather than relying on library defaults - persistSession keeps
+// the sign-in across app relaunches (home-screen icon included, since it
+// shares the same browser storage the page was installed from),
+// autoRefreshToken keeps it alive long-term, detectSessionInUrl is what
+// makes the QR/email magic-link actually sign you in when it opens.
+const db=window.supabase?window.supabase.createClient(SB_URL,SB_KEY,{
+  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+}):null;
 
 const MODES=[
   {id:'bill',label:'Bill'},
@@ -373,11 +389,25 @@ function closeClassify(){
 document.getElementById('btnDiscard').onclick=closeClassify;
 document.getElementById('btnVerified').onclick=async()=>{
   if(!pendingClassifyBlob) return;
+  const btn=document.getElementById('btnVerified');
+  const errBox=document.getElementById('btnVerifiedError');
+  errBox.style.display='none';
+  btn.disabled=true;
   const mode=document.getElementById('classifySelect').value;
-  await queueCapture(mode,pendingClassifyBlob);
-  localStorage.setItem('as_last_mode',mode); // becomes the default for next time
-  closeClassify();
-  updatePendingCount();
+  try{
+    await queueCapture(mode,pendingClassifyBlob);
+    localStorage.setItem('as_last_mode',mode); // becomes the default for next time
+    closeClassify();
+    updatePendingCount();
+  }catch(e){
+    // Previously silent - the button just did nothing if this failed
+    // (private browsing mode, storage quota, a blocked DB upgrade). Now
+    // it says so, instead of leaving someone tapping a dead button.
+    errBox.textContent='Could not save this capture: '+(e?.message||String(e))+'. Try again, or discard and retake it.';
+    errBox.style.display='block';
+  }finally{
+    btn.disabled=false;
+  }
 };
 
 // ── Crop box (drag corners to resize, drag body to move) ──
@@ -556,11 +586,39 @@ function refreshConnectUI(){
   if(currentUser){ btn.textContent=currentUser.email.split('@')[0]; btn.classList.add('connected'); }
   else{ btn.textContent='Connect'; btn.classList.remove('connected'); }
 }
-document.getElementById('topConnectBtn').onclick=()=>{
+function openConnectModal(){
+  // Show what's actually true right now, rather than always presenting a
+  // blank sign-in form regardless of state - this was the real bug behind
+  // "I already connected once, why is it asking me to sign in again with
+  // no memory of what email I used" (2026-08-02): the modal never checked
+  // currentUser before opening, so an already-signed-in person saw the
+  // exact same empty prompt as someone brand new.
+  const signedInView=document.getElementById('connectSignedInView');
+  const signInView=document.getElementById('connectSignInView');
+  if(currentUser){
+    document.getElementById('connectSignedInEmail').textContent=currentUser.email;
+    signedInView.style.display='block';
+    signInView.style.display='none';
+  }else{
+    signedInView.style.display='none';
+    signInView.style.display='block';
+    // Pre-fill with whatever email last successfully signed in on this
+    // device (2026-08-02, Ryan's request) - saves retyping after a
+    // session expires or a reinstall, without silently auto-signing
+    // anyone in. Only a convenience default, not a session restore -
+    // still requires tapping "Send sign-in link."
+    const lastEmail=localStorage.getItem('as_last_email');
+    if(lastEmail) document.getElementById('connectEmail').value=lastEmail;
+  }
   document.getElementById('connectModal').style.display='flex';
-};
+}
+document.getElementById('topConnectBtn').onclick=openConnectModal;
 document.getElementById('connectClose').onclick=()=>{
   document.getElementById('connectModal').style.display='none';
+};
+document.getElementById('connectSwitchAccount').onclick=()=>{
+  document.getElementById('connectSignedInView').style.display='none';
+  document.getElementById('connectSignInView').style.display='block';
 };
 document.getElementById('connectSend').onclick=async()=>{
   const email=document.getElementById('connectEmail').value.trim();
@@ -574,13 +632,25 @@ document.getElementById('connectSend').onclick=async()=>{
 
 async function initAuth(){
   if(!db) return;
-  const{data}=await db.auth.getSession();
-  currentUser=data?.session?.user||null;
-  refreshConnectUI();
+  // The listener MUST be registered before the first getSession() call.
+  // supabase-js processes a magic-link/QR redirect URL (detectSessionInUrl)
+  // as part of that very first getSession() call and fires SIGNED_IN
+  // through this listener immediately - if the listener isn't attached
+  // yet, that event is missed silently, no error, nothing to see. This
+  // was the actual bug behind "the save-to-home-screen prompt never showed
+  // up" (2026-08-02) - the old code called getSession() first, so the
+  // fresh-QR-scan SIGNED_IN event fired into a listener that didn't exist
+  // yet, and the install prompt never had a chance to trigger.
   db.auth.onAuthStateChange((evt,session)=>{
     currentUser=session?.user||null;
     refreshConnectUI();
     if(currentUser){
+      // Kept current every single time a session is confirmed - QR scan,
+      // emailed link, or just a normal reopen with a still-valid session -
+      // not only on a fresh sign-in. Whichever email actually got you in
+      // most recently is always what's remembered, so the fallback form
+      // is never stale (2026-08-02, Ryan's request).
+      localStorage.setItem('as_last_email',currentUser.email);
       document.getElementById('connectModal').style.display='none';
       // SIGNED_IN fires on a fresh sign-in this load (email link or QR
       // link) — this is the moment to offer saving to the home screen.
@@ -589,6 +659,10 @@ async function initAuth(){
       if(evt==='SIGNED_IN') maybeShowInstallPrompt();
     }
   });
+  const{data}=await db.auth.getSession();
+  currentUser=data?.session?.user||null;
+  if(currentUser) localStorage.setItem('as_last_email',currentUser.email);
+  refreshConnectUI();
 }
 initAuth();
 
