@@ -46,7 +46,8 @@ if ($alreadyInstalled) {
         "amit_bridge_server.ps1", "ComputerHealth_Dashboard.html",
         "activity_watcher2.ps1", "resource_watcher.ps1", "diagnostics_watcher.ps1",
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
-        "Run_AmitTracker.ps1", "AmitTracker.exe", "AmitSensorReader.exe"
+        "Run_AmitTracker.ps1", "AmitTracker.exe", "AmitSensorReader.exe",
+        "process_inbox.bat"
     )
     foreach ($f in $filesToCopy) {
         $src = "$scriptDir\$f"
