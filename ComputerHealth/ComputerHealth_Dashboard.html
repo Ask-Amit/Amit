@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.37</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.38</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3878,6 +3878,17 @@ function openPerfDetail(key) {
     </div>`;
   }
 
+  // Real measured per-process CPU%, not a memory-based stand-in - needs
+  // two samples with a time gap to compute a rate, so the very first
+  // reading of a fresh tracking session may briefly show none yet.
+  function topCpuHtml(topCpu) {
+    if (!topCpu || !topCpu.length) return '<p style="color:#8a8f99;font-size:12px;margin-top:10px">No per-process CPU breakdown yet - this needs two samples a short time apart to measure a rate, so it fills in shortly after tracking starts.</p>';
+    return `<div style="margin-top:14px;padding:12px 14px;background:#12141a;border-radius:6px">
+      <div style="font-weight:600;color:#e8e9ec;margin-bottom:8px">What's actually using it (top 5 programs by measured CPU%, grouped across all their own processes)</div>
+      <ul style="margin:0 0 0 18px;color:#c7cad1;font-variant-numeric:tabular-nums">${topCpu.map(p => `<li style="margin:4px 0">${escHtml(p.name)} — ${p.pct}%</li>`).join('')}</ul>
+    </div>`;
+  }
+
   let title = '', body = '';
   if (key === 'ram') {
     title = 'Memory (RAM) — Detail';
@@ -3893,7 +3904,7 @@ function openPerfDetail(key) {
       `How busy your processor is doing active work right now — ${r.cpuPct !== null ? r.cpuPct+'%' : 'no data yet'}.`,
       'Every running program takes turns on the processor, thousands of times a second. Momentary spikes to 100% are completely normal; it is sustained high load that actually slows things down.',
       'Under 60% is low load. 60-85% is normal during active use. Above 85% sustained means something is working the processor hard.',
-      top5Html(r.top5, "What's actually using it (top 5 programs by memory, grouped across all their own processes - also tends to show who's driving CPU)")
+      topCpuHtml(r.topCpu)
     );
   } else if (key === 'dpc') {
     title = 'Input Lag Risk (DPC time) — Detail';
@@ -4719,12 +4730,26 @@ function parseResourceLine(line) {
         return m ? { name: m[1], mb: parseInt(m[2]) } : null;
       }).filter(Boolean)
     : [];
+  // TOPCPU is REAL per-process CPU%, not a memory-based stand-in - Ryan
+  // caught directly (2026-08-02) that showing the RAM top-5 as "who's
+  // driving CPU" was a guess, not a measurement. This is measured: each
+  // watcher script now tracks TotalProcessorTime deltas between its own
+  // sample passes (the same method Task Manager uses) and writes
+  // "chrome.exe=2.31%, ..." here.
+  const topCpuMatch = line.match(/TOPCPU:\[([^\]]*)\]/);
+  const topCpu = topCpuMatch && topCpuMatch[1]
+    ? topCpuMatch[1].split(',').map(s => s.trim()).filter(Boolean).map(entry => {
+        const m = entry.match(/^(.*)=([\d.]+)%$/);
+        return m ? { name: m[1], pct: parseFloat(m[2]) } : null;
+      }).filter(Boolean)
+    : [];
   return {
     ramPct: ram ? parseFloat(ram[3]) : null,
     ramFreeMB: ram ? parseInt(ram[1]) : null,
     ramTotalMB: ram ? parseInt(ram[2]) : null,
     cpuPct: cpu ? parseFloat(cpu[1]) : null,
-    top5
+    top5,
+    topCpu
   };
 }
 
