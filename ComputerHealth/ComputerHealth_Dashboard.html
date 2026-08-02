@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.35</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.36</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -739,6 +739,10 @@
     <div style="margin-top:16px">
       <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="checkPendingUpdates(); checkDriverUpdates();">Check Again</button>
     </div>
+
+    <div class="section-title" style="margin-top:24px">Recent update events</div>
+    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">What Windows and installed programs have actually put in this computer's own update history - Windows updates, driver installs, app installers. Ryan's direct request 2026-08-02: these were previously mixed into the Errors tab's "Recent events," which made a routine install look like something broken. That list is now Errors-only; this is Updates-only.</p>
+    <div id="updateEventsList" class="log-box" style="max-height:400px;overflow-y:auto">Loading…</div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('reliability','current')">✓ Currently Captured</button>
       <button class="btn secondary" onclick="showCaptureInfo('reliability','future')">＋ Future</button>
@@ -840,7 +844,7 @@ function showTab(name) {
   event.target.classList.add('active');
   if (name === 'history') loadHistory();
   if (name === 'hardware') loadHardwareTree();
-  if (name === 'reliability') pollUpdates();
+  if (name === 'reliability') { pollUpdates(); pollReliability(); }
   if (name === 'errors') pollReliability();
   if (name === 'security') pollSecurity();
   if (name === 'charts' && !chSessionSamplesCache && !chHistorySamplesCache) chLoadChartScopeData();
@@ -858,7 +862,7 @@ function showTabByName(name) {
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'history') loadHistory();
   if (name === 'hardware') loadHardwareTree();
-  if (name === 'reliability') pollUpdates();
+  if (name === 'reliability') { pollUpdates(); pollReliability(); }
   if (name === 'errors') pollReliability();
   if (name === 'security') pollSecurity();
   if (name === 'charts' && !chSessionSamplesCache && !chHistorySamplesCache) chLoadChartScopeData();
@@ -5064,9 +5068,24 @@ async function pollReliability() {
           'No blue-screen crash files found.',
           'At least one real crash dump exists - worth knowing when it happened.',
           'Multiple crash dumps - a real, recurring stability problem.')}</div></div>`;
-    document.getElementById('reliabilityList').textContent = records.length
-      ? records.map(rec => `${rec.time}  [${rec.source}]  ${rec.message}${rec.beforeLastUpdate ? '  (before your last update - may already be resolved)' : ''}`).join('\n\n')
-      : 'No reliability history found yet.';
+    // Ryan's direct request 2026-08-02: this list mixed real errors with
+    // routine Windows/program update-install successes ("Installation
+    // Successful: Windows successfully installed the following update...")
+    // - a normal update showing up under "Recent events" on the ERRORS tab
+    // read as something broken when it wasn't. Errors tab now shows only
+    // errorRecords (the same investigate-worthy set already used for the
+    // count above); everything else (update/install successes) moved to
+    // its own list on the Updates tab, see updateEventsList below.
+    const updateRecords = records.filter(rec => !errorRecords.includes(rec));
+    document.getElementById('reliabilityList').textContent = errorRecords.length
+      ? errorRecords.map(rec => `${rec.time}  [${rec.source}]  ${rec.message}${rec.beforeLastUpdate ? '  (before your last update - may already be resolved)' : ''}`).join('\n\n')
+      : 'No errors, hangs, or unexpected shutdowns found in Windows\' reliability history.';
+    const updateEventsEl = document.getElementById('updateEventsList');
+    if (updateEventsEl) {
+      updateEventsEl.textContent = updateRecords.length
+        ? updateRecords.map(rec => `${rec.time}  [${rec.source}]  ${rec.message}`).join('\n\n')
+        : 'No update/install history found yet.';
+    }
     document.getElementById('minidumpList').textContent = minidumps.length
       ? minidumps.map(m => `${m.time}  ${m.fileName}`).join('\n')
       : 'No crash dump files found - a good sign.';
