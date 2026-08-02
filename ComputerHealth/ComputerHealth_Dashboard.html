@@ -266,7 +266,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.34</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.35</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -4748,14 +4748,16 @@ async function pollResource() {
     if (last) {
       const p = parseResourceLine(last);
       LAST_PERF_RESOURCE = p;
-      const ramCard = `<div class="card ${verdictClass(p.ramPct,70,90)}" style="cursor:pointer" ondblclick="openPerfDetail('ram')" title="Double-click for detail">
+      const ramCard = `<div class="card ${verdictClass(p.ramPct,70,90)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('ram')" title="Click Detail, or double-click anywhere on the card">
+        <span onclick="openPerfDetail('ram')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
         <div class="label">Memory (RAM)</div>
         <div class="value">${p.ramPct !== null ? p.ramPct+'%' : '—'}</div>
         <div class="verdict">${verdictText('RAM',p.ramPct,70,90,
           'Plenty of memory free — no concern.',
           'Getting fuller — fine for now, worth watching if it climbs.',
           'Memory is nearly full. This can cause slowdowns and stutter.')}</div></div>`;
-      const cpuCard = `<div class="card ${verdictClass(p.cpuPct,60,85)}" style="cursor:pointer" ondblclick="openPerfDetail('cpu')" title="Double-click for detail">
+      const cpuCard = `<div class="card ${verdictClass(p.cpuPct,60,85)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('cpu')" title="Click Detail, or double-click anywhere on the card">
+        <span onclick="openPerfDetail('cpu')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
         <div class="label">Processor (CPU)</div>
         <div class="value">${p.cpuPct !== null ? p.cpuPct+'%' : '—'}</div>
         <div class="verdict">${verdictText('CPU',p.cpuPct,60,85,
@@ -4813,35 +4815,40 @@ async function pollDiagnostics() {
       const ctxSwitchPerSec = ctxSwitch ? parseFloat(ctxSwitch[1]) : null;
       LAST_PERF_DIAGNOSTICS = { dpcPct, diskPct, diskMs, procQueueLen, ctxSwitchPerSec, freeSpacePct, usedSpacePct };
       const diagCardsHtml = `
-        <div class="card ${verdictClass(dpcPct,3,8)}" style="cursor:pointer" ondblclick="openPerfDetail('dpc')" title="Double-click for detail">
+        <div class="card ${verdictClass(dpcPct,3,8)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('dpc')" title="Click Detail, or double-click anywhere on the card">
+          <span onclick="openPerfDetail('dpc')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">Input Lag Risk (DPC time)</div>
           <div class="value">${dpcPct !== null ? dpcPct+'%' : '—'}</div>
           <div class="verdict">${verdictText('DPC',dpcPct,3,8,
             'Normal — mouse/keyboard should feel responsive.',
             'Slightly elevated — could explain occasional stutter.',
             'High — this is a common cause of laggy mouse/keyboard. Worth investigating drivers.')}</div></div>
-        <div class="card ${verdictClass(diskPct,50,85)}" style="cursor:pointer" ondblclick="openPerfDetail('diskActivity')" title="Double-click for detail">
+        <div class="card ${verdictClass(diskPct,50,85)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('diskActivity')" title="Click Detail, or double-click anywhere on the card">
+          <span onclick="openPerfDetail('diskActivity')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">Disk Activity</div>
           <div class="value">${diskPct !== null ? diskPct+'%' : '—'}</div>
           <div class="verdict">${verdictText('Disk',diskPct,50,85,
             'Disk is not a bottleneck right now.',
             'Disk is busy — normal during file operations.',
             'Disk is maxed out — this alone can make everything feel frozen.')}</div></div>
-        <div class="card ${verdictClass(procQueueLen,2,5)}" style="cursor:pointer" ondblclick="openPerfDetail('cpuBacklog')" title="Double-click for detail">
+        <div class="card ${verdictClass(procQueueLen,2,5)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('cpuBacklog')" title="Click Detail, or double-click anywhere on the card">
+          <span onclick="openPerfDetail('cpuBacklog')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">CPU Backlog (Processor Queue)</div>
           <div class="value">${procQueueLen !== null ? procQueueLen : '—'}${ctxSwitchPerSec !== null ? ' <span style="font-size:12px;color:#8a8f99;font-weight:400">(' + ctxSwitchPerSec.toLocaleString() + ' switches/sec)</span>' : ''}</div>
           <div class="verdict">${verdictText('CPU Backlog',procQueueLen,2,5,
             'CPU is keeping up fine — nothing waiting in line.',
             'Some threads waiting for CPU time — worth watching if this stays consistent.',
             'Real backlog — the CPU cannot keep up with demand right now.')}</div></div>
-        <div class="card ${verdictClass(diskMs,10,30)}" style="cursor:pointer" ondblclick="openPerfDetail('diskResponse')" title="Double-click for detail">
+        <div class="card ${verdictClass(diskMs,10,30)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('diskResponse')" title="Click Detail, or double-click anywhere on the card">
+          <span onclick="openPerfDetail('diskResponse')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">Disk Response Time</div>
           <div class="value">${diskMs !== null ? diskMs+'ms' : '—'}</div>
           <div class="verdict">${verdictText('Disk Response',diskMs,10,30,
             'Fast — no concern.',
             'A bit slow — normal for a busy hard drive, worth watching on an SSD.',
             'Genuinely slow — this could be why things feel sluggish.')}</div></div>
-        <div class="card ${verdictClass(usedSpacePct,80,90)}" style="cursor:pointer" ondblclick="openPerfDetail('freeSpace')" title="Double-click for detail">
+        <div class="card ${verdictClass(usedSpacePct,80,90)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('freeSpace')" title="Click Detail, or double-click anywhere on the card">
+          <span onclick="openPerfDetail('freeSpace')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">Free Disk Space</div>
           <div class="value">${freeSpacePct !== null ? freeSpacePct+'%' : '—'}</div>
           <div class="verdict">${verdictText('Free Space',usedSpacePct,80,90,
@@ -5179,7 +5186,8 @@ async function pollBrowser() {
 
     LAST_PERF_BROWSER = { totalMemMB: totalMem, installedRamMB, byBrowser: browsers };
     document.getElementById('overviewBrowserCards').innerHTML = `
-      <div class="card ${verdictClass(totalMem, 1500, 3000)}" style="cursor:pointer" ondblclick="openPerfDetail('browserMem')" title="Double-click for detail">
+      <div class="card ${verdictClass(totalMem, 1500, 3000)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('browserMem')" title="Click Detail, or double-click anywhere on the card">
+        <span onclick="openPerfDetail('browserMem')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
         <div class="label">Browser Memory (all browsers combined)</div>
         <div class="value">${formatMem(totalMem)}</div>
         <div class="verdict">${verdictText('browsermem', totalMem, 1500, 3000,
