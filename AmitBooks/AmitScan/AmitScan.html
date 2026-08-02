@@ -236,7 +236,7 @@
   </div>
 
   <div id="bottombar">
-    <div id="pageVersion">v1.09</div>
+    <div id="pageVersion">v1.10</div>
     <div id="shutter"></div>
   </div>
 
@@ -290,13 +290,68 @@
 
 const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
 const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+
+// ── Session storage: IndexedDB instead of localStorage (2026-08-02) ──
+// Real-world report: force-quitting this app on iOS (swiping it away in
+// the app switcher, not just backgrounding it) lost the sign-in within
+// 30 seconds - far too fast to be token expiry. This matches a known,
+// documented iOS/WebKit behavior where a standalone home-screen web
+// app's localStorage can be discarded before it's flushed to disk on a
+// hard quit, even though normal backgrounding leaves it alone.
+// IndexedDB has held up more reliably than localStorage across force-
+// quits in other people's real-world PWA reports, though Apple doesn't
+// document the exact guarantee - this is a real mitigation, not a
+// certain fix. Supabase's auth client accepts any object implementing
+// getItem/setItem/removeItem as its storage backend.
+let abAuthIdbPromise=null;
+function abAuthIdb(){
+  if(abAuthIdbPromise) return abAuthIdbPromise;
+  abAuthIdbPromise=new Promise((res,rej)=>{
+    const req=indexedDB.open('amitscan-auth',1);
+    req.onupgradeneeded=()=>{ req.result.createObjectStore('kv'); };
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>rej(req.error);
+  });
+  return abAuthIdbPromise;
+}
+const abIndexedDbAuthStorage={
+  async getItem(key){
+    const d=await abAuthIdb();
+    return new Promise(res=>{
+      const tx=d.transaction('kv','readonly');
+      const req=tx.objectStore('kv').get(key);
+      req.onsuccess=()=>res(req.result===undefined?null:req.result);
+      req.onerror=()=>res(null);
+    });
+  },
+  async setItem(key,value){
+    const d=await abAuthIdb();
+    return new Promise((res,rej)=>{
+      const tx=d.transaction('kv','readwrite');
+      tx.objectStore('kv').put(value,key);
+      tx.oncomplete=()=>res();
+      tx.onerror=()=>rej(tx.error);
+    });
+  },
+  async removeItem(key){
+    const d=await abAuthIdb();
+    return new Promise((res,rej)=>{
+      const tx=d.transaction('kv','readwrite');
+      tx.objectStore('kv').delete(key);
+      tx.oncomplete=()=>res();
+      tx.onerror=()=>rej(tx.error);
+    });
+  }
+};
+
 // Explicit rather than relying on library defaults - persistSession keeps
-// the sign-in across app relaunches (home-screen icon included, since it
-// shares the same browser storage the page was installed from),
-// autoRefreshToken keeps it alive long-term, detectSessionInUrl is what
-// makes the QR/email magic-link actually sign you in when it opens.
+// the sign-in across app relaunches, autoRefreshToken keeps it alive
+// long-term, detectSessionInUrl is what makes the QR/email magic-link
+// actually sign you in when it opens. storage:abIndexedDbAuthStorage is
+// the force-quit mitigation above, replacing the library's localStorage
+// default.
 const db=window.supabase?window.supabase.createClient(SB_URL,SB_KEY,{
-  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:abIndexedDbAuthStorage}
 }):null;
 
 const MODES=[
