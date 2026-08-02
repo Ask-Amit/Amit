@@ -1241,7 +1241,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.18</div>
+    <div class="page-version" id="hubVersionBadge">v6.19</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3188,7 +3188,7 @@ async function fetchWeather(){
   const loc=getLoc();if(!loc)return null;
   try{
     const cached=JSON.parse(localStorage.getItem(AMIT_WX_KEY)||'null');
-    if(cached&&(Date.now()-cached.ts)<45*60*1000)return cached; // reuse for 45 min
+    if(cached&&cached.days&&(Date.now()-cached.ts)<45*60*1000)return cached; // reuse for 45 min — 'days' guards against a stale pre-forecast cache shape
   }catch{}
   try{
     const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`+
