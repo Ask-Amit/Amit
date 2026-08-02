@@ -481,6 +481,16 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="perfDetailModal">
+  <div class="overlay-card" style="max-width:560px;max-height:85vh;overflow-y:auto">
+    <h2 id="perfDetailTitle">Detail</h2>
+    <div id="perfDetailBody"></div>
+    <div class="actions">
+      <button class="btn" onclick="document.getElementById('perfDetailModal').classList.add('hidden')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="issueGuidanceModal">
   <div class="overlay-card" style="max-width:560px;max-height:85vh;overflow-y:auto">
     <h2 id="issueGuidanceTitle">Why this is flagged</h2>
@@ -3533,6 +3543,16 @@ function escHtml(s) { return (s == null ? '' : String(s)).replace(/</g, '&lt;');
 let LAST_COMPONENT_ROWS = {};
 let LAST_COMPONENT_ISSUES = {};
 let LAST_MASTER_DUMP_ROWS = [];
+// Ryan's direct request 2026-07-27: double-clicking any of the "Right now,
+// in plain language" overview cards should open a detail view explaining
+// what the metric actually is, how the computer uses it, what's normal vs
+// not, and (where real per-process data exists) what is actually
+// consuming it right now. These hold the latest parsed values from each
+// poll so the detail modal always reflects the same numbers the card is
+// currently showing, not a stale re-fetch.
+let LAST_PERF_RESOURCE = { ramPct: null, ramFreeMB: null, ramTotalMB: null, cpuPct: null, top5: [] };
+let LAST_PERF_DIAGNOSTICS = { dpcPct: null, diskPct: null, diskMs: null, procQueueLen: null, ctxSwitchPerSec: null, freeSpacePct: null, usedSpacePct: null };
+let LAST_PERF_BROWSER = { totalMemMB: null, installedRamMB: null };
 
 // Ryan's direct request 2026-07-17: a downloadable file of every raw data
 // point behind a report, so it can be handed to someone else (another
@@ -3824,6 +3844,101 @@ function openIssueGuidance(severity, key, title, metricName, reason) {
       </div>` : '');
   }
   document.getElementById('issueGuidanceModal').classList.remove('hidden');
+}
+
+// Ryan's direct request 2026-07-27: double-clicking any of the "Right now,
+// in plain language" overview cards should open a real explanation - what
+// this measurement actually is, how the computer uses that resource, what
+// range is normal vs. not, and (for RAM/CPU, where real per-process data
+// exists) what is actually consuming it right now - not just repeat the
+// number the card already shows.
+function fmtMB(mb) { return mb == null ? '—' : (mb >= 1000 ? (mb/1024).toFixed(2)+' GB' : Math.round(mb)+' MB'); }
+
+function openPerfDetail(key) {
+  const titleEl = document.getElementById('perfDetailTitle');
+  const bodyEl = document.getElementById('perfDetailBody');
+  const r = LAST_PERF_RESOURCE, d = LAST_PERF_DIAGNOSTICS, b = LAST_PERF_BROWSER;
+
+  function section(whatItIs, howUsed, normalRange, consumersHtml) {
+    return `<p style="color:#c7cad1"><strong>What this measures:</strong> ${whatItIs}</p>
+      <p style="color:#c7cad1"><strong>How the computer uses it:</strong> ${howUsed}</p>
+      <p style="color:#c7cad1"><strong>What's normal vs. not:</strong> ${normalRange}</p>
+      ${consumersHtml || ''}`;
+  }
+
+  function top5Html(top5, label) {
+    if (!top5 || !top5.length) return '<p style="color:#8a8f99;font-size:12px;margin-top:10px">No per-process breakdown captured yet - this fills in once the tracker has run for at least one sample.</p>';
+    return `<div style="margin-top:14px;padding:12px 14px;background:#12141a;border-radius:6px">
+      <div style="font-weight:600;color:#e8e9ec;margin-bottom:8px">${label}</div>
+      <ul style="margin:0 0 0 18px;color:#c7cad1;font-variant-numeric:tabular-nums">${top5.map(p => `<li style="margin:4px 0">${escHtml(p.name)} — ${fmtMB(p.mb)}</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  let title = '', body = '';
+  if (key === 'ram') {
+    title = 'Memory (RAM) — Detail';
+    body = section(
+      `The share of your computer's physical memory currently in use — ${r.ramPct !== null ? r.ramPct+'%' : 'no data yet'}${r.ramTotalMB ? `, out of ${fmtMB(r.ramTotalMB)} installed` : ''}.`,
+      'RAM is short-term working space every open program borrows from — more open programs and browser tabs means more borrowed. Unlike storage, this is meant to fill up during use; it is not a problem by itself, only when there is none left to give.',
+      'Under 70% is comfortable. 70-90% is fine but worth watching if it keeps climbing. Above 90% is when programs start fighting for space and things can stutter or freeze briefly.',
+      top5Html(r.top5, "What's actually using it (top 5 processes)")
+    );
+  } else if (key === 'cpu') {
+    title = 'Processor (CPU) — Detail';
+    body = section(
+      `How busy your processor is doing active work right now — ${r.cpuPct !== null ? r.cpuPct+'%' : 'no data yet'}.`,
+      'Every running program takes turns on the processor, thousands of times a second. Momentary spikes to 100% are completely normal; it is sustained high load that actually slows things down.',
+      'Under 60% is low load. 60-85% is normal during active use. Above 85% sustained means something is working the processor hard.',
+      top5Html(r.top5, "What's actually using it (top 5 processes, by memory - the same list also tends to show who's driving CPU)")
+    );
+  } else if (key === 'dpc') {
+    title = 'Input Lag Risk (DPC time) — Detail';
+    body = section(
+      `The share of time spent on urgent, high-priority hardware requests (Deferred Procedure Calls) that interrupt everything else — ${d.dpcPct !== null ? d.dpcPct+'%' : 'no data yet'}.`,
+      'Hardware (network cards, USB devices, audio, graphics) occasionally needs the processor\'s immediate attention. This is normal in small amounts, but a driver behaving badly can hold that attention too long, which is felt directly as mouse/keyboard lag or audio crackle.',
+      'Under 2% is normal. 2-5% is slightly elevated - could explain occasional stutter. Above 5% is a real, common cause of laggy input, usually traced to a specific driver.'
+    );
+  } else if (key === 'diskActivity') {
+    title = 'Disk Activity — Detail';
+    body = section(
+      `How busy your storage drive is right now — ${d.diskPct !== null ? d.diskPct+'%' : 'no data yet'}.`,
+      'Opening files, loading programs, background syncing (OneDrive, updates, antivirus scans) all use the drive. Brief spikes during file operations are expected.',
+      'Under 50% is not a bottleneck. 50-85% is busy but normal during real file operations. Above 85% sustained can make everything feel frozen, since programs are waiting on the drive to respond.'
+    );
+  } else if (key === 'cpuBacklog') {
+    title = 'CPU Backlog (Processor Queue) — Detail';
+    body = section(
+      `The number of threads actually waiting in line for processor time at the moment this was measured — ${d.procQueueLen !== null ? d.procQueueLen : 'no data yet'}${d.ctxSwitchPerSec !== null ? ` (${d.ctxSwitchPerSec.toLocaleString()} context switches/sec alongside it, shown for reference only)` : ''}.`,
+      'Unlike overall CPU%, this measures genuine unmet demand - work that could not get processor time fast enough, not just how busy the processor looks.',
+      'Under 2 is normal - nothing waiting. 2-5 is some backlog, worth watching if consistent. Above 5-10 means the processor genuinely could not keep up with demand at that moment.'
+    );
+  } else if (key === 'diskResponse') {
+    title = 'Disk Response Time — Detail';
+    body = section(
+      `How long the drive takes to respond to a read or write request — ${d.diskMs !== null ? d.diskMs+'ms' : 'no data yet'}.`,
+      'Every file open, save, and program launch waits on this response time. It is one of the most common reasons a computer "feels slow" even when CPU and RAM look fine.',
+      'Under 10ms is fast, no concern. 10-30ms is a bit slow - normal for a busy mechanical hard drive, worth watching on an SSD. Above 30ms is genuinely slow and a likely cause of sluggishness.'
+    );
+  } else if (key === 'freeSpace') {
+    title = 'Free Disk Space — Detail';
+    body = section(
+      `How much of your drive is still empty — ${d.freeSpacePct !== null ? d.freeSpacePct+'% free' : 'no data yet'}.`,
+      'Windows and most programs need real working room on the drive, not just storage for files - running low affects the whole system\'s performance and update reliability, not just how much you can save.',
+      'Under 80% used (20%+ free) is plenty of room. 80-90% used is getting full, could start causing slowdowns. Above 90% used is where real problems - failed updates, slow performance - become common.'
+    );
+  } else if (key === 'browserMem') {
+    const rows = (b.byBrowser || []).map(x => `<li style="margin:4px 0">${escHtml(x.browser)} — ${fmtMB(x.totalMemMB)}${b.installedRamMB ? ` (${((x.totalMemMB/b.installedRamMB)*100).toFixed(0)}% of installed RAM)` : ''}</li>`).join('');
+    title = 'Browser Memory — Detail';
+    body = section(
+      `Total memory used across every open browser, combined — ${fmtMB(b.totalMemMB)}${b.installedRamMB ? ` (${((b.totalMemMB/b.installedRamMB)*100).toFixed(0)}% of installed RAM)` : ''}.`,
+      'Every open tab, extension, and background helper process (GPU, utility processes) draws memory on its own - a browser with many tabs open behaves like several separate programs running at once, by design, not a leak by itself.',
+      'Under 1.5GB total is a light load. 1.5-3GB is sizeable - normal with several tabs, worth watching if it keeps climbing. Above 3GB is heavy and a likely contributor to overall slowness.',
+      rows ? `<div style="margin-top:14px;padding:12px 14px;background:#12141a;border-radius:6px"><div style="font-weight:600;color:#e8e9ec;margin-bottom:8px">By browser</div><ul style="margin:0 0 0 18px;color:#c7cad1;font-variant-numeric:tabular-nums">${rows}</ul></div>` : ''
+    );
+  }
+  titleEl.textContent = title;
+  bodyEl.innerHTML = body;
+  document.getElementById('perfDetailModal').classList.remove('hidden');
 }
 
 function renderComponentRollup(analysis) {
@@ -4589,11 +4704,23 @@ async function closeEverything() {
 function parseResourceLine(line) {
   const ram = line.match(/RAM:(\d+)MB-free\/(\d+)MB-total\((\d+\.?\d*)%used\)/);
   const cpu = line.match(/CPU:(\d+\.?\d*)%/);
+  // TOP5 was already being captured by both watcher scripts (top 5
+  // processes by working set) but never parsed out for display - it was
+  // sitting in the raw log line unused. This is the first thing to
+  // actually read it: "chrome.exe=1200MB, ..." -> [{name, mb}].
+  const top5Match = line.match(/TOP5:\[([^\]]*)\]/);
+  const top5 = top5Match && top5Match[1]
+    ? top5Match[1].split(',').map(s => s.trim()).filter(Boolean).map(entry => {
+        const m = entry.match(/^(.*)=(\d+)MB$/);
+        return m ? { name: m[1], mb: parseInt(m[2]) } : null;
+      }).filter(Boolean)
+    : [];
   return {
     ramPct: ram ? parseFloat(ram[3]) : null,
     ramFreeMB: ram ? parseInt(ram[1]) : null,
     ramTotalMB: ram ? parseInt(ram[2]) : null,
-    cpuPct: cpu ? parseFloat(cpu[1]) : null
+    cpuPct: cpu ? parseFloat(cpu[1]) : null,
+    top5
   };
 }
 
@@ -4620,14 +4747,15 @@ async function pollResource() {
     const last = lines.filter(l => l.includes('RAM:')).slice(-1)[0];
     if (last) {
       const p = parseResourceLine(last);
-      const ramCard = `<div class="card ${verdictClass(p.ramPct,70,90)}">
+      LAST_PERF_RESOURCE = p;
+      const ramCard = `<div class="card ${verdictClass(p.ramPct,70,90)}" style="cursor:pointer" ondblclick="openPerfDetail('ram')" title="Double-click for detail">
         <div class="label">Memory (RAM)</div>
         <div class="value">${p.ramPct !== null ? p.ramPct+'%' : '—'}</div>
         <div class="verdict">${verdictText('RAM',p.ramPct,70,90,
           'Plenty of memory free — no concern.',
           'Getting fuller — fine for now, worth watching if it climbs.',
           'Memory is nearly full. This can cause slowdowns and stutter.')}</div></div>`;
-      const cpuCard = `<div class="card ${verdictClass(p.cpuPct,60,85)}">
+      const cpuCard = `<div class="card ${verdictClass(p.cpuPct,60,85)}" style="cursor:pointer" ondblclick="openPerfDetail('cpu')" title="Double-click for detail">
         <div class="label">Processor (CPU)</div>
         <div class="value">${p.cpuPct !== null ? p.cpuPct+'%' : '—'}</div>
         <div class="verdict">${verdictText('CPU',p.cpuPct,60,85,
@@ -4683,36 +4811,37 @@ async function pollDiagnostics() {
       const usedSpacePct = freeSpacePct !== null ? Math.round((100 - freeSpacePct) * 10) / 10 : null;
       const procQueueLen = procQueue ? parseFloat(procQueue[1]) : null;
       const ctxSwitchPerSec = ctxSwitch ? parseFloat(ctxSwitch[1]) : null;
+      LAST_PERF_DIAGNOSTICS = { dpcPct, diskPct, diskMs, procQueueLen, ctxSwitchPerSec, freeSpacePct, usedSpacePct };
       const diagCardsHtml = `
-        <div class="card ${verdictClass(dpcPct,3,8)}">
+        <div class="card ${verdictClass(dpcPct,3,8)}" style="cursor:pointer" ondblclick="openPerfDetail('dpc')" title="Double-click for detail">
           <div class="label">Input Lag Risk (DPC time)</div>
           <div class="value">${dpcPct !== null ? dpcPct+'%' : '—'}</div>
           <div class="verdict">${verdictText('DPC',dpcPct,3,8,
             'Normal — mouse/keyboard should feel responsive.',
             'Slightly elevated — could explain occasional stutter.',
             'High — this is a common cause of laggy mouse/keyboard. Worth investigating drivers.')}</div></div>
-        <div class="card ${verdictClass(diskPct,50,85)}">
+        <div class="card ${verdictClass(diskPct,50,85)}" style="cursor:pointer" ondblclick="openPerfDetail('diskActivity')" title="Double-click for detail">
           <div class="label">Disk Activity</div>
           <div class="value">${diskPct !== null ? diskPct+'%' : '—'}</div>
           <div class="verdict">${verdictText('Disk',diskPct,50,85,
             'Disk is not a bottleneck right now.',
             'Disk is busy — normal during file operations.',
             'Disk is maxed out — this alone can make everything feel frozen.')}</div></div>
-        <div class="card ${verdictClass(procQueueLen,2,5)}">
+        <div class="card ${verdictClass(procQueueLen,2,5)}" style="cursor:pointer" ondblclick="openPerfDetail('cpuBacklog')" title="Double-click for detail">
           <div class="label">CPU Backlog (Processor Queue)</div>
           <div class="value">${procQueueLen !== null ? procQueueLen : '—'}${ctxSwitchPerSec !== null ? ' <span style="font-size:12px;color:#8a8f99;font-weight:400">(' + ctxSwitchPerSec.toLocaleString() + ' switches/sec)</span>' : ''}</div>
           <div class="verdict">${verdictText('CPU Backlog',procQueueLen,2,5,
             'CPU is keeping up fine — nothing waiting in line.',
             'Some threads waiting for CPU time — worth watching if this stays consistent.',
             'Real backlog — the CPU cannot keep up with demand right now.')}</div></div>
-        <div class="card ${verdictClass(diskMs,10,30)}">
+        <div class="card ${verdictClass(diskMs,10,30)}" style="cursor:pointer" ondblclick="openPerfDetail('diskResponse')" title="Double-click for detail">
           <div class="label">Disk Response Time</div>
           <div class="value">${diskMs !== null ? diskMs+'ms' : '—'}</div>
           <div class="verdict">${verdictText('Disk Response',diskMs,10,30,
             'Fast — no concern.',
             'A bit slow — normal for a busy hard drive, worth watching on an SSD.',
             'Genuinely slow — this could be why things feel sluggish.')}</div></div>
-        <div class="card ${verdictClass(usedSpacePct,80,90)}">
+        <div class="card ${verdictClass(usedSpacePct,80,90)}" style="cursor:pointer" ondblclick="openPerfDetail('freeSpace')" title="Double-click for detail">
           <div class="label">Free Disk Space</div>
           <div class="value">${freeSpacePct !== null ? freeSpacePct+'%' : '—'}</div>
           <div class="verdict">${verdictText('Free Space',usedSpacePct,80,90,
@@ -5048,8 +5177,9 @@ async function pollBrowser() {
         </div>
       </div>`).join('');
 
+    LAST_PERF_BROWSER = { totalMemMB: totalMem, installedRamMB, byBrowser: browsers };
     document.getElementById('overviewBrowserCards').innerHTML = `
-      <div class="card ${verdictClass(totalMem, 1500, 3000)}">
+      <div class="card ${verdictClass(totalMem, 1500, 3000)}" style="cursor:pointer" ondblclick="openPerfDetail('browserMem')" title="Double-click for detail">
         <div class="label">Browser Memory (all browsers combined)</div>
         <div class="value">${formatMem(totalMem)}</div>
         <div class="verdict">${verdictText('browsermem', totalMem, 1500, 3000,
