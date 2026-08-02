@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v2.02</div>
+    <div class="page-version" id="pageVersion">v2.03</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -3090,23 +3090,44 @@ async function abRenderScanWorking(){
   const el=document.getElementById('ab-scan-working'); if(!el)return;
   if(!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in to see what\'s out for processing.</div>'; return; }
   el.innerHTML='<div class="ab-signin-notice">Loading…</div>';
-  const{data,error}=await db.from('scan_captures').select('id,mode,storage_path,captured_at,local_sent_at,reviewed').eq('reviewed',false).not('local_sent_at','is',null).order('local_sent_at',{ascending:false});
+  const{data,error}=await db.from('scan_captures').select('id,mode,storage_path,captured_at,local_sent_at,reviewed,extracted_data,processed_at').eq('reviewed',false).not('local_sent_at','is',null).order('local_sent_at',{ascending:false});
   if(error){ el.innerHTML='<div class="ab-signin-notice">Could not load — '+abEsc(error.message)+'</div>'; return; }
   if(!data||!data.length){ el.innerHTML='<div class="ab-signin-notice">Nothing currently out for processing.</div>'; return; }
 
   const modeLabel={bill:'Bill',receipt:'Receipt',contact:'Contact',mileage:'Mileage',other:'Other'};
   const rows=data.map(r=>{
     const sentWhen=new Date(r.local_sent_at).toLocaleString();
-    return `<div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:10px">
-      <div style="flex:1">
-        <div style="font-weight:600">${modeLabel[r.mode]||r.mode}</div>
-        <div style="font-size:12px;color:var(--muted)">Sent ${abEsc(sentWhen)}</div>
+    const ex=r.extracted_data;
+    let resultBlock='';
+    if(ex){
+      const breakdown=(ex.scope_breakdown||[]).map(b=>
+        `<div style="margin-top:6px;padding:8px 10px;background:rgba(240,232,208,.04);border-radius:6px">
+          <div style="font-weight:600;font-size:12.5px">${abEsc(b.scope||'Unidentified')}${b.cost_type?' — '+abEsc(b.cost_type):''}</div>
+          ${b.subtotal?`<div style="font-size:12px;color:var(--muted)">${abMoney(b.subtotal)}</div>`:''}
+          ${b.items?`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">${abEsc(Array.isArray(b.items)?b.items.join(', '):b.items)}</div>`:''}
+          ${b.confidence_note?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px">${abEsc(b.confidence_note)}</div>`:''}
+        </div>`
+      ).join('');
+      resultBlock=`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(240,232,208,.2)">
+        <div style="font-weight:600;color:var(--gold)">Proposed: ${abEsc(ex.vendor||'Unknown vendor')} — ${ex.amount?abMoney(ex.amount):'—'} ${ex.date?'('+abEsc(ex.date)+')':''}</div>
+        ${breakdown}
+        ${ex.confidence_note?`<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:8px">${abEsc(ex.confidence_note)}</div>`:''}
+        <div class="ab-signin-notice" style="text-align:left;margin-top:10px;font-size:11.5px">This is a proposal to review, not posted anywhere yet — the review/posting screen is the next build phase.</div>
+      </div>`;
+    }
+    return `<div style="padding:12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:10px">
+      <div style="display:flex;gap:14px;align-items:center">
+        <div style="flex:1">
+          <div style="font-weight:600">${modeLabel[r.mode]||r.mode}${ex?' — <span style=\"color:#4c9a6a\">Results ready</span>':' — <span style=\"color:var(--muted)\">Still processing…</span>'}</div>
+          <div style="font-size:12px;color:var(--muted)">Sent ${abEsc(sentWhen)}</div>
+        </div>
+        <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanReturnToPending('${r.id}')">Return to Pending</button>
       </div>
-      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanReturnToPending('${r.id}')">Return to Pending</button>
+      ${resultBlock}
     </div>`;
   }).join('');
   el.innerHTML=`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
-      ${data.length} out for local processing. This list confirms what's been sent — once the results-writeback pipeline is built, a completed item will move off this list on its own. If something's stuck (the local computer wasn't reachable, processing never finished), use Return to Pending to try again.
+      ${data.length} out for local processing. Once results land, they show right here for review — nothing posts automatically. If something's stuck (the local computer wasn't reachable, processing never finished), use Return to Pending to try again.
     </div>${rows}`;
 }
 async function abScanReturnToPending(id){
