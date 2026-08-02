@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v2.07</div>
+    <div class="page-version" id="pageVersion">v2.10</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -303,8 +303,18 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 </div>
 
 <div id="scanConnectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:32px 36px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:32px 36px;max-width:400px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto">
     <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:19px;letter-spacing:.06em;margin-bottom:8px">Connect AmitScan</div>
+
+    <div style="background:rgba(240,232,208,.05);border:1px solid rgba(240,232,208,.15);border-radius:8px;padding:14px 16px;margin-bottom:18px;text-align:left;font-size:12.5px;line-height:1.6;color:rgba(240,232,208,.75)">
+      <b style="color:rgba(201,168,76,.85)">What happens when you scan this:</b><br>
+      Just scanning it once works perfectly fine on its own — it opens AmitScan already signed in, no typing, ready to capture right then. Nothing more is required.<br><br>
+      <b style="color:rgba(201,168,76,.85)">Want it to stay on your phone for next time?</b><br>
+      You can save it to your home screen so it opens like a real app from then on — after scanning, your phone will offer to walk you through saving it (Share icon → Add to Home Screen on iPhone, or the ⋮ menu → Install app on Android). If you save it, it may ask you to sign in with your Hub email <i>one more time</i> from the saved icon itself — that's normal, not a malfunction, it's how your phone keeps that saved copy connected to your account. Once that's done, you won't be asked again.<br><br>
+      <b style="color:rgba(201,168,76,.85)">Important:</b> if it asks you to sign in again, check your email <u>on that same phone</u> and tap the link there — not on your computer. Tapping it on your computer signs your computer in, not your phone, and the saved icon will still show disconnected.<br><br>
+      Either way is fine, and saving it is always reversible — remove it from your home screen anytime and nothing is lost.
+    </div>
+
     <div id="scanConnectStatus" style="color:rgba(240,232,208,.6);font-size:14px;line-height:1.6;margin-bottom:18px">Generating your code...</div>
     <div id="scanConnectQrWrap" style="background:#fff;border-radius:10px;padding:14px;display:inline-block;min-height:200px;min-width:200px"></div>
     <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.65;margin-top:16px">Open your phone's Camera app and point it at the code. Tap the banner that appears. This code expires after a few minutes for security — reopen this if it stops working.</div>
@@ -1628,7 +1638,7 @@ function abRenderDashboard(){
       <div class="ab-form" style="margin-top:14px;justify-content:center">
         <div class="ab-field"><label>Book name</label><input id="ab-new-book-name" placeholder="e.g. Frick Construction LLC"></div>
         <div class="ab-field"><label>Type (optional)</label>
-          <select id="ab-new-book-entity"><option value="">—</option><option value="sole_prop">Sole Proprietor</option><option value="llc">LLC</option><option value="s_corp">S-Corp</option><option value="c_corp">C-Corp</option><option value="partnership">Partnership</option><option value="nonprofit">Nonprofit</option><option value="personal">Personal</option></select>
+          <select id="ab-new-book-entity">${AB_ENTITY_TYPES.map(([v,label])=>`<option value="${v}">${label}</option>`).join('')}</select>
         </div>
         <button class="ab-btn" onclick="abCreateBook()">Create Book</button>
       </div></div>`;
@@ -1665,12 +1675,62 @@ function abRenderDashboard(){
       <div class="ab-form">
         <div class="ab-field"><label>Book name</label><input id="ab-new-book-name" placeholder="e.g. Personal"></div>
         <div class="ab-field"><label>Type (optional)</label>
-          <select id="ab-new-book-entity"><option value="">—</option><option value="sole_prop">Sole Proprietor</option><option value="llc">LLC</option><option value="s_corp">S-Corp</option><option value="c_corp">C-Corp</option><option value="partnership">Partnership</option><option value="nonprofit">Nonprofit</option><option value="personal">Personal</option></select>
+          <select id="ab-new-book-entity">${AB_ENTITY_TYPES.map(([v,label])=>`<option value="${v}">${label}</option>`).join('')}</select>
         </div>
         <button class="ab-btn" onclick="abCreateBook()">Create</button>
       </div>
     </div>`;
 }
+// Real US business entity types — was a narrow 7-item list before
+// (2026-08-02, Ryan's request) that left common structures like LLPs,
+// professional corporations, cooperatives, trusts/estates, and HOAs with
+// nowhere to go. `books.entity_type` has no DB check constraint, so any
+// of these save fine.
+const AB_ENTITY_TYPES=[
+  ['','—'],
+  ['sole_prop','Sole Proprietorship'],
+  ['single_member_llc','Single-Member LLC'],
+  ['multi_member_llc','Multi-Member LLC'],
+  ['s_corp','S-Corporation'],
+  ['c_corp','C-Corporation'],
+  ['general_partnership','General Partnership'],
+  ['limited_partnership','Limited Partnership (LP)'],
+  ['llp','Limited Liability Partnership (LLP)'],
+  ['professional_corp','Professional Corporation (PC)'],
+  ['nonprofit_501c3','Nonprofit — 501(c)(3)'],
+  ['nonprofit_other','Nonprofit — Other 501(c)'],
+  ['cooperative','Cooperative'],
+  ['trust','Trust'],
+  ['estate','Estate'],
+  ['hoa','HOA / Condo Association'],
+  ['personal','Personal (not a business)']
+];
+
+// ZIP -> City/State auto-fill, US only, no key needed (zippopotam.us is a
+// free public API). Debounced lightly by only firing once 5 digits are
+// typed, so it doesn't fire a request on every keystroke.
+let abZipLookupTimer=null;
+function abLookupZip(zip){
+  clearTimeout(abZipLookupTimer);
+  const clean=(zip||'').trim().slice(0,5);
+  const status=document.getElementById('ab-prof-zip-status');
+  const cityState=document.getElementById('ab-prof-citystate');
+  if(clean.length!==5){ if(cityState) cityState.value=''; return; }
+  abZipLookupTimer=setTimeout(async()=>{
+    if(status) status.textContent='Looking up city/state…';
+    try{
+      const res=await fetch('https://api.zippopotam.us/us/'+clean);
+      if(!res.ok) throw new Error('ZIP not found');
+      const data=await res.json();
+      const place=data.places&&data.places[0];
+      if(place&&cityState) cityState.value=place['place name']+', '+place['state abbreviation'];
+      if(status) status.textContent='';
+    }catch(e){
+      if(status) status.textContent='Could not look up that ZIP — you can still fill in Street/City manually.';
+    }
+  },400);
+}
+
 async function abRenderBooksTab(){
   const el=document.getElementById('ab-books'); if(!el)return;
   if(!abBookId){
@@ -1683,14 +1743,19 @@ async function abRenderBooksTab(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <div class="ab-field"><label>Name</label><input id="ab-prof-name" value="${abEsc(b.name)}"></div>
         <div class="ab-field"><label>Type</label>
-          <select id="ab-prof-entity">${['','sole_prop','llc','s_corp','c_corp','partnership','nonprofit','personal'].map(v=>`<option value="${v}"${b.entity_type===v?' selected':''}>${v?v.replace('_',' '):'—'}</option>`).join('')}</select>
+          <select id="ab-prof-entity">${AB_ENTITY_TYPES.map(([v,label])=>`<option value="${v}"${b.entity_type===v?' selected':''}>${label}</option>`).join('')}</select>
         </div>
         <div class="ab-field"><label>Basis</label>
           <select id="ab-prof-basis"><option value="cash"${b.accounting_basis==='cash'?' selected':''}>Cash</option><option value="accrual"${b.accounting_basis==='accrual'?' selected':''}>Accrual</option></select>
         </div>
       </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div class="ab-field" style="flex:1;min-width:220px"><label>Street Address</label><input id="ab-prof-street" value="${abEsc(b.address_street||'')}" placeholder="123 Main St"></div>
+        <div class="ab-field" style="width:100px"><label>ZIP</label><input id="ab-prof-zip" value="${abEsc(b.address_zip||'')}" placeholder="83201" maxlength="10" oninput="abLookupZip(this.value)"></div>
+        <div class="ab-field" style="flex:1;min-width:200px"><label>City, State</label><input id="ab-prof-citystate" value="${abEsc(b.address_city&&b.address_state?b.address_city+', '+b.address_state:'')}" placeholder="Fills in from ZIP" readonly style="opacity:.8"></div>
+      </div>
+      <div id="ab-prof-zip-status" style="font-size:11px;color:var(--muted)"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <div class="ab-field" style="flex:1;min-width:220px"><label>Address</label><input id="ab-prof-address" value="${abEsc(b.address||'')}" placeholder="Street, City, State ZIP"></div>
         <div class="ab-field"><label>Phone</label><input id="ab-prof-phone" value="${abEsc(b.phone||'')}" placeholder="(555) 555-5555"></div>
         <div class="ab-field"><label>EIN</label><input id="ab-prof-ein" value="${abEsc(b.ein||'')}" placeholder="12-3456789"></div>
         <div class="ab-field"><label>Payroll State</label><input id="ab-prof-payrollstate" value="${abEsc(b.payroll_state_code||'')}" placeholder="e.g. ID" style="width:60px;text-transform:uppercase" maxlength="2"></div>
@@ -1703,7 +1768,7 @@ async function abRenderBooksTab(){
     <div class="ab-form" style="margin-top:10px">
       <div class="ab-field"><label>Their Email</label><input id="ab-team-email" type="email" placeholder="name@example.com" style="width:220px"></div>
       <div class="ab-field"><label>Role</label>
-        <select id="ab-team-role"><option value="staff">Staff</option><option value="bookkeeper">Bookkeeper</option><option value="manager">Manager</option><option value="accountant_readonly">Accountant (read-only)</option></select>
+        <select id="ab-team-role"><option value="staff">Staff</option><option value="bookkeeper">Bookkeeper</option><option value="manager">Manager</option><option value="accountant_readonly">Accountant (read-only)</option><option value="owner">Owner</option></select>
       </div>
       <div class="ab-field"><label>Payroll access?</label><select id="ab-team-payroll"><option value="false">No</option><option value="true">Yes</option></select></div>
       <button class="ab-btn" onclick="abInviteMemberByEmail()">Send Invite</button>
@@ -1715,7 +1780,7 @@ async function abRenderBooksTab(){
     <div class="ab-form" style="margin-top:10px">
       <div class="ab-field"><label>Fallback — Their Amit Account ID</label><input id="ab-team-userid" placeholder="pasted from their own account" style="width:280px"></div>
       <div class="ab-field"><label>Role</label>
-        <select id="ab-team-role-fallback"><option value="staff">Staff</option><option value="bookkeeper">Bookkeeper</option><option value="manager">Manager</option><option value="accountant_readonly">Accountant (read-only)</option></select>
+        <select id="ab-team-role-fallback"><option value="staff">Staff</option><option value="bookkeeper">Bookkeeper</option><option value="manager">Manager</option><option value="accountant_readonly">Accountant (read-only)</option><option value="owner">Owner</option></select>
       </div>
       <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abInviteMember()">Add by ID</button>
     </div>
@@ -1727,7 +1792,7 @@ async function abRenderBooksTab(){
     <div class="ab-form" style="margin-top:16px">
       <div class="ab-field"><label>New book name</label><input id="ab-new-book-name" placeholder="e.g. Personal"></div>
       <div class="ab-field"><label>Type (optional)</label>
-        <select id="ab-new-book-entity"><option value="">—</option><option value="sole_prop">Sole Proprietor</option><option value="llc">LLC</option><option value="s_corp">S-Corp</option><option value="c_corp">C-Corp</option><option value="partnership">Partnership</option><option value="nonprofit">Nonprofit</option><option value="personal">Personal</option></select>
+        <select id="ab-new-book-entity">${AB_ENTITY_TYPES.map(([v,label])=>`<option value="${v}">${label}</option>`).join('')}</select>
       </div>
       <button class="ab-btn" onclick="abCreateBook()">Create</button>
     </div>
@@ -1808,11 +1873,15 @@ async function abRestoreBook(file){
 }
 
 async function abSaveBookProfile(){
+  const cityStateVal=(document.getElementById('ab-prof-citystate').value||'').split(',').map(s=>s.trim());
   const updates={
+    address_city:cityStateVal[0]||null,
+    address_state:cityStateVal[1]||null,
     name:document.getElementById('ab-prof-name').value.trim(),
     entity_type:document.getElementById('ab-prof-entity').value||null,
     accounting_basis:document.getElementById('ab-prof-basis').value,
-    address:document.getElementById('ab-prof-address').value.trim()||null,
+    address_street:document.getElementById('ab-prof-street').value.trim()||null,
+    address_zip:document.getElementById('ab-prof-zip').value.trim()||null,
     phone:document.getElementById('ab-prof-phone').value.trim()||null,
     ein:document.getElementById('ab-prof-ein').value.trim()||null,
     payroll_state_code:document.getElementById('ab-prof-payrollstate').value.trim().toUpperCase()||null
@@ -3128,7 +3197,7 @@ function abRenderScanConnect(){
 
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:24px">
       <div class="ab-h" style="font-size:15px;margin:0">Scan From a Connected Scanner or Printer</div>
-      <button class="ab-btn" style="margin-left:auto" onclick="abScanFromBridge()">Link Scanner/Printer</button>
+      <button class="ab-btn" style="margin-left:auto" onclick="abScanFromBridge()">Scan</button>
     </div>
     <div class="ab-signin-notice" style="text-align:left;margin:10px 0 10px">
       A browser page alone can't reach out and operate scanner/printer hardware directly — but the same local Amit bridge that Computer Health installs can. If it's installed and running on this computer, this opens the real Windows scan dialog and sends the result straight into Pending Scans.
@@ -3137,7 +3206,7 @@ function abRenderScanConnect(){
 
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:24px">
       <div class="ab-h" style="font-size:15px;margin:0">Already Have a Scanned File?</div>
-      <button class="ab-btn" style="margin-left:auto;background:transparent;color:var(--muted)" onclick="document.getElementById('ab-scan-upload-input').click()">Link File</button>
+      <button class="ab-btn" style="margin-left:auto" onclick="document.getElementById('ab-scan-upload-input').click()">Link File</button>
     </div>
     <div class="ab-signin-notice" style="text-align:left;margin:10px 0 10px">
       If your scanner already saved a file to this computer (or you have a photo/PDF from anywhere else), pick it here instead — same Pending Scans list either way.
