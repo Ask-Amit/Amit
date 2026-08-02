@@ -939,6 +939,10 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-dv-weather-temp{font-family:'Cinzel',serif;font-weight:700;color:#3a2800}
 .cal-dv-weather-desc{opacity:.75;text-transform:capitalize}
 .cal-dv-weather-setup{font-size:10px;color:rgba(92,66,0,.55);text-decoration:underline;cursor:pointer;margin-top:6px}
+.cal-dv-weather-hilo{font-size:10px;color:#8a7550}
+.cal-dv-weather-rain{font-size:10px;color:#3a7ab0}
+.cal-dv-alert-strip{margin-top:6px;padding:6px 10px;background:rgba(210,50,40,.1);border:1px solid rgba(210,50,40,.35);border-radius:6px;font-size:10px;color:#a02818;font-weight:700;cursor:pointer;letter-spacing:.02em}
+.cal-dv-alert-strip:hover{background:rgba(210,50,40,.16)}
 /* Sacred mode label badge */
 .cal-dv-sacred-label{font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--cal-type-clr);opacity:.9;margin-bottom:8px}
 /* Feast/event chip */
@@ -1237,7 +1241,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.17</div>
+    <div class="page-version" id="hubVersionBadge">v6.18</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3187,12 +3191,28 @@ async function fetchWeather(){
     if(cached&&(Date.now()-cached.ts)<45*60*1000)return cached; // reuse for 45 min
   }catch{}
   try{
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`+
+      `&current=temperature_2m,weather_code`+
+      `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code`+
+      `&hourly=precipitation_probability`+
+      `&temperature_unit=fahrenheit&forecast_days=4&timezone=auto`;
     const r=await fetch(url);if(!r.ok)return null;
     const j=await r.json();
     const code=j.current&&j.current.weather_code;
     const [icon,desc]=WX_CODES[code]||['🌡️','—'];
-    const data={ts:Date.now(),temp:Math.round(j.current.temperature_2m),icon,desc};
+    // Today's rain chance — max of the remaining hourly probabilities for today
+    const todayDate=(j.daily&&j.daily.time&&j.daily.time[0])||'';
+    let rainNow=j.daily&&j.daily.precipitation_probability_max?j.daily.precipitation_probability_max[0]:null;
+    const days=(j.daily&&j.daily.time||[]).slice(0,4).map((d,i)=>({
+      date:d,
+      hi:Math.round(j.daily.temperature_2m_max[i]),
+      lo:Math.round(j.daily.temperature_2m_min[i]),
+      rain:j.daily.precipitation_probability_max[i],
+      icon:(WX_CODES[j.daily.weather_code[i]]||['🌡️'])[0],
+      desc:(WX_CODES[j.daily.weather_code[i]]||['—','—'])[1]
+    }));
+    const data={ts:Date.now(),temp:Math.round(j.current.temperature_2m),icon,desc,
+      hi:days[0]?days[0].hi:null,lo:days[0]?days[0].lo:null,rain:rainNow,days};
     localStorage.setItem(AMIT_WX_KEY,JSON.stringify(data));
     return data;
   }catch{return null;}
@@ -3207,12 +3227,17 @@ function renderWeatherWidget(){
   el.innerHTML=`<div class="cal-dv-weather">…</div>`;
   fetchWeather().then(wx=>{
     if(!wx){el.innerHTML='';return;}
-    el.innerHTML=`<div class="cal-dv-weather" title="${loc.city}, ${loc.state}" onclick="openZipSettingsPrompt()">
+    const rainChip=(wx.rain!=null&&wx.rain>0)?`<span class="cal-dv-weather-rain">💧 ${wx.rain}%</span>`:'';
+    el.innerHTML=`<div class="cal-dv-weather" title="Click for the 4-day outlook">
       <span class="cal-dv-weather-icon">${wx.icon}</span>
       <span class="cal-dv-weather-temp">${wx.temp}°</span>
+      <span class="cal-dv-weather-hilo">H:${wx.hi}° L:${wx.lo}°</span>
+      ${rainChip}
       <span class="cal-dv-weather-desc">${wx.desc} · ${loc.city}</span>
     </div>`;
+    el.querySelector('.cal-dv-weather').onclick=()=>openForecastModal(wx,loc);
   });
+  checkLocalAlerts(loc);
 }
 function openZipSettingsPrompt(){
   const cur=getZip();
@@ -3220,6 +3245,109 @@ function openZipSettingsPrompt(){
   if(z&&/^\d{5}$/.test(z.trim())){
     geocodeAndSaveZip(z.trim()).then(ok=>{if(ok)renderWeatherWidget();});
   }
+}
+function openForecastModal(wx,loc){
+  let m=document.getElementById('forecastModal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='forecastModal';
+    m.className='amit-name-modal';
+    m.onclick=(e)=>{if(e.target===m)closeForecastModal();};
+    document.body.appendChild(m);
+  }
+  const dayNames=['Today','Tomorrow','','',''];
+  const rows=wx.days.map((d,i)=>{
+    const[y,mo,da]=d.date.split('-').map(Number);
+    const label=dayNames[i]||CAL_DAYS[new Date(y,mo-1,da).getDay()].slice(0,3);
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 4px;border-bottom:1px solid rgba(240,232,208,.08)">
+      <span style="width:70px;font-family:'Cinzel',serif;font-size:11px;color:rgba(240,232,208,.7)">${label}</span>
+      <span style="font-size:18px">${d.icon}</span>
+      <span style="flex:1;font-size:11px;color:rgba(240,232,208,.5);padding:0 10px;text-transform:capitalize">${d.desc}</span>
+      <span style="font-size:11px;color:rgba(120,190,255,.8);width:42px;text-align:right">💧${d.rain}%</span>
+      <span style="font-size:12px;color:#fff;width:80px;text-align:right">${d.hi}° / ${d.lo}°</span>
+    </div>`;
+  }).join('');
+  m.innerHTML=`<div class="amit-name-card" style="max-width:420px">
+    <div class="amit-name-panel" style="display:flex">
+      <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
+      <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state} — 4-Day Outlook</div>
+      <div style="width:100%;margin:10px 0 18px">${rows}</div>
+      <button class="amit-name-begin" onclick="closeForecastModal()">Close</button>
+      <div class="amit-name-who" onclick="closeForecastModal();openZipSettingsPrompt()"><span>Change ZIP →</span></div>
+    </div>
+  </div>`;
+  m.classList.add('open');
+}
+function closeForecastModal(){
+  const m=document.getElementById('forecastModal');if(m)m.classList.remove('open');
+}
+
+// ── EMERGENCY ALERTS (NOAA/NWS — free, no key) ──
+// Two tiers: (1) area alerts for the user's own lat/lon, shown as a persistent
+// strip under the weather widget while active; (2) national alerts (Extreme
+// severity + Immediate urgency, nationwide) — these interrupt with a modal
+// exactly once per alert id, ever, regardless of the person's location.
+const AMIT_ALERT_SEEN_KEY='amit_national_alerts_seen';
+function _seenAlertIds(){try{return JSON.parse(localStorage.getItem(AMIT_ALERT_SEEN_KEY)||'[]');}catch{return[];}}
+function _markAlertSeen(id){
+  const seen=_seenAlertIds();
+  if(!seen.includes(id)){seen.push(id);localStorage.setItem(AMIT_ALERT_SEEN_KEY,JSON.stringify(seen.slice(-200)));}
+}
+async function checkLocalAlerts(loc){
+  const slot=document.getElementById('dvAlertSlot')||(()=>{
+    const s=document.createElement('div');s.id='dvAlertSlot';
+    const wx=document.getElementById('dvWeatherSlot');
+    if(wx&&wx.parentNode)wx.parentNode.insertBefore(s,wx.nextSibling);
+    return s;
+  })();
+  try{
+    const r=await fetch(`https://api.weather.gov/alerts/active?point=${loc.lat},${loc.lon}`,{headers:{'Accept':'application/geo+json'}});
+    if(!r.ok){slot.innerHTML='';return;}
+    const j=await r.json();
+    const feats=j.features||[];
+    if(!feats.length){slot.innerHTML='';return;}
+    const top=feats[0].properties;
+    slot.innerHTML=`<div class="cal-dv-alert-strip" onclick="alert('${esc((top.headline||top.event||'').replace(/'/g,"’"))}\\n\\n${esc((top.description||'').slice(0,600).replace(/'/g,"’").replace(/\n/g,' '))}')">
+      ⚠ ${esc(top.event||'Weather Alert')} — ${feats.length>1?feats.length+' active alerts':'tap for details'}
+    </div>`;
+  }catch{slot.innerHTML='';}
+}
+async function checkNationalAlerts(){
+  try{
+    const r=await fetch('https://api.weather.gov/alerts/active?severity=Extreme&urgency=Immediate',{headers:{'Accept':'application/geo+json'}});
+    if(!r.ok)return;
+    const j=await r.json();
+    const feats=j.features||[];
+    const seen=_seenAlertIds();
+    const fresh=feats.find(f=>!seen.includes(f.id));
+    if(fresh)showNationalAlertModal(fresh);
+  }catch{}
+}
+function showNationalAlertModal(feature){
+  const p=feature.properties;
+  let m=document.getElementById('nationalAlertModal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='nationalAlertModal';
+    m.className='amit-name-modal';
+    document.body.appendChild(m);
+  }
+  m.innerHTML=`<div class="amit-name-card" style="max-width:440px;border-color:rgba(220,60,50,.5)">
+    <div class="amit-name-panel" style="display:flex">
+      <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
+      <div class="amit-name-question" style="font-size:15px;color:#ff8878">⚠ ${esc(p.event||'National Emergency Alert')}</div>
+      <div style="font-size:12px;color:rgba(240,232,208,.7);line-height:1.6;margin:10px 0 18px;max-height:220px;overflow-y:auto;text-align:left">
+        ${esc((p.headline||'')+'\n\n'+(p.description||'')).replace(/\n/g,'<br>')}
+      </div>
+      <button class="amit-name-begin" onclick="dismissNationalAlert('${feature.id}')">OK</button>
+    </div>
+  </div>`;
+  m.classList.add('open');
+}
+function dismissNationalAlert(id){
+  _markAlertSeen(id);
+  const m=document.getElementById('nationalAlertModal');if(m)m.classList.remove('open');
+  openPanel('home');
 }
 function checkAuthGate(){
   // Called after auth state is known. If no session, show appropriate panel.
@@ -8212,6 +8340,7 @@ document.addEventListener('DOMContentLoaded', function(){
   loadHubDemoData();
   checkFirstVisit(); // restore compass for returning users
   checkAmitInbox();
+  checkNationalAlerts(); setInterval(checkNationalAlerts,30*60*1000); // every 30 min, regardless of location
   window.addEventListener('resize', ()=>{ updateCalCellScale(); });
 
   // The gate is also supposed to show via onAuthStateChange's INITIAL_SESSION
