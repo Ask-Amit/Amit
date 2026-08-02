@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v2.12</div>
+    <div class="page-version" id="pageVersion">v2.14</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -2226,7 +2226,12 @@ function abRenderContacts(){
   const el=document.getElementById('ab-contacts'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   const filters=[['all','All'],['is_customer','Customers'],['is_vendor','Vendors'],['is_employee','Employees'],['is_contractor_1099','1099s']];
-  const shown = abContactFilter==='all' ? abContacts : abContacts.filter(c=>c[abContactFilter]);
+  // Top-level list only shows companies/primary contacts - people
+  // (parent_contact_id set) are nested under their parent, never listed
+  // as their own top-level row.
+  const topLevel=abContacts.filter(c=>!c.parent_contact_id);
+  const shown = abContactFilter==='all' ? topLevel : topLevel.filter(c=>c[abContactFilter]);
+  const childrenOf=pid=>abContacts.filter(c=>c.parent_contact_id===pid);
   const visual=abIsVisual('contacts');
   el.innerHTML=`<div class="ab-h">Contacts <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:${abIsVaultUnlocked()?'#8fd19e':'var(--muted)'}" onclick="abToggleVaultLock()">${abIsVaultUnlocked()?'🔓 SSN Vault Unlocked':'🔒 SSN Vault Locked'}</span><input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''"></div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">SSNs are encrypted client-side (AES-256-GCM) before they ever leave this browser — the database never sees a plaintext SSN. A vault passphrase gates viewing/setting them; if it's ever lost, encrypted SSNs are permanently unrecoverable by design — that's real zero-knowledge encryption, not a limitation to fix.</div>
@@ -2256,17 +2261,56 @@ function abRenderContacts(){
       const getters={name:c=>c.name,roles:c=>['is_customer','is_vendor','is_employee','is_contractor_1099'].filter(k=>c[k]).join(' ')};
       const sorted=abSmartApply(tk,shown,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',roles:'Roles'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}<th>SSN</th></tr>
-      ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td></tr>`).join('')||`<tr><td class="ab-empty" colspan="3">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}<th>SSN</th><th></th></tr>
+      ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td><td><a href="#" onclick="abTogglePersonForm('${c.id}');return false" style="color:var(--gold2);font-size:12px">+ Add Person</a></td></tr>
+      <tr id="ab-person-form-${c.id}" style="display:none"><td colspan="4">${abPersonFormHtml(c.id)}</td></tr>
+      ${childrenOf(c.id).map(p=>`<tr style="background:rgba(240,232,208,.02)"><td style="padding-left:28px">↳ ${abEsc(p.name)}${p.title?` <span style="color:var(--muted);font-size:11px">— ${abEsc(p.title)}</span>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(p.phone||'')}${p.phone&&p.email?' · ':''}${abEsc(p.email||'')}</td><td></td><td></td></tr>`).join('')}`).join('')||`<tr><td class="ab-empty" colspan="4">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
     ${shown.map(c=>`<div class="ab-rolo">
       <div class="ro-kicker">Contact</div>
       <div class="ro-title">${abEsc(c.name)}</div>
-      <div class="ro-line">${abRoleTags(c)}</div>
+      <div class="ro-line">${abRoleTags(c)} <a href="#" onclick="abTogglePersonForm('${c.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:8px">+ Add Person</a></div>
+      <div id="ab-person-form-${c.id}" style="display:none">${abPersonFormHtml(c.id)}</div>
+      ${childrenOf(c.id).map(p=>`<div class="ro-line" style="padding-left:16px;font-size:12px;color:var(--muted)">↳ ${abEsc(p.name)}${p.title?' — '+abEsc(p.title):''}${p.phone?' · '+abEsc(p.phone):''}${p.email?' · '+abEsc(p.email):''}</div>`).join('')}
     </div>`).join('')||`<div class="ab-empty">${abContactFilter==='all'?'No contacts yet':'None in this category yet'}</div>`}
     </div>`}`;
+}
+
+function abPersonFormHtml(parentId){
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0 4px 28px">
+    <input id="ab-person-name-${parentId}" placeholder="Their name" style="width:160px">
+    <input id="ab-person-title-${parentId}" placeholder="Title (e.g. Superintendent)" style="width:180px">
+    <input id="ab-person-phone-${parentId}" placeholder="Phone" style="width:130px">
+    <input id="ab-person-email-${parentId}" placeholder="Email" style="width:180px">
+    <button class="ab-btn" style="font-size:12px;padding:6px 12px" onclick="abAddPersonContact('${parentId}')">Save</button>
+  </div>`;
+}
+function abTogglePersonForm(parentId){
+  const row=document.getElementById('ab-person-form-'+parentId);
+  const open=row.style.display!=='none';
+  row.style.display=open?'none':(row.tagName==='TR'?'table-row':'block');
+}
+async function abAddPersonContact(parentId){
+  const name=document.getElementById('ab-person-name-'+parentId).value.trim();
+  if(!name){abAlert('Enter their name first.');return;}
+  const parent=abContacts.find(c=>c.id===parentId);
+  const row={
+    book_id:abBookId, parent_contact_id:parentId, name,
+    title:document.getElementById('ab-person-title-'+parentId).value.trim()||null,
+    phone:document.getElementById('ab-person-phone-'+parentId).value.trim()||null,
+    email:document.getElementById('ab-person-email-'+parentId).value.trim()||null,
+    // Inherits the parent's own roles so this person shows up correctly
+    // under the same filter (e.g. a superintendent at a Vendor still
+    // counts as part of that Vendor relationship), not as a bare
+    // unrelated contact with no role at all.
+    is_customer:parent?.is_customer||false, is_vendor:parent?.is_vendor||false,
+    is_employee:parent?.is_employee||false, is_contractor_1099:false
+  };
+  const{error}=await db.from('contacts').insert(row);
+  if(error){abAlert(error.message);return;}
+  await abLoadContacts(); abRenderContacts();
 }
 async function abAddContact(){
   const name=document.getElementById('ab-contact-name').value.trim();
@@ -6858,7 +6902,7 @@ function abRenderPayroll(){
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px;background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)"><b>This is a self-service tool, not a managed payroll service.</b> AmitBooks calculates federal withholding from the IRS tax tables loaded on the IRS Tax Tables tab and posts it as a real payroll expense — but it is <b>your responsibility</b> to confirm those tables are the current, accurate IRS numbers for the year you're running payroll in, and to confirm every employee's W-4 answers are entered correctly. AmitBooks doesn't file anything, doesn't verify anything against the IRS on your behalf, and doesn't carry that responsibility for you.</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">Federal withholding is calculated from the real IRS Percentage Method (Pub 15-T) using each employee's actual Form W-4 answers below — this is not a guess. State withholding is NOT calculated (every state is different); Step 2 "multiple jobs" checkbox isn't handled in this version — leave it off for the standard calculation.</div>
     <div class="ab-form">
-      <div class="ab-field"><label>Person</label><select id="ab-emp-contact">${abContacts.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')||'<option value="">Add a contact first</option>'}</select></div>
+      <div class="ab-field"><label>Person</label><select id="ab-emp-contact">${abContacts.filter(c=>c.is_employee).map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')||'<option value="">Mark a contact \'Employee\' first (Contacts tab)</option>'}</select></div>
       <div class="ab-field"><label>Pay type</label><select id="ab-emp-type"><option value="hourly">Hourly</option><option value="salary">Salary</option></select></div>
       <div class="ab-field"><label>Rate</label><input id="ab-emp-rate" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
       <div class="ab-field"><label>Pay Frequency</label><select id="ab-emp-freq"><option value="weekly">Weekly</option><option value="biweekly" selected>Biweekly</option><option value="semimonthly">Semimonthly</option><option value="monthly">Monthly</option></select></div>
