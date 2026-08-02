@@ -21,8 +21,8 @@ For each pair, this is a bill or receipt. This is the QUICK pass — capture onl
       and look for a name that plausibly matches what's on the receipt (last 4 digits, or a card/bank name spelled out). If exactly one plausible match, use its owning_book_id as resolved_book_id / resolved_via = "payment_source" (owning_book_id may be null if the card belongs to a person rather than a formal book — in that case set resolved_personal_contact_id from owning_contact_id instead; cash payments never resolve a book this way — leave blank).
 
    c) Vendor history, only if (a) and (b) gave nothing — query
-      GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/vendors?normalized_name=ilike.*VENDORNAME*&select=id,book_id,name,default_category,default_billable
-      If exactly one vendor matches, you may use its book_id, default_category (as a Scope suggestion), and default_billable — the weakest signal of the three, say so plainly in confidence_note.
+      GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/contacts?is_vendor=eq.true&name=ilike.*VENDORNAME*&select=id,book_id,name
+      (there is no separate "vendors" table — vendors are contacts with is_vendor=true). If exactly one match, you may use its book_id as resolved_book_id / resolved_via = "vendor_history" — the weakest signal of the three, say so plainly in confidence_note. There is no stored default Scope or default billable status on a contact — this signal can only ever suggest which book, never the Scope or billable value.
 
    All three queries use headers apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF and Authorization: Bearer ACCESS_TOKEN (from that item's own .json metadata) — RLS already restricts every result to that user's own accessible books.
 
