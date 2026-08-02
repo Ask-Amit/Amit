@@ -933,6 +933,12 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-dv-greg-num-sm{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#a09080;line-height:1}
 .cal-dv-greg-secondary .cal-dv-greg-day{font-size:10px;color:#a09080;margin-top:4px}
 .cal-dv-greg-secondary .cal-dv-greg-month{font-size:9px;color:#b0a090;margin-top:2px}
+/* Weather — today's conditions, shown only when isToday */
+.cal-dv-weather{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:#6a5a40;cursor:pointer}
+.cal-dv-weather-icon{font-size:18px;line-height:1}
+.cal-dv-weather-temp{font-family:'Cinzel',serif;font-weight:700;color:#3a2800}
+.cal-dv-weather-desc{opacity:.75;text-transform:capitalize}
+.cal-dv-weather-setup{font-size:10px;color:rgba(92,66,0,.55);text-decoration:underline;cursor:pointer;margin-top:6px}
 /* Sacred mode label badge */
 .cal-dv-sacred-label{font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--cal-type-clr);opacity:.9;margin-bottom:8px}
 /* Feast/event chip */
@@ -1231,7 +1237,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.16</div>
+    <div class="page-version" id="hubVersionBadge">v6.17</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -2625,9 +2631,11 @@ if(db){
       _pullCompass();
       _writeDisplayName();
       loadUserVocab(currentUser.id);
+      _pullLocationIfMissing().then(()=>{if(curPanel==='home')renderDayView();});
       if(!wasSignedIn){
         _migrateGuestDataThenPull();
         _syncCompass(getCompass());
+        if(getLoc())_syncLocation(getLoc());
         _showSignInWelcome(currentUser.email);
       } else {
         _pullEntries();
@@ -2868,6 +2876,25 @@ async function _syncReflection(dateStr,content){
   try{await db.from('hub_reflections').upsert({
     user_id:currentUser.id,reflection_date:dateStr,content
   },{onConflict:'user_id,reflection_date'});}catch{}
+}
+
+async function _syncLocation(loc){
+  if(!db||!currentUser)return;
+  try{await db.from('users').upsert({
+    id:currentUser.id,zip:loc.zip,lat:loc.lat,lon:loc.lon,city:loc.city,state:loc.state
+  },{onConflict:'id'});}catch{}
+}
+// On sign-in, pull any previously-saved location down to this browser if this
+// one doesn't have one yet (e.g. new device) — mirrors how compass restores.
+async function _pullLocationIfMissing(){
+  if(!db||!currentUser||getLoc())return;
+  try{
+    const{data}=await db.from('users').select('zip,lat,lon,city,state').eq('id',currentUser.id).single();
+    if(data&&data.zip){
+      localStorage.setItem(AMIT_ZIP_KEY,data.zip);
+      localStorage.setItem(AMIT_LOC_KEY,JSON.stringify({zip:data.zip,lat:data.lat,lon:data.lon,city:data.city,state:data.state}));
+    }
+  }catch{}
 }
 
 async function sendMagicLink(email){
@@ -3118,6 +3145,82 @@ function openPanel(id){
 const AMIT_NAME_KEY='amit_user_name';
 function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
 function setUserName(n){localStorage.setItem(AMIT_NAME_KEY,n.trim());}
+
+// ── LOCATION / WEATHER ──
+// ZIP is geocoded once (zippopotam.us — free, no key) into lat/lon, then Open-Meteo
+// (free, no key) supplies live conditions. Both stored in localStorage; synced to
+// Supabase profile when signed in so weather follows the person, not just the browser.
+const AMIT_ZIP_KEY='amit_user_zip';
+const AMIT_LOC_KEY='amit_user_loc'; // {zip,lat,lon,city,state}
+const AMIT_WX_KEY='amit_weather_cache'; // {ts,temp,code,desc}
+function getZip(){return localStorage.getItem(AMIT_ZIP_KEY)||'';}
+function getLoc(){try{return JSON.parse(localStorage.getItem(AMIT_LOC_KEY)||'null');}catch{return null;}}
+async function geocodeAndSaveZip(zip){
+  try{
+    const r=await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if(!r.ok)return false;
+    const j=await r.json();
+    const place=j.places&&j.places[0];
+    if(!place)return false;
+    const loc={zip,lat:parseFloat(place.latitude),lon:parseFloat(place.longitude),city:place['place name'],state:place['state abbreviation']};
+    localStorage.setItem(AMIT_ZIP_KEY,zip);
+    localStorage.setItem(AMIT_LOC_KEY,JSON.stringify(loc));
+    localStorage.removeItem(AMIT_WX_KEY); // force a fresh fetch for the new location
+    if(typeof _syncLocation==='function')_syncLocation(loc);
+    return true;
+  }catch{return false;}
+}
+// WMO weather codes (Open-Meteo) collapsed to a simple icon + label
+const WX_CODES={
+  0:['☀️','Clear sky'],1:['🌤️','Mostly clear'],2:['⛅','Partly cloudy'],3:['☁️','Overcast'],
+  45:['🌫️','Fog'],48:['🌫️','Fog'],
+  51:['🌦️','Light drizzle'],53:['🌦️','Drizzle'],55:['🌦️','Dense drizzle'],
+  61:['🌧️','Light rain'],63:['🌧️','Rain'],65:['🌧️','Heavy rain'],
+  71:['🌨️','Light snow'],73:['🌨️','Snow'],75:['❄️','Heavy snow'],
+  80:['🌦️','Rain showers'],81:['🌧️','Rain showers'],82:['⛈️','Violent showers'],
+  95:['⛈️','Thunderstorm'],96:['⛈️','Thunderstorm w/ hail'],99:['⛈️','Severe thunderstorm']
+};
+async function fetchWeather(){
+  const loc=getLoc();if(!loc)return null;
+  try{
+    const cached=JSON.parse(localStorage.getItem(AMIT_WX_KEY)||'null');
+    if(cached&&(Date.now()-cached.ts)<45*60*1000)return cached; // reuse for 45 min
+  }catch{}
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
+    const r=await fetch(url);if(!r.ok)return null;
+    const j=await r.json();
+    const code=j.current&&j.current.weather_code;
+    const [icon,desc]=WX_CODES[code]||['🌡️','—'];
+    const data={ts:Date.now(),temp:Math.round(j.current.temperature_2m),icon,desc};
+    localStorage.setItem(AMIT_WX_KEY,JSON.stringify(data));
+    return data;
+  }catch{return null;}
+}
+function renderWeatherWidget(){
+  const el=document.getElementById('dvWeatherSlot');if(!el)return;
+  const loc=getLoc();
+  if(!loc){
+    el.innerHTML=`<div class="cal-dv-weather-setup" onclick="openZipSettingsPrompt()">Add your ZIP for morning weather →</div>`;
+    return;
+  }
+  el.innerHTML=`<div class="cal-dv-weather">…</div>`;
+  fetchWeather().then(wx=>{
+    if(!wx){el.innerHTML='';return;}
+    el.innerHTML=`<div class="cal-dv-weather" title="${loc.city}, ${loc.state}" onclick="openZipSettingsPrompt()">
+      <span class="cal-dv-weather-icon">${wx.icon}</span>
+      <span class="cal-dv-weather-temp">${wx.temp}°</span>
+      <span class="cal-dv-weather-desc">${wx.desc} · ${loc.city}</span>
+    </div>`;
+  });
+}
+function openZipSettingsPrompt(){
+  const cur=getZip();
+  const z=prompt('ZIP code for your morning weather:',cur||'');
+  if(z&&/^\d{5}$/.test(z.trim())){
+    geocodeAndSaveZip(z.trim()).then(ok=>{if(ok)renderWeatherWidget();});
+  }
+}
 function checkAuthGate(){
   // Called after auth state is known. If no session, show appropriate panel.
   if(currentUser)return; // signed in — no gate needed
@@ -3130,7 +3233,7 @@ function checkAuthGate(){
   } else {
     // Returning guest — welcome back panel
     document.getElementById('welcomeBackName').textContent=name;
-    ['amitNamePanel1','amitNamePanel4','guestWarningPanel','amitNamePanel3','amitNamePanel2'].forEach(id=>{
+    ['amitNamePanel1','amitNameZipPanel','amitNamePanel4','guestWarningPanel','amitNamePanel3','amitNamePanel2'].forEach(id=>{
       const el=document.getElementById(id);if(el)el.classList.add('hidden');
     });
     document.getElementById('amitWelcomeBackPanel').classList.remove('hidden');
@@ -3173,18 +3276,38 @@ function submitAmitName(){
   setUserName(v);
   const cp=getCompass();
   if(!cp.firstVisit){cp.name=v;cp.firstVisit=new Date().toISOString().slice(0,10);saveCompass(cp);}
-  // Known person — fire recognition screen
+  // ZIP step first (powers morning weather) — recognition/email happen after
+  showZipStep(v);
+}
+function showZipStep(name){
+  document.getElementById('amitNamePanel1').classList.add('hidden');
+  document.getElementById('amitNameZipPanel').classList.remove('hidden');
+  document.getElementById('zipStepName').textContent=name||getUserName()||'';
+  const existingZip=getZip();if(existingZip)document.getElementById('amitZipInput').value=existingZip;
+  setTimeout(()=>document.getElementById('amitZipInput').focus(),150);
+}
+async function submitAmitZip(){
+  const z=document.getElementById('amitZipInput').value.trim();
+  if(z&&/^\d{5}$/.test(z)){
+    await geocodeAndSaveZip(z);
+  }
+  afterZipStep();
+}
+function skipZipStep(){afterZipStep();}
+function afterZipStep(){
+  document.getElementById('amitNameZipPanel').classList.add('hidden');
+  const v=getUserName();
   const personKey=v.toLowerCase().trim();
   if(KNOWN_PERSONS[personKey]){
     applyPartnerProfile(personKey);
     showPersonRecognition(KNOWN_PERSONS[personKey]);
     return;
   }
-  // Go to email step (Panel 4)
   showEmailStep(v);
 }
 function showEmailStep(name){
   document.getElementById('amitNamePanel1').classList.add('hidden');
+  document.getElementById('amitNameZipPanel').classList.add('hidden');
   document.getElementById('amitNamePanel4').classList.remove('hidden');
   document.getElementById('emailStepName').textContent=name||getUserName()||'';
   setTimeout(()=>document.getElementById('profileEmailInput').focus(),150);
@@ -7349,6 +7472,7 @@ function renderDayView(){
           <div class="cal-dv-greg-num">${d}</div>
           <div class="cal-dv-greg-day">${CAL_DAYS[dt.getDay()].toUpperCase()}</div>
           <div class="cal-dv-greg-month">${CAL_MONTHS[m-1]} ${y}</div>
+          ${isToday?'<div id="dvWeatherSlot"></div>':''}
         </div>
         ${wordCenterHtml}
         <div class="cal-dv-heb">
@@ -7372,6 +7496,7 @@ function renderDayView(){
         <button class="cal-dv-month-return" onclick="closeDayView()" title="Return to calendar">← Calendar</button>
       </div>
     </div>`;
+  if(isToday)renderWeatherWidget();
 }
 function openDvReflDrawer(){
   const[y,m,d]=calDvDs.split('-').map(Number);
@@ -8144,6 +8269,19 @@ function hideLabelTip(){
       <div class="amit-name-who" onclick="showAmitStory()">
         <span>?</span><span>Who is Amit?</span>
       </div>
+    </div>
+
+    <!-- PANEL 1B: ZIP step — powers morning weather -->
+    <div id="amitNameZipPanel" class="amit-name-panel hidden">
+      <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
+      <div class="amit-name-question">What's your ZIP code, <span id="zipStepName"></span>?</div>
+      <div style="font-size:11px;color:rgba(240,232,208,.45);line-height:1.6;margin-bottom:18px;text-align:center;max-width:280px">
+        So Amit can show you your morning weather and local alerts, right alongside your prayer.
+      </div>
+      <input class="amit-name-input" id="amitZipInput" type="text" inputmode="numeric" maxlength="5" placeholder="5-digit ZIP"
+        onkeydown="if(event.key==='Enter')submitAmitZip()"/>
+      <button class="amit-name-begin" onclick="submitAmitZip()">Next →</button>
+      <div class="amit-name-who" onclick="skipZipStep()"><span>Skip for now</span></div>
     </div>
 
     <!-- PANEL 4: Email step — two equal paths -->
