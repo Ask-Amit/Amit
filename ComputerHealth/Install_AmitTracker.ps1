@@ -64,6 +64,54 @@ if ($alreadyInstalled) {
     Write-Host "  Done."
 }
 
+# --- Step 1b: Node.js + Claude Code CLI (for AmitBooks local receipt
+# processing) - optional, non-fatal if it fails. This is what
+# process_inbox.bat needs to actually run; the tracker/dashboard itself
+# doesn't depend on any of this, so a failure here is logged and skipped,
+# never aborts the rest of the install. Confirmed live 2026-08-01 -
+# exact same commands run by hand on Ryan's machine that session,
+# encoded here so every future install gets it automatically instead of
+# needing to be repeated manually.
+#
+# Does NOT sign anyone into a Claude account here - that's a separate,
+# explicit, explained step (its own popup, only when AmitBooks' local
+# processing is actually used), never silently triggered during install.
+Write-Host "[1b] Checking for Node.js (needed for AmitBooks local receipt processing)..."
+try {
+    $nodeExe = "$env:ProgramFiles\nodejs\node.exe"
+    if (-not (Test-Path $nodeExe)) {
+        Write-Host "  Not found - installing via winget (silent)..."
+        winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements | Out-Null
+    } else {
+        Write-Host "  Already installed."
+    }
+    if (Test-Path $nodeExe) {
+        # A freshly-installed Node isn't on THIS script's PATH yet (PATH
+        # changes from an installer don't reach an already-running
+        # process) - add it explicitly for the rest of this script only,
+        # same fix needed live on Ryan's machine.
+        $nodeDir = Split-Path $nodeExe
+        $npmGlobalDir = "$env:APPDATA\npm"
+        if ($env:Path -notlike "*$nodeDir*") { $env:Path = "$nodeDir;$env:Path" }
+        if ($env:Path -notlike "*$npmGlobalDir*") { $env:Path = "$npmGlobalDir;$env:Path" }
+
+        $claudeCmd = "$npmGlobalDir\claude.cmd"
+        if (-not (Test-Path $claudeCmd)) {
+            Write-Host "  Installing Claude Code CLI..."
+            & "$nodeDir\npm.cmd" install -g "@anthropic-ai/claude-code" 2>&1 | Out-Null
+        }
+        if (Test-Path $claudeCmd) {
+            Write-Host "  Claude Code CLI ready. (Signing into a Claude account happens separately, only when local processing is actually used.)"
+        } else {
+            Write-Host "  Warning: Claude Code CLI install did not complete - local receipt processing won't work until this is resolved, but the rest of Amit is unaffected."
+        }
+    } else {
+        Write-Host "  Warning: Node.js install did not complete - local receipt processing won't work until this is resolved, but the rest of Amit is unaffected."
+    }
+} catch {
+    Write-Host "  Warning: could not set up local processing ($($_.Exception.Message)) - the rest of Amit is unaffected."
+}
+
 # --- Step 2: sensor reading ---
 # PERMANENT FIX (2026-07-19): this used to hunt down, download, and manage a
 # separate LibreHardwareMonitor GUI installation (~80 lines - dedup checks,
