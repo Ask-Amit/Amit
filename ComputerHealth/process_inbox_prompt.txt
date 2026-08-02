@@ -1,9 +1,36 @@
 Process every image file in C:\Users\user1\AmitInbox that has a matching .json metadata file.
 
-For each pair:
-1. Read the image directly and extract what's actually on it - vendor/business name, date, total amount, and every individual line item if it's an itemized receipt or invoice.
-2. A single receipt can span more than one trade or Scope at once - do not force everything into one bucket. In this system, "Scope" is the established term for what a QuickBooks user might call a cost code - the umbrella grouping a line item belongs to. Group the line items into as many distinct Scopes as the content actually supports (for example: a hardware store run might genuinely contain both plumbing materials - PVC pipe, fittings, valves - AND framing materials - 2x4 lumber, joist hangers - on the same receipt, which is two separate Scopes). For each group, propose a Scope and Cost Type from what's actually written, plus a subtotal for that group if it can be determined. Anything that doesn't clearly fit an identifiable Scope goes into its own "Unidentified materials" group rather than being force-fit into the wrong one or silently dropped - an honest "unidentified" is more useful than a wrong guess. Only propose what the content actually supports.
-3. Build a JSON object with fields: vendor, date, amount, line_items (array), scope_breakdown (array of objects: scope, cost_type, items, subtotal, confidence_note), confidence_note (overall honest note on how confident this whole proposal is and why).
-4. Write that JSON back to Supabase using curl: PATCH https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/scan_captures?id=eq.SCAN_ID (SCAN_ID from that item's .json metadata scan_id field), headers: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF, Authorization: Bearer ACCESS_TOKEN (ACCESS_TOKEN from that item's .json metadata access_token field), Content-Type: application/json, Prefer: return=minimal, body: a JSON object with two fields - extracted_data set to your JSON object from step 3, and processed_at set to the current ISO timestamp. Never use any other credential for this - only the access_token found in that specific item's own metadata file, which is scoped to that one user's own data.
-5. Only after the curl call succeeds, delete both that item's image file and its .json metadata file from the inbox.
-6. Report a plain-language summary at the end: how many processed, how many failed and why, and for each one, what Scopes were found.
+For each pair, this is a bill or receipt. The goal is to capture, as accurately as possible, the fields a human will need to review in AmitBooks' Working Scans screen — never invent a value that isn't actually supported by what's on the document or by real history in the account.
+
+1. Read the image directly and extract: vendor/business name, date, total amount, every individual line item, and how it was paid if that's indicated on the document — cash, a credit/debit card (note any visible last 4 digits), a loan/financing number, or a PO number written on the receipt.
+
+2. A single bill can span more than one Scope, and — abnormal but possible — more than one Project/Client, at once. Do not force everything into one bucket. Break the bill into "billing_groups" — one group per distinct combination of Project and Scope actually supported by the document. For most receipts this will be a single group. For each group, capture:
+   - project: the specific job/change order this cost belongs to, if handwritten, printed, or otherwise identifiable on the document. Leave blank ("") if not determinable — do not guess.
+   - scope: what kind of expense this is (framing, plumbing, consumables, etc. — whatever the book's own Scope vocabulary is). Leave blank if not determinable from the document alone.
+   - amount: the dollar subtotal for this group.
+   - billable: true, false, or "" (unknown) — whether this cost should be billed on to a client, if determinable.
+   - confidence_note: a short honest note on how sure you are about this group's project/scope/billable values and why (e.g. "scope written directly on receipt" vs "no scope indicated, left blank").
+
+3. Determine which set of books this bill belongs to, checking these signals in priority order (strongest first) — never guess, and if two signals genuinely disagree, do NOT silently pick one; capture both and flag it (see book_conflict below), since that disagreement is exactly the cross-book situation AmitBooks' existing payment-source mismatch review is built to catch:
+
+   a) PO number, if one is written on the receipt — query
+      GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/purchase_orders?po_number=eq.PONUMBER&select=id,book_id,contact_id,po_number
+      If exactly one match, this is the strongest possible signal — it names the book directly and (via contact_id) the client. Use it as resolved_book_id / resolved_via = "po_number".
+
+   b) Payment method, if a card or account is identifiable — query
+      GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/payment_sources?select=id,owning_book_id,owning_contact_id,name,source_type
+      and look for a name that plausibly matches what's on the receipt (e.g. last 4 digits, or a card/bank name spelled out). If exactly one plausible match, use its owning_book_id as resolved_book_id / resolved_via = "payment_source" (note: owning_book_id may be null if the card belongs to a person rather than a formal book — in that case set resolved_personal_contact_id from owning_contact_id instead, and leave resolved_book_id blank; cash payments never resolve a book this way — there's no way to know who paid, leave payment_source blank).
+
+   c) Vendor history, only if (a) and (b) gave nothing — query
+      GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/vendors?normalized_name=ilike.*VENDORNAME*&select=id,book_id,name,default_category,default_billable
+      If exactly one vendor matches, you may use its book_id, default_category (as a Scope suggestion), and default_billable — this is the weakest signal of the three, so say so plainly in confidence_note ("inferred from vendor history, not explicit on the document").
+
+   All three queries use headers apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF and Authorization: Bearer ACCESS_TOKEN (from that item's own .json metadata) — RLS already restricts every result to that user's own accessible books, so no query above can leak another user's data.
+
+4. Build a JSON object with fields: vendor, date, amount, payment_method (cash / credit_card / loan / po / unknown), payment_identifier (last 4 digits, loan number, or PO number actually seen on the document — blank if none), line_items (array), billing_groups (array of objects as described in step 2), resolved_book_id, resolved_via (which signal from step 3 produced resolved_book_id, or null), resolved_personal_contact_id (if step 3b resolved to a person instead of a book), book_conflict (null, or an object {po_says, payment_source_says} if step 3a and 3b disagree on the book — never resolved automatically in that case), confidence_note (overall honest note on how confident this whole proposal is and why).
+
+5. Write that JSON back to Supabase using curl: PATCH https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/scan_captures?id=eq.SCAN_ID (SCAN_ID from that item's .json metadata scan_id field), headers: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF, Authorization: Bearer ACCESS_TOKEN (ACCESS_TOKEN from that item's .json metadata access_token field), Content-Type: application/json, Prefer: return=minimal, body: a JSON object with two fields - extracted_data set to your JSON object from step 4, and processed_at set to the current ISO timestamp. Never use any other credential for this - only the access_token found in that specific item's own metadata file, which is scoped to that one user's own data.
+
+6. Only after the curl call succeeds, delete both that item's image file and its .json metadata file from the inbox.
+
+7. Report a plain-language summary at the end: how many processed, how many failed and why, and for each one, which fields were captured directly, which were inferred and from which signal, which were left blank for manual completion, and whether any book_conflict was flagged.

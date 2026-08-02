@@ -44,6 +44,15 @@ REM (for the curl calls that write results back and clean up) — nothing
 REM else; per Anthropic's own docs, an attempt to use anything outside
 REM this list aborts the run rather than silently doing something
 REM unauthorized.
+REM
+REM MODE (added 2026-08-02): first argument selects which prompt file
+REM runs — "light" for the quick whole-receipt-only pass
+REM (process_inbox_prompt_light.txt, no line items, no multi-Scope
+REM breakdown), anything else (including no argument at all) for the
+REM full Detailed pass (process_inbox_prompt.txt). Detailed is the safe
+REM default when no mode is given, since it captures strictly more.
+set "PROMPT_FILE=process_inbox_prompt.txt"
+if /I "%~1"=="light" set "PROMPT_FILE=process_inbox_prompt_light.txt"
 
 echo.
 echo ================================================================
@@ -101,4 +110,4 @@ REM between batch-level quoting and child-process quoting, not
 REM something worth fighting further. Piping via stdin (claude -p with
 REM no inline prompt argument) sidesteps cmd.exe's parsing entirely -
 REM confirmed working with this exact flag combination.
-type "%~dp0process_inbox_prompt.txt" | "%CLAUDE_EXE%" --safe-mode -p --allowedTools "Read,Bash" --output-format json
+type "%~dp0%PROMPT_FILE%" | "%CLAUDE_EXE%" --safe-mode -p --allowedTools "Read,Bash" --output-format json

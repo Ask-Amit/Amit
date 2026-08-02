@@ -1,0 +1,35 @@
+Process every image file in C:\Users\user1\AmitInbox that has a matching .json metadata file.
+
+For each pair, this is a bill or receipt. This is the QUICK pass — capture only what's explicitly readable on the document itself, at the whole-receipt level. Do NOT break the document down line item by line item, and do NOT attempt to split it into multiple Scope/Project groups even if it looks like it could span more than one — that level of detail is what the Detailed pass is for. This pass exists to be fast and cheap for the common case where everything needed is already written on the receipt in one place.
+
+1. Read the image directly and extract, for the receipt as a whole: vendor/business name, date, total amount, and how it was paid if indicated — cash, a credit/debit card (note any visible last 4 digits), a loan/financing number, or a PO number written on the receipt.
+
+2. Extract, at the whole-receipt level only (no per-line breakdown):
+   - project: the specific job/change order this bill belongs to, if handwritten, printed, or otherwise identifiable. Leave blank ("") if not determinable — do not guess.
+   - scope: what kind of expense this is overall, if it's clearly one single kind. Leave blank if the receipt looks like it spans more than one kind of expense — that's a signal this receipt actually needs the Detailed pass, not a reason to force a single Scope onto it.
+   - billable: true, false, or "" (unknown) — whether this cost should be billed on to a client, if determinable.
+   - confidence_note: a short honest note on how sure you are about project/scope/billable and why.
+
+3. Determine which set of books this bill belongs to, checking these signals in priority order (strongest first) — never guess, and if two signals genuinely disagree, do NOT silently pick one; capture both and flag it (see book_conflict below):
+
+   a) PO number, if one is written on the receipt — query
+      GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/purchase_orders?po_number=eq.PONUMBER&select=id,book_id,contact_id,po_number
+      If exactly one match, this is the strongest possible signal. Use it as resolved_book_id / resolved_via = "po_number".
+
+   b) Payment method, if a card or account is identifiable — query
+      GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/payment_sources?select=id,owning_book_id,owning_contact_id,name,source_type
+      and look for a name that plausibly matches what's on the receipt (last 4 digits, or a card/bank name spelled out). If exactly one plausible match, use its owning_book_id as resolved_book_id / resolved_via = "payment_source" (owning_book_id may be null if the card belongs to a person rather than a formal book — in that case set resolved_personal_contact_id from owning_contact_id instead; cash payments never resolve a book this way — leave blank).
+
+   c) Vendor history, only if (a) and (b) gave nothing — query
+      GET https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/vendors?normalized_name=ilike.*VENDORNAME*&select=id,book_id,name,default_category,default_billable
+      If exactly one vendor matches, you may use its book_id, default_category (as a Scope suggestion), and default_billable — the weakest signal of the three, say so plainly in confidence_note.
+
+   All three queries use headers apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF and Authorization: Bearer ACCESS_TOKEN (from that item's own .json metadata) — RLS already restricts every result to that user's own accessible books.
+
+4. Build a JSON object with fields: vendor, date, amount, payment_method (cash / credit_card / loan / po / unknown), payment_identifier (last 4 digits, loan number, or PO number actually seen on the document — blank if none), project, scope, billable, resolved_book_id, resolved_via, resolved_personal_contact_id, book_conflict (null, or an object {po_says, payment_source_says} if step 3a and 3b disagree), pass_type set to the literal string "light", confidence_note (overall honest note, including whether this receipt actually looked complex enough that it should be re-run through the Detailed pass instead).
+
+5. Write that JSON back to Supabase using curl: PATCH https://hleqtjqojksurvkyqixt.supabase.co/rest/v1/scan_captures?id=eq.SCAN_ID (SCAN_ID from that item's .json metadata scan_id field), headers: apikey: sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF, Authorization: Bearer ACCESS_TOKEN (ACCESS_TOKEN from that item's .json metadata access_token field), Content-Type: application/json, Prefer: return=minimal, body: a JSON object with two fields - extracted_data set to your JSON object from step 4, and processed_at set to the current ISO timestamp. Never use any other credential for this - only the access_token found in that specific item's own metadata file, which is scoped to that one user's own data.
+
+6. Only after the curl call succeeds, delete both that item's image file and its .json metadata file from the inbox.
+
+7. Report a plain-language summary at the end: how many processed, how many failed and why, and for each one, what was captured, what was left blank, and whether any receipt looked like it actually needed the Detailed pass instead.

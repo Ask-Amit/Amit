@@ -900,11 +900,15 @@ try {
                     $json = $body | ConvertFrom-Json
                     $inboxDir = "C:\Users\user1\AmitInbox"
                     $batPath = "$watcherDir\process_inbox.bat"
+                    # mode (added 2026-08-02): "light" for the quick pass,
+                    # anything else (including absent) defaults to Detailed
+                    # inside the .bat itself.
+                    $mode = if ($json.mode) { $json.mode } else { "detailed" }
                     if (-not (Test-Path $batPath)) {
                         Send-Json $response @{ error = "process_inbox.bat not found at $batPath" } 500
                     } else {
-                        Start-Process -FilePath $batPath -WindowStyle Hidden
-                        Send-Json $response @{ success = $true }
+                        Start-Process -FilePath $batPath -ArgumentList $mode -WindowStyle Hidden
+                        Send-Json $response @{ success = $true; mode = $mode }
                     }
                 } catch {
                     Send-Json $response @{ error = $_.Exception.Message } 500

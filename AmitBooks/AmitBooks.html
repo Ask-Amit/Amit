@@ -251,7 +251,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v2.05</div>
+    <div class="page-version" id="pageVersion">v2.06</div>
   </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -384,6 +384,25 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abCloseNomenclatureEditor()">Cancel</button>
       <button class="ab-btn" onclick="abSaveNomenclatureEditor()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="abScanDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:720px;width:94%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;margin-bottom:14px">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">Review Scan</div>
+      <div onclick="abCloseScanDetail()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+    </div>
+    <div style="overflow-y:auto;flex:1;display:flex;gap:20px">
+      <div style="flex:0 0 200px">
+        <img id="abScanDetailImg" src="" style="width:100%;border-radius:8px;background:#111;object-fit:contain;max-height:280px">
+      </div>
+      <div id="abScanDetailBody" style="flex:1;min-width:0"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid rgba(240,232,208,.1)">
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abCloseScanDetail()">Cancel</button>
+      <button class="ab-btn" onclick="abSaveScanDetail()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -3253,7 +3272,8 @@ async function abRenderScanPending(){
       <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanSelectAll()">Select All</button>
       <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanSelectNone()">Select None</button>
       <span id="abScanSelectedCount" style="font-size:12px;color:var(--muted)">0 selected</span>
-      <button class="ab-btn" onclick="abScanSendSelectedToLocal()">Send Selected to Local Processing</button>
+      <button class="ab-btn" style="background:transparent;border-color:rgba(201,168,76,.5)" onclick="abScanSendSelectedToLocal('light')" title="Whole-receipt only — vendor, date, amount, one Scope, how it was paid. Fast and cheap. Best when everything needed is already written on the receipt in one place.">Quick Scan</button>
+      <button class="ab-btn" onclick="abScanSendSelectedToLocal('detailed')" title="Full line-item breakdown, multiple Scopes/Projects per receipt if the content supports it. Slower, more thorough.">Detailed Scan</button>
     </div>
     <div id="abScanSendStatus" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
     ${rows.join('')}`;
@@ -3264,6 +3284,23 @@ async function abRenderScanPending(){
 // from Pending (not yet sent) and from a real posted record (reviewed).
 // Solves the exact confusion Ryan hit live: an item just disappearing
 // from Pending with no visible confirmation of where it went. ──
+let abScanWorkingRows=[]; // indexed lookup for the detail modal — row + signed URL together
+let abScanDetailIdx=null; // which abScanWorkingRows entry the open detail modal is editing
+
+// Normalize either extracted_data shape (Detailed pass's billing_groups[],
+// or the Light pass's flat project/scope/billable at the top level) into
+// one groups array the detail modal can edit uniformly.
+function abScanGroupsFrom(ex){
+  if(!ex)return[];
+  if(Array.isArray(ex.billing_groups)&&ex.billing_groups.length)return ex.billing_groups;
+  if(ex.project!==undefined||ex.scope!==undefined){
+    return[{project:ex.project||'',scope:ex.scope||'',amount:ex.amount||'',billable:ex.billable,confidence_note:ex.confidence_note||''}];
+  }
+  // oldest shape, pre-nomenclature (scope_breakdown/cost_type) — still show it, read-only-ish, mapped onto the new field names
+  if(Array.isArray(ex.scope_breakdown))return ex.scope_breakdown.map(b=>({project:'',scope:b.scope||'',amount:b.subtotal||'',billable:'',confidence_note:b.confidence_note||''}));
+  return[];
+}
+
 async function abRenderScanWorking(){
   const el=document.getElementById('ab-scan-working'); if(!el)return;
   if(!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in to see what\'s out for processing.</div>'; return; }
@@ -3273,40 +3310,121 @@ async function abRenderScanWorking(){
   if(!data||!data.length){ el.innerHTML='<div class="ab-signin-notice">Nothing currently out for processing.</div>'; return; }
 
   const modeLabel={bill:'Bill',receipt:'Receipt',contact:'Contact',mileage:'Mileage',other:'Other'};
-  const rows=data.map(r=>{
-    const sentWhen=new Date(r.local_sent_at).toLocaleString();
+  abScanWorkingRows=[];
+  const rows=await Promise.all(data.map(async(r,idx)=>{
+    const{data:signed}=await db.storage.from('amitscan-captures').createSignedUrl(r.storage_path,3600);
+    const thumb=signed?.signedUrl||'';
+    abScanWorkingRows[idx]={row:r,url:thumb};
     const ex=r.extracted_data;
-    let resultBlock='';
-    if(ex){
-      const breakdown=(ex.scope_breakdown||[]).map(b=>
-        `<div style="margin-top:6px;padding:8px 10px;background:rgba(240,232,208,.04);border-radius:6px">
-          <div style="font-weight:600;font-size:12.5px">${abEsc(b.scope||'Unidentified')}${b.cost_type?' — '+abEsc(b.cost_type):''}</div>
-          ${b.subtotal?`<div style="font-size:12px;color:var(--muted)">${abMoney(b.subtotal)}</div>`:''}
-          ${b.items?`<div style="font-size:11.5px;color:var(--muted);margin-top:2px">${abEsc(Array.isArray(b.items)?b.items.join(', '):b.items)}</div>`:''}
-          ${b.confidence_note?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:2px">${abEsc(b.confidence_note)}</div>`:''}
-        </div>`
-      ).join('');
-      resultBlock=`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(240,232,208,.2)">
-        <div style="font-weight:600;color:var(--gold)">Proposed: ${abEsc(ex.vendor||'Unknown vendor')} — ${ex.amount?abMoney(ex.amount):'—'} ${ex.date?'('+abEsc(ex.date)+')':''}</div>
-        ${breakdown}
-        ${ex.confidence_note?`<div style="font-size:12px;color:var(--muted);font-style:italic;margin-top:8px">${abEsc(ex.confidence_note)}</div>`:''}
-        <div class="ab-signin-notice" style="text-align:left;margin-top:10px;font-size:11.5px">This is a proposal to review, not posted anywhere yet — the review/posting screen is the next build phase.</div>
-      </div>`;
-    }
-    return `<div style="padding:12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:10px">
-      <div style="display:flex;gap:14px;align-items:center">
-        <div style="flex:1">
-          <div style="font-weight:600">${modeLabel[r.mode]||r.mode}${ex?' — <span style=\"color:#4c9a6a\">Results ready</span>':' — <span style=\"color:var(--muted)\">Still processing…</span>'}</div>
-          <div style="font-size:12px;color:var(--muted)">Sent ${abEsc(sentWhen)}</div>
-        </div>
-        <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanReturnToPending('${r.id}')">Return to Pending</button>
+    const ready=!!ex;
+    const groups=abScanGroupsFrom(ex);
+    const scopesSummary=groups.map(g=>abEsc(g.scope||'—')).join(', ');
+    const conflict=ex&&ex.book_conflict;
+    const summaryLine=ready
+      ? `${abEsc(ex.vendor||'Unknown vendor')} — ${ex.amount?abMoney(ex.amount):'—'}${ex.date?' · '+abEsc(ex.date):''}${scopesSummary?' · '+scopesSummary:''}`
+      : 'Still processing…';
+    return `<div class="ab-scan-work-row" data-idx="${idx}" ondblclick="abOpenScanDetail(${idx})" style="display:flex;gap:14px;align-items:center;padding:8px 12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:8px;cursor:${ready?'pointer':'default'}" title="${ready?'Double-click to review and complete':''}">
+      ${thumb?`<img src="${thumb}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;background:#111;flex:0 0 auto">`:'<div style="width:56px;height:56px;border-radius:6px;background:#111;flex:0 0 auto"></div>'}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${modeLabel[r.mode]||r.mode} — ${summaryLine}</div>
+        <div style="font-size:11.5px;color:var(--muted)">${ready?'<span style="color:#4c9a6a">Results ready — double-click to review</span>':'Sent '+abEsc(new Date(r.local_sent_at).toLocaleString())}${conflict?' · <span style="color:#e07a5f">Book conflict flagged</span>':''}</div>
       </div>
-      ${resultBlock}
+      <button class="ab-btn" style="background:transparent;color:var(--muted);font-size:11px;padding:5px 10px" onclick="event.stopPropagation();abScanReturnToPending('${r.id}')">Return to Pending</button>
     </div>`;
-  }).join('');
+  }));
   el.innerHTML=`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
-      ${data.length} out for local processing. Once results land, they show right here for review — nothing posts automatically. If something's stuck (the local computer wasn't reachable, processing never finished), use Return to Pending to try again.
-    </div>${rows}`;
+      ${data.length} out for local processing. Double-click any row with results ready to review and fill in whatever's blank — nothing posts as a real Bill until you save it from there. If something's stuck, use Return to Pending to try again.
+    </div>${rows.join('')}`;
+}
+
+function abOpenScanDetail(idx){
+  const entry=abScanWorkingRows[idx]; if(!entry||!entry.row.extracted_data)return;
+  abScanDetailIdx=idx;
+  const r=entry.row, ex=r.extracted_data;
+  document.getElementById('abScanDetailImg').src=entry.url;
+  const groups=abScanGroupsFrom(ex);
+  const conflict=ex.book_conflict;
+
+  document.getElementById('abScanDetailBody').innerHTML=`
+    ${conflict?`<div style="background:rgba(224,122,95,.12);border:1px solid rgba(224,122,95,.4);border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:12px">
+      <b>Book conflict</b> — the PO number and payment method point to different sets of books (PO: ${abEsc(conflict.po_says||'—')}, Payment source: ${abEsc(conflict.payment_source_says||'—')}). Resolve which one is right before this can be posted.
+    </div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div><label style="font-size:11px;color:var(--muted)">Vendor</label><input type="text" id="ab-sd-vendor" value="${abEsc(ex.vendor||'')}" style="width:100%"></div>
+      <div><label style="font-size:11px;color:var(--muted)">Date</label><input type="text" id="ab-sd-date" value="${abEsc(ex.date||'')}" style="width:100%"></div>
+      <div><label style="font-size:11px;color:var(--muted)">Amount</label><input type="text" id="ab-sd-amount" value="${abEsc(ex.amount||'')}" style="width:100%"></div>
+      <div><label style="font-size:11px;color:var(--muted)">Paid By</label><input type="text" id="ab-sd-paymethod" value="${abEsc(ex.payment_method||'')}" placeholder="cash / credit_card / loan / po" style="width:100%"></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Billing (Project / Scope / Amount / Billable) — add a row if this receipt genuinely covers more than one</div>
+    <div id="ab-sd-groups"></div>
+    <button class="ab-btn" style="font-size:11px;padding:5px 10px;margin-top:4px;margin-bottom:14px" onclick="abScanDetailAddGroup()">+ Add Row</button>
+    ${ex.line_items&&ex.line_items.length?`<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Line items captured</div>
+      <div style="font-size:12px;background:rgba(240,232,208,.04);border-radius:6px;padding:8px 10px;margin-bottom:12px;max-height:100px;overflow-y:auto">${ex.line_items.map(li=>abEsc(typeof li==='string'?li:JSON.stringify(li))).join('<br>')}</div>`:''}
+    ${ex.confidence_note?`<div style="font-size:11.5px;color:var(--muted);font-style:italic">${abEsc(ex.confidence_note)}</div>`:''}
+    <div class="ab-signin-notice" style="text-align:left;margin-top:12px;font-size:11.5px">Saving updates this proposal — turning it into a real posted Bill is a separate step, not done here yet.</div>
+  `;
+  abScanDetailRenderGroups(groups);
+  document.getElementById('abScanDetailModal').style.display='flex';
+}
+
+function abScanDetailRenderGroups(groups){
+  const wrap=document.getElementById('ab-sd-groups');
+  wrap.innerHTML=groups.map(g=>`<div class="ab-sd-group-row" style="display:grid;grid-template-columns:1.3fr 1fr .8fr .8fr auto;gap:6px;margin-bottom:6px;align-items:center">
+    <input type="text" class="ab-sd-g-project" value="${abEsc(g.project||'')}" placeholder="Project" style="font-size:12px">
+    <input type="text" class="ab-sd-g-scope" value="${abEsc(g.scope||'')}" placeholder="Scope" style="font-size:12px">
+    <input type="text" class="ab-sd-g-amount" value="${abEsc(g.amount||'')}" placeholder="Amount" style="font-size:12px">
+    <select class="ab-sd-g-billable" style="font-size:12px">
+      <option value="" ${g.billable===''||g.billable===undefined||g.billable===null?'selected':''}>Unknown</option>
+      <option value="true" ${g.billable===true?'selected':''}>Billable</option>
+      <option value="false" ${g.billable===false?'selected':''}>Non-Billable</option>
+    </select>
+    <span onclick="this.closest('.ab-sd-group-row').remove()" style="cursor:pointer;color:var(--muted);font-size:14px">✕</span>
+  </div>`).join('');
+}
+
+function abScanDetailAddGroup(){
+  const wrap=document.getElementById('ab-sd-groups');
+  wrap.insertAdjacentHTML('beforeend',`<div class="ab-sd-group-row" style="display:grid;grid-template-columns:1.3fr 1fr .8fr .8fr auto;gap:6px;margin-bottom:6px;align-items:center">
+    <input type="text" class="ab-sd-g-project" placeholder="Project" style="font-size:12px">
+    <input type="text" class="ab-sd-g-scope" placeholder="Scope" style="font-size:12px">
+    <input type="text" class="ab-sd-g-amount" placeholder="Amount" style="font-size:12px">
+    <select class="ab-sd-g-billable" style="font-size:12px">
+      <option value="" selected>Unknown</option>
+      <option value="true">Billable</option>
+      <option value="false">Non-Billable</option>
+    </select>
+    <span onclick="this.closest('.ab-sd-group-row').remove()" style="cursor:pointer;color:var(--muted);font-size:14px">✕</span>
+  </div>`);
+}
+
+function abCloseScanDetail(){
+  document.getElementById('abScanDetailModal').style.display='none';
+  abScanDetailIdx=null;
+}
+
+async function abSaveScanDetail(){
+  if(abScanDetailIdx===null)return;
+  const entry=abScanWorkingRows[abScanDetailIdx]; if(!entry)return;
+  const ex=entry.row.extracted_data||{};
+  const groups=[...document.querySelectorAll('#ab-sd-groups .ab-sd-group-row')].map(row=>({
+    project:row.querySelector('.ab-sd-g-project').value.trim(),
+    scope:row.querySelector('.ab-sd-g-scope').value.trim(),
+    amount:row.querySelector('.ab-sd-g-amount').value.trim(),
+    billable:row.querySelector('.ab-sd-g-billable').value===''?'':row.querySelector('.ab-sd-g-billable').value==='true'
+  }));
+  const updated={
+    ...ex,
+    vendor:document.getElementById('ab-sd-vendor').value.trim(),
+    date:document.getElementById('ab-sd-date').value.trim(),
+    amount:document.getElementById('ab-sd-amount').value.trim(),
+    payment_method:document.getElementById('ab-sd-paymethod').value.trim(),
+    billing_groups:groups,
+    reviewed_edited_at:new Date().toISOString()
+  };
+  delete updated.project; delete updated.scope; delete updated.billable; // fold light-pass flat fields into billing_groups now that it's edited
+  await db.from('scan_captures').update({extracted_data:updated}).eq('id',entry.row.id);
+  abCloseScanDetail();
+  await abRenderScanWorking();
 }
 async function abScanReturnToPending(id){
   await db.from('scan_captures').update({local_sent_at:null}).eq('id',id);
@@ -3338,7 +3456,8 @@ function abScanSelectNone(){
 // this computer first — that's not done yet, so the trigger call below
 // will fail gracefully until it is. This still gets everything else
 // working and testable now. ──
-async function abScanSendSelectedToLocal(){
+async function abScanSendSelectedToLocal(mode){
+  mode=mode==='light'?'light':'detailed';
   const status=document.getElementById('abScanSendStatus');
   const checked=[...document.querySelectorAll('.ab-scan-pick:checked')].map(c=>parseInt(c.dataset.idx));
   if(!checked.length){ status.textContent='Select at least one scan first.'; return; }
@@ -3408,11 +3527,11 @@ async function abScanSendSelectedToLocal(){
     const triggerRes=await fetch(AB_BRIDGE_URL+'/amit-process-inbox',{
       method:'POST',
       headers:{'content-type':'application/json'},
-      body:JSON.stringify({access_token:accessToken})
+      body:JSON.stringify({access_token:accessToken,mode})
     });
     const triggerOut=await triggerRes.json();
     if(!triggerRes.ok||triggerOut.error) throw new Error(triggerOut.error||('HTTP '+triggerRes.status));
-    status.textContent=done+' sent and processing started on this computer. Results will land back in AmitBooks once processing finishes — check Pending Scans again in a bit.';
+    status.textContent=done+' sent — '+(mode==='light'?'Quick':'Detailed')+' processing started on this computer. Results will land back in AmitBooks once processing finishes — check Pending Scans again in a bit.';
   }catch(e){
     status.textContent=done+' sent to '+'C:\\Users\\user1\\AmitInbox, but could not start processing automatically — '+(e?.message||String(e))+'. (Expected until Claude Code\'s CLI is installed on this computer — see ComputerHealth CLAUDE.md.)';
   }
