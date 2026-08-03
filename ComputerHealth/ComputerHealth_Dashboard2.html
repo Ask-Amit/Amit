@@ -307,6 +307,20 @@
   .main-area { flex:1; overflow:hidden; position:relative; background:var(--amit-bg); display:flex; flex-direction:column; }
   .panel { position:absolute; inset:0; overflow-y:auto; display:none; flex-direction:column; }
   .panel.active { display:flex; }
+  /* Top-right of the outer shell header - matches the Hub/template's own
+     greeting + sync corner exactly, added 2026-08-03 per Ryan's direct
+     correction: this needed to actually show who's signed in, not sit
+     empty. Reads Computer Health's OWN existing currentUser/sign-in state
+     (see chShellSetSignedIn, called from the real showSignedInAs function
+     already in this page) - there is no second, separate sign-in flow
+     here. The Hub remains the one door in, exactly as before. */
+  .ch-shell-hdr-right { text-align:right; }
+  .ch-shell-greeting { font-family:'Cinzel',serif; font-size:15px; color:#fff; font-weight:600; }
+  .ch-shell-datetime { font-size:12px; color:var(--amit-muted); margin-top:2px; }
+  .ch-shell-sync-row { display:flex; align-items:center; gap:8px; justify-content:flex-end; margin-top:3px; }
+  .ch-shell-sync { font-size:9px; letter-spacing:.07em; color:rgba(240,232,208,.28); font-family:'Cinzel',serif; }
+  .ch-shell-sync.synced { color:rgba(100,220,160,.8); }
+  .ch-shell-waiting { font-size:9px; letter-spacing:.1em; color:rgba(201,168,76,.7); font-family:'Cinzel',serif; border:1px solid rgba(201,168,76,.3); padding:3px 9px; border-radius:4px; background:rgba(201,168,76,.07); }
 </style>
 </head>
 <body>
@@ -328,7 +342,14 @@
     <img src="../amit_icon.png" alt="Amit" style="height:30px;width:30px">
     <span class="ch-shell-brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
   </div>
-  <div style="width:30px"></div>
+  <div class="ch-shell-hdr-right">
+    <div class="ch-shell-greeting" id="chShellGreeting">Good morning</div>
+    <div class="ch-shell-datetime" id="chShellDatetime"></div>
+    <div class="ch-shell-sync-row">
+      <div class="ch-shell-sync" id="chShellSync"></div>
+      <div class="ch-shell-waiting" id="chShellWaiting">SIGN IN VIA THE HUB</div>
+    </div>
+  </div>
 </header>
 
 <div class="hub">
@@ -915,6 +936,38 @@ function chShellOpenPanel(n) {
   if (tile) tile.classList.add('active');
   if (panel) panel.classList.add('active');
 }
+
+// Same clock/greeting pattern as the Hub and Templates/template.html -
+// visual only, no auth logic of its own. Called from showSignedInAs()
+// further down (Computer Health's own real sign-in detection, which only
+// ever fires once a session that came in through the Hub is confirmed -
+// there is still only one door in).
+function chShellUpdateClock() {
+  const d = new Date();
+  const h = d.getHours();
+  const el = document.getElementById('chShellDatetime');
+  if (el) el.textContent = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+  // Greeting word itself only changes with time of day when nobody's
+  // name has been set yet - once signed in, chShellSetSignedIn owns it.
+  if (!window.chShellSignedIn) {
+    const sal = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    const g = document.getElementById('chShellGreeting');
+    if (g) g.textContent = sal;
+  }
+}
+chShellUpdateClock();
+setInterval(chShellUpdateClock, 30000);
+
+function chShellSetSignedIn(name, email) {
+  window.chShellSignedIn = true;
+  const d = new Date();
+  const sal = d.getHours() < 12 ? 'Good morning' : d.getHours() < 17 ? 'Good afternoon' : 'Good evening';
+  const g = document.getElementById('chShellGreeting'); if (g) g.textContent = sal + ', ' + name;
+  const sync = document.getElementById('chShellSync');
+  if (sync) { sync.textContent = '● SYNCED'; sync.classList.add('synced'); sync.title = 'Signed in via the Hub · ' + email; }
+  const waiting = document.getElementById('chShellWaiting');
+  if (waiting) waiting.style.display = 'none';
+}
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -993,6 +1046,10 @@ async function showSignedInAs(email) {
   } catch (e) {}
   if (!name) name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   bar.innerHTML = `<span style="color:#4caf6d">✓ Welcome, <strong>${name}</strong> — signed in as ${email}</span>`;
+  // Mirrors the same real sign-in state into the outer shell header's
+  // top-right corner (Ryan's direct request 2026-08-03) - same name, same
+  // event, no second lookup or separate auth path.
+  if (typeof chShellSetSignedIn === 'function') chShellSetSignedIn(name, email);
 }
 
 // Called once a real session is confirmed, from either path below. Loads
