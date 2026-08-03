@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Computer Health</title>
 <link rel="icon" type="image/png" href="../amit_icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <style>
   :root { color-scheme: dark; }
   /* App-shell layout, not a page that grows/shrinks per tab - Ryan's
@@ -14,9 +15,15 @@
      region that takes up the rest of the viewport and scrolls internally. */
   html, body { height:100%; }
   body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:#12141a; color:#e8e8ec; margin:0; padding:0; display:flex; flex-direction:column; overflow:hidden; }
-  header { background:#1c1f28; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2a2e3a; }
-  header h1 { font-size:20px; margin:0; color:#d4af37; }
-  header .device { font-size:13px; color:#9aa0ab; }
+  /* Renamed from a bare `header` tag selector to a class - this page now
+     lives inside the standard Amit dashboard shell (see the new outer
+     <header> below, borrowed from Templates/template.html), which has its
+     own real <header> element. Keeping this as a bare tag selector would
+     have styled BOTH headers identically, which is wrong - this rule is
+     for Computer Health's own inner control bar only. */
+  .ch-inner-header { background:#1c1f28; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2a2e3a; }
+  .ch-inner-header h1 { font-size:20px; margin:0; color:#d4af37; }
+  .ch-inner-header .device { font-size:13px; color:#9aa0ab; }
   /* Visible "something is actively being captured right now" cue - Ryan's
      direct request 2026-07-15, once App Behavior started sampling
      silently in the background every second instead of loudly every 10. */
@@ -265,11 +272,80 @@
   .hw-col-label { writing-mode:vertical-rl; transform:rotate(180deg); font-weight:600; color:#d4af37; font-size:11px; white-space:nowrap; margin:0 auto; display:table; }
   .hw-spreadsheet tbody tr:nth-child(even) { background:#15171d; }
   .hw-spreadsheet tbody tr:hover { background:#22252e; }
+
+  /* ══════════════════════════════════════════════
+     STANDARD AMIT DASHBOARD SHELL — copied from
+     Templates/template.html (2026-08-03), per Ryan's direct instruction:
+     this is the new outer look for Computer Health, layered on top of
+     everything above. None of the CSS above was touched to make room for
+     this - the class names below (.hub, .sidebar, .main-area, .panel,
+     .ch-shell-*) don't exist anywhere in Computer Health's own rules, so
+     there is no collision. Only the bare `header` tag selector needed
+     renaming (see .ch-inner-header above) since this shell introduces a
+     second, real <header> element for the branded top bar. ══════════════ */
+  :root {
+    --amit-bg:#09141f; --amit-card-head:#0f2338; --amit-border:rgba(201,168,76,0.55);
+    --amit-gold:#c9a84c; --amit-gold2:#e8c56a; --amit-text2:#f0e8d0; --amit-muted:rgba(240,232,208,0.78);
+  }
+  .ch-shell-header { display:flex; align-items:center; justify-content:space-between; padding:12px 28px; background:var(--amit-card-head); border-bottom:2px solid var(--amit-border); flex-shrink:0; position:relative; }
+  .ch-shell-title-wrap { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
+  .ch-shell-title { font-family:Georgia,serif; font-size:24px; font-weight:700; letter-spacing:.3px; color:var(--amit-gold2); }
+  .ch-shell-version { font-family:monospace; font-size:11px; letter-spacing:.05em; color:rgba(201,168,76,.55); margin-top:2px; }
+  .ch-shell-brand { display:flex; align-items:baseline; gap:14px; }
+  .ch-shell-brand-sub { font-style:italic; color:var(--amit-muted); font-size:12px; }
+  .hub { display:flex; flex:1; overflow:hidden; }
+  .sidebar { width:210px; flex-shrink:0; background:var(--amit-card-head); border-right:2px solid var(--amit-border); display:flex; flex-direction:column; overflow-y:auto; padding:12px 10px; gap:5px; }
+  .sidebar::-webkit-scrollbar { width:3px; }
+  .sidebar::-webkit-scrollbar-thumb { background:rgba(201,168,76,.3); border-radius:2px; }
+  .tile { display:flex; align-items:center; gap:10px; padding:10px 11px; border-radius:9px; cursor:pointer; border:1px solid transparent; transition:all .18s; user-select:none; }
+  .tile:hover { background:rgba(255,255,255,.07); border-color:rgba(201,168,76,.3); }
+  .tile.active { background:rgba(201,168,76,.16); border-color:var(--amit-gold); box-shadow:0 0 0 1px rgba(201,168,76,.25); }
+  .tile-icon { font-size:18px; width:26px; text-align:center; flex-shrink:0; }
+  .tile-info { flex:1; min-width:0; }
+  .tile-name { font-family:'Cinzel',serif; font-size:11px; color:#fff; letter-spacing:.04em; font-weight:600; }
+  .tile-sub { font-size:11px; color:var(--amit-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .main-area { flex:1; overflow:hidden; position:relative; background:var(--amit-bg); display:flex; flex-direction:column; }
+  .panel { position:absolute; inset:0; overflow-y:auto; display:none; flex-direction:column; }
+  .panel.active { display:flex; }
 </style>
 </head>
 <body>
 
-<header>
+<!-- ══════════════════════════════════════════════
+     STANDARD AMIT DASHBOARD SHELL — the new outer look, per Ryan's direct
+     instruction 2026-08-03: everything Computer Health already does lives
+     unchanged inside the single "Computer Health" panel below. This shell
+     itself is not the template file - it is a copy of the template's
+     layout brought into this page and adjusted only to hold Computer
+     Health's own existing tabs as one panel's content, per that
+     instruction ("this is only adjusting the new Dashboard2 HTML"). ══════ -->
+<header class="ch-shell-header">
+  <div class="ch-shell-title-wrap">
+    <div class="ch-shell-title">Computer Health</div>
+    <div class="ch-shell-version">v4.39</div>
+  </div>
+  <div class="ch-shell-brand">
+    <img src="../amit_icon.png" alt="Amit" style="height:30px;width:30px">
+    <span class="ch-shell-brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
+  </div>
+  <div style="width:30px"></div>
+</header>
+
+<div class="hub">
+  <nav class="sidebar" id="chShellSidebar">
+    <div class="tile active" id="chShellTile1" onclick="chShellOpenPanel(1)">
+      <div class="tile-icon">🖥️</div>
+      <div class="tile-info">
+        <div class="tile-name">Computer Health</div>
+        <div class="tile-sub">This computer, watched</div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main-area">
+    <div class="panel active" id="chShellPanel1">
+
+<div class="ch-inner-header">
   <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.39</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
@@ -280,7 +356,7 @@
     <button id="closeEverythingBtn" class="btn secondary" onclick="closeEverything()" title="Stops the tracker and App Behavior watcher (if running) before closing this tab - closing the tab with the browser's own X leaves them running invisibly in the background, since they're independent Windows processes, not tied to this page.">Close</button>
     <div onclick="openChTutorial()" title="What is Computer Health?" class="help-btn">?</div>
   </div>
-</header>
+</div>
 
 <div class="overlay hidden" id="chTutorialModal">
   <div class="overlay-card" style="max-width:680px;max-height:85vh;overflow-y:auto">
@@ -820,6 +896,26 @@
   </div>
 
 </main>
+
+    </div><!-- /#chShellPanel1 -->
+  </div><!-- /.main-area -->
+</div><!-- /.hub -->
+
+<script>
+// Only one panel exists right now (Computer Health itself), so this is
+// intentionally trivial - a real second sidebar tile would call this the
+// same way. Kept separate from Computer Health's own script block below
+// (unique function name, no shared state) so nothing here can collide
+// with any of Computer Health's existing code.
+function chShellOpenPanel(n) {
+  document.querySelectorAll('#chShellSidebar .tile').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.main-area .panel').forEach(p => p.classList.remove('active'));
+  const tile = document.getElementById('chShellTile' + n);
+  const panel = document.getElementById('chShellPanel' + n);
+  if (tile) tile.classList.add('active');
+  if (panel) panel.classList.add('active');
+}
+</script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
