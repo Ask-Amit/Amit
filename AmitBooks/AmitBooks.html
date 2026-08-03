@@ -249,14 +249,17 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
 <body>
 
 <header>
-  <div class="page-title-wrap">
-    <div class="page-title" id="pageTitle">AmitBooks</div>
-    <div class="page-version" id="pageVersion">v2.14</div>
-  </div>
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
-    <span class="brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
+    <div>
+      <div class="page-title" id="pageTitle" style="font-size:19px">AmitBooks</div>
+      <div class="page-version" id="pageVersion">v2.19</div>
+    </div>
   </a>
+  <div class="page-title-wrap">
+    <div class="page-title" id="activeBookName">—</div>
+    <div class="page-version" style="text-transform:uppercase;letter-spacing:.15em">Books</div>
+  </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div style="text-align:right">
       <div class="greeting" id="greeting">Good morning</div>
@@ -1457,6 +1460,7 @@ async function abLoadBooks(){
     abBookId = abBooks.length ? abBooks[0].id : null;
     if(abBookId) localStorage.setItem('amitbooks_current_book_id',abBookId);
   }
+  abUpdateHeaderBookName();
   abRenderDashboard();
   abRenderBooksTab();
   if(abBookId){ await abLoadBookData(); }
@@ -1492,8 +1496,19 @@ async function abLoadJournalLines(){
 
 function abSwitchBook(id){
   abBookId=id; localStorage.setItem('amitbooks_current_book_id',id);
+  abUpdateHeaderBookName();
   abRenderDashboard();
   abLoadBookData();
+}
+
+// Header center — always shows whichever book is actively selected, so
+// anyone glancing at the top of the screen knows exactly which set of
+// books they're in without having to check a dropdown (2026-08-03,
+// Ryan's request).
+function abUpdateHeaderBookName(){
+  const el=document.getElementById('activeBookName'); if(!el)return;
+  const b=abBooks.find(x=>x.id===abBookId);
+  el.textContent=b?b.name:'AmitBooks';
 }
 
 async function abCreateBook(){
@@ -3394,6 +3409,7 @@ async function abRenderScanPending(){
       <span id="abScanSelectedCount" style="font-size:12px;color:var(--muted)">0 selected</span>
       <button class="ab-btn" style="background:transparent;border-color:rgba(201,168,76,.5)" onclick="abScanSendSelectedToLocal('light')" title="Whole-receipt only — vendor, date, amount, one Scope, how it was paid. Fast and cheap. Best when everything needed is already written on the receipt in one place.">Quick Scan</button>
       <button class="ab-btn" onclick="abScanSendSelectedToLocal('detailed')" title="Full line-item breakdown, multiple Scopes/Projects per receipt if the content supports it. Slower, more thorough.">Detailed Scan</button>
+      <button class="ab-btn" style="background:transparent;color:#c0553f;border-color:#c0553f" onclick="abScanDeleteSelected()">Delete Selected</button>
     </div>
     <div id="abScanSendStatus" style="font-size:12px;color:var(--muted);margin-bottom:10px"></div>
     ${rows.join('')}`;
@@ -3846,6 +3862,32 @@ function abScanConfirmCropDone(){
   abCloseScanLightbox();
 }
 
+// Bulk delete from Pending Scans — same underlying delete as the
+// lightbox's single-item Delete, just run once per checked row instead
+// of forcing someone to open each one individually.
+async function abScanDeleteSelected(){
+  const checked=[...document.querySelectorAll('.ab-scan-pick:checked')].map(c=>parseInt(c.dataset.idx));
+  if(!checked.length){ document.getElementById('abScanSendStatus').textContent='Select at least one scan first.'; return; }
+  if(!(await abConfirm(`Delete ${checked.length} selected scan${checked.length===1?'':'s'}? This removes the image${checked.length===1?'':'s'} entirely — none of these have been connected to a real Bill, Contact, or Mileage entry yet.`)))return;
+  const status=document.getElementById('abScanSendStatus');
+  let done=0;
+  for(const idx of checked){
+    const entry=abScanPendingRows[idx]; if(!entry)continue;
+    status.textContent=`Deleting ${done+1} of ${checked.length}...`;
+    try{
+      await db.storage.from('amitscan-captures').remove([entry.row.storage_path]);
+      const{error}=await db.from('scan_captures').delete().eq('id',entry.row.id);
+      if(error) throw error;
+      done++;
+    }catch(e){
+      status.textContent=`Stopped after ${done} of ${checked.length} — `+(e?.message||String(e));
+      abRenderScanPending();
+      return;
+    }
+  }
+  status.textContent=`${done} deleted.`;
+  abRenderScanPending();
+}
 async function abScanDeleteCapture(){
   if(!abScanCurrent)return;
   if(abScanCurrent.row.reviewed){
@@ -5065,7 +5107,8 @@ async function abRenderPaymentSourcesTab(){
   };
 }
 async function abAddPaymentSource(){
-  const name=document.getElementById('ab-ps-name').value.trim(); if(!name)return;
+  const name=document.getElementById('ab-ps-name').value.trim();
+  if(!name){abAlert('Enter a name first (e.g. "Capital One - 5462").');return;}
   const type=document.getElementById('ab-ps-type').value;
   const ownerVal=document.getElementById('ab-ps-owner').value;
   let owning_book_id=abBookId, owning_contact_id=null;
@@ -6902,7 +6945,14 @@ function abRenderPayroll(){
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px;background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)"><b>This is a self-service tool, not a managed payroll service.</b> AmitBooks calculates federal withholding from the IRS tax tables loaded on the IRS Tax Tables tab and posts it as a real payroll expense — but it is <b>your responsibility</b> to confirm those tables are the current, accurate IRS numbers for the year you're running payroll in, and to confirm every employee's W-4 answers are entered correctly. AmitBooks doesn't file anything, doesn't verify anything against the IRS on your behalf, and doesn't carry that responsibility for you.</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">Federal withholding is calculated from the real IRS Percentage Method (Pub 15-T) using each employee's actual Form W-4 answers below — this is not a guess. State withholding is NOT calculated (every state is different); Step 2 "multiple jobs" checkbox isn't handled in this version — leave it off for the standard calculation.</div>
     <div class="ab-form">
-      <div class="ab-field"><label>Person</label><select id="ab-emp-contact">${abContacts.filter(c=>c.is_employee).map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')||'<option value="">Mark a contact \'Employee\' first (Contacts tab)</option>'}</select></div>
+      <div class="ab-field"><label>Person</label>
+        <select id="ab-emp-contact" onchange="abToggleNewEmployeeName()">
+          <option value="__new__">+ New Person…</option>
+          ${abContacts.filter(c=>c.is_employee).length?`<optgroup label="Employees">${abContacts.filter(c=>c.is_employee).map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</optgroup>`:''}
+          ${abContacts.filter(c=>!c.is_employee).length?`<optgroup label="Other contacts (will be marked Employee)">${abContacts.filter(c=>!c.is_employee).map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}</optgroup>`:''}
+        </select>
+      </div>
+      <div class="ab-field" id="ab-emp-newname-wrap"><label>Name</label><input id="ab-emp-newname" placeholder="Their full name"></div>
       <div class="ab-field"><label>Pay type</label><select id="ab-emp-type"><option value="hourly">Hourly</option><option value="salary">Salary</option></select></div>
       <div class="ab-field"><label>Rate</label><input id="ab-emp-rate" type="number" step="0.01" style="width:90px" placeholder="0.00"></div>
       <div class="ab-field"><label>Pay Frequency</label><select id="ab-emp-freq"><option value="weekly">Weekly</option><option value="biweekly" selected>Biweekly</option><option value="semimonthly">Semimonthly</option><option value="monthly">Monthly</option></select></div>
@@ -6989,8 +7039,20 @@ function abPreviewPayrollCalc(){
     </table>
     ${state.note?`<div class="ab-signin-notice" style="text-align:left;margin-top:6px;font-size:11px">${abEsc(state.note)}</div>`:''}`;
 }
+function abToggleNewEmployeeName(){
+  const isNew=document.getElementById('ab-emp-contact').value==='__new__';
+  document.getElementById('ab-emp-newname-wrap').style.display=isNew?'':'none';
+}
 async function abAddEmployee(){
-  const contact=document.getElementById('ab-emp-contact').value; if(!contact){abAlert('Add a contact first (Books & Setup → Contacts).');return;}
+  let contact=document.getElementById('ab-emp-contact').value;
+  if(contact==='__new__'){
+    const name=document.getElementById('ab-emp-newname').value.trim();
+    if(!name){abAlert('Enter their name first.');return;}
+    const{data,error:createErr}=await db.from('contacts').insert({book_id:abBookId,name,is_employee:true}).select().single();
+    if(createErr){abAlert(createErr.message);return;}
+    contact=data.id;
+  }
+  if(!contact){abAlert('Pick or add a person first.');return;}
   const pay_type=document.getElementById('ab-emp-type').value;
   const pay_rate=document.getElementById('ab-emp-rate').value||null;
   const pay_frequency=document.getElementById('ab-emp-freq').value;
@@ -7002,6 +7064,8 @@ async function abAddEmployee(){
   const{error}=await db.from('employees').insert({book_id:abBookId,contact_id:contact,pay_type,pay_rate,pay_frequency,filing_status,dependents_amount,other_income,deductions_amount,extra_withholding});
   if(error){abAlert(error.message);return;}
   await db.from('contacts').update({is_employee:true}).eq('id',contact);
+  document.getElementById('ab-emp-newname').value='';
+  await abLoadContacts();
   await abLoadPayroll();
 }
 async function abAddPayrollRun(){
