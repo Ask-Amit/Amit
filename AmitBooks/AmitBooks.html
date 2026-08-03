@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="../Amit_Ask_Live.js?v=6.12"></script>
+<script src="../Amit_Ask_Live.js?v=6.13"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -253,7 +253,7 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitBooks</div>
-      <div class="page-version" id="pageVersion">v2.19</div>
+      <div class="page-version" id="pageVersion">v2.20</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -397,6 +397,25 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abCloseNomenclatureEditor()">Cancel</button>
       <button class="ab-btn" onclick="abSaveNomenclatureEditor()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div id="abPresetPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;margin-bottom:6px">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em" id="abPresetPickerTitle">Pick What You Want</div>
+      <div onclick="abClosePresetPicker()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Not all-or-nothing — check only what you actually want pulled into this book. You can come back and pull in pieces from other industries too; nothing here overwrites a field you've already customized.</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="ab-btn" style="font-size:11px;padding:5px 10px;background:transparent;color:var(--muted)" onclick="abPresetPickerSelectAll(true)">Select All</button>
+      <button class="ab-btn" style="font-size:11px;padding:5px 10px;background:transparent;color:var(--muted)" onclick="abPresetPickerSelectAll(false)">Deselect All</button>
+    </div>
+    <div id="abPresetPickerBody" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abClosePresetPicker()">Cancel</button>
+      <button class="ab-btn" onclick="abApplyPresetSelection()">Pull Into This Book</button>
     </div>
   </div>
 </div>
@@ -3078,20 +3097,100 @@ async function abRenderNomenclature(){
     </div>`:''}
     <button class="ab-btn" ${activeFields.length?'':'disabled style="background:transparent;color:var(--muted);cursor:not-allowed"'} onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
 
-    <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Set as Default for This Book</div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Applying a preset fills in sensible field names and turns on what that industry typically uses. It never overwrites a field you've already customized — safe to re-apply.</div>
+    <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Pull Pieces Into This Book</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Double-click a preset to see exactly what it offers and pick only what you want — not all-or-nothing. Mix pieces from several industries into one book; the count on each card shows how many of its fields/values are currently active here.</div>
     <div style="display:flex;flex-wrap:wrap;gap:10px">
-      ${abNomenclaturePresetsCache.map(p=>`<div style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px">
-        <div style="font-weight:600;margin-bottom:8px">${abEsc(p.display_name)}${p.id===currentPresetId?' <span style="font-size:10px;color:#8fd19e;font-weight:400">— current</span>':''}</div>
-        <button class="ab-btn" style="font-size:12px;padding:6px 12px" onclick="abApplyNomenclaturePreset('${p.preset_key}')">${p.id===currentPresetId?'Re-Apply':'Set as Default'}</button>
-      </div>`).join('')}
+      ${abNomenclaturePresetsCache.map(p=>{
+        const count=abNomenclaturePresetCount(p.id);
+        return `<div ondblclick="abOpenPresetPicker('${p.preset_key}')" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer" title="Double-click to choose which fields/values to pull in">
+          <div style="font-weight:600">${abEsc(p.display_name)}${count?` <span style="color:var(--gold2);font-weight:400">(${count})</span>`:''}${p.id===currentPresetId?' <span style="font-size:10px;color:#8fd19e;font-weight:400">— started here</span>':''}</div>
+        </div>`;
+      }).join('')}
     </div>`;
 }
 
-async function abApplyNomenclaturePreset(presetKey){
-  if(!abBookId)return;
-  const{error}=await db.rpc('apply_preset_to_book',{p_book_id:abBookId,p_preset_key:presetKey});
-  if(error){abAlert('Could not apply preset: '+error.message);return;}
+// Counts how many of THIS book's currently-active fields/values trace
+// back to a given preset (source_preset_id) - the "(15)" shown on each
+// card, so anyone looking at this screen later can see at a glance how
+// this book's setup was actually assembled across industries.
+function abNomenclaturePresetCount(presetId){
+  const f=(abNomenclatureFieldsCache||[]).filter(x=>x.active&&x.source_preset_id===presetId).length;
+  const v=(abNomenclatureValuesCache||[]).filter(x=>x.active&&x.source_preset_id===presetId).length;
+  return f+v;
+}
+
+// ── Preset picker — à la carte selection instead of all-or-nothing ──
+let abPresetPickerKey=null;
+let abPresetPickerFieldDefaults=null;
+let abPresetPickerValueDefaults=null;
+
+async function abOpenPresetPicker(presetKey){
+  abPresetPickerKey=presetKey;
+  const preset=abNomenclaturePresetsCache.find(p=>p.preset_key===presetKey);
+  document.getElementById('abPresetPickerTitle').textContent='Pick From '+(preset?preset.display_name:presetKey);
+  const[{data:fieldDefaults},{data:valueDefaults}]=await Promise.all([
+    db.from('preset_field_defaults').select('*').eq('preset_id',preset.id).eq('active',true).order('field_key'),
+    db.from('preset_field_value_defaults').select('*').eq('preset_id',preset.id).order('field_key,sort_order')
+  ]);
+  abPresetPickerFieldDefaults=fieldDefaults||[];
+  abPresetPickerValueDefaults=valueDefaults||[];
+
+  const body=document.getElementById('abPresetPickerBody');
+  body.innerHTML=abPresetPickerFieldDefaults.map(f=>{
+    const master=(abNomenclatureMasterFields||[]).find(m=>m.field_key===f.field_key);
+    const values=abPresetPickerValueDefaults.filter(v=>v.field_key===f.field_key);
+    return `<div>
+      <label style="display:flex;align-items:center;gap:8px;padding:4px 0">
+        <input type="checkbox" class="ab-pp-field" data-field-key="${f.field_key}" checked>
+        <span>${abEsc(f.display_label)} <span style="color:var(--muted);font-size:11px">(${abEsc(f.field_key)})</span></span>
+      </label>
+      ${master&&master.is_picklist&&values.length?`<div style="padding-left:28px;display:flex;flex-direction:column;gap:2px">
+        ${values.map(v=>`<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
+          <input type="checkbox" class="ab-pp-value" data-field-key="${v.field_key}" data-value-key="${v.value_key}" data-label="${abEsc(v.display_label)}" data-sort="${v.sort_order}" checked>
+          ${abEsc(v.display_label)}
+        </label>`).join('')}
+      </div>`:''}
+    </div>`;
+  }).join('')||'<div class="ab-empty">Nothing in this preset yet.</div>';
+  document.getElementById('abPresetPickerModal').style.display='flex';
+}
+
+function abPresetPickerSelectAll(checked){
+  document.querySelectorAll('#abPresetPickerBody input[type=checkbox]').forEach(c=>c.checked=checked);
+}
+
+function abClosePresetPicker(){
+  document.getElementById('abPresetPickerModal').style.display='none';
+}
+
+async function abApplyPresetSelection(){
+  if(!abBookId||!abPresetPickerKey)return;
+  const preset=abNomenclaturePresetsCache.find(p=>p.preset_key===abPresetPickerKey);
+  const checkedFields=[...document.querySelectorAll('.ab-pp-field:checked')].map(c=>c.dataset.fieldKey);
+  const checkedValues=[...document.querySelectorAll('.ab-pp-value:checked')];
+
+  for(const fieldKey of checkedFields){
+    const def=abPresetPickerFieldDefaults.find(f=>f.field_key===fieldKey);
+    await db.from('book_field_settings').upsert({
+      book_id:abBookId, field_key:fieldKey, active:true, display_label:def.display_label, source_preset_id:preset.id
+    },{onConflict:'book_id,field_key'});
+  }
+  for(const v of checkedValues){
+    await db.from('book_field_values').upsert({
+      book_id:abBookId, field_key:v.dataset.fieldKey, value_key:v.dataset.valueKey,
+      active:true, display_label:v.dataset.label, sort_order:Number(v.dataset.sort)||0, source_preset_id:preset.id
+    },{onConflict:'book_id,field_key,value_key'});
+  }
+
+  // "Started from" label is set only the first time a book has no preset
+  // yet - once a book is mixing pieces from several industries, no single
+  // preset owns that label anymore.
+  const{data:bookRow}=await db.from('books').select('industry_preset_id').eq('id',abBookId).single();
+  if(bookRow&&!bookRow.industry_preset_id){
+    await db.from('books').update({industry_preset_id:preset.id}).eq('id',abBookId);
+  }
+
+  abClosePresetPicker();
   await abRenderNomenclature();
 }
 
