@@ -294,12 +294,18 @@
     --amit-bg:#09141f; --amit-card-head:#0f2338; --amit-border:rgba(201,168,76,0.55);
     --amit-gold:#c9a84c; --amit-gold2:#e8c56a; --amit-text2:#f0e8d0; --amit-muted:rgba(240,232,208,0.78);
   }
-  .ch-shell-header { display:flex; align-items:center; justify-content:space-between; padding:12px 28px; background:var(--amit-card-head); border-bottom:2px solid var(--amit-border); flex-shrink:0; position:relative; }
-  .ch-shell-title-wrap { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none; }
-  .ch-shell-title { font-family:Georgia,serif; font-size:24px; font-weight:700; letter-spacing:.3px; color:var(--amit-gold2); }
+  .ch-shell-header { display:flex; align-items:center; justify-content:space-between; padding:12px 28px; background:var(--amit-card-head); border-bottom:2px solid var(--amit-border); flex-shrink:0; }
+  /* Left block - Amit icon + app name + version, matching AmitBooks'
+     header exactly (Ryan's direct instruction 2026-08-03) - no longer a
+     floating centered title. */
+  .ch-shell-brand { display:flex; align-items:center; gap:14px; }
+  .ch-shell-title { font-family:Georgia,serif; font-size:22px; font-weight:700; letter-spacing:.3px; color:var(--amit-gold2); }
   .ch-shell-version { font-family:monospace; font-size:11px; letter-spacing:.05em; color:rgba(201,168,76,.55); margin-top:2px; }
-  .ch-shell-brand { display:flex; align-items:baseline; gap:14px; }
-  .ch-shell-brand-sub { font-style:italic; color:var(--amit-muted); font-size:12px; }
+  /* Center block - whichever computer is currently being viewed, the same
+     role AmitBooks' center block plays for the currently-selected book. */
+  .ch-shell-center { text-align:center; }
+  .ch-shell-center-name { font-family:Georgia,serif; font-size:26px; font-weight:700; color:var(--amit-gold2); }
+  .ch-shell-center-sub { font-family:'Cinzel',serif; font-size:11px; letter-spacing:.14em; color:var(--amit-muted); margin-top:2px; }
   .hub { display:flex; flex:1; overflow:hidden; }
   .sidebar { width:210px; flex-shrink:0; background:var(--amit-card-head); border-right:2px solid var(--amit-border); display:flex; flex-direction:column; overflow-y:auto; padding:12px 10px; gap:5px; }
   .sidebar::-webkit-scrollbar { width:3px; }
@@ -341,13 +347,26 @@
      Health's own existing tabs as one panel's content, per that
      instruction ("this is only adjusting the new Dashboard2 HTML"). ══════ -->
 <header class="ch-shell-header">
-  <div class="ch-shell-title-wrap">
-    <div class="ch-shell-title">Computer Health</div>
-    <div class="ch-shell-version">v4.39</div>
-  </div>
+  <!-- Left block matches AmitBooks' header pattern exactly, per Ryan's
+       direct instruction 2026-08-03: Amit icon + app name + version,
+       stacked, left-aligned - not the centered floating title this used
+       to be. -->
   <div class="ch-shell-brand">
-    <img src="../amit_icon.png" alt="Amit" style="height:30px;width:30px">
-    <span class="ch-shell-brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
+    <img src="../amit_icon.png" alt="Amit" style="height:38px;width:38px">
+    <div>
+      <div class="ch-shell-title">Computer Health</div>
+      <div class="ch-shell-version">v4.39</div>
+    </div>
+  </div>
+  <!-- Center block, also per Ryan's direct instruction: shows whichever
+       computer is currently being viewed - the same role AmitBooks' center
+       block plays showing the currently-selected book. Updates live from
+       chShellUpdateDeviceName(), called whenever the Viewing dropdown
+       changes or the device list refreshes - see populateDeviceSelector()
+       and onDeviceSelectChange() further down. -->
+  <div class="ch-shell-center">
+    <div class="ch-shell-center-name" id="chShellDeviceName">—</div>
+    <div class="ch-shell-center-sub">COMPUTER</div>
   </div>
   <div class="ch-shell-hdr-right">
     <div class="ch-shell-greeting" id="chShellGreeting">Good morning</div>
@@ -1278,6 +1297,18 @@ function populateDeviceSelector() {
     return `<option value="${d.id}" ${d.id === viewingDeviceId ? 'selected' : ''}>${label}</option>`;
   }).join('');
   updateDeviceBadge();
+  chShellUpdateDeviceName();
+}
+
+// Outer shell header's center block - shows whichever computer is
+// currently being viewed, same role as AmitBooks' center block showing
+// the current book (Ryan's direct instruction 2026-08-03). Called
+// whenever the device list refreshes or the Viewing dropdown changes.
+function chShellUpdateDeviceName() {
+  const el = document.getElementById('chShellDeviceName');
+  if (!el) return;
+  const current = myDevices.find(d => d.id === viewingDeviceId);
+  el.textContent = current ? (current.device_name || 'Unnamed computer') : (deviceName || 'No computer selected');
 }
 
 function updateDeviceBadge() {
@@ -1293,6 +1324,7 @@ function onDeviceSelectChange() {
   viewingDeviceId = document.getElementById('deviceSelect').value;
   updateDeviceBadge();
   updateLiveControlsAvailability();
+  chShellUpdateDeviceName();
   if (document.getElementById('tab-history').classList.contains('active')) loadHistory();
 }
 
@@ -4534,6 +4566,11 @@ function onConnected(d) {
   // while connected to this exact machine).
   deviceId = d.deviceId.toLowerCase(); deviceName = d.deviceName;
   bridgeUp = true;
+  // Covers the pre-sign-in / just-connected moment - before myDevices has
+  // ever loaded (which is when populateDeviceSelector's own call to this
+  // normally fires), the outer header's center block should still show
+  // this machine's real name the moment the bridge confirms it.
+  chShellUpdateDeviceName();
   // Remembered so a later visit/reload in this same browser knows it's
   // worth silently checking real state instead of always showing the
   // generic "click Launch Tracker" as if nothing has ever run here before.
