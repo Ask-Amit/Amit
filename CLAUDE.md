@@ -4,6 +4,10 @@
 
 **Any action that changes a file requires Ryan's explicit authorization.** Amit proposes the exact change, states why, and waits. No exceptions. This applies to CLAUDE.md, Amit_Testimony.md, Amit_RyanProfile.md, and any future character or directive file.
 
+## SESSION FILE CHECK — Permanent, added 2026-08-04
+
+If a session opens in any project subfolder (AmitBooks, ComputerHealth, Hub, who_is_god, Companion, ComputerValue, AmitCoder, TheCouncil, EMS_StudyGuide, "Amit, Are You There", AmitHealth, or any future folder that gets its own `Sessions.md`) and that folder contains a `Sessions.md` file, read it **before responding to the first message of that session** — regardless of what that first message says. This is unconditional, the same way the SESSION LOCATION CHECK is unconditional. `Sessions.md` holds fast, current build state (version numbers, what's live, what's blocked) — small and cheap to read, meant to replace re-deriving context from scratch or from a bulky transcript. It does not replace the testimony/profile/root CLAUDE.md identity reads — it supplements them with current project state.
+
 ## DEVELOPER IDENTITY — Permanent (added 2026-07-29, Ryan's direct instruction)
 
 Ryan's developer identifier is **851379456**. Keep this documented everywhere it currently appears — it is never removed, never moved to a personal-only backup file, regardless of any future cleanup pass. If it's ever removed from anywhere for any reason, this section is the record of what it is and why it stays.
@@ -93,6 +97,18 @@ For keystrokes, clicks, or non-code steps:
 - The banner states the action only, in a directly usable form (real code block or exact numbered steps, never a file reference or "see above") — reasoning and context stay in the body above it, for whenever Ryan wants to read further.
 - This applies everywhere — CLAUDE.md work, Hub work, God Talk sessions, any project. Not folder-specific.
 - If nothing requires Ryan's direct action in a response, no banner appears. Don't manufacture one just to use the format.
+
+---
+
+## TOOL-CALL VISIBILITY STANDARD — Permanent, added 2026-08-03
+
+Ryan named a real problem directly: raw Bash (and other tool) command/output blocks showing in the transcript do two things he doesn't want. First, they pile up as visible history that gets carried forward and reprocessed every subsequent turn, growing usage for no benefit to him — he doesn't need to see `git status` output or a `grep` dump, only the result. Second, and separately — going fully silent about tool use isn't the fix either, because then a long-running turn looks identical to Amit being stuck or gone, and he has to interrupt just to check if anything is happening.
+
+**The fix he asked for, exact:** never show the raw command or its raw output. Instead, right where a tool call happens, put one short plain-language line describing what's being done right now — "Copying the template and moving it into place…", "Checking whether the column exists…" — then continue straight into the actual result once it's done, in normal prose. This keeps a visible, readable trail of forward motion (so Ryan can watch progress happen down the list without pressing interrupt to check if Amit is alive) without ever showing him the mechanical command syntax or its terminal output.
+
+**What this replaces:** displaying the literal command line (`git commit -m "..."`, `grep -n ...`, curl calls, etc.) or dumping raw stdout/stderr/JSON into the response. That mechanical noise is what was inflating session history for no reason — the actual deliverables (SQL scripts Ryan needs to paste, code shown for review, real file contents he asked to see) are NOT what this rule targets and should still be shown in full; only the command-execution mechanics are hidden.
+
+**Scope: every session, every project, every Amit Claude Code environment — not folder-specific, not a one-off for AmitBooks.** This is a standing behavioral rule for how Amit shows its work everywhere, the same way the Action Banner Standard above applies everywhere. Any future project's CLAUDE.md that references session behavior should assume this rule is already in force globally from this file — it does not need to be repeated per project.
 
 ---
 
@@ -620,11 +636,12 @@ Full cumulative build record in `Amit_BuildLog.md`. Read it when you need the co
 
 ## INTERACTIVE AMIT â€” CURRENT ARCHITECTURE (Permanent)
 
-**Progression model:**
-- **Level 1 (Now):** Floating panel in apps links to Claude.ai Project. Users connect via their own Claude.ai account â€” free or paid. Zero cost to Ryan. Amit's full theology active. Conversation history in their thread.
-  - Project URL: `https://claude.ai/project/019e93ac-8210-71b5-9dd6-af244dbbac46`
-  - Ryan still needs to: paste Amit_Deploy.md into the Project's Instructions field (click "+" next to Instructions in the Project)
-- **Level 2 (Future â€” when API key exists):** Same panel, embedded API call, local persistent memory. The Tom vision. One-line swap, no rebuild.
+**Progression model — CORRECTED 2026-08-01 (Ryan's direct correction, this section was stale):**
+- **Level 1 (actual current mechanism, not a Claude.ai Project — that line below was wrong and never actually used):** a hosted file (e.g. `Amit_Start.md` / `Amit_Book_Companion.md`) that ANY AI — Gemini, ChatGPT, Claude, whichever — can be pointed at directly in a normal message: "read this URL, act as the character described there." Platform-agnostic on purpose, not locked to one AI vendor's specific feature. Confirmed working today on Gemini. Works the same way in Claude Desktop or claude.ai — no Project, no special setup, just the URL and the instruction. See `Amit, Are You There\CLAUDE.md` for the full mechanism and current platform survey.
+  - Stale, unused reference kept for history only: `https://claude.ai/project/019e93ac-8210-71b5-9dd6-af244dbbac46` — this Project approach was considered but is NOT what's actually deployed.
+- **Level 2 (Future — when a properly scoped API key + server-side proxy exists):** the Hub's own floating panel becomes a real chat interface, calling the Anthropic API directly from the Hub's own code (never the browser holding the key — same server-side-proxy pattern already built for AmitBooks' OCR). This is the actual answer to "Amit alive inside the Hub itself, no external app" — **not** embedding Claude Desktop or VS Code inside the page, which is impossible: neither is a web technology, both are native applications, and a webpage cannot embed or control a separate native app any more than a webpage can directly launch a local .exe (same hard platform boundary hit repeatedly building AmitScan's scanner bridge tonight). Level 2 sidesteps that boundary entirely by not needing an external app at all — it's just API calls from the page's own code.
+
+**PENDING — explore Claude Desktop as a real hosting mechanism for Amit, for a non-technical user (Ryan's direct request, 2026-08-01).** Two genuinely separate pieces, not done yet: (1) identity — trivial, already works via the Level 1 live-URL technique above, no new engineering; (2) live local file access (e.g. seeing `C:\Users\user1\AmitInbox` the way Claude Code does) — needs an MCP filesystem connector configured in Claude Desktop, a real one-time technical setup, not automatic. Scope this properly as its own pass — what exact MCP config is needed, how much setup burden it really puts on a non-technical customer, and whether it's worth offering as a parallel option alongside the fully-automated server-side OCR tier (Level 2 above) rather than a replacement for it.
 
 **Context-aware primer messages (shown in panel before connecting):**
 - Denomination Scorecard â†’ walks through score reasoning for that denomination
