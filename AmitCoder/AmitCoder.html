@@ -248,7 +248,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.35</div>
+    <div class="page-version" id="pageVersion">v6.36</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1229,6 +1229,7 @@ function renderShortcuts(){
         <span class="sc-instruction">${escapeHtml(displaySource.instruction_text||'')}</span>
         ${aliasTarget?`<span class="sc-origin">🔗 linked to ${escapeHtml(aliasTarget.trigger_phrase)}</span>`:`<span class="sc-origin">${m.is_builtin?'builtin':'custom'}</span>`}
         ${canEdit?`<button class="btn btn-sm" onclick="event.stopPropagation();editShortcut('${m.id}')">✎ edit</button>`:''}
+        ${canEdit?`<button class="btn btn-sm" onclick="event.stopPropagation();deleteShortcut('${m.id}')" style="color:#e08080;border-color:rgba(224,128,128,.4)">🗑 delete</button>`:''}
         ${canLink?`<button class="btn btn-sm" onclick="event.stopPropagation();toggleLinkPicker('${m.id}')">${aliasTarget?'unlink':'🔗 link'}</button>`:''}
         <label class="toggle" onclick="event.stopPropagation()">
           <input type="checkbox" ${m.is_active?'checked':''} ${m.is_builtin?'disabled':''} onchange="toggleActive('${m.id}',this.checked)">
@@ -1354,6 +1355,22 @@ function editShortcut(id){
   });
   onTypeChange();
   if(!f.classList.contains('open'))f.classList.add('open');
+}
+async function deleteShortcut(id){
+  const m=scAllRows.find(r=>r.id===id);
+  if(!m)return;
+  if(m.is_builtin&&!isAdminUser())return; // same guard as editing - builtins stay protected for everyone except Amit's own account
+  const subs=scAllRows.filter(r=>r.parent_shortcut_id===id);
+  const warning=subs.length
+    ? `Delete "${m.trigger_phrase}" and its ${subs.length} subtask${subs.length===1?'':'s'}? This cannot be undone.`
+    : `Delete "${m.trigger_phrase}"? This cannot be undone.`;
+  if(!confirm(warning))return;
+  if(subs.length){
+    await db.from('amit_shortcuts').delete().eq('parent_shortcut_id',id);
+  }
+  const{error}=await db.from('amit_shortcuts').delete().eq('id',id);
+  if(error){alert('Could not delete: '+error.message);return;}
+  loadShortcuts();
 }
 function onTypeChange(){
   document.getElementById('scSubtasksWrap').style.display=document.getElementById('scType').value==='master'?'block':'none';
