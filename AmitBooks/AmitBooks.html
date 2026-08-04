@@ -262,7 +262,7 @@ select option{color:#2a2418;background:#fff}
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitBooks</div>
-      <div class="page-version" id="pageVersion">v2.21</div>
+      <div class="page-version" id="pageVersion">v2.22</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1422,6 +1422,25 @@ let abBooks=[];
 let abAccounts=[],abContacts=[],abItems=[],abTags=[];
 
 function abEsc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
+
+// Live-format phone/EIN fields as the value shown, not just as a
+// placeholder hint (2026-08-03, Ryan's request) - wire an input with
+// oninput="abFormatPhoneInput(this)" or abFormatEinInput(this), and call
+// abFormatPhone/abFormatEin directly wherever an existing value is
+// rendered back into a field so saved data displays formatted too.
+function abFormatPhone(v){
+  const d=(v||'').replace(/\D/g,'').slice(0,10);
+  if(d.length<4) return d;
+  if(d.length<7) return `(${d.slice(0,3)}) ${d.slice(3)}`;
+  return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+}
+function abFormatEin(v){
+  const d=(v||'').replace(/\D/g,'').slice(0,9);
+  if(d.length<3) return d;
+  return `${d.slice(0,2)}-${d.slice(2)}`;
+}
+function abFormatPhoneInput(el){ el.value=abFormatPhone(el.value); }
+function abFormatEinInput(el){ el.value=abFormatEin(el.value); }
 function abMoney(n){ return '$'+(Number(n)||0).toFixed(2); }
 
 // ── VISUAL MODE — a per-screen, per-person Simple/Visual toggle. Simple
@@ -1799,8 +1818,8 @@ async function abRenderBooksTab(){
       </div>
       <div id="ab-prof-zip-status" style="font-size:11px;color:var(--muted)"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <div class="ab-field"><label>Phone</label><input id="ab-prof-phone" value="${abEsc(b.phone||'')}" placeholder="(555) 555-5555"></div>
-        <div class="ab-field"><label>EIN</label><input id="ab-prof-ein" value="${abEsc(b.ein||'')}" placeholder="12-3456789"></div>
+        <div class="ab-field"><label>Phone</label><input id="ab-prof-phone" value="${abEsc(abFormatPhone(b.phone||''))}" placeholder="(555) 555-5555" oninput="abFormatPhoneInput(this)"></div>
+        <div class="ab-field"><label>EIN</label><input id="ab-prof-ein" value="${abEsc(abFormatEin(b.ein||''))}" placeholder="12-3456789" oninput="abFormatEinInput(this)"></div>
         <div class="ab-field"><label>Payroll State</label><input id="ab-prof-payrollstate" value="${abEsc(b.payroll_state_code||'')}" placeholder="e.g. ID" style="width:60px;text-transform:uppercase" maxlength="2"></div>
       </div>
       <button class="ab-btn" style="align-self:flex-start" onclick="abSaveBookProfile()">Save Company Profile</button>
@@ -2325,7 +2344,7 @@ function abPersonFormHtml(parentId){
   return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0 4px 28px">
     <input id="ab-person-name-${parentId}" placeholder="Their name" style="width:160px">
     <input id="ab-person-title-${parentId}" placeholder="Title (e.g. Superintendent)" style="width:180px">
-    <input id="ab-person-phone-${parentId}" placeholder="Phone" style="width:130px">
+    <input id="ab-person-phone-${parentId}" placeholder="Phone" style="width:130px" oninput="abFormatPhoneInput(this)">
     <input id="ab-person-email-${parentId}" placeholder="Email" style="width:180px">
     <button class="ab-btn" style="font-size:12px;padding:6px 12px" onclick="abAddPersonContact('${parentId}')">Save</button>
   </div>`;
