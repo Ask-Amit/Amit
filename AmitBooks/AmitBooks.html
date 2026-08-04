@@ -262,7 +262,7 @@ select option{color:#2a2418;background:#fff}
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitBooks</div>
-      <div class="page-version" id="pageVersion">v2.22</div>
+      <div class="page-version" id="pageVersion">v2.23</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -425,6 +425,21 @@ select option{color:#2a2418;background:#fff}
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abClosePresetPicker()">Cancel</button>
       <button class="ab-btn" onclick="abApplyPresetSelection()">Pull Into This Book</button>
+    </div>
+  </div>
+</div>
+
+<div id="abPermissionsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:760px;width:94%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;margin-bottom:6px">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">Default Authorizations</div>
+      <div onclick="abClosePermissionsMatrix()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">What each role can see and do in this book, by area. Owner always has full access everywhere. This is a starting point — more areas get their own gate as the rest of the app is walked through and wired to actually enforce this.</div>
+    <div id="abPermissionsBody" style="overflow-y:auto;flex:1"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abClosePermissionsMatrix()">Cancel</button>
+      <button class="ab-btn" onclick="abSavePermissionsMatrix()">Save Authorizations</button>
     </div>
   </div>
 </div>
@@ -1825,7 +1840,10 @@ async function abRenderBooksTab(){
       <button class="ab-btn" style="align-self:flex-start" onclick="abSaveBookProfile()">Save Company Profile</button>
     </div>
 
-    <div class="ab-h" style="margin-top:26px">Team / Authorizations</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-top:26px">
+      <div class="ab-h" style="margin:0">Team / Authorizations</div>
+      <button class="ab-btn" id="ab-perm-btn" style="margin-left:auto;display:none" onclick="abOpenPermissionsMatrix()">Default Authorizations</button>
+    </div>
     <div id="ab-team-table"><div class="ab-empty">Loading…</div></div>
     <div class="ab-form" style="margin-top:10px">
       <div class="ab-field"><label>Their Email</label><input id="ab-team-email" type="email" placeholder="name@example.com" style="width:220px"></div>
@@ -1962,6 +1980,79 @@ async function abRenderTeamTable(){
   el.innerHTML=`<table class="ab-table"><tr><th>User ID</th><th>Role</th><th>Payroll</th></tr>
     ${(data||[]).map(m=>`<tr><td style="font-size:11px">${abEsc(m.user_id)}${m.user_id===currentUser.id?' (you)':''}</td><td>${abEsc(m.role)}</td><td>${m.can_view_payroll?'Yes':'No'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">Just you so far</td></tr>'}
     </table>`;
+  // Default Authorizations is only for owner/manager - hidden entirely
+  // for everyone else, not just disabled, per Ryan's explicit instruction
+  // that only owner/admin should even see this.
+  const myRow=(data||[]).find(m=>m.user_id===currentUser.id);
+  const permBtn=document.getElementById('ab-perm-btn');
+  if(permBtn) permBtn.style.display=(myRow&&(myRow.role==='owner'||myRow.role==='manager'))?'':'none';
+}
+
+// ── Default Authorizations — role x category permission matrix ──
+// Deliberately a small starting set of categories, not exhaustive - more
+// get added as each area of the app is actually gated to enforce this
+// (2026-08-03, Ryan's own framing: "a starting point"). Owner is always
+// full everywhere and isn't shown as an editable row - there's no
+// meaningful way to restrict the person who owns the book.
+const AB_PERMISSION_ROLES=[['manager','Manager'],['bookkeeper','Bookkeeper'],['staff','Staff'],['accountant_readonly','Accountant (read-only)']];
+const AB_PERMISSION_CATEGORIES=[
+  ['banking','Banking / Account Balances'],
+  ['payroll','Payroll Figures & Timesheets'],
+  ['bills','Bills & Invoices'],
+  ['contacts','Contacts'],
+  ['reports','Financial Reports'],
+  ['setup','Books & Setup']
+];
+// Sensible starting defaults, shown until a book has its own saved
+// values - a Staff/superintendent-type role can enter bills/timesheets
+// but never sees banking balances, matching Ryan's own example.
+const AB_PERMISSION_DEFAULTS={
+  manager:{banking:'full',payroll:'full',bills:'full',contacts:'full',reports:'full',setup:'full'},
+  bookkeeper:{banking:'view',payroll:'full',bills:'full',contacts:'full',reports:'full',setup:'view'},
+  staff:{banking:'none',payroll:'none',bills:'full',contacts:'view',reports:'none',setup:'none'},
+  accountant_readonly:{banking:'view',payroll:'view',bills:'view',contacts:'view',reports:'view',setup:'none'}
+};
+let abPermissionsCache=null;
+
+async function abOpenPermissionsMatrix(){
+  const{data,error}=await db.from('book_role_permissions').select('*').eq('book_id',abBookId);
+  if(error){abAlert('Could not load authorizations: '+error.message);return;}
+  abPermissionsCache=data||[];
+  const levelFor=(role,key)=>{
+    const row=abPermissionsCache.find(p=>p.role===role&&p.permission_key===key);
+    return row?row.level:AB_PERMISSION_DEFAULTS[role][key];
+  };
+  const body=document.getElementById('abPermissionsBody');
+  body.innerHTML=`<div style="overflow-x:auto"><table class="ab-table">
+    <tr><th>Role</th>${AB_PERMISSION_CATEGORIES.map(c=>`<th>${abEsc(c[1])}</th>`).join('')}</tr>
+    ${AB_PERMISSION_ROLES.map(([roleKey,roleLabel])=>`<tr>
+      <td>${abEsc(roleLabel)}</td>
+      ${AB_PERMISSION_CATEGORIES.map(([catKey])=>`<td>
+        <select class="ab-perm-cell" data-role="${roleKey}" data-key="${catKey}">
+          <option value="none"${levelFor(roleKey,catKey)==='none'?' selected':''}>Restricted</option>
+          <option value="view"${levelFor(roleKey,catKey)==='view'?' selected':''}>View Only</option>
+          <option value="full"${levelFor(roleKey,catKey)==='full'?' selected':''}>Full Access</option>
+        </select>
+      </td>`).join('')}
+    </tr>`).join('')}
+    <tr><td>Owner</td>${AB_PERMISSION_CATEGORIES.map(()=>`<td style="color:var(--muted);font-size:11px">Full Access</td>`).join('')}</tr>
+  </table></div>`;
+  document.getElementById('abPermissionsModal').style.display='flex';
+}
+
+function abClosePermissionsMatrix(){
+  document.getElementById('abPermissionsModal').style.display='none';
+}
+
+async function abSavePermissionsMatrix(){
+  const cells=[...document.querySelectorAll('.ab-perm-cell')];
+  for(const cell of cells){
+    const{error}=await db.from('book_role_permissions').upsert({
+      book_id:abBookId, role:cell.dataset.role, permission_key:cell.dataset.key, level:cell.value, updated_at:new Date().toISOString()
+    },{onConflict:'book_id,role,permission_key'});
+    if(error){abAlert('Could not save: '+error.message);return;}
+  }
+  abClosePermissionsMatrix();
 }
 
 async function abInviteMember(){
