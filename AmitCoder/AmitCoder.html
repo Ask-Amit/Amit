@@ -248,7 +248,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.36</div>
+    <div class="page-version" id="pageVersion">v6.37</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -457,18 +457,32 @@ function tabRealContent(t){
         </div>
       </div>
       <div id="shortcutsStatHeader" style="margin-bottom:16px;padding:14px 18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);border-radius:8px;display:flex;gap:28px;flex-wrap:wrap"></div>
-      <div class="sc-toolbar" style="flex-direction:column;align-items:flex-start;gap:8px">
-        <div class="sc-filters">
-          <div class="sc-filter active" data-f="all" onclick="setFilter('all')">all</div>
-          <div class="sc-filter" data-f="builtin" onclick="setFilter('builtin')">builtin</div>
-          <div class="sc-filter" data-f="custom" onclick="setFilter('custom')">custom</div>
+      <div class="sc-toolbar" style="flex-direction:column;align-items:flex-start;gap:10px">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+          <div class="sc-filters">
+            <div class="sc-filter active" data-f="all" onclick="setFilter('all')">all</div>
+            <div class="sc-filter" data-f="builtin" onclick="setFilter('builtin')">builtin</div>
+            <div class="sc-filter" data-f="custom" onclick="setFilter('custom')">custom</div>
+          </div>
+          <span style="color:var(--dim)">/</span>
+          <div class="sc-filters" id="scTypeFilters" title="A Master combines several steps together into one sequence. A Step is a single standalone shortcut on its own.">
+            <div class="sc-filter active" data-tf="all" onclick="setTypeFilter('all')">all types</div>
+            <div class="sc-filter" data-tf="master" onclick="setTypeFilter('master')">masters only</div>
+            <div class="sc-filter" data-tf="step" onclick="setTypeFilter('step')">steps only</div>
+          </div>
+          <span style="color:var(--dim)">/</span>
+          <div class="sc-filters" id="scKeyFilters" title="The home-row key isn't part of the shortcut's name - it's which side it belongs to. Press a key to see only that side."></div>
         </div>
-        <div class="sc-filters" id="scTypeFilters" title="A Master combines several steps together into one sequence. A Step is a single standalone shortcut on its own.">
-          <div class="sc-filter active" data-tf="all" onclick="setTypeFilter('all')">all types</div>
-          <div class="sc-filter" data-tf="master" onclick="setTypeFilter('master')">masters only</div>
-          <div class="sc-filter" data-tf="step" onclick="setTypeFilter('step')">steps only</div>
+        <div style="width:100%;height:1px;background:var(--border);margin:2px 0"></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;width:100%">
+          <div class="sc-filters">
+            <div class="sc-filter" id="scSortAsc" onclick="setSort('asc')" title="Sort A to Z">A→Z</div>
+            <div class="sc-filter" id="scSortDesc" onclick="setSort('desc')" title="Sort Z to A">Z→A</div>
+          </div>
+          <button class="btn btn-sm" id="scKeyCycleBtn" onclick="cycleKeyFilter()" title="Click to cycle through available keys, one at a time">Key: All</button>
+          <input type="text" id="scSearchInput" placeholder="🔍 Search name or description..." oninput="renderShortcuts()" style="flex:1;min-width:180px;background:#1a3352;border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:#fff;font-family:inherit;font-size:12px">
+          <button class="btn btn-sm" onclick="resetAllShortcutFilters()">↺ reset filters</button>
         </div>
-        <div class="sc-filters" id="scKeyFilters" title="The home-row key isn't part of the shortcut's name - it's which side it belongs to. Press a key to see only that side."></div>
       </div>
       <div id="shortcutsList"></div>
       <div class="shortcuts-empty" id="shortcutsEmpty" style="display:none">
@@ -1055,6 +1069,7 @@ let scFilter='all';
 let scTypeFilter='all';
 let scKeyFilter='all';
 let scShowBuiltins=true;
+let scSortMode='none'; // 'none' | 'asc' | 'desc' - by trigger_phrase
 // The home-row letter is not part of a shortcut's name - it's a separate
 // "which side of the shortcut" attribute. J and F are the two shipped today;
 // this is written so a future key (M, etc.) needs no code change here, only
@@ -1087,6 +1102,36 @@ function setTypeFilter(f){
 function setKeyFilter(k){
   scKeyFilter=k;
   document.querySelectorAll('.sc-filter[data-kf]').forEach(el=>el.classList.toggle('active',el.dataset.kf===k));
+  syncKeyCycleButton();
+  renderShortcuts();
+}
+function setSort(mode){
+  scSortMode=(scSortMode===mode)?'none':mode; // click again to turn a sort off
+  document.getElementById('scSortAsc')?.classList.toggle('active',scSortMode==='asc');
+  document.getElementById('scSortDesc')?.classList.toggle('active',scSortMode==='desc');
+  renderShortcuts();
+}
+function cycleKeyFilter(){
+  // Cycles through whatever keys actually exist in the data, plus "all" -
+  // grows automatically if a new key (M, etc.) ever shows up, no code change.
+  const keys=['all',...[...new Set(scAllRows.map(r=>r.activation_key).filter(Boolean))].sort()];
+  const i=keys.indexOf(scKeyFilter);
+  const next=keys[(i+1)%keys.length];
+  setKeyFilter(next);
+}
+function syncKeyCycleButton(){
+  const btn=document.getElementById('scKeyCycleBtn');
+  if(btn)btn.textContent='Key: '+(scKeyFilter==='all'?'All':scKeyFilter);
+}
+function resetAllShortcutFilters(){
+  scFilter='all';scTypeFilter='all';scKeyFilter='all';scSortMode='none';
+  const searchInput=document.getElementById('scSearchInput');
+  if(searchInput)searchInput.value='';
+  document.querySelectorAll('.sc-filter[data-f]').forEach(el=>el.classList.toggle('active',el.dataset.f==='all'));
+  document.querySelectorAll('.sc-filter[data-tf]').forEach(el=>el.classList.toggle('active',el.dataset.tf==='all'));
+  document.getElementById('scSortAsc')?.classList.remove('active');
+  document.getElementById('scSortDesc')?.classList.remove('active');
+  syncKeyCycleButton();
   renderShortcuts();
 }
 function renderKeyFilterTabs(rows){
@@ -1170,6 +1215,7 @@ function renderShortcuts(){
   const empty=document.getElementById('shortcutsEmpty');
   if(!currentUser||!list)return;
   renderKeyFilterTabs(scAllRows);
+  syncKeyCycleButton();
   let rows=scAllRows;
   if(scFilter==='builtin')rows=rows.filter(r=>r.is_builtin);
   if(scFilter==='custom')rows=rows.filter(r=>!r.is_builtin);
@@ -1181,6 +1227,18 @@ function renderShortcuts(){
   // it - sortable and treated as its own thing, not a piece of a fake master.
   if(scTypeFilter==='master')masters=masters.filter(m=>m.shortcut_type==='master'&&rows.some(r=>r.parent_shortcut_id===m.id));
   if(scTypeFilter==='step')masters=masters.filter(m=>!(m.shortcut_type==='master'&&rows.some(r=>r.parent_shortcut_id===m.id)));
+  const searchQuery=(document.getElementById('scSearchInput')?.value||'').trim().toLowerCase();
+  if(searchQuery){
+    masters=masters.filter(m=>{
+      if(m.trigger_phrase.toLowerCase().includes(searchQuery))return true;
+      if((m.instruction_text||'').toLowerCase().includes(searchQuery))return true;
+      // Also match on a master's own subtasks, so searching a step's name
+      // still surfaces the master it lives under.
+      return rows.some(s=>s.parent_shortcut_id===m.id&&(s.trigger_phrase.toLowerCase().includes(searchQuery)||(s.instruction_text||'').toLowerCase().includes(searchQuery)));
+    });
+  }
+  if(scSortMode==='asc')masters=[...masters].sort((a,b)=>a.trigger_phrase.localeCompare(b.trigger_phrase));
+  if(scSortMode==='desc')masters=[...masters].sort((a,b)=>b.trigger_phrase.localeCompare(a.trigger_phrase));
   if(!masters.length){empty.style.display='block';list.innerHTML='';document.getElementById('shortcutsStatHeader').innerHTML='';return;}
   empty.style.display='none';
 
