@@ -135,6 +135,18 @@ function _loadSupabaseJsThen(cb){
 
 function _getAmitInboxDb(){
   if(_amitInboxDb) return _amitInboxDb;
+  // Reuse the host page's own Supabase client if it already has one (Hub,
+  // AmitCoder, and most pages this script is loaded into already declare
+  // their own top-level `db`). Creating a second client against the same
+  // project causes Supabase's own GoTrueClient to detect two auth-session
+  // managers sharing one storage key in the same browser tab - a real,
+  // confirmed bug (2026-08-04): it produced undefined/inconsistent
+  // currentUser state on AmitCoder's Shortcuts tab, since two separate
+  // client instances were racing over the same localStorage session.
+  if(typeof db !== 'undefined' && db){
+    _amitInboxDb = db;
+    return _amitInboxDb;
+  }
   if(typeof supabase !== 'undefined'){
     _amitInboxDb = supabase.createClient(AMIT_INBOX_SUPABASE_URL, AMIT_INBOX_SUPABASE_KEY);
   }
