@@ -248,7 +248,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.38</div>
+    <div class="page-version" id="pageVersion">v6.39</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -429,6 +429,9 @@ function tabRealContent(t){
       </div>
       <div class="sc-form" id="scForm">
         <div id="scFormTitle" style="color:var(--gold2);font-family:'Cinzel',serif;font-size:12px;letter-spacing:.05em;margin-bottom:10px">+ new shortcut</div>
+        <div style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.35);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--muted)">
+          <b style="color:var(--gold2)">New here? The easiest way to do this:</b> just tell Amit what you want in your coding session - "create a shortcut that does X." Amit can actually understand what you mean and check if something already covers it, which this form below can't fully do on its own. Use this form directly once you already know exactly what you want.
+        </div>
         <div style="display:flex;gap:10px">
           <div style="flex:0 0 110px">
             <label>Key</label>
@@ -1511,6 +1514,15 @@ async function saveShortcut(){
   const instruction=document.getElementById('scInstruction').value.trim();
   const key=document.getElementById('scKey').value;
   if(!trigger){alert('Trigger phrase is required.');return;}
+  // Hard block - an exact name match is never allowed, no override. Checked
+  // against every top-level shortcut (own F's and every J), not just this
+  // person's own rows, since names have to be unique across the whole list
+  // to stay unambiguous for everyone.
+  const exactDup=scAllRows.find(r=>!r.parent_shortcut_id&&r.id!==scEditingId&&r.trigger_phrase.trim().toLowerCase()===trigger.toLowerCase());
+  if(exactDup){
+    alert(`A shortcut named "${exactDup.trigger_phrase}" already exists (under ${exactDup.activation_key||'?'}). Names can't repeat - pick a different name, or go edit the existing one instead.`);
+    return;
+  }
   // Final duplicate check, walk-through style - approve or cancel, never
   // silently auto-merged. Skipped when editing an existing shortcut (the
   // live check while typing already covers that case).
