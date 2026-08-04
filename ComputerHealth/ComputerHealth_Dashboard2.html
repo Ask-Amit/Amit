@@ -2,11 +2,151 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Computer Health</title>
 <link rel="icon" type="image/png" href="../amit_icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.13"></script>
 <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09141f;
+  --card-head:#0f2338;
+  --border:rgba(201,168,76,0.55);
+  --gold:#c9a84c;
+  --gold2:#e8c56a;
+  --text:#ffffff;
+  --text2:#f0e8d0;
+  --muted:rgba(240,232,208,0.78);
+  --dim:rgba(240,232,208,0.42);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+
+body::before{
+  content:'';
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:60vmin;height:60vmin;
+  background:url('../amit_icon.png') center/contain no-repeat;
+  opacity:.035;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+  position:relative;
+}
+.page-title-wrap{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.page-title{
+  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  letter-spacing:.3px;text-transform:none;color:var(--gold2);
+}
+.page-version{
+  font-family:monospace;font-size:11px;letter-spacing:.05em;
+  color:rgba(201,168,76,.55);margin-top:2px;
+}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.hdr-right{text-align:right}
+.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.datetime{font-size:12px;color:var(--muted);margin-top:2px}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── HUB LAYOUT ── */
+.hub{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:230px;flex-shrink:0;
+  background:var(--card-head);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:5px;
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar{transition:width .18s ease}
+.sidebar.collapsed{width:60px}
+.sidebar.collapsed .tile{justify-content:center;padding:10px 0}
+.sidebar.collapsed .tile-info{display:none}
+.tile{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 11px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;
+  transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;
+}
+.tile:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
+.tile.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+.tile-info{flex:1;min-width:0}
+.tile-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ── ASK AMIT SIDEBAR — matches Hub/Council exactly, added 2026-07-25 ── */
+.ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0}
+.ask-amit-tile{
+  display:flex;align-items:center;gap:10px;width:100%;
+  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.45);
+  border-radius:9px;padding:11px 12px;cursor:pointer;
+  transition:all .18s;
+}
+.ask-amit-tile:hover{background:rgba(201,168,76,.22);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2)}
+.ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+.ask-amit-name{font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
+.ask-amit-sub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ── MAIN AREA ── */
+.main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.panel{
+  position:absolute;inset:0;overflow-y:auto;
+  display:none;flex-direction:column;
+  animation:pfade .18s ease;
+}
+.panel.active{display:flex}
+@keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.panel::-webkit-scrollbar{width:5px}
+.panel::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+
+/* ── PANEL HEADER ── */
+.panel-head{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 24px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+.panel-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+
+/* ── TABBED LAYOUT (copied structure from Computer Health's folder-tab UI — no data behind it) ── */
+.ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
+</style>
+
+<style>
+/* ══════════════════════════════════════════════
+   COMPUTER HEALTH'S OWN CSS — moved in unmodified from the real,
+   live ComputerHealth_Dashboard.html (2026-08-04), except the bare
+   header/header h1/header .device tag selectors, renamed to
+   .ch-inner-header so they don't collide with the template's own
+   real <header> element above. ══════════════════════════════ */
   :root { color-scheme: dark; }
   /* App-shell layout, not a page that grows/shrinks per tab - Ryan's
      direct request 2026-07-15: the panel should always fill the available
@@ -16,12 +156,6 @@
      region that takes up the rest of the viewport and scrolls internally. */
   html, body { height:100%; }
   body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:#12141a; color:#e8e8ec; margin:0; padding:0; display:flex; flex-direction:column; overflow:hidden; }
-  /* Renamed from a bare `header` tag selector to a class - this page now
-     lives inside the standard Amit dashboard shell (see the new outer
-     <header> below, borrowed from Templates/template.html), which has its
-     own real <header> element. Keeping this as a bare tag selector would
-     have styled BOTH headers identically, which is wrong - this rule is
-     for Computer Health's own inner control bar only. */
   .ch-inner-header { background:#1c1f28; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2a2e3a; }
   .ch-inner-header h1 { font-size:20px; margin:0; color:#d4af37; }
   .ch-inner-header .device { font-size:13px; color:#9aa0ab; }
@@ -150,14 +284,7 @@
   .ch-grade-A { color:#4caf6d; } .ch-grade-B { color:#8bc34a; } .ch-grade-C { color:#e0a72e; } .ch-grade-D { color:#e0803f; } .ch-grade-F { color:#d05555; }
   .controls { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
   .controls input { padding:8px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; }
-  /* Ryan's direct request 2026-08-03: every raw log box (Resources,
-     Diagnostics, App Behavior, Updates, Errors - all share this one
-     class) was wrapping long lines, so one snapshot's data curled
-     underneath itself instead of staying on its own row. Changed from
-     pre-wrap to pre (no wrapping) + horizontal scroll, so every capture
-     is genuinely one line, stacked directly on top of the next one - the
-     same standard across all of them, since they all share this class. */
-  .log-box { background:#0f1116; border-radius:8px; padding:12px 16px; font-family:Consolas, monospace; font-size:12px; color:#9be89b; max-height:340px; overflow-y:auto; overflow-x:auto; white-space:pre; }
+  .log-box { background:#0f1116; border-radius:8px; padding:12px 16px; font-family:Consolas, monospace; font-size:12px; color:#9be89b; max-height:340px; overflow-y:auto; white-space:pre-wrap; }
   .finding { background:#262a36; border-radius:8px; padding:12px 16px; margin-bottom:8px; border-left:4px solid #3a3f4c; }
   .finding.flag { border-left-color:#e0a72e; }
   .finding .meta { font-size:11px; color:#8a8f99; margin-top:4px; }
@@ -280,76 +407,24 @@
   .hw-col-label { writing-mode:vertical-rl; transform:rotate(180deg); font-weight:600; color:#d4af37; font-size:11px; white-space:nowrap; margin:0 auto; display:table; }
   .hw-spreadsheet tbody tr:nth-child(even) { background:#15171d; }
   .hw-spreadsheet tbody tr:hover { background:#22252e; }
-
+</style>
+<style>
   /* ══════════════════════════════════════════════
-     STANDARD AMIT DASHBOARD SHELL — copied from
-     Templates/template.html (2026-08-03), per Ryan's direct instruction:
-     this is the new outer look for Computer Health, layered on top of
-     everything above. None of the CSS above was touched to make room for
-     this - the class names below (.hub, .sidebar, .main-area, .panel,
-     .ch-shell-*) don't exist anywhere in Computer Health's own rules, so
-     there is no collision. Only the bare `header` tag selector needed
-     renaming (see .ch-inner-header above) since this shell introduces a
-     second, real <header> element for the branded top bar. ══════════════ */
-  :root {
-    --amit-bg:#09141f; --amit-card-head:#0f2338; --amit-border:rgba(201,168,76,0.55);
-    --amit-gold:#c9a84c; --amit-gold2:#e8c56a; --amit-text2:#f0e8d0; --amit-muted:rgba(240,232,208,0.78);
-  }
-  .ch-shell-header { display:flex; align-items:center; justify-content:space-between; padding:12px 28px; background:var(--amit-card-head); border-bottom:2px solid var(--amit-border); flex-shrink:0; }
-  /* Left block - Amit icon + app name + version, matching AmitBooks'
-     header exactly (Ryan's direct instruction 2026-08-03) - no longer a
-     floating centered title. */
+     OUTER SHELL HEADER — the AmitBooks-style left brand / center current-
+     computer / right greeting-sync layout, per Ryan's direct instruction
+     2026-08-03. Uses the template's own --bg/--card-head/--border/--gold
+     custom properties directly (already defined by the template's own
+     :root above) rather than redefining them again. ══════════════════ */
+  .ch-shell-header { display:flex; align-items:center; justify-content:space-between; padding:12px 28px; background:var(--card-head); border-bottom:2px solid var(--border); flex-shrink:0; }
   .ch-shell-brand { display:flex; align-items:center; gap:14px; }
-  .ch-shell-title { font-family:Georgia,serif; font-size:22px; font-weight:700; letter-spacing:.3px; color:var(--amit-gold2); }
+  .ch-shell-title { font-family:Georgia,serif; font-size:22px; font-weight:700; letter-spacing:.3px; color:var(--gold2); }
   .ch-shell-version { font-family:monospace; font-size:11px; letter-spacing:.05em; color:rgba(201,168,76,.55); margin-top:2px; }
-  /* Center block - whichever computer is currently being viewed, the same
-     role AmitBooks' center block plays for the currently-selected book. */
   .ch-shell-center { text-align:center; }
-  .ch-shell-center-name { font-family:Georgia,serif; font-size:26px; font-weight:700; color:var(--amit-gold2); }
-  .ch-shell-center-sub { font-family:'Cinzel',serif; font-size:11px; letter-spacing:.14em; color:var(--amit-muted); margin-top:2px; }
-  .hub { display:flex; flex:1; overflow:hidden; }
-  /* Width corrected to 230px 2026-08-03, Ryan's direct correction - this
-     did not match Templates/template.html's own sidebar width (was
-     210px), which is what made the tile card look like it didn't fit the
-     column correctly. */
-  .sidebar { width:230px; flex-shrink:0; background:var(--amit-card-head); border-right:2px solid var(--amit-border); display:flex; flex-direction:column; overflow-y:auto; padding:12px 10px; gap:5px; }
-  .sidebar::-webkit-scrollbar { width:3px; }
-  .sidebar::-webkit-scrollbar-thumb { background:rgba(201,168,76,.3); border-radius:2px; }
-  .tile { display:flex; align-items:center; gap:10px; padding:10px 11px; border-radius:9px; cursor:pointer; border:1px solid transparent; transition:all .18s; user-select:none; }
-  .tile:hover { background:rgba(255,255,255,.07); border-color:rgba(201,168,76,.3); }
-  .tile.active { background:rgba(201,168,76,.16); border-color:var(--amit-gold); box-shadow:0 0 0 1px rgba(201,168,76,.25); }
-  .tile-icon { font-size:18px; width:26px; text-align:center; flex-shrink:0; }
-  .tile-info { flex:1; min-width:0; }
-  .tile-name { font-family:'Cinzel',serif; font-size:11px; color:#fff; letter-spacing:.04em; font-weight:600; }
-  .tile-sub { font-size:11px; color:var(--amit-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  /* Ask Amit sidebar tile - copied exactly from Templates/template.html /
-     Hub, added 2026-08-03 per Ryan's direct instruction. On the Hub this
-     sits pinned to the bottom (margin-top:auto) because ~13 real tiles
-     already fill the column above it. Computer Health only has one real
-     tile so far - margin-top:auto here would stretch one huge, obviously
-     empty gap rather than reading as a real bottom-anchored section.
-     Sits directly under the one tile instead, until there's enough real
-     content above it to justify pinning to the bottom the way the Hub
-     does. Revisit this once more sidebar sections exist. */
-  .ask-amit-wrap { margin-top:8px; padding:12px 0 4px; border-top:1px solid var(--amit-border); flex-shrink:0; }
-  .ask-amit-tile { display:flex; align-items:center; gap:10px; width:100%; background:rgba(201,168,76,.1); border:1px solid rgba(201,168,76,.45); border-radius:9px; padding:11px 12px; cursor:pointer; transition:all .18s; }
-  .ask-amit-tile:hover { background:rgba(201,168,76,.22); border-color:var(--amit-gold); box-shadow:0 0 8px rgba(201,168,76,.2); }
-  .ask-amit-icon { font-size:18px; width:26px; text-align:center; flex-shrink:0; }
-  .ask-amit-name { font-family:'Cinzel',serif; font-size:11px; color:var(--amit-gold2); letter-spacing:.04em; font-weight:600; }
-  .ask-amit-sub { font-size:11px; color:var(--amit-muted); margin-top:2px; }
-  .main-area { flex:1; overflow:hidden; position:relative; background:var(--amit-bg); display:flex; flex-direction:column; }
-  .panel { position:absolute; inset:0; overflow-y:auto; display:none; flex-direction:column; }
-  .panel.active { display:flex; }
-  /* Top-right of the outer shell header - matches the Hub/template's own
-     greeting + sync corner exactly, added 2026-08-03 per Ryan's direct
-     correction: this needed to actually show who's signed in, not sit
-     empty. Reads Computer Health's OWN existing currentUser/sign-in state
-     (see chShellSetSignedIn, called from the real showSignedInAs function
-     already in this page) - there is no second, separate sign-in flow
-     here. The Hub remains the one door in, exactly as before. */
+  .ch-shell-center-name { font-family:Georgia,serif; font-size:26px; font-weight:700; color:var(--gold2); }
+  .ch-shell-center-sub { font-family:'Cinzel',serif; font-size:11px; letter-spacing:.14em; color:var(--muted); margin-top:2px; }
   .ch-shell-hdr-right { text-align:right; }
   .ch-shell-greeting { font-family:'Cinzel',serif; font-size:15px; color:#fff; font-weight:600; }
-  .ch-shell-datetime { font-size:12px; color:var(--amit-muted); margin-top:2px; }
+  .ch-shell-datetime { font-size:12px; color:var(--muted); margin-top:2px; }
   .ch-shell-sync-row { display:flex; align-items:center; gap:8px; justify-content:flex-end; margin-top:3px; }
   .ch-shell-sync { font-size:9px; letter-spacing:.07em; color:rgba(240,232,208,.28); font-family:'Cinzel',serif; }
   .ch-shell-sync.synced { color:rgba(100,220,160,.8); }
@@ -359,18 +434,14 @@
 <body>
 
 <!-- ══════════════════════════════════════════════
-     STANDARD AMIT DASHBOARD SHELL — the new outer look, per Ryan's direct
-     instruction 2026-08-03: everything Computer Health already does lives
-     unchanged inside the single "Computer Health" panel below. This shell
-     itself is not the template file - it is a copy of the template's
-     layout brought into this page and adjusted only to hold Computer
-     Health's own existing tabs as one panel's content, per that
-     instruction ("this is only adjusting the new Dashboard2 HTML"). ══════ -->
+     Rebuilt 2026-08-04 from a genuinely fresh, unmodified copy of
+     Templates/template.html, per Ryan's direct instruction: delete the
+     prior attempt, copy the template again, move Computer Health's real
+     content into it. Everything below - the shell, the sidebar, the panel
+     - is that template's own real structure, not a hand-recreated
+     approximation of it. Only Computer Health's own content was moved in,
+     unchanged in function. -->
 <header class="ch-shell-header">
-  <!-- Left block matches AmitBooks' header pattern exactly, per Ryan's
-       direct instruction 2026-08-03: Amit icon + app name + version,
-       stacked, left-aligned - not the centered floating title this used
-       to be. -->
   <div class="ch-shell-brand">
     <img src="../amit_icon.png" alt="Amit" style="height:38px;width:38px">
     <div>
@@ -378,12 +449,6 @@
       <div class="ch-shell-version">v4.39</div>
     </div>
   </div>
-  <!-- Center block, also per Ryan's direct instruction: shows whichever
-       computer is currently being viewed - the same role AmitBooks' center
-       block plays showing the currently-selected book. Updates live from
-       chShellUpdateDeviceName(), called whenever the Viewing dropdown
-       changes or the device list refreshes - see populateDeviceSelector()
-       and onDeviceSelectChange() further down. -->
   <div class="ch-shell-center">
     <div class="ch-shell-center-name" id="chShellDeviceName">—</div>
     <div class="ch-shell-center-sub">COMPUTER</div>
@@ -408,10 +473,6 @@
       </div>
     </div>
 
-    <!-- Ask Amit - added 2026-08-03, Ryan's direct instruction. Real
-         context for this page is written into Amit_Ask_Live.js's
-         PAGE_CONTEXTS under the 'computerhealth' key - not the template's
-         unconfigured sentinel. -->
     <div class="ask-amit-wrap">
       <div class="ask-amit-tile" id="tile-ask-amit" onclick="askAmitLive('computerhealth')">
         <div class="ask-amit-icon">💛</div>
@@ -427,11 +488,8 @@
     <div class="panel active" id="chShellPanel1">
 
 <div class="ch-inner-header">
-  <!-- Title/icon/version removed here 2026-08-03, Ryan's direct
-       instruction: the outer shell header above already shows "Computer
-       Health v4.39" as the branded title, so this was a redundant
-       duplicate. The control row below (Free Tier, Launch Tracker, etc.)
-       is unchanged - none of that is shown anywhere else. -->
+  <!-- Title/icon/version intentionally not repeated here - the outer
+       shell header above already shows "Computer Health v4.39". -->
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -503,12 +561,9 @@
   </div>
 </div>
 
-<!-- Hidden, not removed, 2026-08-03 - Ryan's direct instruction: this
-     "Welcome, Amit — signed in as..." line is now redundant, since the
-     outer shell header's top-right corner already shows the same real
-     sign-in state. Kept in the DOM (not deleted) because showSignedInAs()
-     and setStatus() below still write into it - hiding it visually is
-     the safe way to remove the duplicate without touching that logic. -->
+<!-- Hidden, not removed - showSignedInAs()/setStatus() still write into it.
+     The outer shell header's top-right corner already shows this same
+     real state, so it's not shown twice. -->
 <div id="loginBar" style="display:none">
   <span id="authStatus">Not signed in.</span>
   <a class="btn" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" style="text-decoration:none">Sign in through the Hub</a>
@@ -993,11 +1048,9 @@
 </div><!-- /.hub -->
 
 <script>
-// Only one panel exists right now (Computer Health itself), so this is
-// intentionally trivial - a real second sidebar tile would call this the
-// same way. Kept separate from Computer Health's own script block below
-// (unique function name, no shared state) so nothing here can collide
-// with any of Computer Health's existing code.
+// Only one real panel exists (Computer Health itself). Separate, small,
+// unique function names - no shared state with Computer Health's own
+// script below, so nothing here can collide with it.
 function chShellOpenPanel(n) {
   document.querySelectorAll('#chShellSidebar .tile').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.main-area .panel').forEach(p => p.classList.remove('active'));
@@ -1007,18 +1060,12 @@ function chShellOpenPanel(n) {
   if (panel) panel.classList.add('active');
 }
 
-// Same clock/greeting pattern as the Hub and Templates/template.html -
-// visual only, no auth logic of its own. Called from showSignedInAs()
-// further down (Computer Health's own real sign-in detection, which only
-// ever fires once a session that came in through the Hub is confirmed -
-// there is still only one door in).
+// Clock - visual only, localStorage-based, no auth logic of its own.
 function chShellUpdateClock() {
   const d = new Date();
   const h = d.getHours();
   const el = document.getElementById('chShellDatetime');
   if (el) el.textContent = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }) + ' · ' + d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
-  // Greeting word itself only changes with time of day when nobody's
-  // name has been set yet - once signed in, chShellSetSignedIn owns it.
   if (!window.chShellSignedIn) {
     const sal = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
     const g = document.getElementById('chShellGreeting');
@@ -1028,6 +1075,8 @@ function chShellUpdateClock() {
 chShellUpdateClock();
 setInterval(chShellUpdateClock, 30000);
 
+// Real sign-in state, called from Computer Health's own showSignedInAs()
+// further down (the Hub is the one door in - no second sign-in flow).
 function chShellSetSignedIn(name, email) {
   window.chShellSignedIn = true;
   const d = new Date();
@@ -1038,9 +1087,21 @@ function chShellSetSignedIn(name, email) {
   const waiting = document.getElementById('chShellWaiting');
   if (waiting) waiting.style.display = 'none';
 }
+
+// Outer shell header's center block - whichever computer is currently
+// being viewed. Called from Computer Health's own populateDeviceSelector,
+// onDeviceSelectChange, and its device-connect handler further down.
+function chShellUpdateDeviceName() {
+  const el = document.getElementById('chShellDeviceName');
+  if (!el) return;
+  const list = (typeof myDevices !== 'undefined') ? myDevices : [];
+  const viewing = (typeof viewingDeviceId !== 'undefined') ? viewingDeviceId : null;
+  const thisDeviceName = (typeof deviceName !== 'undefined') ? deviceName : null;
+  const current = list.find(d => d.id === viewing);
+  el.textContent = current ? (current.device_name || 'Unnamed computer') : (thisDeviceName || 'No computer selected');
+}
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const BRIDGE = "http://localhost:8710";
 const SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co';
@@ -1116,9 +1177,6 @@ async function showSignedInAs(email) {
   } catch (e) {}
   if (!name) name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   bar.innerHTML = `<span style="color:#4caf6d">✓ Welcome, <strong>${name}</strong> — signed in as ${email}</span>`;
-  // Mirrors the same real sign-in state into the outer shell header's
-  // top-right corner (Ryan's direct request 2026-08-03) - same name, same
-  // event, no second lookup or separate auth path.
   if (typeof chShellSetSignedIn === 'function') chShellSetSignedIn(name, email);
 }
 
@@ -1332,17 +1390,6 @@ function populateDeviceSelector() {
   }).join('');
   updateDeviceBadge();
   chShellUpdateDeviceName();
-}
-
-// Outer shell header's center block - shows whichever computer is
-// currently being viewed, same role as AmitBooks' center block showing
-// the current book (Ryan's direct instruction 2026-08-03). Called
-// whenever the device list refreshes or the Viewing dropdown changes.
-function chShellUpdateDeviceName() {
-  const el = document.getElementById('chShellDeviceName');
-  if (!el) return;
-  const current = myDevices.find(d => d.id === viewingDeviceId);
-  el.textContent = current ? (current.device_name || 'Unnamed computer') : (deviceName || 'No computer selected');
 }
 
 function updateDeviceBadge() {
@@ -4600,10 +4647,6 @@ function onConnected(d) {
   // while connected to this exact machine).
   deviceId = d.deviceId.toLowerCase(); deviceName = d.deviceName;
   bridgeUp = true;
-  // Covers the pre-sign-in / just-connected moment - before myDevices has
-  // ever loaded (which is when populateDeviceSelector's own call to this
-  // normally fires), the outer header's center block should still show
-  // this machine's real name the moment the bridge confirms it.
   chShellUpdateDeviceName();
   // Remembered so a later visit/reload in this same browser knows it's
   // worth silently checking real state instead of always showing the
@@ -6512,5 +6555,6 @@ function chRenderInstalledPrograms(rows, notes, devId) {
   el.innerHTML = html;
 }
 </script>
+
 </body>
 </html>
