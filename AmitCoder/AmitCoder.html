@@ -248,7 +248,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.37</div>
+    <div class="page-version" id="pageVersion">v6.38</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -436,16 +436,17 @@ function tabRealContent(t){
           </div>
           <div style="flex:1">
             <label>Name</label>
-            <input type="text" id="scTrigger" placeholder="e.g. copy, Charlie, search — no key prefix, that's picked above">
+            <input type="text" id="scTrigger" placeholder="e.g. copy, Charlie, search — no key prefix, that's picked above" oninput="checkSimilarShortcuts()">
           </div>
         </div>
+        <div id="scSimilarWrap" style="display:none;margin:8px 0;padding:10px 14px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:8px;font-size:12px;color:var(--muted)"></div>
         <label>Type</label>
         <select id="scType" onchange="onTypeChange()">
           <option value="inline_instruction">Simple — one instruction</option>
           <option value="master">Master — bundles subtasks together</option>
         </select>
         <label>Instruction</label>
-        <textarea id="scInstruction" placeholder="What should happen when this trigger is said or typed?"></textarea>
+        <textarea id="scInstruction" placeholder="What should happen when this trigger is said or typed?" oninput="checkSimilarShortcuts()"></textarea>
         <div id="scSubtasksWrap" style="display:none">
           <label>Subtasks</label>
           <div id="scSubtaskRows"></div>
@@ -1089,6 +1090,44 @@ function populateKeyOptions(){
   if([...keys].includes(current))sel.value=current;
 }
 
+// ── DUPLICATE DETECTION — real word-overlap heuristic, not a fabricated
+// "AI merged this for you" claim. No backend LLM call is available from a
+// static page, so this catches genuine overlap and asks a human to decide,
+// rather than pretending to auto-merge intelligently.
+function _wordsOf(text){
+  return new Set((text||'').toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>2));
+}
+function shortcutSimilarity(name,instruction,other){
+  const nameWords=_wordsOf(name),otherNameWords=_wordsOf(other.trigger_phrase);
+  const nameOverlap=[...nameWords].filter(w=>otherNameWords.has(w)).length/Math.max(1,Math.min(nameWords.size,otherNameWords.size));
+  const instrWords=_wordsOf(instruction),otherInstrWords=_wordsOf(other.instruction_text);
+  const instrOverlap=instrWords.size&&otherInstrWords.size
+    ? [...instrWords].filter(w=>otherInstrWords.has(w)).length/Math.max(1,Math.min(instrWords.size,otherInstrWords.size))
+    : 0;
+  const exactNameMatch=name.trim().toLowerCase()===other.trigger_phrase.trim().toLowerCase();
+  return {score:exactNameMatch?1:Math.max(nameOverlap*0.4,instrOverlap*0.8),exactNameMatch};
+}
+function findSimilarShortcuts(name,instruction,excludeId){
+  if(!name&&!instruction)return[];
+  return scAllRows
+    .filter(r=>!r.parent_shortcut_id&&r.id!==excludeId) // compare against top-level shortcuts only
+    .map(r=>({row:r,...shortcutSimilarity(name,instruction,r)}))
+    .filter(m=>m.score>=0.35)
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,3);
+}
+function checkSimilarShortcuts(){
+  const wrap=document.getElementById('scSimilarWrap');
+  if(!wrap)return;
+  const name=document.getElementById('scTrigger').value;
+  const instruction=document.getElementById('scInstruction').value;
+  const matches=findSimilarShortcuts(name,instruction,scEditingId);
+  if(!matches.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  wrap.innerHTML=`<b style="color:var(--gold2)">⚠ Similar to what's already here:</b> `+
+    matches.map(m=>`<span class="trigger-tag${m.row.is_builtin?' builtin-tag':''}" title="${escapeHtml(m.row.instruction_text||'')}">${escapeHtml(m.row.activation_key||'')} ${escapeHtml(m.row.trigger_phrase)}</span>`).join(' ')+
+    `<br>Keep going if this is genuinely different - you'll get one more chance to confirm before saving.`;
+}
 function setFilter(f){
   scFilter=f;
   document.querySelectorAll('.sc-filter[data-f]').forEach(el=>el.classList.toggle('active',el.dataset.f===f));
@@ -1376,6 +1415,7 @@ function toggleCreateForm(){
     document.getElementById('scInstruction').value='';
     document.getElementById('scType').value='inline_instruction';
     document.getElementById('scSubtaskRows').innerHTML='';
+    document.getElementById('scSimilarWrap').style.display='none';
     onTypeChange();
   } else if(!f.classList.contains('open')){
     // closed
@@ -1412,6 +1452,7 @@ function editShortcut(id){
     }
   });
   onTypeChange();
+  document.getElementById('scSimilarWrap').style.display='none';
   if(!f.classList.contains('open'))f.classList.add('open');
 }
 async function deleteShortcut(id){
@@ -1470,6 +1511,21 @@ async function saveShortcut(){
   const instruction=document.getElementById('scInstruction').value.trim();
   const key=document.getElementById('scKey').value;
   if(!trigger){alert('Trigger phrase is required.');return;}
+  // Final duplicate check, walk-through style - approve or cancel, never
+  // silently auto-merged. Skipped when editing an existing shortcut (the
+  // live check while typing already covers that case).
+  if(!scEditingId){
+    const matches=findSimilarShortcuts(trigger,instruction,null);
+    const strongMatch=matches.find(m=>m.score>=0.6);
+    if(strongMatch){
+      const proceed=confirm(
+        `This looks a lot like the existing shortcut "${strongMatch.row.activation_key||''} ${strongMatch.row.trigger_phrase}":\n\n"${(strongMatch.row.instruction_text||'').slice(0,200)}"\n\n`+
+        `Press OK to save this as a new, separate shortcut anyway (if it's genuinely different).\n`+
+        `Press Cancel to stop and use/edit the existing one instead.`
+      );
+      if(!proceed)return;
+    }
+  }
   // Only Amit's own account can create/keep something under J (builtin,
   // shipped globally). Anyone else picking J would be blocked at the
   // database level anyway (RLS) - fall back to F here so the save doesn't
