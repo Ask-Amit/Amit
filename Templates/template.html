@@ -3,8 +3,52 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ══════════════════════════════════════════════
+     COPYING THIS TEMPLATE FOR A NEW PROJECT — read this first.
+
+     NAMING: the new project's folder name IS the app's name. If the
+     folder is `Disco\`, the app is "Disco" — rename every literal
+     occurrence of "Template" below to that exact name:
+       - <title>Template</title>            (this line)
+       - #pageTitle text, currently "Template" (~line 155)
+       - the copied file itself: save as Disco.html, not template.html
+       - askAmitLive('TEMPLATE_NOT_CONFIGURED') → askAmitLive('yourRealKey'),
+         and write that key's real context into ../Amit_Ask_Live.js's
+         PAGE_CONTEXTS — do not skip this, see the comment above that line
+     Use the app's real display name consistently in all three spots —
+     never a variant spelling, never re-derived per file.
+
+     VERSION: #pageVersion always starts at v1.00 for a brand-new app.
+     From here forward it is versioned independently (own +0.01/+1.00
+     history, never synced to any other file's number) — see root
+     CLAUDE.md's VERSIONING STANDARD.
+
+     INTERCONNECTION: a new project is never standalone — it inherits the
+     whole Amit system's conventions. Before/while building it out, the
+     new project's own CLAUDE.md (copied from
+     Templates\Amit_NewProject_Template.md per root CLAUDE.md's NEW
+     PROJECT DIRECTIVE) must carry: the Session Location Check, the
+     Pursuit Attribution clause (its own canonical program name for
+     hub_entries), Shortcut Activation + Shortcut Awareness, and — if
+     it has an "Ask Amit" button — the wiring described above. If the
+     project is likely to grow a running state log, add its own
+     Sessions.md too (see AmitBooks\Sessions.md for the pattern) so a
+     future session can orient fast without re-deriving context.
+
+     NOMENCLATURE: this template uses PAGE (a sidebar item — button + its
+     fixed number) and DETAIL (the content area on the right that a page
+     opens into). A detail can hold any LAYOUT type — "Tabbed Layout" is
+     the one built in below. Full definitions live in the NOMENCLATURE
+     comment at the top of the <script> block — read that before touching
+     any page/detail/layout code, or answering a question about it.
+
+     PAGE ORDER: sidebar display position is controlled by the PAGE_ORDER
+     array in the script below, kept separate from each page's fixed
+     number — reorder pages by editing that array, never by renumbering
+     pages/details themselves. See Templates\CLAUDE.md for why.
+     ══════════════════════════════════════════════ -->
 <title>Template</title>
-<link rel="icon" type="image/png" href="../amit_icon.png">
+<link rel="icon" type="image/x-icon" href="amit_icon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js"></script>
@@ -30,7 +74,7 @@ body::before{
   top:50%;left:50%;
   transform:translate(-50%,-50%);
   width:60vmin;height:60vmin;
-  background:url('../amit_icon.png') center/contain no-repeat;
+  background:url('amit_icon.ico') center/contain no-repeat;
   opacity:.035;
   pointer-events:none;
   z-index:0;
@@ -57,7 +101,8 @@ header{
   font-family:monospace;font-size:11px;letter-spacing:.05em;
   color:rgba(201,168,76,.55);margin-top:2px;
 }
-.brand{display:flex;align-items:baseline;gap:14px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
 .brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
 .hdr-right{text-align:right}
 .greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
@@ -80,21 +125,33 @@ header{
 .sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
 .sidebar{transition:width .18s ease}
 .sidebar.collapsed{width:60px}
-.sidebar.collapsed .tile{justify-content:center;padding:10px 0}
-.sidebar.collapsed .tile-info{display:none}
-.tile{
+.sidebar.collapsed .page-nav{justify-content:center;padding:10px 0}
+.sidebar.collapsed .page-info{display:none}
+.sidebar.collapsed .page-alt-badge{display:none}
+.page-nav{
   display:flex;align-items:center;gap:10px;
   padding:10px 11px;border-radius:9px;cursor:pointer;
   border:1px solid transparent;
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
 }
-.tile:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
-.tile.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
-.tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
-.tile-info{flex:1;min-width:0}
-.tile-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
-.tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
+.page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+/* Real icon placeholder — a real project swaps ▢ for a real icon per page.
+   Always present regardless of DEV_SHOW_PAGE_NUMBERS; the Alt-shortcut
+   badge below is a separate, additional element, not a replacement. */
+.page-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+/* ALT+NUMBER badge — dev/reference aid only, added 2026-08-04 per Ryan's
+   direct instruction: makes the Alt+N keyboard shortcut (see the
+   keydown/keyup listeners near openPage) self-explanatory at a glance,
+   without touching the icon slot. Controlled by the same
+   DEV_SHOW_PAGE_NUMBERS flag as the old number-in-icon approach — hide it
+   the same way, before a real project goes live. */
+.page-alt-badge{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:rgba(240,232,208,.5);border:1px solid rgba(201,168,76,.3);border-radius:4px;padding:2px 5px;flex-shrink:0;white-space:nowrap;line-height:1.3}
+.page-alt-badge b{color:var(--gold2);font-size:10px;margin-left:3px;font-weight:600}
+.page-info{flex:1;min-width:0}
+.page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ── ASK AMIT SIDEBAR — matches Hub/Council exactly, added 2026-07-25 ── */
 .ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0}
 .ask-amit-tile{
@@ -110,46 +167,96 @@ header{
 
 /* ── MAIN AREA ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
-.panel{
+.detail{
   position:absolute;inset:0;overflow-y:auto;
   display:none;flex-direction:column;
   animation:pfade .18s ease;
 }
-.panel.active{display:flex}
+.detail.active{display:flex}
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.panel::-webkit-scrollbar{width:5px}
-.panel::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+.detail::-webkit-scrollbar{width:5px}
+.detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
 
-/* ── PANEL HEADER ── */
-.panel-head{
+/* ── DETAIL HEADER ── */
+.detail-head{
   display:flex;align-items:center;gap:16px;
   padding:14px 24px;
   background:var(--card-head);
   border-bottom:2px solid var(--border);
   flex-shrink:0;
 }
-.panel-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
-.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
-/* ── TABBED LAYOUT (copied structure from Computer Health's folder-tab UI — no data behind it) ── */
-.ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+/* ── TABBED LAYOUT — one of possibly several layout types a detail area can hold (copied structure from Computer Health's folder-tab UI — no data behind it) ──
+   Multi-row overflow, Ryan's spec 2026-08-04: as the window narrows (or a
+   detail simply grows more tabs than fit) the tab row wraps into
+   additional rows behind it rather than scrolling or truncating — flex-
+   wrap below handles that automatically, no JS needed just to grow rows.
+   Clicking a tab in a back row brings its whole row to the front (the row
+   touching the tab content) — that part IS handled in JS, see showChTab. */
+.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
 .ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
 .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
+
+/* ── ROW VIEW — the other layout type a detail area can hold: Excel-style,
+   sortable/filterable, expandable child rows. Single-click a header to
+   sort (toggle asc/desc), double-click to open an inline "contains" filter
+   right in that header cell — no native browser popup, matches the rest
+   of the Amit system's no-native-dialog standard. A status strip states
+   the active sort/filter with a one-click clear. Rows with children get a
+   ▸/▾ toggle, indented beneath the parent. ── */
+.rv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
+.rv-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:2px 2px 10px;flex-shrink:0}
+.rv-status .clear{color:var(--gold2);cursor:pointer;text-decoration:underline}
+.rv-table-wrap{flex:1;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
+.rv-table{width:100%;border-collapse:collapse;font-size:13px}
+.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
+.rv-table th .rv-arrow{margin-left:4px;opacity:.75}
+.rv-table th.rv-filtered{color:var(--gold)}
+.rv-table td{padding:8px 12px;border-bottom:1px solid rgba(201,168,76,.12)}
+.rv-table tr.rv-row:hover td{background:rgba(255,255,255,.04)}
+.rv-table tr.rv-child td{background:rgba(255,255,255,.02);color:var(--muted)}
+.rv-expand{display:inline-block;width:16px;cursor:pointer;color:var(--gold2)}
+.rv-filter-input{width:100%;background:rgba(255,255,255,.1);border:1px solid var(--gold);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;font-family:inherit;outline:none;text-transform:none;letter-spacing:0}
+
+/* ── DETAIL VIEW — the drill-down endpoint for one single Row View item.
+   Double-clicking a row (parent or child) anywhere in Row View lands here,
+   populated with that one record's own fields, plus — if it has children —
+   a nested Row View of just its own children underneath. ── */
+.dv-wrap{margin:24px;flex:1;min-height:0;overflow-y:auto}
+.dv-empty{color:rgba(240,232,208,.4);font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:30px 4px}
+.dv-fields{display:grid;grid-template-columns:140px 1fr;row-gap:10px;column-gap:16px;max-width:520px;margin-bottom:28px}
+.dv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dv-value{font-size:14px;color:#fff}
+.dv-sub-h{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
 </style>
 </head>
 <body>
 
 <header>
+  <!-- Left block matches AmitBooks' actual, improved header pattern -
+       icon + app name + version, grouped and vertically centered as one
+       unit, linking back to the Hub. Ryan's direct instruction 2026-08-04:
+       this template should match AmitBooks, not the older centered-title
+       layout this used to have. -->
+  <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
+    <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
+    <div>
+      <div class="page-title" id="pageTitle" style="font-size:19px">Template</div>
+      <div class="page-version" id="pageVersion">v1.00</div>
+    </div>
+  </a>
+  <!-- Center block - whichever context this specific app needs to show
+       here (AmitBooks shows the active book; a future page shows whatever
+       is analogous to that). Placeholder "—" until a real project wires
+       its own dynamic value in. -->
   <div class="page-title-wrap">
-    <div class="page-title" id="pageTitle">Template</div>
-    <div class="page-version" id="pageVersion">v1.00</div>
-  </div>
-  <div class="brand">
-    <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
-    <span class="brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
+    <div class="page-title" id="pageContext">—</div>
+    <div class="page-version" id="pageContextSub">CONTEXT</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div style="text-align:right">
@@ -166,10 +273,10 @@ header{
 
 <div class="hub">
 
-  <!-- ── SIDEBAR — PLACEHOLDER TILES (1-20) ── -->
-  <nav class="sidebar" id="sidebarTiles" ondblclick="toggleSidebar()"></nav>
+  <!-- ── SIDEBAR — PLACEHOLDER PAGES (1-20) ── -->
+  <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()"></nav>
 
-  <!-- ── MAIN CONTENT AREA — PLACEHOLDER PANELS (1-20) ── -->
+  <!-- ── MAIN CONTENT AREA — PLACEHOLDER DETAILS (1-20) ── -->
   <div class="main-area" id="mainArea"></div>
 
 </div>
@@ -192,23 +299,80 @@ header{
 
 <script>
 // ══════════════════════════════════════════════
-// TEMPLATE — blank layout shell. No data model, no per-project logic.
-// Placeholder tiles/panels 1-20: rename, re-icon, and build real content
-// into each panel when this template is copied for a new project.
+// NOMENCLATURE — Ryan's own vocabulary for this layout, permanent, always
+// applies to this template and to every application deployed from it.
+// Read this before touching any of the code below, and before answering
+// any question about it — this is the naming any future session (Amit,
+// Claude, whoever) should already know cold on sight, not re-derive.
+//
+//   PAGE   — one item in the left-hand sidebar list (the clickable button
+//            AND the number identifying it). Numbered 1..N, in the order
+//            Ryan actually wants them read/talked about — internal code
+//            calls the button itself `.page-nav` (id `page-N`).
+//   DETAIL — the content area on the right that a page opens into (id
+//            `detail-N`). Switching pages switches which detail shows.
+//   LAYOUT — what kind of content lives inside one detail area. A detail
+//            is not locked to one shape — "Tabbed Layout" (built below,
+//            using tabs numbered 1..however many exist) is one layout
+//            type; more layout types can exist later. A detail's layout
+//            is a property of that detail, not of the page system itself.
+//   PAGE ORDER vs. PAGE NUMBER — a page's number is its fixed, permanent
+//            identity once real project code starts referencing it
+//            (openPage(N), detail-N, page-N). Its DISPLAY POSITION in the
+//            sidebar is controlled separately, by the PAGE_ORDER list
+//            below — reordering the sidebar is always a one-line edit to
+//            that list, never a renumbering pass. (Same relationship as a
+//            form control's Name vs. its TabIndex.)
+//   REFERRING TO A PAGE — always valid either by its name ("Tabbed View")
+//            or its number ("page 2", or Alt+2 to jump straight there —
+//            see the keydown/keyup listeners near openPage). The small
+//            "Alt N" badge next to each page's icon (DEV_SHOW_PAGE_NUMBERS,
+//            near PAGE_COUNT below) exists so that's unambiguous while
+//            building — it is a LOCAL/DEV aid only, never meant to ship
+//            visible in a live deployed app; turn it off before a real
+//            project goes live. The page-icon slot itself (▢, or a real
+//            icon once a project sets one) is separate and always shows.
+//            Whether the badge is showing or not, the page's number never
+//            changes.
+//
+// Blank layout shell — no data model, no per-project logic. Placeholder
+// pages/details 1-20: rename, re-icon, and build real content into each
+// detail when this template is copied for a new project.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=20;
+// DEV_SHOW_PAGE_NUMBERS — a local/reference aid only, added 2026-08-04 per
+// Ryan's direct instruction: controls the small "Alt N" badge next to each
+// page's icon (see .page-alt-badge / navHtmlParts below), which exists so
+// whoever is BUILDING the app (Ryan, Amit, an AmitCoder user talking
+// through changes by page number) can point at pages unambiguously and
+// see the Alt+N keyboard shortcut at a glance — it is NOT meant to ship
+// visible in a live, deployed app. Leave true while working in AmitCoder /
+// locally; set to false before a real project goes live. Note this only
+// hides the badge — the page-icon slot (▢, or a real icon once a project
+// sets one) is always shown regardless, it's a separate element. The
+// page's actual number never changes either way — this only controls
+// whether the badge is drawn on screen.
+const DEV_SHOW_PAGE_NUMBERS=true;
+const PAGE_COUNT=20;
+// PAGE_ORDER — sidebar DISPLAY position only, see NOMENCLATURE above.
+// Tabbed View (page 2) is listed first here deliberately — it's the
+// live example of the one layout type this template ships with, so it's
+// what a person sees first when opening a fresh copy. Introduction (page
+// 1) follows it. Edit this array, never the page numbers, to reorder.
+const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
 (function buildPlaceholders(){
-  const nav=document.getElementById('sidebarTiles');
+  const nav=document.getElementById('sidebarPages');
   const main=document.getElementById('mainArea');
-  let navHtml='',panelHtml='';
-  for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const label=i===1?'Introduction':i===2?'Tabbed Layout':'Placeholder '+i;
-    navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
-      <div class="tile-icon">▢</div>
-      <div class="tile-info">
-        <div class="tile-name">${label}</div>
-        <div class="tile-sub">—</div>
+  const navHtmlParts={};
+  let detailHtml='';
+  for(let i=1;i<=PAGE_COUNT;i++){
+    const label=i===1?'Introduction':i===2?'Tabbed View':i===3?'Row View':i===4?'Detail View':'Placeholder '+i;
+    navHtmlParts[i]=`<div class="page-nav${i===1?' active':''}" id="page-${i}" onclick="openPage(${i})">
+      <div class="page-icon" title="Page ${i}">▢</div>
+      ${DEV_SHOW_PAGE_NUMBERS?`<div class="page-alt-badge" title="Keyboard shortcut: Alt+${i}">Alt<b>${i}</b></div>`:''}
+      <div class="page-info">
+        <div class="page-name">${label}</div>
+        <div class="page-sub">—</div>
       </div>
     </div>`;
     if(i===1||i===2){
@@ -217,19 +381,29 @@ const PLACEHOLDER_COUNT=20;
         tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})">Tab ${t}</button>`;
         tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">Tab ${t} content goes here</div>`;
       }
-      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}" style="flex-direction:column">
-        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
         <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
         <div class="ch-tab-main">${tabContentHtml}</div>
       </div>`;
+    } else if(i===3){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="rv-wrap" id="rv-mount"></div>
+      </div>`;
+    } else if(i===4){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="dv-wrap" id="dv-mount"></div>
+      </div>`;
     } else {
-      panelHtml+=`<div class="panel${i===1?' active':''}" id="panel-${i}">
-        <div class="panel-head"><span class="panel-heading">${label}</span></div>
-        <div class="panel-empty">Panel ${i} content goes here</div>
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="detail-empty">Detail ${i} content goes here</div>
       </div>`;
     }
   }
-  // Ask Amit — every real page in the system has this tile, bottom-left,
+  // Ask Amit — every real page in the system has this nav item, bottom-left,
   // same styling and spot. Wired to a sentinel key on purpose: this new
   // project has no real page yet for Amit to have context about, so
   // Amit_Ask_Live.js's askAmitLive() will refuse and show a plain reminder
@@ -244,43 +418,301 @@ const PLACEHOLDER_COUNT=20;
   // heading in the page context. That was reverted, 2026-07-25 - it caused
   // a real persona-adoption refusal on Gemini. See Amit_Ask_Live.js's own
   // header comment before re-attempting anything like it.
+  let navHtml=PAGE_ORDER.map(i=>navHtmlParts[i]||'').join('');
   navHtml+=`<div class="ask-amit-wrap">
-    <div class="ask-amit-tile" id="tile-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')">
+    <div class="ask-amit-tile" id="page-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')">
       <div class="ask-amit-icon">💛</div>
-      <div class="tile-info">
+      <div class="page-info">
         <div class="ask-amit-name">Ask Amit</div>
         <div class="ask-amit-sub">Walk alongside</div>
       </div>
     </div>
   </div>`;
   nav.innerHTML=navHtml;
-  main.innerHTML=panelHtml;
+  main.innerHTML=detailHtml;
 })();
 
-// Tabbed-layout behavior (copied from Computer Health's showTab — folder-tab
-// look, sub-content switching within one panel — no data hooks attached).
-function showChTab(panelNum,n){
-  const panel=document.getElementById('panel-'+panelNum);
-  panel.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
-  panel.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('ch-tab-'+panelNum+'-'+n).classList.add('active');
-  event.target.classList.add('active');
+// ══════════════════════════════════════════════
+// ROW VIEW — reusable layout type #2 (Tabbed View is #1). Excel-style:
+// click a column header to sort (toggle asc/desc, arrow shows direction);
+// double-click a header to edit an inline "contains" filter right in that
+// cell (Enter/blur commits, Escape cancels) — deliberately no native
+// browser prompt(), matching the rest of the Amit system's no-native-
+// dialog standard (see AmitBooks/CLAUDE.md Interactivity Standard #7).
+// Filters compose with AND. Rows may carry a children[] array — a ▸/▾
+// toggle expands/collapses them, indented beneath the parent; children
+// are not independently sortable/filterable, only their parent's row is.
+// A status strip above the table names whatever's active with a one-click
+// clear.
+//
+// Sample data below (RV_SAMPLE_COLUMNS/RV_SAMPLE_ROWS) is placeholder
+// only — swap for a real project's real columns/rows when this layout
+// gets used for something real. rvState/rvRender assume ONE row-view
+// table per page for now (id `rv-mount`, module-level state) — if a
+// future project needs more than one Row View on screen at once, this
+// needs to become keyed-by-container rather than a single global state,
+// not a hard rebuild, just not needed yet.
+//
+// Genuinely open, not built yet: named/saved sort+filter views
+// (localStorage, per-table, with a "set as default" — see AmitBooks'
+// abSmart engine for the fuller pattern this can grow into).
+// ══════════════════════════════════════════════
+const RV_SAMPLE_COLUMNS=[
+  {key:'name',label:'Name'},
+  {key:'status',label:'Status'},
+  {key:'owner',label:'Owner'},
+  {key:'due',label:'Due'}
+];
+const RV_SAMPLE_ROWS=[
+  {id:'r1',name:'Kickoff meeting',status:'Done',owner:'Ryan',due:'2026-07-28'},
+  {id:'r2',name:'Design review',status:'In Progress',owner:'Amit',due:'2026-08-02',children:[
+    {id:'r2a',name:'Color pass',status:'Done',owner:'Amit',due:'2026-07-30'},
+    {id:'r2b',name:'Layout pass',status:'In Progress',owner:'Amit',due:'2026-08-02'}
+  ]},
+  {id:'r3',name:'Backend wiring',status:'Not Started',owner:'Ryan',due:'2026-08-10'},
+  {id:'r4',name:'QA pass',status:'Not Started',owner:'Ryan',due:'2026-08-14',children:[
+    {id:'r4a',name:'Desktop',status:'Not Started',owner:'Ryan',due:'2026-08-14'},
+    {id:'r4b',name:'Mobile',status:'Not Started',owner:'Ryan',due:'2026-08-14'}
+  ]},
+  {id:'r5',name:'Launch',status:'Not Started',owner:'Ryan',due:'2026-08-20'}
+];
+const rvState={sort:null,filters:{},expanded:new Set(),editingKey:null};
+
+function rvRender(){
+  const wrap=document.getElementById('rv-mount');
+  if(!wrap)return;
+  let rows=RV_SAMPLE_ROWS.slice();
+  Object.entries(rvState.filters).forEach(([key,val])=>{
+    if(!val)return;
+    rows=rows.filter(r=>String(r[key]||'').toLowerCase().includes(val.toLowerCase()));
+  });
+  if(rvState.sort){
+    const{key,dir}=rvState.sort;
+    rows=rows.slice().sort((a,b)=>{
+      const av=String(a[key]||''),bv=String(b[key]||'');
+      return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+    });
+  }
+  const statusParts=[];
+  if(rvState.sort) statusParts.push(`Sorted by ${RV_SAMPLE_COLUMNS.find(c=>c.key===rvState.sort.key).label} (${rvState.sort.dir==='asc'?'A→Z':'Z→A'})`);
+  Object.entries(rvState.filters).filter(([,v])=>v).forEach(([key,val])=>{
+    statusParts.push(`${RV_SAMPLE_COLUMNS.find(c=>c.key===key).label} contains "${val}"`);
+  });
+  const statusHtml=statusParts.length
+    ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear()">Clear</span></div>`
+    : `<div class="rv-status">No sort or filter active — click a header to sort, double-click to filter</div>`;
+
+  const theadHtml=`<tr>
+    <th style="width:24px"></th>
+    ${RV_SAMPLE_COLUMNS.map(c=>{
+      if(rvState.editingKey===c.key){
+        return `<th onclick="event.stopPropagation()"><input class="rv-filter-input" id="rv-filter-input" value="${(rvState.filters[c.key]||'').replace(/"/g,'&quot;')}" placeholder="${c.label} contains…"
+          onkeydown="if(event.key==='Enter')rvCommitFilter('${c.key}',this.value); if(event.key==='Escape'){rvState.editingKey=null;rvRender();}"
+          onblur="rvCommitFilter('${c.key}',this.value)"></th>`;
+      }
+      const isSorted=rvState.sort&&rvState.sort.key===c.key;
+      const arrow=isSorted?(rvState.sort.dir==='asc'?'▲':'▼'):'';
+      const isFiltered=!!rvState.filters[c.key];
+      return `<th class="${isFiltered?'rv-filtered':''}" onclick="rvSort('${c.key}')" ondblclick="rvEditFilter(event,'${c.key}')">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}${isFiltered?' 🔎':''}</th>`;
+    }).join('')}
+  </tr>`;
+
+  // Double-click ANYWHERE in a row's own cells (not the expand toggle) opens
+  // that row's full record in Detail View (page 4) — the row/column
+  // convention's own drill-down endpoint. Works the same for a parent row
+  // or a child row; each is "one item" on its own terms.
+  const rowHtml=(r,isChild)=>{
+    const hasKids=r.children&&r.children.length;
+    const expanded=rvState.expanded.has(r.id);
+    let html=`<tr class="${isChild?'rv-child':'rv-row'}" ondblclick="dvOpenFor('${r.id}')">
+      <td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>
+      ${RV_SAMPLE_COLUMNS.map((c,idx)=>`<td>${idx===0&&isChild?'— ':''}${r[c.key]||''}</td>`).join('')}
+    </tr>`;
+    if(hasKids&&expanded) html+=r.children.map(c=>rowHtml(c,true)).join('');
+    return html;
+  };
+
+  wrap.innerHTML=`${statusHtml}
+    <div class="rv-table-wrap"><table class="rv-table">
+      <thead>${theadHtml}</thead>
+      <tbody>${rows.map(r=>rowHtml(r,false)).join('')}</tbody>
+    </table></div>`;
+
+  if(rvState.editingKey){
+    const input=document.getElementById('rv-filter-input');
+    if(input){ input.focus(); input.select(); }
+  }
 }
 
-function openPanel(n){
-  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  const tile=document.getElementById('tile-'+n);
-  const panel=document.getElementById('panel-'+n);
-  if(tile)tile.classList.add('active');
-  if(panel)panel.classList.add('active');
+function rvSort(key){
+  if(rvState.sort&&rvState.sort.key===key){
+    rvState.sort.dir=rvState.sort.dir==='asc'?'desc':'asc';
+  } else {
+    rvState.sort={key,dir:'asc'};
+  }
+  rvRender();
+}
+
+function rvEditFilter(e,key){
+  e.stopPropagation();
+  rvState.editingKey=key;
+  rvRender();
+}
+
+function rvCommitFilter(key,val){
+  const trimmed=(val||'').trim();
+  if(trimmed==='') delete rvState.filters[key];
+  else rvState.filters[key]=trimmed;
+  rvState.editingKey=null;
+  rvRender();
+}
+
+function rvToggleExpand(id){
+  if(rvState.expanded.has(id)) rvState.expanded.delete(id);
+  else rvState.expanded.add(id);
+  rvRender();
+}
+
+function rvClear(){
+  rvState.sort=null;
+  rvState.filters={};
+  rvRender();
+}
+rvRender(); // initial paint — must run after the const data/state above are defined, not from inside buildPlaceholders (which executes earlier in file order)
+
+// ══════════════════════════════════════════════
+// DETAIL VIEW — reusable layout type #3 (Tabbed View #1, Row View #2). The
+// drill-down endpoint for exactly one Row View item, reached by double-
+// clicking that row. Shows every field on that one record as a plain
+// label/value list, plus — if the record itself has children (e.g.
+// "Design review" has its own sub-tasks) — those children rendered as
+// their own small Row View underneath, since a detail's own sub-items are
+// themselves a row/column list, just scoped to one parent instead of the
+// whole table. Reuses RV_SAMPLE_COLUMNS/RV_SAMPLE_ROWS — same sample data
+// as Row View, since they're drilling into the same records.
+// Genuinely open, not built yet: a child row inside a Detail View's own
+// nested list isn't itself double-click-drillable one level deeper — this
+// only goes one layer deep (item → its direct children) for now.
+// ══════════════════════════════════════════════
+const dvState={currentId:null};
+
+function dvFindItem(id,rows){
+  rows=rows||RV_SAMPLE_ROWS;
+  for(const r of rows){
+    if(r.id===id) return r;
+    if(r.children){ const found=dvFindItem(id,r.children); if(found) return found; }
+  }
+  return null;
+}
+
+function dvOpenFor(id){
+  dvState.currentId=id;
+  dvRender();
+  openPage(4);
+}
+
+function dvRender(){
+  const wrap=document.getElementById('dv-mount');
+  if(!wrap)return;
+  const item=dvState.currentId?dvFindItem(dvState.currentId):null;
+  if(!item){
+    wrap.innerHTML=`<div class="dv-empty">No item selected yet — double-click any row in Row View to open its detail here.</div>`;
+    return;
+  }
+  const fieldsHtml=RV_SAMPLE_COLUMNS.map(c=>`
+    <div class="dv-label">${c.label}</div>
+    <div class="dv-value">${item[c.key]||'—'}</div>`).join('');
+  let childrenHtml='';
+  if(item.children&&item.children.length){
+    childrenHtml=`<div class="dv-sub-h">Items under this one</div>
+      <div class="rv-table-wrap" style="max-width:760px"><table class="rv-table">
+        <thead><tr><th style="width:24px"></th>${RV_SAMPLE_COLUMNS.map(c=>`<th style="cursor:default">${c.label}</th>`).join('')}</tr></thead>
+        <tbody>${item.children.map(c=>`<tr class="rv-row" ondblclick="dvOpenFor('${c.id}')"><td></td>${RV_SAMPLE_COLUMNS.map(col=>`<td>${c[col.key]||''}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>`;
+  }
+  wrap.innerHTML=`<div class="dv-fields">${fieldsHtml}</div>${childrenHtml}`;
+}
+dvRender(); // initial paint — empty state until a row is double-clicked
+
+// Tabbed-layout behavior (copied from Computer Health's showTab — folder-tab
+// look, sub-content switching within one detail area — no data hooks
+// attached). Multi-row overflow, Ryan's spec 2026-08-04: the tab row grows
+// as many rows behind itself as it needs (plain CSS flex-wrap, see
+// .ch-tab-nav) rather than scrolling or truncating. Selecting a tab that
+// isn't in the front row brings its WHOLE row forward — every tab that
+// currently shares its wrapped line moves to the end of the row's source
+// order, and since flex-wrap always fills top-to-bottom in source order,
+// that group becomes the last (front, touching the content) row while the
+// previously-front row shifts back. Classic multi-row property-sheet
+// behavior — same idea as old Windows tabbed dialogs.
+function showChTab(detailNum,n){
+  const detail=document.getElementById('detail-'+detailNum);
+  const clickedBtn=event.target;
+  const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
+  if(tabNav){
+    const rowTop=clickedBtn.offsetTop;
+    Array.from(tabNav.children)
+      .filter(b=>b.offsetTop===rowTop)
+      .forEach(b=>tabNav.appendChild(b)); // re-append in place → moves this row's tabs to the end of source order
+  }
+  detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
+  clickedBtn.classList.add('active');
+}
+
+function openPage(n){
+  document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
+  const page=document.getElementById('page-'+n);
+  const detail=document.getElementById('detail-'+n);
+  if(page)page.classList.add('active');
+  if(detail)detail.classList.add('active');
 }
 
 // Double-click anywhere in the sidebar collapses it to icon-only, or
 // expands it back to the full labeled row. Double-click again to reverse.
 function toggleSidebar(){
-  document.getElementById('sidebarTiles').classList.toggle('collapsed');
+  document.getElementById('sidebarPages').classList.toggle('collapsed');
 }
+
+// ══════════════════════════════════════════════
+// ALT+NUMBER PAGE SHORTCUTS — added 2026-08-04, Ryan's direct instruction.
+// Alt+1 jumps to page 1, Alt+7 to page 7, etc. Two-digit pages (Alt+20)
+// need two key presses while Alt stays held down — Chrome/etc. deliver
+// those as separate keydown events, so digits are buffered while Alt is
+// held and committed to openPage() the moment Alt is released. This scales
+// automatically as pages are added/removed — it reads PAGE_COUNT live, no
+// per-page wiring needed when a project grows past 20 or shrinks below it.
+// Ignored while typing in an input/textarea (e.g. the Row View filter
+// box) so it never steals a real keystroke there.
+// ══════════════════════════════════════════════
+let altPageBuffer='';
+document.addEventListener('keydown',(e)=>{
+  // Fresh Alt press (not a repeat, not held from before) always starts a
+  // clean buffer — guards against a missed keyup (see blur note below)
+  // leaving stale digits from a previous combo that would silently corrupt
+  // the next one.
+  if(e.key==='Alt'&&!e.repeat) altPageBuffer='';
+  if(!e.altKey)return;
+  const tag=document.activeElement&&document.activeElement.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA')return;
+  if(e.key>='0'&&e.key<='9'){
+    e.preventDefault();
+    altPageBuffer+=e.key;
+  }
+});
+document.addEventListener('keyup',(e)=>{
+  if(e.key!=='Alt'||!altPageBuffer)return;
+  const n=parseInt(altPageBuffer,10);
+  altPageBuffer='';
+  if(n>=1&&n<=PAGE_COUNT) openPage(n);
+});
+// Windows briefly hands focus to the browser chrome (menu/address bar) the
+// instant Alt is tapped — if that swallows the keyup, the buffer above
+// never clears. A window blur is the other side of that same failure mode,
+// so clear the buffer there too as a second safety net.
+window.addEventListener('blur',()=>{altPageBuffer='';});
 
 // ══════════════════════════════════════════════
 // LOGIN CONNECTION — the one live piece of this template.
