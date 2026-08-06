@@ -990,10 +990,31 @@ function showChTab(detailNum,n){
   const clickedBtn=event.target;
   const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
   if(tabNav){
-    const rowTop=clickedBtn.offsetTop;
-    Array.from(tabNav.children)
-      .filter(b=>b.offsetTop===rowTop)
-      .forEach(b=>tabNav.appendChild(b)); // re-append in place → moves this row's tabs to the end of source order
+    // Two real bugs fixed 2026-08-06, Ryan's direct correction, both
+    // stemming from the same row-promotion logic below (intended ONLY
+    // for when tabs wrap into multiple rows — see .ch-tab-nav's CSS
+    // comment):
+    // (1) It ran unconditionally on every click, even with a single row
+    //     of tabs that never wraps — reshuffling tabs that had no reason
+    //     to move at all.
+    // (2) .ch-tab-btn.active has a different margin-top than inactive
+    //     tabs (see CSS), which shifts ITS OWN offsetTop just enough
+    //     that exact-equality matching (`b.offsetTop===rowTop`) treated
+    //     the currently-active tab as being in a "different row" from
+    //     its own single-row siblings — silently excluding it from the
+    //     reorder while shuffling everything else, which is exactly what
+    //     made tab 1 become unreachable and tab 5 land in the wrong slot.
+    // Fix: only run the reorder at all when tabs have genuinely wrapped
+    // (tabNav is taller than ~1.5 rows), and use a tolerance instead of
+    // exact equality when grouping a row, so the active tab's own margin
+    // quirk can't misclassify it as a separate row.
+    const wrapped=tabNav.scrollHeight>clickedBtn.offsetHeight*1.5;
+    if(wrapped){
+      const rowTop=clickedBtn.offsetTop;
+      Array.from(tabNav.children)
+        .filter(b=>Math.abs(b.offsetTop-rowTop)<15)
+        .forEach(b=>tabNav.appendChild(b)); // re-append in place → moves this row's tabs to the end of source order
+    }
   }
   detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
