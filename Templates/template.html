@@ -153,19 +153,6 @@ header{
 .page-info{flex:1;min-width:0}
 .page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* ── ASK AMIT SIDEBAR — matches Hub/Council exactly, added 2026-07-25 ── */
-.ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0}
-.ask-amit-tile{
-  display:flex;align-items:center;gap:10px;width:100%;
-  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.45);
-  border-radius:9px;padding:11px 12px;cursor:pointer;
-  transition:all .18s;
-}
-.ask-amit-tile:hover{background:rgba(201,168,76,.22);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2)}
-.ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
-.ask-amit-name{font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
-.ask-amit-sub{font-size:11px;color:var(--muted);margin-top:2px}
-
 /* ── MAIN AREA ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
 .detail{
@@ -244,6 +231,43 @@ header{
 .popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
 .popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
 .popup-close-btn:hover{color:var(--gold2)}
+
+/* ── RIGHT RAIL — added 2026-08-06, Ryan's direct instruction. Global,
+   present on every page regardless of which one is active — not part of
+   any page/detail, built once in <script> alongside them. Reserved for
+   whatever should be reachable from anywhere: Ask Amit is the first
+   occupant (moved down from the old bottom-left sidebar tile, condensed
+   to icon-only), and this is the eventual home for Amit's own symbol —
+   not placed yet, but the column is sized for it now. Width (64px) is
+   sized to comfortably hold one icon plus padding, matching the header's
+   32px Amit logo — adjust here, in one place, if a future icon needs
+   more room. Every rail icon carries a .rail-tooltip so hovering always
+   names the action, never just implies it via a bare icon. ── */
+.right-rail{
+  width:64px;flex-shrink:0;
+  background:var(--card-head);
+  border-left:2px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:16px 0;gap:12px;
+}
+.rail-icon{
+  position:relative;
+  width:40px;height:40px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:19px;cursor:pointer;
+  border:1px solid transparent;
+  transition:all .18s;
+}
+.rail-icon:hover{background:rgba(201,168,76,.14);border-color:rgba(201,168,76,.4)}
+.rail-tooltip{
+  position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%) translateX(4px);
+  background:#1a3352;border:1px solid rgba(201,168,76,.45);
+  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
+  padding:6px 10px;border-radius:6px;white-space:nowrap;
+  opacity:0;pointer-events:none;
+  transition:all .15s;box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.rail-icon:hover .rail-tooltip{opacity:1;transform:translateY(-50%) translateX(0)}
 </style>
 </head>
 <body>
@@ -289,6 +313,9 @@ header{
 
   <!-- ── MAIN CONTENT AREA — PLACEHOLDER DETAILS (1-20) ── -->
   <div class="main-area" id="mainArea"></div>
+
+  <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
+  <nav class="right-rail" id="rightRail"></nav>
 
 </div>
 
@@ -413,33 +440,30 @@ const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
       </div>`;
     }
   }
-  // Ask Amit — every real page in the system has this nav item, bottom-left,
-  // same styling and spot. Wired to a sentinel key on purpose: this new
-  // project has no real page yet for Amit to have context about, so
-  // Amit_Ask_Live.js's askAmitLive() will refuse and show a plain reminder
-  // instead of silently opening Gemini with no real context. When this
-  // template is copied into a real project, change TEMPLATE_NOT_CONFIGURED
-  // below to that project's own real key, and write that key's real context
-  // into Amit_Ask_Live.js's PAGE_CONTEXTS - do not skip this step. Ryan's
-  // direct instruction, 2026-07-25.
-  //
-  // Note: an earlier version of this pattern tried to make Amit's first
-  // message name where the conversation started, keyed off a specific
-  // heading in the page context. That was reverted, 2026-07-25 - it caused
-  // a real persona-adoption refusal on Gemini. See Amit_Ask_Live.js's own
-  // header comment before re-attempting anything like it.
   let navHtml=PAGE_ORDER.map(i=>navHtmlParts[i]||'').join('');
-  navHtml+=`<div class="ask-amit-wrap">
-    <div class="ask-amit-tile" id="page-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')">
-      <div class="ask-amit-icon">💛</div>
-      <div class="page-info">
-        <div class="ask-amit-name">Ask Amit</div>
-        <div class="ask-amit-sub">Walk alongside</div>
-      </div>
-    </div>
-  </div>`;
   nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
+
+  // RIGHT RAIL — added 2026-08-06, Ryan's direct instruction. Global,
+  // built once here, same on every page — not one of the per-page
+  // pages/details above. Ask Amit is the first occupant, moved down from
+  // the old bottom-left sidebar tile and condensed to icon-only so it's
+  // reachable from anywhere without scrolling the page list. Wired to a
+  // sentinel key on purpose: this new project has no real page yet for
+  // Amit to have context about, so Amit_Ask_Live.js's askAmitLive() will
+  // refuse and show a plain reminder instead of silently opening Gemini
+  // with no real context. When this template is copied into a real
+  // project, change TEMPLATE_NOT_CONFIGURED below to that project's own
+  // real key, and write that key's real context into Amit_Ask_Live.js's
+  // PAGE_CONTEXTS — do not skip this step. Ryan's direct instruction,
+  // 2026-07-25, unchanged by this move.
+  const rail=document.getElementById('rightRail');
+  if(rail){
+    rail.innerHTML=`<div class="rail-icon" id="rail-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')">
+      💛
+      <span class="rail-tooltip">Ask Amit</span>
+    </div>`;
+  }
 })();
 
 // ══════════════════════════════════════════════
