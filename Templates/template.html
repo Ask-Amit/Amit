@@ -127,7 +127,6 @@ header{
 .sidebar.collapsed{width:60px}
 .sidebar.collapsed .page-nav{justify-content:center;padding:10px 0}
 .sidebar.collapsed .page-info{display:none}
-.sidebar.collapsed .page-alt-badge{display:none}
 .page-nav{
   display:flex;align-items:center;gap:10px;
   padding:10px 11px;border-radius:9px;cursor:pointer;
@@ -137,18 +136,8 @@ header{
 }
 .page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
 .page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
-/* Real icon placeholder — a real project swaps ▢ for a real icon per page.
-   Always present regardless of DEV_SHOW_PAGE_NUMBERS; the Alt-shortcut
-   badge below is a separate, additional element, not a replacement. */
+/* Real icon placeholder — a real project swaps ▢ for a real icon per page. */
 .page-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
-/* ALT+NUMBER badge — dev/reference aid only, added 2026-08-04 per Ryan's
-   direct instruction: makes the Alt+N keyboard shortcut (see the
-   keydown/keyup listeners near openPage) self-explanatory at a glance,
-   without touching the icon slot. Controlled by the same
-   DEV_SHOW_PAGE_NUMBERS flag as the old number-in-icon approach — hide it
-   the same way, before a real project goes live. */
-.page-alt-badge{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:rgba(240,232,208,.5);border:1px solid rgba(201,168,76,.3);border-radius:4px;padding:2px 5px;flex-shrink:0;white-space:nowrap;line-height:1.3}
-.page-alt-badge b{color:var(--gold2);font-size:10px;margin-left:3px;font-weight:600}
 .page-info{flex:1;min-width:0}
 .page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -324,35 +313,14 @@ header{
 //            that list, never a renumbering pass. (Same relationship as a
 //            form control's Name vs. its TabIndex.)
 //   REFERRING TO A PAGE — always valid either by its name ("Tabbed View")
-//            or its number ("page 2", or Alt+2 to jump straight there —
-//            see the keydown/keyup listeners near openPage). The small
-//            "Alt N" badge next to each page's icon (DEV_SHOW_PAGE_NUMBERS,
-//            near PAGE_COUNT below) exists so that's unambiguous while
-//            building — it is a LOCAL/DEV aid only, never meant to ship
-//            visible in a live deployed app; turn it off before a real
-//            project goes live. The page-icon slot itself (▢, or a real
-//            icon once a project sets one) is separate and always shows.
-//            Whether the badge is showing or not, the page's number never
-//            changes.
+//            or its number ("page 2"). The page-icon slot itself (▢, or a
+//            real icon once a project sets one) is always shown.
 //
 // Blank layout shell — no data model, no per-project logic. Placeholder
 // pages/details 1-20: rename, re-icon, and build real content into each
 // detail when this template is copied for a new project.
 // ══════════════════════════════════════════════
 
-// DEV_SHOW_PAGE_NUMBERS — a local/reference aid only, added 2026-08-04 per
-// Ryan's direct instruction: controls the small "Alt N" badge next to each
-// page's icon (see .page-alt-badge / navHtmlParts below), which exists so
-// whoever is BUILDING the app (Ryan, Amit, an AmitCoder user talking
-// through changes by page number) can point at pages unambiguously and
-// see the Alt+N keyboard shortcut at a glance — it is NOT meant to ship
-// visible in a live, deployed app. Leave true while working in AmitCoder /
-// locally; set to false before a real project goes live. Note this only
-// hides the badge — the page-icon slot (▢, or a real icon once a project
-// sets one) is always shown regardless, it's a separate element. The
-// page's actual number never changes either way — this only controls
-// whether the badge is drawn on screen.
-const DEV_SHOW_PAGE_NUMBERS=true;
 const PAGE_COUNT=20;
 // PAGE_ORDER — sidebar DISPLAY position only, see NOMENCLATURE above.
 // Tabbed View (page 2) is listed first here deliberately — it's the
@@ -369,7 +337,6 @@ const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
     const label=i===1?'Introduction':i===2?'Tabbed View':i===3?'Row View':i===4?'Detail View':'Placeholder '+i;
     navHtmlParts[i]=`<div class="page-nav${i===1?' active':''}" id="page-${i}" onclick="openPage(${i})">
       <div class="page-icon" title="Page ${i}">▢</div>
-      ${DEV_SHOW_PAGE_NUMBERS?`<div class="page-alt-badge" title="Keyboard shortcut: Alt+${i}">Alt<b>${i}</b></div>`:''}
       <div class="page-info">
         <div class="page-name">${label}</div>
         <div class="page-sub">—</div>
@@ -677,42 +644,16 @@ function toggleSidebar(){
 }
 
 // ══════════════════════════════════════════════
-// ALT+NUMBER PAGE SHORTCUTS — added 2026-08-04, Ryan's direct instruction.
-// Alt+1 jumps to page 1, Alt+7 to page 7, etc. Two-digit pages (Alt+20)
-// need two key presses while Alt stays held down — Chrome/etc. deliver
-// those as separate keydown events, so digits are buffered while Alt is
-// held and committed to openPage() the moment Alt is released. This scales
-// automatically as pages are added/removed — it reads PAGE_COUNT live, no
-// per-page wiring needed when a project grows past 20 or shrinks below it.
-// Ignored while typing in an input/textarea (e.g. the Row View filter
-// box) so it never steals a real keystroke there.
-// ══════════════════════════════════════════════
-let altPageBuffer='';
-document.addEventListener('keydown',(e)=>{
-  // Fresh Alt press (not a repeat, not held from before) always starts a
-  // clean buffer — guards against a missed keyup (see blur note below)
-  // leaving stale digits from a previous combo that would silently corrupt
-  // the next one.
-  if(e.key==='Alt'&&!e.repeat) altPageBuffer='';
-  if(!e.altKey)return;
-  const tag=document.activeElement&&document.activeElement.tagName;
-  if(tag==='INPUT'||tag==='TEXTAREA')return;
-  if(e.key>='0'&&e.key<='9'){
-    e.preventDefault();
-    altPageBuffer+=e.key;
-  }
-});
-document.addEventListener('keyup',(e)=>{
-  if(e.key!=='Alt'||!altPageBuffer)return;
-  const n=parseInt(altPageBuffer,10);
-  altPageBuffer='';
-  if(n>=1&&n<=PAGE_COUNT) openPage(n);
-});
-// Windows briefly hands focus to the browser chrome (menu/address bar) the
-// instant Alt is tapped — if that swallows the keyup, the buffer above
-// never clears. A window blur is the other side of that same failure mode,
-// so clear the buffer there too as a second safety net.
-window.addEventListener('blur',()=>{altPageBuffer='';});
+// ALT+NUMBER PAGE SHORTCUTS — removed 2026-08-06, Ryan's direct instruction.
+// Windows/Edge/Chrome
+// reserve the bare Alt key as a menu-mnemonic modifier, so real physical
+// Alt+N presses could get intercepted by the browser chrome before ever
+// reaching this page's JS (confirmed via headless testing: synthetic
+// keyboard events worked every time, but that bypasses the exact layer
+// that broke it for a real keyboard). No in-page fix can override that
+// browser-level behavior, so the feature was pulled rather than shipped
+// unreliable. If page-jump shortcuts are wanted again later, use a
+// modifier combo the browser doesn't reserve (e.g. Ctrl+Alt+N).
 
 // ══════════════════════════════════════════════
 // LOGIN CONNECTION — the one live piece of this template.
