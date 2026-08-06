@@ -227,12 +227,15 @@ header{
 
 /* ── ROW VIEW — the other layout type a detail area can hold: Excel-style,
    sortable/filterable, expandable child rows, PLUS per-column inline
-   editing. Single-click a header to sort (toggle asc/desc), double-click
-   to open an inline "contains" filter right in that header cell — no
-   native browser popup, matches the rest of the Amit system's
-   no-native-dialog standard. A status strip states the active sort/filter
-   with a one-click clear. Rows with children get a ▸/▾ toggle, indented
-   beneath the parent.
+   editing. Every column header carries a ▾ menu button (added 2026-08-06,
+   Ryan's direct instruction, replacing the older click-to-sort/double-
+   click-to-type-a-filter interaction entirely — "we're just gonna use the
+   functionality as we would be for an Excel spreadsheet") — opens Sort
+   A→Z / Sort Z→A plus a searchable checklist of that column's own
+   distinct values, same as Excel's own AutoFilter. Filters on different
+   columns stack (AND) exactly the way Excel's own column filters do. A
+   status strip states the active sort/filter with a one-click clear.
+   Rows with children get a ▸/▾ toggle, indented beneath the parent.
    EDITABLE CELLS — merged in from the former standalone "Grid View" layout
    2026-08-06, Ryan's direct instruction: editability is a property of the
    COLUMN (columns[].editable:true), not a separate layout — a Row View
@@ -265,9 +268,36 @@ header{
    width it was set to); .rv-table-wrap's existing overflow:auto handles
    horizontal scrolling once total column width exceeds the visible area. */
 .rv-table{width:auto;border-collapse:collapse;font-size:13px;table-layout:fixed}
-.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 26px 9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
+.rv-th-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;max-width:100%;vertical-align:middle}
 .rv-table th .rv-arrow{margin-left:4px;opacity:.75}
 .rv-table th.rv-filtered{color:var(--gold)}
+/* ── COLUMN FILTER MENU BUTTON + DROPDOWN — added 2026-08-06, Ryan's
+   direct instruction. The ▾ button lives inside the th (position:relative
+   is on the th itself), but the dropdown it opens (#rvColMenu, in the
+   HTML body near #pageHoverTip) is a single SHARED fixed-position element
+   repositioned via JS on open, not nested inside the th — same reasoning
+   as the page-hover-tip: .rv-table-wrap scrolls (overflow:auto), and per
+   the CSS spec that silently clips any CSS-absolute descendant trying to
+   extend past it. A fixed element sidesteps that entirely. ── */
+.rv-col-menu-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:9px;opacity:.55;padding:4px;user-select:none}
+.rv-col-menu-btn:hover{opacity:1}
+.rv-col-menu-btn.active{opacity:1;color:var(--gold)}
+.rv-col-menu{display:none;background:#132a42;border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:10px;width:220px;box-shadow:0 8px 30px rgba(0,0,0,.5);font-family:'Crimson Pro',Georgia,serif;text-transform:none;letter-spacing:0}
+.rv-col-menu-sort{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
+.rv-col-menu-sort button{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.25);color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
+.rv-col-menu-sort button:hover{background:rgba(201,168,76,.15)}
+.rv-col-menu-divider{height:1px;background:rgba(201,168,76,.2);margin:8px 0}
+.rv-col-menu-search{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);border:1px solid rgba(201,168,76,.3);border-radius:5px;padding:6px 8px;color:#fff;font-size:12px;margin-bottom:6px;outline:none;font-family:inherit}
+.rv-col-menu-selectall{font-size:11px;color:var(--gold2);margin-bottom:6px;cursor:pointer}
+.rv-col-menu-selectall span:hover{text-decoration:underline}
+.rv-col-menu-list{max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.rv-col-menu-item{display:flex;align-items:center;gap:7px;font-size:12px;color:#fff;padding:3px 2px;cursor:pointer}
+.rv-col-menu-empty{font-size:11px;color:var(--dim);padding:6px 2px}
+.rv-col-menu-actions{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
+.rv-col-menu-actions button{flex:1;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'Cinzel',serif;letter-spacing:.05em}
+.rv-col-menu-btn-clear{background:rgba(255,255,255,.05);border:1px solid rgba(240,232,208,.25);color:var(--muted)}
+.rv-col-menu-btn-apply{background:rgba(201,168,76,.18);border:1px solid var(--gold);color:var(--gold2)}
 .rv-table td{padding:0;border-bottom:1px solid rgba(201,168,76,.12);overflow:hidden}
 .rv-table td.rv-td-plain{padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ── COLUMN SEPARATORS + RESIZE HANDLES — added 2026-08-06, Ryan's direct
@@ -286,10 +316,60 @@ header{
 .rv-table tr.rv-row.focused td{background:rgba(201,168,76,.1)}
 .rv-table tr.rv-row.focused{box-shadow:inset 3px 0 0 var(--gold)}
 .rv-expand{display:inline-block;width:16px;cursor:pointer;color:var(--gold2)}
-.rv-filter-input{width:100%;background:rgba(255,255,255,.1);border:1px solid var(--gold);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;font-family:inherit;outline:none;text-transform:none;letter-spacing:0}
 .rv-cell-editable{display:block;padding:8px 12px;cursor:text;color:var(--text2);min-height:1em}
 .rv-cell-editable:hover{background:rgba(201,168,76,.1)}
 .rv-cell-input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.1);border:1px solid var(--gold);padding:7px 11px;color:#fff;font-size:13px;font-family:inherit;outline:none}
+
+/* ── BOARD VIEW — Kanban, drag cards between status columns. ── */
+.bv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
+.bv-cols{display:flex;gap:14px;flex:1;overflow-x:auto;align-items:flex-start}
+.bv-col{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:10px;width:230px;flex-shrink:0;display:flex;flex-direction:column;max-height:100%}
+.bv-col.dragover{border-color:var(--gold);background:rgba(201,168,76,.08)}
+.bv-col-head{padding:10px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold2);border-bottom:1px solid rgba(201,168,76,.2)}
+.bv-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.bv-card{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:7px;padding:9px 11px;cursor:grab;font-size:13px}
+.bv-card:active{cursor:grabbing}
+.bv-card-owner{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* ── GALLERY VIEW — visual card grid. ── */
+.glv-wrap{margin:24px;flex:1;overflow-y:auto}
+.glv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.glv-card{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s}
+.glv-card:hover{border-color:var(--gold)}
+.glv-thumb{height:110px;display:flex;align-items:center;justify-content:center;font-size:38px;background:rgba(201,168,76,.08)}
+.glv-body{padding:10px 12px}
+.glv-title{font-size:13px;color:#fff;font-weight:600}
+.glv-sub{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* ── DASHBOARD VIEW — stat tiles + simple bar sparkline. ── */
+.dbv-wrap{margin:24px;flex:1;overflow-y:auto}
+.dbv-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:26px}
+.dbv-tile{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:16px 18px}
+.dbv-tile-label{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.dbv-tile-value{font-size:26px;color:var(--gold2);font-weight:700;margin-top:6px}
+.dbv-chart{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:18px}
+.dbv-chart-title{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:14px}
+.dbv-bars{display:flex;align-items:flex-end;gap:10px;height:120px}
+.dbv-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.dbv-bar{width:100%;background:linear-gradient(180deg,var(--gold2),var(--gold));border-radius:4px 4px 0 0}
+.dbv-bar-label{font-size:10px;color:var(--muted);margin-top:6px}
+
+/* ── SPLIT VIEW — master list left, detail pane right, no page nav. ── */
+.spv-wrap{margin:24px;display:flex;flex:1;min-height:0;gap:18px}
+.spv-list{width:260px;flex-shrink:0;overflow-y:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
+.spv-item{padding:10px 14px;border-bottom:1px solid rgba(201,168,76,.12);cursor:pointer;font-size:13px}
+.spv-item:hover{background:rgba(255,255,255,.04)}
+.spv-item.active{background:rgba(201,168,76,.14);color:var(--gold2)}
+.spv-detail{flex:1;overflow-y:auto}
+
+/* ── FORM VIEW — dedicated create/edit layout, separate from Detail View. ── */
+.fv-wrap{margin:24px;max-width:520px}
+.fv-field{margin-bottom:16px}
+.fv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
+.fv-input,.fv-textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:14px;font-family:inherit;outline:none}
+.fv-textarea{min-height:80px;resize:vertical}
+.fv-save{background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);color:var(--gold2);padding:10px 22px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em}
+.fv-status{font-size:12px;color:var(--gold2);margin-top:10px}
 
 /* ── DETAIL VIEW — the drill-down endpoint for one single Row View item.
    Double-clicking a row (parent or child) anywhere in Row View lands here,
@@ -472,6 +552,11 @@ header{
 <!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
 <div class="page-hover-tip" id="pageHoverTip"></div>
 
+<!-- Single shared Row View column filter menu, fixed-position, JS-positioned
+     on open — see rvToggleColMenu / the CANONICAL LAYOUT: ROW VIEW comment
+     block for why this can't just live nested inside the scrolling table. -->
+<div class="rv-col-menu" id="rvColMenu" style="position:fixed;z-index:9999"></div>
+
 <!-- SYNC / SIGN-IN MODAL -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
   <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
@@ -536,6 +621,19 @@ header{
 // detail when this template is copied for a new project.
 // ══════════════════════════════════════════════
 
+// currentUser declared here, not down near the rest of the LOGIN
+// CONNECTION code — added 2026-08-06, real bug caught during testing.
+// cvCreate('cv-mount') runs synchronously at script-load time (see the
+// DEMO block), which calls cvLoadEntries, which now checks currentUser
+// (added same session, scoping pursuits to whoever's signed in). Since
+// that check ran before the `let currentUser` declaration further down
+// the file had executed, it threw "Cannot access before initialization"
+// — a temporal dead zone crash, the exact same class of bug already
+// documented for Row View's initial rvRender() call. Declaring it here,
+// early, means it already exists (as null) by the time any synchronous
+// script-load code checks it; the LOGIN CONNECTION section further down
+// only ASSIGNS to it from here forward, it doesn't redeclare it.
+let currentUser=null;
 const PAGE_COUNT=20;
 // PAGE_ORDER — sidebar DISPLAY position only, see NOMENCLATURE above.
 // Tabbed View (page 2) is listed first here deliberately — it's the
@@ -627,6 +725,31 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
         <div class="detail-head"><span class="detail-heading">${label}</span></div>
         <div class="cv-wrap" id="cv-mount"></div>
+      </div>`;
+    } else if(i===7){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="bv-wrap" id="bv-mount"></div>
+      </div>`;
+    } else if(i===8){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="glv-wrap" id="glv-mount"></div>
+      </div>`;
+    } else if(i===9){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="dbv-wrap" id="dbv-mount"></div>
+      </div>`;
+    } else if(i===10){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="spv-wrap" id="spv-mount"></div>
+      </div>`;
+    } else if(i===11){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="fv-wrap" id="fv-mount"></div>
       </div>`;
     } else {
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}">
@@ -801,12 +924,12 @@ const RV_SAMPLE_ROWS=[
   {id:'r5',name:'Launch',status:'Not Started',owner:'Ryan',due:'2026-08-20'}
 ];
 
-const rvInstances=new Map(); // containerId -> {columns,rows,sort,filters,expanded,editingKey,editingCell,focusedRowId,onRowOpen,onCellCommit}
+const rvInstances=new Map(); // containerId -> {columns,rows,sort,colFilters,expanded,editingCell,focusedRowId,colWidths,onRowOpen,onCellCommit}
 
 function rvCreate(containerId,columns,rows,opts={}){
   rvInstances.set(containerId,{
     columns,rows,
-    sort:null,filters:{},expanded:new Set(),editingKey:null,editingCell:null,
+    sort:null,colFilters:{},expanded:new Set(),editingCell:null,
     focusedRowId:(rows[0]&&rows[0].id)||null,
     colWidths:{}, // key -> px, filled in on first render / user drag (see rvStartResize)
     onRowOpen:opts.onRowOpen||null,
@@ -830,15 +953,40 @@ function rvFlattenVisible(inst,rows){
   return out;
 }
 
-function rvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=rvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  let rows=inst.rows.slice();
-  Object.entries(inst.filters).forEach(([key,val])=>{
-    if(!val)return;
-    rows=rows.filter(r=>String(r[key]||'').toLowerCase().includes(val.toLowerCase()));
+// EXCEL-STYLE COLUMN FILTER MENU — added 2026-08-06, Ryan's direct
+// instruction, replacing the old click-header-to-sort/double-click-to-
+// type-a-filter interaction entirely ("we're just gonna use the
+// functionality as we would be for an Excel spreadsheet"). Each column's
+// ▾ button opens Sort A→Z / Sort Z→A buttons plus a searchable checklist
+// of that column's own distinct values — check/uncheck to include/exclude
+// specific values, same as Excel's own AutoFilter. Filters across
+// different columns compose with AND and stack ("stair-step on top of
+// each other," Ryan's words) — filtering Name then filtering Owner
+// narrows by both together, same as it always has.
+//
+// rvApplyColFilters(inst, rows, excludeKey) applies every active column
+// filter EXCEPT excludeKey — this is what lets a column's own dropdown
+// show the distinct values still reachable given every OTHER column's
+// current filter (real Excel behavior: opening the Owner dropdown while
+// Name is already filtered only lists Owners that actually occur among
+// the currently-Name-filtered rows), while still letting that column's
+// own prior selection be re-shown/adjusted rather than hidden by itself.
+function rvApplyColFilters(inst,rows,excludeKey){
+  let out=rows;
+  Object.entries(inst.colFilters).forEach(([key,valSet])=>{
+    if(key===excludeKey||!valSet||!valSet.size)return;
+    out=out.filter(r=>valSet.has(String(r[key]||'')));
   });
+  return out;
+}
+
+function rvColumnDistinctValues(inst,key){
+  const rows=rvApplyColFilters(inst,inst.rows,key);
+  return Array.from(new Set(rows.map(r=>String(r[key]||'')))).sort((a,b)=>a.localeCompare(b));
+}
+
+function rvGetVisibleRows(inst){
+  let rows=rvApplyColFilters(inst,inst.rows,null);
   if(inst.sort){
     const{key,dir}=inst.sort;
     rows=rows.slice().sort((a,b)=>{
@@ -846,14 +994,143 @@ function rvRenderInstance(containerId){
       return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
     });
   }
+  return rows;
+}
+
+// A single shared floating menu (#rvColMenu, fixed-position — see the
+// HTML near #pageHoverTip) reused across every Row View instance, exactly
+// the same reasoning documented on that tooltip: .rv-table-wrap scrolls
+// (overflow:auto), and per the CSS spec that silently clips any
+// CSS-absolute child trying to extend past it — a single fixed-position
+// element positioned via JS sidesteps that entirely, rather than nesting
+// the menu inside the scrolling table itself. Only one column menu can
+// be open at a time system-wide, matching Excel's own single-active-
+// dropdown behavior. rvMenuState holds the in-progress (not yet applied)
+// checklist selection so Apply/Cancel/Clear all have something to act on.
+let rvMenuState=null; // {containerId,key,checked:Set,search}
+
+function rvToggleColMenu(e,containerId,key){
+  e.stopPropagation();
+  if(rvMenuState&&rvMenuState.containerId===containerId&&rvMenuState.key===key){
+    rvCloseColMenu();return;
+  }
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  const values=rvColumnDistinctValues(inst,key);
+  const existing=inst.colFilters[key];
+  rvMenuState={containerId,key,checked:existing&&existing.size?new Set(existing):new Set(values),search:''};
+  rvRenderColMenu();
+  const btn=e.target.closest('.rv-col-menu-btn');
+  const r=btn.getBoundingClientRect();
+  const menu=document.getElementById('rvColMenu');
+  menu.style.display='block';
+  menu.style.top=(r.bottom+4)+'px';
+  menu.style.left=Math.min(r.left,window.innerWidth-236)+'px';
+  setTimeout(()=>document.addEventListener('click',rvOutsideMenuClick),0);
+}
+
+function rvOutsideMenuClick(e){
+  const menu=document.getElementById('rvColMenu');
+  if(menu&&!menu.contains(e.target)) rvCloseColMenu();
+}
+
+function rvCloseColMenu(){
+  rvMenuState=null;
+  const menu=document.getElementById('rvColMenu');
+  if(menu){ menu.style.display='none'; menu.innerHTML=''; }
+  document.removeEventListener('click',rvOutsideMenuClick);
+}
+
+function rvRenderColMenu(){
+  if(!rvMenuState)return;
+  const{containerId,key,checked,search}=rvMenuState;
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  const col=inst.columns.find(c=>c.key===key);
+  const values=rvColumnDistinctValues(inst,key);
+  const shown=search?values.filter(v=>v.toLowerCase().includes(search.toLowerCase())):values;
+  const menu=document.getElementById('rvColMenu');
+  menu.innerHTML=`
+    <div class="rv-col-menu-sort">
+      <button onclick="rvSortSet('${containerId}','${key}','asc')">▲ Sort A→Z</button>
+      <button onclick="rvSortSet('${containerId}','${key}','desc')">▼ Sort Z→A</button>
+    </div>
+    <div class="rv-col-menu-divider"></div>
+    <input class="rv-col-menu-search" id="rvColMenuSearch" placeholder="Search ${col.label.toLowerCase()}…" value="${search.replace(/"/g,'&quot;')}" oninput="rvMenuSearchInput(this.value)">
+    <div class="rv-col-menu-selectall"><span onclick="rvMenuSelectAll()">Select All</span> · <span onclick="rvMenuClearAll()">Clear</span></div>
+    <div class="rv-col-menu-list">
+      ${shown.length?shown.map(v=>`<label class="rv-col-menu-item"><input type="checkbox" ${checked.has(v)?'checked':''} onchange="rvMenuToggleValue('${v.replace(/'/g,"\\'")}')">${v||'(blank)'}</label>`).join(''):'<div class="rv-col-menu-empty">No values</div>'}
+    </div>
+    <div class="rv-col-menu-divider"></div>
+    <div class="rv-col-menu-actions">
+      <button class="rv-col-menu-btn-clear" onclick="rvClearColFilter('${containerId}','${key}')">Clear Filter</button>
+      <button class="rv-col-menu-btn-apply" onclick="rvMenuApply()">Apply</button>
+    </div>`;
+}
+
+function rvMenuSearchInput(val){
+  if(!rvMenuState)return;
+  rvMenuState.search=val;
+  rvRenderColMenu();
+  const input=document.getElementById('rvColMenuSearch');
+  if(input){ input.focus(); input.setSelectionRange(val.length,val.length); }
+}
+
+function rvMenuToggleValue(val){
+  if(!rvMenuState)return;
+  if(rvMenuState.checked.has(val)) rvMenuState.checked.delete(val); else rvMenuState.checked.add(val);
+  rvRenderColMenu();
+}
+
+function rvMenuSelectAll(){
+  if(!rvMenuState)return;
+  const inst=rvInstances.get(rvMenuState.containerId);
+  rvMenuState.checked=new Set(rvColumnDistinctValues(inst,rvMenuState.key));
+  rvRenderColMenu();
+}
+
+function rvMenuClearAll(){
+  if(!rvMenuState)return;
+  rvMenuState.checked=new Set();
+  rvRenderColMenu();
+}
+
+function rvMenuApply(){
+  if(!rvMenuState)return;
+  const{containerId,key,checked}=rvMenuState;
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  const values=rvColumnDistinctValues(inst,key);
+  if(checked.size>=values.length) delete inst.colFilters[key]; // everything checked = no filter
+  else inst.colFilters[key]=new Set(checked);
+  rvCloseColMenu();
+  rvRenderInstance(containerId);
+}
+
+function rvClearColFilter(containerId,key){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  delete inst.colFilters[key];
+  rvCloseColMenu();
+  rvRenderInstance(containerId);
+}
+
+function rvSortSet(containerId,key,dir){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  inst.sort={key,dir};
+  rvCloseColMenu();
+  rvRenderInstance(containerId);
+}
+
+function rvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=rvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const rows=rvGetVisibleRows(inst);
   const statusParts=[];
   if(inst.sort) statusParts.push(`Sorted by ${inst.columns.find(c=>c.key===inst.sort.key).label} (${inst.sort.dir==='asc'?'A→Z':'Z→A'})`);
-  Object.entries(inst.filters).filter(([,v])=>v).forEach(([key,val])=>{
-    statusParts.push(`${inst.columns.find(c=>c.key===key).label} contains "${val}"`);
+  Object.entries(inst.colFilters).forEach(([key,valSet])=>{
+    if(valSet&&valSet.size) statusParts.push(`${inst.columns.find(c=>c.key===key).label}: ${valSet.size} selected`);
   });
   const statusHtml=statusParts.length
     ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear('${containerId}')">Clear</span></div>`
-    : `<div class="rv-status">No sort or filter active — click a header to sort, double-click to filter · ↑/↓ to move, Enter to open</div>`;
+    : `<div class="rv-status">Click ▾ on any column to sort or filter · ↑/↓ to move, Enter to open</div>`;
 
   // colgroup drives the actual pixel widths (table-layout:fixed, see CSS) —
   // this is what makes a drag-resize stick across re-renders instead of
@@ -866,15 +1143,14 @@ function rvRenderInstance(containerId){
   const theadHtml=`<tr>
     <th style="width:24px"></th>
     ${inst.columns.map(c=>{
-      if(inst.editingKey===c.key){
-        return `<th onclick="event.stopPropagation()"><input class="rv-filter-input" id="rv-filter-input-${containerId}" value="${(inst.filters[c.key]||'').replace(/"/g,'&quot;')}" placeholder="${c.label} contains…"
-          onkeydown="if(event.key==='Enter')rvCommitFilter('${containerId}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingKey=null;rvRenderInstance('${containerId}');}"
-          onblur="rvCommitFilter('${containerId}','${c.key}',this.value)"></th>`;
-      }
       const isSorted=inst.sort&&inst.sort.key===c.key;
       const arrow=isSorted?(inst.sort.dir==='asc'?'▲':'▼'):'';
-      const isFiltered=!!inst.filters[c.key];
-      return `<th class="${isFiltered?'rv-filtered':''}" style="position:relative" onclick="rvSort('${containerId}','${c.key}')" ondblclick="rvEditFilter(event,'${containerId}','${c.key}')">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}${isFiltered?' 🔎':''}<span class="rv-col-resizer" onmousedown="event.stopPropagation();rvStartResize(event,'${containerId}','${c.key}')" ondblclick="event.stopPropagation()"></span></th>`;
+      const hasFilter=inst.colFilters[c.key]&&inst.colFilters[c.key].size;
+      return `<th class="${hasFilter?'rv-filtered':''}" style="position:relative">
+        <span class="rv-th-label">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}</span>
+        <span class="rv-col-menu-btn${hasFilter?' active':''}" onclick="rvToggleColMenu(event,'${containerId}','${c.key}')">▾</span>
+        <span class="rv-col-resizer" onmousedown="event.stopPropagation();rvStartResize(event,'${containerId}','${c.key}')" ondblclick="event.stopPropagation()"></span>
+      </th>`;
     }).join('')}
   </tr>`;
 
@@ -915,10 +1191,6 @@ function rvRenderInstance(containerId){
       <tbody>${rowsHtml}</tbody>
     </table></div>`;
 
-  if(inst.editingKey){
-    const input=document.getElementById('rv-filter-input-'+containerId);
-    if(input){ input.focus(); input.select(); }
-  }
   if(inst.editingCell){
     const input=document.getElementById('rv-cell-input-'+containerId);
     if(input){ input.focus(); input.select(); }
@@ -931,32 +1203,6 @@ function rvHandleRowOpen(containerId,itemId){
   dvOpenFor(itemId); // default fallback, unchanged from the template's original behavior
 }
 
-function rvSort(containerId,key){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  if(inst.sort&&inst.sort.key===key){
-    inst.sort.dir=inst.sort.dir==='asc'?'desc':'asc';
-  } else {
-    inst.sort={key,dir:'asc'};
-  }
-  rvRenderInstance(containerId);
-}
-
-function rvEditFilter(e,containerId,key){
-  e.stopPropagation();
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  inst.editingKey=key;
-  rvRenderInstance(containerId);
-}
-
-function rvCommitFilter(containerId,key,val){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  const trimmed=(val||'').trim();
-  if(trimmed==='') delete inst.filters[key];
-  else inst.filters[key]=trimmed;
-  inst.editingKey=null;
-  rvRenderInstance(containerId);
-}
-
 function rvToggleExpand(containerId,id){
   const inst=rvInstances.get(containerId);if(!inst)return;
   if(inst.expanded.has(id)) inst.expanded.delete(id);
@@ -967,7 +1213,7 @@ function rvToggleExpand(containerId,id){
 function rvClear(containerId){
   const inst=rvInstances.get(containerId);if(!inst)return;
   inst.sort=null;
-  inst.filters={};
+  inst.colFilters={};
   rvRenderInstance(containerId);
 }
 
@@ -1023,27 +1269,17 @@ function rvSetFocus(containerId,rowId){
 }
 
 // ↑/↓ move the focused row through the current visible order (matches
-// exactly what rvRenderInstance just drew, via the same rvFlattenVisible
-// helper); Enter opens the focused row exactly like a double-click.
-// Ignored while a header filter or a cell edit is actively open, so arrow
-// keys inside those inputs behave normally instead of hijacking row focus.
+// exactly what rvRenderInstance just drew, via the same rvGetVisibleRows/
+// rvFlattenVisible helpers); Enter opens the focused row exactly like a
+// double-click. Ignored while a cell edit or the column filter menu is
+// actively open, so arrow keys there behave normally instead of
+// hijacking row focus.
 function rvHandleKeydown(e,containerId){
   const inst=rvInstances.get(containerId);if(!inst)return;
-  if(inst.editingKey||inst.editingCell)return;
+  if(inst.editingCell||(rvMenuState&&rvMenuState.containerId===containerId))return;
   if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&e.key!=='Enter')return;
   e.preventDefault();
-  let rows=inst.rows.slice();
-  Object.entries(inst.filters).forEach(([key,val])=>{
-    if(!val)return;
-    rows=rows.filter(r=>String(r[key]||'').toLowerCase().includes(val.toLowerCase()));
-  });
-  if(inst.sort){
-    const{key,dir}=inst.sort;
-    rows=rows.slice().sort((a,b)=>{
-      const av=String(a[key]||''),bv=String(b[key]||'');
-      return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
-    });
-  }
+  const rows=rvGetVisibleRows(inst);
   const flat=rvFlattenVisible(inst,rows);
   if(!flat.length)return;
   const idx=flat.findIndex(f=>f.item.id===inst.focusedRowId);
@@ -1260,12 +1496,20 @@ async function tableToRowViewConfirm(containerId,tableName){
 // same way Row View started with sample data before real binding existed.
 // ══════════════════════════════════════════════
 const cvInstances=new Map(); // containerId -> {year,month}
+// cvActiveContainers — added 2026-08-06, Ryan's direct instruction:
+// pursuits must be scoped to whoever is actually signed in, the same way
+// they are in the Hub, not shown globally regardless of login. This set
+// tracks every live Calendar View instance so the LOGIN CONNECTION code
+// further down (db.auth.onAuthStateChange) can re-fetch every one of
+// them the moment someone signs in or out — see the call there.
+const cvActiveContainers=new Set();
 const CV_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const CV_DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function cvCreate(containerId){
   const now=new Date();
   cvInstances.set(containerId,{year:now.getFullYear(),month:now.getMonth(),entries:[]});
+  cvActiveContainers.add(containerId);
   cvRenderInstance(containerId);
   cvLoadEntries(containerId);
 }
@@ -1337,13 +1581,23 @@ async function cvLoadEntries(containerId){
   const lastDay=new Date(year,month+1,0).getDate();
   const endDs=`${year}-${String(month+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
   let entries=[];
-  try{
-    const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&due_date=gte.${startDs}&due_date=lte.${endDs}&order=due_date.asc`,{
-      headers:{apikey:SB_KEY,Accept:'application/json'}
-    });
-    entries=res.ok?await res.json():[];
-  }catch(e){
-    entries=[];
+  // Scoped to whoever's actually signed in — added 2026-08-06, Ryan's
+  // direct instruction: "linked to the login... just like it operates
+  // within the Hub." Without currentUser (nobody signed in), there is no
+  // legitimate account whose pursuits these would be, so the calendar
+  // shows none — not an error, just the honest empty state, same as the
+  // Hub itself only ever shows a signed-in user their own hub_entries
+  // rows. currentUser is set by the LOGIN CONNECTION code further down
+  // this file (Supabase auth), which already exists in this template.
+  if(currentUser){
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&user_id=eq.${currentUser.id}&due_date=gte.${startDs}&due_date=lte.${endDs}&order=due_date.asc`,{
+        headers:{apikey:SB_KEY,Accept:'application/json'}
+      });
+      entries=res.ok?await res.json():[];
+    }catch(e){
+      entries=[];
+    }
   }
   const stillCurrent=inst.year===requestYear&&inst.month===requestMonth;
   if(!stillCurrent)return; // a newer request has already superseded this one
@@ -1494,12 +1748,18 @@ function toggleSidebar(){
 const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
 const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
 const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
-let currentUser=null;
+// currentUser declared near the top of the script now, not here — see
+// that declaration's comment for why (a temporal dead zone bug).
 
 if(db){
   db.auth.onAuthStateChange((event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    // Re-fetch every live Calendar View's pursuits the moment sign-in
+    // state changes — added 2026-08-06, Ryan's direct instruction. Signs
+    // in → that account's real pursuits appear; signs out → they clear,
+    // same as the calendar showing nothing for nobody signed in at all.
+    cvActiveContainers.forEach(id=>cvLoadEntries(id));
   });
 }
 
