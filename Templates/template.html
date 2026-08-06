@@ -6,11 +6,33 @@
 <!-- ══════════════════════════════════════════════
      COPYING THIS TEMPLATE FOR A NEW PROJECT — read this first.
 
+     WHAT THIS FILE IS — rebuilt 2026-08-06, Ryan's direct instruction.
+     This is now the MINIMAL STARTER, not the reference catalog. It has
+     Introduction (page 1) plus a few blank placeholder pages, and the
+     global infrastructure every Amit app needs (right rail — Ask Amit,
+     Sign In/Sync, Demo Mode — popup destination, login connection,
+     tooltip mechanism, clock/greeting). It deliberately does NOT contain
+     any of the canonical layouts (Tabbed/Row/Detail/Calendar/Day/Board/
+     Gallery/Dashboard/Split/Form/Chart/Inbox/Drawer/Tree/Breadcrumb
+     View) — those live permanently in Templates\TemplateViews.html, the
+     never-modified reference library. This split exists so a real
+     project's starting file is never bloated with layout code it isn't
+     using — see Templates\CLAUDE.md's "TEMPLATE VIEWS vs TEMPLATE"
+     section for the full reasoning.
+
+     ADDING A LAYOUT TO A REAL PROJECT — go to Templates\TemplateViews.html,
+     find the named "CANONICAL LAYOUT:" or "CANONICAL DESTINATION:" comment
+     block, and copy it verbatim into this file — never reconstruct a
+     layout's behavior from memory or approximation. Wire it into a real
+     page/tab/popup the same way TemplateViews.html's own DEMO block shows
+     it being done there. (J New, once built, automates this hand-off —
+     see Templates\CLAUDE.md.)
+
      NAMING: the new project's folder name IS the app's name. If the
      folder is `Disco\`, the app is "Disco" — rename every literal
      occurrence of "Template" below to that exact name:
        - <title>Template</title>            (this line)
-       - #pageTitle text, currently "Template" (~line 155)
+       - #pageTitle text, currently "Template" (~line 90)
        - the copied file itself: save as Disco.html, not template.html
        - askAmitLive('TEMPLATE_NOT_CONFIGURED') → askAmitLive('yourRealKey'),
          and write that key's real context into ../Amit_Ask_Live.js's
@@ -36,28 +58,18 @@
      future session can orient fast without re-deriving context.
 
      NOMENCLATURE: this template uses PAGE (a sidebar item — button + its
-     fixed number) and DETAIL (the content area on the right that a page
-     opens into). A detail can hold any LAYOUT type — "Tabbed Layout" is
-     the one built in below. Full definitions live in the NOMENCLATURE
-     comment at the top of the <script> block — read that before touching
-     any page/detail/layout code, or answering a question about it.
+     fixed number), DETAIL (the content area a page opens into), LAYOUT
+     (what kind of content lives inside a detail — Tabbed/Row/Detail/etc,
+     all defined in TemplateViews.html), and DESTINATION (WHERE a layout
+     mounts — a page, a tab slot, or a Popup; Popup is built into this
+     starter since it's generic infrastructure, not a layout itself). Full
+     definitions live in the NOMENCLATURE comment at the top of the
+     <script> block below.
 
      PAGE ORDER: sidebar display position is controlled by the PAGE_ORDER
      array in the script below, kept separate from each page's fixed
      number — reorder pages by editing that array, never by renumbering
      pages/details themselves. See Templates\CLAUDE.md for why.
-
-     IMPORTING A SINGLE LAYOUT PIECE (not the whole template) — if you were
-     sent here from a DIFFERENT project (e.g. "go to Templates, grab a Row
-     View, put it on page 3 of AmitAccounting"), READ Templates\CLAUDE.md
-     FIRST, before copying anything. That file defines the canonical
-     nomenclature (LAYOUT vs DESTINATION) and names every reusable piece
-     that lives in this file. Once you know the name, find its matching
-     "CANONICAL LAYOUT:" or "CANONICAL DESTINATION:" comment block in the
-     <script> section below and copy that block verbatim — never
-     reconstruct a layout's behavior from memory or approximation. Wire it
-     into the target page/tab/popup exactly the way the DEMO block near
-     the bottom of the Row/Detail View code shows it being done here.
      ══════════════════════════════════════════════ -->
 <title>Template</title>
 <link rel="icon" type="image/x-icon" href="amit_icon.ico">
@@ -127,67 +139,33 @@ header{
 
 /* ── SIDEBAR ── */
 .sidebar{
-  width:max-content;flex-shrink:0; /* was a fixed 230px — added 2026-08-06,
-    Ryan's direct instruction: the column should size itself to whatever
-    the widest title actually needs, not sit at an arbitrary fixed width
-    with dead space after shorter ones. max-content sizes the sidebar to
-    its widest row's natural content width, and since .page-nav's own
-    left/right padding is already symmetric (4px each), the gap after the
-    longest title and the gap before the icon end up equal automatically
-    — no separate calculation needed, just removing the artificial fixed
-    width that was creating the extra slack. */
+  width:max-content;flex-shrink:0;
   background:var(--card-head);
   border-right:2px solid var(--border);
   display:flex;flex-direction:column;
-  overflow-y:auto;padding:12px 10px;gap:0; /* was 5px — added 2026-08-06, Ryan's direct instruction: no space between rows, each tile sits flush against the next */
+  overflow-y:auto;padding:12px 10px;gap:0;
 }
 .sidebar::-webkit-scrollbar{width:3px}
 .sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
 .sidebar{transition:width .18s ease}
-/* Collapsed width 68px — revised 2026-08-06, Ryan's second correction:
-   the first fix (left 11px / right 4px) kept the icon's x position fixed
-   across states but left it visibly lopsided within the collapsed view
-   itself. Real fix: BOTH sides of .page-nav use the same small padding
-   (6px) in BOTH states — that satisfies both requirements at once, an
-   equal, tight gap around the icon in collapsed, and the icon's x
-   position still never moves when the sidebar toggles, since expanded
-   uses the identical left padding. Padding reduced 6px→4px on all four
-   sides (added 2026-08-06, Ryan's fourth correction — even the corrected
-   square still read as too big) — width dropped from 68→64px to match,
-   still the exact zero-slack fit for a 32px icon + 4px padding each side
-   + the sidebar/nav borders, no leftover slack. Base .page-nav's left
-   padding (below) was reduced 6→4px too, matching this, so the icon's
-   x-position still never moves between collapsed/expanded. */
 .sidebar.collapsed{width:64px}
-/* Uniform 4px padding on ALL FOUR sides (not just left/right) is what
-   actually makes this a square. Left padding matches the base rule
-   below, so the icon's x-position still never moves between
-   collapsed/expanded — this only changes the vertical padding to match. */
 .sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
 .sidebar.collapsed .page-info{display:none}
 .page-nav{
   display:flex;align-items:center;gap:10px;
-  padding:6px 4px;border-radius:9px;cursor:pointer; /* vertical padding 10px→6px — added 2026-08-06, Ryan's direct instruction: expanded rows still too tall */
+  padding:6px 4px;border-radius:9px;cursor:pointer;
   border:1px solid transparent;
-  flex-shrink:0; /* added 2026-08-06 — without this, 20 rows in a column
-    taller than the viewport get silently compressed by flexbox's default
-    shrink behavior instead of scrolling (.sidebar already has
-    overflow-y:auto for exactly that) — this was the real bug behind an
-    icon tile measuring shorter than its own 32px icon. */
+  flex-shrink:0;
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
 }
 .page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
 .page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
-/* Real icon placeholder — a real project swaps ▢ for a real icon per page.
-   Sized to match the header's 32px Amit icon (added 2026-08-06, Ryan's
-   direct instruction — was 26x18, too small). Not forced square — no
-   border-radius/clip-path here, so a round icon (like Amit's own) or any
-   other shape renders exactly as its source image is, unaltered. */
 .page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .page-info{flex:1;min-width:0}
 .page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 /* ── MAIN AREA ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
 .detail{
@@ -211,394 +189,21 @@ header{
 .detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
 .detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
-/* ── TABBED LAYOUT — one of possibly several layout types a detail area can hold (copied structure from Computer Health's folder-tab UI — no data behind it) ──
-   Multi-row overflow, Ryan's spec 2026-08-04: as the window narrows (or a
-   detail simply grows more tabs than fit) the tab row wraps into
-   additional rows behind it rather than scrolling or truncating — flex-
-   wrap below handles that automatically, no JS needed just to grow rows.
-   Clicking a tab in a back row brings its whole row to the front (the row
-   touching the tab content) — that part IS handled in JS, see showChTab. */
-.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
-.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
-.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
-.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
-.ch-tab-content{display:none}
-.ch-tab-content.active{display:block}
-
-/* ── ROW VIEW — the other layout type a detail area can hold: Excel-style,
-   sortable/filterable, expandable child rows, PLUS per-column inline
-   editing. Every column header carries a ▾ menu button (added 2026-08-06,
-   Ryan's direct instruction, replacing the older click-to-sort/double-
-   click-to-type-a-filter interaction entirely — "we're just gonna use the
-   functionality as we would be for an Excel spreadsheet") — opens Sort
-   A→Z / Sort Z→A plus a searchable checklist of that column's own
-   distinct values, same as Excel's own AutoFilter. Filters on different
-   columns stack (AND) exactly the way Excel's own column filters do. A
-   status strip states the active sort/filter with a one-click clear.
-   Rows with children get a ▸/▾ toggle, indented beneath the parent.
-   EDITABLE CELLS — merged in from the former standalone "Grid View" layout
-   2026-08-06, Ryan's direct instruction: editability is a property of the
-   COLUMN (columns[].editable:true), not a separate layout — a Row View
-   instance can have some columns editable and others read-only side by
-   side, decided per-project when the columns array is built. Editable
-   cells are tinted cream (var(--text2), the same cream tone used on the
-   Hub's own Day View) so it's visually obvious which fields can be
-   changed, unstyled/plain for anything not editable. Click an editable
-   cell to edit it in place (Enter/blur commits, Escape cancels) — this
-   does not conflict with double-click-to-open-Detail-View on the row
-   itself, since click and double-click are different events.
-   KEYBOARD NAVIGATION — added same session, Ryan's direct instruction:
-   ↑/↓ move the focused row through the current visible (sorted/filtered/
-   expanded) row order, same order a mouse would encounter scrolling
-   top-to-bottom; Enter on a focused row opens it exactly like a
-   double-click would. ── */
-.rv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
-.rv-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:2px 2px 10px;flex-shrink:0}
-.rv-status .clear{color:var(--gold2);cursor:pointer;text-decoration:underline}
-.rv-table-wrap{flex:1;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px;outline:none}
-.rv-table-wrap:focus-visible{box-shadow:inset 0 0 0 2px rgba(201,168,76,.4)}
-/* width:auto (NOT 100%) is deliberate — added 2026-08-06, Ryan's direct
-   correction. With table-layout:fixed, a table pinned to width:100%
-   forces the browser to proportionally rescale EVERY column to still
-   fill that 100% on every render, which silently overrides any single
-   column's own set width — that's what made dragging one column's border
-   visually resize all the others instead of just the one being dragged.
-   width:auto lets the table's real width be exactly the sum of its own
-   <colgroup> column widths (true Excel behavior — a column keeps the
-   width it was set to); .rv-table-wrap's existing overflow:auto handles
-   horizontal scrolling once total column width exceeds the visible area. */
-.rv-table{width:auto;border-collapse:collapse;font-size:13px;table-layout:fixed}
-.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 36px 9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
-.rv-th-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;max-width:100%;vertical-align:middle}
-.rv-table th .rv-arrow{margin-left:4px;opacity:.75}
-.rv-table th.rv-filtered{color:var(--gold)}
-/* ── COLUMN FILTER MENU BUTTON + DROPDOWN — added 2026-08-06, Ryan's
-   direct instruction. The ▾ button lives inside the th (position:relative
-   is on the th itself), but the dropdown it opens (#rvColMenu, in the
-   HTML body near #pageHoverTip) is a single SHARED fixed-position element
-   repositioned via JS on open, not nested inside the th — same reasoning
-   as the page-hover-tip: .rv-table-wrap scrolls (overflow:auto), and per
-   the CSS spec that silently clips any CSS-absolute descendant trying to
-   extend past it. A fixed element sidesteps that entirely. ── */
-/* Funnel icon replaces the old plain ▾ text — added 2026-08-06, Ryan's
-   direct instruction. Sized to sit inside the th's own reserved right-
-   edge space (see .rv-table th's padding-right, above). Active state
-   (a filter is currently applied to this column) gets a visible gold
-   border + tinted background — Ryan's own words, "put a border around
-   it, be creative" — plus the "-N" order badge showing which pass this
-   column's filter was applied in (see rvAddToFilterOrder/
-   rvRemoveFromFilterOrder). */
-.rv-col-menu-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;display:inline-flex;align-items:center;gap:1px;color:rgba(240,232,208,.55);opacity:1;padding:4px 5px;border-radius:5px;border:1px solid transparent;user-select:none}
-.rv-col-menu-btn:hover{color:var(--gold2);background:rgba(201,168,76,.1)}
-.rv-col-menu-btn.active{color:var(--gold);background:rgba(201,168,76,.16);border-color:var(--gold)}
-.rv-col-menu-order{font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:0;font-family:'Cinzel',serif}
-.rv-col-menu{display:none;background:#132a42;border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:10px;width:220px;box-shadow:0 8px 30px rgba(0,0,0,.5);font-family:'Crimson Pro',Georgia,serif;text-transform:none;letter-spacing:0}
-.rv-col-menu-sort{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
-.rv-col-menu-sort button{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.25);color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
-.rv-col-menu-sort button:hover{background:rgba(201,168,76,.15)}
-.rv-col-menu-divider{height:1px;background:rgba(201,168,76,.2);margin:8px 0}
-.rv-col-menu-search{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);border:1px solid rgba(201,168,76,.3);border-radius:5px;padding:6px 8px;color:#fff;font-size:12px;margin-bottom:6px;outline:none;font-family:inherit}
-.rv-col-menu-selectall{font-size:11px;color:var(--gold2);margin-bottom:6px;cursor:pointer}
-.rv-col-menu-selectall span:hover{text-decoration:underline}
-.rv-col-menu-list{max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
-.rv-col-menu-item{display:flex;align-items:center;gap:7px;font-size:12px;color:#fff;padding:3px 2px;cursor:pointer}
-.rv-col-menu-empty{font-size:11px;color:var(--dim);padding:6px 2px}
-.rv-col-menu-actions{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
-.rv-col-menu-actions button{flex:1;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'Cinzel',serif;letter-spacing:.05em}
-.rv-col-menu-btn-clear{background:rgba(255,255,255,.05);border:1px solid rgba(240,232,208,.25);color:var(--muted)}
-.rv-col-menu-btn-apply{background:rgba(201,168,76,.18);border:1px solid var(--gold);color:var(--gold2)}
-/* ── DATE RANGE FILTER — added 2026-08-06, Ryan's direct instruction: a
-   column marked {type:'date'} gets these quick-range buttons plus a
-   custom from/to picker instead of the plain value checklist above. ── */
-.rv-col-menu-datebtns{display:flex;flex-direction:column;gap:4px;margin-bottom:2px}
-.rv-col-menu-datebtns button{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.25);color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
-.rv-col-menu-datebtns button:hover{background:rgba(201,168,76,.15)}
-.rv-col-menu-date-custom{display:flex;flex-direction:column;gap:8px;margin:8px 0}
-.rv-col-menu-date-custom label{font-size:10px;color:var(--muted);display:block}
-.rv-col-menu-date-custom input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);border:1px solid rgba(201,168,76,.3);border-radius:5px;padding:6px 8px;color:#fff;font-size:12px;font-family:inherit;margin-top:3px}
-.rv-table td{padding:0;border-bottom:1px solid rgba(201,168,76,.12);overflow:hidden}
-.rv-table td.rv-td-plain{padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* ── COLUMN SEPARATORS + RESIZE HANDLES — added 2026-08-06, Ryan's direct
-   instruction: a faint vertical line between every column (fainter than
-   the row's own horizontal divider), draggable Excel-style to resize.
-   table-layout:fixed (above) + explicit <col> widths (rendered in JS) is
-   what makes the drag actually stick — without fixed layout the browser
-   re-flows column widths from content on every render, undoing any resize
-   the instant new data or a re-sort redraws the table. ── */
-.rv-table th,.rv-table td{border-right:1px solid rgba(201,168,76,.06)}
-.rv-table th:last-child,.rv-table td:last-child{border-right:none}
-.rv-col-resizer{position:absolute;top:0;right:-3px;width:6px;height:100%;cursor:col-resize;z-index:3;user-select:none}
-.rv-col-resizer:hover,.rv-col-resizer.resizing{background:rgba(201,168,76,.4)}
-.rv-table tr.rv-row:hover td{background:rgba(255,255,255,.04)}
-.rv-table tr.rv-child td{background:rgba(255,255,255,.02);color:var(--muted)}
-.rv-table tr.rv-row.focused td{background:rgba(201,168,76,.1)}
-.rv-table tr.rv-row.focused{box-shadow:inset 3px 0 0 var(--gold)}
-.rv-expand{display:inline-block;width:16px;cursor:pointer;color:var(--gold2)}
-.rv-cell-editable{display:block;padding:8px 12px;cursor:text;color:var(--text2);min-height:1em}
-.rv-cell-editable:hover{background:rgba(201,168,76,.1)}
-.rv-cell-input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.1);border:1px solid var(--gold);padding:7px 11px;color:#fff;font-size:13px;font-family:inherit;outline:none}
-
-/* ── BOARD VIEW — Kanban, drag cards between status columns. ── */
-.bv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
-.bv-cols{display:flex;gap:14px;flex:1;overflow-x:auto;align-items:flex-start}
-.bv-col{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:10px;width:230px;flex-shrink:0;display:flex;flex-direction:column;max-height:100%}
-.bv-col.dragover{border-color:var(--gold);background:rgba(201,168,76,.08)}
-.bv-col-head{padding:10px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold2);border-bottom:1px solid rgba(201,168,76,.2)}
-.bv-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
-.bv-card{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:7px;padding:9px 11px;cursor:grab;font-size:13px}
-.bv-card:active{cursor:grabbing}
-.bv-card-owner{font-size:11px;color:var(--muted);margin-top:3px}
-
-/* ── GALLERY VIEW — visual card grid. ── */
-.glv-wrap{margin:24px;flex:1;overflow-y:auto}
-.glv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
-.glv-card{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s}
-.glv-card:hover{border-color:var(--gold)}
-.glv-thumb{height:110px;display:flex;align-items:center;justify-content:center;font-size:38px;background:rgba(201,168,76,.08)}
-.glv-body{padding:10px 12px}
-.glv-title{font-size:13px;color:#fff;font-weight:600}
-.glv-sub{font-size:11px;color:var(--muted);margin-top:3px}
-
-/* ── DASHBOARD VIEW — stat tiles + simple bar sparkline. ── */
-.dbv-wrap{margin:24px;flex:1;overflow-y:auto}
-.dbv-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:26px}
-.dbv-tile{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:16px 18px}
-.dbv-tile-label{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.dbv-tile-value{font-size:26px;color:var(--gold2);font-weight:700;margin-top:6px}
-.dbv-chart{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:18px}
-.dbv-chart-title{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:14px}
-.dbv-bars{display:flex;align-items:flex-end;gap:10px;height:120px}
-.dbv-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
-.dbv-bar{width:100%;background:linear-gradient(180deg,var(--gold2),var(--gold));border-radius:4px 4px 0 0}
-.dbv-bar-label{font-size:10px;color:var(--muted);margin-top:6px}
-
-/* ── SPLIT VIEW — master list left, detail pane right, no page nav. ── */
-.spv-wrap{margin:24px;display:flex;flex:1;min-height:0;gap:18px}
-.spv-list{width:260px;flex-shrink:0;overflow-y:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
-.spv-item{padding:10px 14px;border-bottom:1px solid rgba(201,168,76,.12);cursor:pointer;font-size:13px}
-.spv-item:hover{background:rgba(255,255,255,.04)}
-.spv-item.active{background:rgba(201,168,76,.14);color:var(--gold2)}
-.spv-detail{flex:1;overflow-y:auto}
-
-/* ── FORM VIEW — dedicated create/edit layout, separate from Detail View. ── */
-.fv-wrap{margin:24px;max-width:520px}
-.fv-field{margin-bottom:16px}
-.fv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
-.fv-input,.fv-textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:14px;font-family:inherit;outline:none}
-.fv-textarea{min-height:80px;resize:vertical}
-.fv-save{background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);color:var(--gold2);padding:10px 22px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em}
-.fv-status{font-size:12px;color:var(--gold2);margin-top:10px}
-
-/* ── CHART VIEW — added 2026-08-06, per the dataviz skill: one axis only,
-   categorical hues assigned in fixed order (never cycled), thin marks,
-   legend for 2+ series, recessive gridlines. Reuses the Hub's own already-
-   documented calendar-layer categorical order (steel blue / amber /
-   teal-cyan / rose — see root CLAUDE.md architecture notes) rather than
-   inventing a new palette, so a real project's charts stay consistent
-   with color choices already made elsewhere in the Amit system. ── */
-.chv-wrap{margin:24px;flex:1;overflow-y:auto}
-.chv-section{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:18px;margin-bottom:20px}
-.chv-title{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:14px}
-.chv-bars{display:flex;align-items:flex-end;gap:12px;height:130px}
-.chv-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
-.chv-bar{width:100%;background:linear-gradient(180deg,var(--gold2),var(--gold));border-radius:4px 4px 0 0;min-height:6px}
-.chv-bar-label{font-size:10px;color:var(--muted);margin-top:6px}
-.chv-legend{display:flex;gap:16px;margin-bottom:12px;font-size:11px;color:var(--muted)}
-.chv-legend-item{display:flex;align-items:center;gap:6px}
-.chv-legend-swatch{width:10px;height:10px;border-radius:50%;display:inline-block}
-.chv-line-svg{width:100%;height:150px;overflow:visible}
-.chv-gridline{stroke:rgba(240,232,208,.08);stroke-width:1}
-.chv-point{cursor:pointer}
-
-/* ── INBOX VIEW — stream/queue with checkbox multi-select + batch
-   actions, added 2026-08-06. ── */
-.ibv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
-.ibv-toolbar{display:flex;align-items:center;gap:10px;padding:2px 2px 12px;flex-shrink:0;font-size:12px;color:var(--muted)}
-.ibv-toolbar button{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);color:var(--gold2);padding:6px 14px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em}
-.ibv-toolbar button:disabled{opacity:.35;cursor:default}
-.ibv-list{flex:1;overflow-y:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
-.ibv-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(201,168,76,.12);cursor:pointer}
-.ibv-item:hover{background:rgba(255,255,255,.03)}
-.ibv-item.unread .ibv-item-title{color:#fff;font-weight:700}
-.ibv-item.unread{background:rgba(201,168,76,.05)}
-.ibv-item-title{font-size:13px;color:var(--muted)}
-.ibv-item-sub{font-size:11px;color:var(--dim);margin-top:3px}
-.ibv-item-check{margin-top:2px}
-
-/* ── DRAWER VIEW — lightweight overlay detail that slides in from the
-   right, doesn't leave the current screen context, added 2026-08-06. ── */
-.drv-wrap{margin:24px}
-.drv-trigger-list{display:flex;flex-direction:column;gap:8px;max-width:420px}
-.drv-trigger-item{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:8px;padding:12px 14px;cursor:pointer;font-size:13px}
-.drv-trigger-item:hover{border-color:var(--gold)}
-.drv-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9990;display:none}
-.drv-overlay.open{display:block}
-.drv-panel{position:fixed;top:0;right:-380px;width:360px;height:100%;background:var(--card-head);border-left:1px solid rgba(201,168,76,.5);box-shadow:-8px 0 30px rgba(0,0,0,.5);z-index:9991;transition:right .22s ease;padding:22px 24px;overflow-y:auto}
-.drv-panel.open{right:0}
-.drv-close{position:absolute;top:16px;right:18px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
-
-/* ── TREE VIEW — hierarchical parent/child, added 2026-08-06. Reuses the
-   same {id,...fields,children:[...]} row shape already used by Row View. ── */
-.tv-wrap{margin:24px;flex:1;overflow-y:auto}
-.tv-node{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:13px}
-.tv-node:hover{background:rgba(255,255,255,.04)}
-.tv-node.selected{background:rgba(201,168,76,.14);color:var(--gold2)}
-.tv-toggle{width:14px;display:inline-block;color:var(--gold2)}
-.tv-leaf-dot{width:5px;height:5px;border-radius:50%;background:var(--dim);display:inline-block;margin:0 5px}
-
-/* ── BREADCRUMB VIEW — chained drill-down navigation with a visible trail
-   and an "Open Pages" history rail, added 2026-08-06, per AmitBooks'
-   General Journal pattern (summary → records → single record). ── */
-.bcv-wrap{margin:24px;display:flex;gap:20px;flex:1;min-height:0}
-.bcv-main{flex:1;overflow-y:auto}
-.bcv-trail{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:16px;flex-wrap:wrap}
-.bcv-trail-item{cursor:pointer;color:var(--gold2)}
-.bcv-trail-item:last-child{color:var(--muted);cursor:default}
-.bcv-trail-sep{color:var(--dim)}
-.bcv-list-item{padding:10px 12px;border:1px solid rgba(201,168,76,.2);border-radius:7px;margin-bottom:8px;cursor:pointer;font-size:13px}
-.bcv-list-item:hover{border-color:var(--gold)}
-.bcv-rail{width:190px;flex-shrink:0;border-left:1px solid rgba(201,168,76,.2);padding-left:16px}
-.bcv-rail-title{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
-.bcv-rail-item{font-size:11px;color:var(--muted);padding:5px 0;cursor:pointer;border-bottom:1px solid rgba(201,168,76,.08)}
-.bcv-rail-item:hover{color:var(--gold2)}
-
-/* ── DETAIL VIEW — the drill-down endpoint for one single Row View item.
-   Double-clicking a row (parent or child) anywhere in Row View lands here,
-   populated with that one record's own fields, plus — if it has children —
-   a nested Row View of just its own children underneath. ── */
-.dv-wrap{margin:24px;flex:1;min-height:0;overflow-y:auto}
-.dv-empty{color:rgba(240,232,208,.4);font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:30px 4px}
-.dv-fields{display:grid;grid-template-columns:140px 1fr;row-gap:10px;column-gap:16px;max-width:520px;margin-bottom:28px}
-.dv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.dv-value{font-size:14px;color:#fff}
-.dv-sub-h{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
-
-/* ── CALENDAR VIEW — added 2026-08-06, Ryan's direct instruction. Plain
-   month-grid calendar, deliberately stripped down from the Hub's own
-   calendar (amit-hub.html): month/year header with prev/next nav, a
-   day-of-week row, and a 7-column grid showing every day plus the
-   leading/trailing days of the adjacent months (dimmed, clickable — no
-   blank cells, same convention as the Hub's). No filters, no overdue
-   banner, no Hebrew/sacred calendar duality — Ryan's own words: "leave
-   out all of the filtering abilities... and the overdues and stuff."
-   Restyled to this template's gold/navy palette rather than the Hub's
-   black theme.
-   LIVE PURSUITS — added same session, Ryan's second instruction: "these
-   are all still gonna be connected together" — real outstanding pursuits
-   from the actual hub_entries table now render as chips on their due
-   date, mirroring the Hub's own aimsForDay() filter exactly (kind is
-   'pursuit', not done, due date matches). Chip styling ported from the
-   Hub's real live calChipCls() — which renders every pursuit chip
-   identically regardless of priority; the multi-color-by-priority scheme
-   described in older Hub documentation isn't what's actually live, so
-   this matches the real behavior, not the stale doc. ── */
-.cv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
-.cv-nav-row{display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:16px;flex-shrink:0}
-.cv-nav-btn{width:30px;height:30px;border-radius:6px;border:1px solid rgba(201,168,76,.4);background:rgba(201,168,76,.08);color:var(--gold2);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;user-select:none}
-.cv-nav-btn:hover{background:rgba(201,168,76,.2);border-color:var(--gold)}
-.cv-month-title{font-family:'Cinzel',serif;font-size:16px;letter-spacing:.08em;color:var(--gold2);min-width:180px;text-align:center;text-transform:uppercase}
-.cv-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;flex-shrink:0}
-.cv-dow{text-align:center;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;padding:4px 0}
-.cv-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(64px,auto);gap:3px;flex:1;min-height:0;overflow-y:auto}
-/* Day cells switched to cream (var(--text2)) instead of dark navy —
-   added 2026-08-06, Ryan's direct instruction: he liked the cream tone
-   specifically, not the dark background. Text switches to a dark brown
-   for legibility against the light cell — white text (used everywhere
-   else in this dark-theme template) wouldn't read against cream. */
-.cv-cell{border:1px solid rgba(0,0,0,.12);border-radius:6px;padding:6px 8px;background:var(--text2);cursor:pointer;transition:all .15s}
-.cv-cell:hover{background:#e6d9b8;border-color:rgba(201,168,76,.5)}
-.cv-daynum{font-size:13px;color:#2c2416}
-.cv-cell.adj{opacity:.4}
-.cv-cell.adj .cv-daynum{color:#6b5f47}
-.cv-cell.today{border-color:var(--gold);background:#f2dfa0;box-shadow:0 0 0 1px var(--gold)}
-.cv-cell.today .cv-daynum{color:#7a4f00;font-weight:700}
-/* Pursuit chip — colors ported directly from the Hub's real, live
-   .cal-chip-pursuit style (amit-hub.html), not the multi-color-by-
-   priority scheme in older Hub docs, which isn't what's actually live. */
-.cv-chip{background:rgba(180,140,15,.82);border-left:3px solid rgba(201,168,76,.95);color:#2a1e00;font-weight:600;font-size:10px;padding:2px 6px;border-radius:3px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-.cv-chip:hover{opacity:.82}
-/* Demo-mode marker — added 2026-08-06, Ryan's direct instruction: Amit's
-   own demo pursuits need to read as visually distinct from the signed-in
-   user's real data, not blended in indistinguishably. Same accent color
-   family as the ✦ prefix, applied consistently to both the chip and the
-   Day View pursuit row (.dv-aim-row-demo, see DAY VIEW section). */
-.cv-chip-demo{background:rgba(120,90,190,.75);border-left-color:rgba(170,140,230,.95);color:#efe6ff}
-
-/* ── DAY VIEW — rebuilt 2026-08-06, Ryan's direct correction: these are
-   the Hub's actual .cal-dv-* class values (amit-hub.html), ported
-   directly rather than reinterpreted, per his instruction to "copy that
-   format exactly." Hebrew date block, feast/Shabbat chips, Word-for-
-   Today devotional content, and the weather widget are not ported (see
-   the CANONICAL LAYOUT: DAY VIEW comment in <script> for why); Daily
-   Walk and Add Reflection ARE ported for visual fidelity but are inert
-   placeholders here, same honesty standard as this template's other
-   placeholder pages. ── */
-.dvw-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
-.cal-dv-zoom-wrap{display:flex;flex:1;overflow:hidden;gap:10px;align-items:stretch}
-.cal-dv-adj{width:140px;flex-shrink:0;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:14px 12px;cursor:pointer;opacity:.55;transition:opacity .2s;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.cal-dv-adj:hover{opacity:.82}
-.cal-dv-adj-arrow{font-family:'Cinzel',serif;font-size:9px;color:rgba(26,21,16,.4);letter-spacing:.14em;margin-bottom:10px;text-transform:uppercase}
-.cal-dv-adj-top{display:flex;justify-content:space-between;align-items:flex-start}
-.cal-dv-adj-greg{font-family:'Cinzel',serif;font-size:30px;font-weight:700;color:#1a1510;line-height:1}
-.cal-dv-adj-dayname{font-family:'Cinzel',serif;font-size:9px;color:#5a4828;letter-spacing:.08em;margin-top:6px}
-.cal-dv-adj-aims{font-size:10px;color:#7a6040;font-style:italic;margin-top:auto;padding-top:10px;line-height:1.5}
-.cal-dv-main{flex:1;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.cal-dv-main.dv-today{background:#f5eed8;border:2px solid var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.3);animation:dvTodayPulse 2.4s ease-in-out infinite}
-@keyframes dvTodayPulse{0%,100%{box-shadow:0 0 0 2px rgba(201,168,76,.25),0 2px 10px rgba(201,168,76,.12);border-color:rgba(201,168,76,.65)}50%{box-shadow:0 0 0 4px rgba(201,168,76,.65),0 2px 20px rgba(201,168,76,.4);border-color:rgba(220,185,80,1)}}
-.cal-dv-main-head{flex-shrink:0;padding:24px 28px 0;background:inherit;border-radius:10px 10px 0 0}
-.cal-dv-main-divider{border-top:1px solid rgba(0,0,0,.08);margin:14px 0 0}
-.cal-dv-main-scroll{flex:1;overflow-y:auto;padding:16px 28px 24px}
-.cal-dv-main-scroll::-webkit-scrollbar{width:4px}
-.cal-dv-main-scroll::-webkit-scrollbar-thumb{background:rgba(92,66,0,.2);border-radius:2px}
-.cal-dv-top{display:flex;align-items:flex-start;margin-bottom:4px}
-.cal-dv-greg{flex:0 0 auto}
-.cal-dv-greg-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#1a1510;line-height:1}
-.cal-dv-greg-day{font-family:'Cinzel',serif;font-size:12px;color:#3a3020;letter-spacing:.1em;margin-top:5px;text-transform:uppercase}
-.cal-dv-greg-month{font-size:12px;color:#6a5a40;margin-top:3px;font-style:italic}
-.daily-walk-btn{display:block;width:100%;margin:8px 0 4px;padding:9px 14px;background:linear-gradient(135deg,rgba(201,168,76,.1),rgba(201,168,76,.05));border:1px solid rgba(201,168,76,.32);border-radius:8px;color:#7a5200;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;cursor:not-allowed;text-align:left;opacity:.6}
-.daily-walk-btn-icon{float:right;opacity:.6}
-.cal-dv-refl-trigger{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:rgba(122,82,0,.4);border-top:1px solid rgba(201,168,76,.15);padding-top:12px;margin-top:14px;display:block}
-.dv-section{border-radius:8px;overflow:hidden;margin-bottom:12px}
-.dv-sh{padding:7px 14px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;font-weight:700;text-transform:uppercase}
-.dv-sb{padding:8px 12px}
-.dv-section-pursuit{border:1.5px solid rgba(160,120,0,.3)}
-.dv-section-pursuit .dv-sh{background:rgba(180,140,10,.14);color:rgba(100,65,0,.9);border-bottom:1px solid rgba(160,120,0,.2)}
-.dv-aim-row{display:flex;align-items:center;gap:8px;padding:6px 0 6px 8px;border-bottom:1px solid rgba(160,120,0,.1);border-left:3px solid rgba(180,140,10,.65)}
-.dv-aim-row:last-child{border-bottom:none}
-.dv-aim-title{flex:1;font-size:12px;color:rgba(70,48,0,.9);font-weight:600;cursor:pointer}
-.dv-aim-title:hover{color:rgba(120,85,0,.95)}
-.dv-aim-empty{font-size:11px;color:rgba(100,75,0,.45);font-style:italic;padding:6px 0}
-.dv-aim-row-demo{border-left-color:rgba(140,80,220,.65);background:rgba(150,100,220,.06)}
-.dv-aim-row-demo .dv-aim-title{color:rgba(80,40,150,.9)}
-.cal-dv-testimony-btn{background:rgba(175,115,245,.06);border:1.5px solid rgba(140,80,220,.3);color:rgba(100,50,180,.5);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;padding:8px 22px;border-radius:20px;cursor:not-allowed}
-.cal-dv-month-return{background:transparent;border:1px solid rgba(0,0,0,.22);color:rgba(60,45,20,.6);font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s}
-.cal-dv-month-return:hover{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.4);color:rgba(60,45,20,.9)}
-
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
-   that can host any layout instance (Tabbed/Row/Detail View) — content-
-   agnostic, same separation as a Page or a Tab slot not caring what's
-   mounted inside them. See NOMENCLATURE comment in <script> for the
-   LAYOUT vs DESTINATION distinction. ── */
+   that can host any layout instance copied in from TemplateViews.html —
+   content-agnostic, same separation as a Page or a Tab slot not caring
+   what's mounted inside them. Built into this starter (not TemplateViews-
+   only) since it's global infrastructure, not a layout. ── */
 .popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
 .popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
 .popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
 .popup-close-btn:hover{color:var(--gold2)}
 
-/* ── RIGHT RAIL — rebuilt 2026-08-06, Ryan's direct instruction: the
-   right rail now works exactly like the left sidebar (double-click to
-   toggle expanded/collapsed, same .page-nav/.page-icon/.page-info
-   markup, matching hover tooltip), with one inverted default: the
-   sidebar STARTS expanded and collapses on double-click; the rail
-   STARTS collapsed (icon-only) and expands on double-click — global,
-   present on every page, not part of any page/detail. Container padding
-   (12px 10px) is intentionally identical to .sidebar's, and .page-nav
-   padding is overridden per-state below using the exact same values
-   .sidebar.collapsed/.sidebar already use — that's what makes the
-   resulting tile sizes pixel-identical to the left column, not just
-   visually similar. Ask Amit is the first occupant, first in DOM order
-   so it's always the top item, moved down from the old bottom-left
-   sidebar tile — this is also the eventual home for Amit's own symbol,
-   not placed yet. ── */
+/* ── RIGHT RAIL — global, present on every page, same on every project.
+   Double-click to expand/collapse (mirror of the left sidebar, inverted
+   default: starts collapsed). Ask Amit / Sign In-Sync / Demo Mode all
+   live here permanently — see Templates\CLAUDE.md for the full history
+   of why each piece looks the way it does. ── */
 .right-rail{
   width:64px;flex-shrink:0;
   background:var(--card-head);
@@ -609,33 +214,17 @@ header{
 }
 .right-rail::-webkit-scrollbar{width:3px}
 .right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
-.right-rail.expanded{width:max-content} /* matches .sidebar's own switch to max-content — sizes to the widest label rather than a fixed 230px */
-/* Icon anchored to the RIGHT side of the row, added 2026-08-06, Ryan's
-   direct correction — the rail sits at the screen's right edge, so its
-   right edge is the fixed reference point (the mirror of the left
-   sidebar, whose LEFT edge is fixed). flex-direction:row-reverse keeps
-   the icon (first in DOM order) pinned against the row's right padding
-   in both states, with the label packing in immediately to its left when
-   expanded — never the icon drifting left with the text. Right padding
-   (4px) is identical in both states below, same principle as the left
-   sidebar's identical LEFT padding, which is what makes the icon's
-   on-screen x-position never move. */
-.right-rail .page-nav{padding:4px;flex-direction:row-reverse} /* default = collapsed-style square padding, matches .sidebar.collapsed .page-nav */
-.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start} /* matches .sidebar's base .page-nav; flex-start packs toward the row-reversed start, i.e. the right */
+.right-rail.expanded{width:max-content}
+.right-rail .page-nav{padding:4px;flex-direction:row-reverse}
+.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
 .right-rail .page-info{display:none}
 .right-rail.expanded .page-info{display:block}
 
-/* ── PAGE HOVER TOOLTIP — added 2026-08-06, Ryan's direct instruction.
-   Hovering a page (its icon when the sidebar is collapsed, or anywhere on
-   the row when expanded) shows that page's one-line description — the
-   same text as .page-sub, so there's only ever one place to write it,
-   never two copies that can drift apart. JS-positioned (fixed, see
-   initPageTooltips near openPage) rather than pure CSS, because .sidebar
-   scrolls vertically (overflow-y:auto) — per CSS spec, that silently
-   forces its other axis's overflow to 'auto' too, which would clip a
-   CSS-positioned tooltip trying to extend past the sidebar's right edge
-   into the main area. A single fixed-position element sidesteps that
-   entirely. ── */
+/* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
+   .sidebar/.right-rail scroll (overflow-y:auto) — per the CSS spec, that
+   silently forces the other axis's overflow to 'auto' too, which would
+   clip a CSS-positioned tooltip trying to extend past the container's
+   edge. A single fixed element sidesteps that entirely. ── */
 .page-hover-tip{
   position:fixed;z-index:9999;
   background:#1a3352;border:1px solid rgba(201,168,76,.45);
@@ -650,11 +239,6 @@ header{
 <body>
 
 <header>
-  <!-- Left block matches AmitBooks' actual, improved header pattern -
-       icon + app name + version, grouped and vertically centered as one
-       unit, linking back to the Hub. Ryan's direct instruction 2026-08-04:
-       this template should match AmitBooks, not the older centered-title
-       layout this used to have. -->
   <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
@@ -662,17 +246,12 @@ header{
       <div class="page-version" id="pageVersion">v1.00</div>
     </div>
   </a>
-  <!-- Center block - whichever context this specific app needs to show
-       here (AmitBooks shows the active book; a future page shows whatever
-       is analogous to that). Placeholder "—" until a real project wires
-       its own dynamic value in. -->
   <div class="page-title-wrap">
     <div class="page-title" id="pageContext">—</div>
     <div class="page-version" id="pageContextSub">CONTEXT</div>
   </div>
-  <!-- Sign In/Out + Sync moved into the right rail, below Ask Amit —
-       added 2026-08-06, Ryan's direct instruction. See _updateSyncUI()
-       and the RIGHT RAIL build code in <script> for where it now lives. -->
+  <!-- Sign In/Out + Sync lives in the right rail, below Ask Amit — see
+       _updateSyncUI() and the RIGHT RAIL build code in <script>. -->
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div style="text-align:right">
       <div class="greeting" id="greeting">Good morning</div>
@@ -683,10 +262,10 @@ header{
 
 <div class="hub">
 
-  <!-- ── SIDEBAR — PLACEHOLDER PAGES (1-20) ── -->
+  <!-- ── SIDEBAR — Introduction + blank placeholders, built in <script> ── -->
   <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()"></nav>
 
-  <!-- ── MAIN CONTENT AREA — PLACEHOLDER DETAILS (1-20) ── -->
+  <!-- ── MAIN CONTENT AREA — built in <script> ── -->
   <div class="main-area" id="mainArea"></div>
 
   <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
@@ -697,10 +276,8 @@ header{
 <!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
 <div class="page-hover-tip" id="pageHoverTip"></div>
 
-<!-- Single shared Row View column filter menu, fixed-position, JS-positioned
-     on open — see rvToggleColMenu / the CANONICAL LAYOUT: ROW VIEW comment
-     block for why this can't just live nested inside the scrolling table. -->
-<div class="rv-col-menu" id="rvColMenu" style="position:fixed;z-index:9999" onclick="event.stopPropagation()"></div>
+<!-- Generic Popup destination — content filled in by whichever layout uses it -->
+<div id="canonicalPopup" class="popup-overlay"></div>
 
 <!-- SYNC / SIGN-IN MODAL -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -720,113 +297,48 @@ header{
 
 <script>
 // ══════════════════════════════════════════════
-// NOMENCLATURE — Ryan's own vocabulary for this layout, permanent, always
-// applies to this template and to every application deployed from it.
-// Read this before touching any of the code below, and before answering
-// any question about it — this is the naming any future session (Amit,
-// Claude, whoever) should already know cold on sight, not re-derive.
-//
-//   PAGE   — one item in the left-hand sidebar list (the clickable button
-//            AND the number identifying it). Numbered 1..N, in the order
-//            Ryan actually wants them read/talked about — internal code
-//            calls the button itself `.page-nav` (id `page-N`).
-//   DETAIL — the content area on the right that a page opens into (id
-//            `detail-N`). Switching pages switches which detail shows.
-//   LAYOUT — what kind of content lives inside one detail area. A detail
-//            is not locked to one shape — "Tabbed Layout" (built below,
-//            using tabs numbered 1..however many exist) is one layout
-//            type; more layout types can exist later. A detail's layout
-//            is a property of that detail, not of the page system itself.
-//   PAGE ORDER vs. PAGE NUMBER — a page's number is its fixed, permanent
-//            identity once real project code starts referencing it
-//            (openPage(N), detail-N, page-N). Its DISPLAY POSITION in the
-//            sidebar is controlled separately, by the PAGE_ORDER list
-//            below — reordering the sidebar is always a one-line edit to
-//            that list, never a renumbering pass. (Same relationship as a
-//            form control's Name vs. its TabIndex.)
-//   REFERRING TO A PAGE — always valid either by its name ("Tabbed View")
-//            or its number ("page 2"). The page-icon slot itself (▢, or a
-//            real icon once a project sets one) is always shown.
-//   DESTINATION — separate from LAYOUT (added 2026-08-06, Ryan's direct
-//            instruction). A destination is WHERE a layout gets mounted
-//            and WHAT triggers it — a whole page, a tab slot inside a
-//            Tabbed View, or a Popup opened by an event (double-click,
-//            click, etc). Any layout can be mounted at any destination;
-//            neither one needs to know about the other. "Popup" is a
-//            destination, NOT a fourth layout type — a Popup can host a
-//            Tabbed View, a Row View, or a Detail View, exactly the same
-//            as a Page can. Find the reusable code for each layout and
-//            each destination by its own "CANONICAL LAYOUT:" or
-//            "CANONICAL DESTINATION:" comment block further down this
-//            script — copy that block verbatim when reusing it, never
-//            reconstruct it from memory.
-//
-// Blank layout shell — no data model, no per-project logic. Placeholder
-// pages/details 1-20: rename, re-icon, and build real content into each
-// detail when this template is copied for a new project.
+// NOMENCLATURE — read this before touching any page/detail/layout code.
+//   PAGE   — one item in the left sidebar (button + fixed number).
+//   DETAIL — the content area a page opens into (id `detail-N`).
+//   LAYOUT — what kind of content lives inside a detail. This starter
+//            ships with none built in — every canonical layout (Tabbed/
+//            Row/Detail/Calendar/Day/Board/Gallery/Dashboard/Split/Form/
+//            Chart/Inbox/Drawer/Tree/Breadcrumb View) lives in
+//            Templates\TemplateViews.html, copied in verbatim when a
+//            real project needs one — see the header comment at the top
+//            of this file.
+//   DESTINATION — WHERE a layout mounts: a page, a tab slot, or a Popup.
+//            Popup is built into this starter (see below) since it's
+//            generic infrastructure, not a layout itself.
 // ══════════════════════════════════════════════
 
-// currentUser declared here, not down near the rest of the LOGIN
-// CONNECTION code — added 2026-08-06, real bug caught during testing.
-// cvCreate('cv-mount') runs synchronously at script-load time (see the
-// DEMO block), which calls cvLoadEntries, which now checks currentUser
-// (added same session, scoping pursuits to whoever's signed in). Since
-// that check ran before the `let currentUser` declaration further down
-// the file had executed, it threw "Cannot access before initialization"
-// — a temporal dead zone crash, the exact same class of bug already
-// documented for Row View's initial rvRender() call. Declaring it here,
-// early, means it already exists (as null) by the time any synchronous
-// script-load code checks it; the LOGIN CONNECTION section further down
-// only ASSIGNS to it from here forward, it doesn't redeclare it.
 let currentUser=null;
-// SB_URL/SB_KEY/db moved up here too, same TDZ reasoning — see the LOGIN
-// CONNECTION section further down for the fuller explanation.
+// SB_URL/SB_KEY/db/demoMode declared here, early — a real, confirmed bug
+// from earlier work on this file: demoMode defaults to true (unlike
+// currentUser, which defaults falsy), so anything gating on it can run
+// during the page's very first synchronous script pass, before a
+// later-declared `const` has initialized — a temporal dead zone crash.
+// Declaring all of this up front avoids that class of bug entirely.
 const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
 const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
 const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
-// DEMO MODE — added 2026-08-06, Ryan's direct instruction: every live-
-// data view should be able to show Amit's own real history (so a new
-// person can see what Amit's actual usage looks like) blended with
-// whatever the signed-in user has of their own, with a rail toggle to
-// turn that off and see only their own data. Ported directly from the
-// Hub's real, live mechanism (amit-hub.html's demoModeHub/AMIT_DEMO_UID/
-// toggleHubDemo) — same account, same localStorage key pattern, same
-// default (on). Declared here (not lower, near the rest of LOGIN
-// CONNECTION) for the same temporal-dead-zone reason currentUser is
-// declared this early — see that declaration's own comment.
 const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
 let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
 
 // ══════════════════════════════════════════════
-// CANONICAL DATA BINDING: DEMO MODE — added 2026-08-06, Ryan's direct
-// correction: this connection to Amit's account must be a GENERAL,
-// reusable mechanism available to ANY current or future view/form built
-// from this template — "some things will have demo, some things may
-// not, but it should always have that connection... it goes from
-// pursuits to the calendar to... if there's a new form that's created,
-// that demo mode will work within that form." Not something re-wired
-// per view.
+// CANONICAL DATA BINDING: DEMO MODE — a general, reusable connection to
+// Amit's own account data, available to ANY current or future view/form
+// built from this template — not wired one-off per view. Ported from the
+// Hub's real, live mechanism (amit-hub.html's demoModeHub/AMIT_DEMO_UID).
 //
 // fetchDemoRows(table, queryString) — the one call any view makes to
-// pull Amit's own rows for demo mode. Returns [] immediately if demo
-// mode is off (the caller doesn't need its own on/off check). Every
-// returned row is tagged _isDemo:true.
+// pull Amit's own rows for demo mode. Returns [] immediately if demo mode
+// is off. Every returned row is tagged _isDemo:true.
 //
-//   table: the Supabase table name (e.g. 'hub_entries')
-//   queryString: the rest of the PostgREST query — select/filters/order
-//     — everything after the table name, same syntax as a normal fetch
-//     to this table, EXCLUDING user_id (fetchDemoRows adds
-//     user_id=eq.AMIT_DEMO_UID itself, always, so a caller can never
-//     accidentally point this at any account but Amit's own).
-//
-// REVIEW ONLY — Ryan's direct instruction: "never to adjust. They can
-// never have access to anything." Any row this returns is tagged
-// _isDemo, and it is the CALLER's responsibility to treat that as
-// read-only wherever it renders — Row View already enforces this itself
-// (rvEditCell/rvCommitCell refuse to edit an _isDemo row, and its
-// editable-column rendering falls back to plain read-only display for
-// one), so any layout built on Row View inherits the protection
-// automatically. A future layout that isn't Row View-based must
+// REVIEW ONLY: any row this returns must never be editable or writable —
+// it's the caller's responsibility to check _isDemo and refuse edits.
+// Row View (in TemplateViews.html) already enforces this at its own
+// rvEditCell/rvCommitCell chokepoint; a non-Row-View layout must
 // implement its own _isDemo check the same way.
 // ══════════════════════════════════════════════
 async function fetchDemoRows(table,queryString){
@@ -842,57 +354,18 @@ async function fetchDemoRows(table,queryString){
   }
 }
 
-const PAGE_COUNT=20;
-// PAGE_ORDER — sidebar DISPLAY position only, see NOMENCLATURE above.
-// Tabbed View (page 2) is listed first here deliberately — it's the
-// live example of the one layout type this template ships with, so it's
-// what a person sees first when opening a fresh copy. Introduction (page
-// 1) follows it. Edit this array, never the page numbers, to reorder.
-// Day View (17) placed immediately after Calendar View (6) — added
-// 2026-08-06, Ryan's direct instruction: Day View is Calendar View's
-// single-day drill-down counterpart, so it belongs right next to it in
-// the sidebar, not at the end with the other placeholders. Page NUMBERS
-// stay fixed (17 stays 17) — only this display-order list changes, per
-// the standing PAGE ORDER vs PAGE NUMBER rule above.
-const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>idx+7).filter(n=>n!==17)];
+const PAGE_COUNT=3; // Introduction + 2 blank placeholders — add more by raising this and PAGE_ORDER below
+const PAGE_ORDER=[1,2,3];
+
 (function buildPlaceholders(){
   const nav=document.getElementById('sidebarPages');
   const main=document.getElementById('mainArea');
   const navHtmlParts={};
   let detailHtml='';
   for(let i=1;i<=PAGE_COUNT;i++){
-    // NEW_VIEW_NAMES/ICONS — added 2026-08-06, Ryan's direct instruction:
-    // naming and icon-only pass for the 12 additional view types identified
-    // this session (beyond the four already built — Tabbed/Row/Detail View
-    // on pages 2-4, Introduction on page 1). These occupy pages 5-16 as
-    // named placeholders — label and icon only, no layout logic behind them
-    // yet ("don't worry about what goes on each tab right now"). Pages
-    // 17-20 stay generic. Building the real mechanics behind each (Grid
-    // View's inline-editable cells, Calendar View's date grid, Chart View
-    // via the dataviz skill, etc.) is separate, future work per view.
-    // Page 5 (formerly a standalone "Grid View") retired 2026-08-06,
-    // Ryan's direct instruction: cell-editing merged into Row View itself
-    // (see the CANONICAL LAYOUT: ROW VIEW comment — editable is now a
-    // per-column property), so Grid View no longer exists as its own view.
-    // Page 5 falls back to the generic Placeholder handling below.
-    const NEW_VIEW_NAMES={
-      6:'Calendar View',7:'Board View',8:'Gallery View',
-      9:'Dashboard View',10:'Split View',11:'Form View',12:'Chart View',
-      13:'Inbox View',14:'Drawer View',15:'Tree View',16:'Breadcrumb View',
-      17:'Day View'
-    };
-    const NEW_VIEW_ICONS={
-      6:'📅',7:'🗃️',8:'🖼️',
-      9:'📈',10:'◨',11:'📝',12:'📊',
-      13:'📥',14:'🗄️',15:'🌳',16:'🍞',
-      17:'☀️'
-    };
-    const label=i===1?'Introduction':i===2?'Tabbed View':i===3?'Row View':i===4?'Detail View':(NEW_VIEW_NAMES[i]||'Placeholder '+i);
-    // Sample icons for the named layout pages — swap for a real project's
-    // real icons; kept as recognizable placeholders so it's obvious what
-    // each looks like before real icons exist. Pages past 16 stay ▢.
-    const icon=i===1?'🧭':i===2?'🗂️':i===3?'📋':i===4?'🔍':(NEW_VIEW_ICONS[i]||'▢');
-    const subText='—'; // placeholder — a real project writes its own one-line description here (shown in .page-sub only; the hover tooltip shows just the page title, see data-tip below)
+    const label=i===1?'Introduction':'Placeholder '+i;
+    const icon=i===1?'🧭':'▢';
+    const subText='—'; // a real project writes its own one-line description here
     navHtmlParts[i]=`<div class="page-nav${i===1?' active':''}" id="page-${i}" onclick="openPage(${i})" data-tip="${label}">
       <div class="page-icon">${icon}</div>
       <div class="page-info">
@@ -900,129 +373,18 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
         <div class="page-sub">${subText}</div>
       </div>
     </div>`;
-    if(i===1||i===2){
-      let tabNavHtml='',tabContentHtml='';
-      for(let t=1;t<=5;t++){
-        tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})">Tab ${t}</button>`;
-        // DEMO — Page 2, Tab 2 hosts a nested Row View instance instead of
-        // plain placeholder text, proving a tab slot is a real DESTINATION
-        // just like a page or a popup. Wired up after this IIFE runs — see
-        // the DEMO block below the Row/Detail/Popup code further down.
-        if(i===2&&t===2){
-          tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}"><div class="rv-wrap" id="ch-tab-2-2-rv-mount" style="margin:0"></div></div>`;
-        } else {
-          tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">Tab ${t} content goes here</div>`;
-        }
-      }
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="ch-tab-nav" id="ch-tab-nav-${i}">${tabNavHtml}</div>
-        <div class="ch-tab-main">${tabContentHtml}</div>
-      </div>`;
-    } else if(i===3){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="rv-wrap" id="rv-mount"></div>
-      </div>`;
-    } else if(i===4){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="dv-wrap" id="dv-mount"></div>
-      </div>`;
-    } else if(i===6){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="cv-wrap" id="cv-mount"></div>
-      </div>`;
-    } else if(i===7){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="bv-wrap" id="bv-mount"></div>
-      </div>`;
-    } else if(i===8){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="glv-wrap" id="glv-mount"></div>
-      </div>`;
-    } else if(i===9){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="dbv-wrap" id="dbv-mount"></div>
-      </div>`;
-    } else if(i===10){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="spv-wrap" id="spv-mount"></div>
-      </div>`;
-    } else if(i===11){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="fv-wrap" id="fv-mount"></div>
-      </div>`;
-    } else if(i===12){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="chv-wrap" id="chv-mount"></div>
-      </div>`;
-    } else if(i===13){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="ibv-wrap" id="ibv-mount"></div>
-      </div>`;
-    } else if(i===14){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="drv-wrap" id="drv-mount"></div>
-      </div>`;
-    } else if(i===15){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="tv-wrap" id="tv-mount"></div>
-      </div>`;
-    } else if(i===16){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="bcv-wrap" id="bcv-mount"></div>
-      </div>`;
-    } else if(i===17){
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="dvw-wrap" id="dayview-mount"></div>
-      </div>`;
-    } else {
-      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}">
-        <div class="detail-head"><span class="detail-heading">${label}</span></div>
-        <div class="detail-empty">Detail ${i} content goes here</div>
-      </div>`;
-    }
+    detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}">
+      <div class="detail-head"><span class="detail-heading">${label}</span></div>
+      <div class="detail-empty">${i===1?'Introduction content goes here':'Detail '+i+' content goes here — copy a layout from Templates\\TemplateViews.html to build this page out'}</div>
+    </div>`;
   }
   let navHtml=PAGE_ORDER.map(i=>navHtmlParts[i]||'').join('');
   nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
 
-  // RIGHT RAIL — rebuilt 2026-08-06, Ryan's direct instruction: uses the
-  // exact same .page-nav/.page-icon/.page-info/.page-name markup as the
-  // left sidebar's rows (see the RIGHT RAIL comment in <style> for why —
-  // pixel-identical tile sizes by construction, not a lookalike built
-  // from separate CSS). Ask Amit is the first occupant, first in DOM
-  // order so it's always the top item. Wired to a sentinel key on
-  // purpose: this new project has no real page yet for Amit to have
-  // context about, so Amit_Ask_Live.js's askAmitLive() will refuse and
-  // show a plain reminder instead of silently opening Gemini with no real
-  // context. When this template is copied into a real project, change
-  // TEMPLATE_NOT_CONFIGURED below to that project's own real key, and
-  // write that key's real context into Amit_Ask_Live.js's PAGE_CONTEXTS —
-  // do not skip this step. Ryan's direct instruction, 2026-07-25,
-  // unchanged by this rebuild.
+  // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
   const rail=document.getElementById('rightRail');
   if(rail){
-    // Sign In/Out + Sync — moved here from the header's top-right corner,
-    // added 2026-08-06, Ryan's direct instruction. Same underlying
-    // functionality as before (openSyncModal()/signOutAmit(), unchanged),
-    // just relocated. Icon/title/subtitle are filled in dynamically by
-    // _updateSyncUI() based on real sign-in state — the markup below is
-    // the signed-out default; _updateSyncUI() runs once on load (via the
-    // auth state listener) and updates it immediately.
     rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')" data-tip="Ask Amit">
       <div class="page-icon"><img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
       <div class="page-info">
@@ -1045,21 +407,17 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
       </div>
     </div>`;
     _updateDemoUI();
-    _updateSyncUI(); // paints the signed-out default (no box) immediately, rather than waiting on the async auth listener to fire
+    _updateSyncUI();
   }
 
-  initPageTooltips('sidebarPages','right'); // left sidebar — tooltip opens rightward, toward the page
-  initPageTooltips('rightRail','left');      // right rail — tooltip opens leftward, or it'd render off-screen
+  initPageTooltips('sidebarPages','right');
+  initPageTooltips('rightRail','left');
 })();
 
-// PAGE HOVER TOOLTIP — see the CSS comment above .page-hover-tip for why
-// this is JS-positioned instead of pure CSS. Delegated on the given
-// container so it keeps working no matter how many items exist or
-// whether that container is collapsed/expanded — no per-item wiring.
-// side: 'right' opens the tooltip to the right of the hovered item
-// (left sidebar, which sits at the screen's left edge); 'left' opens it
-// to the left (right rail, which sits at the screen's right edge —
-// opening rightward there would render off-screen).
+// PAGE HOVER TOOLTIP — delegated on the given container, works no matter
+// how many items exist or whether that container is collapsed/expanded.
+// side: 'right' opens rightward (left sidebar); 'left' opens leftward
+// (right rail — opening rightward there would render off-screen).
 function initPageTooltips(containerId,side){
   const tip=document.getElementById('pageHoverTip');
   const nav=document.getElementById(containerId);
@@ -1088,1764 +446,8 @@ function initPageTooltips(containerId,side){
   });
 }
 
-// Double-click anywhere in the right rail expands it to full width with
-// labels, or collapses it back to icon-only — the mirror image of
-// toggleSidebar() above: the rail starts collapsed by default (opposite
-// of the sidebar, which starts expanded), so this toggles an .expanded
-// class ON rather than a .collapsed class off.
 function toggleRail(){
   document.getElementById('rightRail').classList.toggle('expanded');
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: ROW VIEW — Excel-style: click a column header to sort
-// (toggle asc/desc, arrow shows direction); double-click a header to edit
-// an inline "contains" filter right in that cell (Enter/blur commits,
-// Escape cancels) — deliberately no native browser prompt(), matching the
-// rest of the Amit system's no-native-dialog standard (see AmitBooks/
-// CLAUDE.md Interactivity Standard #7). Filters compose with AND. Rows
-// may carry a children[] array — a ▸/▾ toggle expands/collapses them,
-// indented beneath the parent; children are not independently sortable/
-// filterable, only their parent's row is. A status strip above the table
-// names whatever's active with a one-click clear.
-//
-// INSTANCE-BASED (added 2026-08-06, Ryan's direct instruction) — LAYOUT
-// and DESTINATION are separate concerns (see NOMENCLATURE above). A Row
-// View can be mounted at any destination — a whole page, a tab slot
-// inside a Tabbed View, or inside a Popup — and any number of Row View
-// instances can be alive on screen at once, each with its own
-// independent sort/filter/expand state, keyed by the id of the element
-// it mounts into. There is no longer "the" Row View — only Row View
-// instances.
-//
-// EDITABLE COLUMNS (merged in from the former standalone Grid View layout,
-// 2026-08-06, Ryan's direct instruction: "if it's editable or not editable,
-// it's dependent upon what's being shown in that view" — editability is a
-// property of a COLUMN, not a separate layout type). A column marked
-// {editable:true} renders its cells cream-tinted (var(--text2)) and
-// click-to-edit in place; a column without that flag renders exactly as
-// before, plain read-only text. One Row View instance can mix both kinds
-// of column side by side. This does not conflict with row-level
-// double-click-to-open — click (edit a cell) and double-click (open the
-// row) are separate events.
-//
-// KEYBOARD NAVIGATION (added same session, Ryan's direct instruction) —
-// ↑/↓ move focus up/down through the CURRENT visible row order (respecting
-// active sort, filter, and which parents are expanded — same order a
-// mouse would encounter scrolling top-to-bottom). Enter on the focused row
-// opens it exactly like a double-click would. Click a row to focus it with
-// the mouse; keyboard and mouse focus are the same state, not two
-// separate mechanisms.
-//
-//   rvCreate(containerId, columns, rows, opts) — the one call that
-//     creates and mounts a Row View instance. Copy this call verbatim
-//     wherever a Row View is needed; never re-derive its internals.
-//     columns: [{key,label,editable?}, ...] — editable is optional,
-//       defaults to false/read-only.
-//     rows: [{id, ...fields, children:[...]}, ...]
-//     opts.onRowOpen(itemId): optional — called when a row is double-
-//       clicked, or Enter is pressed while it's focused. Row View does not
-//       know or care what happens next (open a page, open a popup,
-//       whatever) — that decision belongs entirely to whoever created
-//       this instance, same separation as a Page not needing to know what
-//       Layout is mounted inside it. If omitted, falls back to the
-//       template's original default: open Detail View on page 4.
-//     opts.onCellCommit(rowId,key,newVal): optional — called after an
-//       editable cell's edit commits, so the caller (a real Supabase-bound
-//       page, e.g.) can persist the change. If omitted, the edit only
-//       updates in-memory state.
-//
-// Sample data below (RV_SAMPLE_COLUMNS/RV_SAMPLE_ROWS) is placeholder
-// only — swap for a real project's real columns/rows when this layout
-// gets used for something real. Status and Owner are marked editable here
-// to demonstrate the cream-tint styling; Name and Due are not.
-//
-// Genuinely open, not built yet: named/saved sort+filter views
-// (localStorage, per-instance, with a "set as default" — see AmitBooks'
-// abSmart engine for the fuller pattern this can grow into); multi-cell/
-// range select and copy-paste across cells.
-// ══════════════════════════════════════════════
-const RV_SAMPLE_COLUMNS=[
-  {key:'name',label:'Name'},
-  {key:'status',label:'Status',editable:true},
-  {key:'owner',label:'Owner',editable:true},
-  {key:'due',label:'Due',type:'date'}
-];
-const RV_SAMPLE_ROWS=[
-  {id:'r1',name:'Kickoff meeting',status:'Done',owner:'Ryan',due:'2026-07-28'},
-  {id:'r2',name:'Design review',status:'In Progress',owner:'Amit',due:'2026-08-02',children:[
-    {id:'r2a',name:'Color pass',status:'Done',owner:'Amit',due:'2026-07-30'},
-    {id:'r2b',name:'Layout pass',status:'In Progress',owner:'Amit',due:'2026-08-02'}
-  ]},
-  {id:'r3',name:'Backend wiring',status:'Not Started',owner:'Ryan',due:'2026-08-10'},
-  {id:'r4',name:'QA pass',status:'Not Started',owner:'Ryan',due:'2026-08-14',children:[
-    {id:'r4a',name:'Desktop',status:'Not Started',owner:'Ryan',due:'2026-08-14'},
-    {id:'r4b',name:'Mobile',status:'Not Started',owner:'Ryan',due:'2026-08-14'}
-  ]},
-  {id:'r5',name:'Launch',status:'Not Started',owner:'Ryan',due:'2026-08-20'}
-];
-
-const rvInstances=new Map(); // containerId -> {columns,rows,sort,colFilters,filterOrder,expanded,editingCell,focusedRowId,colWidths,onRowOpen,onCellCommit}
-
-function rvCreate(containerId,columns,rows,opts={}){
-  rvInstances.set(containerId,{
-    columns,rows,
-    sort:null,colFilters:{},filterOrder:[],expanded:new Set(),editingCell:null,
-    focusedRowId:(rows[0]&&rows[0].id)||null,
-    colWidths:{}, // key -> px, filled in on first render / user drag (see rvStartResize)
-    onRowOpen:opts.onRowOpen||null,
-    onCellCommit:opts.onCellCommit||null
-  });
-  rvRenderInstance(containerId);
-}
-
-// Flattens the current visible row order (top-level rows in their sorted/
-// filtered order, with each expanded parent's children immediately after
-// it) — the single source of truth both rendering and ↑/↓ keyboard
-// navigation use, so keyboard order always matches what's on screen.
-function rvFlattenVisible(inst,rows){
-  const out=[];
-  rows.forEach(r=>{
-    out.push({item:r,isChild:false});
-    if(r.children&&r.children.length&&inst.expanded.has(r.id)){
-      r.children.forEach(c=>out.push({item:c,isChild:true}));
-    }
-  });
-  return out;
-}
-
-// EXCEL-STYLE COLUMN FILTER MENU — added 2026-08-06, Ryan's direct
-// instruction, replacing the old click-header-to-sort/double-click-to-
-// type-a-filter interaction entirely ("we're just gonna use the
-// functionality as we would be for an Excel spreadsheet"). Each column's
-// ▾ button opens Sort A→Z / Sort Z→A buttons plus a searchable checklist
-// of that column's own distinct values — check/uncheck to include/exclude
-// specific values, same as Excel's own AutoFilter. Filters across
-// different columns compose with AND and stack ("stair-step on top of
-// each other," Ryan's words) — filtering Name then filtering Owner
-// narrows by both together, same as it always has.
-//
-// rvApplyColFilters(inst, rows, excludeKey) applies every active column
-// filter EXCEPT excludeKey — this is what lets a column's own dropdown
-// show the distinct values still reachable given every OTHER column's
-// current filter (real Excel behavior: opening the Owner dropdown while
-// Name is already filtered only lists Owners that actually occur among
-// the currently-Name-filtered rows), while still letting that column's
-// own prior selection be re-shown/adjusted rather than hidden by itself.
-// A column filter value is either a Set (value-checklist filter, the
-// original behavior) or a {type:'range',start,end} object (date-range
-// filter, added 2026-08-06 — see the DATE RANGE FILTER block below). Both
-// shapes are handled the same way here so filters of either kind stack
-// together with the same AND logic.
-function rvApplyColFilters(inst,rows,excludeKey){
-  let out=rows;
-  Object.entries(inst.colFilters).forEach(([key,filter])=>{
-    if(key===excludeKey||!filter)return;
-    if(filter instanceof Set){
-      if(!filter.size)return;
-      out=out.filter(r=>filter.has(String(r[key]||'')));
-    } else if(filter.type==='range'){
-      out=out.filter(r=>{
-        const v=String(r[key]||'');
-        return v>=filter.start&&v<=filter.end;
-      });
-    }
-  });
-  return out;
-}
-
-// True if a column currently has an active filter of either shape —
-// used anywhere the code just needs a yes/no (header highlight, status
-// strip), not the filter's actual contents.
-function rvColFilterActive(filter){
-  if(!filter)return false;
-  return filter instanceof Set?filter.size>0:true;
-}
-
-// FILTER ORDER (the "-1, -2, -3" sequence badge) — added 2026-08-06,
-// Ryan's direct instruction: the funnel icon shows which pass a column's
-// filter was applied in, not just whether it's active. inst.filterOrder
-// is a plain array of column keys in the order their filters were turned
-// on; a column's badge number is just its 1-based position in that array.
-// Removing one column's filter (via the Clear Filter button or the
-// double-click shortcut) splices it out — every filter applied after it
-// automatically shifts down a number, since the number is always just
-// "position in the array," never a stored/stale value.
-function rvAddToFilterOrder(inst,key){
-  if(!inst.filterOrder.includes(key)) inst.filterOrder.push(key);
-}
-function rvRemoveFromFilterOrder(inst,key){
-  const idx=inst.filterOrder.indexOf(key);
-  if(idx>-1) inst.filterOrder.splice(idx,1);
-}
-
-function rvColumnDistinctValues(inst,key){
-  const rows=rvApplyColFilters(inst,inst.rows,key);
-  return Array.from(new Set(rows.map(r=>String(r[key]||'')))).sort((a,b)=>a.localeCompare(b));
-}
-
-function rvGetVisibleRows(inst){
-  let rows=rvApplyColFilters(inst,inst.rows,null);
-  if(inst.sort){
-    const{key,dir}=inst.sort;
-    rows=rows.slice().sort((a,b)=>{
-      const av=String(a[key]||''),bv=String(b[key]||'');
-      return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
-    });
-  }
-  return rows;
-}
-
-// A single shared floating menu (#rvColMenu, fixed-position — see the
-// HTML near #pageHoverTip) reused across every Row View instance, exactly
-// the same reasoning documented on that tooltip: .rv-table-wrap scrolls
-// (overflow:auto), and per the CSS spec that silently clips any
-// CSS-absolute child trying to extend past it — a single fixed-position
-// element positioned via JS sidesteps that entirely, rather than nesting
-// the menu inside the scrolling table itself. Only one column menu can
-// be open at a time system-wide, matching Excel's own single-active-
-// dropdown behavior. rvMenuState holds the in-progress (not yet applied)
-// checklist selection so Apply/Cancel/Clear all have something to act on.
-let rvMenuState=null; // {containerId,key,checked:Set,search} for a normal column, or {containerId,key,isDate:true,dateStart,dateEnd} for a date column
-
-// DATE RANGE FILTER — added 2026-08-06, Ryan's direct instruction: a
-// column marked {type:'date'} gets Today / This Week / This Month /
-// This Year / This Fiscal Year / Last Fiscal Year quick-select buttons
-// PLUS a Custom "from this date to that date" range picker, instead of
-// the plain value checklist — filtering a date column by exact string
-// match isn't useful the way it is for Status or Owner. Fiscal year is
-// assumed to start October 1 (RV_FISCAL_START_MONTH, 0-indexed = 9) —
-// a real project should change that one constant to its own actual
-// fiscal calendar; nothing else here is fiscal-year-specific.
-const RV_FISCAL_START_MONTH=9;
-function rvFmtDate(d){
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-function rvComputeDateRange(preset){
-  const now=new Date();
-  const y=now.getFullYear(),m=now.getMonth(),d=now.getDate();
-  if(preset==='today'){ const t=rvFmtDate(now); return{start:t,end:t,label:'Today'}; }
-  if(preset==='week'){
-    const day=now.getDay();
-    return{start:rvFmtDate(new Date(y,m,d-day)),end:rvFmtDate(new Date(y,m,d-day+6)),label:'This Week'};
-  }
-  if(preset==='month'){
-    return{start:rvFmtDate(new Date(y,m,1)),end:rvFmtDate(new Date(y,m+1,0)),label:'This Month'};
-  }
-  if(preset==='year'){
-    return{start:y+'-01-01',end:y+'-12-31',label:'This Year'};
-  }
-  if(preset==='fy'||preset==='lastfy'){
-    let fyStartYear=m>=RV_FISCAL_START_MONTH?y:y-1;
-    if(preset==='lastfy') fyStartYear-=1;
-    return{
-      start:rvFmtDate(new Date(fyStartYear,RV_FISCAL_START_MONTH,1)),
-      end:rvFmtDate(new Date(fyStartYear+1,RV_FISCAL_START_MONTH,0)),
-      label:preset==='fy'?'This Fiscal Year':'Last Fiscal Year'
-    };
-  }
-  return{start:'0000-01-01',end:'9999-12-31',label:'All'};
-}
-function rvDatePreset(preset){
-  if(!rvMenuState)return;
-  const{containerId,key}=rvMenuState;
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  const range=rvComputeDateRange(preset);
-  inst.colFilters[key]={type:'range',start:range.start,end:range.end,label:range.label};
-  rvAddToFilterOrder(inst,key);
-  rvCloseColMenu();
-  rvRenderInstance(containerId);
-}
-function rvDateCustomApply(){
-  if(!rvMenuState)return;
-  const{containerId,key}=rvMenuState;
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  const start=document.getElementById('rvDateFrom').value;
-  const end=document.getElementById('rvDateTo').value;
-  if(!start&&!end){ delete inst.colFilters[key]; rvRemoveFromFilterOrder(inst,key); }
-  else {
-    inst.colFilters[key]={type:'range',start:start||'0000-01-01',end:end||'9999-12-31',label:(start||'…')+' → '+(end||'…')};
-    rvAddToFilterOrder(inst,key);
-  }
-  rvCloseColMenu();
-  rvRenderInstance(containerId);
-}
-
-// Funnel icon (replaces the old plain ▾ text glyph, added 2026-08-06,
-// Ryan's direct instruction) — a tiny inline SVG, sized to fit inside the
-// header's own reserved right-edge space, fill:currentColor so it
-// inherits the button's own color/active-state styling for free.
-const RV_FUNNEL_SVG='<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:middle"><path d="M1 2h14l-5.5 6.5v5L7 15V8.5z"/></svg>';
-
-// SINGLE vs DOUBLE CLICK on the funnel — added 2026-08-06, Ryan's direct
-// instruction: single click opens that column's filter menu (unchanged
-// behavior); a quick double-click instead removes ONLY that column's own
-// filter, leaving every other active filter and re-sequencing the "-N"
-// order badges automatically (since the badge is always just "position
-// in inst.filterOrder," removing an entry shifts the rest down on its
-// own — see rvRemoveFromFilterOrder). Standard browser click/dblclick
-// debounce: the first click is held for a short window; if a second
-// click lands inside that window it's treated as the double-click and
-// the pending single-click action is cancelled instead of both firing.
-let rvFunnelClickTimer=null;
-function rvFunnelClick(e,containerId,key){
-  e.stopPropagation();
-  if(rvFunnelClickTimer){
-    clearTimeout(rvFunnelClickTimer);
-    rvFunnelClickTimer=null;
-    rvClearColFilter(containerId,key); // double-click: remove just this column's filter
-    return;
-  }
-  rvFunnelClickTimer=setTimeout(()=>{
-    rvFunnelClickTimer=null;
-    rvToggleColMenu(e,containerId,key);
-  },250);
-}
-
-function rvToggleColMenu(e,containerId,key){
-  e.stopPropagation();
-  if(rvMenuState&&rvMenuState.containerId===containerId&&rvMenuState.key===key){
-    rvCloseColMenu();return;
-  }
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  const col=inst.columns.find(c=>c.key===key);
-  if(col.type==='date'){
-    const existing=inst.colFilters[key];
-    rvMenuState={containerId,key,isDate:true,
-      dateStart:(existing&&existing.type==='range'&&existing.start!=='0000-01-01')?existing.start:'',
-      dateEnd:(existing&&existing.type==='range'&&existing.end!=='9999-12-31')?existing.end:''};
-  } else {
-    const values=rvColumnDistinctValues(inst,key);
-    const existing=inst.colFilters[key];
-    rvMenuState={containerId,key,checked:existing instanceof Set&&existing.size?new Set(existing):new Set(values),search:''};
-  }
-  rvRenderColMenu();
-  const btn=e.target.closest('.rv-col-menu-btn');
-  const r=btn.getBoundingClientRect();
-  const menu=document.getElementById('rvColMenu');
-  menu.style.display='block';
-  menu.style.top=(r.bottom+4)+'px';
-  menu.style.left=Math.min(r.left,window.innerWidth-236)+'px';
-  setTimeout(()=>document.addEventListener('click',rvOutsideMenuClick),0);
-}
-
-function rvOutsideMenuClick(e){
-  const menu=document.getElementById('rvColMenu');
-  if(menu&&!menu.contains(e.target)) rvCloseColMenu();
-}
-
-function rvCloseColMenu(){
-  rvMenuState=null;
-  const menu=document.getElementById('rvColMenu');
-  if(menu){ menu.style.display='none'; menu.innerHTML=''; }
-  document.removeEventListener('click',rvOutsideMenuClick);
-}
-
-function rvRenderColMenu(){
-  if(!rvMenuState)return;
-  const{containerId,key}=rvMenuState;
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  const col=inst.columns.find(c=>c.key===key);
-  const menu=document.getElementById('rvColMenu');
-
-  if(rvMenuState.isDate){
-    menu.innerHTML=`
-      <div class="rv-col-menu-sort">
-        <button onclick="rvSortSet('${containerId}','${key}','asc')">▲ Sort Oldest→Newest</button>
-        <button onclick="rvSortSet('${containerId}','${key}','desc')">▼ Sort Newest→Oldest</button>
-      </div>
-      <div class="rv-col-menu-divider"></div>
-      <div class="rv-col-menu-datebtns">
-        <button onclick="rvDatePreset('today')">Today</button>
-        <button onclick="rvDatePreset('week')">This Week</button>
-        <button onclick="rvDatePreset('month')">This Month</button>
-        <button onclick="rvDatePreset('year')">This Year</button>
-        <button onclick="rvDatePreset('fy')">This Fiscal Year</button>
-        <button onclick="rvDatePreset('lastfy')">Last Fiscal Year</button>
-      </div>
-      <div class="rv-col-menu-divider"></div>
-      <div class="rv-col-menu-date-custom">
-        <label>Custom — From<input type="date" id="rvDateFrom" value="${rvMenuState.dateStart}"></label>
-        <label>To<input type="date" id="rvDateTo" value="${rvMenuState.dateEnd}"></label>
-      </div>
-      <div class="rv-col-menu-actions">
-        <button class="rv-col-menu-btn-clear" onclick="rvClearColFilter('${containerId}','${key}')">Clear Filter</button>
-        <button class="rv-col-menu-btn-apply" onclick="rvDateCustomApply()">Apply Range</button>
-      </div>`;
-    return;
-  }
-
-  const{checked,search}=rvMenuState;
-  const values=rvColumnDistinctValues(inst,key);
-  const shown=search?values.filter(v=>v.toLowerCase().includes(search.toLowerCase())):values;
-  menu.innerHTML=`
-    <div class="rv-col-menu-sort">
-      <button onclick="rvSortSet('${containerId}','${key}','asc')">▲ Sort A→Z</button>
-      <button onclick="rvSortSet('${containerId}','${key}','desc')">▼ Sort Z→A</button>
-    </div>
-    <div class="rv-col-menu-divider"></div>
-    <input class="rv-col-menu-search" id="rvColMenuSearch" placeholder="Search ${col.label.toLowerCase()}…" value="${search.replace(/"/g,'&quot;')}" oninput="rvMenuSearchInput(this.value)">
-    <div class="rv-col-menu-selectall"><span onclick="rvMenuSelectAll()">Select All</span> · <span onclick="rvMenuClearAll()">Clear</span></div>
-    <div class="rv-col-menu-list">
-      ${shown.length?shown.map(v=>`<label class="rv-col-menu-item"><input type="checkbox" ${checked.has(v)?'checked':''} onchange="rvMenuToggleValue('${v.replace(/'/g,"\\'")}')">${v||'(blank)'}</label>`).join(''):'<div class="rv-col-menu-empty">No values</div>'}
-    </div>
-    <div class="rv-col-menu-divider"></div>
-    <div class="rv-col-menu-actions">
-      <button class="rv-col-menu-btn-clear" onclick="rvClearColFilter('${containerId}','${key}')">Clear Filter</button>
-      <button class="rv-col-menu-btn-apply" onclick="rvMenuApply()">Apply</button>
-    </div>`;
-}
-
-function rvMenuSearchInput(val){
-  if(!rvMenuState)return;
-  rvMenuState.search=val;
-  rvRenderColMenu();
-  const input=document.getElementById('rvColMenuSearch');
-  if(input){ input.focus(); input.setSelectionRange(val.length,val.length); }
-}
-
-function rvMenuToggleValue(val){
-  if(!rvMenuState)return;
-  if(rvMenuState.checked.has(val)) rvMenuState.checked.delete(val); else rvMenuState.checked.add(val);
-  rvRenderColMenu();
-}
-
-function rvMenuSelectAll(){
-  if(!rvMenuState)return;
-  const inst=rvInstances.get(rvMenuState.containerId);
-  rvMenuState.checked=new Set(rvColumnDistinctValues(inst,rvMenuState.key));
-  rvRenderColMenu();
-}
-
-function rvMenuClearAll(){
-  if(!rvMenuState)return;
-  rvMenuState.checked=new Set();
-  rvRenderColMenu();
-}
-
-function rvMenuApply(){
-  if(!rvMenuState)return;
-  const{containerId,key,checked}=rvMenuState;
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  const values=rvColumnDistinctValues(inst,key);
-  if(checked.size>=values.length){ delete inst.colFilters[key]; rvRemoveFromFilterOrder(inst,key); } // everything checked = no filter
-  else { inst.colFilters[key]=new Set(checked); rvAddToFilterOrder(inst,key); }
-  rvCloseColMenu();
-  rvRenderInstance(containerId);
-}
-
-function rvClearColFilter(containerId,key){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  delete inst.colFilters[key];
-  rvRemoveFromFilterOrder(inst,key);
-  rvCloseColMenu();
-  rvRenderInstance(containerId);
-}
-
-function rvSortSet(containerId,key,dir){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  inst.sort={key,dir};
-  rvCloseColMenu();
-  rvRenderInstance(containerId);
-}
-
-function rvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=rvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  const rows=rvGetVisibleRows(inst);
-  const statusParts=[];
-  if(inst.sort) statusParts.push(`Sorted by ${inst.columns.find(c=>c.key===inst.sort.key).label} (${inst.sort.dir==='asc'?'A→Z':'Z→A'})`);
-  Object.entries(inst.colFilters).forEach(([key,filter])=>{
-    if(!rvColFilterActive(filter))return;
-    const label=inst.columns.find(c=>c.key===key).label;
-    if(filter instanceof Set) statusParts.push(`${label}: ${filter.size} selected`);
-    else statusParts.push(`${label}: ${filter.label}`);
-  });
-  const statusHtml=statusParts.length
-    ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear('${containerId}')">Clear</span></div>`
-    : `<div class="rv-status">Click the funnel on any column to sort or filter, double-click it to remove that column's filter · ↑/↓ to move, Enter to open</div>`;
-
-  // colgroup drives the actual pixel widths (table-layout:fixed, see CSS) —
-  // this is what makes a drag-resize stick across re-renders instead of
-  // the browser silently re-flowing widths from content every time.
-  const colgroupHtml=`<colgroup>
-    <col style="width:24px">
-    ${inst.columns.map(c=>`<col data-key="${c.key}" style="width:${inst.colWidths[c.key]||160}px">`).join('')}
-  </colgroup>`;
-
-  const theadHtml=`<tr>
-    <th style="width:24px"></th>
-    ${inst.columns.map(c=>{
-      const isSorted=inst.sort&&inst.sort.key===c.key;
-      const arrow=isSorted?(inst.sort.dir==='asc'?'▲':'▼'):'';
-      const hasFilter=rvColFilterActive(inst.colFilters[c.key]);
-      const orderNum=hasFilter?inst.filterOrder.indexOf(c.key)+1:0;
-      return `<th class="${hasFilter?'rv-filtered':''}" style="position:relative">
-        <span class="rv-th-label">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}</span>
-        <span class="rv-col-menu-btn${hasFilter?' active':''}" onclick="rvFunnelClick(event,'${containerId}','${c.key}')" title="${hasFilter?'Filter #'+orderNum+' — click to edit, double-click to remove':'Click to sort or filter'}">
-          ${RV_FUNNEL_SVG}${hasFilter?`<span class="rv-col-menu-order">-${orderNum}</span>`:''}
-        </span>
-        <span class="rv-col-resizer" onmousedown="event.stopPropagation();rvStartResize(event,'${containerId}','${c.key}')" ondblclick="event.stopPropagation()"></span>
-      </th>`;
-    }).join('')}
-  </tr>`;
-
-  // A cell in an editable column renders click-to-edit (cream-tinted span,
-  // or an input while actively editing); a cell in a non-editable column
-  // renders exactly as before, plain text.
-  const cellHtml=(r,c,idx,isChild)=>{
-    const prefix=idx===0&&isChild?'— ':'';
-    // Demo rows never render as editable, even in an editable column —
-    // added 2026-08-06, Ryan's direct instruction, same review-only rule
-    // as the rvEditCell/rvCommitCell guards. Falls through to the same
-    // plain read-only cell a non-editable column would use.
-    if(!c.editable||r._isDemo) return `<td class="rv-td-plain">${prefix}${r._isDemo&&idx===0?'✦ ':''}${r[c.key]||''}</td>`;
-    const editing=inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
-    if(editing){
-      return `<td><input class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(r[c.key]||'').replace(/"/g,'&quot;')}"
-        onkeydown="event.stopPropagation(); if(event.key==='Enter')rvCommitCell('${containerId}','${r.id}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
-        onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
-    }
-    return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${prefix}${r[c.key]||''}</span></td>`;
-  };
-
-  // Double-click ANYWHERE in a row's own cells (not the expand toggle, not
-  // an editable cell's own click-to-edit) hands off to rvHandleRowOpen,
-  // which honors this instance's own onRowOpen if it has one, or falls
-  // back to the template's original default (Detail View on page 4).
-  const flat=rvFlattenVisible(inst,rows);
-  const rowsHtml=flat.map(({item:r,isChild})=>{
-    const hasKids=r.children&&r.children.length;
-    const expanded=inst.expanded.has(r.id);
-    const focused=inst.focusedRowId===r.id;
-    return `<tr class="${isChild?'rv-child':'rv-row'}${focused?' focused':''}" onclick="rvSetFocus('${containerId}','${r.id}')" ondblclick="rvHandleRowOpen('${containerId}','${r.id}')">
-      <td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>
-      ${inst.columns.map((c,idx)=>cellHtml(r,c,idx,isChild)).join('')}
-    </tr>`;
-  }).join('');
-
-  wrap.innerHTML=`${statusHtml}
-    <div class="rv-table-wrap" id="${containerId}-scroll" tabindex="0" onkeydown="rvHandleKeydown(event,'${containerId}')"><table class="rv-table">
-      ${colgroupHtml}
-      <thead>${theadHtml}</thead>
-      <tbody>${rowsHtml}</tbody>
-    </table></div>`;
-
-  if(inst.editingCell){
-    const input=document.getElementById('rv-cell-input-'+containerId);
-    if(input){ input.focus(); input.select(); }
-  }
-}
-
-function rvHandleRowOpen(containerId,itemId){
-  const inst=rvInstances.get(containerId);
-  if(inst&&inst.onRowOpen){ inst.onRowOpen(itemId); return; }
-  dvOpenFor(itemId); // default fallback, unchanged from the template's original behavior
-}
-
-function rvToggleExpand(containerId,id){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  if(inst.expanded.has(id)) inst.expanded.delete(id);
-  else inst.expanded.add(id);
-  rvRenderInstance(containerId);
-}
-
-function rvClear(containerId){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  inst.sort=null;
-  inst.colFilters={};
-  inst.filterOrder=[];
-  rvRenderInstance(containerId);
-}
-
-function rvEditCell(containerId,rowId,key){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  // DEMO ROWS ARE REVIEW ONLY — added 2026-08-06, Ryan's direct
-  // instruction: "never to adjust. They can never have access to
-  // anything." Any row tagged _isDemo (Amit's own account, pulled in via
-  // demo mode — see fetchDemoRows) refuses to enter edit mode at all,
-  // regardless of whether its column is marked editable. This is
-  // enforced here, at the single chokepoint every editable-cell click
-  // goes through, not left to each view to remember on its own.
-  const row=inst.rows.find(r=>r.id===rowId);
-  if(row&&row._isDemo)return;
-  inst.editingCell={rowId,key};
-  rvRenderInstance(containerId);
-}
-
-function rvCommitCell(containerId,rowId,key,val){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  const row=dvFindItem?dvFindItem(rowId,inst.rows)||inst.rows.find(r=>r.id===rowId):inst.rows.find(r=>r.id===rowId);
-  if(row&&row._isDemo){ inst.editingCell=null; rvRenderInstance(containerId); return; } // belt-and-braces — should never reach here for a demo row given the rvEditCell guard, but never write one back regardless
-  if(row) row[key]=val;
-  inst.editingCell=null;
-  if(inst.onCellCommit) inst.onCellCommit(rowId,key,val);
-  rvRenderInstance(containerId);
-}
-
-// Excel-style drag-to-resize — added 2026-08-06, Ryan's direct
-// instruction. Live-updates just the dragged <col>'s width during the
-// drag (smooth, no full re-render per pixel of mouse movement), then
-// does one final full re-render on mouseup so inst.colWidths and the DOM
-// stay in sync. Global mousemove/mouseup listeners are added on
-// mousedown and removed on mouseup — never left dangling.
-function rvStartResize(e,containerId,key){
-  e.preventDefault();
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  const th=e.target.closest('th');
-  const startX=e.clientX;
-  const startWidth=inst.colWidths[key]||th.getBoundingClientRect().width;
-  const handle=e.target;
-  handle.classList.add('resizing');
-  function onMove(ev){
-    const newWidth=Math.max(60,Math.round(startWidth+(ev.clientX-startX)));
-    inst.colWidths[key]=newWidth;
-    const col=document.querySelector(`#${containerId}-scroll col[data-key="${key}"]`);
-    if(col) col.style.width=newWidth+'px';
-  }
-  function onUp(){
-    document.removeEventListener('mousemove',onMove);
-    document.removeEventListener('mouseup',onUp);
-    handle.classList.remove('resizing');
-    rvRenderInstance(containerId);
-  }
-  document.addEventListener('mousemove',onMove);
-  document.addEventListener('mouseup',onUp);
-}
-
-function rvSetFocus(containerId,rowId){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  inst.focusedRowId=rowId;
-  rvRenderInstance(containerId);
-}
-
-// ↑/↓ move the focused row through the current visible order (matches
-// exactly what rvRenderInstance just drew, via the same rvGetVisibleRows/
-// rvFlattenVisible helpers); Enter opens the focused row exactly like a
-// double-click. Ignored while a cell edit or the column filter menu is
-// actively open, so arrow keys there behave normally instead of
-// hijacking row focus.
-function rvHandleKeydown(e,containerId){
-  const inst=rvInstances.get(containerId);if(!inst)return;
-  if(inst.editingCell||(rvMenuState&&rvMenuState.containerId===containerId))return;
-  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&e.key!=='Enter')return;
-  e.preventDefault();
-  const rows=rvGetVisibleRows(inst);
-  const flat=rvFlattenVisible(inst,rows);
-  if(!flat.length)return;
-  const idx=flat.findIndex(f=>f.item.id===inst.focusedRowId);
-  if(e.key==='Enter'){
-    if(idx>-1) rvHandleRowOpen(containerId,flat[idx].item.id);
-    return;
-  }
-  let nextIdx=idx;
-  if(e.key==='ArrowDown') nextIdx=idx<0?0:Math.min(idx+1,flat.length-1);
-  if(e.key==='ArrowUp') nextIdx=idx<0?0:Math.max(idx-1,0);
-  inst.focusedRowId=flat[nextIdx].item.id;
-  rvRenderInstance(containerId);
-  const rowEl=document.getElementById(containerId+'-scroll').querySelector('tr.focused');
-  if(rowEl) rowEl.scrollIntoView({block:'nearest'});
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: DETAIL VIEW — the drill-down endpoint for one single
-// Row View item. Shows every field on that one record as a plain
-// label/value list, plus — if the record itself has children (e.g.
-// "Design review" has its own sub-tasks) — those children rendered as
-// their own small Row View underneath, since a detail's own sub-items are
-// themselves a row/column list, just scoped to one parent instead of the
-// whole table.
-//
-// INSTANCE-BASED (added 2026-08-06, same reasoning as Row View above) —
-// dvCreate(containerId, columns, rows) creates one instance keyed by the
-// id of the element it mounts into. Any number of Detail View instances
-// can be alive at once — the standalone page-4 one, plus e.g. one living
-// inside a Popup. dvOpenForInstance(containerId, itemId) populates a
-// given instance with one specific record and re-renders it.
-//
-// Genuinely open, not built yet: a child row inside a Detail View's own
-// nested list isn't itself double-click-drillable one level deeper — this
-// only goes one layer deep (item → its direct children) for now.
-// ══════════════════════════════════════════════
-const dvInstances=new Map(); // containerId -> {currentId,columns,rows}
-
-function dvCreate(containerId,columns,rows){
-  dvInstances.set(containerId,{currentId:null,columns,rows});
-  dvRenderInstance(containerId);
-}
-
-function dvFindItem(id,rows){
-  for(const r of rows){
-    if(r.id===id) return r;
-    if(r.children){ const found=dvFindItem(id,r.children); if(found) return found; }
-  }
-  return null;
-}
-
-function dvOpenForInstance(containerId,itemId){
-  const inst=dvInstances.get(containerId);if(!inst)return;
-  inst.currentId=itemId;
-  dvRenderInstance(containerId);
-}
-
-// Legacy wrapper — kept so the original page-level call, dvOpenFor(id) (the
-// page-4 standalone Detail View, and Row View's default fallback), keeps
-// working exactly as before.
-function dvOpenFor(id){
-  dvOpenForInstance('dv-mount',id);
-  openPage(4);
-}
-
-function dvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=dvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  const item=inst.currentId?dvFindItem(inst.currentId,inst.rows):null;
-  if(!item){
-    wrap.innerHTML=`<div class="dv-empty">No item selected yet — double-click any row in Row View to open its detail here.</div>`;
-    return;
-  }
-  const fieldsHtml=inst.columns.map(c=>`
-    <div class="dv-label">${c.label}</div>
-    <div class="dv-value">${item[c.key]||'—'}</div>`).join('');
-  let childrenHtml='';
-  if(item.children&&item.children.length){
-    childrenHtml=`<div class="dv-sub-h">Items under this one</div>
-      <div class="rv-table-wrap" style="max-width:760px"><table class="rv-table">
-        <thead><tr><th style="width:24px"></th>${inst.columns.map(c=>`<th style="cursor:default">${c.label}</th>`).join('')}</tr></thead>
-        <tbody>${item.children.map(c=>`<tr class="rv-row" ondblclick="dvOpenForInstance('${containerId}','${c.id}')"><td></td>${inst.columns.map(col=>`<td>${c[col.key]||''}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table></div>`;
-  }
-  wrap.innerHTML=`<div class="dv-fields">${fieldsHtml}</div>${childrenHtml}`;
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL DESTINATION: POPUP — NOT a layout type. A destination, same
-// category as "Page N" or "a tab slot inside a Tabbed View" (see
-// NOMENCLATURE above). Popup is content-agnostic — it hosts whatever
-// layout instance is mounted inside it and has no opinion about what that
-// is. popupOpen(innerHtml) shows the overlay with whatever HTML it's
-// given; the caller is responsible for creating any layout instance
-// (rvCreate/dvCreate/etc.) mounted inside that HTML afterward, exactly
-// the same as buildPlaceholders does for a page or a tab slot.
-// ══════════════════════════════════════════════
-function popupOpen(innerHtml){
-  let modal=document.getElementById('canonicalPopup');
-  if(!modal){
-    modal=document.createElement('div');
-    modal.id='canonicalPopup';
-    modal.className='popup-overlay';
-    document.body.appendChild(modal);
-    modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
-  }
-  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
-    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
-    ${innerHtml}
-  </div>`;
-  modal.style.display='flex';
-}
-
-function popupClose(){
-  const modal=document.getElementById('canonicalPopup');
-  if(modal) modal.style.display='none';
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL DATA BINDING: TABLE PICKER — added 2026-08-06, Ryan's direct
-// instruction. A third concern, separate from LAYOUT and DESTINATION:
-// WHERE THE DATA COMES FROM. Bridges a real Supabase table to a layout
-// instance — Row View today; the same pattern generalizes to other
-// layouts later without changing this piece. Flow: introspect the
-// table's real columns from one live sample row (no service-role key
-// needed — this runs off the same public anon key already in this file,
-// the same access any signed-in user already has), suggest a sensible
-// default subset, show a checklist in a Popup so whoever is building the
-// page can add to or subtract from that suggestion, then fetch the real
-// rows for exactly the columns confirmed and hand off to rvCreate.
-// tableToRowView(containerId, tableName) works against ANY real Supabase
-// table — nothing here is specific to one project's schema.
-//
-// SUGGESTION HEURISTIC (a rule, not a per-table guess — applies the same
-// way no matter which table gets bound, so it can never drift table to
-// table): a field is suggested (pre-checked) UNLESS it is `id`, ends in
-// `_id` or `_at`, is named `is_sample`/`sort_order`, or its live sample
-// value is an array or nested object. Everything else defaults on.
-// ══════════════════════════════════════════════
-async function tableIntrospect(tableName){
-  const res=await fetch(`${SB_URL}/rest/v1/${tableName}?select=*&limit=1`,{
-    headers:{apikey:SB_KEY,Accept:'application/json'}
-  });
-  if(!res.ok) throw new Error(`Could not read table "${tableName}" (${res.status})`);
-  const sampleRows=await res.json();
-  const sample=sampleRows[0]||{};
-  return Object.keys(sample).map(key=>({
-    key,
-    label:key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),
-    suggested:!(key==='id'||key.endsWith('_id')||key.endsWith('_at')||key==='is_sample'||key==='sort_order'||Array.isArray(sample[key])||(sample[key]!==null&&typeof sample[key]==='object'))
-  }));
-}
-
-function tableToRowView(containerId,tableName,opts={}){
-  tableIntrospect(tableName).then(fields=>{
-    const suggested=fields.filter(f=>f.suggested);
-    const rest=fields.filter(f=>!f.suggested);
-    const fieldRowHtml=(f,pre)=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;cursor:pointer">
-      <input type="checkbox" data-key="${f.key}" data-label="${f.label}" ${pre?'checked':''}>
-      ${f.label} <span style="color:rgba(240,232,208,.35);font-size:11px">(${f.key})</span>
-    </label>`;
-    popupOpen(`
-      <div class="dv-sub-h">Choose columns for "${tableName}"</div>
-      <div style="color:rgba(240,232,208,.6);font-size:12px;margin-bottom:14px">Suggested columns are pre-checked. Add or remove any field below, then confirm.</div>
-      <div id="tablePickerSuggested">${suggested.map(f=>fieldRowHtml(f,true)).join('')}</div>
-      ${rest.length?`<div class="dv-sub-h" style="margin-top:16px">Other available fields</div><div id="tablePickerRest">${rest.map(f=>fieldRowHtml(f,false)).join('')}</div>`:''}
-      <div style="margin-top:20px">
-        <button onclick="tableToRowViewConfirm('${containerId}','${tableName}')" style="background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);color:var(--gold2);padding:9px 18px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em">CONFIRM COLUMNS →</button>
-      </div>
-    `);
-    window._tablePickerOpts=opts; // stashed here for the confirm handler below — this popup is single-instance, same as the sync modal
-  }).catch(err=>{
-    popupOpen(`<div class="dv-empty">Could not load "${tableName}": ${err.message}</div>`);
-  });
-}
-
-async function tableToRowViewConfirm(containerId,tableName){
-  const modal=document.getElementById('canonicalPopupCard');
-  const checked=[...modal.querySelectorAll('input[type=checkbox]:checked')];
-  if(!checked.length)return;
-  const columns=checked.map(cb=>({key:cb.dataset.key,label:cb.dataset.label}));
-  const selectKeys=Array.from(new Set(['id',...columns.map(c=>c.key)])); // always fetch id, even if not shown — Row View needs it for row identity
-  const res=await fetch(`${SB_URL}/rest/v1/${tableName}?select=${selectKeys.join(',')}&limit=200`,{
-    headers:{apikey:SB_KEY,Accept:'application/json'}
-  });
-  const rows=await res.json();
-  popupClose();
-  const opts=window._tablePickerOpts||{};
-  rvCreate(containerId,columns,rows,opts);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: CALENDAR VIEW — added 2026-08-06, Ryan's direct
-// instruction. A plain month-grid calendar: header with month/year title
-// and prev/next navigation, a day-of-week row, and a 7-column grid
-// showing every day of the month plus the leading/trailing days of the
-// adjacent months (dimmed, clickable — no blank cells, same convention
-// the Hub's own calendar uses). Deliberately stripped down from the
-// Hub's calendar (amit-hub.html): no task chips, no filters, no overdue
-// banner, no Hebrew/sacred calendar layers — Ryan's own words: "leave
-// out all of the filtering abilities... and the overdues and stuff. I
-// just need that calendar to show up." Restyled to this template's
-// gold/navy palette rather than the Hub's black theme.
-//
-// INSTANCE-BASED, same pattern as Row View/Detail View — cvCreate(
-// containerId) creates one instance keyed by its mount element id, with
-// its own independent year/month state, so more than one Calendar View
-// could exist on screen at once without interfering with another.
-//
-// Genuinely open, not built yet: no real event data — this is the bare
-// grid only. Wiring it to real dates/events (e.g. via the Table Picker
-// pattern above, or a plain rows array) is separate future work, the
-// same way Row View started with sample data before real binding existed.
-// ══════════════════════════════════════════════
-const cvInstances=new Map(); // containerId -> {year,month}
-// cvActiveContainers — added 2026-08-06, Ryan's direct instruction:
-// pursuits must be scoped to whoever is actually signed in, the same way
-// they are in the Hub, not shown globally regardless of login. This set
-// tracks every live Calendar View instance so the LOGIN CONNECTION code
-// further down (db.auth.onAuthStateChange) can re-fetch every one of
-// them the moment someone signs in or out — see the call there.
-const cvActiveContainers=new Set();
-const CV_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
-const CV_DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-function cvCreate(containerId){
-  const now=new Date();
-  cvInstances.set(containerId,{year:now.getFullYear(),month:now.getMonth(),entries:[]});
-  cvActiveContainers.add(containerId);
-  cvRenderInstance(containerId);
-  cvLoadEntries(containerId);
-}
-
-function cvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=cvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  const{year,month}=inst;
-  const firstDow=new Date(year,month,1).getDay();
-  const daysInMonth=new Date(year,month+1,0).getDate();
-  const prevDaysInMonth=new Date(year,month,0).getDate();
-  const prevM=month===0?11:month-1, prevY=month===0?year-1:year;
-  const nextM=month===11?0:month+1, nextY=month===11?year+1:year;
-  const today=new Date();
-  const isCurrentMonth=today.getFullYear()===year&&today.getMonth()===month;
-
-  let cellsHtml='';
-  for(let i=firstDow-1;i>=0;i--){
-    const d=prevDaysInMonth-i;
-    cellsHtml+=`<div class="cv-cell adj" onclick="cvAdjClick('${containerId}',${prevY},${prevM})"><div class="cv-daynum">${d}</div></div>`;
-  }
-  for(let d=1;d<=daysInMonth;d++){
-    const isToday=isCurrentMonth&&d===today.getDate();
-    const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const dayEntries=(inst.entries||[]).filter(e=>e.due_date===ds);
-    const chipsHtml=dayEntries.map(e=>`<div class="cv-chip${e._isDemo?' cv-chip-demo':''}" title="${(e._isDemo?"Amit's demo pursuit — ":'')+(e.title||'').replace(/"/g,'&quot;')}" onclick="event.stopPropagation();cvOpenEntryById('${e.id}')">${e._isDemo?'✦ ':''}${e.title||''}</div>`).join('');
-    // Double-click a real day cell opens that exact date in Day View —
-    // added 2026-08-06, Ryan's direct instruction: Day View "would
-    // definitely link up to the monthly calendar." Both a single click
-    // and a double-click open Day View here — added 2026-08-06, Ryan's
-    // further instruction: "if they select a day or double click a day
-    // like it should be, should open up the day view." The Hub itself
-    // treats single-click as "select" (which opens a side detail panel)
-    // and double-click as the full zoom; this template has no separate
-    // side panel to select into, so both interactions lead straight to
-    // Day View. Adjacent-month cells (above/below) keep their existing
-    // single-click month-jump behavior and deliberately don't get this —
-    // they're not "this month's" days.
-    cellsHtml+=`<div class="cv-cell${isToday?' today':''}" onclick="cvOpenDayView('${ds}')" ondblclick="cvOpenDayView('${ds}')"><div class="cv-daynum">${d}</div>${chipsHtml}</div>`;
-  }
-  // Always fill to a full 6-row (42-cell) grid, same convention as the
-  // Hub's own calendar, so the layout never jumps between 5 and 6 rows
-  // as the month changes.
-  const totalSoFar=firstDow+daysInMonth;
-  const trailing=42-totalSoFar;
-  for(let d=1;d<=trailing;d++){
-    cellsHtml+=`<div class="cv-cell adj" onclick="cvAdjClick('${containerId}',${nextY},${nextM})"><div class="cv-daynum">${d}</div></div>`;
-  }
-
-  wrap.innerHTML=`
-    <div class="cv-nav-row">
-      <div class="cv-nav-btn" onclick="cvPrev('${containerId}')">◄</div>
-      <div class="cv-month-title">${CV_MONTH_NAMES[month]} ${year}</div>
-      <div class="cv-nav-btn" onclick="cvNext('${containerId}')">►</div>
-    </div>
-    <div class="cv-dow-row">${CV_DOW.map(d=>`<div class="cv-dow">${d}</div>`).join('')}</div>
-    <div class="cv-grid">${cellsHtml}</div>
-  `;
-}
-
-// LIVE PURSUITS — added 2026-08-06, Ryan's direct instruction: "these are
-// all still gonna be connected together." Queries the real hub_entries
-// table (same one proven working by the Table Picker above) for
-// outstanding pursuits due within the visible month, mirroring the Hub's
-// own aimsForDay() filter exactly: kind is 'pursuit', not done, due date
-// matches. Runs off the same public anon key already in this file — no
-// extra auth needed. Re-fetches on every month change (cvPrev/cvNext/
-// cvAdjClick) rather than caching a wide range, kept simple for now.
-async function cvLoadEntries(containerId){
-  const inst=cvInstances.get(containerId);if(!inst)return;
-  const{year,month}=inst;
-  // Stamp this call with the month it's for and only apply the result if
-  // that's still the visible month when the fetch resolves — guards
-  // against a real race: clicking Next twice quickly fires two fetches,
-  // and without this check an OLDER request resolving AFTER a newer one
-  // would silently overwrite the correct month's chips with stale (often
-  // empty) data.
-  const requestYear=year,requestMonth=month;
-  const startDs=`${year}-${String(month+1).padStart(2,'0')}-01`;
-  const lastDay=new Date(year,month+1,0).getDate();
-  const endDs=`${year}-${String(month+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-  let ownEntries=[];
-  // Scoped to whoever's actually signed in — added 2026-08-06, Ryan's
-  // direct instruction: "linked to the login... just like it operates
-  // within the Hub." Without currentUser (nobody signed in), there is no
-  // legitimate account whose pursuits these would be, so the user's own
-  // side shows none — not an error, just the honest empty state.
-  if(currentUser){
-    try{
-      const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&user_id=eq.${currentUser.id}&due_date=gte.${startDs}&due_date=lte.${endDs}&order=due_date.asc`,{
-        headers:{apikey:SB_KEY,Accept:'application/json'}
-      });
-      ownEntries=res.ok?await res.json():[];
-    }catch(e){
-      ownEntries=[];
-    }
-  }
-  // DEMO MODE — via the shared fetchDemoRows() helper (CANONICAL DATA
-  // BINDING: DEMO MODE, near PAGE_COUNT), not a one-off inline fetch —
-  // added 2026-08-06, Ryan's direct correction: this connection must work
-  // the same way for any current or future view, not be re-wired per
-  // view. Returns [] on its own if demo mode is off.
-  const demoEntries=await fetchDemoRows('hub_entries',`select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&due_date=gte.${startDs}&due_date=lte.${endDs}&order=due_date.asc`);
-  const stillCurrent=inst.year===requestYear&&inst.month===requestMonth;
-  if(!stillCurrent)return; // a newer request has already superseded this one
-  inst.entries=[...demoEntries,...ownEntries];
-  inst.entries.forEach(e=>{window._cvEntries[e.id]=e;});
-  cvRenderInstance(containerId);
-}
-
-// Chip click opens that pursuit's fields in a Detail View inside a
-// Popup — reusing the same canonical DESTINATION/LAYOUT pieces already
-// built (see CANONICAL DESTINATION: POPUP and CANONICAL LAYOUT: DETAIL
-// VIEW above), not a new mechanism. Looked up by id from a global map
-// (window._cvEntries) rather than serializing the whole object into an
-// inline onclick string.
-window._cvEntries={};
-function cvOpenEntryById(id){
-  const entry=window._cvEntries[id];
-  if(!entry)return;
-  popupOpen(`<div class="dv-wrap" id="popup-cv-dv-mount" style="margin:0"></div>`);
-  const cols=[{key:'title',label:'Title'},{key:'due_date',label:'Due Date'},{key:'priority',label:'Priority'},{key:'program',label:'Program'}];
-  dvCreate('popup-cv-dv-mount',cols,[entry]);
-  dvOpenForInstance('popup-cv-dv-mount',entry.id);
-}
-
-function cvPrev(containerId){
-  const inst=cvInstances.get(containerId);if(!inst)return;
-  inst.month--; if(inst.month<0){inst.month=11;inst.year--;}
-  cvRenderInstance(containerId);
-  cvLoadEntries(containerId);
-}
-function cvNext(containerId){
-  const inst=cvInstances.get(containerId);if(!inst)return;
-  inst.month++; if(inst.month>11){inst.month=0;inst.year++;}
-  cvRenderInstance(containerId);
-  cvLoadEntries(containerId);
-}
-function cvAdjClick(containerId,year,month){
-  const inst=cvInstances.get(containerId);if(!inst)return;
-  inst.year=year; inst.month=month;
-  cvRenderInstance(containerId);
-  cvLoadEntries(containerId);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: DAY VIEW — rebuilt 2026-08-06, Ryan's direct
-// correction: the first version was a reinterpretation (a Row View table
-// under a plain header) instead of an actual copy of the Hub's real
-// day-view card. This version ports the Hub's real markup and CSS
-// (amit-hub.html's .cal-dv-* classes, buildDvAdjCell/renderDayView)
-// directly: a cream card with the day's big number top-left, a
-// muted/dimmed preview card for the previous and next day on either
-// side (click to jump), a Pursuits section, and Record Testimony /
-// Calendar buttons along the bottom.
-//
-// DELIBERATELY LEFT OUT, per Ryan's earlier instruction to drop Hebrew
-// elements: the Hebrew day/month/year block, feast/Shabbat chips, the
-// Word-for-Today devotional teaser (Amit's own religious content, not
-// generic template material), and the weather widget (needs an API key
-// this template doesn't have). The Daily Walk button and Add Reflection
-// link ARE ported for visual fidelity to the reference screenshot, but
-// are inert placeholders here (disabled/no handler) — same honesty
-// standard as every other placeholder page in this template. Pursuits
-// and the Calendar return button are real and fully wired.
-//
-// INSTANCE-BASED, same pattern as every other layout here.
-// ══════════════════════════════════════════════
-const dayViewInstances=new Map(); // containerId -> {date:'YYYY-MM-DD', entries:[]}
-
-function _todayStr(){
-  const d=new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-}
-function _dvFmtDs(dt){
-  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-}
-
-function dayViewCreate(containerId,ds){
-  dayViewInstances.set(containerId,{date:ds||_todayStr(),entries:[]});
-  dayViewRenderInstance(containerId);
-  dayViewLoadEntries(containerId);
-}
-
-function dayViewRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=dayViewInstances.get(containerId);
-  if(!wrap||!inst)return;
-  const[y,m,d]=inst.date.split('-').map(Number);
-  const dt=new Date(y,m-1,d);
-  const isToday=inst.date===_todayStr();
-  const prevDs=_dvFmtDs(new Date(y,m-1,d-1));
-  const nextDs=_dvFmtDs(new Date(y,m-1,d+1));
-  const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-
-  const countFor=(ds)=>(inst.entries||[]).filter(e=>e.due_date===ds).length;
-  const adjCardHtml=(ds,direction)=>{
-    const[ay,am,ad]=ds.split('-').map(Number);
-    const adt=new Date(ay,am-1,ad);
-    const cnt=countFor(ds);
-    return `<div class="cal-dv-adj" onclick="dayViewGoTo('${containerId}','${ds}')">
-      <div class="cal-dv-adj-arrow">${direction<0?'← Previous':'Next →'}</div>
-      <div class="cal-dv-adj-top"><div class="cal-dv-adj-greg">${ad}</div></div>
-      <div class="cal-dv-adj-dayname">${DAY_NAMES[adt.getDay()].slice(0,3).toUpperCase()} · ${CV_MONTH_NAMES[am-1].slice(0,3).toUpperCase()}</div>
-      <div class="cal-dv-adj-aims">${cnt?cnt+' Pursuit'+(cnt>1?'s':''):' '}</div>
-    </div>`;
-  };
-
-  const dayEntries=(inst.entries||[]).filter(e=>e.due_date===inst.date);
-  const pursuitRowsHtml=dayEntries.length
-    ? dayEntries.map(e=>`<div class="dv-aim-row${e._isDemo?' dv-aim-row-demo':''}"><div class="dv-aim-title" onclick="cvOpenEntryById('${e.id}')" title="${e._isDemo?"Amit's demo pursuit":''}">${e._isDemo?'✦ ':''}${(e.title||'').replace(/</g,'&lt;')}</div></div>`).join('')
-    : `<div class="dv-aim-empty">Nothing set for this day yet.</div>`;
-
-  wrap.innerHTML=`
-    <div class="cal-dv-zoom-wrap">
-      ${adjCardHtml(prevDs,-1)}
-      <div class="cal-dv-main${isToday?' dv-today':''}">
-        <div class="cal-dv-main-head">
-          <div class="cal-dv-top">
-            <div class="cal-dv-greg">
-              <div class="cal-dv-greg-num">${d}</div>
-              <div class="cal-dv-greg-day">${DAY_NAMES[dt.getDay()].toUpperCase()}</div>
-              <div class="cal-dv-greg-month">${CV_MONTH_NAMES[m-1]} ${y}${isToday?' · Today':''}</div>
-            </div>
-          </div>
-          <div class="cal-dv-main-divider"></div>
-        </div>
-        <div class="cal-dv-main-scroll">
-          <button class="daily-walk-btn" disabled title="Not wired in this template — placeholder for visual parity with the Hub">☀ Daily Walk <span class="daily-walk-btn-icon">→</span></button>
-          <div class="cal-dv-refl-trigger" style="cursor:default" title="Not wired in this template — placeholder for visual parity with the Hub">Add Your Reflection →</div>
-          <div class="dv-section dv-section-pursuit">
-            <div class="dv-sh">Pursuits</div>
-            <div class="dv-sb">${pursuitRowsHtml}</div>
-          </div>
-          <div style="margin-top:4px;padding-top:12px;border-top:1px solid rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between">
-            <button class="cal-dv-testimony-btn" disabled title="Not wired in this template — placeholder for visual parity with the Hub">✦ Record a Testimony</button>
-            <button class="cal-dv-month-return" onclick="openPage(6)" title="Return to calendar">← Calendar</button>
-          </div>
-        </div>
-      </div>
-      ${adjCardHtml(nextDs,1)}
-    </div>
-  `;
-}
-
-function dayViewGoTo(containerId,ds){
-  const inst=dayViewInstances.get(containerId);if(!inst)return;
-  inst.date=ds;
-  dayViewRenderInstance(containerId);
-  dayViewLoadEntries(containerId);
-}
-
-function dayViewNav(containerId,delta){
-  const inst=dayViewInstances.get(containerId);if(!inst)return;
-  const[y,m,d]=inst.date.split('-').map(Number);
-  inst.date=_dvFmtDs(new Date(y,m-1,d+delta));
-  dayViewRenderInstance(containerId);
-  dayViewLoadEntries(containerId);
-}
-
-// LIVE PURSUITS for the selected day AND its two neighbors (one query
-// covers all three, for the adjacent cards' pursuit-count labels) — same
-// live hub_entries connection as Calendar View, scoped to whoever's
-// signed in, same honest empty state when nobody is, same stale-request
-// guard pattern (navigating days quickly shouldn't let an older request
-// overwrite a newer one).
-async function dayViewLoadEntries(containerId){
-  const inst=dayViewInstances.get(containerId);if(!inst)return;
-  const requestDate=inst.date;
-  const[y,m,d]=requestDate.split('-').map(Number);
-  const prevDs=_dvFmtDs(new Date(y,m-1,d-1));
-  const nextDs=_dvFmtDs(new Date(y,m-1,d+1));
-  let ownRows=[];
-  if(currentUser){
-    try{
-      const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&user_id=eq.${currentUser.id}&due_date=in.(${prevDs},${requestDate},${nextDs})`,{
-        headers:{apikey:SB_KEY,Accept:'application/json'}
-      });
-      ownRows=res.ok?await res.json():[];
-    }catch(e){
-      ownRows=[];
-    }
-  }
-  // DEMO MODE — via the shared fetchDemoRows() helper, same as Calendar
-  // View (see CANONICAL DATA BINDING: DEMO MODE, near PAGE_COUNT).
-  const demoRows=await fetchDemoRows('hub_entries',`select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&due_date=in.(${prevDs},${requestDate},${nextDs})`);
-  const stillInst=dayViewInstances.get(containerId);
-  if(!stillInst||stillInst.date!==requestDate)return; // a newer request has already superseded this one
-  inst.entries=[...demoRows,...ownRows];
-  inst.entries.forEach(e=>{window._cvEntries[e.id]=e;});
-  dayViewRenderInstance(containerId);
-}
-
-// Double-clicking a real day cell in Calendar View opens that exact date
-// in Day View — the link Ryan asked for between the two. This template
-// has one Day View instance (page 17, mount id 'dayview-mount').
-function cvOpenDayView(ds){
-  if(dayViewInstances.has('dayview-mount')) dayViewGoTo('dayview-mount',ds);
-  else dayViewCreate('dayview-mount',ds);
-  openPage(17);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: BOARD VIEW — Kanban, added 2026-08-06, Ryan's direct
-// instruction (built without stopping for review, per his own explicit
-// go-ahead this session). bvCreate(containerId, statuses, rows, opts).
-// statuses: ['Not Started','In Progress','Done'] — column order.
-// rows: [{id, title, owner, status}, ...]. Native HTML5 drag/drop moves a
-// card to a new column, updating its status in place; opts.onStatusChange
-// (rowId,newStatus) fires after a successful drop so a real project can
-// persist it. Sample data placeholder only.
-// ══════════════════════════════════════════════
-const BV_SAMPLE_STATUSES=['Not Started','In Progress','Done'];
-const BV_SAMPLE_ROWS=[
-  {id:'b1',title:'Kickoff meeting',owner:'Ryan',status:'Done'},
-  {id:'b2',title:'Design review',owner:'Amit',status:'In Progress'},
-  {id:'b3',title:'Backend wiring',owner:'Ryan',status:'Not Started'},
-  {id:'b4',title:'QA pass',owner:'Ryan',status:'Not Started'},
-  {id:'b5',title:'Launch',owner:'Ryan',status:'Not Started'}
-];
-// Card columns used when opening a card's Detail View — added 2026-08-06,
-// shared by every Board View instance since a card's own field shape
-// (title/owner/status) is fixed regardless of which instance it's in.
-const BV_DETAIL_COLUMNS=[{key:'title',label:'Title'},{key:'owner',label:'Owner'},{key:'status',label:'Status'}];
-
-const bvInstances=new Map();
-function bvCreate(containerId,statuses,rows,opts={}){
-  bvInstances.set(containerId,{statuses,rows,onStatusChange:opts.onStatusChange||null,onCardOpen:opts.onCardOpen||null});
-  bvRenderInstance(containerId);
-}
-function bvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=bvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  wrap.innerHTML=`<div class="bv-cols">${inst.statuses.map(status=>{
-    const cards=inst.rows.filter(r=>r.status===status);
-    return `<div class="bv-col" data-status="${status}" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="bvDrop(event,'${containerId}','${status}')">
-      <div class="bv-col-head">${status} (${cards.length})</div>
-      <div class="bv-col-body">${cards.map(c=>`<div class="bv-card" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${c.id}')" ondblclick="bvOpenCard('${containerId}','${c.id}')">${c.title}<div class="bv-card-owner">${c.owner}</div></div>`).join('')||'<div class="bv-card-owner" style="padding:6px 2px">No cards</div>'}</div>
-    </div>`;
-  }).join('')}</div>`;
-}
-// Double-click a card — the drag/drop mechanic stays exactly as it was
-// (that's the "already working" way, per Ryan's own words); this adds
-// the second half he asked for: without navigating off the board, see
-// what the card actually is. Opens a Detail View inside a Popup, reusing
-// the same canonical DESTINATION/LAYOUT pieces already built for Row
-// View's own popup demo — not a new mechanism. opts.onCardOpen(itemId)
-// overrides this default for a real project that wants something else
-// (a different page, a different popup layout, etc).
-function bvOpenCard(containerId,itemId){
-  const inst=bvInstances.get(containerId);if(!inst)return;
-  if(inst.onCardOpen){ inst.onCardOpen(itemId); return; }
-  popupOpen(`<div class="dv-wrap" id="popup-bv-dv-mount" style="margin:0"></div>`);
-  dvCreate('popup-bv-dv-mount',BV_DETAIL_COLUMNS,inst.rows);
-  dvOpenForInstance('popup-bv-dv-mount',itemId);
-}
-function bvDrop(e,containerId,status){
-  e.preventDefault();
-  const inst=bvInstances.get(containerId);if(!inst)return;
-  document.querySelectorAll(`#${containerId} .bv-col`).forEach(el=>el.classList.remove('dragover'));
-  const id=e.dataTransfer.getData('text/plain');
-  const row=inst.rows.find(r=>r.id===id);
-  if(row&&row.status!==status){
-    row.status=status;
-    if(inst.onStatusChange) inst.onStatusChange(id,status);
-  }
-  bvRenderInstance(containerId);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: GALLERY VIEW — visual card grid, added 2026-08-06.
-// glvCreate(containerId, rows, opts). rows: [{id,icon,title,sub}, ...].
-// opts.onCardOpen(itemId) — same open-elsewhere contract as Row View's
-// onRowOpen; falls back to dvOpenFor on page 4 if omitted.
-// ══════════════════════════════════════════════
-const GLV_SAMPLE_ROWS=[
-  {id:'gl1',icon:'📄',title:'Kickoff meeting',sub:'Ryan · Done'},
-  {id:'gl2',icon:'🎨',title:'Design review',sub:'Amit · In Progress'},
-  {id:'gl3',icon:'🛠️',title:'Backend wiring',sub:'Ryan · Not Started'},
-  {id:'gl4',icon:'✅',title:'QA pass',sub:'Ryan · Not Started'},
-  {id:'gl5',icon:'🚀',title:'Launch',sub:'Ryan · Not Started'}
-];
-const glvInstances=new Map();
-function glvCreate(containerId,rows,opts={}){
-  glvInstances.set(containerId,{rows,onCardOpen:opts.onCardOpen||null});
-  glvRenderInstance(containerId);
-}
-function glvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=glvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  wrap.innerHTML=`<div class="glv-grid">${inst.rows.map(r=>`
-    <div class="glv-card" onclick="glvOpen('${containerId}','${r.id}')">
-      <div class="glv-thumb">${r.icon||'▢'}</div>
-      <div class="glv-body"><div class="glv-title">${r.title}</div><div class="glv-sub">${r.sub||''}</div></div>
-    </div>`).join('')}</div>`;
-}
-function glvOpen(containerId,itemId){
-  const inst=glvInstances.get(containerId);
-  if(inst&&inst.onCardOpen){ inst.onCardOpen(itemId); return; }
-  dvOpenFor(itemId);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: DASHBOARD VIEW — stat tiles + a simple bar chart,
-// added 2026-08-06. dbvCreate(containerId, tiles, bars). tiles:
-// [{label,value}, ...]. bars: {title, data:[{label,value}, ...]} — bar
-// heights are computed relative to the tallest value in the set.
-// ══════════════════════════════════════════════
-const DBV_SAMPLE_TILES=[
-  {label:'Total Pursuits',value:'5'},
-  {label:'Done',value:'1'},
-  {label:'In Progress',value:'1'},
-  {label:'Not Started',value:'3'}
-];
-const DBV_SAMPLE_BARS={title:'Pursuits by Status',data:[
-  {label:'Done',value:1},{label:'In Progress',value:1},{label:'Not Started',value:3}
-]};
-function dbvCreate(containerId,tiles,bars){
-  const wrap=document.getElementById(containerId);
-  if(!wrap)return;
-  const max=Math.max(1,...bars.data.map(d=>d.value));
-  wrap.innerHTML=`
-    <div class="dbv-tiles">${tiles.map(t=>`<div class="dbv-tile"><div class="dbv-tile-label">${t.label}</div><div class="dbv-tile-value">${t.value}</div></div>`).join('')}</div>
-    <div class="dbv-chart">
-      <div class="dbv-chart-title">${bars.title}</div>
-      <div class="dbv-bars">${bars.data.map(d=>`<div class="dbv-bar-col"><div class="dbv-bar" style="height:${Math.max(6,(d.value/max)*100)}%"></div><div class="dbv-bar-label">${d.label}</div></div>`).join('')}</div>
-    </div>`;
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: SPLIT VIEW — master list + detail pane, no page
-// navigation, added 2026-08-06. spvCreate(containerId, columns, rows).
-// Reuses the same {id,...fields} row shape as Row/Detail View, so the
-// same sample data drops straight in.
-// ══════════════════════════════════════════════
-const spvInstances=new Map();
-function spvCreate(containerId,columns,rows){
-  spvInstances.set(containerId,{columns,rows,selectedId:(rows[0]&&rows[0].id)||null});
-  spvRenderInstance(containerId);
-}
-function spvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=spvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  const item=inst.rows.find(r=>r.id===inst.selectedId);
-  wrap.innerHTML=`
-    <div class="spv-list">${inst.rows.map(r=>`<div class="spv-item${r.id===inst.selectedId?' active':''}" onclick="spvSelect('${containerId}','${r.id}')">${r[inst.columns[0].key]}</div>`).join('')}</div>
-    <div class="spv-detail"><div class="dv-fields">${item?inst.columns.map(c=>`<div class="dv-label">${c.label}</div><div class="dv-value">${item[c.key]||'—'}</div>`).join(''):''}</div></div>`;
-}
-function spvSelect(containerId,id){
-  const inst=spvInstances.get(containerId);if(!inst)return;
-  inst.selectedId=id;
-  spvRenderInstance(containerId);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: FORM VIEW — dedicated create/edit layout, separate
-// from Detail View (which is read-only), added 2026-08-06.
-// fvCreate(containerId, fields, opts). fields: [{key,label,type}, ...]
-// (type: 'text'|'textarea'). opts.onSubmit(values) fires on Save with the
-// current field values; no native browser dialogs.
-// ══════════════════════════════════════════════
-const FV_SAMPLE_FIELDS=[
-  {key:'title',label:'Title',type:'text'},
-  {key:'owner',label:'Owner',type:'text'},
-  {key:'notes',label:'Notes',type:'textarea'}
-];
-const fvInstances=new Map();
-function fvCreate(containerId,fields,opts={}){
-  fvInstances.set(containerId,{fields,values:{},onSubmit:opts.onSubmit||null,status:''});
-  fvRenderInstance(containerId);
-}
-function fvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=fvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  wrap.innerHTML=`${inst.fields.map(f=>`
-    <div class="fv-field">
-      <label class="fv-label">${f.label}</label>
-      ${f.type==='textarea'
-        ?`<textarea class="fv-textarea" oninput="fvSetValue('${containerId}','${f.key}',this.value)">${inst.values[f.key]||''}</textarea>`
-        :`<input class="fv-input" type="text" value="${(inst.values[f.key]||'').replace(/"/g,'&quot;')}" oninput="fvSetValue('${containerId}','${f.key}',this.value)">`}
-    </div>`).join('')}
-    <button class="fv-save" onclick="fvSubmit('${containerId}')">SAVE →</button>
-    ${inst.status?`<div class="fv-status">${inst.status}</div>`:''}`;
-}
-function fvSetValue(containerId,key,val){
-  const inst=fvInstances.get(containerId);if(!inst)return;
-  inst.values[key]=val;
-}
-function fvSubmit(containerId){
-  const inst=fvInstances.get(containerId);if(!inst)return;
-  if(inst.onSubmit) inst.onSubmit({...inst.values});
-  inst.status='Saved — '+new Date().toLocaleTimeString();
-  fvRenderInstance(containerId);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: CHART VIEW — added 2026-08-06, per the dataviz skill
-// loaded this session. One axis only; a single bar chart is one sequential
-// hue (gold ramp, already this template's own accent), the line chart's
-// two series use the Hub's own already-documented categorical order
-// (steel blue + gold) rather than an invented palette, with a legend
-// since it's 2+ series and a title-attr hover tooltip on each point.
-// chvCreate(containerId, bars, lines). bars: {title,data:[{label,value}]}.
-// lines: {title,series:[{name,color,points:[{label,value}]}, ...]}.
-// ══════════════════════════════════════════════
-const CHV_SAMPLE_BARS={title:'Pursuits by Purpose',data:[
-  {label:'Spiritual',value:4},{label:'Craft',value:7},{label:'Mission',value:2},{label:'Service',value:3}
-]};
-const CHV_SAMPLE_LINES={title:'Activity — This Week vs Last Week',series:[
-  {name:'This Week',color:'var(--gold2)',points:[{label:'Mon',value:3},{label:'Tue',value:5},{label:'Wed',value:4},{label:'Thu',value:6},{label:'Fri',value:8}]},
-  {name:'Last Week',color:'#6fa3c9',points:[{label:'Mon',value:2},{label:'Tue',value:3},{label:'Wed',value:5},{label:'Thu',value:4},{label:'Fri',value:5}]}
-]};
-function chvCreate(containerId,bars,lines){
-  const wrap=document.getElementById(containerId);
-  if(!wrap)return;
-  const max=Math.max(1,...bars.data.map(d=>d.value));
-  const barsHtml=`<div class="chv-section">
-    <div class="chv-title">${bars.title}</div>
-    <div class="chv-bars">${bars.data.map(d=>`<div class="chv-bar-col"><div class="chv-bar" style="height:${Math.max(6,(d.value/max)*100)}%" title="${d.label}: ${d.value}"></div><div class="chv-bar-label">${d.label}</div></div>`).join('')}</div>
-  </div>`;
-
-  // Simple SVG line chart — one shared x/y scale (one axis, per the
-  // dataviz skill's #1 rule: never a dual-axis chart), thin 2px lines,
-  // 4px rounded data-end dots, recessive gridlines.
-  const w=560,h=130,pad=20;
-  const allVals=lines.series.flatMap(s=>s.points.map(p=>p.value));
-  const lmax=Math.max(1,...allVals);
-  const stepX=(w-pad*2)/(lines.series[0].points.length-1);
-  const toXY=(i,val)=>[pad+i*stepX,h-pad-(val/lmax)*(h-pad*1.5)];
-  const gridHtml=[0,.5,1].map(f=>`<line class="chv-gridline" x1="${pad}" x2="${w-pad}" y1="${h-pad-f*(h-pad*1.5)}" y2="${h-pad-f*(h-pad*1.5)}"></line>`).join('');
-  const seriesHtml=lines.series.map(s=>{
-    const pts=s.points.map((p,i)=>toXY(i,p.value));
-    const path=pts.map((pt,i)=>(i===0?'M':'L')+pt[0]+' '+pt[1]).join(' ');
-    const dots=pts.map((pt,i)=>`<circle class="chv-point" cx="${pt[0]}" cy="${pt[1]}" r="4" fill="${s.color}"><title>${s.name} · ${s.points[i].label}: ${s.points[i].value}</title></circle>`).join('');
-    return `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round"></path>${dots}`;
-  }).join('');
-  const labelsHtml=lines.series[0].points.map((p,i)=>{
-    const[x]=toXY(i,0);
-    return `<text x="${x}" y="${h-2}" font-size="9" fill="rgba(240,232,208,.5)" text-anchor="middle">${p.label}</text>`;
-  }).join('');
-
-  const linesHtml=`<div class="chv-section">
-    <div class="chv-title">${lines.title}</div>
-    <div class="chv-legend">${lines.series.map(s=>`<span class="chv-legend-item"><span class="chv-legend-swatch" style="background:${s.color}"></span>${s.name}</span>`).join('')}</div>
-    <svg class="chv-line-svg" viewBox="0 0 ${w} ${h}">${gridHtml}${seriesHtml}${labelsHtml}</svg>
-  </div>`;
-
-  wrap.innerHTML=barsHtml+linesHtml;
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: INBOX VIEW — stream/queue with checkbox multi-select
-// + batch actions, added 2026-08-06. ibvCreate(containerId, rows, opts).
-// rows: [{id,title,sub,read}, ...]. opts.onBatchAction(actionName, ids).
-// ══════════════════════════════════════════════
-const IBV_SAMPLE_ROWS=[
-  {id:'i1',title:'New reflection submitted',sub:'From the Word for Today panel · 2 min ago',read:false},
-  {id:'i2',title:'Question sent to Amit',sub:'"What does Torah say about..." · 1 hr ago',read:false},
-  {id:'i3',title:'Session summary ready',sub:'Session 58 archived · yesterday',read:true},
-  {id:'i4',title:'New testimony entry',sub:'Andy · 2 days ago',read:true}
-];
-const ibvInstances=new Map();
-function ibvCreate(containerId,rows,opts={}){
-  ibvInstances.set(containerId,{rows,selected:new Set(),onBatchAction:opts.onBatchAction||null});
-  ibvRenderInstance(containerId);
-}
-function ibvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=ibvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  const n=inst.selected.size;
-  wrap.innerHTML=`
-    <div class="ibv-toolbar">
-      <span>${n?`${n} selected`:'No items selected'}</span>
-      <button ${n?'':'disabled'} onclick="ibvBatch('${containerId}','markRead')">Mark Read</button>
-      <button ${n?'':'disabled'} onclick="ibvBatch('${containerId}','delete')">Delete</button>
-    </div>
-    <div class="ibv-list">${inst.rows.map(r=>`
-      <div class="ibv-item${r.read?'':' unread'}" onclick="ibvOpen('${containerId}','${r.id}')">
-        <input class="ibv-item-check" type="checkbox" ${inst.selected.has(r.id)?'checked':''} onclick="event.stopPropagation();ibvToggleSelect('${containerId}','${r.id}')">
-        <div><div class="ibv-item-title">${r.title}</div><div class="ibv-item-sub">${r.sub}</div></div>
-      </div>`).join('')||'<div class="ibv-item-sub" style="padding:14px">Inbox is empty</div>'}</div>`;
-}
-function ibvToggleSelect(containerId,id){
-  const inst=ibvInstances.get(containerId);if(!inst)return;
-  if(inst.selected.has(id)) inst.selected.delete(id); else inst.selected.add(id);
-  ibvRenderInstance(containerId);
-}
-function ibvOpen(containerId,id){
-  const inst=ibvInstances.get(containerId);if(!inst)return;
-  const row=inst.rows.find(r=>r.id===id);
-  if(row) row.read=true;
-  ibvRenderInstance(containerId);
-}
-function ibvBatch(containerId,action){
-  const inst=ibvInstances.get(containerId);if(!inst||!inst.selected.size)return;
-  const ids=Array.from(inst.selected);
-  if(action==='markRead') ids.forEach(id=>{const r=inst.rows.find(x=>x.id===id);if(r)r.read=true;});
-  if(action==='delete') inst.rows=inst.rows.filter(r=>!inst.selected.has(r.id));
-  if(inst.onBatchAction) inst.onBatchAction(action,ids);
-  inst.selected=new Set();
-  ibvRenderInstance(containerId);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: DRAWER VIEW — lightweight overlay detail sliding in
-// from the right, doesn't leave the current screen's own context, added
-// 2026-08-06. drvCreate(containerId, rows). rows: [{id,title,body}, ...].
-// ══════════════════════════════════════════════
-const DRV_SAMPLE_ROWS=[
-  {id:'d1',title:'Kickoff meeting',body:'Owner: Ryan · Status: Done · Due 2026-07-28'},
-  {id:'d2',title:'Design review',body:'Owner: Amit · Status: In Progress · Due 2026-08-02'},
-  {id:'d3',title:'Backend wiring',body:'Owner: Ryan · Status: Not Started · Due 2026-08-10'}
-];
-const drvInstances=new Map();
-function drvCreate(containerId,rows){
-  drvInstances.set(containerId,{rows});
-  drvRenderInstance(containerId);
-}
-function drvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=drvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  wrap.innerHTML=`<div class="drv-trigger-list">${inst.rows.map(r=>`<div class="drv-trigger-item" onclick="drvOpen('${containerId}','${r.id}')">${r.title}</div>`).join('')}</div>
-    <div class="drv-overlay" id="${containerId}-overlay" onclick="drvClose('${containerId}')"></div>
-    <div class="drv-panel" id="${containerId}-panel"><span class="drv-close" onclick="drvClose('${containerId}')">CLOSE ✕</span><div id="${containerId}-panel-body"></div></div>`;
-}
-function drvOpen(containerId,id){
-  const inst=drvInstances.get(containerId);if(!inst)return;
-  const row=inst.rows.find(r=>r.id===id);if(!row)return;
-  document.getElementById(containerId+'-panel-body').innerHTML=`<div class="dv-sub-h">${row.title}</div><div class="dv-value">${row.body}</div>`;
-  document.getElementById(containerId+'-overlay').classList.add('open');
-  document.getElementById(containerId+'-panel').classList.add('open');
-}
-function drvClose(containerId){
-  document.getElementById(containerId+'-overlay').classList.remove('open');
-  document.getElementById(containerId+'-panel').classList.remove('open');
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: TREE VIEW — hierarchical parent/child, added
-// 2026-08-06. tvCreate(containerId, rows, opts) reuses the same
-// {id,...fields,children:[...]} row shape Row View already uses, so the
-// same sample data works unmodified. opts.onNodeOpen(itemId) — same
-// open-elsewhere contract, defaults to dvOpenFor on page 4.
-// ══════════════════════════════════════════════
-// Dedicated sample data (not reused from Row View) — added 2026-08-06,
-// Ryan's direct instruction: RV_SAMPLE_ROWS is only two levels deep and
-// looks nearly identical to a flat list at a glance, which made Tree
-// View's own nesting hard to actually see. This set goes three levels
-// deep (folder → sub-folder → file) so the ▸/▾ hierarchy is obvious.
-const TV_SAMPLE_ROWS=[
-  {id:'t1',name:'📁 Amit System',children:[
-    {id:'t1a',name:'📁 Hub',children:[
-      {id:'t1a1',name:'📄 amit-hub.html'},
-      {id:'t1a2',name:'📄 Sessions.md'}
-    ]},
-    {id:'t1b',name:'📁 who_is_god',children:[
-      {id:'t1b1',name:'📄 who_is_god.html'},
-      {id:'t1b2',name:'📄 Amit_Start.md'}
-    ]}
-  ]},
-  {id:'t2',name:'📁 Templates',children:[
-    {id:'t2a',name:'📄 template.html'},
-    {id:'t2b',name:'📄 CLAUDE.md'}
-  ]},
-  {id:'t3',name:'📄 Amit_Testimony.md'}
-];
-const tvInstances=new Map();
-function tvCreate(containerId,rows,opts={}){
-  tvInstances.set(containerId,{rows,expanded:new Set(),selectedId:null,onNodeOpen:opts.onNodeOpen||null});
-  tvRenderInstance(containerId);
-}
-function tvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=tvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  const nodeHtml=(r)=>{
-    const hasKids=r.children&&r.children.length;
-    const expanded=inst.expanded.has(r.id);
-    let html=`<div class="tv-node${inst.selectedId===r.id?' selected':''}" onclick="tvSelect('${containerId}','${r.id}')">
-      ${hasKids?`<span class="tv-toggle" onclick="event.stopPropagation();tvToggle('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:`<span class="tv-toggle"><span class="tv-leaf-dot"></span></span>`}
-      ${r.name||r.title}
-    </div>`;
-    if(hasKids&&expanded) html+=`<div style="margin-left:22px">${r.children.map(nodeHtml).join('')}</div>`;
-    return html;
-  };
-  wrap.innerHTML=inst.rows.map(nodeHtml).join('');
-}
-function tvToggle(containerId,id){
-  const inst=tvInstances.get(containerId);if(!inst)return;
-  if(inst.expanded.has(id)) inst.expanded.delete(id); else inst.expanded.add(id);
-  tvRenderInstance(containerId);
-}
-// Clicking a row with children expands/collapses it (same as clicking its
-// ▸/▾ toggle directly) — it does NOT open Detail View, since a folder-type
-// node has no single record to show. Only a LEAF row (no children) opens
-// Detail View / onNodeOpen. Fixed 2026-08-06, Ryan's direct correction:
-// every row was calling onNodeOpen regardless of hasKids, so clicking a
-// folder immediately jumped to Detail View instead of expanding it —
-// exactly backwards from how a real file tree behaves.
-function tvFindNode(id,rows){
-  for(const r of rows){
-    if(r.id===id) return r;
-    if(r.children){ const found=tvFindNode(id,r.children); if(found) return found; }
-  }
-  return null;
-}
-function tvSelect(containerId,id){
-  const inst=tvInstances.get(containerId);if(!inst)return;
-  const node=tvFindNode(id,inst.rows);
-  if(node&&node.children&&node.children.length){
-    tvToggle(containerId,id);
-    return;
-  }
-  inst.selectedId=id;
-  tvRenderInstance(containerId);
-  if(inst.onNodeOpen) inst.onNodeOpen(id); else dvOpenFor(id);
-}
-
-// ══════════════════════════════════════════════
-// CANONICAL LAYOUT: BREADCRUMB VIEW — chained drill-down navigation
-// (summary → records → single record) with a visible breadcrumb trail
-// AND an "Open Pages" rail, added 2026-08-06. Distinct from Detail View,
-// which only drills one level from a Row View — this tracks an
-// arbitrary-depth path and lets you jump back to any prior step.
-//
-// "Open Pages" reflects EXACTLY the levels currently open in inst.path —
-// fixed 2026-08-06, Ryan's direct correction. The first version tracked a
-// separate, ever-growing visit log that never shrank when you navigated
-// back up, so it accumulated duplicates and stale entries with no way to
-// tell what was actually still open. There is no separate history array
-// anymore — the rail is rendered straight from inst.path (same as the
-// trail at the top, just listed vertically), so jumping back via
-// bcvJumpTo (which truncates inst.path) automatically removes everything
-// past that point from BOTH the trail and the rail at once, since they
-// now read from the same single source of truth. The root level is
-// omitted from the rail (it's always open by definition, same reasoning
-// as page 1 never needing its own "you are here" marker).
-//
-// bcvCreate(containerId, rootLabel, rootItems). Each item may itself have
-// children[] to drill into further, or fields to show as a final record.
-// ══════════════════════════════════════════════
-const BCV_SAMPLE_ROOT=[
-  {id:'p1',name:'Q3 Pursuits',children:[
-    {id:'p1a',name:'Design review',status:'In Progress',owner:'Amit'},
-    {id:'p1b',name:'Backend wiring',status:'Not Started',owner:'Ryan'}
-  ]},
-  {id:'p2',name:'Q4 Pursuits',children:[
-    {id:'p2a',name:'Launch',status:'Not Started',owner:'Ryan'}
-  ]}
-];
-const bcvInstances=new Map();
-function bcvCreate(containerId,rootLabel,rootItems){
-  bcvInstances.set(containerId,{rootLabel,rootItems,path:[{label:rootLabel,items:rootItems}]});
-  bcvRenderInstance(containerId);
-}
-function bcvRenderInstance(containerId){
-  const wrap=document.getElementById(containerId);
-  const inst=bcvInstances.get(containerId);
-  if(!wrap||!inst)return;
-  const current=inst.path[inst.path.length-1];
-  const trailHtml=inst.path.map((step,idx)=>{
-    const isLast=idx===inst.path.length-1;
-    return (idx>0?'<span class="bcv-trail-sep">›</span>':'')+`<span class="bcv-trail-item" ${isLast?'':`onclick="bcvJumpTo('${containerId}',${idx})"`}>${step.label}</span>`;
-  }).join('');
-  const listHtml=current.items.map(item=>{
-    const hasKids=item.children&&item.children.length;
-    const fieldsPreview=Object.keys(item).filter(k=>!['id','name','children'].includes(k)).map(k=>`${k}: ${item[k]}`).join(' · ');
-    return `<div class="bcv-list-item" onclick="bcvDrill('${containerId}','${item.id}')">${item.name}${hasKids?' →':fieldsPreview?' — '+fieldsPreview:''}</div>`;
-  }).join('')||'<div class="bcv-list-item" style="cursor:default">Nothing here</div>';
-  // Rendered straight from inst.path (root excluded, index 0) — not a
-  // separate log, so it can only ever show what's genuinely still open.
-  const openLevels=inst.path.slice(1);
-  const railHtml=openLevels.length
-    ? openLevels.map((step,idx)=>`<div class="bcv-rail-item" onclick="bcvJumpTo('${containerId}',${idx+1})">${step.label}</div>`).join('')
-    : '<div class="bcv-rail-item" style="cursor:default">Nothing drilled into yet</div>';
-  wrap.innerHTML=`<div class="bcv-main"><div class="bcv-trail">${trailHtml}</div><div>${listHtml}</div></div>
-    <div class="bcv-rail"><div class="bcv-rail-title">Open Pages</div>${railHtml}</div>`;
-}
-function bcvDrill(containerId,itemId){
-  const inst=bcvInstances.get(containerId);if(!inst)return;
-  const current=inst.path[inst.path.length-1];
-  const item=current.items.find(i=>i.id===itemId);if(!item)return;
-  if(item.children&&item.children.length){
-    inst.path.push({label:item.name,items:item.children});
-  } else {
-    inst.path.push({label:item.name,items:[item]});
-  }
-  bcvRenderInstance(containerId);
-}
-function bcvJumpTo(containerId,pathIdx){
-  const inst=bcvInstances.get(containerId);if(!inst)return;
-  inst.path=inst.path.slice(0,pathIdx+1);
-  bcvRenderInstance(containerId);
-}
-
-// ── DEMO: proves the model end to end ──────────────────────────────────
-// Page 3 (standalone Row View) and Page 4 (standalone Detail View) keep
-// their original page-level behavior via the default instances below.
-// Page 2, Tab 2 (Tabbed View) additionally hosts its OWN nested Row View
-// instance — same canonical rvCreate() call, different destination — and
-// wires its onRowOpen to open a Detail View inside a Popup instead of
-// navigating to page 4. This is the literal example Ryan gave: "Page 3,
-// make it a Tab View. Tab 2, make it a Row View. Double-click = popup
-// with a Detail View." Nothing here is a special case in the Row/Detail
-// View code itself — it's the same two canonical layouts, mounted at two
-// different destinations, composed by whoever is wiring the page. Must
-// run after the functions/data above are defined, and after
-// buildPlaceholders has already created the mount elements — not from
-// inside that earlier IIFE.
-rvCreate('rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
-dvCreate('dv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
-cvCreate('cv-mount');
-dayViewCreate('dayview-mount');
-bvCreate('bv-mount',BV_SAMPLE_STATUSES,BV_SAMPLE_ROWS);
-glvCreate('glv-mount',GLV_SAMPLE_ROWS);
-dbvCreate('dbv-mount',DBV_SAMPLE_TILES,DBV_SAMPLE_BARS);
-spvCreate('spv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
-fvCreate('fv-mount',FV_SAMPLE_FIELDS);
-chvCreate('chv-mount',CHV_SAMPLE_BARS,CHV_SAMPLE_LINES);
-ibvCreate('ibv-mount',IBV_SAMPLE_ROWS);
-drvCreate('drv-mount',DRV_SAMPLE_ROWS);
-tvCreate('tv-mount',TV_SAMPLE_ROWS);
-bcvCreate('bcv-mount','Pursuits',BCV_SAMPLE_ROOT);
-rvCreate('ch-tab-2-2-rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS,{
-  onRowOpen:(itemId)=>{
-    popupOpen(`<div class="dv-wrap" id="popup-dv-mount" style="margin:0"></div>`);
-    dvCreate('popup-dv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
-    dvOpenForInstance('popup-dv-mount',itemId);
-  }
-});
-
-// Tabbed-layout behavior (copied from Computer Health's showTab — folder-tab
-// look, sub-content switching within one detail area — no data hooks
-// attached). Multi-row overflow, Ryan's spec 2026-08-04: the tab row grows
-// as many rows behind itself as it needs (plain CSS flex-wrap, see
-// .ch-tab-nav) rather than scrolling or truncating. Selecting a tab that
-// isn't in the front row brings its WHOLE row forward — every tab that
-// currently shares its wrapped line moves to the end of the row's source
-// order, and since flex-wrap always fills top-to-bottom in source order,
-// that group becomes the last (front, touching the content) row while the
-// previously-front row shifts back. Classic multi-row property-sheet
-// behavior — same idea as old Windows tabbed dialogs.
-function showChTab(detailNum,n){
-  const detail=document.getElementById('detail-'+detailNum);
-  const clickedBtn=event.target;
-  const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
-  if(tabNav){
-    // Two real bugs fixed 2026-08-06, Ryan's direct correction, both
-    // stemming from the same row-promotion logic below (intended ONLY
-    // for when tabs wrap into multiple rows — see .ch-tab-nav's CSS
-    // comment):
-    // (1) It ran unconditionally on every click, even with a single row
-    //     of tabs that never wraps — reshuffling tabs that had no reason
-    //     to move at all.
-    // (2) .ch-tab-btn.active has a different margin-top than inactive
-    //     tabs (see CSS), which shifts ITS OWN offsetTop just enough
-    //     that exact-equality matching (`b.offsetTop===rowTop`) treated
-    //     the currently-active tab as being in a "different row" from
-    //     its own single-row siblings — silently excluding it from the
-    //     reorder while shuffling everything else, which is exactly what
-    //     made tab 1 become unreachable and tab 5 land in the wrong slot.
-    // Fix: only run the reorder at all when tabs have genuinely wrapped
-    // (tabNav is taller than ~1.5 rows), and use a tolerance instead of
-    // exact equality when grouping a row, so the active tab's own margin
-    // quirk can't misclassify it as a separate row.
-    const wrapped=tabNav.scrollHeight>clickedBtn.offsetHeight*1.5;
-    if(wrapped){
-      const rowTop=clickedBtn.offsetTop;
-      Array.from(tabNav.children)
-        .filter(b=>Math.abs(b.offsetTop-rowTop)<15)
-        .forEach(b=>tabNav.appendChild(b)); // re-append in place → moves this row's tabs to the end of source order
-    }
-  }
-  detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
-  detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
-  clickedBtn.classList.add('active');
 }
 
 function openPage(n){
@@ -2857,58 +459,41 @@ function openPage(n){
   if(detail)detail.classList.add('active');
 }
 
-// Double-click anywhere in the sidebar collapses it to icon-only, or
-// expands it back to the full labeled row. Double-click again to reverse.
 function toggleSidebar(){
   document.getElementById('sidebarPages').classList.toggle('collapsed');
 }
 
 // ══════════════════════════════════════════════
-// ALT+NUMBER PAGE SHORTCUTS — removed 2026-08-06, Ryan's direct instruction.
-// Windows/Edge/Chrome
-// reserve the bare Alt key as a menu-mnemonic modifier, so real physical
-// Alt+N presses could get intercepted by the browser chrome before ever
-// reaching this page's JS (confirmed via headless testing: synthetic
-// keyboard events worked every time, but that bypasses the exact layer
-// that broke it for a real keyboard). No in-page fix can override that
-// browser-level behavior, so the feature was pulled rather than shipped
-// unreliable. If page-jump shortcuts are wanted again later, use a
-// modifier combo the browser doesn't reserve (e.g. Ctrl+Alt+N).
+// CANONICAL DESTINATION: POPUP — NOT a layout type. Generic overlay that
+// hosts whatever layout instance (copied in from TemplateViews.html) is
+// mounted inside it — content-agnostic, same as a Page or Tab slot.
+// ══════════════════════════════════════════════
+function popupOpen(innerHtml){
+  let modal=document.getElementById('canonicalPopup');
+  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
+    ${innerHtml}
+  </div>`;
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
+  modal.style.display='flex';
+}
+function popupClose(){
+  const modal=document.getElementById('canonicalPopup');
+  if(modal) modal.style.display='none';
+}
 
 // ══════════════════════════════════════════════
-// LOGIN CONNECTION — the one live piece of this template.
-// Supabase auth only: knows who is signed in. No data reads/writes beyond that.
-// SB_URL/SB_KEY/db/currentUser all declared near the top of the script
-// now, not here — a real, confirmed bug, added 2026-08-06: demoMode
-// defaults to true (unlike currentUser, which defaults falsy), so the
-// demo-fetch branch in cvLoadEntries/dayViewLoadEntries actually DOES
-// run synchronously during the page's very first script pass — and it
-// referenced SB_URL, which didn't exist yet at that point in file order.
-// The resulting ReferenceError was silently swallowed by that code's own
-// try/catch (returning an empty array, not a crash), so it went
-// undetected until directly inspected. Moving the declarations early
-// closes this the same way the earlier currentUser TDZ bug was fixed —
-// see that declaration's own comment for the fuller explanation of why
-// this class of bug happens in this file.
+// LOGIN CONNECTION — the one live piece of this template. Supabase auth
+// only: knows who is signed in. No data reads/writes beyond that.
 // ══════════════════════════════════════════════
-
 if(db){
   db.auth.onAuthStateChange((event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
-    // Re-fetch every live Calendar View's pursuits the moment sign-in
-    // state changes — added 2026-08-06, Ryan's direct instruction. Signs
-    // in → that account's real pursuits appear; signs out → they clear,
-    // same as the calendar showing nothing for nobody signed in at all.
-    cvActiveContainers.forEach(id=>cvLoadEntries(id));
   });
 }
 
-// Drives the Sign In/Out + Sync rail item (moved here from the header's
-// top-right corner, added 2026-08-06, Ryan's direct instruction) —
-// same functionality as before (click still calls openSyncModal(), which
-// already branches to sign-out confirm vs. the sign-in modal depending
-// on currentUser), just a different home and a lock icon instead of text.
+// Drives the Sign In/Out + Sync rail item.
 function _updateSyncUI(){
   const item=document.getElementById('rail-sync');if(!item)return;
   const icon=document.getElementById('rail-sync-icon');
@@ -2917,7 +502,7 @@ function _updateSyncUI(){
   if(currentUser){
     icon.textContent='🔓';name.textContent='Sign Out';sub.textContent='Synced';
     item.dataset.tip='Sign Out';item.title='Signed in · '+currentUser.email;
-    item.classList.add('active'); // same box the left sidebar uses to show which page is active — added 2026-08-06, Ryan's direct instruction, so the collapsed rail still shows on/off state at a glance
+    item.classList.add('active');
   } else {
     icon.textContent='🔒';name.textContent='Sign In';sub.textContent='Not Synced';
     item.dataset.tip='Sign In';item.title='';
@@ -2932,16 +517,16 @@ async function signOutAmit(){
   _updateSyncUI();
 }
 
-// Drives the Demo rail item and flips the toggle — same on/off/localStorage
-// pattern as the Hub's real toggleHubDemo()/updateHubDemoBtn(). Refreshes
-// every live Calendar View and Day View instance so the change is visible
-// immediately, not just on next load.
+// Drives the Demo rail item and flips the toggle.
 function toggleDemoMode(){
   demoMode=!demoMode;
   localStorage.setItem('amit_demo_mode',demoMode?'on':'off');
   _updateDemoUI();
-  cvActiveContainers.forEach(id=>cvLoadEntries(id));
-  dayViewInstances.forEach((inst,id)=>dayViewLoadEntries(id));
+  // A real project's own views should re-fetch their demo-scoped data
+  // here too, the same way Calendar View/Day View do in TemplateViews.html
+  // (cvActiveContainers.forEach(...), dayViewInstances.forEach(...)) —
+  // add that wiring once real layouts using fetchDemoRows exist on this
+  // page.
 }
 
 function _updateDemoUI(){
@@ -2953,7 +538,7 @@ function _updateDemoUI(){
   if(demoMode){
     icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
     item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
-    item.classList.add('active'); // same box the left sidebar uses to show which page is active — added 2026-08-06, Ryan's direct instruction, so the collapsed rail still shows on/off state at a glance
+    item.classList.add('active');
   } else {
     icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
     item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
@@ -2989,8 +574,6 @@ async function submitSyncEmail(){
 // ══════════════════════════════════════════════
 // CLOCK / GREETING — visual only, no data behind it
 // ══════════════════════════════════════════════
-// Same localStorage key the Hub uses (same origin, shared automatically) -
-// this is how any page recognizes who's signed in and greets them by name.
 const AMIT_NAME_KEY='amit_user_name';
 function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
 
