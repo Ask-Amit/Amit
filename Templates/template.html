@@ -46,6 +46,18 @@
      array in the script below, kept separate from each page's fixed
      number — reorder pages by editing that array, never by renumbering
      pages/details themselves. See Templates\CLAUDE.md for why.
+
+     IMPORTING A SINGLE LAYOUT PIECE (not the whole template) — if you were
+     sent here from a DIFFERENT project (e.g. "go to Templates, grab a Row
+     View, put it on page 3 of AmitAccounting"), READ Templates\CLAUDE.md
+     FIRST, before copying anything. That file defines the canonical
+     nomenclature (LAYOUT vs DESTINATION) and names every reusable piece
+     that lives in this file. Once you know the name, find its matching
+     "CANONICAL LAYOUT:" or "CANONICAL DESTINATION:" comment block in the
+     <script> section below and copy that block verbatim — never
+     reconstruct a layout's behavior from memory or approximation. Wire it
+     into the target page/tab/popup exactly the way the DEMO block near
+     the bottom of the Row/Detail View code shows it being done here.
      ══════════════════════════════════════════════ -->
 <title>Template</title>
 <link rel="icon" type="image/x-icon" href="amit_icon.ico">
@@ -222,6 +234,16 @@ header{
 .dv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .dv-value{font-size:14px;color:#fff}
 .dv-sub-h{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
+
+/* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
+   that can host any layout instance (Tabbed/Row/Detail View) — content-
+   agnostic, same separation as a Page or a Tab slot not caring what's
+   mounted inside them. See NOMENCLATURE comment in <script> for the
+   LAYOUT vs DESTINATION distinction. ── */
+.popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
+.popup-close-btn:hover{color:var(--gold2)}
 </style>
 </head>
 <body>
@@ -315,6 +337,19 @@ header{
 //   REFERRING TO A PAGE — always valid either by its name ("Tabbed View")
 //            or its number ("page 2"). The page-icon slot itself (▢, or a
 //            real icon once a project sets one) is always shown.
+//   DESTINATION — separate from LAYOUT (added 2026-08-06, Ryan's direct
+//            instruction). A destination is WHERE a layout gets mounted
+//            and WHAT triggers it — a whole page, a tab slot inside a
+//            Tabbed View, or a Popup opened by an event (double-click,
+//            click, etc). Any layout can be mounted at any destination;
+//            neither one needs to know about the other. "Popup" is a
+//            destination, NOT a fourth layout type — a Popup can host a
+//            Tabbed View, a Row View, or a Detail View, exactly the same
+//            as a Page can. Find the reusable code for each layout and
+//            each destination by its own "CANONICAL LAYOUT:" or
+//            "CANONICAL DESTINATION:" comment block further down this
+//            script — copy that block verbatim when reusing it, never
+//            reconstruct it from memory.
 //
 // Blank layout shell — no data model, no per-project logic. Placeholder
 // pages/details 1-20: rename, re-icon, and build real content into each
@@ -346,7 +381,15 @@ const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
       let tabNavHtml='',tabContentHtml='';
       for(let t=1;t<=5;t++){
         tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${i},${t})">Tab ${t}</button>`;
-        tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">Tab ${t} content goes here</div>`;
+        // DEMO — Page 2, Tab 2 hosts a nested Row View instance instead of
+        // plain placeholder text, proving a tab slot is a real DESTINATION
+        // just like a page or a popup. Wired up after this IIFE runs — see
+        // the DEMO block below the Row/Detail/Popup code further down.
+        if(i===2&&t===2){
+          tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}"><div class="rv-wrap" id="ch-tab-2-2-rv-mount" style="margin:0"></div></div>`;
+        } else {
+          tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${i}-${t}">Tab ${t} content goes here</div>`;
+        }
       }
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
         <div class="detail-head"><span class="detail-heading">${label}</span></div>
@@ -400,28 +443,45 @@ const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
 })();
 
 // ══════════════════════════════════════════════
-// ROW VIEW — reusable layout type #2 (Tabbed View is #1). Excel-style:
-// click a column header to sort (toggle asc/desc, arrow shows direction);
-// double-click a header to edit an inline "contains" filter right in that
-// cell (Enter/blur commits, Escape cancels) — deliberately no native
-// browser prompt(), matching the rest of the Amit system's no-native-
-// dialog standard (see AmitBooks/CLAUDE.md Interactivity Standard #7).
-// Filters compose with AND. Rows may carry a children[] array — a ▸/▾
-// toggle expands/collapses them, indented beneath the parent; children
-// are not independently sortable/filterable, only their parent's row is.
-// A status strip above the table names whatever's active with a one-click
-// clear.
+// CANONICAL LAYOUT: ROW VIEW — Excel-style: click a column header to sort
+// (toggle asc/desc, arrow shows direction); double-click a header to edit
+// an inline "contains" filter right in that cell (Enter/blur commits,
+// Escape cancels) — deliberately no native browser prompt(), matching the
+// rest of the Amit system's no-native-dialog standard (see AmitBooks/
+// CLAUDE.md Interactivity Standard #7). Filters compose with AND. Rows
+// may carry a children[] array — a ▸/▾ toggle expands/collapses them,
+// indented beneath the parent; children are not independently sortable/
+// filterable, only their parent's row is. A status strip above the table
+// names whatever's active with a one-click clear.
+//
+// INSTANCE-BASED (added 2026-08-06, Ryan's direct instruction) — LAYOUT
+// and DESTINATION are separate concerns (see NOMENCLATURE above). A Row
+// View can be mounted at any destination — a whole page, a tab slot
+// inside a Tabbed View, or inside a Popup — and any number of Row View
+// instances can be alive on screen at once, each with its own
+// independent sort/filter/expand state, keyed by the id of the element
+// it mounts into. There is no longer "the" Row View — only Row View
+// instances.
+//
+//   rvCreate(containerId, columns, rows, opts) — the one call that
+//     creates and mounts a Row View instance. Copy this call verbatim
+//     wherever a Row View is needed; never re-derive its internals.
+//     columns: [{key,label}, ...]
+//     rows: [{id, ...fields, children:[...]}, ...]
+//     opts.onRowOpen(itemId): optional — called when a row is double-
+//       clicked. Row View does not know or care what happens next (open
+//       a page, open a popup, whatever) — that decision belongs entirely
+//       to whoever created this instance, same separation as a Page not
+//       needing to know what Layout is mounted inside it. If omitted,
+//       falls back to the template's original default: open Detail View
+//       on page 4.
 //
 // Sample data below (RV_SAMPLE_COLUMNS/RV_SAMPLE_ROWS) is placeholder
 // only — swap for a real project's real columns/rows when this layout
-// gets used for something real. rvState/rvRender assume ONE row-view
-// table per page for now (id `rv-mount`, module-level state) — if a
-// future project needs more than one Row View on screen at once, this
-// needs to become keyed-by-container rather than a single global state,
-// not a hard rebuild, just not needed yet.
+// gets used for something real.
 //
 // Genuinely open, not built yet: named/saved sort+filter views
-// (localStorage, per-table, with a "set as default" — see AmitBooks'
+// (localStorage, per-instance, with a "set as default" — see AmitBooks'
 // abSmart engine for the fuller pattern this can grow into).
 // ══════════════════════════════════════════════
 const RV_SAMPLE_COLUMNS=[
@@ -443,57 +503,68 @@ const RV_SAMPLE_ROWS=[
   ]},
   {id:'r5',name:'Launch',status:'Not Started',owner:'Ryan',due:'2026-08-20'}
 ];
-const rvState={sort:null,filters:{},expanded:new Set(),editingKey:null};
 
-function rvRender(){
-  const wrap=document.getElementById('rv-mount');
-  if(!wrap)return;
-  let rows=RV_SAMPLE_ROWS.slice();
-  Object.entries(rvState.filters).forEach(([key,val])=>{
+const rvInstances=new Map(); // containerId -> {columns,rows,sort,filters,expanded,editingKey,onRowOpen}
+
+function rvCreate(containerId,columns,rows,opts={}){
+  rvInstances.set(containerId,{
+    columns,rows,
+    sort:null,filters:{},expanded:new Set(),editingKey:null,
+    onRowOpen:opts.onRowOpen||null
+  });
+  rvRenderInstance(containerId);
+}
+
+function rvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=rvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  let rows=inst.rows.slice();
+  Object.entries(inst.filters).forEach(([key,val])=>{
     if(!val)return;
     rows=rows.filter(r=>String(r[key]||'').toLowerCase().includes(val.toLowerCase()));
   });
-  if(rvState.sort){
-    const{key,dir}=rvState.sort;
+  if(inst.sort){
+    const{key,dir}=inst.sort;
     rows=rows.slice().sort((a,b)=>{
       const av=String(a[key]||''),bv=String(b[key]||'');
       return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
     });
   }
   const statusParts=[];
-  if(rvState.sort) statusParts.push(`Sorted by ${RV_SAMPLE_COLUMNS.find(c=>c.key===rvState.sort.key).label} (${rvState.sort.dir==='asc'?'A→Z':'Z→A'})`);
-  Object.entries(rvState.filters).filter(([,v])=>v).forEach(([key,val])=>{
-    statusParts.push(`${RV_SAMPLE_COLUMNS.find(c=>c.key===key).label} contains "${val}"`);
+  if(inst.sort) statusParts.push(`Sorted by ${inst.columns.find(c=>c.key===inst.sort.key).label} (${inst.sort.dir==='asc'?'A→Z':'Z→A'})`);
+  Object.entries(inst.filters).filter(([,v])=>v).forEach(([key,val])=>{
+    statusParts.push(`${inst.columns.find(c=>c.key===key).label} contains "${val}"`);
   });
   const statusHtml=statusParts.length
-    ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear()">Clear</span></div>`
+    ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear('${containerId}')">Clear</span></div>`
     : `<div class="rv-status">No sort or filter active — click a header to sort, double-click to filter</div>`;
 
   const theadHtml=`<tr>
     <th style="width:24px"></th>
-    ${RV_SAMPLE_COLUMNS.map(c=>{
-      if(rvState.editingKey===c.key){
-        return `<th onclick="event.stopPropagation()"><input class="rv-filter-input" id="rv-filter-input" value="${(rvState.filters[c.key]||'').replace(/"/g,'&quot;')}" placeholder="${c.label} contains…"
-          onkeydown="if(event.key==='Enter')rvCommitFilter('${c.key}',this.value); if(event.key==='Escape'){rvState.editingKey=null;rvRender();}"
-          onblur="rvCommitFilter('${c.key}',this.value)"></th>`;
+    ${inst.columns.map(c=>{
+      if(inst.editingKey===c.key){
+        return `<th onclick="event.stopPropagation()"><input class="rv-filter-input" id="rv-filter-input-${containerId}" value="${(inst.filters[c.key]||'').replace(/"/g,'&quot;')}" placeholder="${c.label} contains…"
+          onkeydown="if(event.key==='Enter')rvCommitFilter('${containerId}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingKey=null;rvRenderInstance('${containerId}');}"
+          onblur="rvCommitFilter('${containerId}','${c.key}',this.value)"></th>`;
       }
-      const isSorted=rvState.sort&&rvState.sort.key===c.key;
-      const arrow=isSorted?(rvState.sort.dir==='asc'?'▲':'▼'):'';
-      const isFiltered=!!rvState.filters[c.key];
-      return `<th class="${isFiltered?'rv-filtered':''}" onclick="rvSort('${c.key}')" ondblclick="rvEditFilter(event,'${c.key}')">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}${isFiltered?' 🔎':''}</th>`;
+      const isSorted=inst.sort&&inst.sort.key===c.key;
+      const arrow=isSorted?(inst.sort.dir==='asc'?'▲':'▼'):'';
+      const isFiltered=!!inst.filters[c.key];
+      return `<th class="${isFiltered?'rv-filtered':''}" onclick="rvSort('${containerId}','${c.key}')" ondblclick="rvEditFilter(event,'${containerId}','${c.key}')">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}${isFiltered?' 🔎':''}</th>`;
     }).join('')}
   </tr>`;
 
-  // Double-click ANYWHERE in a row's own cells (not the expand toggle) opens
-  // that row's full record in Detail View (page 4) — the row/column
-  // convention's own drill-down endpoint. Works the same for a parent row
-  // or a child row; each is "one item" on its own terms.
+  // Double-click ANYWHERE in a row's own cells (not the expand toggle) hands
+  // off to rvHandleRowOpen, which honors this instance's own onRowOpen if it
+  // has one, or falls back to the template's original default (Detail View
+  // on page 4) if not.
   const rowHtml=(r,isChild)=>{
     const hasKids=r.children&&r.children.length;
-    const expanded=rvState.expanded.has(r.id);
-    let html=`<tr class="${isChild?'rv-child':'rv-row'}" ondblclick="dvOpenFor('${r.id}')">
-      <td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>
-      ${RV_SAMPLE_COLUMNS.map((c,idx)=>`<td>${idx===0&&isChild?'— ':''}${r[c.key]||''}</td>`).join('')}
+    const expanded=inst.expanded.has(r.id);
+    let html=`<tr class="${isChild?'rv-child':'rv-row'}" ondblclick="rvHandleRowOpen('${containerId}','${r.id}')">
+      <td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>
+      ${inst.columns.map((c,idx)=>`<td>${idx===0&&isChild?'— ':''}${r[c.key]||''}</td>`).join('')}
     </tr>`;
     if(hasKids&&expanded) html+=r.children.map(c=>rowHtml(c,true)).join('');
     return html;
@@ -505,66 +576,86 @@ function rvRender(){
       <tbody>${rows.map(r=>rowHtml(r,false)).join('')}</tbody>
     </table></div>`;
 
-  if(rvState.editingKey){
-    const input=document.getElementById('rv-filter-input');
+  if(inst.editingKey){
+    const input=document.getElementById('rv-filter-input-'+containerId);
     if(input){ input.focus(); input.select(); }
   }
 }
 
-function rvSort(key){
-  if(rvState.sort&&rvState.sort.key===key){
-    rvState.sort.dir=rvState.sort.dir==='asc'?'desc':'asc';
+function rvHandleRowOpen(containerId,itemId){
+  const inst=rvInstances.get(containerId);
+  if(inst&&inst.onRowOpen){ inst.onRowOpen(itemId); return; }
+  dvOpenFor(itemId); // default fallback, unchanged from the template's original behavior
+}
+
+function rvSort(containerId,key){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  if(inst.sort&&inst.sort.key===key){
+    inst.sort.dir=inst.sort.dir==='asc'?'desc':'asc';
   } else {
-    rvState.sort={key,dir:'asc'};
+    inst.sort={key,dir:'asc'};
   }
-  rvRender();
+  rvRenderInstance(containerId);
 }
 
-function rvEditFilter(e,key){
+function rvEditFilter(e,containerId,key){
   e.stopPropagation();
-  rvState.editingKey=key;
-  rvRender();
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  inst.editingKey=key;
+  rvRenderInstance(containerId);
 }
 
-function rvCommitFilter(key,val){
+function rvCommitFilter(containerId,key,val){
+  const inst=rvInstances.get(containerId);if(!inst)return;
   const trimmed=(val||'').trim();
-  if(trimmed==='') delete rvState.filters[key];
-  else rvState.filters[key]=trimmed;
-  rvState.editingKey=null;
-  rvRender();
+  if(trimmed==='') delete inst.filters[key];
+  else inst.filters[key]=trimmed;
+  inst.editingKey=null;
+  rvRenderInstance(containerId);
 }
 
-function rvToggleExpand(id){
-  if(rvState.expanded.has(id)) rvState.expanded.delete(id);
-  else rvState.expanded.add(id);
-  rvRender();
+function rvToggleExpand(containerId,id){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  if(inst.expanded.has(id)) inst.expanded.delete(id);
+  else inst.expanded.add(id);
+  rvRenderInstance(containerId);
 }
 
-function rvClear(){
-  rvState.sort=null;
-  rvState.filters={};
-  rvRender();
+function rvClear(containerId){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  inst.sort=null;
+  inst.filters={};
+  rvRenderInstance(containerId);
 }
-rvRender(); // initial paint — must run after the const data/state above are defined, not from inside buildPlaceholders (which executes earlier in file order)
 
 // ══════════════════════════════════════════════
-// DETAIL VIEW — reusable layout type #3 (Tabbed View #1, Row View #2). The
-// drill-down endpoint for exactly one Row View item, reached by double-
-// clicking that row. Shows every field on that one record as a plain
+// CANONICAL LAYOUT: DETAIL VIEW — the drill-down endpoint for one single
+// Row View item. Shows every field on that one record as a plain
 // label/value list, plus — if the record itself has children (e.g.
 // "Design review" has its own sub-tasks) — those children rendered as
 // their own small Row View underneath, since a detail's own sub-items are
 // themselves a row/column list, just scoped to one parent instead of the
-// whole table. Reuses RV_SAMPLE_COLUMNS/RV_SAMPLE_ROWS — same sample data
-// as Row View, since they're drilling into the same records.
+// whole table.
+//
+// INSTANCE-BASED (added 2026-08-06, same reasoning as Row View above) —
+// dvCreate(containerId, columns, rows) creates one instance keyed by the
+// id of the element it mounts into. Any number of Detail View instances
+// can be alive at once — the standalone page-4 one, plus e.g. one living
+// inside a Popup. dvOpenForInstance(containerId, itemId) populates a
+// given instance with one specific record and re-renders it.
+//
 // Genuinely open, not built yet: a child row inside a Detail View's own
 // nested list isn't itself double-click-drillable one level deeper — this
 // only goes one layer deep (item → its direct children) for now.
 // ══════════════════════════════════════════════
-const dvState={currentId:null};
+const dvInstances=new Map(); // containerId -> {currentId,columns,rows}
+
+function dvCreate(containerId,columns,rows){
+  dvInstances.set(containerId,{currentId:null,columns,rows});
+  dvRenderInstance(containerId);
+}
 
 function dvFindItem(id,rows){
-  rows=rows||RV_SAMPLE_ROWS;
   for(const r of rows){
     if(r.id===id) return r;
     if(r.children){ const found=dvFindItem(id,r.children); if(found) return found; }
@@ -572,34 +663,97 @@ function dvFindItem(id,rows){
   return null;
 }
 
+function dvOpenForInstance(containerId,itemId){
+  const inst=dvInstances.get(containerId);if(!inst)return;
+  inst.currentId=itemId;
+  dvRenderInstance(containerId);
+}
+
+// Legacy wrapper — kept so the original page-level call, dvOpenFor(id) (the
+// page-4 standalone Detail View, and Row View's default fallback), keeps
+// working exactly as before.
 function dvOpenFor(id){
-  dvState.currentId=id;
-  dvRender();
+  dvOpenForInstance('dv-mount',id);
   openPage(4);
 }
 
-function dvRender(){
-  const wrap=document.getElementById('dv-mount');
-  if(!wrap)return;
-  const item=dvState.currentId?dvFindItem(dvState.currentId):null;
+function dvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=dvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const item=inst.currentId?dvFindItem(inst.currentId,inst.rows):null;
   if(!item){
     wrap.innerHTML=`<div class="dv-empty">No item selected yet — double-click any row in Row View to open its detail here.</div>`;
     return;
   }
-  const fieldsHtml=RV_SAMPLE_COLUMNS.map(c=>`
+  const fieldsHtml=inst.columns.map(c=>`
     <div class="dv-label">${c.label}</div>
     <div class="dv-value">${item[c.key]||'—'}</div>`).join('');
   let childrenHtml='';
   if(item.children&&item.children.length){
     childrenHtml=`<div class="dv-sub-h">Items under this one</div>
       <div class="rv-table-wrap" style="max-width:760px"><table class="rv-table">
-        <thead><tr><th style="width:24px"></th>${RV_SAMPLE_COLUMNS.map(c=>`<th style="cursor:default">${c.label}</th>`).join('')}</tr></thead>
-        <tbody>${item.children.map(c=>`<tr class="rv-row" ondblclick="dvOpenFor('${c.id}')"><td></td>${RV_SAMPLE_COLUMNS.map(col=>`<td>${c[col.key]||''}</td>`).join('')}</tr>`).join('')}</tbody>
+        <thead><tr><th style="width:24px"></th>${inst.columns.map(c=>`<th style="cursor:default">${c.label}</th>`).join('')}</tr></thead>
+        <tbody>${item.children.map(c=>`<tr class="rv-row" ondblclick="dvOpenForInstance('${containerId}','${c.id}')"><td></td>${inst.columns.map(col=>`<td>${c[col.key]||''}</td>`).join('')}</tr>`).join('')}</tbody>
       </table></div>`;
   }
   wrap.innerHTML=`<div class="dv-fields">${fieldsHtml}</div>${childrenHtml}`;
 }
-dvRender(); // initial paint — empty state until a row is double-clicked
+
+// ══════════════════════════════════════════════
+// CANONICAL DESTINATION: POPUP — NOT a layout type. A destination, same
+// category as "Page N" or "a tab slot inside a Tabbed View" (see
+// NOMENCLATURE above). Popup is content-agnostic — it hosts whatever
+// layout instance is mounted inside it and has no opinion about what that
+// is. popupOpen(innerHtml) shows the overlay with whatever HTML it's
+// given; the caller is responsible for creating any layout instance
+// (rvCreate/dvCreate/etc.) mounted inside that HTML afterward, exactly
+// the same as buildPlaceholders does for a page or a tab slot.
+// ══════════════════════════════════════════════
+function popupOpen(innerHtml){
+  let modal=document.getElementById('canonicalPopup');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='canonicalPopup';
+    modal.className='popup-overlay';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
+  }
+  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
+    ${innerHtml}
+  </div>`;
+  modal.style.display='flex';
+}
+
+function popupClose(){
+  const modal=document.getElementById('canonicalPopup');
+  if(modal) modal.style.display='none';
+}
+
+// ── DEMO: proves the model end to end ──────────────────────────────────
+// Page 3 (standalone Row View) and Page 4 (standalone Detail View) keep
+// their original page-level behavior via the default instances below.
+// Page 2, Tab 2 (Tabbed View) additionally hosts its OWN nested Row View
+// instance — same canonical rvCreate() call, different destination — and
+// wires its onRowOpen to open a Detail View inside a Popup instead of
+// navigating to page 4. This is the literal example Ryan gave: "Page 3,
+// make it a Tab View. Tab 2, make it a Row View. Double-click = popup
+// with a Detail View." Nothing here is a special case in the Row/Detail
+// View code itself — it's the same two canonical layouts, mounted at two
+// different destinations, composed by whoever is wiring the page. Must
+// run after the functions/data above are defined, and after
+// buildPlaceholders has already created the mount elements — not from
+// inside that earlier IIFE.
+rvCreate('rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
+dvCreate('dv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
+rvCreate('ch-tab-2-2-rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS,{
+  onRowOpen:(itemId)=>{
+    popupOpen(`<div class="dv-wrap" id="popup-dv-mount" style="margin:0"></div>`);
+    dvCreate('popup-dv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
+    dvOpenForInstance('popup-dv-mount',itemId);
+  }
+});
 
 // Tabbed-layout behavior (copied from Computer Health's showTab — folder-tab
 // look, sub-content switching within one detail area — no data hooks
