@@ -136,19 +136,24 @@ header{
 .sidebar::-webkit-scrollbar{width:3px}
 .sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
 .sidebar{transition:width .18s ease}
-/* Collapsed width bumped 60→68px and the collapsed row keeps the SAME
-   left padding as the expanded row (added 2026-08-06, Ryan's direct
-   instruction — the icon was landing at a different x position in each
-   state because collapsed used justify-content:center with different
-   padding math than expanded's left-aligned row). Now both states share
-   the identical left padding (11px), so the icon never moves when the
-   sidebar toggles — only the text next to it appears/disappears. */
+/* Collapsed width 68px — revised 2026-08-06, Ryan's second correction:
+   the first fix (left 11px / right 4px) kept the icon's x position fixed
+   across states but left it visibly lopsided within the collapsed view
+   itself. Real fix: BOTH sides of .page-nav use the same small padding
+   (6px) in BOTH states — that satisfies both requirements at once, an
+   equal, tight gap around the icon in collapsed, and the icon's x
+   position still never moves when the sidebar toggles, since expanded
+   uses the identical left padding. 68px is the exact zero-slack width
+   for a 32px icon + 6px padding each side + the sidebar/nav borders —
+   a width caught too tight (64px) at first, which made the icon overflow
+   its own padding box and silently reintroduce an asymmetric gap from
+   the opposite side; verified headlessly before landing on 68. */
 .sidebar.collapsed{width:68px}
-.sidebar.collapsed .page-nav{justify-content:flex-start;padding:10px 4px 10px 11px}
+.sidebar.collapsed .page-nav{justify-content:flex-start}
 .sidebar.collapsed .page-info{display:none}
 .page-nav{
   display:flex;align-items:center;gap:10px;
-  padding:10px 11px;border-radius:9px;cursor:pointer;
+  padding:10px 6px;border-radius:9px;cursor:pointer;
   border:1px solid transparent;
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
