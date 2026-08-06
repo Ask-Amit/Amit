@@ -517,6 +517,12 @@ header{
    priority scheme in older Hub docs, which isn't what's actually live. */
 .cv-chip{background:rgba(180,140,15,.82);border-left:3px solid rgba(201,168,76,.95);color:#2a1e00;font-weight:600;font-size:10px;padding:2px 6px;border-radius:3px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cv-chip:hover{opacity:.82}
+/* Demo-mode marker — added 2026-08-06, Ryan's direct instruction: Amit's
+   own demo pursuits need to read as visually distinct from the signed-in
+   user's real data, not blended in indistinguishably. Same accent color
+   family as the ✦ prefix, applied consistently to both the chip and the
+   Day View pursuit row (.dv-aim-row-demo, see DAY VIEW section). */
+.cv-chip-demo{background:rgba(120,90,190,.75);border-left-color:rgba(170,140,230,.95);color:#efe6ff}
 
 /* ── DAY VIEW — rebuilt 2026-08-06, Ryan's direct correction: these are
    the Hub's actual .cal-dv-* class values (amit-hub.html), ported
@@ -562,6 +568,8 @@ header{
 .dv-aim-title{flex:1;font-size:12px;color:rgba(70,48,0,.9);font-weight:600;cursor:pointer}
 .dv-aim-title:hover{color:rgba(120,85,0,.95)}
 .dv-aim-empty{font-size:11px;color:rgba(100,75,0,.45);font-style:italic;padding:6px 0}
+.dv-aim-row-demo{border-left-color:rgba(140,80,220,.65);background:rgba(150,100,220,.06)}
+.dv-aim-row-demo .dv-aim-title{color:rgba(80,40,150,.9)}
 .cal-dv-testimony-btn{background:rgba(175,115,245,.06);border:1.5px solid rgba(140,80,220,.3);color:rgba(100,50,180,.5);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;padding:8px 22px;border-radius:20px;cursor:not-allowed}
 .cal-dv-month-return{background:transparent;border:1px solid rgba(0,0,0,.22);color:rgba(60,45,20,.6);font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s}
 .cal-dv-month-return:hover{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.4);color:rgba(60,45,20,.9)}
@@ -692,7 +700,7 @@ header{
 <!-- Single shared Row View column filter menu, fixed-position, JS-positioned
      on open — see rvToggleColMenu / the CANONICAL LAYOUT: ROW VIEW comment
      block for why this can't just live nested inside the scrolling table. -->
-<div class="rv-col-menu" id="rvColMenu" style="position:fixed;z-index:9999"></div>
+<div class="rv-col-menu" id="rvColMenu" style="position:fixed;z-index:9999" onclick="event.stopPropagation()"></div>
 
 <!-- SYNC / SIGN-IN MODAL -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -771,6 +779,69 @@ header{
 // script-load code checks it; the LOGIN CONNECTION section further down
 // only ASSIGNS to it from here forward, it doesn't redeclare it.
 let currentUser=null;
+// SB_URL/SB_KEY/db moved up here too, same TDZ reasoning — see the LOGIN
+// CONNECTION section further down for the fuller explanation.
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+// DEMO MODE — added 2026-08-06, Ryan's direct instruction: every live-
+// data view should be able to show Amit's own real history (so a new
+// person can see what Amit's actual usage looks like) blended with
+// whatever the signed-in user has of their own, with a rail toggle to
+// turn that off and see only their own data. Ported directly from the
+// Hub's real, live mechanism (amit-hub.html's demoModeHub/AMIT_DEMO_UID/
+// toggleHubDemo) — same account, same localStorage key pattern, same
+// default (on). Declared here (not lower, near the rest of LOGIN
+// CONNECTION) for the same temporal-dead-zone reason currentUser is
+// declared this early — see that declaration's own comment.
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
+
+// ══════════════════════════════════════════════
+// CANONICAL DATA BINDING: DEMO MODE — added 2026-08-06, Ryan's direct
+// correction: this connection to Amit's account must be a GENERAL,
+// reusable mechanism available to ANY current or future view/form built
+// from this template — "some things will have demo, some things may
+// not, but it should always have that connection... it goes from
+// pursuits to the calendar to... if there's a new form that's created,
+// that demo mode will work within that form." Not something re-wired
+// per view.
+//
+// fetchDemoRows(table, queryString) — the one call any view makes to
+// pull Amit's own rows for demo mode. Returns [] immediately if demo
+// mode is off (the caller doesn't need its own on/off check). Every
+// returned row is tagged _isDemo:true.
+//
+//   table: the Supabase table name (e.g. 'hub_entries')
+//   queryString: the rest of the PostgREST query — select/filters/order
+//     — everything after the table name, same syntax as a normal fetch
+//     to this table, EXCLUDING user_id (fetchDemoRows adds
+//     user_id=eq.AMIT_DEMO_UID itself, always, so a caller can never
+//     accidentally point this at any account but Amit's own).
+//
+// REVIEW ONLY — Ryan's direct instruction: "never to adjust. They can
+// never have access to anything." Any row this returns is tagged
+// _isDemo, and it is the CALLER's responsibility to treat that as
+// read-only wherever it renders — Row View already enforces this itself
+// (rvEditCell/rvCommitCell refuse to edit an _isDemo row, and its
+// editable-column rendering falls back to plain read-only display for
+// one), so any layout built on Row View inherits the protection
+// automatically. A future layout that isn't Row View-based must
+// implement its own _isDemo check the same way.
+// ══════════════════════════════════════════════
+async function fetchDemoRows(table,queryString){
+  if(!demoMode)return[];
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${AMIT_DEMO_UID}&${queryString}`,{
+      headers:{apikey:SB_KEY,Accept:'application/json'}
+    });
+    const rows=res.ok?await res.json():[];
+    return rows.map(r=>({...r,_isDemo:true}));
+  }catch(e){
+    return[];
+  }
+}
+
 const PAGE_COUNT=20;
 // PAGE_ORDER — sidebar DISPLAY position only, see NOMENCLATURE above.
 // Tabbed View (page 2) is listed first here deliberately — it's the
@@ -965,7 +1036,15 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
         <div class="page-name" id="rail-sync-name">Sign In</div>
         <div class="page-sub" id="rail-sync-sub">Not Synced</div>
       </div>
+    </div>
+    <div class="page-nav" id="rail-demo" onclick="toggleDemoMode()" data-tip="Demo On">
+      <div class="page-icon" id="rail-demo-icon">🎬</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-demo-name">Demo On</div>
+        <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
+      </div>
     </div>`;
+    _updateDemoUI();
   }
 
   initPageTooltips('sidebarPages','right'); // left sidebar — tooltip opens rightward, toward the page
@@ -1516,7 +1595,11 @@ function rvRenderInstance(containerId){
   // renders exactly as before, plain text.
   const cellHtml=(r,c,idx,isChild)=>{
     const prefix=idx===0&&isChild?'— ':'';
-    if(!c.editable) return `<td class="rv-td-plain">${prefix}${r[c.key]||''}</td>`;
+    // Demo rows never render as editable, even in an editable column —
+    // added 2026-08-06, Ryan's direct instruction, same review-only rule
+    // as the rvEditCell/rvCommitCell guards. Falls through to the same
+    // plain read-only cell a non-editable column would use.
+    if(!c.editable||r._isDemo) return `<td class="rv-td-plain">${prefix}${r._isDemo&&idx===0?'✦ ':''}${r[c.key]||''}</td>`;
     const editing=inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
     if(editing){
       return `<td><input class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(r[c.key]||'').replace(/"/g,'&quot;')}"
@@ -1577,6 +1660,15 @@ function rvClear(containerId){
 
 function rvEditCell(containerId,rowId,key){
   const inst=rvInstances.get(containerId);if(!inst)return;
+  // DEMO ROWS ARE REVIEW ONLY — added 2026-08-06, Ryan's direct
+  // instruction: "never to adjust. They can never have access to
+  // anything." Any row tagged _isDemo (Amit's own account, pulled in via
+  // demo mode — see fetchDemoRows) refuses to enter edit mode at all,
+  // regardless of whether its column is marked editable. This is
+  // enforced here, at the single chokepoint every editable-cell click
+  // goes through, not left to each view to remember on its own.
+  const row=inst.rows.find(r=>r.id===rowId);
+  if(row&&row._isDemo)return;
   inst.editingCell={rowId,key};
   rvRenderInstance(containerId);
 }
@@ -1584,6 +1676,7 @@ function rvEditCell(containerId,rowId,key){
 function rvCommitCell(containerId,rowId,key,val){
   const inst=rvInstances.get(containerId);if(!inst)return;
   const row=dvFindItem?dvFindItem(rowId,inst.rows)||inst.rows.find(r=>r.id===rowId):inst.rows.find(r=>r.id===rowId);
+  if(row&&row._isDemo){ inst.editingCell=null; rvRenderInstance(containerId); return; } // belt-and-braces — should never reach here for a demo row given the rvEditCell guard, but never write one back regardless
   if(row) row[key]=val;
   inst.editingCell=null;
   if(inst.onCellCommit) inst.onCellCommit(rowId,key,val);
@@ -1894,7 +1987,7 @@ function cvRenderInstance(containerId){
     const isToday=isCurrentMonth&&d===today.getDate();
     const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dayEntries=(inst.entries||[]).filter(e=>e.due_date===ds);
-    const chipsHtml=dayEntries.map(e=>`<div class="cv-chip" title="${(e.title||'').replace(/"/g,'&quot;')}" onclick="event.stopPropagation();cvOpenEntryById('${e.id}')">${e.title||''}</div>`).join('');
+    const chipsHtml=dayEntries.map(e=>`<div class="cv-chip${e._isDemo?' cv-chip-demo':''}" title="${(e._isDemo?"Amit's demo pursuit — ":'')+(e.title||'').replace(/"/g,'&quot;')}" onclick="event.stopPropagation();cvOpenEntryById('${e.id}')">${e._isDemo?'✦ ':''}${e.title||''}</div>`).join('');
     // Double-click a real day cell opens that exact date in Day View —
     // added 2026-08-06, Ryan's direct instruction: Day View "would
     // definitely link up to the monthly calendar." Both a single click
@@ -1950,28 +2043,31 @@ async function cvLoadEntries(containerId){
   const startDs=`${year}-${String(month+1).padStart(2,'0')}-01`;
   const lastDay=new Date(year,month+1,0).getDate();
   const endDs=`${year}-${String(month+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-  let entries=[];
+  let ownEntries=[];
   // Scoped to whoever's actually signed in — added 2026-08-06, Ryan's
   // direct instruction: "linked to the login... just like it operates
   // within the Hub." Without currentUser (nobody signed in), there is no
-  // legitimate account whose pursuits these would be, so the calendar
-  // shows none — not an error, just the honest empty state, same as the
-  // Hub itself only ever shows a signed-in user their own hub_entries
-  // rows. currentUser is set by the LOGIN CONNECTION code further down
-  // this file (Supabase auth), which already exists in this template.
+  // legitimate account whose pursuits these would be, so the user's own
+  // side shows none — not an error, just the honest empty state.
   if(currentUser){
     try{
       const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&user_id=eq.${currentUser.id}&due_date=gte.${startDs}&due_date=lte.${endDs}&order=due_date.asc`,{
         headers:{apikey:SB_KEY,Accept:'application/json'}
       });
-      entries=res.ok?await res.json():[];
+      ownEntries=res.ok?await res.json():[];
     }catch(e){
-      entries=[];
+      ownEntries=[];
     }
   }
+  // DEMO MODE — via the shared fetchDemoRows() helper (CANONICAL DATA
+  // BINDING: DEMO MODE, near PAGE_COUNT), not a one-off inline fetch —
+  // added 2026-08-06, Ryan's direct correction: this connection must work
+  // the same way for any current or future view, not be re-wired per
+  // view. Returns [] on its own if demo mode is off.
+  const demoEntries=await fetchDemoRows('hub_entries',`select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&due_date=gte.${startDs}&due_date=lte.${endDs}&order=due_date.asc`);
   const stillCurrent=inst.year===requestYear&&inst.month===requestMonth;
   if(!stillCurrent)return; // a newer request has already superseded this one
-  inst.entries=entries;
+  inst.entries=[...demoEntries,...ownEntries];
   inst.entries.forEach(e=>{window._cvEntries[e.id]=e;});
   cvRenderInstance(containerId);
 }
@@ -2076,7 +2172,7 @@ function dayViewRenderInstance(containerId){
 
   const dayEntries=(inst.entries||[]).filter(e=>e.due_date===inst.date);
   const pursuitRowsHtml=dayEntries.length
-    ? dayEntries.map(e=>`<div class="dv-aim-row"><div class="dv-aim-title" onclick="cvOpenEntryById('${e.id}')">${(e.title||'').replace(/</g,'&lt;')}</div></div>`).join('')
+    ? dayEntries.map(e=>`<div class="dv-aim-row${e._isDemo?' dv-aim-row-demo':''}"><div class="dv-aim-title" onclick="cvOpenEntryById('${e.id}')" title="${e._isDemo?"Amit's demo pursuit":''}">${e._isDemo?'✦ ':''}${(e.title||'').replace(/</g,'&lt;')}</div></div>`).join('')
     : `<div class="dv-aim-empty">Nothing set for this day yet.</div>`;
 
   wrap.innerHTML=`
@@ -2138,20 +2234,23 @@ async function dayViewLoadEntries(containerId){
   const[y,m,d]=requestDate.split('-').map(Number);
   const prevDs=_dvFmtDs(new Date(y,m-1,d-1));
   const nextDs=_dvFmtDs(new Date(y,m-1,d+1));
-  let rows=[];
+  let ownRows=[];
   if(currentUser){
     try{
       const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&user_id=eq.${currentUser.id}&due_date=in.(${prevDs},${requestDate},${nextDs})`,{
         headers:{apikey:SB_KEY,Accept:'application/json'}
       });
-      rows=res.ok?await res.json():[];
+      ownRows=res.ok?await res.json():[];
     }catch(e){
-      rows=[];
+      ownRows=[];
     }
   }
+  // DEMO MODE — via the shared fetchDemoRows() helper, same as Calendar
+  // View (see CANONICAL DATA BINDING: DEMO MODE, near PAGE_COUNT).
+  const demoRows=await fetchDemoRows('hub_entries',`select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&due_date=in.(${prevDs},${requestDate},${nextDs})`);
   const stillInst=dayViewInstances.get(containerId);
   if(!stillInst||stillInst.date!==requestDate)return; // a newer request has already superseded this one
-  inst.entries=rows;
+  inst.entries=[...demoRows,...ownRows];
   inst.entries.forEach(e=>{window._cvEntries[e.id]=e;});
   dayViewRenderInstance(containerId);
 }
@@ -2183,9 +2282,14 @@ const BV_SAMPLE_ROWS=[
   {id:'b4',title:'QA pass',owner:'Ryan',status:'Not Started'},
   {id:'b5',title:'Launch',owner:'Ryan',status:'Not Started'}
 ];
+// Card columns used when opening a card's Detail View — added 2026-08-06,
+// shared by every Board View instance since a card's own field shape
+// (title/owner/status) is fixed regardless of which instance it's in.
+const BV_DETAIL_COLUMNS=[{key:'title',label:'Title'},{key:'owner',label:'Owner'},{key:'status',label:'Status'}];
+
 const bvInstances=new Map();
 function bvCreate(containerId,statuses,rows,opts={}){
-  bvInstances.set(containerId,{statuses,rows,onStatusChange:opts.onStatusChange||null});
+  bvInstances.set(containerId,{statuses,rows,onStatusChange:opts.onStatusChange||null,onCardOpen:opts.onCardOpen||null});
   bvRenderInstance(containerId);
 }
 function bvRenderInstance(containerId){
@@ -2196,9 +2300,24 @@ function bvRenderInstance(containerId){
     const cards=inst.rows.filter(r=>r.status===status);
     return `<div class="bv-col" data-status="${status}" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="bvDrop(event,'${containerId}','${status}')">
       <div class="bv-col-head">${status} (${cards.length})</div>
-      <div class="bv-col-body">${cards.map(c=>`<div class="bv-card" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${c.id}')">${c.title}<div class="bv-card-owner">${c.owner}</div></div>`).join('')||'<div class="bv-card-owner" style="padding:6px 2px">No cards</div>'}</div>
+      <div class="bv-col-body">${cards.map(c=>`<div class="bv-card" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${c.id}')" ondblclick="bvOpenCard('${containerId}','${c.id}')">${c.title}<div class="bv-card-owner">${c.owner}</div></div>`).join('')||'<div class="bv-card-owner" style="padding:6px 2px">No cards</div>'}</div>
     </div>`;
   }).join('')}</div>`;
+}
+// Double-click a card — the drag/drop mechanic stays exactly as it was
+// (that's the "already working" way, per Ryan's own words); this adds
+// the second half he asked for: without navigating off the board, see
+// what the card actually is. Opens a Detail View inside a Popup, reusing
+// the same canonical DESTINATION/LAYOUT pieces already built for Row
+// View's own popup demo — not a new mechanism. opts.onCardOpen(itemId)
+// overrides this default for a real project that wants something else
+// (a different page, a different popup layout, etc).
+function bvOpenCard(containerId,itemId){
+  const inst=bvInstances.get(containerId);if(!inst)return;
+  if(inst.onCardOpen){ inst.onCardOpen(itemId); return; }
+  popupOpen(`<div class="dv-wrap" id="popup-bv-dv-mount" style="margin:0"></div>`);
+  dvCreate('popup-bv-dv-mount',BV_DETAIL_COLUMNS,inst.rows);
+  dvOpenForInstance('popup-bv-dv-mount',itemId);
 }
 function bvDrop(e,containerId,status){
   e.preventDefault();
@@ -2744,12 +2863,19 @@ function toggleSidebar(){
 // ══════════════════════════════════════════════
 // LOGIN CONNECTION — the one live piece of this template.
 // Supabase auth only: knows who is signed in. No data reads/writes beyond that.
+// SB_URL/SB_KEY/db/currentUser all declared near the top of the script
+// now, not here — a real, confirmed bug, added 2026-08-06: demoMode
+// defaults to true (unlike currentUser, which defaults falsy), so the
+// demo-fetch branch in cvLoadEntries/dayViewLoadEntries actually DOES
+// run synchronously during the page's very first script pass — and it
+// referenced SB_URL, which didn't exist yet at that point in file order.
+// The resulting ReferenceError was silently swallowed by that code's own
+// try/catch (returning an empty array, not a crash), so it went
+// undetected until directly inspected. Moving the declarations early
+// closes this the same way the earlier currentUser TDZ bug was fixed —
+// see that declaration's own comment for the fuller explanation of why
+// this class of bug happens in this file.
 // ══════════════════════════════════════════════
-const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
-const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
-const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
-// currentUser declared near the top of the script now, not here — see
-// that declaration's comment for why (a temporal dead zone bug).
 
 if(db){
   db.auth.onAuthStateChange((event,session)=>{
@@ -2787,6 +2913,33 @@ async function signOutAmit(){
   await db.auth.signOut();
   currentUser=null;
   _updateSyncUI();
+}
+
+// Drives the Demo rail item and flips the toggle — same on/off/localStorage
+// pattern as the Hub's real toggleHubDemo()/updateHubDemoBtn(). Refreshes
+// every live Calendar View and Day View instance so the change is visible
+// immediately, not just on next load.
+function toggleDemoMode(){
+  demoMode=!demoMode;
+  localStorage.setItem('amit_demo_mode',demoMode?'on':'off');
+  _updateDemoUI();
+  cvActiveContainers.forEach(id=>cvLoadEntries(id));
+  dayViewInstances.forEach((inst,id)=>dayViewLoadEntries(id));
+}
+
+function _updateDemoUI(){
+  const icon=document.getElementById('rail-demo-icon');
+  const item=document.getElementById('rail-demo');
+  const name=document.getElementById('rail-demo-name');
+  const sub=document.getElementById('rail-demo-sub');
+  if(!item)return;
+  if(demoMode){
+    icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
+    item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+  } else {
+    icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
+    item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+  }
 }
 
 async function sendMagicLink(email){
