@@ -148,8 +148,12 @@ header{
 }
 .page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
 .page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
-/* Real icon placeholder — a real project swaps ▢ for a real icon per page. */
-.page-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+/* Real icon placeholder — a real project swaps ▢ for a real icon per page.
+   Sized to match the header's 32px Amit icon (added 2026-08-06, Ryan's
+   direct instruction — was 26x18, too small). Not forced square — no
+   border-radius/clip-path here, so a round icon (like Amit's own) or any
+   other shape renders exactly as its source image is, unaltered. */
+.page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .page-info{flex:1;min-width:0}
 .page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -268,6 +272,27 @@ header{
   transition:all .15s;box-shadow:0 4px 16px rgba(0,0,0,.4);
 }
 .rail-icon:hover .rail-tooltip{opacity:1;transform:translateY(-50%) translateX(0)}
+
+/* ── PAGE HOVER TOOLTIP — added 2026-08-06, Ryan's direct instruction.
+   Hovering a page (its icon when the sidebar is collapsed, or anywhere on
+   the row when expanded) shows that page's one-line description — the
+   same text as .page-sub, so there's only ever one place to write it,
+   never two copies that can drift apart. JS-positioned (fixed, see
+   initPageTooltips near openPage) rather than pure CSS, because .sidebar
+   scrolls vertically (overflow-y:auto) — per CSS spec, that silently
+   forces its other axis's overflow to 'auto' too, which would clip a
+   CSS-positioned tooltip trying to extend past the sidebar's right edge
+   into the main area. A single fixed-position element sidesteps that
+   entirely. ── */
+.page-hover-tip{
+  position:fixed;z-index:9999;
+  background:#1a3352;border:1px solid rgba(201,168,76,.45);
+  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
+  padding:6px 10px;border-radius:6px;white-space:nowrap;max-width:260px;
+  opacity:0;pointer-events:none;
+  transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.page-hover-tip.show{opacity:1}
 </style>
 </head>
 <body>
@@ -318,6 +343,9 @@ header{
   <nav class="right-rail" id="rightRail"></nav>
 
 </div>
+
+<!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
+<div class="page-hover-tip" id="pageHoverTip"></div>
 
 <!-- SYNC / SIGN-IN MODAL -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
@@ -397,11 +425,17 @@ const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
   let detailHtml='';
   for(let i=1;i<=PAGE_COUNT;i++){
     const label=i===1?'Introduction':i===2?'Tabbed View':i===3?'Row View':i===4?'Detail View':'Placeholder '+i;
-    navHtmlParts[i]=`<div class="page-nav${i===1?' active':''}" id="page-${i}" onclick="openPage(${i})">
-      <div class="page-icon" title="Page ${i}">▢</div>
+    // subText is the single source of truth for this page's one-line
+    // description — it's written once here and shown in two places: the
+    // visible .page-sub line (expanded sidebar) and the hover tooltip
+    // (both expanded and collapsed) via data-tip. Never write these two
+    // separately — a real project only edits subText.
+    const subText='—';
+    navHtmlParts[i]=`<div class="page-nav${i===1?' active':''}" id="page-${i}" onclick="openPage(${i})" data-tip="${label} — ${subText}">
+      <div class="page-icon">▢</div>
       <div class="page-info">
         <div class="page-name">${label}</div>
-        <div class="page-sub">—</div>
+        <div class="page-sub">${subText}</div>
       </div>
     </div>`;
     if(i===1||i===2){
@@ -464,7 +498,35 @@ const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
       <span class="rail-tooltip">Ask Amit</span>
     </div>`;
   }
+
+  initPageTooltips();
 })();
+
+// PAGE HOVER TOOLTIP — see the CSS comment above .page-hover-tip for why
+// this is JS-positioned instead of pure CSS. Delegated on the sidebar
+// container so it keeps working no matter how many pages exist or
+// whether the sidebar is collapsed or expanded — no per-page wiring.
+function initPageTooltips(){
+  const tip=document.getElementById('pageHoverTip');
+  const nav=document.getElementById('sidebarPages');
+  if(!tip||!nav)return;
+  nav.addEventListener('mouseover',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    tip.textContent=item.dataset.tip||'';
+    const r=item.getBoundingClientRect();
+    tip.style.left=(r.right+8)+'px';
+    tip.style.top=(r.top+r.height/2)+'px';
+    tip.style.transform='translateY(-50%)';
+    tip.classList.add('show');
+  });
+  nav.addEventListener('mouseout',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    if(e.relatedTarget&&item.contains(e.relatedTarget))return;
+    tip.classList.remove('show');
+  });
+}
 
 // ══════════════════════════════════════════════
 // CANONICAL LAYOUT: ROW VIEW — Excel-style: click a column header to sort
