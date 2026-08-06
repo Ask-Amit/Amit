@@ -1045,6 +1045,7 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
       </div>
     </div>`;
     _updateDemoUI();
+    _updateSyncUI(); // paints the signed-out default (no box) immediately, rather than waiting on the async auth listener to fire
   }
 
   initPageTooltips('sidebarPages','right'); // left sidebar — tooltip opens rightward, toward the page
@@ -2689,11 +2690,23 @@ function tvSelect(containerId,id){
 // ══════════════════════════════════════════════
 // CANONICAL LAYOUT: BREADCRUMB VIEW — chained drill-down navigation
 // (summary → records → single record) with a visible breadcrumb trail
-// and an "Open Pages" history rail, added 2026-08-06, per AmitBooks'
-// General Journal pattern (see Templates\CLAUDE.md reference). Distinct
-// from Detail View, which only drills one level from a Row View — this
-// tracks an arbitrary-depth path and lets you jump back to any prior
-// step, both via the trail and via the rail's full visit history.
+// AND an "Open Pages" rail, added 2026-08-06. Distinct from Detail View,
+// which only drills one level from a Row View — this tracks an
+// arbitrary-depth path and lets you jump back to any prior step.
+//
+// "Open Pages" reflects EXACTLY the levels currently open in inst.path —
+// fixed 2026-08-06, Ryan's direct correction. The first version tracked a
+// separate, ever-growing visit log that never shrank when you navigated
+// back up, so it accumulated duplicates and stale entries with no way to
+// tell what was actually still open. There is no separate history array
+// anymore — the rail is rendered straight from inst.path (same as the
+// trail at the top, just listed vertically), so jumping back via
+// bcvJumpTo (which truncates inst.path) automatically removes everything
+// past that point from BOTH the trail and the rail at once, since they
+// now read from the same single source of truth. The root level is
+// omitted from the rail (it's always open by definition, same reasoning
+// as page 1 never needing its own "you are here" marker).
+//
 // bcvCreate(containerId, rootLabel, rootItems). Each item may itself have
 // children[] to drill into further, or fields to show as a final record.
 // ══════════════════════════════════════════════
@@ -2708,7 +2721,7 @@ const BCV_SAMPLE_ROOT=[
 ];
 const bcvInstances=new Map();
 function bcvCreate(containerId,rootLabel,rootItems){
-  bcvInstances.set(containerId,{rootLabel,rootItems,path:[{label:rootLabel,items:rootItems}],history:[]});
+  bcvInstances.set(containerId,{rootLabel,rootItems,path:[{label:rootLabel,items:rootItems}]});
   bcvRenderInstance(containerId);
 }
 function bcvRenderInstance(containerId){
@@ -2725,9 +2738,12 @@ function bcvRenderInstance(containerId){
     const fieldsPreview=Object.keys(item).filter(k=>!['id','name','children'].includes(k)).map(k=>`${k}: ${item[k]}`).join(' · ');
     return `<div class="bcv-list-item" onclick="bcvDrill('${containerId}','${item.id}')">${item.name}${hasKids?' →':fieldsPreview?' — '+fieldsPreview:''}</div>`;
   }).join('')||'<div class="bcv-list-item" style="cursor:default">Nothing here</div>';
-  const railHtml=inst.history.length
-    ? inst.history.slice().reverse().map((h,idx)=>`<div class="bcv-rail-item" onclick="bcvJumpTo('${containerId}',${inst.history.length-1-idx})">${h}</div>`).join('')
-    : '<div class="bcv-rail-item" style="cursor:default">No history yet</div>';
+  // Rendered straight from inst.path (root excluded, index 0) — not a
+  // separate log, so it can only ever show what's genuinely still open.
+  const openLevels=inst.path.slice(1);
+  const railHtml=openLevels.length
+    ? openLevels.map((step,idx)=>`<div class="bcv-rail-item" onclick="bcvJumpTo('${containerId}',${idx+1})">${step.label}</div>`).join('')
+    : '<div class="bcv-rail-item" style="cursor:default">Nothing drilled into yet</div>';
   wrap.innerHTML=`<div class="bcv-main"><div class="bcv-trail">${trailHtml}</div><div>${listHtml}</div></div>
     <div class="bcv-rail"><div class="bcv-rail-title">Open Pages</div>${railHtml}</div>`;
 }
@@ -2740,7 +2756,6 @@ function bcvDrill(containerId,itemId){
   } else {
     inst.path.push({label:item.name,items:[item]});
   }
-  inst.history.push(item.name);
   bcvRenderInstance(containerId);
 }
 function bcvJumpTo(containerId,pathIdx){
@@ -2902,9 +2917,11 @@ function _updateSyncUI(){
   if(currentUser){
     icon.textContent='🔓';name.textContent='Sign Out';sub.textContent='Synced';
     item.dataset.tip='Sign Out';item.title='Signed in · '+currentUser.email;
+    item.classList.add('active'); // same box the left sidebar uses to show which page is active — added 2026-08-06, Ryan's direct instruction, so the collapsed rail still shows on/off state at a glance
   } else {
     icon.textContent='🔒';name.textContent='Sign In';sub.textContent='Not Synced';
     item.dataset.tip='Sign In';item.title='';
+    item.classList.remove('active');
   }
 }
 
@@ -2936,9 +2953,11 @@ function _updateDemoUI(){
   if(demoMode){
     icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
     item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+    item.classList.add('active'); // same box the left sidebar uses to show which page is active — added 2026-08-06, Ryan's direct instruction, so the collapsed rail still shows on/off state at a glance
   } else {
     icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
     item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+    item.classList.remove('active');
   }
 }
 
