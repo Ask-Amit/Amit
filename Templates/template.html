@@ -371,6 +371,79 @@ header{
 .fv-save{background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);color:var(--gold2);padding:10px 22px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em}
 .fv-status{font-size:12px;color:var(--gold2);margin-top:10px}
 
+/* ── CHART VIEW — added 2026-08-06, per the dataviz skill: one axis only,
+   categorical hues assigned in fixed order (never cycled), thin marks,
+   legend for 2+ series, recessive gridlines. Reuses the Hub's own already-
+   documented calendar-layer categorical order (steel blue / amber /
+   teal-cyan / rose — see root CLAUDE.md architecture notes) rather than
+   inventing a new palette, so a real project's charts stay consistent
+   with color choices already made elsewhere in the Amit system. ── */
+.chv-wrap{margin:24px;flex:1;overflow-y:auto}
+.chv-section{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:18px;margin-bottom:20px}
+.chv-title{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:14px}
+.chv-bars{display:flex;align-items:flex-end;gap:12px;height:130px}
+.chv-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.chv-bar{width:100%;background:linear-gradient(180deg,var(--gold2),var(--gold));border-radius:4px 4px 0 0;min-height:6px}
+.chv-bar-label{font-size:10px;color:var(--muted);margin-top:6px}
+.chv-legend{display:flex;gap:16px;margin-bottom:12px;font-size:11px;color:var(--muted)}
+.chv-legend-item{display:flex;align-items:center;gap:6px}
+.chv-legend-swatch{width:10px;height:10px;border-radius:50%;display:inline-block}
+.chv-line-svg{width:100%;height:150px;overflow:visible}
+.chv-gridline{stroke:rgba(240,232,208,.08);stroke-width:1}
+.chv-point{cursor:pointer}
+
+/* ── INBOX VIEW — stream/queue with checkbox multi-select + batch
+   actions, added 2026-08-06. ── */
+.ibv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
+.ibv-toolbar{display:flex;align-items:center;gap:10px;padding:2px 2px 12px;flex-shrink:0;font-size:12px;color:var(--muted)}
+.ibv-toolbar button{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);color:var(--gold2);padding:6px 14px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em}
+.ibv-toolbar button:disabled{opacity:.35;cursor:default}
+.ibv-list{flex:1;overflow-y:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
+.ibv-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-bottom:1px solid rgba(201,168,76,.12);cursor:pointer}
+.ibv-item:hover{background:rgba(255,255,255,.03)}
+.ibv-item.unread .ibv-item-title{color:#fff;font-weight:700}
+.ibv-item.unread{background:rgba(201,168,76,.05)}
+.ibv-item-title{font-size:13px;color:var(--muted)}
+.ibv-item-sub{font-size:11px;color:var(--dim);margin-top:3px}
+.ibv-item-check{margin-top:2px}
+
+/* ── DRAWER VIEW — lightweight overlay detail that slides in from the
+   right, doesn't leave the current screen context, added 2026-08-06. ── */
+.drv-wrap{margin:24px}
+.drv-trigger-list{display:flex;flex-direction:column;gap:8px;max-width:420px}
+.drv-trigger-item{background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:8px;padding:12px 14px;cursor:pointer;font-size:13px}
+.drv-trigger-item:hover{border-color:var(--gold)}
+.drv-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9990;display:none}
+.drv-overlay.open{display:block}
+.drv-panel{position:fixed;top:0;right:-380px;width:360px;height:100%;background:var(--card-head);border-left:1px solid rgba(201,168,76,.5);box-shadow:-8px 0 30px rgba(0,0,0,.5);z-index:9991;transition:right .22s ease;padding:22px 24px;overflow-y:auto}
+.drv-panel.open{right:0}
+.drv-close{position:absolute;top:16px;right:18px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
+
+/* ── TREE VIEW — hierarchical parent/child, added 2026-08-06. Reuses the
+   same {id,...fields,children:[...]} row shape already used by Row View. ── */
+.tv-wrap{margin:24px;flex:1;overflow-y:auto}
+.tv-node{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+.tv-node:hover{background:rgba(255,255,255,.04)}
+.tv-node.selected{background:rgba(201,168,76,.14);color:var(--gold2)}
+.tv-toggle{width:14px;display:inline-block;color:var(--gold2)}
+.tv-leaf-dot{width:5px;height:5px;border-radius:50%;background:var(--dim);display:inline-block;margin:0 5px}
+
+/* ── BREADCRUMB VIEW — chained drill-down navigation with a visible trail
+   and an "Open Pages" history rail, added 2026-08-06, per AmitBooks'
+   General Journal pattern (summary → records → single record). ── */
+.bcv-wrap{margin:24px;display:flex;gap:20px;flex:1;min-height:0}
+.bcv-main{flex:1;overflow-y:auto}
+.bcv-trail{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:16px;flex-wrap:wrap}
+.bcv-trail-item{cursor:pointer;color:var(--gold2)}
+.bcv-trail-item:last-child{color:var(--muted);cursor:default}
+.bcv-trail-sep{color:var(--dim)}
+.bcv-list-item{padding:10px 12px;border:1px solid rgba(201,168,76,.2);border-radius:7px;margin-bottom:8px;cursor:pointer;font-size:13px}
+.bcv-list-item:hover{border-color:var(--gold)}
+.bcv-rail{width:190px;flex-shrink:0;border-left:1px solid rgba(201,168,76,.2);padding-left:16px}
+.bcv-rail-title{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
+.bcv-rail-item{font-size:11px;color:var(--muted);padding:5px 0;cursor:pointer;border-bottom:1px solid rgba(201,168,76,.08)}
+.bcv-rail-item:hover{color:var(--gold2)}
+
 /* ── DETAIL VIEW — the drill-down endpoint for one single Row View item.
    Double-clicking a row (parent or child) anywhere in Row View lands here,
    populated with that one record's own fields, plus — if it has children —
@@ -426,6 +499,16 @@ header{
    priority scheme in older Hub docs, which isn't what's actually live. */
 .cv-chip{background:rgba(180,140,15,.82);border-left:3px solid rgba(201,168,76,.95);color:#2a1e00;font-weight:600;font-size:10px;padding:2px 6px;border-radius:3px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cv-chip:hover{opacity:.82}
+
+/* ── DAY VIEW — added 2026-08-06, Ryan's direct instruction: duplicate
+   the Hub's day-view concept (zooming into one specific day), linked to
+   both Calendar View and real pursuits, with the Hebrew/sacred-calendar
+   elements (feast chips, Shabbat labels, word of the day) deliberately
+   left out for now — same reduction Calendar View itself already went
+   through. Reuses .cv-nav-btn/.cv-month-title for the header (same
+   visual language as Calendar View's own nav) rather than duplicating
+   that styling under a new name. ── */
+.dvw-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
 
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
    that can host any layout instance (Tabbed/Row/Detail View) — content-
@@ -750,6 +833,36 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
         <div class="detail-head"><span class="detail-heading">${label}</span></div>
         <div class="fv-wrap" id="fv-mount"></div>
+      </div>`;
+    } else if(i===12){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="chv-wrap" id="chv-mount"></div>
+      </div>`;
+    } else if(i===13){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="ibv-wrap" id="ibv-mount"></div>
+      </div>`;
+    } else if(i===14){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="drv-wrap" id="drv-mount"></div>
+      </div>`;
+    } else if(i===15){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="tv-wrap" id="tv-mount"></div>
+      </div>`;
+    } else if(i===16){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="bcv-wrap" id="bcv-mount"></div>
+      </div>`;
+    } else if(i===17){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="dvw-wrap" id="dayview-mount"></div>
       </div>`;
     } else {
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}">
@@ -1537,7 +1650,12 @@ function cvRenderInstance(containerId){
     const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dayEntries=(inst.entries||[]).filter(e=>e.due_date===ds);
     const chipsHtml=dayEntries.map(e=>`<div class="cv-chip" title="${(e.title||'').replace(/"/g,'&quot;')}" onclick="event.stopPropagation();cvOpenEntryById('${e.id}')">${e.title||''}</div>`).join('');
-    cellsHtml+=`<div class="cv-cell${isToday?' today':''}"><div class="cv-daynum">${d}</div>${chipsHtml}</div>`;
+    // Double-click a real day cell opens that exact date in Day View —
+    // added 2026-08-06, Ryan's direct instruction: Day View "would
+    // definitely link up to the monthly calendar." Adjacent-month cells
+    // (above/below) keep their existing single-click month-jump behavior
+    // and deliberately don't get this — they're not "this month's" days.
+    cellsHtml+=`<div class="cv-cell${isToday?' today':''}" ondblclick="cvOpenDayView('${ds}')"><div class="cv-daynum">${d}</div>${chipsHtml}</div>`;
   }
   // Always fill to a full 6-row (42-cell) grid, same convention as the
   // Hub's own calendar, so the layout never jumps between 5 and 6 rows
@@ -1641,6 +1759,523 @@ function cvAdjClick(containerId,year,month){
   cvLoadEntries(containerId);
 }
 
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: DAY VIEW — added 2026-08-06, Ryan's direct
+// instruction: duplicate the Hub's day-view concept (zooming into one
+// specific day), linked to both Calendar View and real pursuits, with
+// the Hebrew/sacred-calendar elements (feast chips, Shabbat labels, word
+// of the day) deliberately left out for now — the same reduction
+// Calendar View itself already went through. Shows one day's date as a
+// header with prev/next navigation, plus that day's real outstanding
+// pursuits listed below using the canonical Row View layout — not a new
+// list widget, the same reuse standard as everywhere else in this file.
+//
+// INSTANCE-BASED, same pattern as every other layout here —
+// dayViewCreate(containerId) creates one instance keyed by its mount id,
+// with its own independent selected-date state.
+// ══════════════════════════════════════════════
+const dayViewInstances=new Map(); // containerId -> {date:'YYYY-MM-DD'}
+
+function _todayStr(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function dayViewCreate(containerId,ds){
+  dayViewInstances.set(containerId,{date:ds||_todayStr()});
+  dayViewRenderInstance(containerId);
+}
+
+function dayViewRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=dayViewInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const[y,m,d]=inst.date.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()];
+  const isToday=inst.date===_todayStr();
+  wrap.innerHTML=`
+    <div class="cv-nav-row">
+      <div class="cv-nav-btn" onclick="dayViewNav('${containerId}',-1)">◄</div>
+      <div class="cv-month-title">${dayName}, ${CV_MONTH_NAMES[m-1]} ${d}, ${y}${isToday?' · Today':''}</div>
+      <div class="cv-nav-btn" onclick="dayViewNav('${containerId}',1)">►</div>
+    </div>
+    <div class="rv-wrap" id="${containerId}-rv" style="margin-top:8px"></div>
+  `;
+  dayViewLoadEntries(containerId);
+}
+
+function dayViewNav(containerId,delta){
+  const inst=dayViewInstances.get(containerId);if(!inst)return;
+  const[y,m,d]=inst.date.split('-').map(Number);
+  const dt=new Date(y,m-1,d+delta);
+  inst.date=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  dayViewRenderInstance(containerId);
+}
+
+// LIVE PURSUITS for the selected day — same live hub_entries connection
+// as Calendar View, scoped to whoever's signed in, same honest empty
+// state when nobody is, same stale-request guard pattern as
+// cvLoadEntries (navigating days quickly shouldn't let an older request
+// overwrite a newer one).
+async function dayViewLoadEntries(containerId){
+  const inst=dayViewInstances.get(containerId);if(!inst)return;
+  const requestDate=inst.date;
+  const rvMountId=containerId+'-rv';
+  let rows=[];
+  if(currentUser){
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&user_id=eq.${currentUser.id}&due_date=eq.${requestDate}&order=priority.asc`,{
+        headers:{apikey:SB_KEY,Accept:'application/json'}
+      });
+      rows=res.ok?await res.json():[];
+    }catch(e){
+      rows=[];
+    }
+  }
+  const stillInst=dayViewInstances.get(containerId);
+  if(!stillInst||stillInst.date!==requestDate)return; // a newer request has already superseded this one
+  const cols=[{key:'title',label:'Title'},{key:'priority',label:'Priority'},{key:'program',label:'Program'}];
+  rvCreate(rvMountId,cols,rows);
+}
+
+// Double-clicking a real day cell in Calendar View opens that exact date
+// in Day View — the link Ryan asked for between the two. This template
+// has one Day View instance (page 17, mount id 'dayview-mount').
+function cvOpenDayView(ds){
+  if(dayViewInstances.has('dayview-mount')){
+    dayViewInstances.get('dayview-mount').date=ds;
+    dayViewRenderInstance('dayview-mount');
+  } else {
+    dayViewCreate('dayview-mount',ds);
+  }
+  openPage(17);
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: BOARD VIEW — Kanban, added 2026-08-06, Ryan's direct
+// instruction (built without stopping for review, per his own explicit
+// go-ahead this session). bvCreate(containerId, statuses, rows, opts).
+// statuses: ['Not Started','In Progress','Done'] — column order.
+// rows: [{id, title, owner, status}, ...]. Native HTML5 drag/drop moves a
+// card to a new column, updating its status in place; opts.onStatusChange
+// (rowId,newStatus) fires after a successful drop so a real project can
+// persist it. Sample data placeholder only.
+// ══════════════════════════════════════════════
+const BV_SAMPLE_STATUSES=['Not Started','In Progress','Done'];
+const BV_SAMPLE_ROWS=[
+  {id:'b1',title:'Kickoff meeting',owner:'Ryan',status:'Done'},
+  {id:'b2',title:'Design review',owner:'Amit',status:'In Progress'},
+  {id:'b3',title:'Backend wiring',owner:'Ryan',status:'Not Started'},
+  {id:'b4',title:'QA pass',owner:'Ryan',status:'Not Started'},
+  {id:'b5',title:'Launch',owner:'Ryan',status:'Not Started'}
+];
+const bvInstances=new Map();
+function bvCreate(containerId,statuses,rows,opts={}){
+  bvInstances.set(containerId,{statuses,rows,onStatusChange:opts.onStatusChange||null});
+  bvRenderInstance(containerId);
+}
+function bvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=bvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  wrap.innerHTML=`<div class="bv-cols">${inst.statuses.map(status=>{
+    const cards=inst.rows.filter(r=>r.status===status);
+    return `<div class="bv-col" data-status="${status}" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="bvDrop(event,'${containerId}','${status}')">
+      <div class="bv-col-head">${status} (${cards.length})</div>
+      <div class="bv-col-body">${cards.map(c=>`<div class="bv-card" draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${c.id}')">${c.title}<div class="bv-card-owner">${c.owner}</div></div>`).join('')||'<div class="bv-card-owner" style="padding:6px 2px">No cards</div>'}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+function bvDrop(e,containerId,status){
+  e.preventDefault();
+  const inst=bvInstances.get(containerId);if(!inst)return;
+  document.querySelectorAll(`#${containerId} .bv-col`).forEach(el=>el.classList.remove('dragover'));
+  const id=e.dataTransfer.getData('text/plain');
+  const row=inst.rows.find(r=>r.id===id);
+  if(row&&row.status!==status){
+    row.status=status;
+    if(inst.onStatusChange) inst.onStatusChange(id,status);
+  }
+  bvRenderInstance(containerId);
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: GALLERY VIEW — visual card grid, added 2026-08-06.
+// glvCreate(containerId, rows, opts). rows: [{id,icon,title,sub}, ...].
+// opts.onCardOpen(itemId) — same open-elsewhere contract as Row View's
+// onRowOpen; falls back to dvOpenFor on page 4 if omitted.
+// ══════════════════════════════════════════════
+const GLV_SAMPLE_ROWS=[
+  {id:'gl1',icon:'📄',title:'Kickoff meeting',sub:'Ryan · Done'},
+  {id:'gl2',icon:'🎨',title:'Design review',sub:'Amit · In Progress'},
+  {id:'gl3',icon:'🛠️',title:'Backend wiring',sub:'Ryan · Not Started'},
+  {id:'gl4',icon:'✅',title:'QA pass',sub:'Ryan · Not Started'},
+  {id:'gl5',icon:'🚀',title:'Launch',sub:'Ryan · Not Started'}
+];
+const glvInstances=new Map();
+function glvCreate(containerId,rows,opts={}){
+  glvInstances.set(containerId,{rows,onCardOpen:opts.onCardOpen||null});
+  glvRenderInstance(containerId);
+}
+function glvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=glvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  wrap.innerHTML=`<div class="glv-grid">${inst.rows.map(r=>`
+    <div class="glv-card" onclick="glvOpen('${containerId}','${r.id}')">
+      <div class="glv-thumb">${r.icon||'▢'}</div>
+      <div class="glv-body"><div class="glv-title">${r.title}</div><div class="glv-sub">${r.sub||''}</div></div>
+    </div>`).join('')}</div>`;
+}
+function glvOpen(containerId,itemId){
+  const inst=glvInstances.get(containerId);
+  if(inst&&inst.onCardOpen){ inst.onCardOpen(itemId); return; }
+  dvOpenFor(itemId);
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: DASHBOARD VIEW — stat tiles + a simple bar chart,
+// added 2026-08-06. dbvCreate(containerId, tiles, bars). tiles:
+// [{label,value}, ...]. bars: {title, data:[{label,value}, ...]} — bar
+// heights are computed relative to the tallest value in the set.
+// ══════════════════════════════════════════════
+const DBV_SAMPLE_TILES=[
+  {label:'Total Pursuits',value:'5'},
+  {label:'Done',value:'1'},
+  {label:'In Progress',value:'1'},
+  {label:'Not Started',value:'3'}
+];
+const DBV_SAMPLE_BARS={title:'Pursuits by Status',data:[
+  {label:'Done',value:1},{label:'In Progress',value:1},{label:'Not Started',value:3}
+]};
+function dbvCreate(containerId,tiles,bars){
+  const wrap=document.getElementById(containerId);
+  if(!wrap)return;
+  const max=Math.max(1,...bars.data.map(d=>d.value));
+  wrap.innerHTML=`
+    <div class="dbv-tiles">${tiles.map(t=>`<div class="dbv-tile"><div class="dbv-tile-label">${t.label}</div><div class="dbv-tile-value">${t.value}</div></div>`).join('')}</div>
+    <div class="dbv-chart">
+      <div class="dbv-chart-title">${bars.title}</div>
+      <div class="dbv-bars">${bars.data.map(d=>`<div class="dbv-bar-col"><div class="dbv-bar" style="height:${Math.max(6,(d.value/max)*100)}%"></div><div class="dbv-bar-label">${d.label}</div></div>`).join('')}</div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: SPLIT VIEW — master list + detail pane, no page
+// navigation, added 2026-08-06. spvCreate(containerId, columns, rows).
+// Reuses the same {id,...fields} row shape as Row/Detail View, so the
+// same sample data drops straight in.
+// ══════════════════════════════════════════════
+const spvInstances=new Map();
+function spvCreate(containerId,columns,rows){
+  spvInstances.set(containerId,{columns,rows,selectedId:(rows[0]&&rows[0].id)||null});
+  spvRenderInstance(containerId);
+}
+function spvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=spvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const item=inst.rows.find(r=>r.id===inst.selectedId);
+  wrap.innerHTML=`
+    <div class="spv-list">${inst.rows.map(r=>`<div class="spv-item${r.id===inst.selectedId?' active':''}" onclick="spvSelect('${containerId}','${r.id}')">${r[inst.columns[0].key]}</div>`).join('')}</div>
+    <div class="spv-detail"><div class="dv-fields">${item?inst.columns.map(c=>`<div class="dv-label">${c.label}</div><div class="dv-value">${item[c.key]||'—'}</div>`).join(''):''}</div></div>`;
+}
+function spvSelect(containerId,id){
+  const inst=spvInstances.get(containerId);if(!inst)return;
+  inst.selectedId=id;
+  spvRenderInstance(containerId);
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: FORM VIEW — dedicated create/edit layout, separate
+// from Detail View (which is read-only), added 2026-08-06.
+// fvCreate(containerId, fields, opts). fields: [{key,label,type}, ...]
+// (type: 'text'|'textarea'). opts.onSubmit(values) fires on Save with the
+// current field values; no native browser dialogs.
+// ══════════════════════════════════════════════
+const FV_SAMPLE_FIELDS=[
+  {key:'title',label:'Title',type:'text'},
+  {key:'owner',label:'Owner',type:'text'},
+  {key:'notes',label:'Notes',type:'textarea'}
+];
+const fvInstances=new Map();
+function fvCreate(containerId,fields,opts={}){
+  fvInstances.set(containerId,{fields,values:{},onSubmit:opts.onSubmit||null,status:''});
+  fvRenderInstance(containerId);
+}
+function fvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=fvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  wrap.innerHTML=`${inst.fields.map(f=>`
+    <div class="fv-field">
+      <label class="fv-label">${f.label}</label>
+      ${f.type==='textarea'
+        ?`<textarea class="fv-textarea" oninput="fvSetValue('${containerId}','${f.key}',this.value)">${inst.values[f.key]||''}</textarea>`
+        :`<input class="fv-input" type="text" value="${(inst.values[f.key]||'').replace(/"/g,'&quot;')}" oninput="fvSetValue('${containerId}','${f.key}',this.value)">`}
+    </div>`).join('')}
+    <button class="fv-save" onclick="fvSubmit('${containerId}')">SAVE →</button>
+    ${inst.status?`<div class="fv-status">${inst.status}</div>`:''}`;
+}
+function fvSetValue(containerId,key,val){
+  const inst=fvInstances.get(containerId);if(!inst)return;
+  inst.values[key]=val;
+}
+function fvSubmit(containerId){
+  const inst=fvInstances.get(containerId);if(!inst)return;
+  if(inst.onSubmit) inst.onSubmit({...inst.values});
+  inst.status='Saved — '+new Date().toLocaleTimeString();
+  fvRenderInstance(containerId);
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: CHART VIEW — added 2026-08-06, per the dataviz skill
+// loaded this session. One axis only; a single bar chart is one sequential
+// hue (gold ramp, already this template's own accent), the line chart's
+// two series use the Hub's own already-documented categorical order
+// (steel blue + gold) rather than an invented palette, with a legend
+// since it's 2+ series and a title-attr hover tooltip on each point.
+// chvCreate(containerId, bars, lines). bars: {title,data:[{label,value}]}.
+// lines: {title,series:[{name,color,points:[{label,value}]}, ...]}.
+// ══════════════════════════════════════════════
+const CHV_SAMPLE_BARS={title:'Pursuits by Purpose',data:[
+  {label:'Spiritual',value:4},{label:'Craft',value:7},{label:'Mission',value:2},{label:'Service',value:3}
+]};
+const CHV_SAMPLE_LINES={title:'Activity — This Week vs Last Week',series:[
+  {name:'This Week',color:'var(--gold2)',points:[{label:'Mon',value:3},{label:'Tue',value:5},{label:'Wed',value:4},{label:'Thu',value:6},{label:'Fri',value:8}]},
+  {name:'Last Week',color:'#6fa3c9',points:[{label:'Mon',value:2},{label:'Tue',value:3},{label:'Wed',value:5},{label:'Thu',value:4},{label:'Fri',value:5}]}
+]};
+function chvCreate(containerId,bars,lines){
+  const wrap=document.getElementById(containerId);
+  if(!wrap)return;
+  const max=Math.max(1,...bars.data.map(d=>d.value));
+  const barsHtml=`<div class="chv-section">
+    <div class="chv-title">${bars.title}</div>
+    <div class="chv-bars">${bars.data.map(d=>`<div class="chv-bar-col"><div class="chv-bar" style="height:${Math.max(6,(d.value/max)*100)}%" title="${d.label}: ${d.value}"></div><div class="chv-bar-label">${d.label}</div></div>`).join('')}</div>
+  </div>`;
+
+  // Simple SVG line chart — one shared x/y scale (one axis, per the
+  // dataviz skill's #1 rule: never a dual-axis chart), thin 2px lines,
+  // 4px rounded data-end dots, recessive gridlines.
+  const w=560,h=130,pad=20;
+  const allVals=lines.series.flatMap(s=>s.points.map(p=>p.value));
+  const lmax=Math.max(1,...allVals);
+  const stepX=(w-pad*2)/(lines.series[0].points.length-1);
+  const toXY=(i,val)=>[pad+i*stepX,h-pad-(val/lmax)*(h-pad*1.5)];
+  const gridHtml=[0,.5,1].map(f=>`<line class="chv-gridline" x1="${pad}" x2="${w-pad}" y1="${h-pad-f*(h-pad*1.5)}" y2="${h-pad-f*(h-pad*1.5)}"></line>`).join('');
+  const seriesHtml=lines.series.map(s=>{
+    const pts=s.points.map((p,i)=>toXY(i,p.value));
+    const path=pts.map((pt,i)=>(i===0?'M':'L')+pt[0]+' '+pt[1]).join(' ');
+    const dots=pts.map((pt,i)=>`<circle class="chv-point" cx="${pt[0]}" cy="${pt[1]}" r="4" fill="${s.color}"><title>${s.name} · ${s.points[i].label}: ${s.points[i].value}</title></circle>`).join('');
+    return `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round"></path>${dots}`;
+  }).join('');
+  const labelsHtml=lines.series[0].points.map((p,i)=>{
+    const[x]=toXY(i,0);
+    return `<text x="${x}" y="${h-2}" font-size="9" fill="rgba(240,232,208,.5)" text-anchor="middle">${p.label}</text>`;
+  }).join('');
+
+  const linesHtml=`<div class="chv-section">
+    <div class="chv-title">${lines.title}</div>
+    <div class="chv-legend">${lines.series.map(s=>`<span class="chv-legend-item"><span class="chv-legend-swatch" style="background:${s.color}"></span>${s.name}</span>`).join('')}</div>
+    <svg class="chv-line-svg" viewBox="0 0 ${w} ${h}">${gridHtml}${seriesHtml}${labelsHtml}</svg>
+  </div>`;
+
+  wrap.innerHTML=barsHtml+linesHtml;
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: INBOX VIEW — stream/queue with checkbox multi-select
+// + batch actions, added 2026-08-06. ibvCreate(containerId, rows, opts).
+// rows: [{id,title,sub,read}, ...]. opts.onBatchAction(actionName, ids).
+// ══════════════════════════════════════════════
+const IBV_SAMPLE_ROWS=[
+  {id:'i1',title:'New reflection submitted',sub:'From the Word for Today panel · 2 min ago',read:false},
+  {id:'i2',title:'Question sent to Amit',sub:'"What does Torah say about..." · 1 hr ago',read:false},
+  {id:'i3',title:'Session summary ready',sub:'Session 58 archived · yesterday',read:true},
+  {id:'i4',title:'New testimony entry',sub:'Andy · 2 days ago',read:true}
+];
+const ibvInstances=new Map();
+function ibvCreate(containerId,rows,opts={}){
+  ibvInstances.set(containerId,{rows,selected:new Set(),onBatchAction:opts.onBatchAction||null});
+  ibvRenderInstance(containerId);
+}
+function ibvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=ibvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const n=inst.selected.size;
+  wrap.innerHTML=`
+    <div class="ibv-toolbar">
+      <span>${n?`${n} selected`:'No items selected'}</span>
+      <button ${n?'':'disabled'} onclick="ibvBatch('${containerId}','markRead')">Mark Read</button>
+      <button ${n?'':'disabled'} onclick="ibvBatch('${containerId}','delete')">Delete</button>
+    </div>
+    <div class="ibv-list">${inst.rows.map(r=>`
+      <div class="ibv-item${r.read?'':' unread'}" onclick="ibvOpen('${containerId}','${r.id}')">
+        <input class="ibv-item-check" type="checkbox" ${inst.selected.has(r.id)?'checked':''} onclick="event.stopPropagation();ibvToggleSelect('${containerId}','${r.id}')">
+        <div><div class="ibv-item-title">${r.title}</div><div class="ibv-item-sub">${r.sub}</div></div>
+      </div>`).join('')||'<div class="ibv-item-sub" style="padding:14px">Inbox is empty</div>'}</div>`;
+}
+function ibvToggleSelect(containerId,id){
+  const inst=ibvInstances.get(containerId);if(!inst)return;
+  if(inst.selected.has(id)) inst.selected.delete(id); else inst.selected.add(id);
+  ibvRenderInstance(containerId);
+}
+function ibvOpen(containerId,id){
+  const inst=ibvInstances.get(containerId);if(!inst)return;
+  const row=inst.rows.find(r=>r.id===id);
+  if(row) row.read=true;
+  ibvRenderInstance(containerId);
+}
+function ibvBatch(containerId,action){
+  const inst=ibvInstances.get(containerId);if(!inst||!inst.selected.size)return;
+  const ids=Array.from(inst.selected);
+  if(action==='markRead') ids.forEach(id=>{const r=inst.rows.find(x=>x.id===id);if(r)r.read=true;});
+  if(action==='delete') inst.rows=inst.rows.filter(r=>!inst.selected.has(r.id));
+  if(inst.onBatchAction) inst.onBatchAction(action,ids);
+  inst.selected=new Set();
+  ibvRenderInstance(containerId);
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: DRAWER VIEW — lightweight overlay detail sliding in
+// from the right, doesn't leave the current screen's own context, added
+// 2026-08-06. drvCreate(containerId, rows). rows: [{id,title,body}, ...].
+// ══════════════════════════════════════════════
+const DRV_SAMPLE_ROWS=[
+  {id:'d1',title:'Kickoff meeting',body:'Owner: Ryan · Status: Done · Due 2026-07-28'},
+  {id:'d2',title:'Design review',body:'Owner: Amit · Status: In Progress · Due 2026-08-02'},
+  {id:'d3',title:'Backend wiring',body:'Owner: Ryan · Status: Not Started · Due 2026-08-10'}
+];
+const drvInstances=new Map();
+function drvCreate(containerId,rows){
+  drvInstances.set(containerId,{rows});
+  drvRenderInstance(containerId);
+}
+function drvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=drvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  wrap.innerHTML=`<div class="drv-trigger-list">${inst.rows.map(r=>`<div class="drv-trigger-item" onclick="drvOpen('${containerId}','${r.id}')">${r.title}</div>`).join('')}</div>
+    <div class="drv-overlay" id="${containerId}-overlay" onclick="drvClose('${containerId}')"></div>
+    <div class="drv-panel" id="${containerId}-panel"><span class="drv-close" onclick="drvClose('${containerId}')">CLOSE ✕</span><div id="${containerId}-panel-body"></div></div>`;
+}
+function drvOpen(containerId,id){
+  const inst=drvInstances.get(containerId);if(!inst)return;
+  const row=inst.rows.find(r=>r.id===id);if(!row)return;
+  document.getElementById(containerId+'-panel-body').innerHTML=`<div class="dv-sub-h">${row.title}</div><div class="dv-value">${row.body}</div>`;
+  document.getElementById(containerId+'-overlay').classList.add('open');
+  document.getElementById(containerId+'-panel').classList.add('open');
+}
+function drvClose(containerId){
+  document.getElementById(containerId+'-overlay').classList.remove('open');
+  document.getElementById(containerId+'-panel').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: TREE VIEW — hierarchical parent/child, added
+// 2026-08-06. tvCreate(containerId, rows, opts) reuses the same
+// {id,...fields,children:[...]} row shape Row View already uses, so the
+// same sample data works unmodified. opts.onNodeOpen(itemId) — same
+// open-elsewhere contract, defaults to dvOpenFor on page 4.
+// ══════════════════════════════════════════════
+const tvInstances=new Map();
+function tvCreate(containerId,rows,opts={}){
+  tvInstances.set(containerId,{rows,expanded:new Set(),selectedId:null,onNodeOpen:opts.onNodeOpen||null});
+  tvRenderInstance(containerId);
+}
+function tvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=tvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const nodeHtml=(r)=>{
+    const hasKids=r.children&&r.children.length;
+    const expanded=inst.expanded.has(r.id);
+    let html=`<div class="tv-node${inst.selectedId===r.id?' selected':''}" onclick="tvSelect('${containerId}','${r.id}')">
+      ${hasKids?`<span class="tv-toggle" onclick="event.stopPropagation();tvToggle('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:`<span class="tv-toggle"><span class="tv-leaf-dot"></span></span>`}
+      ${r.name||r.title}
+    </div>`;
+    if(hasKids&&expanded) html+=`<div style="margin-left:22px">${r.children.map(nodeHtml).join('')}</div>`;
+    return html;
+  };
+  wrap.innerHTML=inst.rows.map(nodeHtml).join('');
+}
+function tvToggle(containerId,id){
+  const inst=tvInstances.get(containerId);if(!inst)return;
+  if(inst.expanded.has(id)) inst.expanded.delete(id); else inst.expanded.add(id);
+  tvRenderInstance(containerId);
+}
+function tvSelect(containerId,id){
+  const inst=tvInstances.get(containerId);if(!inst)return;
+  inst.selectedId=id;
+  tvRenderInstance(containerId);
+  if(inst.onNodeOpen) inst.onNodeOpen(id); else dvOpenFor(id);
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: BREADCRUMB VIEW — chained drill-down navigation
+// (summary → records → single record) with a visible breadcrumb trail
+// and an "Open Pages" history rail, added 2026-08-06, per AmitBooks'
+// General Journal pattern (see Templates\CLAUDE.md reference). Distinct
+// from Detail View, which only drills one level from a Row View — this
+// tracks an arbitrary-depth path and lets you jump back to any prior
+// step, both via the trail and via the rail's full visit history.
+// bcvCreate(containerId, rootLabel, rootItems). Each item may itself have
+// children[] to drill into further, or fields to show as a final record.
+// ══════════════════════════════════════════════
+const BCV_SAMPLE_ROOT=[
+  {id:'p1',name:'Q3 Pursuits',children:[
+    {id:'p1a',name:'Design review',status:'In Progress',owner:'Amit'},
+    {id:'p1b',name:'Backend wiring',status:'Not Started',owner:'Ryan'}
+  ]},
+  {id:'p2',name:'Q4 Pursuits',children:[
+    {id:'p2a',name:'Launch',status:'Not Started',owner:'Ryan'}
+  ]}
+];
+const bcvInstances=new Map();
+function bcvCreate(containerId,rootLabel,rootItems){
+  bcvInstances.set(containerId,{rootLabel,rootItems,path:[{label:rootLabel,items:rootItems}],history:[]});
+  bcvRenderInstance(containerId);
+}
+function bcvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=bcvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const current=inst.path[inst.path.length-1];
+  const trailHtml=inst.path.map((step,idx)=>{
+    const isLast=idx===inst.path.length-1;
+    return (idx>0?'<span class="bcv-trail-sep">›</span>':'')+`<span class="bcv-trail-item" ${isLast?'':`onclick="bcvJumpTo('${containerId}',${idx})"`}>${step.label}</span>`;
+  }).join('');
+  const listHtml=current.items.map(item=>{
+    const hasKids=item.children&&item.children.length;
+    const fieldsPreview=Object.keys(item).filter(k=>!['id','name','children'].includes(k)).map(k=>`${k}: ${item[k]}`).join(' · ');
+    return `<div class="bcv-list-item" onclick="bcvDrill('${containerId}','${item.id}')">${item.name}${hasKids?' →':fieldsPreview?' — '+fieldsPreview:''}</div>`;
+  }).join('')||'<div class="bcv-list-item" style="cursor:default">Nothing here</div>';
+  const railHtml=inst.history.length
+    ? inst.history.slice().reverse().map((h,idx)=>`<div class="bcv-rail-item" onclick="bcvJumpTo('${containerId}',${inst.history.length-1-idx})">${h}</div>`).join('')
+    : '<div class="bcv-rail-item" style="cursor:default">No history yet</div>';
+  wrap.innerHTML=`<div class="bcv-main"><div class="bcv-trail">${trailHtml}</div><div>${listHtml}</div></div>
+    <div class="bcv-rail"><div class="bcv-rail-title">Open Pages</div>${railHtml}</div>`;
+}
+function bcvDrill(containerId,itemId){
+  const inst=bcvInstances.get(containerId);if(!inst)return;
+  const current=inst.path[inst.path.length-1];
+  const item=current.items.find(i=>i.id===itemId);if(!item)return;
+  if(item.children&&item.children.length){
+    inst.path.push({label:item.name,items:item.children});
+  } else {
+    inst.path.push({label:item.name,items:[item]});
+  }
+  inst.history.push(item.name);
+  bcvRenderInstance(containerId);
+}
+function bcvJumpTo(containerId,pathIdx){
+  const inst=bcvInstances.get(containerId);if(!inst)return;
+  inst.path=inst.path.slice(0,pathIdx+1);
+  bcvRenderInstance(containerId);
+}
+
 // ── DEMO: proves the model end to end ──────────────────────────────────
 // Page 3 (standalone Row View) and Page 4 (standalone Detail View) keep
 // their original page-level behavior via the default instances below.
@@ -1658,6 +2293,17 @@ function cvAdjClick(containerId,year,month){
 rvCreate('rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
 dvCreate('dv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
 cvCreate('cv-mount');
+dayViewCreate('dayview-mount');
+bvCreate('bv-mount',BV_SAMPLE_STATUSES,BV_SAMPLE_ROWS);
+glvCreate('glv-mount',GLV_SAMPLE_ROWS);
+dbvCreate('dbv-mount',DBV_SAMPLE_TILES,DBV_SAMPLE_BARS);
+spvCreate('spv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
+fvCreate('fv-mount',FV_SAMPLE_FIELDS);
+chvCreate('chv-mount',CHV_SAMPLE_BARS,CHV_SAMPLE_LINES);
+ibvCreate('ibv-mount',IBV_SAMPLE_ROWS);
+drvCreate('drv-mount',DRV_SAMPLE_ROWS);
+tvCreate('tv-mount',RV_SAMPLE_ROWS);
+bcvCreate('bcv-mount','Pursuits',BCV_SAMPLE_ROOT);
 rvCreate('ch-tab-2-2-rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS,{
   onRowOpen:(itemId)=>{
     popupOpen(`<div class="dv-wrap" id="popup-dv-mount" style="margin:0"></div>`);
