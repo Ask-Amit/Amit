@@ -514,22 +514,38 @@ function addPageNameConfirmed(){
   openLayoutPicker(name);
 }
 
-// Real J Inspire shortcut lookup — amit_shortcuts, activation_key='J',
+// Real J Inspire shortcut — amit_shortcuts, activation_key='J',
 // trigger_phrase='inspire'. Confirmed live 2026-08-06: this is a real,
-// existing, is_builtin shortcut (shortcut_type='inline_instruction') —
-// its actual job is to review the whole session, run a real web search,
-// and reason through a synthesis ("You asked me to inspire what you have
-// done — here is what I came up with"). That is genuine LLM reasoning
-// plus live web search — a static browser page cannot execute it, full
-// stop, no matter how this popup is built. So this does NOT try to run
-// the shortcut client-side (an earlier version of this function
-// mistakenly assumed a simple Q&A stepper before the real row was ever
-// checked — wrong guess, corrected). Instead it fetches the real
-// instruction text and hands it off: copy it into an actual AI session
-// (Claude Code, or this same session) to run for real, then bring the
-// suggested name back here.
+// existing, is_builtin shortcut (shortcut_type='inline_instruction') whose
+// actual job is to REVIEW THE SESSION SO FAR, run a real web search, and
+// reason through a synthesis. That is genuine LLM reasoning plus live web
+// search — a static browser page cannot execute it under any
+// implementation, so this hands it off to a real AI session rather than
+// faking it locally.
+//
+// THE GAP THIS FIXES (Ryan's correction, 2026-08-06): Add Page is very
+// often the START of a brand-new page with zero session history — there
+// is nothing yet for J Inspire to "review." Handing off the raw shortcut
+// alone would leave the AI session with nothing to work from. So this now
+// asks first, in plain language: "tell me a little about what you're
+// looking for" — then bundles that description together with the real J
+// Inspire instruction as ONE thing to copy into an AI session, so the
+// session has real context to brainstorm from even with no prior history.
 async function runInspireShortcut(){
   const out=document.getElementById('inspireResult');
+  if(!out)return;
+  out.innerHTML=`
+    <div style="color:var(--gold2);margin-bottom:8px">Tell me a little about what you're looking for, so there's something to brainstorm from — this is a brand-new page with no session history yet.</div>
+    <textarea id="inspireContextInput" rows="3" placeholder="e.g. a place to track customer contacts, or a page that shows upcoming deadlines…"
+      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:12px;outline:none;margin-bottom:8px;font-family:inherit;resize:vertical"></textarea>
+    <button onclick="_fetchInspireWithContext()" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:8px 14px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em">CONTINUE →</button>
+  `;
+  document.getElementById('inspireContextInput')?.focus();
+}
+
+async function _fetchInspireWithContext(){
+  const out=document.getElementById('inspireResult');
+  const context=(document.getElementById('inspireContextInput')?.value||'').trim();
   if(!db||!out)return;
   out.textContent='Looking up the "Inspire" shortcut…';
   try{
@@ -542,10 +558,12 @@ async function runInspireShortcut(){
       return;
     }
     const shortcut=rows[0];
-    const escaped=(shortcut.instruction_text||'').replace(/`/g,'\\`').replace(/'/g,"\\'");
+    const contextBlock=context?`For context, before running J Inspire itself: this is a brand-new page in an Amit-template project with no prior session history. What I'm looking for: "${context}"\n\nNow run J Inspire on that:\n\n`:'';
+    const fullText=contextBlock+(shortcut.instruction_text||'');
+    const escaped=fullText.replace(/`/g,'\\`').replace(/'/g,"\\'");
     out.innerHTML=`
-      <div style="color:var(--gold2);margin-bottom:8px">This needs a real AI session to run — it does live web search and reasoning a browser page can't do on its own. Copy it into your AI coding session (or this one, if you're in it), then bring the suggested name back here.</div>
-      <div style="background:rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.25);border-radius:7px;padding:10px 12px;font-size:11px;color:var(--text2);max-height:160px;overflow-y:auto;margin-bottom:8px;white-space:pre-wrap">${shortcut.instruction_text||''}</div>
+      <div style="color:var(--gold2);margin-bottom:8px">This needs a real AI session to run — it does live web search and reasoning a browser page can't do on its own. Copy it into your AI session, then bring the suggested name back here.</div>
+      <div style="background:rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.25);border-radius:7px;padding:10px 12px;font-size:11px;color:var(--text2);max-height:160px;overflow-y:auto;margin-bottom:8px;white-space:pre-wrap">${fullText}</div>
       <button onclick="navigator.clipboard.writeText('${escaped}');this.textContent='Copied ✓'" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:8px 14px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em">COPY INSTRUCTION →</button>
     `;
   }catch(e){
