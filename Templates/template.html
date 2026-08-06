@@ -259,42 +259,36 @@ header{
 .popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
 .popup-close-btn:hover{color:var(--gold2)}
 
-/* ── RIGHT RAIL — added 2026-08-06, Ryan's direct instruction. Global,
-   present on every page regardless of which one is active — not part of
-   any page/detail, built once in <script> alongside them. Reserved for
-   whatever should be reachable from anywhere: Ask Amit is the first
-   occupant (moved down from the old bottom-left sidebar tile, condensed
-   to icon-only), and this is the eventual home for Amit's own symbol —
-   not placed yet, but the column is sized for it now. Width (64px) is
-   sized to comfortably hold one icon plus padding, matching the header's
-   32px Amit logo — adjust here, in one place, if a future icon needs
-   more room. Every rail icon carries a .rail-tooltip so hovering always
-   names the action, never just implies it via a bare icon. ── */
+/* ── RIGHT RAIL — rebuilt 2026-08-06, Ryan's direct instruction: the
+   right rail now works exactly like the left sidebar (double-click to
+   toggle expanded/collapsed, same .page-nav/.page-icon/.page-info
+   markup, matching hover tooltip), with one inverted default: the
+   sidebar STARTS expanded and collapses on double-click; the rail
+   STARTS collapsed (icon-only) and expands on double-click — global,
+   present on every page, not part of any page/detail. Container padding
+   (12px 10px) is intentionally identical to .sidebar's, and .page-nav
+   padding is overridden per-state below using the exact same values
+   .sidebar.collapsed/.sidebar already use — that's what makes the
+   resulting tile sizes pixel-identical to the left column, not just
+   visually similar. Ask Amit is the first occupant, first in DOM order
+   so it's always the top item, moved down from the old bottom-left
+   sidebar tile — this is also the eventual home for Amit's own symbol,
+   not placed yet. ── */
 .right-rail{
   width:64px;flex-shrink:0;
   background:var(--card-head);
   border-left:2px solid var(--border);
-  display:flex;flex-direction:column;align-items:center;
-  padding:16px 0;gap:12px;
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+  transition:width .18s ease;
 }
-.rail-icon{
-  position:relative;
-  width:40px;height:40px;border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:19px;cursor:pointer;
-  border:1px solid transparent;
-  transition:all .18s;
-}
-.rail-icon:hover{background:rgba(201,168,76,.14);border-color:rgba(201,168,76,.4)}
-.rail-tooltip{
-  position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%) translateX(4px);
-  background:#1a3352;border:1px solid rgba(201,168,76,.45);
-  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
-  padding:6px 10px;border-radius:6px;white-space:nowrap;
-  opacity:0;pointer-events:none;
-  transition:all .15s;box-shadow:0 4px 16px rgba(0,0,0,.4);
-}
-.rail-icon:hover .rail-tooltip{opacity:1;transform:translateY(-50%) translateX(0)}
+.right-rail::-webkit-scrollbar{width:3px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.right-rail.expanded{width:230px}
+.right-rail .page-nav{padding:4px} /* default = collapsed-style square padding, matches .sidebar.collapsed .page-nav */
+.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start} /* matches .sidebar's base .page-nav */
+.right-rail .page-info{display:none}
+.right-rail.expanded .page-info{display:block}
 
 /* ── PAGE HOVER TOOLTIP — added 2026-08-06, Ryan's direct instruction.
    Hovering a page (its icon when the sidebar is collapsed, or anywhere on
@@ -363,7 +357,7 @@ header{
   <div class="main-area" id="mainArea"></div>
 
   <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
-  <nav class="right-rail" id="rightRail"></nav>
+  <nav class="right-rail" id="rightRail" ondblclick="toggleRail()"></nav>
 
 </div>
 
@@ -502,44 +496,59 @@ const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
   nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
 
-  // RIGHT RAIL — added 2026-08-06, Ryan's direct instruction. Global,
-  // built once here, same on every page — not one of the per-page
-  // pages/details above. Ask Amit is the first occupant, moved down from
-  // the old bottom-left sidebar tile and condensed to icon-only so it's
-  // reachable from anywhere without scrolling the page list. Wired to a
-  // sentinel key on purpose: this new project has no real page yet for
-  // Amit to have context about, so Amit_Ask_Live.js's askAmitLive() will
-  // refuse and show a plain reminder instead of silently opening Gemini
-  // with no real context. When this template is copied into a real
-  // project, change TEMPLATE_NOT_CONFIGURED below to that project's own
-  // real key, and write that key's real context into Amit_Ask_Live.js's
-  // PAGE_CONTEXTS — do not skip this step. Ryan's direct instruction,
-  // 2026-07-25, unchanged by this move.
+  // RIGHT RAIL — rebuilt 2026-08-06, Ryan's direct instruction: uses the
+  // exact same .page-nav/.page-icon/.page-info/.page-name markup as the
+  // left sidebar's rows (see the RIGHT RAIL comment in <style> for why —
+  // pixel-identical tile sizes by construction, not a lookalike built
+  // from separate CSS). Ask Amit is the first occupant, first in DOM
+  // order so it's always the top item. Wired to a sentinel key on
+  // purpose: this new project has no real page yet for Amit to have
+  // context about, so Amit_Ask_Live.js's askAmitLive() will refuse and
+  // show a plain reminder instead of silently opening Gemini with no real
+  // context. When this template is copied into a real project, change
+  // TEMPLATE_NOT_CONFIGURED below to that project's own real key, and
+  // write that key's real context into Amit_Ask_Live.js's PAGE_CONTEXTS —
+  // do not skip this step. Ryan's direct instruction, 2026-07-25,
+  // unchanged by this rebuild.
   const rail=document.getElementById('rightRail');
   if(rail){
-    rail.innerHTML=`<div class="rail-icon" id="rail-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')">
-      💛
-      <span class="rail-tooltip">Ask Amit</span>
+    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')" data-tip="Ask Amit">
+      <div class="page-icon">💛</div>
+      <div class="page-info">
+        <div class="page-name">Ask Amit</div>
+        <div class="page-sub">Walk alongside</div>
+      </div>
     </div>`;
   }
 
-  initPageTooltips();
+  initPageTooltips('sidebarPages','right'); // left sidebar — tooltip opens rightward, toward the page
+  initPageTooltips('rightRail','left');      // right rail — tooltip opens leftward, or it'd render off-screen
 })();
 
 // PAGE HOVER TOOLTIP — see the CSS comment above .page-hover-tip for why
-// this is JS-positioned instead of pure CSS. Delegated on the sidebar
-// container so it keeps working no matter how many pages exist or
-// whether the sidebar is collapsed or expanded — no per-page wiring.
-function initPageTooltips(){
+// this is JS-positioned instead of pure CSS. Delegated on the given
+// container so it keeps working no matter how many items exist or
+// whether that container is collapsed/expanded — no per-item wiring.
+// side: 'right' opens the tooltip to the right of the hovered item
+// (left sidebar, which sits at the screen's left edge); 'left' opens it
+// to the left (right rail, which sits at the screen's right edge —
+// opening rightward there would render off-screen).
+function initPageTooltips(containerId,side){
   const tip=document.getElementById('pageHoverTip');
-  const nav=document.getElementById('sidebarPages');
+  const nav=document.getElementById(containerId);
   if(!tip||!nav)return;
   nav.addEventListener('mouseover',(e)=>{
     const item=e.target.closest('.page-nav');
     if(!item)return;
     tip.textContent=item.dataset.tip||'';
     const r=item.getBoundingClientRect();
-    tip.style.left=(r.right+8)+'px';
+    if(side==='left'){
+      tip.style.right=(window.innerWidth-r.left+8)+'px';
+      tip.style.left='auto';
+    } else {
+      tip.style.left=(r.right+8)+'px';
+      tip.style.right='auto';
+    }
     tip.style.top=(r.top+r.height/2)+'px';
     tip.style.transform='translateY(-50%)';
     tip.classList.add('show');
@@ -550,6 +559,15 @@ function initPageTooltips(){
     if(e.relatedTarget&&item.contains(e.relatedTarget))return;
     tip.classList.remove('show');
   });
+}
+
+// Double-click anywhere in the right rail expands it to full width with
+// labels, or collapses it back to icon-only — the mirror image of
+// toggleSidebar() above: the rail starts collapsed by default (opposite
+// of the sidebar, which starts expanded), so this toggles an .expanded
+// class ON rather than a .collapsed class off.
+function toggleRail(){
+  document.getElementById('rightRail').classList.toggle('expanded');
 }
 
 // ══════════════════════════════════════════════
