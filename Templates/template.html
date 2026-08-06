@@ -731,6 +731,79 @@ function popupClose(){
   if(modal) modal.style.display='none';
 }
 
+// ══════════════════════════════════════════════
+// CANONICAL DATA BINDING: TABLE PICKER — added 2026-08-06, Ryan's direct
+// instruction. A third concern, separate from LAYOUT and DESTINATION:
+// WHERE THE DATA COMES FROM. Bridges a real Supabase table to a layout
+// instance — Row View today; the same pattern generalizes to other
+// layouts later without changing this piece. Flow: introspect the
+// table's real columns from one live sample row (no service-role key
+// needed — this runs off the same public anon key already in this file,
+// the same access any signed-in user already has), suggest a sensible
+// default subset, show a checklist in a Popup so whoever is building the
+// page can add to or subtract from that suggestion, then fetch the real
+// rows for exactly the columns confirmed and hand off to rvCreate.
+// tableToRowView(containerId, tableName) works against ANY real Supabase
+// table — nothing here is specific to one project's schema.
+//
+// SUGGESTION HEURISTIC (a rule, not a per-table guess — applies the same
+// way no matter which table gets bound, so it can never drift table to
+// table): a field is suggested (pre-checked) UNLESS it is `id`, ends in
+// `_id` or `_at`, is named `is_sample`/`sort_order`, or its live sample
+// value is an array or nested object. Everything else defaults on.
+// ══════════════════════════════════════════════
+async function tableIntrospect(tableName){
+  const res=await fetch(`${SB_URL}/rest/v1/${tableName}?select=*&limit=1`,{
+    headers:{apikey:SB_KEY,Accept:'application/json'}
+  });
+  if(!res.ok) throw new Error(`Could not read table "${tableName}" (${res.status})`);
+  const sampleRows=await res.json();
+  const sample=sampleRows[0]||{};
+  return Object.keys(sample).map(key=>({
+    key,
+    label:key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),
+    suggested:!(key==='id'||key.endsWith('_id')||key.endsWith('_at')||key==='is_sample'||key==='sort_order'||Array.isArray(sample[key])||(sample[key]!==null&&typeof sample[key]==='object'))
+  }));
+}
+
+function tableToRowView(containerId,tableName,opts={}){
+  tableIntrospect(tableName).then(fields=>{
+    const suggested=fields.filter(f=>f.suggested);
+    const rest=fields.filter(f=>!f.suggested);
+    const fieldRowHtml=(f,pre)=>`<label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;cursor:pointer">
+      <input type="checkbox" data-key="${f.key}" data-label="${f.label}" ${pre?'checked':''}>
+      ${f.label} <span style="color:rgba(240,232,208,.35);font-size:11px">(${f.key})</span>
+    </label>`;
+    popupOpen(`
+      <div class="dv-sub-h">Choose columns for "${tableName}"</div>
+      <div style="color:rgba(240,232,208,.6);font-size:12px;margin-bottom:14px">Suggested columns are pre-checked. Add or remove any field below, then confirm.</div>
+      <div id="tablePickerSuggested">${suggested.map(f=>fieldRowHtml(f,true)).join('')}</div>
+      ${rest.length?`<div class="dv-sub-h" style="margin-top:16px">Other available fields</div><div id="tablePickerRest">${rest.map(f=>fieldRowHtml(f,false)).join('')}</div>`:''}
+      <div style="margin-top:20px">
+        <button onclick="tableToRowViewConfirm('${containerId}','${tableName}')" style="background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);color:var(--gold2);padding:9px 18px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em">CONFIRM COLUMNS →</button>
+      </div>
+    `);
+    window._tablePickerOpts=opts; // stashed here for the confirm handler below — this popup is single-instance, same as the sync modal
+  }).catch(err=>{
+    popupOpen(`<div class="dv-empty">Could not load "${tableName}": ${err.message}</div>`);
+  });
+}
+
+async function tableToRowViewConfirm(containerId,tableName){
+  const modal=document.getElementById('canonicalPopupCard');
+  const checked=[...modal.querySelectorAll('input[type=checkbox]:checked')];
+  if(!checked.length)return;
+  const columns=checked.map(cb=>({key:cb.dataset.key,label:cb.dataset.label}));
+  const selectKeys=Array.from(new Set(['id',...columns.map(c=>c.key)])); // always fetch id, even if not shown — Row View needs it for row identity
+  const res=await fetch(`${SB_URL}/rest/v1/${tableName}?select=${selectKeys.join(',')}&limit=200`,{
+    headers:{apikey:SB_KEY,Accept:'application/json'}
+  });
+  const rows=await res.json();
+  popupClose();
+  const opts=window._tablePickerOpts||{};
+  rvCreate(containerId,columns,rows,opts);
+}
+
 // ── DEMO: proves the model end to end ──────────────────────────────────
 // Page 3 (standalone Row View) and Page 4 (standalone Detail View) keep
 // their original page-level behavior via the default instances below.
