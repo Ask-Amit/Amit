@@ -14,6 +14,23 @@ All reusable template files belong here. Do not create template files anywhere e
 
 ---
 
+## TEMPLATE.HTML vs TEMPLATEVIEWS.HTML — permanent, added 2026-08-06, Ryan's direct instruction
+
+**Two separate files now, not one — do not confuse them or merge them back together.**
+
+- **`template.html`** — the minimal starter, the one that actually gets copied into a new project. Introduction + a few blank placeholder pages, plus the global infrastructure every Amit app needs (Ask Amit / Sign In-Sync / Demo Mode in the right rail, the Popup destination, login connection, tooltip mechanism, clock/greeting). It does **not** contain any canonical layout (Tabbed/Row/Detail/Calendar/Day/Board/Gallery/Dashboard/Split/Form/Chart/Inbox/Drawer/Tree/Breadcrumb View). ~600 lines, ~29KB.
+- **`TemplateViews.html`** — the permanent, never-modified reference catalog. Every canonical layout lives here, in full, with its own `CANONICAL LAYOUT:`/`CANONICAL DESTINATION:` comment block. This file is pulled *from*, never copied wholesale into a new project. ~3,000 lines, ~177KB.
+
+**Why the split exists:** before this, `template.html` was a single file trying to be both the deployable starter and the growing reference library at once — every new layout type added to the catalog also bloated every new project's starting point, whether that project used the layout or not. Ryan's own words: "that way, it's never more bloated than what it needs to be." The split makes the starter's size fixed regardless of how large the reference catalog grows.
+
+**Adding a layout to a real project:** go to `TemplateViews.html`, find the named `CANONICAL LAYOUT:`/`CANONICAL DESTINATION:` block, copy it verbatim into the real project's own HTML file — never reconstruct from memory. Wire it in the same way `TemplateViews.html`'s own DEMO block shows it being done there (page 2's Tab 2 hosting a nested Row View, Calendar View → Day View, etc.).
+
+**Adding a NEW layout type to the catalog:** build it in `TemplateViews.html` only. `template.html` never grows to include it — that's the entire point of the split.
+
+**The workflow this sets up, not yet built:** Ryan is having a separate session build a `J New` Supabase shortcut (`amit_shortcuts`, `activation_key='J'`) that automates the full new-project bootstrap — spar the name, create the folder, spar+write the CLAUDE.md, copy `template.html` (the minimal starter, confirmed by this split) into the new folder, rename it to match the project/folder name. A companion "+ Add View" mechanism inside `template.html` itself (not yet built) is meant to eventually show a picker of everything available in `TemplateViews.html` and hand back the exact instruction to give an AI coding session to pull a chosen layout in — a browser page can't write to its own source file, so the actual add-to-disk step has to go through something with real file access (Claude Code / AmitCoder), not pure client-side JS. See the session that built this split for the fuller architectural reasoning (the file-write limitation, the `file://` CORS limitation on a runtime fetch of `TemplateViews.html`, and why the picker hands off an instruction rather than trying to self-write).
+
+---
+
 ## Who Amit Is — Carried Forward Into This Project
 
 This project is part of the Amit system. One character. One mission.
