@@ -254,7 +254,17 @@ header{
 .rv-status .clear{color:var(--gold2);cursor:pointer;text-decoration:underline}
 .rv-table-wrap{flex:1;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px;outline:none}
 .rv-table-wrap:focus-visible{box-shadow:inset 0 0 0 2px rgba(201,168,76,.4)}
-.rv-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+/* width:auto (NOT 100%) is deliberate — added 2026-08-06, Ryan's direct
+   correction. With table-layout:fixed, a table pinned to width:100%
+   forces the browser to proportionally rescale EVERY column to still
+   fill that 100% on every render, which silently overrides any single
+   column's own set width — that's what made dragging one column's border
+   visually resize all the others instead of just the one being dragged.
+   width:auto lets the table's real width be exactly the sum of its own
+   <colgroup> column widths (true Excel behavior — a column keeps the
+   width it was set to); .rv-table-wrap's existing overflow:auto handles
+   horizontal scrolling once total column width exceeds the visible area. */
+.rv-table{width:auto;border-collapse:collapse;font-size:13px;table-layout:fixed}
 .rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rv-table th .rv-arrow{margin-left:4px;opacity:.75}
 .rv-table th.rv-filtered{color:var(--gold)}
@@ -310,13 +320,18 @@ header{
 .cv-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;flex-shrink:0}
 .cv-dow{text-align:center;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;padding:4px 0}
 .cv-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(64px,auto);gap:3px;flex:1;min-height:0;overflow-y:auto}
-.cv-cell{border:1px solid rgba(201,168,76,.15);border-radius:6px;padding:6px 8px;background:rgba(255,255,255,.02);cursor:pointer;transition:all .15s}
-.cv-cell:hover{background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.35)}
-.cv-daynum{font-size:13px;color:#fff}
-.cv-cell.adj{opacity:.35}
-.cv-cell.adj .cv-daynum{color:var(--muted)}
-.cv-cell.today{border-color:var(--gold);background:rgba(201,168,76,.14)}
-.cv-cell.today .cv-daynum{color:var(--gold2);font-weight:700}
+/* Day cells switched to cream (var(--text2)) instead of dark navy —
+   added 2026-08-06, Ryan's direct instruction: he liked the cream tone
+   specifically, not the dark background. Text switches to a dark brown
+   for legibility against the light cell — white text (used everywhere
+   else in this dark-theme template) wouldn't read against cream. */
+.cv-cell{border:1px solid rgba(0,0,0,.12);border-radius:6px;padding:6px 8px;background:var(--text2);cursor:pointer;transition:all .15s}
+.cv-cell:hover{background:#e6d9b8;border-color:rgba(201,168,76,.5)}
+.cv-daynum{font-size:13px;color:#2c2416}
+.cv-cell.adj{opacity:.4}
+.cv-cell.adj .cv-daynum{color:#6b5f47}
+.cv-cell.today{border-color:var(--gold);background:#f2dfa0;box-shadow:0 0 0 1px var(--gold)}
+.cv-cell.today .cv-daynum{color:#7a4f00;font-weight:700}
 
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
    that can host any layout instance (Tabbed/Row/Detail View) — content-
