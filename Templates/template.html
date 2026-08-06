@@ -226,25 +226,60 @@ header{
 .ch-tab-content.active{display:block}
 
 /* ── ROW VIEW — the other layout type a detail area can hold: Excel-style,
-   sortable/filterable, expandable child rows. Single-click a header to
-   sort (toggle asc/desc), double-click to open an inline "contains" filter
-   right in that header cell — no native browser popup, matches the rest
-   of the Amit system's no-native-dialog standard. A status strip states
-   the active sort/filter with a one-click clear. Rows with children get a
-   ▸/▾ toggle, indented beneath the parent. ── */
+   sortable/filterable, expandable child rows, PLUS per-column inline
+   editing. Single-click a header to sort (toggle asc/desc), double-click
+   to open an inline "contains" filter right in that header cell — no
+   native browser popup, matches the rest of the Amit system's
+   no-native-dialog standard. A status strip states the active sort/filter
+   with a one-click clear. Rows with children get a ▸/▾ toggle, indented
+   beneath the parent.
+   EDITABLE CELLS — merged in from the former standalone "Grid View" layout
+   2026-08-06, Ryan's direct instruction: editability is a property of the
+   COLUMN (columns[].editable:true), not a separate layout — a Row View
+   instance can have some columns editable and others read-only side by
+   side, decided per-project when the columns array is built. Editable
+   cells are tinted cream (var(--text2), the same cream tone used on the
+   Hub's own Day View) so it's visually obvious which fields can be
+   changed, unstyled/plain for anything not editable. Click an editable
+   cell to edit it in place (Enter/blur commits, Escape cancels) — this
+   does not conflict with double-click-to-open-Detail-View on the row
+   itself, since click and double-click are different events.
+   KEYBOARD NAVIGATION — added same session, Ryan's direct instruction:
+   ↑/↓ move the focused row through the current visible (sorted/filtered/
+   expanded) row order, same order a mouse would encounter scrolling
+   top-to-bottom; Enter on a focused row opens it exactly like a
+   double-click would. ── */
 .rv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
 .rv-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:2px 2px 10px;flex-shrink:0}
 .rv-status .clear{color:var(--gold2);cursor:pointer;text-decoration:underline}
-.rv-table-wrap{flex:1;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
-.rv-table{width:100%;border-collapse:collapse;font-size:13px}
-.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
+.rv-table-wrap{flex:1;overflow:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px;outline:none}
+.rv-table-wrap:focus-visible{box-shadow:inset 0 0 0 2px rgba(201,168,76,.4)}
+.rv-table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rv-table th .rv-arrow{margin-left:4px;opacity:.75}
 .rv-table th.rv-filtered{color:var(--gold)}
-.rv-table td{padding:8px 12px;border-bottom:1px solid rgba(201,168,76,.12)}
+.rv-table td{padding:0;border-bottom:1px solid rgba(201,168,76,.12);overflow:hidden}
+.rv-table td.rv-td-plain{padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ── COLUMN SEPARATORS + RESIZE HANDLES — added 2026-08-06, Ryan's direct
+   instruction: a faint vertical line between every column (fainter than
+   the row's own horizontal divider), draggable Excel-style to resize.
+   table-layout:fixed (above) + explicit <col> widths (rendered in JS) is
+   what makes the drag actually stick — without fixed layout the browser
+   re-flows column widths from content on every render, undoing any resize
+   the instant new data or a re-sort redraws the table. ── */
+.rv-table th,.rv-table td{border-right:1px solid rgba(201,168,76,.06)}
+.rv-table th:last-child,.rv-table td:last-child{border-right:none}
+.rv-col-resizer{position:absolute;top:0;right:-3px;width:6px;height:100%;cursor:col-resize;z-index:3;user-select:none}
+.rv-col-resizer:hover,.rv-col-resizer.resizing{background:rgba(201,168,76,.4)}
 .rv-table tr.rv-row:hover td{background:rgba(255,255,255,.04)}
 .rv-table tr.rv-child td{background:rgba(255,255,255,.02);color:var(--muted)}
+.rv-table tr.rv-row.focused td{background:rgba(201,168,76,.1)}
+.rv-table tr.rv-row.focused{box-shadow:inset 3px 0 0 var(--gold)}
 .rv-expand{display:inline-block;width:16px;cursor:pointer;color:var(--gold2)}
 .rv-filter-input{width:100%;background:rgba(255,255,255,.1);border:1px solid var(--gold);border-radius:4px;padding:4px 7px;color:#fff;font-size:11px;font-family:inherit;outline:none;text-transform:none;letter-spacing:0}
+.rv-cell-editable{display:block;padding:8px 12px;cursor:text;color:var(--text2);min-height:1em}
+.rv-cell-editable:hover{background:rgba(201,168,76,.1)}
+.rv-cell-input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.1);border:1px solid var(--gold);padding:7px 11px;color:#fff;font-size:13px;font-family:inherit;outline:none}
 
 /* ── DETAIL VIEW — the drill-down endpoint for one single Row View item.
    Double-clicking a row (parent or child) anywhere in Row View lands here,
@@ -256,6 +291,32 @@ header{
 .dv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .dv-value{font-size:14px;color:#fff}
 .dv-sub-h{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
+
+/* ── CALENDAR VIEW — added 2026-08-06, Ryan's direct instruction. Plain
+   month-grid calendar, deliberately stripped down from the Hub's own
+   calendar (amit-hub.html): month/year header with prev/next nav, a
+   day-of-week row, and a 7-column grid showing every day plus the
+   leading/trailing days of the adjacent months (dimmed, clickable — no
+   blank cells, same convention as the Hub's). No task chips, no filters,
+   no overdue banner, no Hebrew/sacred calendar duality — Ryan's own
+   words: "leave out all of the filtering abilities... and the overdues
+   and stuff. I just need that calendar to show up." Restyled to this
+   template's gold/navy palette rather than the Hub's black theme. ── */
+.cv-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
+.cv-nav-row{display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:16px;flex-shrink:0}
+.cv-nav-btn{width:30px;height:30px;border-radius:6px;border:1px solid rgba(201,168,76,.4);background:rgba(201,168,76,.08);color:var(--gold2);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;user-select:none}
+.cv-nav-btn:hover{background:rgba(201,168,76,.2);border-color:var(--gold)}
+.cv-month-title{font-family:'Cinzel',serif;font-size:16px;letter-spacing:.08em;color:var(--gold2);min-width:180px;text-align:center;text-transform:uppercase}
+.cv-dow-row{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;flex-shrink:0}
+.cv-dow{text-align:center;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;padding:4px 0}
+.cv-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:minmax(64px,auto);gap:3px;flex:1;min-height:0;overflow-y:auto}
+.cv-cell{border:1px solid rgba(201,168,76,.15);border-radius:6px;padding:6px 8px;background:rgba(255,255,255,.02);cursor:pointer;transition:all .15s}
+.cv-cell:hover{background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.35)}
+.cv-daynum{font-size:13px;color:#fff}
+.cv-cell.adj{opacity:.35}
+.cv-cell.adj .cv-daynum{color:var(--muted)}
+.cv-cell.today{border-color:var(--gold);background:rgba(201,168,76,.14)}
+.cv-cell.today .cv-daynum{color:var(--gold2);font-weight:700}
 
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
    that can host any layout instance (Tabbed/Row/Detail View) — content-
@@ -452,20 +513,50 @@ const PAGE_COUNT=20;
 // live example of the one layout type this template ships with, so it's
 // what a person sees first when opening a fresh copy. Introduction (page
 // 1) follows it. Edit this array, never the page numbers, to reorder.
-const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
+// Day View (17) placed immediately after Calendar View (6) — added
+// 2026-08-06, Ryan's direct instruction: Day View is Calendar View's
+// single-day drill-down counterpart, so it belongs right next to it in
+// the sidebar, not at the end with the other placeholders. Page NUMBERS
+// stay fixed (17 stays 17) — only this display-order list changes, per
+// the standing PAGE ORDER vs PAGE NUMBER rule above.
+const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>idx+7).filter(n=>n!==17)];
 (function buildPlaceholders(){
   const nav=document.getElementById('sidebarPages');
   const main=document.getElementById('mainArea');
   const navHtmlParts={};
   let detailHtml='';
   for(let i=1;i<=PAGE_COUNT;i++){
-    const label=i===1?'Introduction':i===2?'Tabbed View':i===3?'Row View':i===4?'Detail View':'Placeholder '+i;
-    // Sample icons for the four named layout pages — swap for a real
-    // project's real icons; kept as recognizable placeholders (compass for
-    // Introduction, folder tabs, a row/list grid, a magnifying glass for
-    // drilling into one record) so it's obvious what each looks like
-    // before real icons exist. Everything past page 4 stays the generic ▢.
-    const icon=i===1?'🧭':i===2?'🗂️':i===3?'📋':i===4?'🔍':'▢';
+    // NEW_VIEW_NAMES/ICONS — added 2026-08-06, Ryan's direct instruction:
+    // naming and icon-only pass for the 12 additional view types identified
+    // this session (beyond the four already built — Tabbed/Row/Detail View
+    // on pages 2-4, Introduction on page 1). These occupy pages 5-16 as
+    // named placeholders — label and icon only, no layout logic behind them
+    // yet ("don't worry about what goes on each tab right now"). Pages
+    // 17-20 stay generic. Building the real mechanics behind each (Grid
+    // View's inline-editable cells, Calendar View's date grid, Chart View
+    // via the dataviz skill, etc.) is separate, future work per view.
+    // Page 5 (formerly a standalone "Grid View") retired 2026-08-06,
+    // Ryan's direct instruction: cell-editing merged into Row View itself
+    // (see the CANONICAL LAYOUT: ROW VIEW comment — editable is now a
+    // per-column property), so Grid View no longer exists as its own view.
+    // Page 5 falls back to the generic Placeholder handling below.
+    const NEW_VIEW_NAMES={
+      6:'Calendar View',7:'Board View',8:'Gallery View',
+      9:'Dashboard View',10:'Split View',11:'Form View',12:'Chart View',
+      13:'Inbox View',14:'Drawer View',15:'Tree View',16:'Breadcrumb View',
+      17:'Day View'
+    };
+    const NEW_VIEW_ICONS={
+      6:'📅',7:'🗃️',8:'🖼️',
+      9:'📈',10:'◨',11:'📝',12:'📊',
+      13:'📥',14:'🗄️',15:'🌳',16:'🍞',
+      17:'☀️'
+    };
+    const label=i===1?'Introduction':i===2?'Tabbed View':i===3?'Row View':i===4?'Detail View':(NEW_VIEW_NAMES[i]||'Placeholder '+i);
+    // Sample icons for the named layout pages — swap for a real project's
+    // real icons; kept as recognizable placeholders so it's obvious what
+    // each looks like before real icons exist. Pages past 16 stay ▢.
+    const icon=i===1?'🧭':i===2?'🗂️':i===3?'📋':i===4?'🔍':(NEW_VIEW_ICONS[i]||'▢');
     const subText='—'; // placeholder — a real project writes its own one-line description here (shown in .page-sub only; the hover tooltip shows just the page title, see data-tip below)
     navHtmlParts[i]=`<div class="page-nav${i===1?' active':''}" id="page-${i}" onclick="openPage(${i})" data-tip="${label}">
       <div class="page-icon">${icon}</div>
@@ -502,6 +593,11 @@ const PAGE_ORDER=[1,2,...Array.from({length:PAGE_COUNT-2},(_,idx)=>idx+3)];
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
         <div class="detail-head"><span class="detail-heading">${label}</span></div>
         <div class="dv-wrap" id="dv-mount"></div>
+      </div>`;
+    } else if(i===6){
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="cv-wrap" id="cv-mount"></div>
       </div>`;
     } else {
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}">
@@ -609,31 +705,57 @@ function toggleRail(){
 // it mounts into. There is no longer "the" Row View — only Row View
 // instances.
 //
+// EDITABLE COLUMNS (merged in from the former standalone Grid View layout,
+// 2026-08-06, Ryan's direct instruction: "if it's editable or not editable,
+// it's dependent upon what's being shown in that view" — editability is a
+// property of a COLUMN, not a separate layout type). A column marked
+// {editable:true} renders its cells cream-tinted (var(--text2)) and
+// click-to-edit in place; a column without that flag renders exactly as
+// before, plain read-only text. One Row View instance can mix both kinds
+// of column side by side. This does not conflict with row-level
+// double-click-to-open — click (edit a cell) and double-click (open the
+// row) are separate events.
+//
+// KEYBOARD NAVIGATION (added same session, Ryan's direct instruction) —
+// ↑/↓ move focus up/down through the CURRENT visible row order (respecting
+// active sort, filter, and which parents are expanded — same order a
+// mouse would encounter scrolling top-to-bottom). Enter on the focused row
+// opens it exactly like a double-click would. Click a row to focus it with
+// the mouse; keyboard and mouse focus are the same state, not two
+// separate mechanisms.
+//
 //   rvCreate(containerId, columns, rows, opts) — the one call that
 //     creates and mounts a Row View instance. Copy this call verbatim
 //     wherever a Row View is needed; never re-derive its internals.
-//     columns: [{key,label}, ...]
+//     columns: [{key,label,editable?}, ...] — editable is optional,
+//       defaults to false/read-only.
 //     rows: [{id, ...fields, children:[...]}, ...]
 //     opts.onRowOpen(itemId): optional — called when a row is double-
-//       clicked. Row View does not know or care what happens next (open
-//       a page, open a popup, whatever) — that decision belongs entirely
-//       to whoever created this instance, same separation as a Page not
-//       needing to know what Layout is mounted inside it. If omitted,
-//       falls back to the template's original default: open Detail View
-//       on page 4.
+//       clicked, or Enter is pressed while it's focused. Row View does not
+//       know or care what happens next (open a page, open a popup,
+//       whatever) — that decision belongs entirely to whoever created
+//       this instance, same separation as a Page not needing to know what
+//       Layout is mounted inside it. If omitted, falls back to the
+//       template's original default: open Detail View on page 4.
+//     opts.onCellCommit(rowId,key,newVal): optional — called after an
+//       editable cell's edit commits, so the caller (a real Supabase-bound
+//       page, e.g.) can persist the change. If omitted, the edit only
+//       updates in-memory state.
 //
 // Sample data below (RV_SAMPLE_COLUMNS/RV_SAMPLE_ROWS) is placeholder
 // only — swap for a real project's real columns/rows when this layout
-// gets used for something real.
+// gets used for something real. Status and Owner are marked editable here
+// to demonstrate the cream-tint styling; Name and Due are not.
 //
 // Genuinely open, not built yet: named/saved sort+filter views
 // (localStorage, per-instance, with a "set as default" — see AmitBooks'
-// abSmart engine for the fuller pattern this can grow into).
+// abSmart engine for the fuller pattern this can grow into); multi-cell/
+// range select and copy-paste across cells.
 // ══════════════════════════════════════════════
 const RV_SAMPLE_COLUMNS=[
   {key:'name',label:'Name'},
-  {key:'status',label:'Status'},
-  {key:'owner',label:'Owner'},
+  {key:'status',label:'Status',editable:true},
+  {key:'owner',label:'Owner',editable:true},
   {key:'due',label:'Due'}
 ];
 const RV_SAMPLE_ROWS=[
@@ -650,15 +772,33 @@ const RV_SAMPLE_ROWS=[
   {id:'r5',name:'Launch',status:'Not Started',owner:'Ryan',due:'2026-08-20'}
 ];
 
-const rvInstances=new Map(); // containerId -> {columns,rows,sort,filters,expanded,editingKey,onRowOpen}
+const rvInstances=new Map(); // containerId -> {columns,rows,sort,filters,expanded,editingKey,editingCell,focusedRowId,onRowOpen,onCellCommit}
 
 function rvCreate(containerId,columns,rows,opts={}){
   rvInstances.set(containerId,{
     columns,rows,
-    sort:null,filters:{},expanded:new Set(),editingKey:null,
-    onRowOpen:opts.onRowOpen||null
+    sort:null,filters:{},expanded:new Set(),editingKey:null,editingCell:null,
+    focusedRowId:(rows[0]&&rows[0].id)||null,
+    colWidths:{}, // key -> px, filled in on first render / user drag (see rvStartResize)
+    onRowOpen:opts.onRowOpen||null,
+    onCellCommit:opts.onCellCommit||null
   });
   rvRenderInstance(containerId);
+}
+
+// Flattens the current visible row order (top-level rows in their sorted/
+// filtered order, with each expanded parent's children immediately after
+// it) — the single source of truth both rendering and ↑/↓ keyboard
+// navigation use, so keyboard order always matches what's on screen.
+function rvFlattenVisible(inst,rows){
+  const out=[];
+  rows.forEach(r=>{
+    out.push({item:r,isChild:false});
+    if(r.children&&r.children.length&&inst.expanded.has(r.id)){
+      r.children.forEach(c=>out.push({item:c,isChild:true}));
+    }
+  });
+  return out;
 }
 
 function rvRenderInstance(containerId){
@@ -684,7 +824,15 @@ function rvRenderInstance(containerId){
   });
   const statusHtml=statusParts.length
     ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear('${containerId}')">Clear</span></div>`
-    : `<div class="rv-status">No sort or filter active — click a header to sort, double-click to filter</div>`;
+    : `<div class="rv-status">No sort or filter active — click a header to sort, double-click to filter · ↑/↓ to move, Enter to open</div>`;
+
+  // colgroup drives the actual pixel widths (table-layout:fixed, see CSS) —
+  // this is what makes a drag-resize stick across re-renders instead of
+  // the browser silently re-flowing widths from content every time.
+  const colgroupHtml=`<colgroup>
+    <col style="width:24px">
+    ${inst.columns.map(c=>`<col data-key="${c.key}" style="width:${inst.colWidths[c.key]||160}px">`).join('')}
+  </colgroup>`;
 
   const theadHtml=`<tr>
     <th style="width:24px"></th>
@@ -697,33 +845,53 @@ function rvRenderInstance(containerId){
       const isSorted=inst.sort&&inst.sort.key===c.key;
       const arrow=isSorted?(inst.sort.dir==='asc'?'▲':'▼'):'';
       const isFiltered=!!inst.filters[c.key];
-      return `<th class="${isFiltered?'rv-filtered':''}" onclick="rvSort('${containerId}','${c.key}')" ondblclick="rvEditFilter(event,'${containerId}','${c.key}')">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}${isFiltered?' 🔎':''}</th>`;
+      return `<th class="${isFiltered?'rv-filtered':''}" style="position:relative" onclick="rvSort('${containerId}','${c.key}')" ondblclick="rvEditFilter(event,'${containerId}','${c.key}')">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}${isFiltered?' 🔎':''}<span class="rv-col-resizer" onmousedown="event.stopPropagation();rvStartResize(event,'${containerId}','${c.key}')" ondblclick="event.stopPropagation()"></span></th>`;
     }).join('')}
   </tr>`;
 
-  // Double-click ANYWHERE in a row's own cells (not the expand toggle) hands
-  // off to rvHandleRowOpen, which honors this instance's own onRowOpen if it
-  // has one, or falls back to the template's original default (Detail View
-  // on page 4) if not.
-  const rowHtml=(r,isChild)=>{
-    const hasKids=r.children&&r.children.length;
-    const expanded=inst.expanded.has(r.id);
-    let html=`<tr class="${isChild?'rv-child':'rv-row'}" ondblclick="rvHandleRowOpen('${containerId}','${r.id}')">
-      <td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>
-      ${inst.columns.map((c,idx)=>`<td>${idx===0&&isChild?'— ':''}${r[c.key]||''}</td>`).join('')}
-    </tr>`;
-    if(hasKids&&expanded) html+=r.children.map(c=>rowHtml(c,true)).join('');
-    return html;
+  // A cell in an editable column renders click-to-edit (cream-tinted span,
+  // or an input while actively editing); a cell in a non-editable column
+  // renders exactly as before, plain text.
+  const cellHtml=(r,c,idx,isChild)=>{
+    const prefix=idx===0&&isChild?'— ':'';
+    if(!c.editable) return `<td class="rv-td-plain">${prefix}${r[c.key]||''}</td>`;
+    const editing=inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
+    if(editing){
+      return `<td><input class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(r[c.key]||'').replace(/"/g,'&quot;')}"
+        onkeydown="event.stopPropagation(); if(event.key==='Enter')rvCommitCell('${containerId}','${r.id}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
+        onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
+    }
+    return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${prefix}${r[c.key]||''}</span></td>`;
   };
 
+  // Double-click ANYWHERE in a row's own cells (not the expand toggle, not
+  // an editable cell's own click-to-edit) hands off to rvHandleRowOpen,
+  // which honors this instance's own onRowOpen if it has one, or falls
+  // back to the template's original default (Detail View on page 4).
+  const flat=rvFlattenVisible(inst,rows);
+  const rowsHtml=flat.map(({item:r,isChild})=>{
+    const hasKids=r.children&&r.children.length;
+    const expanded=inst.expanded.has(r.id);
+    const focused=inst.focusedRowId===r.id;
+    return `<tr class="${isChild?'rv-child':'rv-row'}${focused?' focused':''}" onclick="rvSetFocus('${containerId}','${r.id}')" ondblclick="rvHandleRowOpen('${containerId}','${r.id}')">
+      <td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>
+      ${inst.columns.map((c,idx)=>cellHtml(r,c,idx,isChild)).join('')}
+    </tr>`;
+  }).join('');
+
   wrap.innerHTML=`${statusHtml}
-    <div class="rv-table-wrap"><table class="rv-table">
+    <div class="rv-table-wrap" id="${containerId}-scroll" tabindex="0" onkeydown="rvHandleKeydown(event,'${containerId}')"><table class="rv-table">
+      ${colgroupHtml}
       <thead>${theadHtml}</thead>
-      <tbody>${rows.map(r=>rowHtml(r,false)).join('')}</tbody>
+      <tbody>${rowsHtml}</tbody>
     </table></div>`;
 
   if(inst.editingKey){
     const input=document.getElementById('rv-filter-input-'+containerId);
+    if(input){ input.focus(); input.select(); }
+  }
+  if(inst.editingCell){
+    const input=document.getElementById('rv-cell-input-'+containerId);
     if(input){ input.focus(); input.select(); }
   }
 }
@@ -772,6 +940,95 @@ function rvClear(containerId){
   inst.sort=null;
   inst.filters={};
   rvRenderInstance(containerId);
+}
+
+function rvEditCell(containerId,rowId,key){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  inst.editingCell={rowId,key};
+  rvRenderInstance(containerId);
+}
+
+function rvCommitCell(containerId,rowId,key,val){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  const row=dvFindItem?dvFindItem(rowId,inst.rows)||inst.rows.find(r=>r.id===rowId):inst.rows.find(r=>r.id===rowId);
+  if(row) row[key]=val;
+  inst.editingCell=null;
+  if(inst.onCellCommit) inst.onCellCommit(rowId,key,val);
+  rvRenderInstance(containerId);
+}
+
+// Excel-style drag-to-resize — added 2026-08-06, Ryan's direct
+// instruction. Live-updates just the dragged <col>'s width during the
+// drag (smooth, no full re-render per pixel of mouse movement), then
+// does one final full re-render on mouseup so inst.colWidths and the DOM
+// stay in sync. Global mousemove/mouseup listeners are added on
+// mousedown and removed on mouseup — never left dangling.
+function rvStartResize(e,containerId,key){
+  e.preventDefault();
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  const th=e.target.closest('th');
+  const startX=e.clientX;
+  const startWidth=inst.colWidths[key]||th.getBoundingClientRect().width;
+  const handle=e.target;
+  handle.classList.add('resizing');
+  function onMove(ev){
+    const newWidth=Math.max(60,Math.round(startWidth+(ev.clientX-startX)));
+    inst.colWidths[key]=newWidth;
+    const col=document.querySelector(`#${containerId}-scroll col[data-key="${key}"]`);
+    if(col) col.style.width=newWidth+'px';
+  }
+  function onUp(){
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    handle.classList.remove('resizing');
+    rvRenderInstance(containerId);
+  }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+}
+
+function rvSetFocus(containerId,rowId){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  inst.focusedRowId=rowId;
+  rvRenderInstance(containerId);
+}
+
+// ↑/↓ move the focused row through the current visible order (matches
+// exactly what rvRenderInstance just drew, via the same rvFlattenVisible
+// helper); Enter opens the focused row exactly like a double-click.
+// Ignored while a header filter or a cell edit is actively open, so arrow
+// keys inside those inputs behave normally instead of hijacking row focus.
+function rvHandleKeydown(e,containerId){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  if(inst.editingKey||inst.editingCell)return;
+  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&e.key!=='Enter')return;
+  e.preventDefault();
+  let rows=inst.rows.slice();
+  Object.entries(inst.filters).forEach(([key,val])=>{
+    if(!val)return;
+    rows=rows.filter(r=>String(r[key]||'').toLowerCase().includes(val.toLowerCase()));
+  });
+  if(inst.sort){
+    const{key,dir}=inst.sort;
+    rows=rows.slice().sort((a,b)=>{
+      const av=String(a[key]||''),bv=String(b[key]||'');
+      return dir==='asc'?av.localeCompare(bv):bv.localeCompare(av);
+    });
+  }
+  const flat=rvFlattenVisible(inst,rows);
+  if(!flat.length)return;
+  const idx=flat.findIndex(f=>f.item.id===inst.focusedRowId);
+  if(e.key==='Enter'){
+    if(idx>-1) rvHandleRowOpen(containerId,flat[idx].item.id);
+    return;
+  }
+  let nextIdx=idx;
+  if(e.key==='ArrowDown') nextIdx=idx<0?0:Math.min(idx+1,flat.length-1);
+  if(e.key==='ArrowUp') nextIdx=idx<0?0:Math.max(idx-1,0);
+  inst.focusedRowId=flat[nextIdx].item.id;
+  rvRenderInstance(containerId);
+  const rowEl=document.getElementById(containerId+'-scroll').querySelector('tr.focused');
+  if(rowEl) rowEl.scrollIntoView({block:'nearest'});
 }
 
 // ══════════════════════════════════════════════
@@ -950,6 +1207,97 @@ async function tableToRowViewConfirm(containerId,tableName){
   rvCreate(containerId,columns,rows,opts);
 }
 
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: CALENDAR VIEW — added 2026-08-06, Ryan's direct
+// instruction. A plain month-grid calendar: header with month/year title
+// and prev/next navigation, a day-of-week row, and a 7-column grid
+// showing every day of the month plus the leading/trailing days of the
+// adjacent months (dimmed, clickable — no blank cells, same convention
+// the Hub's own calendar uses). Deliberately stripped down from the
+// Hub's calendar (amit-hub.html): no task chips, no filters, no overdue
+// banner, no Hebrew/sacred calendar layers — Ryan's own words: "leave
+// out all of the filtering abilities... and the overdues and stuff. I
+// just need that calendar to show up." Restyled to this template's
+// gold/navy palette rather than the Hub's black theme.
+//
+// INSTANCE-BASED, same pattern as Row View/Detail View — cvCreate(
+// containerId) creates one instance keyed by its mount element id, with
+// its own independent year/month state, so more than one Calendar View
+// could exist on screen at once without interfering with another.
+//
+// Genuinely open, not built yet: no real event data — this is the bare
+// grid only. Wiring it to real dates/events (e.g. via the Table Picker
+// pattern above, or a plain rows array) is separate future work, the
+// same way Row View started with sample data before real binding existed.
+// ══════════════════════════════════════════════
+const cvInstances=new Map(); // containerId -> {year,month}
+const CV_MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CV_DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function cvCreate(containerId){
+  const now=new Date();
+  cvInstances.set(containerId,{year:now.getFullYear(),month:now.getMonth()});
+  cvRenderInstance(containerId);
+}
+
+function cvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=cvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const{year,month}=inst;
+  const firstDow=new Date(year,month,1).getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const prevDaysInMonth=new Date(year,month,0).getDate();
+  const prevM=month===0?11:month-1, prevY=month===0?year-1:year;
+  const nextM=month===11?0:month+1, nextY=month===11?year+1:year;
+  const today=new Date();
+  const isCurrentMonth=today.getFullYear()===year&&today.getMonth()===month;
+
+  let cellsHtml='';
+  for(let i=firstDow-1;i>=0;i--){
+    const d=prevDaysInMonth-i;
+    cellsHtml+=`<div class="cv-cell adj" onclick="cvAdjClick('${containerId}',${prevY},${prevM})"><div class="cv-daynum">${d}</div></div>`;
+  }
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday=isCurrentMonth&&d===today.getDate();
+    cellsHtml+=`<div class="cv-cell${isToday?' today':''}"><div class="cv-daynum">${d}</div></div>`;
+  }
+  // Always fill to a full 6-row (42-cell) grid, same convention as the
+  // Hub's own calendar, so the layout never jumps between 5 and 6 rows
+  // as the month changes.
+  const totalSoFar=firstDow+daysInMonth;
+  const trailing=42-totalSoFar;
+  for(let d=1;d<=trailing;d++){
+    cellsHtml+=`<div class="cv-cell adj" onclick="cvAdjClick('${containerId}',${nextY},${nextM})"><div class="cv-daynum">${d}</div></div>`;
+  }
+
+  wrap.innerHTML=`
+    <div class="cv-nav-row">
+      <div class="cv-nav-btn" onclick="cvPrev('${containerId}')">◄</div>
+      <div class="cv-month-title">${CV_MONTH_NAMES[month]} ${year}</div>
+      <div class="cv-nav-btn" onclick="cvNext('${containerId}')">►</div>
+    </div>
+    <div class="cv-dow-row">${CV_DOW.map(d=>`<div class="cv-dow">${d}</div>`).join('')}</div>
+    <div class="cv-grid">${cellsHtml}</div>
+  `;
+}
+
+function cvPrev(containerId){
+  const inst=cvInstances.get(containerId);if(!inst)return;
+  inst.month--; if(inst.month<0){inst.month=11;inst.year--;}
+  cvRenderInstance(containerId);
+}
+function cvNext(containerId){
+  const inst=cvInstances.get(containerId);if(!inst)return;
+  inst.month++; if(inst.month>11){inst.month=0;inst.year++;}
+  cvRenderInstance(containerId);
+}
+function cvAdjClick(containerId,year,month){
+  const inst=cvInstances.get(containerId);if(!inst)return;
+  inst.year=year; inst.month=month;
+  cvRenderInstance(containerId);
+}
+
 // ── DEMO: proves the model end to end ──────────────────────────────────
 // Page 3 (standalone Row View) and Page 4 (standalone Detail View) keep
 // their original page-level behavior via the default instances below.
@@ -966,6 +1314,7 @@ async function tableToRowViewConfirm(containerId,tableName){
 // inside that earlier IIFE.
 rvCreate('rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
 dvCreate('dv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
+cvCreate('cv-mount');
 rvCreate('ch-tab-2-2-rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS,{
   onRowOpen:(itemId)=>{
     popupOpen(`<div class="dv-wrap" id="popup-dv-mount" style="margin:0"></div>`);
