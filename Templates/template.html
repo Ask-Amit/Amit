@@ -298,6 +298,15 @@ header{
 .rv-col-menu-actions button{flex:1;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'Cinzel',serif;letter-spacing:.05em}
 .rv-col-menu-btn-clear{background:rgba(255,255,255,.05);border:1px solid rgba(240,232,208,.25);color:var(--muted)}
 .rv-col-menu-btn-apply{background:rgba(201,168,76,.18);border:1px solid var(--gold);color:var(--gold2)}
+/* ── DATE RANGE FILTER — added 2026-08-06, Ryan's direct instruction: a
+   column marked {type:'date'} gets these quick-range buttons plus a
+   custom from/to picker instead of the plain value checklist above. ── */
+.rv-col-menu-datebtns{display:flex;flex-direction:column;gap:4px;margin-bottom:2px}
+.rv-col-menu-datebtns button{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.25);color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
+.rv-col-menu-datebtns button:hover{background:rgba(201,168,76,.15)}
+.rv-col-menu-date-custom{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.rv-col-menu-date-custom label{font-size:10px;color:var(--muted);display:block}
+.rv-col-menu-date-custom input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);border:1px solid rgba(201,168,76,.3);border-radius:5px;padding:6px 8px;color:#fff;font-size:12px;font-family:inherit;margin-top:3px}
 .rv-table td{padding:0;border-bottom:1px solid rgba(201,168,76,.12);overflow:hidden}
 .rv-table td.rv-td-plain{padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ── COLUMN SEPARATORS + RESIZE HANDLES — added 2026-08-06, Ryan's direct
@@ -500,15 +509,53 @@ header{
 .cv-chip{background:rgba(180,140,15,.82);border-left:3px solid rgba(201,168,76,.95);color:#2a1e00;font-weight:600;font-size:10px;padding:2px 6px;border-radius:3px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cv-chip:hover{opacity:.82}
 
-/* ── DAY VIEW — added 2026-08-06, Ryan's direct instruction: duplicate
-   the Hub's day-view concept (zooming into one specific day), linked to
-   both Calendar View and real pursuits, with the Hebrew/sacred-calendar
-   elements (feast chips, Shabbat labels, word of the day) deliberately
-   left out for now — same reduction Calendar View itself already went
-   through. Reuses .cv-nav-btn/.cv-month-title for the header (same
-   visual language as Calendar View's own nav) rather than duplicating
-   that styling under a new name. ── */
+/* ── DAY VIEW — rebuilt 2026-08-06, Ryan's direct correction: these are
+   the Hub's actual .cal-dv-* class values (amit-hub.html), ported
+   directly rather than reinterpreted, per his instruction to "copy that
+   format exactly." Hebrew date block, feast/Shabbat chips, Word-for-
+   Today devotional content, and the weather widget are not ported (see
+   the CANONICAL LAYOUT: DAY VIEW comment in <script> for why); Daily
+   Walk and Add Reflection ARE ported for visual fidelity but are inert
+   placeholders here, same honesty standard as this template's other
+   placeholder pages. ── */
 .dvw-wrap{margin:24px;display:flex;flex-direction:column;flex:1;min-height:0}
+.cal-dv-zoom-wrap{display:flex;flex:1;overflow:hidden;gap:10px;align-items:stretch}
+.cal-dv-adj{width:140px;flex-shrink:0;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:14px 12px;cursor:pointer;opacity:.55;transition:opacity .2s;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.cal-dv-adj:hover{opacity:.82}
+.cal-dv-adj-arrow{font-family:'Cinzel',serif;font-size:9px;color:rgba(26,21,16,.4);letter-spacing:.14em;margin-bottom:10px;text-transform:uppercase}
+.cal-dv-adj-top{display:flex;justify-content:space-between;align-items:flex-start}
+.cal-dv-adj-greg{font-family:'Cinzel',serif;font-size:30px;font-weight:700;color:#1a1510;line-height:1}
+.cal-dv-adj-dayname{font-family:'Cinzel',serif;font-size:9px;color:#5a4828;letter-spacing:.08em;margin-top:6px}
+.cal-dv-adj-aims{font-size:10px;color:#7a6040;font-style:italic;margin-top:auto;padding-top:10px;line-height:1.5}
+.cal-dv-main{flex:1;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.cal-dv-main.dv-today{background:#f5eed8;border:2px solid var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.3);animation:dvTodayPulse 2.4s ease-in-out infinite}
+@keyframes dvTodayPulse{0%,100%{box-shadow:0 0 0 2px rgba(201,168,76,.25),0 2px 10px rgba(201,168,76,.12);border-color:rgba(201,168,76,.65)}50%{box-shadow:0 0 0 4px rgba(201,168,76,.65),0 2px 20px rgba(201,168,76,.4);border-color:rgba(220,185,80,1)}}
+.cal-dv-main-head{flex-shrink:0;padding:24px 28px 0;background:inherit;border-radius:10px 10px 0 0}
+.cal-dv-main-divider{border-top:1px solid rgba(0,0,0,.08);margin:14px 0 0}
+.cal-dv-main-scroll{flex:1;overflow-y:auto;padding:16px 28px 24px}
+.cal-dv-main-scroll::-webkit-scrollbar{width:4px}
+.cal-dv-main-scroll::-webkit-scrollbar-thumb{background:rgba(92,66,0,.2);border-radius:2px}
+.cal-dv-top{display:flex;align-items:flex-start;margin-bottom:4px}
+.cal-dv-greg{flex:0 0 auto}
+.cal-dv-greg-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#1a1510;line-height:1}
+.cal-dv-greg-day{font-family:'Cinzel',serif;font-size:12px;color:#3a3020;letter-spacing:.1em;margin-top:5px;text-transform:uppercase}
+.cal-dv-greg-month{font-size:12px;color:#6a5a40;margin-top:3px;font-style:italic}
+.daily-walk-btn{display:block;width:100%;margin:8px 0 4px;padding:9px 14px;background:linear-gradient(135deg,rgba(201,168,76,.1),rgba(201,168,76,.05));border:1px solid rgba(201,168,76,.32);border-radius:8px;color:#7a5200;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;cursor:not-allowed;text-align:left;opacity:.6}
+.daily-walk-btn-icon{float:right;opacity:.6}
+.cal-dv-refl-trigger{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:rgba(122,82,0,.4);border-top:1px solid rgba(201,168,76,.15);padding-top:12px;margin-top:14px;display:block}
+.dv-section{border-radius:8px;overflow:hidden;margin-bottom:12px}
+.dv-sh{padding:7px 14px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;font-weight:700;text-transform:uppercase}
+.dv-sb{padding:8px 12px}
+.dv-section-pursuit{border:1.5px solid rgba(160,120,0,.3)}
+.dv-section-pursuit .dv-sh{background:rgba(180,140,10,.14);color:rgba(100,65,0,.9);border-bottom:1px solid rgba(160,120,0,.2)}
+.dv-aim-row{display:flex;align-items:center;gap:8px;padding:6px 0 6px 8px;border-bottom:1px solid rgba(160,120,0,.1);border-left:3px solid rgba(180,140,10,.65)}
+.dv-aim-row:last-child{border-bottom:none}
+.dv-aim-title{flex:1;font-size:12px;color:rgba(70,48,0,.9);font-weight:600;cursor:pointer}
+.dv-aim-title:hover{color:rgba(120,85,0,.95)}
+.dv-aim-empty{font-size:11px;color:rgba(100,75,0,.45);font-style:italic;padding:6px 0}
+.cal-dv-testimony-btn{background:rgba(175,115,245,.06);border:1.5px solid rgba(140,80,220,.3);color:rgba(100,50,180,.5);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;padding:8px 22px;border-radius:20px;cursor:not-allowed}
+.cal-dv-month-return{background:transparent;border:1px solid rgba(0,0,0,.22);color:rgba(60,45,20,.6);font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s}
+.cal-dv-month-return:hover{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.4);color:rgba(60,45,20,.9)}
 
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
    that can host any layout instance (Tabbed/Row/Detail View) — content-
@@ -1021,7 +1068,7 @@ const RV_SAMPLE_COLUMNS=[
   {key:'name',label:'Name'},
   {key:'status',label:'Status',editable:true},
   {key:'owner',label:'Owner',editable:true},
-  {key:'due',label:'Due'}
+  {key:'due',label:'Due',type:'date'}
 ];
 const RV_SAMPLE_ROWS=[
   {id:'r1',name:'Kickoff meeting',status:'Done',owner:'Ryan',due:'2026-07-28'},
@@ -1084,13 +1131,34 @@ function rvFlattenVisible(inst,rows){
 // Name is already filtered only lists Owners that actually occur among
 // the currently-Name-filtered rows), while still letting that column's
 // own prior selection be re-shown/adjusted rather than hidden by itself.
+// A column filter value is either a Set (value-checklist filter, the
+// original behavior) or a {type:'range',start,end} object (date-range
+// filter, added 2026-08-06 — see the DATE RANGE FILTER block below). Both
+// shapes are handled the same way here so filters of either kind stack
+// together with the same AND logic.
 function rvApplyColFilters(inst,rows,excludeKey){
   let out=rows;
-  Object.entries(inst.colFilters).forEach(([key,valSet])=>{
-    if(key===excludeKey||!valSet||!valSet.size)return;
-    out=out.filter(r=>valSet.has(String(r[key]||'')));
+  Object.entries(inst.colFilters).forEach(([key,filter])=>{
+    if(key===excludeKey||!filter)return;
+    if(filter instanceof Set){
+      if(!filter.size)return;
+      out=out.filter(r=>filter.has(String(r[key]||'')));
+    } else if(filter.type==='range'){
+      out=out.filter(r=>{
+        const v=String(r[key]||'');
+        return v>=filter.start&&v<=filter.end;
+      });
+    }
   });
   return out;
+}
+
+// True if a column currently has an active filter of either shape —
+// used anywhere the code just needs a yes/no (header highlight, status
+// strip), not the filter's actual contents.
+function rvColFilterActive(filter){
+  if(!filter)return false;
+  return filter instanceof Set?filter.size>0:true;
 }
 
 function rvColumnDistinctValues(inst,key){
@@ -1120,7 +1188,66 @@ function rvGetVisibleRows(inst){
 // be open at a time system-wide, matching Excel's own single-active-
 // dropdown behavior. rvMenuState holds the in-progress (not yet applied)
 // checklist selection so Apply/Cancel/Clear all have something to act on.
-let rvMenuState=null; // {containerId,key,checked:Set,search}
+let rvMenuState=null; // {containerId,key,checked:Set,search} for a normal column, or {containerId,key,isDate:true,dateStart,dateEnd} for a date column
+
+// DATE RANGE FILTER — added 2026-08-06, Ryan's direct instruction: a
+// column marked {type:'date'} gets Today / This Week / This Month /
+// This Year / This Fiscal Year / Last Fiscal Year quick-select buttons
+// PLUS a Custom "from this date to that date" range picker, instead of
+// the plain value checklist — filtering a date column by exact string
+// match isn't useful the way it is for Status or Owner. Fiscal year is
+// assumed to start October 1 (RV_FISCAL_START_MONTH, 0-indexed = 9) —
+// a real project should change that one constant to its own actual
+// fiscal calendar; nothing else here is fiscal-year-specific.
+const RV_FISCAL_START_MONTH=9;
+function rvFmtDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function rvComputeDateRange(preset){
+  const now=new Date();
+  const y=now.getFullYear(),m=now.getMonth(),d=now.getDate();
+  if(preset==='today'){ const t=rvFmtDate(now); return{start:t,end:t,label:'Today'}; }
+  if(preset==='week'){
+    const day=now.getDay();
+    return{start:rvFmtDate(new Date(y,m,d-day)),end:rvFmtDate(new Date(y,m,d-day+6)),label:'This Week'};
+  }
+  if(preset==='month'){
+    return{start:rvFmtDate(new Date(y,m,1)),end:rvFmtDate(new Date(y,m+1,0)),label:'This Month'};
+  }
+  if(preset==='year'){
+    return{start:y+'-01-01',end:y+'-12-31',label:'This Year'};
+  }
+  if(preset==='fy'||preset==='lastfy'){
+    let fyStartYear=m>=RV_FISCAL_START_MONTH?y:y-1;
+    if(preset==='lastfy') fyStartYear-=1;
+    return{
+      start:rvFmtDate(new Date(fyStartYear,RV_FISCAL_START_MONTH,1)),
+      end:rvFmtDate(new Date(fyStartYear+1,RV_FISCAL_START_MONTH,0)),
+      label:preset==='fy'?'This Fiscal Year':'Last Fiscal Year'
+    };
+  }
+  return{start:'0000-01-01',end:'9999-12-31',label:'All'};
+}
+function rvDatePreset(preset){
+  if(!rvMenuState)return;
+  const{containerId,key}=rvMenuState;
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  const range=rvComputeDateRange(preset);
+  inst.colFilters[key]={type:'range',start:range.start,end:range.end,label:range.label};
+  rvCloseColMenu();
+  rvRenderInstance(containerId);
+}
+function rvDateCustomApply(){
+  if(!rvMenuState)return;
+  const{containerId,key}=rvMenuState;
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  const start=document.getElementById('rvDateFrom').value;
+  const end=document.getElementById('rvDateTo').value;
+  if(!start&&!end){ delete inst.colFilters[key]; }
+  else inst.colFilters[key]={type:'range',start:start||'0000-01-01',end:end||'9999-12-31',label:(start||'…')+' → '+(end||'…')};
+  rvCloseColMenu();
+  rvRenderInstance(containerId);
+}
 
 function rvToggleColMenu(e,containerId,key){
   e.stopPropagation();
@@ -1128,9 +1255,17 @@ function rvToggleColMenu(e,containerId,key){
     rvCloseColMenu();return;
   }
   const inst=rvInstances.get(containerId);if(!inst)return;
-  const values=rvColumnDistinctValues(inst,key);
-  const existing=inst.colFilters[key];
-  rvMenuState={containerId,key,checked:existing&&existing.size?new Set(existing):new Set(values),search:''};
+  const col=inst.columns.find(c=>c.key===key);
+  if(col.type==='date'){
+    const existing=inst.colFilters[key];
+    rvMenuState={containerId,key,isDate:true,
+      dateStart:(existing&&existing.type==='range'&&existing.start!=='0000-01-01')?existing.start:'',
+      dateEnd:(existing&&existing.type==='range'&&existing.end!=='9999-12-31')?existing.end:''};
+  } else {
+    const values=rvColumnDistinctValues(inst,key);
+    const existing=inst.colFilters[key];
+    rvMenuState={containerId,key,checked:existing instanceof Set&&existing.size?new Set(existing):new Set(values),search:''};
+  }
   rvRenderColMenu();
   const btn=e.target.closest('.rv-col-menu-btn');
   const r=btn.getBoundingClientRect();
@@ -1155,12 +1290,41 @@ function rvCloseColMenu(){
 
 function rvRenderColMenu(){
   if(!rvMenuState)return;
-  const{containerId,key,checked,search}=rvMenuState;
+  const{containerId,key}=rvMenuState;
   const inst=rvInstances.get(containerId);if(!inst)return;
   const col=inst.columns.find(c=>c.key===key);
+  const menu=document.getElementById('rvColMenu');
+
+  if(rvMenuState.isDate){
+    menu.innerHTML=`
+      <div class="rv-col-menu-sort">
+        <button onclick="rvSortSet('${containerId}','${key}','asc')">▲ Sort Oldest→Newest</button>
+        <button onclick="rvSortSet('${containerId}','${key}','desc')">▼ Sort Newest→Oldest</button>
+      </div>
+      <div class="rv-col-menu-divider"></div>
+      <div class="rv-col-menu-datebtns">
+        <button onclick="rvDatePreset('today')">Today</button>
+        <button onclick="rvDatePreset('week')">This Week</button>
+        <button onclick="rvDatePreset('month')">This Month</button>
+        <button onclick="rvDatePreset('year')">This Year</button>
+        <button onclick="rvDatePreset('fy')">This Fiscal Year</button>
+        <button onclick="rvDatePreset('lastfy')">Last Fiscal Year</button>
+      </div>
+      <div class="rv-col-menu-divider"></div>
+      <div class="rv-col-menu-date-custom">
+        <label>Custom — From<input type="date" id="rvDateFrom" value="${rvMenuState.dateStart}"></label>
+        <label>To<input type="date" id="rvDateTo" value="${rvMenuState.dateEnd}"></label>
+      </div>
+      <div class="rv-col-menu-actions">
+        <button class="rv-col-menu-btn-clear" onclick="rvClearColFilter('${containerId}','${key}')">Clear Filter</button>
+        <button class="rv-col-menu-btn-apply" onclick="rvDateCustomApply()">Apply Range</button>
+      </div>`;
+    return;
+  }
+
+  const{checked,search}=rvMenuState;
   const values=rvColumnDistinctValues(inst,key);
   const shown=search?values.filter(v=>v.toLowerCase().includes(search.toLowerCase())):values;
-  const menu=document.getElementById('rvColMenu');
   menu.innerHTML=`
     <div class="rv-col-menu-sort">
       <button onclick="rvSortSet('${containerId}','${key}','asc')">▲ Sort A→Z</button>
@@ -1238,8 +1402,11 @@ function rvRenderInstance(containerId){
   const rows=rvGetVisibleRows(inst);
   const statusParts=[];
   if(inst.sort) statusParts.push(`Sorted by ${inst.columns.find(c=>c.key===inst.sort.key).label} (${inst.sort.dir==='asc'?'A→Z':'Z→A'})`);
-  Object.entries(inst.colFilters).forEach(([key,valSet])=>{
-    if(valSet&&valSet.size) statusParts.push(`${inst.columns.find(c=>c.key===key).label}: ${valSet.size} selected`);
+  Object.entries(inst.colFilters).forEach(([key,filter])=>{
+    if(!rvColFilterActive(filter))return;
+    const label=inst.columns.find(c=>c.key===key).label;
+    if(filter instanceof Set) statusParts.push(`${label}: ${filter.size} selected`);
+    else statusParts.push(`${label}: ${filter.label}`);
   });
   const statusHtml=statusParts.length
     ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear('${containerId}')">Clear</span></div>`
@@ -1258,7 +1425,7 @@ function rvRenderInstance(containerId){
     ${inst.columns.map(c=>{
       const isSorted=inst.sort&&inst.sort.key===c.key;
       const arrow=isSorted?(inst.sort.dir==='asc'?'▲':'▼'):'';
-      const hasFilter=inst.colFilters[c.key]&&inst.colFilters[c.key].size;
+      const hasFilter=rvColFilterActive(inst.colFilters[c.key]);
       return `<th class="${hasFilter?'rv-filtered':''}" style="position:relative">
         <span class="rv-th-label">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}</span>
         <span class="rv-col-menu-btn${hasFilter?' active':''}" onclick="rvToggleColMenu(event,'${containerId}','${c.key}')">▾</span>
@@ -1652,10 +1819,17 @@ function cvRenderInstance(containerId){
     const chipsHtml=dayEntries.map(e=>`<div class="cv-chip" title="${(e.title||'').replace(/"/g,'&quot;')}" onclick="event.stopPropagation();cvOpenEntryById('${e.id}')">${e.title||''}</div>`).join('');
     // Double-click a real day cell opens that exact date in Day View —
     // added 2026-08-06, Ryan's direct instruction: Day View "would
-    // definitely link up to the monthly calendar." Adjacent-month cells
-    // (above/below) keep their existing single-click month-jump behavior
-    // and deliberately don't get this — they're not "this month's" days.
-    cellsHtml+=`<div class="cv-cell${isToday?' today':''}" ondblclick="cvOpenDayView('${ds}')"><div class="cv-daynum">${d}</div>${chipsHtml}</div>`;
+    // definitely link up to the monthly calendar." Both a single click
+    // and a double-click open Day View here — added 2026-08-06, Ryan's
+    // further instruction: "if they select a day or double click a day
+    // like it should be, should open up the day view." The Hub itself
+    // treats single-click as "select" (which opens a side detail panel)
+    // and double-click as the full zoom; this template has no separate
+    // side panel to select into, so both interactions lead straight to
+    // Day View. Adjacent-month cells (above/below) keep their existing
+    // single-click month-jump behavior and deliberately don't get this —
+    // they're not "this month's" days.
+    cellsHtml+=`<div class="cv-cell${isToday?' today':''}" onclick="cvOpenDayView('${ds}')" ondblclick="cvOpenDayView('${ds}')"><div class="cv-daynum">${d}</div>${chipsHtml}</div>`;
   }
   // Always fill to a full 6-row (42-cell) grid, same convention as the
   // Hub's own calendar, so the layout never jumps between 5 and 6 rows
@@ -1760,30 +1934,42 @@ function cvAdjClick(containerId,year,month){
 }
 
 // ══════════════════════════════════════════════
-// CANONICAL LAYOUT: DAY VIEW — added 2026-08-06, Ryan's direct
-// instruction: duplicate the Hub's day-view concept (zooming into one
-// specific day), linked to both Calendar View and real pursuits, with
-// the Hebrew/sacred-calendar elements (feast chips, Shabbat labels, word
-// of the day) deliberately left out for now — the same reduction
-// Calendar View itself already went through. Shows one day's date as a
-// header with prev/next navigation, plus that day's real outstanding
-// pursuits listed below using the canonical Row View layout — not a new
-// list widget, the same reuse standard as everywhere else in this file.
+// CANONICAL LAYOUT: DAY VIEW — rebuilt 2026-08-06, Ryan's direct
+// correction: the first version was a reinterpretation (a Row View table
+// under a plain header) instead of an actual copy of the Hub's real
+// day-view card. This version ports the Hub's real markup and CSS
+// (amit-hub.html's .cal-dv-* classes, buildDvAdjCell/renderDayView)
+// directly: a cream card with the day's big number top-left, a
+// muted/dimmed preview card for the previous and next day on either
+// side (click to jump), a Pursuits section, and Record Testimony /
+// Calendar buttons along the bottom.
 //
-// INSTANCE-BASED, same pattern as every other layout here —
-// dayViewCreate(containerId) creates one instance keyed by its mount id,
-// with its own independent selected-date state.
+// DELIBERATELY LEFT OUT, per Ryan's earlier instruction to drop Hebrew
+// elements: the Hebrew day/month/year block, feast/Shabbat chips, the
+// Word-for-Today devotional teaser (Amit's own religious content, not
+// generic template material), and the weather widget (needs an API key
+// this template doesn't have). The Daily Walk button and Add Reflection
+// link ARE ported for visual fidelity to the reference screenshot, but
+// are inert placeholders here (disabled/no handler) — same honesty
+// standard as every other placeholder page in this template. Pursuits
+// and the Calendar return button are real and fully wired.
+//
+// INSTANCE-BASED, same pattern as every other layout here.
 // ══════════════════════════════════════════════
-const dayViewInstances=new Map(); // containerId -> {date:'YYYY-MM-DD'}
+const dayViewInstances=new Map(); // containerId -> {date:'YYYY-MM-DD', entries:[]}
 
 function _todayStr(){
   const d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+function _dvFmtDs(dt){
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+}
 
 function dayViewCreate(containerId,ds){
-  dayViewInstances.set(containerId,{date:ds||_todayStr()});
+  dayViewInstances.set(containerId,{date:ds||_todayStr(),entries:[]});
   dayViewRenderInstance(containerId);
+  dayViewLoadEntries(containerId);
 }
 
 function dayViewRenderInstance(containerId){
@@ -1792,40 +1978,92 @@ function dayViewRenderInstance(containerId){
   if(!wrap||!inst)return;
   const[y,m,d]=inst.date.split('-').map(Number);
   const dt=new Date(y,m-1,d);
-  const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dt.getDay()];
   const isToday=inst.date===_todayStr();
+  const prevDs=_dvFmtDs(new Date(y,m-1,d-1));
+  const nextDs=_dvFmtDs(new Date(y,m-1,d+1));
+  const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  const countFor=(ds)=>(inst.entries||[]).filter(e=>e.due_date===ds).length;
+  const adjCardHtml=(ds,direction)=>{
+    const[ay,am,ad]=ds.split('-').map(Number);
+    const adt=new Date(ay,am-1,ad);
+    const cnt=countFor(ds);
+    return `<div class="cal-dv-adj" onclick="dayViewGoTo('${containerId}','${ds}')">
+      <div class="cal-dv-adj-arrow">${direction<0?'← Previous':'Next →'}</div>
+      <div class="cal-dv-adj-top"><div class="cal-dv-adj-greg">${ad}</div></div>
+      <div class="cal-dv-adj-dayname">${DAY_NAMES[adt.getDay()].slice(0,3).toUpperCase()} · ${CV_MONTH_NAMES[am-1].slice(0,3).toUpperCase()}</div>
+      <div class="cal-dv-adj-aims">${cnt?cnt+' Pursuit'+(cnt>1?'s':''):' '}</div>
+    </div>`;
+  };
+
+  const dayEntries=(inst.entries||[]).filter(e=>e.due_date===inst.date);
+  const pursuitRowsHtml=dayEntries.length
+    ? dayEntries.map(e=>`<div class="dv-aim-row"><div class="dv-aim-title" onclick="cvOpenEntryById('${e.id}')">${(e.title||'').replace(/</g,'&lt;')}</div></div>`).join('')
+    : `<div class="dv-aim-empty">Nothing set for this day yet.</div>`;
+
   wrap.innerHTML=`
-    <div class="cv-nav-row">
-      <div class="cv-nav-btn" onclick="dayViewNav('${containerId}',-1)">◄</div>
-      <div class="cv-month-title">${dayName}, ${CV_MONTH_NAMES[m-1]} ${d}, ${y}${isToday?' · Today':''}</div>
-      <div class="cv-nav-btn" onclick="dayViewNav('${containerId}',1)">►</div>
+    <div class="cal-dv-zoom-wrap">
+      ${adjCardHtml(prevDs,-1)}
+      <div class="cal-dv-main${isToday?' dv-today':''}">
+        <div class="cal-dv-main-head">
+          <div class="cal-dv-top">
+            <div class="cal-dv-greg">
+              <div class="cal-dv-greg-num">${d}</div>
+              <div class="cal-dv-greg-day">${DAY_NAMES[dt.getDay()].toUpperCase()}</div>
+              <div class="cal-dv-greg-month">${CV_MONTH_NAMES[m-1]} ${y}${isToday?' · Today':''}</div>
+            </div>
+          </div>
+          <div class="cal-dv-main-divider"></div>
+        </div>
+        <div class="cal-dv-main-scroll">
+          <button class="daily-walk-btn" disabled title="Not wired in this template — placeholder for visual parity with the Hub">☀ Daily Walk <span class="daily-walk-btn-icon">→</span></button>
+          <div class="cal-dv-refl-trigger" style="cursor:default" title="Not wired in this template — placeholder for visual parity with the Hub">Add Your Reflection →</div>
+          <div class="dv-section dv-section-pursuit">
+            <div class="dv-sh">Pursuits</div>
+            <div class="dv-sb">${pursuitRowsHtml}</div>
+          </div>
+          <div style="margin-top:4px;padding-top:12px;border-top:1px solid rgba(0,0,0,.08);display:flex;align-items:center;justify-content:space-between">
+            <button class="cal-dv-testimony-btn" disabled title="Not wired in this template — placeholder for visual parity with the Hub">✦ Record a Testimony</button>
+            <button class="cal-dv-month-return" onclick="openPage(6)" title="Return to calendar">← Calendar</button>
+          </div>
+        </div>
+      </div>
+      ${adjCardHtml(nextDs,1)}
     </div>
-    <div class="rv-wrap" id="${containerId}-rv" style="margin-top:8px"></div>
   `;
+}
+
+function dayViewGoTo(containerId,ds){
+  const inst=dayViewInstances.get(containerId);if(!inst)return;
+  inst.date=ds;
+  dayViewRenderInstance(containerId);
   dayViewLoadEntries(containerId);
 }
 
 function dayViewNav(containerId,delta){
   const inst=dayViewInstances.get(containerId);if(!inst)return;
   const[y,m,d]=inst.date.split('-').map(Number);
-  const dt=new Date(y,m-1,d+delta);
-  inst.date=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+  inst.date=_dvFmtDs(new Date(y,m-1,d+delta));
   dayViewRenderInstance(containerId);
+  dayViewLoadEntries(containerId);
 }
 
-// LIVE PURSUITS for the selected day — same live hub_entries connection
-// as Calendar View, scoped to whoever's signed in, same honest empty
-// state when nobody is, same stale-request guard pattern as
-// cvLoadEntries (navigating days quickly shouldn't let an older request
+// LIVE PURSUITS for the selected day AND its two neighbors (one query
+// covers all three, for the adjacent cards' pursuit-count labels) — same
+// live hub_entries connection as Calendar View, scoped to whoever's
+// signed in, same honest empty state when nobody is, same stale-request
+// guard pattern (navigating days quickly shouldn't let an older request
 // overwrite a newer one).
 async function dayViewLoadEntries(containerId){
   const inst=dayViewInstances.get(containerId);if(!inst)return;
   const requestDate=inst.date;
-  const rvMountId=containerId+'-rv';
+  const[y,m,d]=requestDate.split('-').map(Number);
+  const prevDs=_dvFmtDs(new Date(y,m-1,d-1));
+  const nextDs=_dvFmtDs(new Date(y,m-1,d+1));
   let rows=[];
   if(currentUser){
     try{
-      const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&user_id=eq.${currentUser.id}&due_date=eq.${requestDate}&order=priority.asc`,{
+      const res=await fetch(`${SB_URL}/rest/v1/hub_entries?select=id,title,due_date,priority,program&kind=eq.pursuit&done=eq.false&user_id=eq.${currentUser.id}&due_date=in.(${prevDs},${requestDate},${nextDs})`,{
         headers:{apikey:SB_KEY,Accept:'application/json'}
       });
       rows=res.ok?await res.json():[];
@@ -1835,20 +2073,17 @@ async function dayViewLoadEntries(containerId){
   }
   const stillInst=dayViewInstances.get(containerId);
   if(!stillInst||stillInst.date!==requestDate)return; // a newer request has already superseded this one
-  const cols=[{key:'title',label:'Title'},{key:'priority',label:'Priority'},{key:'program',label:'Program'}];
-  rvCreate(rvMountId,cols,rows);
+  inst.entries=rows;
+  inst.entries.forEach(e=>{window._cvEntries[e.id]=e;});
+  dayViewRenderInstance(containerId);
 }
 
 // Double-clicking a real day cell in Calendar View opens that exact date
 // in Day View — the link Ryan asked for between the two. This template
 // has one Day View instance (page 17, mount id 'dayview-mount').
 function cvOpenDayView(ds){
-  if(dayViewInstances.has('dayview-mount')){
-    dayViewInstances.get('dayview-mount').date=ds;
-    dayViewRenderInstance('dayview-mount');
-  } else {
-    dayViewCreate('dayview-mount',ds);
-  }
+  if(dayViewInstances.has('dayview-mount')) dayViewGoTo('dayview-mount',ds);
+  else dayViewCreate('dayview-mount',ds);
   openPage(17);
 }
 
@@ -2180,6 +2415,28 @@ function drvClose(containerId){
 // same sample data works unmodified. opts.onNodeOpen(itemId) — same
 // open-elsewhere contract, defaults to dvOpenFor on page 4.
 // ══════════════════════════════════════════════
+// Dedicated sample data (not reused from Row View) — added 2026-08-06,
+// Ryan's direct instruction: RV_SAMPLE_ROWS is only two levels deep and
+// looks nearly identical to a flat list at a glance, which made Tree
+// View's own nesting hard to actually see. This set goes three levels
+// deep (folder → sub-folder → file) so the ▸/▾ hierarchy is obvious.
+const TV_SAMPLE_ROWS=[
+  {id:'t1',name:'📁 Amit System',children:[
+    {id:'t1a',name:'📁 Hub',children:[
+      {id:'t1a1',name:'📄 amit-hub.html'},
+      {id:'t1a2',name:'📄 Sessions.md'}
+    ]},
+    {id:'t1b',name:'📁 who_is_god',children:[
+      {id:'t1b1',name:'📄 who_is_god.html'},
+      {id:'t1b2',name:'📄 Amit_Start.md'}
+    ]}
+  ]},
+  {id:'t2',name:'📁 Templates',children:[
+    {id:'t2a',name:'📄 template.html'},
+    {id:'t2b',name:'📄 CLAUDE.md'}
+  ]},
+  {id:'t3',name:'📄 Amit_Testimony.md'}
+];
 const tvInstances=new Map();
 function tvCreate(containerId,rows,opts={}){
   tvInstances.set(containerId,{rows,expanded:new Set(),selectedId:null,onNodeOpen:opts.onNodeOpen||null});
@@ -2206,8 +2463,27 @@ function tvToggle(containerId,id){
   if(inst.expanded.has(id)) inst.expanded.delete(id); else inst.expanded.add(id);
   tvRenderInstance(containerId);
 }
+// Clicking a row with children expands/collapses it (same as clicking its
+// ▸/▾ toggle directly) — it does NOT open Detail View, since a folder-type
+// node has no single record to show. Only a LEAF row (no children) opens
+// Detail View / onNodeOpen. Fixed 2026-08-06, Ryan's direct correction:
+// every row was calling onNodeOpen regardless of hasKids, so clicking a
+// folder immediately jumped to Detail View instead of expanding it —
+// exactly backwards from how a real file tree behaves.
+function tvFindNode(id,rows){
+  for(const r of rows){
+    if(r.id===id) return r;
+    if(r.children){ const found=tvFindNode(id,r.children); if(found) return found; }
+  }
+  return null;
+}
 function tvSelect(containerId,id){
   const inst=tvInstances.get(containerId);if(!inst)return;
+  const node=tvFindNode(id,inst.rows);
+  if(node&&node.children&&node.children.length){
+    tvToggle(containerId,id);
+    return;
+  }
   inst.selectedId=id;
   tvRenderInstance(containerId);
   if(inst.onNodeOpen) inst.onNodeOpen(id); else dvOpenFor(id);
@@ -2302,7 +2578,7 @@ fvCreate('fv-mount',FV_SAMPLE_FIELDS);
 chvCreate('chv-mount',CHV_SAMPLE_BARS,CHV_SAMPLE_LINES);
 ibvCreate('ibv-mount',IBV_SAMPLE_ROWS);
 drvCreate('drv-mount',DRV_SAMPLE_ROWS);
-tvCreate('tv-mount',RV_SAMPLE_ROWS);
+tvCreate('tv-mount',TV_SAMPLE_ROWS);
 bcvCreate('bcv-mount','Pursuits',BCV_SAMPLE_ROOT);
 rvCreate('ch-tab-2-2-rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS,{
   onRowOpen:(itemId)=>{
