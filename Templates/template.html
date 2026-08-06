@@ -354,33 +354,233 @@ async function fetchDemoRows(table,queryString){
   }
 }
 
-const PAGE_COUNT=3; // Introduction + 2 blank placeholders — add more by raising this and PAGE_ORDER below
-const PAGE_ORDER=[1,2,3];
+// ══════════════════════════════════════════════
+// ADD PAGE — the mechanism that lets a real project grow its own pages at
+// runtime, added 2026-08-06, Ryan's direct instruction. Introduction (id 1)
+// is the only fixed built-in page. Every page after it is a CUSTOM PAGE —
+// created via the "Add Page" row, which always renders last, pushed down
+// one row every time a new page is created above it. Custom pages get IDs
+// starting at CUSTOM_PAGE_BASE so they never collide with page 1.
+//
+// PERSISTENCE — matches how Demo Mode already works (Supabase, not
+// localStorage-only, so a project's page list looks the same on any
+// computer): signed-in users' pages are read/written to the
+// `template_pages` Supabase table, scoped by user_id + PROJECT_KEY. A
+// localStorage cache mirrors every write and is the fallback source when
+// signed out (Supabase requires a real owner row) — see
+// Templates\CLAUDE.md for the table schema and the migration SQL.
+//
+// BUILDER MODE — the Add Page row (and this whole flow) is meant to be
+// hidden before a project ships to real users. finalizeBuilderMode()
+// flips a one-way localStorage flag; to re-enable it during further
+// development, run localStorage.removeItem('amit_builder_mode') in the
+// console (or set it to 'on') and reload — this is a developer action,
+// not a runtime user-facing toggle.
+// ══════════════════════════════════════════════
+const PROJECT_KEY=(document.getElementById('pageTitle')?.textContent||'template').trim();
+const CUSTOM_PAGE_BASE=1000;
+const BUILDER_MODE_KEY='amit_builder_mode';
+let builderMode=localStorage.getItem(BUILDER_MODE_KEY)!=='off';
+let customPages=[]; // [{page_name, detail_layout_type, page_order}], loaded before first render
 
-(function buildPlaceholders(){
+// TemplateViews.html's canonical layouts, offered in the Add Page view-picker.
+// Names/order match that file's own "CANONICAL LAYOUT:" comment headers —
+// keep this list in sync if a layout is ever added there.
+const TEMPLATE_LAYOUTS=[
+  {key:'Tabbed View',desc:'Tab strip inside one page — multiple content panes, one active at a time'},
+  {key:'Row View',desc:'Excel-style sortable rows, click a column header to sort, inline editable cells'},
+  {key:'Detail View',desc:'Single-record drill-down endpoint — fields laid out for one item'},
+  {key:'Calendar View',desc:'Month grid, real data per day, click a day to open Day View'},
+  {key:'Day View',desc:'Single-day agenda card — exact Hub day-view port'},
+  {key:'Board View',desc:'Kanban columns by status, drag between them'},
+  {key:'Gallery View',desc:'Visual card grid — image-first browsing'},
+  {key:'Dashboard View',desc:'Stat tiles plus a simple bar chart'},
+  {key:'Split View',desc:'Master list + detail pane side by side, no page navigation needed'},
+  {key:'Form View',desc:'Dedicated create/edit layout, separate from the row/list it feeds'},
+  {key:'Chart View',desc:'Chart-first data visualization'},
+  {key:'Inbox View',desc:'Stream/queue with checkbox multi-select and bulk actions'},
+  {key:'Drawer View',desc:'Lightweight overlay detail sliding in from an edge'},
+  {key:'Tree View',desc:'Hierarchical parent/child navigation'},
+  {key:'Breadcrumb View',desc:'Chained drill-down navigation with a breadcrumb trail'}
+];
+
+async function loadCustomPages(){
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const owner=currentUser?currentUser.id:null;
+  if(owner&&db){
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/template_pages?user_id=eq.${owner}&project_key=eq.${encodeURIComponent(PROJECT_KEY)}&order=page_order.asc`,{
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,Accept:'application/json'}
+      });
+      if(res.ok){
+        const rows=await res.json();
+        localStorage.setItem(cacheKey,JSON.stringify(rows));
+        return rows;
+      }
+    }catch(e){}
+  }
+  try{ return JSON.parse(localStorage.getItem(cacheKey)||'[]'); }catch(e){ return []; }
+}
+
+async function saveCustomPage(pageName,layoutKey,order){
+  const owner=currentUser?currentUser.id:null;
+  const row={project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order};
+  if(owner&&db){
+    try{
+      await fetch(`${SB_URL}/rest/v1/template_pages`,{
+        method:'POST',
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body:JSON.stringify({...row,user_id:owner})
+      });
+    }catch(e){}
+  }
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]');
+  cached.push(row);
+  localStorage.setItem(cacheKey,JSON.stringify(cached));
+}
+
+function renderAllPages(){
   const nav=document.getElementById('sidebarPages');
   const main=document.getElementById('mainArea');
-  const navHtmlParts={};
-  let detailHtml='';
-  for(let i=1;i<=PAGE_COUNT;i++){
-    const label=i===1?'Introduction':'Placeholder '+i;
-    const icon=i===1?'🧭':'▢';
-    const subText='—'; // a real project writes its own one-line description here
-    navHtmlParts[i]=`<div class="page-nav${i===1?' active':''}" id="page-${i}" onclick="openPage(${i})" data-tip="${label}">
-      <div class="page-icon">${icon}</div>
-      <div class="page-info">
-        <div class="page-name">${label}</div>
-        <div class="page-sub">${subText}</div>
-      </div>
+  const activeId=document.querySelector('.page-nav.active')?.id?.replace('page-','')||'1';
+
+  let navHtml=`<div class="page-nav active" id="page-1" onclick="openPage(1)" data-tip="Introduction">
+    <div class="page-icon">🧭</div>
+    <div class="page-info"><div class="page-name">Introduction</div><div class="page-sub">—</div></div>
+  </div>`;
+  let detailHtml=`<div class="detail active" id="detail-1">
+    <div class="detail-head"><span class="detail-heading">Introduction</span></div>
+    <div class="detail-empty">Introduction content goes here</div>
+  </div>`;
+
+  customPages.forEach((p,i)=>{
+    const id=CUSTOM_PAGE_BASE+i;
+    navHtml+=`<div class="page-nav" id="page-${id}" onclick="openPage(${id})" data-tip="${p.page_name}">
+      <div class="page-icon">▢</div>
+      <div class="page-info"><div class="page-name">${p.page_name}</div><div class="page-sub">${p.detail_layout_type}</div></div>
     </div>`;
-    detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}">
-      <div class="detail-head"><span class="detail-heading">${label}</span></div>
-      <div class="detail-empty">${i===1?'Introduction content goes here':'Detail '+i+' content goes here — copy a layout from Templates\\TemplateViews.html to build this page out'}</div>
+    detailHtml+=`<div class="detail" id="detail-${id}">
+      <div class="detail-head"><span class="detail-heading">${p.page_name}</span></div>
+      <div class="detail-empty">Layout: ${p.detail_layout_type} — ask your AI session to copy the CANONICAL LAYOUT: ${p.detail_layout_type.toUpperCase()} block from Templates\\TemplateViews.html into this page (detail-${id}) to build it out.</div>
     </div>`;
+  });
+
+  if(builderMode){
+    navHtml+=`<div class="page-nav" id="page-add" onclick="openAddPageFlow()" data-tip="Add Page" style="border-style:dashed;opacity:.8">
+      <div class="page-icon">➕</div>
+      <div class="page-info"><div class="page-name">Add Page</div><div class="page-sub">Create a new page</div></div>
+    </div>
+    <div onclick="finalizeBuilderMode()" style="font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.06em;text-align:center;padding:6px 4px;margin-top:4px" title="Hides Add Page permanently for shipping — re-enable via localStorage in dev tools">FINALIZE — HIDE ADD PAGE</div>`;
   }
-  let navHtml=PAGE_ORDER.map(i=>navHtmlParts[i]||'').join('');
+
   nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
+  initPageTooltips('sidebarPages','right');
+
+  // restore whichever page was open before the re-render, if it still exists
+  if(document.getElementById('page-'+activeId)) openPage(isNaN(activeId)?activeId:Number(activeId));
+}
+
+function finalizeBuilderMode(){
+  if(!confirm('Hide "Add Page" for shipping? This is meant to be a one-way step before a project goes live — to bring it back during further development, run localStorage.removeItem(\'amit_builder_mode\') in the browser console and reload.'))return;
+  builderMode=false;
+  localStorage.setItem(BUILDER_MODE_KEY,'off');
+  renderAllPages();
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE FLOW — name (typed or Inspire Me via the real J shortcut) →
+// layout picker (from TemplateViews.html's canonical list) → create.
+// ══════════════════════════════════════════════
+function openAddPageFlow(){
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:16px">Add a New Page</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Name this page</div>
+    <input id="addPageNameInput" type="text" placeholder="e.g. Contacts, Inventory, Schedule"
+      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      onkeydown="if(event.key==='Enter')addPageNameConfirmed()"/>
+    <div style="display:flex;gap:10px">
+      <button onclick="addPageNameConfirmed()" style="flex:1;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em">USE THIS NAME →</button>
+      <button onclick="runInspireShortcut()" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(240,232,208,.3);color:var(--text2);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em">✨ INSPIRE ME</button>
+    </div>
+    <div id="inspireResult" style="margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6"></div>
+  `);
+}
+
+function addPageNameConfirmed(){
+  const name=(document.getElementById('addPageNameInput')?.value||'').trim();
+  if(!name){ alert('Give the page a name first.'); return; }
+  openLayoutPicker(name);
+}
+
+// Real J Inspire shortcut lookup — amit_shortcuts, activation_key='J',
+// trigger_phrase='inspire'. Confirmed live 2026-08-06: this is a real,
+// existing, is_builtin shortcut (shortcut_type='inline_instruction') —
+// its actual job is to review the whole session, run a real web search,
+// and reason through a synthesis ("You asked me to inspire what you have
+// done — here is what I came up with"). That is genuine LLM reasoning
+// plus live web search — a static browser page cannot execute it, full
+// stop, no matter how this popup is built. So this does NOT try to run
+// the shortcut client-side (an earlier version of this function
+// mistakenly assumed a simple Q&A stepper before the real row was ever
+// checked — wrong guess, corrected). Instead it fetches the real
+// instruction text and hands it off: copy it into an actual AI session
+// (Claude Code, or this same session) to run for real, then bring the
+// suggested name back here.
+async function runInspireShortcut(){
+  const out=document.getElementById('inspireResult');
+  if(!db||!out)return;
+  out.textContent='Looking up the "Inspire" shortcut…';
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/amit_shortcuts?activation_key=eq.J&is_active=eq.true&trigger_phrase=eq.inspire&parent_shortcut_id=is.null&select=*`,{
+      headers:{apikey:SB_KEY,Accept:'application/json'}
+    });
+    const rows=res.ok?await res.json():[];
+    if(!rows.length){
+      out.innerHTML='No "Inspire" J shortcut exists in amit_shortcuts yet — type a name directly above instead.';
+      return;
+    }
+    const shortcut=rows[0];
+    const escaped=(shortcut.instruction_text||'').replace(/`/g,'\\`').replace(/'/g,"\\'");
+    out.innerHTML=`
+      <div style="color:var(--gold2);margin-bottom:8px">This needs a real AI session to run — it does live web search and reasoning a browser page can't do on its own. Copy it into your AI coding session (or this one, if you're in it), then bring the suggested name back here.</div>
+      <div style="background:rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.25);border-radius:7px;padding:10px 12px;font-size:11px;color:var(--text2);max-height:160px;overflow-y:auto;margin-bottom:8px;white-space:pre-wrap">${shortcut.instruction_text||''}</div>
+      <button onclick="navigator.clipboard.writeText('${escaped}');this.textContent='Copied ✓'" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:8px 14px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em">COPY INSTRUCTION →</button>
+    `;
+  }catch(e){
+    out.textContent='Could not reach the shortcut database — type a name directly above instead.';
+  }
+}
+
+function openLayoutPicker(pageName){
+  const cards=TEMPLATE_LAYOUTS.map(l=>`
+    <div onclick="confirmAddPage('${pageName.replace(/'/g,"\\'")}','${l.key}')"
+      style="border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .15s"
+      onmouseover="this.style.borderColor='var(--gold)';this.style.background='rgba(201,168,76,.08)'"
+      onmouseout="this.style.borderColor='rgba(201,168,76,.3)';this.style.background='transparent'">
+      <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
+      <div style="font-size:11px;color:var(--muted)">${l.desc}</div>
+    </div>`).join('');
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Choose a Starting View</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:16px">for "${pageName}"</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+  `);
+}
+
+async function confirmAddPage(pageName,layoutKey){
+  const order=customPages.length;
+  customPages.push({project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order});
+  await saveCustomPage(pageName,layoutKey,order);
+  popupClose();
+  renderAllPages();
+  openPage(CUSTOM_PAGE_BASE+order);
+}
+
+(async function buildPlaceholders(){
+  customPages=await loadCustomPages();
+  renderAllPages();
 
   // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
   const rail=document.getElementById('rightRail');
@@ -405,12 +605,18 @@ const PAGE_ORDER=[1,2,3];
         <div class="page-name" id="rail-demo-name">Demo On</div>
         <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
       </div>
+    </div>
+    <div class="page-nav" id="rail-home" onclick="goToHub()" data-tip="Back to the Hub">
+      <div class="page-icon">🏠</div>
+      <div class="page-info">
+        <div class="page-name">Home</div>
+        <div class="page-sub">Back to the Hub</div>
+      </div>
     </div>`;
     _updateDemoUI();
     _updateSyncUI();
   }
 
-  initPageTooltips('sidebarPages','right');
   initPageTooltips('rightRail','left');
 })();
 
@@ -450,6 +656,27 @@ function toggleRail(){
   document.getElementById('rightRail').classList.toggle('expanded');
 }
 
+// HOME (right rail) — added 2026-08-06, Ryan's direct instruction, same
+// implementation as TemplateViews.html's own goToHub — kept identical
+// between both files on purpose, copy verbatim if either one changes.
+// Broadcasts on the shared 'amit_hub_tabs' channel first (the Hub itself
+// carries the matching listener — see amit-hub.html's own "AMIT HUB FOCUS
+// CHANNEL" comment); if a genuinely open Hub tab answers within the brief
+// window below, it focuses itself and nothing else happens here. Only
+// falls back to opening a new tab if nothing answered.
+const AMIT_HUB_URL='https://ask-amit.github.io/Amit/Hub/amit-hub.html';
+function goToHub(){
+  if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  const ch=new BroadcastChannel('amit_hub_tabs');
+  let acked=false;
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.postMessage({type:'focus-requested'});
+  setTimeout(()=>{
+    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    ch.close();
+  },250);
+}
+
 function openPage(n){
   document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
@@ -487,9 +714,14 @@ function popupClose(){
 // only: knows who is signed in. No data reads/writes beyond that.
 // ══════════════════════════════════════════════
 if(db){
-  db.auth.onAuthStateChange((event,session)=>{
+  db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    // re-pull this project's pages under the now-current owner, so a
+    // signed-in user's real Supabase page list replaces whatever the
+    // signed-out localStorage cache was showing
+    customPages=await loadCustomPages();
+    renderAllPages();
   });
 }
 

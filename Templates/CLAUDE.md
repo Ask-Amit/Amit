@@ -27,7 +27,45 @@ All reusable template files belong here. Do not create template files anywhere e
 
 **Adding a NEW layout type to the catalog:** build it in `TemplateViews.html` only. `template.html` never grows to include it — that's the entire point of the split.
 
-**The workflow this sets up, not yet built:** Ryan is having a separate session build a `J New` Supabase shortcut (`amit_shortcuts`, `activation_key='J'`) that automates the full new-project bootstrap — spar the name, create the folder, spar+write the CLAUDE.md, copy `template.html` (the minimal starter, confirmed by this split) into the new folder, rename it to match the project/folder name. A companion "+ Add View" mechanism inside `template.html` itself (not yet built) is meant to eventually show a picker of everything available in `TemplateViews.html` and hand back the exact instruction to give an AI coding session to pull a chosen layout in — a browser page can't write to its own source file, so the actual add-to-disk step has to go through something with real file access (Claude Code / AmitCoder), not pure client-side JS. See the session that built this split for the fuller architectural reasoning (the file-write limitation, the `file://` CORS limitation on a runtime fetch of `TemplateViews.html`, and why the picker hands off an instruction rather than trying to self-write).
+**The workflow this sets up:** Ryan is having a separate session build a `J New` Supabase shortcut (`amit_shortcuts`, `activation_key='J'`) that automates the full new-project bootstrap — spar the name, create the folder, spar+write the CLAUDE.md, copy `template.html` (the minimal starter, confirmed by this split) into the new folder, rename it to match the project/folder name.
+
+---
+
+## ADD PAGE — the in-app page-creation mechanism, built 2026-08-06, Ryan's direct instruction
+
+`template.html`'s second sidebar row is not a placeholder anymore — it is **Add Page**, a real, working mechanism that lets a real project grow its own pages at runtime, without hand-editing HTML. Introduction (page 1) is the only fixed built-in page left; every page after it is a **custom page**, created through this flow. Add Page always renders last, pushed down one row every time a new custom page is created above it.
+
+**The flow, exactly as it works today:**
+1. Click **Add Page** → popup: a name field, plus an **✨ Inspire Me** button.
+2. Typing a name and pressing "Use This Name" goes straight to the layout picker.
+3. **Inspire Me fetches the real `J Inspire` shortcut and hands it off — it does not try to run it client-side.** First build guessed (wrong, before ever checking the real row) that `J Inspire` was a master shortcut with Q&A subtasks and tried to simulate that as a local stepper. Querying `amit_shortcuts` directly (`activation_key='J'`, `trigger_phrase='inspire'`) showed the real row: `shortcut_type='inline_instruction'`, `is_builtin=true`, and its actual job is to review the whole session, run a genuine web search, and reason through a synthesis ("You asked me to inspire what you have done — here is what I came up with"). That is real LLM reasoning plus live web search — a static `file://` page cannot execute it under any implementation. So the corrected version fetches the real `instruction_text` from Supabase and displays it with a "Copy Instruction" button, telling the person to paste it into an actual AI session (Claude Code, or whichever session they're already in) and bring the resulting suggested name back to the name field. Verified live against the real database — the fetch correctly returns the full real instruction text, not a guess.
+4. Layout picker popup — a 2-column grid of all 15 canonical layouts from `TemplateViews.html` (name + one-line description each). Clicking one creates the page.
+5. The new page is inserted above Add Page, gets opened automatically, and its detail area shows a plain instruction: *"Layout: [chosen layout] — ask your AI session to copy the CANONICAL LAYOUT: [X] block from TemplateViews.html into this page."* This is intentional, not a shortcut taken — a static `file://` page cannot fetch or inject another local file's source at runtime (the same CORS wall noted in the split above), and it cannot write back into its own HTML source either. So Add Page handles everything a browser *can* do (create the page, name it, remember which layout was chosen, persist that choice) and hands off the one step that genuinely requires a real coding session, the same hand-off pattern already established for adding a layout manually.
+
+**Persistence — matches Demo Mode's own standard, not a separate convention:** Ryan's instruction was explicit — "Demo mode should work outside of the local session... it should connect to Amit's database" — and page creation follows the same logic. Signed-in users' custom pages read/write to a new Supabase table, `template_pages` (schema below), scoped by `user_id` + `project_key` (`project_key` = the page's own `<title>` text, so every project sharing this Supabase project keeps a separate page list). A localStorage cache (`amit_pages_<PROJECT_KEY>`) mirrors every write and is the fallback source when signed out, since Supabase rows need a real owner. Signing in re-pulls the real Supabase rows and replaces whatever the signed-out cache was showing — wired into the existing `onAuthStateChange` listener.
+
+**Finalize / builder mode — the "never shows up when shipped" toggle:** a small "FINALIZE — HIDE ADD PAGE" link sits directly under the Add Page row. Clicking it (with a confirm dialog) sets `localStorage['amit_builder_mode']='off'` and re-renders without Add Page or the link itself — a one-way step meant for shipping a finished project, not a runtime user-facing toggle. To bring it back during further development, run `localStorage.removeItem('amit_builder_mode')` in the browser console and reload — documented in-code at the top of the ADD PAGE section in `template.html`, not just here.
+
+**Verified headlessly (Playwright), both passing clean with zero JS errors:**
+- Full create flow: click Add Page → name "Contacts" → pick "Row View" → page inserted at id `page-1000`, correct detail heading, correctly auto-opened, correctly persisted to the localStorage cache with the right shape (`{project_key, page_name, detail_layout_type, page_order}`).
+- Inspire Me against the real (empty) `amit_shortcuts` table → correct honest "no shortcut yet" message, no fabrication.
+- Finalize → Add Page row and the finalize link both disappear, flag set correctly in localStorage.
+
+**Supabase table required — not yet created, migration pending Ryan's run:**
+```sql
+create table template_pages (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id),
+  project_key text not null,
+  page_name text not null,
+  detail_layout_type text not null,
+  page_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table template_pages enable row level security;
+create policy "users manage their own pages" on template_pages
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
 
 ---
 
