@@ -268,7 +268,7 @@ header{
    width it was set to); .rv-table-wrap's existing overflow:auto handles
    horizontal scrolling once total column width exceeds the visible area. */
 .rv-table{width:auto;border-collapse:collapse;font-size:13px;table-layout:fixed}
-.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 26px 9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
+.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:9px 36px 9px 12px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
 .rv-th-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;max-width:100%;vertical-align:middle}
 .rv-table th .rv-arrow{margin-left:4px;opacity:.75}
 .rv-table th.rv-filtered{color:var(--gold)}
@@ -280,9 +280,18 @@ header{
    as the page-hover-tip: .rv-table-wrap scrolls (overflow:auto), and per
    the CSS spec that silently clips any CSS-absolute descendant trying to
    extend past it. A fixed element sidesteps that entirely. ── */
-.rv-col-menu-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:9px;opacity:.55;padding:4px;user-select:none}
-.rv-col-menu-btn:hover{opacity:1}
-.rv-col-menu-btn.active{opacity:1;color:var(--gold)}
+/* Funnel icon replaces the old plain ▾ text — added 2026-08-06, Ryan's
+   direct instruction. Sized to sit inside the th's own reserved right-
+   edge space (see .rv-table th's padding-right, above). Active state
+   (a filter is currently applied to this column) gets a visible gold
+   border + tinted background — Ryan's own words, "put a border around
+   it, be creative" — plus the "-N" order badge showing which pass this
+   column's filter was applied in (see rvAddToFilterOrder/
+   rvRemoveFromFilterOrder). */
+.rv-col-menu-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;display:inline-flex;align-items:center;gap:1px;color:rgba(240,232,208,.55);opacity:1;padding:4px 5px;border-radius:5px;border:1px solid transparent;user-select:none}
+.rv-col-menu-btn:hover{color:var(--gold2);background:rgba(201,168,76,.1)}
+.rv-col-menu-btn.active{color:var(--gold);background:rgba(201,168,76,.16);border-color:var(--gold)}
+.rv-col-menu-order{font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:0;font-family:'Cinzel',serif}
 .rv-col-menu{display:none;background:#132a42;border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:10px;width:220px;box-shadow:0 8px 30px rgba(0,0,0,.5);font-family:'Crimson Pro',Georgia,serif;text-transform:none;letter-spacing:0}
 .rv-col-menu-sort{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
 .rv-col-menu-sort button{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.25);color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
@@ -653,15 +662,13 @@ header{
     <div class="page-title" id="pageContext">—</div>
     <div class="page-version" id="pageContextSub">CONTEXT</div>
   </div>
+  <!-- Sign In/Out + Sync moved into the right rail, below Ask Amit —
+       added 2026-08-06, Ryan's direct instruction. See _updateSyncUI()
+       and the RIGHT RAIL build code in <script> for where it now lives. -->
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div style="text-align:right">
       <div class="greeting" id="greeting">Good morning</div>
       <div class="datetime" id="datetime"></div>
-      <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
-        <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
-        <div id="signInBtn" onclick="openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
-        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
-      </div>
     </div>
   </div>
 </header>
@@ -938,11 +945,25 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
   // unchanged by this rebuild.
   const rail=document.getElementById('rightRail');
   if(rail){
+    // Sign In/Out + Sync — moved here from the header's top-right corner,
+    // added 2026-08-06, Ryan's direct instruction. Same underlying
+    // functionality as before (openSyncModal()/signOutAmit(), unchanged),
+    // just relocated. Icon/title/subtitle are filled in dynamically by
+    // _updateSyncUI() based on real sign-in state — the markup below is
+    // the signed-out default; _updateSyncUI() runs once on load (via the
+    // auth state listener) and updates it immediately.
     rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('TEMPLATE_NOT_CONFIGURED')" data-tip="Ask Amit">
       <div class="page-icon">💛</div>
       <div class="page-info">
         <div class="page-name">Ask Amit</div>
         <div class="page-sub">Walk alongside</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-sync" onclick="openSyncModal()" data-tip="Sign In">
+      <div class="page-icon" id="rail-sync-icon">🔒</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-sync-name">Sign In</div>
+        <div class="page-sub" id="rail-sync-sub">Not Synced</div>
       </div>
     </div>`;
   }
@@ -1084,12 +1105,12 @@ const RV_SAMPLE_ROWS=[
   {id:'r5',name:'Launch',status:'Not Started',owner:'Ryan',due:'2026-08-20'}
 ];
 
-const rvInstances=new Map(); // containerId -> {columns,rows,sort,colFilters,expanded,editingCell,focusedRowId,colWidths,onRowOpen,onCellCommit}
+const rvInstances=new Map(); // containerId -> {columns,rows,sort,colFilters,filterOrder,expanded,editingCell,focusedRowId,colWidths,onRowOpen,onCellCommit}
 
 function rvCreate(containerId,columns,rows,opts={}){
   rvInstances.set(containerId,{
     columns,rows,
-    sort:null,colFilters:{},expanded:new Set(),editingCell:null,
+    sort:null,colFilters:{},filterOrder:[],expanded:new Set(),editingCell:null,
     focusedRowId:(rows[0]&&rows[0].id)||null,
     colWidths:{}, // key -> px, filled in on first render / user drag (see rvStartResize)
     onRowOpen:opts.onRowOpen||null,
@@ -1159,6 +1180,23 @@ function rvApplyColFilters(inst,rows,excludeKey){
 function rvColFilterActive(filter){
   if(!filter)return false;
   return filter instanceof Set?filter.size>0:true;
+}
+
+// FILTER ORDER (the "-1, -2, -3" sequence badge) — added 2026-08-06,
+// Ryan's direct instruction: the funnel icon shows which pass a column's
+// filter was applied in, not just whether it's active. inst.filterOrder
+// is a plain array of column keys in the order their filters were turned
+// on; a column's badge number is just its 1-based position in that array.
+// Removing one column's filter (via the Clear Filter button or the
+// double-click shortcut) splices it out — every filter applied after it
+// automatically shifts down a number, since the number is always just
+// "position in the array," never a stored/stale value.
+function rvAddToFilterOrder(inst,key){
+  if(!inst.filterOrder.includes(key)) inst.filterOrder.push(key);
+}
+function rvRemoveFromFilterOrder(inst,key){
+  const idx=inst.filterOrder.indexOf(key);
+  if(idx>-1) inst.filterOrder.splice(idx,1);
 }
 
 function rvColumnDistinctValues(inst,key){
@@ -1234,6 +1272,7 @@ function rvDatePreset(preset){
   const inst=rvInstances.get(containerId);if(!inst)return;
   const range=rvComputeDateRange(preset);
   inst.colFilters[key]={type:'range',start:range.start,end:range.end,label:range.label};
+  rvAddToFilterOrder(inst,key);
   rvCloseColMenu();
   rvRenderInstance(containerId);
 }
@@ -1243,10 +1282,44 @@ function rvDateCustomApply(){
   const inst=rvInstances.get(containerId);if(!inst)return;
   const start=document.getElementById('rvDateFrom').value;
   const end=document.getElementById('rvDateTo').value;
-  if(!start&&!end){ delete inst.colFilters[key]; }
-  else inst.colFilters[key]={type:'range',start:start||'0000-01-01',end:end||'9999-12-31',label:(start||'…')+' → '+(end||'…')};
+  if(!start&&!end){ delete inst.colFilters[key]; rvRemoveFromFilterOrder(inst,key); }
+  else {
+    inst.colFilters[key]={type:'range',start:start||'0000-01-01',end:end||'9999-12-31',label:(start||'…')+' → '+(end||'…')};
+    rvAddToFilterOrder(inst,key);
+  }
   rvCloseColMenu();
   rvRenderInstance(containerId);
+}
+
+// Funnel icon (replaces the old plain ▾ text glyph, added 2026-08-06,
+// Ryan's direct instruction) — a tiny inline SVG, sized to fit inside the
+// header's own reserved right-edge space, fill:currentColor so it
+// inherits the button's own color/active-state styling for free.
+const RV_FUNNEL_SVG='<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:middle"><path d="M1 2h14l-5.5 6.5v5L7 15V8.5z"/></svg>';
+
+// SINGLE vs DOUBLE CLICK on the funnel — added 2026-08-06, Ryan's direct
+// instruction: single click opens that column's filter menu (unchanged
+// behavior); a quick double-click instead removes ONLY that column's own
+// filter, leaving every other active filter and re-sequencing the "-N"
+// order badges automatically (since the badge is always just "position
+// in inst.filterOrder," removing an entry shifts the rest down on its
+// own — see rvRemoveFromFilterOrder). Standard browser click/dblclick
+// debounce: the first click is held for a short window; if a second
+// click lands inside that window it's treated as the double-click and
+// the pending single-click action is cancelled instead of both firing.
+let rvFunnelClickTimer=null;
+function rvFunnelClick(e,containerId,key){
+  e.stopPropagation();
+  if(rvFunnelClickTimer){
+    clearTimeout(rvFunnelClickTimer);
+    rvFunnelClickTimer=null;
+    rvClearColFilter(containerId,key); // double-click: remove just this column's filter
+    return;
+  }
+  rvFunnelClickTimer=setTimeout(()=>{
+    rvFunnelClickTimer=null;
+    rvToggleColMenu(e,containerId,key);
+  },250);
 }
 
 function rvToggleColMenu(e,containerId,key){
@@ -1375,8 +1448,8 @@ function rvMenuApply(){
   const{containerId,key,checked}=rvMenuState;
   const inst=rvInstances.get(containerId);if(!inst)return;
   const values=rvColumnDistinctValues(inst,key);
-  if(checked.size>=values.length) delete inst.colFilters[key]; // everything checked = no filter
-  else inst.colFilters[key]=new Set(checked);
+  if(checked.size>=values.length){ delete inst.colFilters[key]; rvRemoveFromFilterOrder(inst,key); } // everything checked = no filter
+  else { inst.colFilters[key]=new Set(checked); rvAddToFilterOrder(inst,key); }
   rvCloseColMenu();
   rvRenderInstance(containerId);
 }
@@ -1384,6 +1457,7 @@ function rvMenuApply(){
 function rvClearColFilter(containerId,key){
   const inst=rvInstances.get(containerId);if(!inst)return;
   delete inst.colFilters[key];
+  rvRemoveFromFilterOrder(inst,key);
   rvCloseColMenu();
   rvRenderInstance(containerId);
 }
@@ -1410,7 +1484,7 @@ function rvRenderInstance(containerId){
   });
   const statusHtml=statusParts.length
     ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear('${containerId}')">Clear</span></div>`
-    : `<div class="rv-status">Click ▾ on any column to sort or filter · ↑/↓ to move, Enter to open</div>`;
+    : `<div class="rv-status">Click the funnel on any column to sort or filter, double-click it to remove that column's filter · ↑/↓ to move, Enter to open</div>`;
 
   // colgroup drives the actual pixel widths (table-layout:fixed, see CSS) —
   // this is what makes a drag-resize stick across re-renders instead of
@@ -1426,9 +1500,12 @@ function rvRenderInstance(containerId){
       const isSorted=inst.sort&&inst.sort.key===c.key;
       const arrow=isSorted?(inst.sort.dir==='asc'?'▲':'▼'):'';
       const hasFilter=rvColFilterActive(inst.colFilters[c.key]);
+      const orderNum=hasFilter?inst.filterOrder.indexOf(c.key)+1:0;
       return `<th class="${hasFilter?'rv-filtered':''}" style="position:relative">
         <span class="rv-th-label">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}</span>
-        <span class="rv-col-menu-btn${hasFilter?' active':''}" onclick="rvToggleColMenu(event,'${containerId}','${c.key}')">▾</span>
+        <span class="rv-col-menu-btn${hasFilter?' active':''}" onclick="rvFunnelClick(event,'${containerId}','${c.key}')" title="${hasFilter?'Filter #'+orderNum+' — click to edit, double-click to remove':'Click to sort or filter'}">
+          ${RV_FUNNEL_SVG}${hasFilter?`<span class="rv-col-menu-order">-${orderNum}</span>`:''}
+        </span>
         <span class="rv-col-resizer" onmousedown="event.stopPropagation();rvStartResize(event,'${containerId}','${c.key}')" ondblclick="event.stopPropagation()"></span>
       </th>`;
     }).join('')}
@@ -1494,6 +1571,7 @@ function rvClear(containerId){
   const inst=rvInstances.get(containerId);if(!inst)return;
   inst.sort=null;
   inst.colFilters={};
+  inst.filterOrder=[];
   rvRenderInstance(containerId);
 }
 
@@ -2685,18 +2763,22 @@ if(db){
   });
 }
 
+// Drives the Sign In/Out + Sync rail item (moved here from the header's
+// top-right corner, added 2026-08-06, Ryan's direct instruction) —
+// same functionality as before (click still calls openSyncModal(), which
+// already branches to sign-out confirm vs. the sign-in modal depending
+// on currentUser), just a different home and a lock icon instead of text.
 function _updateSyncUI(){
-  const el=document.getElementById('syncIndicator');if(!el)return;
-  const logoutBtn=document.getElementById('logoutBtn');
-  const signInBtn=document.getElementById('signInBtn');
+  const item=document.getElementById('rail-sync');if(!item)return;
+  const icon=document.getElementById('rail-sync-icon');
+  const name=document.getElementById('rail-sync-name');
+  const sub=document.getElementById('rail-sync-sub');
   if(currentUser){
-    el.textContent='● SYNCED';el.style.color='rgba(100,220,160,.7)';el.title='Signed in · '+currentUser.email;
-    if(logoutBtn)logoutBtn.style.display='block';
-    if(signInBtn)signInBtn.style.display='none';
+    icon.textContent='🔓';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out';item.title='Signed in · '+currentUser.email;
   } else {
-    el.textContent='';el.style.color='rgba(240,232,208,.28)';el.title='';
-    if(logoutBtn)logoutBtn.style.display='none';
-    if(signInBtn)signInBtn.style.display='block';
+    icon.textContent='🔒';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In';item.title='';
   }
 }
 
