@@ -1413,6 +1413,20 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
     </div>
 
+    <!-- TEMPORARY — links straight to the in-progress Books rebuild
+         (AmitBooks/NEW.html), added 2026-08-07, Ryan's direct instruction,
+         so it can be tested live through the Hub's real sign-in session
+         instead of opening the file cold. Remove this tile (not the real
+         AmitBooks tile above) once the atomic rename swap happens and
+         NEW.html becomes AmitBooks.html for real. -->
+    <div class="tile" id="tile-amitbooks-new" onclick="window.open('https://ask-amit.github.io/Amit/AmitBooks/NEW.html','amit_books_new')">
+      <div class="tile-icon">🛠️</div>
+      <div class="tile-info">
+        <div class="tile-name">Books (New)</div>
+        <div class="tile-sub">Rebuild in progress</div>
+      </div>
+    </div>
+
     <div class="tile" id="tile-computerhealth" onclick="window.open('https://ask-amit.github.io/Amit/ComputerHealth/ComputerHealth_Dashboard.html','amit_computer_health')">
       <div class="tile-icon">🖥️</div>
       <div class="tile-info">
@@ -2530,6 +2544,28 @@ const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
 const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
 const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
 let currentUser=null;
+
+// AMIT HUB FOCUS CHANNEL — added 2026-08-06, Ryan's direct instruction:
+// "Home" buttons on other Amit pages need to find an already-open Hub
+// tab and bring it to the front, rather than always opening a duplicate.
+// Same real technique already proven in ComputerHealth_Dashboard.html's
+// own tab-dedup mechanism (BroadcastChannel, same-origin only, no server
+// involved) — ported here in its simpler form: this tab only has to
+// answer "yes, I'm here" and focus itself, not coordinate a relaunch/
+// reload the way Computer Health's tracker process does. Real limitation
+// stated plainly: this can only recognize itself — it has no way to see
+// or focus a tab it isn't running in, and no webpage can enumerate a
+// user's other open tabs; that's a deliberate browser privacy boundary.
+const amitHubFocusChannel=(typeof BroadcastChannel!=='undefined')?new BroadcastChannel('amit_hub_tabs'):null;
+if(amitHubFocusChannel){
+  amitHubFocusChannel.onmessage=(e)=>{
+    if(e.data&&e.data.type==='focus-requested'){
+      window.focus();
+      amitHubFocusChannel.postMessage({type:'focus-ack'});
+    }
+  };
+}
+
 let demoModeHub=localStorage.getItem('amit_demo_hub')!=='off';
 let demoPursuits=[];
 
@@ -3194,7 +3230,7 @@ async function fetchWeather(){
     const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`+
       `&current=temperature_2m,weather_code`+
       `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code`+
-      `&hourly=precipitation_probability`+
+      `&hourly=temperature_2m,precipitation_probability,relative_humidity_2m,weather_code`+
       `&temperature_unit=fahrenheit&forecast_days=4&timezone=auto`;
     const r=await fetch(url);if(!r.ok)return null;
     const j=await r.json();
@@ -3203,13 +3239,28 @@ async function fetchWeather(){
     // Today's rain chance — max of the remaining hourly probabilities for today
     const todayDate=(j.daily&&j.daily.time&&j.daily.time[0])||'';
     let rainNow=j.daily&&j.daily.precipitation_probability_max?j.daily.precipitation_probability_max[0]:null;
+    // Bucket hourly data by date (YYYY-MM-DD) so each day can show its own 24hr breakdown
+    const hourlyByDate={};
+    (j.hourly&&j.hourly.time||[]).forEach((t,i)=>{
+      const date=t.slice(0,10);
+      if(!hourlyByDate[date])hourlyByDate[date]=[];
+      hourlyByDate[date].push({
+        time:t,
+        temp:Math.round(j.hourly.temperature_2m[i]),
+        rain:j.hourly.precipitation_probability[i],
+        humidity:j.hourly.relative_humidity_2m[i],
+        icon:(WX_CODES[j.hourly.weather_code[i]]||['🌡️'])[0],
+        desc:(WX_CODES[j.hourly.weather_code[i]]||['—','—'])[1]
+      });
+    });
     const days=(j.daily&&j.daily.time||[]).slice(0,4).map((d,i)=>({
       date:d,
       hi:Math.round(j.daily.temperature_2m_max[i]),
       lo:Math.round(j.daily.temperature_2m_min[i]),
       rain:j.daily.precipitation_probability_max[i],
       icon:(WX_CODES[j.daily.weather_code[i]]||['🌡️'])[0],
-      desc:(WX_CODES[j.daily.weather_code[i]]||['—','—'])[1]
+      desc:(WX_CODES[j.daily.weather_code[i]]||['—','—'])[1],
+      hourly:hourlyByDate[d]||[]
     }));
     const data={ts:Date.now(),temp:Math.round(j.current.temperature_2m),icon,desc,
       hi:days[0]?days[0].hi:null,lo:days[0]?days[0].lo:null,rain:rainNow,days};
@@ -3259,7 +3310,7 @@ function openForecastModal(wx,loc){
   const rows=wx.days.map((d,i)=>{
     const[y,mo,da]=d.date.split('-').map(Number);
     const label=dayNames[i]||CAL_DAYS[new Date(y,mo-1,da).getDay()].slice(0,3);
-    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 4px;border-bottom:1px solid rgba(240,232,208,.08)">
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 4px;border-bottom:1px solid rgba(240,232,208,.08);cursor:pointer" title="Double-click for hourly detail" ondblclick="openDayDetailModal(${i})">
       <span style="width:70px;font-family:'Cinzel',serif;font-size:11px;color:rgba(240,232,208,.7)">${label}</span>
       <span style="font-size:18px">${d.icon}</span>
       <span style="flex:1;font-size:11px;color:rgba(240,232,208,.5);padding:0 10px;text-transform:capitalize">${d.desc}</span>
@@ -3277,9 +3328,53 @@ function openForecastModal(wx,loc){
     </div>
   </div>`;
   m.classList.add('open');
+  _wxModalState={wx,loc};
 }
 function closeForecastModal(){
   const m=document.getElementById('forecastModal');if(m)m.classList.remove('open');
+}
+let _wxModalState=null;
+function openDayDetailModal(dayIndex){
+  if(!_wxModalState)return;
+  const{wx,loc}=_wxModalState;
+  const d=wx.days[dayIndex];if(!d)return;
+  closeForecastModal();
+  const dayNames=['Today','Tomorrow','','',''];
+  const[y,mo,da]=d.date.split('-').map(Number);
+  const label=dayNames[dayIndex]||CAL_DAYS[new Date(y,mo-1,da).getDay()];
+  let m=document.getElementById('dayDetailModal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='dayDetailModal';
+    m.className='amit-name-modal';
+    m.onclick=(e)=>{if(e.target===m)closeDayDetailModal();};
+    document.body.appendChild(m);
+  }
+  const rows=(d.hourly||[]).map(h=>{
+    const hr=new Date(h.time);
+    const hLabel=hr.toLocaleTimeString('en-US',{hour:'numeric',hour12:true});
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 4px;border-bottom:1px solid rgba(240,232,208,.06)">
+      <span style="width:58px;font-family:'Cinzel',serif;font-size:10px;color:rgba(240,232,208,.7)">${hLabel}</span>
+      <span style="font-size:15px">${h.icon}</span>
+      <span style="flex:1;font-size:10px;color:rgba(240,232,208,.5);padding:0 8px;text-transform:capitalize">${h.desc}</span>
+      <span style="font-size:10px;color:rgba(120,190,255,.8);width:38px;text-align:right">💧${h.rain}%</span>
+      <span style="font-size:10px;color:rgba(240,232,208,.5);width:44px;text-align:right">💦${h.humidity}%</span>
+      <span style="font-size:12px;color:#fff;width:44px;text-align:right">${h.temp}°</span>
+    </div>`;
+  }).join('')||`<div style="font-size:11px;color:rgba(240,232,208,.5);padding:12px 0">No hourly data available for this day.</div>`;
+  m.innerHTML=`<div class="amit-name-card" style="max-width:460px;padding:32px 28px">
+    <div class="amit-name-panel" style="display:flex;flex-direction:column;align-items:center;width:100%">
+      <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
+      <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state} — ${label}</div>
+      <div style="width:100%;margin:10px 0 4px;max-height:340px;overflow-y:auto">${rows}</div>
+      <button class="amit-name-begin" onclick="closeDayDetailModal();openForecastModal(_wxModalState.wx,_wxModalState.loc)">Back to 4-Day</button>
+      <div class="amit-name-who" onclick="closeDayDetailModal()"><span>Close</span></div>
+    </div>
+  </div>`;
+  m.classList.add('open');
+}
+function closeDayDetailModal(){
+  const m=document.getElementById('dayDetailModal');if(m)m.classList.remove('open');
 }
 
 // ── EMERGENCY ALERTS (NOAA/NWS — free, no key) ──
