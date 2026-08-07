@@ -247,13 +247,21 @@ header{
 
 /* ── SPLIT VIEW — master list left, detail pane right — copied verbatim
    from TemplateViews.html for the Tab 1 book selector. ── */
-.spv-wrap{margin:24px;display:flex;flex:1;min-height:0;gap:18px}
+.spv-wrap{margin:0;display:flex;flex:1;min-height:0;gap:18px}
 .spv-list-col{display:flex;flex-direction:column;gap:10px;width:360px;flex-shrink:0}
 .spv-list-title{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
 .spv-list{flex-shrink:0;overflow-y:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
 .spv-item{padding:14px 18px;border-bottom:1px solid rgba(201,168,76,.12);cursor:pointer;font-family:Georgia,serif;font-size:26px;font-weight:700;color:var(--text)}
 .spv-item:hover{background:rgba(255,255,255,.04)}
 .spv-item.active{background:rgba(201,168,76,.14);color:var(--gold2)}
+/* Add New Book row — visually separated from the real book rows above it
+   (dashed top border, tinted background, gold text) so it never reads as
+   just another book in the list, while still living inside the same
+   scrolling .spv-list container so it rides along at the bottom as the
+   real list grows. */
+.spv-item-add{padding:14px 18px;cursor:pointer;font-family:Georgia,serif;font-size:20px;font-weight:700;color:var(--gold2);display:flex;align-items:center;gap:10px;border-top:2px dashed rgba(201,168,76,.4);background:rgba(201,168,76,.05)}
+.spv-item-add:hover{background:rgba(201,168,76,.13)}
+.spv-item-add-icon{font-size:22px;line-height:1;font-weight:400}
 .spv-detail{flex:1;overflow-y:auto}
 .dv-fields{display:grid;grid-template-columns:140px 1fr;row-gap:10px;column-gap:16px;max-width:520px;margin-bottom:28px}
 .dv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
@@ -574,12 +582,56 @@ function renderAllPages(){
 
   // Tab 1 of Introduction hosts a Split View — hand-wired locally (same
   // treatment as Tabbed View above), not fetched from TemplateViews.html.
-  // The live fetch import kept failing (file:// / path issues), and Ryan's
-  // call was to disconnect the network dependency for now and just get the
-  // form on screen. Book-selection wiring to real Supabase data comes later.
-  spvCreate('tv-mount-tab1',BOOK_SAMPLE_COLUMNS,BOOK_SAMPLE_ROWS,'Current Books');
+  // NOW CONNECTED to the real books table, scoped to whoever is actually
+  // signed in — Ryan's direct instruction, repeated twice, to stop showing
+  // placeholder names and pull real data under his login. Mount renders
+  // synchronously with a loading state; loadRealBooksIntoSplitView() fills
+  // it in once the query resolves.
+  loadRealBooksIntoSplitView();
+}
+
+// Real books table query, scoped to currentUser (see LOGIN CONNECTION
+// above — currentUser is set by onAuthStateChange from the shared Supabase
+// session, same project AmitBooks.html itself uses). Mirrors AmitBooks.html
+// line ~1527's own `db.from('books').select('*').order('created_at')`,
+// with the .eq('user_id', currentUser.id) filter added since this Split
+// View needs only the signed-in person's own books, not every book in the
+// table.
+async function loadRealBooksIntoSplitView(){
+  const mount=document.getElementById('tv-mount-tab1');
+  if(!mount)return;
+  if(!db){
+    mount.innerHTML='<div class="detail-empty">Database not available.</div>';
+    return;
+  }
+  if(!currentUser){
+    // Not signed in — show the real empty state, not sample data pretending
+    // to be real. Add New Book still renders so the row is visible, but the
+    // list itself is honestly empty until someone is actually signed in.
+    spvCreate('tv-mount-tab1',BOOK_SAMPLE_COLUMNS,[],'Current Books','Add New Book');
+    const ctx=document.getElementById('pageContext');
+    if(ctx) ctx.textContent='Select Your Books';
+    return;
+  }
+  mount.innerHTML='<div class="detail-empty">Loading your books…</div>';
+  const{data,error}=await db.from('books').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:true});
+  if(error){
+    mount.innerHTML=`<div class="detail-empty">Could not load books — ${error.message}</div>`;
+    return;
+  }
+  // Real books table has no per-book password/PIN column yet (confirmed
+  // earlier this session) — "gated" reads 'Not set' for every real row
+  // rather than fabricating a value, until that column actually exists.
+  const rows=(data||[]).map(b=>({
+    id:b.id,
+    name:b.name,
+    entity_type:b.entity_type||'—',
+    gated:'Not set',
+    created:b.created_at?b.created_at.slice(0,10):'—'
+  }));
+  spvCreate('tv-mount-tab1',BOOK_SAMPLE_COLUMNS,rows,'Current Books','Add New Book');
   const ctx=document.getElementById('pageContext');
-  if(ctx) ctx.textContent=BOOK_SAMPLE_ROWS[0]?BOOK_SAMPLE_ROWS[0].name:'Select Your Books';
+  if(ctx) ctx.textContent=rows[0]?rows[0].name:'Select Your Books';
 }
 
 function finalizeBuilderMode(){
@@ -724,8 +776,8 @@ function initPageTooltips(containerId,side){
 // importer on purpose — Ryan's call, form only for now, real Supabase
 // book data (per signed-in user) wired in later.
 const spvInstances=new Map();
-function spvCreate(containerId,columns,rows,listTitle){
-  spvInstances.set(containerId,{columns,rows,selectedId:(rows[0]&&rows[0].id)||null,listTitle:listTitle||null});
+function spvCreate(containerId,columns,rows,listTitle,addLabel){
+  spvInstances.set(containerId,{columns,rows,selectedId:(rows[0]&&rows[0].id)||null,listTitle:listTitle||null,addLabel:addLabel||null});
   spvRenderInstance(containerId);
 }
 function spvRenderInstance(containerId){
@@ -734,12 +786,23 @@ function spvRenderInstance(containerId){
   if(!wrap||!inst)return;
   const item=inst.rows.find(r=>r.id===inst.selectedId);
   const listTitleHtml=inst.listTitle?`<div class="spv-list-title">${inst.listTitle}</div>`:'';
+  // Add-new row lives INSIDE .spv-list, after the real rows — same scrolling
+  // container, so it rides along at the bottom as the real list grows
+  // rather than sitting fixed outside it. Visually separated via
+  // .spv-item-add's dashed top border/tint, not just another list row.
+  const addRowHtml=inst.addLabel?`<div class="spv-item-add" onclick="spvAddNew('${containerId}')"><span class="spv-item-add-icon">+</span>${inst.addLabel}</div>`:'';
   wrap.innerHTML=`
     <div class="spv-list-col">
       ${listTitleHtml}
-      <div class="spv-list">${inst.rows.map(r=>`<div class="spv-item${r.id===inst.selectedId?' active':''}" onclick="spvSelect('${containerId}','${r.id}')">${r[inst.columns[0].key]}</div>`).join('')}</div>
+      <div class="spv-list">${inst.rows.map(r=>`<div class="spv-item${r.id===inst.selectedId?' active':''}" onclick="spvSelect('${containerId}','${r.id}')">${r[inst.columns[0].key]}</div>`).join('')}${addRowHtml}</div>
     </div>
     <div class="spv-detail"><div class="dv-fields">${item?inst.columns.map(c=>`<div class="dv-label">${c.label}</div><div class="dv-value">${item[c.key]||'—'}</div>`).join(''):''}</div></div>`;
+}
+// Placeholder only — no real "create a book" flow built yet. Wire this to
+// an actual db.from('books').insert(...) call (matching AmitBooks.html's
+// own abCreateBook logic) when that piece is brought over for real.
+function spvAddNew(containerId){
+  alert('Add New Book — coming soon. This will create a real book, same as AmitBooks.html\'s existing create-book flow, once that logic is ported over.');
 }
 function spvSelect(containerId,id){
   const inst=spvInstances.get(containerId);if(!inst)return;
