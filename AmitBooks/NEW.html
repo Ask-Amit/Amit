@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ══════════════════════════════════════════════
+     COPYING THIS TEMPLATE FOR A NEW PROJECT — read this first.
+
+     WHAT THIS FILE IS — rebuilt 2026-08-06, Ryan's direct instruction.
+     This is now the MINIMAL STARTER, not the reference catalog. It has
+     Introduction (page 1) plus a few blank placeholder pages, and the
+     global infrastructure every Amit app needs (right rail — Ask Amit,
+     Sign In/Sync, Demo Mode — popup destination, login connection,
+     tooltip mechanism, clock/greeting). It deliberately does NOT contain
+     any of the canonical layouts (Tabbed/Row/Detail/Calendar/Day/Board/
+     Gallery/Dashboard/Split/Form/Chart/Inbox/Drawer/Tree/Breadcrumb
+     View) — those live permanently in Templates\TemplateViews.html, the
+     never-modified reference library. This split exists so a real
+     project's starting file is never bloated with layout code it isn't
+     using — see Templates\CLAUDE.md's "TEMPLATE VIEWS vs TEMPLATE"
+     section for the full reasoning.
+
+     ADDING A LAYOUT TO A REAL PROJECT — go to Templates\TemplateViews.html,
+     find the named "CANONICAL LAYOUT:" or "CANONICAL DESTINATION:" comment
+     block, and copy it verbatim into this file — never reconstruct a
+     layout's behavior from memory or approximation. Wire it into a real
+     page/tab/popup the same way TemplateViews.html's own DEMO block shows
+     it being done there. (J New, once built, automates this hand-off —
+     see Templates\CLAUDE.md.)
+
+     NAMING: the new project's folder name IS the app's name. If the
+     folder is `Disco\`, the app is "Disco" — rename every literal
+     occurrence of "Template" below to that exact name:
+       - <title>Template</title>            (this line)
+       - #pageTitle text, currently "Template" (~line 90)
+       - the copied file itself: save as Disco.html, not template.html
+       - askAmitLive('TEMPLATE_NOT_CONFIGURED') → askAmitLive('yourRealKey'),
+         and write that key's real context into ../Amit_Ask_Live.js's
+         PAGE_CONTEXTS — do not skip this, see the comment above that line
+     Use the app's real display name consistently in all three spots —
+     never a variant spelling, never re-derived per file.
+
+     VERSION: #pageVersion always starts at v1.00 for a brand-new app.
+     From here forward it is versioned independently (own +0.01/+1.00
+     history, never synced to any other file's number) — see root
+     CLAUDE.md's VERSIONING STANDARD.
+
+     INTERCONNECTION: a new project is never standalone — it inherits the
+     whole Amit system's conventions. Before/while building it out, the
+     new project's own CLAUDE.md (copied from
+     Templates\Amit_NewProject_Template.md per root CLAUDE.md's NEW
+     PROJECT DIRECTIVE) must carry: the Session Location Check, the
+     Pursuit Attribution clause (its own canonical program name for
+     hub_entries), Shortcut Activation + Shortcut Awareness, and — if
+     it has an "Ask Amit" button — the wiring described above. If the
+     project is likely to grow a running state log, add its own
+     Sessions.md too (see AmitBooks\Sessions.md for the pattern) so a
+     future session can orient fast without re-deriving context.
+
+     NOMENCLATURE: this template uses PAGE (a sidebar item — button + its
+     fixed number), DETAIL (the content area a page opens into), LAYOUT
+     (what kind of content lives inside a detail — Tabbed/Row/Detail/etc,
+     all defined in TemplateViews.html), and DESTINATION (WHERE a layout
+     mounts — a page, a tab slot, or a Popup; Popup is built into this
+     starter since it's generic infrastructure, not a layout itself). Full
+     definitions live in the NOMENCLATURE comment at the top of the
+     <script> block below.
+
+     PAGE ORDER: sidebar display position is controlled by the PAGE_ORDER
+     array in the script below, kept separate from each page's fixed
+     number — reorder pages by editing that array, never by renumbering
+     pages/details themselves. See Templates\CLAUDE.md for why.
+     ══════════════════════════════════════════════ -->
+<title>New</title>
+<link rel="icon" type="image/x-icon" href="amit_icon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../Amit_Ask_Live.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09141f;
+  --card-head:#0f2338;
+  --border:rgba(201,168,76,0.55);
+  --gold:#c9a84c;
+  --gold2:#e8c56a;
+  --text:#ffffff;
+  --text2:#f0e8d0;
+  --muted:rgba(240,232,208,0.78);
+  --dim:rgba(240,232,208,0.42);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+
+body::before{
+  content:'';
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:60vmin;height:60vmin;
+  background:url('amit_icon.ico') center/contain no-repeat;
+  opacity:.035;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+  position:relative;
+}
+.page-title-wrap{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.page-title{
+  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  letter-spacing:.3px;text-transform:none;color:var(--gold2);
+}
+.page-version{
+  font-family:monospace;font-size:11px;letter-spacing:.05em;
+  color:rgba(201,168,76,.55);margin-top:2px;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
+.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.hdr-right{text-align:right}
+.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.datetime{font-size:12px;color:var(--muted);margin-top:2px}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── HUB LAYOUT ── */
+.hub{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:max-content;flex-shrink:0;
+  background:var(--card-head);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar{transition:width .18s ease}
+.sidebar.collapsed{width:64px}
+.sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
+.sidebar.collapsed .page-info{display:none}
+.page-nav{
+  display:flex;align-items:center;gap:10px;
+  padding:6px 4px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;
+  flex-shrink:0;
+  transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;
+}
+.page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
+.page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.page-info{flex:1;min-width:0}
+.page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MAIN AREA ── */
+.main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.detail{
+  position:absolute;inset:0;overflow-y:auto;
+  display:none;flex-direction:column;
+  animation:pfade .18s ease;
+}
+.detail.active{display:flex}
+@keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.detail::-webkit-scrollbar{width:5px}
+.detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+
+/* ── DETAIL HEADER ── */
+.detail-head{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 24px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+.detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+
+/* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
+   that can host any layout instance copied in from TemplateViews.html —
+   content-agnostic, same separation as a Page or a Tab slot not caring
+   what's mounted inside them. Built into this starter (not TemplateViews-
+   only) since it's global infrastructure, not a layout. ── */
+.popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
+.popup-close-btn:hover{color:var(--gold2)}
+
+/* ── RIGHT RAIL — global, present on every page, same on every project.
+   Double-click to expand/collapse (mirror of the left sidebar, inverted
+   default: starts collapsed). Ask Amit / Sign In-Sync / Demo Mode all
+   live here permanently — see Templates\CLAUDE.md for the full history
+   of why each piece looks the way it does. ── */
+.right-rail{
+  width:64px;flex-shrink:0;
+  background:var(--card-head);
+  border-left:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+  transition:width .18s ease;
+}
+.right-rail::-webkit-scrollbar{width:3px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.right-rail.expanded{width:max-content}
+.right-rail .page-nav{padding:4px;flex-direction:row-reverse}
+.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
+.right-rail .page-info{display:none}
+.right-rail.expanded .page-info{display:block}
+
+/* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
+   .sidebar/.right-rail scroll (overflow-y:auto) — per the CSS spec, that
+   silently forces the other axis's overflow to 'auto' too, which would
+   clip a CSS-positioned tooltip trying to extend past the container's
+   edge. A single fixed element sidesteps that entirely. ── */
+.page-hover-tip{
+  position:fixed;z-index:9999;
+  background:#1a3352;border:1px solid rgba(201,168,76,.45);
+  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
+  padding:6px 10px;border-radius:6px;white-space:nowrap;max-width:260px;
+  opacity:0;pointer-events:none;
+  transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.page-hover-tip.show{opacity:1}
+
+/* CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+   added 2026-08-06 so Add Page can instantiate a real Tabbed View directly,
+   not hand a copy-instruction to an outside AI session. */
+.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
+
+/* ── SPLIT VIEW — master list left, detail pane right — copied verbatim
+   from TemplateViews.html for the Tab 1 book selector. ── */
+.spv-wrap{margin:24px;display:flex;flex:1;min-height:0;gap:18px}
+.spv-list-col{display:flex;flex-direction:column;gap:10px;width:360px;flex-shrink:0}
+.spv-list-title{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.spv-list{flex-shrink:0;overflow-y:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
+.spv-item{padding:14px 18px;border-bottom:1px solid rgba(201,168,76,.12);cursor:pointer;font-family:Georgia,serif;font-size:26px;font-weight:700;color:var(--text)}
+.spv-item:hover{background:rgba(255,255,255,.04)}
+.spv-item.active{background:rgba(201,168,76,.14);color:var(--gold2)}
+.spv-detail{flex:1;overflow-y:auto}
+.dv-fields{display:grid;grid-template-columns:140px 1fr;row-gap:10px;column-gap:16px;max-width:520px;margin-bottom:28px}
+.dv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dv-value{font-size:14px;color:#fff}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
+    <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
+    <div>
+      <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
+      <div class="page-version" id="pageVersion">v1.00</div>
+    </div>
+  </a>
+  <div class="page-title-wrap">
+    <div class="page-title" id="pageContext">Select Your Books</div>
+    <div class="page-version" id="pageContextSub">BOOKS</div>
+  </div>
+  <!-- Sign In/Out + Sync lives in the right rail, below Ask Amit — see
+       _updateSyncUI() and the RIGHT RAIL build code in <script>. -->
+  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
+    <div style="text-align:right">
+      <div class="greeting" id="greeting">Good morning</div>
+      <div class="datetime" id="datetime"></div>
+    </div>
+  </div>
+</header>
+
+<div class="hub">
+
+  <!-- ── SIDEBAR — Introduction + blank placeholders, built in <script> ── -->
+  <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()"></nav>
+
+  <!-- ── MAIN CONTENT AREA — built in <script> ── -->
+  <div class="main-area" id="mainArea"></div>
+
+  <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
+  <nav class="right-rail" id="rightRail" ondblclick="toggleRail()"></nav>
+
+</div>
+
+<!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
+<div class="page-hover-tip" id="pageHoverTip"></div>
+
+<!-- Generic Popup destination — content filled in by whichever layout uses it -->
+<div id="canonicalPopup" class="popup-overlay"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// NOMENCLATURE — read this before touching any page/detail/layout code.
+//   PAGE   — one item in the left sidebar (button + fixed number).
+//   DETAIL — the content area a page opens into (id `detail-N`).
+//   LAYOUT — what kind of content lives inside a detail. This starter
+//            ships with none built in — every canonical layout (Tabbed/
+//            Row/Detail/Calendar/Day/Board/Gallery/Dashboard/Split/Form/
+//            Chart/Inbox/Drawer/Tree/Breadcrumb View) lives in
+//            Templates\TemplateViews.html, copied in verbatim when a
+//            real project needs one — see the header comment at the top
+//            of this file.
+//   DESTINATION — WHERE a layout mounts: a page, a tab slot, or a Popup.
+//            Popup is built into this starter (see below) since it's
+//            generic infrastructure, not a layout itself.
+// ══════════════════════════════════════════════
+
+let currentUser=null;
+// SB_URL/SB_KEY/db/demoMode declared here, early — a real, confirmed bug
+// from earlier work on this file: demoMode defaults to true (unlike
+// currentUser, which defaults falsy), so anything gating on it can run
+// during the page's very first synchronous script pass, before a
+// later-declared `const` has initialized — a temporal dead zone crash.
+// Declaring all of this up front avoids that class of bug entirely.
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
+
+// ══════════════════════════════════════════════
+// CANONICAL DATA BINDING: DEMO MODE — a general, reusable connection to
+// Amit's own account data, available to ANY current or future view/form
+// built from this template — not wired one-off per view. Ported from the
+// Hub's real, live mechanism (amit-hub.html's demoModeHub/AMIT_DEMO_UID).
+//
+// fetchDemoRows(table, queryString) — the one call any view makes to
+// pull Amit's own rows for demo mode. Returns [] immediately if demo mode
+// is off. Every returned row is tagged _isDemo:true.
+//
+// REVIEW ONLY: any row this returns must never be editable or writable —
+// it's the caller's responsibility to check _isDemo and refuse edits.
+// Row View (in TemplateViews.html) already enforces this at its own
+// rvEditCell/rvCommitCell chokepoint; a non-Row-View layout must
+// implement its own _isDemo check the same way.
+// ══════════════════════════════════════════════
+async function fetchDemoRows(table,queryString){
+  if(!demoMode)return[];
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${AMIT_DEMO_UID}&${queryString}`,{
+      headers:{apikey:SB_KEY,Accept:'application/json'}
+    });
+    const rows=res.ok?await res.json():[];
+    return rows.map(r=>({...r,_isDemo:true}));
+  }catch(e){
+    return[];
+  }
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE — the mechanism that lets a real project grow its own pages at
+// runtime, added 2026-08-06, Ryan's direct instruction. Introduction (id 1)
+// is the only fixed built-in page. Every page after it is a CUSTOM PAGE —
+// created via the "Add Page" row, which always renders last, pushed down
+// one row every time a new page is created above it. Custom pages get IDs
+// starting at CUSTOM_PAGE_BASE so they never collide with page 1.
+//
+// PERSISTENCE — matches how Demo Mode already works (Supabase, not
+// localStorage-only, so a project's page list looks the same on any
+// computer): signed-in users' pages are read/written to the
+// `template_pages` Supabase table, scoped by user_id + PROJECT_KEY. A
+// localStorage cache mirrors every write and is the fallback source when
+// signed out (Supabase requires a real owner row) — see
+// Templates\CLAUDE.md for the table schema and the migration SQL.
+//
+// BUILDER MODE — the Add Page row (and this whole flow) is meant to be
+// hidden before a project ships to real users. finalizeBuilderMode()
+// flips a one-way localStorage flag; to re-enable it during further
+// development, run localStorage.removeItem('amit_builder_mode') in the
+// console (or set it to 'on') and reload — this is a developer action,
+// not a runtime user-facing toggle.
+// ══════════════════════════════════════════════
+const PROJECT_KEY=(document.getElementById('pageTitle')?.textContent||'template').trim();
+const CUSTOM_PAGE_BASE=1000;
+const BUILDER_MODE_KEY='amit_builder_mode';
+let builderMode=localStorage.getItem(BUILDER_MODE_KEY)!=='off';
+let customPages=[]; // [{page_name, detail_layout_type, page_order}], loaded before first render
+
+// TemplateViews.html's canonical layouts, offered in the Add Page view-picker.
+// Names/order match that file's own "CANONICAL LAYOUT:" comment headers —
+// keep this list in sync if a layout is ever added there.
+const TEMPLATE_LAYOUTS=[
+  {key:'Tabbed View',desc:'Tab strip inside one page — multiple content panes, one active at a time'},
+  {key:'Row View',desc:'Excel-style sortable rows, click a column header to sort, inline editable cells'},
+  {key:'Detail View',desc:'Single-record drill-down endpoint — fields laid out for one item'},
+  {key:'Calendar View',desc:'Month grid, real data per day, click a day to open Day View'},
+  {key:'Day View',desc:'Single-day agenda card — exact Hub day-view port'},
+  {key:'Board View',desc:'Kanban columns by status, drag between them'},
+  {key:'Gallery View',desc:'Visual card grid — image-first browsing'},
+  {key:'Dashboard View',desc:'Stat tiles plus a simple bar chart'},
+  {key:'Split View',desc:'Master list + detail pane side by side, no page navigation needed'},
+  {key:'Form View',desc:'Dedicated create/edit layout, separate from the row/list it feeds'},
+  {key:'Chart View',desc:'Chart-first data visualization'},
+  {key:'Inbox View',desc:'Stream/queue with checkbox multi-select and bulk actions'},
+  {key:'Drawer View',desc:'Lightweight overlay detail sliding in from an edge'},
+  {key:'Tree View',desc:'Hierarchical parent/child navigation'},
+  {key:'Breadcrumb View',desc:'Chained drill-down navigation with a breadcrumb trail'}
+];
+
+// Which page number each layout lives on inside TemplateViews.html's own
+// demo — used only to deep-link the 👓 preview link in the layout picker
+// straight to that layout (TemplateViews.html#page=N) instead of always
+// opening to its Introduction page. Keep in sync if TemplateViews.html's
+// own page order ever changes (see its buildPlaceholders()). Page 5 was
+// retired there (Grid View merged into Row View) so it's skipped here too.
+const TEMPLATE_VIEWS_PAGE_MAP={
+  'Tabbed View':2,'Row View':3,'Detail View':4,'Calendar View':6,'Board View':7,
+  'Gallery View':8,'Dashboard View':9,'Split View':10,'Form View':11,'Chart View':12,
+  'Inbox View':13,'Drawer View':14,'Tree View':15,'Breadcrumb View':16,'Day View':17
+};
+
+// Same icon each layout is already shown with inside TemplateViews.html
+// itself (its own hardcoded page icon / NEW_VIEW_ICONS map) — reused here
+// verbatim so the picker card matches what someone actually sees when they
+// click through to preview it, instead of a generic stand-in glyph.
+const TEMPLATE_VIEWS_ICON_MAP={
+  'Tabbed View':'🗂️','Row View':'📋','Detail View':'🔍','Calendar View':'📅','Board View':'🗃️',
+  'Gallery View':'🖼️','Dashboard View':'📈','Split View':'◨','Form View':'📝','Chart View':'📊',
+  'Inbox View':'📥','Drawer View':'🗄️','Tree View':'🌳','Breadcrumb View':'🍞','Day View':'☀️'
+};
+
+async function loadCustomPages(){
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const owner=currentUser?currentUser.id:null;
+  if(owner&&db){
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/template_pages?user_id=eq.${owner}&project_key=eq.${encodeURIComponent(PROJECT_KEY)}&order=page_order.asc`,{
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,Accept:'application/json'}
+      });
+      if(res.ok){
+        const rows=await res.json();
+        localStorage.setItem(cacheKey,JSON.stringify(rows));
+        return rows;
+      }
+    }catch(e){}
+  }
+  try{ return JSON.parse(localStorage.getItem(cacheKey)||'[]'); }catch(e){ return []; }
+}
+
+async function saveCustomPage(pageName,layoutKey,order){
+  const owner=currentUser?currentUser.id:null;
+  const row={project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order};
+  if(owner&&db){
+    try{
+      await fetch(`${SB_URL}/rest/v1/template_pages`,{
+        method:'POST',
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body:JSON.stringify({...row,user_id:owner})
+      });
+    }catch(e){}
+  }
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]');
+  cached.push(row);
+  localStorage.setItem(cacheKey,JSON.stringify(cached));
+}
+
+// DELETE PAGE — added 2026-08-06, counterpart to Add Page (which had no
+// removal path). Signed-out/local case (the only one exercised so far):
+// splices customPages by array index and rewrites the localStorage cache.
+// Signed-in/Supabase case: POST above uses Prefer:return=minimal, so saved
+// rows have no captured `id` to target a precise DELETE — this deletes by
+// matching project_key+page_order instead, which is correct as long as
+// page_order stays unique per project (true today, since order is only
+// ever assigned as customPages.length at creation time).
+async function deletePage(i){
+  const p=customPages[i];
+  if(!p)return;
+  const label=p.page_name||p.detail_layout_type;
+  if(!confirm(`Delete this "${label}" page? This can't be undone.`))return;
+  const owner=currentUser?currentUser.id:null;
+  if(owner&&db){
+    try{
+      await fetch(`${SB_URL}/rest/v1/template_pages?user_id=eq.${owner}&project_key=eq.${encodeURIComponent(PROJECT_KEY)}&page_order=eq.${p.page_order}`,{
+        method:'DELETE',
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`}
+      });
+    }catch(e){}
+  }
+  customPages.splice(i,1);
+  localStorage.setItem('amit_pages_'+PROJECT_KEY,JSON.stringify(customPages));
+  renderAllPages();
+}
+
+function renderAllPages(){
+  const nav=document.getElementById('sidebarPages');
+  const main=document.getElementById('mainArea');
+  const activeId=document.querySelector('.page-nav.active')?.id?.replace('page-','')||'1';
+
+  let navHtml=`<div class="page-nav active" id="page-1" onclick="openPage(1)" data-tip="Books">
+    <div class="page-icon">${BOOK_ICON_SVG}</div>
+    <div class="page-info"><div class="page-name">Books</div><div class="page-sub">—</div></div>
+  </div>`;
+  let detailHtml=`<div class="detail active" id="detail-1" style="flex-direction:column">
+    <div class="detail-head"><span class="detail-heading">Books</span></div>
+    <div class="ch-tab-nav" id="ch-tab-nav-1">
+      <button class="ch-tab-btn active" onclick="showChTab(1,1)">Books</button>
+      <button class="ch-tab-btn" onclick="showChTab(1,2)">Tab 2</button>
+      <button class="ch-tab-btn" onclick="showChTab(1,3)">Tab 3</button>
+      <button class="ch-tab-btn" onclick="showChTab(1,4)">Tab 4</button>
+      <button class="ch-tab-btn" onclick="showChTab(1,5)">Tab 5</button>
+    </div>
+    <div class="ch-tab-main">
+      <div class="ch-tab-content active" id="ch-tab-1-1"><div class="spv-wrap" id="tv-mount-tab1"></div></div>
+      <div class="ch-tab-content" id="ch-tab-1-2">Tab 2 content goes here</div>
+      <div class="ch-tab-content" id="ch-tab-1-3">Tab 3 content goes here</div>
+      <div class="ch-tab-content" id="ch-tab-1-4">Tab 4 content goes here</div>
+      <div class="ch-tab-content" id="ch-tab-1-5">Tab 5 content goes here</div>
+    </div>
+  </div>`;
+
+  const toHydrate=[]; // [{id,layoutKey}] — layouts fetched+run from TemplateViews.html after this render lands in the DOM
+  customPages.forEach((p,i)=>{
+    const id=CUSTOM_PAGE_BASE+i;
+    const displayName=p.page_name||p.detail_layout_type; // blank name stored — fall back to layout type for the label/tooltip only
+    navHtml+=`<div class="page-nav" id="page-${id}" onclick="openPage(${id})" data-tip="${displayName}">
+      <div class="page-icon">▢</div>
+      <div class="page-info"><div class="page-name">${displayName}</div><div class="page-sub">${p.detail_layout_type}</div></div>
+      ${builderMode?`<div onclick="event.stopPropagation();deletePage(${i})" title="Delete this page" style="flex-shrink:0;color:rgba(240,232,208,.35);font-size:11px;padding:2px 4px;cursor:pointer" onmouseover="this.style.color='#e0777a'" onmouseout="this.style.color='rgba(240,232,208,.35)'">✕</div>`:''}
+    </div>`;
+    if(p.detail_layout_type==='Tabbed View'){
+      detailHtml+=`<div class="detail" id="detail-${id}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        ${buildTabbedViewHtml(id)}
+      </div>`;
+    } else if(LAYOUT_IMPORT_MANIFEST[p.detail_layout_type]){
+      detailHtml+=`<div class="detail" id="detail-${id}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        <div class="${LAYOUT_IMPORT_MANIFEST[p.detail_layout_type].wrap}" id="tv-mount-${id}"></div>
+      </div>`;
+      toHydrate.push({id,layoutKey:p.detail_layout_type});
+    } else {
+      detailHtml+=`<div class="detail" id="detail-${id}">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        <div class="detail-empty">"${p.detail_layout_type}" has no import entry yet in LAYOUT_IMPORT_MANIFEST.</div>
+      </div>`;
+    }
+  });
+
+  if(builderMode){
+    navHtml+=`<div class="page-nav" id="page-add" onclick="openLayoutPicker()" data-tip="Add Page" style="border-style:dashed;opacity:.8">
+      <div class="page-icon">➕</div>
+      <div class="page-info"><div class="page-name">Add Page</div><div class="page-sub">Create a new page</div></div>
+    </div>
+    <div onclick="finalizeBuilderMode()" style="font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.06em;text-align:center;padding:6px 4px;margin-top:4px" title="Hides Add Page permanently for shipping — re-enable via localStorage in dev tools">FINALIZE — HIDE ADD PAGE</div>`;
+  }
+
+  nav.innerHTML=navHtml;
+  main.innerHTML=detailHtml;
+  initPageTooltips('sidebarPages','right');
+
+  // restore whichever page was open before the re-render, if it still exists
+  if(document.getElementById('page-'+activeId)) openPage(isNaN(activeId)?activeId:Number(activeId));
+
+  // pull in and run the real layout code for every TemplateViews-backed
+  // page rebuilt above — the mount divs already exist synchronously; each
+  // one's real content pops in once its fetch/import resolves.
+  toHydrate.forEach(({id,layoutKey})=>hydrateImportedLayout(id,layoutKey));
+
+  // Tab 1 of Introduction hosts a Split View — hand-wired locally (same
+  // treatment as Tabbed View above), not fetched from TemplateViews.html.
+  // The live fetch import kept failing (file:// / path issues), and Ryan's
+  // call was to disconnect the network dependency for now and just get the
+  // form on screen. Book-selection wiring to real Supabase data comes later.
+  spvCreate('tv-mount-tab1',BOOK_SAMPLE_COLUMNS,BOOK_SAMPLE_ROWS,'Current Books');
+  const ctx=document.getElementById('pageContext');
+  if(ctx) ctx.textContent=BOOK_SAMPLE_ROWS[0]?BOOK_SAMPLE_ROWS[0].name:'Select Your Books';
+}
+
+function finalizeBuilderMode(){
+  if(!confirm('Hide "Add Page" for shipping? This is meant to be a one-way step before a project goes live — to bring it back during further development, run localStorage.removeItem(\'amit_builder_mode\') in the browser console and reload.'))return;
+  builderMode=false;
+  localStorage.setItem(BUILDER_MODE_KEY,'off');
+  renderAllPages();
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE FLOW — clicking "Add Page" goes straight to the layout picker
+// (from TemplateViews.html's canonical list) → create. No name-entry step
+// (removed 2026-08-06, Ryan's direct instruction) — the chosen layout's
+// own name becomes the page name; rename later is a future improvement,
+// not part of this flow.
+// ══════════════════════════════════════════════
+// 👓 preview link on each card — opens TemplateViews.html (the never-
+// edited reference catalog) in a new tab, deep-linked via #page=N to that
+// exact layout instead of always landing on Introduction. Read-only by
+// nature: it's a plain link to a file, nothing here can write back into
+// it. Deliberately NOT wired to select-from-that-tab-and-return — a real
+// cross-tab handoff (postMessage, tracking whether that tab is still
+// open) is a lot of moving parts for what a click back in this popup
+// already does in one step once someone's seen what they wanted to see.
+function previewLayoutInNewTab(e,layoutKey){
+  e.stopPropagation();
+  const pageNum=TEMPLATE_VIEWS_PAGE_MAP[layoutKey];
+  window.open('TemplateViews.html'+(pageNum?'#page='+pageNum:''),'_blank');
+}
+
+function openLayoutPicker(){
+  const cards=TEMPLATE_LAYOUTS.map(l=>`
+    <div onclick="confirmAddPage('${l.key}')"
+      style="border:1px solid rgba(201,168,76,.3);border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;overflow:hidden"
+      onmouseover="this.style.borderColor='var(--gold)'"
+      onmouseout="this.style.borderColor='rgba(201,168,76,.3)'">
+      <div onclick="previewLayoutInNewTab(event,'${l.key}')" title="See what ${l.key} looks like before choosing it"
+        style="flex-shrink:0;width:58px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;background:rgba(201,168,76,.06);border-right:1px solid rgba(201,168,76,.25)"
+        onmouseover="event.stopPropagation();this.style.background='rgba(201,168,76,.22)'"
+        onmouseout="event.stopPropagation();this.style.background='rgba(201,168,76,.06)'">${TEMPLATE_VIEWS_ICON_MAP[l.key]||'▢'}</div>
+      <div onclick="confirmAddPage('${l.key}')" style="flex:1;min-width:0;padding:12px 14px;transition:background .15s"
+        onmouseover="this.style.background='rgba(201,168,76,.08)'"
+        onmouseout="this.style.background='transparent'">
+        <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
+        <div style="font-size:11px;color:var(--muted)">${l.desc}</div>
+      </div>
+    </div>`).join('');
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Choose a Starting View</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:16px">Click the icon on any card to open a live preview of that layout in a new tab — come back and click the name/description side to add it here.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+  `);
+}
+
+async function confirmAddPage(layoutKey){
+  const order=customPages.length;
+  const pageName=''; // blank for now — naming/renaming is separate future work
+  customPages.push({project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order});
+  await saveCustomPage(pageName,layoutKey,order);
+  popupClose();
+  renderAllPages();
+  openPage(CUSTOM_PAGE_BASE+order);
+}
+
+(async function buildPlaceholders(){
+  customPages=await loadCustomPages();
+  renderAllPages();
+
+  // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
+  const rail=document.getElementById('rightRail');
+  if(rail){
+    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('amitbooksRebuild')" data-tip="Ask Amit">
+      <div class="page-icon"><img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
+      <div class="page-info">
+        <div class="page-name">Ask Amit</div>
+        <div class="page-sub">Walk alongside</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-sync" onclick="openSyncModal()" data-tip="Sign In">
+      <div class="page-icon" id="rail-sync-icon">🔒</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-sync-name">Sign In</div>
+        <div class="page-sub" id="rail-sync-sub">Not Synced</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-demo" onclick="toggleDemoMode()" data-tip="Demo On">
+      <div class="page-icon" id="rail-demo-icon">🎬</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-demo-name">Demo On</div>
+        <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-home" onclick="goToHub()" data-tip="Back to the Hub">
+      <div class="page-icon">🏠</div>
+      <div class="page-info">
+        <div class="page-name">Home</div>
+        <div class="page-sub">Back to the Hub</div>
+      </div>
+    </div>`;
+    _updateDemoUI();
+    _updateSyncUI();
+  }
+
+  initPageTooltips('rightRail','left');
+})();
+
+// PAGE HOVER TOOLTIP — delegated on the given container, works no matter
+// how many items exist or whether that container is collapsed/expanded.
+// side: 'right' opens rightward (left sidebar); 'left' opens leftward
+// (right rail — opening rightward there would render off-screen).
+function initPageTooltips(containerId,side){
+  const tip=document.getElementById('pageHoverTip');
+  const nav=document.getElementById(containerId);
+  if(!tip||!nav)return;
+  nav.addEventListener('mouseover',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    tip.textContent=item.dataset.tip||'';
+    const r=item.getBoundingClientRect();
+    if(side==='left'){
+      tip.style.right=(window.innerWidth-r.left+8)+'px';
+      tip.style.left='auto';
+    } else {
+      tip.style.left=(r.right+8)+'px';
+      tip.style.right='auto';
+    }
+    tip.style.top=(r.top+r.height/2)+'px';
+    tip.style.transform='translateY(-50%)';
+    tip.classList.add('show');
+  });
+  nav.addEventListener('mouseout',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    if(e.relatedTarget&&item.contains(e.relatedTarget))return;
+    tip.classList.remove('show');
+  });
+}
+
+// CANONICAL LAYOUT: SPLIT VIEW — copied verbatim from TemplateViews.html
+// (Ryan's direct instruction: copy, don't recreate), added for the book
+// selector on Tab 1 of Introduction. Disconnected from the live-fetch
+// importer on purpose — Ryan's call, form only for now, real Supabase
+// book data (per signed-in user) wired in later.
+const spvInstances=new Map();
+function spvCreate(containerId,columns,rows,listTitle){
+  spvInstances.set(containerId,{columns,rows,selectedId:(rows[0]&&rows[0].id)||null,listTitle:listTitle||null});
+  spvRenderInstance(containerId);
+}
+function spvRenderInstance(containerId){
+  const wrap=document.getElementById(containerId);
+  const inst=spvInstances.get(containerId);
+  if(!wrap||!inst)return;
+  const item=inst.rows.find(r=>r.id===inst.selectedId);
+  const listTitleHtml=inst.listTitle?`<div class="spv-list-title">${inst.listTitle}</div>`:'';
+  wrap.innerHTML=`
+    <div class="spv-list-col">
+      ${listTitleHtml}
+      <div class="spv-list">${inst.rows.map(r=>`<div class="spv-item${r.id===inst.selectedId?' active':''}" onclick="spvSelect('${containerId}','${r.id}')">${r[inst.columns[0].key]}</div>`).join('')}</div>
+    </div>
+    <div class="spv-detail"><div class="dv-fields">${item?inst.columns.map(c=>`<div class="dv-label">${c.label}</div><div class="dv-value">${item[c.key]||'—'}</div>`).join(''):''}</div></div>`;
+}
+function spvSelect(containerId,id){
+  const inst=spvInstances.get(containerId);if(!inst)return;
+  inst.selectedId=id;
+  spvRenderInstance(containerId);
+  // Book selector (Tab 1) drives the header's context title — Ryan's
+  // direct instruction: whichever book is picked in the list becomes the
+  // "New" header's active context, same slot every other project's own
+  // active-record context uses (see #pageContext in the header markup).
+  if(containerId==='tv-mount-tab1'){
+    const row=inst.rows.find(r=>r.id===id);
+    const ctx=document.getElementById('pageContext');
+    if(ctx) ctx.textContent=row?row.name:'Select Your Books';
+  }
+}
+// Book-flavored sample data — placeholder rows standing in for real
+// books.* Supabase rows until this is wired to the signed-in user's
+// actual books. Password/gate column included as a visible placeholder
+// field only — no gate logic behind it yet.
+const BOOK_SAMPLE_COLUMNS=[
+  {key:'name',label:'Book Name'},
+  {key:'entity_type',label:'Entity Type'},
+  {key:'gated',label:'Password'},
+  {key:'created',label:'Created'}
+];
+// Open-book line icon — plain stroke SVG, not an emoji, per Ryan's
+// direct instruction: "professional, not cartoonish." Inherits currentColor
+// so it matches the sidebar's existing white/gold text treatment.
+const BOOK_ICON_SVG=`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.5C4 4 7 3.5 9.5 4.5C11 5.1 11.7 6 12 6.5C12.3 6 13 5.1 14.5 4.5C17 3.5 20 4 22 5.5V18C20 16.5 17 16 14.5 17C13 17.6 12.3 18.5 12 19C11.7 18.5 11 17.6 9.5 17C7 16 4 16.5 2 18V5.5Z"/><path d="M12 6.5V19"/></svg>`;
+const BOOK_SAMPLE_ROWS=[
+  {id:'b1',name:'Frick Farms',entity_type:'LLC',gated:'Set',created:'2026-06-01'},
+  {id:'b2',name:'Amit Ministries',entity_type:'Non-Profit',gated:'None',created:'2026-06-14'},
+  {id:'b3',name:'Ryan Personal',entity_type:'Sole Prop',gated:'Set',created:'2026-07-02'}
+];
+
+// CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+// added 2026-08-06. Multi-row overflow: the tab row grows as many rows
+// behind itself as it needs (plain CSS flex-wrap, see .ch-tab-nav) rather
+// than scrolling or truncating. Selecting a tab that isn't in the front
+// row brings its whole row forward — same behavior as classic multi-row
+// property-sheet tabs.
+function showChTab(detailNum,n){
+  const detail=document.getElementById('detail-'+detailNum);
+  const clickedBtn=event.target;
+  const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
+  if(tabNav){
+    // Only reorder when tabs have genuinely wrapped into multiple rows, and
+    // use a tolerance (not exact offsetTop equality) when grouping a row —
+    // .ch-tab-btn.active has a different margin-top than inactive tabs,
+    // which would otherwise misclassify the active tab as its own row.
+    const wrapped=tabNav.scrollHeight>clickedBtn.offsetHeight*1.5;
+    if(wrapped){
+      const rowTop=clickedBtn.offsetTop;
+      Array.from(tabNav.children)
+        .filter(b=>Math.abs(b.offsetTop-rowTop)<15)
+        .forEach(b=>tabNav.appendChild(b));
+    }
+  }
+  detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
+  clickedBtn.classList.add('active');
+}
+
+// Builds a real, working Tabbed View's inner markup for a given detail id —
+// used by renderAllPages() so a custom page whose detail_layout_type is
+// 'Tabbed View' gets the actual live layout, not placeholder text.
+function buildTabbedViewHtml(detailNum){
+  let tabNavHtml='',tabContentHtml='';
+  for(let t=1;t<=5;t++){
+    tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${detailNum},${t})">Tab ${t}</button>`;
+    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">Tab ${t} content goes here</div>`;
+  }
+  return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
+    <div class="ch-tab-main">${tabContentHtml}</div>`;
+}
+
+// ══════════════════════════════════════════════
+// LAYOUT IMPORTER — fetches TemplateViews.html at the moment a page needs
+// it, cuts out the exact CANONICAL LAYOUT block the person picked (code +
+// its own sample data, contiguous by design — see TemplateViews.html's own
+// "IMPORTING A SINGLE LAYOUT PIECE" note), runs it live, and calls that
+// layout's own create function. Nothing about any of the 14 layouts below
+// is hand-copied into this file ahead of time — this file only knows each
+// one's marker text, its container wrap class, and the one line that
+// creates it, exactly what a person would type by hand if copying it in
+// themselves. Tabbed View (above) is the one exception, kept as a fully
+// local, hand-wired implementation since it was built before this importer
+// existed and already works — no need to route it through a network fetch.
+//
+// REQUIRES being served over http(s) — a file:// page cannot fetch a
+// sibling file's contents (browsers block that at the protocol level, not
+// this code's choice). Run a local server (the Starter Kit's zero-dep dev
+// server, or `npx serve`, or similar) rather than double-clicking this
+// file, or the import will fail with an honest error in the page itself.
+// ══════════════════════════════════════════════
+const LAYOUT_IMPORT_MANIFEST={
+  'Row View':{marker:'ROW VIEW',deps:[],wrap:'rv-wrap',
+    call:id=>`rvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Detail View':{marker:'DETAIL VIEW',deps:['Row View'],wrap:'dv-wrap',
+    call:id=>`dvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);dvOpenForInstance('${id}',RV_SAMPLE_ROWS[0].id);`},
+  'Calendar View':{marker:'CALENDAR VIEW',deps:['Day View'],wrap:'cv-wrap',
+    call:id=>`cvCreate('${id}');`},
+  'Day View':{marker:'DAY VIEW',deps:[],wrap:'dvw-wrap',
+    call:id=>`dayViewCreate('${id}');`},
+  'Board View':{marker:'BOARD VIEW',deps:['Detail View'],wrap:'bv-wrap',
+    call:id=>`bvCreate('${id}',BV_SAMPLE_STATUSES,BV_SAMPLE_ROWS);`},
+  'Gallery View':{marker:'GALLERY VIEW',deps:[],wrap:'glv-wrap',
+    call:id=>`glvCreate('${id}',GLV_SAMPLE_ROWS);`},
+  'Dashboard View':{marker:'DASHBOARD VIEW',deps:[],wrap:'dbv-wrap',
+    call:id=>`dbvCreate('${id}',DBV_SAMPLE_TILES,DBV_SAMPLE_BARS);`},
+  'Split View':{marker:'SPLIT VIEW',deps:['Row View'],wrap:'spv-wrap',
+    call:id=>`spvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Form View':{marker:'FORM VIEW',deps:[],wrap:'fv-wrap',
+    call:id=>`fvCreate('${id}',FV_SAMPLE_FIELDS);`},
+  'Chart View':{marker:'CHART VIEW',deps:[],wrap:'chv-wrap',
+    call:id=>`chvCreate('${id}',CHV_SAMPLE_BARS,CHV_SAMPLE_LINES);`},
+  'Inbox View':{marker:'INBOX VIEW',deps:[],wrap:'ibv-wrap',
+    call:id=>`ibvCreate('${id}',IBV_SAMPLE_ROWS);`},
+  'Drawer View':{marker:'DRAWER VIEW',deps:[],wrap:'drv-wrap',
+    call:id=>`drvCreate('${id}',DRV_SAMPLE_ROWS);`},
+  'Tree View':{marker:'TREE VIEW',deps:[],wrap:'tv-wrap',
+    call:id=>`tvCreate('${id}',TV_SAMPLE_ROWS);`},
+  'Breadcrumb View':{marker:'BREADCRUMB VIEW',deps:[],wrap:'bcv-wrap',
+    call:id=>`bcvCreate('${id}','Pursuits',BCV_SAMPLE_ROOT);`}
+};
+
+let _tvSource=null;
+async function _fetchTemplateViewsSource(){
+  if(_tvSource) return _tvSource;
+  const res=await fetch('../Templates/TemplateViews.html');
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  _tvSource=await res.text();
+  return _tvSource;
+}
+
+let _tvCssInjected=false;
+function _injectTemplateViewsCss(src){
+  if(_tvCssInjected) return;
+  const m=src.match(/<style>([\s\S]*?)<\/style>/);
+  if(!m) return;
+  const tag=document.createElement('style');
+  tag.id='tv-imported-css';
+  tag.textContent=m[1];
+  document.head.appendChild(tag);
+  _tvCssInjected=true;
+}
+
+// Cuts the one block whose header comment reads "CANONICAL LAYOUT: <marker>"
+// — from that comment line down to wherever the NEXT block's own header
+// starts ("// CANONICAL LAYOUT: " or "// CANONICAL DESTINATION: "), or the
+// "// ── DEMO" wiring at the file's bottom for the last block. Anchored to
+// a real line start (must follow a newline) so a prose MENTION of another
+// block's name elsewhere in a comment can't be mistaken for that block's
+// actual header. Does not stop at every "// ══" divider — each block's own
+// header comment is closed by one of those BEFORE its code even starts, so
+// stopping there would cut every block down to nothing but its comment.
+function _extractCanonicalBlock(src,markerText){
+  const marker='// CANONICAL LAYOUT: '+markerText;
+  const mi=src.indexOf('\n'+marker);
+  if(mi===-1) return null;
+  const lineStart=mi+1;
+  let end=src.length;
+  for(const stop of ['\n// CANONICAL LAYOUT: ','\n// CANONICAL DESTINATION: ','\n// ── DEMO']){
+    const idx=src.indexOf(stop,lineStart+marker.length);
+    if(idx!==-1 && idx<end) end=idx;
+  }
+  return src.slice(lineStart,end);
+}
+
+// Loads a layout's block (and any dependency blocks — e.g. Detail View's
+// sample data lives inside Row View's own block) exactly once each, ever,
+// per page load. A second page using the same layout just calls its
+// already-loaded create function again with a new container id — the
+// block itself (its `const`s) can only be executed once without a
+// "already declared" error, same reason each script tag only runs once.
+const _tvLoadedLayouts=new Set();
+async function importLayoutFromTemplateViews(layoutKey){
+  const manifest=LAYOUT_IMPORT_MANIFEST[layoutKey];
+  if(!manifest) return {ok:false,reason:'"'+layoutKey+'" has no import entry yet'};
+  let src;
+  try{ src=await _fetchTemplateViewsSource(); }
+  catch(e){ return {ok:false,reason:'could not fetch TemplateViews.html ('+e.message+') — this page must be served over http(s), not opened as a file:// path'}; }
+  _injectTemplateViewsCss(src);
+  for(const key of [...manifest.deps,layoutKey]){
+    if(_tvLoadedLayouts.has(key)) continue;
+    const block=_extractCanonicalBlock(src,LAYOUT_IMPORT_MANIFEST[key].marker);
+    if(!block) return {ok:false,reason:'could not find the "'+key+'" block in TemplateViews.html'};
+    const tag=document.createElement('script');
+    tag.textContent=block;
+    document.body.appendChild(tag);
+    _tvLoadedLayouts.add(key);
+  }
+  return {ok:true};
+}
+
+// Fetches + runs the layout, then calls its create function against the
+// already-rendered mount div. Fire-and-forget from renderAllPages() (the
+// mount div itself renders synchronously and instantly; the real content
+// pops in a moment later once the fetch resolves).
+async function hydrateImportedLayout(detailNum,layoutKey){
+  const mountId='tv-mount-'+detailNum;
+  const status=await importLayoutFromTemplateViews(layoutKey);
+  const mount=document.getElementById(mountId);
+  if(!mount) return; // page was re-rendered away (e.g. a newer page replaced it) before the fetch finished
+  if(!status.ok){
+    mount.outerHTML=`<div class="detail-empty">Could not import "${layoutKey}" from TemplateViews.html — ${status.reason}.</div>`;
+    return;
+  }
+  try{ new Function(LAYOUT_IMPORT_MANIFEST[layoutKey].call(mountId))(); }
+  catch(e){ mount.innerHTML=`<div class="detail-empty">"${layoutKey}" loaded but hit an error running it: ${e.message}</div>`; }
+}
+
+function toggleRail(){
+  document.getElementById('rightRail').classList.toggle('expanded');
+}
+
+// HOME (right rail) — added 2026-08-06, Ryan's direct instruction, same
+// implementation as TemplateViews.html's own goToHub — kept identical
+// between both files on purpose, copy verbatim if either one changes.
+// Broadcasts on the shared 'amit_hub_tabs' channel first (the Hub itself
+// carries the matching listener — see amit-hub.html's own "AMIT HUB FOCUS
+// CHANNEL" comment); if a genuinely open Hub tab answers within the brief
+// window below, it focuses itself and nothing else happens here. Only
+// falls back to opening a new tab if nothing answered.
+//
+// RELATIVE PATH, NOT the hardcoded live URL (fixed 2026-08-06, real bug
+// Ryan caught testing this live) — BroadcastChannel can only ever be heard
+// by a tab on the exact same origin; that's a hard browser security
+// boundary, not something any code here can work around. A hardcoded
+// absolute https://ask-amit.github.io URL meant this could NEVER work
+// while testing this page locally (file:// or localhost) against an
+// already-open Hub tab on the real live site — always a different origin,
+// always silently falling through to opening a duplicate tab. A relative
+// path fixes both cases at once: locally it resolves to the local Hub
+// file (same origin as this page, channel actually works); once a real
+// project ships to ask-amit.github.io/Amit/ProjectName/ (one level under
+// Amit/, same as Hub/), this same relative path resolves to the exact
+// same live Hub URL as before — same origin there too, since every
+// shipped Amit project and the Hub itself sit as siblings under Amit/.
+const AMIT_HUB_URL='../Hub/amit-hub.html';
+function goToHub(){
+  if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  const ch=new BroadcastChannel('amit_hub_tabs');
+  let acked=false;
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.postMessage({type:'focus-requested'});
+  setTimeout(()=>{
+    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    ch.close();
+  },250);
+}
+
+function openPage(n){
+  document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
+  const page=document.getElementById('page-'+n);
+  const detail=document.getElementById('detail-'+n);
+  if(page)page.classList.add('active');
+  if(detail)detail.classList.add('active');
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebarPages').classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL DESTINATION: POPUP — NOT a layout type. Generic overlay that
+// hosts whatever layout instance (copied in from TemplateViews.html) is
+// mounted inside it — content-agnostic, same as a Page or Tab slot.
+// ══════════════════════════════════════════════
+function popupOpen(innerHtml){
+  let modal=document.getElementById('canonicalPopup');
+  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
+    ${innerHtml}
+  </div>`;
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
+  modal.style.display='flex';
+}
+function popupClose(){
+  const modal=document.getElementById('canonicalPopup');
+  if(modal) modal.style.display='none';
+}
+
+// ══════════════════════════════════════════════
+// LOGIN CONNECTION — the one live piece of this template. Supabase auth
+// only: knows who is signed in. No data reads/writes beyond that.
+// ══════════════════════════════════════════════
+if(db){
+  db.auth.onAuthStateChange(async (event,session)=>{
+    currentUser=session?session.user:null;
+    _updateSyncUI();
+    // re-pull this project's pages under the now-current owner, so a
+    // signed-in user's real Supabase page list replaces whatever the
+    // signed-out localStorage cache was showing
+    customPages=await loadCustomPages();
+    renderAllPages();
+  });
+}
+
+// Drives the Sign In/Out + Sync rail item.
+function _updateSyncUI(){
+  const item=document.getElementById('rail-sync');if(!item)return;
+  const icon=document.getElementById('rail-sync-icon');
+  const name=document.getElementById('rail-sync-name');
+  const sub=document.getElementById('rail-sync-sub');
+  if(currentUser){
+    icon.textContent='🔓';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out';item.title='Signed in · '+currentUser.email;
+    item.classList.add('active');
+  } else {
+    icon.textContent='🔒';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In';item.title='';
+    item.classList.remove('active');
+  }
+}
+
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+}
+
+// Drives the Demo rail item and flips the toggle.
+function toggleDemoMode(){
+  demoMode=!demoMode;
+  localStorage.setItem('amit_demo_mode',demoMode?'on':'off');
+  _updateDemoUI();
+  // A real project's own views should re-fetch their demo-scoped data
+  // here too, the same way Calendar View/Day View do in TemplateViews.html
+  // (cvActiveContainers.forEach(...), dayViewInstances.forEach(...)) —
+  // add that wiring once real layouts using fetchDemoRows exist on this
+  // page.
+}
+
+function _updateDemoUI(){
+  const icon=document.getElementById('rail-demo-icon');
+  const item=document.getElementById('rail-demo');
+  const name=document.getElementById('rail-demo-name');
+  const sub=document.getElementById('rail-demo-sub');
+  if(!item)return;
+  if(demoMode){
+    icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
+    item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+    item.classList.add('active');
+  } else {
+    icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
+    item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+    item.classList.remove('active');
+  }
+}
+
+// No local sign-in flow — Ryan's direct instruction: this page is only
+// ever reached from inside the Hub, which already handles sign-in. The
+// Supabase auth session (same project, same SB_URL/SB_KEY) is already
+// live by the time someone lands here; onAuthStateChange above just reads
+// whatever session already exists. openSyncModal() only ever offers
+// sign-out now — there is no sign-in path to open here anymore.
+function openSyncModal(){
+  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
+  alert('Sign in through the Hub — this page follows whichever account is already signed in there.');
+}
+
+// ══════════════════════════════════════════════
+// CLOCK / GREETING — visual only, no data behind it
+// ══════════════════════════════════════════════
+const AMIT_NAME_KEY='amit_user_name';
+function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
+
+function updateClock(){
+  const d=new Date();
+  const h=d.getHours();
+  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const name=getUserName();
+  const g=document.getElementById('greeting');if(g)g.textContent=name?sal+', '+name:sal;
+  const dt=document.getElementById('datetime');
+  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock,30000);
+</script>
+
+</body>
+</html>
