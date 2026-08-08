@@ -170,7 +170,14 @@ function Get-ComponentCategory($title) {
     $t = $title.ToLower()
     if ($t -match 'ryzen|intel core|celeron|pentium|xeon') { return 'CPU' }
     if ($t -match 'geforce|radeon|nvidia|quadro|rtx|gtx') { return 'GPU' }
-    if ($t -match 'ethernet|wi-?fi|wireless|network') { return 'Network' }
+    # Broadened 2026-08-08 (Ryan direct) to match categorizeHardware()'s
+    # already-correct regex in ComputerHealth_Dashboard.html - this copy
+    # had drifted narrower, so real network throughput data (Windows'
+    # virtual NDIS filter/QoS shim adapters, Tailscale, VPN adapters -
+    # none of which contain the literal word "network") was silently
+    # falling into 'Other' instead of its own Network category, even
+    # though the live Hardware tab already classified it correctly.
+    if ($t -match 'ethernet|wi-?fi|wireless|network|local area connection|tailscale|vpn|tunnel') { return 'Network' }
     if ($t -match 'asus|msi|gigabyte|asrock|biostar|ms-\d' -and $t -notmatch 'geforce|radeon') { return 'Motherboard' }
     if ($t -eq 'virtual memory') { return 'RAM' }
     if ($t -in @('total memory', 'generic memory', 'physical memory')) { return 'RAM' }
@@ -280,10 +287,20 @@ function Write-SharedResourceSample($metricStats = $null) {
     # entirely, since Chromium splits into many small processes instead of
     # one big one. Grouped by process name and summed instead, same wire
     # format ("Name=NNNMB") the dashboard already parses.
-    $topProcs = Get-Process | Group-Object Name | ForEach-Object {
+    $allGrouped = Get-Process | Group-Object Name | ForEach-Object {
         [PSCustomObject]@{ Name = $_.Name; TotalMB = [math]::Round(($_.Group | Measure-Object WorkingSet -Sum).Sum/1MB,0) }
-    } | Sort-Object TotalMB -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$($_.TotalMB)MB" }
+    }
+    $topProcs = $allGrouped | Sort-Object TotalMB -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$($_.TotalMB)MB" }
     $topStr = $topProcs -join ", "
+    # Real gap caught live 2026-08-08 (Ryan): browser memory only ever
+    # existed as a live snapshot (the Browser tab's own /api/browser call)
+    # - never fed into the same historical accumulator every other
+    # component uses, so it was silently absent from the Master Report
+    # regardless of how much history existed. Summed the same way the
+    # dashboard's own browser breakdown does (grouped by known browser
+    # process names, not a single process - Chromium splits into many).
+    $browserProcNames = @('chrome','msedge','firefox','brave','opera','vivaldi','iexplore')
+    $browserTotalMB = ($allGrouped | Where-Object { $browserProcNames -contains $_.Name } | Measure-Object -Property TotalMB -Sum).Sum
 
     # Real per-process CPU%, not a memory-based guess - see
     # resource_watcher.ps1 for the full explanation (Ryan direct
@@ -364,6 +381,9 @@ function Write-SharedResourceSample($metricStats = $null) {
         }
         Update-MetricStats $metricStats ([PSCustomObject]@{ component = 'RAM'; title = 'System Memory'; metricName = 'Used %'; category = 'Load' }) $usedPct
         Update-MetricStats $metricStats ([PSCustomObject]@{ component = 'CPU'; title = 'CPU Total'; metricName = 'Total Load %'; category = 'Load' }) $cpu
+        if ($null -ne $browserTotalMB) {
+            Update-MetricStats $metricStats ([PSCustomObject]@{ component = 'Browser'; title = 'All Browsers'; metricName = 'Memory'; category = 'Usage' }) $browserTotalMB
+        }
     }
 
     return [PSCustomObject]@{ time = $now; ramPct = $usedPct; cpuPct = $cpu; tempC = $tempC }

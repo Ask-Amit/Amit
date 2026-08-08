@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.49</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.50</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3304,8 +3304,14 @@ async function generateMasterReport() {
   btn.disabled = true;
   panel.innerHTML = 'Counting up everything on record for this computer…';
 
+  // Real bug caught live 2026-08-08 (Ryan): neither query below had an
+  // explicit row limit, so an unbounded .select() silently caps at
+  // Supabase/PostgREST's default (1000 rows) once real history builds up -
+  // CPU alone can produce 70+ distinct sensors per session, so that cap
+  // was being hit well before every component's data ever got counted.
+  // .limit() set high enough that a real multi-month history won't hit it.
   const { data: events, error: evErr } = await db.from('amit_device_events')
-    .select('id, created_at').eq('device_id', targetId).order('created_at', { ascending: true });
+    .select('id, created_at').eq('device_id', targetId).order('created_at', { ascending: true }).limit(20000);
   if (evErr || !events || events.length === 0) {
     panel.innerHTML = 'No recorded sessions yet for this computer - run a few tracking sessions first, then generate a master report.';
     btn.disabled = false;
@@ -3321,7 +3327,7 @@ async function generateMasterReport() {
 
   const { data: metricRows, error: mErr } = await db.from('amit_device_session_metrics')
     .select('event_id, component, title, metric_name, category, min_value, max_value, avg_value, stddev_value')
-    .eq('device_id', targetId);
+    .eq('device_id', targetId).limit(200000);
   if (mErr) { panel.innerHTML = 'Could not load sensor history: ' + mErr.message; btn.disabled = false; return; }
 
   panel.innerHTML += '<br>Building the timeline, sensor by sensor…';
@@ -3336,7 +3342,7 @@ async function generateMasterReport() {
     sensorSeries.get(key).push({
       order: eventOrderIndex.get(row.event_id), date: eventDateMap.get(row.event_id),
       avg: row.avg_value, min: row.min_value, max: row.max_value,
-      component: row.component, title: row.title, category: row.category
+      component: row.component, title: row.title, category: row.category, metricName: row.metric_name
     });
   });
   sensorSeries.forEach(series => series.sort((a, b) => a.order - b.order));
@@ -3355,8 +3361,13 @@ async function generateMasterReport() {
 
   const perSensorResults = active.map(a => {
     const s = a.series;
-    const label = s[0].title ? `${s[0].component} — ${s[0].title}` : s[0].component;
-    return { key: a.key, label, category: s[0].category, series: s, trend: mrTrendFor(s) };
+    // Real bug caught live 2026-08-08 (Ryan): the label used to be just
+    // component + hardware name, so every distinct sensor on the same
+    // chip (Core #1 Clock, Core #2 Clock, Package Temp, Voltage...) all
+    // rendered as the identical-looking bullet - metric_name is what
+    // actually distinguishes them and was being dropped entirely.
+    const label = s[0].title ? `${s[0].component} — ${s[0].title} — ${s[0].metricName}` : `${s[0].component} — ${s[0].metricName}`;
+    return { key: a.key, label, component: s[0].component, category: s[0].category, series: s, trend: mrTrendFor(s) };
   });
 
   // Full synthesis pass - the "grand finale" Ryan asked for: not just
@@ -3380,15 +3391,36 @@ async function generateMasterReport() {
   const suggestions = bottlenecks.map(r => ({ label: r.label, text: mrSuggestionFor(r.label) }));
   const stableCount = perSensorResults.filter(r => r.trend.kind === 'stable').length;
 
+  // Component-by-component rollup - Ryan's direct request 2026-08-08:
+  // the overview should read like a real discussion ("most components
+  // are running normally, these are the areas of concern, go check the
+  // RAM tab for detail"), not a flat sensor dump. One verdict per
+  // installed component, pointing at whichever tab actually needs a
+  // closer look.
+  const compMap = new Map();
+  perSensorResults.forEach(r => {
+    if (!compMap.has(r.component)) compMap.set(r.component, { component: r.component, total: 0, concernLabels: [], isBottleneck: false });
+    const c = compMap.get(r.component);
+    c.total++;
+    if (concernSensors.includes(r)) c.concernLabels.push(r.label);
+    if (bottlenecks.includes(r)) c.isBottleneck = true;
+  });
+  const componentSummary = [...compMap.values()].map(c => ({
+    component: c.component, total: c.total, concernCount: c.concernLabels.length,
+    status: c.isBottleneck ? 'attention' : c.concernLabels.length > 0 ? 'watch' : 'normal'
+  })).sort((a, b) => (a.status === 'attention' ? 0 : a.status === 'watch' ? 1 : 2) - (b.status === 'attention' ? 0 : b.status === 'watch' ? 1 : 2));
+
+  const normalComps = componentSummary.filter(c => c.status === 'normal').map(c => c.component);
+  const watchComps = componentSummary.filter(c => c.status !== 'normal');
+
   let overall;
-  if (bottlenecks.length > 0) {
-    overall = `Over these ${n} sessions, this computer shows a real, measurable trend worth attention: <strong>${bottlenecks.map(r => escHtml(r.label)).join(', ')}</strong> ${bottlenecks.length === 1 ? 'is' : 'are'} moving in the wrong direction - not just noise from one bad session, but a real pattern across the whole history on record. Everything else being tracked ${strengthSensors.length > 0 ? 'is holding up well' : 'is worth a closer look too - see the detail below'}.`;
-  } else if (perSensorResults.length > 0 && stableCount >= perSensorResults.length * 0.7) {
-    overall = `Over these ${n} sessions, this computer has stayed remarkably consistent - most of what's being tracked hasn't meaningfully changed session to session, which is a good sign of a stable, healthy machine.`;
-  } else if (perSensorResults.length === 0) {
+  if (perSensorResults.length === 0) {
     overall = `${n} session${n === 1 ? '' : 's'} were reviewed, but no sensors had enough real, non-zero data yet to call a trend. Run a few more sessions and check back.`;
+  } else if (watchComps.length === 0) {
+    overall = `We reviewed ${n} session${n === 1 ? '' : 's'} for this computer, covering every component installed - ${escHtml(normalComps.join(', '))}. All of it is running normally. Nothing here needs your attention right now.`;
   } else {
-    overall = `Over these ${n} sessions, this computer shows a mix - some things holding steady, some moving around session to session. Nothing here reads as alarming, but here's the real detail behind each one.`;
+    const watchNames = watchComps.map(c => escHtml(c.component)).join(', ');
+    overall = `We reviewed ${n} session${n === 1 ? '' : 's'} for this computer. Most of what's installed is running normally${normalComps.length ? ' - ' + escHtml(normalComps.join(', ')) : ''}. ${watchComps.length === 1 ? 'One area is' : 'A few areas are'} worth watching: <strong>${watchNames}</strong>. ${bottlenecks.length ? `Start with <strong>${escHtml(bottlenecks[0].component)}</strong> - go check that tab for the full detail.` : 'Check those tabs for the full detail.'}`;
   }
 
   // Ryan's direct request 2026-08-08: name the excluded-sensor count
@@ -3405,7 +3437,7 @@ async function generateMasterReport() {
   }
 
   const reportData = {
-    n, overall, excludedNote,
+    n, overall, excludedNote, componentSummary,
     excludedLabels: excluded.map(e => e.series[0]?.title ? `${e.series[0].component} — ${e.series[0].title}` : e.series[0]?.component).filter(Boolean),
     sensors: perSensorResults.map(r => ({ label: r.label, component: r.series[0]?.component || 'Other', trend: r.trend, series: r.series })),
     insight: {
@@ -3443,9 +3475,16 @@ async function generateMasterReport() {
 // Shared between the live panel above and reopening a saved report from
 // History (actuallyOpenHistoryDetail) - same rendering either way.
 function renderMasterReportHtml(reportData) {
-  const { n, overall, excludedNote, sensors, insight } = reportData;
+  const { n, overall, excludedNote, sensors, insight, componentSummary } = reportData;
   let html = `<div style="font-size:16px;font-weight:600;color:#e0a72e;margin-bottom:6px">Master Report — ${n} session${n === 1 ? '' : 's'} reviewed</div>`;
   html += `<p style="margin:0 0 14px;line-height:1.6">${overall}</p>`;
+  if (componentSummary && componentSummary.length) {
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px">' + componentSummary.map(c => {
+      const c1 = c.status === 'attention' ? '#d05555' : c.status === 'watch' ? '#e0a72e' : '#4caf6d';
+      const label = c.status === 'normal' ? 'Normal' : c.status === 'watch' ? 'Worth watching' : 'Needs attention';
+      return `<span style="font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid ${c1};color:${c1}">${escHtml(c.component)} — ${label}</span>`;
+    }).join('') + '</div>';
+  }
   if (insight && insight.suggestions && insight.suggestions.length) {
     html += '<div style="margin:0 0 14px;padding:10px 14px;background:rgba(224,167,46,0.06);border:1px solid rgba(224,167,46,0.25);border-radius:8px">' +
       '<div style="font-size:12px;font-weight:600;color:#e0a72e;margin-bottom:6px">Suggestions</div>' +
@@ -3516,7 +3555,7 @@ function mrTrendColor(kind) {
 // time-stamped, and carrying the computer's own ID so the report stays
 // identifiable with the machine it came from wherever it ends up.
 function buildMasterReportStandaloneHtml(reportData) {
-  const { n, overall, excludedNote, sensors, insight, computerId, computerName, generatedAt } = reportData;
+  const { n, overall, excludedNote, sensors, insight, componentSummary, computerId, computerName, generatedAt } = reportData;
   const genDate = new Date(generatedAt || Date.now());
   const genStr = genDate.toLocaleString();
 
@@ -3533,11 +3572,30 @@ function buildMasterReportStandaloneHtml(reportData) {
 
   const kpi = (label, value, color) => `<div class="mr-kpi"><div class="mr-kpi-val" style="color:${color || 'var(--gold)'}">${value}</div><div class="mr-kpi-label">${label}</div></div>`;
 
+  const compStatusColor = st => st === 'attention' ? '#d9534f' : st === 'watch' ? '#e0a72e' : '#4caf6d';
+  const compStatusLabel = st => st === 'attention' ? 'Needs attention' : st === 'watch' ? 'Worth watching' : 'Normal';
+  const componentSummaryHtml = (componentSummary && componentSummary.length) ? `
+    <section class="mr-panel" style="margin-bottom:20px">
+      <h2>Component by component</h2>
+      <p style="margin:0 0 12px;color:var(--muted)">One verdict per piece of hardware installed on this computer. Click any row to jump straight to its tab.</p>
+      <div class="mr-comp-grid">
+        ${componentSummary.map((c, ci) => `<button class="mr-comp-row" style="border-color:${compStatusColor(c.status)}" onclick="mrShowTab('${componentNames.indexOf(c.component) + 1}')">
+          <span class="mr-comp-dot" style="background:${compStatusColor(c.status)}"></span>
+          <span class="mr-comp-name">${esc(c.component)}</span>
+          <span class="mr-comp-status" style="color:${compStatusColor(c.status)}">${compStatusLabel(c.status)}</span>
+        </button>`).join('')}
+      </div>
+    </section>` : '';
+
   const overviewHtml = `
+    <div class="mr-overview-toolbar">
+      <button class="mr-tab-btn" onclick="mrPrintOverview()">🖨 Print This Overview</button>
+    </div>
     <section class="mr-hero">
       <div class="mr-hero-label">Overall Assessment</div>
       <p class="mr-hero-text">${overall}</p>
     </section>
+    ${componentSummaryHtml}
     <section class="mr-kpi-row">
       ${kpi('Sessions Reviewed', n)}
       ${kpi('Components Tracked', componentNames.length)}
@@ -3633,6 +3691,15 @@ function buildMasterReportStandaloneHtml(reportData) {
   .mr-suggest-label { font-weight:600; color:var(--gold); font-size:13px; margin-bottom:4px; }
   .mr-suggest-text { font-size:13px; color:var(--text); line-height:1.5; }
   .mr-comp-title { color:var(--gold); font-size:20px; margin:0 0 16px; }
+  .mr-overview-toolbar { text-align:right; margin-bottom:12px; }
+  .mr-comp-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
+  .mr-comp-row { display:flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid; border-radius:8px; padding:10px 12px; cursor:pointer; text-align:left; font-family:inherit; font-size:13px; color:var(--text); }
+  .mr-comp-dot { width:9px; height:9px; border-radius:50%; flex:none; }
+  .mr-comp-name { flex:1; font-weight:600; }
+  .mr-comp-status { font-size:11px; white-space:nowrap; }
+  body.mr-printing-overview .mr-tab-panel { display:none !important; }
+  body.mr-printing-overview #mr-tab-panel-0 { display:block !important; }
+  body.mr-printing-overview .mr-overview-toolbar { display:none !important; }
   .mr-sensor-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:16px; page-break-inside:avoid; }
   .mr-sensor-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
   .mr-dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex:none; }
@@ -3667,6 +3734,18 @@ function buildMasterReportStandaloneHtml(reportData) {
       document.querySelectorAll('.mr-tab-btn').forEach(function(b){ b.classList.remove('active'); });
       document.getElementById('mr-tab-panel-'+i).classList.add('active');
       document.getElementById('mr-tab-btn-'+i).classList.add('active');
+    }
+    // Prints just the Overview page - Ryan's direct request 2026-08-08 -
+    // rather than the full multi-tab document. Temporarily hides every
+    // other tab panel for the print pass, then restores normal behavior
+    // right after (both on the print dialog closing and as a fallback
+    // timeout, since not every browser fires afterprint reliably).
+    function mrPrintOverview() {
+      document.body.classList.add('mr-printing-overview');
+      var restore = function() { document.body.classList.remove('mr-printing-overview'); };
+      window.onafterprint = restore;
+      window.print();
+      setTimeout(restore, 3000);
     }
   <\/script>
 </body></html>`;

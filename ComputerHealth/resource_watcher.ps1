@@ -60,7 +60,10 @@ function Get-ComponentCategory($title) {
     $t = $title.ToLower()
     if ($t -match 'ryzen|intel core|celeron|pentium|xeon') { return 'CPU' }
     if ($t -match 'geforce|radeon|nvidia|quadro|rtx|gtx') { return 'GPU' }
-    if ($t -match 'ethernet|wi-?fi|wireless|network') { return 'Network' }
+    # Same fix as app_behavior_watcher.ps1's copy, same date/reason - kept
+    # byte-for-byte equivalent, matching categorizeHardware()'s already-
+    # correct regex in ComputerHealth_Dashboard.html.
+    if ($t -match 'ethernet|wi-?fi|wireless|network|local area connection|tailscale|vpn|tunnel') { return 'Network' }
     if ($t -match 'asus|msi|gigabyte|asrock|biostar|ms-\d' -and $t -notmatch 'geforce|radeon') { return 'Motherboard' }
     if ($t -eq 'virtual memory') { return 'RAM' }
     if ($t -in @('total memory', 'generic memory', 'physical memory')) { return 'RAM' }
@@ -147,14 +150,81 @@ $lineCount = 1
 $captureCount = 0
 $fastStartCaptures = 3
 $fastStartIntervalSeconds = 5
+# Real correction, Ryan direct 2026-08-02: the RAM-based top-5 list was
+# being shown as if it explained CPU usage too ("the same list also tends
+# to show who's driving CPU") - that's not measured, just a guess, and
+# Ryan caught it directly. Real per-process CPU% requires two samples of
+# each process's cumulative TotalProcessorTime with a known time gap
+# between them (the same method Task Manager uses) - a single instantaneous
+# read has no "rate" to compute. These persist across loop iterations so
+# each pass can diff against the previous one.
+$numLogicalCores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+$prevCpuTimes = $null
+$prevCpuSampleTime = $null
 while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     $os = Get-CimInstance Win32_OperatingSystem
     $totalMB = [math]::Round($os.TotalVisibleMemorySize/1024, 0)
     $freeMB = [math]::Round($os.FreePhysicalMemory/1024, 0)
     $usedPct = [math]::Round((($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize) * 100, 1)
 
-    $topProcs = Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$([math]::Round($_.WorkingSet/1MB,0))MB" }
+    # Real bug caught live 2026-08-02 (Ryan): ranking individual PROCESSES
+    # by WorkingSet buries browsers entirely - Chromium-based browsers split
+    # into a separate process per tab/extension/GPU/utility, so no single
+    # msedge.exe instance is ever the biggest thing on the list even when
+    # the browser's true combined footprint (all instances added together)
+    # is the actual largest consumer of RAM on the machine. Group by
+    # process NAME and sum WorkingSet across every instance first, so
+    # "msedge" (or "chrome") shows its real total, the same way a person
+    # would actually think about "how much is my browser using."
+    # Kept in the exact same "Name=NNNMB" wire format the dashboard's
+    # parseResourceLine regex expects - instance count is deliberately not
+    # appended here, since that would break the existing parse.
+    $allGrouped = Get-Process | Group-Object Name | ForEach-Object {
+        [PSCustomObject]@{ Name = $_.Name; TotalMB = [math]::Round(($_.Group | Measure-Object WorkingSet -Sum).Sum/1MB,0) }
+    }
+    $topProcs = $allGrouped | Sort-Object TotalMB -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$($_.TotalMB)MB" }
     $topStr = $topProcs -join ", "
+    # Same fix as app_behavior_watcher.ps1's copy, same date/reason -
+    # browser memory only ever existed as a live snapshot before this,
+    # never fed into the historical accumulator like every other
+    # component, so it was silently absent from the Master Report.
+    $browserProcNames = @('chrome','msedge','firefox','brave','opera','vivaldi','iexplore')
+    $browserTotalMB = ($allGrouped | Where-Object { $browserProcNames -contains $_.Name } | Measure-Object -Property TotalMB -Sum).Sum
+
+    # Real per-process CPU%, not a memory-based guess - Ryan direct
+    # 2026-08-02: "if these things are actually using that much of the
+    # CPU, code should be about two percent, powershell about one point
+    # seven five" - he wants percentages that actually correspond to real
+    # measured CPU time, the same method Task Manager uses: cumulative
+    # TotalProcessorTime (seconds of CPU time consumed since the process
+    # started) sampled twice with a known gap, delta / elapsed / core
+    # count = % of total system CPU. Grouped by process name (summed
+    # across all instances) for the same reason the RAM list above is -
+    # a browser split into many processes should show its real combined
+    # total, not disappear.
+    $nowForCpu = Get-Date
+    $curCpuTimes = @{}
+    Get-Process | Group-Object Name | ForEach-Object {
+        $curCpuTimes[$_.Name] = ($_.Group | Measure-Object TotalProcessorTime -Property @{Expression={$_.TotalProcessorTime.TotalSeconds}} -Sum).Sum
+    }
+    $topCpuStr = ""
+    if ($prevCpuTimes -and $prevCpuSampleTime -and $numLogicalCores -gt 0) {
+        $elapsedSeconds = ($nowForCpu - $prevCpuSampleTime).TotalSeconds
+        if ($elapsedSeconds -gt 0) {
+            $topCpuList = $curCpuTimes.Keys | ForEach-Object {
+                $name = $_
+                if ($prevCpuTimes.ContainsKey($name)) {
+                    $deltaSeconds = $curCpuTimes[$name] - $prevCpuTimes[$name]
+                    if ($deltaSeconds -lt 0) { $deltaSeconds = 0 }
+                    $pct = [math]::Round(($deltaSeconds / $elapsedSeconds / $numLogicalCores) * 100, 2)
+                    [PSCustomObject]@{ Name = $name; Pct = $pct }
+                }
+            } | Where-Object { $_ -and $_.Pct -gt 0 } | Sort-Object Pct -Descending | Select-Object -First 5
+            $topCpuStr = ($topCpuList | ForEach-Object { "$($_.Name)=$($_.Pct)%" }) -join ", "
+        }
+    }
+    $prevCpuTimes = $curCpuTimes
+    $prevCpuSampleTime = $nowForCpu
 
     $sensorDump = ""
     $trimmed = $null
@@ -184,7 +254,7 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     $cpuLine = if ($trimmed) { $trimmed | Where-Object { $_ -match 'Load>CPU Total=([\d.]+)' } | Select-Object -First 1 } else { $null }
     $cpu = if ($cpuLine -and $cpuLine -match 'Load>CPU Total=([\d.]+)') { [double]$matches[1] } else { (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average }
 
-    Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') RAM:${freeMB}MB-free/${totalMB}MB-total(${usedPct}%used) CPU:${cpu}% TOP5:[$topStr] SENSORS:[$sensorDump]" -Encoding utf8
+    Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') RAM:${freeMB}MB-free/${totalMB}MB-total(${usedPct}%used) CPU:${cpu}% TOP5:[$topStr] TOPCPU:[$topCpuStr] SENSORS:[$sensorDump]" -Encoding utf8
     $lineCount++
 
     # Same running-tally feed App Behavior does - every sensor reading
@@ -206,6 +276,9 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     }
     Update-MetricStats $metricStats ([PSCustomObject]@{ component = 'RAM'; title = 'System Memory'; metricName = 'Used %'; category = 'Load' }) $usedPct
     Update-MetricStats $metricStats ([PSCustomObject]@{ component = 'CPU'; title = 'CPU Total'; metricName = 'Total Load %'; category = 'Load' }) $cpu
+    if ($null -ne $browserTotalMB) {
+        Update-MetricStats $metricStats ([PSCustomObject]@{ component = 'Browser'; title = 'All Browsers'; metricName = 'Memory'; category = 'Usage' }) $browserTotalMB
+    }
 
     # Live snapshot, every pass - same reduction the final write uses, just
     # run against the running totals as they stand RIGHT NOW instead of
