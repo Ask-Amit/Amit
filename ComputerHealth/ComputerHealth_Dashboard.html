@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.52</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.53</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3479,7 +3479,16 @@ async function generateMasterReport() {
     },
     computerId: targetId,
     computerName: historyComputerName || deviceName || 'This Computer',
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
+    // Ryan's direct request 2026-08-08: a report generated quarterly
+    // needs to stay accurate to the exact window of sessions it actually
+    // covered, permanently - not silently reflect "whatever is current"
+    // if reopened later. events is already sorted oldest-to-newest, so
+    // the first/last entries ARE the real coverage window. Stored once,
+    // frozen into event_detail.report when saved - reopening this exact
+    // report from History will always show this same range, never today's.
+    periodStart: events[0].created_at,
+    periodEnd: events[events.length - 1].created_at
   };
 
   _lastMasterReportData = reportData;
@@ -3496,7 +3505,7 @@ async function generateMasterReport() {
     await db.from('amit_device_events').insert({
       device_id: targetId, user_id: currentUser.id, event_type: 'master_report',
       severity: bottlenecks.length > 0 ? 'warning' : 'info',
-      summary: `Master Report — ${n} session${n === 1 ? '' : 's'} reviewed`,
+      summary: `Master Report — ${n} session${n === 1 ? '' : 's'}, covering ${mrDateRangeStr(reportData.periodStart, reportData.periodEnd)}`,
       event_detail: { mainProgram: 'Master Report', report: reportData }
     });
     loadHistory();
@@ -3505,9 +3514,16 @@ async function generateMasterReport() {
 
 // Shared between the live panel above and reopening a saved report from
 // History (actuallyOpenHistoryDetail) - same rendering either way.
+function mrDateRangeStr(periodStart, periodEnd) {
+  if (!periodStart || !periodEnd) return '';
+  const s = new Date(periodStart), e = new Date(periodEnd);
+  const fmt = d => d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  return s.toDateString() === e.toDateString() ? fmt(s) : `${fmt(s)} – ${fmt(e)}`;
+}
 function renderMasterReportHtml(reportData) {
-  const { n, overall, excludedNote, sensors, insight, componentSummary } = reportData;
-  let html = `<div style="font-size:16px;font-weight:600;color:#e0a72e;margin-bottom:6px">Master Report — ${n} session${n === 1 ? '' : 's'} reviewed</div>`;
+  const { n, overall, excludedNote, sensors, insight, componentSummary, periodStart, periodEnd } = reportData;
+  let html = `<div style="font-size:16px;font-weight:600;color:#e0a72e;margin-bottom:2px">Master Report — ${n} session${n === 1 ? '' : 's'} reviewed</div>`;
+  html += `<div style="font-size:12px;color:#8a8f99;margin-bottom:10px;font-family:ui-monospace,'SFMono-Regular',Consolas,monospace">Covers ${mrDateRangeStr(periodStart, periodEnd)} — this exact window is locked in permanently, even if reopened later</div>`;
   html += `<p style="margin:0 0 14px;line-height:1.6">${overall}</p>`;
   if (componentSummary && componentSummary.length) {
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px">' + componentSummary.map(c => {
@@ -3586,7 +3602,7 @@ function mrTrendColor(kind) {
 // time-stamped, and carrying the computer's own ID so the report stays
 // identifiable with the machine it came from wherever it ends up.
 function buildMasterReportStandaloneHtml(reportData) {
-  const { n, overall, excludedNote, sensors, insight, componentSummary, computerId, computerName, generatedAt } = reportData;
+  const { n, overall, excludedNote, sensors, insight, componentSummary, computerId, computerName, generatedAt, periodStart, periodEnd } = reportData;
   const genDate = new Date(generatedAt || Date.now());
   const genStr = genDate.toLocaleString();
 
@@ -3754,7 +3770,7 @@ function buildMasterReportStandaloneHtml(reportData) {
       <h1>Master Report</h1>
       <div class="mr-header-meta">Generated ${esc(genStr)}<br>Computer ID: ${esc(computerId)}</div>
     </div>
-    <div class="mr-header-sub">${esc(computerName)} — ${n} session${n === 1 ? '' : 's'} reviewed, oldest to newest</div>
+    <div class="mr-header-sub">${esc(computerName)} — ${n} session${n === 1 ? '' : 's'} reviewed, covering ${esc(mrDateRangeStr(periodStart, periodEnd))}</div>
     <nav class="mr-tabs">${tabButtons}</nav>
   </header>
   <main>${tabPanels}</main>
