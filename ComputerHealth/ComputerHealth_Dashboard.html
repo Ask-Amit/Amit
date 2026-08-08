@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.48</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.49</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3259,7 +3259,7 @@ function fmtMasterNum(v) {
   return Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : (Math.round(v * 100) / 100);
 }
 function mrTrendFor(series) {
-  if (series.length < 2) return { verdict: 'only one real reading so far - not enough history yet to call a trend', kind: 'thin' };
+  if (series.length < 2) return { verdict: 'only one real reading so far - not enough history yet to call a trend', kind: 'thin', relDelta: 0, relSpread: 0 };
   const vals = series.map(r => (r.avg != null ? r.avg : (r.min + r.max) / 2));
   const meanVal = vals.reduce((a, b) => a + b, 0) / vals.length;
   const maxVal = Math.max(...vals), minVal = Math.min(...vals);
@@ -3268,10 +3268,26 @@ function mrTrendFor(series) {
   const first = vals[0], last = vals[vals.length - 1];
   const delta = last - first;
   const relDelta = meanVal !== 0 ? delta / Math.abs(meanVal) : delta;
-  if (relSpread > 0.6) return { verdict: 'swings a lot from session to session - real variability, not a steady baseline', kind: 'volatile' };
-  if (relDelta > 0.25) return { verdict: 'trending upward across these sessions', kind: 'rising' };
-  if (relDelta < -0.25) return { verdict: 'trending downward across these sessions', kind: 'falling' };
-  return { verdict: 'stayed steady across every session', kind: 'stable' };
+  if (relSpread > 0.6) return { verdict: 'swings a lot from session to session - real variability, not a steady baseline', kind: 'volatile', relDelta, relSpread };
+  if (relDelta > 0.25) return { verdict: 'trending upward across these sessions', kind: 'rising', relDelta, relSpread };
+  if (relDelta < -0.25) return { verdict: 'trending downward across these sessions', kind: 'falling', relDelta, relSpread };
+  return { verdict: 'stayed steady across every session', kind: 'stable', relDelta, relSpread };
+}
+// Which direction is "worse" for a given sensor, by name pattern - lets
+// the synthesis below tell strengths from concerns instead of just
+// reporting raw movement with no judgment attached.
+function mrPolarity(label) {
+  return /temp|latency|error|crash|wear|used|queue|response|fault|retr|dropped|reject|backlog/i.test(label) ? 'bad-if-high' : 'neutral';
+}
+function mrSuggestionFor(label) {
+  const l = label.toLowerCase();
+  if (/temp/.test(l)) return 'Keep an eye on cooling - clean out dust, confirm fans spin freely, and check case airflow.';
+  if (/latency|dpc|interrupt/.test(l)) return 'Check for a driver update - GPU, network, and USB drivers are the most common cause of rising input lag.';
+  if (/response|queue|backlog/.test(l)) return 'Background load is creeping up - check what\'s launching at startup and consider trimming it.';
+  if (/used|capacity|free space/.test(l)) return 'Usage is climbing - consider adding capacity or clearing out what\'s no longer needed.';
+  if (/wear|life/.test(l)) return 'Drive wear is increasing - worth having a backup plan in place before it becomes urgent.';
+  if (/error|crash|fault/.test(l)) return 'Worth reviewing what changed recently - a driver, an update, or new software around when this started climbing.';
+  return 'Worth keeping an eye on over the next few sessions.';
 }
 function toggleMasterReportDetail(i) {
   const el = document.getElementById('mrDetail' + i);
@@ -3343,12 +3359,30 @@ async function generateMasterReport() {
     return { key: a.key, label, category: s[0].category, series: s, trend: mrTrendFor(s) };
   });
 
-  const risingConcern = perSensorResults.filter(r => r.trend.kind === 'rising' && /temp|latency|error|crash|wear|used|queue/i.test(r.label));
+  // Full synthesis pass - the "grand finale" Ryan asked for: not just
+  // per-sensor movement, but an actual judgment. Strengths / concerns /
+  // bottlenecks / suggestions, the way a real technician's writeup would
+  // read, not a data dump.
+  const concernSensors = [], strengthSensors = [];
+  perSensorResults.forEach(r => {
+    const pol = mrPolarity(r.label);
+    if (pol === 'bad-if-high') {
+      if (r.trend.kind === 'rising' || r.trend.kind === 'volatile') concernSensors.push(r);
+      else if (r.trend.kind === 'falling' || r.trend.kind === 'stable') strengthSensors.push(r);
+    } else if (r.trend.kind === 'stable') {
+      strengthSensors.push(r);
+    }
+  });
+  // Bottlenecks: the concerns moving fastest, ranked by how much they've
+  // actually shifted relative to their own baseline - not just flagged,
+  // but ranked, so the top 1-3 genuinely are "the thing to look at first."
+  const bottlenecks = concernSensors.slice().sort((a, b) => Math.abs(b.trend.relDelta || b.trend.relSpread) - Math.abs(a.trend.relDelta || a.trend.relSpread)).slice(0, 3);
+  const suggestions = bottlenecks.map(r => ({ label: r.label, text: mrSuggestionFor(r.label) }));
   const stableCount = perSensorResults.filter(r => r.trend.kind === 'stable').length;
 
   let overall;
-  if (risingConcern.length > 0) {
-    overall = `Over these ${n} sessions, this computer shows a real, measurable trend worth attention: <strong>${risingConcern.map(r => escHtml(r.label)).join(', ')}</strong> ${risingConcern.length === 1 ? 'is' : 'are'} climbing over time - not just noise from one bad session, but a real pattern across the whole history on record.`;
+  if (bottlenecks.length > 0) {
+    overall = `Over these ${n} sessions, this computer shows a real, measurable trend worth attention: <strong>${bottlenecks.map(r => escHtml(r.label)).join(', ')}</strong> ${bottlenecks.length === 1 ? 'is' : 'are'} moving in the wrong direction - not just noise from one bad session, but a real pattern across the whole history on record. Everything else being tracked ${strengthSensors.length > 0 ? 'is holding up well' : 'is worth a closer look too - see the detail below'}.`;
   } else if (perSensorResults.length > 0 && stableCount >= perSensorResults.length * 0.7) {
     overall = `Over these ${n} sessions, this computer has stayed remarkably consistent - most of what's being tracked hasn't meaningfully changed session to session, which is a good sign of a stable, healthy machine.`;
   } else if (perSensorResults.length === 0) {
@@ -3370,18 +3404,35 @@ async function generateMasterReport() {
     excludedNote = `We identified ${excluded.length} sensor${excluded.length === 1 ? '' : 's'} that ${excluded.length === 1 ? 'has' : 'have'} produced zero data in every session since ${sinceStr}, and we've turned ${excluded.length === 1 ? 'it' : 'them'} off from this analysis for now. This isn't permanent - the moment ${excluded.length === 1 ? 'it reports' : 'any of them report'} a real reading again, ${excluded.length === 1 ? 'it' : 'they'}'ll automatically come back into future reports.`;
   }
 
-  const reportData = { n, overall, excludedNote, excludedLabels: excluded.map(e => e.series[0]?.title ? `${e.series[0].component} — ${e.series[0].title}` : e.series[0]?.component).filter(Boolean), sensors: perSensorResults.map(r => ({ label: r.label, trend: r.trend, series: r.series })) };
+  const reportData = {
+    n, overall, excludedNote,
+    excludedLabels: excluded.map(e => e.series[0]?.title ? `${e.series[0].component} — ${e.series[0].title}` : e.series[0]?.component).filter(Boolean),
+    sensors: perSensorResults.map(r => ({ label: r.label, component: r.series[0]?.component || 'Other', trend: r.trend, series: r.series })),
+    insight: {
+      strengths: strengthSensors.map(r => r.label),
+      concerns: concernSensors.map(r => r.label),
+      bottlenecks: bottlenecks.map(r => r.label),
+      suggestions
+    },
+    computerId: targetId,
+    computerName: historyComputerName || deviceName || 'This Computer',
+    generatedAt: new Date().toISOString()
+  };
 
-  panel.innerHTML = renderMasterReportHtml(reportData);
+  _lastMasterReportData = reportData;
+  panel.innerHTML = `<div style="margin-bottom:12px"><button class="btn" onclick="openMasterReportStandalone()">Open Full Report ↗</button> <span style="font-size:12px;color:#8a8f99;margin-left:8px">Opens as its own page, printable - one tab per component, charted over every session.</span></div>` + renderMasterReportHtml(reportData);
   btn.disabled = false;
 
   // Save it to History - Ryan's direct request 2026-08-08: this should
   // be reachable later like any other history entry, not just live in
-  // this panel until the tab is closed.
+  // this panel until the tab is closed. Also Ryan's direct request: a
+  // Master Report is never deletable through the normal flow (see the
+  // guards in promptDeleteHistoryEntry/confirmDeleteHistoryEntry) - it's
+  // meant to travel permanently with the computer.
   if (currentUser && deviceId) {
     await db.from('amit_device_events').insert({
       device_id: targetId, user_id: currentUser.id, event_type: 'master_report',
-      severity: risingConcern.length > 0 ? 'warning' : 'info',
+      severity: bottlenecks.length > 0 ? 'warning' : 'info',
       summary: `Master Report — ${n} session${n === 1 ? '' : 's'} reviewed`,
       event_detail: { mainProgram: 'Master Report', report: reportData }
     });
@@ -3392,9 +3443,14 @@ async function generateMasterReport() {
 // Shared between the live panel above and reopening a saved report from
 // History (actuallyOpenHistoryDetail) - same rendering either way.
 function renderMasterReportHtml(reportData) {
-  const { n, overall, excludedNote, sensors } = reportData;
+  const { n, overall, excludedNote, sensors, insight } = reportData;
   let html = `<div style="font-size:16px;font-weight:600;color:#e0a72e;margin-bottom:6px">Master Report — ${n} session${n === 1 ? '' : 's'} reviewed</div>`;
   html += `<p style="margin:0 0 14px;line-height:1.6">${overall}</p>`;
+  if (insight && insight.suggestions && insight.suggestions.length) {
+    html += '<div style="margin:0 0 14px;padding:10px 14px;background:rgba(224,167,46,0.06);border:1px solid rgba(224,167,46,0.25);border-radius:8px">' +
+      '<div style="font-size:12px;font-weight:600;color:#e0a72e;margin-bottom:6px">Suggestions</div>' +
+      insight.suggestions.map(s => `<div style="font-size:12px;margin:3px 0"><strong>${escHtml(s.label)}:</strong> ${escHtml(s.text)}</div>`).join('') + '</div>';
+  }
   if (excludedNote) {
     html += `<p style="font-size:12px;color:#e0c477;background:rgba(224,167,46,0.08);border-left:3px solid #e0a72e;padding:8px 12px;margin:0 0 14px;line-height:1.6">${escHtml(excludedNote)}</p>`;
   }
@@ -3413,6 +3469,215 @@ function renderMasterReportHtml(reportData) {
   });
   html += '</div>';
   return html;
+}
+
+let _lastMasterReportData = null;
+
+// Rich inline sparkline for one sensor's whole session history: the
+// min-max range per session as a faint bar behind, the avg as a bold
+// line with dots on top - reads real variability at a glance, not just
+// a single trend line. Pure SVG, self-contained (no chart library),
+// works standalone once the report is opened as its own document.
+function mrSparklineSvg(series, width, height, color) {
+  width = width || 320; height = height || 64; color = color || '#e0a72e';
+  const vals = series.map(s => (s.avg != null ? s.avg : (s.min + s.max) / 2));
+  const mins = series.map(s => s.min != null ? s.min : vals[0]);
+  const maxs = series.map(s => s.max != null ? s.max : vals[0]);
+  const lo = Math.min(...mins, ...vals), hi = Math.max(...maxs, ...vals);
+  const range = (hi - lo) || 1;
+  const pad = 6;
+  const innerW = width - pad * 2, innerH = height - pad * 2;
+  const n = series.length;
+  const x = i => pad + (n <= 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const y = v => pad + innerH - ((v - lo) / range) * innerH;
+  const barW = Math.max(2, Math.min(10, innerW / Math.max(n, 1) * 0.5));
+  let bars = '', dots = '', points = '';
+  series.forEach((s, i) => {
+    const xi = x(i);
+    bars += `<rect x="${(xi - barW / 2).toFixed(1)}" y="${y(maxs[i]).toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(1, y(mins[i]) - y(maxs[i])).toFixed(1)}" fill="${color}" opacity="0.15" rx="1.5"/>`;
+    const yi = y(vals[i]);
+    points += `${xi.toFixed(1)},${yi.toFixed(1)} `;
+    dots += `<circle cx="${xi.toFixed(1)}" cy="${yi.toFixed(1)}" r="2.4" fill="${color}"/>`;
+  });
+  return `<svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="display:block">
+    ${bars}
+    <polyline points="${points.trim()}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>`;
+}
+
+function mrTrendColor(kind) {
+  return kind === 'rising' ? '#d9534f' : kind === 'volatile' ? '#e0a72e' : kind === 'falling' ? '#5599d0' : kind === 'thin' ? '#6b7280' : '#4caf6d';
+}
+
+// The full standalone document - Ryan's direct request 2026-08-08: its
+// own HTML, a friendly front page, one tab per hardware component that
+// grows automatically as more components have real data, printable,
+// time-stamped, and carrying the computer's own ID so the report stays
+// identifiable with the machine it came from wherever it ends up.
+function buildMasterReportStandaloneHtml(reportData) {
+  const { n, overall, excludedNote, sensors, insight, computerId, computerName, generatedAt } = reportData;
+  const genDate = new Date(generatedAt || Date.now());
+  const genStr = genDate.toLocaleString();
+
+  // Group sensors by component - the source of the growing tab set.
+  const byComponent = new Map();
+  sensors.forEach(s => {
+    const comp = s.component || 'Other';
+    if (!byComponent.has(comp)) byComponent.set(comp, []);
+    byComponent.get(comp).push(s);
+  });
+  const componentNames = [...byComponent.keys()].sort();
+
+  const esc = s => (s == null ? '' : String(s)).replace(/</g, '&lt;');
+
+  const kpi = (label, value, color) => `<div class="mr-kpi"><div class="mr-kpi-val" style="color:${color || 'var(--gold)'}">${value}</div><div class="mr-kpi-label">${label}</div></div>`;
+
+  const overviewHtml = `
+    <section class="mr-hero">
+      <div class="mr-hero-label">Overall Assessment</div>
+      <p class="mr-hero-text">${overall}</p>
+    </section>
+    <section class="mr-kpi-row">
+      ${kpi('Sessions Reviewed', n)}
+      ${kpi('Components Tracked', componentNames.length)}
+      ${kpi('Sensors Tracked', sensors.length)}
+      ${kpi('Strengths', (insight?.strengths?.length) || 0, '#4caf6d')}
+      ${kpi('Concerns', (insight?.concerns?.length) || 0, (insight?.concerns?.length ? '#d9534f' : undefined))}
+    </section>
+    ${insight && insight.bottlenecks && insight.bottlenecks.length ? `
+    <section class="mr-panel mr-panel-warn">
+      <h2>Where the bottlenecks are</h2>
+      <p style="margin:0 0 10px;color:var(--muted)">Ranked by how far each has actually moved from its own baseline across every session on record - not just flagged, but ordered by real severity.</p>
+      <ol class="mr-list">${insight.bottlenecks.map(b => `<li><strong>${esc(b)}</strong></li>`).join('')}</ol>
+    </section>` : ''}
+    ${insight && insight.suggestions && insight.suggestions.length ? `
+    <section class="mr-panel">
+      <h2>Suggestions</h2>
+      <div class="mr-suggest-grid">${insight.suggestions.map(s => `<div class="mr-suggest-card"><div class="mr-suggest-label">${esc(s.label)}</div><div class="mr-suggest-text">${esc(s.text)}</div></div>`).join('')}</div>
+    </section>` : ''}
+    <div class="mr-two-col">
+      <section class="mr-panel">
+        <h2 style="color:#4caf6d">What's working well</h2>
+        ${insight && insight.strengths && insight.strengths.length ? `<ul class="mr-check-list">${insight.strengths.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : '<p style="color:var(--muted)">Nothing conclusively steady yet - check back after a few more sessions.</p>'}
+      </section>
+      <section class="mr-panel">
+        <h2 style="color:#d9534f">Worth keeping an eye on</h2>
+        ${insight && insight.concerns && insight.concerns.length ? `<ul class="mr-warn-list">${insight.concerns.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : '<p style="color:var(--muted)">Nothing rising or unstable across this history - genuinely good news.</p>'}
+      </section>
+    </div>
+    ${excludedNote ? `<section class="mr-panel mr-panel-muted"><h2>Sensors excluded from this analysis</h2><p style="margin:0;line-height:1.7">${esc(excludedNote)}</p></section>` : ''}
+  `;
+
+  const componentTabHtml = comp => {
+    const list = byComponent.get(comp) || [];
+    return list.map(s => `
+      <div class="mr-sensor-card">
+        <div class="mr-sensor-head">
+          <span class="mr-dot" style="background:${mrTrendColor(s.trend.kind)}"></span>
+          <strong>${esc(s.label)}</strong>
+          <span class="mr-sensor-verdict">${esc(s.trend.verdict)}</span>
+        </div>
+        ${mrSparklineSvg(s.series, 640, 64, mrTrendColor(s.trend.kind))}
+        <table class="mr-table">
+          <thead><tr><th>Session</th><th>Average</th><th>Range</th></tr></thead>
+          <tbody>
+            ${s.series.map(pt => `<tr><td>${new Date(pt.date).toLocaleDateString()}</td><td>${fmtMasterNum(pt.avg)}</td><td>${fmtMasterNum(pt.min)} – ${fmtMasterNum(pt.max)}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`).join('');
+  };
+
+  const tabButtons = ['Overview', ...componentNames].map((t, i) =>
+    `<button class="mr-tab-btn${i === 0 ? ' active' : ''}" onclick="mrShowTab('${i}')" id="mr-tab-btn-${i}">${esc(t)}</button>`).join('');
+  const tabPanels = ['Overview', ...componentNames].map((t, i) =>
+    `<div class="mr-tab-panel${i === 0 ? ' active' : ''}" id="mr-tab-panel-${i}">${i === 0 ? overviewHtml : `<h2 class="mr-comp-title">${esc(t)}</h2>` + componentTabHtml(t)}</div>`).join('');
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>Master Report — ${esc(computerName)}</title>
+<style>
+  :root { --bg:#0c0d10; --surface:#15171c; --surface2:#1b1e25; --gold:#e0a72e; --text:#e8e6e0; --muted:#8a8f99; --border:rgba(255,255,255,0.08); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,'Segoe UI',system-ui,sans-serif; }
+  h1,h2,.mr-hero-text { font-family:Georgia,'Times New Roman',serif; }
+  header.mr-header { position:sticky; top:0; z-index:5; background:var(--surface); border-bottom:1px solid var(--border); padding:18px 28px; }
+  .mr-header-top { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:10px; }
+  .mr-header-top h1 { margin:0; font-size:22px; color:var(--gold); }
+  .mr-header-meta { font-size:12px; color:var(--muted); font-family:ui-monospace,'SFMono-Regular',Consolas,monospace; text-align:right; }
+  .mr-header-sub { margin-top:2px; font-size:13px; color:var(--muted); }
+  nav.mr-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-top:14px; }
+  .mr-tab-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:7px 14px; border-radius:7px 7px 0 0; cursor:pointer; font-size:13px; }
+  .mr-tab-btn.active { background:var(--gold); color:#1a1400; border-color:var(--gold); font-weight:600; }
+  main { max-width:960px; margin:0 auto; padding:28px; }
+  .mr-tab-panel { display:none; }
+  .mr-tab-panel.active { display:block; }
+  .mr-hero { padding:18px 22px; background:linear-gradient(135deg, rgba(224,167,46,0.10), rgba(224,167,46,0.02)); border:1px solid rgba(224,167,46,0.25); border-radius:12px; margin-bottom:20px; }
+  .mr-hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+  .mr-hero-text { font-size:18px; line-height:1.6; margin:0; }
+  .mr-kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:20px; }
+  .mr-kpi { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
+  .mr-kpi-val { font-size:26px; font-weight:700; font-family:ui-monospace,'SFMono-Regular',Consolas,monospace; }
+  .mr-kpi-label { font-size:11px; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:0.05em; }
+  .mr-panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  .mr-panel h2 { margin:0 0 10px; font-size:16px; }
+  .mr-panel-warn { border-color:rgba(217,83,79,0.35); background:rgba(217,83,79,0.05); }
+  .mr-panel-muted { border-color:var(--border); }
+  .mr-two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:700px) { .mr-two-col { grid-template-columns:1fr; } }
+  .mr-list { margin:0; padding-left:20px; line-height:1.9; }
+  .mr-check-list, .mr-warn-list { list-style:none; margin:0; padding:0; line-height:2; }
+  .mr-check-list li:before { content:"✓ "; color:#4caf6d; font-weight:700; }
+  .mr-warn-list li:before { content:"! "; color:#d9534f; font-weight:700; }
+  .mr-suggest-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  .mr-suggest-card { background:var(--surface2); border-radius:8px; padding:12px 14px; }
+  .mr-suggest-label { font-weight:600; color:var(--gold); font-size:13px; margin-bottom:4px; }
+  .mr-suggest-text { font-size:13px; color:var(--text); line-height:1.5; }
+  .mr-comp-title { color:var(--gold); font-size:20px; margin:0 0 16px; }
+  .mr-sensor-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:16px; page-break-inside:avoid; }
+  .mr-sensor-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .mr-dot { width:10px; height:10px; border-radius:50%; display:inline-block; flex:none; }
+  .mr-sensor-verdict { color:var(--muted); font-size:13px; }
+  .mr-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12px; font-family:ui-monospace,'SFMono-Regular',Consolas,monospace; }
+  .mr-table th { text-align:left; color:var(--muted); font-weight:600; padding:4px 8px; border-bottom:1px solid var(--border); }
+  .mr-table td { padding:4px 8px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  footer.mr-footer { max-width:960px; margin:0 auto; padding:20px 28px 40px; color:var(--muted); font-size:11px; font-family:ui-monospace,'SFMono-Regular',Consolas,monospace; border-top:1px solid var(--border); margin-top:20px; }
+  @media print {
+    header.mr-header { position:static; }
+    nav.mr-tabs { display:none; }
+    .mr-tab-panel { display:block !important; page-break-before:always; }
+    .mr-tab-panel:first-child { page-break-before:auto; }
+    body { background:#fff; color:#111; }
+    .mr-panel, .mr-kpi, .mr-sensor-card, .mr-hero { background:#f7f5ef; border-color:#ccc; }
+  }
+</style></head>
+<body>
+  <header class="mr-header">
+    <div class="mr-header-top">
+      <h1>Master Report</h1>
+      <div class="mr-header-meta">Generated ${esc(genStr)}<br>Computer ID: ${esc(computerId)}</div>
+    </div>
+    <div class="mr-header-sub">${esc(computerName)} — ${n} session${n === 1 ? '' : 's'} reviewed, oldest to newest</div>
+    <nav class="mr-tabs">${tabButtons}</nav>
+  </header>
+  <main>${tabPanels}</main>
+  <footer class="mr-footer">Amit — Computer Health · Computer ID ${esc(computerId)} · Generated ${esc(genStr)} · This report is saved permanently with this computer's history.</footer>
+  <script>
+    function mrShowTab(i) {
+      document.querySelectorAll('.mr-tab-panel').forEach(function(p){ p.classList.remove('active'); });
+      document.querySelectorAll('.mr-tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      document.getElementById('mr-tab-panel-'+i).classList.add('active');
+      document.getElementById('mr-tab-btn-'+i).classList.add('active');
+    }
+  <\/script>
+</body></html>`;
+}
+
+function openMasterReportStandalone() {
+  if (!_lastMasterReportData) return;
+  const html = buildMasterReportStandaloneHtml(_lastMasterReportData);
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
 }
 
 let historyData = [];
@@ -3463,6 +3728,13 @@ let historyPendingDeleteEntry = null;
 function promptDeleteHistoryEntry(i) {
   const e = historyData[i];
   if (!e) return;
+  // Ryan's direct request 2026-08-08: a Master Report is meant to travel
+  // with the computer permanently - never deletable through the normal
+  // flow, for anyone except Amit's own account (AMIT_ADMIN_UID) for now.
+  if (e.event_type === 'master_report' && !(currentUser && currentUser.id === AMIT_ADMIN_UID)) {
+    alert('Master Reports are kept permanently with this computer\'s history and can\'t be deleted.');
+    return;
+  }
   historyPendingDeleteId = e.id;
   historyPendingDeleteEntry = e;
   document.getElementById('historyDeleteText').textContent =
@@ -3491,6 +3763,11 @@ function getDismissedThreshold(eventType) {
 
 async function confirmDeleteHistoryEntry() {
   if (!historyPendingDeleteId) return;
+  if (historyPendingDeleteEntry && historyPendingDeleteEntry.event_type === 'master_report' && !(currentUser && currentUser.id === AMIT_ADMIN_UID)) {
+    document.getElementById('historyDeleteModal').classList.add('hidden');
+    alert('Master Reports are kept permanently with this computer\'s history and can\'t be deleted.');
+    return;
+  }
   const btn = document.getElementById('historyDeleteConfirmBtn');
   btn.disabled = true;
   btn.textContent = 'Deleting...';
@@ -3710,7 +3987,12 @@ function actuallyOpenHistoryDetail(i) {
     // Re-renders the exact same report that was generated at the time,
     // stored whole in event_detail.report - not recomputed from current
     // data, so reopening an old report shows what it actually said then.
-    body.innerHTML = d.report ? renderMasterReportHtml(d.report) : '<em style="color:#8a8f99">This report has no saved detail.</em>';
+    if (d.report) {
+      _lastMasterReportData = d.report;
+      body.innerHTML = `<div style="margin-bottom:12px"><button class="btn" onclick="openMasterReportStandalone()">Open Full Report ↗</button></div>` + renderMasterReportHtml(d.report);
+    } else {
+      body.innerHTML = '<em style="color:#8a8f99">This report has no saved detail.</em>';
+    }
   } else if (e.event_type === 'app_behavior_session') {
     // Same structured report the live stop popup shows - Ryan's direct
     // request 2026-07-14: History should show the same clean sectioned
