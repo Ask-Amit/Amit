@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.46</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.48</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -791,6 +791,11 @@
     <div class="section-title">This computer's history</div>
     <p id="historyIntro" style="font-size:13px;color:#9aa0ab">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
     <div id="historyCapNotice" class="hidden" style="background:#2a2410;border:1px solid #e0a72e;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:13px;color:#e0c477">On the free plan, only your last 10 events are kept - older ones roll off as new ones come in. <strong>Upgrade to Pro</strong> for complete, unlimited history.</div>
+    <div style="margin-bottom:14px">
+      <button class="btn" id="masterReportBtn" onclick="generateMasterReport()">Generate Master Report</button>
+      <span style="font-size:12px;color:#8a8f99;margin-left:10px">Reviews every session ever recorded for this computer and tells the real story over time - not just one snapshot.</span>
+    </div>
+    <div id="masterReportPanel" style="display:none;margin-bottom:20px;padding:16px 18px;border-radius:10px;background:rgba(120,120,120,0.08);border:1px solid rgba(224,167,46,0.3)"></div>
     <div id="historyList"><em style="color:#8a8f99">Sign in to load history.</em></div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('history','current')">✓ Currently Captured</button>
@@ -3235,6 +3240,181 @@ async function loadHistory() {
   renderHistoryTable();
 }
 
+// MASTER REPORT - Ryan's direct request 2026-08-08. Reviews every session
+// ever recorded for this device, oldest to newest, sensor by sensor:
+// (1) any sensor whose most recent 5 readings are all zero gets treated
+//     as "not actually present/reporting" and excluded from the trend
+//     verdict below it - self-correcting, not a permanent flag, since
+//     it's recomputed fresh from the real timeline every time this runs,
+//     so a sensor that starts reporting real data again is automatically
+//     back in the analysis without anything needing to be manually reset.
+// (2) every remaining sensor's full timeline gets compared start-to-end
+//     for a real verdict (stable / rising / falling / volatile), not just
+//     a single-session snapshot.
+// (3) rolled up into one plain-language declaration a non-technical user
+//     can actually read, with a Detail toggle per sensor for the real
+//     numbers behind it.
+function fmtMasterNum(v) {
+  if (v === null || v === undefined) return '—';
+  return Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : (Math.round(v * 100) / 100);
+}
+function mrTrendFor(series) {
+  if (series.length < 2) return { verdict: 'only one real reading so far - not enough history yet to call a trend', kind: 'thin' };
+  const vals = series.map(r => (r.avg != null ? r.avg : (r.min + r.max) / 2));
+  const meanVal = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const maxVal = Math.max(...vals), minVal = Math.min(...vals);
+  const spread = maxVal - minVal;
+  const relSpread = meanVal !== 0 ? spread / Math.abs(meanVal) : spread;
+  const first = vals[0], last = vals[vals.length - 1];
+  const delta = last - first;
+  const relDelta = meanVal !== 0 ? delta / Math.abs(meanVal) : delta;
+  if (relSpread > 0.6) return { verdict: 'swings a lot from session to session - real variability, not a steady baseline', kind: 'volatile' };
+  if (relDelta > 0.25) return { verdict: 'trending upward across these sessions', kind: 'rising' };
+  if (relDelta < -0.25) return { verdict: 'trending downward across these sessions', kind: 'falling' };
+  return { verdict: 'stayed steady across every session', kind: 'stable' };
+}
+function toggleMasterReportDetail(i) {
+  const el = document.getElementById('mrDetail' + i);
+  if (el) el.classList.toggle('hidden');
+}
+async function generateMasterReport() {
+  const panel = document.getElementById('masterReportPanel');
+  const btn = document.getElementById('masterReportBtn');
+  panel.style.display = 'block';
+  if (!currentUser) { panel.innerHTML = 'Sign in to generate a master report.'; return; }
+  const targetId = viewingDeviceId || deviceId;
+  if (!targetId) { panel.innerHTML = 'No computer selected.'; return; }
+
+  btn.disabled = true;
+  panel.innerHTML = 'Counting up everything on record for this computer…';
+
+  const { data: events, error: evErr } = await db.from('amit_device_events')
+    .select('id, created_at').eq('device_id', targetId).order('created_at', { ascending: true });
+  if (evErr || !events || events.length === 0) {
+    panel.innerHTML = 'No recorded sessions yet for this computer - run a few tracking sessions first, then generate a master report.';
+    btn.disabled = false;
+    return;
+  }
+
+  const n = events.length;
+  // Ryan's direct request: tell them upfront how much is being reviewed,
+  // scaled to the real count, so it never reads as a silent hang.
+  panel.innerHTML = n <= 10
+    ? `Reviewing ${n} report${n === 1 ? '' : 's'} for this computer - shouldn't take long…`
+    : `Reviewing ${n} reports for this computer, going all the way back to the first session on record. This will take a bit longer to give you an accurate assessment…`;
+
+  const { data: metricRows, error: mErr } = await db.from('amit_device_session_metrics')
+    .select('event_id, component, title, metric_name, category, min_value, max_value, avg_value, stddev_value')
+    .eq('device_id', targetId);
+  if (mErr) { panel.innerHTML = 'Could not load sensor history: ' + mErr.message; btn.disabled = false; return; }
+
+  panel.innerHTML += '<br>Building the timeline, sensor by sensor…';
+
+  const eventOrderIndex = new Map(events.map((e, i) => [e.id, i]));
+  const eventDateMap = new Map(events.map(e => [e.id, e.created_at]));
+  const sensorSeries = new Map();
+  (metricRows || []).forEach(row => {
+    if (!eventOrderIndex.has(row.event_id)) return;
+    const key = `${row.component}|${row.metric_name}|${row.title}`;
+    if (!sensorSeries.has(key)) sensorSeries.set(key, []);
+    sensorSeries.get(key).push({
+      order: eventOrderIndex.get(row.event_id), date: eventDateMap.get(row.event_id),
+      avg: row.avg_value, min: row.min_value, max: row.max_value,
+      component: row.component, title: row.title, category: row.category
+    });
+  });
+  sensorSeries.forEach(series => series.sort((a, b) => a.order - b.order));
+
+  panel.innerHTML += '<br>Checking each sensor for real data versus silence…';
+
+  const active = [], excluded = [];
+  sensorSeries.forEach((series, key) => {
+    const tail = series.slice(-5);
+    const allZeroTail = tail.length >= 5 && tail.every(r => (r.avg || 0) === 0 && (r.min || 0) === 0 && (r.max || 0) === 0);
+    if (allZeroTail) excluded.push({ key, series }); else active.push({ key, series });
+  });
+
+  panel.innerHTML += `<br>Comparing results across ${active.length} live sensor${active.length === 1 ? '' : 's'}…`;
+  await new Promise(r => setTimeout(r, 10)); // let the status text actually paint before the (possibly heavy) work below
+
+  const perSensorResults = active.map(a => {
+    const s = a.series;
+    const label = s[0].title ? `${s[0].component} — ${s[0].title}` : s[0].component;
+    return { key: a.key, label, category: s[0].category, series: s, trend: mrTrendFor(s) };
+  });
+
+  const risingConcern = perSensorResults.filter(r => r.trend.kind === 'rising' && /temp|latency|error|crash|wear|used|queue/i.test(r.label));
+  const stableCount = perSensorResults.filter(r => r.trend.kind === 'stable').length;
+
+  let overall;
+  if (risingConcern.length > 0) {
+    overall = `Over these ${n} sessions, this computer shows a real, measurable trend worth attention: <strong>${risingConcern.map(r => escHtml(r.label)).join(', ')}</strong> ${risingConcern.length === 1 ? 'is' : 'are'} climbing over time - not just noise from one bad session, but a real pattern across the whole history on record.`;
+  } else if (perSensorResults.length > 0 && stableCount >= perSensorResults.length * 0.7) {
+    overall = `Over these ${n} sessions, this computer has stayed remarkably consistent - most of what's being tracked hasn't meaningfully changed session to session, which is a good sign of a stable, healthy machine.`;
+  } else if (perSensorResults.length === 0) {
+    overall = `${n} session${n === 1 ? '' : 's'} were reviewed, but no sensors had enough real, non-zero data yet to call a trend. Run a few more sessions and check back.`;
+  } else {
+    overall = `Over these ${n} sessions, this computer shows a mix - some things holding steady, some moving around session to session. Nothing here reads as alarming, but here's the real detail behind each one.`;
+  }
+
+  // Ryan's direct request 2026-08-08: name the excluded-sensor count
+  // and dates plainly, and confirm explicitly that it's reversible -
+  // not a permanent shutoff, just "no real data in the window checked."
+  let excludedNote = null;
+  if (excluded.length) {
+    const oldestExcludedDate = excluded.reduce((oldest, ex) => {
+      const d0 = ex.series[0]?.date;
+      return (!oldest || (d0 && d0 < oldest)) ? d0 : oldest;
+    }, null);
+    const sinceStr = oldestExcludedDate ? new Date(oldestExcludedDate).toLocaleDateString() : 'the start of this history';
+    excludedNote = `We identified ${excluded.length} sensor${excluded.length === 1 ? '' : 's'} that ${excluded.length === 1 ? 'has' : 'have'} produced zero data in every session since ${sinceStr}, and we've turned ${excluded.length === 1 ? 'it' : 'them'} off from this analysis for now. This isn't permanent - the moment ${excluded.length === 1 ? 'it reports' : 'any of them report'} a real reading again, ${excluded.length === 1 ? 'it' : 'they'}'ll automatically come back into future reports.`;
+  }
+
+  const reportData = { n, overall, excludedNote, excludedLabels: excluded.map(e => e.series[0]?.title ? `${e.series[0].component} — ${e.series[0].title}` : e.series[0]?.component).filter(Boolean), sensors: perSensorResults.map(r => ({ label: r.label, trend: r.trend, series: r.series })) };
+
+  panel.innerHTML = renderMasterReportHtml(reportData);
+  btn.disabled = false;
+
+  // Save it to History - Ryan's direct request 2026-08-08: this should
+  // be reachable later like any other history entry, not just live in
+  // this panel until the tab is closed.
+  if (currentUser && deviceId) {
+    await db.from('amit_device_events').insert({
+      device_id: targetId, user_id: currentUser.id, event_type: 'master_report',
+      severity: risingConcern.length > 0 ? 'warning' : 'info',
+      summary: `Master Report — ${n} session${n === 1 ? '' : 's'} reviewed`,
+      event_detail: { mainProgram: 'Master Report', report: reportData }
+    });
+    loadHistory();
+  }
+}
+
+// Shared between the live panel above and reopening a saved report from
+// History (actuallyOpenHistoryDetail) - same rendering either way.
+function renderMasterReportHtml(reportData) {
+  const { n, overall, excludedNote, sensors } = reportData;
+  let html = `<div style="font-size:16px;font-weight:600;color:#e0a72e;margin-bottom:6px">Master Report — ${n} session${n === 1 ? '' : 's'} reviewed</div>`;
+  html += `<p style="margin:0 0 14px;line-height:1.6">${overall}</p>`;
+  if (excludedNote) {
+    html += `<p style="font-size:12px;color:#e0c477;background:rgba(224,167,46,0.08);border-left:3px solid #e0a72e;padding:8px 12px;margin:0 0 14px;line-height:1.6">${escHtml(excludedNote)}</p>`;
+  }
+  html += '<div style="display:flex;flex-direction:column;gap:8px">';
+  sensors.forEach((r, i) => {
+    const dotColor = r.trend.kind === 'rising' ? '#d05555' : r.trend.kind === 'volatile' ? '#e0a72e' : r.trend.kind === 'falling' ? '#5599d0' : r.trend.kind === 'thin' ? '#6b7280' : '#4caf6d';
+    html += `<div style="border-left:3px solid ${dotColor};padding:8px 12px;background:rgba(0,0,0,0.15);border-radius:0 6px 6px 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMasterReportDetail(${i})">
+        <span><strong>${escHtml(r.label)}</strong> — ${escHtml(r.trend.verdict)}</span>
+        <span style="font-size:11px;color:#8a8f99;text-decoration:underline;white-space:nowrap;margin-left:10px">Detail →</span>
+      </div>
+      <div id="mrDetail${i}" class="hidden" style="margin-top:8px;font-size:12px;color:#c7cad1;line-height:1.7">
+        ${r.series.map(s => `${new Date(s.date).toLocaleDateString()}: avg ${fmtMasterNum(s.avg)}, range ${fmtMasterNum(s.min)}–${fmtMasterNum(s.max)}`).join('<br>')}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
 let historyData = [];
 let historyComputerName = 'This computer';
 let historySortKey = 'created_at';
@@ -3526,7 +3706,12 @@ function actuallyOpenHistoryDetail(i) {
   const body = document.getElementById('historyDetailBody');
   const d = e.event_detail || {};
 
-  if (e.event_type === 'app_behavior_session') {
+  if (e.event_type === 'master_report') {
+    // Re-renders the exact same report that was generated at the time,
+    // stored whole in event_detail.report - not recomputed from current
+    // data, so reopening an old report shows what it actually said then.
+    body.innerHTML = d.report ? renderMasterReportHtml(d.report) : '<em style="color:#8a8f99">This report has no saved detail.</em>';
+  } else if (e.event_type === 'app_behavior_session') {
     // Same structured report the live stop popup shows - Ryan's direct
     // request 2026-07-14: History should show the same clean sectioned
     // view, not a raw log dump, whether you're looking at it the moment
