@@ -262,7 +262,7 @@ header{
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.71</div>
+    <div class="page-version" id="pageVersion">v5.72</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -1299,7 +1299,7 @@ async function confirmSwap(){
 // open). `framing` customizes the opening sentence only - the actual
 // history (original request, every completed round's real evidence, this
 // round so far) is identical either way.
-async function buildCatchUpPrompt(n,framing){
+async function buildCatchUpPrompt(n,framing,voice){
   const round=activeRounds.find(r=>r.round_number===n);
   const historyParts=[`THE ORIGINAL REQUEST: ${activeRounds[0].prompt_text}`];
   for(const r of activeRounds){
@@ -1314,7 +1314,16 @@ async function buildCatchUpPrompt(n,framing){
     historyParts.push(`ROUND ${n} SO FAR:\n`+thisRoundEvidence.map(e=>`${e.provenance}: ${e.body}`).join('\n\n'));
   }
   const history=historyParts.join('\n\n');
-  return `Cold-start briefing: I'm ${getUserName()||'the user'}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." ${framing} Here is everything decided and said so far, so you can pick up exactly where things are, not start cold:\n\n${history}\n\nTHE CURRENT QUESTION FOR THIS ROUND: ${round.prompt_text}\n\nYOUR TASK RIGHT NOW: answer the current question above directly, using everything before it only as background context. This is a real request that needs your actual answer, not a document to summarize and not a request to ask me clarifying questions first — just answer it.\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
+  // Fix, 2026-08-08, Ryan's direct report: this function is always a fresh
+  // tab (that's the whole point of "reopen" and of a voice swap) yet it
+  // never included that voice's own identity_document/boot-state - only
+  // copyRoundtablePrompt did. A voice with a real boot state (e.g.
+  // Copilot's evidence-chain document) was landing in a brand-new tab with
+  // no memory of it. A fresh tab always needs its identity document if one
+  // exists, same as any other first-contact prompt.
+  const profile=voice?voiceProfiles[voice]:null;
+  const identityDocBlock=(profile&&profile.identity_document)?`${profile.identity_document}\n\n`:'';
+  return `${identityDocBlock}Cold-start briefing: I'm ${getUserName()||'the user'}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." ${framing} Here is everything decided and said so far, so you can pick up exactly where things are, not start cold:\n\n${history}\n\nTHE CURRENT QUESTION FOR THIS ROUND: ${round.prompt_text}\n\nYOUR TASK RIGHT NOW: answer the current question above directly, using everything before it only as background context. This is a real request that needs your actual answer, not a document to summarize and not a request to ask me clarifying questions first — just answer it.\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
 }
 
 async function performVoiceSwap(n,oldVoice,newVoice){
@@ -1323,7 +1332,7 @@ async function performVoiceSwap(n,oldVoice,newVoice){
   await db.from('council_rounds').update({roster:newRoster}).eq('id',round.id);
   round.roster=newRoster;
   delete openVoiceTabs[oldVoice];
-  const catchUpPrompt=await buildCatchUpPrompt(n,`You're being brought in partway through, replacing another voice that ran out of session room - from this point forward, you're acting in exchange of that voice.`);
+  const catchUpPrompt=await buildCatchUpPrompt(n,`You're being brought in partway through, replacing another voice that ran out of session room - from this point forward, you're acting in exchange of that voice.`,newVoice);
   // Fix, 2026-07-22, Ryan's direct correction: the swap itself must NOT
   // open a tab or copy anything - that caused a real duplicate (Gemini's
   // site opened once here, then opened AGAIN when the normal "Request
@@ -1971,7 +1980,7 @@ async function recopyVoicePrompt(n,voice){
   const needsReopen=await amitConfirm(`Do you need me to open ${displayName}'s website again? Say yes if you're not sure the last answer actually went to the right chat - I'll open a fresh tab and get ${displayName} properly caught up on everything so far before copying the current question.`,'Yes, reopen',false,'Proceed to Existing Tab');
   if(needsReopen){
     delete openVoiceTabs[voice];
-    const catchUpPrompt=await buildCatchUpPrompt(n,`You may already have an earlier message from this session in a different tab - treat this as the authoritative, up-to-date version, in case anything went to the wrong place.`);
+    const catchUpPrompt=await buildCatchUpPrompt(n,`You may already have an earlier message from this session in a different tab - treat this as the authoritative, up-to-date version, in case anything went to the wrong place.`,voice);
     try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
     // Fix, 2026-07-24: same window.focus() bug as requestVoiceAnswer - it
     // pulls focus back to the Council page itself, undoing the tab focus
@@ -3446,7 +3455,6 @@ async function saveVoiceMatrixRow(name){
   const specNotes=document.getElementById('vm-spec-'+name.replace(/'/g,"\\'")).value.trim();
   const identityDoc=document.getElementById('vm-doc-'+name.replace(/'/g,"\\'")).value.trim();
   const avatarUrl=document.getElementById('vm-avatar-'+name.replace(/'/g,"\\'")).value.trim();
-  const existing=voiceProfiles[name];
   const row={
     user_id:currentUser.id,
     default_name:name,
@@ -3458,8 +3466,21 @@ async function saveVoiceMatrixRow(name){
     avatar_url:avatarUrl||null
   };
   try{
-    if(existing&&existing.id){
-      await db.from('council_voice_profiles').update(row).eq('id',existing.id);
+    // Fix, 2026-08-08, Ryan's direct report: relying on the in-memory
+    // voiceProfiles cache to decide insert-vs-update caused real duplicate
+    // rows (3 identical Copilot rows found in production) whenever the
+    // cache hadn't finished loading yet at save time. Query the database
+    // directly for every row matching this user+voice, right before
+    // saving, so the decision is never based on stale/empty local state.
+    const{data:existingRows}=await db.from('council_voice_profiles')
+      .select('id').eq('user_id',currentUser.id).eq('default_name',name);
+    if(existingRows&&existingRows.length){
+      const keepId=existingRows[0].id;
+      await db.from('council_voice_profiles').update(row).eq('id',keepId);
+      row.id=keepId;
+      // Clean up any prior duplicates for this voice while we're here.
+      const extraIds=existingRows.slice(1).map(r=>r.id);
+      if(extraIds.length)await db.from('council_voice_profiles').delete().in('id',extraIds);
     }else{
       const{data}=await db.from('council_voice_profiles').insert(row).select();
       if(data&&data[0])row.id=data[0].id;
