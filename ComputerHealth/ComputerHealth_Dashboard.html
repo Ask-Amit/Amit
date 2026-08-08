@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.41</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.42</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5583,6 +5583,32 @@ async function logBehaviorSessionToHistory(text) {
   const behaviorLocalMetrics = await fetchLocalMetrics('/api/behavior-metrics');
   const eventId = await logTrackingSessionEvent('app_behavior_session', severity, summary, behaviorLocalMetrics ? behaviorLocalMetrics.sessionEndTime : null, { sessionLabel: currentBehaviorLabel, fullLog: text, duration, mainProgram });
   await insertMetricsRowsForEvent(eventId, behaviorLocalMetrics);
+  await logBehaviorSessionToHubHistory(summary, text, duration, mainProgram, severity);
+}
+
+// Also surfaces in the Hub's own History/Calendar, not just Computer
+// Health's device-scoped History tab - Ryan's direct request 2026-08-08.
+// program='Computer Health' identifies the app; focus='AppWatch' names
+// the specific feature that produced it, since Computer Health has
+// several watchers that could each eventually feed the Hub this way -
+// per the standing Pursuit Attribution rule, this pairing is now the
+// permanent, reused stamp for anything App Behavior writes to the Hub.
+async function logBehaviorSessionToHubHistory(summary, fullLog, duration, mainProgram, severity) {
+  if (!currentUser) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const title = mainProgram ? `Watched ${mainProgram}${duration ? ' for ' + duration : ''}` : summary;
+  try {
+    await db.from('hub_entries').insert({
+      id: (crypto.randomUUID ? crypto.randomUUID() : 'ch-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
+      user_id: currentUser.id, kind: 'experience', title,
+      notes: fullLog ? fullLog.slice(0, 4000) : summary,
+      purpose: 'Computer Health', focus: 'AppWatch', program: 'Computer Health',
+      priority: severity === 'critical' ? 'P1' : severity === 'warning' ? 'P3' : 'P5',
+      due_date: today, done: true, completed_date: today,
+      completed_at: Date.now(), recur: 'none', starred: severity === 'critical',
+      is_sample: false, tags: ['#computerhealth', '#appwatch']
+    });
+  } catch (e) { console.error('logBehaviorSessionToHubHistory failed:', e); }
 }
 
 async function installStart() {
