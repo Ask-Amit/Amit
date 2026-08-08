@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.45</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.46</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1205,16 +1205,21 @@ function updateDeviceLabelDisplay() {
 const FREE_TIER_HISTORY_CAP = 10;
 
 // Amit's own account - same constant the Hub uses as AMIT_DEMO_UID
-// (amit-hub.html). Ryan's direct request 2026-08-08: Amit has full
-// authority over its own history, so its sessions are never capped or
-// rolled off, unlike every other signed-in account which is currently
-// treated as free-tier (see comment above - no real paid-tier system
-// exists yet). This lets a real multi-session analysis run over more
-// than the free-tier's last 10 events. Every cap check below is gated
-// on this so raising it in one place raises it everywhere consistently.
+// (amit-hub.html). Kept defined (not currently referenced by the
+// function below) since it's still the right thing to check FIRST once
+// the cap is reintroduced for real free-tier accounts.
 const AMIT_ADMIN_UID = '8b95d057-fd6b-44ec-abe7-658e08872d1a';
+// Ryan's direct request 2026-08-08: no real payment/tier system exists
+// yet (see FREE_TIER_HISTORY_CAP comment above), so there is currently
+// no honest way to tell a paying account from a free one. Rather than
+// invent a stand-in mechanism, the cap is off for EVERYONE until real
+// billing/tiers are actually built - at that point this should check
+// the real plan status (and probably still special-case AMIT_ADMIN_UID
+// first, unconditionally). FREE_TIER_HISTORY_CAP itself is left in
+// place, unused for now, so re-enabling the cap later is a one-line
+// change back to real gating instead of re-deriving this from scratch.
 function isUnlimitedHistoryAccount() {
-  return !!(currentUser && currentUser.id === AMIT_ADMIN_UID);
+  return true;
 }
 
 // Same rolling-cap-with-upsell pattern as FREE_TIER_HISTORY_CAP, kept as
