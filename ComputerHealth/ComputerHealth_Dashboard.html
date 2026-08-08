@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.39</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.40</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -626,6 +626,11 @@
       <div class="feature-explainer" id="firstVisitFeatureList"></div>
     </div>
     <div class="section-title">Right now, in plain language</div>
+    <div style="margin-bottom:14px">
+      <button class="btn" id="freeUpBtn" onclick="runFreeUpOptimize()">Free Up &amp; Optimize</button>
+      <span style="font-size:12px;color:#8a8f99;margin-left:10px">Clears safe background clutter, then checks the real cause if your mouse or typing feels jerky.</span>
+      <div id="freeUpResults" style="display:none;margin-top:10px;padding:12px 14px;border-radius:8px;background:rgba(120,120,120,0.08);font-size:13px;line-height:1.6"></div>
+    </div>
     <div class="card-row" id="overviewCards"></div>
     <div class="card-row" id="overviewDiagCards"></div>
     <div class="card-row" id="overviewBrowserCards"></div>
@@ -4768,6 +4773,36 @@ function verdictText(label, pct, warnAt, badAt, goodMsg, warnMsg, badMsg) {
   if (pct >= badAt) return badMsg;
   if (pct >= warnAt) return warnMsg;
   return goodMsg;
+}
+
+async function runFreeUpOptimize() {
+  const btn = document.getElementById('freeUpBtn');
+  const box = document.getElementById('freeUpResults');
+  if (!bridgeUp) {
+    box.style.display = 'block';
+    box.innerHTML = '<strong>Tracker isn\'t running.</strong> Launch Tracker first, then try again.';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+  box.style.display = 'block';
+  box.innerHTML = 'Clearing background clutter and checking your system…';
+  try {
+    const r = await fetch(BRIDGE + '/api/free-up', { method: 'POST' });
+    const d = await r.json();
+    let html = '<div style="font-weight:600;margin-bottom:6px">What was done:</div><ul style="margin:0 0 10px 18px;padding:0">';
+    (d.steps || []).forEach(s => {
+      html += `<li><strong>${s.name}:</strong> ${s.detail}</li>`;
+    });
+    html += '</ul>';
+    const dpcClass = (d.dpcPct !== null && d.dpcPct >= 8) ? 'color:#c0392b;font-weight:600' : (d.dpcPct !== null && d.dpcPct >= 3) ? 'color:#b8860b;font-weight:600' : 'color:#2e7d32;font-weight:600';
+    html += `<div style="${dpcClass}">Mouse / input responsiveness check:</div><div style="margin-top:2px">${d.dpcVerdict}</div>`;
+    box.innerHTML = html;
+  } catch (e) {
+    box.innerHTML = 'Could not reach the tracker to run this. Make sure Launch Tracker is active, then try again.';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Free Up & Optimize';
 }
 
 async function pollResource() {

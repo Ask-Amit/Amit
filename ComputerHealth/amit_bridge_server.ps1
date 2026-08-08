@@ -527,6 +527,91 @@ $handlerScript = {
         }
     }
 
+    function Invoke-FreeUpOptimize() {
+        # Real, verifiable steps only - each reports what it actually did,
+        # never a blanket "done!" the way a generic reset button would.
+        # Deliberately does NOT touch DPC/interrupt latency directly (that's
+        # almost always a driver holding the CPU too long, not something a
+        # cleanup script can fix) - instead it re-reads the live diagnostics
+        # feed afterward and names the likely driver culprit if latency is
+        # still elevated, so the person gets a real answer either way.
+        $steps = @()
+
+        # 1. Kill orphaned/duplicate watcher processes, if any exist
+        $beforeCount = 0
+        $scriptNames = @('resource_watcher.ps1', 'diagnostics_watcher.ps1', 'activity_watcher2.ps1', 'app_behavior_watcher.ps1')
+        foreach ($name in $scriptNames) {
+            $procMatches = @(Get-WmiObject Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*$name*" })
+            if ($procMatches.Count -gt 1) { $beforeCount += ($procMatches.Count - 1) }
+        }
+        Remove-DuplicateWatcherProcesses
+        $steps += @{ name = 'Duplicate watcher processes'; detail = if ($beforeCount -gt 0) { "Found and closed $beforeCount duplicate process(es)." } else { "None found - nothing to clean up." } }
+
+        # 2. Flush DNS resolver cache - real, safe, fixes stale-lookup slowdowns
+        try {
+            Clear-DnsClientCache -ErrorAction Stop
+            $steps += @{ name = 'DNS cache'; detail = 'Flushed.' }
+        } catch {
+            try { & ipconfig /flushdns | Out-Null; $steps += @{ name = 'DNS cache'; detail = 'Flushed.' } }
+            catch { $steps += @{ name = 'DNS cache'; detail = 'Could not flush (non-fatal).' } }
+        }
+
+        # 3. Clear temp files older than 24 hours only - never touches
+        # anything in active use (locked files are skipped silently, not
+        # forced), never touches anything less than a day old.
+        $deletedCount = 0
+        $deletedMB = 0.0
+        try {
+            $cutoff = (Get-Date).AddHours(-24)
+            $tempFiles = Get-ChildItem -Path $env:TEMP -File -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt $cutoff }
+            foreach ($f in $tempFiles) {
+                try {
+                    $deletedMB += [math]::Round($f.Length / 1MB, 2)
+                    Remove-Item -Path $f.FullName -Force -ErrorAction Stop
+                    $deletedCount++
+                } catch { } # locked/in-use file - skip, don't force
+            }
+        } catch { }
+        $steps += @{ name = 'Temporary files'; detail = if ($deletedCount -gt 0) { "Removed $deletedCount file(s), freed about $([math]::Round($deletedMB,1)) MB." } else { "Nothing old enough to remove." } }
+
+        # 4. Free RAM before/after, reported honestly (a few hundred MB from
+        # steps above is realistic - this does NOT claim a dramatic RAM fix,
+        # since that isn't what this cleanup actually does)
+        $ramAfter = Get-CimInstance Win32_OperatingSystem
+        $freeRamMB = [math]::Round($ramAfter.FreePhysicalMemory / 1024, 0)
+        $steps += @{ name = 'Memory free right now'; detail = "$freeRamMB MB free." }
+
+        # 5. Re-check live DPC/interrupt latency from the diagnostics watcher's
+        # own feed (same data source the Performance tab's DPC card uses) and
+        # name the likely driver culprit from the top-CPU list if still high -
+        # this is the honest answer instead of a false "should be smoother now"
+        $dpcPct = $null
+        $topCpuName = $null
+        try {
+            $diagPath = "$env:TEMP\diagnostics_watch_result.txt"
+            if (Test-Path $diagPath) {
+                $lastLine = Get-Content $diagPath -Tail 1
+                if ($lastLine -match 'DPC:([\d.]+)%') { $dpcPct = [double]$Matches[1] }
+                if ($lastLine -match 'TOPCPU:\[([^\]]*)\]') {
+                    $first = ($Matches[1] -split ',')[0].Trim()
+                    if ($first -match '^([^=]+)=') { $topCpuName = $Matches[1].Trim() }
+                }
+            }
+        } catch { }
+
+        $dpcVerdict = if ($null -eq $dpcPct) {
+            "No diagnostics data yet - launch the tracker and wait a few seconds, then check again."
+        } elseif ($dpcPct -ge 8) {
+            "DPC time is elevated ($dpcPct%) - this is the actual cause of jerky/stuttery input, not memory or disk. Almost always a driver holding the CPU too long. Most likely suspect right now: $(if ($topCpuName) { $topCpuName } else { 'check the Diagnostics tab''s top-CPU list' })."
+        } elseif ($dpcPct -ge 3) {
+            "DPC time is a little elevated ($dpcPct%) - worth watching, not yet the clear cause."
+        } else {
+            "DPC time is normal ($dpcPct%) - input lag/stutter is not being caused by driver-level interrupt delay right now. If your mouse is still jerky, look at whichever app is topping the CPU list ($(if ($topCpuName) { $topCpuName } else { 'check the Diagnostics tab' })), or a USB/wireless dongle issue."
+        }
+
+        return @{ steps = $steps; dpcPct = $dpcPct; dpcVerdict = $dpcVerdict }
+    }
+
     function Start-Tracking() {
         Remove-DuplicateWatcherProcesses
         # NOTE: a top-level "is anything already running" shortcut used to live
@@ -1035,6 +1120,14 @@ try {
             "/api/open-windows-update" {
                 $opened = Open-WindowsUpdateSettings
                 Send-JsonRaw $response ('{"opened":' + $(if ($opened) {'true'} else {'false'}) + '}')
+            }
+            "/api/free-up" {
+                $result = Invoke-FreeUpOptimize
+                $stepItems = $result.steps | ForEach-Object {
+                    '{"name":' + (ConvertTo-JsonString $_.name) + ',"detail":' + (ConvertTo-JsonString $_.detail) + '}'
+                }
+                $dpcStr = if ($null -ne $result.dpcPct) { $result.dpcPct } else { 'null' }
+                Send-JsonRaw $response ('{"steps":[' + ($stepItems -join ",") + '],"dpcPct":' + $dpcStr + ',"dpcVerdict":' + (ConvertTo-JsonString $result.dpcVerdict) + '}')
             }
             "/api/restart-computer" {
                 # Native shutdown.exe with a short, visible grace period -
