@@ -1241,7 +1241,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.21</div>
+    <div class="page-version" id="hubVersionBadge">v6.22</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3220,24 +3220,43 @@ const WX_CODES={
   80:['🌦️','Rain showers'],81:['🌧️','Rain showers'],82:['⛈️','Violent showers'],
   95:['⛈️','Thunderstorm'],96:['⛈️','Thunderstorm w/ hail'],99:['⛈️','Severe thunderstorm']
 };
+function windCompass(deg){
+  if(deg==null)return'';
+  const dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg/22.5)%16];
+}
+function uvBand(uv){
+  if(uv==null)return{label:'—',color:'#888'};
+  if(uv<3)return{label:'Low',color:'#4a9e4a'};
+  if(uv<6)return{label:'Moderate',color:'#c9a83c'};
+  if(uv<8)return{label:'High',color:'#d97a2e'};
+  if(uv<11)return{label:'Very High',color:'#c0392b'};
+  return{label:'Extreme',color:'#8e44ad'};
+}
+function aqiBand(aqi){
+  if(aqi==null)return{label:'—',color:'#888'};
+  if(aqi<=50)return{label:'Good',color:'#4a9e4a'};
+  if(aqi<=100)return{label:'Moderate',color:'#c9a83c'};
+  if(aqi<=150)return{label:'Unhealthy (Sensitive)',color:'#d97a2e'};
+  if(aqi<=200)return{label:'Unhealthy',color:'#c0392b'};
+  return{label:'Very Unhealthy',color:'#8e44ad'};
+}
 async function fetchWeather(){
   const loc=getLoc();if(!loc)return null;
   try{
     const cached=JSON.parse(localStorage.getItem(AMIT_WX_KEY)||'null');
-    if(cached&&cached.days&&(Date.now()-cached.ts)<45*60*1000)return cached; // reuse for 45 min — 'days' guards against a stale pre-forecast cache shape
+    if(cached&&cached.days&&cached.sunrise&&(Date.now()-cached.ts)<45*60*1000)return cached; // 'sunrise' guards against a stale pre-detail cache shape
   }catch{}
   try{
     const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`+
-      `&current=temperature_2m,weather_code`+
-      `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code`+
-      `&hourly=temperature_2m,precipitation_probability,relative_humidity_2m,weather_code`+
-      `&temperature_unit=fahrenheit&forecast_days=7&timezone=auto`;
+      `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,relative_humidity_2m`+
+      `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset,uv_index_max,precipitation_sum,snowfall_sum,wind_speed_10m_max,wind_gusts_10m_max`+
+      `&hourly=temperature_2m,precipitation_probability,relative_humidity_2m,weather_code,apparent_temperature,uv_index,wind_speed_10m,visibility`+
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&forecast_days=7&timezone=auto`;
     const r=await fetch(url);if(!r.ok)return null;
     const j=await r.json();
     const code=j.current&&j.current.weather_code;
     const [icon,desc]=WX_CODES[code]||['🌡️','—'];
-    // Today's rain chance — max of the remaining hourly probabilities for today
-    const todayDate=(j.daily&&j.daily.time&&j.daily.time[0])||'';
     let rainNow=j.daily&&j.daily.precipitation_probability_max?j.daily.precipitation_probability_max[0]:null;
     // Bucket hourly data by date (YYYY-MM-DD) so each day can show its own 24hr breakdown
     const hourlyByDate={};
@@ -3247,8 +3266,12 @@ async function fetchWeather(){
       hourlyByDate[date].push({
         time:t,
         temp:Math.round(j.hourly.temperature_2m[i]),
+        feelsLike:Math.round(j.hourly.apparent_temperature[i]),
         rain:j.hourly.precipitation_probability[i],
         humidity:j.hourly.relative_humidity_2m[i],
+        uv:j.hourly.uv_index[i],
+        wind:Math.round(j.hourly.wind_speed_10m[i]),
+        visibilityMi:Math.round((j.hourly.visibility[i]||0)/5280),
         icon:(WX_CODES[j.hourly.weather_code[i]]||['🌡️'])[0],
         desc:(WX_CODES[j.hourly.weather_code[i]]||['—','—'])[1]
       });
@@ -3258,14 +3281,54 @@ async function fetchWeather(){
       hi:Math.round(j.daily.temperature_2m_max[i]),
       lo:Math.round(j.daily.temperature_2m_min[i]),
       rain:j.daily.precipitation_probability_max[i],
+      precipIn:j.daily.precipitation_sum[i],
+      snowIn:j.daily.snowfall_sum[i],
+      uvMax:j.daily.uv_index_max[i],
+      windMax:Math.round(j.daily.wind_speed_10m_max[i]),
+      gustMax:Math.round(j.daily.wind_gusts_10m_max[i]),
+      sunrise:j.daily.sunrise[i],
+      sunset:j.daily.sunset[i],
       icon:(WX_CODES[j.daily.weather_code[i]]||['🌡️'])[0],
       desc:(WX_CODES[j.daily.weather_code[i]]||['—','—'])[1],
       hourly:hourlyByDate[d]||[]
     }));
     const data={ts:Date.now(),temp:Math.round(j.current.temperature_2m),icon,desc,
-      hi:days[0]?days[0].hi:null,lo:days[0]?days[0].lo:null,rain:rainNow,days};
+      feelsLike:Math.round(j.current.apparent_temperature),
+      humidity:j.current.relative_humidity_2m,
+      wind:Math.round(j.current.wind_speed_10m),windDir:windCompass(j.current.wind_direction_10m),
+      gust:Math.round(j.current.wind_gusts_10m),
+      pressure:Math.round(j.current.surface_pressure),
+      hi:days[0]?days[0].hi:null,lo:days[0]?days[0].lo:null,rain:rainNow,
+      sunrise:days[0]?days[0].sunrise:null,sunset:days[0]?days[0].sunset:null,
+      uvMax:days[0]?days[0].uvMax:null,
+      days};
+    // Air quality — separate free Open-Meteo endpoint, best-effort (widget still works if this fails)
+    try{
+      const aqR=await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${loc.lat}&longitude=${loc.lon}&current=us_aqi,pm2_5`);
+      if(aqR.ok){const aqJ=await aqR.json();if(aqJ.current){data.aqi=Math.round(aqJ.current.us_aqi);data.pm25=aqJ.current.pm2_5;}}
+    }catch{}
     localStorage.setItem(AMIT_WX_KEY,JSON.stringify(data));
     return data;
+  }catch{return null;}
+}
+// Extended outlook — days 8-16, fetched only on request (Open-Meteo's max range,
+// daily-only since hourly/AQI confidence past a week isn't meaningful to show)
+async function fetchExtendedForecast(){
+  const loc=getLoc();if(!loc)return null;
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`+
+      `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code`+
+      `&temperature_unit=fahrenheit&forecast_days=16&timezone=auto`;
+    const r=await fetch(url);if(!r.ok)return null;
+    const j=await r.json();
+    return (j.daily&&j.daily.time||[]).slice(7,16).map((d,i)=>({
+      date:d,i:i+7,
+      hi:Math.round(j.daily.temperature_2m_max[i+7]),
+      lo:Math.round(j.daily.temperature_2m_min[i+7]),
+      rain:j.daily.precipitation_probability_max[i+7],
+      icon:(WX_CODES[j.daily.weather_code[i+7]]||['🌡️'])[0],
+      desc:(WX_CODES[j.daily.weather_code[i+7]]||['—','—'])[1]
+    }));
   }catch{return null;}
 }
 function renderWeatherWidget(){
@@ -3297,6 +3360,10 @@ function openZipSettingsPrompt(){
     geocodeAndSaveZip(z.trim()).then(ok=>{if(ok)renderWeatherWidget();});
   }
 }
+function _fmtSunTime(iso){
+  if(!iso)return'—';
+  return new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
 function openForecastModal(wx,loc){
   let m=document.getElementById('forecastModal');
   if(!m){
@@ -3318,12 +3385,35 @@ function openForecastModal(wx,loc){
       <span style="font-size:12px;color:#fff;width:80px;text-align:right">${d.hi}° / ${d.lo}°</span>
     </div>`;
   }).join('');
-  m.innerHTML=`<div class="amit-name-card" style="max-width:460px;padding:32px 28px">
+  const uv=uvBand(wx.uvMax);
+  const aqi=aqiBand(wx.aqi);
+  const statTile=(icon,label,value,color)=>`
+    <div style="background:rgba(240,232,208,.045);border:1px solid rgba(240,232,208,.09);border-radius:9px;padding:10px 8px;text-align:center">
+      <div style="font-size:16px;margin-bottom:3px">${icon}</div>
+      <div style="font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(240,232,208,.4);margin-bottom:3px">${label}</div>
+      <div style="font-size:12px;font-weight:700;color:${color||'#fff'}">${value}</div>
+    </div>`;
+  const detailGrid=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;margin:14px 0">
+    ${statTile('🌡️','Feels Like',wx.feelsLike+'°')}
+    ${statTile('💦','Humidity',wx.humidity+'%')}
+    ${statTile('🍃','Wind',wx.wind+' '+wx.windDir+' mph')}
+    ${statTile('🌬️','Gusts',wx.gust+' mph')}
+    ${statTile('🔆','UV Index',Math.round(wx.uvMax)+' · '+uv.label,uv.color)}
+    ${statTile('🎈','Pressure',wx.pressure+' hPa')}
+    ${statTile('🌅','Sunrise',_fmtSunTime(wx.sunrise))}
+    ${statTile('🌇','Sunset',_fmtSunTime(wx.sunset))}
+    ${wx.aqi!=null?statTile('🌫️','Air Quality',wx.aqi+' · '+aqi.label,aqi.color):''}
+  </div>`;
+  m.innerHTML=`<div class="amit-name-card" style="max-width:480px;padding:32px 28px">
     <div class="amit-name-panel" style="display:flex;flex-direction:column;align-items:center;width:100%">
       <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
-      <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state} — 7-Day Outlook</div>
-      <div style="width:100%;margin:10px 0 18px;max-height:380px;overflow-y:auto">${rows}</div>
-      <button class="amit-name-begin" onclick="closeForecastModal()">Close</button>
+      <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state}</div>
+      <div style="font-size:11px;color:rgba(240,232,208,.4);margin-top:-8px">Today's Full Picture</div>
+      ${detailGrid}
+      <div style="width:100%;border-top:1px solid rgba(240,232,208,.1);padding-top:10px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:rgba(201,168,76,.6);text-align:left;margin-bottom:4px">7-Day Outlook</div>
+      <div style="width:100%;margin:0 0 16px;max-height:280px;overflow-y:auto">${rows}</div>
+      <button class="amit-name-begin" onclick="openExtendedForecastModal()">Extended Forecast (Days 8-16) →</button>
+      <button class="amit-name-begin" style="margin-top:8px;background:transparent;border:1px solid rgba(240,232,208,.25)" onclick="closeForecastModal()">Close</button>
       <div class="amit-name-who" onclick="closeForecastModal();openZipSettingsPrompt()"><span>Change ZIP →</span></div>
     </div>
   </div>`;
@@ -3334,6 +3424,47 @@ function closeForecastModal(){
   const m=document.getElementById('forecastModal');if(m)m.classList.remove('open');
 }
 let _wxModalState=null;
+async function openExtendedForecastModal(){
+  if(!_wxModalState)return;
+  const{loc}=_wxModalState;
+  closeForecastModal();
+  let m=document.getElementById('extendedForecastModal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='extendedForecastModal';
+    m.className='amit-name-modal';
+    m.onclick=(e)=>{if(e.target===m)closeExtendedForecastModal();};
+    document.body.appendChild(m);
+  }
+  m.innerHTML=`<div class="amit-name-card" style="max-width:460px;padding:32px 28px">
+    <div class="amit-name-panel" style="display:flex;flex-direction:column;align-items:center;width:100%">
+      <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
+      <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state} — Extended Outlook</div>
+      <div style="font-size:10px;color:rgba(240,232,208,.4);margin:6px 0 12px;text-align:center">Days 8-16. Confidence drops the further out you go — treat this as a trend, not a promise.</div>
+      <div id="extendedRows" style="width:100%;margin:0 0 16px;max-height:340px;overflow-y:auto">Loading…</div>
+      <button class="amit-name-begin" onclick="closeExtendedForecastModal();openForecastModal(_wxModalState.wx,_wxModalState.loc)">Back to 7-Day</button>
+      <div class="amit-name-who" onclick="closeExtendedForecastModal()"><span>Close</span></div>
+    </div>
+  </div>`;
+  m.classList.add('open');
+  const ext=await fetchExtendedForecast();
+  const slot=document.getElementById('extendedRows');if(!slot)return;
+  if(!ext||!ext.length){slot.innerHTML=`<div style="font-size:11px;color:rgba(240,232,208,.5);padding:12px 0">Extended data isn't available right now.</div>`;return;}
+  slot.innerHTML=ext.map(d=>{
+    const[y,mo,da]=d.date.split('-').map(Number);
+    const label=CAL_DAYS[new Date(y,mo-1,da).getDay()].slice(0,3)+' '+CAL_MONTHS[mo-1].slice(0,3)+' '+da;
+    return`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 4px;border-bottom:1px solid rgba(240,232,208,.08)">
+      <span style="width:80px;font-family:'Cinzel',serif;font-size:11px;color:rgba(240,232,208,.7)">${label}</span>
+      <span style="font-size:18px">${d.icon}</span>
+      <span style="flex:1;font-size:11px;color:rgba(240,232,208,.5);padding:0 10px;text-transform:capitalize">${d.desc}</span>
+      <span style="font-size:11px;color:rgba(120,190,255,.8);width:42px;text-align:right">💧${d.rain}%</span>
+      <span style="font-size:12px;color:#fff;width:80px;text-align:right">${d.hi}° / ${d.lo}°</span>
+    </div>`;
+  }).join('');
+}
+function closeExtendedForecastModal(){
+  const m=document.getElementById('extendedForecastModal');if(m)m.classList.remove('open');
+}
 function openDayDetailModal(dayIndex){
   if(!_wxModalState)return;
   const{wx,loc}=_wxModalState;
@@ -3354,15 +3485,18 @@ function openDayDetailModal(dayIndex){
     const hr=new Date(h.time);
     const hLabel=hr.toLocaleTimeString('en-US',{hour:'numeric',hour12:true});
     return`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 4px;border-bottom:1px solid rgba(240,232,208,.06)">
-      <span style="width:58px;font-family:'Cinzel',serif;font-size:10px;color:rgba(240,232,208,.7)">${hLabel}</span>
+      <span style="width:52px;font-family:'Cinzel',serif;font-size:10px;color:rgba(240,232,208,.7)">${hLabel}</span>
       <span style="font-size:15px">${h.icon}</span>
-      <span style="flex:1;font-size:10px;color:rgba(240,232,208,.5);padding:0 8px;text-transform:capitalize">${h.desc}</span>
-      <span style="font-size:10px;color:rgba(120,190,255,.8);width:38px;text-align:right">💧${h.rain}%</span>
-      <span style="font-size:10px;color:rgba(240,232,208,.5);width:44px;text-align:right">💦${h.humidity}%</span>
-      <span style="font-size:12px;color:#fff;width:44px;text-align:right">${h.temp}°</span>
+      <span style="flex:1;font-size:10px;color:rgba(240,232,208,.5);padding:0 6px;text-transform:capitalize">${h.desc}</span>
+      <span style="font-size:9px;color:rgba(240,232,208,.4);width:36px;text-align:right" title="Feels like">🌡️${h.feelsLike}°</span>
+      <span style="font-size:9px;color:rgba(240,232,208,.4);width:40px;text-align:right" title="Wind">🍃${h.wind}mph</span>
+      <span style="font-size:9px;color:rgba(201,168,76,.75);width:32px;text-align:right" title="UV Index">🔆${Math.round(h.uv)}</span>
+      <span style="font-size:10px;color:rgba(120,190,255,.8);width:36px;text-align:right">💧${h.rain}%</span>
+      <span style="font-size:10px;color:rgba(240,232,208,.5);width:38px;text-align:right">💦${h.humidity}%</span>
+      <span style="font-size:12px;color:#fff;width:40px;text-align:right">${h.temp}°</span>
     </div>`;
   }).join('')||`<div style="font-size:11px;color:rgba(240,232,208,.5);padding:12px 0">No hourly data available for this day.</div>`;
-  m.innerHTML=`<div class="amit-name-card" style="max-width:460px;padding:32px 28px">
+  m.innerHTML=`<div class="amit-name-card" style="max-width:540px;padding:32px 28px">
     <div class="amit-name-panel" style="display:flex;flex-direction:column;align-items:center;width:100%">
       <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
       <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state} — ${label}</div>
