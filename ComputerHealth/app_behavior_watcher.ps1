@@ -646,6 +646,17 @@ while (-not (Test-Path $stopFlag) -and (Get-Date) -lt $deadline) {
     if (((Get-Date) - $lastNetScanTime).TotalSeconds -ge $netScanIntervalSec) {
         $lastNetScanTime = Get-Date
         foreach ($p in $pids) {
+            # Real bug caught live 2026-08-08 (Ryan): the stop flag is only
+            # checked once, at the very top of the outer while loop. With
+            # several watched PIDs (e.g. a browser open in multiple
+            # instances), and Get-NetTCPConnection being a genuinely slow
+            # cmdlet, pressing Stop mid-scan meant waiting for EVERY
+            # remaining PID in this loop to finish before the watcher could
+            # even look at the flag again - measured as a 2-3 minute stop,
+            # against the Tracker's own ~10 second stop. Checking here lets
+            # a pending stop break out immediately instead of finishing the
+            # whole remaining PID list first.
+            if (Test-Path $stopFlag) { break }
             $conns = Get-NetTCPConnection -OwningProcess $p -State Established -ErrorAction SilentlyContinue
             foreach ($c in $conns) {
                 $key = "$p-$($c.RemoteAddress)-$($c.RemotePort)"
@@ -676,6 +687,10 @@ while (-not (Test-Path $stopFlag) -and (Get-Date) -lt $deadline) {
     if (((Get-Date) - $lastFileScanTime).TotalSeconds -ge $fileScanIntervalSec) {
         $lastFileScanTime = Get-Date
         foreach ($base in $watchPaths) {
+            # Same fix as the network-scan loop above - a recursive file
+            # scan across several watch paths can also run long enough to
+            # meaningfully delay noticing a pending stop.
+            if (Test-Path $stopFlag) { break }
             if (-not (Test-Path $base)) { continue }
             try {
                 $recent = Get-ChildItem -Path $base -File -ErrorAction SilentlyContinue -Recurse -Depth 1 |
