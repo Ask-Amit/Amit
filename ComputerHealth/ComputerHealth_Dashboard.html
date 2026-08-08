@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.44</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.45</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1204,6 +1204,19 @@ function updateDeviceLabelDisplay() {
 // active paid plan.
 const FREE_TIER_HISTORY_CAP = 10;
 
+// Amit's own account - same constant the Hub uses as AMIT_DEMO_UID
+// (amit-hub.html). Ryan's direct request 2026-08-08: Amit has full
+// authority over its own history, so its sessions are never capped or
+// rolled off, unlike every other signed-in account which is currently
+// treated as free-tier (see comment above - no real paid-tier system
+// exists yet). This lets a real multi-session analysis run over more
+// than the free-tier's last 10 events. Every cap check below is gated
+// on this so raising it in one place raises it everywhere consistently.
+const AMIT_ADMIN_UID = '8b95d057-fd6b-44ec-abe7-658e08872d1a';
+function isUnlimitedHistoryAccount() {
+  return !!(currentUser && currentUser.id === AMIT_ADMIN_UID);
+}
+
 // Same rolling-cap-with-upsell pattern as FREE_TIER_HISTORY_CAP, kept as
 // its own independent limit (Ryan's direct request 2026-07-17) - raising
 // one tier's cap shouldn't silently raise the other. Free tier gets a
@@ -1272,7 +1285,7 @@ async function syncReliabilityToHistory(records, minidumps) {
 async function logEvent(eventType, severity, summary, detail) {
   if (!currentUser || !deviceId) return null;
   const { count } = await db.from('amit_device_events').select('id', { count: 'exact', head: true }).eq('device_id', deviceId);
-  if (count !== null && count >= FREE_TIER_HISTORY_CAP) {
+  if (!isUnlimitedHistoryAccount() && count !== null && count >= FREE_TIER_HISTORY_CAP) {
     const { data: oldest } = await db.from('amit_device_events').select('id').eq('device_id', deviceId).order('created_at', { ascending: true }).limit(count - FREE_TIER_HISTORY_CAP + 1);
     if (oldest && oldest.length > 0) {
       await db.from('amit_device_events').delete().in('id', oldest.map(o => o.id));
@@ -1291,7 +1304,7 @@ async function logEvent(eventType, severity, summary, detail) {
   // only ever explaining the cap after it's already started overwriting
   // history. Gated so the same count doesn't nag twice in a row.
   const newTotal = (count === null ? 0 : count) + 1;
-  if (newTotal >= FREE_TIER_HISTORY_CAP - 2 && newTotal < FREE_TIER_HISTORY_CAP) {
+  if (!isUnlimitedHistoryAccount() && newTotal >= FREE_TIER_HISTORY_CAP - 2 && newTotal < FREE_TIER_HISTORY_CAP) {
     const lastWarned = parseInt(localStorage.getItem('amit_ch_last_cap_warning') || '0', 10);
     if (newTotal !== lastWarned) {
       localStorage.setItem('amit_ch_last_cap_warning', String(newTotal));
@@ -1325,7 +1338,7 @@ async function logTrackingSessionEvent(eventType, severity, summary, sessionEndT
   // Same free-tier cap enforcement logEvent() already does - kept here
   // too so this path doesn't quietly bypass it.
   const { count } = await db.from('amit_device_events').select('id', { count: 'exact', head: true }).eq('device_id', deviceId);
-  if (count !== null && count >= FREE_TIER_HISTORY_CAP) {
+  if (!isUnlimitedHistoryAccount() && count !== null && count >= FREE_TIER_HISTORY_CAP) {
     const { data: oldest } = await db.from('amit_device_events').select('id').eq('device_id', deviceId).order('created_at', { ascending: true }).limit(count - FREE_TIER_HISTORY_CAP + 1);
     if (oldest && oldest.length > 0) {
       await db.from('amit_device_events').delete().in('id', oldest.map(o => o.id));
@@ -3188,7 +3201,8 @@ async function loadHistory() {
   if (!currentUser) { list.innerHTML = '<em style="color:#8a8f99">Sign in to load history.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
   const targetId = viewingDeviceId || deviceId;
   if (!targetId) { list.innerHTML = '<em style="color:#8a8f99">No computer selected.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
-  let { data, error } = await db.from('amit_device_events').select('*').eq('device_id', targetId).order('created_at', { ascending: false }).limit(100);
+  const unlimited = isUnlimitedHistoryAccount();
+  let { data, error } = await db.from('amit_device_events').select('*').eq('device_id', targetId).order('created_at', { ascending: false }).limit(unlimited ? 1000 : 100);
   if (error) { list.innerHTML = '<em>Error loading history: ' + error.message + '</em>'; return; }
   // Self-healing hard ceiling - Ryan's direct request 2026-07-15: "if
   // we're only able to capture ten, then there should only be ten
@@ -3196,13 +3210,17 @@ async function loadHistory() {
   // NEW insert, which is racy (two near-simultaneous logs can both slip
   // through before either trims) and does nothing to fix an overage that
   // already exists. This actively enforces the cap on every load,
-  // regardless of how the extra rows got there.
-  if (data && data.length > FREE_TIER_HISTORY_CAP) {
+  // regardless of how the extra rows got there. Skipped entirely for the
+  // unlimited-history account (Ryan's direct request 2026-08-08) - this
+  // would otherwise actively DELETE Amit's own older history on every
+  // load, exactly the "unlimited for multi-session analysis" ask this
+  // exemption exists to satisfy.
+  if (!unlimited && data && data.length > FREE_TIER_HISTORY_CAP) {
     const excess = data.slice(FREE_TIER_HISTORY_CAP); // oldest-first tail, since data is newest-first
     await db.from('amit_device_events').delete().in('id', excess.map(e => e.id));
     data = data.slice(0, FREE_TIER_HISTORY_CAP);
   }
-  if (capNotice) capNotice.classList.toggle('hidden', !data || data.length < FREE_TIER_HISTORY_CAP);
+  if (capNotice) capNotice.classList.toggle('hidden', unlimited || !data || data.length < FREE_TIER_HISTORY_CAP);
   if (!data || data.length === 0) { list.innerHTML = '<em style="color:#8a8f99">No events logged yet for this device.</em>'; return; }
   // Kept on a global so the click handler below can look an entry back up
   // by index without a second DB round-trip - the full row (including
