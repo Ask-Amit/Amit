@@ -1241,7 +1241,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.20</div>
+    <div class="page-version" id="hubVersionBadge">v6.21</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3231,7 +3231,7 @@ async function fetchWeather(){
       `&current=temperature_2m,weather_code`+
       `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code`+
       `&hourly=temperature_2m,precipitation_probability,relative_humidity_2m,weather_code`+
-      `&temperature_unit=fahrenheit&forecast_days=4&timezone=auto`;
+      `&temperature_unit=fahrenheit&forecast_days=7&timezone=auto`;
     const r=await fetch(url);if(!r.ok)return null;
     const j=await r.json();
     const code=j.current&&j.current.weather_code;
@@ -3253,7 +3253,7 @@ async function fetchWeather(){
         desc:(WX_CODES[j.hourly.weather_code[i]]||['—','—'])[1]
       });
     });
-    const days=(j.daily&&j.daily.time||[]).slice(0,4).map((d,i)=>({
+    const days=(j.daily&&j.daily.time||[]).slice(0,7).map((d,i)=>({
       date:d,
       hi:Math.round(j.daily.temperature_2m_max[i]),
       lo:Math.round(j.daily.temperature_2m_min[i]),
@@ -3279,7 +3279,7 @@ function renderWeatherWidget(){
   fetchWeather().then(wx=>{
     if(!wx){el.innerHTML='';return;}
     const rainChip=(wx.rain!=null&&wx.rain>0)?`<span class="cal-dv-weather-rain">💧 ${wx.rain}%</span>`:'';
-    el.innerHTML=`<div class="cal-dv-weather" title="Click for the 4-day outlook">
+    el.innerHTML=`<div class="cal-dv-weather" title="Click for the 7-day outlook">
       <span class="cal-dv-weather-icon">${wx.icon}</span>
       <span class="cal-dv-weather-temp">${wx.temp}°</span>
       <span class="cal-dv-weather-hilo">H:${wx.hi}° L:${wx.lo}°</span>
@@ -3306,7 +3306,7 @@ function openForecastModal(wx,loc){
     m.onclick=(e)=>{if(e.target===m)closeForecastModal();};
     document.body.appendChild(m);
   }
-  const dayNames=['Today','Tomorrow','','',''];
+  const dayNames=['Today','Tomorrow','','','','',''];
   const rows=wx.days.map((d,i)=>{
     const[y,mo,da]=d.date.split('-').map(Number);
     const label=dayNames[i]||CAL_DAYS[new Date(y,mo-1,da).getDay()].slice(0,3);
@@ -3321,8 +3321,8 @@ function openForecastModal(wx,loc){
   m.innerHTML=`<div class="amit-name-card" style="max-width:460px;padding:32px 28px">
     <div class="amit-name-panel" style="display:flex;flex-direction:column;align-items:center;width:100%">
       <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
-      <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state} — 4-Day Outlook</div>
-      <div style="width:100%;margin:10px 0 18px">${rows}</div>
+      <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state} — 7-Day Outlook</div>
+      <div style="width:100%;margin:10px 0 18px;max-height:380px;overflow-y:auto">${rows}</div>
       <button class="amit-name-begin" onclick="closeForecastModal()">Close</button>
       <div class="amit-name-who" onclick="closeForecastModal();openZipSettingsPrompt()"><span>Change ZIP →</span></div>
     </div>
@@ -3339,7 +3339,7 @@ function openDayDetailModal(dayIndex){
   const{wx,loc}=_wxModalState;
   const d=wx.days[dayIndex];if(!d)return;
   closeForecastModal();
-  const dayNames=['Today','Tomorrow','','',''];
+  const dayNames=['Today','Tomorrow','','','','',''];
   const[y,mo,da]=d.date.split('-').map(Number);
   const label=dayNames[dayIndex]||CAL_DAYS[new Date(y,mo-1,da).getDay()];
   let m=document.getElementById('dayDetailModal');
@@ -3367,7 +3367,7 @@ function openDayDetailModal(dayIndex){
       <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
       <div class="amit-name-question" style="font-size:15px">${loc.city}, ${loc.state} — ${label}</div>
       <div style="width:100%;margin:10px 0 4px;max-height:340px;overflow-y:auto">${rows}</div>
-      <button class="amit-name-begin" onclick="closeDayDetailModal();openForecastModal(_wxModalState.wx,_wxModalState.loc)">Back to 4-Day</button>
+      <button class="amit-name-begin" onclick="closeDayDetailModal();openForecastModal(_wxModalState.wx,_wxModalState.loc)">Back to 7-Day</button>
       <div class="amit-name-who" onclick="closeDayDetailModal()"><span>Close</span></div>
     </div>
   </div>`;
