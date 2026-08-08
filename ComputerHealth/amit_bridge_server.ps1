@@ -1072,6 +1072,17 @@ try {
             "/api/diagnostics" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\diagnostics_watch_result.txt" 30) }
             "/api/activity" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\activity_watch2_result.txt" 30) }
             "/api/behavior" { Send-JsonLines $response (Get-TailSafe "$env:TEMP\app_behavior_result.txt" 50) }
+            "/api/behavior-full" {
+                # The live-scrolling view above deliberately tails only the
+                # last ~50 lines (cheap to poll every second). The final
+                # session report needs the WHOLE file - a real session runs
+                # long enough that early detections (a new program, an early
+                # network flag) fall outside any tail window well before the
+                # session ends, which was silently producing "nothing was
+                # detected" reports for sessions that actually caught real
+                # activity early on. Ryan caught this live 2026-08-08.
+                Send-JsonLines $response (Get-TailSafe "$env:TEMP\app_behavior_result.txt" 20000)
+            }
             "/api/behavior-status" {
                 # Real bug caught live 2026-07-14: Start Watching and Stop
                 # were both always shown/enabled regardless of whether a

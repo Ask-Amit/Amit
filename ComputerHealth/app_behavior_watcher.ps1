@@ -292,7 +292,7 @@ function Write-SharedResourceSample($metricStats = $null) {
     $nowForCpu = Get-Date
     $curCpuTimes = @{}
     Get-Process | Group-Object Name | ForEach-Object {
-        $curCpuTimes[$_.Name] = ($_.Group | Measure-Object TotalProcessorTime -Property @{Expression={$_.TotalProcessorTime.TotalSeconds}} -Sum).Sum
+        $curCpuTimes[$_.Name] = ($_.Group | Measure-Object -Property @{Expression={$_.TotalProcessorTime.TotalSeconds}} -Sum).Sum
     }
     $topCpuStr = ""
     if ($script:prevCpuTimes -and $script:prevCpuSampleTime -and $script:numLogicalCores -gt 0) {

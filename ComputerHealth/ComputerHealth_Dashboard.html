@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.42</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.43</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5381,6 +5381,16 @@ async function stopBehavior() {
   setBehaviorButtonsRunning(false);
   stopBtn.disabled = false;
   stopBtn.textContent = 'Stop';
+  // Pull the FULL untruncated log for the actual report - the tailed
+  // live-view text above only shows the last ~50 lines, which cuts off
+  // anything detected earlier in the session by the time it ends. Falls
+  // back to the tailed text if the full fetch fails for any reason,
+  // rather than showing nothing.
+  try {
+    const fr = await fetch(BRIDGE + '/api/behavior-full');
+    const fd = await fr.json();
+    if (fd.lines && fd.lines.length) text = fd.lines.join('\n');
+  } catch (e) { /* fall back to the tailed text already in `text` */ }
   showBehaviorSummary(text);
   // Pass the exact same text the popup was just built from, instead of
   // re-reading the DOM independently - Ryan's direct request 2026-07-15:
