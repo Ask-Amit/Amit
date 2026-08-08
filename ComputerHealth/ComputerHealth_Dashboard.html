@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.40</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.41</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -384,7 +384,12 @@
   <div class="overlay-card" style="max-width:640px;max-height:80vh;overflow-y:auto">
     <h2>App Behavior - Session Summary</h2>
     <div id="behaviorSummaryBody"></div>
+    <div id="behaviorRawDetails" class="hidden" style="margin-top:14px">
+      <div class="section-title">Everything this session actually captured (raw)</div>
+      <pre class="log-box" id="behaviorRawText" style="max-height:260px"></pre>
+    </div>
     <div class="actions">
+      <button class="btn secondary" id="behaviorViewDetailsBtn" onclick="toggleBehaviorRawDetails()">View Details</button>
       <button class="btn" onclick="document.getElementById('behaviorSummaryModal').classList.add('hidden')">Close</button>
     </div>
   </div>
@@ -5437,7 +5442,9 @@ function computeDurationFromLog(text) {
   return parts.join(' ');
 }
 
+let LAST_BEHAVIOR_RAW_TEXT = '';
 function renderBehaviorReport(text) {
+  LAST_BEHAVIOR_RAW_TEXT = text || '';
   const esc = s => (s || '').replace(/</g, '&lt;');
   const allLines = text.split('\n');
   const idx = allLines.findIndex(l => l.startsWith('SESSION SUMMARY'));
@@ -5451,8 +5458,8 @@ function renderBehaviorReport(text) {
   const storyLine = summaryLines.find(l => l.startsWith('STORY:'));
   const processStoryLine = summaryLines.find(l => l.includes(' started') && !l.startsWith('STORY:'));
   const detected = allLines.filter(l => l.includes('DETECTED new program:')).map(l => {
-    const m = l.match(/DETECTED new program: '([^']+)' \(PID=(\d+)\)(\s*\[expected Windows background process\])?/);
-    return m ? { name: m[1], pid: m[2], expected: !!m[3] } : null;
+    const m = l.match(/DETECTED new program: '([^']+)' \(PID=(\d+)\)(\s*\[expected Windows background process\])?(\s*\[new instance - opened again\])?/);
+    return m ? { name: m[1], pid: m[2], expected: !!m[3], repeat: !!m[4] } : null;
   }).filter(Boolean);
 
   const resourceLines = summaryLines.filter(l =>
@@ -5480,7 +5487,7 @@ function renderBehaviorReport(text) {
   }
 
   html += section('1. Process Activity', bullets(
-    (detected.length ? detected.map(d => `<strong>${esc(d.name)}</strong> (PID ${d.pid})${d.expected ? ' <span style="color:#8a8f99">— expected Windows background process</span>' : ''}`) : ['No new programs were detected during this session.'])
+    (detected.length ? detected.map(d => `<strong>${esc(d.name)}</strong> (PID ${d.pid})${d.expected ? ' <span style="color:#8a8f99">— expected Windows background process</span>' : d.repeat ? ' <span style="color:#e0a72e">— new instance, opened again</span>' : ''}`) : ['No new programs were detected during this session.'])
     .concat(processStoryLine ? [esc(processStoryLine)] : [])
   ));
 
@@ -5503,6 +5510,19 @@ function renderBehaviorReport(text) {
   return html;
 }
 
+function toggleBehaviorRawDetails() {
+  const box = document.getElementById('behaviorRawDetails');
+  const btn = document.getElementById('behaviorViewDetailsBtn');
+  const showing = !box.classList.contains('hidden');
+  if (showing) {
+    box.classList.add('hidden');
+    btn.textContent = 'View Details';
+  } else {
+    document.getElementById('behaviorRawText').textContent = LAST_BEHAVIOR_RAW_TEXT || 'No raw log available.';
+    box.classList.remove('hidden');
+    btn.textContent = 'Hide Details';
+  }
+}
 function showBehaviorSummary(text) {
   renderBehaviorReport(text);
   document.getElementById('behaviorSummaryModal').classList.remove('hidden');

@@ -70,6 +70,18 @@ $autoDetect = [string]::IsNullOrWhiteSpace($TargetProcess)
 $watchedNames = New-Object System.Collections.Generic.HashSet[string]
 if (-not $autoDetect) { [void]$watchedNames.Add($TargetProcess) }
 $baselinePidSet = $null
+# Tracks individual PIDs already reported this session, separate from
+# $watchedNames (which tracks NAMES for resource-usage sampling purposes
+# only). Ryan's direct request 2026-08-08: results must show no matter
+# what, and a trigger point can be anything - a genuinely new process
+# must always be reported even if a process with the same NAME already
+# appeared earlier in the session. Previously the by-name gate below
+# meant only the FIRST new process of a given name got reported all
+# session - e.g. the first new Edge tab process got flagged, then every
+# later Edge tab (including one opening an actual new app the person
+# just launched) was silently swallowed because "msedge" was already
+# in $watchedNames. Real bug, caught live 2026-08-08.
+$seenPids = New-Object System.Collections.Generic.HashSet[int]
 
 if ($autoDetect) {
     "Amit App Behavior Watcher started at $(Get-Date -Format 'HH:mm:ss.fff') - auto-detect mode: go open the program you want to check, it'll be picked up automatically." | Out-File -FilePath $out -Encoding utf8
@@ -242,6 +254,15 @@ function Get-FinalMetricRows($stats) {
     return $rows
 }
 
+# Persisted across every call to Write-SharedResourceSample in this
+# script's lifetime (script scope, not function-local) - real per-process
+# CPU% needs two TotalProcessorTime samples with a known gap between them,
+# see resource_watcher.ps1 for the full explanation. Not populated on the
+# very first call in a session (no previous sample to diff against yet).
+$script:prevCpuTimes = $null
+$script:prevCpuSampleTime = $null
+$script:numLogicalCores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+
 # Same RAM/CPU/sensor-dump calc and line FORMAT resource_watcher.ps1 uses,
 # so a line written by either script is indistinguishable and parses the
 # same way. Appends to the shared file (safe for two processes to append
@@ -254,8 +275,44 @@ function Write-SharedResourceSample($metricStats = $null) {
     $totalMB = [math]::Round($os.TotalVisibleMemorySize/1024, 0)
     $freeMB = [math]::Round($os.FreePhysicalMemory/1024, 0)
     $usedPct = [math]::Round((($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize) * 100, 1)
-    $topProcs = Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$([math]::Round($_.WorkingSet/1MB,0))MB" }
+    # Real bug caught live 2026-08-02 (Ryan) - see resource_watcher.ps1 for
+    # the full explanation: ranking individual processes buries browsers
+    # entirely, since Chromium splits into many small processes instead of
+    # one big one. Grouped by process name and summed instead, same wire
+    # format ("Name=NNNMB") the dashboard already parses.
+    $topProcs = Get-Process | Group-Object Name | ForEach-Object {
+        [PSCustomObject]@{ Name = $_.Name; TotalMB = [math]::Round(($_.Group | Measure-Object WorkingSet -Sum).Sum/1MB,0) }
+    } | Sort-Object TotalMB -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$($_.TotalMB)MB" }
     $topStr = $topProcs -join ", "
+
+    # Real per-process CPU%, not a memory-based guess - see
+    # resource_watcher.ps1 for the full explanation (Ryan direct
+    # 2026-08-02). Uses $script:-scoped state so it can diff against the
+    # previous call to this same function, however long ago that was.
+    $nowForCpu = Get-Date
+    $curCpuTimes = @{}
+    Get-Process | Group-Object Name | ForEach-Object {
+        $curCpuTimes[$_.Name] = ($_.Group | Measure-Object TotalProcessorTime -Property @{Expression={$_.TotalProcessorTime.TotalSeconds}} -Sum).Sum
+    }
+    $topCpuStr = ""
+    if ($script:prevCpuTimes -and $script:prevCpuSampleTime -and $script:numLogicalCores -gt 0) {
+        $elapsedSeconds = ($nowForCpu - $script:prevCpuSampleTime).TotalSeconds
+        if ($elapsedSeconds -gt 0) {
+            $topCpuList = $curCpuTimes.Keys | ForEach-Object {
+                $name = $_
+                if ($script:prevCpuTimes.ContainsKey($name)) {
+                    $deltaSeconds = $curCpuTimes[$name] - $script:prevCpuTimes[$name]
+                    if ($deltaSeconds -lt 0) { $deltaSeconds = 0 }
+                    $pct = [math]::Round(($deltaSeconds / $elapsedSeconds / $script:numLogicalCores) * 100, 2)
+                    [PSCustomObject]@{ Name = $name; Pct = $pct }
+                }
+            } | Where-Object { $_ -and $_.Pct -gt 0 } | Sort-Object Pct -Descending | Select-Object -First 5
+            $topCpuStr = ($topCpuList | ForEach-Object { "$($_.Name)=$($_.Pct)%" }) -join ", "
+        }
+    }
+    $script:prevCpuTimes = $curCpuTimes
+    $script:prevCpuSampleTime = $nowForCpu
+
     $sensorDump = ""
     $trimmed = $null
     try {
@@ -281,7 +338,7 @@ function Write-SharedResourceSample($metricStats = $null) {
     $cpuLine = if ($trimmed) { $trimmed | Where-Object { $_ -match 'Load>CPU Total=([\d.]+)' } | Select-Object -First 1 } else { $null }
     $cpu = if ($cpuLine -and $cpuLine -match 'Load>CPU Total=([\d.]+)') { [double]$matches[1] } else { (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average }
     $now = Get-Date
-    Add-Content -Path $sharedResourceLog -Value "$($now.ToString('HH:mm:ss.fff')) RAM:${freeMB}MB-free/${totalMB}MB-total(${usedPct}%used) CPU:${cpu}% TOP5:[$topStr] SENSORS:[$sensorDump]" -Encoding utf8
+    Add-Content -Path $sharedResourceLog -Value "$($now.ToString('HH:mm:ss.fff')) RAM:${freeMB}MB-free/${totalMB}MB-total(${usedPct}%used) CPU:${cpu}% TOP5:[$topStr] TOPCPU:[$topCpuStr] SENSORS:[$sensorDump]" -Encoding utf8
 
     $tempC = $null
     $tempLine = ($sensorDump -split ' \|\| ') | Where-Object { $_ -match 'CPU Package.*=(.+?)\s*°?C' } | Select-Object -First 1
@@ -485,7 +542,14 @@ while (-not (Test-Path $stopFlag) -and (Get-Date) -lt $deadline) {
         # process, e.g. a helper/updater) gets watched from here on, exactly
         # like manually naming it would have.
         foreach ($p in $allProcs) {
-            if (-not $baselinePidSet.Contains($p.Id) -and -not $watchedNames.Contains($p.ProcessName)) {
+            if (-not $baselinePidSet.Contains($p.Id) -and -not $seenPids.Contains($p.Id)) {
+                [void]$seenPids.Add($p.Id)
+                # Resource-usage sampling stays name-based (no benefit to
+                # querying CPU/RAM per-name more than once) - detection and
+                # reporting above is now PID-based so it never silently
+                # drops a genuinely new process just because its name was
+                # already seen this session.
+                $isRepeatName = $watchedNames.Contains($p.ProcessName)
                 [void]$watchedNames.Add($p.ProcessName)
                 $parentPid = $null
                 $cmdLine = $null
@@ -506,8 +570,8 @@ while (-not (Test-Path $stopFlag) -and (Get-Date) -lt $deadline) {
                 # was just Microsoft Store background activity unrelated to
                 # anything Ryan actually opened.
                 $isKnownWindows = $p.ProcessName -in @('dllhost','conhost','svchost','SearchProtocolHost','SearchFilterHost','SearchIndexer','FileCoAuth','RuntimeBroker','ApplicationFrameHost','TextInputHost','WmiPrvSE','backgroundTaskHost','SecurityHealthService','StoreDesktopExtension','WerFault','WerFaultSecure','SgrmBroker','MoUsoCoreWorker','UsoClient')
-                $detectedProcs.Add([PSCustomObject]@{ name = $p.ProcessName; pid_ = $p.Id; parentPid = $parentPid; cmdLine = $cmdLine; isKnownWindows = $isKnownWindows; time = Get-Date })
-                $tagStr = if ($isKnownWindows) { " [expected Windows background process]" } else { "" }
+                $detectedProcs.Add([PSCustomObject]@{ name = $p.ProcessName; pid_ = $p.Id; parentPid = $parentPid; cmdLine = $cmdLine; isKnownWindows = $isKnownWindows; isRepeatName = $isRepeatName; time = Get-Date })
+                $tagStr = if ($isKnownWindows) { " [expected Windows background process]" } elseif ($isRepeatName) { " [new instance - opened again]" } else { "" }
 
                 if (-not $isKnownWindows) {
                     # A new real program - starts a new burst. No longer
