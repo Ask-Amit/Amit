@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.50</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.51</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -3304,15 +3304,37 @@ async function generateMasterReport() {
   btn.disabled = true;
   panel.innerHTML = 'Counting up everything on record for this computer…';
 
-  // Real bug caught live 2026-08-08 (Ryan): neither query below had an
-  // explicit row limit, so an unbounded .select() silently caps at
-  // Supabase/PostgREST's default (1000 rows) once real history builds up -
-  // CPU alone can produce 70+ distinct sensors per session, so that cap
-  // was being hit well before every component's data ever got counted.
-  // .limit() set high enough that a real multi-month history won't hit it.
-  const { data: events, error: evErr } = await db.from('amit_device_events')
-    .select('id, created_at').eq('device_id', targetId).order('created_at', { ascending: true }).limit(20000);
-  if (evErr || !events || events.length === 0) {
+  // Real bug caught live 2026-08-08 (Ryan) - the previous fix (a high
+  // .limit()) did NOT actually work: PostgREST enforces its OWN
+  // server-side max-rows cap (1000) regardless of what limit the client
+  // requests - a client-side .limit(200000) is silently clamped down to
+  // 1000 no matter what. Confirmed directly against the live database:
+  // CPU alone produces enough distinct sensors that a single 1000-row
+  // page can be dominated by it, starving every other component before
+  // this ever saw their data. The only real fix is pagination - fetch in
+  // pages of 1000 until a page comes back short, not one request.
+  async function mrFetchAllPages(table, selectCols, filterFn) {
+    let all = [], from = 0;
+    const pageSize = 1000;
+    while (true) {
+      let q = db.from(table).select(selectCols);
+      q = filterFn(q);
+      const { data, error } = await q.range(from, from + pageSize - 1);
+      if (error) throw error;
+      all = all.concat(data || []);
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
+  let events, metricRows;
+  try {
+    events = await mrFetchAllPages('amit_device_events', 'id, created_at', q => q.eq('device_id', targetId).order('created_at', { ascending: true }));
+  } catch (e) {
+    panel.innerHTML = 'Could not load session history: ' + e.message; btn.disabled = false; return;
+  }
+  if (!events || events.length === 0) {
     panel.innerHTML = 'No recorded sessions yet for this computer - run a few tracking sessions first, then generate a master report.';
     btn.disabled = false;
     return;
@@ -3325,12 +3347,13 @@ async function generateMasterReport() {
     ? `Reviewing ${n} report${n === 1 ? '' : 's'} for this computer - shouldn't take long…`
     : `Reviewing ${n} reports for this computer, going all the way back to the first session on record. This will take a bit longer to give you an accurate assessment…`;
 
-  const { data: metricRows, error: mErr } = await db.from('amit_device_session_metrics')
-    .select('event_id, component, title, metric_name, category, min_value, max_value, avg_value, stddev_value')
-    .eq('device_id', targetId).limit(200000);
-  if (mErr) { panel.innerHTML = 'Could not load sensor history: ' + mErr.message; btn.disabled = false; return; }
+  try {
+    metricRows = await mrFetchAllPages('amit_device_session_metrics', 'event_id, component, title, metric_name, category, min_value, max_value, avg_value, stddev_value', q => q.eq('device_id', targetId));
+  } catch (e) {
+    panel.innerHTML = 'Could not load sensor history: ' + e.message; btn.disabled = false; return;
+  }
 
-  panel.innerHTML += '<br>Building the timeline, sensor by sensor…';
+  panel.innerHTML += `<br>Pulled ${metricRows.length} sensor reading${metricRows.length === 1 ? '' : 's'} across every session - building the timeline, sensor by sensor…`;
 
   const eventOrderIndex = new Map(events.map((e, i) => [e.id, i]));
   const eventDateMap = new Map(events.map(e => [e.id, e.created_at]));
