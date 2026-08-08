@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.51</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.52</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -795,7 +795,12 @@
       <button class="btn" id="masterReportBtn" onclick="generateMasterReport()">Generate Master Report</button>
       <span style="font-size:12px;color:#8a8f99;margin-left:10px">Reviews every session ever recorded for this computer and tells the real story over time - not just one snapshot.</span>
     </div>
-    <div id="masterReportPanel" style="display:none;margin-bottom:20px;padding:16px 18px;border-radius:10px;background:rgba(120,120,120,0.08);border:1px solid rgba(224,167,46,0.3)"></div>
+    <div id="masterReportPanel" style="display:none;margin-bottom:20px;border-radius:10px;background:rgba(120,120,120,0.08);border:1px solid rgba(224,167,46,0.3)">
+      <div style="display:flex;justify-content:flex-end;padding:8px 10px 0">
+        <button class="btn secondary" style="padding:3px 10px;font-size:12px" onclick="minimizeMasterReportPanel()" title="Hide this and go back to History">— Minimize</button>
+      </div>
+      <div id="masterReportContent" style="padding:0 18px 16px 18px"></div>
+    </div>
     <div id="historyList"><em style="color:#8a8f99">Sign in to load history.</em></div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('history','current')">✓ Currently Captured</button>
@@ -3293,10 +3298,13 @@ function toggleMasterReportDetail(i) {
   const el = document.getElementById('mrDetail' + i);
   if (el) el.classList.toggle('hidden');
 }
+function minimizeMasterReportPanel() {
+  document.getElementById('masterReportPanel').style.display = 'none';
+}
 async function generateMasterReport() {
-  const panel = document.getElementById('masterReportPanel');
+  document.getElementById('masterReportPanel').style.display = 'block';
+  const panel = document.getElementById('masterReportContent');
   const btn = document.getElementById('masterReportBtn');
-  panel.style.display = 'block';
   if (!currentUser) { panel.innerHTML = 'Sign in to generate a master report.'; return; }
   const targetId = viewingDeviceId || deviceId;
   if (!targetId) { panel.innerHTML = 'No computer selected.'; return; }
