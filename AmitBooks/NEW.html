@@ -75,6 +75,14 @@
 <link rel="icon" type="image/x-icon" href="amit_icon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- SheetJS — reads native QuickBooks .xlsx exports directly in the
+     browser. Added 2026-08-10: QuickBooks Desktop's Account Listing
+     report has no direct CSV export in Ryan's edition, only "Create New
+     Worksheet"/"Update Existing Worksheet" (Excel) or PDF — asking every
+     person importing their books to manually re-save as CSV in Excel
+     first was real, unacceptable friction ("that's not gonna happen" —
+     Ryan's own words). The Import wizard now reads .xlsx natively instead. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../Amit_Ask_Live.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -444,7 +452,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.35</div>
+      <div class="page-version" id="pageVersion">v1.36</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2952,15 +2960,44 @@ function openImportStep2CoA(){
   popupOpen(`
     <div class="dv-sub-h">Step 2: Chart of Accounts</div>
     <div class="fv-status" style="margin-bottom:14px">Upload QuickBooks' "Account Listing" export (Reports → Accountant &amp; Taxes → Account Listing → Export). Every account's type stays editable before anything is actually saved.</div>
-    <input type="file" id="importCoaFile" accept=".csv" onchange="importCoaFileChosen(this.files[0])">
+    <input type="file" id="importCoaFile" accept=".csv,.xlsx,.xls" onchange="importCoaFileChosen(this.files[0])">
     <div id="importCoaReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
+}
+// Reads either a real .csv OR a native QuickBooks .xlsx export (via
+// SheetJS, loaded in <head>) into the same shape either way — an array of
+// row arrays. Ryan's direct instruction, 2026-08-10: his edition of
+// QuickBooks Desktop has no direct CSV export for this report, only
+// Excel/PDF — requiring a manual Excel-to-CSV re-save first was real
+// friction ("that's not gonna happen"), so the importer reads the native
+// file instead.
+async function importReadFileAsRows(file){
+  const name=(file.name||'').toLowerCase();
+  if(name.endsWith('.xlsx')||name.endsWith('.xls')){
+    const buf=await file.arrayBuffer();
+    const wb=XLSX.read(buf,{type:'array'});
+    const sheet=wb.Sheets[wb.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(sheet,{header:1,raw:false,defval:''}).map(r=>r.map(c=>String(c==null?'':c).trim()));
+  }
+  return importParseCsv(await file.text());
+}
+// A real QuickBooks report export usually has a few title rows (report
+// name, date range, company name) sitting above the real column headers —
+// scans for the first row that actually looks like a header instead of
+// assuming row 0 is it.
+function importFindHeaderRowIndex(rows){
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    if(rows[i].some(c=>String(c).toLowerCase().includes('account'))) return i;
+  }
+  return 0;
 }
 async function importCoaFileChosen(file){
   if(!file)return;
   const status=document.getElementById('importStatus');
   status.textContent='Reading file…';
-  const rows=importParseCsv(await file.text());
+  const allRows=await importReadFileAsRows(file);
+  const headerIdx=importFindHeaderRowIndex(allRows);
+  const rows=allRows.slice(headerIdx);
   if(rows.length<2){ status.textContent='That file has no data rows.'; return; }
   const header=rows[0].map(h=>h.toLowerCase());
   const nameCol=header.findIndex(h=>h.includes('account')&&!h.includes('number')&&!h.includes('type'));
