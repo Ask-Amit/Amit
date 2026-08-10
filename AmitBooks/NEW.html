@@ -444,7 +444,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.33</div>
+      <div class="page-version" id="pageVersion">v1.34</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -643,7 +643,7 @@ const TODO_ITEMS=[
   'Build the Inventory Items layer on top of Bills &amp; Invoices — still an open design (Ryan is reworking this from scratch as of this session; hold until he brings the new spec).',
   'Port the remaining Books &amp; Setup tabs from AmitBooks.html: Pipeline, Tags / Jobs, Workflow Rules, Integrations, Audit Log. (Contacts done — its own sidebar page, not a Books sub-tab. Import QuickBooks broken out into its own sequence below, per Ryan\'s direct instruction 2026-08-10 — bring each piece over separately, not as one lump port.)',
   'IMPORT QUICKBOOKS — step 1, Company matching: before importing anything, check the QuickBooks company name against the signed-in user\'s existing `companies.name` (case-insensitive). Match found → this import becomes a NEW BOOK under that existing company (the "different set of books, same company" case Ryan described). No match → create the company first (from whatever profile fields were captured/typed — QuickBooks has no clean one-click CSV export for Company Info; usually read off the Company Information screen or a generated PDF), then the book underneath it. This step gates everything below — nothing imports until the company/book destination is resolved.',
-  'IMPORT QUICKBOOKS — step 2, Chart of Accounts: import QuickBooks\' own Account List report (CSV) — NOT inferred from the Journal report alone, which only surfaces accounts that actually had transaction activity and silently misses empty/unused accounts. Account List carries the full real list with type and number. Review-and-confirm screen before writing anything, same standard as every other QuickBooks import piece (Ryan\'s direct instruction 2026-07-30: never silently guess account types on real books).',
+  'IMPORT QUICKBOOKS — step 2, Chart of Accounts: DONE 2026-08-10 — real Import wizard (Books tab header, "Import" button), Step 1 creates/picks the company+book, Step 2 uploads QuickBooks\' Account List CSV, auto-guesses account type per row (QB_ACCOUNT_TYPE_MAP) with every row\'s type left editable before commit — never silently guessed on real books. See openImportWizard/openImportStep2CoA.',
   'IMPORT QUICKBOOKS — step 3, Vendors/Customers: QuickBooks\' Vendor List and Customer Contact List reports — real contact records (phone/email/address/EIN), not just the bare name string the Journal report carries per line. Matched back against the names that show up in the Journal import (step 5) so transactions link to real Contact records instead of orphaned name strings.',
   'IMPORT QUICKBOOKS — step 4, Items/Scopes: QuickBooks\' Item List report — products/services sold, feeding New\'s Scopes tab. Not currently pulled by anything.',
   'IMPORT QUICKBOOKS — step 5, Journal (transactions): port the existing, already-working Journal CSV importer from AmitBooks.html (Books &amp; Setup → Import QuickBooks — auto-detects Date/Account/Debit/Credit columns, groups into transactions, interactive review before commit, posts real journal_entries/journal_lines tagged to a qb_import_batches row) into New, wired to the book resolved in step 1 and the accounts/contacts confirmed in steps 2-3 rather than re-inferring them.',
@@ -2858,6 +2858,156 @@ async function confirmRestoreWithName(){
   await loadRealBooksIntoRowView();
 }
 
+// ══════════════════════════════════════════════
+// IMPORT WIZARD — bringing a real set of books over from QuickBooks.
+// Ryan's direct instruction, 2026-08-10. Deliberately sequenced: Chart of
+// Accounts / Vendors / Customers / Items are master data — no "which
+// year" question, always imported in full. The Journal (actual
+// transactions) is the one place a business might have 10 years of
+// history sitting behind it — that gets imported ONE YEAR AT A TIME, on
+// purpose, never as one all-or-nothing dump. Open Items (unpaid bills/
+// invoices) are a current snapshot, not year-based at all.
+//
+// Step 1 (company/book) and Step 2 (Chart of Accounts) are real, working
+// steps as of tonight. Steps 3-6 are shown honestly as not-yet-built next
+// steps in the same wizard shell, not silently missing — see the roadmap
+// list rendered at the bottom of the wizard popup.
+// ══════════════════════════════════════════════
+let importWizardBookId=null;
+let importWizardCompanyId=null;
+function openImportWizard(){
+  importWizardBookId=null;importWizardCompanyId=null;
+  const companyOptions=USER_COMPANIES.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('');
+  popupOpen(`
+    <div class="dv-sub-h">Import From QuickBooks — Step 1: Which Book?</div>
+    <div class="fv-status" style="margin-bottom:14px">Everything imports into one new book. Pick the company it belongs to (or leave blank to create one), then name the book.</div>
+    <div class="fv-field"><label class="fv-label">Company</label>
+      <select class="fv-input" id="importCompanySelect"><option value="">— New Company —</option>${companyOptions}</select>
+    </div>
+    <div class="fv-field" style="margin-top:10px" id="importNewCompanyNameWrap"><label class="fv-label">New Company Name</label><input class="fv-input" id="importNewCompanyName" placeholder="e.g. B.O.S.S. Inc"></div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Book Name</label><input class="fv-input" id="importBookName" placeholder="e.g. B.O.S.S. Inc"></div>
+    <button class="fv-save" style="margin-top:14px" onclick="importWizardStep1Continue()">Continue →</button>
+    <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
+}
+async function importWizardStep1Continue(){
+  const status=document.getElementById('importStatus');
+  const bookName=document.getElementById('importBookName').value.trim();
+  if(!bookName){ status.textContent='Book name is required.'; return; }
+  if(!db||!currentUser){ status.textContent='Sign in through the Hub to actually import — this is sample mode.'; return; }
+  status.textContent='Setting up…';
+  const companySelect=document.getElementById('importCompanySelect').value;
+  let companyId=companySelect||null;
+  if(!companyId){
+    const newName=document.getElementById('importNewCompanyName').value.trim();
+    if(!newName){ status.textContent='Company name is required (or pick an existing one).'; return; }
+    const{data:newCo,error}=await db.from('companies').insert({name:newName,user_id:currentUser.id}).select().single();
+    if(error){ status.textContent='Error: '+error.message; return; }
+    companyId=newCo.id;
+    USER_COMPANIES.push(newCo);
+  }
+  const{data:newBook,error:bookErr}=await db.from('books').insert({user_id:currentUser.id,name:bookName,company_id:companyId}).select().single();
+  if(bookErr){ status.textContent='Error: '+bookErr.message; return; }
+  importWizardBookId=newBook.id;importWizardCompanyId=companyId;
+  logThreadEntry(`Started a QuickBooks import into new book "${bookName}".`);
+  openImportStep2CoA();
+}
+// Minimal CSV parser — handles quoted fields with embedded commas, same
+// general approach as AmitBooks.html's own abQbFileChosen/abQbParse for
+// the Journal importer, kept separate here since Chart-of-Accounts CSVs
+// have a genuinely different shape (one row per account, not grouped
+// transaction lines).
+function importParseCsv(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
+  return lines.map(line=>{
+    const cells=[];let cur='',inQuotes=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(inQuotes){
+        if(ch==='"'){ if(line[i+1]==='"'){cur+='"';i++;} else inQuotes=false; }
+        else cur+=ch;
+      } else {
+        if(ch==='"') inQuotes=true;
+        else if(ch===','){ cells.push(cur);cur=''; }
+        else cur+=ch;
+      }
+    }
+    cells.push(cur);
+    return cells.map(c=>c.trim());
+  });
+}
+// QuickBooks' own Account Type labels → this schema's five real buckets
+// (asset/liability/equity/income/expense — same values used everywhere
+// else in this file, e.g. AB_DEBIT_TYPES_NEW). Best-guess only — every
+// row stays editable in the review step before anything is committed,
+// per the standing "never silently guess on real financial data" rule.
+const QB_ACCOUNT_TYPE_MAP={
+  'bank':'asset','accounts receivable':'asset','other current asset':'asset','fixed asset':'asset','other asset':'asset',
+  'accounts payable':'liability','credit card':'liability','other current liability':'liability','long term liability':'liability',
+  'equity':'equity',
+  'income':'income','other income':'income',
+  'cost of goods sold':'expense','expense':'expense','other expense':'expense'
+};
+let importParsedAccounts=null;
+function openImportStep2CoA(){
+  popupOpen(`
+    <div class="dv-sub-h">Step 2: Chart of Accounts</div>
+    <div class="fv-status" style="margin-bottom:14px">Upload QuickBooks' "Account List" export (Reports → Standard → Account List → Export). Every account's type stays editable before anything is actually saved.</div>
+    <input type="file" id="importCoaFile" accept=".csv" onchange="importCoaFileChosen(this.files[0])">
+    <div id="importCoaReview" style="margin-top:14px"></div>
+    <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
+}
+async function importCoaFileChosen(file){
+  if(!file)return;
+  const status=document.getElementById('importStatus');
+  status.textContent='Reading file…';
+  const rows=importParseCsv(await file.text());
+  if(rows.length<2){ status.textContent='That file has no data rows.'; return; }
+  const header=rows[0].map(h=>h.toLowerCase());
+  const nameCol=header.findIndex(h=>h.includes('account')&&!h.includes('number')&&!h.includes('type'));
+  const typeCol=header.findIndex(h=>h.includes('type')&&!h.includes('detail'));
+  const numCol=header.findIndex(h=>h.includes('number'));
+  if(nameCol<0){ status.textContent='Could not find an Account column in this file.'; return; }
+  importParsedAccounts=rows.slice(1).filter(r=>r[nameCol]).map(r=>{
+    let name=r[nameCol],number=numCol>=0?r[numCol]:'';
+    const midDot=name.match(/^([\d-]+)\s*[·:-]\s*(.+)$/); // QuickBooks sometimes bakes the number into the name, e.g. "1000 · Checking"
+    if(!number&&midDot){ number=midDot[1];name=midDot[2]; }
+    const qbType=(typeCol>=0?r[typeCol]:'').toLowerCase();
+    const guessed=QB_ACCOUNT_TYPE_MAP[qbType]||'expense';
+    return{name,number,qbType:typeCol>=0?r[typeCol]:'',type:guessed,isBank:qbType==='bank'};
+  });
+  renderImportCoaReview();
+  status.textContent='';
+}
+function renderImportCoaReview(){
+  const el=document.getElementById('importCoaReview');if(!el)return;
+  const typeOptions=['asset','liability','equity','income','expense'];
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedAccounts.length} accounts found — review the type on each before importing.</div>
+    <table class="ab-table"><tr><th>Number</th><th>Name</th><th>QuickBooks Type</th><th>Import As</th></tr>
+    ${importParsedAccounts.map((a,i)=>`<tr><td>${abEsc(a.number)}</td><td>${abEsc(a.name)}</td><td style="font-size:11px;color:var(--muted)">${abEsc(a.qbType)}</td><td><select onchange="importParsedAccounts[${i}].type=this.value">${typeOptions.map(t=>`<option value="${t}"${a.type===t?' selected':''}>${t}</option>`).join('')}</select></td></tr>`).join('')}
+    </table>
+    <button class="fv-save" style="margin-top:14px" onclick="importCommitCoa()">Import ${importParsedAccounts.length} Accounts</button>`;
+}
+async function importCommitCoa(){
+  const status=document.getElementById('importStatus');
+  status.textContent='Importing…';
+  let imported=0,failed=0;
+  for(const a of importParsedAccounts){
+    const{error}=await db.from('chart_of_accounts').insert({book_id:importWizardBookId,account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank});
+    if(error) failed++; else imported++;
+  }
+  status.textContent=`Imported ${imported} account(s)${failed?`, ${failed} failed`:''}.`;
+  logThreadEntry(`Imported ${imported} accounts from QuickBooks into "${document.getElementById('importBookName')?document.getElementById('importBookName').value:''}".`);
+  await loadRealBooksIntoRowView();
+  setTimeout(()=>openImportRoadmap(),900);
+}
+function openImportRoadmap(){
+  popupOpen(`
+    <div class="dv-sub-h">Chart of Accounts Imported</div>
+    <div class="fv-status" style="margin-bottom:10px">Real, working so far. Still ahead, in order — each one its own real build, not done yet:</div>
+    <div class="fv-status">2. Vendors (QuickBooks "Vendor Contact List")<br>3. Customers ("Customer Contact List")<br>4. Items/Scopes ("Products and Services" export)<br>5. Journal — imported ONE YEAR AT A TIME, never all history at once<br>6. Open Bills/Invoices ("A/P Aging Detail" / "A/R Aging Detail" — current snapshot, not year-based)</div>
+    <button class="fv-save" style="margin-top:14px" onclick="popupClose()">Close</button>`);
+}
+
 // Custom cellRenderer for the Company column (see the cellRenderer hook
 // added to cellHtml inside rvRenderInstance above). Single click opens the
 // autocomplete dropdown; double-click on a real book's Company cell opens
@@ -4269,6 +4419,7 @@ function renderPageActionBar(detailNum,tabNum){
   if(detailNum===1&&tabNum===1){
     bar.innerHTML=`<button class="page-action-btn" onclick="spvAddNew('rv-mount-books')"><span>+</span>Add New Book</button>
       <button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>
+      <button class="page-action-btn" onclick="openImportWizard()"><span>⬇</span>Import</button>
       <button class="page-action-btn" onclick="openRestorePopup()"><span>⬆</span>Restore From Backup</button>
       <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
   } else if(detailNum===4&&tabNum===1){
