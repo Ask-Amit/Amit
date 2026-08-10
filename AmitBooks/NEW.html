@@ -452,7 +452,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.37</div>
+      <div class="page-version" id="pageVersion">v1.38</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1169,6 +1169,29 @@ async function abLoadAccounts(){
 let abTemplatePreview=null; // holds fetched template rows while the user is picking which ones to import
 let abTemplateIndustry='construction';
 
+// Flattens abAccounts into parent-then-children order, arbitrary depth,
+// so the live Chart of Accounts screen shows the same real hierarchy the
+// Import wizard captures (chart_of_accounts.parent_account_id) — Ryan's
+// direct instruction, 2026-08-10: sub-accounts need the same hierarchy
+// layout here, not just inside the import review table. Accounts with no
+// parent (or whose parent isn't in this book, an edge case that shouldn't
+// happen but is handled rather than silently dropping the row) render as
+// top-level; a `depth` field drives the visual indent.
+function abCoaTreeOrder(accounts){
+  const byParent={};
+  accounts.forEach(a=>{ const p=a.parent_account_id||'__root__'; (byParent[p]=byParent[p]||[]).push(a); });
+  const knownIds=new Set(accounts.map(a=>a.id));
+  const out=[];
+  function walk(parentId,depth){
+    (byParent[parentId]||[]).forEach(a=>{ out.push({...a,depth}); walk(a.id,depth+1); });
+  }
+  walk('__root__',0);
+  // Any account whose parent_account_id points at something not in this
+  // book's own list (shouldn't happen, but don't silently lose the row)
+  // still renders, at top level.
+  accounts.forEach(a=>{ if(a.parent_account_id&&!knownIds.has(a.parent_account_id)&&!out.find(o=>o.id===a.id)) out.push({...a,depth:0}); });
+  return out;
+}
 function abRenderCoa(){
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
@@ -1184,12 +1207,13 @@ function abRenderCoa(){
       <div class="ab-field"><label>Account name</label><input id="ab-coa-name" placeholder="e.g. Tools & Equipment"></div>
       <div class="ab-field"><label>Type</label><select id="ab-coa-type" onchange="abCoaTypeChanged()"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
       <div class="ab-field"><label>Number (optional)</label><input id="ab-coa-number" style="width:80px" placeholder="5100"></div>
+      <div class="ab-field"><label>Parent Account (optional — makes this a sub-account)</label><select id="ab-coa-parent"><option value="">— none, top-level —</option>${abCoaTreeOrder(abAccounts).map(a=>`<option value="${a.id}">${'— '.repeat(a.depth)}${abEsc(a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field" id="ab-coa-bank-field" style="align-self:flex-end;padding-bottom:8px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px"><input type="checkbox" id="ab-coa-bank">This is a bank/cash account</label></div>
       <div class="ab-field" id="ab-coa-liabsub-field" style="display:none"><label>Liability Type</label>${abLiabilitySubtypeOptionsHtml('')}</div>
       <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
     </div>
     <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Bank/Cash</th><th>Liability Type</th><th>Tax Category</th><th>Custom Fields</th></tr>
-    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?`<input type="checkbox" ${a.is_bank_account?'checked':''} onchange="abToggleBankAccount('${a.id}',this.checked)" title="Counts toward Cash on Hand on the dashboard">`:'—'}</td><td>${a.account_type==='liability'?`<select onchange="abSaveLiabilitySubtype('${a.id}',this.value)" title="Decides whether this counts toward Short Term Debt or Long Term Debt on the dashboard" style="font-size:11px">${abLiabilitySubtypeOptions(a.liability_subtype)}</select>`:'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No accounts yet — add your first one above, or browse a template</td></tr>'}
+    ${abCoaTreeOrder(abAccounts).map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?`<input type="checkbox" ${a.is_bank_account?'checked':''} onchange="abToggleBankAccount('${a.id}',this.checked)" title="Counts toward Cash on Hand on the dashboard">`:'—'}</td><td>${a.account_type==='liability'?`<select onchange="abSaveLiabilitySubtype('${a.id}',this.value)" title="Decides whether this counts toward Short Term Debt or Long Term Debt on the dashboard" style="font-size:11px">${abLiabilitySubtypeOptions(a.liability_subtype)}</select>`:'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No accounts yet — add your first one above, or browse a template</td></tr>'}
     </table>
     <div id="ab-customfields-panel"></div>
     <div id="ab-taxcategory-panel"></div>`;
@@ -1340,7 +1364,9 @@ async function abAddAccount(){
   const isBank=document.getElementById('ab-coa-bank').checked;
   const liabSubEl=document.getElementById('ab-coa-liabsub');
   const liabSub=(type==='liability'&&liabSubEl)?(liabSubEl.value||null):null;
-  const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null,is_bank_account:isBank,liability_subtype:liabSub});
+  const parentEl=document.getElementById('ab-coa-parent');
+  const parentId=(parentEl&&parentEl.value)?parentEl.value:null;
+  const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null,is_bank_account:isBank,liability_subtype:liabSub,parent_account_id:parentId});
   if(error){abAlert(error.message);return;}
   await abLoadAccounts(); abRenderCoa();
 }
