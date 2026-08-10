@@ -452,7 +452,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.38</div>
+      <div class="page-version" id="pageVersion">v1.39</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2911,6 +2911,7 @@ let importWizardBookId=null;
 let importWizardCompanyId=null;
 function openImportWizard(){
   importWizardBookId=null;importWizardCompanyId=null;
+  importWizardPendingCompanyId=null;importWizardPendingNewCompanyName=null;importWizardPendingBookName=null;
   const companyOptions=USER_COMPANIES.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('');
   popupOpen(`
     <div class="dv-sub-h">Import From QuickBooks — Step 1: Which Book?</div>
@@ -2923,26 +2924,34 @@ function openImportWizard(){
     <button class="fv-save" style="margin-top:14px" onclick="importWizardStep1Continue()">Continue →</button>
     <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
 }
-async function importWizardStep1Continue(){
+// Ryan caught a real bug, 2026-08-10: this used to create the company AND
+// the book immediately, right here in Step 1 — so pressing Cancel on Step
+// 2 (or just closing the wizard, or clicking Continue twice) left real,
+// orphaned books/companies behind with nothing ever imported into them.
+// Fixed: nothing gets written to the database until importCommitCoa()
+// actually runs. Step 1 now only holds the person's choices in memory
+// (importWizardPending*) — the company and book get created for real at
+// the moment of actual commit, not before. If the wizard is ever closed
+// before that point, nothing was created and there's nothing to clean up.
+let importWizardPendingCompanyId=null;
+let importWizardPendingNewCompanyName=null;
+let importWizardPendingBookName=null;
+function importWizardStep1Continue(){
   const status=document.getElementById('importStatus');
   const bookName=document.getElementById('importBookName').value.trim();
   if(!bookName){ status.textContent='Book name is required.'; return; }
   if(!db||!currentUser){ status.textContent='Sign in through the Hub to actually import — this is sample mode.'; return; }
-  status.textContent='Setting up…';
   const companySelect=document.getElementById('importCompanySelect').value;
-  let companyId=companySelect||null;
-  if(!companyId){
+  if(!companySelect){
     const newName=document.getElementById('importNewCompanyName').value.trim();
     if(!newName){ status.textContent='Company name is required (or pick an existing one).'; return; }
-    const{data:newCo,error}=await db.from('companies').insert({name:newName,user_id:currentUser.id}).select().single();
-    if(error){ status.textContent='Error: '+error.message; return; }
-    companyId=newCo.id;
-    USER_COMPANIES.push(newCo);
+    importWizardPendingCompanyId=null;
+    importWizardPendingNewCompanyName=newName;
+  } else {
+    importWizardPendingCompanyId=companySelect;
+    importWizardPendingNewCompanyName=null;
   }
-  const{data:newBook,error:bookErr}=await db.from('books').insert({user_id:currentUser.id,name:bookName,company_id:companyId}).select().single();
-  if(bookErr){ status.textContent='Error: '+bookErr.message; return; }
-  importWizardBookId=newBook.id;importWizardCompanyId=companyId;
-  logThreadEntry(`Started a QuickBooks import into new book "${bookName}".`);
+  importWizardPendingBookName=bookName;
   openImportStep2CoA();
 }
 // Minimal CSV parser — handles quoted fields with embedded commas, same
@@ -3063,32 +3072,53 @@ function renderImportCoaReview(){
     </table>
     <button class="fv-save" style="margin-top:14px" onclick="importCommitCoa()">Import ${importParsedAccounts.length} Accounts</button>`;
 }
+let importCommitInFlight=false;
 async function importCommitCoa(){
-  const status=document.getElementById('importStatus');
-  status.textContent='Importing…';
-  let imported=0,failed=0;
-  // Two passes, per Ryan's direct instruction, 2026-08-10: pass 1 inserts
-  // every account (arbitrary depth, not capped at 3 — a sub-account can
-  // nest as deep as the real QuickBooks file goes), tracked by its full
-  // original colon-path since sub-account names alone aren't guaranteed
-  // unique across different parents. Pass 2 links each sub-account to its
-  // real parent's new id, now that every account actually has one.
-  const pathToId={};
-  for(const a of importParsedAccounts){
-    const{data,error}=await db.from('chart_of_accounts').insert({book_id:importWizardBookId,account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank}).select().single();
-    if(error){ failed++; continue; }
-    imported++;
-    pathToId[a.fullPath]=data.id;
-  }
-  for(const a of importParsedAccounts){
-    if(a.parentPath&&pathToId[a.fullPath]&&pathToId[a.parentPath]){
-      await db.from('chart_of_accounts').update({parent_account_id:pathToId[a.parentPath]}).eq('id',pathToId[a.fullPath]);
+  if(importCommitInFlight)return; // guards against a double-click firing this twice, now that this is the actual write point
+  importCommitInFlight=true;
+  try{
+    const status=document.getElementById('importStatus');
+    status.textContent='Creating the company/book…';
+    // The company and book are only actually created here, right before the
+    // first real row gets written — not back in Step 1 (see
+    // importWizardStep1Continue's comment for why that was a real bug).
+    let companyId=importWizardPendingCompanyId;
+    if(!companyId){
+      const{data:newCo,error}=await db.from('companies').insert({name:importWizardPendingNewCompanyName,user_id:currentUser.id}).select().single();
+      if(error){ status.textContent='Error creating company: '+error.message; return; }
+      companyId=newCo.id;
+      USER_COMPANIES.push(newCo);
     }
+    const{data:newBook,error:bookErr}=await db.from('books').insert({user_id:currentUser.id,name:importWizardPendingBookName,company_id:companyId}).select().single();
+    if(bookErr){ status.textContent='Error creating book: '+bookErr.message; return; }
+    importWizardBookId=newBook.id;importWizardCompanyId=companyId;
+    status.textContent='Importing…';
+    let imported=0,failed=0;
+    // Two passes, per Ryan's direct instruction, 2026-08-10: pass 1 inserts
+    // every account (arbitrary depth, not capped at 3 — a sub-account can
+    // nest as deep as the real QuickBooks file goes), tracked by its full
+    // original colon-path since sub-account names alone aren't guaranteed
+    // unique across different parents. Pass 2 links each sub-account to its
+    // real parent's new id, now that every account actually has one.
+    const pathToId={};
+    for(const a of importParsedAccounts){
+      const{data,error}=await db.from('chart_of_accounts').insert({book_id:importWizardBookId,account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank}).select().single();
+      if(error){ failed++; continue; }
+      imported++;
+      pathToId[a.fullPath]=data.id;
+    }
+    for(const a of importParsedAccounts){
+      if(a.parentPath&&pathToId[a.fullPath]&&pathToId[a.parentPath]){
+        await db.from('chart_of_accounts').update({parent_account_id:pathToId[a.parentPath]}).eq('id',pathToId[a.fullPath]);
+      }
+    }
+    status.textContent=`Imported ${imported} account(s)${failed?`, ${failed} failed`:''}.`;
+    logThreadEntry(`Imported ${imported} accounts from QuickBooks into "${importWizardPendingBookName}".`);
+    await loadRealBooksIntoRowView();
+    setTimeout(()=>openImportRoadmap(),900);
+  } finally {
+    importCommitInFlight=false;
   }
-  status.textContent=`Imported ${imported} account(s)${failed?`, ${failed} failed`:''}.`;
-  logThreadEntry(`Imported ${imported} accounts from QuickBooks into "${document.getElementById('importBookName')?document.getElementById('importBookName').value:''}".`);
-  await loadRealBooksIntoRowView();
-  setTimeout(()=>openImportRoadmap(),900);
 }
 function openImportRoadmap(){
   popupOpen(`
