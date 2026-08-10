@@ -452,7 +452,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.39</div>
+      <div class="page-version" id="pageVersion">v1.40</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2909,20 +2909,50 @@ async function confirmRestoreWithName(){
 // ══════════════════════════════════════════════
 let importWizardBookId=null;
 let importWizardCompanyId=null;
-function openImportWizard(){
+// Book selection mirrors Company exactly, per Ryan's direct instruction,
+// 2026-08-10: pick an EXISTING book (e.g. one already created via Add New
+// Book) to import into, or create a new one — same "— New X —" pattern
+// both fields already share, not two different interaction models for
+// what's conceptually the same choice.
+let importAllBooks=[];
+async function openImportWizard(){
   importWizardBookId=null;importWizardCompanyId=null;
-  importWizardPendingCompanyId=null;importWizardPendingNewCompanyName=null;importWizardPendingBookName=null;
+  importWizardPendingCompanyId=null;importWizardPendingNewCompanyName=null;importWizardPendingBookName=null;importWizardPendingBookId=null;
+  if(db&&currentUser){
+    const{data}=await db.from('books').select('id,name,company_id').eq('user_id',currentUser.id).order('name');
+    importAllBooks=data||[];
+  } else importAllBooks=[];
   const companyOptions=USER_COMPANIES.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('');
   popupOpen(`
     <div class="dv-sub-h">Import From QuickBooks — Step 1: Which Book?</div>
-    <div class="fv-status" style="margin-bottom:14px">Everything imports into one new book. Pick the company it belongs to (or leave blank to create one), then name the book.</div>
+    <div class="fv-status" style="margin-bottom:14px">Pick the company (or create one), then pick an existing book to import into, or create a new one.</div>
     <div class="fv-field"><label class="fv-label">Company</label>
-      <select class="fv-input" id="importCompanySelect"><option value="">— New Company —</option>${companyOptions}</select>
+      <select class="fv-input" id="importCompanySelect" onchange="importCompanySelectChanged()"><option value="">— New Company —</option>${companyOptions}</select>
     </div>
     <div class="fv-field" style="margin-top:10px" id="importNewCompanyNameWrap"><label class="fv-label">New Company Name</label><input class="fv-input" id="importNewCompanyName" placeholder="e.g. B.O.S.S. Inc"></div>
-    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Book Name</label><input class="fv-input" id="importBookName" placeholder="e.g. B.O.S.S. Inc"></div>
+    <div class="fv-field" style="margin-top:10px" id="importBookSelectWrap"><label class="fv-label">Book</label>
+      <select class="fv-input" id="importBookSelect" onchange="importBookSelectChanged()"><option value="">— New Book —</option></select>
+    </div>
+    <div class="fv-field" style="margin-top:10px" id="importNewBookNameWrap"><label class="fv-label">New Book Name</label><input class="fv-input" id="importBookName" placeholder="e.g. B.O.S.S. Inc"></div>
     <button class="fv-save" style="margin-top:14px" onclick="importWizardStep1Continue()">Continue →</button>
     <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
+  importCompanySelectChanged();
+}
+// Re-filters the Book dropdown to whichever company is currently
+// selected — a brand-new company can't already have books, so it only
+// offers "New Book" in that case; an existing company shows its own books
+// to import into, plus "New Book" to add another one under it.
+function importCompanySelectChanged(){
+  const companyId=document.getElementById('importCompanySelect').value;
+  document.getElementById('importNewCompanyNameWrap').style.display=companyId?'none':'';
+  const bookSelect=document.getElementById('importBookSelect');
+  const books=companyId?importAllBooks.filter(b=>b.company_id===companyId):[];
+  bookSelect.innerHTML=`<option value="">— New Book —</option>${books.map(b=>`<option value="${b.id}">${abEsc(b.name)}</option>`).join('')}`;
+  importBookSelectChanged();
+}
+function importBookSelectChanged(){
+  const bookId=document.getElementById('importBookSelect').value;
+  document.getElementById('importNewBookNameWrap').style.display=bookId?'none':'';
 }
 // Ryan caught a real bug, 2026-08-10: this used to create the company AND
 // the book immediately, right here in Step 1 — so pressing Cancel on Step
@@ -2936,10 +2966,9 @@ function openImportWizard(){
 let importWizardPendingCompanyId=null;
 let importWizardPendingNewCompanyName=null;
 let importWizardPendingBookName=null;
+let importWizardPendingBookId=null;
 function importWizardStep1Continue(){
   const status=document.getElementById('importStatus');
-  const bookName=document.getElementById('importBookName').value.trim();
-  if(!bookName){ status.textContent='Book name is required.'; return; }
   if(!db||!currentUser){ status.textContent='Sign in through the Hub to actually import — this is sample mode.'; return; }
   const companySelect=document.getElementById('importCompanySelect').value;
   if(!companySelect){
@@ -2951,7 +2980,16 @@ function importWizardStep1Continue(){
     importWizardPendingCompanyId=companySelect;
     importWizardPendingNewCompanyName=null;
   }
-  importWizardPendingBookName=bookName;
+  const bookSelect=document.getElementById('importBookSelect').value;
+  if(!bookSelect){
+    const bookName=document.getElementById('importBookName').value.trim();
+    if(!bookName){ status.textContent='Book name is required (or pick an existing one).'; return; }
+    importWizardPendingBookId=null;
+    importWizardPendingBookName=bookName;
+  } else {
+    importWizardPendingBookId=bookSelect;
+    importWizardPendingBookName=null;
+  }
   openImportStep2CoA();
 }
 // Minimal CSV parser — handles quoted fields with embedded commas, same
@@ -3079,9 +3117,10 @@ async function importCommitCoa(){
   try{
     const status=document.getElementById('importStatus');
     status.textContent='Creating the company/book…';
-    // The company and book are only actually created here, right before the
-    // first real row gets written — not back in Step 1 (see
-    // importWizardStep1Continue's comment for why that was a real bug).
+    // The company and book are only actually created here (and only if an
+    // EXISTING one wasn't picked in Step 1), right before the first real
+    // row gets written — not back in Step 1 (see importWizardStep1Continue's
+    // comment for why eager creation there was a real bug).
     let companyId=importWizardPendingCompanyId;
     if(!companyId){
       const{data:newCo,error}=await db.from('companies').insert({name:importWizardPendingNewCompanyName,user_id:currentUser.id}).select().single();
@@ -3089,9 +3128,13 @@ async function importCommitCoa(){
       companyId=newCo.id;
       USER_COMPANIES.push(newCo);
     }
-    const{data:newBook,error:bookErr}=await db.from('books').insert({user_id:currentUser.id,name:importWizardPendingBookName,company_id:companyId}).select().single();
-    if(bookErr){ status.textContent='Error creating book: '+bookErr.message; return; }
-    importWizardBookId=newBook.id;importWizardCompanyId=companyId;
+    let bookId=importWizardPendingBookId;
+    if(!bookId){
+      const{data:newBook,error:bookErr}=await db.from('books').insert({user_id:currentUser.id,name:importWizardPendingBookName,company_id:companyId}).select().single();
+      if(bookErr){ status.textContent='Error creating book: '+bookErr.message; return; }
+      bookId=newBook.id;
+    }
+    importWizardBookId=bookId;importWizardCompanyId=companyId;
     status.textContent='Importing…';
     let imported=0,failed=0;
     // Two passes, per Ryan's direct instruction, 2026-08-10: pass 1 inserts
@@ -3113,7 +3156,8 @@ async function importCommitCoa(){
       }
     }
     status.textContent=`Imported ${imported} account(s)${failed?`, ${failed} failed`:''}.`;
-    logThreadEntry(`Imported ${imported} accounts from QuickBooks into "${importWizardPendingBookName}".`);
+    const importedBookLabel=importWizardPendingBookName||(importAllBooks.find(b=>b.id===importWizardPendingBookId)||{}).name||'a book';
+    logThreadEntry(`Imported ${imported} accounts from QuickBooks into "${importedBookLabel}".`);
     await loadRealBooksIntoRowView();
     setTimeout(()=>openImportRoadmap(),900);
   } finally {
