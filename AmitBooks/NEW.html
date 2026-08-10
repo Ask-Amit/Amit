@@ -452,7 +452,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.40</div>
+      <div class="page-version" id="pageVersion">v1.41</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3029,10 +3029,31 @@ const QB_ACCOUNT_TYPE_MAP={
   'cost of goods sold':'expense','expense':'expense','other expense':'expense'
 };
 let importParsedAccounts=null;
+// Shared, step-by-step QuickBooks export walkthrough — Ryan's direct
+// instruction, 2026-08-10: spell out the actual whole process in plain
+// numbered steps, right inside the app, not just describe the report
+// name and assume someone knows how to get a file out of QuickBooks.
+// Written once here so every future import step (Vendors, Customers,
+// Items, Journal, Open Items) reuses the same real walkthrough instead of
+// each one re-explaining Excel/CSV export from scratch.
+function importQbWalkthroughHtml(reportLabel,menuPath){
+  return `<div class="fv-status" style="margin-bottom:14px">
+    <b>${abEsc(reportLabel)}</b> — in QuickBooks:
+    <ol style="margin:8px 0 0 18px;padding:0">
+      <li>${abEsc(menuPath)}</li>
+      <li>Click <b>Excel</b> at the top of the report</li>
+      <li>Choose <b>Create New Worksheet</b> (a new Excel window opens)</li>
+      <li>In Excel: <b>File → Save As</b></li>
+      <li>Change the file type to <b>CSV (Comma delimited) (*.csv)</b>, then Save</li>
+      <li>Save it somewhere you can find again — a folder, a USB drive, wherever's easiest to get back to — since you'll be uploading a file like this one for each step of the import</li>
+      <li>Upload that saved file below</li>
+    </ol>
+  </div>`;
+}
 function openImportStep2CoA(){
   popupOpen(`
     <div class="dv-sub-h">Step 2: Chart of Accounts</div>
-    <div class="fv-status" style="margin-bottom:14px">Upload QuickBooks' "Account Listing" export (Reports → Accountant &amp; Taxes → Account Listing → Export). Every account's type stays editable before anything is actually saved.</div>
+    ${importQbWalkthroughHtml('Account Listing','Reports → Accountant & Taxes → Account Listing → Export')}
     <input type="file" id="importCoaFile" accept=".csv,.xlsx,.xls" onchange="importCoaFileChosen(this.files[0])">
     <div id="importCoaReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
