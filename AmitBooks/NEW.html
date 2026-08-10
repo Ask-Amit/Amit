@@ -444,7 +444,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.15</div>
+      <div class="page-version" id="pageVersion">v1.19</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -808,8 +808,8 @@ let USER_COMPANIES=[];
 // Name and Company are deliberately left off this flag — there's nothing
 // to sum there.
 const BOOK_RV_COLUMNS=[
-  {key:'name',label:'Book Name'},
   {key:'company_name',label:'Company',cellRenderer:companyCellRendererRef},
+  {key:'name',label:'Book Name',cellRenderer:bookNameCellRendererRef},
   {key:'cash_on_hand',label:'What You Have',align:'right',sortFilter:false,groupStart:true,summable:true,description:"The money that's actually sitting in your bank and savings accounts right now. Real, spendable cash — today, not someday."},
   {key:'bills_ap',label:'Bills You Have',align:'right',sortFilter:false,operatorPrefix:'−',summable:true,description:"Real bills that have landed in front of you — invoices you've actually received and still need to pay. Not a guess, not something looming — an actual bill."},
   {key:'available',label:'Available',align:'right',sortFilter:false,operatorPrefix:'=',cellRenderer:subtotalCellRendererRef,summable:true,description:"What You Have, minus Bills You Have. In plain terms: after you pay what you already know you owe, this is what's left to work with."},
@@ -907,7 +907,10 @@ function subtotalCellRendererRef(r,c){
 // since company management now lives inline on the Books tab itself (the
 // Company column's autocomplete + create/edit popup, below).
 function selectBookRow(rows,bookId){
-  const row=rows.find(r=>r.id===bookId);
+  // findBookRow (defined near buildBookGroupRows above) checks both
+  // top-level rows and any company group's nested .children — a real book
+  // now often lives nested under its company's group row, not top-level.
+  const row=findBookRow(rows,bookId);
   const ctx=document.getElementById('pageContext');
   if(ctx) ctx.textContent=row?row.name:'Select Your Books';
   // Mini page-header (Tab 1's own "BOOKS" label) mirrors the same
@@ -944,6 +947,50 @@ function selectBookRow(rows,bookId){
 // with the .eq('user_id', currentUser.id) filter added since this Row
 // View needs only the signed-in person's own books, not every book in the
 // table.
+// Ryan's direct instruction, 2026-08-10: the Books table groups by
+// Company — a company with 1+ books nested under it becomes a collapsible
+// parent row (double-click, or its own ▸/▾ arrow, per rvHandleRowOpen's
+// children-check above), showing the company's SUMMED numbers as the
+// "global" view; expanding it drops "one level down" to each real book's
+// own numbers. A book with no company attached stays a plain top-level row
+// (nothing to group it under yet) — same "No Company" reading as before,
+// just no expand arrow since it has no children.
+const BOOK_KPI_KEYS=['cash_on_hand','bills_ap','available','owed_to_you','short_term_debt','coming_in','you_got'];
+function buildBookGroupRows(bookRows,companies){
+  const byCompany={};
+  const ungrouped=[];
+  bookRows.forEach(r=>{
+    if(r.company_id){ (byCompany[r.company_id]=byCompany[r.company_id]||[]).push(r); }
+    else ungrouped.push(r);
+  });
+  const groupRows=companies
+    .filter(c=>byCompany[c.id]&&byCompany[c.id].length)
+    .map(c=>({id:'grp-'+c.id,isCompanyGroup:true,company_id:c.id,company_name:c.name,name:'',children:byCompany[c.id]}));
+  recomputeGroupSums(groupRows);
+  return[...groupRows,...ungrouped];
+}
+// Sums each child book's already-formatted KPI strings back to numbers
+// (rvParseMoney, defined above near the summary-row code) and re-formats
+// the total onto the parent group row — real "global" numbers, not just a
+// label, per Ryan's "look at it from a global... level" instruction.
+function recomputeGroupSums(groupRows){
+  groupRows.forEach(g=>{
+    BOOK_KPI_KEYS.forEach(key=>{
+      const sum=g.children.reduce((s,c)=>s+rvParseMoney(c[key]),0);
+      g[key]=abMoneyFmt(sum);
+    });
+  });
+}
+// Finds a real book row by id whether it's a top-level (ungrouped) row or
+// nested inside a company group's .children — needed now that the Books
+// Row View's top-level `rows` array can hold group rows, not just books.
+function findBookRow(topRows,bookId){
+  for(const r of topRows){
+    if(r.id===bookId)return r;
+    if(r.children){ const hit=r.children.find(c=>c.id===bookId); if(hit)return hit; }
+  }
+  return null;
+}
 async function loadRealBooksIntoRowView(){
   const mount=document.getElementById('rv-mount-books');
   if(!mount)return;
@@ -961,9 +1008,10 @@ async function loadRealBooksIntoRowView(){
     // saveCompanyForm() refuses to actually persist anything without a
     // real signed-in session.
     USER_COMPANIES=BOOK_SAMPLE_ROWS.map(r=>r.sampleCompany).filter(Boolean);
-    const sampleRows=BOOK_SAMPLE_ROWS.map(r=>({...r,company_id:r.sampleCompany?r.sampleCompany.id:null,company_name:r.sampleCompany?r.sampleCompany.name:'No Company'}));
-    rvCreate('rv-mount-books',BOOK_RV_COLUMNS,sampleRows,{onRowOpen:id=>selectBookRow(sampleRows,id),hideExpandColumn:true,showSummaryRow:true});
-    selectBookRow(sampleRows,sampleRows[0]&&sampleRows[0].id);
+    const sampleBookRows=BOOK_SAMPLE_ROWS.map(r=>({...r,company_id:r.sampleCompany?r.sampleCompany.id:null,company_name:r.sampleCompany?r.sampleCompany.name:'No Company'}));
+    const sampleTopRows=buildBookGroupRows(sampleBookRows,USER_COMPANIES);
+    rvCreate('rv-mount-books',BOOK_RV_COLUMNS,sampleTopRows,{onRowOpen:id=>selectBookRow(sampleTopRows,id),hideExpandColumn:false,showSummaryRow:true});
+    selectBookRow(sampleTopRows,sampleBookRows[0]&&sampleBookRows[0].id);
     return;
   }
   mount.innerHTML='<div class="detail-empty">Loading your books…</div>';
@@ -978,7 +1026,7 @@ async function loadRealBooksIntoRowView(){
   USER_COMPANIES=companiesRes.data||[];
   const companyNameById={};
   USER_COMPANIES.forEach(c=>{companyNameById[c.id]=c.name;});
-  const rows=(booksRes.data||[]).map(b=>({
+  const bookRows=(booksRes.data||[]).map(b=>({
     id:b.id,
     name:b.name,
     company_name:b.company_id?(companyNameById[b.company_id]||'—'):'No Company',
@@ -991,14 +1039,19 @@ async function loadRealBooksIntoRowView(){
     you_got:'…',
     company_id:b.company_id||null
   }));
-  rvCreate('rv-mount-books',BOOK_RV_COLUMNS,rows,{onRowOpen:id=>selectBookRow(rows,id),hideExpandColumn:true,showSummaryRow:true});
-  selectBookRow(rows,rows[0]&&rows[0].id);
+  const topRows=buildBookGroupRows(bookRows,USER_COMPANIES);
+  rvCreate('rv-mount-books',BOOK_RV_COLUMNS,topRows,{onRowOpen:id=>selectBookRow(topRows,id),hideExpandColumn:false,showSummaryRow:true});
+  selectBookRow(topRows,bookRows[0]&&bookRows[0].id);
   // KPIs load per-book, in parallel, after the table's already on screen —
   // each row shows "…" until its own numbers resolve, same pattern as the
   // rest of this file's async mounts (nothing blocks the initial render).
-  rows.forEach(async row=>{
+  // After each book's own numbers land, its company group's totals (if
+  // any) are recomputed too, so the "global" row catches up live rather
+  // than sitting on stale placeholder text.
+  bookRows.forEach(async row=>{
     const kpis=await computeBookKpis(row.id);
     Object.assign(row,kpis);
+    recomputeGroupSums(topRows.filter(r=>r.isCompanyGroup));
     rvRenderInstance('rv-mount-books');
   });
 }
@@ -2370,9 +2423,30 @@ async function computeBookKpis(bookId){
 // autocomplete dropdown; double-click (if a company is already linked)
 // opens the edit popup directly — both stopPropagation so they don't also
 // trigger the row's own focus/open behavior.
+// isCompanyGroup rows (the synthetic parent row standing in for a real
+// company with 1+ books nested under it — see buildBookGroupRows below)
+// get a plain bold label instead of the click-to-edit dropdown: there's no
+// single book to attach here, and double-click on the row already toggles
+// expand/collapse (rvHandleRowOpen's children check) rather than opening
+// the edit popup, so wiring the same click handlers here would either
+// silently no-op against a non-existent book id or fight the expand
+// toggle. Editing/creating a company still happens from a real book's own
+// Company cell, or the header's "+ Add New Company" button.
 function companyCellRendererRef(r,c,containerId){
+  if(r.isCompanyGroup) return `<td class="rv-td-plain" style="font-weight:700;color:var(--gold)">${r.company_name}</td>`;
   const val=r.company_name||'No Company';
   return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();openCompanyCellEditor(event,'${containerId}','${r.id}')" ondblclick="event.stopPropagation();openCompanyEditPopupForBook('${r.id}')">${val}</span></td>`;
+}
+// Book Name column's own cellRenderer — plain for a real book row; for a
+// company-group row (no single book name to show), reads as "3 books"
+// instead of showing blank, so the collapsed row still tells you something
+// useful at a glance.
+function bookNameCellRendererRef(r,c,containerId,isChild){
+  if(r.isCompanyGroup){
+    const n=(r.children||[]).length;
+    return `<td class="rv-td-plain" style="color:var(--muted);font-style:italic">${n} book${n===1?'':'s'}</td>`;
+  }
+  return `<td class="rv-td-plain">${isChild?'— ':''}${r.name||''}</td>`;
 }
 
 let companyAcState=null; // {bookId,containerId,query}
@@ -2448,6 +2522,7 @@ function companyAcCommitTyped(){
 // in, in-memory only in sample mode (there's nothing real to write to
 // without a session).
 async function assignCompanyToBook(bookId,containerId,companyId){
+  if(!bookId)return; // standalone company creation (Add New Company button) — no book to link yet
   const inst=rvInstances.get(containerId);
   const row=inst&&inst.rows.find(r=>r.id===bookId);
   const co=USER_COMPANIES.find(c=>c.id===companyId);
@@ -2660,7 +2735,7 @@ function openCompanyEditPopup(bookId,existingCompany,prefillName){
         </div>
       </div>
     </div>
-    <button class="fv-save" style="margin-top:14px" onclick="saveCompanyForm('${bookId}','${existingCompany?existingCompany.id:''}')">Save Company</button>
+    <button class="fv-save" style="margin-top:14px" onclick="saveCompanyForm('${bookId||''}','${existingCompany?existingCompany.id:''}')">Save Company</button>
     <div class="fv-status" id="companyFormStatus"></div>`);
 }
 
@@ -2685,7 +2760,12 @@ async function saveCompanyForm(bookId,existingCompanyId){
   }
   const{data:refreshed}=await db.from('companies').select('*').eq('user_id',currentUser.id).order('name',{ascending:true});
   USER_COMPANIES=refreshed||USER_COMPANIES;
-  await assignCompanyToBook(bookId,'rv-mount-books',companyId);
+  if(bookId){
+    await assignCompanyToBook(bookId,'rv-mount-books',companyId);
+  } else {
+    status.textContent='Company created. Attach it to a book from the Company column whenever you\'re ready.';
+    return; // leave the popup open so the confirmation is visible, rather than closing immediately
+  }
   popupClose();
 }
 
@@ -3177,7 +3257,7 @@ function rvRenderInstance(containerId){
     // not present in the canonical file, added so the Books Row View can give
     // its Company column a custom autocomplete editor instead of the generic
     // plain-text editable cell — everything else in this function is untouched.
-    if(c.cellRenderer) return c.cellRenderer(r,c,containerId);
+    if(c.cellRenderer) return c.cellRenderer(r,c,containerId,isChild);
     if(!c.editable||r._isDemo){
       const plainStyle=(c.align==='right'?'text-align:right;':'')+(c.groupStart?'border-left:6px double rgba(201,168,76,.6);':'')+(c.operatorPrefix?'position:relative;':'');
       return `<td class="rv-td-plain"${plainStyle?` style="${plainStyle}"`:''}>${rvOperatorGlyph(c)}${prefix}${r._isDemo&&idx===0?'✦ ':''}${r[c.key]||''}</td>`;
@@ -3221,7 +3301,15 @@ function rvRenderInstance(containerId){
 // doesn't exist here.
 function rvHandleRowOpen(containerId,itemId){
   const inst=rvInstances.get(containerId);
-  if(inst&&inst.onRowOpen){ inst.onRowOpen(itemId); return; }
+  if(!inst)return;
+  // A row standing for a group (has .children, e.g. a company header row
+  // grouping its books) isn't a real record to "open" — double-click there
+  // toggles expand/collapse instead, same action as clicking its ▸/▾
+  // arrow. Generic on inst.rows so any future grouped Row View gets this
+  // for free, not something specific to the Books table.
+  const row=inst.rows.find(r=>r.id===itemId);
+  if(row&&row.children&&row.children.length){ rvToggleExpand(containerId,itemId); return; }
+  if(inst.onRowOpen){ inst.onRowOpen(itemId); return; }
 }
 function rvToggleExpand(containerId,id){
   const inst=rvInstances.get(containerId);if(!inst)return;
@@ -3384,11 +3472,44 @@ function spvRenderInstance(containerId){
     <div class="spv-detail">${detailHtml}</div>`;
   if(inst.detailRenderer) inst.detailRenderer(item,`spv-detail-mount-${containerId}`);
 }
-// Placeholder only — no real "create a book" flow built yet. Wire this to
-// an actual db.from('books').insert(...) call (matching AmitBooks.html's
-// own abCreateBook logic) when that piece is brought over for real.
+// Real "create a book" flow — same shape as AmitBooks.html's own
+// abCreateBook() (books.insert with user_id:currentUser.id), but using
+// popupOpen() instead of a native prompt, and without AmitBooks.html's
+// separate flat company fields — New's books link to the real `companies`
+// table instead (see openCompanyEditPopup/assignCompanyToBook above), so a
+// brand-new book is created company-less ("No Company", same as every
+// existing unlinked book already shows) and gets a company attached
+// afterward via the Company column's own autocomplete/create popup.
+//
+// Entity Type is deliberately NOT a field here — Ryan's direct correction:
+// entity type is a legal/tax attribute of the COMPANY (companies.entity_type,
+// set on the Company popup), not the book. A book is just a named ledger;
+// it inherits its entity type through whichever company it's linked to, not
+// its own copy of the field. Putting it on both would let them drift out of
+// sync for no reason.
 function spvAddNew(containerId){
-  alert('Add New Book — coming soon. This will create a real book, same as AmitBooks.html\'s existing create-book flow, once that logic is ported over.');
+  openAddBookPopup(containerId);
+}
+function openAddBookPopup(containerId){
+  popupOpen(`
+    <div class="dv-sub-h">New Book</div>
+    <div class="fv-field"><label class="fv-label">Book Name</label><input class="fv-input" id="bookForm-name" placeholder="e.g. Personal, B.O.S.S. Inc"></div>
+    <button class="fv-save" style="margin-top:14px" onclick="saveNewBook('${containerId}')">Create Book</button>
+    <div class="fv-status" id="bookFormStatus"></div>`);
+}
+async function saveNewBook(containerId){
+  const name=document.getElementById('bookForm-name').value.trim();
+  const status=document.getElementById('bookFormStatus');
+  if(!name){ status.textContent='Book name is required.'; return; }
+  if(!db||!currentUser){
+    status.textContent='Sign in through the Hub to actually create a book — this is sample mode.';
+    return;
+  }
+  status.textContent='Creating…';
+  const{error}=await db.from('books').insert({user_id:currentUser.id,name});
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+  await loadRealBooksIntoRowView();
 }
 function spvSelect(containerId,id){
   const inst=spvInstances.get(containerId);if(!inst)return;
@@ -3477,7 +3598,8 @@ function renderPageActionBar(detailNum,tabNum){
   const bar=document.getElementById('page-action-bar-'+detailNum);
   if(!bar)return;
   if(detailNum===1&&tabNum===1){
-    bar.innerHTML=`<button class="page-action-btn" onclick="spvAddNew('rv-mount-books')"><span>+</span>Add New Book</button>`;
+    bar.innerHTML=`<button class="page-action-btn" onclick="spvAddNew('rv-mount-books')"><span>+</span>Add New Book</button>
+      <button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>`;
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
     // header, far right, scoped to this page's one tab only — not an
