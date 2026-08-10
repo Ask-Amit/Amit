@@ -444,7 +444,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.31</div>
+      <div class="page-version" id="pageVersion">v1.32</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2627,6 +2627,48 @@ async function confirmDeleteCompany(companyId){
   await loadRealBooksIntoRowView();
 }
 
+// ── RESET EVERYTHING — wipes every company, book, and contact under the
+// signed-in account. Ryan's direct instruction, 2026-08-10: for starting
+// genuinely fresh (testing the real first-time experience) without
+// deleting rows one at a time. Contacts are book-scoped, so deleting
+// every book already clears their contacts too (deleteBookCascade already
+// covers the `contacts` table) — nothing extra needed for that piece.
+// Same backup-first pattern as every other delete tonight, just scoped to
+// everything instead of one company/book.
+async function openDeleteEverythingPopup(){
+  if(!db||!currentUser)return;
+  const{data:companies}=await db.from('companies').select('id').eq('user_id',currentUser.id);
+  const{data:books}=await db.from('books').select('id').eq('user_id',currentUser.id);
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Reset Everything?</div>
+    <div class="fv-status" style="margin-bottom:14px">This permanently deletes every company (${(companies||[]).length}), book (${(books||[]).length}), and every contact under each of those books, for your account only. Meant for starting genuinely fresh. This cannot be undone through the app afterward.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadEverythingBackupNow()">⬇ Download Backup First</button>
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteEverything()">Delete Everything Permanently</button>
+    </div>
+    <div class="fv-status" id="deleteBookStatus" style="margin-top:10px"></div>`);
+}
+async function downloadEverythingBackupNow(){
+  const status=document.getElementById('deleteBookStatus');
+  if(status) status.textContent='Gathering everything…';
+  const{data:companies}=await db.from('companies').select('*').eq('user_id',currentUser.id);
+  const{data:books}=await db.from('books').select('id,name').eq('user_id',currentUser.id);
+  const bundle={amitbooks_backup_version:1,scope:'everything',user_id:currentUser.id,exported_at:new Date().toISOString(),companies:companies||[],books:{}};
+  for(const b of(books||[])) bundle.books[b.id]=await snapshotBook(b.id,b.name);
+  await downloadJson(bundle,'before-reset-everything');
+  if(status) status.textContent='Saved.';
+}
+async function confirmDeleteEverything(){
+  const status=document.getElementById('deleteBookStatus');
+  if(status) status.textContent='Deleting…';
+  const{data:companies}=await db.from('companies').select('id').eq('user_id',currentUser.id);
+  for(const c of(companies||[])) await deleteCompanyCascade(c.id); // cascades each company's own books/contacts too
+  const{data:remaining}=await db.from('books').select('id').eq('user_id',currentUser.id); // whatever's left had no company — delete directly
+  for(const b of(remaining||[])) await deleteBookCascade(b.id);
+  popupClose();
+  await loadRealBooksIntoRowView();
+}
+
 // Custom cellRenderer for the Company column (see the cellRenderer hook
 // added to cellHtml inside rvRenderInstance above). Single click opens the
 // autocomplete dropdown; double-click on a real book's Company cell opens
@@ -4005,7 +4047,8 @@ function renderPageActionBar(detailNum,tabNum){
   if(!bar)return;
   if(detailNum===1&&tabNum===1){
     bar.innerHTML=`<button class="page-action-btn" onclick="spvAddNew('rv-mount-books')"><span>+</span>Add New Book</button>
-      <button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>`;
+      <button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>
+      <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
     // header, far right, scoped to this page's one tab only — not an
