@@ -444,7 +444,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.19</div>
+      <div class="page-version" id="pageVersion">v1.25</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -910,7 +910,13 @@ function selectBookRow(rows,bookId){
   // findBookRow (defined near buildBookGroupRows above) checks both
   // top-level rows and any company group's nested .children — a real book
   // now often lives nested under its company's group row, not top-level.
-  const row=findBookRow(rows,bookId);
+  // An empty company group (0 books — see buildBookGroupRows) has no
+  // expand arrow and no children for rvHandleRowOpen's toggle-instead
+  // guard to catch, so a click could otherwise reach here with the
+  // group's own synthetic 'grp-...' id — that's not a real book, so treat
+  // it the same as nothing selected rather than trying to open it.
+  const found=findBookRow(rows,bookId);
+  const row=(found&&!found.isCompanyGroup)?found:null;
   const ctx=document.getElementById('pageContext');
   if(ctx) ctx.textContent=row?row.name:'Select Your Books';
   // Mini page-header (Tab 1's own "BOOKS" label) mirrors the same
@@ -963,9 +969,16 @@ function buildBookGroupRows(bookRows,companies){
     if(r.company_id){ (byCompany[r.company_id]=byCompany[r.company_id]||[]).push(r); }
     else ungrouped.push(r);
   });
+  // Every company gets a row, even one with zero books yet (children:[])
+  // — Ryan caught this directly, 2026-08-10: a company created standalone
+  // (the header's "+ Add New Company" button, or typing a brand-new name
+  // into a book's Company cell) was real in the database but had nowhere
+  // to display until a book existed under it, which reads exactly like
+  // "it got created then disappeared." No expand arrow shows for an empty
+  // group (rvFlattenVisible/rvHandleRowOpen both key off children.length),
+  // so it just sits as a plain single row until a book is added under it.
   const groupRows=companies
-    .filter(c=>byCompany[c.id]&&byCompany[c.id].length)
-    .map(c=>({id:'grp-'+c.id,isCompanyGroup:true,company_id:c.id,company_name:c.name,name:'',children:byCompany[c.id]}));
+    .map(c=>({id:'grp-'+c.id,isCompanyGroup:true,company_id:c.id,company_name:c.name,name:'',children:byCompany[c.id]||[]}));
   recomputeGroupSums(groupRows);
   return[...groupRows,...ungrouped];
 }
@@ -2432,9 +2445,15 @@ async function computeBookKpis(bookId){
 // silently no-op against a non-existent book id or fight the expand
 // toggle. Editing/creating a company still happens from a real book's own
 // Company cell, or the header's "+ Add New Company" button.
-function companyCellRendererRef(r,c,containerId){
+function companyCellRendererRef(r,c,containerId,isChild){
   if(r.isCompanyGroup) return `<td class="rv-td-plain" style="font-weight:700;color:var(--gold)">${r.company_name}</td>`;
-  const val=r.company_name||'No Company';
+  // Nested under its company's own group row (isChild) — the company name
+  // already reads once, on the parent row above; repeating it on every
+  // book underneath just reads as a flat list, not a tree. Ryan's direct
+  // instruction, 2026-08-10: blank it out for a child row (still clickable,
+  // in case a book ever needs to move to a different company — just no
+  // redundant label text).
+  const val=isChild?'':(r.company_name||'No Company');
   return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();openCompanyCellEditor(event,'${containerId}','${r.id}')" ondblclick="event.stopPropagation();openCompanyEditPopupForBook('${r.id}')">${val}</span></td>`;
 }
 // Book Name column's own cellRenderer — plain for a real book row; for a
@@ -2520,18 +2539,41 @@ function companyAcCommitTyped(){
 
 // Assigns an existing company to a book — real persistence when signed
 // in, in-memory only in sample mode (there's nothing real to write to
-// without a session).
+// without a session). Always does a full loadRealBooksIntoRowView()
+// reload afterward rather than an in-place row edit — Ryan's direct
+// instruction, 2026-08-10 (Add Book/Add Company should auto-refresh, not
+// sit stale) — and it also sidesteps a real bug the old in-place update
+// had: `inst.rows.find` only checked TOP-LEVEL rows, so re-assigning a
+// book that was already nested inside a different company's group row
+// silently failed to update on screen (the database write still
+// succeeded; the display just never caught up).
 async function assignCompanyToBook(bookId,containerId,companyId){
   if(!bookId)return; // standalone company creation (Add New Company button) — no book to link yet
   const inst=rvInstances.get(containerId);
-  const row=inst&&inst.rows.find(r=>r.id===bookId);
-  const co=USER_COMPANIES.find(c=>c.id===companyId);
+  const row=inst&&findBookRow(inst.rows,bookId);
   if(db&&currentUser){
     const{error}=await db.from('books').update({company_id:companyId}).eq('id',bookId);
-    if(error){ alert('Could not link company: '+error.message); return; }
+    if(error){ abAlertFallback('Could not link company: '+error.message); return; }
+    await loadRealBooksIntoRowView();
+    return;
   }
+  // Sample mode — nothing real to reload from, just reflect the pick in
+  // memory so the layout is still reviewable without a session.
+  const co=USER_COMPANIES.find(c=>c.id===companyId);
   if(row&&co){ row.company_id=companyId; row.company_name=co.name; }
   if(inst) rvRenderInstance(containerId);
+}
+// This file has no branded abAlert()/abConfirm() (those live in
+// AmitBooks.html's own SSN-vault/dialog code, not yet ported here) — a
+// bare fallback so error paths don't fall back to the native browser
+// alert() the standing Interactivity Standard rules out (it gets prefixed
+// with the page's own origin, "ask-amit.github.io says", which can't be
+// removed or relabeled). Genuinely minimal until the real abAlert/abConfirm
+// modal gets ported over; every other status message in this file already
+// uses an in-popup .fv-status line instead of any dialog at all.
+function abAlertFallback(msg){
+  const status=document.getElementById('companyFormStatus')||document.getElementById('bookFormStatus');
+  if(status) status.textContent=msg; else console.error(msg);
 }
 
 function openCompanyEditPopupForBook(bookId){
@@ -2636,6 +2678,42 @@ function selectCustomDropdown(fieldId,val){
   const label=document.getElementById('cdrop-label-'+fieldId);
   if(label) label.textContent=opt?opt[1]:val;
   closeCustomDropdown();
+  // Entity Type driving the EIN/SSN field — Ryan's direct instruction,
+  // 2026-08-10: Sole Proprietorship has no EIN of its own (it files under
+  // the owner's SSN unless one was optionally obtained), so switching to
+  // it re-labels the field "SSN" and reformats whatever's already typed
+  // into SSN dashing (XXX-XX-XXXX) instead of EIN dashing (XX-XXXXXXX),
+  // and switching away from it does the reverse. Same 9 digits either way,
+  // just re-dashed — nothing is cleared.
+  if(fieldId==='entity_type'){
+    const einLabel=document.getElementById('companyForm-ein-label');
+    const einInput=document.getElementById('companyForm-ein');
+    if(einLabel) einLabel.textContent=val==='sole_prop'?'SSN':'EIN';
+    if(einInput){
+      einInput.placeholder=val==='sole_prop'?'123-45-6789':'12-3456789';
+      companyEinInput(einInput);
+    }
+  }
+}
+// Formats the EIN/SSN field as-you-type — EIN dashing (XX-XXXXXXX) by
+// default, or SSN dashing (XXX-XX-XXXX) when Entity Type is currently Sole
+// Proprietorship (checked live off the entity_type hidden input, not a
+// separate flag) — same 9-digit number, the company just isn't always
+// required to have gotten its own EIN. Honest caveat, not enforced by this
+// function: unlike a Contact's SSN (client-side AES-256-GCM encrypted,
+// see the SSN Vault in AmitBooks.html), this field is plain text in the
+// `companies` table — fine for an EIN (already semi-public, appears on tax
+// filings/1099s), a real privacy gap if someone actually types their SSN
+// here instead. Worth a follow-up decision, not silently fixed here.
+function companyEinInput(el){
+  const entityVal=document.getElementById('companyForm-entity_type')?document.getElementById('companyForm-entity_type').value:'';
+  const isSSN=entityVal==='sole_prop';
+  const d=(el.value||'').replace(/\D/g,'').slice(0,9);
+  if(isSSN){
+    el.value=d.length<4?d:d.length<6?`${d.slice(0,3)}-${d.slice(3)}`:`${d.slice(0,3)}-${d.slice(3,5)}-${d.slice(5)}`;
+  } else {
+    el.value=d.length<3?d:`${d.slice(0,2)}-${d.slice(2)}`;
+  }
 }
 function closeCustomDropdownOutside(e){
   const menu=document.getElementById('customDropMenu');
@@ -2724,7 +2802,7 @@ function openCompanyEditPopup(bookId,existingCompany,prefillName){
         <div style="display:flex;gap:14px;align-items:flex-end">
           <div><label class="fv-label">Phone</label><input class="fv-input" id="companyForm-phone" value="${esc(v('phone'))}" placeholder="(555) 555-5555" style="width:118px"></div>
           <div style="width:78px"><label class="fv-label">Basis</label>${renderCustomDropdown('basis',COMPANY_BASIS_OPTIONS,v('basis'))}</div>
-          <div><label class="fv-label">EIN</label><input class="fv-input" id="companyForm-ein" value="${esc(v('ein'))}" placeholder="12-3456789" style="width:100px"></div>
+          <div><label class="fv-label" id="companyForm-ein-label">${v('entity_type')==='sole_prop'?'SSN':'EIN'}</label><input class="fv-input" id="companyForm-ein" value="${esc(v('ein'))}" placeholder="${v('entity_type')==='sole_prop'?'123-45-6789':'12-3456789'}" style="width:100px" oninput="companyEinInput(this)"></div>
           <div style="margin-left:auto">
             <label class="fv-label">NAICS Code</label>
             <div style="display:flex;gap:8px;align-items:center">
@@ -2761,9 +2839,22 @@ async function saveCompanyForm(bookId,existingCompanyId){
   const{data:refreshed}=await db.from('companies').select('*').eq('user_id',currentUser.id).order('name',{ascending:true});
   USER_COMPANIES=refreshed||USER_COMPANIES;
   if(bookId){
-    await assignCompanyToBook(bookId,'rv-mount-books',companyId);
-  } else {
-    status.textContent='Company created. Attach it to a book from the Company column whenever you\'re ready.';
+    const{error:linkErr}=await db.from('books').update({company_id:companyId}).eq('id',bookId);
+    if(linkErr){ status.textContent='Could not link company: '+linkErr.message; return; }
+  }
+  // Full reload from the database, not just an in-place row edit — Ryan's
+  // direct instruction, 2026-08-10: Add Book/Add Company should always
+  // refresh the table automatically once done, not leave it showing stale
+  // data until a manual page reload. This also fixes a real bug the old
+  // in-place path (assignCompanyToBook) had: it looked for the book only
+  // among top-level rows, so linking a company onto a book that was
+  // already nested inside a DIFFERENT company's group silently failed to
+  // update on screen (the database write still worked, the display just
+  // didn't catch up) — a full reload sidesteps that by re-grouping
+  // everything from scratch every time.
+  await loadRealBooksIntoRowView();
+  if(!bookId){
+    status.textContent='Company created. Add a book under it from Add New Book, or click the Company column on an existing book to attach it here.';
     return; // leave the popup open so the confirmation is visible, rather than closing immediately
   }
   popupClose();
@@ -3474,39 +3565,75 @@ function spvRenderInstance(containerId){
 }
 // Real "create a book" flow — same shape as AmitBooks.html's own
 // abCreateBook() (books.insert with user_id:currentUser.id), but using
-// popupOpen() instead of a native prompt, and without AmitBooks.html's
-// separate flat company fields — New's books link to the real `companies`
-// table instead (see openCompanyEditPopup/assignCompanyToBook above), so a
-// brand-new book is created company-less ("No Company", same as every
-// existing unlinked book already shows) and gets a company attached
-// afterward via the Company column's own autocomplete/create popup.
+// popupOpen() instead of a native prompt, and wired to New's real
+// hierarchy: Login → Company → Books (companies table, books.company_id —
+// see openCompanyEditPopup/assignCompanyToBook above), per Ryan's direct
+// instruction, 2026-08-10: a book always belongs to a company, decided at
+// creation time, not attached afterward as an optional extra step.
 //
-// Entity Type is deliberately NOT a field here — Ryan's direct correction:
-// entity type is a legal/tax attribute of the COMPANY (companies.entity_type,
-// set on the Company popup), not the book. A book is just a named ledger;
-// it inherits its entity type through whichever company it's linked to, not
-// its own copy of the field. Putting it on both would let them drift out of
-// sync for no reason.
+// Entity Type is deliberately NOT a field here — Ryan's earlier direct
+// correction: entity type is a legal/tax attribute of the COMPANY
+// (companies.entity_type, set on the Company popup), not the book. A book
+// is just a named ledger; it inherits its entity type through whichever
+// company it's linked to, not its own copy of the field.
 function spvAddNew(containerId){
   openAddBookPopup(containerId);
 }
+// Finds which company, if any, is implied by whatever's currently focused
+// in the table (rvSetFocus — the highlighted row from a single click),
+// per Ryan's instruction: "the one that's in focus if they selected on a
+// company name first." A focused company-group row gives its own
+// company_id directly; a focused book row (inside a group, or an
+// unattached top-level book) gives its own company_id, which may be null.
+function getFocusedCompanyId(containerId){
+  const inst=rvInstances.get(containerId);if(!inst||!inst.focusedRowId)return null;
+  const row=findBookRow(inst.rows,inst.focusedRowId);
+  if(row)return row.company_id||null;
+  const grp=inst.rows.find(r=>r.id===inst.focusedRowId&&r.isCompanyGroup);
+  return grp?grp.company_id:null;
+}
 function openAddBookPopup(containerId){
+  // Ryan's direct instruction: if no company exists yet, Add Book should
+  // not proceed at all — a book can't "not populate" a company, so this
+  // stops here and routes straight to creating one first, rather than
+  // opening a form that would let a book get created company-less again.
+  if(!USER_COMPANIES.length){
+    popupOpen(`
+      <div class="dv-sub-h">Add a Company First</div>
+      <div class="fv-status" style="margin-bottom:14px;color:var(--muted)">Every book belongs to a company — Login → Company → Books. Create your first company, then books go underneath it.</div>
+      <button class="fv-save" onclick="popupClose();openCompanyEditPopup(null,null,'')">+ Add New Company</button>`);
+    return;
+  }
+  // Default company: whatever's focused in the table (Ryan's instruction),
+  // else the sole company if there's only one, else left blank so a real
+  // choice among several companies is never silently guessed.
+  const focusedId=getFocusedCompanyId(containerId);
+  const defaultCompanyId=focusedId||(USER_COMPANIES.length===1?USER_COMPANIES[0].id:'');
+  // Reuses the same working custom-dropdown widget as the Company popup's
+  // Entity Type/Basis/Tax Year End fields (native <select> was ruled out
+  // there per Ryan's earlier report of it rendering as a blank box) —
+  // options rebuilt fresh here since USER_COMPANIES is dynamic, not a
+  // fixed table like the others.
+  CUSTOM_DROPDOWN_OPTIONS.book_company=[['','— Choose a company —'],...USER_COMPANIES.map(c=>[c.id,c.name])];
   popupOpen(`
     <div class="dv-sub-h">New Book</div>
-    <div class="fv-field"><label class="fv-label">Book Name</label><input class="fv-input" id="bookForm-name" placeholder="e.g. Personal, B.O.S.S. Inc"></div>
+    <div class="fv-field"><label class="fv-label">Company</label>${renderCustomDropdown('book_company',CUSTOM_DROPDOWN_OPTIONS.book_company,defaultCompanyId)}</div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Book Name</label><input class="fv-input" id="bookForm-name" placeholder="e.g. Personal, B.O.S.S. Inc"></div>
     <button class="fv-save" style="margin-top:14px" onclick="saveNewBook('${containerId}')">Create Book</button>
     <div class="fv-status" id="bookFormStatus"></div>`);
 }
 async function saveNewBook(containerId){
   const name=document.getElementById('bookForm-name').value.trim();
+  const companyId=document.getElementById('companyForm-book_company').value||null;
   const status=document.getElementById('bookFormStatus');
   if(!name){ status.textContent='Book name is required.'; return; }
+  if(!companyId){ status.textContent='Choose which company this book belongs to.'; return; }
   if(!db||!currentUser){
     status.textContent='Sign in through the Hub to actually create a book — this is sample mode.';
     return;
   }
   status.textContent='Creating…';
-  const{error}=await db.from('books').insert({user_id:currentUser.id,name});
+  const{error}=await db.from('books').insert({user_id:currentUser.id,name,company_id:companyId});
   if(error){ status.textContent='Error: '+error.message; return; }
   popupClose();
   await loadRealBooksIntoRowView();
