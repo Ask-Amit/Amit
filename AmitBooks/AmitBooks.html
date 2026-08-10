@@ -483,7 +483,8 @@ select option{color:#2a2418;background:#fff}
 // the "Accounting" framing of.
 // ══════════════════════════════════════════════
 
-const PLACEHOLDER_COUNT=20;
+const PLACEHOLDER_COUNT=21;
+const AB_NAV_ORDER=[21,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
 
 // ══════════════════════════════════════════════
 // TO-DO CONTENT — the running build list for AmitBooks, panel 3.
@@ -1018,26 +1019,32 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
 (function buildPlaceholders(){
   const nav=document.getElementById('sidebarTiles');
   const main=document.getElementById('mainArea');
-  let navHtml='',panelHtml='';
+  const navHtmlParts={};
+  let panelHtml='';
   for(let i=1;i<=PLACEHOLDER_COUNT;i++){
-    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments & Reconciliation',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory & BOM',13:'Rental Properties',14:'Payroll & HR',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions',19:'Quotes',20:'AmitScan'};
-    const opSubs={1:'Cash position',2:'Accounts, contacts, Scopes, tags, Pipeline, Workflow Rules, Integrations',6:'Money owed, in and out',7:'Payments, bank/CC reconciliation, loan amortization',8:'Equipment & depreciation',9:'P&L, aging, cash flow, job profit, IRS audit view, corporate tax prep, custom reports',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, Bill of Materials, Defects & RMAs',13:'Ownership, components, P&L per property',14:'Payroll, PTO, Benefits & Profit Sharing, IRS/State tax tables, Background Checks',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing',19:'Price it before you book it',20:'Connect your phone, see what came in'};
-    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩',11:'📦',12:'📋',13:'🏠',14:'👷',15:'🚗',16:'🛡️',17:'🤝',18:'📈',19:'📝',20:'📸'};
+    const opLabels={1:'Dashboard',2:'Books & Setup',6:'Bills & Invoices',7:'Payments & Reconciliation',8:'Fixed Assets',9:'Reports',10:'Review Queue',11:'Purchase Orders',12:'Inventory & BOM',13:'Rental Properties',14:'Payroll & HR',15:'Mileage & Repairs',16:'Warranties & Contracts',17:'Client Activity (CRM)',18:'Investments & Subscriptions',19:'Quotes',20:'AmitScan',21:'Books'};
+    const opSubs={1:'Cash position',2:'Accounts, contacts, Scopes, tags, Pipeline, Workflow Rules, Integrations',6:'Money owed, in and out',7:'Payments, bank/CC reconciliation, loan amortization',8:'Equipment & depreciation',9:'P&L, aging, cash flow, job profit, IRS audit view, corporate tax prep, custom reports',10:'Payment sources & flagged mismatches',11:'Orders issued, matched to bills received',12:'Stock on hand, Bill of Materials, Defects & RMAs',13:'Ownership, components, P&L per property',14:'Payroll, PTO, Benefits & Profit Sharing, IRS/State tax tables, Background Checks',15:'Vehicle miles & asset repair history',16:'Coverage windows & recurring contracts',17:'Calls, emails, meetings, follow-ups',18:'Cost basis, value, recurring billing',19:'Price it before you book it',20:'Connect your phone, see what came in',21:'Which book you\'re in — profile, team, other books'};
+    const opIcons={1:'🏦',2:'⚙️',6:'🧾',7:'💵',8:'🔧',9:'📊',10:'🚩',11:'📦',12:'📋',13:'🏠',14:'👷',15:'🚗',16:'🛡️',17:'🤝',18:'📈',19:'📝',20:'📸',21:'📚'};
     const label=opLabels[i]||(i===3?'To Do':i===4?'Full Spec':i===5?'Feature Map':'Placeholder '+i);
-    navHtml+=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
+    navHtmlParts[i]=`<div class="tile${i===1?' active':''}" id="tile-${i}" onclick="openPanel(${i})">
       <div class="tile-icon">${opIcons[i]||(i===3?'📝':i===4?'🔖':i===5?'🗺️':'▢')}</div>
       <div class="tile-info">
         <div class="tile-name">${label}</div>
         <div class="tile-sub">${opSubs[i]||(i===3?'Build roadmap':i===4?'AmitAccounting_Spec.md':i===5?'The Council, synthesized':'—')}</div>
       </div>
     </div>`;
-    if(i===1){
+    if(i===21){
+      panelHtml+=`<div class="panel" id="panel-21" style="flex-direction:column">
+        <div class="panel-head"><span class="panel-heading">${label}</span></div>
+        <div class="ch-tab-main" id="ab-books" style="margin:24px;">Loading…</div>
+      </div>`;
+    } else if(i===1){
       panelHtml+=`<div class="panel active" id="panel-1" style="flex-direction:column">
         <div class="panel-head"><span class="panel-heading">${label}</span></div>
         <div class="ch-tab-main" id="ab-dashboard" style="margin:24px;">Loading…</div>
       </div>`;
     } else if(i===2){
-      const tabs=[['My Books','ab-books'],['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Nomenclature','ab-nomenclature'],['Workflow Rules','ab-workflow'],['Integrations','ab-integrations'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
+      const tabs=[['Chart of Accounts','ab-coa'],['Contacts','ab-contacts'],['Pipeline','ab-pipeline'],['Scopes','ab-items'],['Tags / Jobs','ab-tags'],['Nomenclature','ab-nomenclature'],['Workflow Rules','ab-workflow'],['Integrations','ab-integrations'],['Import QuickBooks','ab-qbimport'],['Audit Log','ab-auditlog']];
       let tabNavHtml='',tabContentHtml='';
       tabs.forEach((t,idx)=>{
         tabNavHtml+=`<button class="ch-tab-btn${idx===0?' active':''}" onclick="showChTab(2,${idx+1})">${t[0]}</button>`;
@@ -1201,6 +1208,7 @@ Vendor timeline view — every purchase/payment/price trend for one vendor, for 
       </div>`;
     }
   }
+  let navHtml=AB_NAV_ORDER.map(i=>navHtmlParts[i]||'').join('');
   // Hub link tile — sits above Ask Amit, sends the person back to the Amit
   // Hub in the same tab (unlike the tool tiles the Hub itself opens in a
   // new tab). Mirrors the brand-logo link in the header.
@@ -1590,8 +1598,27 @@ async function abCreateBook(){
 // hardcoded three cards. Selection is per-book, stored in localStorage —
 // no server round-trip needed for a personal display preference.
 const AB_KPI_DEFS=[
+  // Cash on Hand — added 2026-08-07, same session the is_bank_account flag
+  // was added to chart_of_accounts (migration_2026-08-07_002). Sums the net
+  // balance of every account checked "This is a bank/cash account" on the
+  // Chart of Accounts tab — deliberately NOT the same as Total Assets
+  // (below), which lumps cash together with Accounts Receivable and fixed
+  // assets. An account not yet checked won't count here until someone
+  // flags it.
+  {key:'cash_on_hand',label:'Cash on hand',compute:()=>abMoney(abAccountBalances().filter(r=>r.account.is_bank_account).reduce((s,r)=>s+r.net,0))},
   {key:'owed_to_you',label:'Owed to you',compute:()=>abMoney((abInvoicesBillsCache||[]).filter(r=>r.direction==='invoice_receivable'&&r.status!=='paid'&&r.status!=='void').reduce((s,r)=>s+(Number(r.total_amount)-Number(r.paid_amount)),0))},
   {key:'you_owe',label:'You owe',compute:()=>abMoney((abInvoicesBillsCache||[]).filter(r=>r.direction==='bill_payable'&&r.status!=='paid'&&r.status!=='void').reduce((s,r)=>s+(Number(r.total_amount)-Number(r.paid_amount)),0))},
+  // Short Term Debt / Long Term Debt — added 2026-08-07, same session as
+  // liability_subtype (migration_2026-08-07_003). Deliberately separate
+  // from "You Owe" — Ryan's direct distinction: You Owe is a real bill
+  // that's actually arrived (invoices_bills); these are real obligations
+  // (credit cards, loans) that don't come with a bill, classified per-
+  // account on the Chart of Accounts tab instead. An unclassified
+  // liability account (blank liability_subtype) counts toward neither —
+  // same honesty rule as an unflagged bank account not counting toward
+  // Cash on Hand.
+  {key:'short_term_debt',label:'Short term debt',compute:()=>abMoney(abAccountBalances().filter(r=>['credit_card','short_term_loan','other_current'].includes(r.account.liability_subtype)).reduce((s,r)=>s+r.net,0))},
+  {key:'long_term_debt',label:'Long term debt',compute:()=>abMoney(abAccountBalances().filter(r=>['long_term_loan','other_long_term'].includes(r.account.liability_subtype)).reduce((s,r)=>s+r.net,0))},
   {key:'open_items',label:'Open items',compute:()=>String((abInvoicesBillsCache||[]).filter(r=>r.status!=='paid'&&r.status!=='void').length)},
   {key:'net_income',label:'Net income, all-time',compute:()=>{ const rows=abAccountBalances(); const inc=rows.filter(r=>r.account.account_type==='income').reduce((s,r)=>s+r.net,0); const exp=rows.filter(r=>r.account.account_type==='expense').reduce((s,r)=>s+r.net,0); return abMoney(inc-exp); }},
   {key:'total_assets',label:'Total assets',compute:()=>abMoney(abAccountBalances().filter(r=>r.account.account_type==='asset').reduce((s,r)=>s+r.net,0))},
@@ -1603,7 +1630,7 @@ const AB_KPI_DEFS=[
 function abDashKpiKey(){ return 'ab_dashboard_kpis_'+(abBookId||'none'); }
 function abGetDashKpis(){
   try{ const saved=JSON.parse(localStorage.getItem(abDashKpiKey())||'null'); if(saved&&saved.length)return saved; }catch(e){}
-  return ['owed_to_you','you_owe','open_items','net_income'];
+  return ['cash_on_hand','owed_to_you','you_owe','net_income'];
 }
 let abDashCustomizing=false;
 function abToggleDashCustomize(){ abDashCustomizing=!abDashCustomizing; abRenderDashboard(); }
@@ -2117,12 +2144,14 @@ function abRenderCoa(){
     </div>`)}
     <div class="ab-form">
       <div class="ab-field"><label>Account name</label><input id="ab-coa-name" placeholder="e.g. Tools & Equipment"></div>
-      <div class="ab-field"><label>Type</label><select id="ab-coa-type"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
+      <div class="ab-field"><label>Type</label><select id="ab-coa-type" onchange="abCoaTypeChanged()"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
       <div class="ab-field"><label>Number (optional)</label><input id="ab-coa-number" style="width:80px" placeholder="5100"></div>
+      <div class="ab-field" id="ab-coa-bank-field" style="align-self:flex-end;padding-bottom:8px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px"><input type="checkbox" id="ab-coa-bank">This is a bank/cash account</label></div>
+      <div class="ab-field" id="ab-coa-liabsub-field" style="display:none"><label>Liability Type</label>${abLiabilitySubtypeOptionsHtml('')}</div>
       <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
     </div>
-    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Tax Category</th><th>Custom Fields</th></tr>
-    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="5">No accounts yet — add your first one above, or browse a template</td></tr>'}
+    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Bank/Cash</th><th>Liability Type</th><th>Tax Category</th><th>Custom Fields</th></tr>
+    ${abAccounts.map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?`<input type="checkbox" ${a.is_bank_account?'checked':''} onchange="abToggleBankAccount('${a.id}',this.checked)" title="Counts toward Cash on Hand on the dashboard">`:'—'}</td><td>${a.account_type==='liability'?`<select onchange="abSaveLiabilitySubtype('${a.id}',this.value)" title="Decides whether this counts toward Short Term Debt or Long Term Debt on the dashboard" style="font-size:11px">${abLiabilitySubtypeOptions(a.liability_subtype)}</select>`:'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No accounts yet — add your first one above, or browse a template</td></tr>'}
     </table>
     <div id="ab-customfields-panel"></div>
     <div id="ab-taxcategory-panel"></div>`;
@@ -2274,9 +2303,63 @@ async function abAddAccount(){
   const name=document.getElementById('ab-coa-name').value.trim(); if(!name)return;
   const type=document.getElementById('ab-coa-type').value;
   const number=document.getElementById('ab-coa-number').value.trim();
-  const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null});
+  const isBank=document.getElementById('ab-coa-bank').checked;
+  const liabSubEl=document.getElementById('ab-coa-liabsub');
+  const liabSub=(type==='liability'&&liabSubEl)?(liabSubEl.value||null):null;
+  const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null,is_bank_account:isBank,liability_subtype:liabSub});
   if(error){abAlert(error.message);return;}
   await abLoadAccounts(); abRenderCoa(); abRefreshDropdownSources();
+}
+
+// Toggles which classification field shows on the Add Account form — a
+// brand-new liability account should be classified right away (Credit
+// Card / Short-Term Loan / Long-Term Loan / etc.), not left blank and
+// forgotten; the bank/cash checkbox only makes sense for an asset.
+function abCoaTypeChanged(){
+  const type=document.getElementById('ab-coa-type').value;
+  document.getElementById('ab-coa-bank-field').style.display=type==='asset'?'':'none';
+  document.getElementById('ab-coa-liabsub-field').style.display=type==='liability'?'':'none';
+}
+
+// Real subtype list — matches how QuickBooks/Xero actually classify a
+// liability account (per-account subtype, not a boolean), confirmed this
+// session before building. 'accounts_payable' deliberately NOT offered
+// here — real AP is already computed live from the invoices_bills table
+// (see computeBookKpis/AB_KPI_DEFS), not from a chart_of_accounts
+// balance; offering it here would invite double-counting or a stale
+// manual number competing with the real one.
+const AB_LIABILITY_SUBTYPES=[
+  ['','—'],
+  ['credit_card','Credit Card'],
+  ['short_term_loan','Short-Term Loan'],
+  ['other_current','Other Current Liability'],
+  ['long_term_loan','Long-Term Loan'],
+  ['other_long_term','Other Long-Term Liability']
+];
+function abLiabilitySubtypeOptions(selected){
+  return AB_LIABILITY_SUBTYPES.map(([v,label])=>`<option value="${v}"${(selected||'')===v?' selected':''}>${label}</option>`).join('');
+}
+function abLiabilitySubtypeOptionsHtml(selected){
+  return `<select id="ab-coa-liabsub">${abLiabilitySubtypeOptions(selected)}</select>`;
+}
+
+// Changed directly from the Chart of Accounts table row — feeds the real
+// Short Term Debt / Long Term Debt KPIs the same way abToggleBankAccount
+// feeds Cash on Hand.
+async function abSaveLiabilitySubtype(accountId,val){
+  const{error}=await db.from('chart_of_accounts').update({liability_subtype:val||null}).eq('id',accountId);
+  if(error){abAlert(error.message);return;}
+  await abLoadAccounts();
+}
+
+// Checked/unchecked directly from the Chart of Accounts table row — feeds
+// the real-time "Cash on Hand" KPI (this book's own dashboard tile, and
+// the Books tab's Row View in AmitBooks/NEW.html, both reading this same
+// column via migration_2026-08-07_002_amitbooks_coa_bank_flag.sql).
+async function abToggleBankAccount(accountId,checked){
+  const{error}=await db.from('chart_of_accounts').update({is_bank_account:checked}).eq('id',accountId);
+  if(error){abAlert(error.message);return;}
+  await abLoadAccounts();
 }
 
 // ── CONTACTS ──
@@ -5929,7 +6012,7 @@ function abRenderCorpTaxPrep(){
   if(!entityKey){
     const et=b?b.entity_type||'—':'—';
     const llcNote=et==='llc'?' An LLC itself isn\'t one of these three — it\'s taxed AS a sole prop, partnership, S-corp, or C-corp depending on its election. Confirm the actual election with Tim, then this report can be built once that\'s known.':'';
-    return `<div class="ab-signin-notice" style="text-align:left">This book's Company Type (Books &amp; Setup → My Books) is set to "${abEsc(et)}" — Corporate Tax Prep only applies to C-Corp, S-Corp, or Partnership.${llcNote} Sole proprietors and personal books file differently (Schedule C, not a separate corporate return), so there's nothing to map here.</div>`;
+    return `<div class="ab-signin-notice" style="text-align:left">This book's Company Type (Books → Company Profile) is set to "${abEsc(et)}" — Corporate Tax Prep only applies to C-Corp, S-Corp, or Partnership.${llcNote} Sole proprietors and personal books file differently (Schedule C, not a separate corporate return), so there's nothing to map here.</div>`;
   }
   const map=AB_TAX_LINE_MAPS[entityKey];
   const balances=abAccountBalances();
@@ -7059,7 +7142,7 @@ async function abLoadPayroll(){
 function abComputeStateWithholding(employee,grossThisPeriod,taxYear){
   const book=abBooks.find(b=>b.id===abBookId);
   const stateCode=book?book.payroll_state_code:null;
-  if(!stateCode) return{amount:0,note:'No Payroll State set on this book (Books & Setup → My Books) — state withholding not calculated.'};
+  if(!stateCode) return{amount:0,note:'No Payroll State set on this book (Books → Company Profile) — state withholding not calculated.'};
   const jurisdiction=abStateJurisdictionsCache.find(j=>j.level==='state'&&j.state_code===stateCode);
   if(!jurisdiction) return{amount:0,note:`No tax jurisdiction on file for "${stateCode}" yet — real state withholding data hasn't been loaded for it.`};
   if(!jurisdiction.has_income_tax||jurisdiction.rate_type==='none') return{amount:0,note:`${jurisdiction.name} has no state income tax.`,jurisdiction};
