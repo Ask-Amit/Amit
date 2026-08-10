@@ -444,7 +444,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.29</div>
+      <div class="page-version" id="pageVersion">v1.31</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1029,7 +1029,7 @@ async function loadRealBooksIntoRowView(){
     USER_COMPANIES=BOOK_SAMPLE_ROWS.map(r=>r.sampleCompany).filter(Boolean);
     const sampleBookRows=BOOK_SAMPLE_ROWS.map(r=>({...r,company_id:r.sampleCompany?r.sampleCompany.id:null,company_name:r.sampleCompany?r.sampleCompany.name:'No Company'}));
     const sampleTopRows=buildBookGroupRows(sampleBookRows,USER_COMPANIES);
-    rvCreate('rv-mount-books',BOOK_RV_COLUMNS,sampleTopRows,{onRowOpen:id=>selectBookRow(sampleTopRows,id),hideExpandColumn:false,showSummaryRow:true});
+    rvCreate('rv-mount-books',BOOK_RV_COLUMNS,sampleTopRows,{onRowOpen:id=>selectBookRow(sampleTopRows,id),onRowDoubleClick:id=>handleBooksRowDoubleClick(sampleTopRows,id),hideExpandColumn:false,showSummaryRow:true});
     selectBookRow(sampleTopRows,sampleBookRows[0]&&sampleBookRows[0].id);
     return;
   }
@@ -1059,7 +1059,7 @@ async function loadRealBooksIntoRowView(){
     company_id:b.company_id||null
   }));
   const topRows=buildBookGroupRows(bookRows,USER_COMPANIES);
-  rvCreate('rv-mount-books',BOOK_RV_COLUMNS,topRows,{onRowOpen:id=>selectBookRow(topRows,id),hideExpandColumn:false,showSummaryRow:true});
+  rvCreate('rv-mount-books',BOOK_RV_COLUMNS,topRows,{onRowOpen:id=>selectBookRow(topRows,id),onRowDoubleClick:id=>handleBooksRowDoubleClick(topRows,id),hideExpandColumn:false,showSummaryRow:true});
   selectBookRow(topRows,bookRows[0]&&bookRows[0].id);
   // KPIs load per-book, in parallel, after the table's already on screen —
   // each row shows "…" until its own numbers resolve, same pattern as the
@@ -1966,9 +1966,9 @@ function abRenderContacts(){
       const sorted=abSmartApply(tk,shown,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',roles:'Roles'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}<th>SSN</th><th></th></tr>
-      ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td><td><a href="#" onclick="abTogglePersonForm('${c.id}');return false" style="color:var(--gold2);font-size:12px">+ Add Person</a></td></tr>
+      ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td><td style="white-space:nowrap"><a href="#" onclick="abTogglePersonForm('${c.id}');return false" style="color:var(--gold2);font-size:12px">+ Add Person</a> <a href="#" onclick="abDeleteContact('${c.id}','${abEsc(c.name).replace(/'/g,"\\'")}');return false" style="color:#c97a7a;font-size:12px;margin-left:8px">Delete</a></td></tr>
       <tr id="ab-person-form-${c.id}" style="display:none"><td colspan="4">${abPersonFormHtml(c.id)}</td></tr>
-      ${childrenOf(c.id).map(p=>`<tr style="background:rgba(240,232,208,.02)"><td style="padding-left:28px">↳ ${abEsc(p.name)}${p.title?` <span style="color:var(--muted);font-size:11px">— ${abEsc(p.title)}</span>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(p.phone||'')}${p.phone&&p.email?' · ':''}${abEsc(p.email||'')}</td><td></td><td></td></tr>`).join('')}`).join('')||`<tr><td class="ab-empty" colspan="4">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
+      ${childrenOf(c.id).map(p=>`<tr style="background:rgba(240,232,208,.02)"><td style="padding-left:28px">↳ ${abEsc(p.name)}${p.title?` <span style="color:var(--muted);font-size:11px">— ${abEsc(p.title)}</span>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(p.phone||'')}${p.phone&&p.email?' · ':''}${abEsc(p.email||'')}</td><td></td><td><a href="#" onclick="abDeleteContact('${p.id}','${abEsc(p.name).replace(/'/g,"\\'")}');return false" style="color:#c97a7a;font-size:12px">Delete</a></td></tr>`).join('')}`).join('')||`<tr><td class="ab-empty" colspan="4">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
       </table>`;
     })()}`;
 }
@@ -1985,6 +1985,29 @@ function abTogglePersonForm(parentId){
   const row=document.getElementById('ab-person-form-'+parentId);
   const open=row.style.display!=='none';
   row.style.display=open?'none':(row.tagName==='TR'?'table-row':'block');
+}
+// Real branded confirm popup — never a native confirm(), per the standing
+// Interactivity Standard. Deleting a parent (company-level) contact also
+// removes any people nested under it (parent_contact_id has ON DELETE
+// CASCADE — migration_2026-08-02_007) — worth naming in the warning text
+// since a person's own row disappears along with it, not just the company
+// row itself.
+function abDeleteContact(contactId,contactName){
+  const kids=(abContacts||[]).filter(c=>c.parent_contact_id===contactId).length;
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete "${contactName}"?</div>
+    <div class="fv-status" style="margin-bottom:14px">This permanently removes this contact${kids?` and the ${kids} ${kids===1?'person':'people'} listed under it`:''}. This cannot be undone.</div>
+    <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteContact('${contactId}')">Delete Permanently</button>
+    <div class="fv-status" id="deleteContactStatus" style="margin-top:10px"></div>`);
+}
+async function confirmDeleteContact(contactId){
+  const status=document.getElementById('deleteContactStatus');
+  if(status) status.textContent='Deleting…';
+  const{error}=await db.from('contacts').delete().eq('id',contactId);
+  if(error){ if(status) status.textContent='Error: '+error.message; return; }
+  popupClose();
+  await abLoadContacts();
+  abRenderContacts();
 }
 async function abAddPersonContact(parentId){
   const name=document.getElementById('ab-person-name-'+parentId).value.trim();
@@ -2606,23 +2629,19 @@ async function confirmDeleteCompany(companyId){
 
 // Custom cellRenderer for the Company column (see the cellRenderer hook
 // added to cellHtml inside rvRenderInstance above). Single click opens the
-// autocomplete dropdown; double-click (if a company is already linked)
-// opens the edit popup directly — both stopPropagation so they don't also
-// trigger the row's own focus/open behavior.
+// autocomplete dropdown; double-click on a real book's Company cell opens
+// the company edit popup directly.
 // isCompanyGroup rows (the synthetic parent row standing in for a real
-// company with 1+ books nested under it — see buildBookGroupRows below)
-// get a plain bold label instead of the click-to-edit dropdown: there's no
-// single book to attach here, and double-click on the row already toggles
-// expand/collapse (rvHandleRowOpen's children check) rather than opening
-// the edit popup, so wiring the same click handlers here would either
-// silently no-op against a non-existent book id or fight the expand
-// toggle. Editing/creating a company still happens from a real book's own
-// Company cell, or the header's "+ Add New Company" button.
+// company with 1+ books nested under it) get a plain bold label — no
+// per-cell click handler of their own. Double-click ANYWHERE in a company
+// row now opens Modify Company (handleBooksRowDoubleClick, wired at the
+// row/tr level via onRowDoubleClick), including a real Delete Company
+// button inside that popup — replacing the small 🗑 row icon from
+// earlier, which Ryan reported couldn't actually be found/read at low
+// opacity. Expand/collapse stays solely the ▸/▾ arrow's job (its own
+// onclick, unrelated to the row's double-click).
 function companyCellRendererRef(r,c,containerId,isChild){
-  if(r.isCompanyGroup){
-    const n=(r.children||[]).length;
-    return `<td class="rv-td-plain" style="font-weight:700;color:var(--gold);display:flex;align-items:center;justify-content:space-between;gap:8px">${r.company_name}<span title="Delete this company and everything under it" style="cursor:pointer;opacity:.6;font-size:13px" onclick="event.stopPropagation();openDeleteCompanyPopup('${r.company_id}','${r.company_name.replace(/'/g,"\\'")}',${n})">🗑</span></td>`;
-  }
+  if(r.isCompanyGroup) return `<td class="rv-td-plain" style="font-weight:700;color:var(--gold)">${r.company_name}</td>`;
   // Nested under its company's own group row (isChild) — the company name
   // already reads once, on the parent row above; repeating it on every
   // book underneath just reads as a flat list, not a tree. Ryan's direct
@@ -2635,13 +2654,62 @@ function companyCellRendererRef(r,c,containerId,isChild){
 // Book Name column's own cellRenderer — plain for a real book row; for a
 // company-group row (no single book name to show), reads as "3 books"
 // instead of showing blank, so the collapsed row still tells you something
-// useful at a glance.
+// useful at a glance. Double-click on a real book row opens Modify Book
+// (with a real Delete Book button inside it) — see
+// handleBooksRowDoubleClick, wired at the row/tr level, same reasoning as
+// the Company cell above: no more low-opacity row icon.
 function bookNameCellRendererRef(r,c,containerId,isChild){
   if(r.isCompanyGroup){
     const n=(r.children||[]).length;
     return `<td class="rv-td-plain" style="color:var(--muted);font-style:italic">${n} book${n===1?'':'s'}</td>`;
   }
-  return `<td class="rv-td-plain" style="display:flex;align-items:center;justify-content:space-between;gap:8px">${isChild?'— ':''}${r.name||''}<span title="Delete this book" style="cursor:pointer;opacity:.6;font-size:13px" onclick="event.stopPropagation();openDeleteBookPopup('${r.id}','${(r.name||'').replace(/'/g,"\\'")}','${(r.company_name||'').replace(/'/g,"\\'")}')">🗑</span></td>`;
+  return `<td class="rv-td-plain">${isChild?'— ':''}${r.name||''}</td>`;
+}
+// Routes a double-click on the Books table to the right popup — a company
+// group row opens Modify Company (with Delete Company inside it); a real
+// book row (nested or top-level/unattached) opens Modify Book (with
+// Delete Book inside it). Ryan's direct instruction, 2026-08-10 — folding
+// deletion into the same familiar edit flow, reached by double-click,
+// instead of a separate icon that turned out too easy to miss.
+function handleBooksRowDoubleClick(topRows,id){
+  const grp=topRows.find(r=>r.isCompanyGroup&&r.id===id);
+  if(grp){ openModifyCompanyPopup(grp.company_id,grp.children.length); return; }
+  const leaf=findBookRow(topRows,id);
+  if(leaf&&!leaf.isCompanyGroup) openModifyBookPopup(leaf.id,leaf.name,leaf.company_id);
+}
+function openModifyCompanyPopup(companyId,bookCount){
+  const company=USER_COMPANIES.find(c=>c.id===companyId);
+  if(!company)return;
+  openCompanyEditPopup(null,company,null,bookCount);
+}
+// A lighter popup than the full Company form — a book only really has a
+// name (Entity Type and everything else live on the Company, per Ryan's
+// earlier direct correction). Shows the company it belongs to as read-only
+// context up top, per Ryan's instruction ("at the top, it's gonna have the
+// company name and entity type"), then the book's own editable name below,
+// with Save and Delete side by side — Delete never appears on the New
+// Book popup (nothing to delete yet when creating), only here.
+function openModifyBookPopup(bookId,bookName,companyId){
+  const company=USER_COMPANIES.find(c=>c.id===companyId);
+  const entityLabel=company&&company.entity_type?((COMPANY_ENTITY_TYPES.find(([v])=>v===company.entity_type)||['','—'])[1]):'—';
+  const esc=s=>String(s).replace(/"/g,'&quot;');
+  popupOpen(`
+    <div class="dv-sub-h">${company?`${esc(company.name)} — ${entityLabel}`:'No Company'}</div>
+    <div class="fv-field" style="margin-top:14px"><label class="fv-label">Book Name</label><input class="fv-input" id="modifyBookForm-name" value="${esc(bookName)}"></div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="fv-save" onclick="saveModifyBookName('${bookId}')">Save</button>
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="openDeleteBookPopup('${bookId}','${bookName.replace(/'/g,"\\'")}','${(company?company.name:'').replace(/'/g,"\\'")}')">Delete Book</button>
+    </div>
+    <div class="fv-status" id="modifyBookFormStatus" style="margin-top:10px"></div>`);
+}
+async function saveModifyBookName(bookId){
+  const name=document.getElementById('modifyBookForm-name').value.trim();
+  const status=document.getElementById('modifyBookFormStatus');
+  if(!name){ status.textContent='Book name is required.'; return; }
+  const{error}=await db.from('books').update({name}).eq('id',bookId);
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+  await loadRealBooksIntoRowView();
 }
 
 let companyAcState=null; // {bookId,containerId,query}
@@ -2944,7 +3012,7 @@ function companyLookupZip(zip){
 // lined up beside their left-side counterparts. Field ids are unchanged
 // (companyForm-<key>) so saveCompanyForm's existing generic read loop
 // still works without modification.
-function openCompanyEditPopup(bookId,existingCompany,prefillName){
+function openCompanyEditPopup(bookId,existingCompany,prefillName,bookCount){
   const v=key=>{
     if(existingCompany) return existingCompany[key]||'';
     return key==='name'?(prefillName||''):'';
@@ -2989,7 +3057,10 @@ function openCompanyEditPopup(bookId,existingCompany,prefillName){
         </div>
       </div>
     </div>
-    <button class="fv-save" style="margin-top:14px" onclick="saveCompanyForm('${bookId||''}','${existingCompany?existingCompany.id:''}')">Save Company</button>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="fv-save" onclick="saveCompanyForm('${bookId||''}','${existingCompany?existingCompany.id:''}')">Save Company</button>
+      ${existingCompany?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="openDeleteCompanyPopup('${existingCompany.id}','${esc(existingCompany.name).replace(/'/g,"\\'")}',${bookCount||0})">Delete Company</button>`:''}
+    </div>
     <div class="fv-status" id="companyFormStatus"></div>`);
 }
 
@@ -3011,6 +3082,7 @@ async function saveCompanyForm(bookId,existingCompanyId){
     const{data,error}=await db.from('companies').insert({...values,user_id:currentUser.id}).select().single();
     if(error){ status.textContent='Error: '+error.message; return; }
     companyId=data.id;
+    logThreadEntry(`Created a new company, "${values.name}".`);
   }
   const{data:refreshed}=await db.from('companies').select('*').eq('user_id',currentUser.id).order('name',{ascending:true});
   USER_COMPANIES=refreshed||USER_COMPANIES;
@@ -3190,7 +3262,16 @@ function rvCreate(containerId,columns,rows,opts={}){
     onRowOpen:opts.onRowOpen||null,
     onCellCommit:opts.onCellCommit||null,
     hideExpandColumn:opts.hideExpandColumn||false,
-    showSummaryRow:opts.showSummaryRow||false
+    showSummaryRow:opts.showSummaryRow||false,
+    // When set, double-click on ANY row (group or leaf) calls this instead
+    // of the generic default (toggle-expand-if-has-children, else
+    // onRowOpen) — lets a specific table (the Books table, see
+    // handleBooksRowDoubleClick) define its own real meaning for
+    // double-click (open Modify Company/Modify Book) while expand/collapse
+    // moves to being purely the ▸/▾ arrow's own job, not overloaded onto
+    // double-click too. Other tables using this engine keep the old
+    // default behavior untouched.
+    onRowDoubleClick:opts.onRowDoubleClick||null
   });
   rvRenderInstance(containerId);
 }
@@ -3569,11 +3650,14 @@ function rvRenderInstance(containerId){
 function rvHandleRowOpen(containerId,itemId){
   const inst=rvInstances.get(containerId);
   if(!inst)return;
-  // A row standing for a group (has .children, e.g. a company header row
-  // grouping its books) isn't a real record to "open" — double-click there
-  // toggles expand/collapse instead, same action as clicking its ▸/▾
-  // arrow. Generic on inst.rows so any future grouped Row View gets this
-  // for free, not something specific to the Books table.
+  // Instance-specific override — see rvCreate's onRowDoubleClick comment.
+  // The Books table uses this so double-click means "open Modify Company/
+  // Modify Book" instead of the generic default below.
+  if(inst.onRowDoubleClick){ inst.onRowDoubleClick(itemId); return; }
+  // Default (no override supplied): a row standing for a group (has
+  // .children, e.g. a company header row grouping its books) isn't a real
+  // record to "open" — double-click there toggles expand/collapse instead,
+  // same action as clicking its ▸/▾ arrow.
   const row=inst.rows.find(r=>r.id===itemId);
   if(row&&row.children&&row.children.length){ rvToggleExpand(containerId,itemId); return; }
   if(inst.onRowOpen){ inst.onRowOpen(itemId); return; }
@@ -3798,6 +3882,23 @@ function openAddBookPopup(containerId){
     <button class="fv-save" style="margin-top:14px" onclick="saveNewBook('${containerId}')">Create Book</button>
     <div class="fv-status" id="bookFormStatus"></div>`);
 }
+// ══════════════════════════════════════════════
+// AMIT THREADS — "One Thread, Many Doors" (Amit_Unified_Identity_
+// Architecture.md, root Amit folder). First real, live write path, per
+// Ryan's direct instruction, 2026-08-10: "make that ability for Amit to
+// start to pay attention." Genuinely minimal on purpose — this logs real
+// events (a book/company actually created) as confirmed thread entries;
+// it does NOT yet implement passive click-tracking, the 'signal'→
+// 'confirmed' corroboration promotion, or any other app reading this
+// thread back. Silently no-ops (never blocks the real action it's
+// attached to) if the amit_threads table doesn't exist yet or the write
+// fails for any reason — this is memory-keeping, not a gate.
+// ══════════════════════════════════════════════
+async function logThreadEntry(entryText,domain){
+  if(!db||!currentUser)return;
+  try{ await db.from('amit_threads').insert({user_id:currentUser.id,domain:domain||'Business',source_app:'AmitBooks',entry_text:entryText}); }
+  catch(e){/* never block the real action this is attached to */}
+}
 async function saveNewBook(containerId){
   const name=document.getElementById('bookForm-name').value.trim();
   const companyId=document.getElementById('companyForm-book_company').value||null;
@@ -3811,6 +3912,8 @@ async function saveNewBook(containerId){
   status.textContent='Creating…';
   const{error}=await db.from('books').insert({user_id:currentUser.id,name,company_id:companyId});
   if(error){ status.textContent='Error: '+error.message; return; }
+  const co=USER_COMPANIES.find(c=>c.id===companyId);
+  logThreadEntry(`Created a new book, "${name}"${co?` under ${co.name}`:''}.`);
   popupClose();
   await loadRealBooksIntoRowView();
 }
