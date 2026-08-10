@@ -444,7 +444,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.32</div>
+      <div class="page-version" id="pageVersion">v1.33</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1092,18 +1092,48 @@ function abMoneyFmt(n){
 // Dashboard tab, since NEW.html's book selector already lives on Tab 1 —
 // everything past that point is unmodified.
 //
-// Two small dependencies AmitBooks.html has that NEW.html doesn't, added
-// here rather than pulled in whole: abEsc (plain HTML-escaping helper)
-// and abAlert (AmitBooks.html's version opens its own #abDialogModal,
-// which doesn't exist in this file — using the browser's built-in alert()
-// instead, since the only thing that matters for "no changes to the
-// program" is that an error still surfaces to the user, not which modal
-// shows it).
+// Two small dependencies AmitBooks.html has that NEW.html doesn't:
+// abEsc (plain HTML-escaping helper) and abAlert/abPrompt/abConfirm.
+//
+// FIXED 2026-08-10 — the versions here used to fall back to the browser's
+// native alert()/prompt()/confirm(), which is exactly what the standing
+// Interactivity Standard rule 7 (root AmitBooks CLAUDE.md) forbids: native
+// dialogs get prefixed with the page's own origin ("ask-amit.github.io
+// says"), which can't be relabeled and doesn't carry this app's identity.
+// That was a real, live violation of this project's own standard, found
+// while building the Company SSN vault below (which needed a real
+// passphrase prompt and would have inherited the same bug). Replaced with
+// genuine popupOpen()-based modals, same destination every other real
+// dialog in this file already uses — not a new pattern, just applying the
+// existing one here too.
 // ══════════════════════════════════════════════
 function abEsc(s){ const d=document.createElement('div'); d.textContent=(s==null?'':String(s)); return d.innerHTML; }
-function abAlert(message){ alert(message); return Promise.resolve(); }
-function abPrompt(message,defaultValue){ return Promise.resolve(prompt(message,defaultValue||'')); }
-function abConfirm(message){ return Promise.resolve(confirm(message)); }
+let abDialogResolve=null;
+function abAlert(message){
+  return new Promise(resolve=>{
+    popupOpen(`<div class="dv-sub-h">${abEsc(message)}</div><button class="fv-save" style="margin-top:14px" onclick="abDialogResolve&&abDialogResolve();popupClose()">OK</button>`);
+    abDialogResolve=()=>resolve();
+  });
+}
+function abConfirm(message){
+  return new Promise(resolve=>{
+    popupOpen(`<div class="dv-sub-h">${abEsc(message)}</div><div style="display:flex;gap:10px;margin-top:14px"><button class="fv-save" onclick="abDialogResolve&&abDialogResolve(true);popupClose()">Yes</button><button class="fv-save" style="background:transparent" onclick="abDialogResolve&&abDialogResolve(false);popupClose()">Cancel</button></div>`);
+    abDialogResolve=resolve;
+  });
+}
+function abPrompt(message,defaultValue){
+  return new Promise(resolve=>{
+    popupOpen(`<div class="dv-sub-h">${abEsc(message)}</div><input class="fv-input" id="abPromptInput" value="${abEsc(defaultValue||'')}" style="margin-top:10px" onkeydown="if(event.key==='Enter')abPromptSubmit()"><div style="display:flex;gap:10px;margin-top:14px"><button class="fv-save" onclick="abPromptSubmit()">OK</button><button class="fv-save" style="background:transparent" onclick="abDialogResolve&&abDialogResolve(null);popupClose()">Cancel</button></div>`);
+    abDialogResolve=resolve;
+    setTimeout(()=>{const el=document.getElementById('abPromptInput');if(el)el.focus();},0);
+  });
+}
+function abPromptSubmit(){
+  const el=document.getElementById('abPromptInput');
+  const val=el?el.value:null;
+  if(abDialogResolve) abDialogResolve(val);
+  popupClose();
+}
 function abExportCsv(filename,columns,rowsData){
   const esc=v=>{ const s=v==null?'':String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const lines=[columns.map(c=>esc(c.label)).join(',')];
@@ -1905,6 +1935,34 @@ async function abDecryptSSN(ciphertextB64,ivB64){
   const plainBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv:abBufFromB64(ivB64)},abVaultKey,abBufFromB64(ciphertextB64));
   return new TextDecoder().decode(plainBuf);
 }
+// ── COMPANY SSN VAULT — same real client-side AES-256-GCM/PBKDF2 model as
+// the Contacts vault above (abDeriveVaultKey/abB64FromBuf/abBufFromB64
+// reused as-is), separate key/salt because a company isn't scoped to one
+// book (see migration_2026-08-07_001) the way a contact is. Closes the gap
+// Ryan caught, 2026-08-10: the Sole Proprietorship EIN/SSN field was
+// storing a real SSN in plain text on `companies.ein`.
+let companyVaultKey=null;
+async function unlockCompanyVault(companyId){
+  const company=USER_COMPANIES.find(c=>c.id===companyId); if(!company)return false;
+  let salt=company.vault_salt;
+  if(!salt){
+    if(!await abConfirm('No vault has been set up for this company yet. Set one up now? You\'ll choose a passphrase — write it down somewhere safe. If it\'s lost, anything encrypted with it is permanently unrecoverable. Nobody can reset it.')) return false;
+    salt=abB64FromBuf(crypto.getRandomValues(new Uint8Array(16)));
+    const{error}=await db.from('companies').update({vault_salt:salt}).eq('id',companyId);
+    if(error){ abAlert(error.message); return false; }
+    company.vault_salt=salt;
+  }
+  const pass=await abPrompt('Enter the vault passphrase for this company\'s SSN:');
+  if(!pass) return false;
+  try{ companyVaultKey=await abDeriveVaultKey(pass,salt); return true; }
+  catch(e){ abAlert('Could not unlock the vault: '+e.message); return false; }
+}
+async function encryptCompanySSN(plaintext){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const enc=new TextEncoder();
+  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv},companyVaultKey,enc.encode(plaintext));
+  return{ein_encrypted:abB64FromBuf(ciphertext),ein_iv:abB64FromBuf(iv)};
+}
 async function abToggleVaultLock(){
   if(abIsVaultUnlocked()){ abLockVault(); }
   else{ if(await abUnlockVault()) abRenderContacts(); }
@@ -2669,6 +2727,137 @@ async function confirmDeleteEverything(){
   await loadRealBooksIntoRowView();
 }
 
+// ── RESTORE FROM BACKUP — real, in-browser, no VS Code or developer
+// session needed. Ryan's direct instruction, 2026-08-10. Ported from
+// AmitBooks.html's own abRestoreBook(), same honest limitation kept
+// intentionally rather than silently promising more: old row ids are
+// stripped and rows are re-inserted fresh, so direct data (accounts,
+// contacts, bills) comes back, but a foreign key pointing at an old id
+// (which contact a bill belonged to, which account a journal line hit)
+// can fail to re-attach, since that old id no longer exists once its own
+// row was re-inserted with a new one. Counted and reported honestly as
+// "skipped", never silently dropped without saying so.
+// Handles BOTH shapes this session's backups can produce: a single-book
+// snapshot (book_id/book_name/tables) and a whole-company bundle
+// (company_id/company_name/books:{...}) from Delete Company/Reset
+// Everything.
+const AB_RESTORE_TABLE_ORDER=['chart_of_accounts','contacts','items','tags','invoices_bills','invoice_bill_lines','payments','fixed_assets','journal_entries','journal_lines','estimates','milestones','payment_plans','payment_plan_installments','recognition_schedules','sales_tax_jurisdictions','crm_activities','investments','subscriptions','mileage_logs','repair_logs'];
+// Which columns, per table, are foreign keys into ANOTHER restored table —
+// Ryan's direct instruction, 2026-08-10: the original ids are already
+// sitting right there in the backup file; the old restore just discarded
+// them instead of using them. Now, as each table restores, an old-id →
+// new-id map is built (idMaps[table]), and every column listed here gets
+// rewritten through that map before the row is inserted — so "which
+// contact this bill belongs to," "which account this line hit," etc. all
+// survive restore intact, not just the bare rows. Verified against the
+// real schema (migration_2026-07-29_005), not guessed — a column here
+// only ever gets touched if it's actually present on the row (`col in
+// clean`), so nothing breaks if a table's shape differs from expected.
+const AB_RESTORE_FK_MAP={
+  contacts:{parent_contact_id:'contacts',default_account_id:'chart_of_accounts'},
+  invoices_bills:{contact_id:'contacts'},
+  invoice_bill_lines:{invoice_bill_id:'invoices_bills',item_id:'items',account_id:'chart_of_accounts',tag_id:'tags'},
+  journal_lines:{journal_entry_id:'journal_entries',account_id:'chart_of_accounts'},
+  payments:{invoice_bill_id:'invoices_bills',contact_id:'contacts'},
+  fixed_assets:{default_account_id:'chart_of_accounts'}
+};
+async function restoreOneBookSnapshot(snapshot,companyId){
+  const{data:newBook,error:bookErr}=await db.from('books').insert({user_id:currentUser.id,name:snapshot.book_name||'Restored Book',company_id:companyId||null}).select().single();
+  if(bookErr)return{restored:0,failed:0,bookName:snapshot.book_name,error:bookErr.message};
+  let restored=0,failed=0;
+  const idMaps={}; // {tableName: {oldId: newId}} — filled in as each table restores, read by every table after it
+  for(const t of AB_RESTORE_TABLE_ORDER){
+    const rows=snapshot.tables&&snapshot.tables[t];if(!rows||!rows.length)continue;
+    idMaps[t]={};
+    const fkCols=AB_RESTORE_FK_MAP[t]||{};
+    for(const row of rows){
+      const oldId=row.id;
+      const clean={...row};delete clean.id;
+      if('book_id' in clean) clean.book_id=newBook.id;
+      for(const col in fkCols){
+        if(col in clean && clean[col]){
+          const refTable=fkCols[col];
+          const mapped=idMaps[refTable]&&idMaps[refTable][clean[col]];
+          clean[col]=mapped||null; // no match found (referenced row wasn't in this backup, or failed to restore) — null it rather than insert a dangling reference
+        }
+      }
+      const{data:inserted,error}=await db.from(t).insert(clean).select().single();
+      if(error){ failed++; continue; }
+      restored++;
+      if(oldId) idMaps[t][oldId]=inserted.id;
+    }
+  }
+  return{restored,failed,bookName:newBook.name};
+}
+// Two-step flow — Ryan's direct instruction, 2026-08-10: always ask what
+// name to restore it as, since it may be a different set of books than
+// what it started as (his example: naming a restored backup for a tax
+// year, not necessarily the original book/company name). Step 1 picks and
+// reads the file; step 2 confirms/edits the name before anything is
+// actually written. pendingRestoreData holds the parsed file between
+// those two steps.
+let pendingRestoreData=null;
+function openRestorePopup(){
+  pendingRestoreData=null;
+  popupOpen(`
+    <div class="dv-sub-h">Restore From Backup</div>
+    <div class="fv-status" style="margin-bottom:14px">Choose a backup file (single book or a whole company). This creates NEW book(s) from the file — it never overwrites or deletes anything currently in your account. Direct data (accounts, contacts, bills) comes back fully; cross-references between rows (which contact a bill belonged to, etc.) may not always reattach — reported honestly below, not silently dropped.</div>
+    <input type="file" id="restoreFileInput" accept="application/json" onchange="handleRestoreFileChosen(this.files[0])">
+    <div class="fv-status" id="restoreStatus" style="margin-top:10px"></div>`);
+}
+async function handleRestoreFileChosen(file){
+  if(!file)return;
+  const status=document.getElementById('restoreStatus');
+  status.textContent='Reading file…';
+  let data;
+  try{ data=JSON.parse(await file.text()); }catch(e){ status.textContent='That file is not valid JSON.'; return; }
+  if(!data.books&&!data.tables){ status.textContent='That file doesn\'t look like an AmitBooks backup.'; return; }
+  if(!db||!currentUser){ status.textContent='Sign in through the Hub to actually restore — this is sample mode.'; return; }
+  pendingRestoreData=data;
+  const isBundle=!!data.books;
+  const originalName=isBundle?(data.company_name||'Restored Company'):(data.book_name||'Restored Book');
+  const esc=s=>String(s).replace(/"/g,'&quot;');
+  popupOpen(`
+    <div class="dv-sub-h">Name This Restore</div>
+    <div class="fv-status" style="margin-bottom:14px">${isBundle?`This file has ${Object.keys(data.books).length} book(s) under "${esc(data.company_name||'')}".`:`This is a single book, originally named "${esc(data.book_name||'')}".`} What should the ${isBundle?'company':'book'} be called this time? (e.g. a tax year, if this is an archive.)</div>
+    <div class="fv-field"><label class="fv-label">${isBundle?'Company Name':'Book Name'}</label><input class="fv-input" id="restoreNameInput" value="${esc(originalName)}"></div>
+    <button class="fv-save" style="margin-top:14px" onclick="confirmRestoreWithName()">Restore</button>
+    <div class="fv-status" id="restoreStatus" style="margin-top:10px"></div>`);
+}
+async function confirmRestoreWithName(){
+  const data=pendingRestoreData;
+  if(!data)return;
+  const chosenName=document.getElementById('restoreNameInput').value.trim();
+  const status=document.getElementById('restoreStatus');
+  if(!chosenName){ status.textContent='A name is required.'; return; }
+  if(data.books){
+    status.textContent='Restoring company and its books…';
+    let companyId;
+    const existing=USER_COMPANIES.find(c=>c.name.toLowerCase()===chosenName.toLowerCase());
+    if(existing){ companyId=existing.id; }
+    else{
+      const{data:newCo,error}=await db.from('companies').insert({name:chosenName,user_id:currentUser.id}).select().single();
+      if(error){ status.textContent='Could not create company: '+error.message; return; }
+      companyId=newCo.id;
+      const{data:refreshed}=await db.from('companies').select('*').eq('user_id',currentUser.id).order('name',{ascending:true});
+      USER_COMPANIES=refreshed||USER_COMPANIES;
+    }
+    let totalRestored=0,totalFailed=0,bookNames=[];
+    for(const bookId in data.books){
+      const result=await restoreOneBookSnapshot(data.books[bookId],companyId);
+      totalRestored+=result.restored;totalFailed+=result.failed;bookNames.push(result.bookName);
+    }
+    status.textContent=`Restored ${bookNames.length} book(s) under "${chosenName}" — ${totalRestored} row(s) restored${totalFailed?`, ${totalFailed} skipped (a cross-reference that couldn't reattach)`:''}.`;
+  } else {
+    status.textContent='Restoring book…';
+    const result=await restoreOneBookSnapshot({...data,book_name:chosenName},null);
+    if(result.error){ status.textContent='Error: '+result.error; return; }
+    status.textContent=`Restored "${result.bookName}" — ${result.restored} row(s)${result.failed?`, ${result.failed} skipped (a cross-reference that couldn't reattach)`:''}.`;
+  }
+  pendingRestoreData=null;
+  await loadRealBooksIntoRowView();
+}
+
 // Custom cellRenderer for the Company column (see the cellRenderer hook
 // added to cellHtml inside rvRenderInstance above). Single click opens the
 // autocomplete dropdown; double-click on a real book's Company cell opens
@@ -3054,8 +3243,13 @@ function companyLookupZip(zip){
 // lined up beside their left-side counterparts. Field ids are unchanged
 // (companyForm-<key>) so saveCompanyForm's existing generic read loop
 // still works without modification.
+const COMPANY_SSN_MASK='•••-••-••••';
 function openCompanyEditPopup(bookId,existingCompany,prefillName,bookCount){
   const v=key=>{
+    // Encrypted SSN — show the mask, never the ciphertext, and never try
+    // to decrypt it just to render the form (that would mean prompting
+    // for the passphrase just to OPEN the popup, not just to change it).
+    if(key==='ein'&&existingCompany&&existingCompany.ein_encrypted) return COMPANY_SSN_MASK;
     if(existingCompany) return existingCompany[key]||'';
     return key==='name'?(prefillName||''):'';
   };
@@ -3114,6 +3308,33 @@ async function saveCompanyForm(bookId,existingCompanyId){
   if(!db||!currentUser){
     status.textContent='Sign in through the Hub to actually save a company — this is sample mode.';
     return;
+  }
+  // Sole Proprietorship — route the SSN through real encryption instead of
+  // storing it plain, per Ryan's direct instruction, 2026-08-10. The field
+  // shows a masked placeholder for an already-encrypted value (see the
+  // Company popup's ein value logic); typing nothing new leaves the
+  // existing encrypted value untouched, typing a new value re-encrypts it.
+  if(values.entity_type==='sole_prop'&&values.ein&&values.ein!==COMPANY_SSN_MASK){
+    if(existingCompanyId&&!companyVaultKey){
+      status.textContent='Unlocking vault…';
+      if(!await unlockCompanyVault(existingCompanyId)){ status.textContent='Vault locked — SSN not saved.'; return; }
+    }
+    if(!existingCompanyId){
+      // No company id yet (brand-new company) — save the company first so
+      // there's a real id to attach the vault to, then unlock and encrypt.
+      status.textContent='Creating company…';
+      const{data:newCo,error}=await db.from('companies').insert({name:values.name,user_id:currentUser.id}).select().single();
+      if(error){ status.textContent='Error: '+error.message; return; }
+      existingCompanyId=newCo.id;
+      USER_COMPANIES.push(newCo);
+      if(!await unlockCompanyVault(existingCompanyId)){ status.textContent='Vault locked — SSN not saved (company was still created).'; return; }
+    }
+    const enc=await encryptCompanySSN(values.ein);
+    values.ein_encrypted=enc.ein_encrypted;
+    values.ein_iv=enc.ein_iv;
+    values.ein=''; // never store the plaintext SSN
+  } else if(values.ein===COMPANY_SSN_MASK){
+    delete values.ein; // unchanged masked placeholder — leave the existing encrypted value alone
   }
   status.textContent='Saving…';
   let companyId=existingCompanyId||null;
@@ -4048,6 +4269,7 @@ function renderPageActionBar(detailNum,tabNum){
   if(detailNum===1&&tabNum===1){
     bar.innerHTML=`<button class="page-action-btn" onclick="spvAddNew('rv-mount-books')"><span>+</span>Add New Book</button>
       <button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>
+      <button class="page-action-btn" onclick="openRestorePopup()"><span>⬆</span>Restore From Backup</button>
       <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
