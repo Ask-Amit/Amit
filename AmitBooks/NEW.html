@@ -444,7 +444,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.25</div>
+      <div class="page-version" id="pageVersion">v1.29</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -641,7 +641,13 @@ const TODO_ITEMS=[
   'Wire real numbers into the Clients page\'s Billed / Received / Outstanding / % Complete columns — Jobs is done (real count from the `jobs` table, filterable Active/Completed/All); the rest still show "—" until Bills &amp; Invoices + job_id linkage + a percent-complete field on Jobs all exist for real.',
   'Port Bills &amp; Invoices from AmitBooks.html (Tab 6) into NEW.html — plain copy first, no new behavior yet. AmitBooks.html itself is being retired; this is the last thing built there, everything after this is built directly in NEW.html.',
   'Build the Inventory Items layer on top of Bills &amp; Invoices — still an open design (Ryan is reworking this from scratch as of this session; hold until he brings the new spec).',
-  'Port the remaining Books &amp; Setup tabs from AmitBooks.html: Pipeline, Tags / Jobs, Workflow Rules, Integrations, Import QuickBooks, Audit Log. (Contacts done — its own sidebar page, not a Books sub-tab.)',
+  'Port the remaining Books &amp; Setup tabs from AmitBooks.html: Pipeline, Tags / Jobs, Workflow Rules, Integrations, Audit Log. (Contacts done — its own sidebar page, not a Books sub-tab. Import QuickBooks broken out into its own sequence below, per Ryan\'s direct instruction 2026-08-10 — bring each piece over separately, not as one lump port.)',
+  'IMPORT QUICKBOOKS — step 1, Company matching: before importing anything, check the QuickBooks company name against the signed-in user\'s existing `companies.name` (case-insensitive). Match found → this import becomes a NEW BOOK under that existing company (the "different set of books, same company" case Ryan described). No match → create the company first (from whatever profile fields were captured/typed — QuickBooks has no clean one-click CSV export for Company Info; usually read off the Company Information screen or a generated PDF), then the book underneath it. This step gates everything below — nothing imports until the company/book destination is resolved.',
+  'IMPORT QUICKBOOKS — step 2, Chart of Accounts: import QuickBooks\' own Account List report (CSV) — NOT inferred from the Journal report alone, which only surfaces accounts that actually had transaction activity and silently misses empty/unused accounts. Account List carries the full real list with type and number. Review-and-confirm screen before writing anything, same standard as every other QuickBooks import piece (Ryan\'s direct instruction 2026-07-30: never silently guess account types on real books).',
+  'IMPORT QUICKBOOKS — step 3, Vendors/Customers: QuickBooks\' Vendor List and Customer Contact List reports — real contact records (phone/email/address/EIN), not just the bare name string the Journal report carries per line. Matched back against the names that show up in the Journal import (step 5) so transactions link to real Contact records instead of orphaned name strings.',
+  'IMPORT QUICKBOOKS — step 4, Items/Scopes: QuickBooks\' Item List report — products/services sold, feeding New\'s Scopes tab. Not currently pulled by anything.',
+  'IMPORT QUICKBOOKS — step 5, Journal (transactions): port the existing, already-working Journal CSV importer from AmitBooks.html (Books &amp; Setup → Import QuickBooks — auto-detects Date/Account/Debit/Credit columns, groups into transactions, interactive review before commit, posts real journal_entries/journal_lines tagged to a qb_import_batches row) into New, wired to the book resolved in step 1 and the accounts/contacts confirmed in steps 2-3 rather than re-inferring them.',
+  'IMPORT QUICKBOOKS — step 6, Open Items (A/P &amp; A/R): QuickBooks\' A/P Aging Detail / Open Invoices reports, to create real structured invoices_bills rows (with due dates, matching what "Owed to You"/"You Owe" on the Books tab expects) instead of just the account-balance effect the Journal alone provides. Most fragile piece — report formats vary more across QuickBooks versions/company files than the others; build and test last, against a real BOSS export.',
   'Wire Terminology\'s saved labels everywhere else — Scopes and most other tabs still show hardcoded words. Clients is the first one actually wired to abFieldLabel/book_field_settings; apply the same pattern to the rest in one batch pass once the remaining tabs above are ported.',
   'Decide what belongs on Tab 5 of the Books page (still a placeholder).'
 ];
@@ -2431,6 +2437,173 @@ async function computeBookKpis(bookId){
 // happens — company management now lives inline on the Books tab.
 // ══════════════════════════════════════════════
 
+// ══════════════════════════════════════════════
+// DELETE BOOK / DELETE COMPANY — real cascading delete, always preceded by
+// a real popup (never native confirm()) offering a downloadable backup
+// first. Ryan's direct instruction, 2026-08-10.
+//
+// Why the backup file is the REAL safety net here, not audit_log: every
+// AmitBooks table's audit_log row is itself scoped to book_id with ON
+// DELETE CASCADE back to `books` (migration_2026-07-29_004) — meaning the
+// instant a book is actually deleted, any audit_log rows that belonged to
+// it vanish too. That's correct behavior for audit_log's real job (proving
+// history of edits made WHILE a book was still live), but it structurally
+// cannot survive the book's own deletion. So for deleting a whole
+// book/company, the downloadable JSON snapshot below is the only thing
+// that actually persists past the delete — not a redundant extra step.
+//
+// Table list copied verbatim from AmitBooks.html's own AB_BACKUP_TABLES
+// (its Backup & Restore feature, My Books tab) — same tables, same
+// book_id-scoped query pattern, reused here rather than re-derived.
+const AB_BACKUP_TABLES=['chart_of_accounts','contacts','items','tags','invoices_bills','invoice_bill_lines','payments','fixed_assets','journal_entries','journal_lines','estimates','milestones','payment_plans','payment_plan_installments','recognition_schedules','sales_tax_jurisdictions','crm_activities','investments','subscriptions','mileage_logs','repair_logs'];
+async function snapshotBook(bookId,bookName){
+  const snapshot={amitbooks_backup_version:1,book_id:bookId,book_name:bookName||'',exported_at:new Date().toISOString(),tables:{}};
+  for(const t of AB_BACKUP_TABLES){
+    try{
+      const{data,error}=await db.from(t).select('*').eq('book_id',bookId);
+      if(!error) snapshot.tables[t]=data||[];
+    }catch(e){/* table scoped differently (via a parent's book_id) — handled explicitly below, not fatal here */}
+  }
+  // journal_lines/invoice_bill_lines aren't directly book_id-scoped — pulled
+  // through their parent's own book_id instead, same as AmitBooks.html.
+  try{
+    const{data}=await db.from('journal_lines').select('*,journal_entries!inner(book_id)').eq('journal_entries.book_id',bookId);
+    snapshot.tables['journal_lines']=data||[];
+  }catch(e){}
+  try{
+    const{data}=await db.from('invoice_bill_lines').select('*,invoices_bills!inner(book_id)').eq('invoices_bills.book_id',bookId);
+    snapshot.tables['invoice_bill_lines']=data||[];
+  }catch(e){}
+  return snapshot;
+}
+// Ryan's direct instruction, 2026-08-10: before a book/company is actually
+// deleted, the backup download should genuinely prompt "where do you want
+// to keep this," not silently drop into whatever folder the browser
+// defaults to. The plain anchor-click download trick (still the fallback
+// below) does NOT do that on its own — most browsers just save straight to
+// the default Downloads folder unless the person has separately turned on
+// "ask where to save each file" in their own browser settings, which isn't
+// something a webpage can turn on for them.
+// showSaveFilePicker (File System Access API) is the real fix — a genuine
+// OS-native Save As dialog, letting the person pick the folder/filename
+// themselves — but it's Chromium-only (Chrome/Edge) as of this writing, so
+// this tries it first and falls back to the normal silent download
+// wherever it's not available (Firefox/Safari), rather than breaking the
+// backup entirely on those browsers.
+async function downloadJson(obj,filenameBase){
+  const filename=`${filenameBase.replace(/[^a-z0-9]+/gi,'_')}-${new Date().toISOString().slice(0,10)}.json`;
+  const text=JSON.stringify(obj,null,2);
+  if(window.showSaveFilePicker){
+    try{
+      const handle=await window.showSaveFilePicker({suggestedName:filename,types:[{description:'AmitBooks Backup (JSON)',accept:{'application/json':['.json']}}]});
+      const writable=await handle.createWritable();
+      await writable.write(text);
+      await writable.close();
+      return;
+    }catch(e){
+      if(e && e.name==='AbortError')return; // person cancelled the Save dialog on purpose — not an error, don't also fall through to a silent download
+      // Any other failure (older/locked-down browser claiming support but
+      // rejecting it, etc.) — fall through to the plain download below
+      // rather than losing the backup entirely.
+    }
+  }
+  const blob=new Blob([text],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+// Actually removes a book and everything under it — children first (same
+// table list/order as the backup, so nothing's ever deleted out of
+// dependency order), the book row itself last.
+async function deleteBookCascade(bookId){
+  // journal_lines/invoice_bill_lines have no direct book_id column to
+  // filter on — delete by their parent's own ids instead, fetched first.
+  // (Both actually already carry ON DELETE CASCADE back to their parent —
+  // journal_lines.journal_entry_id, invoice_bill_lines.invoice_bill_id,
+  // confirmed in migration_2026-07-29_005 — so deleting journal_entries/
+  // invoices_bills below would clean these up automatically regardless.
+  // Doing it explicitly here too is redundant, not wrong — belt and
+  // suspenders, since this function shouldn't have to trust that every
+  // table's cascade config is set consistently to be safe.)
+  const{data:jes}=await db.from('journal_entries').select('id').eq('book_id',bookId);
+  if(jes&&jes.length) await db.from('journal_lines').delete().in('journal_entry_id',jes.map(j=>j.id));
+  const{data:ibs}=await db.from('invoices_bills').select('id').eq('book_id',bookId);
+  if(ibs&&ibs.length) await db.from('invoice_bill_lines').delete().in('invoice_bill_id',ibs.map(i=>i.id));
+  for(const t of AB_BACKUP_TABLES){
+    if(t==='journal_lines'||t==='invoice_bill_lines')continue; // already handled above via parent ids
+    try{ await db.from(t).delete().eq('book_id',bookId); }catch(e){}
+  }
+  await db.from('books').delete().eq('id',bookId);
+}
+async function deleteCompanyCascade(companyId){
+  const{data:books}=await db.from('books').select('id,name').eq('company_id',companyId);
+  for(const b of(books||[])) await deleteBookCascade(b.id);
+  await db.from('companies').delete().eq('id',companyId);
+}
+// The real confirmation popup — never a native confirm(), per the
+// standing Interactivity Standard rule 7. Offers "Download Backup First"
+// (stays open — someone may want to download, look at the file, then come
+// back and actually delete) and "Delete Permanently" as separate,
+// deliberate actions, never combined into one click.
+function openDeleteBookPopup(bookId,bookName,companyName){
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete "${bookName}"?</div>
+    <div class="fv-status" style="margin-bottom:14px">This permanently removes this book and everything in it — accounts, contacts, bills/invoices, payments, journal entries, everything. This cannot be undone through the app afterward.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadBookBackupNow('${bookId}','${bookName.replace(/'/g,"\\'")}','${(companyName||'').replace(/'/g,"\\'")}')">⬇ Download Backup First</button>
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteBook('${bookId}')">Delete Permanently</button>
+    </div>
+    <div class="fv-status" id="deleteBookStatus" style="margin-top:10px"></div>`);
+}
+// Filename reads Company — Book — Date, per Ryan's direct instruction,
+// 2026-08-10, so a folder full of these reads clearly on its own without
+// needing to open each file to know what it is. Falls back to just the
+// book name when there's no company yet ("No Company" rows) — nothing
+// real to put in that slot.
+async function downloadBookBackupNow(bookId,bookName,companyName){
+  const status=document.getElementById('deleteBookStatus');
+  if(status) status.textContent='Gathering…';
+  const snapshot=await snapshotBook(bookId,bookName);
+  const base=(companyName&&companyName!=='No Company')?`before-delete-${companyName}-${bookName}`:`before-delete-${bookName}`;
+  await downloadJson(snapshot,base);
+  if(status) status.textContent='Saved.';
+}
+async function confirmDeleteBook(bookId){
+  const status=document.getElementById('deleteBookStatus');
+  if(status) status.textContent='Deleting…';
+  await deleteBookCascade(bookId);
+  popupClose();
+  await loadRealBooksIntoRowView();
+}
+function openDeleteCompanyPopup(companyId,companyName,bookCount){
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete "${companyName}"?</div>
+    <div class="fv-status" style="margin-bottom:14px">This permanently removes this company AND all ${bookCount} book${bookCount===1?'':'s'} under it — every account, contact, bill/invoice, payment, and journal entry in each one. This cannot be undone through the app afterward.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadCompanyBackupNow('${companyId}','${companyName.replace(/'/g,"\\'")}')">⬇ Download Backup First</button>
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteCompany('${companyId}')">Delete Permanently</button>
+    </div>
+    <div class="fv-status" id="deleteBookStatus" style="margin-top:10px"></div>`);
+}
+async function downloadCompanyBackupNow(companyId,companyName){
+  const status=document.getElementById('deleteBookStatus');
+  if(status) status.textContent='Gathering every book under this company…';
+  const{data:books}=await db.from('books').select('id,name').eq('company_id',companyId);
+  const bundle={amitbooks_backup_version:1,company_id:companyId,company_name:companyName,exported_at:new Date().toISOString(),books:{}};
+  for(const b of(books||[])) bundle.books[b.id]=await snapshotBook(b.id,b.name);
+  await downloadJson(bundle,`before-delete-${companyName}`);
+  if(status) status.textContent='Saved.';
+}
+async function confirmDeleteCompany(companyId){
+  const status=document.getElementById('deleteBookStatus');
+  if(status) status.textContent='Deleting…';
+  await deleteCompanyCascade(companyId);
+  popupClose();
+  await loadRealBooksIntoRowView();
+}
+
 // Custom cellRenderer for the Company column (see the cellRenderer hook
 // added to cellHtml inside rvRenderInstance above). Single click opens the
 // autocomplete dropdown; double-click (if a company is already linked)
@@ -2446,7 +2619,10 @@ async function computeBookKpis(bookId){
 // toggle. Editing/creating a company still happens from a real book's own
 // Company cell, or the header's "+ Add New Company" button.
 function companyCellRendererRef(r,c,containerId,isChild){
-  if(r.isCompanyGroup) return `<td class="rv-td-plain" style="font-weight:700;color:var(--gold)">${r.company_name}</td>`;
+  if(r.isCompanyGroup){
+    const n=(r.children||[]).length;
+    return `<td class="rv-td-plain" style="font-weight:700;color:var(--gold);display:flex;align-items:center;justify-content:space-between;gap:8px">${r.company_name}<span title="Delete this company and everything under it" style="cursor:pointer;opacity:.6;font-size:13px" onclick="event.stopPropagation();openDeleteCompanyPopup('${r.company_id}','${r.company_name.replace(/'/g,"\\'")}',${n})">🗑</span></td>`;
+  }
   // Nested under its company's own group row (isChild) — the company name
   // already reads once, on the parent row above; repeating it on every
   // book underneath just reads as a flat list, not a tree. Ryan's direct
@@ -2465,7 +2641,7 @@ function bookNameCellRendererRef(r,c,containerId,isChild){
     const n=(r.children||[]).length;
     return `<td class="rv-td-plain" style="color:var(--muted);font-style:italic">${n} book${n===1?'':'s'}</td>`;
   }
-  return `<td class="rv-td-plain">${isChild?'— ':''}${r.name||''}</td>`;
+  return `<td class="rv-td-plain" style="display:flex;align-items:center;justify-content:space-between;gap:8px">${isChild?'— ':''}${r.name||''}<span title="Delete this book" style="cursor:pointer;opacity:.6;font-size:13px" onclick="event.stopPropagation();openDeleteBookPopup('${r.id}','${(r.name||'').replace(/'/g,"\\'")}','${(r.company_name||'').replace(/'/g,"\\'")}')">🗑</span></td>`;
 }
 
 let companyAcState=null; // {bookId,containerId,query}
