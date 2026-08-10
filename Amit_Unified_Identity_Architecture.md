@@ -43,6 +43,8 @@ The shared identity layer above is **not** a single shared permission system —
 
 Linking to a shared identity means "this is genuinely the same person," not "this person now has access to everything I own." Those are two different questions, answered by two different systems.
 
+**Hard rule, named 2026-08-10 (Ryan's direct instruction) — write this down before it gets built wrong:** deleting a local record that links to a shared identity (a `contacts` row with `linked_user_id` set, or — once built — one with `person_id` pointing into the shared `people` table) must **only ever delete the local link/row itself.** It must never cascade into the shared identity record it points to. Ryan's own words: *"Just because I remove somebody from my database, that doesn't delete them from the master. That just disconnects those two elements. He's no longer connected to the other person's database — but he's still living on his own."* Removing a vendor from your books disconnects your reference to them; it does not touch their own account, and it does not touch anyone else's reference to that same person. **Confirmed already correct as built tonight** — `confirmDeleteContact()` only ever runs `delete from contacts where id = [row]`, with no path that reaches `account_profiles`. This same discipline must carry forward into the future `people` table's own foreign key (`contacts.person_id` must NOT be `ON DELETE CASCADE` from the `people` side).
+
 ---
 
 ## The wider hub connection — pursuits, calendar, subscriptions
