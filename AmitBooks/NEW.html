@@ -452,7 +452,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.36</div>
+      <div class="page-version" id="pageVersion">v1.37</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3004,13 +3004,25 @@ async function importCoaFileChosen(file){
   const typeCol=header.findIndex(h=>h.includes('type')&&!h.includes('detail'));
   const numCol=header.findIndex(h=>h.includes('number'));
   if(nameCol<0){ status.textContent='Could not find an Account column in this file.'; return; }
+  // Sub-accounts — Ryan caught this directly, 2026-08-10: QuickBooks
+  // represents a sub-account as "Parent:Child" in the account name (e.g.
+  // "Utilities:Electric"), which the schema had no way to represent at
+  // all before migration_2026-08-10_004 added parent_account_id. Colon is
+  // reserved purely for that — the account-number-prefix heuristic below
+  // only recognizes QuickBooks' real middot character (·), never a colon,
+  // so the two don't collide.
   importParsedAccounts=rows.slice(1).filter(r=>r[nameCol]).map(r=>{
-    let name=r[nameCol],number=numCol>=0?r[numCol]:'';
-    const midDot=name.match(/^([\d-]+)\s*[·:-]\s*(.+)$/); // QuickBooks sometimes bakes the number into the name, e.g. "1000 · Checking"
-    if(!number&&midDot){ number=midDot[1];name=midDot[2]; }
+    let rawName=r[nameCol],number=numCol>=0?r[numCol]:'';
+    const midDot=rawName.match(/^([\d-]+)\s*·\s*(.+)$/); // QuickBooks sometimes bakes the number into the name, e.g. "1000 · Checking"
+    if(!number&&midDot){ number=midDot[1];rawName=midDot[2]; }
+    const parts=rawName.split(':').map(p=>p.trim()).filter(Boolean);
+    const name=parts[parts.length-1];
+    const fullPath=parts.join(':');
+    const parentPath=parts.length>1?parts.slice(0,-1).join(':'):null;
+    const depth=parts.length-1;
     const qbType=(typeCol>=0?r[typeCol]:'').toLowerCase();
     const guessed=QB_ACCOUNT_TYPE_MAP[qbType]||'expense';
-    return{name,number,qbType:typeCol>=0?r[typeCol]:'',type:guessed,isBank:qbType==='bank'};
+    return{name,fullPath,parentPath,depth,number,qbType:typeCol>=0?r[typeCol]:'',type:guessed,isBank:qbType==='bank'};
   });
   renderImportCoaReview();
   status.textContent='';
@@ -3018,9 +3030,10 @@ async function importCoaFileChosen(file){
 function renderImportCoaReview(){
   const el=document.getElementById('importCoaReview');if(!el)return;
   const typeOptions=['asset','liability','equity','income','expense'];
-  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedAccounts.length} accounts found — review the type on each before importing.</div>
+  const subCount=importParsedAccounts.filter(a=>a.parentPath).length;
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedAccounts.length} accounts found${subCount?` (${subCount} as sub-accounts, indented under their parent)`:''} — review the type on each before importing.</div>
     <table class="ab-table"><tr><th>Number</th><th>Name</th><th>QuickBooks Type</th><th>Import As</th></tr>
-    ${importParsedAccounts.map((a,i)=>`<tr><td>${abEsc(a.number)}</td><td>${abEsc(a.name)}</td><td style="font-size:11px;color:var(--muted)">${abEsc(a.qbType)}</td><td><select onchange="importParsedAccounts[${i}].type=this.value">${typeOptions.map(t=>`<option value="${t}"${a.type===t?' selected':''}>${t}</option>`).join('')}</select></td></tr>`).join('')}
+    ${importParsedAccounts.map((a,i)=>`<tr><td>${abEsc(a.number)}</td><td>${'— '.repeat(a.depth)}${abEsc(a.name)}</td><td style="font-size:11px;color:var(--muted)">${abEsc(a.qbType)}</td><td><select onchange="importParsedAccounts[${i}].type=this.value">${typeOptions.map(t=>`<option value="${t}"${a.type===t?' selected':''}>${t}</option>`).join('')}</select></td></tr>`).join('')}
     </table>
     <button class="fv-save" style="margin-top:14px" onclick="importCommitCoa()">Import ${importParsedAccounts.length} Accounts</button>`;
 }
@@ -3028,9 +3041,23 @@ async function importCommitCoa(){
   const status=document.getElementById('importStatus');
   status.textContent='Importing…';
   let imported=0,failed=0;
+  // Two passes, per Ryan's direct instruction, 2026-08-10: pass 1 inserts
+  // every account (arbitrary depth, not capped at 3 — a sub-account can
+  // nest as deep as the real QuickBooks file goes), tracked by its full
+  // original colon-path since sub-account names alone aren't guaranteed
+  // unique across different parents. Pass 2 links each sub-account to its
+  // real parent's new id, now that every account actually has one.
+  const pathToId={};
   for(const a of importParsedAccounts){
-    const{error}=await db.from('chart_of_accounts').insert({book_id:importWizardBookId,account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank});
-    if(error) failed++; else imported++;
+    const{data,error}=await db.from('chart_of_accounts').insert({book_id:importWizardBookId,account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank}).select().single();
+    if(error){ failed++; continue; }
+    imported++;
+    pathToId[a.fullPath]=data.id;
+  }
+  for(const a of importParsedAccounts){
+    if(a.parentPath&&pathToId[a.fullPath]&&pathToId[a.parentPath]){
+      await db.from('chart_of_accounts').update({parent_account_id:pathToId[a.parentPath]}).eq('id',pathToId[a.fullPath]);
+    }
   }
   status.textContent=`Imported ${imported} account(s)${failed?`, ${failed} failed`:''}.`;
   logThreadEntry(`Imported ${imported} accounts from QuickBooks into "${document.getElementById('importBookName')?document.getElementById('importBookName').value:''}".`);
