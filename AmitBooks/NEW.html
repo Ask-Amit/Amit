@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.58</div>
+      <div class="page-version" id="pageVersion">v1.59</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1907,11 +1907,26 @@ function showPresetHoverTip(e,presetKey){
   if(!tip)return;
   tip.textContent=abPresetDescription(presetKey);
   tip.style.whiteSpace='normal';
-  tip.style.width='240px';
+  tip.style.width='220px';
+  // Beside the card, not below it — Ryan's direct correction, 2026-08-12:
+  // sitting directly under the card read as another row in the grid, not
+  // a tooltip. Also a distinct light background/dark text here (inline
+  // override, not touching the shared .page-hover-tip class the sidebar
+  // still uses its own dark styling for) so this specifically reads as a
+  // comment/note, not as if the field itself changed.
+  tip.style.background='#f4f1e6';
+  tip.style.color='#1a2f4a';
+  tip.style.border='1px solid rgba(26,47,74,.3)';
   const r=e.currentTarget.getBoundingClientRect();
-  tip.style.left=r.left+'px';
-  tip.style.right='auto';
-  tip.style.top=(r.bottom+6)+'px';
+  const spaceRight=window.innerWidth-r.right;
+  if(spaceRight>240){
+    tip.style.left=(r.right+10)+'px';
+    tip.style.right='auto';
+  } else {
+    tip.style.right=(window.innerWidth-r.left+10)+'px';
+    tip.style.left='auto';
+  }
+  tip.style.top=r.top+'px';
   tip.style.transform='none';
   tip.classList.add('show');
 }
@@ -1922,6 +1937,9 @@ function hidePresetHoverTip(){
   tip.style.whiteSpace='';
   tip.style.width='';
   tip.style.transform='';
+  tip.style.background='';
+  tip.style.color='';
+  tip.style.border='';
 }
 
 function abNomenclaturePresetCount(presetId){
