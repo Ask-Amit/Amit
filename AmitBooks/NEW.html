@@ -535,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.99</div>
+      <div class="page-version" id="pageVersion">v2.00</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4085,11 +4085,39 @@ function openImportForAccountsTab(){
   importWizardPendingBookName=null;
   openImportStep2CoA();
 }
+// Real, honest limitation carried over from the Items import — 2026-08-12,
+// Ryan directly reported Tax Category never came in prefilled on any
+// account either. Checked: neither the Account Listing report NOR the IIF
+// !ACCNT record carries a tax-line/tax-category field at all (QuickBooks
+// stores that separately from the basic account record). IIF DOES fix the
+// same class of problem the Items import had, though — real ACCNUM
+// instead of parsing a number out of the name text, and a precise
+// ACCNTTYPE code (QB_ACCNT_TYPE_MAP below) instead of guessing from loose
+// report-column wording. Tax Category still has to be set by hand per
+// account after import, same as before — that's not solvable from either
+// export format, so the walkthrough says so plainly instead of implying
+// it'll come over.
+const QB_ACCNT_TYPE_MAP={
+  BANK:'asset',AR:'asset',OCASSET:'asset',FIXASSET:'asset',OASSET:'asset',
+  AP:'liability',CCARD:'liability',OCLIAB:'liability',LTLIAB:'liability',
+  EQUITY:'equity',
+  INC:'income',EXINC:'income',
+  COGS:'expense',EXP:'expense',EXEXP:'expense'
+};
 function openImportStep2CoA(){
   popupOpen(`
     <div class="dv-sub-h">Step 2: Chart of Accounts</div>
-    ${importQbWalkthroughHtml('Account Listing','Reports → Accountant & Taxes → Account Listing (opens the report automatically)')}
-    <input type="file" id="importCoaFile" accept=".csv,.xlsx,.xls" onchange="importCoaFileChosen(this.files[0])">
+    <div class="import-walkthrough">
+      <b>Chart of Accounts</b> — in QuickBooks, the easiest way to bring these over:
+      <ol>
+        <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
+        <li>A checklist of every list QuickBooks can export appears — <b>none of them are checked by default, so check every single box yourself</b> before clicking OK (this file will also carry what future imports — Items, Vendors, Customers — need, so one export covers all of them)</li>
+        <li>Click <b>OK</b>, then save the file somewhere you'll remember</li>
+        <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
+      </ol>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Tax Category won't come in prefilled either way — QuickBooks doesn't include it in this kind of export at all, IIF or report. You'll set it per account afterward, same as always. Only have the Account Listing report as Excel/CSV instead? That still works below too.</div>
+    </div>
+    <input type="file" id="importCoaFile" accept=".iif,.csv,.xlsx,.xls" onchange="importCoaFileChosen(this.files[0])">
     <div id="importCoaReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
 }
@@ -4124,15 +4152,68 @@ async function importCoaFileChosen(file){
   if(!file)return;
   const status=document.getElementById('importStatus');
   status.textContent='Reading file…';
+  if((file.name||'').toLowerCase().endsWith('.iif')){
+    importParsedAccounts=importParseIifAccounts(await file.text());
+  } else {
+    importParsedAccounts=await importParseAccountReportFile(file);
+  }
+  if(!importParsedAccounts){ status.textContent='Could not find any accounts in that file.'; return; }
+  if(!importParsedAccounts.length){ status.textContent='That file has no accounts in it.'; return; }
+  renderImportCoaReview();
+  status.textContent='';
+}
+// IIF is tab-delimited, one header line per record type ("!ACCNT" then
+// its column names), one data line per record ("ACCNT" then the values).
+// A full Lists-to-IIF export carries every list type in one file even
+// though only the Chart of Accounts matters here — this only reads the
+// !ACCNT section and ignores the rest (CUST, INVITEM, CLASS, etc.).
+// Produces the exact same row shape importParseAccountReportFile already
+// does (name/fullPath/parentPath/depth/number/qbType/type/isBank), so
+// renderImportCoaReview and importCommitCoa need no changes for either
+// source.
+function importParseIifAccounts(text){
+  const lines=text.split(/\r?\n/);
+  let headerCols=null;
+  const dataRows=[];
+  for(const line of lines){
+    if(!line)continue;
+    const cols=line.split('\t');
+    if(cols[0]==='!ACCNT'){ headerCols=cols.slice(1); continue; }
+    if(cols[0]==='ACCNT'&&headerCols){
+      const vals=cols.slice(1);
+      const row={};
+      headerCols.forEach((h,i)=>{ row[h]=vals[i]||''; });
+      dataRows.push(row);
+    }
+  }
+  if(!dataRows.length)return null;
+  return dataRows.filter(r=>r.NAME).map(r=>{
+    // "Parent:Child" (e.g. "Insurance Expense:General Liability
+    // Insurance") — same colon convention and same parent/child splitting
+    // already used for the report-based path below.
+    const rawName=r.NAME.trim();
+    const parts=rawName.split(':').map(p=>p.trim()).filter(Boolean);
+    const name=parts[parts.length-1];
+    const fullPath=parts.join(':');
+    const parentPath=parts.length>1?parts.slice(0,-1).join(':'):null;
+    const depth=parts.length-1;
+    const acctType=(r.ACCNTTYPE||'').trim().toUpperCase();
+    const guessed=QB_ACCNT_TYPE_MAP[acctType]||'expense';
+    return{name,fullPath,parentPath,depth,number:(r.ACCNUM||'').trim(),qbType:acctType,type:guessed,isBank:acctType==='BANK'};
+  });
+}
+// Fallback path — the original Account Listing report (Excel/CSV)
+// importer, kept for anyone without the IIF export option.
+async function importParseAccountReportFile(file){
   const allRows=await importReadFileAsRows(file);
   const headerIdx=importFindHeaderRowIndex(allRows);
   const rows=allRows.slice(headerIdx);
-  if(rows.length<2){ status.textContent='That file has no data rows.'; return; }
+  if(rows.length<2)return null;
   const header=rows[0].map(h=>h.toLowerCase());
   const nameCol=header.findIndex(h=>h.includes('account')&&!h.includes('number')&&!h.includes('type'));
   const typeCol=header.findIndex(h=>h.includes('type')&&!h.includes('detail'));
   const numCol=header.findIndex(h=>h.includes('number'));
-  if(nameCol<0){ status.textContent='Could not find an Account column in this file.'; return; }
+  if(nameCol<0)return null;
   // Sub-accounts — Ryan caught this directly, 2026-08-10: QuickBooks
   // represents a sub-account as "Parent:Child" in the account name (e.g.
   // "Utilities:Electric"), which the schema had no way to represent at
@@ -4140,7 +4221,7 @@ async function importCoaFileChosen(file){
   // reserved purely for that — the account-number-prefix heuristic below
   // only recognizes QuickBooks' real middot character (·), never a colon,
   // so the two don't collide.
-  importParsedAccounts=rows.slice(1).filter(r=>r[nameCol]).map(r=>{
+  return rows.slice(1).filter(r=>r[nameCol]).map(r=>{
     let rawName=r[nameCol],number=numCol>=0?r[numCol]:'';
     const midDot=rawName.match(/^([\d-]+)\s*·\s*(.+)$/); // QuickBooks sometimes bakes the number into the name, e.g. "1000 · Checking"
     if(!number&&midDot){ number=midDot[1];rawName=midDot[2]; }
@@ -4153,8 +4234,6 @@ async function importCoaFileChosen(file){
     const guessed=QB_ACCOUNT_TYPE_MAP[qbType]||'expense';
     return{name,fullPath,parentPath,depth,number,qbType:typeCol>=0?r[typeCol]:'',type:guessed,isBank:qbType==='bank'};
   });
-  renderImportCoaReview();
-  status.textContent='';
 }
 function renderImportCoaReview(){
   const el=document.getElementById('importCoaReview');if(!el)return;
