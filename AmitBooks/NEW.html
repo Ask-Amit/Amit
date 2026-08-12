@@ -488,7 +488,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.70</div>
+      <div class="page-version" id="pageVersion">v1.71</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1745,8 +1745,8 @@ function abRenderItems(){
       const tk='items'; abSmartRerender[tk]=abRenderItems;
       const getters={name:i=>i.name||'',category:i=>i.category||'',secondary:i=>i.secondary_class||'',cost:i=>abAccountLabel(i.expense_account_id),billable:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
       const sorted=abSmartApply(tk,abItems,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Scope',category:'Category',secondary:'Tag',cost:'Cost Account',billable:'Billable Account',price:'Price'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Scope')}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'cost','Cost Account')}${abSmartTh(tk,'billable','Billable Account')}${abSmartTh(tk,'price','Price')}</tr>
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Scope',category:'Category',secondary:'Tag',cost:'Cost Account',billable:'Billable Account',price:'Billable Rate'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Scope')}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'cost','Cost Account')}${abSmartTh(tk,'billable','Billable Account')}${abSmartTh(tk,'price','Billable Rate')}</tr>
       ${sorted.map(i=>`<tr ondblclick="openScopeEditPopup('${i.id}')" style="cursor:pointer" title="Double-click to edit"><td>${abEsc(i.name)}</td><td style="font-size:12px">${abEsc(i.category||'—')}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoneyFmt(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No Scopes yet — click + Add Scope above, or browse a template</td></tr>'}
       </table>`;
     })()}`;
@@ -1776,14 +1776,25 @@ function openScopeEditPopup(itemId){
       <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Scope Name</label><input class="fv-input" id="scopeForm-name" value="${abEsc(v('name'))}" placeholder="e.g. Framing, HVAC, Concrete"></div>
       <div class="fv-field"><label class="fv-label">Category</label><input class="fv-input" id="scopeForm-category" value="${abEsc(v('category'))}" placeholder="Type or pick — yours to define" autocomplete="off" oninput="openItemCategoryDropdown('scopeForm-category')" onfocus="openItemCategoryDropdown('scopeForm-category')"></div>
       <div class="fv-field"><label class="fv-label">Tag</label><input class="fv-input" id="scopeForm-secondary" value="${abEsc(v('secondary_class'))}" placeholder="reserved for later"></div>
-      <div class="fv-field"><label class="fv-label">Price</label><input class="fv-input" id="scopeForm-price" type="number" step="0.01" value="${existing&&existing.unit_price?existing.unit_price:''}"></div>
-      <div class="fv-field"><label class="fv-label">Cost Account</label><select class="fv-input" id="scopeForm-expense">${abScopeAccountOptions(v('expense_account_id'))}</select></div>
-      <div class="fv-field"><label class="fv-label">Billable Account</label><select class="fv-input" id="scopeForm-income">${abScopeAccountOptions(v('income_account_id'))}</select></div>
-      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Cost Account Note — how this reads on a real bill</label><textarea class="fv-input fv-textarea" id="scopeForm-costnote" placeholder="e.g. the exact wording you want to see on a bill line for this Scope" style="min-height:50px">${abEsc(v('cost_account_note'))}</textarea></div>
-      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Billable Account Note — how this reads on a real invoice</label><textarea class="fv-input fv-textarea" id="scopeForm-billablenote" placeholder="e.g. the exact wording you want a customer to see on an invoice line for this Scope" style="min-height:50px">${abEsc(v('billable_account_note'))}</textarea></div>
-      <div class="fv-field"><label class="fv-label">Unit Cost <span style="text-transform:none;font-weight:400">(what you pay)</span></label><input class="fv-input" id="scopeForm-unitcost" type="number" step="0.01" value="${existing&&existing.unit_cost?existing.unit_cost:''}"></div>
-      <div class="fv-field"><label class="fv-label">Quantity on Hand <span style="text-transform:none;font-weight:400">(if tracked as stock)</span></label><input class="fv-input" id="scopeForm-qty" type="number" step="0.0001" value="${existing&&existing.quantity_on_hand!=null?existing.quantity_on_hand:''}"></div>
     </div>
+    <!-- Two real side-by-side stacks, not the shared 2-col auto-flow grid
+         above — Ryan's direct instruction, 2026-08-12: everything about
+         what you PAY (Cost) stays together on the left; everything about
+         what you CHARGE (Billable) stays together on the right, so an
+         inventory-style Scope visibly captures both sides at once. -->
+    <div style="display:flex;gap:20px;margin-top:6px">
+      <div style="flex:1;display:flex;flex-direction:column;gap:16px">
+        <div class="fv-field" style="margin:0"><label class="fv-label">Cost Account</label><select class="fv-input" id="scopeForm-expense">${abScopeAccountOptions(v('expense_account_id'))}</select></div>
+        <div class="fv-field" style="margin:0"><label class="fv-label">Cost Account Note — how this reads on a real bill</label><textarea class="fv-input fv-textarea" id="scopeForm-costnote" placeholder="e.g. the exact wording you want to see on a bill line for this Scope" style="min-height:50px">${abEsc(v('cost_account_note'))}</textarea></div>
+        <div class="fv-field" style="margin:0"><label class="fv-label">Unit Cost <span style="text-transform:none;font-weight:400">(what you pay)</span></label><input class="fv-input" id="scopeForm-unitcost" type="number" step="0.01" value="${existing&&existing.unit_cost?existing.unit_cost:''}"></div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:16px">
+        <div class="fv-field" style="margin:0"><label class="fv-label">Billable Account</label><select class="fv-input" id="scopeForm-income">${abScopeAccountOptions(v('income_account_id'))}</select></div>
+        <div class="fv-field" style="margin:0"><label class="fv-label">Billable Account Note — how this reads on a real invoice</label><textarea class="fv-input fv-textarea" id="scopeForm-billablenote" placeholder="e.g. the exact wording you want a customer to see on an invoice line for this Scope" style="min-height:50px">${abEsc(v('billable_account_note'))}</textarea></div>
+        <div class="fv-field" style="margin:0"><label class="fv-label">Billable Rate <span style="text-transform:none;font-weight:400">(what you charge)</span></label><input class="fv-input" id="scopeForm-billablerate" type="number" step="0.01" value="${existing&&existing.unit_price?existing.unit_price:''}"></div>
+      </div>
+    </div>
+    <div class="fv-field" style="margin-top:16px"><label class="fv-label">Quantity on Hand <span style="text-transform:none;font-weight:400">(if tracked as stock)</span></label><input class="fv-input" id="scopeForm-qty" type="number" step="0.0001" style="max-width:200px" value="${existing&&existing.quantity_on_hand!=null?existing.quantity_on_hand:''}"></div>
     <button class="fv-save" style="margin-top:14px" onclick="saveScopeForm('${itemId||''}')">Save Scope</button>
     <div class="fv-status" id="scopeFormStatus"></div>`);
 }
@@ -1801,7 +1812,7 @@ async function saveScopeForm(itemId){
     secondary_class:document.getElementById('scopeForm-secondary').value.trim()||null,
     expense_account_id:document.getElementById('scopeForm-expense').value||null,
     income_account_id:document.getElementById('scopeForm-income').value||null,
-    unit_price:document.getElementById('scopeForm-price').value||null,
+    unit_price:document.getElementById('scopeForm-billablerate').value||null,
     cost_account_note:document.getElementById('scopeForm-costnote').value.trim()||null,
     billable_account_note:document.getElementById('scopeForm-billablenote').value.trim()||null,
     unit_cost:document.getElementById('scopeForm-unitcost').value||null,
