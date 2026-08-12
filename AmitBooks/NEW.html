@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.50</div>
+      <div class="page-version" id="pageVersion">v1.51</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -688,7 +688,7 @@ function renderAllPages(){
     <div class="detail-head"><span class="detail-heading" id="books-page-heading">Books</span><div class="page-action-bar" id="page-action-bar-1"></div></div>
     <div class="ch-tab-nav" id="ch-tab-nav-1">
       <button class="ch-tab-btn active" onclick="showChTab(1,1)">Books</button>
-      <button class="ch-tab-btn" onclick="showChTab(1,2)">Accounts</button>
+      <button class="ch-tab-btn" id="ch-tab-1-2-btn" onclick="showChTab(1,2)">Accounts</button>
       <button class="ch-tab-btn" onclick="showChTab(1,3)">Scopes</button>
       <button class="ch-tab-btn" onclick="showChTab(1,4)">Terminology</button>
       <button class="ch-tab-btn" onclick="showChTab(1,5)">Tab 5</button>
@@ -1228,7 +1228,27 @@ function abCoaTreeOrder(accounts){
   accounts.forEach(a=>{ if(a.parent_account_id&&!knownIds.has(a.parent_account_id)&&!out.find(o=>o.id===a.id)) out.push({...a,depth:0}); });
   return out;
 }
+// Step 3 of the guided onboarding sequence (1=Add Company, 2=Add Book,
+// 3=this) — Ryan's direct instruction, 2026-08-12: once a book exists with
+// no Chart of Accounts yet, the Accounts tab itself should pulse green to
+// draw the person there next, the same visual language already used for
+// steps 1 and 2. Runs every time abRenderCoa runs, so it stays correct
+// whichever book is selected and clears itself the moment real accounts
+// exist (manual add, template, or QuickBooks import — abLoadAccounts+
+// abRenderCoa runs after all three). abAccountsTabVisited tracks books
+// whose Accounts tab has already been opened once, so simply arriving on
+// the tab retires the "go here next" cue for that book even before any
+// account is actually added — the empty-state form/template picker on the
+// tab itself is the next-step UI now, not the pulse.
+const abAccountsTabVisited=new Set();
+function refreshAccountsTabPulse(){
+  const btn=document.getElementById('ch-tab-1-2-btn'); if(!btn)return;
+  const shouldPulse=!!abBookId&&abAccounts.length===0&&!abAccountsTabVisited.has(abBookId);
+  btn.classList.toggle('page-action-btn-pulse',shouldPulse);
+  btn.innerHTML=shouldPulse?'<span class="page-action-step-badge">3</span> Accounts':'Accounts';
+}
 function abRenderCoa(){
+  refreshAccountsTabPulse();
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   el.innerHTML=`<div class="ab-h">Chart of Accounts</div>
@@ -4746,6 +4766,11 @@ function showChTab(detailNum,n){
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
+  // Retire the Accounts-tab pulse the instant it's actually clicked — the
+  // moment they arrive is the moment the "next step" attention is no
+  // longer needed, regardless of whether accounts end up added this visit.
+  // abRenderCoa (called just below) reads this set via refreshAccountsTabPulse.
+  if(detailNum===1&&n===2&&abBookId) abAccountsTabVisited.add(abBookId);
   renderPageActionBar(detailNum,n);
   // Chart of Accounts ("Accounts", Tab 2 of the Books page) — render on
   // demand rather than on every book selection, same as it's already
