@@ -535,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.92</div>
+      <div class="page-version" id="pageVersion">v1.93</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5293,6 +5293,17 @@ function rvRenderInstance(containerId){
   const wrap=document.getElementById(containerId);
   const inst=rvInstances.get(containerId);
   if(!wrap||!inst)return;
+  // Ryan's direct instruction, 2026-08-12: every re-render (sort, filter,
+  // expand/collapse, cell edit, selection toggle — anything that calls
+  // this) rebuilds .rv-table-wrap as a brand-new element via
+  // wrap.innerHTML=..., which silently reset its scroll position to the
+  // top every time. Scrolled deep into a long Chart of Accounts and
+  // clicking a sub-account's + toggle snapped the whole view back to row
+  // 1 — the expand itself worked, but the row he'd clicked scrolled out
+  // of sight, reading as "the row disappeared." Captured before the
+  // rebuild, restored onto the new element after.
+  const prevScrollEl=document.getElementById(containerId+'-scroll');
+  const prevScrollTop=prevScrollEl?prevScrollEl.scrollTop:0;
   const rows=rvGetVisibleRows(inst);
   const statusParts=[];
   if(inst.sort) statusParts.push(`Sorted by ${inst.columns.find(c=>c.key===inst.sort.key).label} (${inst.sort.dir==='asc'?'A→Z':'Z→A'})`);
@@ -5418,6 +5429,10 @@ function rvRenderInstance(containerId){
       <tbody>${rowsHtml}</tbody>
       ${summaryHtml}
     </table></div>`;
+  if(prevScrollTop){
+    const newScrollEl=document.getElementById(containerId+'-scroll');
+    if(newScrollEl) newScrollEl.scrollTop=prevScrollTop;
+  }
   if(inst.editingCell){
     const input=document.getElementById('rv-cell-input-'+containerId);
     if(input){ input.focus(); input.select(); }
