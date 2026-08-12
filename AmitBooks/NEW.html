@@ -535,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.94</div>
+      <div class="page-version" id="pageVersion">v1.95</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -737,7 +737,7 @@ const TODO_ITEMS=[
   'IMPORT QUICKBOOKS — step 1, Company matching: before importing anything, check the QuickBooks company name against the signed-in user\'s existing `companies.name` (case-insensitive). Match found → this import becomes a NEW BOOK under that existing company (the "different set of books, same company" case Ryan described). No match → create the company first (from whatever profile fields were captured/typed — QuickBooks has no clean one-click CSV export for Company Info; usually read off the Company Information screen or a generated PDF), then the book underneath it. This step gates everything below — nothing imports until the company/book destination is resolved.',
   'IMPORT QUICKBOOKS — step 2, Chart of Accounts: DONE 2026-08-10 — real Import wizard (Books tab header, "Import" button), Step 1 creates/picks the company+book, Step 2 uploads QuickBooks\' Account List CSV, auto-guesses account type per row (QB_ACCOUNT_TYPE_MAP) with every row\'s type left editable before commit — never silently guessed on real books. See openImportWizard/openImportStep2CoA.',
   'IMPORT QUICKBOOKS — step 3, Vendors/Customers: QuickBooks\' Vendor List and Customer Contact List reports — real contact records (phone/email/address/EIN), not just the bare name string the Journal report carries per line. Matched back against the names that show up in the Journal import (step 5) so transactions link to real Contact records instead of orphaned name strings.',
-  'IMPORT QUICKBOOKS — step 4, Items/Scopes: QuickBooks\' Item List report — products/services sold, feeding New\'s Scopes tab. Not currently pulled by anything.',
+  'IMPORT QUICKBOOKS — step 4, Items/Scopes: DONE 2026-08-12 — real Import wizard on the Scopes tab header (same treatment as Accounts\' own Import), Item Listing CSV/xlsx, Cost/Billable accounts matched by name against the Chart of Accounts with an editable dropdown per row before commit. See openImportForScopesTab/openImportStepItems.',
   'IMPORT QUICKBOOKS — step 5, Journal (transactions): port the existing, already-working Journal CSV importer from AmitBooks.html (Books &amp; Setup → Import QuickBooks — auto-detects Date/Account/Debit/Credit columns, groups into transactions, interactive review before commit, posts real journal_entries/journal_lines tagged to a qb_import_batches row) into New, wired to the book resolved in step 1 and the accounts/contacts confirmed in steps 2-3 rather than re-inferring them.',
   'IMPORT QUICKBOOKS — step 6, Open Items (A/P &amp; A/R): QuickBooks\' A/P Aging Detail / Open Invoices reports, to create real structured invoices_bills rows (with due dates, matching what "Owed to You"/"You Owe" on the Books tab expects) instead of just the account-balance effect the Journal alone provides. Most fragile piece — report formats vary more across QuickBooks versions/company files than the others; build and test last, against a real BOSS export.',
   'Wire Terminology\'s saved labels everywhere else — most tabs still show hardcoded words. Clients and Scopes are done (abFieldLabel/book_field_settings, live update via abApplyClientTerminology/abApplyScopeTerminology); apply the same pattern to the rest (Accounts, Terminology\'s own remaining hardcoded strings, Contacts) once the remaining tabs above are ported.',
@@ -2163,6 +2163,11 @@ function refreshScopesTabPulse(){
   const shouldPulse=!!abBookId&&abAccounts.length>0&&abItems.length===0;
   btn.classList.toggle('page-action-btn-pulse',shouldPulse);
   btn.innerHTML=shouldPulse?'<span class="page-action-step-badge">4</span> '+abEsc(abScopePluralLabel):abEsc(abScopePluralLabel);
+  // The header Import/Browse Template/Add Scope buttons carry their own
+  // matching pulse (renderPageActionBar's detailNum===1&&tabNum===3
+  // branch) — refreshed here too, same as Accounts, so it turns off the
+  // moment Scopes actually gets data, not only when the tab is reopened.
+  if(document.querySelector('.ch-tab-btn.active')?.id==='scopes-tab-label') renderPageActionBar(1,3);
 }
 function abRenderItems(){
   refreshScopesTabPulse();
@@ -2178,13 +2183,7 @@ function abRenderItems(){
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
       A ${abEsc(scopeLabel)} is the real-world category of work or material — "Framing," "HVAC," "Concrete" — not the same as a Chart of Accounts entry. Everything charged to a job gets grouped under a ${abEsc(scopeLabel)} for job costing, no matter whether it ends up being labor, material, subcontractor, or equipment on any given bill — that's picked per line when you enter the bill, not fixed here. Every ${abEsc(scopeLabel)} can point at two accounts: where the cost lands when you buy it (<b>Cost Account</b>), and where the revenue lands when you bill someone for it (<b>Billable Account</b>).
     </div>
-    ${abItemTemplatePreview ? abItemTemplatePickerHtml() : (abItems.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
-      <div class="ab-field"><label>Start from an industry template</label>
-        <select id="ab-item-template-industry"><option value="construction">Construction</option></select>
-      </div>
-      <button class="ab-btn" onclick="abPreviewItemTemplate()">Browse Template</button>
-      <span style="font-size:12px;color:var(--muted);align-self:center">Wires up income/expense accounts automatically if your Chart of Accounts is already loaded.</span>
-    </div>`)}
+    ${abItemTemplatePreview ? abItemTemplatePickerHtml() : (abItems.length?'':`<div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">No ${abEsc(scopeLabelPlural)} yet — press Add ${abEsc(scopeLabel)} in the header above, browse a template, or Import.</div>`)}
     ${(()=>{
       const tk='items'; abSmartRerender[tk]=abRenderItems;
       const getters={name:i=>i.name||'',category:i=>i.category||'',secondary:i=>i.secondary_class||'',cost:i=>abAccountLabel(i.expense_account_id),billable:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
@@ -2433,11 +2432,18 @@ function abItemTemplatePickerHtml(){
     </div>
   </div>`;
 }
-async function abPreviewItemTemplate(){
-  const industry=document.getElementById('ab-item-template-industry').value;
+// Industry now comes straight from the header "Browse Template" button
+// (renderPageActionBar, detailNum===1&&tabNum===3) instead of an inline
+// <select> that lived in the tab body — that card is gone, same pattern
+// as Accounts' own Browse Template button. Only Construction exists as a
+// template so far, same real limitation abPreviewTemplate (Accounts'
+// equivalent) already has.
+async function abPreviewItemTemplate(industry){
+  industry=industry||'construction';
+  if(!abBookId){abAlert('Select a book first (Books tab).');return;}
   const{data,error}=await db.from('item_category_templates').select('*').eq('industry',industry).order('name');
   if(error){abAlert(error.message);return;}
-  if(!data||!data.length){abAlert('No item template for that industry yet.');return;}
+  if(!data||!data.length){abAlert('No item template for that industry yet — only Construction exists so far. Press + Add Scope above to build this book\'s Scopes by hand instead.');return;}
   abItemTemplatePreview=data;
   abRenderItems();
 }
@@ -4219,9 +4225,137 @@ async function importCommitCoa(){
 function openImportRoadmap(){
   popupOpen(`
     <div class="dv-sub-h">Chart of Accounts Imported</div>
-    <div class="fv-status" style="margin-bottom:10px">Real, working so far. Still ahead, in order — each one its own real build, not done yet:</div>
-    <div class="fv-status">2. Vendors (QuickBooks "Vendor Contact List")<br>3. Customers ("Customer Contact List")<br>4. Items/Scopes ("Products and Services" export)<br>5. Journal — imported ONE YEAR AT A TIME, never all history at once<br>6. Open Bills/Invoices ("A/P Aging Detail" / "A/R Aging Detail" — current snapshot, not year-based)</div>
+    <div class="fv-status" style="margin-bottom:10px">Real, working so far. Items/Scopes import is also live now — its own Import button on the Scopes tab, not part of this wizard. Still ahead, in order — each one its own real build, not done yet:</div>
+    <div class="fv-status">2. Vendors (QuickBooks "Vendor Contact List")<br>3. Customers ("Customer Contact List")<br>4. Journal — imported ONE YEAR AT A TIME, never all history at once<br>5. Open Bills/Invoices ("A/P Aging Detail" / "A/R Aging Detail" — current snapshot, not year-based)</div>
     <button class="fv-save" style="margin-top:14px" onclick="popupClose()">Close</button>`);
+}
+
+// ══════════════════════════════════════════════
+// IMPORT — Items → Scopes, Ryan's direct instruction, 2026-08-12: same
+// treatment as the Chart of Accounts import (openImportForAccountsTab) —
+// header button on the tab it targets, skips the company/book picker
+// entirely since importing from here always means "into the book I'm
+// already looking at," real step-by-step QuickBooks walkthrough
+// (importQbWalkthroughHtml, shared with the Accounts importer), editable
+// review table before anything actually writes.
+//
+// QuickBooks' Item Listing report shape varies more than Account Listing
+// does — Service/Non-inventory/Other Charge items usually show one
+// generic "Account" column (their income account), while Inventory Part
+// items show separate Income Account and COGS/Expense Account columns.
+// Rather than guessing wrong silently, a lone "Account" column is read as
+// Billable/Income only, leaving Cost Account for the review table's own
+// editable dropdown (abScopeAccountOptions, same helper the Scope popup
+// itself uses) — nothing commits on a guess that was never actually seen.
+// ══════════════════════════════════════════════
+function openImportForScopesTab(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  openImportStepItems();
+}
+let importParsedItems=null;
+function openImportStepItems(){
+  popupOpen(`
+    <div class="dv-sub-h">Items → ${abEsc(abPluralize(abFieldLabel('scope','Scope')))}</div>
+    ${importQbWalkthroughHtml('Item Listing','Reports → List → Item Listing (or Lists → Item List, then the Reports button at the bottom of that window → Item Listing)')}
+    <input type="file" id="importItemsFile" accept=".csv,.xlsx,.xls" onchange="importItemsFileChosen(this.files[0])">
+    <div id="importItemsReview" style="margin-top:14px"></div>
+    <div class="fv-status" id="importItemsStatus" style="margin-top:10px"></div>`);
+}
+function importFindItemHeaderRowIndex(rows){
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    if(rows[i].some(c=>String(c).toLowerCase().includes('item'))) return i;
+  }
+  return 0;
+}
+function importParseMoney(v){ const n=parseFloat(String(v||'').replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; }
+async function importItemsFileChosen(file){
+  if(!file)return;
+  const status=document.getElementById('importItemsStatus');
+  status.textContent='Reading file…';
+  const allRows=await importReadFileAsRows(file);
+  const headerIdx=importFindItemHeaderRowIndex(allRows);
+  const rows=allRows.slice(headerIdx);
+  if(rows.length<2){ status.textContent='That file has no data rows.'; return; }
+  const header=rows[0].map(h=>h.toLowerCase().trim());
+  const nameCol=header.findIndex(h=>h==='item'||h==='item name'||(h.includes('item')&&!h.includes('description')&&!h.includes('type')));
+  const typeCol=header.findIndex(h=>h==='type');
+  const cogsCol=header.findIndex(h=>h.includes('cogs')||h.includes('expense account')||h.includes('cost account'));
+  const incomeCol=header.findIndex(h=>h.includes('income account'));
+  const genericAcctCol=header.findIndex(h=>h==='account');
+  const costCol=header.findIndex(h=>h.includes('cost')&&!h.includes('account'));
+  const priceCol=header.findIndex(h=>(h.includes('price')||h.includes('rate'))&&!h.includes('account'));
+  const qtyCol=header.findIndex(h=>h.includes('qty on hand')||h.includes('quantity on hand'));
+  const reorderCol=header.findIndex(h=>h.includes('reorder'));
+  const vendorCol=header.findIndex(h=>h.includes('vendor'));
+  if(nameCol<0){ status.textContent='Could not find an Item column in this file.'; return; }
+  const byAccountName={}; abAccounts.forEach(a=>{ if(a.account_name) byAccountName[a.account_name.trim().toLowerCase()]=a.id; });
+  const byVendorName={}; abContacts.filter(c=>c.is_vendor).forEach(c=>{ if(c.name) byVendorName[c.name.trim().toLowerCase()]=c.id; });
+  importParsedItems=rows.slice(1).filter(r=>r[nameCol]).map(r=>{
+    const name=(r[nameCol]||'').trim();
+    const qbType=typeCol>=0?(r[typeCol]||'').trim():'';
+    const cogsName=(cogsCol>=0?r[cogsCol]:'').trim();
+    const incomeName=(incomeCol>=0?r[incomeCol]:(genericAcctCol>=0?r[genericAcctCol]:'')).trim();
+    const vendorName=(vendorCol>=0?r[vendorCol]:'').trim();
+    return{
+      name,qbType,
+      costAccountId:cogsName?(byAccountName[cogsName.toLowerCase()]||null):null,
+      billableAccountId:incomeName?(byAccountName[incomeName.toLowerCase()]||null):null,
+      unitCost:costCol>=0?importParseMoney(r[costCol]):null,
+      unitPrice:priceCol>=0?importParseMoney(r[priceCol]):null,
+      qty:qtyCol>=0?importParseMoney(r[qtyCol]):null,
+      reorderQty:reorderCol>=0?importParseMoney(r[reorderCol]):null,
+      vendorId:vendorName?(byVendorName[vendorName.toLowerCase()]||null):null
+    };
+  });
+  renderImportItemsReview();
+  status.textContent='';
+}
+function renderImportItemsReview(){
+  const el=document.getElementById('importItemsReview'); if(!el)return;
+  const scopeLabelPlural=abPluralize(abFieldLabel('scope','Scope'));
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedItems.length} items found — Cost/Billable accounts matched by name where possible; review and fix any that show — Not Set Up — before importing.</div>
+    <table class="ab-table"><tr><th>Item</th><th>QB Type</th><th>Cost Account</th><th>Billable Account</th><th>Unit Cost</th><th>Billable Rate</th></tr>
+    ${importParsedItems.map((it,i)=>`<tr>
+      <td>${abEsc(it.name)}</td>
+      <td style="font-size:11px;color:var(--muted)">${abEsc(it.qbType)}</td>
+      <td><select onchange="importParsedItems[${i}].costAccountId=this.value||null">${abScopeAccountOptions(it.costAccountId)}</select></td>
+      <td><select onchange="importParsedItems[${i}].billableAccountId=this.value||null">${abScopeAccountOptions(it.billableAccountId)}</select></td>
+      <td>${it.unitCost!=null?abMoneyFmt(it.unitCost):'—'}</td>
+      <td>${it.unitPrice!=null?abMoneyFmt(it.unitPrice):'—'}</td>
+    </tr>`).join('')}
+    </table>
+    <button class="fv-save" style="margin-top:14px" onclick="importCommitItems()">Import ${importParsedItems.length} ${abEsc(scopeLabelPlural)}</button>`;
+}
+let importItemsCommitInFlight=false;
+async function importCommitItems(){
+  if(importItemsCommitInFlight)return;
+  importItemsCommitInFlight=true;
+  try{
+    const status=document.getElementById('importItemsStatus');
+    status.textContent='Importing…';
+    const existingNames=new Set(abItems.map(i=>(i.name||'').trim().toLowerCase()));
+    const rows=importParsedItems.filter(it=>!existingNames.has(it.name.trim().toLowerCase())).map(it=>({
+      book_id:abBookId,name:it.name,
+      expense_account_id:it.costAccountId||null,
+      income_account_id:it.billableAccountId||null,
+      unit_cost:it.unitCost,
+      unit_price:it.unitPrice,
+      quantity_on_hand:it.qty,
+      reorder_quantity:it.reorderQty,
+      preferred_vendor_id:it.vendorId||null,
+      category:it.qbType||null
+    }));
+    const skipped=importParsedItems.length-rows.length;
+    if(!rows.length){ status.textContent=skipped?`All ${skipped} already exist in this book — nothing new to import.`:'Nothing to import.'; importItemsCommitInFlight=false; return; }
+    const{error}=await db.from('items').insert(rows);
+    if(error){ status.textContent='Error: '+error.message; return; }
+    status.textContent=`Imported ${rows.length} Scope(s)${skipped?`, ${skipped} skipped (already existed)`:''}.`;
+    logThreadEntry(`Imported ${rows.length} Scopes from QuickBooks into the current book.`);
+    await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
+    setTimeout(()=>popupClose(),1200);
+  } finally {
+    importItemsCommitInFlight=false;
+  }
 }
 
 // Custom cellRenderer for the Company column (see the cellRenderer hook
@@ -5892,14 +6026,22 @@ function renderPageActionBar(detailNum,tabNum){
         <button class="page-action-btn${pulseCls}" onclick="openAccountPopup('')" data-tip="Add one account by hand — name, type, number, parent, and everything else. Also how you add more accounts later, on top of an import or template."><span>+</span>Add Account</button>`;
     }
   } else if(detailNum===1&&tabNum===3){
-    // Add Scope — Ryan's direct instruction, 2026-08-12: same treatment
-    // as Add Client/Add New Company — header button, popup form, not an
-    // inline row of inputs sitting in the tab body.
+    // Import/Browse Template/Add Scope — Ryan's direct instruction,
+    // 2026-08-12: same header treatment Accounts already has, replacing
+    // the old inline "Start from an industry template" card in the tab
+    // body (abRenderItems used to render it when abItems was empty — now
+    // that card is gone entirely, matching Accounts' own empty state,
+    // which is just a notice line above the table). All three glow
+    // together while this book has no Scopes yet, same reasoning as
+    // Accounts: three alternative starting points, not a required order.
     if(!abBookId){
       bar.innerHTML='';
     } else {
       const scopeLabel=abFieldLabel('scope','Scope');
-      bar.innerHTML=`<button class="page-action-btn" onclick="openScopeEditPopup(null)" data-tip="Add a ${abEsc(scopeLabel)} — a real-world category of work or material this book charges jobs to.">${abAccounts.length?'':'<span style="font-size:11px;color:#f0a8a8;margin-right:8px">Load Chart of Accounts first to wire up Expense/Income</span>'}<span>+</span>Add ${abEsc(scopeLabel)}</button>`;
+      const pulseCls=abItems.length?'':' page-action-btn-pulse';
+      bar.innerHTML=`<button class="page-action-btn${pulseCls}" onclick="openImportForScopesTab()" data-tip="Already have your Items set up in QuickBooks? Bring them in from a CSV or native .xlsx export."><span>⬇</span>Import</button>
+        <button class="page-action-btn${pulseCls}" onclick="abPreviewItemTemplate('construction')" data-tip="Starting fresh? Use the Construction industry's standard ${abEsc(scopeLabel)} list as a starting point.">${abAccounts.length?'':'<span style="font-size:11px;color:#f0a8a8;margin-right:8px">Load Chart of Accounts first to wire up Cost/Billable</span>'}<span>≡</span>Browse Template</button>
+        <button class="page-action-btn${pulseCls}" onclick="openScopeEditPopup(null)" data-tip="Add one ${abEsc(scopeLabel)} by hand — name, accounts, and everything else. Also how you add more later, on top of an import or template.">${abAccounts.length?'':'<span style="font-size:11px;color:#f0a8a8;margin-right:8px">Load Chart of Accounts first to wire up Cost/Billable</span>'}<span>+</span>Add ${abEsc(scopeLabel)}</button>`;
     }
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
