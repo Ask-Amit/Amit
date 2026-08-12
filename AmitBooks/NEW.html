@@ -494,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.80</div>
+      <div class="page-version" id="pageVersion">v1.81</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1415,6 +1415,80 @@ function loadAccountsIntoRowView(){
   const rows=buildAccountRvRows(abAccounts);
   rvCreate('rv-mount-accounts',ACCOUNT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openAccountPopup(id),hideExpandColumn:true,showSummaryRow:false,selectable:true,onBulkDelete:openBulkDeleteAccountsPopup});
 }
+// ── USAGE CHECK — Ryan's direct instruction, 2026-08-12: before ANY
+// account delete (single or bulk), search for real activity attached to
+// it — bills, revenue, journal postings — within the current fiscal year.
+// If anything real is attached, the delete is hard-blocked entirely (no
+// "delete anyway" override) — a popup names exactly what's attached and
+// what has to be reassigned first, instead of silently orphaning real
+// financial history or a live account reference.
+//
+// Checked: invoice_bill_lines (real bill/invoice line postings, joined to
+// invoices_bills for book_id + doc_date), journal_lines (posted journal
+// entries only — a draft entry doesn't block, since it hasn't actually
+// happened yet), items/Scopes still wired to this account as their Cost
+// or Billable account, and contacts still carrying this as their default
+// account. Scopes/contacts aren't date-scoped — they're a standing
+// wiring, not a dated transaction, so any live reference blocks
+// regardless of fiscal year. NOT checked: fixed_assets — no confirmed
+// account-reference column for it in the schema I could verify
+// (migration_2026-07-29_005), so it's left out rather than guessed at;
+// a real gap if fixed assets ever gain one.
+//
+// Fiscal year boundary comes from the book's own company.tax_year_end
+// (COMPANY_FISCAL_MONTHS) — 'calendar' or a month name meaning "fiscal
+// year ends the last day of that month." Computes whichever fiscal year
+// actually contains today's date.
+async function getBookFiscalYearRange(bookId){
+  const{data:book}=await db.from('books').select('company_id').eq('id',bookId).single();
+  let taxYearEnd='calendar';
+  if(book&&book.company_id){
+    const{data:co}=await db.from('companies').select('tax_year_end').eq('id',book.company_id).single();
+    if(co&&co.tax_year_end) taxYearEnd=co.tax_year_end;
+  }
+  const FISCAL_END_MONTH_INDEX={calendar:11,january:0,february:1,march:2,april:3,may:4,june:5,july:6,august:7,september:8,october:9,november:10,december:11};
+  const endMonthIdx=FISCAL_END_MONTH_INDEX[taxYearEnd]??11;
+  const lastDayOfMonth=(y,m)=>new Date(y,m+1,0).getDate();
+  const today=new Date();
+  let endYear=today.getFullYear();
+  let end=new Date(endYear,endMonthIdx,lastDayOfMonth(endYear,endMonthIdx));
+  if(end<today){ endYear+=1; end=new Date(endYear,endMonthIdx,lastDayOfMonth(endYear,endMonthIdx)); }
+  const startMonthIdx=(endMonthIdx+1)%12;
+  const startYear=endMonthIdx===11?endYear:endYear-1;
+  const start=new Date(startYear,startMonthIdx,1);
+  const fmt=d=>d.toISOString().slice(0,10);
+  return{start:fmt(start),end:fmt(end)};
+}
+async function checkAccountUsage(accountId,bookId){
+  const{start,end}=await getBookFiscalYearRange(bookId);
+  const[billRes,journalRes,itemsRes,contactsRes]=await Promise.all([
+    db.from('invoice_bill_lines').select('amount,description,invoices_bills!inner(book_id,doc_date,document_code,direction)').eq('account_id',accountId).eq('invoices_bills.book_id',bookId).gte('invoices_bills.doc_date',start).lte('invoices_bills.doc_date',end),
+    db.from('journal_lines').select('debit,credit,memo,journal_entries!inner(book_id,entry_date,status)').eq('account_id',accountId).eq('journal_entries.book_id',bookId).eq('journal_entries.status','posted').gte('journal_entries.entry_date',start).lte('journal_entries.entry_date',end),
+    db.from('items').select('id,name').eq('book_id',bookId).or(`expense_account_id.eq.${accountId},income_account_id.eq.${accountId}`),
+    db.from('contacts').select('id,name').eq('book_id',bookId).eq('default_account_id',accountId)
+  ]);
+  return{
+    billLines:billRes.data||[],
+    journalLines:journalRes.data||[],
+    scopes:itemsRes.data||[],
+    contacts:contactsRes.data||[],
+    fiscalRange:{start,end}
+  };
+}
+function accountUsageBlocked(u){ return!!(u.billLines.length||u.journalLines.length||u.scopes.length||u.contacts.length); }
+function accountUsageBlockHtml(accountName,u){
+  const parts=[];
+  if(u.billLines.length){
+    const total=u.billLines.reduce((s,l)=>s+(Number(l.amount)||0),0);
+    parts.push(`<li><b>${u.billLines.length}</b> bill/invoice line${u.billLines.length===1?'':'s'} this fiscal year, totaling <b>${abMoneyFmt(total)}</b> — reassign these to a different account before deleting.</li>`);
+  }
+  if(u.journalLines.length) parts.push(`<li><b>${u.journalLines.length}</b> posted journal entry line${u.journalLines.length===1?'':'s'} this fiscal year — reverse or reassign these first.</li>`);
+  if(u.scopes.length) parts.push(`<li>Still wired as the Cost or Billable account for <b>${u.scopes.length}</b> Scope${u.scopes.length===1?'':'s'}: ${u.scopes.map(s=>abEsc(s.name)).join(', ')} — change those Scopes to a different account first.</li>`);
+  if(u.contacts.length) parts.push(`<li>Set as the default account for <b>${u.contacts.length}</b> contact${u.contacts.length===1?'':'s'}: ${u.contacts.map(c=>abEsc(c.name)).join(', ')} — change their default account first.</li>`);
+  return`<div class="dv-sub-h" style="color:#e2a3a3">Can't Delete "${abEsc(accountName)}"</div>
+    <div class="fv-status" style="margin-bottom:10px">This account still has real activity attached to it (fiscal year ${u.fiscalRange.start} – ${u.fiscalRange.end}). Everything below needs to be reassigned to a different account before this one can be removed:</div>
+    <ul style="margin:0 0 14px;padding-left:20px;font-size:13px;color:var(--text2);line-height:1.6">${parts.join('')}</ul>`;
+}
 // Bulk delete — Ryan's direct instruction, 2026-08-12, matching the app's
 // own standing Interactivity Standard (checkbox multi-select feeding one
 // action). Same second-screen confirmation pattern as every other delete
@@ -1424,9 +1498,21 @@ function loadAccountsIntoRowView(){
 // both got checked — each one's own children (whether or not the child
 // itself was also selected) get reparented to top-level, same rule as a
 // single account delete, so nothing vanishes that wasn't explicitly asked
-// to be removed.
-function openBulkDeleteAccountsPopup(ids){
+// to be removed. If ANY selected account has real activity attached, the
+// WHOLE bulk delete is blocked — not just that one account — so someone
+// can't accidentally lose track of which ones actually went through.
+async function openBulkDeleteAccountsPopup(ids){
   if(!ids.length)return;
+  popupOpen(`<div class="dv-sub-h">Checking ${ids.length} account${ids.length===1?'':'s'} for attached activity…</div><div class="fv-status">One moment.</div>`);
+  const checked=await Promise.all(ids.map(async id=>({id,u:await checkAccountUsage(id,abBookId)})));
+  const blocked=checked.filter(({u})=>accountUsageBlocked(u));
+  if(blocked.length){
+    const html=blocked.map(({id,u})=>{ const a=abAccounts.find(x=>x.id===id); return accountUsageBlockHtml(a?a.account_name:'',u); }).join('<hr style="border-color:rgba(201,168,76,.2);margin:16px 0">');
+    popupOpen(`<div class="dv-sub-h" style="color:#e2a3a3">${blocked.length} of ${ids.length} Account${ids.length===1?'':'s'} Can't Be Deleted</div>
+      <div class="fv-status" style="margin-bottom:14px">Nothing was deleted — fix everything below, then try again.</div>
+      ${html}`);
+    return;
+  }
   const names=ids.map(id=>{ const a=abAccounts.find(x=>x.id===id); return a?a.account_name:null; }).filter(Boolean);
   popupOpen(`
     <div class="dv-sub-h" style="color:#e2a3a3">Delete ${names.length} Account${names.length===1?'':'s'}?</div>
@@ -1575,8 +1661,11 @@ function abCancelTemplatePreview(){
 // never silently deleted with it — they're reparented to top-level
 // (parent_account_id → null) so nothing vanishes that wasn't explicitly
 // asked to be removed.
-function openDeleteAccountPopup(accountId){
+async function openDeleteAccountPopup(accountId){
   const acct=abAccounts.find(a=>a.id===accountId); if(!acct)return;
+  popupOpen(`<div class="dv-sub-h">Checking for attached activity…</div><div class="fv-status">One moment.</div>`);
+  const usage=await checkAccountUsage(accountId,abBookId);
+  if(accountUsageBlocked(usage)){ popupOpen(accountUsageBlockHtml(acct.account_name,usage)); return; }
   const children=abAccounts.filter(a=>a.parent_account_id===accountId);
   popupOpen(`
     <div class="dv-sub-h" style="color:#e2a3a3">Delete "${abEsc(acct.account_name)}"?</div>
