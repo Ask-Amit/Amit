@@ -494,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.84</div>
+      <div class="page-version" id="pageVersion">v1.85</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1403,7 +1403,7 @@ function buildAccountRvRows(accounts){
       account_type:a.account_type,
       bank_display:a.account_type==='asset'?(a.is_bank_account?'Yes':'—'):'—',
       liability_display:a.account_type==='liability'?((AB_LIABILITY_SUBTYPES.find(s=>s[0]===a.liability_subtype)||['',''])[1]||'—'):'—',
-      tax_display:abTaxCategoryLabel(a.tax_category),
+      tax_display:(()=>{ const eff=abEffectiveTaxCategory(a); if(!eff.value)return'—'; return abTaxCategoryLabel(eff.value)+(eff.inherited?' (from '+eff.ownerName+')':''); })(),
       custom_display:Object.entries(a.custom_fields||{}).map(([k,v])=>`${k}: ${v}`).join(', ')||'—',
       children:(byParent[a.id]||[]).map(toRow)
     };
@@ -1556,6 +1556,31 @@ const AB_TAX_CATEGORIES=[
   ['gross_royalties_income','Gross Royalty Income'],['capital_gain','Capital Gain (Net)'],['other_income','Other Income'],['other_deductions','Other Deductions'],
 ];
 function abTaxCategoryLabel(key){ const c=AB_TAX_CATEGORIES.find(x=>x[0]===key); return c?c[1]:'—'; }
+// Ryan's direct instruction, 2026-08-12: a sub-account and its parent are
+// the same account for tax reporting — they can't carry two different
+// tax categories. Rather than copying the parent's category down onto
+// the child at save time (which would go stale the moment the parent's
+// own category changes), the child stores no tax_category of its own
+// while it has a parent, and this walks up the parent_account_id chain
+// at read time to find whichever ancestor actually holds one — "the
+// primary account is the one that always holds the tax category."
+function abEffectiveTaxCategory(account){
+  let a=account,depth=0;
+  while(a&&depth<20){
+    if(a.tax_category) return{value:a.tax_category,ownerId:a.id,ownerName:a.account_name,inherited:a.id!==account.id};
+    if(!a.parent_account_id) break;
+    a=abAccounts.find(x=>x.id===a.parent_account_id);
+    depth++;
+  }
+  return{value:null,ownerId:null,ownerName:null,inherited:false};
+}
+// "Primary Account (Name) — Category Label", or a plain not-set notice
+// when nothing up the chain has a tax category yet.
+function abAccountTaxInheritLabel(parentAcct){
+  const eff=abEffectiveTaxCategory(parentAcct);
+  if(!eff.value) return abEsc(parentAcct.account_name)+' — not set yet';
+  return abEsc(eff.ownerName)+' ('+abTaxCategoryLabel(eff.value)+')';
+}
 // Tax Category, Custom Fields, Bank/Cash, and Liability Type all used to
 // be edited through separate per-row inline controls/mini-panels — folded
 // into the single Account popup below, 2026-08-12 (Ryan's direct
@@ -1762,6 +1787,8 @@ function openAccountPopup(accountId){
   const type=existing?existing.account_type:'asset';
   const parentOptions=accountPopupParentOptionsHtml(type,existing?existing.parent_account_id:null);
   const cf=existing?(existing.custom_fields||{}):{};
+  const initialParentAcct=existing&&existing.parent_account_id?abAccounts.find(a=>a.id===existing.parent_account_id):null;
+  const initialTaxInheritLabel=initialParentAcct?abAccountTaxInheritLabel(initialParentAcct):'';
   popupOpen(`
     <div class="dv-sub-h">${existing?'Modify Account':'Add Account'}</div>
     <div class="fv-field"><label class="fv-label">Account Name</label><input class="fv-input" id="acctPop-name" value="${existing?abEsc(existing.account_name):''}" placeholder="e.g. Tools & Equipment"></div>
@@ -1776,7 +1803,11 @@ function openAccountPopup(accountId){
     <div class="fv-field" id="acctPop-liabsub-field" style="margin-top:10px;display:${type==='liability'?'':'none'}">
       <label class="fv-label">Liability Type</label><select class="fv-input" id="acctPop-liabsub">${abLiabilitySubtypeOptions(existing?existing.liability_subtype:'')}</select>
     </div>
-    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Tax Category</label><select class="fv-input" id="acctPop-taxcat"><option value="">— none —</option>${AB_TAX_CATEGORIES.map(c=>`<option value="${c[0]}"${existing&&existing.tax_category===c[0]?' selected':''}>${c[1]}</option>`).join('')}</select></div>
+    <div class="fv-field" style="margin-top:10px">
+      <label class="fv-label">Tax Category</label>
+      <select class="fv-input" id="acctPop-taxcat" style="display:${initialParentAcct?'none':''}"><option value="">— none —</option>${AB_TAX_CATEGORIES.map(c=>`<option value="${c[0]}"${existing&&existing.tax_category===c[0]?' selected':''}>${c[1]}</option>`).join('')}</select>
+      <div id="acctPop-taxcat-inherited" style="display:${initialParentAcct?'':'none'};font-size:13px;color:var(--text2);padding:6px 2px">Set by primary account — <strong id="acctPop-taxcat-inherited-name">${initialTaxInheritLabel}</strong></div>
+    </div>
     <div class="fv-field" style="margin-top:14px">
       <label class="fv-label">Custom Fields — whatever you need to track that doesn't have its own field yet</label>
       <div id="acctPop-cf-rows">
@@ -1821,9 +1852,31 @@ function accountPopupSuggestSubNumber(parentId){
 function accountPopupParentChanged(){
   const parentId=document.getElementById('acctPop-parent').value;
   const numberEl=document.getElementById('acctPop-number');
-  if(!parentId||numberEl.value.trim())return;
-  const suggestion=accountPopupSuggestSubNumber(parentId);
-  if(suggestion) numberEl.value=suggestion;
+  if(parentId&&!numberEl.value.trim()){
+    const suggestion=accountPopupSuggestSubNumber(parentId);
+    if(suggestion) numberEl.value=suggestion;
+  }
+  accountPopupSyncTaxCategoryLock(parentId);
+}
+// A sub-account can't carry a different tax category than its primary
+// account — Ryan's direct instruction, 2026-08-12. Selecting a Parent
+// Account hides the Tax Category dropdown and shows what it will
+// actually report under (walking up the chain via abEffectiveTaxCategory
+// in case the immediate parent doesn't hold one itself); clearing the
+// Parent Account brings the dropdown back so a top-level account can set
+// its own.
+function accountPopupSyncTaxCategoryLock(parentId){
+  const sel=document.getElementById('acctPop-taxcat');
+  const info=document.getElementById('acctPop-taxcat-inherited');
+  const parentAcct=parentId?abAccounts.find(a=>a.id===parentId):null;
+  if(parentAcct){
+    sel.style.display='none';
+    info.style.display='';
+    document.getElementById('acctPop-taxcat-inherited-name').innerHTML=abAccountTaxInheritLabel(parentAcct);
+  } else {
+    sel.style.display='';
+    info.style.display='none';
+  }
 }
 function accountPopupTypeChanged(){
   const type=document.getElementById('acctPop-type').value;
@@ -1835,6 +1888,7 @@ function accountPopupTypeChanged(){
   // keeping a mismatched parent selected.
   document.getElementById('acctPop-parent').innerHTML=
     '<option value="">— none, top-level —</option>'+accountPopupParentOptionsHtml(type,null);
+  accountPopupSyncTaxCategoryLock(null);
 }
 function accountPopupAddCfRow(){
   const rows=document.getElementById('acctPop-cf-rows');
@@ -1880,7 +1934,11 @@ async function saveAccountForm(existingId){
   const isBank=type==='asset'&&bankEl?bankEl.checked:false;
   const liabSubEl=document.getElementById('acctPop-liabsub');
   const liabSub=type==='liability'&&liabSubEl?(liabSubEl.value||null):null;
-  const taxCategory=document.getElementById('acctPop-taxcat').value||null;
+  // A sub-account (parentId set) never stores its own tax_category — it
+  // always reports under whatever the primary account's chain resolves
+  // to (abEffectiveTaxCategory), read fresh at display/report time so it
+  // can never go stale against a later change to the parent.
+  const taxCategory=parentId?null:(document.getElementById('acctPop-taxcat').value||null);
   const cfRows=document.querySelectorAll('#acctPop-cf-rows [data-cf-row]');
   const customFields={};
   cfRows.forEach(r=>{ const k=r.querySelector('.ab-cf-key').value.trim(); const v=r.querySelector('.ab-cf-val').value.trim(); if(k) customFields[k]=v; });
