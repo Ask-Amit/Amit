@@ -488,7 +488,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.66</div>
+      <div class="page-version" id="pageVersion">v1.67</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1414,28 +1414,44 @@ function abCancelTemplatePreview(){
   abTemplatePreview=null;
   abRenderCoa();
 }
-// Delete an account from the Chart of Accounts — Ryan's direct
-// instruction, 2026-08-12: "somewhere" accounts can be deleted, gated
-// eventually by book_role_permissions (built but not yet enforced
-// anywhere in this file — named gap, see Amit_Unified_Identity_Architecture.md
-// and Sessions.md). No enforcement here yet on purpose, matching that.
-// A sub-account's own children are never silently deleted with it — they're
-// reparented to top-level (parent_account_id → null) so nothing vanishes
-// that wasn't explicitly asked to be removed.
-async function abDeleteAccount(accountId){
+// Delete an account from the Chart of Accounts — a real second-screen
+// confirmation popup, same shape as Delete Company/Delete Book (red
+// title, warning text, red "Delete Permanently" button), not the plain
+// abConfirm() Yes/Cancel dialog this used before. Ryan's direct
+// instruction, 2026-08-12: every delete button needs that same second
+// confirmation. Opened from inside the Account popup's own "Delete
+// Account" button — the popup content swaps to this warning screen, same
+// as openDeleteCompanyPopup/openDeleteBookPopup swap the Company/Book
+// popup's content. Still gated eventually by book_role_permissions (built
+// but not yet enforced anywhere in this file — named gap, see
+// Amit_Unified_Identity_Architecture.md and Sessions.md); no enforcement
+// here yet on purpose, matching that. A sub-account's own children are
+// never silently deleted with it — they're reparented to top-level
+// (parent_account_id → null) so nothing vanishes that wasn't explicitly
+// asked to be removed.
+function openDeleteAccountPopup(accountId){
   const acct=abAccounts.find(a=>a.id===accountId); if(!acct)return;
   const children=abAccounts.filter(a=>a.parent_account_id===accountId);
-  const msg=children.length
-    ? `Delete "${acct.account_name}"? It has ${children.length} sub-account${children.length===1?'':'s'} — they'll become top-level accounts, not deleted with it.`
-    : `Delete "${acct.account_name}"? This can't be undone.`;
-  if(!await abConfirm(msg))return;
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete "${abEsc(acct.account_name)}"?</div>
+    <div class="fv-status" style="margin-bottom:14px">${children.length?`This account has ${children.length} sub-account${children.length===1?'':'s'} — they'll become top-level accounts, not deleted with it. `:''}This cannot be undone through the app afterward.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteAccount('${accountId}')">Delete Permanently</button>
+    </div>
+    <div class="fv-status" id="deleteAccountStatus" style="margin-top:10px"></div>`);
+}
+async function confirmDeleteAccount(accountId){
+  const status=document.getElementById('deleteAccountStatus');
+  if(status) status.textContent='Deleting…';
+  const children=abAccounts.filter(a=>a.parent_account_id===accountId);
   if(children.length){
     const{error:reErr}=await db.from('chart_of_accounts').update({parent_account_id:null}).eq('parent_account_id',accountId);
-    if(reErr){abAlert(reErr.message);return;}
+    if(reErr){ if(status) status.textContent='Error: '+reErr.message; return; }
   }
   const{error}=await db.from('chart_of_accounts').delete().eq('id',accountId);
-  if(error){abAlert(error.message);return;}
+  if(error){ if(status) status.textContent='Error: '+error.message; return; }
   await abLoadAccounts(); abRenderCoa();
+  popupClose();
 }
 async function abImportSelectedTemplate(){
   const checked=Array.from(document.querySelectorAll('.ab-tmpl-check:checked')).map(cb=>cb.value);
@@ -1517,7 +1533,7 @@ function openAccountPopup(accountId){
     </div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="fv-save" onclick="saveAccountForm('${existing?existing.id:''}')">${existing?'Save Account':'Add Account'}</button>
-      ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="abDeleteAccountFromPopup('${existing.id}')">Delete Account</button>`:''}
+      ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="openDeleteAccountPopup('${existing.id}')">Delete Account</button>`:''}
     </div>
     <div class="fv-status" id="acctPopStatus"></div>`);
 }
@@ -1560,14 +1576,6 @@ async function saveAccountForm(existingId){
   if(error){ status.textContent='Error: '+error.message; return; }
   await abLoadAccounts(); abRenderCoa();
   popupClose();
-}
-// Thin wrapper so Delete works from inside the popup — abDeleteAccount
-// already confirms and reports its own errors; only close the popup once
-// the account is actually gone (abConfirm's Cancel path should leave the
-// popup open, not silently close on a no-op).
-async function abDeleteAccountFromPopup(accountId){
-  await abDeleteAccount(accountId);
-  if(!abAccounts.find(a=>a.id===accountId)) popupClose();
 }
 
 // ══════════════════════════════════════════════
