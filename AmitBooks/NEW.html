@@ -494,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.81</div>
+      <div class="page-version" id="pageVersion">v1.82</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5344,7 +5344,7 @@ function rvShowColumnInfo(containerId,key){
 function rvHandleKeydown(e,containerId){
   const inst=rvInstances.get(containerId);if(!inst)return;
   if(inst.editingCell||(rvMenuState&&rvMenuState.containerId===containerId))return;
-  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&e.key!=='Enter')return;
+  if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&e.key!=='Enter'&&e.key!==' ')return;
   e.preventDefault();
   const rows=rvGetVisibleRows(inst);
   const flat=rvFlattenVisible(inst,rows);
@@ -5352,6 +5352,10 @@ function rvHandleKeydown(e,containerId){
   const idx=flat.findIndex(f=>f.item.id===inst.focusedRowId);
   if(e.key==='Enter'){
     if(idx>-1) rvHandleRowOpen(containerId,flat[idx].item.id);
+    return;
+  }
+  if(e.key===' '){
+    if(idx>-1&&inst.selectable) rvToggleRowSelect(containerId,flat[idx].item.id);
     return;
   }
   let nextIdx=idx;
