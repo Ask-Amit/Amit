@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.54</div>
+      <div class="page-version" id="pageVersion">v1.55</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5114,17 +5114,20 @@ function updateClock(){
 updateClock();
 setInterval(updateClock,30000);
 
-// Auto-refresh the Books table every 15 seconds — Ryan's direct
-// instruction, 2026-08-12: too much manual reloading needed to see
-// changes reflected. Skips the refresh entirely while any popup dialog
-// is open (Add Book, Import, Delete confirm, etc.) so it never yanks
-// focus or wipes out something someone's actively typing into — it only
-// ever refreshes the quiet background table.
-setInterval(()=>{
-  const modal=document.getElementById('canonicalPopup');
-  const modalOpen=modal&&modal.style.display==='flex';
-  if(!modalOpen&&db&&currentUser&&typeof loadRealBooksIntoRowView==='function') loadRealBooksIntoRowView();
-},15000);
+// Auto-refresh the Books table every 15 seconds — REMOVED, 2026-08-12
+// (Ryan's direct instruction). It looked safe (skipped while a popup was
+// open) but it wasn't safe against the guided-onboarding state living on
+// the page itself, not in a popup: re-running loadRealBooksIntoRowView on
+// a timer rebuilt the whole Books tree out from under whichever book was
+// selected, which silently cleared abBookId-driven state — specifically
+// the Accounts tab's pulse/step-3 badge (refreshAccountsTabPulse), which
+// depends on abBookId still pointing at the selected book. A company with
+// several books, one of which genuinely has no Chart of Accounts yet,
+// needs that badge to stay lit once that book is selected — the timer was
+// collapsing it out from under the person before they ever got to it.
+// Manual refresh (re-selecting a book, or a real save/delete action, which
+// already calls loadRealBooksIntoRowView itself) is what updates the table
+// now — no background timer touching page state on its own.
 </script>
 
 </body>
