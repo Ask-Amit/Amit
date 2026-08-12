@@ -461,7 +461,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.45</div>
+      <div class="page-version" id="pageVersion">v1.46</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2615,7 +2615,14 @@ async function snapshotBook(bookId,bookName){
 // wherever it's not available (Firefox/Safari), rather than breaking the
 // backup entirely on those browsers.
 async function downloadJson(obj,filenameBase){
-  const filename=`${filenameBase.replace(/[^a-z0-9]+/gi,'_')}-${new Date().toISOString().slice(0,10)}.json`;
+  // Date AND time in the filename, not just the date — Ryan's direct
+  // instruction, 2026-08-12: a backup should never override an existing
+  // file. Two backups taken the same day used to generate the identical
+  // filename and collide; down to the second makes that collision
+  // essentially impossible without relying on the browser/OS to catch it.
+  const now=new Date();
+  const stamp=now.toISOString().slice(0,10)+'_'+now.toTimeString().slice(0,8).replace(/:/g,'-');
+  const filename=`${filenameBase.replace(/[^a-z0-9]+/gi,'_')}-${stamp}.json`;
   const text=JSON.stringify(obj,null,2);
   if(window.showSaveFilePicker){
     try{
@@ -2641,7 +2648,13 @@ async function downloadJson(obj,filenameBase){
 // Actually removes a book and everything under it — children first (same
 // table list/order as the backup, so nothing's ever deleted out of
 // dependency order), the book row itself last.
-async function deleteBookCascade(bookId){
+// onProgress(text) — optional live-status callback, same fix as the
+// Import wizard's batching (Ryan reported deleting a company sitting on a
+// static "Deleting…" long enough to look stuck; checking the database
+// directly found it had actually finished — the operation itself is
+// fine, it just gave no visible sign of working through its ~20 tables
+// one at a time). Never blocks the actual delete if no callback is given.
+async function deleteBookCascade(bookId,onProgress){
   // journal_lines/invoice_bill_lines have no direct book_id column to
   // filter on — delete by their parent's own ids instead, fetched first.
   // (Both actually already carry ON DELETE CASCADE back to their parent —
@@ -2651,19 +2664,30 @@ async function deleteBookCascade(bookId){
   // Doing it explicitly here too is redundant, not wrong — belt and
   // suspenders, since this function shouldn't have to trust that every
   // table's cascade config is set consistently to be safe.)
+  if(onProgress)onProgress('journal lines…');
   const{data:jes}=await db.from('journal_entries').select('id').eq('book_id',bookId);
   if(jes&&jes.length) await db.from('journal_lines').delete().in('journal_entry_id',jes.map(j=>j.id));
+  if(onProgress)onProgress('invoice/bill lines…');
   const{data:ibs}=await db.from('invoices_bills').select('id').eq('book_id',bookId);
   if(ibs&&ibs.length) await db.from('invoice_bill_lines').delete().in('invoice_bill_id',ibs.map(i=>i.id));
+  let doneCount=0;
   for(const t of AB_BACKUP_TABLES){
     if(t==='journal_lines'||t==='invoice_bill_lines')continue; // already handled above via parent ids
+    doneCount++;
+    if(onProgress)onProgress(`${t} (${doneCount} of ${AB_BACKUP_TABLES.length})…`);
     try{ await db.from(t).delete().eq('book_id',bookId); }catch(e){}
   }
+  if(onProgress)onProgress('the book itself…');
   await db.from('books').delete().eq('id',bookId);
 }
-async function deleteCompanyCascade(companyId){
+async function deleteCompanyCascade(companyId,onProgress){
   const{data:books}=await db.from('books').select('id,name').eq('company_id',companyId);
-  for(const b of(books||[])) await deleteBookCascade(b.id);
+  const all=books||[];
+  for(let i=0;i<all.length;i++){
+    if(onProgress)onProgress(`book "${all[i].name}" (${i+1} of ${all.length})…`);
+    await deleteBookCascade(all[i].id,onProgress);
+  }
+  if(onProgress)onProgress('the company itself…');
   await db.from('companies').delete().eq('id',companyId);
 }
 // The real confirmation popup — never a native confirm(), per the
@@ -2694,10 +2718,47 @@ async function downloadBookBackupNow(bookId,bookName,companyName){
   await downloadJson(snapshot,base);
   if(status) status.textContent='Saved.';
 }
+// ── STANDALONE BACKUP — Ryan's direct instruction, 2026-08-12: backup
+// shouldn't only exist as a step inside deleting something; it needs its
+// own real button, next to Restore, so someone can back up anytime, not
+// just when they're about to delete. Reuses the exact same snapshotBook/
+// downloadJson mechanism the delete-flow backups already use — one real
+// backup format, two entry points into it.
+async function openBackupPicker(){
+  if(!db||!currentUser){ popupOpen(`<div class="dv-sub-h">Backup</div><div class="fv-status">Sign in through the Hub to actually back up — this is sample mode.</div>`); return; }
+  const{data:companies}=await db.from('companies').select('id,name').eq('user_id',currentUser.id).order('name');
+  const{data:books}=await db.from('books').select('id,name,company_id').eq('user_id',currentUser.id).order('name');
+  const ungrouped=(books||[]).filter(b=>!b.company_id);
+  const rows=[
+    ...(companies||[]).map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0"><span>${abEsc(c.name)} <span style="color:var(--muted);font-size:11px">(company — every book under it)</span></span><button class="fv-save" onclick="backupPickerDownloadCompany('${c.id}','${abEsc(c.name).replace(/'/g,"\\'")}')">⬇ Download</button></div>`),
+    ...ungrouped.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0"><span>${abEsc(b.name)} <span style="color:var(--muted);font-size:11px">(book, no company)</span></span><button class="fv-save" onclick="backupPickerDownloadBook('${b.id}','${abEsc(b.name).replace(/'/g,"\\'")}')">⬇ Download</button></div>`)
+  ];
+  popupOpen(`
+    <div class="dv-sub-h">Download a Backup</div>
+    <div class="fv-status" style="margin-bottom:14px">Pick a company (backs up every book under it) or a single unattached book.</div>
+    ${rows.length?rows.join(''):'<div class="fv-status" style="color:var(--muted)">Nothing to back up yet.</div>'}
+    <div class="fv-status" id="backupPickerStatus" style="margin-top:10px"></div>`);
+}
+async function backupPickerDownloadCompany(companyId,companyName){
+  const status=document.getElementById('backupPickerStatus');
+  status.textContent='Gathering every book under this company…';
+  const{data:books}=await db.from('books').select('id,name').eq('company_id',companyId);
+  const bundle={amitbooks_backup_version:1,company_id:companyId,company_name:companyName,exported_at:new Date().toISOString(),books:{}};
+  for(const b of(books||[])) bundle.books[b.id]=await snapshotBook(b.id,b.name);
+  await downloadJson(bundle,`backup-${companyName}`);
+  status.textContent='Saved.';
+}
+async function backupPickerDownloadBook(bookId,bookName){
+  const status=document.getElementById('backupPickerStatus');
+  status.textContent='Gathering…';
+  const snapshot=await snapshotBook(bookId,bookName);
+  await downloadJson(snapshot,`backup-${bookName}`);
+  status.textContent='Saved.';
+}
 async function confirmDeleteBook(bookId){
   const status=document.getElementById('deleteBookStatus');
   if(status) status.textContent='Deleting…';
-  await deleteBookCascade(bookId);
+  await deleteBookCascade(bookId,t=>{ if(status) status.textContent='Deleting — '+t; });
   popupClose();
   await loadRealBooksIntoRowView();
 }
@@ -2723,7 +2784,7 @@ async function downloadCompanyBackupNow(companyId,companyName){
 async function confirmDeleteCompany(companyId){
   const status=document.getElementById('deleteBookStatus');
   if(status) status.textContent='Deleting…';
-  await deleteCompanyCascade(companyId);
+  await deleteCompanyCascade(companyId,t=>{ if(status) status.textContent='Deleting — '+t; });
   popupClose();
   await loadRealBooksIntoRowView();
 }
@@ -2761,11 +2822,12 @@ async function downloadEverythingBackupNow(){
 }
 async function confirmDeleteEverything(){
   const status=document.getElementById('deleteBookStatus');
+  const report=t=>{ if(status) status.textContent='Deleting — '+t; };
   if(status) status.textContent='Deleting…';
   const{data:companies}=await db.from('companies').select('id').eq('user_id',currentUser.id);
-  for(const c of(companies||[])) await deleteCompanyCascade(c.id); // cascades each company's own books/contacts too
+  for(const c of(companies||[])) await deleteCompanyCascade(c.id,report); // cascades each company's own books/contacts too
   const{data:remaining}=await db.from('books').select('id').eq('user_id',currentUser.id); // whatever's left had no company — delete directly
-  for(const b of(remaining||[])) await deleteBookCascade(b.id);
+  for(const b of(remaining||[])) await deleteBookCascade(b.id,report);
   popupClose();
   await loadRealBooksIntoRowView();
 }
@@ -3652,7 +3714,39 @@ function openCompanyEditPopup(bookId,existingCompany,prefillName,bookCount){
       <button class="fv-save" onclick="saveCompanyForm('${bookId||''}','${existingCompany?existingCompany.id:''}')">Save Company</button>
       ${existingCompany?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="openDeleteCompanyPopup('${existingCompany.id}','${esc(existingCompany.name).replace(/'/g,"\\'")}',${bookCount||0})">Delete Company</button>`:''}
     </div>
-    <div class="fv-status" id="companyFormStatus"></div>`);
+    <div class="fv-status" id="companyFormStatus"></div>
+    ${existingCompany?`
+    <div class="dv-sub-h" style="margin-top:22px">Books Under This Company</div>
+    <div id="companyBooksListWrap">Loading…</div>`:''}`);
+  if(existingCompany) renderCompanyBooksList(existingCompany.id);
+}
+// Add New Book now lives here, inside the company it belongs to, per
+// Ryan's direct instruction, 2026-08-10 — replacing the standalone header
+// button entirely. Only shows once a company actually exists (a
+// brand-new, not-yet-saved company has nowhere real to attach a book to
+// yet) — same reasoning as the SSN vault needing a real company id first.
+async function renderCompanyBooksList(companyId){
+  const el=document.getElementById('companyBooksListWrap');if(!el)return;
+  const{data,error}=await db.from('books').select('id,name').eq('company_id',companyId).order('name');
+  const books=data||[];
+  el.innerHTML=`${books.length?`<table class="ab-table">${books.map(b=>`<tr><td>${abEsc(b.name)}</td><td style="text-align:right"><a href="#" onclick="openModifyBookPopup('${b.id}','${abEsc(b.name).replace(/'/g,"\\'")}','${companyId}');return false" style="color:var(--gold2);font-size:12px">Modify</a></td></tr>`).join('')}</table>`:`<div class="fv-status" style="color:var(--muted)">No books yet under this company.</div>`}
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input class="fv-input" id="companyQuickAddBookName" placeholder="New book name" style="flex:1">
+      <button class="fv-save" onclick="quickAddBookToCompany('${companyId}')">+ Add Book</button>
+    </div>
+    <div class="fv-status" id="companyQuickAddBookStatus" style="margin-top:6px"></div>`;
+}
+async function quickAddBookToCompany(companyId){
+  const nameEl=document.getElementById('companyQuickAddBookName');
+  const name=nameEl.value.trim();
+  const status=document.getElementById('companyQuickAddBookStatus');
+  if(!name){ status.textContent='Book name is required.'; return; }
+  const{error}=await db.from('books').insert({user_id:currentUser.id,name,company_id:companyId});
+  if(error){ status.textContent='Error: '+error.message; return; }
+  nameEl.value='';
+  logThreadEntry(`Created a new book, "${name}", under company.`);
+  await renderCompanyBooksList(companyId);
+  await loadRealBooksIntoRowView();
 }
 
 async function saveCompanyForm(bookId,existingCompanyId){
@@ -4622,9 +4716,15 @@ function renderPageActionBar(detailNum,tabNum){
   const bar=document.getElementById('page-action-bar-'+detailNum);
   if(!bar)return;
   if(detailNum===1&&tabNum===1){
-    bar.innerHTML=`<button class="page-action-btn" onclick="spvAddNew('rv-mount-books')"><span>+</span>Add New Book</button>
-      <button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>
+    // Add New Book removed from here, 2026-08-12 (Ryan's direct
+    // instruction) — a book always belongs to a company, so adding one
+    // now lives inside that company's own popup (see
+    // renderCompanyBooksList), not as a separate top-level button asking
+    // "which company?" all over again. Company comes first in the row
+    // now too, matching the real hierarchy (Company → Books).
+    bar.innerHTML=`<button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>
       <button class="page-action-btn" onclick="openImportWizard()"><span>⬇</span>Import</button>
+      <button class="page-action-btn" onclick="openBackupPicker()"><span>⬇</span>Backup</button>
       <button class="page-action-btn" onclick="openRestorePopup()"><span>⬆</span>Restore From Backup</button>
       <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
   } else if(detailNum===4&&tabNum===1){
@@ -4815,6 +4915,18 @@ function updateClock(){
 }
 updateClock();
 setInterval(updateClock,30000);
+
+// Auto-refresh the Books table every 15 seconds — Ryan's direct
+// instruction, 2026-08-12: too much manual reloading needed to see
+// changes reflected. Skips the refresh entirely while any popup dialog
+// is open (Add Book, Import, Delete confirm, etc.) so it never yanks
+// focus or wipes out something someone's actively typing into — it only
+// ever refreshes the quiet background table.
+setInterval(()=>{
+  const modal=document.getElementById('canonicalPopup');
+  const modalOpen=modal&&modal.style.display==='flex';
+  if(!modalOpen&&db&&currentUser&&typeof loadRealBooksIntoRowView==='function') loadRealBooksIntoRowView();
+},15000);
 </script>
 
 </body>
