@@ -535,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.95</div>
+      <div class="page-version" id="pageVersion">v1.96</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4232,21 +4232,21 @@ function openImportRoadmap(){
 
 // ══════════════════════════════════════════════
 // IMPORT — Items → Scopes, Ryan's direct instruction, 2026-08-12: same
-// treatment as the Chart of Accounts import (openImportForAccountsTab) —
-// header button on the tab it targets, skips the company/book picker
-// entirely since importing from here always means "into the book I'm
-// already looking at," real step-by-step QuickBooks walkthrough
-// (importQbWalkthroughHtml, shared with the Accounts importer), editable
-// review table before anything actually writes.
-//
-// QuickBooks' Item Listing report shape varies more than Account Listing
-// does — Service/Non-inventory/Other Charge items usually show one
-// generic "Account" column (their income account), while Inventory Part
-// items show separate Income Account and COGS/Expense Account columns.
-// Rather than guessing wrong silently, a lone "Account" column is read as
-// Billable/Income only, leaving Cost Account for the review table's own
-// editable dropdown (abScopeAccountOptions, same helper the Scope popup
-// itself uses) — nothing commits on a guess that was never actually seen.
+// header treatment as the Chart of Accounts import — but the actual
+// source file changed after real testing. QuickBooks' Item Listing
+// REPORT export doesn't carry the Expense/COGS Account at all by default
+// (only Income Account), which was verified against a real BOSS export —
+// items came over with Cost Account blank even though QuickBooks clearly
+// has it set (a screenshot of the item's own edit screen showed "Job
+// Expenses" wired up). The real fix isn't smarter guessing against that
+// report; it's a different, better source: File → Utilities → Export →
+// Lists to IIF Files, QuickBooks' own native list-export format. A real
+// IIF Item List export (verified against Ryan's actual BOSS company file)
+// carries ACCNT (Income/Billable) and COGSACCNT (Cost/Expense) as two
+// separate columns on every item, natively, no report customization
+// step required. IIF is now the primary, recommended path; the old
+// report-based CSV/xlsx importer is kept as a fallback underneath it for
+// anyone who only has that export.
 // ══════════════════════════════════════════════
 function openImportForScopesTab(){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
@@ -4256,8 +4256,17 @@ let importParsedItems=null;
 function openImportStepItems(){
   popupOpen(`
     <div class="dv-sub-h">Items → ${abEsc(abPluralize(abFieldLabel('scope','Scope')))}</div>
-    ${importQbWalkthroughHtml('Item Listing','Reports → List → Item Listing (or Lists → Item List, then the Reports button at the bottom of that window → Item Listing)')}
-    <input type="file" id="importItemsFile" accept=".csv,.xlsx,.xls" onchange="importItemsFileChosen(this.files[0])">
+    <div class="import-walkthrough">
+      <b>Item List</b> — in QuickBooks, the easiest way to bring these over with both accounts intact:
+      <ol>
+        <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
+        <li>A checklist of lists appears — check <b>only "Item List"</b></li>
+        <li>Click <b>OK</b>, then save the file somewhere you'll remember</li>
+        <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
+      </ol>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Don't have that option, or only have the Item Listing report exported as Excel/CSV? That still works below too — Cost Account just won't come pre-filled on this route (that report doesn't carry it), and you'll fill it in per row in the review table before importing.</div>
+    </div>
+    <input type="file" id="importItemsFile" accept=".iif,.csv,.xlsx,.xls" onchange="importItemsFileChosen(this.files[0])">
     <div id="importItemsReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importItemsStatus" style="margin-top:10px"></div>`);
 }
@@ -4272,10 +4281,83 @@ async function importItemsFileChosen(file){
   if(!file)return;
   const status=document.getElementById('importItemsStatus');
   status.textContent='Reading file…';
+  if((file.name||'').toLowerCase().endsWith('.iif')){
+    importParsedItems=await importParseIifItems(await file.text());
+  } else {
+    importParsedItems=await importParseItemReportFile(file);
+  }
+  if(!importParsedItems){ status.textContent='Could not find any items in that file.'; return; }
+  if(!importParsedItems.length){ status.textContent='That file has no items in it.'; return; }
+  renderImportItemsReview();
+  status.textContent='';
+}
+// IIF is tab-delimited, with each "record type" (ACCNT, CUST, INVITEM,
+// CLASS, etc.) getting its own header line starting with "!" — a full
+// Lists-to-IIF export like Ryan's contains ALL of those in one file even
+// when only Item List was checked, so this only reads the !INVITEM
+// section and ignores the rest. QuickBooks also re-declares a second,
+// differently-shaped !INVITEM header later in the file for GRP (group)
+// records — headerCols is only set when the declared columns include
+// ACCNT/COGSACCNT, so that second header is correctly ignored rather
+// than misread against the wrong column positions.
+async function importParseIifItems(text){
+  const lines=text.split(/\r?\n/);
+  let headerCols=null;
+  const dataRows=[];
+  for(const line of lines){
+    if(!line)continue;
+    const cols=line.split('\t');
+    if(cols[0]==='!INVITEM'){
+      headerCols=(cols.includes('ACCNT')&&cols.includes('COGSACCNT'))?cols.slice(1):null;
+      continue;
+    }
+    if(cols[0]==='INVITEM'&&headerCols){
+      const vals=cols.slice(1);
+      const row={};
+      headerCols.forEach((h,i)=>{ row[h]=vals[i]||''; });
+      dataRows.push(row);
+    }
+  }
+  if(!dataRows.length)return null;
+  const byAccountName={}; abAccounts.forEach(a=>{ if(a.account_name) byAccountName[a.account_name.trim().toLowerCase()]=a.id; });
+  const byVendorName={}; abContacts.filter(c=>c.is_vendor).forEach(c=>{ if(c.name) byVendorName[c.name.trim().toLowerCase()]=c.id; });
+  // SUBT (subtotal) and GRP (group) are QuickBooks print-formatting
+  // constructs, not real cost/billable categories — nothing to bring in.
+  const skipTypes=new Set(['SUBT','GRP']);
+  return dataRows.filter(r=>r.NAME&&!skipTypes.has(r.INVITEMTYPE)).map(r=>{
+    // "Parent:Child" (e.g. "01 Plans and Permits:01.1 Plans") has no
+    // equivalent sub-Scope concept here — the parent segment becomes the
+    // Category instead, which is exactly what Category is for, and keeps
+    // QuickBooks' own grouping instead of losing it.
+    const fullPath=r.NAME.trim();
+    const parts=fullPath.split(':').map(p=>p.trim()).filter(Boolean);
+    const name=parts[parts.length-1];
+    const category=parts.length>1?parts.slice(0,-1).join(' — '):'';
+    const cogsName=(r.COGSACCNT||'').trim();
+    const incomeName=(r.ACCNT||'').trim();
+    const vendorName=(r.PREFVEND||'').trim();
+    return{
+      name,category,qbType:r.INVITEMTYPE||'',
+      costAccountId:cogsName?(byAccountName[cogsName.toLowerCase()]||null):null,
+      billableAccountId:incomeName?(byAccountName[incomeName.toLowerCase()]||null):null,
+      unitCost:importParseMoney(r.COST),
+      unitPrice:importParseMoney(r.PRICE),
+      qty:importParseMoney(r.QNTY),
+      reorderQty:importParseMoney(r.REORDERPOINT),
+      vendorId:vendorName?(byVendorName[vendorName.toLowerCase()]||null):null
+    };
+  });
+}
+// Fallback path — the original Item Listing report (Excel/CSV) importer,
+// kept for anyone without the IIF export option. Real limitation, not a
+// bug: that report doesn't carry an Expense/COGS Account column by
+// default, so costAccountId is left unmatched here and filled in per row
+// in the review table instead of guessed at.
+async function importParseItemReportFile(file){
   const allRows=await importReadFileAsRows(file);
   const headerIdx=importFindItemHeaderRowIndex(allRows);
   const rows=allRows.slice(headerIdx);
-  if(rows.length<2){ status.textContent='That file has no data rows.'; return; }
+  if(rows.length<2)return null;
   const header=rows[0].map(h=>h.toLowerCase().trim());
   const nameCol=header.findIndex(h=>h==='item'||h==='item name'||(h.includes('item')&&!h.includes('description')&&!h.includes('type')));
   const typeCol=header.findIndex(h=>h==='type');
@@ -4287,17 +4369,17 @@ async function importItemsFileChosen(file){
   const qtyCol=header.findIndex(h=>h.includes('qty on hand')||h.includes('quantity on hand'));
   const reorderCol=header.findIndex(h=>h.includes('reorder'));
   const vendorCol=header.findIndex(h=>h.includes('vendor'));
-  if(nameCol<0){ status.textContent='Could not find an Item column in this file.'; return; }
+  if(nameCol<0)return null;
   const byAccountName={}; abAccounts.forEach(a=>{ if(a.account_name) byAccountName[a.account_name.trim().toLowerCase()]=a.id; });
   const byVendorName={}; abContacts.filter(c=>c.is_vendor).forEach(c=>{ if(c.name) byVendorName[c.name.trim().toLowerCase()]=c.id; });
-  importParsedItems=rows.slice(1).filter(r=>r[nameCol]).map(r=>{
+  return rows.slice(1).filter(r=>r[nameCol]).map(r=>{
     const name=(r[nameCol]||'').trim();
     const qbType=typeCol>=0?(r[typeCol]||'').trim():'';
     const cogsName=(cogsCol>=0?r[cogsCol]:'').trim();
     const incomeName=(incomeCol>=0?r[incomeCol]:(genericAcctCol>=0?r[genericAcctCol]:'')).trim();
     const vendorName=(vendorCol>=0?r[vendorCol]:'').trim();
     return{
-      name,qbType,
+      name,category:'',qbType,
       costAccountId:cogsName?(byAccountName[cogsName.toLowerCase()]||null):null,
       billableAccountId:incomeName?(byAccountName[incomeName.toLowerCase()]||null):null,
       unitCost:costCol>=0?importParseMoney(r[costCol]):null,
@@ -4307,16 +4389,15 @@ async function importItemsFileChosen(file){
       vendorId:vendorName?(byVendorName[vendorName.toLowerCase()]||null):null
     };
   });
-  renderImportItemsReview();
-  status.textContent='';
 }
 function renderImportItemsReview(){
   const el=document.getElementById('importItemsReview'); if(!el)return;
   const scopeLabelPlural=abPluralize(abFieldLabel('scope','Scope'));
   el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedItems.length} items found — Cost/Billable accounts matched by name where possible; review and fix any that show — Not Set Up — before importing.</div>
-    <table class="ab-table"><tr><th>Item</th><th>QB Type</th><th>Cost Account</th><th>Billable Account</th><th>Unit Cost</th><th>Billable Rate</th></tr>
+    <table class="ab-table"><tr><th>Item</th><th>Category</th><th>QB Type</th><th>Cost Account</th><th>Billable Account</th><th>Unit Cost</th><th>Billable Rate</th></tr>
     ${importParsedItems.map((it,i)=>`<tr>
       <td>${abEsc(it.name)}</td>
+      <td style="font-size:11px;color:var(--muted)">${abEsc(it.category||'—')}</td>
       <td style="font-size:11px;color:var(--muted)">${abEsc(it.qbType)}</td>
       <td><select onchange="importParsedItems[${i}].costAccountId=this.value||null">${abScopeAccountOptions(it.costAccountId)}</select></td>
       <td><select onchange="importParsedItems[${i}].billableAccountId=this.value||null">${abScopeAccountOptions(it.billableAccountId)}</select></td>
@@ -4336,14 +4417,14 @@ async function importCommitItems(){
     const existingNames=new Set(abItems.map(i=>(i.name||'').trim().toLowerCase()));
     const rows=importParsedItems.filter(it=>!existingNames.has(it.name.trim().toLowerCase())).map(it=>({
       book_id:abBookId,name:it.name,
+      category:it.category||null,
       expense_account_id:it.costAccountId||null,
       income_account_id:it.billableAccountId||null,
       unit_cost:it.unitCost,
       unit_price:it.unitPrice,
       quantity_on_hand:it.qty,
       reorder_quantity:it.reorderQty,
-      preferred_vendor_id:it.vendorId||null,
-      category:it.qbType||null
+      preferred_vendor_id:it.vendorId||null
     }));
     const skipped=importParsedItems.length-rows.length;
     if(!rows.length){ status.textContent=skipped?`All ${skipped} already exist in this book — nothing new to import.`:'Nothing to import.'; importItemsCommitInFlight=false; return; }
