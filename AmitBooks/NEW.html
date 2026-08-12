@@ -505,7 +505,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.87</div>
+      <div class="page-version" id="pageVersion">v1.88</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1329,6 +1329,13 @@ function refreshAccountsTabPulse(){
   const shouldPulse=!!abBookId&&abAccounts.length===0;
   btn.classList.toggle('page-action-btn-pulse',shouldPulse);
   btn.innerHTML=shouldPulse?'<span class="page-action-step-badge">3</span> Accounts':'Accounts';
+  // The Import/Browse Template/Add Account header buttons carry their own
+  // matching pulse (renderPageActionBar's detailNum===1&&tabNum===2
+  // branch, gated the same way on abBookId being set first) — refreshed
+  // here too so it turns off the moment accounts actually land (e.g.
+  // right after an import completes), not just when the tab is first
+  // opened.
+  if(document.querySelector('.ch-tab-btn.active')?.id==='ch-tab-1-2-btn') renderPageActionBar(1,2);
 }
 // Real dialog box, not an always-present inline form — Ryan's direct
 // instruction, 2026-08-12: "we don't need to have that dialogue box in the
@@ -5766,9 +5773,20 @@ function renderPageActionBar(detailNum,tabNum){
       // the same inline form fields (name/type/number/parent/bank) that
       // stay in the tab body below; only the button itself relocated,
       // same as Add Client's own header button reads its own popup form.
-      bar.innerHTML=`<button class="page-action-btn" onclick="openImportForAccountsTab()" data-tip="Bring your Chart of Accounts in from QuickBooks — CSV or native .xlsx export, sub-accounts included."><span>⬇</span>Import</button>
-        <button class="page-action-btn" onclick="browseAccountTemplatesInTerminology()" data-tip="Pick which industry to start from — takes you to Terminology, where double-clicking a preset uses it as your Chart of Accounts template too."><span>≡</span>Browse Template</button>
-        <button class="page-action-btn" onclick="openAccountPopup('')" data-tip="Opens a dialog to add one account — name, type, number, parent, and everything else."><span>+</span>Add Account</button>`;
+      //
+      // All three glow together (not numbered 1/2/3 like Add Company's
+      // single-step badge above) when there's no Chart of Accounts yet —
+      // Ryan's direct instruction, 2026-08-12: these are three alternative
+      // starting points, not a sequence to do in order, so a shared pulse
+      // plus each button's own hover tooltip is what actually tells
+      // someone "pick one of these, here's what each one does" rather
+      // than implying a required order. Same page-action-btn-pulse class
+      // Add New Company/Add Book already use for this "start here" signal.
+      const noAccountsYet=!abAccounts.length;
+      const pulseCls=noAccountsYet?' page-action-btn-pulse':'';
+      bar.innerHTML=`<button class="page-action-btn${pulseCls}" onclick="openImportForAccountsTab()" data-tip="Already have a Chart of Accounts in QuickBooks? Bring it in from a CSV or native .xlsx export, sub-accounts included."><span>⬇</span>Import</button>
+        <button class="page-action-btn${pulseCls}" onclick="browseAccountTemplatesInTerminology()" data-tip="Starting fresh? Pick your industry and use its standard Chart of Accounts as a starting point — takes you to Terminology, where double-clicking a preset applies it."><span>≡</span>Browse Template</button>
+        <button class="page-action-btn${pulseCls}" onclick="openAccountPopup('')" data-tip="Add one account by hand — name, type, number, parent, and everything else. Also how you add more accounts later, on top of an import or template."><span>+</span>Add Account</button>`;
     }
   } else if(detailNum===1&&tabNum===3){
     // Add Scope — Ryan's direct instruction, 2026-08-12: same treatment
