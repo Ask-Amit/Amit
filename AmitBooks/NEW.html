@@ -488,7 +488,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.67</div>
+      <div class="page-version" id="pageVersion">v1.68</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1533,9 +1533,19 @@ function openAccountPopup(accountId){
     </div>
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="fv-save" onclick="saveAccountForm('${existing?existing.id:''}')">${existing?'Save Account':'Add Account'}</button>
+      ${!existing?`<button class="fv-save" style="background:transparent" onclick="accountPopupBrowseTemplates()">Browse Templates Instead</button>`:''}
       ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="openDeleteAccountPopup('${existing.id}')">Delete Account</button>`:''}
     </div>
     <div class="fv-status" id="acctPopStatus"></div>`);
+}
+// Ryan's direct instruction, 2026-08-12: from Add Account, let someone go
+// straight to browsing the industry template instead — the popup closes
+// and the template picker (already built into the Accounts tab body,
+// abTemplatePickerHtml) opens in its place. Add-mode only (Modify has
+// nothing template-related to offer for a single existing account).
+function accountPopupBrowseTemplates(){
+  popupClose();
+  abPreviewTemplate();
 }
 function accountPopupTypeChanged(){
   const type=document.getElementById('acctPop-type').value;
