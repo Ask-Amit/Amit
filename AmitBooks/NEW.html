@@ -364,7 +364,14 @@ header{
 .rv-col-resizer{position:absolute;top:0;right:-3px;width:6px;height:100%;cursor:col-resize;z-index:3;user-select:none}
 .rv-col-resizer:hover,.rv-col-resizer.resizing{background:rgba(201,168,76,.4)}
 .rv-table tr.rv-row:hover td{background:rgba(255,255,255,.04)}
-.rv-table tr.rv-child td{background:rgba(255,255,255,.02);color:var(--muted)}
+/* Almond tint, not the old near-invisible 2% white — Ryan's direct
+   instruction, 2026-08-12: sub-account rows (Chart of Accounts and any
+   other Row View table using child nesting) need to actually read as
+   nested at a glance, not just slightly muted. Warm gold-family tan
+   rather than a random color, so it still belongs to the page's own
+   palette instead of looking like an unrelated highlight. */
+.rv-table tr.rv-child td{background:rgba(201,168,76,.1);color:var(--muted)}
+.rv-table tr.rv-child:hover td{background:rgba(201,168,76,.16)}
 .rv-table tr.rv-row.focused td{background:rgba(201,168,76,.1)}
 /* Full box around the focused row — replacing the old thin left bar,
    added 2026-08-07, Ryan's direct instruction: with several columns
@@ -505,7 +512,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.88</div>
+      <div class="page-version" id="pageVersion">v1.89</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1391,6 +1398,17 @@ function accountNumberCellRenderer(r,c,containerId,isChild){
   const style=isChild?'padding-left:26px;':'';
   return `<td class="rv-td-plain"${style?` style="${style}"`:''}>${toggle}${abEsc(r.account_number||'')}</td>`;
 }
+// Ryan's direct instruction, 2026-08-12: sub-accounts were nearly
+// invisible in the table — the # column already indented and toggled,
+// but Name (where someone's eye actually lands) didn't, so a sub-account
+// read as just another flat row instead of clearly nested under its
+// parent. Real indent (not just the existing '— ' text prefix every
+// other Row View child row gets) plus a └ connector, matching the almond
+// background now on .rv-child rows (see the CSS rule).
+function accountNameCellRenderer(r,c,containerId,isChild){
+  const style=isChild?'padding-left:26px;':'';
+  return `<td class="rv-td-plain"${style?` style="${style}"`:''}>${isChild?'<span style="color:var(--gold2);opacity:.6;margin-right:4px">└</span>':''}${abEsc(r.account_name||'')}</td>`;
+}
 // Column set for the Chart of Accounts Row View — Bank/Cash, Liability
 // Type, Tax Category, and Custom Fields are all pre-formatted display
 // strings (built in buildAccountRvRows below), not raw column keys, since
@@ -1398,7 +1416,7 @@ function accountNumberCellRenderer(r,c,containerId,isChild){
 // than a bare database value.
 const ACCOUNT_RV_COLUMNS=[
   {key:'account_number',label:'#',cellRenderer:accountNumberCellRenderer},
-  {key:'account_name',label:'Name'},
+  {key:'account_name',label:'Name',cellRenderer:accountNameCellRenderer},
   {key:'account_type',label:'Type'},
   {key:'bank_display',label:'Bank/Cash'},
   {key:'liability_display',label:'Liability Type'},
