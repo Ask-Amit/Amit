@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.56</div>
+      <div class="page-version" id="pageVersion">v1.57</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -953,24 +953,64 @@ function selectBookRow(rows,bookId){
   // guard to catch, so a click could otherwise reach here with the
   // group's own synthetic 'grp-...' id — that's not a real book, so treat
   // it the same as nothing selected rather than trying to open it.
-  const found=findBookRow(rows,bookId);
+  let found=findBookRow(rows,bookId);
+  // Ryan caught a real bug directly, 2026-08-12: a company with exactly
+  // one book still renders as a collapsed group row ("1 book") until
+  // expanded — clicking it hit the isCompanyGroup guard below and read as
+  // "nothing selected," with no obvious way to select that one book short
+  // of knowing to expand the group first via its arrow or a double-click.
+  // When there's only one child, there's nothing to disambiguate — select
+  // it directly, and expand the group so the row is visibly there too.
+  if(found&&found.isCompanyGroup&&found.children&&found.children.length===1){
+    found=found.children[0];
+    const inst=rvInstances.get('rv-mount-books');
+    if(inst&&!inst.expanded.has(bookId)){ inst.expanded.add(bookId); rvRenderInstance('rv-mount-books'); }
+  }
   const row=(found&&!found.isCompanyGroup)?found:null;
+  // Company + Book, not the book name alone — Ryan's direct instruction,
+  // 2026-08-12: a company can run several books (different entities, cash
+  // vs. accrual, whatever), and each book has its OWN separate Chart of
+  // Accounts — showing only the book name left no way to tell, at a
+  // glance, which company's books someone is actually looking at.
+  // "No Company" books (company_name set to that literal string when a
+  // book has no company_id — see loadRealBooksIntoRowView) skip the
+  // prefix since there's nothing real to show.
+  const contextLabel=row?(row.company_name&&row.company_name!=='No Company'?`${row.company_name}: ${row.name}`:row.name):'Select Your Books';
   const ctx=document.getElementById('pageContext');
-  if(ctx) ctx.textContent=row?row.name:'Select Your Books';
-  // Mini page-header (Tab 1's own "BOOKS" label) mirrors the same
-  // selection, Ryan's direct instruction, 2026-08-07: it should read the
-  // book actually selected — matching the main title bar at the top of
-  // the page — not a static word, so switching tabs never loses track of
-  // which book is being worked on.
+  if(ctx) ctx.textContent=contextLabel;
+  // Small subtitle under the main title — was a static "BOOKS" label
+  // always; now carries the same Company: Book pairing once one is
+  // selected, per Ryan's direct instruction, so the specific book in view
+  // is never ambiguous. Reverts to the static category label when nothing
+  // is selected, same as before.
+  const ctxSub=document.getElementById('pageContextSub');
+  if(ctxSub) ctxSub.textContent=row?contextLabel:'BOOKS';
+  // Mini page-header (Tab 1's own "BOOKS" label, shared across all of the
+  // Books page's tabs — Books/Accounts/Scopes/Terminology) mirrors the
+  // same selection, Ryan's direct instruction, 2026-08-07, extended
+  // 2026-08-12 to carry the same Company: Book label — this is the one
+  // visible right above the Accounts tab's own content, exactly where
+  // knowing which book's Chart of Accounts is on screen matters most.
   const heading=document.getElementById('books-page-heading');
-  if(heading) heading.textContent=row?row.name:'Select Your Books';
+  if(heading) heading.textContent=contextLabel;
   // abBookId — drives the Chart of Accounts tab (Tab 2, "Accounts"),
   // copied verbatim from AmitBooks.html — same localStorage key as
   // AmitBooks.html itself uses, so the "current book" stays in sync
   // whichever of the two pages someone has open. Sample-mode book ids
   // ('b1' etc.) are real strings here too, same as AmitBooks.html's own
   // localStorage-restored id when no book has been picked yet.
-  abBookId=bookId||null;
+  // Real bug fixed alongside the single-child auto-select above,
+  // 2026-08-12: this used to read the raw `bookId` parameter directly,
+  // which is whatever id was actually clicked — for a multi-book or
+  // empty company group, that's the synthetic 'grp-...' row id, not a
+  // real book. abBookId was silently getting set to a fake id instead of
+  // being cleared, so Chart of Accounts queries ran against an id that
+  // matches nothing — no error, just an Accounts tab that never found
+  // anything, including never showing its own step-3 pulse correctly.
+  // Deriving it from `row` (already null unless a real book was actually
+  // resolved, single-child auto-select included) is correct for every
+  // case: a real book, no selection, and the collapsed-single-book case.
+  abBookId=row?row.id:null;
   if(abBookId) localStorage.setItem('amitbooks_current_book_id',abBookId);
   abLoadAccounts().then(abRenderCoa);
   abLoadItems().then(abRenderItems);
@@ -1260,10 +1300,9 @@ function abRenderCoa(){
       <div class="ab-field"><label>Parent Account (optional — makes this a sub-account)</label><select id="ab-coa-parent"><option value="">— none, top-level —</option>${abCoaTreeOrder(abAccounts).map(a=>`<option value="${a.id}">${'— '.repeat(a.depth)}${abEsc(a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field" id="ab-coa-bank-field" style="align-self:flex-end;padding-bottom:8px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px"><input type="checkbox" id="ab-coa-bank">This is a bank/cash account</label></div>
       <div class="ab-field" id="ab-coa-liabsub-field" style="display:none"><label>Liability Type</label>${abLiabilitySubtypeOptionsHtml('')}</div>
-      <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
     </div>
     <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Bank/Cash</th><th>Liability Type</th><th>Tax Category</th><th>Custom Fields</th><th></th></tr>
-    ${abCoaTreeOrder(abAccounts).map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?`<input type="checkbox" ${a.is_bank_account?'checked':''} onchange="abToggleBankAccount('${a.id}',this.checked)" title="Counts toward Cash on Hand on the dashboard">`:'—'}</td><td>${a.account_type==='liability'?`<select onchange="abSaveLiabilitySubtype('${a.id}',this.value)" title="Decides whether this counts toward Short Term Debt or Long Term Debt on the dashboard" style="font-size:11px">${abLiabilitySubtypeOptions(a.liability_subtype)}</select>`:'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td><td><a href="#" onclick="abDeleteAccount('${a.id}');return false" style="color:#c97a7a;font-size:11px" title="Delete this account — not yet gated by book role permissions (book_role_permissions exists but nothing enforces it yet)">Delete</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="8">No accounts yet — add one above, browse a template, or Import from the header</td></tr>'}
+    ${abCoaTreeOrder(abAccounts).map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?`<input type="checkbox" ${a.is_bank_account?'checked':''} onchange="abToggleBankAccount('${a.id}',this.checked)" title="Counts toward Cash on Hand on the dashboard">`:'—'}</td><td>${a.account_type==='liability'?`<select onchange="abSaveLiabilitySubtype('${a.id}',this.value)" title="Decides whether this counts toward Short Term Debt or Long Term Debt on the dashboard" style="font-size:11px">${abLiabilitySubtypeOptions(a.liability_subtype)}</select>`:'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td><td><a href="#" onclick="abDeleteAccount('${a.id}');return false" style="color:#c97a7a;font-size:11px" title="Delete this account — not yet gated by book role permissions (book_role_permissions exists but nothing enforces it yet)">Delete</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="8">No accounts yet — fill in the form above and press Add Account, browse a template, or Import, both in the header</td></tr>'}
     </table>
     <div id="ab-customfields-panel"></div>
     <div id="ab-taxcategory-panel"></div>`;
@@ -4134,7 +4173,19 @@ function initPageTooltips(containerId,side){
     if(!item)return;
     tip.textContent=item.dataset.tip||'';
     const r=item.getBoundingClientRect();
-    if(side==='left'){
+    // Auto-flip past the passed-in `side`, 2026-08-12 (Ryan's direct
+    // instruction — a real bug he ran into, not hypothetical): page-action-
+    // bar-1 is configured 'right' because most of its buttons sit safely
+    // left-of-center, but Import/Browse Template now live far-right, right
+    // next to the page heading — opening a ~260px tooltip rightward from
+    // there ran it straight off the edge of the screen, unreadable. Rather
+    // than hardcode a different side just for this one bar (which would
+    // just move the same problem to whichever button ends up on the
+    // opposite edge later), check real available space every time and
+    // flip leftward whenever the tooltip's max-width wouldn't fit.
+    const TIP_MAX_WIDTH=260;
+    const opensLeft=side==='left'?true:(r.right+8+TIP_MAX_WIDTH>window.innerWidth);
+    if(opensLeft){
       tip.style.right=(window.innerWidth-r.left+8)+'px';
       tip.style.left='auto';
     } else {
@@ -4954,8 +5005,14 @@ function renderPageActionBar(detailNum,tabNum){
     if(!abBookId){
       bar.innerHTML='';
     } else {
+      // Add Account moved up here too, 2026-08-12 (Ryan's direct
+      // instruction, same pass as Import/Browse Template) — still submits
+      // the same inline form fields (name/type/number/parent/bank) that
+      // stay in the tab body below; only the button itself relocated,
+      // same as Add Client's own header button reads its own popup form.
       bar.innerHTML=`<button class="page-action-btn" onclick="openImportForAccountsTab()" data-tip="Bring your Chart of Accounts in from QuickBooks — CSV or native .xlsx export, sub-accounts included."><span>⬇</span>Import</button>
-        <button class="page-action-btn" onclick="abPreviewTemplate()" data-tip="Start from a real industry-standard Chart of Accounts instead of building one line by line. Only Construction exists so far — more industries coming."><span>≡</span>Browse Template</button>`;
+        <button class="page-action-btn" onclick="abPreviewTemplate()" data-tip="Start from a real industry-standard Chart of Accounts instead of building one line by line. Only Construction exists so far — more industries coming."><span>≡</span>Browse Template</button>
+        <button class="page-action-btn" onclick="abAddAccount()" data-tip="Add the account using the name, type, number, and parent set in the form below."><span>+</span>Add Account</button>`;
     }
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
