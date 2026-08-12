@@ -1275,15 +1275,20 @@ function abCoaTreeOrder(accounts){
 // steps 1 and 2. Runs every time abRenderCoa runs, so it stays correct
 // whichever book is selected and clears itself the moment real accounts
 // exist (manual add, template, or QuickBooks import — abLoadAccounts+
-// abRenderCoa runs after all three). abAccountsTabVisited tracks books
-// whose Accounts tab has already been opened once, so simply arriving on
-// the tab retires the "go here next" cue for that book even before any
-// account is actually added — the empty-state form/template picker on the
-// tab itself is the next-step UI now, not the pulse.
-const abAccountsTabVisited=new Set();
+// abRenderCoa runs after all three).
+//
+// CORRECTED same day, Ryan's direct instruction after testing: this
+// originally also retired itself the instant the Accounts tab was first
+// clicked, on the idea that "arriving" was the point of the cue. Wrong —
+// Ryan went to Books, back to Accounts, and expected it still glowing
+// because the book genuinely still has zero accounts. The pulse isn't a
+// "have you been here yet" flag, it's a live "does this book still need a
+// Chart of Accounts" indicator — it must track abAccounts.length alone,
+// with no visited-once memory, so it keeps lighting up every time an
+// empty book is selected until real accounts actually exist.
 function refreshAccountsTabPulse(){
   const btn=document.getElementById('ch-tab-1-2-btn'); if(!btn)return;
-  const shouldPulse=!!abBookId&&abAccounts.length===0&&!abAccountsTabVisited.has(abBookId);
+  const shouldPulse=!!abBookId&&abAccounts.length===0;
   btn.classList.toggle('page-action-btn-pulse',shouldPulse);
   btn.innerHTML=shouldPulse?'<span class="page-action-step-badge">3</span> Accounts':'Accounts';
 }
@@ -4956,11 +4961,6 @@ function showChTab(detailNum,n){
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
-  // Retire the Accounts-tab pulse the instant it's actually clicked — the
-  // moment they arrive is the moment the "next step" attention is no
-  // longer needed, regardless of whether accounts end up added this visit.
-  // abRenderCoa (called just below) reads this set via refreshAccountsTabPulse.
-  if(detailNum===1&&n===2&&abBookId) abAccountsTabVisited.add(abBookId);
   renderPageActionBar(detailNum,n);
   // Chart of Accounts ("Accounts", Tab 2 of the Books page) — render on
   // demand rather than on every book selection, same as it's already
