@@ -296,7 +296,21 @@ header{
    shared by every tab under the Books page (Books/Accounts/Scopes/
    Terminology), so this keeps all of them at the same tighter gap between
    the tab row and their own content, rather than narrowing just one. */
-.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:14px 18px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+/* display:flex;flex-direction:column added 2026-08-12 — the real rest of
+   the .ch-tab-flex fix (v1.86) was still incomplete: giving a
+   .ch-tab-content child display:flex;flex-direction:column;min-height:0
+   does nothing unless ITS OWN parent is also a flex container, since
+   min-height:0 only overrides the flex default for a flex ITEM, and a
+   block-level child of a non-flex parent is never a flex item in the
+   first place. Without this, the child still sized to its content
+   (unbounded), so .rv-table-wrap two levels down never got a bounded
+   height either, and this element's own overflow-y:auto scrolled the
+   whole tab body — instructions line, column header, and all — instead
+   of leaving that job to .rv-table-wrap's sticky thead. Safe for every
+   other (non-Row-View) tab too: a plain block child with no flex:1 just
+   keeps its natural content height as a flex item, so this element's own
+   overflow-y:auto still scrolls it exactly as before. */
+.ch-tab-main{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;padding:14px 18px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 /* Row View tabs (Books, Accounts, Clients — anything mounting .rv-wrap
@@ -512,7 +526,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.89</div>
+      <div class="page-version" id="pageVersion">v1.90</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1282,10 +1296,26 @@ function abRefreshDropdownSources(){}
 let abBookId=localStorage.getItem('amitbooks_current_book_id')||null;
 let abAccounts=[];
 function abAccountLabel(id){ const a=abAccounts.find(x=>x.id===id); return a?(a.account_number?a.account_number+' — ':'')+a.account_name:'—'; }
+// Ryan's direct instruction, 2026-08-12: the Chart of Accounts should
+// default to the standard financial-statement order — Assets,
+// Liabilities, Equity, Income, Expenses, the same grouping a real Balance
+// Sheet/P&L reads in — not plain alphabetical by name. This is only the
+// DEFAULT; clicking a column's funnel still sorts/filters same as always
+// (rvGetVisibleRows applies inst.sort on top of whatever array order it's
+// handed), this just fixes what "no sort applied yet" actually shows.
+const AB_ACCOUNT_TYPE_ORDER=['asset','liability','equity','income','expense'];
+function abStandardAcctSort(a,b){
+  const ta=AB_ACCOUNT_TYPE_ORDER.indexOf(a.account_type),tb=AB_ACCOUNT_TYPE_ORDER.indexOf(b.account_type);
+  if(ta!==tb) return ta-tb;
+  const na=a.account_number||'',nb=b.account_number||'';
+  if(na&&nb) return na.localeCompare(nb,undefined,{numeric:true});
+  if(na!==nb) return na?-1:1;
+  return(a.account_name||'').localeCompare(b.account_name||'');
+}
 async function abLoadAccounts(){
   if(!abBookId||!db||!currentUser){abAccounts=[];return;}
   const{data}=await db.from('chart_of_accounts').select('*').eq('book_id',abBookId).order('account_name');
-  abAccounts=data||[];
+  abAccounts=(data||[]).sort(abStandardAcctSort);
 }
 let abTemplatePreview=null; // holds fetched template rows while the user is picking which ones to import
 let abTemplateIndustry='construction';
