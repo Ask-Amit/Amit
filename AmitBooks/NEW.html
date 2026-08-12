@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.51</div>
+      <div class="page-version" id="pageVersion">v1.52</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1605,46 +1605,76 @@ function abRenderItems(){
     </div>`)}
     <div class="ab-form">
       <div class="ab-field"><label>Scope Name</label><input id="ab-item-name" placeholder="e.g. Framing, HVAC, Concrete"></div>
-      <div class="ab-field"><label>What is it?</label>
-        <select id="ab-item-type">
-          <option value="service">Labor / Service (time you bill for)</option>
-          <option value="inventory_good">Material you track stock of</option>
-          <option value="non_inventory_good">One-off purchase (not tracked as stock)</option>
-        </select>
-      </div>
-      <div class="ab-field"><label>Default Cost Type (optional)</label>
-        <select id="ab-item-costtype"><option value="">—</option>${abCostTypeOptions()}</select>
+      <div class="ab-field"><label>Category (optional)</label>
+        <input id="ab-item-category" placeholder="Type or pick — yours to define" autocomplete="off" oninput="openItemCategoryDropdown()" onfocus="openItemCategoryDropdown()">
       </div>
       <div class="ab-field"><label>Tag (future use, optional)</label><input id="ab-item-secondary" placeholder="reserved for later"></div>
-      <div class="ab-field"><label>Expense Account (optional)</label><select id="ab-item-expense-acct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
-      <div class="ab-field"><label>Income Account (optional)</label><select id="ab-item-income-acct"><option value="">—</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Expense Account</label><select id="ab-item-expense-acct"><option value="">— Not Set Up —</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
+      <div class="ab-field"><label>Income Account</label><select id="ab-item-income-acct"><option value="">— Not Set Up —</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
       <div class="ab-field"><label>Price (optional)</label><input id="ab-item-price" type="number" step="0.01" style="width:90px"></div>
       <button class="ab-btn" onclick="abAddItem()">Add Scope</button>
     </div>
     ${(()=>{
       const tk='items'; abSmartRerender[tk]=abRenderItems;
-      const getters={name:i=>i.name||'',type:i=>abItemTypeLabel(i.item_type),costtype:i=>abCostTypeLabel(i.cost_type),secondary:i=>i.secondary_class||'',expense:i=>abAccountLabel(i.expense_account_id),income:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
+      const getters={name:i=>i.name||'',category:i=>i.category||'',secondary:i=>i.secondary_class||'',expense:i=>abAccountLabel(i.expense_account_id),income:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
       const sorted=abSmartApply(tk,abItems,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Scope',type:'What is it?',costtype:'Default Cost Type',secondary:'Tag',expense:'Expense Account',income:'Income Account',price:'Price'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Scope')}${abSmartTh(tk,'type','What is it?')}${abSmartTh(tk,'costtype','Default Cost Type')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'expense','Expense Account')}${abSmartTh(tk,'income','Income Account')}${abSmartTh(tk,'price','Price')}</tr>
-      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td>${abEsc(abItemTypeLabel(i.item_type))}</td><td style="font-size:12px">${abEsc(abCostTypeLabel(i.cost_type))}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoneyFmt(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No Scopes yet — add your first one above, or browse a template</td></tr>'}
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Scope',category:'Category',secondary:'Tag',expense:'Expense Account',income:'Income Account',price:'Price'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name','Scope')}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'expense','Expense Account')}${abSmartTh(tk,'income','Income Account')}${abSmartTh(tk,'price','Price')}</tr>
+      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td style="font-size:12px">${abEsc(i.category||'—')}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoneyFmt(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No Scopes yet — add your first one above, or browse a template</td></tr>'}
       </table>`;
     })()}`;
 }
-function abItemTypeLabel(t){ return t==='service'?'Labor/Service':t==='inventory_good'?'Tracked Material':t==='non_inventory_good'?'One-off Purchase':t; }
-const AB_COST_TYPES=[['labor','Labor'],['material','Material'],['subcontractor','Subcontractor'],['equipment','Equipment'],['permit_fee','Permit / Fee'],['other','Other']];
-function abCostTypeOptions(selected){ return AB_COST_TYPES.map(([v,l])=>`<option value="${v}"${selected===v?' selected':''}>${l}</option>`).join(''); }
-function abCostTypeLabel(v){ const f=AB_COST_TYPES.find(([val])=>val===v); return f?f[1]:'—'; }
+// Category autocomplete-with-create, Ryan's direct instruction,
+// 2026-08-12: "it can be both" — a free-text field AND a growing list of
+// the book's own past categories. No separate table/entity — the value
+// is just whatever text sits in the item's own `category` column;
+// distinct existing values (read straight off already-loaded abItems, no
+// extra query) are offered as suggestions via the shared #customDropMenu
+// floating menu, same destination used elsewhere in this file. Typing
+// something that matches nothing is always allowed — the dropdown is a
+// convenience, not a gate.
+function abItemCategoryDistinct(){
+  return Array.from(new Set(abItems.map(i=>i.category).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+}
+function openItemCategoryDropdown(){
+  const input=document.getElementById('ab-item-category');
+  const menu=document.getElementById('customDropMenu');
+  if(!input||!menu)return;
+  const q=input.value.toLowerCase();
+  const matches=abItemCategoryDistinct().filter(c=>c.toLowerCase().includes(q));
+  menu.innerHTML=matches.length?matches.map(c=>`<div class="cdrop-item" onmousedown="event.preventDefault();selectItemCategory('${c.replace(/'/g,"\\'")}')">${abEsc(c)}</div>`).join(''):'<div class="cdrop-item" style="color:var(--muted);cursor:default">No categories yet — just type your own</div>';
+  const r=input.getBoundingClientRect();
+  menu.style.display='block';
+  menu.style.top=(r.bottom+4)+'px';
+  menu.style.left=r.left+'px';
+  menu.style.width=Math.max(r.width,200)+'px';
+  setTimeout(()=>document.addEventListener('click',closeItemCategoryDropdownOutside),0);
+}
+function selectItemCategory(val){
+  const input=document.getElementById('ab-item-category');
+  if(input) input.value=val;
+  closeItemCategoryDropdown();
+}
+function closeItemCategoryDropdownOutside(e){
+  const menu=document.getElementById('customDropMenu');
+  const input=document.getElementById('ab-item-category');
+  if(menu&&!menu.contains(e.target)&&e.target!==input) closeItemCategoryDropdown();
+}
+function closeItemCategoryDropdown(){
+  const menu=document.getElementById('customDropMenu');
+  if(menu){ menu.style.display='none'; menu.innerHTML=''; }
+  document.removeEventListener('click',closeItemCategoryDropdownOutside);
+}
 async function abAddItem(){
   const name=document.getElementById('ab-item-name').value.trim(); if(!name)return;
-  const type=document.getElementById('ab-item-type').value;
-  const costType=document.getElementById('ab-item-costtype').value||null;
+  const category=document.getElementById('ab-item-category').value.trim()||null;
   const secondaryClass=document.getElementById('ab-item-secondary').value.trim()||null;
   const price=document.getElementById('ab-item-price').value;
   const expenseAcct=document.getElementById('ab-item-expense-acct').value||null;
   const incomeAcct=document.getElementById('ab-item-income-acct').value||null;
-  const{error}=await db.from('items').insert({book_id:abBookId,name,item_type:type,cost_type:costType,secondary_class:secondaryClass,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
+  const{error}=await db.from('items').insert({book_id:abBookId,name,category,secondary_class:secondaryClass,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
   if(error){abAlert(error.message);return;}
+  document.getElementById('ab-item-category').value='';
   await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
 }
 let abItemTemplatePreview=null;
@@ -1658,7 +1688,7 @@ function abItemTemplatePickerHtml(){
     const incOk=!t.default_income_account_number || byNumber[t.default_income_account_number];
     rows+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;color:${already?'var(--dim)':'var(--text2)'};cursor:${already?'default':'pointer'}">
       <input type="checkbox" class="ab-item-tmpl-check" value="${t.id}" ${already?'disabled':'checked'}>
-      ${abEsc(t.name)} <span style="font-size:11px;color:var(--muted)">(${abItemTypeLabel(t.item_type)}${t.cost_type?', default '+abCostTypeLabel(t.cost_type):''})</span>
+      ${abEsc(t.name)}
       ${already?' <span style="font-size:11px;color:var(--dim)">already added</span>':''}
       ${(!expOk||!incOk)?' <span style="font-size:11px;color:#f0a8a8">— load Chart of Accounts first to wire this one up</span>':''}
     </label>`;
@@ -1702,8 +1732,8 @@ async function abImportSelectedItemTemplate(){
 }
 function abExportItemsCsv(){
   abExportCsv('amitbooks-scopes',
-    [{key:'name',label:'Scope'},{key:'type',label:'What is it?'},{key:'costtype',label:'Default Cost Type'},{key:'price',label:'Price'}],
-    abItems.map(i=>({name:i.name,type:abItemTypeLabel(i.item_type),costtype:abCostTypeLabel(i.cost_type),price:i.unit_price||''}))
+    [{key:'name',label:'Scope'},{key:'category',label:'Category'},{key:'price',label:'Price'}],
+    abItems.map(i=>({name:i.name,category:i.category||'',price:i.unit_price||''}))
   );
 }
 

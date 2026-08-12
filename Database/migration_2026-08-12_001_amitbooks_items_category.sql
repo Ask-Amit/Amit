@@ -1,0 +1,21 @@
+-- ══════════════════════════════════════════════
+-- AmitBooks — Scopes: replace "What is it?" (Labor/Material/One-off) with
+-- a free-form Category field, drop Default Cost Type from the Scope
+-- Ryan's direct instruction, 2026-08-12:
+--
+-- - Cost type (Labor/Material/Subcontractor/Equipment/Permit-Fee/Other)
+--   is decided per BILL LINE from here on, not pre-set on the Scope
+--   itself — a Scope no longer carries a default for it. The `cost_type`
+--   column on `items` is left in place (nullable, unused by the new UI)
+--   rather than dropped, since nothing reads it destructively by keeping
+--   it and a future bill-line feature may still reference the concept.
+-- - `item_type` (service/inventory_good/non_inventory_good) is being
+--   replaced in the UI by a free-form `category` field the book owner
+--   fills in themselves — a note/classification of their own choosing,
+--   not a fixed three-option list. `item_type` is left in place too
+--   (its own NOT NULL check constraint still defaults to 'service' on
+--   insert, harmless) rather than dropped — same reasoning.
+--
+-- Additive only, nullable, default blank — nothing existing breaks.
+-- ══════════════════════════════════════════════
+alter table items add column if not exists category text;
