@@ -488,7 +488,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.64</div>
+      <div class="page-version" id="pageVersion">v1.65</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1312,25 +1312,22 @@ function refreshAccountsTabPulse(){
   btn.classList.toggle('page-action-btn-pulse',shouldPulse);
   btn.innerHTML=shouldPulse?'<span class="page-action-step-badge">3</span> Accounts':'Accounts';
 }
+// Real dialog box, not an always-present inline form — Ryan's direct
+// instruction, 2026-08-12: "we don't need to have that dialogue box in the
+// middle of the screen, they just add it when they want it." Serves both
+// purposes with the same popup: Add Account (accountId falsy, blank form)
+// from the header button, and Modify Account (accountId set, pre-filled)
+// from double-clicking any row below — same pattern as the Company/Book
+// popups already use (openCompanyEditPopup/openModifyBookPopup).
 function abRenderCoa(){
   refreshAccountsTabPulse();
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   el.innerHTML=`<div class="ab-h">Chart of Accounts</div>
     ${abTemplatePreview ? abTemplatePickerHtml() : ''}
-    <div class="ab-form">
-      <div class="ab-field"><label>Account name</label><input id="ab-coa-name" placeholder="e.g. Tools & Equipment"></div>
-      <div class="ab-field"><label>Type</label><select id="ab-coa-type" onchange="abCoaTypeChanged()"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
-      <div class="ab-field"><label>Number (optional)</label><input id="ab-coa-number" style="width:80px" placeholder="5100"></div>
-      <div class="ab-field"><label>Parent Account (optional — makes this a sub-account)</label><select id="ab-coa-parent"><option value="">— none, top-level —</option>${abCoaTreeOrder(abAccounts).map(a=>`<option value="${a.id}">${'— '.repeat(a.depth)}${abEsc(a.account_name)}</option>`).join('')}</select></div>
-      <div class="ab-field" id="ab-coa-bank-field" style="align-self:flex-end;padding-bottom:8px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px"><input type="checkbox" id="ab-coa-bank">This is a bank/cash account</label></div>
-      <div class="ab-field" id="ab-coa-liabsub-field" style="display:none"><label>Liability Type</label>${abLiabilitySubtypeOptionsHtml('')}</div>
-    </div>
-    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Bank/Cash</th><th>Liability Type</th><th>Tax Category</th><th>Custom Fields</th><th></th></tr>
-    ${abCoaTreeOrder(abAccounts).map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?`<input type="checkbox" ${a.is_bank_account?'checked':''} onchange="abToggleBankAccount('${a.id}',this.checked)" title="Counts toward Cash on Hand on the dashboard">`:'—'}</td><td>${a.account_type==='liability'?`<select onchange="abSaveLiabilitySubtype('${a.id}',this.value)" title="Decides whether this counts toward Short Term Debt or Long Term Debt on the dashboard" style="font-size:11px">${abLiabilitySubtypeOptions(a.liability_subtype)}</select>`:'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td><td><a href="#" onclick="abDeleteAccount('${a.id}');return false" style="color:#c97a7a;font-size:11px" title="Delete this account — not yet gated by book role permissions (book_role_permissions exists but nothing enforces it yet)">Delete</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="8">No accounts yet — fill in the form above and press Add Account, browse a template, or Import, both in the header</td></tr>'}
-    </table>
-    <div id="ab-customfields-panel"></div>
-    <div id="ab-taxcategory-panel"></div>`;
+    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Bank/Cash</th><th>Liability Type</th><th>Tax Category</th><th>Custom Fields</th></tr>
+    ${abCoaTreeOrder(abAccounts).map(a=>`<tr style="cursor:pointer" ondblclick="openAccountPopup('${a.id}')" title="Double-click to open/edit this account"><td>${abEsc(a.account_number||'')}</td><td>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?(a.is_bank_account?'Yes':'—'):'—'}</td><td>${a.account_type==='liability'?(AB_LIABILITY_SUBTYPES.find(s=>s[0]===a.liability_subtype)||['',''])[1]||'—':'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)}</td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No accounts yet — press Add Account in the header above, browse a template, or Import</td></tr>'}
+    </table>`;
 }
 
 // ── TAX CATEGORY — one unified list of categories that covers 1120,
@@ -1349,64 +1346,14 @@ const AB_TAX_CATEGORIES=[
   ['gross_royalties_income','Gross Royalty Income'],['capital_gain','Capital Gain (Net)'],['other_income','Other Income'],['other_deductions','Other Deductions'],
 ];
 function abTaxCategoryLabel(key){ const c=AB_TAX_CATEGORIES.find(x=>x[0]===key); return c?c[1]:'—'; }
-function abEditTaxCategory(accountId){
-  const a=abAccounts.find(x=>x.id===accountId); if(!a)return;
-  const el=document.getElementById('ab-taxcategory-panel');
-  el.innerHTML=`<div class="ab-form" style="margin-top:14px">
-    <div class="ab-field"><label>Tax Category — ${abEsc(a.account_name)}</label>
-      <select id="ab-taxcat-select"><option value="">— none —</option>${AB_TAX_CATEGORIES.map(c=>`<option value="${c[0]}"${a.tax_category===c[0]?' selected':''}>${c[1]}</option>`).join('')}</select>
-    </div>
-    <button class="ab-btn" onclick="abSaveTaxCategory('${accountId}')">Save</button>
-    <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-taxcategory-panel').innerHTML=''">Cancel</button>
-  </div>`;
-}
-async function abSaveTaxCategory(accountId){
-  const val=document.getElementById('ab-taxcat-select').value||null;
-  const{error}=await db.from('chart_of_accounts').update({tax_category:val}).eq('id',accountId);
-  if(error){abAlert(error.message);return;}
-  document.getElementById('ab-taxcategory-panel').innerHTML='';
-  await abLoadAccounts(); abRenderCoa();
-}
-
-// ── CUSTOM FIELDS — free-form key/value data on any Chart of Accounts
-// row, for whatever the person needs to track that doesn't warrant a
-// schema change (a grant number, a property parcel ID, an internal code
-// from their old system). Stored as jsonb.
-let abCustomFieldsAccountId=null;
-function abEditCustomFields(accountId){
-  abCustomFieldsAccountId=accountId;
-  const a=abAccounts.find(x=>x.id===accountId); if(!a)return;
-  const fields=a.custom_fields||{};
-  const el=document.getElementById('ab-customfields-panel');
-  el.innerHTML=`<div class="ab-form" style="flex-direction:column;align-items:stretch;margin-top:14px">
-    <div class="ab-h" style="margin:0 0 8px">Custom Fields — ${abEsc(a.account_name)}</div>
-    <div id="ab-cf-rows">
-      ${Object.entries(fields).map(([k,v],i)=>`<div style="display:flex;gap:8px;margin-bottom:6px" data-cf-row="${i}"><input placeholder="Field name" value="${abEsc(k)}" class="ab-cf-key" style="width:160px"><input placeholder="Value" value="${abEsc(v)}" class="ab-cf-val" style="flex:1"><a href="#" onclick="this.closest('[data-cf-row]').remove();return false" style="color:var(--muted)">✕</a></div>`).join('')}
-    </div>
-    <div style="display:flex;gap:8px;margin-top:6px">
-      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abAddCustomFieldRow()">+ Add Field</button>
-      <button class="ab-btn" onclick="abSaveCustomFields()">Save</button>
-      <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="document.getElementById('ab-customfields-panel').innerHTML=''">Cancel</button>
-    </div>
-  </div>`;
-}
-function abAddCustomFieldRow(){
-  const rows=document.getElementById('ab-cf-rows');
-  const i=rows.children.length;
-  const div=document.createElement('div');
-  div.style.cssText='display:flex;gap:8px;margin-bottom:6px';
-  div.setAttribute('data-cf-row',i);
-  div.innerHTML=`<input placeholder="Field name" class="ab-cf-key" style="width:160px"><input placeholder="Value" class="ab-cf-val" style="flex:1"><a href="#" onclick="this.closest('[data-cf-row]').remove();return false" style="color:var(--muted)">✕</a>`;
-  rows.appendChild(div);
-}
-async function abSaveCustomFields(){
-  const rows=document.querySelectorAll('#ab-cf-rows [data-cf-row]');
-  const fields={};
-  rows.forEach(r=>{ const k=r.querySelector('.ab-cf-key').value.trim(); const v=r.querySelector('.ab-cf-val').value.trim(); if(k) fields[k]=v; });
-  const{error}=await db.from('chart_of_accounts').update({custom_fields:fields}).eq('id',abCustomFieldsAccountId);
-  if(error){abAlert(error.message);return;}
-  await abLoadAccounts(); abRenderCoa();
-}
+// Tax Category, Custom Fields, Bank/Cash, and Liability Type all used to
+// be edited through separate per-row inline controls/mini-panels — folded
+// into the single Account popup below, 2026-08-12 (Ryan's direct
+// instruction: "if there's other elements that need to be captured... those
+// elements also need to be there" in the one dialog, not scattered across
+// the table). The Custom Fields row-editor markup (add/remove key-value
+// rows) is preserved as-is inside openAccountPopup/saveAccountForm below —
+// same interaction, just embedded in the popup instead of a standalone panel.
 
 // The picker: every template account shown with its own checkbox, checked
 // by default, so a user can uncheck the handful they don't want instead of
@@ -1501,35 +1448,6 @@ async function abImportSelectedTemplate(){
   abTemplatePreview=null;
   await abLoadAccounts(); abRenderCoa();
 }
-async function abAddAccount(){
-  // Real bug Ryan ran into directly, 2026-08-12: this silently did nothing
-  // when the Account Name field was empty — no error, no message, nothing
-  // — which reads exactly like "the button doesn't work," especially now
-  // that Add Account sits up in the header, visually separated from the
-  // form field it actually reads from. Real feedback instead of a silent
-  // no-op.
-  const nameEl=document.getElementById('ab-coa-name');
-  const name=nameEl.value.trim();
-  if(!name){ abAlert('Account name is required — fill it in below, then press Add Account again.'); nameEl.focus(); return; }
-  const type=document.getElementById('ab-coa-type').value;
-  const number=document.getElementById('ab-coa-number').value.trim();
-  const isBank=document.getElementById('ab-coa-bank').checked;
-  const liabSubEl=document.getElementById('ab-coa-liabsub');
-  const liabSub=(type==='liability'&&liabSubEl)?(liabSubEl.value||null):null;
-  const parentEl=document.getElementById('ab-coa-parent');
-  const parentId=(parentEl&&parentEl.value)?parentEl.value:null;
-  const{error}=await db.from('chart_of_accounts').insert({book_id:abBookId,account_name:name,account_type:type,account_number:number||null,is_bank_account:isBank,liability_subtype:liabSub,parent_account_id:parentId});
-  if(error){abAlert(error.message);return;}
-  await abLoadAccounts(); abRenderCoa();
-}
-
-// Toggles which classification field shows on the Add Account form.
-function abCoaTypeChanged(){
-  const type=document.getElementById('ab-coa-type').value;
-  document.getElementById('ab-coa-bank-field').style.display=type==='asset'?'':'none';
-  document.getElementById('ab-coa-liabsub-field').style.display=type==='liability'?'':'none';
-}
-
 // Real subtype list — matches how QuickBooks/Xero actually classify a
 // liability account. 'accounts_payable' deliberately NOT offered here —
 // real AP is already computed live from the invoices_bills table (see
@@ -1545,27 +1463,111 @@ const AB_LIABILITY_SUBTYPES=[
 function abLiabilitySubtypeOptions(selected){
   return AB_LIABILITY_SUBTYPES.map(([v,label])=>`<option value="${v}"${(selected||'')===v?' selected':''}>${label}</option>`).join('');
 }
-function abLiabilitySubtypeOptionsHtml(selected){
-  return `<select id="ab-coa-liabsub">${abLiabilitySubtypeOptions(selected)}</select>`;
-}
 
-// Changed directly from the Chart of Accounts table row — feeds the real
-// Short Term Debt / Long Term Debt KPIs the same way abToggleBankAccount
-// feeds Cash on Hand (see computeBookKpis / BOOK_RV_COLUMNS above).
-async function abSaveLiabilitySubtype(accountId,val){
-  const{error}=await db.from('chart_of_accounts').update({liability_subtype:val||null}).eq('id',accountId);
-  if(error){abAlert(error.message);return;}
-  await abLoadAccounts(); abRenderCoa();
+// ── ACCOUNT POPUP — Add Account AND Modify Account, same dialog, per
+// Ryan's direct instruction, 2026-08-12: pressing "Add Account" in the
+// header opens this blank; double-clicking any row in the Chart of
+// Accounts table opens the same dialog pre-filled with that account's real
+// data, "serving two purposes." Every real chart_of_accounts field lives
+// in this one place now — name, type, number, parent, bank/cash,
+// liability type, tax category, custom fields — instead of scattered
+// across separate inline table controls and mini-panels (Set/Edit links,
+// per-row checkboxes/selects). No dialog sits permanently on the page —
+// it only exists while open, same as the Company/Book popups.
+//
+// A book with any real sub-account depth needs its own parent exclusion:
+// an account can't become its own parent, and can't become a descendant's
+// parent either (that would create a cycle) — accountDescendantIds walks
+// the real parent_account_id chain to build that exclusion set.
+function accountDescendantIds(accountId){
+  const ids=new Set();
+  function walk(id){ abAccounts.filter(a=>a.parent_account_id===id).forEach(c=>{ ids.add(c.id); walk(c.id); }); }
+  walk(accountId);
+  return ids;
 }
-
-// Checked/unchecked directly from the Chart of Accounts table row — feeds
-// the real-time "Cash on Hand" KPI (this book's own dashboard tile, and
-// the Books tab's Row View above, both reading this same column via
-// migration_2026-08-07_002_amitbooks_coa_bank_flag.sql).
-async function abToggleBankAccount(accountId,checked){
-  const{error}=await db.from('chart_of_accounts').update({is_bank_account:checked}).eq('id',accountId);
-  if(error){abAlert(error.message);return;}
+function openAccountPopup(accountId){
+  const existing=accountId?abAccounts.find(a=>a.id===accountId):null;
+  const excluded=existing?accountDescendantIds(existing.id):new Set();
+  if(existing)excluded.add(existing.id);
+  const parentOptions=abCoaTreeOrder(abAccounts).filter(a=>!excluded.has(a.id))
+    .map(a=>`<option value="${a.id}"${existing&&existing.parent_account_id===a.id?' selected':''}>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</option>`).join('');
+  const type=existing?existing.account_type:'asset';
+  const cf=existing?(existing.custom_fields||{}):{};
+  popupOpen(`
+    <div class="dv-sub-h">${existing?'Modify Account':'Add Account'}</div>
+    <div class="fv-field"><label class="fv-label">Account Name</label><input class="fv-input" id="acctPop-name" value="${existing?abEsc(existing.account_name):''}" placeholder="e.g. Tools & Equipment"></div>
+    <div style="display:flex;gap:10px;margin-top:10px">
+      <div class="fv-field" style="flex:1"><label class="fv-label">Type</label><select class="fv-input" id="acctPop-type" onchange="accountPopupTypeChanged()"><option value="asset"${type==='asset'?' selected':''}>Asset</option><option value="liability"${type==='liability'?' selected':''}>Liability</option><option value="equity"${type==='equity'?' selected':''}>Equity</option><option value="income"${type==='income'?' selected':''}>Income</option><option value="expense"${type==='expense'?' selected':''}>Expense</option></select></div>
+      <div class="fv-field" style="width:100px"><label class="fv-label">Number</label><input class="fv-input" id="acctPop-number" value="${existing?abEsc(existing.account_number||''):''}" placeholder="5100"></div>
+    </div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Parent Account (optional — makes this a sub-account)</label><select class="fv-input" id="acctPop-parent"><option value="">— none, top-level —</option>${parentOptions}</select></div>
+    <div class="fv-field" id="acctPop-bank-field" style="margin-top:10px;display:${type==='asset'?'':'none'}">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text2)"><input type="checkbox" id="acctPop-bank"${existing&&existing.is_bank_account?' checked':''}>This is a bank/cash account</label>
+    </div>
+    <div class="fv-field" id="acctPop-liabsub-field" style="margin-top:10px;display:${type==='liability'?'':'none'}">
+      <label class="fv-label">Liability Type</label><select class="fv-input" id="acctPop-liabsub">${abLiabilitySubtypeOptions(existing?existing.liability_subtype:'')}</select>
+    </div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Tax Category</label><select class="fv-input" id="acctPop-taxcat"><option value="">— none —</option>${AB_TAX_CATEGORIES.map(c=>`<option value="${c[0]}"${existing&&existing.tax_category===c[0]?' selected':''}>${c[1]}</option>`).join('')}</select></div>
+    <div class="fv-field" style="margin-top:14px">
+      <label class="fv-label">Custom Fields — whatever you need to track that doesn't have its own field yet</label>
+      <div id="acctPop-cf-rows">
+        ${Object.entries(cf).map(([k,v],i)=>`<div style="display:flex;gap:8px;margin-bottom:6px" data-cf-row="${i}"><input placeholder="Field name" value="${abEsc(k)}" class="fv-input ab-cf-key" style="width:160px"><input placeholder="Value" value="${abEsc(v)}" class="fv-input ab-cf-val" style="flex:1"><a href="#" onclick="this.closest('[data-cf-row]').remove();return false" style="color:var(--muted)">✕</a></div>`).join('')}
+      </div>
+      <button class="ab-btn" style="background:transparent;color:var(--muted);margin-top:4px" onclick="accountPopupAddCfRow()">+ Add Field</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="fv-save" onclick="saveAccountForm('${existing?existing.id:''}')">${existing?'Save Account':'Add Account'}</button>
+      ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="abDeleteAccountFromPopup('${existing.id}')">Delete Account</button>`:''}
+    </div>
+    <div class="fv-status" id="acctPopStatus"></div>`);
+}
+function accountPopupTypeChanged(){
+  const type=document.getElementById('acctPop-type').value;
+  document.getElementById('acctPop-bank-field').style.display=type==='asset'?'':'none';
+  document.getElementById('acctPop-liabsub-field').style.display=type==='liability'?'':'none';
+}
+function accountPopupAddCfRow(){
+  const rows=document.getElementById('acctPop-cf-rows');
+  const i=rows.children.length;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:8px;margin-bottom:6px';
+  div.setAttribute('data-cf-row',i);
+  div.innerHTML=`<input placeholder="Field name" class="fv-input ab-cf-key" style="width:160px"><input placeholder="Value" class="fv-input ab-cf-val" style="flex:1"><a href="#" onclick="this.closest('[data-cf-row]').remove();return false" style="color:var(--muted)">✕</a>`;
+  rows.appendChild(div);
+}
+async function saveAccountForm(existingId){
+  const nameEl=document.getElementById('acctPop-name');
+  const name=nameEl.value.trim();
+  const status=document.getElementById('acctPopStatus');
+  if(!name){ status.textContent='Account name is required.'; nameEl.focus(); return; }
+  const type=document.getElementById('acctPop-type').value;
+  const number=document.getElementById('acctPop-number').value.trim();
+  const parentEl=document.getElementById('acctPop-parent');
+  const parentId=parentEl.value||null;
+  const bankEl=document.getElementById('acctPop-bank');
+  const isBank=type==='asset'&&bankEl?bankEl.checked:false;
+  const liabSubEl=document.getElementById('acctPop-liabsub');
+  const liabSub=type==='liability'&&liabSubEl?(liabSubEl.value||null):null;
+  const taxCategory=document.getElementById('acctPop-taxcat').value||null;
+  const cfRows=document.querySelectorAll('#acctPop-cf-rows [data-cf-row]');
+  const customFields={};
+  cfRows.forEach(r=>{ const k=r.querySelector('.ab-cf-key').value.trim(); const v=r.querySelector('.ab-cf-val').value.trim(); if(k) customFields[k]=v; });
+  const values={account_name:name,account_type:type,account_number:number||null,parent_account_id:parentId,is_bank_account:isBank,liability_subtype:liabSub,tax_category:taxCategory,custom_fields:customFields};
+  status.textContent='Saving…';
+  const{error}=existingId
+    ? await db.from('chart_of_accounts').update(values).eq('id',existingId)
+    : await db.from('chart_of_accounts').insert({book_id:abBookId,...values});
+  if(error){ status.textContent='Error: '+error.message; return; }
   await abLoadAccounts(); abRenderCoa();
+  popupClose();
+}
+// Thin wrapper so Delete works from inside the popup — abDeleteAccount
+// already confirms and reports its own errors; only close the popup once
+// the account is actually gone (abConfirm's Cancel path should leave the
+// popup open, not silently close on a no-op).
+async function abDeleteAccountFromPopup(accountId){
+  await abDeleteAccount(accountId);
+  if(!abAccounts.find(a=>a.id===accountId)) popupClose();
 }
 
 // ══════════════════════════════════════════════
@@ -1699,26 +1701,65 @@ function abRenderItems(){
       <button class="ab-btn" onclick="abPreviewItemTemplate()">Browse Template</button>
       <span style="font-size:12px;color:var(--muted);align-self:center">Wires up income/expense accounts automatically if your Chart of Accounts is already loaded.</span>
     </div>`)}
-    <div class="ab-form">
-      <div class="ab-field"><label>Scope Name</label><input id="ab-item-name" placeholder="e.g. Framing, HVAC, Concrete"></div>
-      <div class="ab-field"><label>Category (optional)</label>
-        <input id="ab-item-category" placeholder="Type or pick — yours to define" autocomplete="off" oninput="openItemCategoryDropdown()" onfocus="openItemCategoryDropdown()">
-      </div>
-      <div class="ab-field"><label>Tag (future use, optional)</label><input id="ab-item-secondary" placeholder="reserved for later"></div>
-      <div class="ab-field"><label>Expense Account</label><select id="ab-item-expense-acct"><option value="">— Not Set Up —</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
-      <div class="ab-field"><label>Income Account</label><select id="ab-item-income-acct"><option value="">— Not Set Up —</option>${abAccounts.map(a=>`<option value="${a.id}">${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
-      <div class="ab-field"><label>Price (optional)</label><input id="ab-item-price" type="number" step="0.01" style="width:90px"></div>
-      <button class="ab-btn" onclick="abAddItem()">Add Scope</button>
-    </div>
     ${(()=>{
       const tk='items'; abSmartRerender[tk]=abRenderItems;
       const getters={name:i=>i.name||'',category:i=>i.category||'',secondary:i=>i.secondary_class||'',expense:i=>abAccountLabel(i.expense_account_id),income:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
       const sorted=abSmartApply(tk,abItems,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Scope',category:'Category',secondary:'Tag',expense:'Expense Account',income:'Income Account',price:'Price'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'name','Scope')}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'expense','Expense Account')}${abSmartTh(tk,'income','Income Account')}${abSmartTh(tk,'price','Price')}</tr>
-      ${sorted.map(i=>`<tr><td>${abEsc(i.name)}</td><td style="font-size:12px">${abEsc(i.category||'—')}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoneyFmt(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No Scopes yet — add your first one above, or browse a template</td></tr>'}
+      ${sorted.map(i=>`<tr ondblclick="openScopeEditPopup('${i.id}')" style="cursor:pointer" title="Double-click to edit"><td>${abEsc(i.name)}</td><td style="font-size:12px">${abEsc(i.category||'—')}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoneyFmt(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No Scopes yet — click + Add Scope above, or browse a template</td></tr>'}
       </table>`;
     })()}`;
+}
+// ── ADD/EDIT SCOPE — real popup form, Ryan's direct instruction,
+// 2026-08-12: same treatment as "New Company" (openCompanyEditPopup) —
+// .company-form-grid layout, one Save button, closes itself. Triggered
+// from the page-action-bar's "+ Add Scope" button (renderPageActionBar,
+// detailNum===1,tabNum===3), and from double-clicking any row in the
+// table below, pre-filled for editing. One popup, two entry points, same
+// as the Company popup's own create/edit duality.
+function openScopeEditPopup(itemId){
+  const existing=itemId?abItems.find(i=>i.id===itemId):null;
+  const v=key=>existing?(existing[key]||''):'';
+  popupOpen(`
+    <div class="dv-sub-h">${existing?'Edit Scope':'New Scope'}</div>
+    <div class="company-form-grid">
+      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Scope Name</label><input class="fv-input" id="scopeForm-name" value="${abEsc(v('name'))}" placeholder="e.g. Framing, HVAC, Concrete"></div>
+      <div class="fv-field"><label class="fv-label">Category</label><input class="fv-input" id="scopeForm-category" value="${abEsc(v('category'))}" placeholder="Type or pick — yours to define" autocomplete="off" oninput="openItemCategoryDropdown('scopeForm-category')" onfocus="openItemCategoryDropdown('scopeForm-category')"></div>
+      <div class="fv-field"><label class="fv-label">Tag</label><input class="fv-input" id="scopeForm-secondary" value="${abEsc(v('secondary_class'))}" placeholder="reserved for later"></div>
+      <div class="fv-field"><label class="fv-label">Expense Account</label><select class="fv-input" id="scopeForm-expense">${abScopeAccountOptions(v('expense_account_id'))}</select></div>
+      <div class="fv-field"><label class="fv-label">Income Account</label><select class="fv-input" id="scopeForm-income">${abScopeAccountOptions(v('income_account_id'))}</select></div>
+      <div class="fv-field"><label class="fv-label">Price</label><input class="fv-input" id="scopeForm-price" type="number" step="0.01" value="${existing&&existing.unit_price?existing.unit_price:''}"></div>
+    </div>
+    <button class="fv-save" style="margin-top:14px" onclick="saveScopeForm('${itemId||''}')">Save Scope</button>
+    <div class="fv-status" id="scopeFormStatus"></div>`);
+}
+function abScopeAccountOptions(selectedId){
+  return `<option value="">— Not Set Up —</option>`+abAccounts.map(a=>`<option value="${a.id}"${selectedId===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('');
+}
+async function saveScopeForm(itemId){
+  const name=document.getElementById('scopeForm-name').value.trim();
+  const status=document.getElementById('scopeFormStatus');
+  if(!name){ status.textContent='Scope name is required.'; return; }
+  if(!db||!currentUser){ status.textContent='Sign in through the Hub to actually save a Scope — this is sample mode.'; return; }
+  const row={
+    name,
+    category:document.getElementById('scopeForm-category').value.trim()||null,
+    secondary_class:document.getElementById('scopeForm-secondary').value.trim()||null,
+    expense_account_id:document.getElementById('scopeForm-expense').value||null,
+    income_account_id:document.getElementById('scopeForm-income').value||null,
+    unit_price:document.getElementById('scopeForm-price').value||null
+  };
+  status.textContent='Saving…';
+  let error;
+  if(itemId){
+    ({error}=await db.from('items').update(row).eq('id',itemId));
+  } else {
+    ({error}=await db.from('items').insert({...row,book_id:abBookId}));
+  }
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+  await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
 }
 // Category autocomplete-with-create, Ryan's direct instruction,
 // 2026-08-12: "it can be both" — a free-text field AND a growing list of
@@ -5098,7 +5139,7 @@ function renderPageActionBar(detailNum,tabNum){
       // same as Add Client's own header button reads its own popup form.
       bar.innerHTML=`<button class="page-action-btn" onclick="openImportForAccountsTab()" data-tip="Bring your Chart of Accounts in from QuickBooks — CSV or native .xlsx export, sub-accounts included."><span>⬇</span>Import</button>
         <button class="page-action-btn" onclick="abPreviewTemplate()" data-tip="Start from a real industry-standard Chart of Accounts instead of building one line by line. Only Construction exists so far — more industries coming."><span>≡</span>Browse Template</button>
-        <button class="page-action-btn" onclick="abAddAccount()" data-tip="Add the account using the name, type, number, and parent set in the form below."><span>+</span>Add Account</button>`;
+        <button class="page-action-btn" onclick="openAccountPopup('')" data-tip="Opens a dialog to add one account — name, type, number, parent, and everything else."><span>+</span>Add Account</button>`;
     }
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
