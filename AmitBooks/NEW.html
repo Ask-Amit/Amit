@@ -488,7 +488,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.69</div>
+      <div class="page-version" id="pageVersion">v1.70</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -710,7 +710,7 @@ function renderAllPages(){
       <button class="ch-tab-btn active" onclick="showChTab(1,1)">Books</button>
       <button class="ch-tab-btn" id="ch-tab-1-2-btn" onclick="showChTab(1,2)">Accounts</button>
       <button class="ch-tab-btn" onclick="showChTab(1,3)">Scopes</button>
-      <button class="ch-tab-btn" onclick="showChTab(1,4)">Terminology</button>
+      <button class="ch-tab-btn" id="ch-tab-1-4-btn" onclick="showChTab(1,4,this)">Terminology</button>
       <button class="ch-tab-btn" onclick="showChTab(1,5)">Tab 5</button>
     </div>
     <div class="ch-tab-main">
@@ -1394,21 +1394,43 @@ function abTemplatePickerHtml(){
 function abTemplateSelectAll(state){
   document.querySelectorAll('.ab-tmpl-check:not(:disabled)').forEach(cb=>cb.checked=state);
 }
-// Moved to the Accounts tab header button, 2026-08-12 (Ryan's direct
-// instruction) — used to read an industry <select> that lived inline in
-// the now-removed empty-state box. Only "construction" exists as a real
-// template industry so far, so the header button just browses that
-// directly; when a second industry is built, this is where an industry
-// picker (header dropdown next to the button, or a small popup) belongs.
+// industry defaults to abTemplateIndustry/'construction' when called with
+// nothing (e.g. re-opening a preview) — real industry picking now happens
+// via abSelectPresetForAccountTemplate below, not a DOM <select>.
 async function abPreviewTemplate(industry){
   industry=industry||abTemplateIndustry||'construction';
   if(!abBookId){abAlert('Select a book first (Books tab).');return;}
   const{data:templates,error}=await db.from('account_category_templates').select('*').eq('industry',industry).order('account_number');
   if(error){abAlert(error.message);return;}
-  if(!templates||!templates.length){abAlert('No template found for that industry yet.');return;}
+  if(!templates||!templates.length){abAlert('No Chart of Accounts template built for that industry yet — only Construction exists so far. Pick a different preset, or press Add Account to build this book\'s Chart of Accounts by hand.');return;}
   abTemplateIndustry=industry;
   abTemplatePreview=templates;
   abRenderCoa();
+}
+// Real mechanism connecting "Browse Template" to an actual industry
+// choice — Ryan's direct instruction, 2026-08-12: there was no picker at
+// all before this; the button just silently assumed Construction. Reuses
+// the Terminology tab's already-built industry preset cards (industry_
+// presets table) as that picker instead of inventing a second one —
+// double-clicking a card there, while this mode is active, both selects
+// it as this book's Chart of Accounts template AND returns to the
+// Accounts tab, rather than opening Terminology's own field-customization
+// picker (abOpenPresetPicker) the way a normal double-click on a card
+// does. abBrowsingAccountTemplate is the flag abRenderNomenclature reads
+// to know which of those two behaviors a double-click means right now —
+// cleared automatically by showChTab the moment anyone navigates
+// anywhere that isn't the Terminology tab, so it never lingers into a
+// later, ordinary visit.
+let abBrowsingAccountTemplate=false;
+function browseAccountTemplatesInTerminology(){
+  if(!abBookId){abAlert('Select a book first (Books tab).');return;}
+  abBrowsingAccountTemplate=true;
+  showChTab(1,4,document.getElementById('ch-tab-1-4-btn'));
+}
+async function abSelectPresetForAccountTemplate(presetKey){
+  abBrowsingAccountTemplate=false;
+  showChTab(1,2,document.getElementById('ch-tab-1-2-btn'));
+  await abPreviewTemplate(presetKey);
 }
 function abCancelTemplatePreview(){
   abTemplatePreview=null;
@@ -1545,7 +1567,7 @@ function openAccountPopup(accountId){
 // nothing template-related to offer for a single existing account).
 function accountPopupBrowseTemplates(){
   popupClose();
-  abPreviewTemplate();
+  browseAccountTemplatesInTerminology();
 }
 function accountPopupTypeChanged(){
   const type=document.getElementById('acctPop-type').value;
@@ -1965,15 +1987,21 @@ async function abRenderNomenclature(){
     <button class="ab-btn" ${activeFields.length?'':'disabled style="background:transparent;color:var(--muted);cursor:not-allowed"'} onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
 
     <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Pull Pieces Into This Book</div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Hover a card to see who it's for and what it sets up. Double-click to see exactly what it offers and pick only what you want — not all-or-nothing. Mix pieces from several industries into one book; the count on each card shows how many of its fields/values are currently active here.</div>
+    ${abBrowsingAccountTemplate?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px;background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.5)">Picking a Chart of Accounts template — double-click a preset below to use it as this book's starting Chart of Accounts. <a href="#" onclick="abCancelAccountTemplateBrowsing();return false" style="color:var(--gold2)">Cancel, back to Accounts →</a></div>`
+      :`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Hover a card to see who it's for and what it sets up. Double-click to see exactly what it offers and pick only what you want — not all-or-nothing. Mix pieces from several industries into one book; the count on each card shows how many of its fields/values are currently active here.</div>`}
     <div style="display:flex;flex-wrap:wrap;gap:10px">
       ${abNomenclaturePresetsCache.map(p=>{
         const count=abNomenclaturePresetCount(p.id);
-        return `<div ondblclick="abOpenPresetPicker('${p.preset_key}')" onmouseover="showPresetHoverTip(event,'${p.preset_key}')" onmouseout="hidePresetHoverTip()" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer">
+        const dblclick=abBrowsingAccountTemplate?`abSelectPresetForAccountTemplate('${p.preset_key}')`:`abOpenPresetPicker('${p.preset_key}')`;
+        return `<div ondblclick="${dblclick}" onmouseover="showPresetHoverTip(event,'${p.preset_key}')" onmouseout="hidePresetHoverTip()" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer">
           <div style="font-weight:600">${abEsc(p.display_name)}${count?` <span style="color:var(--gold2);font-weight:400">(${count})</span>`:''}${p.id===currentPresetId?' <span style="font-size:10px;color:#8fd19e;font-weight:400">— started here</span>':''}</div>
         </div>`;
       }).join('')}
     </div>`;
+}
+function abCancelAccountTemplateBrowsing(){
+  abBrowsingAccountTemplate=false;
+  showChTab(1,2,document.getElementById('ch-tab-1-2-btn'));
 }
 // Short "who this is for / what it sets up" descriptions — Ryan's direct
 // correction, 2026-08-12: hover only, never crammed inside the card
@@ -5079,9 +5107,17 @@ const PLUG_DISCONNECTED_SVG=`<svg viewBox="0 0 24 24" width="15" height="15" fil
 // than scrolling or truncating. Selecting a tab that isn't in the front
 // row brings its whole row forward — same behavior as classic multi-row
 // property-sheet tabs.
-function showChTab(detailNum,n){
+function showChTab(detailNum,n,btnEl){
   const detail=document.getElementById('detail-'+detailNum);
-  const clickedBtn=event.target;
+  // btnEl lets this be called programmatically (no real click event) — used
+  // by browseAccountTemplatesInTerminology() below to jump to the
+  // Terminology tab from the Accounts tab's own "Browse Template" button.
+  // Falls back to event.target for every normal click, unchanged.
+  const clickedBtn=btnEl||event.target;
+  // Leaving Terminology any way other than staying on it clears the
+  // "picking a template for Accounts" mode, so it doesn't linger and show
+  // its banner again on a later, ordinary visit to Terminology.
+  if(!(detailNum===1&&n===4)) abBrowsingAccountTemplate=false;
   const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
   if(tabNav){
     // Only reorder when tabs have genuinely wrapped into multiple rows, and
@@ -5168,7 +5204,7 @@ function renderPageActionBar(detailNum,tabNum){
       // stay in the tab body below; only the button itself relocated,
       // same as Add Client's own header button reads its own popup form.
       bar.innerHTML=`<button class="page-action-btn" onclick="openImportForAccountsTab()" data-tip="Bring your Chart of Accounts in from QuickBooks — CSV or native .xlsx export, sub-accounts included."><span>⬇</span>Import</button>
-        <button class="page-action-btn" onclick="abPreviewTemplate()" data-tip="Start from a real industry-standard Chart of Accounts instead of building one line by line. Only Construction exists so far — more industries coming."><span>≡</span>Browse Template</button>
+        <button class="page-action-btn" onclick="browseAccountTemplatesInTerminology()" data-tip="Pick which industry to start from — takes you to Terminology, where double-clicking a preset uses it as your Chart of Accounts template too."><span>≡</span>Browse Template</button>
         <button class="page-action-btn" onclick="openAccountPopup('')" data-tip="Opens a dialog to add one account — name, type, number, parent, and everything else."><span>+</span>Add Account</button>`;
     }
   } else if(detailNum===1&&tabNum===3){
