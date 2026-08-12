@@ -1,0 +1,25 @@
+-- ══════════════════════════════════════════════
+-- AmitBooks — Scopes: per-account display notes, and a naming break from
+-- QuickBooks. Ryan's direct instruction, 2026-08-12:
+--
+-- - Expense Account → "Cost Account" on screen. Income Account →
+--   "Billable Account" on screen. Deliberately distancing the wording
+--   from QuickBooks' own "Expense account / Income account" labels, per
+--   Ryan's explicit reasoning ("so they can't say we plagiarized").
+--   The underlying columns (expense_account_id / income_account_id) are
+--   NOT renamed — they still are, functionally, the expense and income
+--   accounts; only the label shown to the user changed. Renaming the
+--   columns themselves would be a much larger, riskier change (item
+--   template imports and future Bills & Invoices wiring both already
+--   plan to read these exact column names) for something that's purely
+--   a display-label decision, not a schema one.
+-- - New: a note per account, describing how this Scope should actually
+--   read on a real bill (cost_account_note) or a real invoice
+--   (billable_account_note) — Ryan's own words: "how it should display
+--   on an invoice... similar to how QuickBooks does it," but as a new,
+--   clean field pair rather than reusing/renaming an existing column.
+--
+-- Additive only, nullable, default blank — nothing existing breaks.
+-- ══════════════════════════════════════════════
+alter table items add column if not exists cost_account_note text;
+alter table items add column if not exists billable_account_note text;
