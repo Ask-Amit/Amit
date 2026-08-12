@@ -272,6 +272,13 @@ header{
 .page-action-bar{display:flex;gap:10px;align-items:center;margin-left:auto}
 .page-action-btn{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:var(--gold2);padding:8px 16px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;display:flex;align-items:center;gap:6px;transition:background .15s,border-color .15s}
 .page-action-btn:hover{background:rgba(201,168,76,.22);border-color:var(--gold)}
+/* First-run "Add New Company" — pulsing, with a "1" step badge, so a
+   brand-new account with nothing yet has one unmistakable first move
+   instead of a row of equal-weight buttons. Ryan's direct instruction,
+   2026-08-12. */
+@keyframes pageActionPulse{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.55)}50%{box-shadow:0 0 0 10px rgba(201,168,76,0)}}
+.page-action-btn-pulse{animation:pageActionPulse 1.8s ease-in-out infinite;background:rgba(201,168,76,.22);border-color:var(--gold)}
+.page-action-step-badge{background:var(--gold);color:#1a1510;font-weight:700;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;animation:pageActionPulse 1.8s ease-in-out infinite}
 .ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
 .ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
@@ -461,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.46</div>
+      <div class="page-version" id="pageVersion">v1.47</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1027,6 +1034,16 @@ function findBookRow(topRows,bookId){
   }
   return null;
 }
+// Re-renders the Books page's action bar (Add New Company/first-run pulse
+// vs. the full row) after USER_COMPANIES actually loads — but only if
+// Tab 1 ("Books," where that bar lives) is genuinely the active sub-tab
+// right now. Without this guard, refreshing after an async load could
+// clobber whatever action bar belongs to Accounts/Scopes/Terminology/Tab
+// 5 if the person had already navigated away by the time data arrived.
+function refreshBooksActionBarIfActive(){
+  const tab1=document.getElementById('ch-tab-1-1');
+  if(tab1&&tab1.classList.contains('active')&&typeof renderPageActionBar==='function') renderPageActionBar(1,1);
+}
 async function loadRealBooksIntoRowView(){
   const mount=document.getElementById('rv-mount-books');
   if(!mount)return;
@@ -1048,6 +1065,7 @@ async function loadRealBooksIntoRowView(){
     const sampleTopRows=buildBookGroupRows(sampleBookRows,USER_COMPANIES);
     rvCreate('rv-mount-books',BOOK_RV_COLUMNS,sampleTopRows,{onRowOpen:id=>selectBookRow(sampleTopRows,id),onRowDoubleClick:id=>handleBooksRowDoubleClick(sampleTopRows,id),hideExpandColumn:false,showSummaryRow:true});
     selectBookRow(sampleTopRows,sampleBookRows[0]&&sampleBookRows[0].id);
+    refreshBooksActionBarIfActive();
     return;
   }
   mount.innerHTML='<div class="detail-empty">Loading your books…</div>';
@@ -1060,6 +1078,7 @@ async function loadRealBooksIntoRowView(){
     return;
   }
   USER_COMPANIES=companiesRes.data||[];
+  refreshBooksActionBarIfActive();
   const companyNameById={};
   USER_COMPANIES.forEach(c=>{companyNameById[c.id]=c.name;});
   const bookRows=(booksRes.data||[]).map(b=>({
@@ -4722,11 +4741,26 @@ function renderPageActionBar(detailNum,tabNum){
     // renderCompanyBooksList), not as a separate top-level button asking
     // "which company?" all over again. Company comes first in the row
     // now too, matching the real hierarchy (Company → Books).
-    bar.innerHTML=`<button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>
-      <button class="page-action-btn" onclick="openImportWizard()"><span>⬇</span>Import</button>
-      <button class="page-action-btn" onclick="openBackupPicker()"><span>⬇</span>Backup</button>
-      <button class="page-action-btn" onclick="openRestorePopup()"><span>⬆</span>Restore From Backup</button>
-      <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
+    //
+    // FIRST-RUN STATE — Ryan's direct instruction, 2026-08-12: if this
+    // account has never created a company (and therefore, by the same
+    // hierarchy, never created a book — nothing else in this file can
+    // create a book without a company anymore), show ONLY "Add New
+    // Company," pulsing, with a "1" badge — an unmistakable single first
+    // step, not a row of equal-weight buttons for someone who has nothing
+    // yet. Import/Backup/Restore/Reset all stay hidden until at least one
+    // company exists — deliberately NOT the entry point, per Ryan's
+    // explicit correction that company/book creation must not be coupled
+    // to Import.
+    if(!USER_COMPANIES.length){
+      bar.innerHTML=`<button class="page-action-btn page-action-btn-pulse" onclick="openCompanyEditPopup(null,null,'')"><span class="page-action-step-badge">1</span><span>+</span>Add New Company</button>`;
+    } else {
+      bar.innerHTML=`<button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>
+        <button class="page-action-btn" onclick="openImportWizard()"><span>⬇</span>Import</button>
+        <button class="page-action-btn" onclick="openBackupPicker()"><span>⬇</span>Backup</button>
+        <button class="page-action-btn" onclick="openRestorePopup()"><span>⬆</span>Restore From Backup</button>
+        <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
+    }
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
     // header, far right, scoped to this page's one tab only — not an
