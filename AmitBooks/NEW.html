@@ -494,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.83</div>
+      <div class="page-version" id="pageVersion">v1.84</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1851,9 +1851,19 @@ async function saveAccountForm(existingId){
   const status=document.getElementById('acctPopStatus');
   if(!name){ status.textContent='Account name is required.'; nameEl.focus(); return; }
   const type=document.getElementById('acctPop-type').value;
-  const number=document.getElementById('acctPop-number').value.trim();
   const parentEl=document.getElementById('acctPop-parent');
   const parentId=parentEl.value||null;
+  // Backstop for the live auto-suggest wired to the Parent Account
+  // dropdown's onchange (accountPopupParentChanged) — guarantees the
+  // number gets assigned at save time even if that never fired (e.g. the
+  // parent was already selected before Number was left blank, or the
+  // event was missed some other way). Never overwrites a number someone
+  // actually typed.
+  let number=document.getElementById('acctPop-number').value.trim();
+  if(!number&&parentId){
+    const suggestion=accountPopupSuggestSubNumber(parentId);
+    if(suggestion) number=suggestion;
+  }
   // Backstop, not the primary guard — the dropdown itself is already
   // filtered to same-type accounts (accountPopupParentOptionsHtml). This
   // only matters if that ever gets out of sync with what's actually
