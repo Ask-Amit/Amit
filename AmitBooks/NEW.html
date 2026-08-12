@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.48</div>
+      <div class="page-version" id="pageVersion">v1.49</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -773,6 +773,14 @@ function renderAllPages(){
   nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
   initPageTooltips('sidebarPages','right');
+  // Same tool-sheet hover tooltips, now covering the Books action bar
+  // (Add New Company/Import/Backup/Restore) and popup content (e.g. the
+  // Company popup's own "+ Add Book") — Ryan's direct instruction,
+  // 2026-08-12. Both containers persist across re-renders (only their
+  // innerHTML changes), so initializing once here is enough — no need to
+  // re-init every time the action bar or a popup redraws.
+  initPageTooltips('page-action-bar-1','right');
+  initPageTooltips('canonicalPopup','right');
 
   // restore whichever page was open before the re-render, if it still exists
   if(document.getElementById('page-'+activeId)) openPage(isNaN(activeId)?activeId:Number(activeId));
@@ -3748,10 +3756,15 @@ async function renderCompanyBooksList(companyId){
   const el=document.getElementById('companyBooksListWrap');if(!el)return;
   const{data,error}=await db.from('books').select('id,name').eq('company_id',companyId).order('name');
   const books=data||[];
+  // Step 2 pulse — same green flare as the main screen's "Add New
+  // Company" first step, only while this company genuinely has zero
+  // books yet, so it reads as "next step," not a permanent decoration
+  // once real books already exist. Ryan's direct instruction, 2026-08-12.
+  const noBooksYet=!books.length;
   el.innerHTML=`${books.length?`<table class="ab-table">${books.map(b=>`<tr><td>${abEsc(b.name)}</td><td style="text-align:right"><a href="#" onclick="openModifyBookPopup('${b.id}','${abEsc(b.name).replace(/'/g,"\\'")}','${companyId}');return false" style="color:var(--gold2);font-size:12px">Modify</a></td></tr>`).join('')}</table>`:`<div class="fv-status" style="color:var(--muted)">No books yet under this company.</div>`}
     <div style="display:flex;gap:8px;margin-top:10px">
       <input class="fv-input" id="companyQuickAddBookName" placeholder="New book name" style="flex:1">
-      <button class="fv-save" onclick="quickAddBookToCompany('${companyId}')">+ Add Book</button>
+      <button class="fv-save${noBooksYet?' page-action-btn-pulse':''}" onclick="quickAddBookToCompany('${companyId}')" data-tip="A book is where the real accounting lives — accounts, bills, journal entries. Most companies just need one, but you can add more (different entities, cash vs. accrual, whatever fits).">${noBooksYet?'<span class="page-action-step-badge">2</span> ':''}+ Add Book</button>
     </div>
     <div class="fv-status" id="companyQuickAddBookStatus" style="margin-top:6px"></div>`;
 }
@@ -3769,6 +3782,12 @@ async function quickAddBookToCompany(companyId){
 }
 
 async function saveCompanyForm(bookId,existingCompanyId){
+  // Captured before anything below can reassign existingCompanyId (the
+  // sole-prop SSN branch creates the company early to attach the vault to
+  // it) — this is the only reliable way to know, at the end, whether this
+  // save genuinely started as a brand-new company. Ryan's direct
+  // instruction, 2026-08-12.
+  const wasNewCompany=!existingCompanyId;
   const values={};
   COMPANY_PROFILE_FIELDS.forEach(f=>{ values[f.key]=document.getElementById('companyForm-'+f.key).value.trim(); });
   const status=document.getElementById('companyFormStatus');
@@ -3832,9 +3851,15 @@ async function saveCompanyForm(bookId,existingCompanyId){
   // didn't catch up) — a full reload sidesteps that by re-grouping
   // everything from scratch every time.
   await loadRealBooksIntoRowView();
-  if(!bookId){
-    status.textContent='Company created. Add a book under it from Add New Book, or click the Company column on an existing book to attach it here.';
-    return; // leave the popup open so the confirmation is visible, rather than closing immediately
+  // A brand-new company (not linked from a book's Company cell) — Ryan's
+  // direct instruction, 2026-08-12: don't just close the popup or leave
+  // the create-form sitting there with a text hint. Transition straight
+  // into the SAME popup's Edit view (Delete Company + Books Under This
+  // Company, with its own pulsing "2" step) so the next step is obvious,
+  // not something the person has to go find.
+  if(wasNewCompany&&!bookId){
+    const freshCompany=USER_COMPANIES.find(c=>c.id===companyId);
+    if(freshCompany){ openCompanyEditPopup(null,freshCompany,null,0); return; }
   }
   popupClose();
 }
@@ -3950,12 +3975,17 @@ async function renderBookDetailPane(bookRow,mountId){
 // how many items exist or whether that container is collapsed/expanded.
 // side: 'right' opens rightward (left sidebar); 'left' opens leftward
 // (right rail — opening rightward there would render off-screen).
+// Generalized 2026-08-12 (Ryan's direct instruction — reuse the existing
+// "tool sheet" hover tooltips everywhere, not just the sidebar) — was
+// hardcoded to .page-nav only; now matches ANY element carrying a
+// data-tip attribute, so the same mechanism works for action-bar buttons
+// and popup content too, without a separate tooltip system.
 function initPageTooltips(containerId,side){
   const tip=document.getElementById('pageHoverTip');
   const nav=document.getElementById(containerId);
   if(!tip||!nav)return;
   nav.addEventListener('mouseover',(e)=>{
-    const item=e.target.closest('.page-nav');
+    const item=e.target.closest('[data-tip]');
     if(!item)return;
     tip.textContent=item.dataset.tip||'';
     const r=item.getBoundingClientRect();
@@ -3971,7 +4001,7 @@ function initPageTooltips(containerId,side){
     tip.classList.add('show');
   });
   nav.addEventListener('mouseout',(e)=>{
-    const item=e.target.closest('.page-nav');
+    const item=e.target.closest('[data-tip]');
     if(!item)return;
     if(e.relatedTarget&&item.contains(e.relatedTarget))return;
     tip.classList.remove('show');
@@ -4753,12 +4783,12 @@ function renderPageActionBar(detailNum,tabNum){
     // explicit correction that company/book creation must not be coupled
     // to Import.
     if(!USER_COMPANIES.length){
-      bar.innerHTML=`<button class="page-action-btn page-action-btn-pulse" onclick="openCompanyEditPopup(null,null,'')"><span class="page-action-step-badge">1</span><span>+</span>Add New Company</button>`;
+      bar.innerHTML=`<button class="page-action-btn page-action-btn-pulse" onclick="openCompanyEditPopup(null,null,'')" data-tip="Start here — in case you run more than one company, each gets its own dashboard, books, and reports, all under one login."><span class="page-action-step-badge">1</span><span>+</span>Add New Company</button>`;
     } else {
-      bar.innerHTML=`<button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')"><span>+</span>Add New Company</button>
-        <button class="page-action-btn" onclick="openImportWizard()"><span>⬇</span>Import</button>
-        <button class="page-action-btn" onclick="openBackupPicker()"><span>⬇</span>Backup</button>
-        <button class="page-action-btn" onclick="openRestorePopup()"><span>⬆</span>Restore From Backup</button>
+      bar.innerHTML=`<button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')" data-tip="Add another company — useful if you run more than one, each gets its own dashboard, books, and reports."><span>+</span>Add New Company</button>
+        <button class="page-action-btn" onclick="openImportWizard()" data-tip="Bring your Chart of Accounts, vendors, and other data in from QuickBooks, step by step."><span>⬇</span>Import</button>
+        <button class="page-action-btn" onclick="openBackupPicker()" data-tip="Download a full copy of a company or book right now — a real safety net you can keep, not just something that happens when deleting."><span>⬇</span>Backup</button>
+        <button class="page-action-btn" onclick="openRestorePopup()" data-tip="Bring a downloaded backup back in — as a new book or company, named however you want (a tax year, a fresh copy, whatever fits)."><span>⬆</span>Restore From Backup</button>
         <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
     }
   } else if(detailNum===4&&tabNum===1){
