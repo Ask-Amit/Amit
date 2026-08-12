@@ -366,6 +366,13 @@ header{
 .rv-table tr.rv-row.focused td:first-child{border-left:2px solid var(--gold)}
 .rv-table tr.rv-row.focused td:last-child{border-right:2px solid var(--gold)}
 .rv-expand{display:inline-block;width:16px;cursor:pointer;color:var(--gold2)}
+/* Chart of Accounts' own expand toggle (accountNumberCellRenderer) — a
+   glowing green "+"/"−" merged right into the # cell, not the shared
+   .rv-expand triangle in its own column (that stays as-is for Books'
+   Company/Book grouping). Reuses the pageActionPulse keyframe already
+   defined above for the same green glow used on onboarding steps. */
+.rv-acct-expand{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-right:7px;border-radius:4px;border:1px solid #2e7d46;background:rgba(46,125,70,.25);color:#8fd19e;font-weight:700;font-size:12px;line-height:1;cursor:pointer;animation:pageActionPulse 2.2s ease-in-out infinite}
+.rv-acct-expand:hover{background:rgba(46,125,70,.4)}
 .rv-cell-editable{display:block;padding:8px 12px;cursor:text;color:var(--text2);min-height:1em}
 .rv-cell-editable:hover{background:rgba(201,168,76,.1)}
 .rv-cell-input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.1);border:1px solid var(--gold);padding:7px 11px;color:#fff;font-size:13px;font-family:inherit;outline:none}
@@ -487,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.76</div>
+      <div class="page-version" id="pageVersion">v1.77</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1344,13 +1351,35 @@ function abRenderCoa(){
     <div class="rv-wrap" id="rv-mount-accounts"></div>`;
   loadAccountsIntoRowView();
 }
+// Custom renderer for the # column — Ryan's direct instruction,
+// 2026-08-12: a parent account with sub-accounts underneath it needs a
+// real, visible "there's more here" cue right on the number itself, not
+// the generic ▸/▾ arrow the shared Row View engine normally puts in its
+// own separate leading column (that's still how Books' Company/Book
+// grouping works — left untouched). Here, hideExpandColumn:true removes
+// that shared arrow column entirely, and this renderer builds its own:
+// a glowing green "+"/"−" badge immediately beside the number, present
+// only on a row that actually has children, toggling the same
+// rvToggleExpand every other expandable row already uses. A child row's
+// own number gets real padding-left indentation (not just a text
+// character) so the hierarchy reads as an actual visual tree.
+function accountNumberCellRenderer(r,c,containerId,isChild){
+  const inst=rvInstances.get(containerId);
+  const hasKids=r.children&&r.children.length;
+  const expanded=inst&&inst.expanded.has(r.id);
+  const toggle=hasKids
+    ? `<span class="rv-acct-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')" title="${expanded?'Collapse':'Expand'} sub-accounts">${expanded?'−':'+'}</span>`
+    : '';
+  const style=isChild?'padding-left:26px;':'';
+  return `<td class="rv-td-plain"${style?` style="${style}"`:''}>${toggle}${abEsc(r.account_number||'')}</td>`;
+}
 // Column set for the Chart of Accounts Row View — Bank/Cash, Liability
 // Type, Tax Category, and Custom Fields are all pre-formatted display
 // strings (built in buildAccountRvRows below), not raw column keys, since
 // each is conditional on account_type or needs real formatting rather
 // than a bare database value.
 const ACCOUNT_RV_COLUMNS=[
-  {key:'account_number',label:'#'},
+  {key:'account_number',label:'#',cellRenderer:accountNumberCellRenderer},
   {key:'account_name',label:'Name'},
   {key:'account_type',label:'Type'},
   {key:'bank_display',label:'Bank/Cash'},
@@ -1384,7 +1413,7 @@ function buildAccountRvRows(accounts){
 function loadAccountsIntoRowView(){
   const mount=document.getElementById('rv-mount-accounts'); if(!mount)return;
   const rows=buildAccountRvRows(abAccounts);
-  rvCreate('rv-mount-accounts',ACCOUNT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openAccountPopup(id),hideExpandColumn:false,showSummaryRow:false});
+  rvCreate('rv-mount-accounts',ACCOUNT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openAccountPopup(id),hideExpandColumn:true,showSummaryRow:false});
 }
 
 // ── TAX CATEGORY — one unified list of categories that covers 1120,
@@ -1580,13 +1609,31 @@ function accountDescendantIds(accountId){
   walk(accountId);
   return ids;
 }
+// Which accounts can be picked as this account's parent — Ryan caught a
+// real gap directly, 2026-08-12: nothing stopped a Liability (Accounts
+// Payable) from being filed as a sub-account of an Asset (Accounts
+// Receivable) or any other mismatched type. A parent/child relationship
+// in a real Chart of Accounts only means something between accounts of
+// the SAME type — asset under asset, liability under liability, and so
+// on — so the dropdown is filtered to that type, on top of the existing
+// self/descendant exclusion (acctPopupExcludedIds, set once when the
+// popup opens). abCoaTreeOrder runs on the FULL account list first so
+// depth/indentation stays correct against the real hierarchy, then the
+// result is filtered down to just this type — not filtered before
+// building the tree, which would break depth for anything whose real
+// parent happens to be a different type (only possible from data that
+// predates this rule).
+let acctPopupExcludedIds=new Set();
+function accountPopupParentOptionsHtml(type,selectedId){
+  return abCoaTreeOrder(abAccounts).filter(a=>a.account_type===type&&!acctPopupExcludedIds.has(a.id))
+    .map(a=>`<option value="${a.id}"${selectedId===a.id?' selected':''}>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</option>`).join('');
+}
 function openAccountPopup(accountId){
   const existing=accountId?abAccounts.find(a=>a.id===accountId):null;
-  const excluded=existing?accountDescendantIds(existing.id):new Set();
-  if(existing)excluded.add(existing.id);
-  const parentOptions=abCoaTreeOrder(abAccounts).filter(a=>!excluded.has(a.id))
-    .map(a=>`<option value="${a.id}"${existing&&existing.parent_account_id===a.id?' selected':''}>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</option>`).join('');
+  acctPopupExcludedIds=existing?accountDescendantIds(existing.id):new Set();
+  if(existing)acctPopupExcludedIds.add(existing.id);
   const type=existing?existing.account_type:'asset';
+  const parentOptions=accountPopupParentOptionsHtml(type,existing?existing.parent_account_id:null);
   const cf=existing?(existing.custom_fields||{}):{};
   popupOpen(`
     <div class="dv-sub-h">${existing?'Modify Account':'Add Account'}</div>
@@ -1630,6 +1677,12 @@ function accountPopupTypeChanged(){
   const type=document.getElementById('acctPop-type').value;
   document.getElementById('acctPop-bank-field').style.display=type==='asset'?'':'none';
   document.getElementById('acctPop-liabsub-field').style.display=type==='liability'?'':'none';
+  // Re-filter Parent Account to the newly chosen type — whatever was
+  // selected under the old type is almost certainly the wrong type now,
+  // so the selection resets to "none, top-level" rather than silently
+  // keeping a mismatched parent selected.
+  document.getElementById('acctPop-parent').innerHTML=
+    '<option value="">— none, top-level —</option>'+accountPopupParentOptionsHtml(type,null);
 }
 function accountPopupAddCfRow(){
   const rows=document.getElementById('acctPop-cf-rows');
@@ -1649,6 +1702,18 @@ async function saveAccountForm(existingId){
   const number=document.getElementById('acctPop-number').value.trim();
   const parentEl=document.getElementById('acctPop-parent');
   const parentId=parentEl.value||null;
+  // Backstop, not the primary guard — the dropdown itself is already
+  // filtered to same-type accounts (accountPopupParentOptionsHtml). This
+  // only matters if that ever gets out of sync with what's actually
+  // selected; still correct to refuse the save rather than write a
+  // cross-type parent/child relationship to the database.
+  if(parentId){
+    const parentAcct=abAccounts.find(a=>a.id===parentId);
+    if(parentAcct&&parentAcct.account_type!==type){
+      status.textContent=`Parent Account must be the same type — "${parentAcct.account_name}" is a ${parentAcct.account_type}, this account is ${type}.`;
+      return;
+    }
+  }
   const bankEl=document.getElementById('acctPop-bank');
   const isBank=type==='asset'&&bankEl?bankEl.checked:false;
   const liabSubEl=document.getElementById('acctPop-liabsub');
@@ -2132,7 +2197,7 @@ async function abRenderNomenclature(){
     ${activeFields.length?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
       ${activeFields.map(f=>`<span style="font-size:12px;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.18);border-radius:12px;padding:4px 12px">${abEsc(f.display_label)}</span>`).join('')}
     </div>`:''}
-    <button class="ab-btn" ${activeFields.length?'':'disabled style="background:transparent;color:var(--muted);cursor:not-allowed"'} onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
+    <button class="ab-btn" onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
 
     <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Pull Pieces Into This Book</div>
     ${abBrowsingAccountTemplate?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px;background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.5)">Picking a Chart of Accounts template — double-click a preset below to use it as this book's starting Chart of Accounts. <a href="#" onclick="abCancelAccountTemplateBrowsing();return false" style="color:var(--gold2)">Cancel, back to Accounts →</a></div>`
