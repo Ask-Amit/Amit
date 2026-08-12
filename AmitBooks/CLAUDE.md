@@ -40,7 +40,9 @@ This project reads from and writes to the shared Amit Supabase database.
 
 **Global, shared, read-only-in-app tables (maintained by Amit via the service-role key, not per-book data):** `payroll_tax_years`, `payroll_tax_brackets` (federal IRS withholding, sourced from Pub 15-T), `tax_jurisdictions`, `tax_jurisdiction_brackets` (state/county/city withholding — currently loaded: the 9 no-income-tax states + Idaho, real data, real coverage still growing). Every book reads the same rows; no book can edit them through the app.
 
-**Tables this project does NOT touch:** hub_entries, amit_sessions, amit_daily, amit_encounters, user_profiles, amit_shortcuts, medical_prep_progress — those belong to the Hub/testimony/AmitCoder side of the system.
+**Tables this project does NOT touch:** amit_sessions, amit_daily, amit_encounters, user_profiles, amit_shortcuts, medical_prep_progress — those belong to the Hub/testimony/AmitCoder side of the system.
+
+**hub_entries — exception, added 2026-08-12 (NEW.html only, not the old AmitBooks.html):** the first and so far only write AmitBooks makes into the Hub's own data. A Scope with both `quantity_on_hand` and `reorder_quantity` set writes/updates a real pursuit (`kind:'pursuit'`, `program:'AmitBooks'`) whenever it's saved at or below its reorder threshold, and closes that pursuit automatically once restocked — see `checkReorderPursuit()` in `AmitBooks/NEW.html`. Duplicate-checked by title before inserting, per the root CLAUDE.md's standing Duplicate Pursuit Check directive.
 
 All migrations live in `Database\migration_2026-07-29_*.sql` and `Database\migration_2026-07-30_*.sql`.
 
@@ -50,7 +52,7 @@ All migrations live in `Database\migration_2026-07-29_*.sql` and `Database\migra
 
 This project's canonical name, for any pursuit created from within it, is: **AmitBooks**
 
-Any pursuit written to hub_entries from this project must be stamped `program='AmitBooks'` — automatically, using this exact spelling every time. AmitBooks does not currently write to hub_entries (see Database Connection above) — this section is recorded now so it's already decided the moment that changes, per the standing New Project Directive.
+Any pursuit written to hub_entries from this project must be stamped `program='AmitBooks'` — automatically, using this exact spelling every time. Now real, not just reserved — see the Reorder Pursuits note under Database Connection above (`checkReorderPursuit()`, NEW.html, 2026-08-12).
 
 ## Shortcut Activation — Permanent
 
