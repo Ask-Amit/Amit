@@ -494,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.79</div>
+      <div class="page-version" id="pageVersion">v1.80</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -699,7 +699,7 @@ const TODO_ITEMS=[
   'IMPORT QUICKBOOKS — step 4, Items/Scopes: QuickBooks\' Item List report — products/services sold, feeding New\'s Scopes tab. Not currently pulled by anything.',
   'IMPORT QUICKBOOKS — step 5, Journal (transactions): port the existing, already-working Journal CSV importer from AmitBooks.html (Books &amp; Setup → Import QuickBooks — auto-detects Date/Account/Debit/Credit columns, groups into transactions, interactive review before commit, posts real journal_entries/journal_lines tagged to a qb_import_batches row) into New, wired to the book resolved in step 1 and the accounts/contacts confirmed in steps 2-3 rather than re-inferring them.',
   'IMPORT QUICKBOOKS — step 6, Open Items (A/P &amp; A/R): QuickBooks\' A/P Aging Detail / Open Invoices reports, to create real structured invoices_bills rows (with due dates, matching what "Owed to You"/"You Owe" on the Books tab expects) instead of just the account-balance effect the Journal alone provides. Most fragile piece — report formats vary more across QuickBooks versions/company files than the others; build and test last, against a real BOSS export.',
-  'Wire Terminology\'s saved labels everywhere else — Scopes and most other tabs still show hardcoded words. Clients is the first one actually wired to abFieldLabel/book_field_settings; apply the same pattern to the rest in one batch pass once the remaining tabs above are ported.',
+  'Wire Terminology\'s saved labels everywhere else — most tabs still show hardcoded words. Clients and Scopes are done (abFieldLabel/book_field_settings, live update via abApplyClientTerminology/abApplyScopeTerminology); apply the same pattern to the rest (Accounts, Terminology\'s own remaining hardcoded strings, Contacts) once the remaining tabs above are ported.',
   'Decide what belongs on Tab 5 of the Books page (still a placeholder).'
 ];
 function renderAllPages(){
@@ -1890,9 +1890,15 @@ async function abLoadItems(){
 function abRenderItems(){
   const el=document.getElementById('ab-items'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
-  el.innerHTML=`<div class="ab-h">Scopes <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportItemsCsv()">⬇ Export CSV</span></div>
+  // Terminology-driven, 2026-08-12 (Ryan's direct instruction — renaming
+  // "Scope" was saving but nothing on screen read it back). scopeLabel/
+  // scopeLabelPlural feed every place the word shows up below, instead of
+  // the word being hardcoded per instance.
+  const scopeLabel=abFieldLabel('scope','Scope');
+  const scopeLabelPlural=abPluralize(scopeLabel);
+  el.innerHTML=`<div class="ab-h">${abEsc(scopeLabelPlural)} <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportItemsCsv()">⬇ Export CSV</span></div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
-      A Scope is the real-world category of work or material — "Framing," "HVAC," "Concrete" — not the same as a Chart of Accounts entry. Everything charged to a job gets grouped under a Scope for job costing, no matter whether it ends up being labor, material, subcontractor, or equipment on any given bill — that's picked per line when you enter the bill, not fixed here. Every Scope can point at two accounts: where the cost lands when you buy it (<b>Expense Account</b>), and where the revenue lands when you bill someone for it (<b>Income Account</b>).
+      A ${abEsc(scopeLabel)} is the real-world category of work or material — "Framing," "HVAC," "Concrete" — not the same as a Chart of Accounts entry. Everything charged to a job gets grouped under a ${abEsc(scopeLabel)} for job costing, no matter whether it ends up being labor, material, subcontractor, or equipment on any given bill — that's picked per line when you enter the bill, not fixed here. Every ${abEsc(scopeLabel)} can point at two accounts: where the cost lands when you buy it (<b>Cost Account</b>), and where the revenue lands when you bill someone for it (<b>Billable Account</b>).
     </div>
     ${abItemTemplatePreview ? abItemTemplatePickerHtml() : (abItems.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
       <div class="ab-field"><label>Start from an industry template</label>
@@ -1905,9 +1911,9 @@ function abRenderItems(){
       const tk='items'; abSmartRerender[tk]=abRenderItems;
       const getters={name:i=>i.name||'',category:i=>i.category||'',secondary:i=>i.secondary_class||'',cost:i=>abAccountLabel(i.expense_account_id),billable:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
       const sorted=abSmartApply(tk,abItems,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Scope',category:'Category',secondary:'Tag',cost:'Cost Account',billable:'Billable Account',price:'Billable Rate'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Scope')}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'cost','Cost Account')}${abSmartTh(tk,'billable','Billable Account')}${abSmartTh(tk,'price','Billable Rate')}</tr>
-      ${sorted.map(i=>`<tr ondblclick="openScopeEditPopup('${i.id}')" style="cursor:pointer" title="Double-click to edit"><td>${abEsc(i.name)}</td><td style="font-size:12px">${abEsc(i.category||'—')}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoneyFmt(i.unit_price):'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="6">No Scopes yet — click + Add Scope above, or browse a template</td></tr>'}
+      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:scopeLabel,category:'Category',secondary:'Tag',cost:'Cost Account',billable:'Billable Account',price:'Billable Rate'})}
+      <table class="ab-table"><tr>${abSmartTh(tk,'name',scopeLabel)}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'cost','Cost Account')}${abSmartTh(tk,'billable','Billable Account')}${abSmartTh(tk,'price','Billable Rate')}</tr>
+      ${sorted.map(i=>`<tr ondblclick="openScopeEditPopup('${i.id}')" style="cursor:pointer" title="Double-click to edit"><td>${abEsc(i.name)}</td><td style="font-size:12px">${abEsc(i.category||'—')}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoneyFmt(i.unit_price):'—'}</td></tr>`).join('')||`<tr><td class="ab-empty" colspan="6">No ${abEsc(scopeLabelPlural)} yet — click + Add ${abEsc(scopeLabel)} above, or browse a template</td></tr>`}
       </table>`;
     })()}`;
 }
@@ -1930,10 +1936,11 @@ function abRenderItems(){
 function openScopeEditPopup(itemId){
   const existing=itemId?abItems.find(i=>i.id===itemId):null;
   const v=key=>existing?(existing[key]||''):'';
+  const scopeLabel=abFieldLabel('scope','Scope');
   popupOpen(`
-    <div class="dv-sub-h">${existing?'Edit Scope':'New Scope'}</div>
+    <div class="dv-sub-h">${existing?'Edit '+abEsc(scopeLabel):'New '+abEsc(scopeLabel)}</div>
     <div class="company-form-grid">
-      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Scope Name</label><input class="fv-input" id="scopeForm-name" value="${abEsc(v('name'))}" placeholder="e.g. Framing, HVAC, Concrete"></div>
+      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">${abEsc(scopeLabel)} Name</label><input class="fv-input" id="scopeForm-name" value="${abEsc(v('name'))}" placeholder="e.g. Framing, HVAC, Concrete"></div>
       <div class="fv-field"><label class="fv-label">Category</label><input class="fv-input" id="scopeForm-category" value="${abEsc(v('category'))}" placeholder="Type or pick — yours to define" autocomplete="off" oninput="openItemCategoryDropdown('scopeForm-category')" onfocus="openItemCategoryDropdown('scopeForm-category')"></div>
       <div class="fv-field"><label class="fv-label">Tag</label><input class="fv-input" id="scopeForm-secondary" value="${abEsc(v('secondary_class'))}" placeholder="reserved for later"></div>
     </div>
@@ -1960,8 +1967,8 @@ function openScopeEditPopup(itemId){
     </div>
     <div class="fv-field" style="margin-top:16px"><label class="fv-label">Preferred Vendor <span style="text-transform:none;font-weight:400">(who you'd buy this from, at the Unit Cost above)</span></label><select class="fv-input" id="scopeForm-vendor" style="max-width:340px"><option value="">— None —</option>${abContacts.filter(c=>c.is_vendor).map(c=>`<option value="${c.id}"${v('preferred_vendor_id')===c.id?' selected':''}>${abEsc(c.name)}</option>`).join('')}</select></div>
     <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="fv-save" onclick="saveScopeForm('${itemId||''}')">${existing?'Save Scope':'Add Scope'}</button>
-      ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="openDeleteScopePopup('${existing.id}')">Delete Scope</button>`:''}
+      <button class="fv-save" onclick="saveScopeForm('${itemId||''}')">${existing?'Save '+abEsc(scopeLabel):'Add '+abEsc(scopeLabel)}</button>
+      ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="openDeleteScopePopup('${existing.id}')">Delete ${abEsc(scopeLabel)}</button>`:''}
     </div>
     <div class="fv-status" id="scopeFormStatus"></div>`);
 }
@@ -5562,7 +5569,8 @@ function renderPageActionBar(detailNum,tabNum){
     if(!abBookId){
       bar.innerHTML='';
     } else {
-      bar.innerHTML=`<button class="page-action-btn" onclick="openScopeEditPopup(null)" data-tip="Add a Scope — a real-world category of work or material this book charges jobs to.">${abAccounts.length?'':'<span style="font-size:11px;color:#f0a8a8;margin-right:8px">Load Chart of Accounts first to wire up Expense/Income</span>'}<span>+</span>Add Scope</button>`;
+      const scopeLabel=abFieldLabel('scope','Scope');
+      bar.innerHTML=`<button class="page-action-btn" onclick="openScopeEditPopup(null)" data-tip="Add a ${abEsc(scopeLabel)} — a real-world category of work or material this book charges jobs to.">${abAccounts.length?'':'<span style="font-size:11px;color:#f0a8a8;margin-right:8px">Load Chart of Accounts first to wire up Expense/Income</span>'}<span>+</span>Add ${abEsc(scopeLabel)}</button>`;
     }
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
