@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.49</div>
+      <div class="page-version" id="pageVersion">v1.50</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3777,8 +3777,12 @@ async function quickAddBookToCompany(companyId){
   if(error){ status.textContent='Error: '+error.message; return; }
   nameEl.value='';
   logThreadEntry(`Created a new book, "${name}", under company.`);
-  await renderCompanyBooksList(companyId);
   await loadRealBooksIntoRowView();
+  // Ryan's direct instruction, 2026-08-12: once a book is added from inside
+  // the Edit Company popup, close the popup and drop the user back on the
+  // main Books screen — don't leave them sitting on the popup with the
+  // list re-rendered underneath them.
+  popupClose();
 }
 
 async function saveCompanyForm(bookId,existingCompanyId){
