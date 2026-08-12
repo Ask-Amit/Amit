@@ -299,6 +299,17 @@ header{
 .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:14px 18px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
+/* Row View tabs (Books, Accounts, Clients — anything mounting .rv-wrap
+   directly under a .ch-tab-content) need the flex chain to actually
+   reach .rv-table-wrap so IT becomes the real scrolling box and its
+   sticky column header stays visible on scroll. Plain inline
+   display:flex on the tab div broke this the other way — inline style
+   beats .ch-tab-content{display:none}, so a flex-styled tab kept
+   rendering even after losing .active (real latent bug on the Clients
+   tab, fixed here at the same time). Higher specificity than
+   .ch-tab-content.active alone, so it only wins when both classes are
+   present, and disappears correctly again once .active is removed. */
+.ch-tab-content.active.ch-tab-flex{display:flex;flex-direction:column;min-height:0}
 
 /* ── ROW VIEW — copied verbatim from TemplateViews.html, added 2026-08-07
    for Tab 1's book list (replacing the Split View list there — the
@@ -494,7 +505,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.85</div>
+      <div class="page-version" id="pageVersion">v1.86</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -721,10 +732,10 @@ function renderAllPages(){
       <button class="ch-tab-btn" onclick="showChTab(1,5)">Tab 5</button>
     </div>
     <div class="ch-tab-main">
-      <div class="ch-tab-content active" id="ch-tab-1-1">
+      <div class="ch-tab-content active ch-tab-flex" id="ch-tab-1-1">
         <div class="rv-wrap" id="rv-mount-books"></div>
       </div>
-      <div class="ch-tab-content" id="ch-tab-1-2"><div id="ab-coa">Select a book on the Books tab first.</div></div>
+      <div class="ch-tab-content ch-tab-flex" id="ch-tab-1-2"><div id="ab-coa" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-3"><div id="ab-items">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-4"><div id="ab-nomenclature">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-5">Tab 5 content goes here</div>
@@ -789,7 +800,7 @@ function renderAllPages(){
       <button class="ch-tab-btn" onclick="showChTab(4,3)">Documents</button>
     </div>
     <div class="ch-tab-main">
-      <div class="ch-tab-content active" id="ch-tab-4-1" style="display:flex;flex-direction:column;min-height:0">
+      <div class="ch-tab-content active ch-tab-flex" id="ch-tab-4-1">
         <div class="rv-wrap" id="rv-mount-clients"></div>
       </div>
       <div class="ch-tab-content" id="ch-tab-4-2" style="margin:24px"><div class="detail-empty">Jobs — table exists (migration_2026-08-07_004), no screen built yet.</div></div>
