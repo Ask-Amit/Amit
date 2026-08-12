@@ -494,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.78</div>
+      <div class="page-version" id="pageVersion">v1.79</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -716,7 +716,7 @@ function renderAllPages(){
     <div class="ch-tab-nav" id="ch-tab-nav-1">
       <button class="ch-tab-btn active" onclick="showChTab(1,1)">Books</button>
       <button class="ch-tab-btn" id="ch-tab-1-2-btn" onclick="showChTab(1,2)">Accounts</button>
-      <button class="ch-tab-btn" onclick="showChTab(1,3)">Scopes</button>
+      <button class="ch-tab-btn" id="scopes-tab-label" onclick="showChTab(1,3)">Scopes</button>
       <button class="ch-tab-btn" id="ch-tab-1-4-btn" onclick="showChTab(1,4,this)">Terminology</button>
       <button class="ch-tab-btn" onclick="showChTab(1,5)">Tab 5</button>
     </div>
@@ -1042,7 +1042,7 @@ function selectBookRow(rows,bookId){
   abLoadAccounts().then(abRenderCoa);
   abLoadItems().then(abRenderItems);
   abLoadContacts().then(abRenderContacts);
-  abLoadFieldLabels().then(abApplyClientTerminology);
+  abLoadFieldLabels().then(()=>{ abApplyClientTerminology(); abApplyScopeTerminology(); });
   loadClientsIntoRowView();
   // Terminology's own render (abRenderNomenclature) is deliberately NOT
   // fired here on every book selection, unlike Accounts/Scopes — it's a
@@ -1413,7 +1413,45 @@ function buildAccountRvRows(accounts){
 function loadAccountsIntoRowView(){
   const mount=document.getElementById('rv-mount-accounts'); if(!mount)return;
   const rows=buildAccountRvRows(abAccounts);
-  rvCreate('rv-mount-accounts',ACCOUNT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openAccountPopup(id),hideExpandColumn:true,showSummaryRow:false});
+  rvCreate('rv-mount-accounts',ACCOUNT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openAccountPopup(id),hideExpandColumn:true,showSummaryRow:false,selectable:true,onBulkDelete:openBulkDeleteAccountsPopup});
+}
+// Bulk delete — Ryan's direct instruction, 2026-08-12, matching the app's
+// own standing Interactivity Standard (checkbox multi-select feeding one
+// action). Same second-screen confirmation pattern as every other delete
+// in this file (openDeleteAccountPopup, Delete Company, Delete Book) —
+// nothing here skips that just because it's several rows instead of one.
+// ids can include both top-level accounts and their own sub-accounts if
+// both got checked — each one's own children (whether or not the child
+// itself was also selected) get reparented to top-level, same rule as a
+// single account delete, so nothing vanishes that wasn't explicitly asked
+// to be removed.
+function openBulkDeleteAccountsPopup(ids){
+  if(!ids.length)return;
+  const names=ids.map(id=>{ const a=abAccounts.find(x=>x.id===id); return a?a.account_name:null; }).filter(Boolean);
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete ${names.length} Account${names.length===1?'':'s'}?</div>
+    <div class="fv-status" style="margin-bottom:14px">${names.map(n=>abEsc(n)).join(', ')}. Any sub-accounts under these become top-level accounts, not deleted with them. This cannot be undone through the app afterward.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmBulkDeleteAccounts('${ids.join(',')}')">Delete Permanently</button>
+    </div>
+    <div class="fv-status" id="deleteAccountStatus" style="margin-top:10px"></div>`);
+}
+async function confirmBulkDeleteAccounts(idsCsv){
+  const ids=idsCsv.split(',').filter(Boolean);
+  const status=document.getElementById('deleteAccountStatus');
+  for(let i=0;i<ids.length;i++){
+    if(status) status.textContent=`Deleting… ${i+1} of ${ids.length}`;
+    const id=ids[i];
+    const children=abAccounts.filter(a=>a.parent_account_id===id);
+    if(children.length){
+      const{error:reErr}=await db.from('chart_of_accounts').update({parent_account_id:null}).eq('parent_account_id',id);
+      if(reErr){ if(status) status.textContent='Error: '+reErr.message; return; }
+    }
+    const{error}=await db.from('chart_of_accounts').delete().eq('id',id);
+    if(error){ if(status) status.textContent='Error: '+error.message; return; }
+  }
+  await abLoadAccounts(); abRenderCoa();
+  popupClose();
 }
 
 // ── TAX CATEGORY — one unified list of categories that covers 1120,
@@ -2487,7 +2525,7 @@ async function abSaveNomenclatureEditor(){
 
   abCloseNomenclatureEditor();
   await abRenderNomenclature();
-  await abLoadFieldLabels(); abApplyClientTerminology();
+  await abLoadFieldLabels(); abApplyClientTerminology(); abApplyScopeTerminology();
 }
 
 // ══════════════════════════════════════════════
@@ -2807,6 +2845,21 @@ function abApplyClientTerminology(){
   const navTile=document.getElementById('page-4'); if(navTile)navTile.dataset.tip=plural;
   const heading=document.getElementById('clients-page-heading'); if(heading)heading.textContent=plural;
   const tabBtn=document.getElementById('clients-tab-label'); if(tabBtn)tabBtn.textContent=plural;
+}
+// Same pattern as abApplyClientTerminology, for the 'scope' field —
+// Ryan's direct instruction, 2026-08-12: renaming "Scope" in Terminology
+// was saving to the database but nothing on screen ever read it back.
+// Updates the tab button directly, then re-renders the tab body itself
+// (abRenderItems, cheap and already idempotent) so the heading, table
+// column header, and empty-state text all pick up the new label too,
+// rather than trying to patch each of those nodes individually.
+function abApplyScopeTerminology(){
+  const label=abFieldLabel('scope','Scope');
+  const plural=abPluralize(label);
+  const tabBtn=document.getElementById('scopes-tab-label'); if(tabBtn)tabBtn.textContent=plural;
+  const bar=document.getElementById('page-action-bar-1');
+  if(bar&&document.getElementById('ch-tab-1-3')&&document.getElementById('ch-tab-1-3').classList.contains('active')) renderPageActionBar(1,3);
+  abRenderItems();
 }
 
 // ══════════════════════════════════════════════
@@ -4662,9 +4715,48 @@ function rvCreate(containerId,columns,rows,opts={}){
     // moves to being purely the ▸/▾ arrow's own job, not overloaded onto
     // double-click too. Other tables using this engine keep the old
     // default behavior untouched.
-    onRowDoubleClick:opts.onRowDoubleClick||null
+    onRowDoubleClick:opts.onRowDoubleClick||null,
+    // Row checkbox multi-select + bulk delete — Ryan's direct instruction,
+    // 2026-08-12, matching this app's own standing Interactivity Standard
+    // (checkbox multi-select feeding one action, not one-at-a-time only).
+    // Opt-in per instance (selectable:true) so Books/Clients/Scopes —
+    // which didn't ask for this — render exactly as before; nothing here
+    // changes unless a table explicitly turns it on. onBulkDelete(ids) is
+    // supplied by whichever table wires this up (see accountsBulkDelete
+    // for the Chart of Accounts case) — the engine only tracks selection
+    // and offers the button; the actual delete logic (including anything
+    // table-specific, like reparenting children) stays with the caller.
+    selectable:opts.selectable||false,
+    onBulkDelete:opts.onBulkDelete||null,
+    selected:new Set()
   });
   rvRenderInstance(containerId);
+}
+function rvToggleRowSelect(containerId,id){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  if(inst.selected.has(id))inst.selected.delete(id);else inst.selected.add(id);
+  rvRenderInstance(containerId);
+}
+// Selects/deselects every currently visible row (respecting active sort/
+// filter/expand state — rvGetVisibleRows below already accounts for all
+// three) rather than every row that exists, so "select all" matches what
+// someone can actually see on screen at the moment they click it.
+function rvToggleSelectAllVisible(containerId){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  const flat=rvFlattenVisible(inst,rvGetVisibleRows(inst));
+  const allSelected=flat.length&&flat.every(({item:r})=>inst.selected.has(r.id));
+  if(allSelected) flat.forEach(({item:r})=>inst.selected.delete(r.id));
+  else flat.forEach(({item:r})=>inst.selected.add(r.id));
+  rvRenderInstance(containerId);
+}
+function rvClearSelection(containerId){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  inst.selected.clear();
+  rvRenderInstance(containerId);
+}
+function rvBulkDeleteClick(containerId){
+  const inst=rvInstances.get(containerId);if(!inst||!inst.onBulkDelete)return;
+  inst.onBulkDelete(Array.from(inst.selected));
 }
 function rvFlattenVisible(inst,rows){
   const out=[];
@@ -4937,6 +5029,13 @@ function rvRenderInstance(containerId){
   const statusHtml=statusParts.length
     ? `<div class="rv-status">${statusParts.join(' · ')} <span class="clear" onclick="rvClear('${containerId}')">Clear</span></div>`
     : `<div class="rv-status">Click the funnel on any column to sort or filter, double-click it to remove that column's filter · ↑/↓ to move, Enter to open</div>`;
+  // Bulk-selection bar — only appears once something is actually checked,
+  // so it never takes up space on a table nobody's selecting from. Sits as
+  // its own line rather than folded into statusHtml above so it reads as
+  // an action bar, not a filter-status note.
+  const bulkBarHtml=(inst.selectable&&inst.selected.size)
+    ? `<div class="rv-status" style="background:rgba(163,54,54,.12);border-color:rgba(163,54,54,.35)">${inst.selected.size} selected <span class="clear" style="color:#e2a3a3" onclick="rvBulkDeleteClick('${containerId}')">Delete Selected</span> <span class="clear" onclick="rvClearSelection('${containerId}')">Clear Selection</span></div>`
+    : '';
   // hideExpandColumn — deviation from the canonical file, added 2026-08-07,
   // Ryan's direct instruction: the reserved parent/child expand-toggle
   // column was showing as unused empty space on every Books row, since no
@@ -4953,10 +5052,14 @@ function rvRenderInstance(containerId){
   // wider than its container by scrolling, it just no longer force-grows
   // past what its columns actually need.
   const colgroupHtml=`<colgroup>
+    ${inst.selectable?'<col style="width:24px">':''}
     ${inst.hideExpandColumn?'':'<col style="width:24px">'}
     ${inst.columns.map(c=>`<col data-key="${c.key}" style="width:${inst.colWidths[c.key]||160}px">`).join('')}
   </colgroup>`;
+  const rvVisibleFlatIds=inst.selectable?rvFlattenVisible(inst,rows).map(({item:r})=>r.id):[];
+  const rvAllVisibleSelected=inst.selectable&&rvVisibleFlatIds.length&&rvVisibleFlatIds.every(id=>inst.selected.has(id));
   const theadHtml=`<tr>
+    ${inst.selectable?`<th style="width:24px"><input type="checkbox" ${rvAllVisibleSelected?'checked':''} onclick="event.stopPropagation();rvToggleSelectAllVisible('${containerId}')" title="Select all"></th>`:''}
     ${inst.hideExpandColumn?'':'<th style="width:24px"></th>'}
     ${inst.columns.map(c=>{
       const isSorted=inst.sort&&inst.sort.key===c.key;
@@ -5015,12 +5118,13 @@ function rvRenderInstance(containerId){
     const expanded=inst.expanded.has(r.id);
     const focused=inst.focusedRowId===r.id;
     return `<tr class="${isChild?'rv-child':'rv-row'}${focused?' focused':''}" onclick="rvSetFocus('${containerId}','${r.id}')" ondblclick="rvHandleRowOpen('${containerId}','${r.id}')">
+      ${inst.selectable?`<td><input type="checkbox" ${inst.selected.has(r.id)?'checked':''} onclick="event.stopPropagation();rvToggleRowSelect('${containerId}','${r.id}')"></td>`:''}
       ${inst.hideExpandColumn?'':`<td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>`}
       ${inst.columns.map((c,idx)=>cellHtml(r,c,idx,isChild)).join('')}
     </tr>`;
   }).join('');
   const summaryHtml=rvBuildSummaryRow(inst,rows);
-  wrap.innerHTML=`${statusHtml}
+  wrap.innerHTML=`${statusHtml}${bulkBarHtml}
     <div class="rv-table-wrap" id="${containerId}-scroll" tabindex="0" onkeydown="rvHandleKeydown(event,'${containerId}')"><table class="rv-table">
       ${colgroupHtml}
       <thead>${theadHtml}</thead>
