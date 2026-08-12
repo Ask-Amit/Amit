@@ -501,7 +501,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.72</div>
+      <div class="page-version" id="pageVersion">v1.73</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -691,6 +691,7 @@ const BOOK_SAMPLE_ROWS=[
     zip:'83837',city_state:'Kellogg, ID',phone:'(208) 682-0159'}}
 ];
 const TODO_ITEMS=[
+  'Reorder list, in-app — a low-stock Scope now auto-creates a real Hub pursuit (checkReorderPursuit, first-ever AmitBooks write to hub_entries) the moment it\'s saved at/below its reorder_quantity, so it already shows up on the person\'s Hub Pursuits page. Still open: an in-app view inside AmitBooks/NEW.html itself showing the same list, for someone who doesn\'t go to the Hub — natural home is wherever Inventory ends up living.',
   'Jobs tab — placeholder now sits at Clients → Jobs (Tab 2 of the Clients page). Build the real screen on top of the `jobs` table (migration_2026-08-07_004): belongs to one Client, own address, own status, Terminology-driven label (abFieldLabel already handles \'job\') — same pattern the Clients tab itself was built with.',
   'Documents tab — placeholder sits at Clients → Documents (Tab 3). No table, no spec yet — needs a real conversation about what belongs here before building anything.',
   'Retire the old unified `contacts` table in favor of separate Clients / Vendors / Subcontractors — Clients is built (its own table, migration_2026-08-07_004); Vendors and Subcontractors are the same pattern, not yet built. The Contacts page/table stays as-is until that decision is made — nothing deleted yet.',
@@ -1833,7 +1834,9 @@ async function saveScopeForm(itemId){
     cost_account_note:document.getElementById('scopeForm-costnote').value.trim()||null,
     billable_account_note:document.getElementById('scopeForm-billablenote').value.trim()||null,
     unit_cost:document.getElementById('scopeForm-unitcost').value||null,
-    quantity_on_hand:document.getElementById('scopeForm-qty').value||null
+    quantity_on_hand:document.getElementById('scopeForm-qty').value||null,
+    reorder_quantity:document.getElementById('scopeForm-reorderqty').value||null,
+    preferred_vendor_id:document.getElementById('scopeForm-vendor').value||null
   };
   status.textContent='Saving…';
   let error;
@@ -1843,8 +1846,44 @@ async function saveScopeForm(itemId){
     ({error}=await db.from('items').insert({...row,book_id:abBookId}));
   }
   if(error){ status.textContent='Error: '+error.message; return; }
+  await checkReorderPursuit({...row});
   popupClose();
   await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
+}
+// ── REORDER PURSUITS — Ryan's direct instruction, 2026-08-12: when a
+// Scope's quantity_on_hand drops to/below its reorder_quantity, create a
+// real Hub pursuit so it lands on the person's own Pursuits page, not
+// just a quiet number in this popup. FIRST TIME AmitBooks has actually
+// written to hub_entries — AmitBooks/CLAUDE.md's own Pursuit Attribution
+// section already decided this in advance: program='AmitBooks', every
+// time, no exceptions. Duplicate-checked before inserting (root
+// CLAUDE.md's standing Duplicate Pursuit Check directive) by searching
+// for an existing OPEN reorder pursuit with this exact title first. If
+// stock is later restocked back above the threshold, that open pursuit
+// (if one exists) is marked done automatically, so the list stays honest
+// instead of accumulating stale reorder pursuits nobody ever closes.
+async function checkReorderPursuit(item){
+  if(!db||!currentUser)return;
+  const qty=(item.quantity_on_hand===null||item.quantity_on_hand===undefined||item.quantity_on_hand==='')?null:Number(item.quantity_on_hand);
+  const reorderAt=(item.reorder_quantity===null||item.reorder_quantity===undefined||item.reorder_quantity==='')?null:Number(item.reorder_quantity);
+  if(qty===null||reorderAt===null)return; // nothing to check without both numbers set
+  const title=`Reorder: ${item.name}`;
+  const{data:existing}=await db.from('hub_entries').select('id').eq('user_id',currentUser.id).eq('program','AmitBooks').eq('title',title).eq('done',false).limit(1);
+  const openPursuit=existing&&existing[0];
+  if(qty<=reorderAt){
+    if(!openPursuit){
+      const vendor=item.preferred_vendor_id?abContacts.find(c=>c.id===item.preferred_vendor_id):null;
+      await db.from('hub_entries').insert({
+        kind:'pursuit',purpose:'Business',focus:'Reorder',
+        title,
+        notes:`On hand: ${qty}. Reorder at: ${reorderAt}.${vendor?' Preferred vendor: '+vendor.name+'.':''}${item.unit_cost?' Unit cost: '+abMoneyFmt(item.unit_cost)+'.':''}`,
+        starred:true,due_date:new Date().toISOString().slice(0,10),done:false,
+        program:'AmitBooks',user_id:currentUser.id
+      });
+    }
+  } else if(openPursuit){
+    await db.from('hub_entries').update({done:true,completedDate:new Date().toISOString().slice(0,10)}).eq('id',openPursuit.id);
+  }
 }
 // Category autocomplete-with-create, Ryan's direct instruction,
 // 2026-08-12: "it can be both" — a free-text field AND a growing list of

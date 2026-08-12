@@ -1,0 +1,21 @@
+-- ══════════════════════════════════════════════
+-- AmitBooks — Scopes: reorder threshold + preferred vendor
+-- Ryan's direct instruction, 2026-08-12:
+--
+-- - reorder_quantity: when quantity_on_hand drops to or below this, the
+--   Scope should show up on an ongoing reorder list. The list/alert
+--   screen itself is NOT built by this migration — just the threshold
+--   field the record needs to carry so that list can exist later. See
+--   TODO_ITEMS in NEW.html.
+-- - preferred_vendor_id: who you'd actually buy this Scope from, at the
+--   Unit Cost already captured on the record (unit_cost) — not a second
+--   price field, just naming which vendor that cost applies to. Points
+--   at the existing `contacts` table (the only vendor-capable table that
+--   exists right now — Vendors hasn't been split into its own dedicated
+--   table yet, same as Clients was split out of `contacts` but Vendors
+--   and Subcontractors haven't been).
+--
+-- Additive only, nullable, default blank — nothing existing breaks.
+-- ══════════════════════════════════════════════
+alter table items add column if not exists reorder_quantity numeric(14,4);
+alter table items add column if not exists preferred_vendor_id uuid references contacts(id);
