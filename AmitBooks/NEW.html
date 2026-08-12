@@ -488,7 +488,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.65</div>
+      <div class="page-version" id="pageVersion">v1.66</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1773,8 +1773,15 @@ async function saveScopeForm(itemId){
 function abItemCategoryDistinct(){
   return Array.from(new Set(abItems.map(i=>i.category).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
 }
-function openItemCategoryDropdown(){
-  const input=document.getElementById('ab-item-category');
+// Generalized to accept whichever input id is asking, 2026-08-12 — this
+// now opens from the Scope popup's own category field (scopeForm-category),
+// not a fixed inline-form id, since the inline add-form is gone (Add
+// Scope moved to the page-action-bar → popup, per Ryan's direct
+// instruction).
+let abItemCategoryActiveInputId='ab-item-category';
+function openItemCategoryDropdown(inputId){
+  abItemCategoryActiveInputId=inputId||'ab-item-category';
+  const input=document.getElementById(abItemCategoryActiveInputId);
   const menu=document.getElementById('customDropMenu');
   if(!input||!menu)return;
   const q=input.value.toLowerCase();
@@ -1788,31 +1795,19 @@ function openItemCategoryDropdown(){
   setTimeout(()=>document.addEventListener('click',closeItemCategoryDropdownOutside),0);
 }
 function selectItemCategory(val){
-  const input=document.getElementById('ab-item-category');
+  const input=document.getElementById(abItemCategoryActiveInputId);
   if(input) input.value=val;
   closeItemCategoryDropdown();
 }
 function closeItemCategoryDropdownOutside(e){
   const menu=document.getElementById('customDropMenu');
-  const input=document.getElementById('ab-item-category');
+  const input=document.getElementById(abItemCategoryActiveInputId);
   if(menu&&!menu.contains(e.target)&&e.target!==input) closeItemCategoryDropdown();
 }
 function closeItemCategoryDropdown(){
   const menu=document.getElementById('customDropMenu');
   if(menu){ menu.style.display='none'; menu.innerHTML=''; }
   document.removeEventListener('click',closeItemCategoryDropdownOutside);
-}
-async function abAddItem(){
-  const name=document.getElementById('ab-item-name').value.trim(); if(!name)return;
-  const category=document.getElementById('ab-item-category').value.trim()||null;
-  const secondaryClass=document.getElementById('ab-item-secondary').value.trim()||null;
-  const price=document.getElementById('ab-item-price').value;
-  const expenseAcct=document.getElementById('ab-item-expense-acct').value||null;
-  const incomeAcct=document.getElementById('ab-item-income-acct').value||null;
-  const{error}=await db.from('items').insert({book_id:abBookId,name,category,secondary_class:secondaryClass,unit_price:price||null,expense_account_id:expenseAcct,income_account_id:incomeAcct});
-  if(error){abAlert(error.message);return;}
-  document.getElementById('ab-item-category').value='';
-  await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
 }
 let abItemTemplatePreview=null;
 function abItemTemplatePickerHtml(){
@@ -5140,6 +5135,15 @@ function renderPageActionBar(detailNum,tabNum){
       bar.innerHTML=`<button class="page-action-btn" onclick="openImportForAccountsTab()" data-tip="Bring your Chart of Accounts in from QuickBooks — CSV or native .xlsx export, sub-accounts included."><span>⬇</span>Import</button>
         <button class="page-action-btn" onclick="abPreviewTemplate()" data-tip="Start from a real industry-standard Chart of Accounts instead of building one line by line. Only Construction exists so far — more industries coming."><span>≡</span>Browse Template</button>
         <button class="page-action-btn" onclick="openAccountPopup('')" data-tip="Opens a dialog to add one account — name, type, number, parent, and everything else."><span>+</span>Add Account</button>`;
+    }
+  } else if(detailNum===1&&tabNum===3){
+    // Add Scope — Ryan's direct instruction, 2026-08-12: same treatment
+    // as Add Client/Add New Company — header button, popup form, not an
+    // inline row of inputs sitting in the tab body.
+    if(!abBookId){
+      bar.innerHTML='';
+    } else {
+      bar.innerHTML=`<button class="page-action-btn" onclick="openScopeEditPopup(null)" data-tip="Add a Scope — a real-world category of work or material this book charges jobs to.">${abAccounts.length?'':'<span style="font-size:11px;color:#f0a8a8;margin-right:8px">Load Chart of Accounts first to wire up Expense/Income</span>'}<span>+</span>Add Scope</button>`;
     }
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
