@@ -535,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.93</div>
+      <div class="page-version" id="pageVersion">v1.94</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1409,6 +1409,10 @@ function refreshAccountsTabPulse(){
 // functionality here.
 function abRenderCoa(){
   refreshAccountsTabPulse();
+  // Scopes' own pulse (step 4) depends on abAccounts.length too — refresh
+  // it here as well so it lights up the moment Accounts actually gets
+  // data, not only the next time someone happens to open the Scopes tab.
+  refreshScopesTabPulse();
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   el.innerHTML=`${abTemplatePreview ? abTemplatePickerHtml() : ''}
@@ -2145,7 +2149,23 @@ async function abLoadItems(){
   const{data}=await db.from('items').select('*').eq('book_id',abBookId).order('name');
   abItems=data||[];
 }
+// Ryan's direct instruction, 2026-08-12: same "you're here next" pulse
+// Accounts already had (refreshAccountsTabPulse, badge 3) — Scopes is
+// step 4, and only lights up once Accounts is actually done (abAccounts
+// has real rows), not just whenever a book is selected. Holds the current
+// terminology label (abScopePluralLabel, set by abApplyScopeTerminology)
+// since this is now the one place that writes the tab button's innerHTML
+// — badge and label can't both own it independently without one wiping
+// the other out.
+let abScopePluralLabel='Scopes';
+function refreshScopesTabPulse(){
+  const btn=document.getElementById('scopes-tab-label'); if(!btn)return;
+  const shouldPulse=!!abBookId&&abAccounts.length>0&&abItems.length===0;
+  btn.classList.toggle('page-action-btn-pulse',shouldPulse);
+  btn.innerHTML=shouldPulse?'<span class="page-action-step-badge">4</span> '+abEsc(abScopePluralLabel):abEsc(abScopePluralLabel);
+}
 function abRenderItems(){
+  refreshScopesTabPulse();
   const el=document.getElementById('ab-items'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   // Terminology-driven, 2026-08-12 (Ryan's direct instruction — renaming
@@ -3120,8 +3140,7 @@ function abApplyClientTerminology(){
 // rather than trying to patch each of those nodes individually.
 function abApplyScopeTerminology(){
   const label=abFieldLabel('scope','Scope');
-  const plural=abPluralize(label);
-  const tabBtn=document.getElementById('scopes-tab-label'); if(tabBtn)tabBtn.textContent=plural;
+  abScopePluralLabel=abPluralize(label);
   const bar=document.getElementById('page-action-bar-1');
   if(bar&&document.getElementById('ch-tab-1-3')&&document.getElementById('ch-tab-1-3').classList.contains('active')) renderPageActionBar(1,3);
   abRenderItems();
