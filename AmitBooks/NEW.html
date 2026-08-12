@@ -535,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.96</div>
+      <div class="page-version" id="pageVersion">v1.97</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -767,7 +767,7 @@ function renderAllPages(){
         <div class="rv-wrap" id="rv-mount-books"></div>
       </div>
       <div class="ch-tab-content ch-tab-flex" id="ch-tab-1-2"><div id="ab-coa" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
-      <div class="ch-tab-content" id="ch-tab-1-3"><div id="ab-items">Select a book on the Books tab first.</div></div>
+      <div class="ch-tab-content ch-tab-flex" id="ch-tab-1-3"><div id="ab-items" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-4"><div id="ab-nomenclature">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-5">Tab 5 content goes here</div>
     </div>
@@ -2169,6 +2169,36 @@ function refreshScopesTabPulse(){
   // moment Scopes actually gets data, not only when the tab is reopened.
   if(document.querySelector('.ch-tab-btn.active')?.id==='scopes-tab-label') renderPageActionBar(1,3);
 }
+// Row View columns for Scopes — Ryan's direct instruction, 2026-08-12:
+// same formatting/sequencing as Accounts and Books (sortable funnel
+// headers, double-click opens the edit popup), replacing the old
+// abSmart-based plain table plus the two explanatory/empty-state text
+// blocks that used to sit above it. A function, not a static const like
+// ACCOUNT_RV_COLUMNS, because the first column's label tracks whatever
+// Terminology currently calls a Scope (abFieldLabel), not a fixed word.
+function scopeRvColumns(scopeLabel){
+  return[
+    {key:'name',label:scopeLabel},
+    {key:'category',label:'Category'},
+    {key:'secondary_class',label:'Tag'},
+    {key:'cost_display',label:'Cost Account'},
+    {key:'billable_display',label:'Billable Account'},
+    {key:'price_display',label:'Billable Rate',align:'right'}
+  ];
+}
+function buildItemRvRows(items){
+  return items.map(i=>({
+    id:i.id,name:i.name||'',category:i.category||'',secondary_class:i.secondary_class||'',
+    cost_display:abAccountLabel(i.expense_account_id),
+    billable_display:abAccountLabel(i.income_account_id),
+    price_display:i.unit_price?abMoneyFmt(i.unit_price):'—'
+  }));
+}
+function loadItemsIntoRowView(){
+  const mount=document.getElementById('rv-mount-items'); if(!mount)return;
+  const scopeLabel=abFieldLabel('scope','Scope');
+  rvCreate('rv-mount-items',scopeRvColumns(scopeLabel),buildItemRvRows(abItems),{onRowDoubleClick:id=>openScopeEditPopup(id),hideExpandColumn:true,showSummaryRow:false});
+}
 function abRenderItems(){
   refreshScopesTabPulse();
   const el=document.getElementById('ab-items'); if(!el)return;
@@ -2180,19 +2210,9 @@ function abRenderItems(){
   const scopeLabel=abFieldLabel('scope','Scope');
   const scopeLabelPlural=abPluralize(scopeLabel);
   el.innerHTML=`<div class="ab-h">${abEsc(scopeLabelPlural)} <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportItemsCsv()">⬇ Export CSV</span></div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
-      A ${abEsc(scopeLabel)} is the real-world category of work or material — "Framing," "HVAC," "Concrete" — not the same as a Chart of Accounts entry. Everything charged to a job gets grouped under a ${abEsc(scopeLabel)} for job costing, no matter whether it ends up being labor, material, subcontractor, or equipment on any given bill — that's picked per line when you enter the bill, not fixed here. Every ${abEsc(scopeLabel)} can point at two accounts: where the cost lands when you buy it (<b>Cost Account</b>), and where the revenue lands when you bill someone for it (<b>Billable Account</b>).
-    </div>
     ${abItemTemplatePreview ? abItemTemplatePickerHtml() : (abItems.length?'':`<div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">No ${abEsc(scopeLabelPlural)} yet — press Add ${abEsc(scopeLabel)} in the header above, browse a template, or Import.</div>`)}
-    ${(()=>{
-      const tk='items'; abSmartRerender[tk]=abRenderItems;
-      const getters={name:i=>i.name||'',category:i=>i.category||'',secondary:i=>i.secondary_class||'',cost:i=>abAccountLabel(i.expense_account_id),billable:i=>abAccountLabel(i.income_account_id),price:i=>Number(i.unit_price)||0};
-      const sorted=abSmartApply(tk,abItems,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:scopeLabel,category:'Category',secondary:'Tag',cost:'Cost Account',billable:'Billable Account',price:'Billable Rate'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name',scopeLabel)}${abSmartTh(tk,'category','Category')}${abSmartTh(tk,'secondary','Tag')}${abSmartTh(tk,'cost','Cost Account')}${abSmartTh(tk,'billable','Billable Account')}${abSmartTh(tk,'price','Billable Rate')}</tr>
-      ${sorted.map(i=>`<tr ondblclick="openScopeEditPopup('${i.id}')" style="cursor:pointer" title="Double-click to edit"><td>${abEsc(i.name)}</td><td style="font-size:12px">${abEsc(i.category||'—')}</td><td style="font-size:12px">${abEsc(i.secondary_class||'—')}</td><td style="font-size:12px">${abAccountLabel(i.expense_account_id)}</td><td style="font-size:12px">${abAccountLabel(i.income_account_id)}</td><td>${i.unit_price?abMoneyFmt(i.unit_price):'—'}</td></tr>`).join('')||`<tr><td class="ab-empty" colspan="6">No ${abEsc(scopeLabelPlural)} yet — click + Add ${abEsc(scopeLabel)} above, or browse a template</td></tr>`}
-      </table>`;
-    })()}`;
+    <div class="rv-wrap" id="rv-mount-items"></div>`;
+  loadItemsIntoRowView();
 }
 // ── ADD/EDIT SCOPE — real popup form, Ryan's direct instruction,
 // 2026-08-12: same treatment as "New Company" (openCompanyEditPopup) —
