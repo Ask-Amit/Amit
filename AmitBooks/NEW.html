@@ -494,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.82</div>
+      <div class="page-version" id="pageVersion">v1.83</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1769,7 +1769,7 @@ function openAccountPopup(accountId){
       <div class="fv-field" style="flex:1"><label class="fv-label">Type</label><select class="fv-input" id="acctPop-type" onchange="accountPopupTypeChanged()"><option value="asset"${type==='asset'?' selected':''}>Asset</option><option value="liability"${type==='liability'?' selected':''}>Liability</option><option value="equity"${type==='equity'?' selected':''}>Equity</option><option value="income"${type==='income'?' selected':''}>Income</option><option value="expense"${type==='expense'?' selected':''}>Expense</option></select></div>
       <div class="fv-field" style="width:100px"><label class="fv-label">Number</label><input class="fv-input" id="acctPop-number" value="${existing?abEsc(existing.account_number||''):''}" placeholder="5100"></div>
     </div>
-    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Parent Account (optional — makes this a sub-account)</label><select class="fv-input" id="acctPop-parent"><option value="">— none, top-level —</option>${parentOptions}</select></div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Parent Account (optional — makes this a sub-account)</label><select class="fv-input" id="acctPop-parent" onchange="accountPopupParentChanged()"><option value="">— none, top-level —</option>${parentOptions}</select></div>
     <div class="fv-field" id="acctPop-bank-field" style="margin-top:10px;display:${type==='asset'?'':'none'}">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text2)"><input type="checkbox" id="acctPop-bank"${existing&&existing.is_bank_account?' checked':''}>This is a bank/cash account</label>
     </div>
@@ -1799,6 +1799,31 @@ function openAccountPopup(accountId){
 function accountPopupBrowseTemplates(){
   popupClose();
   browseAccountTemplatesInTerminology();
+}
+// Ryan's direct instruction, 2026-08-12: picking a Parent Account should
+// suggest a sub-account number built off the parent's own number (e.g.
+// parent 1000 -> first sub-account suggested as 1000.001, next as
+// 1000.002...) rather than leaving Number blank. Only fills in when
+// Number is currently empty — never overwrites something someone already
+// typed. The parent itself needs no separate "make this a master
+// account" step; a parent is just any account that has children via
+// parent_account_id, which this already produces.
+function accountPopupSuggestSubNumber(parentId){
+  const parent=abAccounts.find(a=>a.id===parentId);
+  if(!parent||!parent.account_number)return null;
+  const siblings=abAccounts.filter(a=>a.parent_account_id===parentId&&a.account_number&&a.account_number.indexOf(parent.account_number+'.')===0);
+  let n=siblings.length+1;
+  let candidate=parent.account_number+'.'+String(n).padStart(3,'0');
+  const taken=new Set(siblings.map(a=>a.account_number));
+  while(taken.has(candidate)){ n++; candidate=parent.account_number+'.'+String(n).padStart(3,'0'); }
+  return candidate;
+}
+function accountPopupParentChanged(){
+  const parentId=document.getElementById('acctPop-parent').value;
+  const numberEl=document.getElementById('acctPop-number');
+  if(!parentId||numberEl.value.trim())return;
+  const suggestion=accountPopupSuggestSubNumber(parentId);
+  if(suggestion) numberEl.value=suggestion;
 }
 function accountPopupTypeChanged(){
   const type=document.getElementById('acctPop-type').value;
