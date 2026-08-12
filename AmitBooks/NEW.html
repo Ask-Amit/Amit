@@ -535,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.00</div>
+      <div class="page-version" id="pageVersion">v2.01</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4117,9 +4117,11 @@ function openImportStep2CoA(){
       </ol>
       <div style="font-size:12px;color:var(--muted);margin-top:6px">Tax Category won't come in prefilled either way — QuickBooks doesn't include it in this kind of export at all, IIF or report. You'll set it per account afterward, same as always. Only have the Account Listing report as Excel/CSV instead? That still works below too.</div>
     </div>
+    ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
     <input type="file" id="importCoaFile" accept=".iif,.csv,.xlsx,.xls" onchange="importCoaFileChosen(this.files[0])">
     <div id="importCoaReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
+  if(lastImportFile) importCoaFileChosen(lastImportFile);
 }
 // Reads either a real .csv OR a native QuickBooks .xlsx export (via
 // SheetJS, loaded in <head>) into the same shape either way — an array of
@@ -4148,8 +4150,24 @@ function importFindHeaderRowIndex(rows){
   }
   return 0;
 }
+// Ryan's direct instruction, 2026-08-12: after picking the file once for
+// one import (Accounts), automatically reuse it for the next one (Scopes)
+// without browsing again — a website can't make the OS file picker
+// remember a folder (real, universal browser security restriction, not
+// specific to this app; Chrome/Edge already do that much on their own),
+// but holding onto the actual File object in memory for the rest of the
+// session and auto-running it the moment the next import screen opens is
+// something we can do, and solves the same real problem more directly.
+// Choose File is still right there to pick a different one instead — this
+// never removes that option, just skips the extra step when it's the same
+// file. Completely separate from refreshAccountsTabPulse/
+// refreshScopesTabPulse, which only ever check real abAccounts/abItems
+// counts — auto-reusing a file changes nothing about how those badges
+// decide whether Accounts/Scopes actually has data yet.
+let lastImportFile=null;
 async function importCoaFileChosen(file){
   if(!file)return;
+  lastImportFile=file;
   const status=document.getElementById('importStatus');
   status.textContent='Reading file…';
   if((file.name||'').toLowerCase().endsWith('.iif')){
@@ -4365,9 +4383,11 @@ function openImportStepItems(){
       </ol>
       <div style="font-size:12px;color:var(--muted);margin-top:6px">Don't have that option, or only have the Item Listing report exported as Excel/CSV? That still works below too — Cost Account just won't come pre-filled on this route (that report doesn't carry it), and you'll fill it in per row in the review table before importing.</div>
     </div>
+    ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
     <input type="file" id="importItemsFile" accept=".iif,.csv,.xlsx,.xls" onchange="importItemsFileChosen(this.files[0])">
     <div id="importItemsReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importItemsStatus" style="margin-top:10px"></div>`);
+  if(lastImportFile) importItemsFileChosen(lastImportFile);
 }
 function importFindItemHeaderRowIndex(rows){
   for(let i=0;i<Math.min(rows.length,10);i++){
@@ -4378,6 +4398,7 @@ function importFindItemHeaderRowIndex(rows){
 function importParseMoney(v){ const n=parseFloat(String(v||'').replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; }
 async function importItemsFileChosen(file){
   if(!file)return;
+  lastImportFile=file;
   const status=document.getElementById('importItemsStatus');
   status.textContent='Reading file…';
   if((file.name||'').toLowerCase().endsWith('.iif')){
