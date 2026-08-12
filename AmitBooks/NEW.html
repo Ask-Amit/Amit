@@ -494,7 +494,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.77</div>
+      <div class="page-version" id="pageVersion">v1.78</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2376,18 +2376,37 @@ function abNomValueRowHtml(fieldKey,v){
   </div>`;
 }
 
+// Pretty-prints a field_key into a sane default label the first time it's
+// ever shown ('cost_code' → 'Cost Code', 'po' → 'PO') — used only as a
+// starting point in the editor; real books almost always rename it.
+function abNomPrettyKey(key){
+  if(key==='po')return'PO';
+  return key.split('_').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+}
+// Ryan's direct correction, 2026-08-12: this was only ever showing fields
+// that already had a book_field_settings row — meaning a book that had
+// never applied a preset saw nothing here at all (and the button that
+// opens this was disabled for exactly that reason). That made this "just
+// industry presets, not terminology at all." Real fix: build the full
+// list from the master catalog (abNomenclatureMasterFields — every field
+// that could ever apply, preset or not), and lay a book's own saved
+// settings on top where they exist. A field with no book_field_settings
+// row yet starts unchecked with a sensible default label, and gets a
+// real row created the first time it's actually saved (see
+// abSaveNomenclatureEditor's insert-vs-update split below) — nothing is
+// gated behind picking a preset first anymore.
 function abOpenNomenclatureEditor(){
   const body=document.getElementById('abNomenclatureEditorBody');
-  const rows=(abNomenclatureFieldsCache||[]).slice().sort((a,b)=>{
-    const ma=(abNomenclatureMasterFields||[]).find(m=>m.field_key===a.field_key);
-    const mb=(abNomenclatureMasterFields||[]).find(m=>m.field_key===b.field_key);
-    return(ma?ma.sort_order:999)-(mb?mb.sort_order:999);
+  const master=(abNomenclatureMasterFields||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const rows=master.map(m=>{
+    const existing=(abNomenclatureFieldsCache||[]).find(f=>f.field_key===m.field_key);
+    return existing||{id:'new-'+m.field_key,field_key:m.field_key,active:false,display_label:abNomPrettyKey(m.field_key)};
   });
   body.innerHTML=rows.map(f=>{
-    const master=(abNomenclatureMasterFields||[]).find(m=>m.field_key===f.field_key);
-    const isPicklist=master&&master.is_picklist;
+    const masterRow=master.find(m=>m.field_key===f.field_key);
+    const isPicklist=masterRow&&masterRow.is_picklist;
     const values=(abNomenclatureValuesCache||[]).filter(v=>v.field_key===f.field_key);
-    return`<div class="ab-nom-field-block" data-field-key="${f.field_key}">
+    return`<div class="ab-nom-field-block" data-field-key="${f.field_key}" data-field-id="${f.id}">
       <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(240,232,208,.08)">
         ${isPicklist?`<span onclick="abNomToggleValues('${f.field_key}')" style="cursor:pointer;font-size:11px;color:var(--gold2);width:14px;flex-shrink:0" id="ab-nom-caret-${f.field_key}">▸</span>`:'<span style="width:14px;flex-shrink:0"></span>'}
         <input type="checkbox" id="ab-nom-active-${f.field_key}" ${f.active?'checked':''} style="flex-shrink:0">
@@ -2429,13 +2448,25 @@ function abCloseNomenclatureEditor(){
 }
 
 async function abSaveNomenclatureEditor(){
-  const fieldUpdates=(abNomenclatureFieldsCache||[]).map(f=>{
-    const activeEl=document.getElementById('ab-nom-active-'+f.field_key);
-    const labelEl=document.getElementById('ab-nom-label-'+f.field_key);
-    return{id:f.id,active:activeEl?activeEl.checked:f.active,display_label:labelEl&&labelEl.value.trim()?labelEl.value.trim():f.display_label};
-  });
-  for(const u of fieldUpdates){
-    await db.from('book_field_settings').update({active:u.active,display_label:u.display_label}).eq('id',u.id);
+  // Reads every field block actually in the editor now (the full master
+  // catalog, not just abNomenclatureFieldsCache) — a block whose id starts
+  // with "new-" has no book_field_settings row yet and gets INSERTed, an
+  // existing real id gets UPDATEd. This is what actually lets someone
+  // activate a field for the first time without ever touching a preset.
+  const fieldBlocks=document.querySelectorAll('#abNomenclatureEditorBody .ab-nom-field-block');
+  for(const block of fieldBlocks){
+    const fieldKey=block.getAttribute('data-field-key');
+    const fieldId=block.getAttribute('data-field-id');
+    const activeEl=document.getElementById('ab-nom-active-'+fieldKey);
+    const labelEl=document.getElementById('ab-nom-label-'+fieldKey);
+    const active=activeEl?activeEl.checked:false;
+    const displayLabel=(labelEl&&labelEl.value.trim())?labelEl.value.trim():abNomPrettyKey(fieldKey);
+    if(fieldId.startsWith('new-')){
+      if(!active&&!(labelEl&&labelEl.value.trim()))continue; // never touched — nothing worth creating a row for
+      await db.from('book_field_settings').insert({book_id:abBookId,field_key:fieldKey,active,display_label:displayLabel});
+    } else {
+      await db.from('book_field_settings').update({active,display_label:displayLabel}).eq('id',fieldId);
+    }
   }
 
   const valueRows=document.querySelectorAll('#abNomenclatureEditorBody .ab-nom-value-row');
