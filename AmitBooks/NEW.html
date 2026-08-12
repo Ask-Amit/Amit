@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.55</div>
+      <div class="page-version" id="pageVersion">v1.56</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1826,21 +1826,21 @@ async function abRenderNomenclature(){
     <div style="display:flex;flex-wrap:wrap;gap:10px">
       ${abNomenclaturePresetsCache.map(p=>{
         const count=abNomenclaturePresetCount(p.id);
-        const desc=AB_INDUSTRY_PRESET_DESCRIPTIONS[p.preset_key]||'';
-        return `<div ondblclick="abOpenPresetPicker('${p.preset_key}')" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer" title="${abEsc(desc?desc+' — Double-click to choose which fields/values to pull in.':'Double-click to choose which fields/values to pull in.')}">
+        return `<div ondblclick="abOpenPresetPicker('${p.preset_key}')" onmouseover="showPresetHoverTip(event,'${p.preset_key}')" onmouseout="hidePresetHoverTip()" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer">
           <div style="font-weight:600">${abEsc(p.display_name)}${count?` <span style="color:var(--gold2);font-weight:400">(${count})</span>`:''}${p.id===currentPresetId?' <span style="font-size:10px;color:#8fd19e;font-weight:400">— started here</span>':''}</div>
-          ${desc?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${abEsc(desc)}</div>`:''}
         </div>`;
       }).join('')}
     </div>`;
 }
-// Short "who this is for / what it sets up" descriptions, shown on hover
-// (native title attribute) AND inline on the card itself — Ryan's direct
-// instruction, 2026-08-12: tell the person what's underneath a preset
-// without making them double-click first. Keyed by preset_key, matching
+// Short "who this is for / what it sets up" descriptions — Ryan's direct
+// correction, 2026-08-12: hover only, never crammed inside the card
+// itself (the card gets too small). Keyed by preset_key, matching
 // industry_presets.preset_key (migration_2026-08-02_001). Plain
 // client-side map, not a database column — this is describing a fixed,
-// small, rarely-changing catalog, not per-book data.
+// small, rarely-changing catalog, not per-book data. Falls back to a
+// generated description from the preset's own display_name for any
+// preset_key not covered here, so nothing is ever blank on hover, per
+// Ryan's direct instruction ("if you don't have something, make it up").
 const AB_INDUSTRY_PRESET_DESCRIPTIONS={
   construction:'For contractors and builders — sets up Job, Scope, Cost Code, Phase, PO, and Equipment tracking.',
   restaurant:'For restaurants and food service — sets up Shift/Service and menu-style classification instead of job costing.',
@@ -1852,6 +1852,38 @@ const AB_INDUSTRY_PRESET_DESCRIPTIONS={
   freelance:'For freelancers and solo consultants — a lighter setup, minimal classification overhead.',
   custom:'Start from nothing and build your own field names from scratch.'
 };
+function abPresetDescription(presetKey){
+  if(AB_INDUSTRY_PRESET_DESCRIPTIONS[presetKey]) return AB_INDUSTRY_PRESET_DESCRIPTIONS[presetKey];
+  const preset=(abNomenclaturePresetsCache||[]).find(p=>p.preset_key===presetKey);
+  const name=preset?preset.display_name:presetKey;
+  return`For ${name} — sets up field names and classification suited to that industry.`;
+}
+// Real styled hover tooltip, not the native browser title attribute —
+// reuses the same #pageHoverTip element/CSS the left sidebar already uses
+// for its own hover labels, so this looks intentional rather than the
+// plain/slow native tooltip. Allows real wrapping (unlike the sidebar's
+// own nowrap use) since these descriptions run longer than a page name.
+function showPresetHoverTip(e,presetKey){
+  const tip=document.getElementById('pageHoverTip');
+  if(!tip)return;
+  tip.textContent=abPresetDescription(presetKey);
+  tip.style.whiteSpace='normal';
+  tip.style.width='240px';
+  const r=e.currentTarget.getBoundingClientRect();
+  tip.style.left=r.left+'px';
+  tip.style.right='auto';
+  tip.style.top=(r.bottom+6)+'px';
+  tip.style.transform='none';
+  tip.classList.add('show');
+}
+function hidePresetHoverTip(){
+  const tip=document.getElementById('pageHoverTip');
+  if(!tip)return;
+  tip.classList.remove('show');
+  tip.style.whiteSpace='';
+  tip.style.width='';
+  tip.style.transform='';
+}
 
 function abNomenclaturePresetCount(presetId){
   const f=(abNomenclatureFieldsCache||[]).filter(x=>x.active&&x.source_preset_id===presetId).length;
