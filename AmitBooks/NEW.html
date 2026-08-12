@@ -292,7 +292,11 @@ header{
 .ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
 .ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
-.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+/* padding halved from 28px 32px, 2026-08-12 (Ryan's direct instruction) —
+   shared by every tab under the Books page (Books/Accounts/Scopes/
+   Terminology), so this keeps all of them at the same tighter gap between
+   the tab row and their own content, rather than narrowing just one. */
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:14px 18px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 
@@ -398,7 +402,16 @@ select option{color:#2a2418;background:#fff}
    and form up to that same breathing room without touching the base
    classes other tabs still rely on. */
 #ab-coa .ab-form{padding:18px}
-#ab-coa .ab-table th{padding:11px 12px}
+/* "Chart of Accounts" title AND the table's own header row (#, Name,
+   Type...) both stay pinned at the top while the account rows scroll
+   underneath — Ryan caught this directly, 2026-08-12: a book with enough
+   accounts to actually scroll lost both, same as .rv-table's own header
+   row already stays put on the Books tab (see .rv-table th above). The
+   title's height is fixed (padding+line-height, no variable content) so
+   the table header's own top offset can be a known, exact number rather
+   than guessed. */
+#ab-coa .ab-h{position:sticky;top:0;z-index:3;background:var(--card-head);margin:0;padding:10px 0;line-height:16px}
+#ab-coa .ab-table th{position:sticky;top:36px;z-index:2;background:var(--card-head);padding:11px 12px}
 #ab-coa .ab-table td{padding:11px 12px}
 
 /* ── SPLIT VIEW — master list left, detail pane right — copied verbatim
@@ -488,7 +501,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.71</div>
+      <div class="page-version" id="pageVersion">v1.72</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1794,7 +1807,11 @@ function openScopeEditPopup(itemId){
         <div class="fv-field" style="margin:0"><label class="fv-label">Billable Rate <span style="text-transform:none;font-weight:400">(what you charge)</span></label><input class="fv-input" id="scopeForm-billablerate" type="number" step="0.01" value="${existing&&existing.unit_price?existing.unit_price:''}"></div>
       </div>
     </div>
-    <div class="fv-field" style="margin-top:16px"><label class="fv-label">Quantity on Hand <span style="text-transform:none;font-weight:400">(if tracked as stock)</span></label><input class="fv-input" id="scopeForm-qty" type="number" step="0.0001" style="max-width:200px" value="${existing&&existing.quantity_on_hand!=null?existing.quantity_on_hand:''}"></div>
+    <div style="display:flex;gap:20px;margin-top:16px">
+      <div class="fv-field" style="margin:0;flex:1"><label class="fv-label">Quantity on Hand <span style="text-transform:none;font-weight:400">(if tracked as stock)</span></label><input class="fv-input" id="scopeForm-qty" type="number" step="0.0001" value="${existing&&existing.quantity_on_hand!=null?existing.quantity_on_hand:''}"></div>
+      <div class="fv-field" style="margin:0;flex:1"><label class="fv-label">Reorder Quantity <span style="text-transform:none;font-weight:400">(flag it once stock drops to this)</span></label><input class="fv-input" id="scopeForm-reorderqty" type="number" step="0.0001" value="${existing&&existing.reorder_quantity!=null?existing.reorder_quantity:''}"></div>
+    </div>
+    <div class="fv-field" style="margin-top:16px"><label class="fv-label">Preferred Vendor <span style="text-transform:none;font-weight:400">(who you'd buy this from, at the Unit Cost above)</span></label><select class="fv-input" id="scopeForm-vendor" style="max-width:340px"><option value="">— None —</option>${abContacts.filter(c=>c.is_vendor).map(c=>`<option value="${c.id}"${v('preferred_vendor_id')===c.id?' selected':''}>${abEsc(c.name)}</option>`).join('')}</select></div>
     <button class="fv-save" style="margin-top:14px" onclick="saveScopeForm('${itemId||''}')">Save Scope</button>
     <div class="fv-status" id="scopeFormStatus"></div>`);
 }
