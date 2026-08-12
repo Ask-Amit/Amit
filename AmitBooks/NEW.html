@@ -478,7 +478,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.62</div>
+      <div class="page-version" id="pageVersion">v1.63</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1492,7 +1492,15 @@ async function abImportSelectedTemplate(){
   await abLoadAccounts(); abRenderCoa();
 }
 async function abAddAccount(){
-  const name=document.getElementById('ab-coa-name').value.trim(); if(!name)return;
+  // Real bug Ryan ran into directly, 2026-08-12: this silently did nothing
+  // when the Account Name field was empty — no error, no message, nothing
+  // — which reads exactly like "the button doesn't work," especially now
+  // that Add Account sits up in the header, visually separated from the
+  // form field it actually reads from. Real feedback instead of a silent
+  // no-op.
+  const nameEl=document.getElementById('ab-coa-name');
+  const name=nameEl.value.trim();
+  if(!name){ abAlert('Account name is required — fill it in below, then press Add Account again.'); nameEl.focus(); return; }
   const type=document.getElementById('ab-coa-type').value;
   const number=document.getElementById('ab-coa-number').value.trim();
   const isBank=document.getElementById('ab-coa-bank').checked;
