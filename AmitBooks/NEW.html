@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.53</div>
+      <div class="page-version" id="pageVersion">v1.54</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1252,13 +1252,7 @@ function abRenderCoa(){
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   el.innerHTML=`<div class="ab-h">Chart of Accounts</div>
-    ${abTemplatePreview ? abTemplatePickerHtml() : (abAccounts.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
-      <div class="ab-field"><label>Start from an industry template</label>
-        <select id="ab-coa-template-industry"><option value="construction">Construction</option></select>
-      </div>
-      <button class="ab-btn" onclick="abPreviewTemplate()">Browse Template</button>
-      <span style="font-size:12px;color:var(--muted);align-self:center">More industries added as they're built — only Construction exists so far.</span>
-    </div>`)}
+    ${abTemplatePreview ? abTemplatePickerHtml() : ''}
     <div class="ab-form">
       <div class="ab-field"><label>Account name</label><input id="ab-coa-name" placeholder="e.g. Tools & Equipment"></div>
       <div class="ab-field"><label>Type</label><select id="ab-coa-type" onchange="abCoaTypeChanged()"><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="income">Income</option><option value="expense">Expense</option></select></div>
@@ -1268,8 +1262,8 @@ function abRenderCoa(){
       <div class="ab-field" id="ab-coa-liabsub-field" style="display:none"><label>Liability Type</label>${abLiabilitySubtypeOptionsHtml('')}</div>
       <button class="ab-btn" onclick="abAddAccount()">Add Account</button>
     </div>
-    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Bank/Cash</th><th>Liability Type</th><th>Tax Category</th><th>Custom Fields</th></tr>
-    ${abCoaTreeOrder(abAccounts).map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?`<input type="checkbox" ${a.is_bank_account?'checked':''} onchange="abToggleBankAccount('${a.id}',this.checked)" title="Counts toward Cash on Hand on the dashboard">`:'—'}</td><td>${a.account_type==='liability'?`<select onchange="abSaveLiabilitySubtype('${a.id}',this.value)" title="Decides whether this counts toward Short Term Debt or Long Term Debt on the dashboard" style="font-size:11px">${abLiabilitySubtypeOptions(a.liability_subtype)}</select>`:'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No accounts yet — add your first one above, or browse a template</td></tr>'}
+    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Bank/Cash</th><th>Liability Type</th><th>Tax Category</th><th>Custom Fields</th><th></th></tr>
+    ${abCoaTreeOrder(abAccounts).map(a=>`<tr><td>${abEsc(a.account_number||'')}</td><td>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?`<input type="checkbox" ${a.is_bank_account?'checked':''} onchange="abToggleBankAccount('${a.id}',this.checked)" title="Counts toward Cash on Hand on the dashboard">`:'—'}</td><td>${a.account_type==='liability'?`<select onchange="abSaveLiabilitySubtype('${a.id}',this.value)" title="Decides whether this counts toward Short Term Debt or Long Term Debt on the dashboard" style="font-size:11px">${abLiabilitySubtypeOptions(a.liability_subtype)}</select>`:'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)} <a href="#" onclick="abEditTaxCategory('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Set</a></td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'} <a href="#" onclick="abEditCustomFields('${a.id}');return false" style="color:var(--gold2);font-size:11px;margin-left:6px">Edit</a></td><td><a href="#" onclick="abDeleteAccount('${a.id}');return false" style="color:#c97a7a;font-size:11px" title="Delete this account — not yet gated by book role permissions (book_role_permissions exists but nothing enforces it yet)">Delete</a></td></tr>`).join('')||'<tr><td class="ab-empty" colspan="8">No accounts yet — add one above, browse a template, or Import from the header</td></tr>'}
     </table>
     <div id="ab-customfields-panel"></div>
     <div id="ab-taxcategory-panel"></div>`;
@@ -1389,8 +1383,15 @@ function abTemplatePickerHtml(){
 function abTemplateSelectAll(state){
   document.querySelectorAll('.ab-tmpl-check:not(:disabled)').forEach(cb=>cb.checked=state);
 }
-async function abPreviewTemplate(){
-  const industry=document.getElementById('ab-coa-template-industry').value;
+// Moved to the Accounts tab header button, 2026-08-12 (Ryan's direct
+// instruction) — used to read an industry <select> that lived inline in
+// the now-removed empty-state box. Only "construction" exists as a real
+// template industry so far, so the header button just browses that
+// directly; when a second industry is built, this is where an industry
+// picker (header dropdown next to the button, or a small popup) belongs.
+async function abPreviewTemplate(industry){
+  industry=industry||abTemplateIndustry||'construction';
+  if(!abBookId){abAlert('Select a book first (Books tab).');return;}
   const{data:templates,error}=await db.from('account_category_templates').select('*').eq('industry',industry).order('account_number');
   if(error){abAlert(error.message);return;}
   if(!templates||!templates.length){abAlert('No template found for that industry yet.');return;}
@@ -1401,6 +1402,29 @@ async function abPreviewTemplate(){
 function abCancelTemplatePreview(){
   abTemplatePreview=null;
   abRenderCoa();
+}
+// Delete an account from the Chart of Accounts — Ryan's direct
+// instruction, 2026-08-12: "somewhere" accounts can be deleted, gated
+// eventually by book_role_permissions (built but not yet enforced
+// anywhere in this file — named gap, see Amit_Unified_Identity_Architecture.md
+// and Sessions.md). No enforcement here yet on purpose, matching that.
+// A sub-account's own children are never silently deleted with it — they're
+// reparented to top-level (parent_account_id → null) so nothing vanishes
+// that wasn't explicitly asked to be removed.
+async function abDeleteAccount(accountId){
+  const acct=abAccounts.find(a=>a.id===accountId); if(!acct)return;
+  const children=abAccounts.filter(a=>a.parent_account_id===accountId);
+  const msg=children.length
+    ? `Delete "${acct.account_name}"? It has ${children.length} sub-account${children.length===1?'':'s'} — they'll become top-level accounts, not deleted with it.`
+    : `Delete "${acct.account_name}"? This can't be undone.`;
+  if(!await abConfirm(msg))return;
+  if(children.length){
+    const{error:reErr}=await db.from('chart_of_accounts').update({parent_account_id:null}).eq('parent_account_id',accountId);
+    if(reErr){abAlert(reErr.message);return;}
+  }
+  const{error}=await db.from('chart_of_accounts').delete().eq('id',accountId);
+  if(error){abAlert(error.message);return;}
+  await abLoadAccounts(); abRenderCoa();
 }
 async function abImportSelectedTemplate(){
   const checked=Array.from(document.querySelectorAll('.ab-tmpl-check:checked')).map(cb=>cb.value);
@@ -3218,6 +3242,21 @@ function importQbWalkthroughHtml(reportLabel,menuPath){
     </ol>
   </div>`;
 }
+// Entry point from the Accounts tab header, 2026-08-12 (Ryan's direct
+// instruction) — importing from here already means "into the book I'm
+// currently looking at," so it skips Step 1's company/book picker
+// entirely and goes straight to Step 2, pre-targeting abBookId. Falls back
+// to the full wizard only in the edge case of no book being selected yet
+// (shouldn't normally be reachable — the header hides Import until
+// abBookId is set — but this keeps the function safe standing alone).
+function openImportForAccountsTab(){
+  if(!abBookId){ openImportWizard(); return; }
+  importWizardPendingCompanyId=null;
+  importWizardPendingNewCompanyName=null;
+  importWizardPendingBookId=abBookId;
+  importWizardPendingBookName=null;
+  openImportStep2CoA();
+}
 function openImportStep2CoA(){
   popupOpen(`
     <div class="dv-sub-h">Step 2: Chart of Accounts</div>
@@ -4864,11 +4903,27 @@ function renderPageActionBar(detailNum,tabNum){
     if(!USER_COMPANIES.length){
       bar.innerHTML=`<button class="page-action-btn page-action-btn-pulse" onclick="openCompanyEditPopup(null,null,'')" data-tip="Start here — in case you run more than one company, each gets its own dashboard, books, and reports, all under one login."><span class="page-action-step-badge">1</span><span>+</span>Add New Company</button>`;
     } else {
+      // Import moved off this tab to the Accounts tab header, 2026-08-12
+      // (Ryan's direct instruction) — Chart of Accounts is what actually
+      // gets imported, so the button belongs where that screen lives, not
+      // here alongside company/book management.
       bar.innerHTML=`<button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')" data-tip="Add another company — useful if you run more than one, each gets its own dashboard, books, and reports."><span>+</span>Add New Company</button>
-        <button class="page-action-btn" onclick="openImportWizard()" data-tip="Bring your Chart of Accounts, vendors, and other data in from QuickBooks, step by step."><span>⬇</span>Import</button>
         <button class="page-action-btn" onclick="openBackupPicker()" data-tip="Download a full copy of a company or book right now — a real safety net you can keep, not just something that happens when deleting."><span>⬇</span>Backup</button>
         <button class="page-action-btn" onclick="openRestorePopup()" data-tip="Bring a downloaded backup back in — as a new book or company, named however you want (a tax year, a fresh copy, whatever fits)."><span>⬆</span>Restore From Backup</button>
         <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
+    }
+  } else if(detailNum===1&&tabNum===2){
+    // Accounts tab header — Ryan's direct instruction, 2026-08-12: Import
+    // and Browse Template both belong here now, far right next to the
+    // page heading, same as every other tab's action row — not inline in
+    // the tab body. Delete lives per-row in the table itself (see
+    // abRenderCoa) rather than up here, since it needs to target one
+    // specific account, not act on the whole book.
+    if(!abBookId){
+      bar.innerHTML='';
+    } else {
+      bar.innerHTML=`<button class="page-action-btn" onclick="openImportForAccountsTab()" data-tip="Bring your Chart of Accounts in from QuickBooks — CSV or native .xlsx export, sub-accounts included."><span>⬇</span>Import</button>
+        <button class="page-action-btn" onclick="abPreviewTemplate()" data-tip="Start from a real industry-standard Chart of Accounts instead of building one line by line. Only Construction exists so far — more industries coming."><span>≡</span>Browse Template</button>`;
     }
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
