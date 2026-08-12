@@ -394,25 +394,11 @@ select option{color:#2a2418;background:#fff}
 .ab-table tr:hover td{background:rgba(255,255,255,.03)}
 .ab-empty{color:var(--dim);font-style:italic;padding:16px;text-align:center;font-size:13px}
 .ab-signin-notice{background:rgba(255,255,255,.03);border:1px dashed rgba(201,168,76,.3);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:13px}
-/* Chart of Accounts, scoped to #ab-coa only — not the shared .ab-form/
-   .ab-table classes, which Contacts/Scopes/other panels also use. Ryan
-   caught the Accounts tab reading as noticeably tighter than the Books
-   tab's Row View table right next to it (11px/12px cell padding there vs
-   6-8px/10px here), 2026-08-12 — this brings the Chart of Accounts table
-   and form up to that same breathing room without touching the base
-   classes other tabs still rely on. */
-#ab-coa .ab-form{padding:18px}
-/* "Chart of Accounts" title AND the table's own header row (#, Name,
-   Type...) both stay pinned at the top while the account rows scroll
-   underneath — Ryan caught this directly, 2026-08-12: a book with enough
-   accounts to actually scroll lost both, same as .rv-table's own header
-   row already stays put on the Books tab (see .rv-table th above). The
-   title's height is fixed (padding+line-height, no variable content) so
-   the table header's own top offset can be a known, exact number rather
-   than guessed. */
-#ab-coa .ab-h{position:sticky;top:0;z-index:3;background:var(--card-head);margin:0;padding:10px 0;line-height:16px}
-#ab-coa .ab-table th{position:sticky;top:36px;z-index:2;background:var(--card-head);padding:11px 12px}
-#ab-coa .ab-table td{padding:11px 12px}
+/* Chart of Accounts moved onto the shared Row View engine (.rv-table,
+   see ACCOUNT_RV_COLUMNS/loadAccountsIntoRowView) 2026-08-12 — it now
+   gets .rv-table's own sticky header, padding, sort/filter, and
+   double-click handling for free, same as Books, instead of the plain
+   .ab-table styling formerly scoped here. */
 
 /* ── SPLIT VIEW — master list left, detail pane right — copied verbatim
    from TemplateViews.html for the Tab 1 book selector. ── */
@@ -501,7 +487,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.73</div>
+      <div class="page-version" id="pageVersion">v1.74</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -731,7 +717,7 @@ function renderAllPages(){
       <div class="ch-tab-content active" id="ch-tab-1-1">
         <div class="rv-wrap" id="rv-mount-books"></div>
       </div>
-      <div class="ch-tab-content" id="ch-tab-1-2" style="margin:24px"><div id="ab-coa">Select a book on the Books tab first.</div></div>
+      <div class="ch-tab-content" id="ch-tab-1-2"><div id="ab-coa">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-3"><div id="ab-items">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-4"><div id="ab-nomenclature">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-5">Tab 5 content goes here</div>
@@ -1333,15 +1319,72 @@ function refreshAccountsTabPulse(){
 // from the header button, and Modify Account (accountId set, pre-filled)
 // from double-clicking any row below — same pattern as the Company/Book
 // popups already use (openCompanyEditPopup/openModifyBookPopup).
+// Rebuilt onto the same canonical Row View engine the Books tab uses
+// (rvCreate/ACCOUNT_RV_COLUMNS below), 2026-08-12 (Ryan's direct
+// instruction) — replacing the plain HTML <table>. Two real problems this
+// fixes at the root instead of patching around them: (1) the sticky
+// "Chart of Accounts" title + table header were fighting each other for
+// sticky-top space inside the same scroll container and letting rows
+// scroll up behind both — Books never had this problem because it has NO
+// heading of its own inside the scrolling area (the page's real heading
+// lives in .detail-head, outside .ch-tab-main entirely) — so the fix here
+// is the same: no redundant title competing inside the scroll region,
+// just the table, whose own sticky <th> (.rv-table th, already proven on
+// Books) is then the only sticky thing in play. (2) every column now
+// sorts and filters via the funnel icon, and double-clicking any row
+// opens the Account popup — identical mechanism to Books' own
+// Company/Book columns, per Ryan's explicit request for the same
+// functionality here.
 function abRenderCoa(){
   refreshAccountsTabPulse();
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
-  el.innerHTML=`<div class="ab-h">Chart of Accounts</div>
-    ${abTemplatePreview ? abTemplatePickerHtml() : ''}
-    <table class="ab-table"><tr><th>#</th><th>Name</th><th>Type</th><th>Bank/Cash</th><th>Liability Type</th><th>Tax Category</th><th>Custom Fields</th></tr>
-    ${abCoaTreeOrder(abAccounts).map(a=>`<tr style="cursor:pointer" ondblclick="openAccountPopup('${a.id}')" title="Double-click to open/edit this account"><td>${abEsc(a.account_number||'')}</td><td>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</td><td>${abEsc(a.account_type)}</td><td>${a.account_type==='asset'?(a.is_bank_account?'Yes':'—'):'—'}</td><td>${a.account_type==='liability'?(AB_LIABILITY_SUBTYPES.find(s=>s[0]===a.liability_subtype)||['',''])[1]||'—':'—'}</td><td style="font-size:11px">${abTaxCategoryLabel(a.tax_category)}</td><td style="font-size:11px">${Object.entries(a.custom_fields||{}).map(([k,v])=>`${abEsc(k)}: ${abEsc(v)}`).join(', ')||'—'}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="7">No accounts yet — press Add Account in the header above, browse a template, or Import</td></tr>'}
-    </table>`;
+  el.innerHTML=`${abTemplatePreview ? abTemplatePickerHtml() : ''}
+    ${abAccounts.length?'':'<div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">No accounts yet — press Add Account in the header above, browse a template, or Import.</div>'}
+    <div class="rv-wrap" id="rv-mount-accounts"></div>`;
+  loadAccountsIntoRowView();
+}
+// Column set for the Chart of Accounts Row View — Bank/Cash, Liability
+// Type, Tax Category, and Custom Fields are all pre-formatted display
+// strings (built in buildAccountRvRows below), not raw column keys, since
+// each is conditional on account_type or needs real formatting rather
+// than a bare database value.
+const ACCOUNT_RV_COLUMNS=[
+  {key:'account_number',label:'#'},
+  {key:'account_name',label:'Name'},
+  {key:'account_type',label:'Type'},
+  {key:'bank_display',label:'Bank/Cash'},
+  {key:'liability_display',label:'Liability Type'},
+  {key:'tax_display',label:'Tax Category'},
+  {key:'custom_display',label:'Custom Fields'}
+];
+// One level of parent→child nesting, same real limitation Books' own
+// Company→Book grouping already has (rvFlattenVisible only expands one
+// level of .children) — a sub-account of a sub-account won't show nested
+// under its true grandparent, matching the existing engine rather than
+// extending it further than Books itself already goes.
+function buildAccountRvRows(accounts){
+  const byParent={};
+  accounts.forEach(a=>{ const p=a.parent_account_id||'__root__'; (byParent[p]=byParent[p]||[]).push(a); });
+  function toRow(a){
+    return {
+      id:a.id,
+      account_number:a.account_number||'',
+      account_name:a.account_name,
+      account_type:a.account_type,
+      bank_display:a.account_type==='asset'?(a.is_bank_account?'Yes':'—'):'—',
+      liability_display:a.account_type==='liability'?((AB_LIABILITY_SUBTYPES.find(s=>s[0]===a.liability_subtype)||['',''])[1]||'—'):'—',
+      tax_display:abTaxCategoryLabel(a.tax_category),
+      custom_display:Object.entries(a.custom_fields||{}).map(([k,v])=>`${k}: ${v}`).join(', ')||'—',
+      children:(byParent[a.id]||[]).map(toRow)
+    };
+  }
+  return (byParent['__root__']||[]).map(toRow);
+}
+function loadAccountsIntoRowView(){
+  const mount=document.getElementById('rv-mount-accounts'); if(!mount)return;
+  const rows=buildAccountRvRows(abAccounts);
+  rvCreate('rv-mount-accounts',ACCOUNT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openAccountPopup(id),hideExpandColumn:false,showSummaryRow:false});
 }
 
 // ── TAX CATEGORY — one unified list of categories that covers 1120,
@@ -1813,8 +1856,36 @@ function openScopeEditPopup(itemId){
       <div class="fv-field" style="margin:0;flex:1"><label class="fv-label">Reorder Quantity <span style="text-transform:none;font-weight:400">(flag it once stock drops to this)</span></label><input class="fv-input" id="scopeForm-reorderqty" type="number" step="0.0001" value="${existing&&existing.reorder_quantity!=null?existing.reorder_quantity:''}"></div>
     </div>
     <div class="fv-field" style="margin-top:16px"><label class="fv-label">Preferred Vendor <span style="text-transform:none;font-weight:400">(who you'd buy this from, at the Unit Cost above)</span></label><select class="fv-input" id="scopeForm-vendor" style="max-width:340px"><option value="">— None —</option>${abContacts.filter(c=>c.is_vendor).map(c=>`<option value="${c.id}"${v('preferred_vendor_id')===c.id?' selected':''}>${abEsc(c.name)}</option>`).join('')}</select></div>
-    <button class="fv-save" style="margin-top:14px" onclick="saveScopeForm('${itemId||''}')">Save Scope</button>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="fv-save" onclick="saveScopeForm('${itemId||''}')">${existing?'Save Scope':'Add Scope'}</button>
+      ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="openDeleteScopePopup('${existing.id}')">Delete Scope</button>`:''}
+    </div>
     <div class="fv-status" id="scopeFormStatus"></div>`);
+}
+// ── DELETE SCOPE — same two-step pattern as every other delete in this
+// file (see openDeleteAccountPopup): the edit popup's own "Delete Scope"
+// button swaps to a real confirmation popup naming exactly what's about
+// to happen, requiring a second, separate click on a distinctly red
+// "Delete Permanently" button before anything is actually removed. Ryan's
+// direct instruction, 2026-08-12: match the existing pattern exactly, not
+// a one-off confirm() dialog.
+function openDeleteScopePopup(itemId){
+  const item=abItems.find(i=>i.id===itemId); if(!item)return;
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete "${abEsc(item.name)}"?</div>
+    <div class="fv-status" style="margin-bottom:14px">This cannot be undone through the app afterward.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteScope('${itemId}')">Delete Permanently</button>
+    </div>
+    <div class="fv-status" id="deleteScopeStatus" style="margin-top:10px"></div>`);
+}
+async function confirmDeleteScope(itemId){
+  const status=document.getElementById('deleteScopeStatus');
+  if(status) status.textContent='Deleting…';
+  const{error}=await db.from('items').delete().eq('id',itemId);
+  if(error){ if(status) status.textContent='Error: '+error.message; return; }
+  await abLoadItems(); abRenderItems();
+  popupClose();
 }
 function abScopeAccountOptions(selectedId){
   return `<option value="">— Not Set Up —</option>`+abAccounts.map(a=>`<option value="${a.id}"${selectedId===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('');
