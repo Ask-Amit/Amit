@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.60</div>
+      <div class="page-version" id="pageVersion">v1.61</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -779,7 +779,7 @@ function renderAllPages(){
   // 2026-08-12. Both containers persist across re-renders (only their
   // innerHTML changes), so initializing once here is enough — no need to
   // re-init every time the action bar or a popup redraws.
-  initPageTooltips('page-action-bar-1','right');
+  initPageTooltips('page-action-bar-1','below');
   initPageTooltips('canonicalPopup','right');
 
   // restore whichever page was open before the re-render, if it still exists
@@ -4181,48 +4181,88 @@ async function renderBookDetailPane(bookRow,mountId){
 // PAGE HOVER TOOLTIP — delegated on the given container, works no matter
 // how many items exist or whether that container is collapsed/expanded.
 // side: 'right' opens rightward (left sidebar); 'left' opens leftward
-// (right rail — opening rightward there would render off-screen).
-// Generalized 2026-08-12 (Ryan's direct instruction — reuse the existing
-// "tool sheet" hover tooltips everywhere, not just the sidebar) — was
-// hardcoded to .page-nav only; now matches ANY element carrying a
+// (right rail — opening rightward there would render off-screen); 'below'
+// opens directly under the item, centered — for a tightly-packed row of
+// buttons (an action bar) where opening sideways runs the tooltip straight
+// over a neighboring button instead of past it, no matter which way it
+// flips. Generalized 2026-08-12 (Ryan's direct instruction — reuse the
+// existing "tool sheet" hover tooltips everywhere, not just the sidebar) —
+// was hardcoded to .page-nav only; now matches ANY element carrying a
 // data-tip attribute, so the same mechanism works for action-bar buttons
 // and popup content too, without a separate tooltip system.
+//
+// pageTipCurrentTarget/pageTipHideTimer are module-level (not per-call
+// closures) on purpose — every initPageTooltips() call, across every
+// container, shares the one #pageHoverTip element, so the "is something
+// already showing, for a different item" check has to be shared too.
+// Ryan caught the real symptom directly, 2026-08-12: hovering quickly
+// across Import/Browse Template/Add Account (three buttons with almost no
+// gap between them) re-pointed the tooltip at the new item and re-added
+// '.show' in the same tick the old one's fade-out (.12s CSS transition)
+// was still mid-flight — so the box visibly snapped to new text/position
+// while still fading in from the previous hover, reading as two tooltips
+// overlapping. Fix: moving to a different item hides the current tooltip
+// first and only shows the new one after a beat long enough for that
+// fade-out to actually finish, so one always genuinely closes before the
+// next one opens, matching Ryan's own description of what was needed.
+let pageTipCurrentTarget=null;
+let pageTipHideTimer=null;
 function initPageTooltips(containerId,side){
   const tip=document.getElementById('pageHoverTip');
   const nav=document.getElementById(containerId);
   if(!tip||!nav)return;
-  nav.addEventListener('mouseover',(e)=>{
-    const item=e.target.closest('[data-tip]');
-    if(!item)return;
+  function showTipFor(item){
     tip.textContent=item.dataset.tip||'';
     const r=item.getBoundingClientRect();
-    // Auto-flip past the passed-in `side`, 2026-08-12 (Ryan's direct
-    // instruction — a real bug he ran into, not hypothetical): page-action-
-    // bar-1 is configured 'right' because most of its buttons sit safely
-    // left-of-center, but Import/Browse Template now live far-right, right
-    // next to the page heading — opening a ~260px tooltip rightward from
-    // there ran it straight off the edge of the screen, unreadable. Rather
-    // than hardcode a different side just for this one bar (which would
-    // just move the same problem to whichever button ends up on the
-    // opposite edge later), check real available space every time and
-    // flip leftward whenever the tooltip's max-width wouldn't fit.
-    const TIP_MAX_WIDTH=260;
-    const opensLeft=side==='left'?true:(r.right+8+TIP_MAX_WIDTH>window.innerWidth);
-    if(opensLeft){
-      tip.style.right=(window.innerWidth-r.left+8)+'px';
-      tip.style.left='auto';
-    } else {
-      tip.style.left=(r.right+8)+'px';
+    if(side==='below'){
+      const TIP_MAX_WIDTH=260;
+      tip.style.left=Math.min(Math.max(8,r.left+r.width/2-TIP_MAX_WIDTH/2),window.innerWidth-8-TIP_MAX_WIDTH)+'px';
       tip.style.right='auto';
+      tip.style.top=(r.bottom+8)+'px';
+      tip.style.transform='none';
+    } else {
+      // Auto-flip past the passed-in `side`, 2026-08-12 (Ryan's direct
+      // instruction — a real bug he ran into, not hypothetical): a ~260px
+      // tooltip opening toward the near edge of the window runs straight
+      // off-screen, unreadable. Check real available space every time and
+      // flip toward whichever side actually has room, rather than trusting
+      // a single hardcoded direction for the whole container.
+      const TIP_MAX_WIDTH=260;
+      const opensLeft=side==='left'?true:(r.right+8+TIP_MAX_WIDTH>window.innerWidth);
+      if(opensLeft){
+        tip.style.right=(window.innerWidth-r.left+8)+'px';
+        tip.style.left='auto';
+      } else {
+        tip.style.left=(r.right+8)+'px';
+        tip.style.right='auto';
+      }
+      tip.style.top=(r.top+r.height/2)+'px';
+      tip.style.transform='translateY(-50%)';
     }
-    tip.style.top=(r.top+r.height/2)+'px';
-    tip.style.transform='translateY(-50%)';
     tip.classList.add('show');
+  }
+  nav.addEventListener('mouseover',(e)=>{
+    const item=e.target.closest('[data-tip]');
+    if(!item||item===pageTipCurrentTarget)return;
+    clearTimeout(pageTipHideTimer);
+    const switchingFromAnother=!!pageTipCurrentTarget;
+    pageTipCurrentTarget=item;
+    if(switchingFromAnother){
+      // Something else was already showing — close it first, then open
+      // the new one only once that fade-out has actually had time to
+      // finish (CSS transition is .12s; 140ms gives it a clean beat).
+      tip.classList.remove('show');
+      pageTipHideTimer=setTimeout(()=>{ if(pageTipCurrentTarget===item) showTipFor(item); },140);
+    } else {
+      showTipFor(item);
+    }
   });
   nav.addEventListener('mouseout',(e)=>{
     const item=e.target.closest('[data-tip]');
     if(!item)return;
     if(e.relatedTarget&&item.contains(e.relatedTarget))return;
+    clearTimeout(pageTipHideTimer);
+    if(pageTipCurrentTarget===item)pageTipCurrentTarget=null;
     tip.classList.remove('show');
   });
 }
