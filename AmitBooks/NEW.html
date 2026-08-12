@@ -505,7 +505,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.86</div>
+      <div class="page-version" id="pageVersion">v1.87</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4067,14 +4067,25 @@ async function importCommitCoa(){
     // EXISTING one wasn't picked in Step 1), right before the first real
     // row gets written — not back in Step 1 (see importWizardStep1Continue's
     // comment for why eager creation there was a real bug).
+    //
+    // Real bug, caught 2026-08-12 (Ryan, importing 186 accounts into an
+    // already-selected book via openImportForAccountsTab): that entry
+    // point only sets bookId (the book you're already looking at) and
+    // deliberately leaves companyId null — a company is only ever needed
+    // as the parent of a BRAND NEW book, not an existing one. The old
+    // code created a company any time companyId was null, regardless of
+    // whether bookId was already known, so it tried to insert a company
+    // with name:null (importWizardPendingNewCompanyName was never set in
+    // this path) and hit the not-null constraint. Company creation now
+    // only runs when a new book is actually about to be created too.
     let companyId=importWizardPendingCompanyId;
-    if(!companyId){
+    let bookId=importWizardPendingBookId;
+    if(!bookId&&!companyId){
       const{data:newCo,error}=await db.from('companies').insert({name:importWizardPendingNewCompanyName,user_id:currentUser.id}).select().single();
       if(error){ status.textContent='Error creating company: '+error.message; return; }
       companyId=newCo.id;
       USER_COMPANIES.push(newCo);
     }
-    let bookId=importWizardPendingBookId;
     if(!bookId){
       const{data:newBook,error:bookErr}=await db.from('books').insert({user_id:currentUser.id,name:importWizardPendingBookName,company_id:companyId}).select().single();
       if(bookErr){ status.textContent='Error creating book: '+bookErr.message; return; }
