@@ -468,7 +468,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.52</div>
+      <div class="page-version" id="pageVersion">v1.53</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1798,16 +1798,36 @@ async function abRenderNomenclature(){
     <button class="ab-btn" ${activeFields.length?'':'disabled style="background:transparent;color:var(--muted);cursor:not-allowed"'} onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
 
     <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Pull Pieces Into This Book</div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Double-click a preset to see exactly what it offers and pick only what you want — not all-or-nothing. Mix pieces from several industries into one book; the count on each card shows how many of its fields/values are currently active here.</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Hover a card to see who it's for and what it sets up. Double-click to see exactly what it offers and pick only what you want — not all-or-nothing. Mix pieces from several industries into one book; the count on each card shows how many of its fields/values are currently active here.</div>
     <div style="display:flex;flex-wrap:wrap;gap:10px">
       ${abNomenclaturePresetsCache.map(p=>{
         const count=abNomenclaturePresetCount(p.id);
-        return `<div ondblclick="abOpenPresetPicker('${p.preset_key}')" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer" title="Double-click to choose which fields/values to pull in">
+        const desc=AB_INDUSTRY_PRESET_DESCRIPTIONS[p.preset_key]||'';
+        return `<div ondblclick="abOpenPresetPicker('${p.preset_key}')" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer" title="${abEsc(desc?desc+' — Double-click to choose which fields/values to pull in.':'Double-click to choose which fields/values to pull in.')}">
           <div style="font-weight:600">${abEsc(p.display_name)}${count?` <span style="color:var(--gold2);font-weight:400">(${count})</span>`:''}${p.id===currentPresetId?' <span style="font-size:10px;color:#8fd19e;font-weight:400">— started here</span>':''}</div>
+          ${desc?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${abEsc(desc)}</div>`:''}
         </div>`;
       }).join('')}
     </div>`;
 }
+// Short "who this is for / what it sets up" descriptions, shown on hover
+// (native title attribute) AND inline on the card itself — Ryan's direct
+// instruction, 2026-08-12: tell the person what's underneath a preset
+// without making them double-click first. Keyed by preset_key, matching
+// industry_presets.preset_key (migration_2026-08-02_001). Plain
+// client-side map, not a database column — this is describing a fixed,
+// small, rarely-changing catalog, not per-book data.
+const AB_INDUSTRY_PRESET_DESCRIPTIONS={
+  construction:'For contractors and builders — sets up Job, Scope, Cost Code, Phase, PO, and Equipment tracking.',
+  restaurant:'For restaurants and food service — sets up Shift/Service and menu-style classification instead of job costing.',
+  personal:'For a personal budget, not a business — light classification, no job costing.',
+  nonprofit:'For nonprofits — sets up Grant, Funding Source, and Fiscal Period tracking for restricted-fund reporting.',
+  agriculture:'For farms and agricultural operations — sets up field/crop-style classification.',
+  logistics:'For trucking and logistics — sets up route/load-style classification and Equipment tracking.',
+  law_agency:'For law firms and agencies — sets up Client Matter and Billable/Non-Billable/Pass-Through status tracking.',
+  freelance:'For freelancers and solo consultants — a lighter setup, minimal classification overhead.',
+  custom:'Start from nothing and build your own field names from scratch.'
+};
 
 function abNomenclaturePresetCount(presetId){
   const f=(abNomenclatureFieldsCache||[]).filter(x=>x.active&&x.source_preset_id===presetId).length;
