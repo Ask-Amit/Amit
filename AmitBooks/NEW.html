@@ -535,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.91</div>
+      <div class="page-version" id="pageVersion">v1.92</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -741,7 +741,8 @@ const TODO_ITEMS=[
   'IMPORT QUICKBOOKS — step 5, Journal (transactions): port the existing, already-working Journal CSV importer from AmitBooks.html (Books &amp; Setup → Import QuickBooks — auto-detects Date/Account/Debit/Credit columns, groups into transactions, interactive review before commit, posts real journal_entries/journal_lines tagged to a qb_import_batches row) into New, wired to the book resolved in step 1 and the accounts/contacts confirmed in steps 2-3 rather than re-inferring them.',
   'IMPORT QUICKBOOKS — step 6, Open Items (A/P &amp; A/R): QuickBooks\' A/P Aging Detail / Open Invoices reports, to create real structured invoices_bills rows (with due dates, matching what "Owed to You"/"You Owe" on the Books tab expects) instead of just the account-balance effect the Journal alone provides. Most fragile piece — report formats vary more across QuickBooks versions/company files than the others; build and test last, against a real BOSS export.',
   'Wire Terminology\'s saved labels everywhere else — most tabs still show hardcoded words. Clients and Scopes are done (abFieldLabel/book_field_settings, live update via abApplyClientTerminology/abApplyScopeTerminology); apply the same pattern to the rest (Accounts, Terminology\'s own remaining hardcoded strings, Contacts) once the remaining tabs above are ported.',
-  'Decide what belongs on Tab 5 of the Books page (still a placeholder).'
+  'Decide what belongs on Tab 5 of the Books page (still a placeholder).',
+  'Stale-account cleanup pass, once Journal import (step 5 above) is real — Ryan\'s direct instruction, 2026-08-12: rather than trying to filter accounts OUT at Chart of Accounts import time (QuickBooks\' Account Listing report carries no transaction-date data at all, so there\'s nothing to filter recency by at that point), bring the full chart over as-is now, then once real journal_entries/journal_lines exist per account, add a way to see which accounts show zero activity/zero balance over the retention window (he named two years live + a third year kept, matching standard tax record-keeping) and delete those then — using the existing Delete Account flow, which already hard-blocks (v1.81) if an account turns out to have real activity attached, so this is safe even if judged too early. A separate, independent idea from the same conversation, not yet scoped: when an account genuinely is excluded/retired this way, consider posting one summary "Opening Balance" journal entry capturing its balance as of the cutover, noting the prior accounting system by name, instead of just silently dropping the number — real bookkeeping practice, but its own decision, not required for the cleanup pass above to work.'
 ];
 function renderAllPages(){
   const nav=document.getElementById('sidebarPages');
