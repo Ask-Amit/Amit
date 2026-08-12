@@ -378,14 +378,23 @@ header{
 .rv-col-resizer{position:absolute;top:0;right:-3px;width:6px;height:100%;cursor:col-resize;z-index:3;user-select:none}
 .rv-col-resizer:hover,.rv-col-resizer.resizing{background:rgba(201,168,76,.4)}
 .rv-table tr.rv-row:hover td{background:rgba(255,255,255,.04)}
-/* Almond tint, not the old near-invisible 2% white — Ryan's direct
-   instruction, 2026-08-12: sub-account rows (Chart of Accounts and any
-   other Row View table using child nesting) need to actually read as
-   nested at a glance, not just slightly muted. Warm gold-family tan
-   rather than a random color, so it still belongs to the page's own
-   palette instead of looking like an unrelated highlight. */
-.rv-table tr.rv-child td{background:rgba(201,168,76,.1);color:var(--muted)}
-.rv-table tr.rv-child:hover td{background:rgba(201,168,76,.16)}
+/* Cream/parchment, matching the Hub's own calendar day-view cards
+   (amit-hub.html .cal-dv-main.dv-today, #f5eed8) — Ryan's direct
+   instruction, 2026-08-12, naming that exact color by where he'd seen it
+   used already, replacing the almond/gold tint from the same day. Dark
+   ink text instead of --muted since --muted is tuned for the dark navy
+   background, not a light one. The group of child rows under one master
+   account is boxed as its own block: rv-child-first/-last (assigned in
+   rvRenderInstance, a group boundary is exactly a transition into/out of
+   isChild) draw the top/bottom edge, every child row's first/last cell
+   draws the left/right edge — together one rectangle enclosing the whole
+   sub-account group, not a border around each row individually. */
+.rv-table tr.rv-child td{background:#f5eed8;color:#2b2013}
+.rv-table tr.rv-child:hover td{background:#efe4c4}
+.rv-table tr.rv-child-first td{border-top:2px solid #3b6ea5}
+.rv-table tr.rv-child-last td{border-bottom:2px solid #3b6ea5}
+.rv-table tr.rv-child td:first-child{border-left:2px solid #3b6ea5}
+.rv-table tr.rv-child td:last-child{border-right:2px solid #3b6ea5}
 .rv-table tr.rv-row.focused td{background:rgba(201,168,76,.1)}
 /* Full box around the focused row — replacing the old thin left bar,
    added 2026-08-07, Ryan's direct instruction: with several columns
@@ -526,7 +535,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v1.90</div>
+      <div class="page-version" id="pageVersion">v1.91</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5379,11 +5388,22 @@ function rvRenderInstance(containerId){
     return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${prefix}${r[c.key]||''}</span></td>`;
   };
   const flat=rvFlattenVisible(inst,rows);
-  const rowsHtml=flat.map(({item:r,isChild})=>{
+  // Ryan's direct instruction, 2026-08-12: the child rows under a master
+  // account should read as their own enclosed block, not just individually
+  // tinted rows — first/last-in-group gets a border top/bottom, every
+  // child row gets it left/right, so together they draw one rectangle
+  // around the whole sub-account group (see .rv-child-first/-last CSS).
+  // Flattening is depth-first per parent (a parent's children always sit
+  // immediately after it, before the next top-level item), so a group
+  // boundary is exactly a transition into/out of isChild.
+  const rowsHtml=flat.map(({item:r,isChild},idx)=>{
     const hasKids=r.children&&r.children.length;
     const expanded=inst.expanded.has(r.id);
     const focused=inst.focusedRowId===r.id;
-    return `<tr class="${isChild?'rv-child':'rv-row'}${focused?' focused':''}" onclick="rvSetFocus('${containerId}','${r.id}')" ondblclick="rvHandleRowOpen('${containerId}','${r.id}')">
+    const firstInGroup=isChild&&!flat[idx-1]?.isChild;
+    const lastInGroup=isChild&&!flat[idx+1]?.isChild;
+    const groupCls=isChild?`${firstInGroup?' rv-child-first':''}${lastInGroup?' rv-child-last':''}`:'';
+    return `<tr class="${isChild?'rv-child':'rv-row'}${groupCls}${focused?' focused':''}" onclick="rvSetFocus('${containerId}','${r.id}')" ondblclick="rvHandleRowOpen('${containerId}','${r.id}')">
       ${inst.selectable?`<td><input type="checkbox" ${inst.selected.has(r.id)?'checked':''} onclick="event.stopPropagation();rvToggleRowSelect('${containerId}','${r.id}')"></td>`:''}
       ${inst.hideExpandColumn?'':`<td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>`}
       ${inst.columns.map((c,idx)=>cellHtml(r,c,idx,isChild)).join('')}
