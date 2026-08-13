@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.06</div>
+      <div class="page-version" id="pageVersion">v2.07</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4606,7 +4606,12 @@ async function importCommitItems(){
     status.textContent=`Imported ${rows.length} Scope(s)${missingList.length?`, created ${missingList.length} account(s)`:''}${skipped?`, ${skipped} skipped (already existed)`:''}.`;
     logThreadEntry(`Imported ${rows.length} Scopes from QuickBooks into the current book${missingList.length?` (created ${missingList.length} new account(s) they referenced)`:''}.`);
     await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
-    setTimeout(()=>popupClose(),1600);
+    // Ryan's direct instruction, 2026-08-12: after Scopes lands (the last
+    // of the "backbone" pieces — Accounts, Scopes, Terminology, Books),
+    // run the real readiness check automatically instead of just closing.
+    // Same popup destination, so this replaces the success message rather
+    // than stacking a second dialog on top of it.
+    setTimeout(()=>abRunSetupHealthCheck(),1600);
   } finally {
     importItemsCommitInFlight=false;
   }
@@ -4893,6 +4898,47 @@ async function importCommitVendors(){
   } finally {
     importVendorsCommitInFlight=false;
   }
+}
+
+// ══════════════════════════════════════════════
+// SETUP READINESS CHECK — Ryan's direct instruction, 2026-08-12: after
+// importing (or building by hand), Amit should look through the book and
+// name what's still missing before anyone moves on to Bills & Invoices —
+// "make sure all the backbone's there." Real, current-state scans against
+// this book's own data, not a static checklist — every gap named here can
+// be jumped to directly. Deliberately read-only: this never changes
+// anything on its own, it only surfaces what a person (or a future
+// automated pass) still needs to decide.
+async function abRunSetupHealthCheck(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  popupOpen(`<div class="dv-sub-h">Checking Readiness…</div><div class="fv-status">Scanning Accounts, Scopes, and Terminology for this book…</div>`);
+  const scopeLabel=abFieldLabel('scope','Scope');
+  const scopeLabelPlural=abPluralize(scopeLabel);
+  const[{data:accts},{data:scopeRows},{data:fieldSettings}]=await Promise.all([
+    db.from('chart_of_accounts').select('id,account_name,account_number,tax_category').eq('book_id',abBookId),
+    db.from('items').select('id,name,expense_account_id,income_account_id').eq('book_id',abBookId),
+    db.from('book_field_settings').select('id').eq('book_id',abBookId).limit(1)
+  ]);
+  const noTax=(accts||[]).filter(a=>!a.tax_category);
+  const noNumber=(accts||[]).filter(a=>!a.account_number);
+  const scopesNoCost=(scopeRows||[]).filter(s=>!s.expense_account_id);
+  const scopesNoBillable=(scopeRows||[]).filter(s=>!s.income_account_id);
+  const terminologyUntouched=!fieldSettings||!fieldSettings.length;
+  const listHtml=(rows,nameKey)=>rows.length?`<div style="font-size:12px;color:var(--muted);margin:4px 0 10px 14px">${rows.slice(0,8).map(r=>abEsc(r[nameKey])).join(', ')}${rows.length>8?`, and ${rows.length-8} more`:''}</div>`:'';
+  const rowsHtml=[
+    {count:noTax.length,label:'Account(s) with no Tax Category set',rows:noTax,key:'account_name',jump:"showChTab(1,2,document.getElementById('ch-tab-1-2-btn'));popupClose()"},
+    {count:noNumber.length,label:'Account(s) with no account number',rows:noNumber,key:'account_name',jump:"showChTab(1,2,document.getElementById('ch-tab-1-2-btn'));popupClose()"},
+    {count:scopesNoCost.length,label:`${abEsc(scopeLabelPlural)} with no Cost Account`,rows:scopesNoCost,key:'name',jump:"showChTab(1,3);popupClose()"},
+    {count:scopesNoBillable.length,label:`${abEsc(scopeLabelPlural)} with no Billable Account`,rows:scopesNoBillable,key:'name',jump:"showChTab(1,3);popupClose()"}
+  ].filter(x=>x.count).map(x=>`<div style="margin-bottom:8px"><span style="color:#f0a8a8">⚠ ${x.count}</span> ${x.label} <a href="#" onclick="${x.jump};return false" style="color:var(--gold2);font-size:12px;margin-left:6px">Review →</a>${listHtml(x.rows,x.key)}</div>`).join('');
+  const terminologyHtml=terminologyUntouched?`<div style="margin-bottom:8px"><span style="color:#f0a8a8">⚠</span> Terminology hasn't been customized for this book yet — still using default field names. <a href="#" onclick="showChTab(1,4,document.getElementById('ch-tab-1-4-btn'));popupClose();return false" style="color:var(--gold2);font-size:12px;margin-left:6px">Review →</a></div>`:'';
+  const nothingFound=!rowsHtml&&!terminologyHtml;
+  popupOpen(`
+    <div class="dv-sub-h">Checking Readiness</div>
+    ${nothingFound
+      ?`<div class="fv-status" style="color:#8fd19e">Nothing outstanding found — ${accts?.length||0} account(s) and ${scopeRows?.length||0} ${abEsc(scopeLabelPlural.toLowerCase())} all have what they need. This book looks ready to build on top of.</div>`
+      :`<div class="fv-status" style="margin-bottom:10px">Real gaps found in this book, checked just now — nothing here blocks you from continuing, but these are worth closing before Bills & Invoices depend on them being right.</div>${rowsHtml}${terminologyHtml}`}
+    <button class="fv-save" style="margin-top:14px" onclick="popupClose()">Close</button>`);
 }
 
 // Custom cellRenderer for the Company column (see the cellRenderer hook
@@ -6552,6 +6598,7 @@ function renderPageActionBar(detailNum,tabNum){
       // gets imported, so the button belongs where that screen lives, not
       // here alongside company/book management.
       bar.innerHTML=`<button class="page-action-btn" onclick="openCompanyEditPopup(null,null,'')" data-tip="Add another company — useful if you run more than one, each gets its own dashboard, books, and reports."><span>+</span>Add New Company</button>
+        ${abBookId?`<button class="page-action-btn" onclick="abRunSetupHealthCheck()" data-tip="Scan the current book for real gaps — accounts missing a Tax Category, Scopes missing a Cost or Billable account — before moving on to Bills and Invoices."><span>✓</span>Check Readiness</button>`:''}
         <button class="page-action-btn" onclick="openBackupPicker()" data-tip="Download a full copy of a company or book right now — a real safety net you can keep, not just something that happens when deleting."><span>⬇</span>Backup</button>
         <button class="page-action-btn" onclick="openRestorePopup()" data-tip="Bring a downloaded backup back in — as a new book or company, named however you want (a tax year, a fresh copy, whatever fits)."><span>⬆</span>Restore From Backup</button>
         <span style="cursor:pointer;color:#c97a7a;opacity:.7;font-size:11px;margin-left:14px;align-self:center" onclick="openDeleteEverythingPopup()" title="Wipe every company, book, and contact under your account — for starting fresh">Reset — Clear Everything</span>`;
