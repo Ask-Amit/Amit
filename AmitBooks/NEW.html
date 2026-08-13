@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.52</div>
+      <div class="page-version" id="pageVersion">v2.53</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6598,7 +6598,6 @@ async function importCommitClients(){
 // ══════════════════════════════════════════════
 function openImportForInvoicesTab(){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
-  if(!abSelectedClientId){ abAlert('Select a client on the Clients tab first — Invoices import matches against that client\'s (and everyone else\'s already-imported) real jobs.'); return; }
   openImportStepInvoices();
 }
 let importParsedInvoices=null;
@@ -6613,7 +6612,7 @@ function openImportStepInvoices(){
         <li>Click <b>OK</b>, then save the file</li>
         <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
       </ol>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Import Clients/Jobs first if you haven't — invoices match against real jobs already in the book, they don't create new ones. Actual payments received aren't in this file (QuickBooks tracks those as separate transactions) — only whether QuickBooks marked an invoice fully paid comes across; everything else lands with $0 received, editable by hand afterward.</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Pulls in every invoice from the file — outstanding and already-cleared/paid alike — dated within the past two years. Older ones are left out of this pass. Each one is matched against real Clients/Jobs already in this book automatically; anything that can't be matched gets its own Client/Job pickers right in the review table below so it doesn't just get skipped — assign it there, then import. Actual payments received aren't in this file (QuickBooks tracks those as separate transactions) — only whether QuickBooks marked an invoice fully paid comes across; everything else lands with $0 received, editable by hand afterward.</div>
     </div>
     ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
     <input type="file" id="importInvoicesFile" accept=".iif" onchange="importInvoicesFileChosen(this.files[0])">
@@ -6621,16 +6620,36 @@ function openImportStepInvoices(){
     <div class="fv-status" id="importInvoicesStatus" style="margin-top:10px"></div>`);
   if(lastImportFile) importInvoicesFileChosen(lastImportFile);
 }
+// Full book-wide list of real Customer-labeled contacts, for the
+// unmatched-row Client picker — same lookup openAddJobPopup already uses.
+async function loadBookCustomerContacts(){
+  const customerLabel=(abContactLabels||[]).find(l=>l.label.toLowerCase()==='customer');
+  const{data:links}=customerLabel?await db.from('contact_label_links').select('contact_id').eq('book_id',abBookId).eq('label_id',customerLabel.id):{data:[]};
+  const contactIds=(links||[]).map(l=>l.contact_id);
+  const{data:clients}=contactIds.length?await db.from('contacts').select('id,name').in('id',contactIds).order('name'):{data:[]};
+  return clients||[];
+}
 async function importInvoicesFileChosen(file){
   if(!file)return;
   lastImportFile=file;
   const status=document.getElementById('importInvoicesStatus');
   status.textContent='Reading file…';
   if(!(file.name||'').toLowerCase().endsWith('.iif')){ status.textContent='Invoices only import from the .IIF export right now — see the walkthrough above.'; return; }
-  const parsed=importParseIifInvoices(await file.text());
+  let parsed=importParseIifInvoices(await file.text());
   if(!parsed||!parsed.length){ status.textContent='No invoices found in that file — make sure "Transactions" was checked in the export dialog.'; return; }
+  // Past two years only — Ryan's direct instruction, 2026-08-14, "even
+  // ones that have been cleared, so that way we have two years of history
+  // behind us." Applied by date, not by paid/unpaid status — a cleared
+  // invoice from within the window still comes in, one from outside it
+  // doesn't. An invoice with no readable date is kept rather than guessed
+  // away — no honest basis to exclude it.
+  const cutoff=new Date(); cutoff.setFullYear(cutoff.getFullYear()-2);
+  const cutoffIso=cutoff.toISOString().slice(0,10);
+  const beforeCount=parsed.length;
+  parsed=parsed.filter(inv=>!inv.docDate||inv.docDate>=cutoffIso);
   status.textContent='Matching against real jobs in this book…';
   const jobIndex=await loadJobMatchIndex();
+  importInvoicesClientOptions=await loadBookCustomerContacts();
   importParsedInvoices=parsed.map(inv=>{
     const parts=inv.name.split(':').map(p=>p.trim()).filter(Boolean);
     const specificKey=parts.length>=2?(parts[0]+':'+parts[parts.length-1]).toLowerCase():null;
@@ -6639,8 +6658,9 @@ async function importInvoicesFileChosen(file){
     return{...inv,jobId:match?match.jobId:null,contactId:match?match.contactId:null};
   });
   renderImportInvoicesReview();
-  status.textContent='';
+  status.textContent=beforeCount>parsed.length?`${beforeCount-parsed.length} invoice(s) older than two years left out of this import.`:'';
 }
+let importInvoicesClientOptions=[];
 // Builds Customer[:Job]-path → {jobId,contactId} for every real job in the
 // book, plus a bare-Customer-name entry pointing at that client's own
 // default job (name matching the client, per the auto-create standard) —
@@ -6704,22 +6724,83 @@ function importParseIifInvoices(text){
   }
   return invoices;
 }
+// Unmatched rows (Customer/Job in the file doesn't line up with anything
+// real in this book) get their own inline Client + Job pickers right in
+// the table — Ryan's direct instruction, 2026-08-14: "it should come up
+// and say, please assign a job and a [client] to these outstanding
+// invoices," rather than importing all invoices under one client at a
+// time or silently skipping what doesn't match.
 function renderImportInvoicesReview(){
   const el=document.getElementById('importInvoicesReview'); if(!el)return;
   const matched=importParsedInvoices.filter(i=>i.jobId);
   const unmatched=importParsedInvoices.filter(i=>!i.jobId);
-  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${matched.length} invoice(s) matched to real jobs${unmatched.length?`, ${unmatched.length} unmatched (their Customer/Job wasn't found — import Clients/Jobs first, then re-import this file)`:''}.</div>
+  const clientOptionsHtml=`<option value="__new__">+ Add New Client…</option>`+importInvoicesClientOptions.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('');
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${matched.length} invoice(s) matched to real jobs automatically${unmatched.length?`, ${unmatched.length} need a Client/Job assigned below before they can be imported`:''}.</div>
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importInvoicesSelectAll(true)">Select All Matched</button>
+      <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importInvoicesSelectAll(true)">Select All Ready</button>
       <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importInvoicesSelectAll(false)">Deselect All</button>
     </div>
-    <table class="ab-table"><tr><th></th><th>Customer:Job</th><th>Invoice #</th><th>Date</th><th>Amount</th><th>Status</th></tr>
-    ${importParsedInvoices.map((inv,i)=>`<tr${inv.jobId?'':' style="opacity:.5"'}><td><input type="checkbox" class="import-invoice-check" data-idx="${i}" ${inv.jobId?'checked':'disabled'}></td><td>${abEsc(inv.name)}</td><td>${abEsc(inv.docNum||'—')}</td><td style="font-size:12px">${abEsc(inv.docDate||'—')}</td><td>${abMoneyFmt(inv.amount)}</td><td style="font-size:12px">${inv.jobId?'Matched':'Unmatched'}</td></tr>`).join('')}
+    <table class="ab-table"><tr><th></th><th>Customer:Job (from file)</th><th>Invoice #</th><th>Date</th><th>Amount</th><th>Assign</th></tr>
+    ${importParsedInvoices.map((inv,i)=>inv.jobId?
+      `<tr><td><input type="checkbox" class="import-invoice-check" data-idx="${i}" checked></td><td>${abEsc(inv.name)}</td><td>${abEsc(inv.docNum||'—')}</td><td style="font-size:12px">${abEsc(inv.docDate||'—')}</td><td>${abMoneyFmt(inv.amount)}</td><td style="font-size:12px;color:#7ec98a">Matched</td></tr>`
+      :
+      `<tr style="opacity:.85"><td><input type="checkbox" class="import-invoice-check" data-idx="${i}"></td><td>${abEsc(inv.name)}</td><td>${abEsc(inv.docNum||'—')}</td><td style="font-size:12px">${abEsc(inv.docDate||'—')}</td><td>${abMoneyFmt(inv.amount)}</td><td>
+        <select class="fv-input" style="font-size:11px;padding:3px 6px;margin-bottom:3px" id="invAssignClient-${i}" onchange="invAssignClientChanged(${i})"><option value="">— Client —</option>${clientOptionsHtml}</select>
+        <select class="fv-input" style="font-size:11px;padding:3px 6px" id="invAssignJob-${i}" disabled><option value="">— Job —</option></select>
+      </td></tr>`
+    ).join('')}
     </table>
-    <button class="fv-save" style="margin-top:14px" onclick="importCommitInvoices()">Import Matched</button>`;
+    <button class="fv-save" style="margin-top:14px" onclick="importCommitInvoices()">Import Selected</button>`;
+}
+// "+ Add New Client…" right in the unmatched row's own picker — Ryan's
+// direct instruction, 2026-08-14: "we should be able to add clients
+// directly from that spot in case a client doesn't exist," rather than
+// having to abandon the import and go create one on the Clients tab
+// first. Creates a real contact (Customer-labeled) plus its own default
+// job (name matching the client), same standard as everywhere else a
+// client is created — then re-opens this same review with the new client
+// already available in every row's picker, not just this one.
+async function invAssignClientChanged(i){
+  const clientSel=document.getElementById('invAssignClient-'+i);
+  if(clientSel.value==='__new__'){
+    const name=await abPrompt('New Client Name');
+    if(!name||!name.trim()){ reopenImportInvoicesPopup(); return; }
+    const customerLabel=await ensureCustomerLabel();
+    const{data,error}=await db.from('contacts').insert({book_id:abBookId,name:name.trim()}).select().single();
+    if(error){ abAlert(error.message); reopenImportInvoicesPopup(); return; }
+    if(customerLabel) await db.from('contact_label_links').insert({book_id:abBookId,contact_id:data.id,label_id:customerLabel.id});
+    await db.from('jobs').insert({book_id:abBookId,contact_id:data.id,name:data.name,status:'active'});
+    importInvoicesClientOptions.push({id:data.id,name:data.name});
+    importInvoicesClientOptions.sort((a,b)=>a.name.localeCompare(b.name));
+    reopenImportInvoicesPopup();
+    setTimeout(()=>{
+      const sel=document.getElementById('invAssignClient-'+i);
+      if(sel){ sel.value=data.id; invAssignClientChanged(i); }
+    },0);
+    return;
+  }
+  const jobSel=document.getElementById('invAssignJob-'+i);
+  const checkbox=document.querySelector(`.import-invoice-check[data-idx="${i}"]`);
+  const clientId=clientSel.value;
+  if(!clientId){ jobSel.disabled=true; jobSel.innerHTML='<option value="">— Job —</option>'; checkbox.checked=false; return; }
+  jobSel.disabled=false;
+  jobSel.innerHTML='<option value="">Loading…</option>';
+  const jobs=await loadAllJobsForBook(clientId);
+  jobSel.innerHTML='<option value="">— Job —</option>'+jobs.map(j=>`<option value="${j.id}">${abEsc(j.name)}</option>`).join('');
+  checkbox.checked=false;
+}
+// Redraws the review popup from already-parsed state (importParsedInvoices/
+// importInvoicesClientOptions) without re-reading or re-matching the file —
+// used after creating a client mid-review so nothing already assigned is lost.
+function reopenImportInvoicesPopup(){
+  popupOpen(`
+    <div class="dv-sub-h">Invoices (from QuickBooks)</div>
+    <div id="importInvoicesReview"></div>
+    <div class="fv-status" id="importInvoicesStatus" style="margin-top:10px"></div>`);
+  renderImportInvoicesReview();
 }
 function importInvoicesSelectAll(state){
-  document.querySelectorAll('.import-invoice-check').forEach(cb=>{ if(!cb.disabled) cb.checked=state; });
+  document.querySelectorAll('.import-invoice-check').forEach(cb=>{ cb.checked=state; });
 }
 let importInvoicesCommitInFlight=false;
 async function importCommitInvoices(){
@@ -6727,9 +6808,21 @@ async function importCommitInvoices(){
   importInvoicesCommitInFlight=true;
   try{
     const status=document.getElementById('importInvoicesStatus');
-    const checkedIdx=new Set(Array.from(document.querySelectorAll('.import-invoice-check:checked')).map(cb=>Number(cb.dataset.idx)));
-    const toImport=importParsedInvoices.filter((inv,i)=>checkedIdx.has(i));
-    if(!toImport.length){ status.textContent='Nothing selected — check at least one matched invoice to import.'; return; }
+    const checkedIdx=Array.from(document.querySelectorAll('.import-invoice-check:checked')).map(cb=>Number(cb.dataset.idx));
+    // A checked row that was unmatched needs a real Job selected in its own
+    // picker before it's importable — read that here rather than relying
+    // on the parsed jobId, since assignment happens live in the DOM.
+    const toImport=[];
+    for(const i of checkedIdx){
+      const inv=importParsedInvoices[i];
+      if(inv.jobId){ toImport.push(inv); continue; }
+      const jobSel=document.getElementById('invAssignJob-'+i);
+      const clientSel=document.getElementById('invAssignClient-'+i);
+      if(jobSel&&jobSel.value&&clientSel&&clientSel.value&&clientSel.value!=='__new__'){
+        toImport.push({...inv,jobId:jobSel.value,contactId:clientSel.value});
+      }
+    }
+    if(!toImport.length){ status.textContent='Nothing ready to import — check a row and, if it needs one, assign it a Client and Job first.'; return; }
     status.textContent='Importing…';
     const rows=toImport.map(inv=>({
       book_id:abBookId, job_id:inv.jobId, contact_id:inv.contactId,
