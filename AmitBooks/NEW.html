@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.13</div>
+      <div class="page-version" id="pageVersion">v2.14</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2962,15 +2962,23 @@ async function abSaveNomenclatureEditor(){
 // ══════════════════════════════════════════════
 let abContacts=[];
 let abContactAttachCounts={};
+// contactId -> [labelId,...]. Replaces the old fixed label1_id..label4_id
+// columns (migration_2026-08-13_003) — a contact can now carry any number
+// of labels, not just up to four. Those four columns still exist on the
+// row (untouched, for rollback safety) but the app no longer reads them.
+let abContactLabelMap={};
 async function abLoadContacts(){
-  if(!abBookId||!db||!currentUser){abContacts=[];abContactAttachCounts={};return;}
+  if(!abBookId||!db||!currentUser){abContacts=[];abContactAttachCounts={};abContactLabelMap={};return;}
   const{data}=await db.from('contacts').select('*').eq('book_id',abBookId).order('name');
   abContacts=data||[];
   abContactAttachCounts={};
+  abContactLabelMap={};
   const ids=abContacts.map(c=>c.id);
   if(ids.length){
     const{data:atts}=await db.from('contact_attachments').select('contact_id').in('contact_id',ids);
     (atts||[]).forEach(a=>{ abContactAttachCounts[a.contact_id]=(abContactAttachCounts[a.contact_id]||0)+1; });
+    const{data:links}=await db.from('contact_label_links').select('contact_id,label_id').in('contact_id',ids);
+    (links||[]).forEach(l=>{ (abContactLabelMap[l.contact_id]=abContactLabelMap[l.contact_id]||[]).push(l.label_id); });
   }
 }
 function abRoleTags(c){
@@ -2988,8 +2996,7 @@ function abInitials(name){
   return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
 }
 function abContactLabelChips(c){
-  return[c.label1_id,c.label2_id,c.label3_id,c.label4_id].filter(Boolean)
-    .map(id=>abContactLabels.find(l=>l.id===id)).filter(Boolean);
+  return(abContactLabelMap[c.id]||[]).map(id=>abContactLabels.find(l=>l.id===id)).filter(Boolean);
 }
 
 // ── SSN VAULT — same model as AmitBooks.html: zero-knowledge client-side
@@ -3103,7 +3110,8 @@ function abRenderContacts(){
   const el=document.getElementById('ab-contacts'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   const topLevel=abContacts.filter(c=>!c.parent_contact_id);
-  let shown = abContactFilter==='all' ? topLevel : topLevel.filter(c=>[c.label1_id,c.label2_id,c.label3_id,c.label4_id].includes(abContactFilter));
+  const hasLabel=(c,labelId)=>(abContactLabelMap[c.id]||[]).includes(labelId);
+  let shown = abContactFilter==='all' ? topLevel : topLevel.filter(c=>hasLabel(c,abContactFilter));
   if(abContactSearch){
     const q=abContactSearch;
     shown=shown.filter(c=>[c.name,c.contact_name,c.phone,c.email].some(f=>(f||'').toLowerCase().includes(q))
@@ -3111,7 +3119,7 @@ function abRenderContacts(){
   }
   const childrenOf=pid=>abContacts.filter(c=>c.parent_contact_id===pid);
   const chips=[['all','All ('+topLevel.length+')']].concat(
-    abContactLabels.map(l=>[l.id,`${l.label} (${topLevel.filter(c=>[c.label1_id,c.label2_id,c.label3_id,c.label4_id].includes(l.id)).length})`])
+    abContactLabels.map(l=>[l.id,`${l.label} (${topLevel.filter(c=>hasLabel(c,l.id)).length})`])
   );
   el.innerHTML=`<div class="ab-h">Contacts</div>
     <div class="cc-toolbar">
@@ -3184,12 +3192,44 @@ function abTogglePersonForm(parentId){
 // role checklist) pull from contact_labels, the same per-book extensible
 // list Terminology now manages.
 const CONTACT_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 8h18"/><circle cx="8" cy="13.5" r="1.6"/><path d="M13 12.5h5M13 15h3.5"/></svg>`;
-function abContactLabelOptionsHtml(selectedId){
-  return `<option value="">—</option>`+abContactLabels.map(l=>`<option value="${l.id}"${selectedId===l.id?' selected':''}>${abEsc(l.label)}</option>`).join('');
+// Unlimited label multi-select for the contact popup (migration_2026-08-13_003
+// replaced the fixed four label1_id..label4_id columns with a real
+// contact_label_links join table — a contact can now carry any number of
+// labels). This Set holds the in-progress selection while the popup is
+// open; contactFormRenderLabelChips redraws just the chip row so toggling
+// a label, or adding a brand new one on the fly, never loses whatever else
+// was typed into the rest of the form.
+let contactFormSelectedLabels=new Set();
+function contactFormRenderLabelChips(){
+  const el=document.getElementById('contactForm-labelChips'); if(!el)return;
+  el.innerHTML=abContactLabels.map(l=>`<span class="cc-chip${contactFormSelectedLabels.has(l.id)?' active':''}" onclick="contactFormToggleLabel('${l.id}')">${abEsc(l.label)}</span>`).join('')
+    ||'<span style="font-size:11px;color:var(--muted)">No labels yet — add one below.</span>';
+}
+function contactFormToggleLabel(labelId){
+  if(contactFormSelectedLabels.has(labelId)) contactFormSelectedLabels.delete(labelId); else contactFormSelectedLabels.add(labelId);
+  contactFormRenderLabelChips();
+}
+async function contactFormAddLabel(){
+  const input=document.getElementById('contactForm-newlabel');
+  const label=(input.value||'').trim();
+  if(!label)return;
+  const{data,error}=await db.from('contact_labels').insert({book_id:abBookId,label,sort_order:abContactLabels.length}).select().single();
+  if(error){ abAlert(error.message.includes('duplicate')?`"${label}" is already in the list.`:error.message); return; }
+  input.value='';
+  await abLoadContactLabels();
+  contactFormSelectedLabels.add(data.id);
+  contactFormRenderLabelChips();
+}
+function contactFormCopyMailingToBilling(){
+  ['address','citystate','zip'].forEach(f=>{
+    const from=document.getElementById('contactForm-'+f), to=document.getElementById('contactForm-billing'+f);
+    if(from&&to) to.value=from.value;
+  });
 }
 function openContactDetailPopup(contactId){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
   const existing=contactId?abContacts.find(c=>c.id===contactId):null;
+  contactFormSelectedLabels=new Set(existing?(abContactLabelMap[existing.id]||[]):[]);
   const v=key=>existing?(existing[key]||''):'';
   popupOpen(`
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
@@ -3206,15 +3246,13 @@ function openContactDetailPopup(contactId){
       <div class="fv-field"><label class="fv-label">Phone</label><input class="fv-input" id="contactForm-phone" value="${abEsc(v('phone'))}" placeholder="(555) 555-5555" oninput="abFormatPhoneInput(this)"></div>
       <div class="fv-field"><label class="fv-label">Email</label><input class="fv-input" id="contactForm-email" value="${abEsc(v('email'))}" placeholder="name@example.com"></div>
     </div>
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Labels — up to four</div>
-    <div class="company-form-grid">
-      <div class="fv-field"><label class="fv-label">Label 1</label><select class="fv-input" id="contactForm-label1">${abContactLabelOptionsHtml(v('label1_id'))}</select></div>
-      <div class="fv-field"><label class="fv-label">Label 2</label><select class="fv-input" id="contactForm-label2">${abContactLabelOptionsHtml(v('label2_id'))}</select></div>
-      <div class="fv-field"><label class="fv-label">Label 3</label><select class="fv-input" id="contactForm-label3">${abContactLabelOptionsHtml(v('label3_id'))}</select></div>
-      <div class="fv-field"><label class="fv-label">Label 4</label><select class="fv-input" id="contactForm-label4">${abContactLabelOptionsHtml(v('label4_id'))}</select></div>
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Labels — as many as this contact needs</div>
+    <div id="contactForm-labelChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input class="fv-input" id="contactForm-newlabel" placeholder="Add a new label (e.g. Subcontractor)" style="max-width:220px" onkeydown="if(event.key==='Enter'){event.preventDefault();contactFormAddLabel();}">
+      <button class="ab-btn" style="align-self:auto" onclick="contactFormAddLabel()">+ Add</button>
     </div>
-    ${abContactLabels.length?'':'<div style="font-size:11px;color:var(--muted);margin-top:4px">No labels set up yet for this book — add some in Terminology first.</div>'}
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Address</div>
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Mailing Address</div>
     <div class="company-form-grid">
       <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-address" autocomplete="off" value="${abEsc(v('street_address'))}" placeholder="123 Main St"></div>
       <div class="fv-field">
@@ -3223,8 +3261,21 @@ function openContactDetailPopup(contactId){
       </div>
       <div class="fv-field">
         <label class="fv-label">ZIP</label>
-        <input class="fv-input" id="contactForm-zip" value="${abEsc(v('zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value)" style="width:110px">
+        <input class="fv-input" id="contactForm-zip" value="${abEsc(v('zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value,'')" style="width:110px">
         <div id="contactForm-zip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+      </div>
+    </div>
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Billing Address <span style="cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;color:var(--gold2)" onclick="contactFormCopyMailingToBilling()">— same as mailing →</span></div>
+    <div class="company-form-grid">
+      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-billingaddress" autocomplete="off" value="${abEsc(v('billing_street_address'))}" placeholder="123 Main St"></div>
+      <div class="fv-field">
+        <label class="fv-label">City, State</label>
+        <input class="fv-input" id="contactForm-billingcitystate" value="${abEsc(v('billing_city_state'))}" placeholder="Fills in from ZIP" readonly style="opacity:.85">
+      </div>
+      <div class="fv-field">
+        <label class="fv-label">ZIP</label>
+        <input class="fv-input" id="contactForm-billingzip" value="${abEsc(v('billing_zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value,'billing')" style="width:110px">
+        <div id="contactForm-billingzip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
       </div>
     </div>
     <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Business</div>
@@ -3247,6 +3298,7 @@ function openContactDetailPopup(contactId){
       ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="abDeleteContact('${existing.id}','${abEsc(existing.name).replace(/'/g,"\\'")}')">Delete Contact</button>`:''}
     </div>
     <div class="fv-status" id="contactFormStatus"></div>`);
+  contactFormRenderLabelChips();
   if(existing) abRenderContactAttachments(existing.id);
 }
 // Ryan's direct instruction, 2026-08-13: real files (photos, scans,
@@ -3298,11 +3350,15 @@ async function abDeleteContactAttachmentFile(id,storagePath,contactId){
   abRenderContactAttachments(contactId);
 }
 let contactZipLookupTimer=null;
-function contactLookupZip(zip){
+// prefix: '' for the Mailing Address block (contactForm-zip/citystate), or
+// 'billing' for the Billing Address block (contactForm-billingzip/
+// billingcitystate) — same lookup, two independent address blocks.
+function contactLookupZip(zip,prefix){
   clearTimeout(contactZipLookupTimer);
   const clean=(zip||'').trim().slice(0,5);
-  const status=document.getElementById('contactForm-zip-status');
-  const cityState=document.getElementById('contactForm-citystate');
+  const p=prefix||'';
+  const status=document.getElementById(`contactForm-${p}zip-status`);
+  const cityState=document.getElementById(`contactForm-${p}citystate`);
   if(clean.length!==5){ return; }
   contactZipLookupTimer=setTimeout(async()=>{
     if(status) status.textContent='Looking up city/state…';
@@ -3327,21 +3383,33 @@ async function saveContactDetailForm(existingId){
     contact_name:document.getElementById('contactForm-contactname').value.trim()||null,
     phone:document.getElementById('contactForm-phone').value.trim()||null,
     email:document.getElementById('contactForm-email').value.trim()||null,
-    label1_id:document.getElementById('contactForm-label1').value||null,
-    label2_id:document.getElementById('contactForm-label2').value||null,
-    label3_id:document.getElementById('contactForm-label3').value||null,
-    label4_id:document.getElementById('contactForm-label4').value||null,
     street_address:document.getElementById('contactForm-address').value.trim()||null,
     city_state:document.getElementById('contactForm-citystate').value.trim()||null,
     zip:document.getElementById('contactForm-zip').value.trim()||null,
+    billing_street_address:document.getElementById('contactForm-billingaddress').value.trim()||null,
+    billing_city_state:document.getElementById('contactForm-billingcitystate').value.trim()||null,
+    billing_zip:document.getElementById('contactForm-billingzip').value.trim()||null,
     payment_terms:document.getElementById('contactForm-terms').value.trim()||null,
     default_account_id:document.getElementById('contactForm-defaultacct').value||null
   };
   status.textContent='Saving…';
-  const{error}=existingId
-    ? await db.from('contacts').update(row).eq('id',existingId)
-    : await db.from('contacts').insert({...row,book_id:abBookId});
-  if(error){ status.textContent='Error: '+error.message; return; }
+  let contactId=existingId;
+  if(existingId){
+    const{error}=await db.from('contacts').update(row).eq('id',existingId);
+    if(error){ status.textContent='Error: '+error.message; return; }
+  } else {
+    const{data,error}=await db.from('contacts').insert({...row,book_id:abBookId}).select().single();
+    if(error){ status.textContent='Error: '+error.message; return; }
+    contactId=data.id;
+  }
+  // Labels — unlimited, via contact_label_links (migration_2026-08-13_003):
+  // simplest correct approach is delete-then-reinsert the current selection
+  // rather than diffing, since a contact typically carries a handful of
+  // labels at most.
+  await db.from('contact_label_links').delete().eq('contact_id',contactId);
+  if(contactFormSelectedLabels.size){
+    await db.from('contact_label_links').insert([...contactFormSelectedLabels].map(label_id=>({book_id:abBookId,contact_id:contactId,label_id})));
+  }
   popupClose();
   await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
 }
