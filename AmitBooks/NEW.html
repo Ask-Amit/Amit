@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.21</div>
+      <div class="page-version" id="pageVersion">v2.22</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2631,10 +2631,30 @@ async function abLoadNomenclatureRefData(){
 // will the next industry's own role concept — see
 // migration_2026-08-13_001's own header comment for the full reasoning.
 let abContactLabels=[];
+// The standard starting set — Ryan's direct instruction, 2026-08-13: any
+// future feature that reads a contact's labels to decide something (a
+// dedicated Vendor tab, a Client tab, whatever comes later) only works if
+// the wording is guaranteed identical everywhere, not typed fresh by hand
+// per book. migration_2026-08-13_001 seeded this set for books that
+// already had contacts at the time it ran — but a brand-new book, or any
+// book that happened to have zero contacts back then, got nothing, which
+// is the empty "No labels yet" state Ryan ran into. Fixing that here,
+// lazily, is more robust than a one-time migration: it guarantees the
+// standard set on every book, old or new, the first moment it's needed,
+// with no dependency on catching every place a book can be created.
+const AB_STANDARD_CONTACT_LABELS=['Customer','Vendor','Employee','1099','Subcontractor','Donor','Tenant'];
 async function abLoadContactLabels(){
   if(!abBookId||!db||!currentUser){abContactLabels=[];return;}
   const{data}=await db.from('contact_labels').select('*').eq('book_id',abBookId).order('sort_order');
   abContactLabels=data||[];
+  if(!abContactLabels.length){
+    const seedRows=AB_STANDARD_CONTACT_LABELS.map((label,i)=>({book_id:abBookId,label,sort_order:i+1}));
+    const{error}=await db.from('contact_labels').upsert(seedRows,{onConflict:'book_id,label',ignoreDuplicates:true});
+    if(!error){
+      const{data:reloaded}=await db.from('contact_labels').select('*').eq('book_id',abBookId).order('sort_order');
+      abContactLabels=reloaded||[];
+    }
+  }
 }
 async function abAddContactLabel(){
   const input=document.getElementById('ab-new-contact-label');
