@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.44</div>
+      <div class="page-version" id="pageVersion">v2.45</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4259,8 +4259,18 @@ const CLIENT_RV_COLUMNS=[
 // per-row job name on this table to sort by, only an aggregate number.
 // Wired to the same generic rvSortSet already used by every other
 // sortable column, not a new sort mechanism.
-let clientsJobFilter={status:'active',search:''};
-function clientsJobFilterHasFilter(){ return clientsJobFilter.status!=='active'||clientsJobFilter.search.trim()!==''; }
+// Default changed from 'active' to 'all', 2026-08-13 — real bug Ryan
+// caught directly: the Jobs count on the Clients tab defaulted to only
+// counting jobs where status literally equals the word "active", but
+// imported jobs carry QuickBooks' real JOBSTATUS values (Awarded, In
+// Progress, Pending, Not Awarded, Closed...) — none of which are that
+// literal string. Every real imported job was silently excluded from the
+// count (showing 0) even though it existed and showed correctly on the
+// Jobs tab, which never applied this filter. Defaulting to 'all' shows
+// the honest total; Active/Completed remain real, explicit choices in the
+// filter menu for anyone who wants to narrow by status on purpose.
+let clientsJobFilter={status:'all',search:''};
+function clientsJobFilterHasFilter(){ return clientsJobFilter.status!=='all'||clientsJobFilter.search.trim()!==''; }
 function clientsJobsFilterBtnRenderer(containerId,c){
   const has=clientsJobFilterHasFilter();
   return `<span class="rv-col-menu-btn${has?' active':''}" onclick="openClientsJobFilterMenu(event,'${containerId}')" title="Sort, search by job name, or filter by status">
