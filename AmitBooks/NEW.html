@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.18</div>
+      <div class="page-version" id="pageVersion">v2.19</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3181,6 +3181,11 @@ async function abSetContactSSN(contactId){
 const AB_LEAD_STAGES=[['lead','Lead'],['contacted','Contacted'],['quoted','Quoted'],['won','Won'],['lost','Lost']];
 
 function abRenderContacts(){
+  // Keep the Books-tab Row View (tab 1-6) in sync with every place that
+  // already calls abRenderContacts() after a contacts mutation, without
+  // having to touch each of those call sites individually — it no-ops
+  // harmlessly if that tab isn't currently mounted.
+  if(typeof abRenderContactsRv==='function') abRenderContactsRv();
   const el=document.getElementById('ab-contacts'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   const topLevel=abContacts.filter(c=>!c.parent_contact_id);
