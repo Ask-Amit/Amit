@@ -599,7 +599,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.59</div>
+      <div class="page-version" id="pageVersion">v2.60</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -915,7 +915,7 @@ function renderAllPages(){
       </div>
       <div class="ch-tab-content ch-tab-flex" id="ch-tab-4-2"><div id="jobs-tab-mount" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content ch-tab-flex" id="ch-tab-4-3"><div id="invoices-tab-mount" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
-      <div class="ch-tab-content" id="ch-tab-4-4" style="margin:24px"><div id="bills-tab-mount" class="detail-empty">Bills — reserved, same as Invoices above.</div></div>
+      <div class="ch-tab-content ch-tab-flex" id="ch-tab-4-4"><div id="bills-tab-mount" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-4-5" style="margin:24px"><div class="detail-empty">Documents — not built yet.</div></div>
     </div>
   </div>`;
@@ -4253,9 +4253,9 @@ function abApplyScopeTerminology(){
 // (placeholder columns, see above), so these are illustrative "—" rows,
 // not fabricated numbers dressed up as real ones.
 const CLIENT_SAMPLE_ROWS=[
-  {id:'c1',name:'Johnson Residence',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—'},
-  {id:'c2',name:'Riverside Plaza LLC',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—'},
-  {id:'c3',name:'Miller Family Trust',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—'}
+  {id:'c1',name:'Johnson Residence',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—',bills_billed_display:'—',bills_paid_display:'—',bills_outstanding_display:'—'},
+  {id:'c2',name:'Riverside Plaza LLC',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—',bills_billed_display:'—',bills_paid_display:'—',bills_outstanding_display:'—'},
+  {id:'c3',name:'Miller Family Trust',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—',bills_billed_display:'—',bills_paid_display:'—',bills_outstanding_display:'—'}
 ];
 const CLIENT_RV_COLUMNS=[
   // Moved to the far left, ahead of the Client name, and shortened to
@@ -4266,7 +4266,10 @@ const CLIENT_RV_COLUMNS=[
   {key:'billed_display',label:'Billed',align:'right',sortFilter:false,groupStart:true,description:"Real — total invoiced across every one of this client's jobs (loadClientInvoiceRollups, summed from invoices_bills)."},
   {key:'received_display',label:'Received',align:'right',sortFilter:false,operatorPrefix:'−',description:"Real — total actually paid so far, summed across this client's invoices."},
   {key:'outstanding_display',label:'Outstanding',align:'right',sortFilter:false,operatorPrefix:'=',cellRenderer:subtotalCellRendererRef,summable:true,description:"Real — Billed minus Received, summed across every job this client has."},
-  {key:'pct_complete_display',label:'% Complete',align:'right',sortFilter:false,groupStart:true,description:"Real — this client's most recently dated invoice's own % Complete (progress-billing draw), across all their jobs. Blank if no invoice has one entered yet."}
+  {key:'pct_complete_display',label:'% Complete',align:'right',sortFilter:false,groupStart:true,description:"Real — this client's most recently dated invoice's own % Complete (progress-billing draw), across all their jobs. Blank if no invoice has one entered yet."},
+  {key:'bills_billed_display',label:'Bills',align:'right',sortFilter:false,groupStart:true,description:"AP — total billed by vendors/employees/subs across every job this client has."},
+  {key:'bills_paid_display',label:'Bills Paid',align:'right',sortFilter:false,description:"AP — total actually paid out so far on this client's bills."},
+  {key:'bills_outstanding_display',label:'Bills Owed',align:'right',sortFilter:false,description:"AP — what's still owed to vendors/employees/subs across every job this client has."}
 ];
 
 // ── JOBS FILTER — Ryan's direct correction, 2026-08-07 (twice): not a
@@ -4453,7 +4456,7 @@ async function loadClientsIntoRowView(){
     mount.innerHTML=`<div class="detail-empty">Could not load — ${error.message}</div>`;
     return;
   }
-  const rows=(data||[]).map(c=>({...c,jobs:'…',billed_display:'…',received_display:'…',outstanding_display:'…',pct_complete_display:'…',active_display:c.is_active===false?'Inactive':'Active'}));
+  const rows=(data||[]).map(c=>({...c,jobs:'…',billed_display:'…',received_display:'…',outstanding_display:'…',pct_complete_display:'…',bills_billed_display:'…',bills_paid_display:'…',bills_outstanding_display:'…',active_display:c.is_active===false?'Inactive':'Active'}));
   _clientsCurrentRows=rows;
   rvCreate('rv-mount-clients',CLIENT_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onRowOpen:id=>selectClientRow(rows,id),onRowDoubleClick:id=>openClientEditPopup(id)});
   loadClientJobCounts();
@@ -4468,21 +4471,30 @@ async function loadClientsIntoRowView(){
 // loadClientJobCounts above: fill in async, mutate the already-rendered
 // rows in place, re-render once.
 async function computeClientInvoiceRollup(clientId){
-  const empty={billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—'};
+  const empty={billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—',bills_billed_display:'—',bills_paid_display:'—',bills_outstanding_display:'—'};
   const{data:jobs}=await db.from('jobs').select('id').eq('book_id',abBookId).eq('contact_id',clientId);
   const jobIds=(jobs||[]).map(j=>j.id);
   if(!jobIds.length) return empty;
   const{data:invs}=await db.from('invoices_bills').select('total_amount,paid_amount,pct_complete,doc_date,created_at').in('job_id',jobIds).eq('direction','invoice_receivable');
-  if(!invs||!invs.length) return empty;
-  let billed=0,received=0;
-  invs.forEach(inv=>{ billed+=Number(inv.total_amount)||0; received+=Number(inv.paid_amount)||0; });
-  const latestWithPct=[...invs].filter(i=>i.pct_complete!=null).sort((a,b)=>new Date(b.doc_date||b.created_at)-new Date(a.doc_date||a.created_at))[0];
-  return{
-    billed_display:abMoneyFmt(billed),
-    received_display:abMoneyFmt(received),
-    outstanding_display:abMoneyFmt(billed-received),
-    pct_complete_display:latestWithPct?Number(latestWithPct.pct_complete).toFixed(0)+'%':'—'
-  };
+  const{data:bills}=await db.from('invoices_bills').select('total_amount,paid_amount').in('job_id',jobIds).eq('direction','bill_payable');
+  let out={...empty};
+  if(invs&&invs.length){
+    let billed=0,received=0;
+    invs.forEach(inv=>{ billed+=Number(inv.total_amount)||0; received+=Number(inv.paid_amount)||0; });
+    const latestWithPct=[...invs].filter(i=>i.pct_complete!=null).sort((a,b)=>new Date(b.doc_date||b.created_at)-new Date(a.doc_date||a.created_at))[0];
+    out.billed_display=abMoneyFmt(billed);
+    out.received_display=abMoneyFmt(received);
+    out.outstanding_display=abMoneyFmt(billed-received);
+    out.pct_complete_display=latestWithPct?Number(latestWithPct.pct_complete).toFixed(0)+'%':'—';
+  }
+  if(bills&&bills.length){
+    let billed=0,paid=0;
+    bills.forEach(b=>{ billed+=Number(b.total_amount)||0; paid+=Number(b.paid_amount)||0; });
+    out.bills_billed_display=abMoneyFmt(billed);
+    out.bills_paid_display=abMoneyFmt(paid);
+    out.bills_outstanding_display=abMoneyFmt(billed-paid);
+  }
+  return out;
 }
 async function loadClientInvoiceRollups(){
   if(!db||!currentUser||!_clientsCurrentRows.length)return;
@@ -4885,10 +4897,13 @@ const JOBS_RV_COLUMNS=[
   {key:'contact_display',label:'Client'},
   {key:'address_display',label:'Address'},
   {key:'status',label:'Status'},
-  {key:'billed_display',label:'Billed'},
-  {key:'received_display',label:'Received'},
-  {key:'outstanding_display',label:'Outstanding'},
-  {key:'pct_complete_display',label:'% Complete'}
+  {key:'billed_display',label:'Billed',groupStart:true,description:"AR — total invoiced to the client on this job."},
+  {key:'received_display',label:'Received',description:"AR — total actually paid so far on this job's invoices."},
+  {key:'outstanding_display',label:'Outstanding',description:"AR — what the client still owes on this job."},
+  {key:'pct_complete_display',label:'% Complete'},
+  {key:'bills_billed_display',label:'Bills',groupStart:true,description:"AP — total billed to this job by vendors/employees/subs."},
+  {key:'bills_paid_display',label:'Bills Paid',description:"AP — total actually paid out so far on this job's bills."},
+  {key:'bills_outstanding_display',label:'Bills Owed',description:"AP — what this job still owes vendors/employees/subs."}
 ];
 // Rolls a job's real invoices up into Billed/Received/Outstanding/%
 // Complete — Ryan's direct instruction, 2026-08-14: "the jobs tab should
@@ -4911,11 +4926,32 @@ function rollUpJobInvoices(jobId,invoicesByJob){
     pct_complete_display:latestWithPct?Number(latestWithPct.pct_complete).toFixed(0)+'%':'—'
   };
 }
+// AP mirror of rollUpJobInvoices — what this job owes vendors/employees/
+// subs, not what the client owes the book. Kept as its own separate set
+// of numbers rather than netted against Invoices — an AR total and an AP
+// total answering different questions, never one blended figure.
+function rollUpJobBills(jobId,billsByJob){
+  const bills=billsByJob[jobId]||[];
+  let billed=0,paid=0;
+  bills.forEach(b=>{ billed+=Number(b.total_amount)||0; paid+=Number(b.paid_amount)||0; });
+  return{
+    bills_billed_display:bills.length?abMoneyFmt(billed):'—',
+    bills_paid_display:bills.length?abMoneyFmt(paid):'—',
+    bills_outstanding_display:bills.length?abMoneyFmt(billed-paid):'—'
+  };
+}
 async function loadInvoicesByJob(jobIds){
   const byJob={};
   if(!jobIds||!jobIds.length)return byJob;
   const{data:invs}=await db.from('invoices_bills').select('*').in('job_id',jobIds).eq('direction','invoice_receivable').order('doc_date');
   (invs||[]).forEach(inv=>{ (byJob[inv.job_id]=byJob[inv.job_id]||[]).push(inv); });
+  return byJob;
+}
+async function loadBillsByJob(jobIds){
+  const byJob={};
+  if(!jobIds||!jobIds.length)return byJob;
+  const{data:bills}=await db.from('invoices_bills').select('*').in('job_id',jobIds).eq('direction','bill_payable').order('doc_date');
+  (bills||[]).forEach(b=>{ (byJob[b.job_id]=byJob[b.job_id]||[]).push(b); });
   return byJob;
 }
 // contactId, when passed, scopes this to one client's own jobs only —
@@ -4947,13 +4983,14 @@ async function loadAllJobsForBook(contactId){
     (legacyClients||[]).forEach(c=>{ legacyClientNameById[c.id]=c.name; });
   }
   const invoicesByJob=await loadInvoicesByJob(jobs.map(j=>j.id));
+  const billsByJob=await loadBillsByJob(jobs.map(j=>j.id));
   return jobs.map(j=>{
     const addr=[j.street_address,j.city_state,j.zip].filter(Boolean).join(', ');
     let contact_display;
     if(j.contact_id) contact_display=contactNameById[j.contact_id]||'—';
     else if(j.client_id) contact_display=`${legacyClientNameById[j.client_id]||'—'} (legacy — run Migrate Legacy Clients)`;
     else contact_display='— unassigned —';
-    return{id:j.id,name:j.name,contact_display,address_display:addr||'—',status:j.status||'active',is_active:j.is_active,active_display:j.is_active===false?'Inactive':'Active',...rollUpJobInvoices(j.id,invoicesByJob)};
+    return{id:j.id,name:j.name,contact_display,address_display:addr||'—',status:j.status||'active',is_active:j.is_active,active_display:j.is_active===false?'Inactive':'Active',...rollUpJobInvoices(j.id,invoicesByJob),...rollUpJobBills(j.id,billsByJob)};
   });
 }
 // Requires a client to be selected first — Ryan's direct instruction,
@@ -5195,6 +5232,189 @@ async function confirmDeleteInvoice(invId){
   if(error){ abAlert(error.message); return; }
   popupClose();
   abRenderInvoicesTab();
+}
+
+// ── BILLS TAB (Clients page, tab 4) — Ryan's direct instruction,
+// 2026-08-14: money owed BY the book TO someone doing work on a job —
+// employee, subcontractor, or vendor — same real invoices_bills table,
+// direction='bill_payable' instead of 'invoice_receivable'. contact_id on
+// a Bill is the PAYEE (who gets paid), not the client — job_id is still
+// what ties it to the real Job, and through the Job, to the real Client,
+// exactly the same chain Invoices already uses. "Each tab builds on the
+// previous one, up to Bills" — a Job's Bills sum to that Job's own AP
+// total; a Client's Bills are the sum of every Job they own, same pattern
+// as Billed/Received/Outstanding already rolls up on Invoices.
+const BILL_RV_COLUMNS=[
+  {key:'document_code',label:'Bill #'},
+  {key:'payee_name',label:'Payee'},
+  {key:'payee_type',label:'Type'},
+  {key:'job_name',label:'Job'},
+  {key:'status',label:'Status'},
+  {key:'billed_display',label:'Billed'},
+  {key:'paid_display',label:'Paid'},
+  {key:'outstanding_display',label:'Outstanding'}
+];
+// First real label on the payee that isn't "Customer" — a Bill's payee is
+// never the client themselves, so whatever else they're labeled (Vendor/
+// Employee/Subcontractor/etc.) is the meaningful one to show. Falls back
+// to "Contact" if genuinely unlabeled, never blank.
+function billPayeeTypeDisplay(contact){
+  if(!contact)return'—';
+  const labels=abContactLabelChips(contact).map(l=>l.label).filter(l=>l.toLowerCase()!=='customer');
+  return labels.length?labels.join(', '):'Contact';
+}
+function billRowShape(bill,jobName,payeeName,payeeType){
+  return{
+    id:bill.id,
+    document_code:bill.document_code||'—',
+    payee_name:payeeName||'—',
+    payee_type:payeeType||'—',
+    job_name:jobName||'—',
+    status:bill.status||'draft',
+    billed_display:abMoneyFmt(bill.total_amount),
+    paid_display:abMoneyFmt(bill.paid_amount),
+    outstanding_display:abMoneyFmt((Number(bill.total_amount)||0)-(Number(bill.paid_amount)||0))
+  };
+}
+async function abRenderBillsTab(){
+  const el=document.getElementById('bills-tab-mount'); if(!el)return;
+  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
+  el.innerHTML=`<div class="rv-wrap" id="rv-mount-bills"></div>`;
+  let jobIds,jobNameById={};
+  if(abSelectedJobId){
+    jobIds=[abSelectedJobId]; jobNameById[abSelectedJobId]=abSelectedJobName;
+  } else {
+    const jobRows=await loadAllJobsForBook(abSelectedClientId||getVisibleClientIds());
+    jobIds=jobRows.map(j=>j.id);
+    jobRows.forEach(j=>{ jobNameById[j.id]=j.name; });
+  }
+  if(!jobIds.length){ document.getElementById('rv-mount-bills').innerHTML=`<div class="ab-signin-notice" style="text-align:left">No jobs match what's currently showing on the Clients tab.</div>`; return; }
+  const{data:bills}=await db.from('invoices_bills').select('*').in('job_id',jobIds).eq('direction','bill_payable').order('doc_date');
+  if(!bills||!bills.length){ document.getElementById('rv-mount-bills').innerHTML=`<div class="ab-signin-notice" style="text-align:left">No bills yet for ${abEsc(abClientsPageHeadingText())} — use "+ Add Bill" above.</div>`; return; }
+  if(!abContacts.length) await abLoadContacts();
+  const payeeIds=[...new Set(bills.map(b=>b.contact_id).filter(Boolean))];
+  const payeeById={}; payeeIds.forEach(id=>{ payeeById[id]=abContacts.find(c=>c.id===id); });
+  const rows=bills.map(b=>billRowShape(b,jobNameById[b.job_id],payeeById[b.contact_id]?.name,billPayeeTypeDisplay(payeeById[b.contact_id])));
+  rvCreate('rv-mount-bills',BILL_RV_COLUMNS,rows,{onRowDoubleClick:id=>openEditBillPopup(id),hideExpandColumn:true,showSummaryRow:false});
+}
+async function billPayeeOptionsHtml(selectedId){
+  if(!abContacts.length) await abLoadContacts();
+  const customerLabel=(abContactLabels||[]).find(l=>l.label.toLowerCase()==='customer');
+  return abContacts.map(c=>{
+    const isCustomer=customerLabel&&(abContactLabelMap[c.id]||[]).includes(customerLabel.id);
+    const tag=billPayeeTypeDisplay(c);
+    return`<option value="${c.id}"${c.id===selectedId?' selected':''}>${abEsc(c.name)}${isCustomer?' (Customer)':tag!=='Contact'?` (${abEsc(tag)})`:''}</option>`;
+  }).join('');
+}
+async function openAddBillPopup(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  if(!abSelectedClientId){ abAlert('Select a client on the Clients tab first — a Bill still needs a real Job to attach to.'); return; }
+  const jobRows=await loadAllJobsForBook(abSelectedClientId);
+  const jobOptions=jobRows.map(j=>`<option value="${j.id}"${j.id===abSelectedJobId?' selected':''}>${abEsc(j.name)}</option>`).join('');
+  const payeeOptions=await billPayeeOptionsHtml(null);
+  popupOpen(`
+    <div class="dv-sub-h">Add Bill</div>
+    <div class="fv-field"><label class="fv-label">${abEsc(abFieldLabel('job','Job'))}</label><select class="fv-input" id="billForm-job">${jobOptions}</select></div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Payee — who's being paid</label><select class="fv-input" id="billForm-payee"><option value="">— Select —</option>${payeeOptions}</select></div>
+    <div class="company-form-grid" style="margin-top:10px">
+      <div class="fv-field"><label class="fv-label">Bill #</label><input class="fv-input" id="billForm-doccode" placeholder="e.g. INV-1002"></div>
+      <div class="fv-field"><label class="fv-label">Status</label>
+        <select class="fv-input" id="billForm-status"><option value="draft">Draft</option><option value="sent">Received</option><option value="partial">Partial</option><option value="paid">Paid</option><option value="overdue">Overdue</option><option value="void">Void</option></select>
+      </div>
+      <div class="fv-field"><label class="fv-label">Bill Date</label><input class="fv-input" type="date" id="billForm-docdate"></div>
+      <div class="fv-field"><label class="fv-label">Due Date</label><input class="fv-input" type="date" id="billForm-duedate"></div>
+      <div class="fv-field"><label class="fv-label">Total Billed</label><input class="fv-input" type="number" step="0.01" id="billForm-total" value="0"></div>
+      <div class="fv-field"><label class="fv-label">Paid So Far</label><input class="fv-input" type="number" step="0.01" id="billForm-paid" value="0"></div>
+    </div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Memo</label><input class="fv-input" id="billForm-memo"></div>
+    <button class="fv-save" style="margin-top:14px" onclick="saveNewBillForm()">Add Bill</button>
+    <div class="fv-status" id="billFormStatus"></div>`);
+}
+async function saveNewBillForm(){
+  const jobId=document.getElementById('billForm-job').value;
+  const payeeId=document.getElementById('billForm-payee').value;
+  const status=document.getElementById('billFormStatus');
+  if(!jobId){ status.textContent='Pick a job first.'; return; }
+  if(!payeeId){ status.textContent='Pick who this is being paid to first.'; return; }
+  const values={
+    book_id:abBookId, job_id:jobId, contact_id:payeeId,
+    direction:'bill_payable',
+    document_code:document.getElementById('billForm-doccode').value.trim()||null,
+    doc_date:document.getElementById('billForm-docdate').value||null,
+    due_date:document.getElementById('billForm-duedate').value||null,
+    status:document.getElementById('billForm-status').value,
+    total_amount:Number(document.getElementById('billForm-total').value)||0,
+    subtotal:Number(document.getElementById('billForm-total').value)||0,
+    paid_amount:Number(document.getElementById('billForm-paid').value)||0,
+    memo:document.getElementById('billForm-memo').value.trim()||null
+  };
+  const{error}=await db.from('invoices_bills').insert(values);
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+  abRenderBillsTab();
+  if(document.getElementById('jobs-tab-mount')) abRenderJobsTab();
+}
+async function openEditBillPopup(billId){
+  const{data:bill,error}=await db.from('invoices_bills').select('*').eq('id',billId).single();
+  if(error||!bill){ abAlert('Could not load that bill.'); return; }
+  const jobRows=await loadAllJobsForBook(abSelectedClientId);
+  const jobOptions=jobRows.map(j=>`<option value="${j.id}"${j.id===bill.job_id?' selected':''}>${abEsc(j.name)}</option>`).join('');
+  const payeeOptions=await billPayeeOptionsHtml(bill.contact_id);
+  popupOpen(`
+    <div class="dv-sub-h">Edit Bill</div>
+    <div class="fv-field"><label class="fv-label">${abEsc(abFieldLabel('job','Job'))}</label><select class="fv-input" id="billForm-job">${jobOptions}</select></div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Payee — who's being paid</label><select class="fv-input" id="billForm-payee">${payeeOptions}</select></div>
+    <div class="company-form-grid" style="margin-top:10px">
+      <div class="fv-field"><label class="fv-label">Bill #</label><input class="fv-input" id="billForm-doccode" value="${abEsc(bill.document_code||'')}"></div>
+      <div class="fv-field"><label class="fv-label">Status</label>
+        <select class="fv-input" id="billForm-status">${['draft','sent','partial','paid','overdue','void'].map(s=>`<option value="${s}"${bill.status===s?' selected':''}>${s==='sent'?'Received':s[0].toUpperCase()+s.slice(1)}</option>`).join('')}</select>
+      </div>
+      <div class="fv-field"><label class="fv-label">Bill Date</label><input class="fv-input" type="date" id="billForm-docdate" value="${bill.doc_date||''}"></div>
+      <div class="fv-field"><label class="fv-label">Due Date</label><input class="fv-input" type="date" id="billForm-duedate" value="${bill.due_date||''}"></div>
+      <div class="fv-field"><label class="fv-label">Total Billed</label><input class="fv-input" type="number" step="0.01" id="billForm-total" value="${bill.total_amount||0}"></div>
+      <div class="fv-field"><label class="fv-label">Paid So Far</label><input class="fv-input" type="number" step="0.01" id="billForm-paid" value="${bill.paid_amount||0}"></div>
+    </div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Memo</label><input class="fv-input" id="billForm-memo" value="${abEsc(bill.memo||'')}"></div>
+    <button class="fv-save" style="margin-top:14px" onclick="saveBillForm('${billId}')">Save Bill</button>
+    <span style="cursor:pointer;font-size:11px;color:#c97a7a;display:block;margin-top:12px" onclick="openDeleteBillPopup('${billId}')">🗑 Delete Bill</span>
+    <div class="fv-status" id="billFormStatus"></div>`);
+}
+async function saveBillForm(billId){
+  const jobId=document.getElementById('billForm-job').value;
+  const payeeId=document.getElementById('billForm-payee').value;
+  const status=document.getElementById('billFormStatus');
+  if(!jobId){ status.textContent='Pick a job first.'; return; }
+  if(!payeeId){ status.textContent='Pick who this is being paid to first.'; return; }
+  const values={
+    job_id:jobId, contact_id:payeeId,
+    document_code:document.getElementById('billForm-doccode').value.trim()||null,
+    doc_date:document.getElementById('billForm-docdate').value||null,
+    due_date:document.getElementById('billForm-duedate').value||null,
+    status:document.getElementById('billForm-status').value,
+    total_amount:Number(document.getElementById('billForm-total').value)||0,
+    subtotal:Number(document.getElementById('billForm-total').value)||0,
+    paid_amount:Number(document.getElementById('billForm-paid').value)||0,
+    memo:document.getElementById('billForm-memo').value.trim()||null
+  };
+  const{error}=await db.from('invoices_bills').update(values).eq('id',billId);
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+  abRenderBillsTab();
+  if(document.getElementById('jobs-tab-mount')) abRenderJobsTab();
+}
+function openDeleteBillPopup(billId){
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e08a8a">Delete This Bill?</div>
+    <div style="font-size:13px;color:var(--muted);margin:10px 0 18px">This permanently removes the bill and its billed/paid amounts. This cannot be undone.</div>
+    <button class="fv-save" style="background:#a33;border-color:#a33" onclick="confirmDeleteBill('${billId}')">Delete Permanently</button>
+    <button class="fv-save" style="margin-top:8px;background:transparent;border:1px solid var(--line)" onclick="openEditBillPopup('${billId}')">Cancel</button>`);
+}
+async function confirmDeleteBill(billId){
+  const{error}=await db.from('invoices_bills').delete().eq('id',billId);
+  if(error){ abAlert(error.message); return; }
+  popupClose();
+  abRenderBillsTab();
+  if(document.getElementById('jobs-tab-mount')) abRenderJobsTab();
 }
 // Superseded by openAddClientPopup above, 2026-08-13 — left in place,
 // dormant, not deleted, in case the separate clients/jobs table path is
@@ -9051,6 +9271,11 @@ function showChTab(detailNum,n,btnEl){
   // instruction, 2026-08-14: real invoices, connected to a real Job (not a
   // tag), scoped the same drill-down way Jobs already is.
   if(detailNum===4&&n===3) abRenderInvoicesTab();
+  // Bills tab under Clients (detailNum 4, tab 4) — Ryan's direct
+  // instruction, 2026-08-14: AP mirror of Invoices — money owed BY the
+  // book TO a vendor/employee/subcontractor, tied to the same real Job
+  // (and, through it, the same real Client) rather than a tag.
+  if(detailNum===4&&n===4) abRenderBillsTab();
 }
 
 // PAGE ACTION BAR — fills #page-action-bar-<detailNum> with whatever
@@ -9189,6 +9414,8 @@ function renderPageActionBar(detailNum,tabNum){
     // 2026-08-14).
     bar.innerHTML=abBookId?`<button class="page-action-btn" onclick="openImportForInvoicesTab()" data-tip="Bring real historical Invoices in from a QuickBooks .IIF export (with Transactions checked) — matched against Clients/Jobs already in this book."><span>⬇</span>Import</button>
       <button class="page-action-btn" onclick="openAddInvoicePopup()"><span>+</span>Add Invoice</button>`:'';
+  } else if(detailNum===4&&tabNum===4){
+    bar.innerHTML=abBookId?`<button class="page-action-btn" onclick="openAddBillPopup()"><span>+</span>Add Bill</button>`:'';
   } else if(detailNum===5&&tabNum===1){
     // Vendors page header — same treatment as Clients: Import and Add,
     // far right. Filtered view over Contacts, so this reuses the same
