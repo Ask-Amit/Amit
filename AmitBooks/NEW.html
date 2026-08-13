@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.50</div>
+      <div class="page-version" id="pageVersion">v2.51</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -915,7 +915,7 @@ function renderAllPages(){
         <div class="rv-wrap" id="rv-mount-clients"></div>
       </div>
       <div class="ch-tab-content ch-tab-flex" id="ch-tab-4-2"><div id="jobs-tab-mount" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
-      <div class="ch-tab-content" id="ch-tab-4-3" style="margin:24px"><div id="invoices-tab-mount" class="detail-empty">Invoices — reserved. Real Bills &amp; Invoices entry doesn't exist anywhere in this app yet; this tab will list this Client's (and, once one is selected, this Job's) real invoices once that's built.</div></div>
+      <div class="ch-tab-content ch-tab-flex" id="ch-tab-4-3"><div id="invoices-tab-mount" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-4-4" style="margin:24px"><div id="bills-tab-mount" class="detail-empty">Bills — reserved, same as Invoices above.</div></div>
       <div class="ch-tab-content" id="ch-tab-4-5" style="margin:24px"><div class="detail-empty">Documents — not built yet.</div></div>
     </div>
@@ -4852,8 +4852,40 @@ const JOBS_RV_COLUMNS=[
   {key:'name',label:'Job'},
   {key:'contact_display',label:'Client'},
   {key:'address_display',label:'Address'},
-  {key:'status',label:'Status'}
+  {key:'status',label:'Status'},
+  {key:'billed_display',label:'Billed'},
+  {key:'received_display',label:'Received'},
+  {key:'outstanding_display',label:'Outstanding'},
+  {key:'pct_complete_display',label:'% Complete'}
 ];
+// Rolls a job's real invoices up into Billed/Received/Outstanding/%
+// Complete — Ryan's direct instruction, 2026-08-14: "the jobs tab should
+// also have billed invoices outstanding percent complete as well. And
+// that would be accumulation of all the invoices for that." Billed/
+// Received/Outstanding sum every real invoice's total_amount/paid_amount
+// for that job. % Complete is the LATEST invoice's own pct_complete (the
+// most recent progress-billing draw is the current state of the job, not
+// an average of every draw that came before it) — blank if no invoice has
+// one entered yet.
+function rollUpJobInvoices(jobId,invoicesByJob){
+  const invs=invoicesByJob[jobId]||[];
+  let billed=0,received=0;
+  invs.forEach(inv=>{ billed+=Number(inv.total_amount)||0; received+=Number(inv.paid_amount)||0; });
+  const latestWithPct=[...invs].filter(i=>i.pct_complete!=null).sort((a,b)=>new Date(b.doc_date||b.created_at)-new Date(a.doc_date||a.created_at))[0];
+  return{
+    billed_display:invs.length?abMoneyFmt(billed):'—',
+    received_display:invs.length?abMoneyFmt(received):'—',
+    outstanding_display:invs.length?abMoneyFmt(billed-received):'—',
+    pct_complete_display:latestWithPct?Number(latestWithPct.pct_complete).toFixed(0)+'%':'—'
+  };
+}
+async function loadInvoicesByJob(jobIds){
+  const byJob={};
+  if(!jobIds||!jobIds.length)return byJob;
+  const{data:invs}=await db.from('invoices_bills').select('*').in('job_id',jobIds).eq('direction','invoice_receivable').order('doc_date');
+  (invs||[]).forEach(inv=>{ (byJob[inv.job_id]=byJob[inv.job_id]||[]).push(inv); });
+  return byJob;
+}
 // contactId, when passed, scopes this to one client's own jobs only —
 // Ryan's direct instruction, 2026-08-13: selecting a client and then
 // going to Jobs should show ONLY that client's jobs, not every job in the
@@ -4878,13 +4910,14 @@ async function loadAllJobsForBook(contactId){
     const{data:legacyClients}=await db.from('clients').select('id,name').in('id',legacyClientIds);
     (legacyClients||[]).forEach(c=>{ legacyClientNameById[c.id]=c.name; });
   }
+  const invoicesByJob=await loadInvoicesByJob(jobs.map(j=>j.id));
   return jobs.map(j=>{
     const addr=[j.street_address,j.city_state,j.zip].filter(Boolean).join(', ');
     let contact_display;
     if(j.contact_id) contact_display=contactNameById[j.contact_id]||'—';
     else if(j.client_id) contact_display=`${legacyClientNameById[j.client_id]||'—'} (legacy — run Migrate Legacy Clients)`;
     else contact_display='— unassigned —';
-    return{id:j.id,name:j.name,contact_display,address_display:addr||'—',status:j.status||'active',is_active:j.is_active,active_display:j.is_active===false?'Inactive':'Active'};
+    return{id:j.id,name:j.name,contact_display,address_display:addr||'—',status:j.status||'active',is_active:j.is_active,active_display:j.is_active===false?'Inactive':'Active',...rollUpJobInvoices(j.id,invoicesByJob)};
   });
 }
 // Requires a client to be selected first — Ryan's direct instruction,
@@ -4921,6 +4954,182 @@ function selectJobRow(rows,jobId){
   abSelectedJobId=row?row.id:null;
   abSelectedJobName=row?row.name:null;
   refreshClientsPageHeading();
+}
+
+// ── INVOICES TAB (Clients page, tab 3) — Ryan's direct instruction,
+// 2026-08-14: real invoices, connected to a real Job (not the generic
+// tags table job-costing used before) — "invoices billed by the job or by
+// the client if there's only one job." Every client always has at least
+// one job (see abRenderJobsTab's auto-create), so in practice this always
+// resolves to one or more real jobs: scoped to the one selected job if
+// you drilled that far in, otherwise every job under the selected client.
+const INVOICE_RV_COLUMNS=[
+  {key:'document_code',label:'Invoice #'},
+  {key:'job_name',label:'Job'},
+  {key:'status',label:'Status'},
+  {key:'billed_display',label:'Billed'},
+  {key:'received_display',label:'Received'},
+  {key:'outstanding_display',label:'Outstanding'},
+  {key:'pct_complete_display',label:'% Complete'}
+];
+function invoiceRowShape(inv,jobName){
+  return{
+    id:inv.id,
+    document_code:inv.document_code||'—',
+    job_name:jobName||'—',
+    status:inv.status||'draft',
+    billed_display:abMoneyFmt(inv.total_amount),
+    received_display:abMoneyFmt(inv.paid_amount),
+    outstanding_display:abMoneyFmt((Number(inv.total_amount)||0)-(Number(inv.paid_amount)||0)),
+    pct_complete_display:inv.pct_complete!=null?Number(inv.pct_complete).toFixed(0)+'%':'—'
+  };
+}
+async function abRenderInvoicesTab(){
+  const el=document.getElementById('invoices-tab-mount'); if(!el)return;
+  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
+  if(!abSelectedClientId){ el.innerHTML='<div class="ab-signin-notice" style="text-align:left">Select a client on the Clients tab first — Invoices shows that client\'s (or that client\'s one selected job\'s) real invoices, not everyone\'s.</div>'; return; }
+  el.innerHTML=`<div class="rv-wrap" id="rv-mount-invoices"></div>`;
+  let jobIds,jobNameById={};
+  if(abSelectedJobId){
+    jobIds=[abSelectedJobId]; jobNameById[abSelectedJobId]=abSelectedJobName;
+  } else {
+    const jobRows=await loadAllJobsForBook(abSelectedClientId);
+    jobIds=jobRows.map(j=>j.id);
+    jobRows.forEach(j=>{ jobNameById[j.id]=j.name; });
+  }
+  if(!jobIds.length){ document.getElementById('rv-mount-invoices').innerHTML=`<div class="ab-signin-notice" style="text-align:left">No job to attach an invoice to yet for ${abEsc(abSelectedClientName||'this client')}.</div>`; return; }
+  const{data:invs}=await db.from('invoices_bills').select('*').in('job_id',jobIds).eq('direction','invoice_receivable').order('doc_date');
+  const rows=(invs||[]).map(inv=>invoiceRowShape(inv,jobNameById[inv.job_id]));
+  if(!rows.length){ document.getElementById('rv-mount-invoices').innerHTML=`<div class="ab-signin-notice" style="text-align:left">No invoices yet for ${abEsc(abClientsPageHeadingText())} — use "+ Add Invoice" above.</div>`; return; }
+  rvCreate('rv-mount-invoices',INVOICE_RV_COLUMNS,rows,{onRowDoubleClick:id=>openEditInvoicePopup(id),hideExpandColumn:true,showSummaryRow:false});
+}
+// Default invoice number is YEAR-NNNN, resetting to 0001 every calendar
+// year (Ryan's direct instruction, 2026-08-14) — good for 9,999 invoices a
+// year before naturally rolling into 5 digits (no re-padding needed, the
+// number just keeps counting). Scoped to the whole book, not per-client/
+// per-job, since an invoice number sequence is one running count across
+// everything billed that year. Always just a suggestion in an editable
+// field — if real invoices already exist with their own numbering
+// convention, whatever the person types instead is respected as-is.
+async function nextInvoiceNumber(){
+  const year=new Date().getFullYear();
+  const prefix=year+'-';
+  const{data:existing}=await db.from('invoices_bills').select('document_code').eq('book_id',abBookId).like('document_code',prefix+'%');
+  let maxN=0;
+  (existing||[]).forEach(r=>{
+    const n=parseInt((r.document_code||'').slice(prefix.length),10);
+    if(!isNaN(n)&&n>maxN) maxN=n;
+  });
+  const next=maxN+1;
+  return prefix+String(next).padStart(4,'0');
+}
+async function openAddInvoicePopup(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  if(!abSelectedClientId){ abAlert('Select a client on the Clients tab first.'); return; }
+  const jobRows=await loadAllJobsForBook(abSelectedClientId);
+  const jobOptions=jobRows.map(j=>`<option value="${j.id}"${j.id===abSelectedJobId?' selected':''}>${abEsc(j.name)}</option>`).join('');
+  const suggestedNumber=await nextInvoiceNumber();
+  popupOpen(`
+    <div class="dv-sub-h">Add Invoice</div>
+    <div class="fv-field"><label class="fv-label">${abEsc(abFieldLabel('job','Job'))}</label><select class="fv-input" id="invForm-job">${jobOptions}</select></div>
+    <div class="company-form-grid" style="margin-top:10px">
+      <div class="fv-field"><label class="fv-label">Invoice #</label><input class="fv-input" id="invForm-doccode" value="${abEsc(suggestedNumber)}"></div>
+      <div class="fv-field"><label class="fv-label">Status</label>
+        <select class="fv-input" id="invForm-status"><option value="draft">Draft</option><option value="sent">Sent</option><option value="partial">Partial</option><option value="paid">Paid</option><option value="overdue">Overdue</option><option value="void">Void</option></select>
+      </div>
+      <div class="fv-field"><label class="fv-label">Invoice Date</label><input class="fv-input" type="date" id="invForm-docdate"></div>
+      <div class="fv-field"><label class="fv-label">Due Date</label><input class="fv-input" type="date" id="invForm-duedate"></div>
+      <div class="fv-field"><label class="fv-label">Total Billed</label><input class="fv-input" type="number" step="0.01" id="invForm-total" value="0"></div>
+      <div class="fv-field"><label class="fv-label">Received So Far</label><input class="fv-input" type="number" step="0.01" id="invForm-paid" value="0"></div>
+      <div class="fv-field"><label class="fv-label">% Complete</label><input class="fv-input" type="number" step="1" min="0" max="100" id="invForm-pct" placeholder="optional — progress billed as of this invoice"></div>
+    </div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Memo</label><input class="fv-input" id="invForm-memo"></div>
+    <button class="fv-save" style="margin-top:14px" onclick="saveNewInvoiceForm()">Add Invoice</button>
+    <div class="fv-status" id="invFormStatus"></div>`);
+}
+async function saveNewInvoiceForm(){
+  const jobId=document.getElementById('invForm-job').value;
+  const status=document.getElementById('invFormStatus');
+  if(!jobId){ status.textContent='Pick a job first.'; return; }
+  const values={
+    book_id:abBookId,
+    job_id:jobId,
+    direction:'invoice_receivable',
+    contact_id:abSelectedClientId,
+    document_code:document.getElementById('invForm-doccode').value.trim()||null,
+    doc_date:document.getElementById('invForm-docdate').value||null,
+    due_date:document.getElementById('invForm-duedate').value||null,
+    status:document.getElementById('invForm-status').value,
+    total_amount:Number(document.getElementById('invForm-total').value)||0,
+    subtotal:Number(document.getElementById('invForm-total').value)||0,
+    paid_amount:Number(document.getElementById('invForm-paid').value)||0,
+    pct_complete:document.getElementById('invForm-pct').value===''?null:Number(document.getElementById('invForm-pct').value),
+    memo:document.getElementById('invForm-memo').value.trim()||null
+  };
+  const{error}=await db.from('invoices_bills').insert(values);
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+  abRenderInvoicesTab();
+}
+async function openEditInvoicePopup(invId){
+  const{data:inv,error}=await db.from('invoices_bills').select('*').eq('id',invId).single();
+  if(error||!inv){ abAlert('Could not load that invoice.'); return; }
+  const jobRows=await loadAllJobsForBook(abSelectedClientId);
+  const jobOptions=jobRows.map(j=>`<option value="${j.id}"${j.id===inv.job_id?' selected':''}>${abEsc(j.name)}</option>`).join('');
+  popupOpen(`
+    <div class="dv-sub-h">Edit Invoice</div>
+    <div class="fv-field"><label class="fv-label">${abEsc(abFieldLabel('job','Job'))}</label><select class="fv-input" id="invForm-job">${jobOptions}</select></div>
+    <div class="company-form-grid" style="margin-top:10px">
+      <div class="fv-field"><label class="fv-label">Invoice #</label><input class="fv-input" id="invForm-doccode" value="${abEsc(inv.document_code||'')}"></div>
+      <div class="fv-field"><label class="fv-label">Status</label>
+        <select class="fv-input" id="invForm-status">${['draft','sent','partial','paid','overdue','void'].map(s=>`<option value="${s}"${inv.status===s?' selected':''}>${s[0].toUpperCase()+s.slice(1)}</option>`).join('')}</select>
+      </div>
+      <div class="fv-field"><label class="fv-label">Invoice Date</label><input class="fv-input" type="date" id="invForm-docdate" value="${inv.doc_date||''}"></div>
+      <div class="fv-field"><label class="fv-label">Due Date</label><input class="fv-input" type="date" id="invForm-duedate" value="${inv.due_date||''}"></div>
+      <div class="fv-field"><label class="fv-label">Total Billed</label><input class="fv-input" type="number" step="0.01" id="invForm-total" value="${inv.total_amount||0}"></div>
+      <div class="fv-field"><label class="fv-label">Received So Far</label><input class="fv-input" type="number" step="0.01" id="invForm-paid" value="${inv.paid_amount||0}"></div>
+      <div class="fv-field"><label class="fv-label">% Complete</label><input class="fv-input" type="number" step="1" min="0" max="100" id="invForm-pct" value="${inv.pct_complete!=null?inv.pct_complete:''}" placeholder="optional"></div>
+    </div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Memo</label><input class="fv-input" id="invForm-memo" value="${abEsc(inv.memo||'')}"></div>
+    <button class="fv-save" style="margin-top:14px" onclick="saveInvoiceForm('${invId}')">Save Invoice</button>
+    <span style="cursor:pointer;font-size:11px;color:#c97a7a;display:block;margin-top:12px" onclick="openDeleteInvoicePopup('${invId}')">🗑 Delete Invoice</span>
+    <div class="fv-status" id="invFormStatus"></div>`);
+}
+async function saveInvoiceForm(invId){
+  const jobId=document.getElementById('invForm-job').value;
+  const status=document.getElementById('invFormStatus');
+  if(!jobId){ status.textContent='Pick a job first.'; return; }
+  const values={
+    job_id:jobId,
+    document_code:document.getElementById('invForm-doccode').value.trim()||null,
+    doc_date:document.getElementById('invForm-docdate').value||null,
+    due_date:document.getElementById('invForm-duedate').value||null,
+    status:document.getElementById('invForm-status').value,
+    total_amount:Number(document.getElementById('invForm-total').value)||0,
+    subtotal:Number(document.getElementById('invForm-total').value)||0,
+    paid_amount:Number(document.getElementById('invForm-paid').value)||0,
+    pct_complete:document.getElementById('invForm-pct').value===''?null:Number(document.getElementById('invForm-pct').value),
+    memo:document.getElementById('invForm-memo').value.trim()||null
+  };
+  const{error}=await db.from('invoices_bills').update(values).eq('id',invId);
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+  abRenderInvoicesTab();
+}
+// Real two-step confirmation, same standard as every other delete in this
+// file — an invoice is real financial data, never a silent one-click removal.
+function openDeleteInvoicePopup(invId){
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e08a8a">Delete This Invoice?</div>
+    <div style="font-size:13px;color:var(--muted);margin:10px 0 18px">This permanently removes the invoice and its billed/received amounts. This cannot be undone.</div>
+    <button class="fv-save" style="background:#a33;border-color:#a33" onclick="confirmDeleteInvoice('${invId}')">Delete Permanently</button>
+    <button class="fv-save" style="margin-top:8px;background:transparent;border:1px solid var(--line)" onclick="openEditInvoicePopup('${invId}')">Cancel</button>`);
+}
+async function confirmDeleteInvoice(invId){
+  const{error}=await db.from('invoices_bills').delete().eq('id',invId);
+  if(error){ abAlert(error.message); return; }
+  popupClose();
+  abRenderInvoicesTab();
 }
 // Superseded by openAddClientPopup above, 2026-08-13 — left in place,
 // dormant, not deleted, in case the separate clients/jobs table path is
@@ -8348,6 +8557,10 @@ function showChTab(detailNum,n,btnEl){
   // there was no way to browse Jobs at all, or see which contact/client
   // each one actually belongs to ("delineate a job from a contact").
   if(detailNum===4&&n===2) abRenderJobsTab();
+  // Invoices tab under Clients (detailNum 4, tab 3) — Ryan's direct
+  // instruction, 2026-08-14: real invoices, connected to a real Job (not a
+  // tag), scoped the same drill-down way Jobs already is.
+  if(detailNum===4&&n===3) abRenderInvoicesTab();
 }
 
 // PAGE ACTION BAR — fills #page-action-bar-<detailNum> with whatever
@@ -8477,6 +8690,11 @@ function renderPageActionBar(detailNum,tabNum){
     // of just failing, so this button works whether or not you drilled in
     // through a client first.
     bar.innerHTML=abBookId?`<button class="page-action-btn" onclick="openAddJobPopup()"><span>+</span>Add Job</button>`:'';
+  } else if(detailNum===4&&tabNum===3){
+    // Add Invoice — pre-fills whichever Job is in focus (abSelectedJobId),
+    // or offers a Job picker (scoped to the selected client if one's
+    // picked, otherwise every job in the book) if none is selected yet.
+    bar.innerHTML=abBookId?`<button class="page-action-btn" onclick="openAddInvoicePopup()"><span>+</span>Add Invoice</button>`:'';
   } else if(detailNum===5&&tabNum===1){
     // Vendors page header — same treatment as Clients: Import and Add,
     // far right. Filtered view over Contacts, so this reuses the same
