@@ -52,6 +52,13 @@ create table if not exists contact_entities (
   updated_at timestamptz not null default now()
 );
 alter table contact_entities enable row level security;
+
+-- contacts.entity_id must exist BEFORE the policies below (they reference
+-- it) — this column-add was originally placed after the policies, which
+-- fails with "column c.entity_id does not exist" since Postgres resolves
+-- policy definitions against the schema as it stands at creation time.
+alter table contacts add column if not exists entity_id uuid references contact_entities(id) on delete set null;
+
 -- Readable/writable only by someone whose own book has a contact
 -- actually linked to this entity — i.e. only after a real connection
 -- has happened, never by a stranger guessing an id.
@@ -62,8 +69,6 @@ create policy "contact_entities_update_if_linked" on contact_entities for update
   with check (exists (select 1 from contacts c where c.entity_id = contact_entities.id and _amitbooks_is_book_member(c.book_id)));
 -- Insert is only ever performed by redeem_contact_invite() below (as the
 -- function owner, which bypasses RLS) — no direct client insert path.
-
-alter table contacts add column if not exists entity_id uuid references contact_entities(id) on delete set null;
 
 create table if not exists contact_connect_invites (
   id uuid primary key default gen_random_uuid(),
