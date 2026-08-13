@@ -608,7 +608,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.63</div>
+      <div class="page-version" id="pageVersion">v2.64</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -885,18 +885,16 @@ function renderAllPages(){
     </div>
   </div>`;
 
-  // CONTACTS — its own top-level sidebar page (not a Books sub-tab, per
-  // Ryan's direct instruction, 2026-08-07), copied verbatim from
-  // AmitBooks.html's Books & Setup → Contacts. Simple/Visual card view
-  // deliberately left out here too, same as Scopes — table view only.
-  navHtml+=`<div class="page-nav" id="page-3" onclick="openPage(3)" data-tip="Contacts">
-    <div class="page-icon">👤</div>
-    <div class="page-info"><div class="page-name">Contacts</div><div class="page-sub">—</div></div>
-  </div>`;
-  detailHtml+=`<div class="detail" id="detail-3" style="flex-direction:column">
-    <div class="detail-head"><span class="detail-heading">Contacts</span></div>
-    <div style="margin:24px"><div id="ab-contacts">Select a book on the Books tab first.</div></div>
-  </div>`;
+  // Standalone Contacts sidebar page (page-3/detail-3) removed, 2026-08-14
+  // (Ryan's direct instruction: "that was the old way of doing it, on the
+  // old interface"). Contacts now lives as Books' own tab 6
+  // (ch-tab-1-6/#ab-contacts-rv, abRenderContactsRv) and feeds Clients and
+  // Vendors from the same unified contacts table — this separate page
+  // predated that and became pure duplication. abRenderContacts() (the
+  // old renderer this page used) is left in place, dormant, same standard
+  // as every other superseded function in this file — its own #ab-contacts
+  // lookup now finds nothing and returns immediately, harmless everywhere
+  // it's still incidentally called alongside abRenderContactsRv().
 
   // CLIENTS — same cap structure as the Books page (detail-head +
   // page-action-bar + tab strip, same Row View table formatting/columns
@@ -9625,11 +9623,6 @@ function openPage(n){
   const detail=document.getElementById('detail-'+n);
   if(page)page.classList.add('active');
   if(detail)detail.classList.add('active');
-  // Contacts (page 3) — render on open, same pattern as the Books page's
-  // own tabs; abLoadContacts already runs whenever abBookId changes (see
-  // selectBookRow), so this is just putting the already-loaded data on
-  // screen the moment someone actually looks at the page.
-  if(n===3){ if(!abContactLabels.length) abLoadContactLabels().then(abRenderContacts); else abRenderContacts(); }
   // Clients (page 4) — loads on open; loadClientsIntoRowView guards
   // against reloading if a book hasn't changed since the last call.
   if(n===4){ loadClientsIntoRowView(); renderPageActionBar(4,1); }
