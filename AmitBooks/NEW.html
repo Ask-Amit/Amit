@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.17</div>
+      <div class="page-version" id="pageVersion">v2.18</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -819,25 +819,19 @@ function renderAllPages(){
       <div class="ch-tab-content ch-tab-flex" id="ch-tab-1-2"><div id="ab-coa" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content ch-tab-flex" id="ch-tab-1-3"><div id="ab-items" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-1-4"><div id="ab-nomenclature">Select a book on the Books tab first.</div></div>
-      <!-- Label-only swap, 2026-08-13 (Ryan's direct instruction): what
-           was "Terminology" (tab number 4, industry presets/field
-           customization) is now labeled "Defaults" — same functionality,
-           untouched. This slot (tab number 5, still just a stub) is now
-           labeled "Terminology" instead, reserved for real terminology
-           content to be built later. Numbers/ids unchanged on purpose,
-           only the visible button text and this placeholder moved. -->
-      <div class="ch-tab-content" id="ch-tab-1-5">Terminology tab — reserved, content to be built.</div>
-      <!-- Contacts tab — Ryan's direct instruction, 2026-08-12: a new tab
-           slot on the Books page, positioned between Scopes and
-           Terminology. Deliberately a stub, not wired to the existing
-           abRenderContacts()/#ab-contacts machinery (that already powers
-           the sidebar's own Contacts page) — Ryan is letting the other
-           session, which owns Contacts right now, decide and build the
-           real content here. Uses tab number 6 (not renumbering
-           Terminology/Tab 5's existing 4/5) specifically so this insertion
-           touches zero of the number-dependent logic those tabs already
-           have wired elsewhere in this file — purely additive. -->
-      <div class="ch-tab-content" id="ch-tab-1-6"><div class="ab-signin-notice" style="text-align:left">Contacts tab — reserved. Content to be built out (coordinating with the session already working on Contacts).</div></div>
+      <!-- Real content built 2026-08-13 (Ryan's direct instruction): field-
+           name customization (Field | Your Name, editable inline, same
+           Row View format as the Accounts tab) moved from the "Defaults"
+           tab's old "Customize Field Names" popup into this tab directly.
+           See abRenderTerminologyTab. -->
+      <div class="ch-tab-content ch-tab-flex" id="ch-tab-1-5"><div id="ab-terminology" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
+      <!-- Contacts tab — Ryan's direct instruction, 2026-08-13: same
+           Row View treatment as Accounts (rv-mount-*, sortable/filterable
+           columns via the shared engine, double-click opens the full
+           detail sheet). Real content built here; the sidebar's own
+           Contacts page (page 3, card grid) is untouched for now — Ryan's
+           own words, "build it now, and then we'll transfer it over." -->
+      <div class="ch-tab-content ch-tab-flex" id="ch-tab-1-6"><div id="ab-contacts-rv" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
     </div>
   </div>`;
 
@@ -2664,20 +2658,14 @@ async function abRenderNomenclature(){
   const currentPresetId=bookRow?bookRow.industry_preset_id:null;
   const currentPreset=abNomenclaturePresetsCache.find(p=>p.id===currentPresetId);
 
-  const activeFields=abNomenclatureFieldsCache.filter(f=>f.active);
-
-  el.innerHTML=`<div class="ab-h">Terminology</div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:20px">
-      Every classification field in this book — Job, Scope, Cost Code, whatever your industry calls it — has its own label, set here. Reports, forms, and headers throughout AmitBooks read the label from here rather than a fixed word, so a Restaurant book can call this field "Shift / Service" while a Construction book calls the same underlying field "Phase."
-    </div>
-
-    <div class="ab-h" style="font-size:15px">This Book's Current Setup</div>
-    ${currentPreset?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Started from the <b>${abEsc(currentPreset.display_name)}</b> preset.</div>`:'<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">No preset applied yet — pick one below to get started.</div>'}
-    ${activeFields.length?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-      ${activeFields.map(f=>`<span style="font-size:12px;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.18);border-radius:12px;padding:4px 12px">${abEsc(f.display_label)}</span>`).join('')}
-    </div>`:''}
-    <button class="ab-btn" onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
-
+  // "Terminology" heading, active-field chips, and the "Customize Field
+  // Names" button that used to open abNomenclatureModal all moved out of
+  // here, 2026-08-13 (Ryan's direct instruction) — that's the real
+  // Terminology tab now (tab number 5, abRenderTerminologyTab), built as
+  // a directly-editable Field/Your Name table instead of a popup. This
+  // tab (relabeled "Defaults") keeps only what it's actually for: Contact
+  // Labels and pulling a whole industry preset bundle into the book.
+  el.innerHTML=`${currentPreset?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Started from the <b>${abEsc(currentPreset.display_name)}</b> preset.</div>`:''}
     ${abContactLabelsSectionHtml()}
 
     <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Pull Pieces Into This Book</div>
@@ -2696,6 +2684,53 @@ async function abRenderNomenclature(){
 function abCancelAccountTemplateBrowsing(){
   abBrowsingAccountTemplate=false;
   showChTab(1,2,document.getElementById('ch-tab-1-2-btn'));
+}
+// ── TERMINOLOGY TAB (tab number 5) — Ryan's direct instruction,
+// 2026-08-13: same Row View format as the Accounts main tab, just Field
+// and Your Name side by side, directly editable, no separate popup and no
+// picker — "it's just gonna be connected to that." Replaces the old
+// abOpenNomenclatureEditor popup as the way display labels get set.
+//
+// Real, honest scope-down from that old popup: picklist VALUE lists (the
+// actual dropdown options under a field like Cost Code — Framing/HVAC/
+// etc., toggled via abNomToggleValues there) are NOT reachable from this
+// simpler table. abOpenNomenclatureEditor/abNomenclatureModal and their
+// value-row functions are left in the file, dormant, not deleted — if
+// per-field value-list editing is wanted back, it's already built, just
+// not currently wired to any visible button.
+const TERMINOLOGY_RV_COLUMNS=[
+  {key:'field_label',label:'Field'},
+  {key:'your_name',label:'Your Name',editable:true}
+];
+async function abRenderTerminologyTab(){
+  const el=document.getElementById('ab-terminology'); if(!el)return;
+  if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
+  await abLoadNomenclatureRefData();
+  const{data:bookFields}=await db.from('book_field_settings').select('*').eq('book_id',abBookId).order('field_key',{ascending:true});
+  abNomenclatureFieldsCache=bookFields||[];
+  const master=(abNomenclatureMasterFields||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const rows=master.map(m=>{
+    const existing=abNomenclatureFieldsCache.find(f=>f.field_key===m.field_key);
+    return{id:m.field_key,field_label:abNomPrettyKey(m.field_key),your_name:existing?existing.display_label:''};
+  });
+  el.innerHTML=`<div class="rv-wrap" id="rv-mount-terminology" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>`;
+  rvCreate('rv-mount-terminology',TERMINOLOGY_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:false,onCellCommit:abTerminologyCellCommit});
+}
+// A blank Your Name means "not customized" — the field goes inactive
+// (falls back to its plain field_key wherever this book reads it) rather
+// than being left active with an empty label. Typing a real name
+// activates it, same as the old editor's checkbox did, just without a
+// separate checkbox to remember to tick.
+async function abTerminologyCellCommit(fieldKey,key,val){
+  if(key!=='your_name')return;
+  const label=(val||'').trim();
+  const existing=abNomenclatureFieldsCache.find(f=>f.field_key===fieldKey);
+  if(existing){
+    await db.from('book_field_settings').update({display_label:label||abNomPrettyKey(fieldKey),active:!!label}).eq('id',existing.id);
+  } else if(label){
+    const{data}=await db.from('book_field_settings').insert({book_id:abBookId,field_key:fieldKey,active:true,display_label:label}).select().single();
+    if(data) abNomenclatureFieldsCache.push(data);
+  }
 }
 // Short "who this is for / what it sets up" descriptions — Ryan's direct
 // correction, 2026-08-12: hover only, never crammed inside the card
@@ -3205,6 +3240,82 @@ function abRenderContacts(){
       </div>`;
     }).join('')}</div>`
     :`<div class="ab-empty">${abContactSearch?'No contacts match that search.':(abContactFilter==='all'?'No contacts yet — click "+ New Contact" above to add your first vendor, customer, or employee.':'None with this label yet.')}</div>`}`;
+}
+// ── CONTACTS — ROW VIEW (Books tab 6) — Ryan's direct instruction,
+// 2026-08-13: same treatment as Accounts — every column sortable and
+// filterable via the shared Row View engine, alphabetical by default,
+// double-click a row for the full detail sheet (same popup the sidebar
+// Contacts page already uses). This is additive — the sidebar's own
+// Contacts page (page 3, card grid) is untouched; Ryan's own words,
+// "build it now, and then we'll transfer it over."
+function contactNameCellRenderer(r,c,containerId,isChild){
+  const inst=rvInstances.get(containerId);
+  const hasKids=r.children&&r.children.length;
+  const expanded=inst&&inst.expanded.has(r.id);
+  const toggle=hasKids
+    ? `<span class="rv-acct-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')" title="${expanded?'Collapse':'Expand'} people">${expanded?'−':'+'}</span>`
+    : '';
+  const style=isChild?'padding-left:26px;':'';
+  const linked=r.entity_id?`<span title="Connected — synced with another Amit account" style="margin-right:5px">🔗</span>`:'';
+  return `<td class="rv-td-plain"${style?` style="${style}"`:''}>${toggle}${isChild?'<span style="color:var(--gold2);opacity:.6;margin-right:4px">└</span>':''}${linked}${abEsc(r.name||'')}</td>`;
+}
+const CONTACT_RV_COLUMNS=[
+  {key:'name',label:'Name',cellRenderer:contactNameCellRenderer},
+  {key:'contact_name',label:'Contact Person'},
+  {key:'labels_display',label:'Labels'},
+  {key:'phone',label:'Phone'},
+  {key:'email',label:'Email'},
+  {key:'city_state',label:'City, State'}
+];
+// One level of parent→child nesting (a contact's own "people," same
+// structural limitation Accounts' own parent/sub-account nesting already
+// has — see buildAccountRvRows above).
+function buildContactRvRows(contacts){
+  const byParent={};
+  contacts.forEach(c=>{ const p=c.parent_contact_id||'__root__'; (byParent[p]=byParent[p]||[]).push(c); });
+  function toRow(c){
+    return {
+      id:c.id,
+      name:c.name,
+      contact_name:c.contact_name||c.title||'—',
+      labels_display:abContactLabelChips(c).map(l=>l.label).join(', ')||'—',
+      phone:c.phone||'—',
+      email:c.email||'—',
+      city_state:c.city_state||'—',
+      entity_id:c.entity_id,
+      children:(byParent[c.id]||[]).map(toRow)
+    };
+  }
+  return (byParent['__root__']||[]).map(toRow);
+}
+function abRenderContactsRv(){
+  const el=document.getElementById('ab-contacts-rv'); if(!el)return;
+  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
+  el.innerHTML=`${abContacts.length?'':'<div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">No contacts yet — press Add Contact in the header above, Import Vendors, or Connect a Shared Contact.</div>'}
+    <div class="rv-wrap" id="rv-mount-contacts"></div>`;
+  const rows=buildContactRvRows(abContacts);
+  rvCreate('rv-mount-contacts',CONTACT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openContactDetailPopup(id),hideExpandColumn:true,showSummaryRow:false,selectable:true,onBulkDelete:openBulkDeleteContactsPopup});
+}
+async function openBulkDeleteContactsPopup(ids){
+  if(!ids.length)return;
+  const names=ids.map(id=>{ const c=abContacts.find(x=>x.id===id); return c?c.name:null; }).filter(Boolean);
+  const kidsCount=ids.reduce((n,id)=>n+(abContacts||[]).filter(c=>c.parent_contact_id===id).length,0);
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete ${names.length} Contact${names.length===1?'':'s'}?</div>
+    <div class="fv-status" style="margin-bottom:14px">${names.map(n=>abEsc(n)).join(', ')}.${kidsCount?` This also removes ${kidsCount} ${kidsCount===1?'person':'people'} listed under them.`:''} This cannot be undone.</div>
+    <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmBulkDeleteContacts('${ids.join(',')}')">Delete Permanently</button>
+    <div class="fv-status" id="deleteContactsStatus" style="margin-top:10px"></div>`);
+}
+async function confirmBulkDeleteContacts(idsCsv){
+  const ids=idsCsv.split(',').filter(Boolean);
+  const status=document.getElementById('deleteContactsStatus');
+  for(let i=0;i<ids.length;i++){
+    if(status) status.textContent=`Deleting… ${i+1} of ${ids.length}`;
+    const{error}=await db.from('contacts').delete().eq('id',ids[i]);
+    if(error){ if(status) status.textContent='Error: '+error.message; return; }
+  }
+  popupClose();
+  await abLoadContacts(); abRenderContacts(); abRenderContactsRv();
 }
 function abPersonFormHtml(parentId){
   return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0 4px 28px">
@@ -7168,8 +7279,17 @@ function showChTab(detailNum,n,btnEl){
   // Scopes ("Scopes", Tab 3 of the Books page) — same pattern, render on
   // demand; abLoadItems already runs whenever abBookId changes above.
   if(detailNum===1&&n===3) abRenderItems();
-  // Terminology ("Terminology", Tab 4 of the Books page).
+  // Defaults (formerly "Terminology" label, tab number 4 — industry
+  // preset cards, unchanged functionality, just relabeled 2026-08-13).
   if(detailNum===1&&n===4) abRenderNomenclature();
+  // Terminology (tab number 5, the former empty "Tab 5" stub) — Ryan's
+  // direct instruction, 2026-08-13: field-name customization moves here,
+  // in the same Row View format as the Accounts tab (Field | Your Name,
+  // side by side, directly editable — no separate popup).
+  if(detailNum===1&&n===5) abRenderTerminologyTab();
+  // Contacts (tab number 6) — same on-demand pattern; abLoadContacts
+  // already runs whenever abBookId changes in selectBookRow.
+  if(detailNum===1&&n===6) abRenderContactsRv();
 }
 
 // PAGE ACTION BAR — fills #page-action-bar-<detailNum> with whatever
@@ -7260,6 +7380,17 @@ function renderPageActionBar(detailNum,tabNum){
       bar.innerHTML=`<button class="page-action-btn${pulseCls}" onclick="openImportForScopesTab()" data-tip="Already have your Items set up in QuickBooks? Bring them in from a CSV or native .xlsx export."><span>⬇</span>Import</button>
         <button class="page-action-btn${pulseCls}" onclick="abPreviewItemTemplate('construction')" data-tip="Starting fresh? Use the Construction industry's standard ${abEsc(scopeLabel)} list as a starting point.">${abAccounts.length?'':'<span style="font-size:11px;color:#f0a8a8;margin-right:8px">Load Chart of Accounts first to wire up Cost/Billable</span>'}<span>≡</span>Browse Template</button>
         <button class="page-action-btn${pulseCls}" onclick="openScopeEditPopup(null)" data-tip="Add one ${abEsc(scopeLabel)} by hand — name, accounts, and everything else. Also how you add more later, on top of an import or template.">${abAccounts.length?'':'<span style="font-size:11px;color:#f0a8a8;margin-right:8px">Load Chart of Accounts first to wire up Cost/Billable</span>'}<span>+</span>Add ${abEsc(scopeLabel)}</button>`;
+    }
+  } else if(detailNum===1&&tabNum===6){
+    // Contacts tab header — same treatment as Accounts/Scopes: Import,
+    // Connect, and Add all live here, far right, not inline in the tab
+    // body. Delete lives per-row/bulk-select in the table itself.
+    if(!abBookId){
+      bar.innerHTML='';
+    } else {
+      bar.innerHTML=`<button class="page-action-btn" onclick="openImportForVendorsTab()" data-tip="Bring Vendors in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients."><span>⬇</span>Import Vendors</button>
+        <button class="page-action-btn" onclick="abOpenConnectSharedContactPopup()" data-tip="Redeem a connect link someone sent you, linking one of your contacts to theirs so the core info stays in sync."><span>🔗</span>Connect a Shared Contact</button>
+        <button class="page-action-btn" onclick="openContactDetailPopup()"><span>+</span>Add Contact</button>`;
     }
   } else if(detailNum===4&&tabNum===1){
     // Ryan's direct instruction, 2026-08-07: "Add Client" belongs in the
