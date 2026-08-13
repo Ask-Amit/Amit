@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.27</div>
+      <div class="page-version" id="pageVersion">v2.28</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4193,6 +4193,96 @@ async function openAddClientPopup(){
   openContactDetailPopup(null);
   if(customerLabel){ contactFormSelectedLabels.add(customerLabel.id); contactFormRenderLabelChips(); }
 }
+// ── JOBS UNDER A CONTACT — Ryan's direct instruction, 2026-08-13: once a
+// client exists, there needs to be a real way to add a Job under them,
+// with its own address — a job site is very often not the same place as
+// the client's own mailing address (jobs.street_address/city_state/zip
+// already existed on the table for exactly this, just never had a real
+// entry point). Uses jobs.contact_id (migration_2026-08-13_006), not the
+// old jobs.client_id — this is the going-forward path for any contact
+// created through openContactDetailPopup, regardless of label.
+//
+// NOT YET WIRED to a button — deliberately. The Clients tab still reads
+// from the old separate `clients` table (64 real clients + 34 jobs
+// imported tonight live there), not `contacts`, so there's no existing
+// "edit this client" entry point yet that has a real contact_id to hand
+// this. Once that's reconciled (migrate the imported clients into
+// `contacts`, or merge both sources in the list — Ryan's call), the
+// button becomes one line: call renderContactJobsPanel(contactId) after
+// opening a contact for edit. Every function below is real and working,
+// ready for that wire-up.
+async function loadJobsForContact(contactId){
+  const{data,error}=await db.from('jobs').select('*').eq('contact_id',contactId).order('name');
+  return error?[]:(data||[]);
+}
+function contactJobRowHtml(j){
+  const addr=[j.street_address,j.city_state,j.zip].filter(Boolean).join(', ');
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(240,232,208,.08)">
+    <div><b>${abEsc(j.name)}</b>${addr?` <span style="color:var(--muted);font-size:11px">— ${abEsc(addr)}</span>`:''}</div>
+    <a href="#" onclick="openEditJobPopup('${j.id}');return false" style="color:var(--gold2);font-size:12px">Modify</a>
+  </div>`;
+}
+async function renderContactJobsPanel(contactId){
+  const el=document.getElementById('contactJobsPanel'); if(!el)return;
+  const jobs=await loadJobsForContact(contactId);
+  el.innerHTML=`${jobs.length?jobs.map(contactJobRowHtml).join(''):'<div class="fv-status" style="color:var(--muted)">No jobs yet under this client.</div>'}
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input class="fv-input" id="newJobName-${contactId}" placeholder="New job name" style="flex:1">
+      <button class="fv-save" onclick="quickAddJobToContact('${contactId}')">+ Add Job</button>
+    </div>
+    <div class="fv-status" id="newJobStatus-${contactId}" style="margin-top:6px"></div>`;
+}
+async function quickAddJobToContact(contactId){
+  const nameEl=document.getElementById('newJobName-'+contactId);
+  const name=(nameEl.value||'').trim();
+  const status=document.getElementById('newJobStatus-'+contactId);
+  if(!name){ status.textContent='Job name is required.'; return; }
+  const{error}=await db.from('jobs').insert({book_id:abBookId,contact_id:contactId,name,status:'active'});
+  if(error){ status.textContent='Error: '+error.message; return; }
+  nameEl.value='';
+  await renderContactJobsPanel(contactId);
+}
+// Real detail popup for one Job — same shape as the Contact popup's own
+// address section, per Ryan's direct instruction ("it should have the
+// detail like the contact database... creating an address portfolio for
+// that job"). Reuses contactLookupZip as-is (it looks up
+// contactForm-${prefix}zip/citystate by hardcoded id convention — the ZIP
+// field here is deliberately named contactForm-jobzip so that existing,
+// unmodified function works without needing its own copy).
+async function openEditJobPopup(jobId){
+  const{data:job,error}=await db.from('jobs').select('*').eq('id',jobId).single();
+  if(error||!job){ abAlert('Could not load that job.'); return; }
+  popupOpen(`
+    <div class="dv-sub-h">Edit Job</div>
+    <div class="fv-field"><label class="fv-label">Job Name</label><input class="fv-input" id="jobForm-name" value="${abEsc(job.name)}"></div>
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:14px 0 8px">Job Site Address — may be different from the client's own address</div>
+    <div class="company-form-grid">
+      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-jobaddress" value="${abEsc(job.street_address||'')}" placeholder="123 Main St"></div>
+      <div class="fv-field"><label class="fv-label">City, State</label><input class="fv-input" id="contactForm-jobcitystate" value="${abEsc(job.city_state||'')}" readonly placeholder="Fills in from ZIP" style="opacity:.85"></div>
+      <div class="fv-field"><label class="fv-label">ZIP</label><input class="fv-input" id="contactForm-jobzip" value="${abEsc(job.zip||'')}" maxlength="10" oninput="contactLookupZip(this.value,'job')" style="width:110px">
+        <div id="contactForm-jobzip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+      </div>
+    </div>
+    <div class="fv-field" style="margin-top:10px"><label class="fv-label">Status</label><input class="fv-input" id="jobForm-status" value="${abEsc(job.status||'active')}" placeholder="active"></div>
+    <button class="fv-save" style="margin-top:14px" onclick="saveJobForm('${jobId}')">Save Job</button>
+    <div class="fv-status" id="jobFormStatus"></div>`);
+}
+async function saveJobForm(jobId){
+  const nameEl=document.getElementById('jobForm-name');
+  const name=nameEl.value.trim();
+  const status=document.getElementById('jobFormStatus');
+  if(!name){ status.textContent='Job name is required.'; nameEl.focus(); return; }
+  const values={
+    name,
+    street_address:document.getElementById('contactForm-jobaddress').value.trim()||null,
+    city_state:document.getElementById('contactForm-jobcitystate').value.trim()||null,
+    zip:document.getElementById('contactForm-jobzip').value.trim()||null,
+    status:document.getElementById('jobForm-status').value.trim()||'active'
+  };
+  const{error}=await db.from('jobs').update(values).eq('id',jobId);
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+}
 // Superseded by openAddClientPopup above, 2026-08-13 — left in place,
 // dormant, not deleted, in case the separate clients/jobs table path is
 // ever wanted back. No button calls this anymore.
@@ -5535,16 +5625,31 @@ function importParseIifCustomers(text){
   });
   return{clients,jobs};
 }
+// Every row gets its own checkbox, checked by default — Ryan's direct
+// instruction, 2026-08-13: "same format as importing the other items,"
+// matching the Chart of Accounts template picker (abTemplatePickerHtml —
+// every row checked to start, Select All/Deselect All, uncheck what you
+// don't want). A client's own Jobs ride along automatically with it
+// (unchecking a client skips its Jobs too, same as before) — there's no
+// separate per-Job checkbox, since a Job with no imported parent Client
+// wouldn't have anywhere real to attach.
 function renderImportClientsReview(){
   const el=document.getElementById('importClientsReview'); if(!el)return;
   const{clients,jobs}=importParsedClients;
   const orphanJobs=jobs.filter(j=>!clients.find(c=>c.fullPath===j.parentPath));
   const clientLabel=abFieldLabel('client','Client');
   el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${clients.length} ${abEsc(abPluralize(clientLabel))} and ${jobs.length} Jobs found${orphanJobs.length?` (${orphanJobs.length} Jobs whose parent Customer wasn't found — imported as their own standalone ${abEsc(clientLabel)} instead)`:''}.</div>
-    <table class="ab-table"><tr><th>${abEsc(clientLabel)}</th><th>Phone</th><th>Email</th><th>Jobs</th></tr>
-    ${clients.map(c=>`<tr><td>${abEsc(c.name)}</td><td style="font-size:12px">${abEsc(c.phone||'—')}</td><td style="font-size:12px">${abEsc(c.email||'—')}</td><td style="font-size:12px">${jobs.filter(j=>j.parentPath===c.fullPath).length||'—'}</td></tr>`).join('')}
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importClientsSelectAll(true)">Select All</button>
+      <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importClientsSelectAll(false)">Deselect All</button>
+    </div>
+    <table class="ab-table"><tr><th></th><th>${abEsc(clientLabel)}</th><th>Phone</th><th>Email</th><th>Jobs</th></tr>
+    ${clients.map((c,i)=>`<tr><td><input type="checkbox" class="import-client-check" data-idx="${i}" checked></td><td>${abEsc(c.name)}</td><td style="font-size:12px">${abEsc(c.phone||'—')}</td><td style="font-size:12px">${abEsc(c.email||'—')}</td><td style="font-size:12px">${jobs.filter(j=>j.parentPath===c.fullPath).length||'—'}</td></tr>`).join('')}
     </table>
-    <button class="fv-save" style="margin-top:14px" onclick="importCommitClients()">Import ${clients.length} ${abEsc(abPluralize(clientLabel))} + ${jobs.length} Jobs</button>`;
+    <button class="fv-save" style="margin-top:14px" onclick="importCommitClients()">Import Selected</button>`;
+}
+function importClientsSelectAll(state){
+  document.querySelectorAll('.import-client-check').forEach(cb=>cb.checked=state);
 }
 let importClientsCommitInFlight=false;
 async function importCommitClients(){
@@ -5555,7 +5660,16 @@ async function importCommitClients(){
     status.textContent='Importing…';
     const{data:existingClients}=await db.from('clients').select('id,name').eq('book_id',abBookId);
     const existingNames=new Set((existingClients||[]).map(c=>c.name.trim().toLowerCase()));
-    const{clients,jobs}=importParsedClients;
+    const{clients:allClients,jobs:allJobs}=importParsedClients;
+    const checkedIdx=new Set(Array.from(document.querySelectorAll('.import-client-check:checked')).map(cb=>Number(cb.dataset.idx)));
+    const clients=allClients.filter((c,i)=>checkedIdx.has(i));
+    if(!clients.length){ status.textContent='Nothing selected — check at least one to import.'; return; }
+    const checkedPaths=new Set(clients.map(c=>c.fullPath));
+    // Jobs only ride along with a client that's actually checked — a Job
+    // whose parent Customer was left unchecked is skipped along with it,
+    // not imported as an orphan standalone client (that fallback is only
+    // for a parent that genuinely isn't in the file at all).
+    const jobs=allJobs.filter(j=>checkedPaths.has(j.parentPath)||!allClients.find(c=>c.fullPath===j.parentPath));
     const newClients=clients.filter(c=>!existingNames.has(c.name.trim().toLowerCase()));
     let clientImported=0;
     const pathToId={};
