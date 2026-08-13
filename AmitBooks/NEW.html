@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.10</div>
+      <div class="page-version" id="pageVersion">v2.11</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2560,11 +2560,48 @@ async function abLoadNomenclatureRefData(){
   abNomenclatureMasterFields=fields||[];
 }
 
+// Contact Labels — the extensible list replacing the fixed six-checkbox
+// role model, managed here in Terminology alongside every other
+// per-book vocabulary decision. Ryan's direct instruction, 2026-08-12/13:
+// "Subcontractor" has nowhere to live in the old fixed set, and neither
+// will the next industry's own role concept — see
+// migration_2026-08-13_001's own header comment for the full reasoning.
+let abContactLabels=[];
+async function abLoadContactLabels(){
+  if(!abBookId||!db||!currentUser){abContactLabels=[];return;}
+  const{data}=await db.from('contact_labels').select('*').eq('book_id',abBookId).order('sort_order');
+  abContactLabels=data||[];
+}
+async function abAddContactLabel(){
+  const input=document.getElementById('ab-new-contact-label');
+  const label=(input.value||'').trim();
+  if(!label)return;
+  const{error}=await db.from('contact_labels').insert({book_id:abBookId,label,sort_order:abContactLabels.length});
+  if(error){ abAlert(error.message.includes('duplicate')?`"${label}" is already in the list.`:error.message); return; }
+  input.value='';
+  await abLoadContactLabels(); abRenderNomenclature();
+}
+async function abDeleteContactLabel(id){
+  await db.from('contact_labels').delete().eq('id',id);
+  await abLoadContactLabels(); abRenderNomenclature();
+}
+function abContactLabelsSectionHtml(){
+  return `<div class="ab-h" style="font-size:15px;margin-top:28px">Contact Labels — Pick up to Four per Contact</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Customer, Vendor, Employee, 1099, Subcontractor, Donor, Tenant — whatever roles this book actually needs. A contact can carry up to four at once. Add whatever this industry calls for; nothing here is fixed.</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      ${abContactLabels.map(l=>`<span style="font-size:12px;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.18);border-radius:12px;padding:4px 8px 4px 12px;display:inline-flex;align-items:center;gap:6px">${abEsc(l.label)}<a href="#" onclick="abDeleteContactLabel('${l.id}');return false" style="color:#c97a7a;font-size:11px">✕</a></span>`).join('')||'<span style="font-size:12px;color:var(--muted)">No labels yet.</span>'}
+    </div>
+    <div style="display:flex;gap:8px">
+      <input id="ab-new-contact-label" class="fv-input" placeholder="e.g. Subcontractor" style="max-width:220px" onkeydown="if(event.key==='Enter')abAddContactLabel()">
+      <button class="ab-btn" onclick="abAddContactLabel()">+ Add Label</button>
+    </div>`;
+}
 async function abRenderNomenclature(){
   const el=document.getElementById('ab-nomenclature'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   el.innerHTML='Loading…';
   await abLoadNomenclatureRefData();
+  await abLoadContactLabels();
   const{data:bookFields}=await db.from('book_field_settings').select('*').eq('book_id',abBookId).order('field_key',{ascending:true});
   abNomenclatureFieldsCache=bookFields||[];
   const{data:bookValues}=await db.from('book_field_values').select('*').eq('book_id',abBookId).order('sort_order',{ascending:true});
@@ -2586,6 +2623,8 @@ async function abRenderNomenclature(){
       ${activeFields.map(f=>`<span style="font-size:12px;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.18);border-radius:12px;padding:4px 12px">${abEsc(f.display_label)}</span>`).join('')}
     </div>`:''}
     <button class="ab-btn" onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
+
+    ${abContactLabelsSectionHtml()}
 
     <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Pull Pieces Into This Book</div>
     ${abBrowsingAccountTemplate?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px;background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.5)">Picking a Chart of Accounts template — double-click a preset below to use it as this book's starting Chart of Accounts. <a href="#" onclick="abCancelAccountTemplateBrowsing();return false" style="color:var(--gold2)">Cancel, back to Accounts →</a></div>`
@@ -3041,7 +3080,7 @@ function abRenderContacts(){
       const sorted=abSmartApply(tk,shown,getters);
       return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',roles:'Roles'})}
       <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}<th>SSN</th><th></th></tr>
-      ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td><td style="white-space:nowrap"><a href="#" onclick="abTogglePersonForm('${c.id}');return false" style="color:var(--gold2);font-size:12px">+ Add Person</a> <a href="#" onclick="abDeleteContact('${c.id}','${abEsc(c.name).replace(/'/g,"\\'")}');return false" style="color:#c97a7a;font-size:12px;margin-left:8px">Delete</a></td></tr>
+      ${sorted.map(c=>`<tr ondblclick="openContactDetailPopup('${c.id}')" style="cursor:pointer" title="Double-click for the full contact sheet"><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="event.stopPropagation();abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="event.stopPropagation();abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td><td style="white-space:nowrap"><a href="#" onclick="event.stopPropagation();abTogglePersonForm('${c.id}');return false" style="color:var(--gold2);font-size:12px">+ Add Person</a> <a href="#" onclick="event.stopPropagation();abDeleteContact('${c.id}','${abEsc(c.name).replace(/'/g,"\\'")}');return false" style="color:#c97a7a;font-size:12px;margin-left:8px">Delete</a></td></tr>
       <tr id="ab-person-form-${c.id}" style="display:none"><td colspan="4">${abPersonFormHtml(c.id)}</td></tr>
       ${childrenOf(c.id).map(p=>`<tr style="background:rgba(240,232,208,.02)"><td style="padding-left:28px">↳ ${abEsc(p.name)}${p.title?` <span style="color:var(--muted);font-size:11px">— ${abEsc(p.title)}</span>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(p.phone||'')}${p.phone&&p.email?' · ':''}${abEsc(p.email||'')}</td><td></td><td><a href="#" onclick="abDeleteContact('${p.id}','${abEsc(p.name).replace(/'/g,"\\'")}');return false" style="color:#c97a7a;font-size:12px">Delete</a></td></tr>`).join('')}`).join('')||`<tr><td class="ab-empty" colspan="4">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
       </table>`;
@@ -3060,6 +3099,120 @@ function abTogglePersonForm(parentId){
   const row=document.getElementById('ab-person-form-'+parentId);
   const open=row.style.display!=='none';
   row.style.display=open?'none':(row.tagName==='TR'?'table-row':'block');
+}
+// ── CONTACT DETAIL POPUP — the real contact-database record. Ryan's
+// direct instruction, 2026-08-12/13: "when you double click the contact
+// button on that page, it pulls up the detail sheet like it would be for
+// the customer/company... address, phone numbers, like a normal contact
+// database would." Same icon/title/subtitle/sectioned-.company-form-grid
+// pattern already standard for Company and Client (openCompanyEditPopup,
+// openClientAddPopup) — Ryan confirmed that shape as the template for
+// every future contact-type entity back on 2026-08-07; this is that
+// promise kept for Contacts itself. Four label dropdowns (not a fixed
+// role checklist) pull from contact_labels, the same per-book extensible
+// list Terminology now manages.
+const CONTACT_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 8h18"/><circle cx="8" cy="13.5" r="1.6"/><path d="M13 12.5h5M13 15h3.5"/></svg>`;
+function abContactLabelOptionsHtml(selectedId){
+  return `<option value="">—</option>`+abContactLabels.map(l=>`<option value="${l.id}"${selectedId===l.id?' selected':''}>${abEsc(l.label)}</option>`).join('');
+}
+function openContactDetailPopup(contactId){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  const existing=contactId?abContacts.find(c=>c.id===contactId):null;
+  const v=key=>existing?(existing[key]||''):'';
+  popupOpen(`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div style="width:52px;height:52px;border-radius:50%;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2)">${CONTACT_ICON_SVG}</div>
+      <div>
+        <div class="dv-sub-h" style="margin:0">${existing?'Edit Contact':'New Contact'}</div>
+        <div style="font-size:11px;color:var(--muted)">Anyone this book deals with — a vendor, a customer, an employee, a subcontractor, whatever applies.</div>
+      </div>
+    </div>
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin-bottom:8px">Contact</div>
+    <div class="company-form-grid">
+      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Name</label><input class="fv-input" id="contactForm-name" autocomplete="off" value="${abEsc(v('name'))}" placeholder="Company or person's name"></div>
+      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Contact Person</label><input class="fv-input" id="contactForm-contactname" autocomplete="off" value="${abEsc(v('contact_name'))}" placeholder="Who to reach out to, if different from the name above"></div>
+      <div class="fv-field"><label class="fv-label">Phone</label><input class="fv-input" id="contactForm-phone" value="${abEsc(v('phone'))}" placeholder="(555) 555-5555" oninput="abFormatPhoneInput(this)"></div>
+      <div class="fv-field"><label class="fv-label">Email</label><input class="fv-input" id="contactForm-email" value="${abEsc(v('email'))}" placeholder="name@example.com"></div>
+    </div>
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Labels — up to four</div>
+    <div class="company-form-grid">
+      <div class="fv-field"><label class="fv-label">Label 1</label><select class="fv-input" id="contactForm-label1">${abContactLabelOptionsHtml(v('label1_id'))}</select></div>
+      <div class="fv-field"><label class="fv-label">Label 2</label><select class="fv-input" id="contactForm-label2">${abContactLabelOptionsHtml(v('label2_id'))}</select></div>
+      <div class="fv-field"><label class="fv-label">Label 3</label><select class="fv-input" id="contactForm-label3">${abContactLabelOptionsHtml(v('label3_id'))}</select></div>
+      <div class="fv-field"><label class="fv-label">Label 4</label><select class="fv-input" id="contactForm-label4">${abContactLabelOptionsHtml(v('label4_id'))}</select></div>
+    </div>
+    ${abContactLabels.length?'':'<div style="font-size:11px;color:var(--muted);margin-top:4px">No labels set up yet for this book — add some in Terminology first.</div>'}
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Address</div>
+    <div class="company-form-grid">
+      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-address" autocomplete="off" value="${abEsc(v('street_address'))}" placeholder="123 Main St"></div>
+      <div class="fv-field">
+        <label class="fv-label">City, State</label>
+        <input class="fv-input" id="contactForm-citystate" value="${abEsc(v('city_state'))}" placeholder="Fills in from ZIP" readonly style="opacity:.85">
+      </div>
+      <div class="fv-field">
+        <label class="fv-label">ZIP</label>
+        <input class="fv-input" id="contactForm-zip" value="${abEsc(v('zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value)" style="width:110px">
+        <div id="contactForm-zip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+      </div>
+    </div>
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Business</div>
+    <div class="company-form-grid">
+      <div class="fv-field"><label class="fv-label">Payment Terms</label><input class="fv-input" id="contactForm-terms" value="${abEsc(v('payment_terms'))}" placeholder="e.g. Net 30"></div>
+      <div class="fv-field"><label class="fv-label">Default Account</label><select class="fv-input" id="contactForm-defaultacct"><option value="">— None —</option>${abAccounts.map(a=>`<option value="${a.id}"${v('default_account_id')===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="fv-save" onclick="saveContactDetailForm('${contactId||''}')">${existing?'Save Contact':'Add Contact'}</button>
+      ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="abDeleteContact('${existing.id}','${abEsc(existing.name).replace(/'/g,"\\'")}')">Delete Contact</button>`:''}
+    </div>
+    <div class="fv-status" id="contactFormStatus"></div>`);
+}
+let contactZipLookupTimer=null;
+function contactLookupZip(zip){
+  clearTimeout(contactZipLookupTimer);
+  const clean=(zip||'').trim().slice(0,5);
+  const status=document.getElementById('contactForm-zip-status');
+  const cityState=document.getElementById('contactForm-citystate');
+  if(clean.length!==5){ return; }
+  contactZipLookupTimer=setTimeout(async()=>{
+    if(status) status.textContent='Looking up city/state…';
+    try{
+      const res=await fetch('https://api.zippopotam.us/us/'+clean);
+      if(!res.ok) throw new Error('ZIP not found');
+      const data=await res.json();
+      const place=data.places&&data.places[0];
+      if(place&&cityState) cityState.value=place['place name']+', '+place['state abbreviation'];
+      if(status) status.textContent='';
+    }catch(e){
+      if(status) status.textContent='Could not look up that ZIP — fill in City/State manually.';
+    }
+  },400);
+}
+async function saveContactDetailForm(existingId){
+  const name=document.getElementById('contactForm-name').value.trim();
+  const status=document.getElementById('contactFormStatus');
+  if(!name){ status.textContent='Name is required.'; return; }
+  const row={
+    name,
+    contact_name:document.getElementById('contactForm-contactname').value.trim()||null,
+    phone:document.getElementById('contactForm-phone').value.trim()||null,
+    email:document.getElementById('contactForm-email').value.trim()||null,
+    label1_id:document.getElementById('contactForm-label1').value||null,
+    label2_id:document.getElementById('contactForm-label2').value||null,
+    label3_id:document.getElementById('contactForm-label3').value||null,
+    label4_id:document.getElementById('contactForm-label4').value||null,
+    street_address:document.getElementById('contactForm-address').value.trim()||null,
+    city_state:document.getElementById('contactForm-citystate').value.trim()||null,
+    zip:document.getElementById('contactForm-zip').value.trim()||null,
+    payment_terms:document.getElementById('contactForm-terms').value.trim()||null,
+    default_account_id:document.getElementById('contactForm-defaultacct').value||null
+  };
+  status.textContent='Saving…';
+  const{error}=existingId
+    ? await db.from('contacts').update(row).eq('id',existingId)
+    : await db.from('contacts').insert({...row,book_id:abBookId});
+  if(error){ status.textContent='Error: '+error.message; return; }
+  popupClose();
+  await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
 }
 // Real branded confirm popup — never a native confirm(), per the standing
 // Interactivity Standard. Deleting a parent (company-level) contact also
