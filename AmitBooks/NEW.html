@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.42</div>
+      <div class="page-version" id="pageVersion">v2.43</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -912,7 +912,7 @@ function renderAllPages(){
       <div class="ch-tab-content active ch-tab-flex" id="ch-tab-4-1">
         <div class="rv-wrap" id="rv-mount-clients"></div>
       </div>
-      <div class="ch-tab-content" id="ch-tab-4-2" style="margin:24px"><div class="detail-empty">Jobs — table exists (migration_2026-08-07_004), no screen built yet.</div></div>
+      <div class="ch-tab-content ch-tab-flex" id="ch-tab-4-2"><div id="jobs-tab-mount" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
       <div class="ch-tab-content" id="ch-tab-4-3" style="margin:24px"><div class="detail-empty">Documents — not built yet.</div></div>
     </div>
   </div>`;
@@ -4635,7 +4635,58 @@ async function saveJobForm(jobId){
   };
   const{error}=await db.from('jobs').update(values).eq('id',jobId);
   if(error){ status.textContent='Error: '+error.message; return; }
+  if(document.getElementById('jobs-tab-mount')) abRenderJobsTab();
   popupClose();
+}
+// ── JOBS TAB (Clients page, tab 2) — Ryan's direct instruction,
+// 2026-08-13: a real gap, not just an unbuilt stub — there was no way to
+// browse every Job in the book at once, or see which contact/client each
+// one actually belongs to ("we don't have the ability to delineate a job
+// from a contact"). Shows both real, going-forward jobs (jobs.contact_id
+// — the QUICKBOOKS_006 migration, matching how Add Job under a Contact
+// creates them) AND legacy imported jobs that still only carry the old
+// jobs.client_id (real QuickBooks data, not yet migrated — see "Migrate
+// Legacy Clients" on the Clients tab) — labeled honestly as legacy rather
+// than silently hidden, same "never hide real data" standard as
+// everywhere else in this file.
+const JOBS_RV_COLUMNS=[
+  {key:'name',label:'Job'},
+  {key:'contact_display',label:'Client'},
+  {key:'address_display',label:'Address'},
+  {key:'status',label:'Status'}
+];
+async function loadAllJobsForBook(){
+  if(!db||!currentUser||!abBookId)return[];
+  const{data:jobs}=await db.from('jobs').select('*').eq('book_id',abBookId).order('name');
+  if(!jobs||!jobs.length)return[];
+  const contactIds=[...new Set(jobs.filter(j=>j.contact_id).map(j=>j.contact_id))];
+  const contactNameById={};
+  if(contactIds.length){
+    const{data:contacts}=await db.from('contacts').select('id,name').in('id',contactIds);
+    (contacts||[]).forEach(c=>{ contactNameById[c.id]=c.name; });
+  }
+  const legacyClientIds=[...new Set(jobs.filter(j=>!j.contact_id&&j.client_id).map(j=>j.client_id))];
+  const legacyClientNameById={};
+  if(legacyClientIds.length){
+    const{data:legacyClients}=await db.from('clients').select('id,name').in('id',legacyClientIds);
+    (legacyClients||[]).forEach(c=>{ legacyClientNameById[c.id]=c.name; });
+  }
+  return jobs.map(j=>{
+    const addr=[j.street_address,j.city_state,j.zip].filter(Boolean).join(', ');
+    let contact_display;
+    if(j.contact_id) contact_display=contactNameById[j.contact_id]||'—';
+    else if(j.client_id) contact_display=`${legacyClientNameById[j.client_id]||'—'} (legacy — run Migrate Legacy Clients)`;
+    else contact_display='— unassigned —';
+    return{id:j.id,name:j.name,contact_display,address_display:addr||'—',status:j.status||'active'};
+  });
+}
+async function abRenderJobsTab(){
+  const el=document.getElementById('jobs-tab-mount'); if(!el)return;
+  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
+  el.innerHTML=`<div class="rv-wrap" id="rv-mount-jobs"></div>`;
+  const rows=await loadAllJobsForBook();
+  if(!rows.length){ document.getElementById('rv-mount-jobs').innerHTML='<div class="ab-signin-notice" style="text-align:left">No jobs yet — double-click a client on the Clients tab, then "+ Add Job" underneath it.</div>'; return; }
+  rvCreate('rv-mount-jobs',JOBS_RV_COLUMNS,rows,{onRowDoubleClick:id=>openEditJobPopup(id),hideExpandColumn:true,showSummaryRow:false});
 }
 // Superseded by openAddClientPopup above, 2026-08-13 — left in place,
 // dormant, not deleted, in case the separate clients/jobs table path is
@@ -8058,6 +8109,11 @@ function showChTab(detailNum,n,btnEl){
   if(detailNum===5&&n===1) abRenderVendorsRv();
   // Cash page's own single tab (detailNum 6) — same on-demand pattern.
   if(detailNum===6&&n===1) abRenderCashRv();
+  // Jobs tab under Clients (detailNum 4, tab 2) — Ryan's direct
+  // instruction, 2026-08-13: was a real gap, not just an unbuilt stub —
+  // there was no way to browse Jobs at all, or see which contact/client
+  // each one actually belongs to ("delineate a job from a contact").
+  if(detailNum===4&&n===2) abRenderJobsTab();
 }
 
 // PAGE ACTION BAR — fills #page-action-bar-<detailNum> with whatever
