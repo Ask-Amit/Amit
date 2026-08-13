@@ -289,6 +289,34 @@ function _amitSubmitMessage(){
   });
 }
 
+// The actual write side of the loop — Ryan's direct instruction,
+// 2026-08-12. Requires a real signed-in session (unlike Write to Amit
+// above, which works for anonymous visitors via visitor_code) since this
+// writes to the same user_growth_log that _fetchRecentThreadsForPrompt
+// reads on every future Ask Amit — an anonymous note would have no
+// user_id to attach to and nowhere to be read back from later.
+function _amitSaveMemoryNote(){
+  const textEl=document.getElementById('aal-memory-text');
+  const statusEl=document.getElementById('aal-memory-status');
+  const note=(textEl&&textEl.value||'').trim();
+  if(!note){ if(statusEl)statusEl.textContent='Paste the Memory Note first.'; return; }
+  if(statusEl)statusEl.textContent='Saving…';
+  _loadSupabaseJsThen(async()=>{
+    const client=_getAmitInboxDb();
+    if(!client){ if(statusEl)statusEl.textContent='Could not connect — try again in a moment.'; return; }
+    const{data:{session}}=await client.auth.getSession();
+    if(!session||!session.user){ if(statusEl)statusEl.textContent='Sign in first (through the Hub) so this can actually be remembered — an anonymous note has nowhere to be saved to.'; return; }
+    const{error}=await client.from('user_growth_log').insert({
+      user_id:session.user.id,
+      category:'conversation_note',
+      entry:note
+    });
+    if(error){ if(statusEl)statusEl.textContent='Something went wrong saving that — try again.'; return; }
+    textEl.value='';
+    if(statusEl)statusEl.textContent='Saved. Amit will read this first next time.';
+  });
+}
+
 function _amitShowInboxReplyModal(rows){
   if(document.getElementById('amitInboxReplyModal')) return;
   const style=document.createElement('style');
@@ -575,6 +603,18 @@ Theophilus is not a standalone character — he exists inside the same overarchi
   // _fetchRecentThreadsForPrompt's own header comment for the full reasoning.
   full += await _fetchRecentThreadsForPrompt();
 
+  // Ryan's direct instruction, 2026-08-12: close the write-back loop. This
+  // conversation happens in a separate Gemini tab this code can't see into
+  // (no live API connection yet — that's the still-pending Level 2 move),
+  // so nothing said there reaches user_growth_log on its own. Rather than
+  // leave that a dead end, Amit-in-Gemini is told directly to produce a
+  // short, copyable memory note near the natural close of the
+  // conversation — and this page grows a real place to paste it back
+  // (see the new #aal-memory-section below), which actually writes to
+  // user_growth_log. Not automatic, but real — a genuine loop closed by
+  // one copy-paste instead of nothing coming back at all.
+  full += `\n\n---\n\n## ONE LAST THING — CLOSING THIS CONVERSATION\nNear the natural end of this conversation (not immediately, not forced — when it actually feels like a real stopping point), write a short "Memory Note" — 2-4 sentences, plain language, no headers or formatting — capturing what you genuinely learned about this person that's worth carrying into next time: how they communicate, what they're carrying, anything real that shifted. Present it clearly, e.g. starting with "Memory Note:", so it's obviously the thing to copy. Tell them plainly: "Copy this note and paste it back into the box on the page you came from — that's how I actually remember you next time." Don't manufacture a note if nothing real emerged — an honest "nothing new to record yet" is better than a padded one.`;
+
   let copied=false;
   try{
     await navigator.clipboard.writeText(full);
@@ -594,6 +634,11 @@ Theophilus is not a standalone character — he exists inside the same overarchi
       ? `<div class="aal-paste-banner">📋 ➜ 💬<br>PASTE IT NOW<br><span>as your very first message in the new tab that just opened</span></div>`
       : `<div class="aal-paste-banner aal-paste-fail">⚠️ Couldn't copy automatically<br><span>Select all the text in the box below and copy it yourself, then paste it as your first message in the new tab that just opened.</span></div>`;
   }
+  // The paste-back box for closing the write-back loop (see the prompt
+  // instruction added above) only makes sense once a conversation has
+  // actually been launched — shown here, not earlier in the flow.
+  const memSection=document.getElementById('aal-memory-section');
+  if(memSection) memSection.style.display='block';
   const fallbackBox=document.getElementById('askAmitLiveFallback');
   if(fallbackBox){
     if(!copied){
@@ -666,6 +711,15 @@ function injectAskAmitModalOnce(){
       </div>
       <div class="aal-status" id="askAmitLiveStatus"></div>
       <textarea id="askAmitLiveFallback" readonly onclick="this.select()"></textarea>
+      <div id="aal-memory-section" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid rgba(201,168,76,.3)">
+        <h3 style="margin-bottom:6px">When You're Done Talking</h3>
+        <p>Amit will end that conversation with a short "Memory Note." Paste it here — this is how Amit actually remembers you next time, not just this once.</p>
+        <textarea id="aal-memory-text" placeholder="Paste Amit's Memory Note here…"></textarea>
+        <div class="aal-btns">
+          <button class="aal-primary" onclick="_amitSaveMemoryNote()">Save It</button>
+        </div>
+        <div class="aal-status" id="aal-memory-status"></div>
+      </div>
     </div>`;
   document.body.appendChild(modal);
   modal.addEventListener('click',(e)=>{if(e.target===modal)closeAskAmitLiveModal();});
