@@ -456,6 +456,41 @@ select option{color:#2a2418;background:#fff}
 .ab-table tr:hover td{background:rgba(255,255,255,.03)}
 .ab-empty{color:var(--dim);font-style:italic;padding:16px;text-align:center;font-size:13px}
 .ab-signin-notice{background:rgba(255,255,255,.03);border:1px dashed rgba(201,168,76,.3);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:13px}
+/* ── CONTACT DATABASE — card grid, Ryan's direct instruction 2026-08-13:
+   "an amazing contact database... very, very, very simple to use." Same
+   theme tokens as the rest of the app (gold/parchment on navy), a fresh
+   layout rather than the old plain table: search + label chips + a card
+   per contact, click anywhere on the card to open the full sheet
+   (openContactDetailPopup), with quick actions surfacing only on hover
+   so the resting card stays clean. ── */
+.cc-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.cc-search{min-width:260px;flex:1;max-width:420px}
+.cc-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
+.cc-chip{background:transparent;border:1px solid rgba(201,168,76,.32);color:var(--muted);padding:5px 13px;border-radius:20px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.06em;text-transform:uppercase;transition:background .15s,color .15s,border-color .15s;user-select:none}
+.cc-chip:hover{border-color:rgba(201,168,76,.6);color:var(--text2)}
+.cc-chip.active{background:rgba(201,168,76,.18);border-color:var(--gold);color:var(--gold2)}
+.cc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px;padding-bottom:20px}
+.cc-card{position:relative;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.22);border-radius:12px;padding:16px 16px 44px;cursor:pointer;transition:border-color .15s,background .15s,transform .1s}
+.cc-card:hover{border-color:rgba(201,168,76,.6);background:rgba(255,255,255,.05);transform:translateY(-1px)}
+.cc-avatar{width:44px;height:44px;border-radius:50%;background:rgba(201,168,76,.16);border:1px solid rgba(201,168,76,.5);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2);font-family:'Cinzel',serif;font-weight:700;font-size:14px;letter-spacing:.02em}
+.cc-name{font-family:Georgia,serif;font-size:15px;font-weight:700;color:var(--text2);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-sub{font-size:11.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-labels{display:flex;flex-wrap:wrap;gap:5px;margin-top:11px}
+.cc-label-pill{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);color:var(--gold2);padding:2px 9px;border-radius:20px;font-size:10px;letter-spacing:.03em;white-space:nowrap}
+.cc-meta{margin-top:10px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.cc-meta a{color:var(--text2);text-decoration:none}
+.cc-meta a:hover{color:var(--gold2)}
+.cc-badges{position:absolute;top:12px;right:12px;display:flex;gap:8px;align-items:center}
+.cc-badge{font-size:10px;color:var(--muted)}
+.cc-people{margin-top:11px;padding-top:9px;border-top:1px dashed rgba(201,168,76,.25)}
+.cc-person-row{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--muted);padding:2px 0}
+.cc-person-row a{color:inherit;text-decoration:none;opacity:.5}
+.cc-person-row a:hover{opacity:1;color:#e2a3a3}
+.cc-actions{position:absolute;left:16px;right:16px;bottom:12px;display:flex;gap:12px;opacity:0;transition:opacity .15s;font-size:10.5px}
+.cc-card:hover .cc-actions{opacity:1}
+.cc-actions a{color:var(--muted);text-decoration:none;letter-spacing:.03em}
+.cc-actions a:hover{color:var(--gold2)}
+.cc-actions .danger:hover{color:#e2a3a3}
 /* Chart of Accounts moved onto the shared Row View engine (.rv-table,
    see ACCOUNT_RV_COLUMNS/loadAccountsIntoRowView) 2026-08-12 — it now
    gets .rv-table's own sticky header, padding, sort/filter, and
@@ -549,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.12</div>
+      <div class="page-version" id="pageVersion">v2.13</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1097,7 +1132,7 @@ function selectBookRow(rows,bookId){
   if(abBookId) localStorage.setItem('amitbooks_current_book_id',abBookId);
   abLoadAccounts().then(abRenderCoa);
   abLoadItems().then(abRenderItems);
-  abLoadContacts().then(abRenderContacts);
+  abLoadContactLabels().then(()=>abLoadContacts().then(abRenderContacts));
   abLoadFieldLabels().then(()=>{ abApplyClientTerminology(); abApplyScopeTerminology(); });
   loadClientsIntoRowView();
   // Terminology's own render (abRenderNomenclature) is deliberately NOT
@@ -2926,10 +2961,17 @@ async function abSaveNomenclatureEditor(){
 // the source. Simple/Visual card view left out, same exclusion as Scopes.
 // ══════════════════════════════════════════════
 let abContacts=[];
+let abContactAttachCounts={};
 async function abLoadContacts(){
-  if(!abBookId||!db||!currentUser){abContacts=[];return;}
+  if(!abBookId||!db||!currentUser){abContacts=[];abContactAttachCounts={};return;}
   const{data}=await db.from('contacts').select('*').eq('book_id',abBookId).order('name');
   abContacts=data||[];
+  abContactAttachCounts={};
+  const ids=abContacts.map(c=>c.id);
+  if(ids.length){
+    const{data:atts}=await db.from('contact_attachments').select('contact_id').in('contact_id',ids);
+    (atts||[]).forEach(a=>{ abContactAttachCounts[a.contact_id]=(abContactAttachCounts[a.contact_id]||0)+1; });
+  }
 }
 function abRoleTags(c){
   const r=[]; if(c.is_customer)r.push('Customer'); if(c.is_vendor)r.push('Vendor'); if(c.is_employee)r.push('Employee'); if(c.is_contractor_1099)r.push('1099'); if(c.is_donor)r.push('Donor'); if(c.is_tenant)r.push('Tenant');
@@ -2937,6 +2979,18 @@ function abRoleTags(c){
 }
 let abContactFilter='all';
 function abSetContactFilter(f){ abContactFilter=f; abRenderContacts(); }
+let abContactSearch='';
+function abSetContactSearch(v){ abContactSearch=(v||'').toLowerCase(); abRenderContacts(); }
+function abInitials(name){
+  const parts=(name||'').trim().split(/\s+/).filter(Boolean);
+  if(!parts.length) return '?';
+  if(parts.length===1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0]+parts[parts.length-1][0]).toUpperCase();
+}
+function abContactLabelChips(c){
+  return[c.label1_id,c.label2_id,c.label3_id,c.label4_id].filter(Boolean)
+    .map(id=>abContactLabels.find(l=>l.id===id)).filter(Boolean);
+}
 
 // ── SSN VAULT — same model as AmitBooks.html: zero-knowledge client-side
 // encryption. Supabase only ever stores ciphertext + a non-secret salt.
@@ -3048,43 +3102,61 @@ const AB_LEAD_STAGES=[['lead','Lead'],['contacted','Contacted'],['quoted','Quote
 function abRenderContacts(){
   const el=document.getElementById('ab-contacts'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
-  const filters=[['all','All'],['is_customer','Customers'],['is_vendor','Vendors'],['is_employee','Employees'],['is_contractor_1099','1099s']];
   const topLevel=abContacts.filter(c=>!c.parent_contact_id);
-  const shown = abContactFilter==='all' ? topLevel : topLevel.filter(c=>c[abContactFilter]);
+  let shown = abContactFilter==='all' ? topLevel : topLevel.filter(c=>[c.label1_id,c.label2_id,c.label3_id,c.label4_id].includes(abContactFilter));
+  if(abContactSearch){
+    const q=abContactSearch;
+    shown=shown.filter(c=>[c.name,c.contact_name,c.phone,c.email].some(f=>(f||'').toLowerCase().includes(q))
+      || abContactLabelChips(c).some(l=>l.label.toLowerCase().includes(q)));
+  }
   const childrenOf=pid=>abContacts.filter(c=>c.parent_contact_id===pid);
-  el.innerHTML=`<div class="ab-h">Contacts <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="openImportForVendorsTab()" data-tip="Bring Vendors in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients.">⬆ Import Vendors from QuickBooks</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:${abIsVaultUnlocked()?'#8fd19e':'var(--muted)'}" onclick="abToggleVaultLock()">${abIsVaultUnlocked()?'🔓 SSN Vault Unlocked':'🔒 SSN Vault Locked'}</span><input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''"></div>
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">SSNs are encrypted client-side (AES-256-GCM) before they ever leave this browser — the database never sees a plaintext SSN. A vault passphrase gates viewing/setting them; if it's ever lost, encrypted SSNs are permanently unrecoverable by design — that's real zero-knowledge encryption, not a limitation to fix.</div>
-    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-      ${filters.map(f=>`<button class="ab-btn" style="${abContactFilter===f[0]?'':'background:transparent;color:var(--muted)'}" onclick="abSetContactFilter('${f[0]}')">${f[1]} ${f[0]==='all'?'('+abContacts.length+')':'('+abContacts.filter(c=>c[f[0]]).length+')'}</button>`).join('')}
+  const chips=[['all','All ('+topLevel.length+')']].concat(
+    abContactLabels.map(l=>[l.id,`${l.label} (${topLevel.filter(c=>[c.label1_id,c.label2_id,c.label3_id,c.label4_id].includes(l.id)).length})`])
+  );
+  el.innerHTML=`<div class="ab-h">Contacts</div>
+    <div class="cc-toolbar">
+      <input class="cc-search" id="ab-contact-search" value="${abEsc(abContactSearch)}" placeholder="🔎 Search name, person, phone, email, label…" oninput="abSetContactSearch(this.value)">
+      <button class="ab-btn" onclick="openContactDetailPopup()">+ New Contact</button>
+      <span style="flex:1"></span>
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span>
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span>
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="openImportForVendorsTab()" data-tip="Bring Vendors in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients.">⬆ Import Vendors</span>
+      <span style="cursor:pointer;font-size:11px;color:${abIsVaultUnlocked()?'#8fd19e':'var(--muted)'}" onclick="abToggleVaultLock()">${abIsVaultUnlocked()?'🔓 Vault Unlocked':'🔒 Vault Locked'}</span>
+      <input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''">
     </div>
-    <div class="ab-form">
-      <div class="ab-field"><label>Name</label><input id="ab-contact-name" placeholder="Ace Hardware, or a client's name"></div>
-      <div class="ab-field"><label>Roles</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
-          <label><input type="checkbox" id="ab-contact-customer"> Customer / Client</label>
-          <label><input type="checkbox" id="ab-contact-vendor" checked> Vendor</label>
-          <label><input type="checkbox" id="ab-contact-employee"> Employee</label>
-          <label><input type="checkbox" id="ab-contact-1099"> 1099</label>
+    <div class="cc-chips">
+      ${chips.map(c=>`<div class="cc-chip${abContactFilter===c[0]?' active':''}" onclick="abSetContactFilter('${c[0]}')">${abEsc(c[1])}</div>`).join('')}
+    </div>
+    ${shown.length?`<div class="cc-grid">${shown.map(c=>{
+      const labels=abContactLabelChips(c);
+      const kids=childrenOf(c.id);
+      const attCount=abContactAttachCounts[c.id]||0;
+      const nameSafe=abEsc(c.name).replace(/'/g,"\\'");
+      return `<div class="cc-card" onclick="openContactDetailPopup('${c.id}')" title="Click for the full contact sheet">
+        <div class="cc-badges">${attCount?`<span class="cc-badge" title="${attCount} attachment${attCount===1?'':'s'}">📎 ${attCount}</span>`:''}${c.ssn_encrypted?`<span class="cc-badge" title="SSN on file, vault-encrypted">🔒</span>`:''}</div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div class="cc-avatar">${abInitials(c.name)}</div>
+          <div style="min-width:0;flex:1">
+            <div class="cc-name">${abEsc(c.name)}</div>
+            ${c.contact_name?`<div class="cc-sub">Attn: ${abEsc(c.contact_name)}</div>`:''}
+          </div>
         </div>
-      </div>
-      <div class="ab-field"><label>Lead Stage (optional)</label>
-        <select id="ab-contact-leadstage"><option value="">—</option>${AB_LEAD_STAGES.map(s=>`<option value="${s[0]}">${s[1]}</option>`).join('')}</select>
-      </div>
-      <div class="ab-field"><label>Lead Value (optional)</label><input id="ab-contact-leadvalue" type="number" step="0.01" style="width:100px"></div>
-      <div class="ab-field"><label>Lead Source (optional)</label><input id="ab-contact-leadsource" placeholder="referral, website, ad..."></div>
-      <button class="ab-btn" onclick="abAddContact()">Add Contact</button>
-    </div>
-    ${(()=>{
-      const tk='contacts'; abSmartRerender[tk]=abRenderContacts;
-      const getters={name:c=>c.name,roles:c=>['is_customer','is_vendor','is_employee','is_contractor_1099'].filter(k=>c[k]).join(' ')};
-      const sorted=abSmartApply(tk,shown,getters);
-      return `${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{name:'Name',roles:'Roles'})}
-      <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}<th>SSN</th><th></th></tr>
-      ${sorted.map(c=>`<tr ondblclick="openContactDetailPopup('${c.id}')" style="cursor:pointer" title="Double-click for the full contact sheet"><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="event.stopPropagation();abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="event.stopPropagation();abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td><td style="white-space:nowrap"><a href="#" onclick="event.stopPropagation();abTogglePersonForm('${c.id}');return false" style="color:var(--gold2);font-size:12px">+ Add Person</a> <a href="#" onclick="event.stopPropagation();abDeleteContact('${c.id}','${abEsc(c.name).replace(/'/g,"\\'")}');return false" style="color:#c97a7a;font-size:12px;margin-left:8px">Delete</a></td></tr>
-      <tr id="ab-person-form-${c.id}" style="display:none"><td colspan="4">${abPersonFormHtml(c.id)}</td></tr>
-      ${childrenOf(c.id).map(p=>`<tr style="background:rgba(240,232,208,.02)"><td style="padding-left:28px">↳ ${abEsc(p.name)}${p.title?` <span style="color:var(--muted);font-size:11px">— ${abEsc(p.title)}</span>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(p.phone||'')}${p.phone&&p.email?' · ':''}${abEsc(p.email||'')}</td><td></td><td><a href="#" onclick="abDeleteContact('${p.id}','${abEsc(p.name).replace(/'/g,"\\'")}');return false" style="color:#c97a7a;font-size:12px">Delete</a></td></tr>`).join('')}`).join('')||`<tr><td class="ab-empty" colspan="4">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
-      </table>`;
-    })()}`;
+        ${labels.length?`<div class="cc-labels">${labels.map(l=>`<span class="cc-label-pill">${abEsc(l.label)}</span>`).join('')}</div>`:''}
+        <div class="cc-meta">
+          ${c.phone?`<a href="tel:${abEsc(c.phone)}" onclick="event.stopPropagation()">📞 ${abEsc(c.phone)}</a>`:''}
+          ${c.email?`<a href="mailto:${abEsc(c.email)}" onclick="event.stopPropagation()">✉ ${abEsc(c.email)}</a>`:''}
+          ${c.city_state?`<span>📍 ${abEsc(c.city_state)}</span>`:''}
+        </div>
+        ${kids.length?`<div class="cc-people">${kids.map(p=>`<div class="cc-person-row"><span>↳ ${abEsc(p.name)}${p.title?` <span style="opacity:.7">— ${abEsc(p.title)}</span>`:''}</span><a href="#" class="danger" onclick="event.stopPropagation();abDeleteContact('${p.id}','${abEsc(p.name).replace(/'/g,"\\'")}')">✕</a></div>`).join('')}</div>`:''}
+        <div id="ab-person-form-${c.id}" style="display:none" onclick="event.stopPropagation()">${abPersonFormHtml(c.id)}</div>
+        <div class="cc-actions">
+          <a href="#" onclick="event.stopPropagation();abTogglePersonForm('${c.id}')">+ Person</a>
+          <a href="#" onclick="event.stopPropagation();${c.ssn_encrypted?`abViewDecryptedSSN('${c.id}')`:`abSetContactSSN('${c.id}')`}">${c.ssn_encrypted?'View SSN':'Set SSN'}</a>
+          <a href="#" class="danger" onclick="event.stopPropagation();abDeleteContact('${c.id}','${nameSafe}')">Delete</a>
+        </div>
+      </div>`;
+    }).join('')}</div>`
+    :`<div class="ab-empty">${abContactSearch?'No contacts match that search.':(abContactFilter==='all'?'No contacts yet — click "+ New Contact" above to add your first vendor, customer, or employee.':'None with this label yet.')}</div>`}`;
 }
 function abPersonFormHtml(parentId){
   return `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 0 4px 28px">
@@ -7040,7 +7112,7 @@ function openPage(n){
   // own tabs; abLoadContacts already runs whenever abBookId changes (see
   // selectBookRow), so this is just putting the already-loaded data on
   // screen the moment someone actually looks at the page.
-  if(n===3) abRenderContacts();
+  if(n===3){ if(!abContactLabels.length) abLoadContactLabels().then(abRenderContacts); else abRenderContacts(); }
   // Clients (page 4) — loads on open; loadClientsIntoRowView guards
   // against reloading if a book hasn't changed since the last call.
   if(n===4){ loadClientsIntoRowView(); renderPageActionBar(4,1); }
