@@ -341,7 +341,21 @@ header{
 /* width:100% removed (reverted 2026-08-07, same day added) — it forced
    the table to stretch past its own container and cover the right rail.
    Back to sizing to its real columns, same as before that change. */
-.rv-table{border-collapse:collapse;font-size:16px;table-layout:fixed}
+/* border-collapse:separate + border-spacing:0 — REPLACING border-collapse:
+   collapse, 2026-08-12. Real, separate bug found underneath the earlier
+   container-height fixes (v1.86/v1.90, both genuinely necessary but not
+   sufficient on their own): Chrome/Edge have a long-standing, documented
+   incompatibility where position:sticky on a <th>/<td> simply does not
+   stick at all when the table uses border-collapse:collapse — the sticky
+   containing-block calculation breaks specifically because of how
+   collapsed borders restructure the table's internal box model. This is
+   why the column header kept disappearing on scroll even after
+   .rv-table-wrap was correctly bounded and actually scrolling — the
+   scroll mechanics were right, this separate CSS rule was silently
+   defeating the sticky positioning on top of correct mechanics the whole
+   time. border-spacing:0 keeps cells visually flush (no gap opens up),
+   same tight look as collapse, but without the sticky-breaking behavior. */
+.rv-table{border-collapse:separate;border-spacing:0;font-size:16px;table-layout:fixed}
 .rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:11px 36px 11px 12px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
 .rv-th-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;max-width:100%;vertical-align:middle}
 .rv-table th .rv-arrow{margin-left:4px;opacity:.75}
@@ -535,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.01</div>
+      <div class="page-version" id="pageVersion">v2.02</div>
     </div>
   </a>
   <div class="page-title-wrap">
