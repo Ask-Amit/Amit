@@ -347,15 +347,19 @@ function _amitSaveMemoryNote(){
     if(error){ if(statusEl)statusEl.textContent='Something went wrong saving that — try again.'; return; }
     const deltas=_parseGrowthDeltas(pasted);
     if(deltas){
+      // upsert, not select-then-update — Ryan's direct instruction,
+      // 2026-08-12: a person's very first real conversation through Ask
+      // Amit shouldn't silently fail to save its Growth deltas just
+      // because no users row existed yet. cur being null (brand-new
+      // person) now still produces a real row, starting from 0 + the
+      // delta, instead of doing nothing.
       const{data:cur}=await client.from('users').select('trust_score,spiritual_position_score,response_to_truth_score').eq('id',session.user.id).maybeSingle();
-      if(cur){
-        const clamp=n=>Math.max(0,Math.min(10,n));
-        const update={};
-        if(deltas.trust!==null) update.trust_score=clamp((cur.trust_score||0)+deltas.trust);
-        if(deltas.spiritual!==null) update.spiritual_position_score=clamp((cur.spiritual_position_score||0)+deltas.spiritual);
-        if(deltas.response!==null) update.response_to_truth_score=clamp((cur.response_to_truth_score||0)+deltas.response);
-        if(Object.keys(update).length) await client.from('users').update(update).eq('id',session.user.id);
-      }
+      const clamp=n=>Math.max(0,Math.min(10,n));
+      const update={id:session.user.id};
+      if(deltas.trust!==null) update.trust_score=clamp((cur?.trust_score||0)+deltas.trust);
+      if(deltas.spiritual!==null) update.spiritual_position_score=clamp((cur?.spiritual_position_score||0)+deltas.spiritual);
+      if(deltas.response!==null) update.response_to_truth_score=clamp((cur?.response_to_truth_score||0)+deltas.response);
+      if(Object.keys(update).length>1) await client.from('users').upsert(update,{onConflict:'id'});
     }
     textEl.value='';
     if(statusEl)statusEl.textContent='Saved. Amit will read this first next time.';

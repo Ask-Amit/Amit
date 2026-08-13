@@ -6363,8 +6363,15 @@ async function logThreadEntry(entryText,domain){
   if(!db||!currentUser)return;
   try{
     await db.from('amit_threads').insert({user_id:currentUser.id,domain:domain||'Business',source_app:'AmitBooks',entry_text:entryText});
+    // upsert, not select-then-update — Ryan's direct instruction,
+    // 2026-08-12: someone who's only ever used AmitBooks and never opened
+    // the Hub has no users row yet (that row was previously only ever
+    // created by the Hub's own _syncCompass upsert). A select-then-
+    // conditional-update silently did nothing for a brand-new person;
+    // upsert creates the row here instead, so Trust starts tracking from
+    // this person's very first real action, wherever they started.
     const{data:cur}=await db.from('users').select('trust_score').eq('id',currentUser.id).maybeSingle();
-    if(cur) await db.from('users').update({trust_score:Math.max(0,Math.min(10,(cur.trust_score||0)+0.05))}).eq('id',currentUser.id);
+    await db.from('users').upsert({id:currentUser.id,trust_score:Math.max(0,Math.min(10,(cur?.trust_score||0)+0.05))},{onConflict:'id'});
   }
   catch(e){/* never block the real action this is attached to */}
 }
