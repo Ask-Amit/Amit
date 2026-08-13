@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.53</div>
+      <div class="page-version" id="pageVersion">v2.54</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6605,17 +6605,17 @@ function openImportStepInvoices(){
   popupOpen(`
     <div class="dv-sub-h">Invoices (from QuickBooks)</div>
     <div class="import-walkthrough">
-      <b>Transactions</b> — a different checkbox on the same export used for Accounts/Scopes/Clients:
+      <b>Customer Balance Detail</b> report — the real, always-available path (the Transactions checkbox on the old IIF list export isn't in every QuickBooks version):
       <ol>
-        <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
-        <li>This time also check <b>Transactions</b> (not just the list boxes) before clicking OK</li>
-        <li>Click <b>OK</b>, then save the file</li>
-        <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
+        <li><b>Reports → Customers &amp; Receivables → Customer Balance Detail</b></li>
+        <li>Set the date range to cover at least the past two years</li>
+        <li>Click <b>Excel</b> in the report toolbar → <b>Create New Worksheet</b> → export, then save it as a <code>.csv</code></li>
+        <li>Click <b>Choose File</b> below and find that saved file</li>
       </ol>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Pulls in every invoice from the file — outstanding and already-cleared/paid alike — dated within the past two years. Older ones are left out of this pass. Each one is matched against real Clients/Jobs already in this book automatically; anything that can't be matched gets its own Client/Job pickers right in the review table below so it doesn't just get skipped — assign it there, then import. Actual payments received aren't in this file (QuickBooks tracks those as separate transactions) — only whether QuickBooks marked an invoice fully paid comes across; everything else lands with $0 received, editable by hand afterward.</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">This report already shows every Invoice grouped under its real Customer (and Job, when the customer has one) — that grouping is read directly to match each invoice to the right Client/Job, and every Payment/Credit Memo underneath is applied oldest-invoice-first to work out what's actually still outstanding on each one, the same way the report's own running balance does. Still have the old Transactions .IIF export available? That works too — <code>.iif</code> is still accepted below.</div>
     </div>
     ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
-    <input type="file" id="importInvoicesFile" accept=".iif" onchange="importInvoicesFileChosen(this.files[0])">
+    <input type="file" id="importInvoicesFile" accept=".csv,.iif" onchange="importInvoicesFileChosen(this.files[0])">
     <div id="importInvoicesReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importInvoicesStatus" style="margin-top:10px"></div>`);
   if(lastImportFile) importInvoicesFileChosen(lastImportFile);
@@ -6634,9 +6634,17 @@ async function importInvoicesFileChosen(file){
   lastImportFile=file;
   const status=document.getElementById('importInvoicesStatus');
   status.textContent='Reading file…';
-  if(!(file.name||'').toLowerCase().endsWith('.iif')){ status.textContent='Invoices only import from the .IIF export right now — see the walkthrough above.'; return; }
-  let parsed=importParseIifInvoices(await file.text());
-  if(!parsed||!parsed.length){ status.textContent='No invoices found in that file — make sure "Transactions" was checked in the export dialog.'; return; }
+  const lower=(file.name||'').toLowerCase();
+  let parsed;
+  if(lower.endsWith('.csv')){
+    parsed=importParseCsvBalanceDetail(await file.text());
+  } else if(lower.endsWith('.iif')){
+    parsed=importParseIifInvoices(await file.text());
+  } else {
+    status.textContent='Invoices import from a QuickBooks Customer Balance Detail report (.csv) or a Transactions .IIF export — see the walkthrough above.';
+    return;
+  }
+  if(!parsed||!parsed.length){ status.textContent='No invoices found in that file.'; return; }
   // Past two years only — Ryan's direct instruction, 2026-08-14, "even
   // ones that have been cleared, so that way we have two years of history
   // behind us." Applied by date, not by paid/unpaid status — a cleared
@@ -6730,6 +6738,114 @@ function importParseIifInvoices(text){
 // and say, please assign a job and a [client] to these outstanding
 // invoices," rather than importing all invoices under one client at a
 // time or silently skipping what doesn't match.
+// ── Customer Balance Detail (.csv) parser — Ryan's direct instruction,
+// 2026-08-14, after finding the Transactions checkbox missing from his
+// QuickBooks' IIF export dialog entirely: this report is always
+// available, any QuickBooks version, via the Excel button on the report
+// itself. Real shape (verified against Ryan's own exported file): a
+// header row, then repeating groups — a quoted Customer name row (its own
+// row, Type blank), sometimes followed by a quoted Job name row nested
+// under it the same way, then the real transaction rows for that
+// Customer/Job (Type = Invoice/Payment/Credit Memo, blank first column),
+// closed by a "Total <name>" row. That's parsed as a real stack, not a
+// flat list — a Job's transactions are correctly attributed to both it
+// AND its parent Customer by walking pushes/pops of these name rows,
+// exactly mirroring the file's own indentation.
+function parseCsvLine(line){
+  const out=[]; let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(inQ){
+      if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else inQ=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') inQ=true;
+      else if(ch===','){ out.push(cur); cur=''; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+// Groups the raw ledger rows under their real Customer[:Job] key, walking
+// the report's own name-row stack (push on a plain name row, pop on its
+// matching "Total <name>" row).
+function groupCsvBalanceDetailLedger(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim()!=='');
+  const groups={}; // "Client :: Job" -> {clientName,jobName,ledger:[]}
+  const stack=[];
+  let started=false;
+  for(const line of lines){
+    const cols=parseCsvLine(line).map(c=>(c||'').trim());
+    if(!started){ if(cols[1]==='Type') started=true; continue; }
+    const name=cols[0],type=cols[1];
+    if(name&&!type){
+      if(name.toUpperCase()==='TOTAL') continue;
+      if(/^Total\s/i.test(name)){
+        const closedName=name.replace(/^Total\s/i,'').trim();
+        if(stack.length&&stack[stack.length-1]===closedName) stack.pop();
+        continue;
+      }
+      stack.push(name);
+      continue;
+    }
+    if(!name&&type&&stack.length){
+      const clientName=stack[0];
+      const jobName=stack.length>1?stack[stack.length-1]:stack[0];
+      const key=clientName+' :: '+jobName;
+      if(!groups[key]) groups[key]={clientName,jobName,ledger:[]};
+      groups[key].ledger.push({type,date:cols[2],num:cols[3],amount:Number(cols[5])||0});
+    }
+  }
+  return groups;
+}
+// Real invoices out of a job's ledger, with paid_amount/status worked out
+// by applying every Payment/Credit Memo oldest-open-invoice-first —
+// standard accounting allocation, not a guess, and it reproduces the same
+// running balance the report itself shows for that Customer/Job.
+function fifoAllocateLedger(ledger){
+  const sorted=[...ledger].sort((a,b)=>(iifDateToIso(a.date)||'').localeCompare(iifDateToIso(b.date)||''));
+  const invoices=[];
+  for(const row of sorted){
+    if((row.type||'').toLowerCase()==='invoice'){
+      invoices.push({docNum:row.num||null,docDate:iifDateToIso(row.date),amount:row.amount,remaining:row.amount});
+    } else {
+      // Payment or Credit Memo — both reduce AR the same way in this
+      // report (negative amount); applied against the oldest invoice(s)
+      // still carrying a balance. Any leftover (a payment with no open
+      // invoice yet at that point) is a real gap in what a running-balance
+      // report can tell us — left unapplied rather than guessed onto a
+      // later invoice it may not actually belong to.
+      let toApply=Math.abs(row.amount);
+      for(const inv of invoices){
+        if(toApply<=0)break;
+        if(inv.remaining<=0)continue;
+        const applied=Math.min(inv.remaining,toApply);
+        inv.remaining-=applied; toApply-=applied;
+      }
+    }
+  }
+  return invoices.map(inv=>({
+    docNum:inv.docNum,docDate:inv.docDate,amount:inv.amount,
+    paidAmount:Math.round((inv.amount-inv.remaining)*100)/100,
+    status:inv.remaining<=0.01?'paid':(inv.amount-inv.remaining>0.01?'partial':'sent')
+  }));
+}
+function importParseCsvBalanceDetail(text){
+  const groups=groupCsvBalanceDetailLedger(text);
+  const out=[];
+  Object.values(groups).forEach(g=>{
+    fifoAllocateLedger(g.ledger).forEach(inv=>{
+      out.push({
+        name:g.clientName===g.jobName?g.clientName:(g.clientName+':'+g.jobName),
+        docDate:inv.docDate, dueDate:null, docNum:inv.docNum,
+        amount:inv.amount, memo:null,
+        paid:inv.status==='paid', status:inv.status, paidAmount:inv.paidAmount
+      });
+    });
+  });
+  return out;
+}
 function renderImportInvoicesReview(){
   const el=document.getElementById('importInvoicesReview'); if(!el)return;
   const matched=importParsedInvoices.filter(i=>i.jobId);
@@ -6824,14 +6940,17 @@ async function importCommitInvoices(){
     }
     if(!toImport.length){ status.textContent='Nothing ready to import — check a row and, if it needs one, assign it a Client and Job first.'; return; }
     status.textContent='Importing…';
+    // status/paidAmount, when the parser worked them out (Customer Balance
+    // Detail's FIFO allocation), are more accurate than the plain paid
+    // boolean the older IIF path relies on — used when present.
     const rows=toImport.map(inv=>({
       book_id:abBookId, job_id:inv.jobId, contact_id:inv.contactId,
       direction:'invoice_receivable',
       document_code:inv.docNum||null,
       doc_date:inv.docDate, due_date:inv.dueDate,
-      status:inv.paid?'paid':'sent',
+      status:inv.status||(inv.paid?'paid':'sent'),
       total_amount:inv.amount, subtotal:inv.amount,
-      paid_amount:inv.paid?inv.amount:0,
+      paid_amount:inv.paidAmount!=null?inv.paidAmount:(inv.paid?inv.amount:0),
       memo:inv.memo
     }));
     const{error}=await db.from('invoices_bills').insert(rows);
