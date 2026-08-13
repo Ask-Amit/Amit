@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.22</div>
+      <div class="page-version" id="pageVersion">v2.23</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3420,6 +3420,15 @@ function contactFormCopyMailingToBilling(){
 }
 function openContactDetailPopup(contactId){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  // Self-heal a stale/empty abContactLabels — it's only loaded when a book
+  // is first selected (selectBookRow), so a session that had this book
+  // open before the standard-labels seed (abLoadContactLabels) shipped
+  // would otherwise show "No labels yet" forever until the book was
+  // reselected. Refreshing right here, every time this popup opens,
+  // guarantees the standard set shows up regardless of session history —
+  // doesn't block the popup opening; just re-renders the chip row once
+  // the fresh (and now-seeded) list comes back.
+  if(!abContactLabels.length) abLoadContactLabels().then(contactFormRenderLabelChips);
   const existing=contactId?abContacts.find(c=>c.id===contactId):null;
   contactFormSelectedLabels=new Set(existing?(abContactLabelMap[existing.id]||[]):[]);
   const v=key=>existing?(existing[key]||''):'';
