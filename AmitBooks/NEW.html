@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.39</div>
+      <div class="page-version" id="pageVersion">v2.40</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4364,7 +4364,17 @@ async function loadClientsIntoRowView(){
     _clientsLoadedForBook=null;
     return;
   }
-  if(_clientsLoadedForBook===abBookId)return; // already loaded for the current book — selectBookRow triggers a fresh load on change
+  // Real bug Ryan ran into directly, 2026-08-13: this guard only checked
+  // the book-id flag, not whether the mount actually still has anything
+  // rendered in it. Navigating away and back (or anything that
+  // regenerates this page's own container div — e.g. a full renderAllPages
+  // pass) wipes #rv-mount-clients back to empty without ever touching
+  // _clientsLoadedForBook, so the guard kept firing and skipping the
+  // reload against a DOM that no longer had the data in it — "imported,
+  // showed up, navigated away, came back, clients all gone." Now only
+  // skips the reload when the book hasn't changed AND the mount still has
+  // something actually rendered in it.
+  if(_clientsLoadedForBook===abBookId&&mount.children.length>0)return;
   _clientsLoadedForBook=abBookId;
   if(!db||!currentUser){
     // Not signed in (opened as a local file, same as Books' own sample-mode
