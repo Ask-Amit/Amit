@@ -335,14 +335,24 @@ header{
 .rv-wrap{margin:0;display:flex;flex-direction:column;flex:1;min-height:0}
 .rv-status{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);padding:2px 2px 10px;flex-shrink:0}
 .rv-status .clear{color:var(--gold2);cursor:pointer;text-decoration:underline}
-.rv-table-wrap{flex:1;overflow:auto;border:6px double rgba(201,168,76,.6);border-radius:8px;outline:none}
-/* v2.33's has-summary padding-bottom attempt reverted, 2026-08-13 — Ryan
-   confirmed it broke the footer's own sticking instead of just fixing the
-   overlap (padding-bottom on the scrolling container shifts where
-   position:sticky;bottom:0 anchors, a known bad combination). The real
-   fix belongs in rvBuildSummaryRow as an in-flow spacer row instead — see
-   that function. */
-.rv-summary-row td{background:rgba(201,168,76,.14);border-top:2px solid var(--gold);position:sticky;bottom:0}
+/* Ryan's direct instruction, 2026-08-13, after position:sticky proved
+   fragile across three separate attempts (missing z-index, padding-bottom
+   fighting sticky's own anchor, an in-flow spacer that needed hand-tuning
+   per row height): stop trying to make the header/footer stick WITHIN the
+   scrolling area, and instead take them OUT of it entirely. Three real,
+   separate stacked pieces sharing one outer frame — a small fixed table
+   for the header, the actual scrolling table with only the data rows in
+   the middle, and (when present) a small fixed table for the summary
+   footer. None of them are position:sticky anymore; they're just always
+   visible because they're not inside the thing that scrolls. All three
+   share the exact same colgroupHtml (see rvRenderInstance) so columns
+   stay aligned across all three. This is now the standard shape for every
+   Row View table, everywhere in this file, not a per-page fix. */
+.rv-table-frame{flex:1;min-height:0;display:flex;flex-direction:column;border:6px double rgba(201,168,76,.6);border-radius:8px;overflow:hidden}
+.rv-table-fixed-head,.rv-table-fixed-foot{flex-shrink:0;overflow:hidden}
+.rv-table-fixed-head table,.rv-table-fixed-foot table{margin:0}
+.rv-summary-row td{background:rgba(201,168,76,.14);border-top:2px solid var(--gold)}
+.rv-table-wrap{flex:1;overflow:auto;outline:none}
 .rv-table-wrap:focus-visible{box-shadow:inset 0 0 0 2px rgba(201,168,76,.4)}
 /* width:100% removed (reverted 2026-08-07, same day added) — it forced
    the table to stretch past its own container and cover the right rail.
@@ -362,7 +372,7 @@ header{
    time. border-spacing:0 keeps cells visually flush (no gap opens up),
    same tight look as collapse, but without the sticky-breaking behavior. */
 .rv-table{border-collapse:separate;border-spacing:0;font-size:16px;table-layout:fixed}
-.rv-table th{position:sticky;top:0;background:var(--card-head);color:var(--gold2);text-align:left;padding:11px 36px 11px 12px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
+.rv-table th{background:var(--card-head);color:var(--gold2);text-align:left;padding:11px 36px 11px 12px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap}
 .rv-th-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;max-width:100%;vertical-align:middle}
 .rv-table th .rv-arrow{margin-left:4px;opacity:.75}
 .rv-table th.rv-filtered{color:var(--gold)}
@@ -590,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.37</div>
+      <div class="page-version" id="pageVersion">v2.38</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -7506,22 +7516,21 @@ function rvRenderInstance(containerId){
     </tr>`;
   }).join('');
   const summaryHtml=rvBuildSummaryRow(inst,rows);
-  // Real fix for the sticky-footer-covers-the-last-row problem (Ryan's
-  // catch, 2026-08-13) — v2.33 tried padding-bottom on the scrolling
-  // container, which breaks where position:sticky;bottom:0 anchors
-  // (reverted, v2.34). The correct technique: an actual spacer ROW inside
-  // tbody, the same height as the summary row — real scrollable content,
-  // not container padding, so the last real row can scroll fully clear of
-  // the sticky footer without moving the footer's own anchor point at all.
-  const spacerColCount=(inst.selectable?1:0)+(inst.hideExpandColumn?0:1)+inst.columns.length;
-  const spacerRowHtml=inst.showSummaryRow?`<tr aria-hidden="true"><td colspan="${spacerColCount}" style="height:52px;padding:0;border:none"></td></tr>`:'';
+  // Three real, separate stacked pieces (see .rv-table-frame's own CSS
+  // comment for the full reasoning) — header and footer are no longer
+  // position:sticky or even inside the scrolling element at all, so
+  // there's no anchor point to fight and no last-row-covered problem to
+  // work around. All three tables share colgroupHtml so their columns
+  // stay aligned with each other.
   wrap.innerHTML=`${statusHtml}${bulkBarHtml}
-    <div class="rv-table-wrap" id="${containerId}-scroll" tabindex="0" onkeydown="rvHandleKeydown(event,'${containerId}')"><table class="rv-table">
-      ${colgroupHtml}
-      <thead>${theadHtml}</thead>
-      <tbody>${rowsHtml}${spacerRowHtml}</tbody>
-      ${summaryHtml}
-    </table></div>`;
+    <div class="rv-table-frame">
+      <div class="rv-table-fixed-head"><table class="rv-table">${colgroupHtml}<thead>${theadHtml}</thead></table></div>
+      <div class="rv-table-wrap" id="${containerId}-scroll" tabindex="0" onkeydown="rvHandleKeydown(event,'${containerId}')"><table class="rv-table">
+        ${colgroupHtml}
+        <tbody>${rowsHtml}</tbody>
+      </table></div>
+      ${inst.showSummaryRow?`<div class="rv-table-fixed-foot"><table class="rv-table">${colgroupHtml}${summaryHtml}</table></div>`:''}
+    </div>`;
   if(prevScrollTop){
     const newScrollEl=document.getElementById(containerId+'-scroll');
     if(newScrollEl) newScrollEl.scrollTop=prevScrollTop;
@@ -7599,8 +7608,10 @@ function rvStartResize(e,containerId,key){
   function onMove(ev){
     const newWidth=Math.max(60,Math.round(startWidth+(ev.clientX-startX)));
     inst.colWidths[key]=newWidth;
-    const col=document.querySelector(`#${containerId}-scroll col[data-key="${key}"]`);
-    if(col) col.style.width=newWidth+'px';
+    // Header/body/footer are three separate tables now (rv-table-frame) —
+    // update every matching col live during the drag, not just the body's,
+    // so the header doesn't visibly lag a frame behind until mouseup.
+    document.querySelectorAll(`#${containerId} col[data-key="${key}"]`).forEach(col=>{ col.style.width=newWidth+'px'; });
   }
   function onUp(){
     document.removeEventListener('mousemove',onMove);
