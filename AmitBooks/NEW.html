@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.23</div>
+      <div class="page-version" id="pageVersion">v2.24</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3244,7 +3244,7 @@ function abRenderContacts(){
       <span style="flex:1"></span>
       <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span>
       <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span>
-      <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="openImportForVendorsTab()" data-tip="Bring Vendors in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients.">⬆ Import Vendors</span>
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="openImportForVendorsTab()" data-tip="Bring Vendors, Employees, and Other Names in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients — Customers/Jobs import separately, on the Clients tab.">⬆ Import Contacts</span>
       <span style="cursor:pointer;font-size:11px;color:${abIsVaultUnlocked()?'#8fd19e':'var(--muted)'}" onclick="abToggleVaultLock()">${abIsVaultUnlocked()?'🔓 Vault Unlocked':'🔒 Vault Locked'}</span>
       <input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''">
     </div>
@@ -5479,12 +5479,27 @@ async function importCommitClients(){
 // connectivity Ryan's asking for — a vendor imported here immediately
 // shows up in that same dropdown, no separate reconciliation step needed.
 //
-// Field names below are IIF's standard, documented !VEND layout — NOT
-// independently confirmed against a real BOSS export the way !CUST/
-// !ACCNT/!INVITEM were (each of those was checked against Ryan's actual
-// file first). Parsing is still fully header-driven (reads whatever
-// columns the real file's own !VEND line declares, same as every other
-// importer here) — if an actual field name differs from what's assumed
+// Ryan's direct instruction, 2026-08-13: "it's not just vendors though,
+// it's the entire contact database from QB" — the walkthrough already has
+// people check every box in the export dialog, so the same .IIF file also
+// carries the Employee List and Other Names List, and this was silently
+// throwing both away, reading only !VEND. Now reads all three sections
+// (Vendor List, Employee List, Other Names List) in one pass and tags each
+// row with the matching standard label (Vendor/Employee — Other Names has
+// no clean standard match, left unlabeled for a person to sort by hand).
+// Customers/Jobs deliberately stay out of this importer — they already
+// have their own, more complete path (openImportForClientsTab, !CUST,
+// which also captures Jobs) — merging them in here would just create a
+// second, disconnected record for the same business.
+//
+// Field names below are IIF's standard, documented layout for these three
+// sections — NOT independently confirmed against a real BOSS export the
+// way !CUST/!ACCNT/!INVITEM were (each of those was checked against
+// Ryan's actual file first; !VEND's fields were carried over unconfirmed
+// when it was first built, and !EMP/!OTHERNAME follow the same
+// unconfirmed-but-header-driven pattern now). Parsing is fully
+// header-driven (reads whatever columns the real file's own section header
+// line declares) — if an actual field name differs from what's assumed
 // below, that one field just comes back blank in review rather than
 // anything breaking or silently importing wrong data. Confirm against a
 // real export and adjust the specific lookups below if that happens.
@@ -5495,16 +5510,16 @@ function openImportForVendorsTab(){
 let importParsedVendors=null;
 function openImportStepVendors(){
   popupOpen(`
-    <div class="dv-sub-h">Vendors → Contacts</div>
+    <div class="dv-sub-h">QuickBooks Contacts → Contacts</div>
     <div class="import-walkthrough">
-      <b>Vendor List</b> — same export as everything else:
+      <b>Vendor List, Employee List, and Other Names List</b> — all from the same export as everything else:
       <ol>
         <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
         <li>A checklist of every list QuickBooks can export appears — <b>none of them are checked by default, so check every single box yourself</b> before clicking OK</li>
         <li>Click <b>OK</b>, then save the file somewhere you'll remember</li>
         <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
       </ol>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Imports as Contacts marked Vendor — the same list Scopes' Preferred Vendor field already reads from, so anything imported here is immediately usable there too. EIN/Tax ID isn't captured (it requires client-side encryption through the SSN Vault, not a plain import field) — set that by hand per vendor afterward if needed.</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Everyone found gets tagged with the matching label (Vendor, Employee) automatically — Other Names come in unlabeled, for you to sort by hand. Customers and Jobs import separately, on the Clients tab, since that path also brings Jobs over. EIN/SSN isn't captured (it requires client-side encryption through the SSN Vault, not a plain import field) — set that by hand per contact afterward if needed.</div>
     </div>
     ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
     <input type="file" id="importVendorsFile" accept=".iif" onchange="importVendorsFileChosen(this.files[0])">
@@ -5517,30 +5532,36 @@ async function importVendorsFileChosen(file){
   lastImportFile=file;
   const status=document.getElementById('importVendorsStatus');
   status.textContent='Reading file…';
-  if(!(file.name||'').toLowerCase().endsWith('.iif')){ status.textContent='Vendors only import from the .IIF export right now.'; return; }
+  if(!(file.name||'').toLowerCase().endsWith('.iif')){ status.textContent='Contacts only import from the .IIF export right now.'; return; }
   importParsedVendors=importParseIifVendors(await file.text());
-  if(!importParsedVendors){ status.textContent='Could not find any vendors in that file — if your file definitely has a Vendor List in it, this may mean the column names differ from what\'s expected; let Ryan\'s side know so the parser can be adjusted.'; return; }
-  if(!importParsedVendors.length){ status.textContent='That file has no vendors in it.'; return; }
+  if(!importParsedVendors){ status.textContent='Could not find a Vendor List, Employee List, or Other Names List in that file — if your file definitely has one of those, this may mean the column names differ from what\'s expected; let Ryan\'s side know so the parser can be adjusted.'; return; }
+  if(!importParsedVendors.length){ status.textContent='That file has no vendors, employees, or other names in it.'; return; }
   renderImportVendorsReview();
   status.textContent='';
 }
-function importParseIifVendors(text){
+// One shared parser for any of IIF's flat "NAME + address + phone + email"
+// list sections — VEND, EMP, and OTHERNAME all share this same basic
+// shape in the IIF spec, just under a different section tag.
+function importParseIifContactSection(text,sectionTag){
   const lines=text.split(/\r?\n/);
   let headerCols=null;
   const dataRows=[];
   for(const line of lines){
     if(!line)continue;
     const cols=line.split('\t');
-    if(cols[0]==='!VEND'){ headerCols=cols.slice(1); continue; }
-    if(cols[0]==='VEND'&&headerCols){
+    if(cols[0]==='!'+sectionTag){ headerCols=cols.slice(1); continue; }
+    if(cols[0]===sectionTag&&headerCols){
       const vals=cols.slice(1);
       const row={};
       headerCols.forEach((h,i)=>{ row[h]=vals[i]||''; });
       dataRows.push(row);
     }
   }
-  if(!dataRows.length)return null;
-  return dataRows.filter(r=>r.NAME).map(r=>{
+  return dataRows;
+}
+function importParseIifVendors(text){
+  const toContact=(r,sourceType)=>{
+    if(!r.NAME||!r.NAME.trim())return null;
     const addrParts=[r.ADDR1,r.ADDR2,r.ADDR3,r.ADDR4,r.ADDR5].map(a=>(a||'').trim()).filter(Boolean);
     return{
       name:r.NAME.trim(),
@@ -5548,17 +5569,26 @@ function importParseIifVendors(text){
       phone:(r.PHONE1||'').trim()||null,
       email:(r.EMAIL||'').trim()||null,
       is1099:(r.VENDOR1099||'').trim().toUpperCase()==='Y',
-      terms:(r.TERMS||'').trim()||null
+      terms:(r.TERMS||'').trim()||null,
+      sourceType
     };
-  });
+  };
+  const vendors=importParseIifContactSection(text,'VEND').map(r=>toContact(r,'Vendor')).filter(Boolean);
+  const employees=importParseIifContactSection(text,'EMP').map(r=>toContact(r,'Employee')).filter(Boolean);
+  const others=importParseIifContactSection(text,'OTHERNAME').map(r=>toContact(r,'Other Name')).filter(Boolean);
+  const all=[...vendors,...employees,...others];
+  return all.length?all:null;
 }
 function renderImportVendorsReview(){
   const el=document.getElementById('importVendorsReview'); if(!el)return;
-  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedVendors.length} vendors found.</div>
-    <table class="ab-table"><tr><th>Name</th><th>Phone</th><th>Email</th><th>1099</th></tr>
-    ${importParsedVendors.map(v=>`<tr><td>${abEsc(v.name)}</td><td style="font-size:12px">${abEsc(v.phone||'—')}</td><td style="font-size:12px">${abEsc(v.email||'—')}</td><td style="font-size:12px">${v.is1099?'Yes':'—'}</td></tr>`).join('')}
+  const counts={};
+  importParsedVendors.forEach(v=>{ counts[v.sourceType]=(counts[v.sourceType]||0)+1; });
+  const countsLine=Object.entries(counts).map(([t,n])=>`${n} ${t}${n===1?'':(t==='Other Name'?'s':'s')}`).join(', ');
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedVendors.length} found — ${countsLine}.</div>
+    <table class="ab-table"><tr><th>Name</th><th>Type</th><th>Phone</th><th>Email</th><th>1099</th></tr>
+    ${importParsedVendors.map(v=>`<tr><td>${abEsc(v.name)}</td><td style="font-size:12px">${abEsc(v.sourceType)}</td><td style="font-size:12px">${abEsc(v.phone||'—')}</td><td style="font-size:12px">${abEsc(v.email||'—')}</td><td style="font-size:12px">${v.is1099?'Yes':'—'}</td></tr>`).join('')}
     </table>
-    <button class="fv-save" style="margin-top:14px" onclick="importCommitVendors()">Import ${importParsedVendors.length} Vendors</button>`;
+    <button class="fv-save" style="margin-top:14px" onclick="importCommitVendors()">Import ${importParsedVendors.length} Contact${importParsedVendors.length===1?'':'s'}</button>`;
 }
 let importVendorsCommitInFlight=false;
 async function importCommitVendors(){
@@ -5568,18 +5598,34 @@ async function importCommitVendors(){
     const status=document.getElementById('importVendorsStatus');
     status.textContent='Importing…';
     const existingNames=new Set((abContacts||[]).map(c=>(c.name||'').trim().toLowerCase()));
-    const rows=importParsedVendors.filter(v=>!existingNames.has(v.name.trim().toLowerCase())).map(v=>({
-      book_id:abBookId,name:v.name,is_vendor:true,
+    const toInsert=importParsedVendors.filter(v=>!existingNames.has(v.name.trim().toLowerCase()));
+    const skipped=importParsedVendors.length-toInsert.length;
+    if(!toInsert.length){ status.textContent=skipped?`All ${skipped} already exist in this book — nothing new to import.`:'Nothing to import.'; importVendorsCommitInFlight=false; return; }
+    const rows=toInsert.map(v=>({
+      book_id:abBookId,name:v.name,
+      is_vendor:v.sourceType==='Vendor',is_employee:v.sourceType==='Employee',
       address:v.address,phone:v.phone,email:v.email,
       payment_terms:v.terms,
       is_contractor_1099:v.is1099
     }));
-    const skipped=importParsedVendors.length-rows.length;
-    if(!rows.length){ status.textContent=skipped?`All ${skipped} already exist in this book — nothing new to import.`:'Nothing to import.'; importVendorsCommitInFlight=false; return; }
-    const{error}=await db.from('contacts').insert(rows);
+    const{data:inserted,error}=await db.from('contacts').insert(rows).select();
     if(error){ status.textContent='Error: '+error.message; return; }
-    status.textContent=`Imported ${rows.length} vendor(s)${skipped?`, ${skipped} skipped (already existed)`:''}.`;
-    logThreadEntry(`Imported ${rows.length} vendors from QuickBooks into the current book.`);
+    // Tag each new contact with its matching standard label (guaranteed
+    // present — see abLoadContactLabels' auto-seed) so the new label-based
+    // Contacts views pick these up immediately, not just the legacy
+    // is_vendor/is_employee booleans still read elsewhere (Scopes'
+    // Preferred Vendor dropdown).
+    const vendorLabelId=(abContactLabels.find(l=>l.label==='Vendor')||{}).id;
+    const employeeLabelId=(abContactLabels.find(l=>l.label==='Employee')||{}).id;
+    const labelLinks=[];
+    (inserted||[]).forEach((row,i)=>{
+      const src=toInsert[i]&&toInsert[i].sourceType;
+      const labelId=src==='Vendor'?vendorLabelId:src==='Employee'?employeeLabelId:null;
+      if(labelId) labelLinks.push({book_id:abBookId,contact_id:row.id,label_id:labelId});
+    });
+    if(labelLinks.length) await db.from('contact_label_links').insert(labelLinks);
+    status.textContent=`Imported ${rows.length} contact(s)${skipped?`, ${skipped} skipped (already existed)`:''}.`;
+    logThreadEntry(`Imported ${rows.length} contacts (vendors/employees/other names) from QuickBooks into the current book.`);
     await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
     setTimeout(()=>popupClose(),1200);
   } finally {
@@ -7443,7 +7489,7 @@ function renderPageActionBar(detailNum,tabNum){
       bar.innerHTML='';
     } else {
       const pulseCls=abContacts.length?'':' page-action-btn-pulse';
-      bar.innerHTML=`<button class="page-action-btn${pulseCls}" onclick="openImportForVendorsTab()" data-tip="Bring Contacts in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients."><span>⬇</span>Import Contacts</button>
+      bar.innerHTML=`<button class="page-action-btn${pulseCls}" onclick="openImportForVendorsTab()" data-tip="Bring Vendors, Employees, and Other Names in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients — Customers/Jobs import separately, on the Clients tab."><span>⬇</span>Import Contacts</button>
         <button class="page-action-btn${pulseCls}" onclick="abOpenConnectSharedContactPopup()" data-tip="Redeem a connect link someone sent you, linking one of your contacts to theirs so the core info stays in sync."><span>🔗</span>Connect a Shared Contact</button>
         <button class="page-action-btn${pulseCls}" onclick="openContactDetailPopup()"><span>+</span>Add Contact</button>`;
     }
