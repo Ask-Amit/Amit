@@ -291,10 +291,18 @@ const PAGE_DISPLAY_NAMES = {
   howbuilt: 'How This Was Built',
   amitcoder: 'AmitCoder',
   amitbooks: 'AmitBooks',
-  computerhealth: 'Computer Health'
+  amitbooksRebuild: 'AmitBooks (rebuild)',
+  computerhealth: 'Computer Health',
+  amitWeather: 'AmitWeather'
 };
 
 const PAGE_CONTEXTS = {
+
+  amitWeather: `## WHERE THIS CONVERSATION STARTED — AmitWeather
+
+This conversation was started from AmitWeather — a brand-new Amit project, built 2026-08-06 as a temporary/test build to try out the J New project-creation workflow. It is a weather reference tool, scoped to grow in layers: current conditions, forecast, and severe alerts first (built from free no-key APIs like Open-Meteo and the US National Weather Service), with radar, astronomy, air quality, and historical data planned as later additions if the project continues past its test phase. As of this writing it is freshly scaffolded from the shared Amit template — no real weather-fetching code has been built yet, so if asked what it actually does right now, say so honestly rather than describing planned features as if they exist.
+
+`,
 
   amitbooks: `## WHERE THIS CONVERSATION STARTED — AmitBooks
 
@@ -307,6 +315,16 @@ This conversation was started from AmitBooks — the newest tool in the Amit sys
 **What's actually built right now, plainly:** almost nothing yet. This page itself is a freshly copied shell from the shared Amit template (Templates/template.html) — placeholder sidebar tiles and panels, a working sign-in/sync connection to the shared Amit Supabase project, and a working link back to the Hub. No receipt capture, no OCR, no chart of accounts, and no real ledger functionality exist yet. If asked what AmitBooks can actually do today, say so honestly — it's at the very start of being built, right after its name was chosen.
 
 **Where it fits in the Amit system:** like every practical tool Ryan builds (Computer Value, Medical Prep), AmitBooks is what the system calls "a fishing net" — genuinely useful on its own, funding and feeding people toward the Hub, where Amit actually lives and where who_is_god.html is one click away. If asked why an app about clearing receipts is part of a project about who God is, that's the honest answer: the tool doesn't preach, it serves — and the relationship it builds is what opens the door, the same way it's meant to for every other tool in this system.`,
+
+  amitbooksRebuild: `## WHERE THIS CONVERSATION STARTED — AmitBooks (rebuild)
+
+This conversation was started from NEW.html — a from-scratch rebuild of AmitBooks, sitting in the same AmitBooks folder as the original, live AmitBooks.html. Here is what you actually know about it, so you can talk about it honestly if asked — updated 2026-08-12, this is a real, working slice of the app now, not an empty shell:
+
+**Why this exists:** the original AmitBooks.html grew into real, working double-entry bookkeeping software — genuine Supabase-backed books, journal entries, payroll, banking, reconciliation, inventory, and more — but its structure became too cumbersome to keep extending cleanly. Rather than keep patching it, Ryan chose to rebuild it fresh on the shared Amit template (the same Tabbed/Row/Detail/Calendar/etc. canonical layouts every new Amit project starts from) and port the working functionality over piece by piece, screen by screen, rather than trying to clean up in place.
+
+**Current state, plainly — what's actually real in NEW.html right now:** Companies and Books (multi-entity, one login can own several companies, each with its own books). Chart of Accounts — full CRUD, sub-accounts/hierarchy, standard financial-statement default ordering (Assets/Liabilities/Equity/Income/Expenses), Tax Category (with sub-accounts inheriting from their primary account rather than each needing one set). Scopes (the app's own word for job-costing categories — Cost Account/Billable Account per Scope, inventory-style Unit Cost/Qty/Reorder/Preferred Vendor). Clients and Jobs (one client, many jobs). Contacts (Vendors/Customers/Employees/1099s, with client-side-encrypted SSN/EIN vault). Terminology — a real per-book field-relabeling system (rename "Scope" to whatever a given trade calls it, etc.), with industry starter presets (Construction is built). A real QuickBooks migration path — Lists-to-IIF import (the same one native export QuickBooks offers) brings over Chart of Accounts, Scopes/Items, Clients+Jobs, and Vendors, each with a real review-before-commit screen, not a blind import. Not yet built: Bills & Invoices, Payroll & HR, Reports, the Journal/transaction importer, AmitScan integration — still on original AmitBooks.html only for now.
+
+**What NOT to imply:** don't describe Bills & Invoices, Payroll, or Reports as working inside this file — they aren't ported yet, that's still original AmitBooks.html's job. Everything else listed above as built is real and can be discussed accurately, including specifics (e.g. it's fine to say Tax Category inherits down through sub-accounts, or that the QuickBooks import reads the same .IIF file for four different things).`,
 
   amitcoder: `## WHERE THIS CONVERSATION STARTED — AmitCoder
 
