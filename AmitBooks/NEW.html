@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.45</div>
+      <div class="page-version" id="pageVersion">v2.46</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3580,13 +3580,33 @@ function contactNameCellRenderer(r,c,containerId,isChild){
   const linked=r.entity_id?`<span title="Connected — synced with another Amit account" style="margin-right:5px">🔗</span>`:'';
   return `<td class="rv-td-plain"${style?` style="${style}"`:''}>${toggle}${isChild?'<span style="color:var(--gold2);opacity:.6;margin-right:4px">└</span>':''}${linked}${abEsc(r.name||'')}</td>`;
 }
+// Shared checkbox toggle for the Active column — Ryan's direct
+// instruction, 2026-08-13: a real column in the grid itself, not just the
+// existing show/hide-inactive link. Same contacts.is_active flag that
+// link already reads — writes straight through on click, no popup, no
+// Apply. Reused by both Contacts/Vendors (CONTACT_RV_COLUMNS) and Clients
+// (CLIENT_RV_COLUMNS) below since it's the identical underlying field on
+// the identical table either way.
+function activeToggleCellRenderer(r,c,containerId){
+  return `<td style="text-align:center" onclick="event.stopPropagation()"><input type="checkbox" ${r.is_active===false?'':'checked'} onchange="rvToggleContactActive('${r.id}',this.checked,'${containerId}')"></td>`;
+}
+async function rvToggleContactActive(contactId,checked,containerId){
+  const{error}=await db.from('contacts').update({is_active:checked}).eq('id',contactId);
+  if(error){ abAlert(error.message); return; }
+  const inst=rvInstances.get(containerId);
+  if(inst){
+    const row=inst.rows.find(x=>x.id===contactId);
+    if(row){ row.is_active=checked; row.active_display=checked?'Active':'Inactive'; }
+  }
+}
 const CONTACT_RV_COLUMNS=[
   {key:'name',label:'Name',cellRenderer:contactNameCellRenderer},
   {key:'contact_name',label:'Contact Person'},
   {key:'labels_display',label:'Labels'},
   {key:'phone',label:'Phone'},
   {key:'email',label:'Email'},
-  {key:'city_state',label:'City, State'}
+  {key:'city_state',label:'City, State'},
+  {key:'active_display',label:'Active',cellRenderer:activeToggleCellRenderer}
 ];
 // One level of parent→child nesting (a contact's own "people," same
 // structural limitation Accounts' own parent/sub-account nesting already
@@ -3604,6 +3624,8 @@ function buildContactRvRows(contacts){
       email:c.email||'—',
       city_state:c.city_state||'—',
       entity_id:c.entity_id,
+      is_active:c.is_active,
+      active_display:c.is_active===false?'Inactive':'Active',
       children:(byParent[c.id]||[]).map(toRow)
     };
   }
@@ -4234,6 +4256,7 @@ const CLIENT_SAMPLE_ROWS=[
 ];
 const CLIENT_RV_COLUMNS=[
   {key:'name',label:'Client'},
+  {key:'active_display',label:'Active',cellRenderer:activeToggleCellRenderer},
   {key:'jobs',label:'Jobs',align:'right',sortFilter:false,customFilterBtn:clientsJobsFilterBtnRenderer,groupStart:true,description:"Real — count of this client's Jobs. Click the funnel to sort by count, search jobs by name, or narrow to Active/Completed/All. Not included in the Total row below — that row is money-formatted, and this is a plain count."},
   {key:'billed',label:'Billed',align:'right',sortFilter:false,groupStart:true,description:"Placeholder — total invoiced across this client's jobs, once Bills & Invoices exists in this file and invoices carry a job_id."},
   {key:'received',label:'Received',align:'right',sortFilter:false,operatorPrefix:'−',description:"Placeholder — total actually paid so far across this client's invoices."},
@@ -4425,7 +4448,7 @@ async function loadClientsIntoRowView(){
     mount.innerHTML=`<div class="detail-empty">Could not load — ${error.message}</div>`;
     return;
   }
-  const rows=(data||[]).map(c=>({...c,jobs:'…',billed:'—',received:'—',outstanding:'—',pct_complete:'—'}));
+  const rows=(data||[]).map(c=>({...c,jobs:'…',billed:'—',received:'—',outstanding:'—',pct_complete:'—',active_display:c.is_active===false?'Inactive':'Active'}));
   _clientsCurrentRows=rows;
   rvCreate('rv-mount-clients',CLIENT_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onRowOpen:id=>selectClientRow(rows,id),onRowDoubleClick:id=>openClientEditPopup(id)});
   loadClientJobCounts();
