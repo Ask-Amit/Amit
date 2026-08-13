@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.43</div>
+      <div class="page-version" id="pageVersion">v2.44</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4547,6 +4547,67 @@ async function confirmMigrateLegacyClients(){
   loadClientsIntoRowView();
   setTimeout(()=>popupClose(),2200);
 }
+// ── DELETE ALL CLIENTS (start over) — Ryan's direct instruction,
+// 2026-08-13: running the Customers/Jobs import 2-3 times while this was
+// being sorted out left real duplicates behind, and he wants a genuine
+// clean slate rather than hand-picking through them. Real second
+// confirmation, same standard as every other delete in this file — shows
+// exactly what's about to go before anything is touched. Scoped to the
+// CURRENT book only, and clears BOTH real sources of client data: every
+// Customer-labeled contact (+ its label links) in the new, correct
+// system, AND whatever's still sitting in the old, separate `clients`
+// table (real data from before Import was fixed to write into contacts
+// directly) — a real "start over" has to clear both, or the old table
+// would just look like a second, confusing copy again the moment
+// something reads from it. Jobs pointing at either one are deleted
+// explicitly rather than assumed to cascade, so this is correct
+// regardless of what any specific foreign key constraint actually does.
+async function openDeleteAllClientsPopup(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  const customerLabel=(abContactLabels||[]).find(l=>l.label.toLowerCase()==='customer');
+  const{data:links}=customerLabel?await db.from('contact_label_links').select('contact_id').eq('book_id',abBookId).eq('label_id',customerLabel.id):{data:[]};
+  const contactIds=(links||[]).map(l=>l.contact_id);
+  const{count:newJobCount}=contactIds.length?await db.from('jobs').select('id',{count:'exact',head:true}).in('contact_id',contactIds):{count:0};
+  const{data:legacyClients}=await db.from('clients').select('id').eq('book_id',abBookId);
+  const legacyClientIds=(legacyClients||[]).map(c=>c.id);
+  const{count:legacyJobCount}=legacyClientIds.length?await db.from('jobs').select('id',{count:'exact',head:true}).in('client_id',legacyClientIds):{count:0};
+  const totalClients=contactIds.length+legacyClientIds.length;
+  const totalJobs=(newJobCount||0)+(legacyJobCount||0);
+  if(!totalClients){ abAlert('No clients found for this book — nothing to delete.'); return; }
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete All ${totalClients} Client${totalClients===1?'':'s'}?</div>
+    <div class="fv-status" style="margin-bottom:14px">Removes every Customer-labeled contact in this book (${contactIds.length}) and everything still sitting in the old, separate clients table (${legacyClientIds.length}) — both real sources, so nothing looks like it's still there afterward. ${totalJobs} job${totalJobs===1?'':'s'} under them go with it. This cannot be undone through the app afterward — a real start-over, not a soft hide.</div>
+    <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteAllClients()">Delete All Clients Permanently</button>
+    <div class="fv-status" id="deleteAllClientsStatus" style="margin-top:10px"></div>`);
+}
+async function confirmDeleteAllClients(){
+  const status=document.getElementById('deleteAllClientsStatus');
+  status.textContent='Deleting…';
+  const customerLabel=(abContactLabels||[]).find(l=>l.label.toLowerCase()==='customer');
+  const{data:links}=customerLabel?await db.from('contact_label_links').select('contact_id').eq('book_id',abBookId).eq('label_id',customerLabel.id):{data:[]};
+  const contactIds=[...new Set((links||[]).map(l=>l.contact_id))];
+  const{data:legacyClients}=await db.from('clients').select('id').eq('book_id',abBookId);
+  const legacyClientIds=(legacyClients||[]).map(c=>c.id);
+  if(contactIds.length){
+    status.textContent='Deleting jobs (new system)…';
+    await db.from('jobs').delete().in('contact_id',contactIds);
+    status.textContent='Deleting contact labels…';
+    await db.from('contact_label_links').delete().in('contact_id',contactIds);
+    status.textContent='Deleting contacts…';
+    await db.from('contacts').delete().in('id',contactIds);
+  }
+  if(legacyClientIds.length){
+    status.textContent='Deleting jobs (legacy)…';
+    await db.from('jobs').delete().in('client_id',legacyClientIds);
+    status.textContent='Deleting legacy clients…';
+    await db.from('clients').delete().in('id',legacyClientIds);
+  }
+  status.textContent='Done — clean slate.';
+  logThreadEntry(`Deleted all ${contactIds.length+legacyClientIds.length} clients and their jobs from the current book — starting over.`);
+  _clientsLoadedForBook=null;
+  loadClientsIntoRowView();
+  setTimeout(()=>popupClose(),1400);
+}
 // ── JOBS UNDER A CONTACT — Ryan's direct instruction, 2026-08-13: once a
 // client exists, there needs to be a real way to add a Job under them,
 // with its own address — a job site is very often not the same place as
@@ -8233,6 +8294,7 @@ function renderPageActionBar(detailNum,tabNum){
     // Clients and Jobs over together).
     bar.innerHTML=`<button class="page-action-btn" onclick="openImportForClientsTab()" data-tip="Bring Customers and Jobs in from the same QuickBooks .IIF export used for Accounts and Scopes."><span>⬇</span>Import</button>
       <button class="page-action-btn" onclick="openAddClientPopup()"><span>+</span>Add Client</button>
+      <span style="cursor:pointer;font-size:11px;color:#c97a7a;align-self:center;margin-left:14px" onclick="openDeleteAllClientsPopup()" title="Start over — deletes every client and job in this book, from both the new and old systems, with a real confirmation first">🗑 Delete All Clients</span>
       <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:10px" onclick="abToggleClientsShowInactive()">${abClientsShowInactive?'👁 Showing Inactive':'🚫 Inactive Hidden'}</span>`;
   } else if(detailNum===5&&tabNum===1){
     // Vendors page header — same treatment as Clients: Import and Add,
