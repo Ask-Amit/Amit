@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.15</div>
+      <div class="page-version" id="pageVersion">v2.16</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2979,18 +2979,38 @@ let abContactAttachCounts={};
 // of labels, not just up to four. Those four columns still exist on the
 // row (untouched, for rollback safety) but the app no longer reads them.
 let abContactLabelMap={};
+// Shared, cross-account contact records (migration_2026-08-13_004). A
+// contact with entity_id set is connected to another Amit account's
+// contact for the same real-world business/person — the fields on
+// contact_entities (name/contact_name/phone/email/addresses) are the
+// live, synced source of truth for that contact from here on, so once
+// loaded they're overlaid onto the local row in memory. Everything NOT
+// on that list (labels, payment terms, default account, attachments)
+// always stays the book's own local data, untouched by this.
+const AB_ENTITY_SHARED_FIELDS=['name','contact_name','phone','email','street_address','city_state','zip','billing_street_address','billing_city_state','billing_zip'];
+let abContactEntities={};
 async function abLoadContacts(){
-  if(!abBookId||!db||!currentUser){abContacts=[];abContactAttachCounts={};abContactLabelMap={};return;}
+  if(!abBookId||!db||!currentUser){abContacts=[];abContactAttachCounts={};abContactLabelMap={};abContactEntities={};return;}
   const{data}=await db.from('contacts').select('*').eq('book_id',abBookId).order('name');
   abContacts=data||[];
   abContactAttachCounts={};
   abContactLabelMap={};
+  abContactEntities={};
   const ids=abContacts.map(c=>c.id);
   if(ids.length){
     const{data:atts}=await db.from('contact_attachments').select('contact_id').in('contact_id',ids);
     (atts||[]).forEach(a=>{ abContactAttachCounts[a.contact_id]=(abContactAttachCounts[a.contact_id]||0)+1; });
     const{data:links}=await db.from('contact_label_links').select('contact_id,label_id').in('contact_id',ids);
     (links||[]).forEach(l=>{ (abContactLabelMap[l.contact_id]=abContactLabelMap[l.contact_id]||[]).push(l.label_id); });
+    const entityIds=[...new Set(abContacts.map(c=>c.entity_id).filter(Boolean))];
+    if(entityIds.length){
+      const{data:ents}=await db.from('contact_entities').select('*').in('id',entityIds);
+      (ents||[]).forEach(e=>{ abContactEntities[e.id]=e; });
+      abContacts.forEach(c=>{
+        const ent=c.entity_id&&abContactEntities[c.entity_id];
+        if(ent) AB_ENTITY_SHARED_FIELDS.forEach(f=>{ c[f]=ent[f]; });
+      });
+    }
   }
 }
 function abRoleTags(c){
@@ -3137,6 +3157,7 @@ function abRenderContacts(){
     <div class="cc-toolbar">
       <input class="cc-search" id="ab-contact-search" value="${abEsc(abContactSearch)}" placeholder="🔎 Search name, person, phone, email, label…" oninput="abSetContactSearch(this.value)">
       <button class="ab-btn" onclick="openContactDetailPopup()">+ New Contact</button>
+      <button class="ab-btn" style="background:transparent" onclick="abOpenConnectSharedContactPopup()" data-tip="Redeem a connect link someone sent you, linking one of your contacts to theirs so the core info stays in sync.">🔗 Connect a Shared Contact</button>
       <span style="flex:1"></span>
       <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span>
       <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span>
@@ -3153,7 +3174,7 @@ function abRenderContacts(){
       const attCount=abContactAttachCounts[c.id]||0;
       const nameSafe=abEsc(c.name).replace(/'/g,"\\'");
       return `<div class="cc-card" onclick="openContactDetailPopup('${c.id}')" title="Click for the full contact sheet">
-        <div class="cc-badges">${attCount?`<span class="cc-badge" title="${attCount} attachment${attCount===1?'':'s'}">📎 ${attCount}</span>`:''}${c.ssn_encrypted?`<span class="cc-badge" title="SSN on file, vault-encrypted">🔒</span>`:''}</div>
+        <div class="cc-badges">${c.entity_id?`<span class="cc-badge" title="Connected — core info is shared and stays in sync with another Amit account">🔗</span>`:''}${attCount?`<span class="cc-badge" title="${attCount} attachment${attCount===1?'':'s'}">📎 ${attCount}</span>`:''}${c.ssn_encrypted?`<span class="cc-badge" title="SSN on file, vault-encrypted">🔒</span>`:''}</div>
         <div style="display:flex;gap:12px;align-items:flex-start">
           <div class="cc-avatar">${abInitials(c.name)}</div>
           <div style="min-width:0;flex:1">
@@ -3296,6 +3317,13 @@ function openContactDetailPopup(contactId){
       <div class="fv-field"><label class="fv-label">Default Account</label><select class="fv-input" id="contactForm-defaultacct"><option value="">— None —</option>${abAccounts.map(a=>`<option value="${a.id}"${v('default_account_id')===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
     </div>
     ${existing?`
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Shared Connection</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Connecting this contact to another Amit account keeps the Contact/Mailing/Billing fields above in sync between both books, live. Labels, Payment Terms, Default Account, and attachments always stay yours alone, never shared.</div>
+    ${existing.entity_id
+      ?`<div class="fv-status" style="margin-bottom:8px">🔗 Connected — the fields above are shared and update on both sides.</div>
+        <button class="ab-btn" style="background:transparent" onclick="abUnlinkContactEntity('${existing.id}')">Unlink</button>`
+      :`<button class="ab-btn" onclick="abGenerateContactInvite('${existing.id}')">🔗 Invite to Connect</button>
+        <div id="contactInvitesList" style="margin-top:10px"></div>`}
     <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Attachments — W-2/W-4, sales tax certificate, EIN, insurance, contracts, whatever applies to this contact</div>
     <div id="contactAttachmentsList" style="margin-bottom:10px"><span style="font-size:12px;color:var(--muted)">Loading…</span></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -3311,7 +3339,7 @@ function openContactDetailPopup(contactId){
     </div>
     <div class="fv-status" id="contactFormStatus"></div>`);
   contactFormRenderLabelChips();
-  if(existing) abRenderContactAttachments(existing.id);
+  if(existing){ abRenderContactAttachments(existing.id); if(!existing.entity_id) abRenderContactInvitesList(existing.id); }
 }
 // Ryan's direct instruction, 2026-08-13: real files (photos, scans,
 // PDFs) attached to a contact, many per contact, without cluttering the
@@ -3390,7 +3418,7 @@ async function saveContactDetailForm(existingId){
   const name=document.getElementById('contactForm-name').value.trim();
   const status=document.getElementById('contactFormStatus');
   if(!name){ status.textContent='Name is required.'; return; }
-  const row={
+  const sharedFields={
     name,
     contact_name:document.getElementById('contactForm-contactname').value.trim()||null,
     phone:document.getElementById('contactForm-phone').value.trim()||null,
@@ -3400,17 +3428,31 @@ async function saveContactDetailForm(existingId){
     zip:document.getElementById('contactForm-zip').value.trim()||null,
     billing_street_address:document.getElementById('contactForm-billingaddress').value.trim()||null,
     billing_city_state:document.getElementById('contactForm-billingcitystate').value.trim()||null,
-    billing_zip:document.getElementById('contactForm-billingzip').value.trim()||null,
+    billing_zip:document.getElementById('contactForm-billingzip').value.trim()||null
+  };
+  const localOnlyFields={
     payment_terms:document.getElementById('contactForm-terms').value.trim()||null,
     default_account_id:document.getElementById('contactForm-defaultacct').value||null
   };
   status.textContent='Saving…';
   let contactId=existingId;
+  const existingRow=existingId?abContacts.find(c=>c.id===existingId):null;
   if(existingId){
-    const{error}=await db.from('contacts').update(row).eq('id',existingId);
-    if(error){ status.textContent='Error: '+error.message; return; }
+    // Connected (entity_id set): the Name/Contact/Mailing/Billing fields
+    // are shared, so they're written to contact_entities — updating them
+    // here updates them for whoever else is connected too. Payment Terms
+    // and Default Account always stay local to this book's own row.
+    if(existingRow&&existingRow.entity_id){
+      const{error:entErr}=await db.from('contact_entities').update(sharedFields).eq('id',existingRow.entity_id);
+      if(entErr){ status.textContent='Error: '+entErr.message; return; }
+      const{error}=await db.from('contacts').update(localOnlyFields).eq('id',existingId);
+      if(error){ status.textContent='Error: '+error.message; return; }
+    } else {
+      const{error}=await db.from('contacts').update({...sharedFields,...localOnlyFields}).eq('id',existingId);
+      if(error){ status.textContent='Error: '+error.message; return; }
+    }
   } else {
-    const{data,error}=await db.from('contacts').insert({...row,book_id:abBookId}).select().single();
+    const{data,error}=await db.from('contacts').insert({...sharedFields,...localOnlyFields,book_id:abBookId}).select().single();
     if(error){ status.textContent='Error: '+error.message; return; }
     contactId=data.id;
   }
@@ -3422,6 +3464,94 @@ async function saveContactDetailForm(existingId){
   if(contactFormSelectedLabels.size){
     await db.from('contact_label_links').insert([...contactFormSelectedLabels].map(label_id=>({book_id:abBookId,contact_id:contactId,label_id})));
   }
+  popupClose();
+  await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
+}
+// ── SHARED CONTACT CONNECTIONS (migration_2026-08-13_004) — Ryan's direct
+// instruction, 2026-08-13: two separate Amit accounts should be able to
+// connect to the same real-world contact so Name/Contact/Mailing/Billing
+// stay in sync live, without either side ever seeing the other's login.
+// The connect link is a random, single-use token, not a credential — the
+// redeeming side never needs (and is never given) access to the inviting
+// book. See the migration file's own header for the full mechanism.
+async function abGenerateContactInvite(contactId){
+  const token=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now().toString(36));
+  const expires=new Date(Date.now()+30*24*60*60*1000).toISOString();
+  const{error}=await db.from('contact_connect_invites').insert({book_id:abBookId,contact_id:contactId,token,expires_at:expires});
+  if(error){ abAlert(error.message); return; }
+  await abRenderContactInvitesList(contactId);
+  abShowInviteLinkPopup(token);
+}
+function abShowInviteLinkPopup(token){
+  popupOpen(`
+    <div class="dv-sub-h">Connect Link Ready</div>
+    <div class="fv-status" style="margin-bottom:12px">Send this code to them however you'd normally reach them (text, email, call). They open their own AmitBooks, click "🔗 Connect a Shared Contact," and paste it in. It's good for 30 days, works once, and never shares any login.</div>
+    <input class="fv-input" readonly value="${abEsc(token)}" onclick="this.select()" style="font-family:monospace;font-size:13px;margin-bottom:10px">
+    <button class="ab-btn" onclick="navigator.clipboard.writeText('${token}');this.textContent='Copied ✓'">Copy Code</button>`);
+}
+async function abRenderContactInvitesList(contactId){
+  const el=document.getElementById('contactInvitesList'); if(!el)return;
+  const{data}=await db.from('contact_connect_invites').select('*').eq('contact_id',contactId).is('redeemed_at',null).eq('revoked',false).order('created_at',{ascending:false});
+  const rows=data||[];
+  el.innerHTML=rows.length?`<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Pending connect links for this contact:</div>`+rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:rgba(240,232,208,.04);border:1px solid rgba(240,232,208,.15);border-radius:6px;margin-bottom:4px;font-size:12px">
+      <span style="font-family:monospace">${abEsc(r.token)}</span>
+      <span style="display:flex;gap:10px"><a href="#" onclick="navigator.clipboard.writeText('${r.token}');return false" style="color:var(--gold2)">Copy</a><a href="#" onclick="abRevokeInvite('${r.id}','${contactId}');return false" style="color:#c97a7a">Revoke</a></span>
+    </div>`).join(''):'';
+}
+async function abRevokeInvite(inviteId,contactId){
+  await db.from('contact_connect_invites').update({revoked:true}).eq('id',inviteId);
+  abRenderContactInvitesList(contactId);
+}
+async function abUnlinkContactEntity(contactId){
+  if(!await abConfirm('Unlink this contact? It goes back to being fully local — no longer synced with whoever it was connected to. Their side is unaffected and stays connected to the shared record.')) return;
+  const{error}=await db.from('contacts').update({entity_id:null}).eq('id',contactId);
+  if(error){ abAlert(error.message); return; }
+  popupClose();
+  await abLoadContacts(); abRenderContacts();
+}
+// ── Redeeming someone else's connect link ──
+function abOpenConnectSharedContactPopup(){
+  popupOpen(`
+    <div class="dv-sub-h">Connect a Shared Contact</div>
+    <div class="fv-status" style="margin-bottom:12px">Paste the connect code someone sent you. You'll see who it's for before anything links.</div>
+    <input class="fv-input" id="connectTokenInput" placeholder="Paste connect code here" style="font-family:monospace" autocomplete="off">
+    <button class="ab-btn" style="margin-top:10px" onclick="abLookupInvitePreview()">Look Up</button>
+    <div id="connectPreviewArea" style="margin-top:14px"></div>`);
+}
+async function abLookupInvitePreview(){
+  const token=document.getElementById('connectTokenInput').value.trim();
+  const area=document.getElementById('connectPreviewArea');
+  if(!token){ area.innerHTML='<span class="fv-status">Enter a code first.</span>'; return; }
+  area.innerHTML='<span class="fv-status">Looking up…</span>';
+  const{data,error}=await db.rpc('get_invite_preview',{p_token:token});
+  const row=Array.isArray(data)?data[0]:data;
+  if(error||!row||!row.valid){
+    area.innerHTML=`<span class="fv-status" style="color:#e2a3a3">${abEsc((row&&row.reason)||(error&&error.message)||'That code did not work.')}</span>`;
+    return;
+  }
+  const unlinked=abContacts.filter(c=>!c.entity_id&&!c.parent_contact_id);
+  area.innerHTML=`
+    <div class="fv-status" style="margin-bottom:10px">This connects to: <b>${abEsc(row.business_name||'')}</b>${row.contact_person?` — ${abEsc(row.contact_person)}`:''}</div>
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin-bottom:6px">Link it to</div>
+    <select class="fv-input" id="connectTargetSelect" style="margin-bottom:8px">
+      <option value="__new__">+ Create a new contact for this</option>
+      ${unlinked.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('')}
+    </select>
+    <button class="ab-btn" onclick="abConfirmRedeemInvite('${abEsc(token).replace(/'/g,"\\'")}')">Connect</button>
+    <div class="fv-status" id="connectRedeemStatus" style="margin-top:8px"></div>`;
+}
+async function abConfirmRedeemInvite(token){
+  const status=document.getElementById('connectRedeemStatus');
+  const target=document.getElementById('connectTargetSelect').value;
+  status.textContent='Connecting…';
+  let myContactId=target;
+  if(target==='__new__'){
+    const{data,error}=await db.from('contacts').insert({book_id:abBookId,name:'(connecting…)'}).select().single();
+    if(error){ status.textContent='Error: '+error.message; return; }
+    myContactId=data.id;
+  }
+  const{error}=await db.rpc('redeem_contact_invite',{p_token:token,p_my_contact_id:myContactId});
+  if(error){ status.textContent='Error: '+error.message; return; }
   popupClose();
   await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
 }
