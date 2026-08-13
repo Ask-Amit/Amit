@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.02</div>
+      <div class="page-version" id="pageVersion">v2.03</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4356,8 +4356,8 @@ async function importCommitCoa(){
 function openImportRoadmap(){
   popupOpen(`
     <div class="dv-sub-h">Chart of Accounts Imported</div>
-    <div class="fv-status" style="margin-bottom:10px">Real, working so far. Items/Scopes import is also live now — its own Import button on the Scopes tab, not part of this wizard. Still ahead, in order — each one its own real build, not done yet:</div>
-    <div class="fv-status">2. Vendors (QuickBooks "Vendor Contact List")<br>3. Customers ("Customer Contact List")<br>4. Journal — imported ONE YEAR AT A TIME, never all history at once<br>5. Open Bills/Invoices ("A/P Aging Detail" / "A/R Aging Detail" — current snapshot, not year-based)</div>
+    <div class="fv-status" style="margin-bottom:10px">Real, working so far. Items/Scopes and Customers/Clients+Jobs import are also live now — their own Import buttons on the Scopes tab and the Clients page, not part of this wizard. Still ahead, not done yet:</div>
+    <div class="fv-status">Vendors — the same .IIF file almost certainly has a !VEND section, but its exact column layout hasn't been confirmed against a real export yet (same reason the Item Listing report's missing Expense Account column caused a real bug earlier) — needs that header line before it's built.<br>Journal — imported ONE YEAR AT A TIME, never all history at once. Lists-to-IIF doesn't carry transactions at all, so this needs a different export (a Journal report, or General Journal Entries).<br>Open Bills/Invoices ("A/P Aging Detail" / "A/R Aging Detail") — same reason as Journal, not in this file.</div>
     <button class="fv-save" style="margin-top:14px" onclick="popupClose()">Close</button>`);
 }
 
@@ -4570,6 +4570,170 @@ async function importCommitItems(){
     setTimeout(()=>popupClose(),1200);
   } finally {
     importItemsCommitInFlight=false;
+  }
+}
+
+// ══════════════════════════════════════════════
+// IMPORT — Customers → Clients + Jobs, Ryan's direct instruction,
+// 2026-08-12: same file, same pattern as Accounts and Scopes. QuickBooks
+// represents a Job as a sub-record under its Customer using the same
+// "Parent:Child" NAME convention already handled for accounts/items — so
+// one pass over the !CUST section produces both a Client (top-level name)
+// and its Jobs (child names) together, exactly matching how the clients/
+// jobs tables are already related (jobs.client_id).
+//
+// Verified against Ryan's real BOSS export: !CUST carries NAME, BADDR1-5
+// (billing address, BADDR2=street/BADDR3="City, ST ZIP" combined in his
+// actual data), PHONE1, EMAIL, JOBSTATUS. No job type or job start/end
+// date columns exist on the jobs table yet — JOBTYPE/JOBSTART/JOBPROJEND/
+// JOBEND from the file aren't captured (nowhere to put them without a
+// schema change), same honest-gap approach as Tax Category on Accounts.
+// ══════════════════════════════════════════════
+function openImportForClientsTab(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  openImportStepClients();
+}
+let importParsedClients=null;
+function openImportStepClients(){
+  popupOpen(`
+    <div class="dv-sub-h">Customers → ${abEsc(abPluralize(abFieldLabel('client','Client')))} + Jobs</div>
+    <div class="import-walkthrough">
+      <b>Customer List</b> — same export as Accounts and Scopes:
+      <ol>
+        <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
+        <li>A checklist of every list QuickBooks can export appears — <b>none of them are checked by default, so check every single box yourself</b> before clicking OK</li>
+        <li>Click <b>OK</b>, then save the file somewhere you'll remember</li>
+        <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
+      </ol>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">QuickBooks stores a Job as a sub-record under its Customer — this brings both over together, Jobs linked to their real Client automatically. Job Type and job start/end dates aren't captured yet (no place for them on the Jobs table currently).</div>
+    </div>
+    ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
+    <input type="file" id="importClientsFile" accept=".iif" onchange="importClientsFileChosen(this.files[0])">
+    <div id="importClientsReview" style="margin-top:14px"></div>
+    <div class="fv-status" id="importClientsStatus" style="margin-top:10px"></div>`);
+  if(lastImportFile) importClientsFileChosen(lastImportFile);
+}
+async function importClientsFileChosen(file){
+  if(!file)return;
+  lastImportFile=file;
+  const status=document.getElementById('importClientsStatus');
+  status.textContent='Reading file…';
+  if(!(file.name||'').toLowerCase().endsWith('.iif')){ status.textContent='Customers only import from the .IIF export right now — see the walkthrough above.'; return; }
+  importParsedClients=importParseIifCustomers(await file.text());
+  if(!importParsedClients){ status.textContent='Could not find any customers in that file.'; return; }
+  if(!importParsedClients.clients.length){ status.textContent='That file has no customers in it.'; return; }
+  renderImportClientsReview();
+  status.textContent='';
+}
+// A US address split heuristic, not a guarantee — QuickBooks' BADDR3 in
+// Ryan's real data is one combined "City, ST ZIP" line (e.g. "Kellogg,
+// ID  83837"); this pulls a trailing 5 or 5+4 digit ZIP off the end and
+// keeps the rest as city_state, matching clients.city_state/zip's actual
+// column split. Falls back to putting the whole line in city_state with
+// no zip if the pattern doesn't match — never silently drops the text.
+function splitCityStateZip(line){
+  const m=(line||'').trim().match(/^(.*?)[\s,]+(\d{5}(?:-\d{4})?)$/);
+  if(m) return{cityState:m[1].replace(/,\s*$/,'').trim(),zip:m[2]};
+  return{cityState:(line||'').trim()||null,zip:null};
+}
+function importParseIifCustomers(text){
+  const lines=text.split(/\r?\n/);
+  let headerCols=null;
+  const dataRows=[];
+  for(const line of lines){
+    if(!line)continue;
+    const cols=line.split('\t');
+    if(cols[0]==='!CUST'){ headerCols=cols.slice(1); continue; }
+    if(cols[0]==='CUST'&&headerCols){
+      const vals=cols.slice(1);
+      const row={};
+      headerCols.forEach((h,i)=>{ row[h]=vals[i]||''; });
+      dataRows.push(row);
+    }
+  }
+  if(!dataRows.length)return null;
+  const clients=[],jobs=[];
+  dataRows.filter(r=>r.NAME).forEach(r=>{
+    const fullPath=r.NAME.trim();
+    const parts=fullPath.split(':').map(p=>p.trim()).filter(Boolean);
+    const name=parts[parts.length-1];
+    const addr=splitCityStateZip(r.BADDR3);
+    const shared={
+      name,
+      street_address:(r.BADDR2||'').trim()||null,
+      city_state:addr.cityState,
+      zip:addr.zip,
+      phone:(r.PHONE1||'').trim()||null,
+      email:(r.EMAIL||'').trim()||null
+    };
+    if(parts.length===1){
+      clients.push({...shared,fullPath});
+    } else {
+      jobs.push({...shared,fullPath,parentPath:parts.slice(0,-1).join(':'),status:(r.JOBSTATUS||'').trim()||'active'});
+    }
+  });
+  return{clients,jobs};
+}
+function renderImportClientsReview(){
+  const el=document.getElementById('importClientsReview'); if(!el)return;
+  const{clients,jobs}=importParsedClients;
+  const orphanJobs=jobs.filter(j=>!clients.find(c=>c.fullPath===j.parentPath));
+  const clientLabel=abFieldLabel('client','Client');
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${clients.length} ${abEsc(abPluralize(clientLabel))} and ${jobs.length} Jobs found${orphanJobs.length?` (${orphanJobs.length} Jobs whose parent Customer wasn't found — imported as their own standalone ${abEsc(clientLabel)} instead)`:''}.</div>
+    <table class="ab-table"><tr><th>${abEsc(clientLabel)}</th><th>Phone</th><th>Email</th><th>Jobs</th></tr>
+    ${clients.map(c=>`<tr><td>${abEsc(c.name)}</td><td style="font-size:12px">${abEsc(c.phone||'—')}</td><td style="font-size:12px">${abEsc(c.email||'—')}</td><td style="font-size:12px">${jobs.filter(j=>j.parentPath===c.fullPath).length||'—'}</td></tr>`).join('')}
+    </table>
+    <button class="fv-save" style="margin-top:14px" onclick="importCommitClients()">Import ${clients.length} ${abEsc(abPluralize(clientLabel))} + ${jobs.length} Jobs</button>`;
+}
+let importClientsCommitInFlight=false;
+async function importCommitClients(){
+  if(importClientsCommitInFlight)return;
+  importClientsCommitInFlight=true;
+  try{
+    const status=document.getElementById('importClientsStatus');
+    status.textContent='Importing…';
+    const{data:existingClients}=await db.from('clients').select('id,name').eq('book_id',abBookId);
+    const existingNames=new Set((existingClients||[]).map(c=>c.name.trim().toLowerCase()));
+    const{clients,jobs}=importParsedClients;
+    const newClients=clients.filter(c=>!existingNames.has(c.name.trim().toLowerCase()));
+    let clientImported=0;
+    const pathToId={};
+    (existingClients||[]).forEach(c=>{ pathToId[c.name]=c.id; });
+    if(newClients.length){
+      const rows=newClients.map(c=>({book_id:abBookId,name:c.name,street_address:c.street_address,city_state:c.city_state,zip:c.zip,phone:c.phone,email:c.email}));
+      const{data,error}=await db.from('clients').insert(rows).select();
+      if(error){ status.textContent='Error creating clients: '+error.message; return; }
+      data.forEach((row,i)=>{ pathToId[newClients[i].fullPath]=row.id; });
+      clientImported=data.length;
+    }
+    status.textContent=`Imported ${clientImported} client(s), now importing jobs…`;
+    const jobRows=jobs.filter(j=>pathToId[j.parentPath]).map(j=>({
+      book_id:abBookId,client_id:pathToId[j.parentPath],name:j.name,
+      street_address:j.street_address,city_state:j.city_state,zip:j.zip,status:j.status
+    }));
+    // Jobs whose parent Customer wasn't found among either existing or
+    // newly-imported clients become their own standalone client instead
+    // of silently vanishing — same honesty standard as everywhere else in
+    // these importers, never drop a real row without a visible reason.
+    const orphanJobs=jobs.filter(j=>!pathToId[j.parentPath]);
+    let orphanImported=0;
+    if(orphanJobs.length){
+      const rows=orphanJobs.map(j=>({book_id:abBookId,name:j.name,street_address:j.street_address,city_state:j.city_state,zip:j.zip,phone:j.phone,email:j.email}));
+      const{error}=await db.from('clients').insert(rows);
+      if(!error) orphanImported=rows.length;
+    }
+    let jobImported=0;
+    if(jobRows.length){
+      const{data,error}=await db.from('jobs').insert(jobRows).select();
+      if(!error) jobImported=data.length;
+    }
+    status.textContent=`Imported ${clientImported} client(s)${orphanImported?` + ${orphanImported} more as standalone clients`:''} and ${jobImported} job(s).`;
+    logThreadEntry(`Imported ${clientImported+orphanImported} clients and ${jobImported} jobs from QuickBooks into the current book.`);
+    _clientsLoadedForBook=null;
+    loadClientsIntoRowView();
+    setTimeout(()=>popupClose(),1400);
+  } finally {
+    importClientsCommitInFlight=false;
   }
 }
 
@@ -6264,7 +6428,12 @@ function renderPageActionBar(detailNum,tabNum){
     // inline form sitting in the table area. Same page-action-btn styling
     // as "Add New Book" above, same destination (the popup), different
     // trigger.
-    bar.innerHTML=`<button class="page-action-btn" onclick="openClientAddPopup()"><span>+</span>Add Client</button>`;
+    // Import added 2026-08-12, same file/pattern as Accounts and Scopes —
+    // reads the !CUST section of the same .IIF export (QuickBooks stores
+    // Jobs as sub-records under a Customer, so this one import brings both
+    // Clients and Jobs over together).
+    bar.innerHTML=`<button class="page-action-btn" onclick="openImportForClientsTab()" data-tip="Bring Customers and Jobs in from the same QuickBooks .IIF export used for Accounts and Scopes."><span>⬇</span>Import</button>
+      <button class="page-action-btn" onclick="openClientAddPopup()"><span>+</span>Add Client</button>`;
   } else {
     bar.innerHTML='';
   }
