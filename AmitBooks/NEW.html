@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.11</div>
+      <div class="page-version" id="pageVersion">v2.12</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3160,11 +3160,70 @@ function openContactDetailPopup(contactId){
       <div class="fv-field"><label class="fv-label">Payment Terms</label><input class="fv-input" id="contactForm-terms" value="${abEsc(v('payment_terms'))}" placeholder="e.g. Net 30"></div>
       <div class="fv-field"><label class="fv-label">Default Account</label><select class="fv-input" id="contactForm-defaultacct"><option value="">— None —</option>${abAccounts.map(a=>`<option value="${a.id}"${v('default_account_id')===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
     </div>
+    ${existing?`
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Attachments — W-2/W-4, sales tax certificate, EIN, insurance, contracts, whatever applies to this contact</div>
+    <div id="contactAttachmentsList" style="margin-bottom:10px"><span style="font-size:12px;color:var(--muted)">Loading…</span></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input class="fv-input" id="contactAttachLabel" placeholder="What is it? e.g. W-2, Insurance" style="max-width:200px">
+      <input type="file" id="contactAttachFile" style="max-width:220px">
+      <button class="ab-btn" onclick="abUploadContactAttachment('${existing.id}')">Upload</button>
+    </div>
+    <div class="fv-status" id="contactAttachStatus"></div>`:`
+    <div style="font-size:11px;color:var(--muted);margin-top:14px">Save this contact first — attachments (documents, photos) can be added once it's a real record.</div>`}
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="fv-save" onclick="saveContactDetailForm('${contactId||''}')">${existing?'Save Contact':'Add Contact'}</button>
       ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="abDeleteContact('${existing.id}','${abEsc(existing.name).replace(/'/g,"\\'")}')">Delete Contact</button>`:''}
     </div>
     <div class="fv-status" id="contactFormStatus"></div>`);
+  if(existing) abRenderContactAttachments(existing.id);
+}
+// Ryan's direct instruction, 2026-08-13: real files (photos, scans,
+// PDFs) attached to a contact, many per contact, without cluttering the
+// database with the actual file bytes — those live in Supabase Storage
+// (bucket amitbooks-attachments, private, signed-URL-only), this table
+// only ever holds metadata. Storage path convention: book_id/contact_id/
+// timestamp-filename — the RLS policy on storage.objects checks that
+// leading book_id segment against the same _amitbooks_is_book_member
+// every other table already uses.
+async function abLoadContactAttachmentsList(contactId){
+  const{data}=await db.from('contact_attachments').select('*').eq('contact_id',contactId).order('uploaded_at',{ascending:false});
+  return data||[];
+}
+async function abRenderContactAttachments(contactId){
+  const el=document.getElementById('contactAttachmentsList'); if(!el)return;
+  const rows=await abLoadContactAttachmentsList(contactId);
+  el.innerHTML=rows.length?rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(240,232,208,.04);border:1px solid rgba(240,232,208,.15);border-radius:6px;margin-bottom:4px;font-size:12px">
+      <span>${r.label?`<b>${abEsc(r.label)}</b> — `:''}${abEsc(r.file_name)}</span>
+      <span style="display:flex;gap:10px;flex-shrink:0">
+        <a href="#" onclick="abViewContactAttachment('${r.storage_path}');return false" style="color:var(--gold2)">View</a>
+        <a href="#" onclick="abDeleteContactAttachmentFile('${r.id}','${r.storage_path}','${contactId}');return false" style="color:#c97a7a">Delete</a>
+      </span>
+    </div>`).join(''):'<span style="font-size:12px;color:var(--muted)">No attachments yet.</span>';
+}
+async function abUploadContactAttachment(contactId){
+  const fileEl=document.getElementById('contactAttachFile');
+  const labelEl=document.getElementById('contactAttachLabel');
+  const status=document.getElementById('contactAttachStatus');
+  const file=fileEl.files[0];
+  if(!file){ status.textContent='Choose a file first.'; return; }
+  status.textContent='Uploading…';
+  const path=`${abBookId}/${contactId}/${Date.now()}-${file.name}`;
+  const{error:upErr}=await db.storage.from('amitbooks-attachments').upload(path,file);
+  if(upErr){ status.textContent='Error: '+upErr.message; return; }
+  const{error}=await db.from('contact_attachments').insert({book_id:abBookId,contact_id:contactId,file_name:file.name,storage_path:path,label:labelEl.value.trim()||null});
+  if(error){ status.textContent='Error: '+error.message; return; }
+  fileEl.value=''; labelEl.value=''; status.textContent='';
+  abRenderContactAttachments(contactId);
+}
+async function abViewContactAttachment(storagePath){
+  const{data,error}=await db.storage.from('amitbooks-attachments').createSignedUrl(storagePath,300);
+  if(error){ abAlert('Could not open that file: '+error.message); return; }
+  window.open(data.signedUrl,'_blank');
+}
+async function abDeleteContactAttachmentFile(id,storagePath,contactId){
+  await db.storage.from('amitbooks-attachments').remove([storagePath]);
+  await db.from('contact_attachments').delete().eq('id',id);
+  abRenderContactAttachments(contactId);
 }
 let contactZipLookupTimer=null;
 function contactLookupZip(zip){
