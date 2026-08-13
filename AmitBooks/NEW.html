@@ -352,7 +352,20 @@ header{
 .rv-table-fixed-head,.rv-table-fixed-foot{flex-shrink:0;overflow:hidden}
 .rv-table-fixed-head table,.rv-table-fixed-foot table{margin:0}
 .rv-summary-row td{background:rgba(201,168,76,.14);border-top:2px solid var(--gold)}
-.rv-table-wrap{flex:1;overflow:auto;outline:none}
+/* overflow-y:scroll (not auto), 2026-08-14 — Ryan caught a real bug: the
+   header/footer above never lined up with the data rows below once a
+   table had enough rows to actually scroll. Root cause: this was the only
+   one of the three stacked pieces that ever grew a vertical scrollbar, so
+   it alone lost width to it while the header/footer (overflow:hidden,
+   never scroll) stayed full width — the columns silently shifted out of
+   sync the moment scrolling kicked in. Forcing the scrollbar space to
+   always be reserved here, and reserving the identical width on the
+   header/footer via JS (see rvRenderInstance's tail, where the actual
+   scrollbar width gets measured and applied as matching padding), keeps
+   all three genuinely locked to the same column widths at all times,
+   whether or not there's enough data to scroll. Horizontal scroll is
+   synced the same way, same place. */
+.rv-table-wrap{flex:1;overflow-y:scroll;overflow-x:auto;outline:none}
 .rv-table-wrap:focus-visible{box-shadow:inset 0 0 0 2px rgba(201,168,76,.4)}
 /* width:100% removed (reverted 2026-08-07, same day added) — it forced
    the table to stretch past its own container and cover the right rail.
@@ -600,7 +613,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.56</div>
+      <div class="page-version" id="pageVersion">v2.57</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -8186,6 +8199,24 @@ function rvColumnDistinctValues(inst,key){
   const rows=rvApplyColFilters(inst,inst.rows,key);
   return Array.from(new Set(rows.map(r=>String(r[key]||'')))).sort((a,b)=>a.localeCompare(b));
 }
+// Real, measured scrollbar width — not a guessed constant, since it
+// genuinely varies by OS/browser/zoom. Measured once, cached, and applied
+// as matching padding on the header/footer tables so they always reserve
+// the identical width the scrolling body loses to its own scrollbar. See
+// rvRenderInstance's tail for where this actually gets used.
+let RV_SCROLLBAR_WIDTH=null;
+function rvGetScrollbarWidth(){
+  if(RV_SCROLLBAR_WIDTH!=null)return RV_SCROLLBAR_WIDTH;
+  const outer=document.createElement('div');
+  outer.style.cssText='visibility:hidden;overflow:scroll;position:absolute;top:-9999px;width:100px;height:100px';
+  const inner=document.createElement('div');
+  inner.style.width='100%';
+  outer.appendChild(inner);
+  document.body.appendChild(outer);
+  RV_SCROLLBAR_WIDTH=outer.offsetWidth-inner.offsetWidth;
+  document.body.removeChild(outer);
+  return RV_SCROLLBAR_WIDTH;
+}
 function rvGetVisibleRows(inst){
   let rows=rvApplyColFilters(inst,inst.rows,null);
   if(inst.sort){
@@ -8564,16 +8595,37 @@ function rvRenderInstance(containerId){
   // stay aligned with each other.
   wrap.innerHTML=`${statusHtml}${bulkBarHtml}
     <div class="rv-table-frame">
-      <div class="rv-table-fixed-head"><table class="rv-table">${colgroupHtml}<thead>${theadHtml}</thead></table></div>
+      <div class="rv-table-fixed-head" id="${containerId}-head"><table class="rv-table">${colgroupHtml}<thead>${theadHtml}</thead></table></div>
       <div class="rv-table-wrap" id="${containerId}-scroll" tabindex="0" onkeydown="rvHandleKeydown(event,'${containerId}')"><table class="rv-table">
         ${colgroupHtml}
         <tbody>${rowsHtml}</tbody>
       </table></div>
-      ${inst.showSummaryRow?`<div class="rv-table-fixed-foot"><table class="rv-table">${colgroupHtml}${summaryHtml}</table></div>`:''}
+      ${inst.showSummaryRow?`<div class="rv-table-fixed-foot" id="${containerId}-foot"><table class="rv-table">${colgroupHtml}${summaryHtml}</table></div>`:''}
     </div>`;
   if(prevScrollTop){
     const newScrollEl=document.getElementById(containerId+'-scroll');
     if(newScrollEl) newScrollEl.scrollTop=prevScrollTop;
+  }
+  // Lock header/footer to the exact same width the scrolling body actually
+  // renders at — real fix for the header/footer-drift bug Ryan found,
+  // 2026-08-14. The body always reserves scrollbar space now (CSS,
+  // overflow-y:scroll — see .rv-table-wrap's own comment); this measures
+  // that real scrollbar width once and applies it as matching padding on
+  // the header/footer, which never scroll and so never lose that same
+  // width on their own. Horizontal scroll is synced the same pass, so a
+  // wide table dragged sideways keeps its header/footer moving with it
+  // instead of the columns visibly splitting apart mid-scroll.
+  const rvHeadEl=document.getElementById(containerId+'-head');
+  const rvFootEl=document.getElementById(containerId+'-foot');
+  const rvScrollEl=document.getElementById(containerId+'-scroll');
+  if(rvScrollEl){
+    const sbw=rvGetScrollbarWidth();
+    if(rvHeadEl) rvHeadEl.style.paddingRight=sbw+'px';
+    if(rvFootEl) rvFootEl.style.paddingRight=sbw+'px';
+    rvScrollEl.onscroll=()=>{
+      if(rvHeadEl) rvHeadEl.scrollLeft=rvScrollEl.scrollLeft;
+      if(rvFootEl) rvFootEl.scrollLeft=rvScrollEl.scrollLeft;
+    };
   }
   if(inst.editingCell){
     const input=document.getElementById('rv-cell-input-'+containerId);
