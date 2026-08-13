@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.38</div>
+      <div class="page-version" id="pageVersion">v2.39</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2019,7 +2019,13 @@ function accountPopupParentOptionsHtml(type,selectedId){
   return abCoaTreeOrder(abAccounts).filter(a=>a.account_type===type&&!acctPopupExcludedIds.has(a.id))
     .map(a=>`<option value="${a.id}"${selectedId===a.id?' selected':''}>${'— '.repeat(a.depth)}${abEsc(a.account_name)}</option>`).join('');
 }
-function openAccountPopup(accountId){
+// Book field added 2026-08-13 (Ryan's direct instruction, from the Cash
+// page): "where the books go, where they live" — an account can move to
+// a different book. Async now (fetches the real book/company list first)
+// where it used to be synchronous — every call site already just fires
+// it from an onclick, so awaiting one extra fetch before the popup shows
+// is unnoticeable and no caller needed to change.
+async function openAccountPopup(accountId){
   const existing=accountId?abAccounts.find(a=>a.id===accountId):null;
   acctPopupExcludedIds=existing?accountDescendantIds(existing.id):new Set();
   if(existing)acctPopupExcludedIds.add(existing.id);
@@ -2028,6 +2034,17 @@ function openAccountPopup(accountId){
   const cf=existing?(existing.custom_fields||{}):{};
   const initialParentAcct=existing&&existing.parent_account_id?abAccounts.find(a=>a.id===existing.parent_account_id):null;
   const initialTaxInheritLabel=initialParentAcct?abAccountTaxInheritLabel(initialParentAcct):'';
+  let bookFieldHtml='';
+  if(db&&currentUser){
+    const[{data:allBooks},{data:allCompanies}]=await Promise.all([
+      db.from('books').select('id,name,company_id').eq('user_id',currentUser.id).order('name'),
+      db.from('companies').select('id,name').eq('user_id',currentUser.id)
+    ]);
+    const companyNameById={}; (allCompanies||[]).forEach(c=>{ companyNameById[c.id]=c.name; });
+    const currentBookId=existing?existing.book_id:abBookId;
+    const bookOptions=(allBooks||[]).map(b=>`<option value="${b.id}"${b.id===currentBookId?' selected':''}>${b.company_id&&companyNameById[b.company_id]?abEsc(companyNameById[b.company_id])+': ':''}${abEsc(b.name)}</option>`).join('');
+    bookFieldHtml=`<div class="fv-field" style="margin-top:10px"><label class="fv-label">Book</label><select class="fv-input" id="acctPop-book" data-original="${abEsc(currentBookId||'')}">${bookOptions}</select></div>`;
+  }
   popupOpen(`
     <div class="dv-sub-h">${existing?'Modify Account':'Add Account'}</div>
     <div class="fv-field"><label class="fv-label">Account Name</label><input class="fv-input" id="acctPop-name" value="${existing?abEsc(existing.account_name):''}" placeholder="e.g. Tools & Equipment"></div>
@@ -2035,6 +2052,7 @@ function openAccountPopup(accountId){
       <div class="fv-field" style="flex:1"><label class="fv-label">Type</label><select class="fv-input" id="acctPop-type" onchange="accountPopupTypeChanged()"><option value="asset"${type==='asset'?' selected':''}>Asset</option><option value="liability"${type==='liability'?' selected':''}>Liability</option><option value="equity"${type==='equity'?' selected':''}>Equity</option><option value="income"${type==='income'?' selected':''}>Income</option><option value="expense"${type==='expense'?' selected':''}>Expense</option></select></div>
       <div class="fv-field" style="width:100px"><label class="fv-label">Number</label><input class="fv-input" id="acctPop-number" value="${existing?abEsc(existing.account_number||''):''}" placeholder="5100"></div>
     </div>
+    ${bookFieldHtml}
     <div class="fv-field" style="margin-top:10px"><label class="fv-label">Parent Account (optional — makes this a sub-account)</label><select class="fv-input" id="acctPop-parent" onchange="accountPopupParentChanged()"><option value="">— none, top-level —</option>${parentOptions}</select></div>
     <div class="fv-field" id="acctPop-bank-field" style="margin-top:10px;display:${type==='asset'?'':'none'}">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text2)"><input type="checkbox" id="acctPop-bank" onchange="accountPopupBankChanged()"${existing&&existing.is_bank_account?' checked':''}>This is a bank/cash account</label>
@@ -2161,9 +2179,9 @@ async function abComputeCashRows(){
 // whichever book is currently active on the Books tab (openAccountPopup's
 // own real scope) — the Cash page shows every book's accounts, but a
 // brand-new one still has to be created under one specific book.
-function openAddCashAccountPopup(){
+async function openAddCashAccountPopup(){
   if(!abBookId){ abAlert('Select a book first (Books tab) — a new account still has to be created under one specific book.'); return; }
-  openAccountPopup('');
+  await openAccountPopup('');
   const bankEl=document.getElementById('acctPop-bank');
   if(bankEl){ bankEl.checked=true; accountPopupBankChanged(); }
 }
@@ -2286,16 +2304,71 @@ async function saveAccountForm(existingId){
   const customFields={};
   cfRows.forEach(r=>{ const k=r.querySelector('.ab-cf-key').value.trim(); const v=r.querySelector('.ab-cf-val').value.trim(); if(k) customFields[k]=v; });
   const values={account_name:name,account_type:type,account_number:number||null,parent_account_id:parentId,is_bank_account:isBank,bank_account_subtype:bankSub,liability_subtype:liabSub,tax_category:taxCategory,custom_fields:customFields};
+  // Moving an account to a different book — Ryan's direct instruction,
+  // 2026-08-13: picking a new Book the first time is free (just a normal
+  // field on the form); actually changing it away from what it already
+  // was requires a real second confirmation before anything is written,
+  // same standard as every delete in this file. A brand-new account (no
+  // existingId) has nothing to "change" yet, so it always saves directly
+  // under whichever book is selected, no confirmation needed.
+  const bookEl=document.getElementById('acctPop-book');
+  const selectedBookId=bookEl?bookEl.value:abBookId;
+  const originalBookId=bookEl?bookEl.dataset.original:abBookId;
+  if(existingId&&bookEl&&selectedBookId&&selectedBookId!==originalBookId){
+    pendingAccountMove={existingId,values,selectedBookId};
+    openConfirmAccountMovePopup();
+    return;
+  }
   status.textContent='Saving…';
+  // A brand-new account is created directly under whichever book was
+  // picked in the Book field (defaults to abBookId, but can be changed
+  // freely pre-save with no confirmation — see comment above).
+  const insertBookId=(bookEl&&!existingId)?selectedBookId:abBookId;
   const{error}=existingId
     ? await db.from('chart_of_accounts').update(values).eq('id',existingId)
-    : await db.from('chart_of_accounts').insert({book_id:abBookId,...values});
+    : await db.from('chart_of_accounts').insert({book_id:insertBookId,...values});
   if(error){ status.textContent='Error: '+error.message; return; }
   await abLoadAccounts(); abRenderCoa();
   // Setup Checklist hook — Ryan's direct instruction, 2026-08-12: a save
   // made while the guided checklist is running advances straight to the
   // next item instead of just closing.
   if(abReadinessActive){ abReadinessQueue.shift(); abOpenNextReadinessItem(); return; }
+  popupClose();
+}
+// Real second confirmation before an account actually moves books —
+// Ryan's direct instruction, 2026-08-13. Holds the already-validated
+// field values from the form that was mid-save when the book change was
+// caught, so confirming doesn't need to re-read the form (which this new
+// popup replaces on screen).
+let pendingAccountMove=null;
+function openConfirmAccountMovePopup(){
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Move This Account to a Different Book?</div>
+    <div class="fv-status" style="margin-bottom:14px">This account's Chart of Accounts entry moves to the book you selected. If it's a sub-account, it becomes top-level in the new book — a parent has to live in the same book as its own children. Any bills, journal entries, or Scopes already posted to this account stay tied to their original book's own records; moving the account here doesn't move that history with it.</div>
+    <div style="display:flex;gap:10px">
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmAccountMove()">Move Account</button>
+      <button class="fv-save" style="background:transparent" onclick="pendingAccountMove=null;popupClose()">Cancel</button>
+    </div>
+    <div class="fv-status" id="acctMoveStatus" style="margin-top:10px"></div>`);
+}
+async function confirmAccountMove(){
+  if(!pendingAccountMove)return;
+  const status=document.getElementById('acctMoveStatus');
+  status.textContent='Moving…';
+  const{existingId,values,selectedBookId}=pendingAccountMove;
+  // A parent must live in the same book as its children — forcing this
+  // to top-level in the new book rather than silently carrying over a
+  // parent_account_id that would point at an account in a different book
+  // (accountPopupParentOptionsHtml already prevents picking a cross-book
+  // parent going forward; this covers whatever was already set before the
+  // move).
+  const finalValues={...values,book_id:selectedBookId,parent_account_id:null};
+  const{error}=await db.from('chart_of_accounts').update(finalValues).eq('id',existingId);
+  pendingAccountMove=null;
+  if(error){ status.textContent='Error: '+error.message; return; }
+  abBookId=selectedBookId;
+  localStorage.setItem('amitbooks_current_book_id',abBookId);
+  await abLoadAccounts(); abRenderCoa();
   popupClose();
 }
 
@@ -6268,7 +6341,7 @@ async function abStartReadinessChecklist(){
 // successful save, and once at the start of the checklist. Reads the
 // front of the queue without removing it — the save-hooks are what
 // actually shift() a completed item off before calling this again.
-function abOpenNextReadinessItem(){
+async function abOpenNextReadinessItem(){
   if(!abReadinessQueue.length){
     abReadinessActive=false;
     if(abReadinessTotal) logThreadEntry(`Closed every setup gap — ${abReadinessTotal} item(s) fixed. This book is ready.`);
@@ -6277,22 +6350,27 @@ function abOpenNextReadinessItem(){
   }
   const next=abReadinessQueue[0];
   const doneCount=abReadinessTotal-abReadinessQueue.length;
-  if(next.type==='account') openAccountPopup(next.id);
-  else openScopeEditPopup(next.id);
+  // openAccountPopup became async 2026-08-13 (it now awaits a real fetch
+  // for the new Book field) — this used to inject the banner on a bare
+  // setTimeout(...,0), assuming the popup rendered synchronously. That
+  // race would now lose: the timeout fires long before the awaited fetch
+  // resolves, so the banner would silently never appear. Awaiting it
+  // directly instead removes the guesswork — openScopeEditPopup is still
+  // a plain synchronous function, so awaiting it here is a harmless no-op
+  // (resolves same-tick), not a functional change for that branch.
+  if(next.type==='account') await openAccountPopup(next.id);
+  else await openScopeEditPopup(next.id);
   // The popup functions above build their own full content via
   // popupOpen — this injects a progress banner at the top of whatever
-  // they just rendered, on the next tick, rather than modifying either
-  // function to know about the checklist itself. Written in Amit's own
-  // voice — Ryan's direct instruction, 2026-08-12 — not a plain counter.
-  setTimeout(()=>{
-    const card=document.querySelector('#canonicalPopup .popup-card');
-    if(!card||card.querySelector('.ab-checklist-banner'))return;
-    const banner=document.createElement('div');
-    banner.className='ab-checklist-banner';
-    banner.style.cssText='background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--gold2);display:flex;justify-content:space-between;align-items:center;gap:10px';
-    banner.innerHTML=`<span>Let's fix these together — ${doneCount} of ${abReadinessTotal} done. This one: <b>${abEsc(next.label)}</b></span><a href="#" onclick="abSkipReadinessItem();return false" style="color:var(--muted);font-size:11px;flex-shrink:0">Skip →</a>`;
-    card.insertBefore(banner,card.firstChild);
-  },0);
+  // they just rendered. Written in Amit's own voice — Ryan's direct
+  // instruction, 2026-08-12 — not a plain counter.
+  const card=document.querySelector('#canonicalPopup .popup-card');
+  if(!card||card.querySelector('.ab-checklist-banner'))return;
+  const banner=document.createElement('div');
+  banner.className='ab-checklist-banner';
+  banner.style.cssText='background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--gold2);display:flex;justify-content:space-between;align-items:center;gap:10px';
+  banner.innerHTML=`<span>Let's fix these together — ${doneCount} of ${abReadinessTotal} done. This one: <b>${abEsc(next.label)}</b></span><a href="#" onclick="abSkipReadinessItem();return false" style="color:var(--muted);font-size:11px;flex-shrink:0">Skip →</a>`;
+  card.insertBefore(banner,card.firstChild);
 }
 function abSkipReadinessItem(){
   abReadinessQueue.shift();
@@ -7067,12 +7145,22 @@ function initPageTooltips(containerId,side){
 // deliberately NOT copied here — Tab 1 supplies its own real book
 // columns/rows below (BOOK_RV_COLUMNS), same functions, real data.
 const rvInstances=new Map();
+// colWidths now persists across a re-create of the SAME containerId —
+// Ryan's direct instruction, 2026-08-13: manually resized columns were
+// snapping back to default width every time the table reloaded (toggling
+// Show Inactive, adding a row, switching tabs away and back — anything
+// that calls rvCreate again), because this always started colWidths fresh
+// at {} regardless of whatever the previous instance already had. Sort,
+// filters, and selection still reset on a real re-create (unchanged) —
+// only column widths are the one thing meant to survive, since that's a
+// layout preference, not session state tied to a specific data load.
 function rvCreate(containerId,columns,rows,opts={}){
+  const prevInst=rvInstances.get(containerId);
   rvInstances.set(containerId,{
     columns,rows,
     sort:null,colFilters:{},filterOrder:[],expanded:new Set(),editingCell:null,
     focusedRowId:(rows[0]&&rows[0].id)||null,
-    colWidths:{},
+    colWidths:(prevInst&&prevInst.colWidths)||{},
     onRowOpen:opts.onRowOpen||null,
     onCellCommit:opts.onCellCommit||null,
     hideExpandColumn:opts.hideExpandColumn||false,
