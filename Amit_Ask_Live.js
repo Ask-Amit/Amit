@@ -176,20 +176,39 @@ function _getVisitorCode(){
 // client here). If nobody's signed in, or there's no history yet, this
 // returns an empty string and changes nothing about the prompt — silent,
 // not a broken placeholder.
+// Compass tier folded into this same fetch, 2026-08-12 — Ryan's direct
+// instruction, restated plainly after some garbled speech-to-text: "Amit
+// knows who they are... how to communicate with them... across all
+// platforms." Activity (amit_threads) answers WHAT someone has been
+// doing. Compass answers WHERE they actually are spiritually — tier
+// drives HOW Amit is supposed to speak, per the compass architecture
+// already established (root CLAUDE.md, Directive 14 — the 25% back rule,
+// meet them where Yeshua already has them, never run ahead). Before this,
+// Ask Amit had access to one without the other, in different apps, never
+// both in the same prompt. One session lookup, one combined block, so
+// Amit shows up already knowing both halves of who it's actually talking
+// to — not just business history with no spiritual bearing, and not tier
+// alone with no idea what's actually going on in their life right now.
 async function _fetchRecentThreadsForPrompt(){
   try{
     const client=_getAmitInboxDb();
     if(!client)return '';
     const{data:{session}}=await client.auth.getSession();
     if(!session||!session.user)return '';
-    const{data,error}=await client.from('amit_threads')
-      .select('source_app,entry_text,created_at')
-      .eq('user_id',session.user.id)
-      .order('created_at',{ascending:false})
-      .limit(8);
-    if(error||!data||!data.length)return '';
-    const lines=data.map(t=>`- (${t.source_app}) ${t.entry_text}`).join('\n');
-    return `\n\n---\n\n## RECENT ACTIVITY ACROSS THE AMIT SYSTEM\nThis is this real person's own recent history, pulled live just now from their account — most recent first, from whichever apps they've actually been using. This is where you draw your first step with them: you already know some of what they've been carrying or building, so don't ask them to re-explain it from zero. Speak to it naturally where it's actually relevant — don't just recite the list back at them.\n${lines}`;
+    const[{data:threads},{data:userRow}]=await Promise.all([
+      client.from('amit_threads').select('source_app,entry_text,created_at').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(8),
+      client.from('users').select('compass_score,compass_tier,compass_signals,display_name').eq('id',session.user.id).maybeSingle()
+    ]);
+    let block='';
+    if(userRow){
+      const tierMeaning=['just getting oriented — productivity only, no assumption of any spiritual openness yet','starting to engage — brief feast/calendar content is landing','engaging more deeply — full feast content and Torah Walk are resonating','walking closely — full Messianic engagement, real spiritual familiarity established'][userRow.compass_tier]||'not yet read';
+      block+=`\n\n---\n\n## WHO THIS PERSON ACTUALLY IS RIGHT NOW — Compass, pulled live\nTier ${userRow.compass_tier ?? 0} of 3 — ${tierMeaning}. Compass score ${(userRow.compass_score||0).toFixed(1)}/10 from ${userRow.compass_signals||0} real recorded signal(s)${userRow.display_name?`. They go by ${userRow.display_name}`:''}. This governs HOW you speak, not what you believe — meet them here, roughly two points below where they present, the way the compass architecture already directs. Never perform more spiritual familiarity with them than this actually earns, and never withhold truth either — this is about posture and pacing, not content.`;
+    }
+    if(threads&&threads.length){
+      const lines=threads.map(t=>`- (${t.source_app}) ${t.entry_text}`).join('\n');
+      block+=`\n\n---\n\n## RECENT ACTIVITY ACROSS THE AMIT SYSTEM\nThis is this real person's own recent history, pulled live just now from their account — most recent first, from whichever apps they've actually been using. This is where you draw your first step with them: you already know some of what they've been carrying or building, so don't ask them to re-explain it from zero. Speak to it naturally where it's actually relevant — don't just recite the list back at them.\n${lines}`;
+    }
+    return block;
   }catch(e){ return ''; }
 }
 
