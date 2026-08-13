@@ -289,6 +289,15 @@ header{
 @keyframes pageActionPulse{0%,100%{box-shadow:0 0 0 0 rgba(46,125,70,.6)}50%{box-shadow:0 0 0 10px rgba(46,125,70,0)}}
 .page-action-btn-pulse{animation:pageActionPulse 1.8s ease-in-out infinite;background:rgba(46,125,70,.22);border-color:#2e7d46}
 .page-action-step-badge{background:#2e7d46;color:#fff;font-weight:700;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;animation:pageActionPulse 1.8s ease-in-out infinite}
+/* Step 6 of the same onboarding walkthrough (Company→Book→Accounts→Scopes→
+   Contacts→Clients), added 2026-08-14 — Ryan's direct instruction. Every
+   earlier step pulsed a TAB button inside the Books page; Clients is its
+   own top-level sidebar page (.page-nav), not a Books tab, so this is the
+   first pulse applied to a sidebar entry rather than an in-page tab —
+   same visual language (border/background glow), reusing the identical
+   pageActionPulse keyframe and page-action-step-badge for the numbered
+   circle so it reads as the same system, not a new one. */
+.page-nav-pulse{animation:pageActionPulse 1.8s ease-in-out infinite;background:rgba(46,125,70,.18);border-color:#2e7d46}
 .ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
 .ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
@@ -599,7 +608,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.62</div>
+      <div class="page-version" id="pageVersion">v2.63</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -905,7 +914,7 @@ function renderAllPages(){
     <div class="ch-tab-nav" id="ch-tab-nav-4" style="margin-top:10px">
       <button class="ch-tab-btn active" id="clients-tab-label" onclick="showChTab(4,1)">Clients</button>
       <button class="ch-tab-btn" onclick="showChTab(4,2)">Jobs</button>
-      <button class="ch-tab-btn" onclick="showChTab(4,3)">Invoices</button>
+      <button class="ch-tab-btn" id="invoices-tab-label" onclick="showChTab(4,3)">Invoices</button>
       <button class="ch-tab-btn" onclick="showChTab(4,4)">Bills</button>
       <button class="ch-tab-btn" onclick="showChTab(4,5)">Documents</button>
     </div>
@@ -2527,6 +2536,55 @@ function refreshContactsTabPulse(){
   // refreshed here too so it turns off the moment a contact actually lands.
   if(document.querySelector('.ch-tab-btn.active')?.id==='contacts-tab-label') renderPageActionBar(1,6);
 }
+// Step 6 — Clients — Ryan's direct instruction, 2026-08-14: "the client's
+// badges should be pulsating for the pages" once Contacts (step 5) has
+// real data. Clients is its own top-level sidebar page (#page-4), not a
+// Books tab, so this pulses the SIDEBAR entry itself rather than a tab —
+// the walkthrough crossing from "inside the Books page" out to "go open
+// the Clients page" for the first time. Once there, the Clients tab's own
+// header (Import/+Add Client) carries the matching pulse too, same as
+// Accounts/Scopes/Contacts' own header buttons already do (see
+// renderPageActionBar, detailNum===4&&tabNum===1).
+function abClientCountFromContacts(){
+  const customerLabel=(abContactLabels||[]).find(l=>l.label.toLowerCase()==='customer');
+  if(!customerLabel)return 0;
+  return abContacts.filter(c=>(abContactLabelMap[c.id]||[]).includes(customerLabel.id)).length;
+}
+function refreshClientsPageNavPulse(){
+  const nav=document.getElementById('page-4'); if(!nav)return;
+  const shouldPulse=!!abBookId&&abContacts.length>0&&abClientCountFromContacts()===0;
+  nav.classList.toggle('page-nav-pulse',shouldPulse);
+  const label=document.getElementById('clients-nav-label');
+  if(label) label.innerHTML=shouldPulse?'<span class="page-action-step-badge" style="margin-right:5px;vertical-align:middle">6</span>Clients':'Clients';
+  if(document.getElementById('ch-tab-nav-4')) renderPageActionBar(4,1);
+  refreshInvoicesTabPulse();
+}
+// Step 7 — Invoices — Ryan's direct instruction, 2026-08-14: "the jobs
+// are brought in at the same time [as Clients]. And then the next thing
+// after this is complete... it goes to the invoices tab, and there's an
+// import there." Jobs rides along with the Clients import itself (no
+// separate step for it — same real .IIF pass brings both), so step 7
+// gates on Clients actually existing, not Jobs specifically. Lives on the
+// Invoices TAB inside the Clients page (not a sidebar entry, since
+// Invoices isn't its own top-level page) — same in-page-tab pulse
+// Accounts/Scopes/Contacts already use, one step further.
+let _invoicesShouldPulse=false;
+async function refreshInvoicesTabPulse(){
+  const btn=document.getElementById('invoices-tab-label'); if(!btn)return;
+  if(!db||!currentUser||!abBookId||!abClientCountFromContacts()){
+    _invoicesShouldPulse=false;
+    btn.classList.remove('page-action-btn-pulse'); btn.textContent='Invoices'; return;
+  }
+  const{count}=await db.from('invoices_bills').select('id',{count:'exact',head:true}).eq('book_id',abBookId).eq('direction','invoice_receivable');
+  const shouldPulse=!count;
+  _invoicesShouldPulse=shouldPulse;
+  btn.classList.toggle('page-action-btn-pulse',shouldPulse);
+  btn.innerHTML=shouldPulse?'<span class="page-action-step-badge">7</span> Invoices':'Invoices';
+  // Header Import/+Add Invoice buttons carry the matching pulse too, same
+  // standard as every earlier step (see renderPageActionBar,
+  // detailNum===4&&tabNum===3).
+  if(document.querySelector('.ch-tab-btn.active')?.id==='invoices-tab-label') renderPageActionBar(4,3);
+}
 // Row View columns for Scopes — Ryan's direct instruction, 2026-08-12:
 // same formatting/sequencing as Accounts and Books (sortable funnel
 // headers, double-click opens the edit popup), replacing the old
@@ -2560,6 +2618,7 @@ function loadItemsIntoRowView(){
 function abRenderItems(){
   refreshScopesTabPulse();
   refreshContactsTabPulse();
+  refreshClientsPageNavPulse();
   const el=document.getElementById('ab-items'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   // Terminology-driven, 2026-08-12 (Ryan's direct instruction — renaming
@@ -3646,6 +3705,7 @@ function abToggleContactsShowInactive(){ abContactsShowInactive=!abContactsShowI
 function abActiveFilter(list){ return abContactsShowInactive?list:list.filter(c=>c.is_active!==false); }
 function abRenderContactsRv(){
   refreshContactsTabPulse();
+  refreshClientsPageNavPulse();
   const el=document.getElementById('ab-contacts-rv'); if(!el)return;
   if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
   el.innerHTML=`<div style="margin-bottom:8px"><span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abToggleContactsShowInactive()">${abContactsShowInactive?'👁 Showing Inactive — click to hide':'🚫 Inactive Hidden — click to show'}</span></div>
@@ -4260,7 +4320,7 @@ const CLIENT_SAMPLE_ROWS=[
 const CLIENT_RV_COLUMNS=[
   // Moved to the far left, ahead of the Client name, and shortened to
   // "Act" — Ryan's direct instruction, 2026-08-13.
-  {key:'active_display',label:'Act',cellRenderer:activeToggleCellRenderer},
+  {key:'active_display',label:'Active',align:'center',naturalCase:true,width:92,cellRenderer:activeToggleCellRenderer},
   {key:'name',label:'Client'},
   {key:'jobs',label:'Jobs',align:'right',sortFilter:false,customFilterBtn:clientsJobsFilterBtnRenderer,groupStart:true,description:"Real — count of this client's Jobs. Click the funnel to sort by count, search jobs by name, or narrow to Active/Completed/All. Not included in the Total row below — that row is money-formatted, and this is a plain count."},
   {key:'billed_display',label:'Billed',align:'right',sortFilter:false,groupStart:true,description:"Real — total invoiced across every one of this client's jobs (loadClientInvoiceRollups, summed from invoices_bills)."},
@@ -4427,6 +4487,7 @@ async function loadClientsIntoRowView(){
   // "All Clients" until something else happened to trigger a refresh.
   abClientsActiveTab=1;
   refreshClientsPageHeading();
+  refreshClientsPageNavPulse();
   if(!abBookId){
     mount.innerHTML='<div class="detail-empty">Select a book on the Books tab first.</div>';
     _clientsLoadedForBook=null;
@@ -4937,7 +4998,7 @@ async function rvToggleJobActive(jobId,checked,containerId){
   }
 }
 const JOBS_RV_COLUMNS=[
-  {key:'active_display',label:'Act',cellRenderer:jobActiveToggleCellRenderer},
+  {key:'active_display',label:'Active',align:'center',naturalCase:true,width:92,cellRenderer:jobActiveToggleCellRenderer},
   {key:'name',label:'Job'},
   {key:'contact_display',label:'Client'},
   {key:'address_display',label:'Address'},
@@ -8772,7 +8833,7 @@ function rvRenderInstance(containerId){
   const colgroupHtml=`<colgroup>
     ${inst.selectable?'<col style="width:24px">':''}
     ${inst.hideExpandColumn?'':'<col style="width:24px">'}
-    ${inst.columns.map(c=>`<col data-key="${c.key}" style="width:${inst.colWidths[c.key]||160}px">`).join('')}
+    ${inst.columns.map(c=>`<col data-key="${c.key}" style="width:${inst.colWidths[c.key]||c.width||160}px">`).join('')}
   </colgroup>`;
   const rvVisibleFlatIds=inst.selectable?rvFlattenVisible(inst,rows).map(({item:r})=>r.id):[];
   const rvAllVisibleSelected=inst.selectable&&rvVisibleFlatIds.length&&rvVisibleFlatIds.every(id=>inst.selected.has(id));
@@ -8809,7 +8870,16 @@ function rvRenderInstance(containerId){
       // position:sticky already gives its own positioned-ancestor context
       // for the absolutely-positioned funnel button below, same as
       // position:relative did, so nothing else needs to change.
-      return `<th class="${hasFilter?'rv-filtered':''}"${(c.align==='right'||c.groupStart)?` style="${c.align==='right'?'text-align:right;':''}${c.groupStart?'border-left:6px double rgba(201,168,76,.6);':''}"`:''}>
+      // c.align:'center' — added 2026-08-14, Ryan's direct instruction:
+      // the Active checkbox cells are already centered (activeToggleCellRenderer/
+      // jobActiveToggleCellRenderer), the header label wasn't, so it looked
+      // out of line with its own column even though widths were fine.
+      // c.naturalCase:true — same instruction: this file's headers are all
+      // CSS text-transform:uppercase by default (ACT/CLIENT/etc.); this one
+      // column's label should read "Active" with only the real capital A,
+      // not "ACTIVE" — an explicit per-column opt-out, not a global change.
+      const thAlign=c.align==='right'?'text-align:right;':(c.align==='center'?'text-align:center;':'');
+      return `<th class="${hasFilter?'rv-filtered':''}"${(thAlign||c.groupStart||c.naturalCase)?` style="${thAlign}${c.groupStart?'border-left:6px double rgba(201,168,76,.6);':''}${c.naturalCase?'text-transform:none;':''}"`:''}>
         <span class="rv-th-label"${c.description?` ondblclick="event.stopPropagation();rvShowColumnInfo('${containerId}','${c.key}')" style="cursor:help"`:''}>${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}</span>
         ${c.customFilterBtn?c.customFilterBtn(containerId,c):(c.sortFilter===false?'':`<span class="rv-col-menu-btn${hasFilter?' active':''}" onclick="rvFunnelClick(event,'${containerId}','${c.key}')" title="${hasFilter?'Filter #'+orderNum+' — click to edit, double-click to remove':'Click to sort or filter'}">
           ${RV_FUNNEL_SVG}${hasFilter?`<span class="rv-col-menu-order">-${orderNum}</span>`:''}
@@ -9447,10 +9517,18 @@ function renderPageActionBar(detailNum,tabNum){
     // reads the !CUST section of the same .IIF export (QuickBooks stores
     // Jobs as sub-records under a Customer, so this one import brings both
     // Clients and Jobs over together).
-    bar.innerHTML=`<button class="page-action-btn" onclick="openImportForClientsTab()" data-tip="Bring Customers and Jobs in from the same QuickBooks .IIF export used for Accounts and Scopes."><span>⬇</span>Import</button>
-      <button class="page-action-btn" onclick="openAddClientPopup()"><span>+</span>Add Client</button>
-      <span style="cursor:pointer;font-size:11px;color:#c97a7a;align-self:center;margin-left:14px" onclick="openDeleteAllClientsPopup()" title="Start over — deletes every client and job in this book, from both the new and old systems, with a real confirmation first">🗑 Delete All Clients</span>
-      <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:10px" onclick="abToggleClientsShowInactive()">${abClientsShowInactive?'👁 Showing Inactive':'🚫 Inactive Hidden'}</span>
+    // Import/+Add Client now glow together while this book has no Clients
+    // yet — step 6 of the same onboarding walkthrough, matching the
+    // standard Accounts/Scopes/Contacts already use (see
+    // refreshClientsPageNavPulse, which is what actually gates this).
+    // "Delete All Clients" removed from here, 2026-08-14 (Ryan's direct
+    // instruction) — it was only ever there for his own testing pass
+    // ("I was doing that so I can delete it to make sure everything
+    // worked"), not meant to stay as a standing button in the real header.
+    const clientsPulseCls=abClientCountFromContacts()?'':' page-action-btn-pulse';
+    bar.innerHTML=`<button class="page-action-btn${clientsPulseCls}" onclick="openImportForClientsTab()" data-tip="Bring Customers and Jobs in from the same QuickBooks .IIF export used for Accounts and Scopes."><span>⬇</span>Import</button>
+      <button class="page-action-btn${clientsPulseCls}" onclick="openAddClientPopup()"><span>+</span>Add Client</button>
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:14px" onclick="abToggleClientsShowInactive()">${abClientsShowInactive?'👁 Showing Inactive':'🚫 Inactive Hidden'}</span>
       <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:10px" onclick="abToggleClientsHideZero()" title="Hide any client with $0 Outstanding and $0 Bills Owed, so only real open balances show">${abClientsHideZero?'👁 Showing $0 Balances':'🚫 $0 Balances Hidden'}</span>`;
   } else if(detailNum===4&&tabNum===2){
     // Add Job, right on the Jobs tab itself — Ryan's direct instruction,
@@ -9465,10 +9543,14 @@ function renderPageActionBar(detailNum,tabNum){
     // or offers a Job picker (scoped to the selected client if one's
     // picked, otherwise every job in the book) if none is selected yet.
     // Import reads real historical invoices out of the same QuickBooks
-    // .IIF export used for Clients/Jobs (Ryan's direct instruction,
-    // 2026-08-14).
-    bar.innerHTML=abBookId?`<button class="page-action-btn" onclick="openImportForInvoicesTab()" data-tip="Bring real historical Invoices in from a QuickBooks .IIF export (with Transactions checked) — matched against Clients/Jobs already in this book."><span>⬇</span>Import</button>
-      <button class="page-action-btn" onclick="openAddInvoicePopup()"><span>+</span>Add Invoice</button>`:'';
+    // export used for Clients/Jobs (Ryan's direct instruction, 2026-08-14).
+    // Import/+Add Invoice glow together while no invoices exist yet —
+    // step 7 of the walkthrough; _invoicesShouldPulse is set by
+    // refreshInvoicesTabPulse's own async DB check (a real invoice count),
+    // cached here since this function itself is synchronous.
+    const invPulseCls=_invoicesShouldPulse?' page-action-btn-pulse':'';
+    bar.innerHTML=abBookId?`<button class="page-action-btn${invPulseCls}" onclick="openImportForInvoicesTab()" data-tip="Bring real historical Invoices in from a QuickBooks .IIF export (with Transactions checked) — matched against Clients/Jobs already in this book."><span>⬇</span>Import</button>
+      <button class="page-action-btn${invPulseCls}" onclick="openAddInvoicePopup()"><span>+</span>Add Invoice</button>`:'';
   } else if(detailNum===4&&tabNum===4){
     bar.innerHTML=abBookId?`<button class="page-action-btn" onclick="openAddBillPopup()"><span>+</span>Add Bill</button>`:'';
   } else if(detailNum===5&&tabNum===1){
