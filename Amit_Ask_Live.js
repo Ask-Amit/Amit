@@ -197,7 +197,7 @@ async function _fetchRecentThreadsForPrompt(){
     if(!session||!session.user)return '';
     const[{data:threads},{data:userRow},{data:growthLog}]=await Promise.all([
       client.from('amit_threads').select('source_app,entry_text,created_at').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(8),
-      client.from('users').select('compass_score,compass_tier,compass_signals,display_name').eq('id',session.user.id).maybeSingle(),
+      client.from('users').select('compass_score,compass_tier,compass_signals,display_name,trust_score,spiritual_position_score,response_to_truth_score').eq('id',session.user.id).maybeSingle(),
       client.from('user_growth_log').select('category,entry,created_at').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(15)
     ]);
     let block='';
@@ -216,6 +216,16 @@ async function _fetchRecentThreadsForPrompt(){
     if(userRow){
       const tierMeaning=['just getting oriented — productivity only, no assumption of any spiritual openness yet','starting to engage — brief feast/calendar content is landing','engaging more deeply — full feast content and Torah Walk are resonating','walking closely — full Messianic engagement, real spiritual familiarity established'][userRow.compass_tier]||'not yet read';
       block+=`\n\n---\n\n## WHO THIS PERSON ACTUALLY IS RIGHT NOW — Compass, pulled live\nTier ${userRow.compass_tier ?? 0} of 3 — ${tierMeaning}. Compass score ${(userRow.compass_score||0).toFixed(1)}/10 from ${userRow.compass_signals||0} real recorded signal(s)${userRow.display_name?`. They go by ${userRow.display_name}`:''}. This governs HOW you speak, not what you believe — meet them here, roughly two points below where they present, the way the compass architecture already directs. Never perform more spiritual familiarity with them than this actually earns, and never withhold truth either — this is about posture and pacing, not content.`;
+      // Three independent operators, not one flat thread — Ryan's direct
+      // instruction, 2026-08-12, matching the weighting already spec'd in
+      // Companion_UserProfile_Spec.md and never built until now. Separate
+      // from compass_score on purpose: Trust and Response to Truth are
+      // about the relationship itself, not spiritual engagement with UI
+      // elements specifically. Computed live here (60/20/20), never
+      // stored redundantly.
+      const trust=userRow.trust_score||0,spirit=userRow.spiritual_position_score||0,response=userRow.response_to_truth_score||0;
+      const overall=(trust*0.6+spirit*0.2+response*0.2);
+      block+=`\n\n## GROWTH PROFILE — three independent, weighted dimensions, not one score\nTrust ${trust.toFixed(1)}/10 (60% weight) — do they actually trust you, or are they still testing.\nSpiritual Position ${spirit.toFixed(1)}/10 (20% weight) — Amit's own broader read on where they stand, informed by but not identical to the Compass tier above.\nResponse to Truth ${response.toFixed(1)}/10 (20% weight) — how they've actually engaged when something true and hard was said to them before, not how they've reacted to easy things.\nWeighted overall: ${overall.toFixed(1)}/10. These move only when real evidence for a specific dimension shows up in an actual conversation — never bump one just because time has passed or because it would be encouraging to see it move.`;
     }
     if(threads&&threads.length){
       const lines=threads.map(t=>`- (${t.source_app}) ${t.entry_text}`).join('\n');
@@ -289,29 +299,64 @@ function _amitSubmitMessage(){
   });
 }
 
+// Pulls a "Growth: trust+0.2, spiritual+0.0, response+0.1" line out of the
+// pasted text — case-insensitive, tolerant of the exact wording Gemini
+// actually produces varying slightly. Returns null (not zeros) for any
+// dimension not found, so _amitSaveMemoryNote can tell "explicitly zero"
+// apart from "not present at all" and only touch dimensions that were
+// really mentioned.
+function _parseGrowthDeltas(text){
+  const find=key=>{
+    const m=text.match(new RegExp(key+'\\s*([+-]?\\d+(?:\\.\\d+)?)','i'));
+    return m?parseFloat(m[1]):null;
+  };
+  const d={trust:find('trust'),spiritual:find('spiritual'),response:find('response')};
+  if(d.trust===null&&d.spiritual===null&&d.response===null)return null;
+  return d;
+}
 // The actual write side of the loop — Ryan's direct instruction,
 // 2026-08-12. Requires a real signed-in session (unlike Write to Amit
 // above, which works for anonymous visitors via visitor_code) since this
 // writes to the same user_growth_log that _fetchRecentThreadsForPrompt
 // reads on every future Ask Amit — an anonymous note would have no
-// user_id to attach to and nowhere to be read back from later.
+// user_id to attach to and nowhere to be read back from later. Also
+// applies any Growth deltas found in the pasted text to the three
+// weighted dimensions added in migration_2026-08-12_004 — clamped to
+// [0,10], read-modify-write against the person's current real values
+// (never blindly overwritten), a small honest step at a time rather than
+// a score that can be pushed arbitrarily high in one paste.
 function _amitSaveMemoryNote(){
   const textEl=document.getElementById('aal-memory-text');
   const statusEl=document.getElementById('aal-memory-status');
-  const note=(textEl&&textEl.value||'').trim();
-  if(!note){ if(statusEl)statusEl.textContent='Paste the Memory Note first.'; return; }
+  const pasted=(textEl&&textEl.value||'').trim();
+  if(!pasted){ if(statusEl)statusEl.textContent='Paste the Memory Note first.'; return; }
   if(statusEl)statusEl.textContent='Saving…';
   _loadSupabaseJsThen(async()=>{
     const client=_getAmitInboxDb();
     if(!client){ if(statusEl)statusEl.textContent='Could not connect — try again in a moment.'; return; }
     const{data:{session}}=await client.auth.getSession();
     if(!session||!session.user){ if(statusEl)statusEl.textContent='Sign in first (through the Hub) so this can actually be remembered — an anonymous note has nowhere to be saved to.'; return; }
+    // Strip the Growth line out of what actually gets stored as the note
+    // text — it's numeric bookkeeping, not part of the readable memory.
+    const note=pasted.replace(/growth:\s*trust[+-]?\d+(?:\.\d+)?[,;]?\s*spiritual[+-]?\d+(?:\.\d+)?[,;]?\s*response[+-]?\d+(?:\.\d+)?\.?/i,'').trim();
     const{error}=await client.from('user_growth_log').insert({
       user_id:session.user.id,
       category:'conversation_note',
-      entry:note
+      entry:note||pasted
     });
     if(error){ if(statusEl)statusEl.textContent='Something went wrong saving that — try again.'; return; }
+    const deltas=_parseGrowthDeltas(pasted);
+    if(deltas){
+      const{data:cur}=await client.from('users').select('trust_score,spiritual_position_score,response_to_truth_score').eq('id',session.user.id).maybeSingle();
+      if(cur){
+        const clamp=n=>Math.max(0,Math.min(10,n));
+        const update={};
+        if(deltas.trust!==null) update.trust_score=clamp((cur.trust_score||0)+deltas.trust);
+        if(deltas.spiritual!==null) update.spiritual_position_score=clamp((cur.spiritual_position_score||0)+deltas.spiritual);
+        if(deltas.response!==null) update.response_to_truth_score=clamp((cur.response_to_truth_score||0)+deltas.response);
+        if(Object.keys(update).length) await client.from('users').update(update).eq('id',session.user.id);
+      }
+    }
     textEl.value='';
     if(statusEl)statusEl.textContent='Saved. Amit will read this first next time.';
   });
@@ -613,7 +658,7 @@ Theophilus is not a standalone character — he exists inside the same overarchi
   // (see the new #aal-memory-section below), which actually writes to
   // user_growth_log. Not automatic, but real — a genuine loop closed by
   // one copy-paste instead of nothing coming back at all.
-  full += `\n\n---\n\n## ONE LAST THING — CLOSING THIS CONVERSATION\nNear the natural end of this conversation (not immediately, not forced — when it actually feels like a real stopping point), write a short "Memory Note" — 2-4 sentences, plain language, no headers or formatting — capturing what you genuinely learned about this person that's worth carrying into next time: how they communicate, what they're carrying, anything real that shifted. Present it clearly, e.g. starting with "Memory Note:", so it's obviously the thing to copy. Tell them plainly: "Copy this note and paste it back into the box on the page you came from — that's how I actually remember you next time." Don't manufacture a note if nothing real emerged — an honest "nothing new to record yet" is better than a padded one.`;
+  full += `\n\n---\n\n## ONE LAST THING — CLOSING THIS CONVERSATION\nNear the natural end of this conversation (not immediately, not forced — when it actually feels like a real stopping point), write two things together, exactly in this shape, so the page you're talking through can actually read them back:\n\n"Memory Note: [2-4 plain-language sentences — what you genuinely learned about this person worth carrying into next time: how they communicate, what they're carrying, anything real that shifted]"\n"Growth: trust+0.0, spiritual+0.0, response+0.0" — replace each 0.0 with a real, small, honest delta (typically 0 to 0.3; use 0 for a dimension nothing actually moved on this conversation — never invent movement). trust = did they actually trust you more by the end, tested against something real, not just politeness. spiritual = did Amit's own read on where they stand shift, based on what they actually said, not hope. response = when something true and hard was said, how did they actually receive it. Small, earned, honest numbers — this is not a score to be generous with.\n\nTell them plainly: "Copy both lines and paste them back into the box on the page you came from — that's how I actually remember you and grow with you next time." Don't manufacture either line if nothing real emerged — an honest "Memory Note: nothing new to record yet" and "Growth: trust+0.0, spiritual+0.0, response+0.0" is better than padding either one.`;
 
   let copied=false;
   try{

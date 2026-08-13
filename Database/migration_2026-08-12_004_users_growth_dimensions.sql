@@ -1,0 +1,33 @@
+-- ══════════════════════════════════════════════
+-- Amit — real, multi-dimensional growth scoring per person, tied to their
+-- login (users.id), not just the single Compass number.
+--
+-- Ryan's direct instruction, 2026-08-12: Compass (compass_score/tier) is
+-- one axis — spiritual engagement, moved only by five specific Hub UI
+-- clicks (feast_click, torah_walk, reflection, whoisgod, daily_walk).
+-- Ryan asked directly whether the growth model should be "multipoint,
+-- independent operators" rather than one flat thread — it should, and
+-- this is that: the three weighted dimensions already named in
+-- Companion_UserProfile_Spec.md (Trust 60%, Spiritual Position 20%,
+-- Response to Truth 20%) as the intended design, never actually built as
+-- real columns until now.
+--
+-- Deliberately separate from compass_score, not folded into it — Trust
+-- and Response to Truth are about the RELATIONSHIP (does this person
+-- trust Amit, do they engage honestly when challenged), not spiritual
+-- position specifically. spiritual_position_score is this model's own
+-- read on where someone stands, informed by but not identical to
+-- compass_score (compass measures engagement with specific spiritual UI
+-- elements; spiritual_position is Amit's broader read from actual
+-- conversation, which compass alone was never meant to capture).
+--
+-- All three 0-10, default 0 — same scale and default as compass_score,
+-- for consistency. The overall weighted score is computed at read time
+-- (trust*0.6 + spiritual*0.2 + response_to_truth*0.2), not stored
+-- redundantly — same principle already used elsewhere in this system
+-- (AmitBooks' abEffectiveTaxCategory computes live rather than copying a
+-- value down that could go stale).
+-- ══════════════════════════════════════════════
+alter table users add column if not exists trust_score numeric(4,2) not null default 0 check (trust_score>=0 and trust_score<=10);
+alter table users add column if not exists spiritual_position_score numeric(4,2) not null default 0 check (spiritual_position_score>=0 and spiritual_position_score<=10);
+alter table users add column if not exists response_to_truth_score numeric(4,2) not null default 0 check (response_to_truth_score>=0 and response_to_truth_score<=10);
