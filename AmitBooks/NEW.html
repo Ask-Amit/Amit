@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.25</div>
+      <div class="page-version" id="pageVersion">v2.26</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4074,6 +4074,32 @@ function selectClientRow(rows,clientId){
 // one Save button. Reuse this exact structure — icon/title/subtitle/
 // section-labels/fields — rather than a one-off layout per entity type.
 const CLIENT_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4.14 3.36-7.5 7.5-7.5s7.5 3.36 7.5 7.5"/></svg>`;
+// Add Client now opens the real Contact popup (openContactDetailPopup,
+// built for the Books → Contacts tab) instead of its own separate form —
+// Ryan's direct instruction, 2026-08-13: "it's going in the same
+// database," one contact table for everyone, filtered by label rather
+// than split into separate tables. Pre-selects the "Customer" label
+// (creating it for this book first if it doesn't exist yet) so a client
+// added from here shows up correctly filtered wherever contacts are
+// labeled, without the person having to remember to tick it themselves.
+// Deliberately does NOT call into or modify openContactDetailPopup
+// itself — that function is untouched; this just primes
+// contactFormSelectedLabels immediately after it opens, same as how a
+// label gets toggled on by hand.
+async function openAddClientPopup(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  if(!abContactLabels.length) await abLoadContactLabels();
+  let customerLabel=abContactLabels.find(l=>l.label.toLowerCase()==='customer');
+  if(!customerLabel){
+    const{data,error}=await db.from('contact_labels').insert({book_id:abBookId,label:'Customer',sort_order:abContactLabels.length}).select().single();
+    if(!error&&data){ await abLoadContactLabels(); customerLabel=abContactLabels.find(l=>l.id===data.id)||data; }
+  }
+  openContactDetailPopup(null);
+  if(customerLabel){ contactFormSelectedLabels.add(customerLabel.id); contactFormRenderLabelChips(); }
+}
+// Superseded by openAddClientPopup above, 2026-08-13 — left in place,
+// dormant, not deleted, in case the separate clients/jobs table path is
+// ever wanted back. No button calls this anymore.
 function openClientAddPopup(){
   if(!abBookId){ alert('Select a book on the Books tab first.'); return; }
   popupOpen(`
@@ -7525,7 +7551,7 @@ function renderPageActionBar(detailNum,tabNum){
     // Jobs as sub-records under a Customer, so this one import brings both
     // Clients and Jobs over together).
     bar.innerHTML=`<button class="page-action-btn" onclick="openImportForClientsTab()" data-tip="Bring Customers and Jobs in from the same QuickBooks .IIF export used for Accounts and Scopes."><span>⬇</span>Import</button>
-      <button class="page-action-btn" onclick="openClientAddPopup()"><span>+</span>Add Client</button>`;
+      <button class="page-action-btn" onclick="openAddClientPopup()"><span>+</span>Add Client</button>`;
   } else {
     bar.innerHTML='';
   }
