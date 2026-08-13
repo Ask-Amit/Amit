@@ -1,0 +1,15 @@
+-- ══════════════════════════════════════════════
+-- AmitBooks — jobs.client_id becomes optional, now that Jobs attach via
+-- contact_id going forward.
+--
+-- Ryan's direct instruction, 2026-08-13: "there's only one table... the
+-- import should import there" — the Customers→Contacts+Jobs importer
+-- (importCommitClients, NEW.html) now inserts Jobs with contact_id set
+-- and no clients row created at all, since Customers land straight in
+-- `contacts` (labeled Customer) instead of the old separate `clients`
+-- table. jobs.client_id was `not null` (migration_2026-08-07_004), which
+-- would reject every one of those inserts outright. Dropping that
+-- constraint doesn't touch any existing row — every real historical Job
+-- still has its real client_id, untouched; new Jobs just won't have one.
+-- ══════════════════════════════════════════════
+alter table jobs alter column client_id drop not null;

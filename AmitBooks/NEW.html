@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.31</div>
+      <div class="page-version" id="pageVersion">v2.32</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5811,7 +5811,7 @@ function importParseIifCustomers(text){
     if(cols[0]==='CUST'&&headerCols){
       const vals=cols.slice(1);
       const row={};
-      headerCols.forEach((h,i)=>{ row[h]=vals[i]||''; });
+      headerCols.forEach((h,i)=>{ row[h]=unquoteIifValue(vals[i]||''); });
       dataRows.push(row);
     }
   }
@@ -5865,14 +5865,24 @@ function importClientsSelectAll(state){
   document.querySelectorAll('.import-client-check').forEach(cb=>cb.checked=state);
 }
 let importClientsCommitInFlight=false;
+// Ryan's direct instruction, 2026-08-13: "there's only one table... that's
+// the master contact table for everybody... so the import should import
+// there." Writes straight into `contacts` (labeled Customer) instead of
+// the old separate `clients` table — the same table Vendor/Employee
+// import already targets. `jobs` itself stays a real, separate table
+// (a Job is a project, not a person/business) — it just points at
+// contact_id now instead of client_id, no separate clients row needed to
+// hang it off. Migrate Legacy Clients (above) remains only for backfilling
+// whatever's already stuck in the old table from before this changed.
 async function importCommitClients(){
   if(importClientsCommitInFlight)return;
   importClientsCommitInFlight=true;
   try{
     const status=document.getElementById('importClientsStatus');
     status.textContent='Importing…';
-    const{data:existingClients}=await db.from('clients').select('id,name').eq('book_id',abBookId);
-    const existingNames=new Set((existingClients||[]).map(c=>c.name.trim().toLowerCase()));
+    const customerLabel=await ensureCustomerLabel();
+    const{data:existingContacts}=await db.from('contacts').select('id,name').eq('book_id',abBookId);
+    const existingNames=new Set((existingContacts||[]).map(c=>c.name.trim().toLowerCase()));
     const{clients:allClients,jobs:allJobs}=importParsedClients;
     const checkedIdx=new Set(Array.from(document.querySelectorAll('.import-client-check:checked')).map(cb=>Number(cb.dataset.idx)));
     const clients=allClients.filter((c,i)=>checkedIdx.has(i));
@@ -5880,36 +5890,39 @@ async function importCommitClients(){
     const checkedPaths=new Set(clients.map(c=>c.fullPath));
     // Jobs only ride along with a client that's actually checked — a Job
     // whose parent Customer was left unchecked is skipped along with it,
-    // not imported as an orphan standalone client (that fallback is only
+    // not imported as an orphan standalone contact (that fallback is only
     // for a parent that genuinely isn't in the file at all).
     const jobs=allJobs.filter(j=>checkedPaths.has(j.parentPath)||!allClients.find(c=>c.fullPath===j.parentPath));
     const newClients=clients.filter(c=>!existingNames.has(c.name.trim().toLowerCase()));
     let clientImported=0;
     const pathToId={};
-    (existingClients||[]).forEach(c=>{ pathToId[c.name]=c.id; });
+    (existingContacts||[]).forEach(c=>{ pathToId[c.name]=c.id; });
+    const labelLinksToInsert=[];
     if(newClients.length){
       const rows=newClients.map(c=>({book_id:abBookId,name:c.name,street_address:c.street_address,city_state:c.city_state,zip:c.zip,phone:c.phone,email:c.email}));
-      const{data,error}=await db.from('clients').insert(rows).select();
-      if(error){ status.textContent='Error creating clients: '+error.message; return; }
-      data.forEach((row,i)=>{ pathToId[newClients[i].fullPath]=row.id; });
+      const{data,error}=await db.from('contacts').insert(rows).select();
+      if(error){ status.textContent='Error creating contacts: '+error.message; return; }
+      data.forEach((row,i)=>{ pathToId[newClients[i].fullPath]=row.id; if(customerLabel) labelLinksToInsert.push({book_id:abBookId,contact_id:row.id,label_id:customerLabel.id}); });
       clientImported=data.length;
     }
     status.textContent=`Imported ${clientImported} client(s), now importing jobs…`;
     const jobRows=jobs.filter(j=>pathToId[j.parentPath]).map(j=>({
-      book_id:abBookId,client_id:pathToId[j.parentPath],name:j.name,
+      book_id:abBookId,contact_id:pathToId[j.parentPath],name:j.name,
       street_address:j.street_address,city_state:j.city_state,zip:j.zip,status:j.status
     }));
     // Jobs whose parent Customer wasn't found among either existing or
-    // newly-imported clients become their own standalone client instead
-    // of silently vanishing — same honesty standard as everywhere else in
-    // these importers, never drop a real row without a visible reason.
+    // newly-imported contacts become their own standalone Customer-labeled
+    // contact instead of silently vanishing — same honesty standard as
+    // everywhere else in these importers, never drop a real row without a
+    // visible reason.
     const orphanJobs=jobs.filter(j=>!pathToId[j.parentPath]);
     let orphanImported=0;
     if(orphanJobs.length){
       const rows=orphanJobs.map(j=>({book_id:abBookId,name:j.name,street_address:j.street_address,city_state:j.city_state,zip:j.zip,phone:j.phone,email:j.email}));
-      const{error}=await db.from('clients').insert(rows);
-      if(!error) orphanImported=rows.length;
+      const{data,error}=await db.from('contacts').insert(rows).select();
+      if(!error&&data){ orphanImported=data.length; data.forEach(row=>{ if(customerLabel) labelLinksToInsert.push({book_id:abBookId,contact_id:row.id,label_id:customerLabel.id}); }); }
     }
+    if(labelLinksToInsert.length) await db.from('contact_label_links').insert(labelLinksToInsert);
     let jobImported=0;
     if(jobRows.length){
       const{data,error}=await db.from('jobs').insert(jobRows).select();
