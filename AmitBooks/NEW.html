@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.08</div>
+      <div class="page-version" id="pageVersion">v2.09</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4979,11 +4979,23 @@ async function abBuildReadinessQueue(){
   });
   return q;
 }
+// abReadinessTotal held separately from abReadinessQueue.length — Ryan's
+// direct instruction, 2026-08-12: this should read like Amit showing up
+// to fix the gaps together, not a sterile progress bar, and "3 of 47"
+// only means something if the total is remembered rather than recomputed
+// from whatever's left. Real memory of the effort is written to
+// amit_threads at start and finish (via logThreadEntry, the same
+// mechanism every other real AmitBooks action already writes through) —
+// so Amit genuinely knows next time that this person sat down and closed
+// out real gaps, not just that a feature exists.
+let abReadinessTotal=0;
 async function abStartReadinessChecklist(){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
   abReadinessQueue=await abBuildReadinessQueue();
   if(!abReadinessQueue.length){ popupClose(); return; }
   abReadinessActive=true;
+  abReadinessTotal=abReadinessQueue.length;
+  logThreadEntry(`Started closing setup gaps — ${abReadinessTotal} item(s) to go (Tax Categories, Cost/Billable Accounts).`);
   abOpenNextReadinessItem();
 }
 // Called by the save-hooks in saveAccountForm/saveScopeForm right after a
@@ -4993,23 +5005,26 @@ async function abStartReadinessChecklist(){
 function abOpenNextReadinessItem(){
   if(!abReadinessQueue.length){
     abReadinessActive=false;
-    popupOpen(`<div class="dv-sub-h" style="color:#8fd19e">All Done</div><div class="fv-status">Every gap the readiness check found has been closed. This book is ready to build on top of.</div><button class="fv-save" style="margin-top:14px" onclick="popupClose()">Close</button>`);
+    if(abReadinessTotal) logThreadEntry(`Closed every setup gap — ${abReadinessTotal} item(s) fixed. This book is ready.`);
+    popupOpen(`<div class="dv-sub-h" style="color:#8fd19e">Good work — that's all of them</div><div class="fv-status">You just closed out every real gap I found — ${abReadinessTotal} in all. Nothing's sitting unfinished in this book anymore. That's the tedious part done; what's built on top of it now has something solid to stand on.</div><button class="fv-save" style="margin-top:14px" onclick="popupClose()">Close</button>`);
     return;
   }
   const next=abReadinessQueue[0];
+  const doneCount=abReadinessTotal-abReadinessQueue.length;
   if(next.type==='account') openAccountPopup(next.id);
   else openScopeEditPopup(next.id);
   // The popup functions above build their own full content via
   // popupOpen — this injects a progress banner at the top of whatever
   // they just rendered, on the next tick, rather than modifying either
-  // function to know about the checklist itself.
+  // function to know about the checklist itself. Written in Amit's own
+  // voice — Ryan's direct instruction, 2026-08-12 — not a plain counter.
   setTimeout(()=>{
     const card=document.querySelector('#canonicalPopup .popup-card');
     if(!card||card.querySelector('.ab-checklist-banner'))return;
     const banner=document.createElement('div');
     banner.className='ab-checklist-banner';
     banner.style.cssText='background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--gold2);display:flex;justify-content:space-between;align-items:center;gap:10px';
-    banner.innerHTML=`<span>Setup Checklist — ${abReadinessQueue.length} item(s) left. Fixing: ${abEsc(next.label)}</span><a href="#" onclick="abSkipReadinessItem();return false" style="color:var(--muted);font-size:11px;flex-shrink:0">Skip →</a>`;
+    banner.innerHTML=`<span>Let's fix these together — ${doneCount} of ${abReadinessTotal} done. This one: <b>${abEsc(next.label)}</b></span><a href="#" onclick="abSkipReadinessItem();return false" style="color:var(--muted);font-size:11px;flex-shrink:0">Skip →</a>`;
     card.insertBefore(banner,card.firstChild);
   },0);
 }
