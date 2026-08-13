@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.46</div>
+      <div class="page-version" id="pageVersion">v2.47</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4255,8 +4255,10 @@ const CLIENT_SAMPLE_ROWS=[
   {id:'c3',name:'Miller Family Trust',jobs:'—',billed:'—',received:'—',outstanding:'—',pct_complete:'—'}
 ];
 const CLIENT_RV_COLUMNS=[
+  // Moved to the far left, ahead of the Client name, and shortened to
+  // "Act" — Ryan's direct instruction, 2026-08-13.
+  {key:'active_display',label:'Act',cellRenderer:activeToggleCellRenderer},
   {key:'name',label:'Client'},
-  {key:'active_display',label:'Active',cellRenderer:activeToggleCellRenderer},
   {key:'jobs',label:'Jobs',align:'right',sortFilter:false,customFilterBtn:clientsJobsFilterBtnRenderer,groupStart:true,description:"Real — count of this client's Jobs. Click the funnel to sort by count, search jobs by name, or narrow to Active/Completed/All. Not included in the Total row below — that row is money-formatted, and this is a plain count."},
   {key:'billed',label:'Billed',align:'right',sortFilter:false,groupStart:true,description:"Placeholder — total invoiced across this client's jobs, once Bills & Invoices exists in this file and invoices carry a job_id."},
   {key:'received',label:'Received',align:'right',sortFilter:false,operatorPrefix:'−',description:"Placeholder — total actually paid so far across this client's invoices."},
@@ -4743,7 +4745,25 @@ async function saveJobForm(jobId){
 // Legacy Clients" on the Clients tab) — labeled honestly as legacy rather
 // than silently hidden, same "never hide real data" standard as
 // everywhere else in this file.
+// Real Active/Inactive on Jobs, separate from the QuickBooks status text —
+// Ryan's direct instruction, 2026-08-13. Same shape as the Clients toggle
+// (leftmost, short label), different table/column
+// (jobs.is_active — migration_2026-08-13_008), so its own renderer rather
+// than reusing activeToggleCellRenderer, which is hardcoded to `contacts`.
+function jobActiveToggleCellRenderer(r,c,containerId){
+  return `<td style="text-align:center" onclick="event.stopPropagation()"><input type="checkbox" ${r.is_active===false?'':'checked'} onchange="rvToggleJobActive('${r.id}',this.checked,'${containerId}')"></td>`;
+}
+async function rvToggleJobActive(jobId,checked,containerId){
+  const{error}=await db.from('jobs').update({is_active:checked}).eq('id',jobId);
+  if(error){ abAlert(error.message); return; }
+  const inst=rvInstances.get(containerId);
+  if(inst){
+    const row=inst.rows.find(x=>x.id===jobId);
+    if(row){ row.is_active=checked; row.active_display=checked?'Active':'Inactive'; }
+  }
+}
 const JOBS_RV_COLUMNS=[
+  {key:'active_display',label:'Act',cellRenderer:jobActiveToggleCellRenderer},
   {key:'name',label:'Job'},
   {key:'contact_display',label:'Client'},
   {key:'address_display',label:'Address'},
@@ -4771,7 +4791,7 @@ async function loadAllJobsForBook(){
     if(j.contact_id) contact_display=contactNameById[j.contact_id]||'—';
     else if(j.client_id) contact_display=`${legacyClientNameById[j.client_id]||'—'} (legacy — run Migrate Legacy Clients)`;
     else contact_display='— unassigned —';
-    return{id:j.id,name:j.name,contact_display,address_display:addr||'—',status:j.status||'active'};
+    return{id:j.id,name:j.name,contact_display,address_display:addr||'—',status:j.status||'active',is_active:j.is_active,active_display:j.is_active===false?'Inactive':'Active'};
   });
 }
 async function abRenderJobsTab(){
