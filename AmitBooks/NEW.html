@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.07</div>
+      <div class="page-version" id="pageVersion">v2.08</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2043,6 +2043,10 @@ async function saveAccountForm(existingId){
     : await db.from('chart_of_accounts').insert({book_id:abBookId,...values});
   if(error){ status.textContent='Error: '+error.message; return; }
   await abLoadAccounts(); abRenderCoa();
+  // Setup Checklist hook — Ryan's direct instruction, 2026-08-12: a save
+  // made while the guided checklist is running advances straight to the
+  // next item instead of just closing.
+  if(abReadinessActive){ abReadinessQueue.shift(); abOpenNextReadinessItem(); return; }
   popupClose();
 }
 
@@ -2349,8 +2353,12 @@ async function saveScopeForm(itemId){
   }
   if(error){ status.textContent='Error: '+error.message; return; }
   await checkReorderPursuit({...row});
-  popupClose();
   await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
+  // Setup Checklist hook — Ryan's direct instruction, 2026-08-12: same as
+  // saveAccountForm's own hook above — advance to the next item instead
+  // of just closing while the guided checklist is running.
+  if(abReadinessActive){ abReadinessQueue.shift(); abOpenNextReadinessItem(); return; }
+  popupClose();
 }
 // ── REORDER PURSUITS — Ryan's direct instruction, 2026-08-12: when a
 // Scope's quantity_on_hand drops to/below its reorder_quantity, create a
@@ -4938,7 +4946,76 @@ async function abRunSetupHealthCheck(){
     ${nothingFound
       ?`<div class="fv-status" style="color:#8fd19e">Nothing outstanding found — ${accts?.length||0} account(s) and ${scopeRows?.length||0} ${abEsc(scopeLabelPlural.toLowerCase())} all have what they need. This book looks ready to build on top of.</div>`
       :`<div class="fv-status" style="margin-bottom:10px">Real gaps found in this book, checked just now — nothing here blocks you from continuing, but these are worth closing before Bills & Invoices depend on them being right.</div>${rowsHtml}${terminologyHtml}`}
-    <button class="fv-save" style="margin-top:14px" onclick="popupClose()">Close</button>`);
+    <div style="display:flex;gap:10px;margin-top:14px">
+      ${nothingFound?'':`<button class="fv-save" onclick="abStartReadinessChecklist()">Start Checklist — Fix One at a Time →</button>`}
+      <button class="fv-save" style="background:transparent" onclick="popupClose()">Close</button>
+    </div>`);
+}
+
+// ══════════════════════════════════════════════
+// SETUP CHECKLIST — the guided, one-at-a-time walkthrough. Ryan's direct
+// instruction, 2026-08-12: same pulsing "you're here next" pattern
+// already used for Add Company/Import buttons elsewhere, but walking
+// through every real gap the readiness check found, one item at a time,
+// opening the actual edit popup for each — not a static list someone has
+// to act on by hand. Tax Category and account-number gaps open the real
+// Account popup; Cost/Billable Account gaps open the real Scope popup.
+// Saving that popup (saveAccountForm/saveScopeForm, each hooked at their
+// own success point) automatically advances to the next item — a real
+// chain, not a report to work through unassisted.
+// ══════════════════════════════════════════════
+let abReadinessQueue=[];
+let abReadinessActive=false;
+async function abBuildReadinessQueue(){
+  const[{data:accts},{data:scopeRows}]=await Promise.all([
+    db.from('chart_of_accounts').select('id,account_name,tax_category').eq('book_id',abBookId),
+    db.from('items').select('id,name,expense_account_id,income_account_id').eq('book_id',abBookId)
+  ]);
+  const q=[];
+  (accts||[]).forEach(a=>{ if(!a.tax_category) q.push({type:'account',id:a.id,label:`${a.account_name} — Tax Category`}); });
+  (scopeRows||[]).forEach(s=>{
+    if(!s.expense_account_id) q.push({type:'scope',id:s.id,label:`${s.name} — Cost Account`});
+    if(!s.income_account_id) q.push({type:'scope',id:s.id,label:`${s.name} — Billable Account`});
+  });
+  return q;
+}
+async function abStartReadinessChecklist(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  abReadinessQueue=await abBuildReadinessQueue();
+  if(!abReadinessQueue.length){ popupClose(); return; }
+  abReadinessActive=true;
+  abOpenNextReadinessItem();
+}
+// Called by the save-hooks in saveAccountForm/saveScopeForm right after a
+// successful save, and once at the start of the checklist. Reads the
+// front of the queue without removing it — the save-hooks are what
+// actually shift() a completed item off before calling this again.
+function abOpenNextReadinessItem(){
+  if(!abReadinessQueue.length){
+    abReadinessActive=false;
+    popupOpen(`<div class="dv-sub-h" style="color:#8fd19e">All Done</div><div class="fv-status">Every gap the readiness check found has been closed. This book is ready to build on top of.</div><button class="fv-save" style="margin-top:14px" onclick="popupClose()">Close</button>`);
+    return;
+  }
+  const next=abReadinessQueue[0];
+  if(next.type==='account') openAccountPopup(next.id);
+  else openScopeEditPopup(next.id);
+  // The popup functions above build their own full content via
+  // popupOpen — this injects a progress banner at the top of whatever
+  // they just rendered, on the next tick, rather than modifying either
+  // function to know about the checklist itself.
+  setTimeout(()=>{
+    const card=document.querySelector('#canonicalPopup .popup-card');
+    if(!card||card.querySelector('.ab-checklist-banner'))return;
+    const banner=document.createElement('div');
+    banner.className='ab-checklist-banner';
+    banner.style.cssText='background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--gold2);display:flex;justify-content:space-between;align-items:center;gap:10px';
+    banner.innerHTML=`<span>Setup Checklist — ${abReadinessQueue.length} item(s) left. Fixing: ${abEsc(next.label)}</span><a href="#" onclick="abSkipReadinessItem();return false" style="color:var(--muted);font-size:11px;flex-shrink:0">Skip →</a>`;
+    card.insertBefore(banner,card.firstChild);
+  },0);
+}
+function abSkipReadinessItem(){
+  abReadinessQueue.shift();
+  abOpenNextReadinessItem();
 }
 
 // Custom cellRenderer for the Company column (see the cellRenderer hook
