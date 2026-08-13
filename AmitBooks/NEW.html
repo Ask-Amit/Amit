@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.47</div>
+      <div class="page-version" id="pageVersion">v2.48</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -906,14 +906,18 @@ function renderAllPages(){
     <div class="ch-tab-nav" id="ch-tab-nav-4" style="margin-top:10px">
       <button class="ch-tab-btn active" id="clients-tab-label" onclick="showChTab(4,1)">Clients</button>
       <button class="ch-tab-btn" onclick="showChTab(4,2)">Jobs</button>
-      <button class="ch-tab-btn" onclick="showChTab(4,3)">Documents</button>
+      <button class="ch-tab-btn" onclick="showChTab(4,3)">Invoices</button>
+      <button class="ch-tab-btn" onclick="showChTab(4,4)">Bills</button>
+      <button class="ch-tab-btn" onclick="showChTab(4,5)">Documents</button>
     </div>
     <div class="ch-tab-main">
       <div class="ch-tab-content active ch-tab-flex" id="ch-tab-4-1">
         <div class="rv-wrap" id="rv-mount-clients"></div>
       </div>
       <div class="ch-tab-content ch-tab-flex" id="ch-tab-4-2"><div id="jobs-tab-mount" style="display:flex;flex-direction:column;min-height:0;flex:1">Select a book on the Books tab first.</div></div>
-      <div class="ch-tab-content" id="ch-tab-4-3" style="margin:24px"><div class="detail-empty">Documents — not built yet.</div></div>
+      <div class="ch-tab-content" id="ch-tab-4-3" style="margin:24px"><div id="invoices-tab-mount" class="detail-empty">Invoices — reserved. Real Bills &amp; Invoices entry doesn't exist anywhere in this app yet; this tab will list this Client's (and, once one is selected, this Job's) real invoices once that's built.</div></div>
+      <div class="ch-tab-content" id="ch-tab-4-4" style="margin:24px"><div id="bills-tab-mount" class="detail-empty">Bills — reserved, same as Invoices above.</div></div>
+      <div class="ch-tab-content" id="ch-tab-4-5" style="margin:24px"><div class="detail-empty">Documents — not built yet.</div></div>
     </div>
   </div>`;
 
@@ -4461,10 +4465,32 @@ async function loadClientsIntoRowView(){
 // show in that header, same as the book selected shows on the Books tab.
 // Falls back to the Terminology-driven plural label (abApplyClientTerminology)
 // when nothing's selected, rather than a static word.
+// Client → Job drill-down — Ryan's direct instruction, 2026-08-13: picking
+// a client on the Clients tab should carry through to Jobs, Invoices, and
+// Bills, filtering each to that client (and, once picked, that job) —
+// same real context-carrying pattern already proven on the Books page
+// (Company: Book in the header). Selecting a different client clears
+// whatever job was selected under the previous one — a job selection
+// only makes sense in the context of the client it belongs to.
+let abSelectedClientId=null;
+let abSelectedClientName=null;
+let abSelectedJobId=null;
+let abSelectedJobName=null;
+function abClientsPageHeadingText(){
+  if(!abSelectedClientId) return abPluralize(abFieldLabel('client','Client'));
+  return abSelectedJobId?`${abSelectedClientName}: ${abSelectedJobName}`:abSelectedClientName;
+}
+function refreshClientsPageHeading(){
+  const heading=document.getElementById('clients-page-heading');
+  if(heading) heading.textContent=abClientsPageHeadingText();
+}
 function selectClientRow(rows,clientId){
   const row=rows.find(r=>r.id===clientId);
-  const heading=document.getElementById('clients-page-heading');
-  if(heading) heading.textContent=row?row.name:abPluralize(abFieldLabel('client','Client'));
+  abSelectedClientId=row?row.id:null;
+  abSelectedClientName=row?row.name:null;
+  abSelectedJobId=null;
+  abSelectedJobName=null;
+  refreshClientsPageHeading();
 }
 // ── ADD CLIENT — real popup form, not an inline row of inputs. Ryan's
 // direct instruction, 2026-08-07: triggered from the page-action-bar's
@@ -4769,9 +4795,17 @@ const JOBS_RV_COLUMNS=[
   {key:'address_display',label:'Address'},
   {key:'status',label:'Status'}
 ];
-async function loadAllJobsForBook(){
+// contactId, when passed, scopes this to one client's own jobs only —
+// Ryan's direct instruction, 2026-08-13: selecting a client and then
+// going to Jobs should show ONLY that client's jobs, not every job in the
+// book. Legacy (jobs.client_id-only, not yet migrated) jobs naturally
+// won't match a real contact_id filter — that's correct, not a bug; they
+// reappear once "Migrate Legacy Clients" links them to a real contact.
+async function loadAllJobsForBook(contactId){
   if(!db||!currentUser||!abBookId)return[];
-  const{data:jobs}=await db.from('jobs').select('*').eq('book_id',abBookId).order('name');
+  let q=db.from('jobs').select('*').eq('book_id',abBookId).order('name');
+  if(contactId) q=q.eq('contact_id',contactId);
+  const{data:jobs}=await q;
   if(!jobs||!jobs.length)return[];
   const contactIds=[...new Set(jobs.filter(j=>j.contact_id).map(j=>j.contact_id))];
   const contactNameById={};
@@ -4794,13 +4828,26 @@ async function loadAllJobsForBook(){
     return{id:j.id,name:j.name,contact_display,address_display:addr||'—',status:j.status||'active',is_active:j.is_active,active_display:j.is_active===false?'Inactive':'Active'};
   });
 }
+// Requires a client to be selected first — Ryan's direct instruction,
+// 2026-08-13: this drills down from whichever client you picked on the
+// Clients tab, it doesn't browse every job in the book anymore. Picking a
+// job here (single click, same as picking a client does) sets
+// abSelectedJobId and updates the header to "Client: Job" — the same
+// context Invoices and Bills will read once those are real.
 async function abRenderJobsTab(){
   const el=document.getElementById('jobs-tab-mount'); if(!el)return;
   if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
+  if(!abSelectedClientId){ el.innerHTML='<div class="ab-signin-notice" style="text-align:left">Select a client on the Clients tab first — Jobs shows that client\'s own jobs, not everyone\'s.</div>'; return; }
   el.innerHTML=`<div class="rv-wrap" id="rv-mount-jobs"></div>`;
-  const rows=await loadAllJobsForBook();
-  if(!rows.length){ document.getElementById('rv-mount-jobs').innerHTML='<div class="ab-signin-notice" style="text-align:left">No jobs yet — double-click a client on the Clients tab, then "+ Add Job" underneath it.</div>'; return; }
-  rvCreate('rv-mount-jobs',JOBS_RV_COLUMNS,rows,{onRowDoubleClick:id=>openEditJobPopup(id),hideExpandColumn:true,showSummaryRow:false});
+  const rows=await loadAllJobsForBook(abSelectedClientId);
+  if(!rows.length){ document.getElementById('rv-mount-jobs').innerHTML=`<div class="ab-signin-notice" style="text-align:left">No jobs yet for ${abEsc(abSelectedClientName||'this client')} — double-click them on the Clients tab, then "+ Add Job" underneath it. If they never need a separate job, leave this empty — the client themselves stands in as the job on Invoices and Bills.</div>`; return; }
+  rvCreate('rv-mount-jobs',JOBS_RV_COLUMNS,rows,{onRowOpen:id=>selectJobRow(rows,id),onRowDoubleClick:id=>openEditJobPopup(id),hideExpandColumn:true,showSummaryRow:false});
+}
+function selectJobRow(rows,jobId){
+  const row=rows.find(r=>r.id===jobId);
+  abSelectedJobId=row?row.id:null;
+  abSelectedJobName=row?row.name:null;
+  refreshClientsPageHeading();
 }
 // Superseded by openAddClientPopup above, 2026-08-13 — left in place,
 // dormant, not deleted, in case the separate clients/jobs table path is
