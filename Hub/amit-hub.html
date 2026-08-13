@@ -2734,6 +2734,22 @@ async function _syncCompass(p){
         entry:`Compass tier moved to ${tier} (score ${(p.compassReading||0).toFixed(1)}, ${p.signals||0} signal(s) recorded).`
       });
       localStorage.setItem('amit_lastLoggedCompassTier',String(tier));
+      // Ryan's direct instruction, 2026-08-12: Spiritual Position (one of
+      // the three weighted growth dimensions, migration_2026-08-12_004)
+      // shouldn't only move from an Ask Amit conversation — a real
+      // Compass tier increase IS already-verified real spiritual
+      // engagement, the exact same moment this function already treats as
+      // meaningful enough to log. +0.5 per tier step up, clamped 0-10,
+      // read-modify-write. Deliberately does NOT fire on a tier decrease
+      // (compass_reading only ever grows via recordSignal, so this
+      // shouldn't normally happen, but this stays a one-way nudge on
+      // purpose either way — real engagement earns it, losing engagement
+      // doesn't retroactively erase what was already real).
+      const prevTierNum=lastLoggedTier===null?null:parseInt(lastLoggedTier,10);
+      if(prevTierNum===null||tier>prevTierNum){
+        const{data:cur}=await db.from('users').select('spiritual_position_score').eq('id',currentUser.id).maybeSingle();
+        if(cur) await db.from('users').update({spiritual_position_score:Math.max(0,Math.min(10,(cur.spiritual_position_score||0)+0.5))}).eq('id',currentUser.id);
+      }
     }
   }catch{}
 }

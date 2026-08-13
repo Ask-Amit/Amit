@@ -6346,9 +6346,26 @@ function openAddBookPopup(containerId){
 // attached to) if the amit_threads table doesn't exist yet or the write
 // fails for any reason — this is memory-keeping, not a gate.
 // ══════════════════════════════════════════════
+// Ryan's direct instruction, 2026-08-12: Trust shouldn't move only from an
+// explicit Ask Amit conversation — real, sustained usage of the apps
+// themselves is itself evidence someone trusts this system enough to keep
+// building real things in it. Every real logged action nudges Trust by a
+// small, fixed +0.05, clamped 0-10, read-modify-write against the actual
+// current value. Deliberately small — it takes roughly 200 genuine
+// actions to move Trust from 0 to 10, so this reflects real sustained
+// engagement over real time, not one big import inflating it in a single
+// click (a 187-account import is still just ONE logThreadEntry call,
+// same as creating one book — the throttling is already natural here).
+// Never touches spiritual_position_score or response_to_truth_score —
+// those stay gated to what a real conversation or the Hub's own Compass
+// signals actually establish, not business-app usage.
 async function logThreadEntry(entryText,domain){
   if(!db||!currentUser)return;
-  try{ await db.from('amit_threads').insert({user_id:currentUser.id,domain:domain||'Business',source_app:'AmitBooks',entry_text:entryText}); }
+  try{
+    await db.from('amit_threads').insert({user_id:currentUser.id,domain:domain||'Business',source_app:'AmitBooks',entry_text:entryText});
+    const{data:cur}=await db.from('users').select('trust_score').eq('id',currentUser.id).maybeSingle();
+    if(cur) await db.from('users').update({trust_score:Math.max(0,Math.min(10,(cur.trust_score||0)+0.05))}).eq('id',currentUser.id);
+  }
   catch(e){/* never block the real action this is attached to */}
 }
 async function saveNewBook(containerId){
