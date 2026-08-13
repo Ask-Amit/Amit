@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.51</div>
+      <div class="page-version" id="pageVersion">v2.52</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6574,6 +6574,186 @@ async function importCommitClients(){
 }
 
 // ══════════════════════════════════════════════
+// IMPORT — Invoices, from the same .IIF export, Ryan's direct instruction,
+// 2026-08-14: "can we pull in all the old invoices from that [IIF] as
+// well?" QuickBooks writes real transactions (not just lists) into the
+// same IIF file as !TRNS/!SPL/!ENDTRNS blocks when "Transactions" is
+// checked in the export dialog alongside the lists — this reads the
+// TRNSTYPE=INVOICE ones. Each invoice's NAME field carries the real
+// Customer[:Job] path, matched against jobs already imported by the
+// Clients importer above (or created by hand) — a bare Customer name with
+// no Job segment matches that client's own default job (every client
+// always has one, matching their own name, per abRenderJobsTab's
+// auto-create). An invoice whose Customer/Job can't be matched to
+// anything real is listed as unmatched rather than silently skipped or
+// guessed at.
+//
+// Honest gap: QuickBooks tracks actual payments as their own separate
+// PAYMENT transactions, not a field on the invoice itself. Without
+// importing those too (a separate, larger effort — matching partial/split
+// payments across invoices), paid_amount can only be a rough guess. This
+// reads IIF's own PAID column when present (Y = fully paid, blank/N = not
+// paid) — a real signal QuickBooks writes, not invented — and leaves
+// paid_amount at 0 otherwise; it does not attempt partial-payment matching.
+// ══════════════════════════════════════════════
+function openImportForInvoicesTab(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  if(!abSelectedClientId){ abAlert('Select a client on the Clients tab first — Invoices import matches against that client\'s (and everyone else\'s already-imported) real jobs.'); return; }
+  openImportStepInvoices();
+}
+let importParsedInvoices=null;
+function openImportStepInvoices(){
+  popupOpen(`
+    <div class="dv-sub-h">Invoices (from QuickBooks)</div>
+    <div class="import-walkthrough">
+      <b>Transactions</b> — a different checkbox on the same export used for Accounts/Scopes/Clients:
+      <ol>
+        <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
+        <li>This time also check <b>Transactions</b> (not just the list boxes) before clicking OK</li>
+        <li>Click <b>OK</b>, then save the file</li>
+        <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
+      </ol>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Import Clients/Jobs first if you haven't — invoices match against real jobs already in the book, they don't create new ones. Actual payments received aren't in this file (QuickBooks tracks those as separate transactions) — only whether QuickBooks marked an invoice fully paid comes across; everything else lands with $0 received, editable by hand afterward.</div>
+    </div>
+    ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
+    <input type="file" id="importInvoicesFile" accept=".iif" onchange="importInvoicesFileChosen(this.files[0])">
+    <div id="importInvoicesReview" style="margin-top:14px"></div>
+    <div class="fv-status" id="importInvoicesStatus" style="margin-top:10px"></div>`);
+  if(lastImportFile) importInvoicesFileChosen(lastImportFile);
+}
+async function importInvoicesFileChosen(file){
+  if(!file)return;
+  lastImportFile=file;
+  const status=document.getElementById('importInvoicesStatus');
+  status.textContent='Reading file…';
+  if(!(file.name||'').toLowerCase().endsWith('.iif')){ status.textContent='Invoices only import from the .IIF export right now — see the walkthrough above.'; return; }
+  const parsed=importParseIifInvoices(await file.text());
+  if(!parsed||!parsed.length){ status.textContent='No invoices found in that file — make sure "Transactions" was checked in the export dialog.'; return; }
+  status.textContent='Matching against real jobs in this book…';
+  const jobIndex=await loadJobMatchIndex();
+  importParsedInvoices=parsed.map(inv=>{
+    const parts=inv.name.split(':').map(p=>p.trim()).filter(Boolean);
+    const specificKey=parts.length>=2?(parts[0]+':'+parts[parts.length-1]).toLowerCase():null;
+    const bareKey=parts[0]?parts[0].toLowerCase():null;
+    const match=(specificKey&&jobIndex[specificKey])||(bareKey&&jobIndex[bareKey])||null;
+    return{...inv,jobId:match?match.jobId:null,contactId:match?match.contactId:null};
+  });
+  renderImportInvoicesReview();
+  status.textContent='';
+}
+// Builds Customer[:Job]-path → {jobId,contactId} for every real job in the
+// book, plus a bare-Customer-name entry pointing at that client's own
+// default job (name matching the client, per the auto-create standard) —
+// so a plain "Customer" name with no Job segment still matches correctly.
+async function loadJobMatchIndex(){
+  const{data:jobs}=await db.from('jobs').select('id,name,contact_id').eq('book_id',abBookId);
+  const contactIds=[...new Set((jobs||[]).filter(j=>j.contact_id).map(j=>j.contact_id))];
+  const{data:contacts}=contactIds.length?await db.from('contacts').select('id,name').in('id',contactIds):{data:[]};
+  const contactNameById={}; (contacts||[]).forEach(c=>{ contactNameById[c.id]=c.name; });
+  const byKey={};
+  (jobs||[]).forEach(j=>{
+    if(!j.contact_id)return;
+    const clientName=contactNameById[j.contact_id]; if(!clientName)return;
+    byKey[(clientName+':'+j.name).toLowerCase()]={jobId:j.id,contactId:j.contact_id};
+    if(j.name.trim().toLowerCase()===clientName.trim().toLowerCase()) byKey[clientName.toLowerCase()]={jobId:j.id,contactId:j.contact_id};
+  });
+  return byKey;
+}
+function iifDateToIso(d){
+  const m=(d||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if(!m)return null;
+  let[,mo,day,yr]=m;
+  if(yr.length===2) yr=(Number(yr)<70?'20':'19')+yr;
+  return `${yr}-${mo.padStart(2,'0')}-${day.padStart(2,'0')}`;
+}
+function importParseIifInvoices(text){
+  const lines=text.split(/\r?\n/);
+  let trnsHeaderCols=null,splHeaderCols=null;
+  const invoices=[];
+  let current=null;
+  for(const line of lines){
+    if(!line)continue;
+    const cols=line.split('\t');
+    const tag=cols[0];
+    if(tag==='!TRNS'){ trnsHeaderCols=cols.slice(1); continue; }
+    if(tag==='!SPL'){ splHeaderCols=cols.slice(1); continue; }
+    if(tag==='TRNS'&&trnsHeaderCols){
+      const row={}; trnsHeaderCols.forEach((h,i)=>{ row[h]=unquoteIifValue(cols[i+1]||''); });
+      if((row.TRNSTYPE||'').toUpperCase()==='INVOICE'&&row.NAME){
+        current={
+          name:row.NAME.trim(),
+          docDate:iifDateToIso(row.DATE),
+          dueDate:iifDateToIso(row.DUEDATE),
+          docNum:(row.DOCNUM||'').trim()||null,
+          amount:Math.abs(Number(row.AMOUNT))||0,
+          memo:(row.MEMO||'').trim()||null,
+          paid:(row.PAID||'').trim().toUpperCase()==='Y'
+        };
+      } else { current=null; }
+      continue;
+    }
+    if(tag==='ENDTRNS'){
+      if(current) invoices.push(current);
+      current=null;
+      continue;
+    }
+    // SPL (line items) deliberately not captured — the TRNS row's own
+    // AMOUNT is already the real invoice total; per-line detail isn't
+    // needed for this pass and there's no invoice_bill_lines UI yet to
+    // show it in anyway.
+  }
+  return invoices;
+}
+function renderImportInvoicesReview(){
+  const el=document.getElementById('importInvoicesReview'); if(!el)return;
+  const matched=importParsedInvoices.filter(i=>i.jobId);
+  const unmatched=importParsedInvoices.filter(i=>!i.jobId);
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${matched.length} invoice(s) matched to real jobs${unmatched.length?`, ${unmatched.length} unmatched (their Customer/Job wasn't found — import Clients/Jobs first, then re-import this file)`:''}.</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importInvoicesSelectAll(true)">Select All Matched</button>
+      <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importInvoicesSelectAll(false)">Deselect All</button>
+    </div>
+    <table class="ab-table"><tr><th></th><th>Customer:Job</th><th>Invoice #</th><th>Date</th><th>Amount</th><th>Status</th></tr>
+    ${importParsedInvoices.map((inv,i)=>`<tr${inv.jobId?'':' style="opacity:.5"'}><td><input type="checkbox" class="import-invoice-check" data-idx="${i}" ${inv.jobId?'checked':'disabled'}></td><td>${abEsc(inv.name)}</td><td>${abEsc(inv.docNum||'—')}</td><td style="font-size:12px">${abEsc(inv.docDate||'—')}</td><td>${abMoneyFmt(inv.amount)}</td><td style="font-size:12px">${inv.jobId?'Matched':'Unmatched'}</td></tr>`).join('')}
+    </table>
+    <button class="fv-save" style="margin-top:14px" onclick="importCommitInvoices()">Import Matched</button>`;
+}
+function importInvoicesSelectAll(state){
+  document.querySelectorAll('.import-invoice-check').forEach(cb=>{ if(!cb.disabled) cb.checked=state; });
+}
+let importInvoicesCommitInFlight=false;
+async function importCommitInvoices(){
+  if(importInvoicesCommitInFlight)return;
+  importInvoicesCommitInFlight=true;
+  try{
+    const status=document.getElementById('importInvoicesStatus');
+    const checkedIdx=new Set(Array.from(document.querySelectorAll('.import-invoice-check:checked')).map(cb=>Number(cb.dataset.idx)));
+    const toImport=importParsedInvoices.filter((inv,i)=>checkedIdx.has(i));
+    if(!toImport.length){ status.textContent='Nothing selected — check at least one matched invoice to import.'; return; }
+    status.textContent='Importing…';
+    const rows=toImport.map(inv=>({
+      book_id:abBookId, job_id:inv.jobId, contact_id:inv.contactId,
+      direction:'invoice_receivable',
+      document_code:inv.docNum||null,
+      doc_date:inv.docDate, due_date:inv.dueDate,
+      status:inv.paid?'paid':'sent',
+      total_amount:inv.amount, subtotal:inv.amount,
+      paid_amount:inv.paid?inv.amount:0,
+      memo:inv.memo
+    }));
+    const{error}=await db.from('invoices_bills').insert(rows);
+    if(error){ status.textContent='Error: '+error.message; return; }
+    status.textContent=`Imported ${rows.length} invoice(s).`;
+    logThreadEntry(`Imported ${rows.length} invoices from QuickBooks into the current book.`);
+    if(document.getElementById('invoices-tab-mount')) abRenderInvoicesTab();
+    if(document.getElementById('jobs-tab-mount')) abRenderJobsTab();
+    setTimeout(()=>popupClose(),1400);
+  } finally {
+    importInvoicesCommitInFlight=false;
+  }
+}
+
+// ══════════════════════════════════════════════
 // IMPORT — Vendors → Contacts (is_vendor:true), Ryan's direct instruction,
 // 2026-08-12: Vendors don't have their own dedicated table yet (only
 // Clients has been split out of the old unified `contacts` table so far —
@@ -8694,7 +8874,11 @@ function renderPageActionBar(detailNum,tabNum){
     // Add Invoice — pre-fills whichever Job is in focus (abSelectedJobId),
     // or offers a Job picker (scoped to the selected client if one's
     // picked, otherwise every job in the book) if none is selected yet.
-    bar.innerHTML=abBookId?`<button class="page-action-btn" onclick="openAddInvoicePopup()"><span>+</span>Add Invoice</button>`:'';
+    // Import reads real historical invoices out of the same QuickBooks
+    // .IIF export used for Clients/Jobs (Ryan's direct instruction,
+    // 2026-08-14).
+    bar.innerHTML=abBookId?`<button class="page-action-btn" onclick="openImportForInvoicesTab()" data-tip="Bring real historical Invoices in from a QuickBooks .IIF export (with Transactions checked) — matched against Clients/Jobs already in this book."><span>⬇</span>Import</button>
+      <button class="page-action-btn" onclick="openAddInvoicePopup()"><span>+</span>Add Invoice</button>`:'';
   } else if(detailNum===5&&tabNum===1){
     // Vendors page header — same treatment as Clients: Import and Add,
     // far right. Filtered view over Contacts, so this reuses the same
