@@ -590,7 +590,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.34</div>
+      <div class="page-version" id="pageVersion">v2.35</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -7464,11 +7464,20 @@ function rvRenderInstance(containerId){
     </tr>`;
   }).join('');
   const summaryHtml=rvBuildSummaryRow(inst,rows);
+  // Real fix for the sticky-footer-covers-the-last-row problem (Ryan's
+  // catch, 2026-08-13) — v2.33 tried padding-bottom on the scrolling
+  // container, which breaks where position:sticky;bottom:0 anchors
+  // (reverted, v2.34). The correct technique: an actual spacer ROW inside
+  // tbody, the same height as the summary row — real scrollable content,
+  // not container padding, so the last real row can scroll fully clear of
+  // the sticky footer without moving the footer's own anchor point at all.
+  const spacerColCount=(inst.selectable?1:0)+(inst.hideExpandColumn?0:1)+inst.columns.length;
+  const spacerRowHtml=inst.showSummaryRow?`<tr aria-hidden="true"><td colspan="${spacerColCount}" style="height:44px;padding:0;border:none"></td></tr>`:'';
   wrap.innerHTML=`${statusHtml}${bulkBarHtml}
     <div class="rv-table-wrap" id="${containerId}-scroll" tabindex="0" onkeydown="rvHandleKeydown(event,'${containerId}')"><table class="rv-table">
       ${colgroupHtml}
       <thead>${theadHtml}</thead>
-      <tbody>${rowsHtml}</tbody>
+      <tbody>${rowsHtml}${spacerRowHtml}</tbody>
       ${summaryHtml}
     </table></div>`;
   if(prevScrollTop){
