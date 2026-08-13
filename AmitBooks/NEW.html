@@ -599,7 +599,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.60</div>
+      <div class="page-version" id="pageVersion">v2.61</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4381,12 +4381,33 @@ async function computeClientJobCount(contactId){
 // called on initial load and every time the filter buttons change,
 // without re-fetching the client list itself.
 let _clientsCurrentRows=[];
+// "Hide zero balance" — Ryan's direct instruction, 2026-08-14: a button
+// that drops any client with $0 Outstanding AND $0 Bills Owed, so the
+// list reads as a real summary of who's actually owed money and who
+// actually owes money right now, not a wall of dashes for everyone with
+// no open balance yet. A row counts as zero if its Outstanding/Bills Owed
+// display is either "—" (nothing to roll up at all) or a real "$0.00" —
+// both mean nothing is currently outstanding.
+let abClientsHideZero=false;
+function abClientsIsZero(v){ return!v||v==='—'||v==='$0.00'; }
+function abClientsRowHasZeroBalance(row){ return abClientsIsZero(row.outstanding_display)&&abClientsIsZero(row.bills_outstanding_display); }
+function abToggleClientsHideZero(){ abClientsHideZero=!abClientsHideZero; renderClientsRv(); }
+// Rebuilds the actual table from _clientsCurrentRows, applying the
+// hide-zero filter if it's on — the one place that decides which rows are
+// actually shown, called after any load/refresh so filtering always
+// reflects the latest real data (never a stale, pre-rollup filter pass).
+function renderClientsRv(){
+  const mount=document.getElementById('rv-mount-clients');
+  if(!mount||!_clientsCurrentRows.length)return;
+  const rows=abClientsHideZero?_clientsCurrentRows.filter(r=>!abClientsRowHasZeroBalance(r)):_clientsCurrentRows;
+  rvCreate('rv-mount-clients',CLIENT_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onRowOpen:id=>selectClientRow(rows,id),onRowDoubleClick:id=>openClientEditPopup(id)});
+}
 async function loadClientJobCounts(){
   if(!db||!currentUser||!_clientsCurrentRows.length)return;
   await Promise.all(_clientsCurrentRows.map(async row=>{
     row.jobs=await computeClientJobCount(row.id);
   }));
-  rvRenderInstance('rv-mount-clients');
+  renderClientsRv();
 }
 
 // Active/Inactive on Clients — Ryan's direct instruction, 2026-08-13:
@@ -4400,6 +4421,12 @@ let _clientsLoadedForBook=null;
 async function loadClientsIntoRowView(){
   const mount=document.getElementById('rv-mount-clients');
   if(!mount)return;
+  // Covers the very first load of this page too (before any tab switch
+  // has fired showChTab's own refreshClientsPageHeading call) — otherwise
+  // the heading sat on its static HTML default ("Clients") instead of
+  // "All Clients" until something else happened to trigger a refresh.
+  abClientsActiveTab=1;
+  refreshClientsPageHeading();
   if(!abBookId){
     mount.innerHTML='<div class="detail-empty">Select a book on the Books tab first.</div>';
     _clientsLoadedForBook=null;
@@ -4501,7 +4528,7 @@ async function loadClientInvoiceRollups(){
   await Promise.all(_clientsCurrentRows.map(async row=>{
     Object.assign(row,await computeClientInvoiceRollup(row.id));
   }));
-  rvRenderInstance('rv-mount-clients');
+  renderClientsRv();
 }
 // Selecting a client (double-click/Enter, Row View's own onRowOpen)
 // updates the mini page-header — same pattern as selectBookRow, Ryan's
@@ -4520,8 +4547,26 @@ let abSelectedClientId=null;
 let abSelectedClientName=null;
 let abSelectedJobId=null;
 let abSelectedJobName=null;
+// Which tab of the Clients page is active (Clients/Jobs/Invoices/Bills/
+// Documents) — set by showChTab. Needed so the shared page heading can
+// say "All Clients" vs "All Jobs" vs "All Invoices" while nothing's
+// drilled into, instead of one static word regardless of which tab is
+// actually showing. Ryan's direct instruction, 2026-08-14: "until a
+// client is active... put down all clients... the next section would be
+// jobs, and it would be all jobs" — seeing "All ___" up front is what
+// confirms you're looking at the full, unfiltered summary, on whichever
+// tab you're on. Same convention to reuse for Vendors/Cash later.
+let abClientsActiveTab=1;
+function abClientsUnfilteredHeading(){
+  const clientLabel=abFieldLabel('client','Client');
+  if(abClientsActiveTab===2) return'All '+abPluralize(abFieldLabel('job','Job'));
+  if(abClientsActiveTab===3) return'All Invoices';
+  if(abClientsActiveTab===4) return'All Bills';
+  if(abClientsActiveTab===5) return'All Documents';
+  return'All '+abPluralize(clientLabel);
+}
 function abClientsPageHeadingText(){
-  if(!abSelectedClientId) return abPluralize(abFieldLabel('client','Client'));
+  if(!abSelectedClientId) return abClientsUnfilteredHeading();
   return abSelectedJobId?`${abSelectedClientName}: ${abSelectedJobName}`:abSelectedClientName;
 }
 function refreshClientsPageHeading(){
@@ -9240,6 +9285,7 @@ function showChTab(detailNum,n,btnEl){
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
   renderPageActionBar(detailNum,n);
+  if(detailNum===4){ abClientsActiveTab=n; refreshClientsPageHeading(); }
   // Chart of Accounts ("Accounts", Tab 2 of the Books page) — render on
   // demand rather than on every book selection, same as it's already
   // loaded (abLoadAccounts) whenever abBookId changes in selectBookRow.
@@ -9396,7 +9442,8 @@ function renderPageActionBar(detailNum,tabNum){
     bar.innerHTML=`<button class="page-action-btn" onclick="openImportForClientsTab()" data-tip="Bring Customers and Jobs in from the same QuickBooks .IIF export used for Accounts and Scopes."><span>⬇</span>Import</button>
       <button class="page-action-btn" onclick="openAddClientPopup()"><span>+</span>Add Client</button>
       <span style="cursor:pointer;font-size:11px;color:#c97a7a;align-self:center;margin-left:14px" onclick="openDeleteAllClientsPopup()" title="Start over — deletes every client and job in this book, from both the new and old systems, with a real confirmation first">🗑 Delete All Clients</span>
-      <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:10px" onclick="abToggleClientsShowInactive()">${abClientsShowInactive?'👁 Showing Inactive':'🚫 Inactive Hidden'}</span>`;
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:10px" onclick="abToggleClientsShowInactive()">${abClientsShowInactive?'👁 Showing Inactive':'🚫 Inactive Hidden'}</span>
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:10px" onclick="abToggleClientsHideZero()" title="Hide any client with $0 Outstanding and $0 Bills Owed, so only real open balances show">${abClientsHideZero?'👁 Showing $0 Balances':'🚫 $0 Balances Hidden'}</span>`;
   } else if(detailNum===4&&tabNum===2){
     // Add Job, right on the Jobs tab itself — Ryan's direct instruction,
     // 2026-08-13: pre-fills whichever client is already selected/in focus
