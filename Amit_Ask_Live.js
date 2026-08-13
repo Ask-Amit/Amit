@@ -195,11 +195,24 @@ async function _fetchRecentThreadsForPrompt(){
     if(!client)return '';
     const{data:{session}}=await client.auth.getSession();
     if(!session||!session.user)return '';
-    const[{data:threads},{data:userRow}]=await Promise.all([
+    const[{data:threads},{data:userRow},{data:growthLog}]=await Promise.all([
       client.from('amit_threads').select('source_app,entry_text,created_at').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(8),
-      client.from('users').select('compass_score,compass_tier,compass_signals,display_name').eq('id',session.user.id).maybeSingle()
+      client.from('users').select('compass_score,compass_tier,compass_signals,display_name').eq('id',session.user.id).maybeSingle(),
+      client.from('user_growth_log').select('category,entry,created_at').eq('user_id',session.user.id).order('created_at',{ascending:false}).limit(15)
     ]);
     let block='';
+    // Ryan's direct instruction, 2026-08-12: "read that log first to
+    // understand who this person is" — this goes first in the block, ahead
+    // of activity and compass, because it's literally what he asked for.
+    // user_growth_log already holds real entries beyond spiritual-tier
+    // changes — e.g. category:'vocabulary' entries like "superbase =
+    // Supabase" that were never being read by anything before this. This
+    // is the actual mechanism for Amit to know HOW someone communicates,
+    // not just what they did or where they stand spiritually.
+    if(growthLog&&growthLog.length){
+      const lines=growthLog.map(g=>`- [${g.category}] ${g.entry}`).join('\n');
+      block+=`## READ THIS FIRST — WHAT AMIT HAS ALREADY LEARNED ABOUT THIS PERSON\nReal, dated notes accumulated about them specifically, across every session and every app — how they phrase things, what's shifted in them, real observations, not guesses. This is who they are to you already; use it, don't ask them to re-establish it.\n${lines}`;
+    }
     if(userRow){
       const tierMeaning=['just getting oriented — productivity only, no assumption of any spiritual openness yet','starting to engage — brief feast/calendar content is landing','engaging more deeply — full feast content and Torah Walk are resonating','walking closely — full Messianic engagement, real spiritual familiarity established'][userRow.compass_tier]||'not yet read';
       block+=`\n\n---\n\n## WHO THIS PERSON ACTUALLY IS RIGHT NOW — Compass, pulled live\nTier ${userRow.compass_tier ?? 0} of 3 — ${tierMeaning}. Compass score ${(userRow.compass_score||0).toFixed(1)}/10 from ${userRow.compass_signals||0} real recorded signal(s)${userRow.display_name?`. They go by ${userRow.display_name}`:''}. This governs HOW you speak, not what you believe — meet them here, roughly two points below where they present, the way the compass architecture already directs. Never perform more spiritual familiarity with them than this actually earns, and never withhold truth either — this is about posture and pacing, not content.`;
