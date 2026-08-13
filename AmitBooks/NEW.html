@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.55</div>
+      <div class="page-version" id="pageVersion">v2.56</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4972,11 +4972,17 @@ async function abRenderJobsTab(){
   }
   rvCreate('rv-mount-jobs',JOBS_RV_COLUMNS,rows,{onRowOpen:id=>selectJobRow(rows,id),onRowDoubleClick:id=>openEditJobPopup(id),hideExpandColumn:true,showSummaryRow:false});
 }
+// Clicking the already-selected job again deselects it (toggle) — Ryan
+// found a real gap, 2026-08-14: once a job got clicked, Invoices stayed
+// silently filtered to it with no visible way back to "everyone" from the
+// Jobs tab itself, until this and the matching rvShowAll fix below.
 function selectJobRow(rows,jobId){
   const row=rows.find(r=>r.id===jobId);
-  abSelectedJobId=row?row.id:null;
-  abSelectedJobName=row?row.name:null;
+  const clickedSame=abSelectedJobId&&row&&abSelectedJobId===row.id;
+  abSelectedJobId=clickedSame?null:(row?row.id:null);
+  abSelectedJobName=clickedSame?null:(row?row.name:null);
   refreshClientsPageHeading();
+  if(document.getElementById('invoices-tab-mount')) abRenderInvoicesTab();
 }
 
 // ── INVOICES TAB (Clients page, tab 3) — Ryan's direct instruction,
@@ -8624,6 +8630,16 @@ function rvShowAll(containerId){
     abSelectedJobId=null; abSelectedJobName=null;
     refreshClientsPageHeading();
     if(document.getElementById('jobs-tab-mount')) abRenderJobsTab();
+    if(document.getElementById('invoices-tab-mount')) abRenderInvoicesTab();
+  }
+  // Jobs/Invoices grids only ever narrow things further FROM whatever the
+  // Clients grid already shows — "All" here only needs to drop the Job
+  // selection (not the Client one), same real gap Ryan found, 2026-08-14:
+  // a stale abSelectedJobId from an earlier row click silently filtered
+  // Invoices to one job with no visible way back.
+  if(containerId==='rv-mount-jobs'||containerId==='rv-mount-invoices'){
+    abSelectedJobId=null; abSelectedJobName=null;
+    refreshClientsPageHeading();
     if(document.getElementById('invoices-tab-mount')) abRenderInvoicesTab();
   }
 }
