@@ -162,6 +162,37 @@ function _getVisitorCode(){
   return code;
 }
 
+// ══════════════════════════════════════════════
+// CROSS-APP MEMORY — Ryan's direct instruction, 2026-08-12: Amit should
+// draw its first step with a person from their real history across the
+// whole system, not just whichever single app they happen to be standing
+// in right now. amit_threads already exists for exactly this (built
+// 2026-08-10) and AmitBooks has been writing real entries to it all
+// along — "Created a new company", "Imported 186 accounts" — but nothing
+// anywhere was ever reading it back. This is the read side: pulled fresh,
+// live, every time Ask Amit is actually used, using the host page's own
+// already-signed-in Supabase session via _getAmitInboxDb() (same fix as
+// the documented dual-GoTrueClient bug above — never spin up a second
+// client here). If nobody's signed in, or there's no history yet, this
+// returns an empty string and changes nothing about the prompt — silent,
+// not a broken placeholder.
+async function _fetchRecentThreadsForPrompt(){
+  try{
+    const client=_getAmitInboxDb();
+    if(!client)return '';
+    const{data:{session}}=await client.auth.getSession();
+    if(!session||!session.user)return '';
+    const{data,error}=await client.from('amit_threads')
+      .select('source_app,entry_text,created_at')
+      .eq('user_id',session.user.id)
+      .order('created_at',{ascending:false})
+      .limit(8);
+    if(error||!data||!data.length)return '';
+    const lines=data.map(t=>`- (${t.source_app}) ${t.entry_text}`).join('\n');
+    return `\n\n---\n\n## RECENT ACTIVITY ACROSS THE AMIT SYSTEM\nThis is this real person's own recent history, pulled live just now from their account — most recent first, from whichever apps they've actually been using. This is where you draw your first step with them: you already know some of what they've been carrying or building, so don't ask them to re-explain it from zero. Speak to it naturally where it's actually relevant — don't just recite the list back at them.\n${lines}`;
+  }catch(e){ return ''; }
+}
+
 function _amitShowChoice(){
   const w=document.getElementById('aal-view-write'); if(w)w.style.display='none';
   const cf=document.getElementById('aal-view-connect'); if(cf)cf.style.display='none';
@@ -505,6 +536,12 @@ Theophilus is not a standalone character — he exists inside the same overarchi
       .split('{{USER_NAME_CLAUSE}}').join(userNameClause)
       .split('{{PAGE_CONTEXT}}').join(context);
   }
+
+  // Cross-app history, appended after either path builds its base prompt —
+  // real recognition of who this person is and what they've been doing
+  // across the whole Amit system, not just this one page. See
+  // _fetchRecentThreadsForPrompt's own header comment for the full reasoning.
+  full += await _fetchRecentThreadsForPrompt();
 
   let copied=false;
   try{
