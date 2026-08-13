@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.04</div>
+      <div class="page-version" id="pageVersion">v2.05</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4472,8 +4472,18 @@ async function importParseIifItems(text){
     const vendorName=(r.PREFVEND||'').trim();
     return{
       name,category,qbType:r.INVITEMTYPE||'',
+      // costAccountName/billableAccountName kept even when matched (not
+      // just on failure) — Ryan's direct instruction, 2026-08-12: if the
+      // account QuickBooks names for this Scope doesn't exist in the
+      // Chart of Accounts yet, the Scope import should create it, not
+      // leave the Scope unlinked. importCommitItems below does the actual
+      // creating; keeping the name here regardless of match status is
+      // what lets it know what to create when costAccountId/
+      // billableAccountId come back null.
       costAccountId:cogsName?(byAccountName[cogsName.toLowerCase()]||null):null,
+      costAccountName:cogsName||null,
       billableAccountId:incomeName?(byAccountName[incomeName.toLowerCase()]||null):null,
+      billableAccountName:incomeName||null,
       unitCost:importParseMoney(r.COST),
       unitPrice:importParseMoney(r.PRICE),
       qty:importParseMoney(r.QNTY),
@@ -4515,7 +4525,9 @@ async function importParseItemReportFile(file){
     return{
       name,category:'',qbType,
       costAccountId:cogsName?(byAccountName[cogsName.toLowerCase()]||null):null,
+      costAccountName:cogsName||null,
       billableAccountId:incomeName?(byAccountName[incomeName.toLowerCase()]||null):null,
+      billableAccountName:incomeName||null,
       unitCost:costCol>=0?importParseMoney(r[costCol]):null,
       unitPrice:priceCol>=0?importParseMoney(r[priceCol]):null,
       qty:qtyCol>=0?importParseMoney(r[qtyCol]):null,
@@ -4547,27 +4559,54 @@ async function importCommitItems(){
   importItemsCommitInFlight=true;
   try{
     const status=document.getElementById('importItemsStatus');
-    status.textContent='Importing…';
     const existingNames=new Set(abItems.map(i=>(i.name||'').trim().toLowerCase()));
-    const rows=importParsedItems.filter(it=>!existingNames.has(it.name.trim().toLowerCase())).map(it=>({
+    const toImport=importParsedItems.filter(it=>!existingNames.has(it.name.trim().toLowerCase()));
+    const skipped=importParsedItems.length-toImport.length;
+    if(!toImport.length){ status.textContent=skipped?`All ${skipped} already exist in this book — nothing new to import.`:'Nothing to import.'; importItemsCommitInFlight=false; return; }
+    // Auto-create any Cost/Billable account QuickBooks named for a Scope
+    // that doesn't exist in the Chart of Accounts yet — Ryan's direct
+    // instruction, 2026-08-12: "if it does not exist in our books, and we
+    // bring those scopes in, we need to create those within our books."
+    // Real accounts, not placeholders — COGS-side names become type
+    // 'expense', income-side names become type 'income' (same convention
+    // QB_ACCNT_TYPE_MAP already uses), no number, no parent. Matched by
+    // name against the accounts that actually exist right now (abAccounts,
+    // already reloaded if the Accounts import ran first in this same
+    // session) so nothing gets created twice.
+    status.textContent='Checking for accounts that need to be created…';
+    const byAccountName={}; abAccounts.forEach(a=>{ if(a.account_name) byAccountName[a.account_name.trim().toLowerCase()]=a.id; });
+    const missing={}; // name(lowercase) -> {name, type}
+    toImport.forEach(it=>{
+      if(!it.costAccountId&&it.costAccountName&&!byAccountName[it.costAccountName.toLowerCase()]) missing[it.costAccountName.toLowerCase()]={name:it.costAccountName,type:'expense'};
+      if(!it.billableAccountId&&it.billableAccountName&&!byAccountName[it.billableAccountName.toLowerCase()]) missing[it.billableAccountName.toLowerCase()]={name:it.billableAccountName,type:'income'};
+    });
+    const missingList=Object.values(missing);
+    if(missingList.length){
+      status.textContent=`Creating ${missingList.length} account(s) that don't exist yet…`;
+      const{data:created,error:acctErr}=await db.from('chart_of_accounts').insert(missingList.map(m=>({book_id:abBookId,account_name:m.name,account_type:m.type}))).select();
+      if(!acctErr&&created){
+        created.forEach(a=>{ byAccountName[a.account_name.trim().toLowerCase()]=a.id; });
+        await abLoadAccounts(); // keep the live Accounts tab in sync with what this import just created
+      }
+    }
+    status.textContent='Importing…';
+    const rows=toImport.map(it=>({
       book_id:abBookId,name:it.name,
       category:it.category||null,
-      expense_account_id:it.costAccountId||null,
-      income_account_id:it.billableAccountId||null,
+      expense_account_id:it.costAccountId||(it.costAccountName?(byAccountName[it.costAccountName.toLowerCase()]||null):null),
+      income_account_id:it.billableAccountId||(it.billableAccountName?(byAccountName[it.billableAccountName.toLowerCase()]||null):null),
       unit_cost:it.unitCost,
       unit_price:it.unitPrice,
       quantity_on_hand:it.qty,
       reorder_quantity:it.reorderQty,
       preferred_vendor_id:it.vendorId||null
     }));
-    const skipped=importParsedItems.length-rows.length;
-    if(!rows.length){ status.textContent=skipped?`All ${skipped} already exist in this book — nothing new to import.`:'Nothing to import.'; importItemsCommitInFlight=false; return; }
     const{error}=await db.from('items').insert(rows);
     if(error){ status.textContent='Error: '+error.message; return; }
-    status.textContent=`Imported ${rows.length} Scope(s)${skipped?`, ${skipped} skipped (already existed)`:''}.`;
-    logThreadEntry(`Imported ${rows.length} Scopes from QuickBooks into the current book.`);
+    status.textContent=`Imported ${rows.length} Scope(s)${missingList.length?`, created ${missingList.length} account(s)`:''}${skipped?`, ${skipped} skipped (already existed)`:''}.`;
+    logThreadEntry(`Imported ${rows.length} Scopes from QuickBooks into the current book${missingList.length?` (created ${missingList.length} new account(s) they referenced)`:''}.`);
     await abLoadItems(); abRenderItems(); abRefreshDropdownSources();
-    setTimeout(()=>popupClose(),1200);
+    setTimeout(()=>popupClose(),1600);
   } finally {
     importItemsCommitInFlight=false;
   }
