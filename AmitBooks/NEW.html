@@ -599,7 +599,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.58</div>
+      <div class="page-version" id="pageVersion">v2.59</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4253,9 +4253,9 @@ function abApplyScopeTerminology(){
 // (placeholder columns, see above), so these are illustrative "—" rows,
 // not fabricated numbers dressed up as real ones.
 const CLIENT_SAMPLE_ROWS=[
-  {id:'c1',name:'Johnson Residence',jobs:'—',billed:'—',received:'—',outstanding:'—',pct_complete:'—'},
-  {id:'c2',name:'Riverside Plaza LLC',jobs:'—',billed:'—',received:'—',outstanding:'—',pct_complete:'—'},
-  {id:'c3',name:'Miller Family Trust',jobs:'—',billed:'—',received:'—',outstanding:'—',pct_complete:'—'}
+  {id:'c1',name:'Johnson Residence',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—'},
+  {id:'c2',name:'Riverside Plaza LLC',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—'},
+  {id:'c3',name:'Miller Family Trust',jobs:'—',billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—'}
 ];
 const CLIENT_RV_COLUMNS=[
   // Moved to the far left, ahead of the Client name, and shortened to
@@ -4263,10 +4263,10 @@ const CLIENT_RV_COLUMNS=[
   {key:'active_display',label:'Act',cellRenderer:activeToggleCellRenderer},
   {key:'name',label:'Client'},
   {key:'jobs',label:'Jobs',align:'right',sortFilter:false,customFilterBtn:clientsJobsFilterBtnRenderer,groupStart:true,description:"Real — count of this client's Jobs. Click the funnel to sort by count, search jobs by name, or narrow to Active/Completed/All. Not included in the Total row below — that row is money-formatted, and this is a plain count."},
-  {key:'billed',label:'Billed',align:'right',sortFilter:false,groupStart:true,description:"Placeholder — total invoiced across this client's jobs, once Bills & Invoices exists in this file and invoices carry a job_id."},
-  {key:'received',label:'Received',align:'right',sortFilter:false,operatorPrefix:'−',description:"Placeholder — total actually paid so far across this client's invoices."},
-  {key:'outstanding',label:'Outstanding',align:'right',sortFilter:false,operatorPrefix:'=',cellRenderer:subtotalCellRendererRef,summable:true,description:"Placeholder — Billed minus Received. What this client still owes across every job, once billing exists."},
-  {key:'pct_complete',label:'% Complete',align:'right',sortFilter:false,groupStart:true,description:"Placeholder — average job-completion percentage, once Jobs has a real progress field. No such field exists yet."}
+  {key:'billed_display',label:'Billed',align:'right',sortFilter:false,groupStart:true,description:"Real — total invoiced across every one of this client's jobs (loadClientInvoiceRollups, summed from invoices_bills)."},
+  {key:'received_display',label:'Received',align:'right',sortFilter:false,operatorPrefix:'−',description:"Real — total actually paid so far, summed across this client's invoices."},
+  {key:'outstanding_display',label:'Outstanding',align:'right',sortFilter:false,operatorPrefix:'=',cellRenderer:subtotalCellRendererRef,summable:true,description:"Real — Billed minus Received, summed across every job this client has."},
+  {key:'pct_complete_display',label:'% Complete',align:'right',sortFilter:false,groupStart:true,description:"Real — this client's most recently dated invoice's own % Complete (progress-billing draw), across all their jobs. Blank if no invoice has one entered yet."}
 ];
 
 // ── JOBS FILTER — Ryan's direct correction, 2026-08-07 (twice): not a
@@ -4453,10 +4453,43 @@ async function loadClientsIntoRowView(){
     mount.innerHTML=`<div class="detail-empty">Could not load — ${error.message}</div>`;
     return;
   }
-  const rows=(data||[]).map(c=>({...c,jobs:'…',billed:'—',received:'—',outstanding:'—',pct_complete:'—',active_display:c.is_active===false?'Inactive':'Active'}));
+  const rows=(data||[]).map(c=>({...c,jobs:'…',billed_display:'…',received_display:'…',outstanding_display:'…',pct_complete_display:'…',active_display:c.is_active===false?'Inactive':'Active'}));
   _clientsCurrentRows=rows;
   rvCreate('rv-mount-clients',CLIENT_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onRowOpen:id=>selectClientRow(rows,id),onRowDoubleClick:id=>openClientEditPopup(id)});
   loadClientJobCounts();
+  loadClientInvoiceRollups();
+}
+// Real Billed/Received/Outstanding/% Complete on the Clients tab itself —
+// Ryan's direct instruction, 2026-08-14: these were still the original
+// placeholder columns from before Invoices existed ("—" forever, by
+// design at the time) — now that real invoices import and roll up onto
+// Jobs, the Clients tab needs the same real numbers, summed one level up
+// across everything that client owns. Same loading pattern as
+// loadClientJobCounts above: fill in async, mutate the already-rendered
+// rows in place, re-render once.
+async function computeClientInvoiceRollup(clientId){
+  const empty={billed_display:'—',received_display:'—',outstanding_display:'—',pct_complete_display:'—'};
+  const{data:jobs}=await db.from('jobs').select('id').eq('book_id',abBookId).eq('contact_id',clientId);
+  const jobIds=(jobs||[]).map(j=>j.id);
+  if(!jobIds.length) return empty;
+  const{data:invs}=await db.from('invoices_bills').select('total_amount,paid_amount,pct_complete,doc_date,created_at').in('job_id',jobIds).eq('direction','invoice_receivable');
+  if(!invs||!invs.length) return empty;
+  let billed=0,received=0;
+  invs.forEach(inv=>{ billed+=Number(inv.total_amount)||0; received+=Number(inv.paid_amount)||0; });
+  const latestWithPct=[...invs].filter(i=>i.pct_complete!=null).sort((a,b)=>new Date(b.doc_date||b.created_at)-new Date(a.doc_date||a.created_at))[0];
+  return{
+    billed_display:abMoneyFmt(billed),
+    received_display:abMoneyFmt(received),
+    outstanding_display:abMoneyFmt(billed-received),
+    pct_complete_display:latestWithPct?Number(latestWithPct.pct_complete).toFixed(0)+'%':'—'
+  };
+}
+async function loadClientInvoiceRollups(){
+  if(!db||!currentUser||!_clientsCurrentRows.length)return;
+  await Promise.all(_clientsCurrentRows.map(async row=>{
+    Object.assign(row,await computeClientInvoiceRollup(row.id));
+  }));
+  rvRenderInstance('rv-mount-clients');
 }
 // Selecting a client (double-click/Enter, Row View's own onRowOpen)
 // updates the mini page-header — same pattern as selectBookRow, Ryan's
