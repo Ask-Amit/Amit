@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.26</div>
+      <div class="page-version" id="pageVersion">v2.27</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -901,6 +901,35 @@ function renderAllPages(){
     </div>
   </div>`;
 
+  // VENDORS — page 5, right under Clients per Ryan's direct instruction,
+  // 2026-08-13. Same "detail-head + page-action-bar + tab strip" shell as
+  // Clients, but deliberately built as a FILTERED VIEW over the existing
+  // `contacts` table (Vendor-labeled rows) rather than a new table —
+  // matches the exact pattern the concurrent session independently landed
+  // on for Clients that same day (openAddClientPopup routing into
+  // openContactDetailPopup with the Customer label pre-selected). This
+  // way Vendors inherits Labels, Billing/Mailing, Attachments, and
+  // cross-account Connections for free, instead of rebuilding all of that
+  // from zero in a second table. "Vendor" is a real Terminology field
+  // (master_fields, migration_2026-08-13_005) — abApplyVendorTerminology
+  // pushes a renamed label onto the nav tile/heading/tab, same as Clients'
+  // own abApplyClientTerminology.
+  navHtml+=`<div class="page-nav" id="page-5" onclick="openPage(5)" data-tip="Vendors">
+    <div class="page-icon">${CONTACT_ICON_SVG}</div>
+    <div class="page-info"><div class="page-name" id="vendors-nav-label">Vendors</div><div class="page-sub">—</div></div>
+  </div>`;
+  detailHtml+=`<div class="detail" id="detail-5" style="flex-direction:column">
+    <div class="detail-head"><span class="detail-heading" id="vendors-page-heading">Vendors</span><div class="page-action-bar" id="page-action-bar-5"></div></div>
+    <div class="ch-tab-nav" id="ch-tab-nav-5" style="margin-top:10px">
+      <button class="ch-tab-btn active" id="vendors-tab-label" onclick="showChTab(5,1)">Vendors</button>
+    </div>
+    <div class="ch-tab-main">
+      <div class="ch-tab-content active ch-tab-flex" id="ch-tab-5-1">
+        <div id="ab-vendors-rv" style="display:flex;flex-direction:column;min-height:0;flex:1"><div class="rv-wrap" id="rv-mount-vendors"></div></div>
+      </div>
+    </div>
+  </div>`;
+
   nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
   initPageTooltips('sidebarPages','right');
@@ -1146,7 +1175,7 @@ function selectBookRow(rows,bookId){
   abLoadAccounts().then(abRenderCoa);
   abLoadItems().then(abRenderItems);
   abLoadContactLabels().then(()=>abLoadContacts().then(abRenderContacts));
-  abLoadFieldLabels().then(()=>{ abApplyClientTerminology(); abApplyScopeTerminology(); });
+  abLoadFieldLabels().then(()=>{ abApplyClientTerminology(); abApplyScopeTerminology(); abApplyVendorTerminology(); });
   loadClientsIntoRowView();
   // Terminology's own render (abRenderNomenclature) is deliberately NOT
   // fired here on every book selection, unlike Accounts/Scopes — it's a
@@ -2775,6 +2804,10 @@ async function abTerminologyCellCommit(fieldKey,key,val){
     const{data}=await db.from('book_field_settings').insert({book_id:abBookId,field_key:fieldKey,active:true,display_label:label}).select().single();
     if(data) abNomenclatureFieldsCache.push(data);
   }
+  // Live refresh — a renamed Client/Scope/Vendor should show up everywhere
+  // it appears immediately, not just after the book is reselected.
+  await abLoadFieldLabels();
+  abApplyClientTerminology(); abApplyScopeTerminology(); abApplyVendorTerminology();
 }
 // Short "who this is for / what it sets up" descriptions — Ryan's direct
 // correction, 2026-08-12: hover only, never crammed inside the card
@@ -3230,9 +3263,10 @@ function abRenderContacts(){
   // having to touch each of those call sites individually — it no-ops
   // harmlessly if that tab isn't currently mounted.
   if(typeof abRenderContactsRv==='function') abRenderContactsRv();
+  if(typeof abRenderVendorsRv==='function') abRenderVendorsRv();
   const el=document.getElementById('ab-contacts'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
-  const topLevel=abContacts.filter(c=>!c.parent_contact_id);
+  const topLevel=abActiveFilter(abContacts.filter(c=>!c.parent_contact_id));
   const hasLabel=(c,labelId)=>(abContactLabelMap[c.id]||[]).includes(labelId);
   let shown = abContactFilter==='all' ? topLevel : topLevel.filter(c=>hasLabel(c,abContactFilter));
   if(abContactSearch){
@@ -3254,6 +3288,7 @@ function abRenderContacts(){
       <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span>
       <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="openImportForVendorsTab()" data-tip="Bring Vendors, Employees, and Other Names in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients — Customers/Jobs import separately, on the Clients tab.">⬆ Import Contacts</span>
       <span style="cursor:pointer;font-size:11px;color:${abIsVaultUnlocked()?'#8fd19e':'var(--muted)'}" onclick="abToggleVaultLock()">${abIsVaultUnlocked()?'🔓 Vault Unlocked':'🔒 Vault Locked'}</span>
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abToggleContactsShowInactive()">${abContactsShowInactive?'👁 Showing Inactive':'🚫 Inactive Hidden'}</span>
       <input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''">
     </div>
     <div class="cc-chips">
@@ -3337,13 +3372,63 @@ function buildContactRvRows(contacts){
   }
   return (byParent['__root__']||[]).map(toRow);
 }
+// Active/Inactive — Ryan's direct instruction, 2026-08-13: "if it's not
+// checkmarked, that means it's an inactive contact, so wouldn't show up...
+// unless it's reactivated." Shared by Contacts and Vendors (same table,
+// same flag); Clients gets its own separate toggle below since it's a
+// different table. Default is active-only everywhere — nothing already
+// entered disappears (is_active defaults true), but newly-inactivated
+// records drop out of the default view rather than being deleted.
+let abContactsShowInactive=false;
+function abToggleContactsShowInactive(){ abContactsShowInactive=!abContactsShowInactive; abRenderContacts(); }
+function abActiveFilter(list){ return abContactsShowInactive?list:list.filter(c=>c.is_active!==false); }
 function abRenderContactsRv(){
   refreshContactsTabPulse();
   const el=document.getElementById('ab-contacts-rv'); if(!el)return;
   if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
-  el.innerHTML=`<div class="rv-wrap" id="rv-mount-contacts"></div>`;
-  const rows=buildContactRvRows(abContacts);
+  el.innerHTML=`<div style="margin-bottom:8px"><span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abToggleContactsShowInactive()">${abContactsShowInactive?'👁 Showing Inactive — click to hide':'🚫 Inactive Hidden — click to show'}</span></div>
+    <div class="rv-wrap" id="rv-mount-contacts"></div>`;
+  const rows=buildContactRvRows(abActiveFilter(abContacts));
   rvCreate('rv-mount-contacts',CONTACT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openContactDetailPopup(id),hideExpandColumn:true,showSummaryRow:false,selectable:true,onBulkDelete:openBulkDeleteContactsPopup});
+}
+// VENDORS PAGE — same Row View, same columns, same detail popup as
+// Contacts, filtered to whoever carries the Vendor label. No separate
+// vendors table or vendor-specific popup — see the page-5 markup's own
+// comment for the full reasoning.
+function abVendorContacts(){
+  return abActiveFilter(abContacts).filter(c=>abContactLabelChips(c).some(l=>l.label.toLowerCase()==='vendor'));
+}
+function abRenderVendorsRv(){
+  const el=document.getElementById('ab-vendors-rv'); if(!el)return;
+  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
+  el.innerHTML=`<div style="margin-bottom:8px"><span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abToggleContactsShowInactive();abRenderVendorsRv()">${abContactsShowInactive?'👁 Showing Inactive — click to hide':'🚫 Inactive Hidden — click to show'}</span></div>
+    <div class="rv-wrap" id="rv-mount-vendors"></div>`;
+  const rows=buildContactRvRows(abVendorContacts());
+  rvCreate('rv-mount-vendors',CONTACT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openContactDetailPopup(id),hideExpandColumn:true,showSummaryRow:false,selectable:true,onBulkDelete:openBulkDeleteContactsPopup});
+}
+// "+ Add Vendor" — same shape as openAddClientPopup: opens the real
+// Contact popup, pre-selects (creating if needed) the Vendor label.
+async function openAddVendorPopup(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  if(!abContactLabels.length) await abLoadContactLabels();
+  let vendorLabel=abContactLabels.find(l=>l.label.toLowerCase()==='vendor');
+  if(!vendorLabel){
+    const{data,error}=await db.from('contact_labels').insert({book_id:abBookId,label:'Vendor',sort_order:abContactLabels.length}).select().single();
+    if(!error&&data){ await abLoadContactLabels(); vendorLabel=abContactLabels.find(l=>l.id===data.id)||data; }
+  }
+  openContactDetailPopup(null);
+  if(vendorLabel){ contactFormSelectedLabels.add(vendorLabel.id); contactFormRenderLabelChips(); }
+}
+// Same pattern as abApplyClientTerminology/abApplyScopeTerminology — push
+// this book's own "Vendor" wording (Terminology tab, field_key='vendor')
+// onto the nav tile/heading/tab button.
+function abApplyVendorTerminology(){
+  const label=abFieldLabel('vendor','Vendor');
+  const plural=abPluralize(label);
+  const navLabel=document.getElementById('vendors-nav-label'); if(navLabel)navLabel.textContent=plural;
+  const navTile=document.getElementById('page-5'); if(navTile)navTile.dataset.tip=plural;
+  const heading=document.getElementById('vendors-page-heading'); if(heading)heading.textContent=plural;
+  const tabBtn=document.getElementById('vendors-tab-label'); if(tabBtn)tabBtn.textContent=plural;
 }
 async function openBulkDeleteContactsPopup(ids){
   if(!ids.length)return;
@@ -3492,6 +3577,7 @@ function openContactDetailPopup(contactId){
       <div class="fv-field"><label class="fv-label">Payment Terms</label><input class="fv-input" id="contactForm-terms" value="${abEsc(v('payment_terms'))}" placeholder="e.g. Net 30"></div>
       <div class="fv-field"><label class="fv-label">Default Account</label><select class="fv-input" id="contactForm-defaultacct"><option value="">— None —</option>${abAccounts.map(a=>`<option value="${a.id}"${v('default_account_id')===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:12px;cursor:pointer"><input type="checkbox" id="contactForm-active"${existing&&existing.is_active===false?'':' checked'}> Active — unchecking this hides them from Contacts/Vendors/Clients lists by default, without deleting anything</label>
     ${existing?`
     <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Shared Connection</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Connecting this contact to another Amit account keeps the Contact/Mailing/Billing fields above in sync between both books, live. Labels, Payment Terms, Default Account, and attachments always stay yours alone, never shared.</div>
@@ -3608,7 +3694,8 @@ async function saveContactDetailForm(existingId){
   };
   const localOnlyFields={
     payment_terms:document.getElementById('contactForm-terms').value.trim()||null,
-    default_account_id:document.getElementById('contactForm-defaultacct').value||null
+    default_account_id:document.getElementById('contactForm-defaultacct').value||null,
+    is_active:document.getElementById('contactForm-active').checked
   };
   status.textContent='Saving…';
   let contactId=existingId;
@@ -4017,6 +4104,13 @@ async function loadClientJobCounts(){
   rvRenderInstance('rv-mount-clients');
 }
 
+// Active/Inactive on Clients — Ryan's direct instruction, 2026-08-13:
+// "same thing for clients list." Separate flag from Contacts/Vendors'
+// abContactsShowInactive since this reads the `clients` table, not
+// `contacts`. Forces a reload (clearing the loaded-book guard) since
+// toggling changes the query itself, not just the display.
+let abClientsShowInactive=false;
+function abToggleClientsShowInactive(){ abClientsShowInactive=!abClientsShowInactive; _clientsLoadedForBook=null; loadClientsIntoRowView(); }
 let _clientsLoadedForBook=null;
 async function loadClientsIntoRowView(){
   const mount=document.getElementById('rv-mount-clients');
@@ -4039,7 +4133,9 @@ async function loadClientsIntoRowView(){
     return;
   }
   mount.innerHTML='<div class="detail-empty">Loading…</div>';
-  const{data,error}=await db.from('clients').select('*').eq('book_id',abBookId).order('name');
+  let clientsQuery=db.from('clients').select('*').eq('book_id',abBookId).order('name');
+  if(!abClientsShowInactive) clientsQuery=clientsQuery.eq('is_active',true);
+  const{data,error}=await clientsQuery;
   if(error){
     mount.innerHTML=`<div class="detail-empty">Could not load — ${error.message}</div>`;
     return;
@@ -7433,6 +7529,8 @@ function showChTab(detailNum,n,btnEl){
   // Contacts (tab number 6) — same on-demand pattern; abLoadContacts
   // already runs whenever abBookId changes in selectBookRow.
   if(detailNum===1&&n===6) abRenderContactsRv();
+  // Vendors page's own single tab (detailNum 5) — same on-demand pattern.
+  if(detailNum===5&&n===1) abRenderVendorsRv();
 }
 
 // PAGE ACTION BAR — fills #page-action-bar-<detailNum> with whatever
@@ -7551,7 +7649,18 @@ function renderPageActionBar(detailNum,tabNum){
     // Jobs as sub-records under a Customer, so this one import brings both
     // Clients and Jobs over together).
     bar.innerHTML=`<button class="page-action-btn" onclick="openImportForClientsTab()" data-tip="Bring Customers and Jobs in from the same QuickBooks .IIF export used for Accounts and Scopes."><span>⬇</span>Import</button>
-      <button class="page-action-btn" onclick="openAddClientPopup()"><span>+</span>Add Client</button>`;
+      <button class="page-action-btn" onclick="openAddClientPopup()"><span>+</span>Add Client</button>
+      <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:10px" onclick="abToggleClientsShowInactive()">${abClientsShowInactive?'👁 Showing Inactive':'🚫 Inactive Hidden'}</span>`;
+  } else if(detailNum===5&&tabNum===1){
+    // Vendors page header — same treatment as Clients: Import and Add,
+    // far right. Filtered view over Contacts, so this reuses the same
+    // Contacts Import walkthrough and Add popup (pre-selecting Vendor).
+    if(!abBookId){
+      bar.innerHTML='';
+    } else {
+      bar.innerHTML=`<button class="page-action-btn" onclick="openImportForVendorsTab()" data-tip="Bring Vendors, Employees, and Other Names in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients."><span>⬇</span>Import</button>
+        <button class="page-action-btn" onclick="openAddVendorPopup()"><span>+</span>Add ${abEsc(abFieldLabel('vendor','Vendor'))}</button>`;
+    }
   } else {
     bar.innerHTML='';
   }
@@ -7612,6 +7721,9 @@ function openPage(n){
   // Clients (page 4) — loads on open; loadClientsIntoRowView guards
   // against reloading if a book hasn't changed since the last call.
   if(n===4){ loadClientsIntoRowView(); renderPageActionBar(4,1); }
+  // Vendors (page 5) — filtered view over Contacts, so no separate load
+  // step; abLoadContacts already runs whenever abBookId changes.
+  if(n===5){ abRenderVendorsRv(); renderPageActionBar(5,1); }
 }
 
 function toggleSidebar(){
