@@ -1,0 +1,14 @@
+-- ══════════════════════════════════════════════
+-- AmitBooks — Cash page: Checking/Savings/Investment subtype on bank/cash
+-- accounts.
+--
+-- Ryan's direct instruction, 2026-08-13: a new "Cash" page, listing all
+-- checking and savings accounts — the same accounts already flagged
+-- is_bank_account on the Chart of Accounts (this is what "What You Have"
+-- on the Books list already totals up), just given their own dedicated
+-- page instead of only a summary number. Distinguishing checking from
+-- savings (and investment, since he also mentioned those) needs a real
+-- field — chart_of_accounts only had the yes/no is_bank_account flag
+-- before this, nothing finer.
+-- ══════════════════════════════════════════════
+alter table chart_of_accounts add column if not exists bank_account_subtype text;
