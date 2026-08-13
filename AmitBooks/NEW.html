@@ -584,7 +584,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.28</div>
+      <div class="page-version" id="pageVersion">v2.29</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -926,6 +926,32 @@ function renderAllPages(){
     <div class="ch-tab-main">
       <div class="ch-tab-content active ch-tab-flex" id="ch-tab-5-1">
         <div id="ab-vendors-rv" style="display:flex;flex-direction:column;min-height:0;flex:1"><div class="rv-wrap" id="rv-mount-vendors"></div></div>
+      </div>
+    </div>
+  </div>`;
+
+  // CASH — page 6, under Vendors. Ryan's direct instruction, 2026-08-13:
+  // "money that we have short term and long term... checking accounts,
+  // savings accounts... investments." These are the exact same accounts
+  // already flagged "bank/cash account" on the Chart of Accounts and
+  // totaled into the Books list's "What You Have" column (see
+  // computeBookKpis' cash_on_hand) — this gives them their own dedicated
+  // page instead of only a single summary number. Same tab-strip shell as
+  // Clients/Vendors, first (only, for now) tab also named "Cash" per
+  // Ryan's own instruction — room to add more tabs later the same way
+  // Clients grew Jobs/Documents alongside its own first tab.
+  navHtml+=`<div class="page-nav" id="page-6" onclick="openPage(6)" data-tip="Cash">
+    <div class="page-icon">${CASH_ICON_SVG}</div>
+    <div class="page-info"><div class="page-name">Cash</div><div class="page-sub">—</div></div>
+  </div>`;
+  detailHtml+=`<div class="detail" id="detail-6" style="flex-direction:column">
+    <div class="detail-head"><span class="detail-heading">Cash</span><div class="page-action-bar" id="page-action-bar-6"></div></div>
+    <div class="ch-tab-nav" id="ch-tab-nav-6" style="margin-top:10px">
+      <button class="ch-tab-btn active" onclick="showChTab(6,1)">Cash</button>
+    </div>
+    <div class="ch-tab-main">
+      <div class="ch-tab-content active ch-tab-flex" id="ch-tab-6-1">
+        <div id="ab-cash-rv" style="display:flex;flex-direction:column;min-height:0;flex:1"><div class="rv-wrap" id="rv-mount-cash"></div></div>
       </div>
     </div>
   </div>`;
@@ -1512,6 +1538,11 @@ function abRenderCoa(){
   // it here as well so it lights up the moment Accounts actually gets
   // data, not only the next time someone happens to open the Scopes tab.
   refreshScopesTabPulse();
+  // Cash (page 6) reads the same abAccounts array (is_bank_account rows)
+  // — keep it in sync with every place that already calls abRenderCoa()
+  // after an accounts mutation, no-ops harmlessly if that page isn't
+  // currently mounted.
+  if(typeof abRenderCashRv==='function') abRenderCashRv();
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>';return;}
   el.innerHTML=`${abTemplatePreview ? abTemplatePickerHtml() : ''}
@@ -1918,6 +1949,19 @@ const AB_LIABILITY_SUBTYPES=[
 function abLiabilitySubtypeOptions(selected){
   return AB_LIABILITY_SUBTYPES.map(([v,label])=>`<option value="${v}"${(selected||'')===v?' selected':''}>${label}</option>`).join('');
 }
+// Same pattern as AB_LIABILITY_SUBTYPES, for the new Cash page — Ryan's
+// direct instruction, 2026-08-13: distinguishing Checking from Savings
+// (and Investment, since he also wants those held here) needs a real
+// field, not just the existing yes/no is_bank_account checkbox.
+const AB_BANK_SUBTYPES=[
+  ['','—'],
+  ['checking','Checking'],
+  ['savings','Savings'],
+  ['investment','Investment']
+];
+function abBankSubtypeOptions(selected){
+  return AB_BANK_SUBTYPES.map(([v,label])=>`<option value="${v}"${(selected||'')===v?' selected':''}>${label}</option>`).join('');
+}
 
 // ── ACCOUNT POPUP — Add Account AND Modify Account, same dialog, per
 // Ryan's direct instruction, 2026-08-12: pressing "Add Account" in the
@@ -1977,7 +2021,8 @@ function openAccountPopup(accountId){
     </div>
     <div class="fv-field" style="margin-top:10px"><label class="fv-label">Parent Account (optional — makes this a sub-account)</label><select class="fv-input" id="acctPop-parent" onchange="accountPopupParentChanged()"><option value="">— none, top-level —</option>${parentOptions}</select></div>
     <div class="fv-field" id="acctPop-bank-field" style="margin-top:10px;display:${type==='asset'?'':'none'}">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text2)"><input type="checkbox" id="acctPop-bank"${existing&&existing.is_bank_account?' checked':''}>This is a bank/cash account</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text2)"><input type="checkbox" id="acctPop-bank" onchange="accountPopupBankChanged()"${existing&&existing.is_bank_account?' checked':''}>This is a bank/cash account</label>
+      <select class="fv-input" id="acctPop-banksub" style="margin-top:8px;max-width:200px;display:${existing&&existing.is_bank_account?'':'none'}">${abBankSubtypeOptions(existing?existing.bank_account_subtype:'')}</select>
     </div>
     <div class="fv-field" id="acctPop-liabsub-field" style="margin-top:10px;display:${type==='liability'?'':'none'}">
       <label class="fv-label">Liability Type</label><select class="fv-input" id="acctPop-liabsub">${abLiabilitySubtypeOptions(existing?existing.liability_subtype:'')}</select>
@@ -2027,6 +2072,56 @@ function accountPopupSuggestSubNumber(parentId){
   const taken=new Set(siblings.map(a=>a.account_number));
   while(taken.has(candidate)){ n++; candidate=parent.account_number+'.'+String(n).padStart(3,'0'); }
   return candidate;
+}
+function accountPopupBankChanged(){
+  const checked=document.getElementById('acctPop-bank').checked;
+  const sub=document.getElementById('acctPop-banksub');
+  if(sub) sub.style.display=checked?'':'none';
+}
+// ── CASH PAGE (page 6) — Ryan's direct instruction, 2026-08-13: every
+// checking/savings/investment account, with its real live balance, on its
+// own page — not just a single "What You Have" total on the Books list.
+// Real accounts, real balances (same debit/credit logic as
+// computeBookKpis, computed per-account here instead of summed), double-
+// click opens the same Account popup Accounts already uses (these ARE
+// chart_of_accounts rows, just filtered to is_bank_account=true) so
+// nothing about how an account works needed to be rebuilt.
+const CASH_RV_COLUMNS=[
+  {key:'account_name',label:'Name'},
+  {key:'account_number',label:'Account #'},
+  {key:'subtype_display',label:'Type'},
+  {key:'balance_display',label:'Balance',align:'right'}
+];
+async function abComputeCashRows(){
+  const cashAccounts=abAccounts.filter(a=>a.is_bank_account);
+  if(!cashAccounts.length)return[];
+  const ids=cashAccounts.map(a=>a.id);
+  const{data:lines}=await db.from('journal_lines').select('account_id,debit,credit,journal_entries!inner(book_id,status)').eq('journal_entries.book_id',abBookId).eq('journal_entries.status','posted').in('account_id',ids);
+  const byAccount={};
+  (lines||[]).forEach(l=>{
+    if(!byAccount[l.account_id]) byAccount[l.account_id]={debit:0,credit:0};
+    byAccount[l.account_id].debit+=Number(l.debit)||0;
+    byAccount[l.account_id].credit+=Number(l.credit)||0;
+  });
+  return cashAccounts.map(a=>{
+    const b=byAccount[a.id]||{debit:0,credit:0};
+    const net=b.debit-b.credit; // bank/cash accounts are always asset-type — debit-minus-credit, same rule as computeBookKpis
+    return{
+      id:a.id,
+      account_name:a.account_name,
+      account_number:a.account_number||'—',
+      subtype_display:(AB_BANK_SUBTYPES.find(s=>s[0]===a.bank_account_subtype)||['',''])[1]||'—',
+      balance_display:abMoneyFmt(net)
+    };
+  });
+}
+async function abRenderCashRv(){
+  const el=document.getElementById('ab-cash-rv'); if(!el)return;
+  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
+  el.innerHTML=`${abAccounts.filter(a=>a.is_bank_account).length?'':'<div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">No checking/savings/investment accounts yet — add one from the header above, or check "This is a bank/cash account" on an existing Asset account in Accounts.</div>'}
+    <div class="rv-wrap" id="rv-mount-cash"></div>`;
+  const rows=await abComputeCashRows();
+  rvCreate('rv-mount-cash',CASH_RV_COLUMNS,rows,{onRowDoubleClick:id=>openAccountPopup(id),hideExpandColumn:true,showSummaryRow:false});
 }
 function accountPopupParentChanged(){
   const parentId=document.getElementById('acctPop-parent').value;
@@ -2111,6 +2206,8 @@ async function saveAccountForm(existingId){
   }
   const bankEl=document.getElementById('acctPop-bank');
   const isBank=type==='asset'&&bankEl?bankEl.checked:false;
+  const bankSubEl=document.getElementById('acctPop-banksub');
+  const bankSub=isBank&&bankSubEl?(bankSubEl.value||null):null;
   const liabSubEl=document.getElementById('acctPop-liabsub');
   const liabSub=type==='liability'&&liabSubEl?(liabSubEl.value||null):null;
   // A sub-account (parentId set) never stores its own tax_category — it
@@ -2121,7 +2218,7 @@ async function saveAccountForm(existingId){
   const cfRows=document.querySelectorAll('#acctPop-cf-rows [data-cf-row]');
   const customFields={};
   cfRows.forEach(r=>{ const k=r.querySelector('.ab-cf-key').value.trim(); const v=r.querySelector('.ab-cf-val').value.trim(); if(k) customFields[k]=v; });
-  const values={account_name:name,account_type:type,account_number:number||null,parent_account_id:parentId,is_bank_account:isBank,liability_subtype:liabSub,tax_category:taxCategory,custom_fields:customFields};
+  const values={account_name:name,account_type:type,account_number:number||null,parent_account_id:parentId,is_bank_account:isBank,bank_account_subtype:bankSub,liability_subtype:liabSub,tax_category:taxCategory,custom_fields:customFields};
   status.textContent='Saving…';
   const{error}=existingId
     ? await db.from('chart_of_accounts').update(values).eq('id',existingId)
@@ -4083,9 +4180,14 @@ function clientsJobFilterClear(){
   rvRenderInstance('rv-mount-clients');
   loadClientJobCounts();
 }
-async function computeClientJobCount(clientId){
+// Reads jobs.contact_id, not the old jobs.client_id — 2026-08-13, matching
+// the Clients tab now reading from `contacts` (see loadClientsIntoRowView
+// below). A book that hasn't run the legacy-clients migration yet will
+// correctly show 0 here even if old jobs.client_id rows exist for that
+// same person — that's expected until migrated, not a bug.
+async function computeClientJobCount(contactId){
   if(!db)return'—';
-  let q=db.from('jobs').select('id',{count:'exact',head:true}).eq('client_id',clientId);
+  let q=db.from('jobs').select('id',{count:'exact',head:true}).eq('contact_id',contactId);
   if(clientsJobFilter.status==='active') q=q.eq('status','active');
   else if(clientsJobFilter.status==='completed') q=q.neq('status','active');
   if(clientsJobFilter.search.trim()) q=q.ilike('name','%'+clientsJobFilter.search.trim()+'%');
@@ -4133,7 +4235,28 @@ async function loadClientsIntoRowView(){
     return;
   }
   mount.innerHTML='<div class="detail-empty">Loading…</div>';
-  let clientsQuery=db.from('clients').select('*').eq('book_id',abBookId).order('name');
+  // Reads `contacts` labeled Customer, not the old separate `clients`
+  // table — 2026-08-13, Ryan's direct instruction ("everything filters
+  // back to the one contact table"). A book that hasn't run "Migrate
+  // Legacy Clients" yet (see openMigrateLegacyClientsPopup, Clients
+  // header) will show nothing here even if real rows exist in the old
+  // `clients` table — that's the real, expected state until migrated,
+  // not silently hidden data.
+  if(!abContactLabels.length) await abLoadContactLabels();
+  const customerLabel=abContactLabels.find(l=>l.label.toLowerCase()==='customer');
+  if(!customerLabel){
+    mount.innerHTML='<div class="detail-empty">No "Customer" label exists yet for this book — add one on the Defaults tab, or press "+ Add Client" to create it automatically.</div>';
+    _clientsCurrentRows=[];
+    return;
+  }
+  const{data:links}=await db.from('contact_label_links').select('contact_id').eq('book_id',abBookId).eq('label_id',customerLabel.id);
+  const contactIds=(links||[]).map(l=>l.contact_id);
+  if(!contactIds.length){
+    mount.innerHTML='<div class="detail-empty">No Customer-labeled contacts yet. Press "+ Add Client" above, or "Migrate Legacy Clients" if you imported Customers from QuickBooks tonight.</div>';
+    _clientsCurrentRows=[];
+    return;
+  }
+  let clientsQuery=db.from('contacts').select('*').in('id',contactIds).order('name');
   if(!abClientsShowInactive) clientsQuery=clientsQuery.eq('is_active',true);
   const{data,error}=await clientsQuery;
   if(error){
@@ -4142,7 +4265,7 @@ async function loadClientsIntoRowView(){
   }
   const rows=(data||[]).map(c=>({...c,jobs:'…',billed:'—',received:'—',outstanding:'—',pct_complete:'—'}));
   _clientsCurrentRows=rows;
-  rvCreate('rv-mount-clients',CLIENT_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onRowOpen:id=>selectClientRow(rows,id)});
+  rvCreate('rv-mount-clients',CLIENT_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onRowOpen:id=>selectClientRow(rows,id),onRowDoubleClick:id=>openClientEditPopup(id)});
   loadClientJobCounts();
 }
 // Selecting a client (double-click/Enter, Row View's own onRowOpen)
@@ -4170,6 +4293,7 @@ function selectClientRow(rows,clientId){
 // one Save button. Reuse this exact structure — icon/title/subtitle/
 // section-labels/fields — rather than a one-off layout per entity type.
 const CLIENT_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4.14 3.36-7.5 7.5-7.5s7.5 3.36 7.5 7.5"/></svg>`;
+const CASH_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="13" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M6 6.5v-2h13a2 2 0 0 1 2 2v11"/></svg>`;
 // Add Client now opens the real Contact popup (openContactDetailPopup,
 // built for the Books → Contacts tab) instead of its own separate form —
 // Ryan's direct instruction, 2026-08-13: "it's going in the same
@@ -4182,16 +4306,94 @@ const CLIENT_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="non
 // itself — that function is untouched; this just primes
 // contactFormSelectedLabels immediately after it opens, same as how a
 // label gets toggled on by hand.
-async function openAddClientPopup(){
-  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+// Factored out of openAddClientPopup, 2026-08-13, so the legacy-clients
+// migration below can reuse the exact same "find or create" logic instead
+// of duplicating it.
+async function ensureCustomerLabel(){
   if(!abContactLabels.length) await abLoadContactLabels();
   let customerLabel=abContactLabels.find(l=>l.label.toLowerCase()==='customer');
   if(!customerLabel){
     const{data,error}=await db.from('contact_labels').insert({book_id:abBookId,label:'Customer',sort_order:abContactLabels.length}).select().single();
     if(!error&&data){ await abLoadContactLabels(); customerLabel=abContactLabels.find(l=>l.id===data.id)||data; }
   }
+  return customerLabel;
+}
+async function openAddClientPopup(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  const customerLabel=await ensureCustomerLabel();
   openContactDetailPopup(null);
   if(customerLabel){ contactFormSelectedLabels.add(customerLabel.id); contactFormRenderLabelChips(); }
+}
+// Opens an existing client for editing — the real Contact popup, plus the
+// Jobs panel appended right after it (2026-08-13, Ryan's direct
+// instruction: "same dialogue box... it should show up the same way").
+// Deliberately a separate wrapper rather than changes to
+// openContactDetailPopup itself — that function is shared with the plain
+// Contacts tab, which has no Jobs concept; appending here keeps this
+// addition scoped to where it actually applies.
+function openClientEditPopup(contactId){
+  openContactDetailPopup(contactId);
+  const card=document.getElementById('canonicalPopupCard');
+  if(card) card.insertAdjacentHTML('beforeend',`
+    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Jobs</div>
+    <div id="contactJobsPanel">Loading…</div>`);
+  renderContactJobsPanel(contactId);
+}
+// ── MIGRATE LEGACY CLIENTS — Ryan's direct instruction, 2026-08-13: fold
+// the old, separate `clients` table (and its Jobs) into `contacts`, one
+// unified database instead of two disconnected ones. Real clients
+// imported from QuickBooks tonight (the Customers→Clients+Jobs .IIF
+// importer) live in `clients`/jobs.client_id — this moves them into
+// `contacts` (labeled Customer) and repoints their Jobs to
+// jobs.contact_id, WITHOUT deleting the original `clients`/`jobs.client_id`
+// data — matching the standing "never silently delete a real row" rule.
+// A client whose name already matches an existing contact (case-
+// insensitive) reuses that contact instead of creating a duplicate.
+async function openMigrateLegacyClientsPopup(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  const{data:legacyClients}=await db.from('clients').select('*').eq('book_id',abBookId);
+  const{data:legacyJobs}=await db.from('jobs').select('id').eq('book_id',abBookId).not('client_id','is',null).is('contact_id',null);
+  const clientCount=(legacyClients||[]).length;
+  const jobCount=(legacyJobs||[]).length;
+  if(!clientCount){ abAlert('No legacy clients found for this book — nothing to migrate.'); return; }
+  popupOpen(`
+    <div class="dv-sub-h">Migrate ${clientCount} Legacy Client${clientCount===1?'':'s'}?</div>
+    <div class="fv-status" style="margin-bottom:14px">Moves ${clientCount} client${clientCount===1?'':'s'} (and ${jobCount} job${jobCount===1?'':'s'} under them) from the old separate clients table into Contacts, labeled Customer. A client whose name already matches an existing contact reuses that contact instead of duplicating it. The original clients/jobs rows are kept, untouched, not deleted.</div>
+    <button class="fv-save" onclick="confirmMigrateLegacyClients()">Migrate Now</button>
+    <div class="fv-status" id="migrateClientsStatus" style="margin-top:10px"></div>`);
+}
+async function confirmMigrateLegacyClients(){
+  const status=document.getElementById('migrateClientsStatus');
+  status.textContent='Migrating…';
+  const customerLabel=await ensureCustomerLabel();
+  const{data:legacyClients}=await db.from('clients').select('*').eq('book_id',abBookId);
+  const{data:existingContacts}=await db.from('contacts').select('id,name').eq('book_id',abBookId);
+  const byName={};
+  (existingContacts||[]).forEach(c=>{ byName[c.name.trim().toLowerCase()]=c.id; });
+  let created=0,reused=0,jobsMoved=0;
+  for(const c of(legacyClients||[])){
+    const key=c.name.trim().toLowerCase();
+    let contactId=byName[key];
+    if(!contactId){
+      status.textContent=`Migrating… creating "${c.name}"`;
+      const{data,error}=await db.from('contacts').insert({
+        book_id:abBookId,name:c.name,street_address:c.street_address,city_state:c.city_state,zip:c.zip,phone:c.phone,email:c.email
+      }).select().single();
+      if(error||!data)continue;
+      contactId=data.id; byName[key]=contactId; created++;
+    } else reused++;
+    if(customerLabel){
+      const{data:existingLink}=await db.from('contact_label_links').select('contact_id').eq('contact_id',contactId).eq('label_id',customerLabel.id).maybeSingle();
+      if(!existingLink) await db.from('contact_label_links').insert({book_id:abBookId,contact_id:contactId,label_id:customerLabel.id});
+    }
+    const{data:movedJobs,error:jobErr}=await db.from('jobs').update({contact_id:contactId}).eq('client_id',c.id).is('contact_id',null).select('id');
+    if(!jobErr&&movedJobs) jobsMoved+=movedJobs.length;
+  }
+  status.textContent=`Done — ${created} new contact${created===1?'':'s'} created, ${reused} matched to an existing contact, ${jobsMoved} job${jobsMoved===1?'':'s'} moved over.`;
+  logThreadEntry(`Migrated ${created+reused} legacy clients (${created} new, ${reused} matched) and ${jobsMoved} jobs into the unified Contacts database.`);
+  _clientsLoadedForBook=null;
+  loadClientsIntoRowView();
+  setTimeout(()=>popupClose(),2200);
 }
 // ── JOBS UNDER A CONTACT — Ryan's direct instruction, 2026-08-13: once a
 // client exists, there needs to be a real way to add a Job under them,
@@ -7645,6 +7847,8 @@ function showChTab(detailNum,n,btnEl){
   if(detailNum===1&&n===6) abRenderContactsRv();
   // Vendors page's own single tab (detailNum 5) — same on-demand pattern.
   if(detailNum===5&&n===1) abRenderVendorsRv();
+  // Cash page's own single tab (detailNum 6) — same on-demand pattern.
+  if(detailNum===6&&n===1) abRenderCashRv();
 }
 
 // PAGE ACTION BAR — fills #page-action-bar-<detailNum> with whatever
@@ -7764,6 +7968,7 @@ function renderPageActionBar(detailNum,tabNum){
     // Clients and Jobs over together).
     bar.innerHTML=`<button class="page-action-btn" onclick="openImportForClientsTab()" data-tip="Bring Customers and Jobs in from the same QuickBooks .IIF export used for Accounts and Scopes."><span>⬇</span>Import</button>
       <button class="page-action-btn" onclick="openAddClientPopup()"><span>+</span>Add Client</button>
+      <button class="page-action-btn" onclick="openMigrateLegacyClientsPopup()" data-tip="Move clients imported before 2026-08-13 (the old, separate clients table) into the unified Contacts database, labeled Customer — one-time, safe, keeps the originals."><span>⇄</span>Migrate Legacy Clients</button>
       <span style="cursor:pointer;font-size:11px;color:var(--gold2);align-self:center;margin-left:10px" onclick="abToggleClientsShowInactive()">${abClientsShowInactive?'👁 Showing Inactive':'🚫 Inactive Hidden'}</span>`;
   } else if(detailNum===5&&tabNum===1){
     // Vendors page header — same treatment as Clients: Import and Add,
@@ -7774,6 +7979,16 @@ function renderPageActionBar(detailNum,tabNum){
     } else {
       bar.innerHTML=`<button class="page-action-btn" onclick="openImportForVendorsTab()" data-tip="Bring Vendors, Employees, and Other Names in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients."><span>⬇</span>Import</button>
         <button class="page-action-btn" onclick="openAddVendorPopup()"><span>+</span>Add ${abEsc(abFieldLabel('vendor','Vendor'))}</button>`;
+    }
+  } else if(detailNum===6&&tabNum===1){
+    // Cash page header — "+ Add Cash Account" opens the same real Account
+    // popup Accounts uses, pre-checking "This is a bank/cash account" so
+    // it shows up here without the person having to know that's the flag
+    // that controls it.
+    if(!abBookId){
+      bar.innerHTML='';
+    } else {
+      bar.innerHTML=`<button class="page-action-btn" onclick="openAddCashAccountPopup()"><span>+</span>Add Cash Account</button>`;
     }
   } else {
     bar.innerHTML='';
@@ -7838,6 +8053,9 @@ function openPage(n){
   // Vendors (page 5) — filtered view over Contacts, so no separate load
   // step; abLoadContacts already runs whenever abBookId changes.
   if(n===5){ abRenderVendorsRv(); renderPageActionBar(5,1); }
+  // Cash (page 6) — filtered view over Accounts, same no-separate-load
+  // pattern as Vendors.
+  if(n===6){ abRenderCashRv(); renderPageActionBar(6,1); }
 }
 
 function toggleSidebar(){
