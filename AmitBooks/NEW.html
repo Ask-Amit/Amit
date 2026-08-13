@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.09</div>
+      <div class="page-version" id="pageVersion">v2.10</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2266,12 +2266,12 @@ function openScopeEditPopup(itemId){
          inventory-style Scope visibly captures both sides at once. -->
     <div style="display:flex;gap:20px;margin-top:6px">
       <div style="flex:1;display:flex;flex-direction:column;gap:16px">
-        <div class="fv-field" style="margin:0"><label class="fv-label">Cost Account</label><select class="fv-input" id="scopeForm-expense">${abScopeAccountOptions(v('expense_account_id'))}</select></div>
+        <div class="fv-field" style="margin:0"><label class="fv-label">Cost Account</label><select class="fv-input" id="scopeForm-expense">${abScopeAccountOptions(v('expense_account_id'),'cost')}</select></div>
         <div class="fv-field" style="margin:0"><label class="fv-label">Cost Account Note — how this reads on a real bill</label><textarea class="fv-input fv-textarea" id="scopeForm-costnote" placeholder="e.g. the exact wording you want to see on a bill line for this Scope" style="min-height:50px">${abEsc(v('cost_account_note'))}</textarea></div>
         <div class="fv-field" style="margin:0"><label class="fv-label">Unit Cost <span style="text-transform:none;font-weight:400">(what you pay)</span></label><input class="fv-input" id="scopeForm-unitcost" type="number" step="0.01" value="${existing&&existing.unit_cost?existing.unit_cost:''}"></div>
       </div>
       <div style="flex:1;display:flex;flex-direction:column;gap:16px">
-        <div class="fv-field" style="margin:0"><label class="fv-label">Billable Account</label><select class="fv-input" id="scopeForm-income">${abScopeAccountOptions(v('income_account_id'))}</select></div>
+        <div class="fv-field" style="margin:0"><label class="fv-label">Billable Account</label><select class="fv-input" id="scopeForm-income">${abScopeAccountOptions(v('income_account_id'),'billable')}</select></div>
         <div class="fv-field" style="margin:0"><label class="fv-label">Billable Account Note — how this reads on a real invoice</label><textarea class="fv-input fv-textarea" id="scopeForm-billablenote" placeholder="e.g. the exact wording you want a customer to see on an invoice line for this Scope" style="min-height:50px">${abEsc(v('billable_account_note'))}</textarea></div>
         <div class="fv-field" style="margin:0"><label class="fv-label">Billable Rate <span style="text-transform:none;font-weight:400">(what you charge)</span></label><input class="fv-input" id="scopeForm-billablerate" type="number" step="0.01" value="${existing&&existing.unit_price?existing.unit_price:''}"></div>
       </div>
@@ -2312,8 +2312,25 @@ async function confirmDeleteScope(itemId){
   await abLoadItems(); abRenderItems();
   popupClose();
 }
-function abScopeAccountOptions(selectedId){
-  return `<option value="">— Not Set Up —</option>`+abAccounts.map(a=>`<option value="${a.id}"${selectedId===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('');
+// Ryan's direct instruction, 2026-08-12: Cost Account and Billable
+// Account aren't interchangeable slots — Cost Account is where money goes
+// OUT (an expense-type account), Billable Account is where money comes IN
+// (an income-type account). An asset can't be a job cost, an expense
+// can't be what a customer's payment posts to. `side` restricts the list
+// to the one account type that's actually valid for that side; every
+// option also now shows its type so it's visible at a glance, not just
+// enforced silently. selectedId's own account is always kept in the list
+// even if its type doesn't match (rather than disappearing a value that
+// was already saved under a looser rule before this existed) — flagged
+// as "(wrong type)" so it's visibly wrong instead of silently wrong.
+function abScopeAccountOptions(selectedId,side){
+  const wantType=side==='cost'?'expense':side==='billable'?'income':null;
+  const pool=wantType?abAccounts.filter(a=>a.account_type===wantType||a.id===selectedId):abAccounts;
+  return `<option value="">— Not Set Up —</option>`+pool.map(a=>{
+    const mismatch=wantType&&a.account_type!==wantType;
+    const label=(a.account_number?a.account_number+' — ':'')+a.account_name+' ('+a.account_type+(mismatch?' — wrong type':'')+')';
+    return `<option value="${a.id}"${selectedId===a.id?' selected':''}>${abEsc(label)}</option>`;
+  }).join('');
 }
 async function saveScopeForm(itemId){
   const name=document.getElementById('scopeForm-name').value.trim();
@@ -4553,8 +4570,8 @@ function renderImportItemsReview(){
       <td>${abEsc(it.name)}</td>
       <td style="font-size:11px;color:var(--muted)">${abEsc(it.category||'—')}</td>
       <td style="font-size:11px;color:var(--muted)">${abEsc(it.qbType)}</td>
-      <td><select onchange="importParsedItems[${i}].costAccountId=this.value||null">${abScopeAccountOptions(it.costAccountId)}</select></td>
-      <td><select onchange="importParsedItems[${i}].billableAccountId=this.value||null">${abScopeAccountOptions(it.billableAccountId)}</select></td>
+      <td><select onchange="importParsedItems[${i}].costAccountId=this.value||null">${abScopeAccountOptions(it.costAccountId,'cost')}</select></td>
+      <td><select onchange="importParsedItems[${i}].billableAccountId=this.value||null">${abScopeAccountOptions(it.billableAccountId,'billable')}</select></td>
       <td>${it.unitCost!=null?abMoneyFmt(it.unitCost):'—'}</td>
       <td>${it.unitPrice!=null?abMoneyFmt(it.unitPrice):'—'}</td>
     </tr>`).join('')}
