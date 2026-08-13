@@ -590,7 +590,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.35</div>
+      <div class="page-version" id="pageVersion">v2.36</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2092,17 +2092,37 @@ function accountPopupBankChanged(){
 // click opens the same Account popup Accounts already uses (these ARE
 // chart_of_accounts rows, just filtered to is_bank_account=true) so
 // nothing about how an account works needed to be rebuilt.
+//
+// CROSS-BOOK, 2026-08-13 (Ryan's direct instruction, same day, after
+// testing this live): this used to only show the currently-selected
+// book's own cash accounts (abAccounts, scoped to abBookId) — with
+// multiple companies and multiple books, that meant real accounts were
+// simply missing whenever a different book was active. Now pulls every
+// bank/cash account across every one of the signed-in user's books, with
+// its own Book/Company column so which book each one actually belongs to
+// is always visible right here on the page — no more guessing or
+// switching books first just to find an account.
 const CASH_RV_COLUMNS=[
   {key:'account_name',label:'Name'},
+  {key:'book_display',label:'Book'},
   {key:'account_number',label:'Account #'},
   {key:'subtype_display',label:'Type'},
   {key:'balance_display',label:'Balance',align:'right'}
 ];
 async function abComputeCashRows(){
-  const cashAccounts=abAccounts.filter(a=>a.is_bank_account);
-  if(!cashAccounts.length)return[];
+  if(!db||!currentUser)return[];
+  const[{data:companies},{data:books}]=await Promise.all([
+    db.from('companies').select('id,name').eq('user_id',currentUser.id),
+    db.from('books').select('id,name,company_id').eq('user_id',currentUser.id)
+  ]);
+  const companyNameById={}; (companies||[]).forEach(c=>{ companyNameById[c.id]=c.name; });
+  const bookMeta={}; (books||[]).forEach(b=>{ bookMeta[b.id]={name:b.name,company:b.company_id?companyNameById[b.company_id]:null}; });
+  const bookIds=(books||[]).map(b=>b.id);
+  if(!bookIds.length)return[];
+  const{data:cashAccounts}=await db.from('chart_of_accounts').select('*').in('book_id',bookIds).eq('is_bank_account',true);
+  if(!cashAccounts||!cashAccounts.length)return[];
   const ids=cashAccounts.map(a=>a.id);
-  const{data:lines}=await db.from('journal_lines').select('account_id,debit,credit,journal_entries!inner(book_id,status)').eq('journal_entries.book_id',abBookId).eq('journal_entries.status','posted').in('account_id',ids);
+  const{data:lines}=await db.from('journal_lines').select('account_id,debit,credit,journal_entries!inner(book_id,status)').in('journal_entries.book_id',bookIds).eq('journal_entries.status','posted').in('account_id',ids);
   const byAccount={};
   (lines||[]).forEach(l=>{
     if(!byAccount[l.account_id]) byAccount[l.account_id]={debit:0,credit:0};
@@ -2112,9 +2132,12 @@ async function abComputeCashRows(){
   return cashAccounts.map(a=>{
     const b=byAccount[a.id]||{debit:0,credit:0};
     const net=b.debit-b.credit; // bank/cash accounts are always asset-type — debit-minus-credit, same rule as computeBookKpis
+    const meta=bookMeta[a.book_id]||{name:'—',company:null};
     return{
       id:a.id,
+      book_id:a.book_id,
       account_name:a.account_name,
+      book_display:meta.company?`${meta.company}: ${meta.name}`:meta.name,
       account_number:a.account_number||'—',
       subtype_display:(AB_BANK_SUBTYPES.find(s=>s[0]===a.bank_account_subtype)||['',''])[1]||'—',
       balance_display:abMoneyFmt(net)
@@ -2124,19 +2147,38 @@ async function abComputeCashRows(){
 // "+ Add Cash Account" — opens the real Account popup blank, then
 // pre-checks "This is a bank/cash account" (and reveals the Type
 // dropdown), same shape as openAddClientPopup/openAddVendorPopup
-// pre-selecting their own label after the popup opens.
+// pre-selecting their own label after the popup opens. Still adds to
+// whichever book is currently active on the Books tab (openAccountPopup's
+// own real scope) — the Cash page shows every book's accounts, but a
+// brand-new one still has to be created under one specific book.
 function openAddCashAccountPopup(){
+  if(!abBookId){ abAlert('Select a book first (Books tab) — a new account still has to be created under one specific book.'); return; }
   openAccountPopup('');
   const bankEl=document.getElementById('acctPop-bank');
   if(bankEl){ bankEl.checked=true; accountPopupBankChanged(); }
 }
+// Opening a cash account for edit from this cross-book list — the Account
+// popup (openAccountPopup) reads off abAccounts/abBookId, which are
+// scoped to whichever ONE book is currently active on the Books tab. If
+// the row double-clicked belongs to a different book, silently switch
+// that context first (same real mechanism selectBookRow already uses),
+// so the popup opens correctly pre-filled instead of failing to find the
+// account at all.
+async function openCashAccountForEdit(accountId,bookId){
+  if(bookId&&bookId!==abBookId){
+    abBookId=bookId;
+    localStorage.setItem('amitbooks_current_book_id',abBookId);
+    await abLoadAccounts();
+  }
+  openAccountPopup(accountId);
+}
 async function abRenderCashRv(){
   const el=document.getElementById('ab-cash-rv'); if(!el)return;
-  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice">Select a book first (Books tab).</div>'; return; }
-  el.innerHTML=`${abAccounts.filter(a=>a.is_bank_account).length?'':'<div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">No checking/savings/investment accounts yet — add one from the header above, or check "This is a bank/cash account" on an existing Asset account in Accounts.</div>'}
-    <div class="rv-wrap" id="rv-mount-cash"></div>`;
+  if(!db||!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in through the Hub to see real cash accounts — this is sample mode.</div>'; return; }
+  el.innerHTML=`<div class="rv-wrap" id="rv-mount-cash"></div>`;
   const rows=await abComputeCashRows();
-  rvCreate('rv-mount-cash',CASH_RV_COLUMNS,rows,{onRowDoubleClick:id=>openAccountPopup(id),hideExpandColumn:true,showSummaryRow:false});
+  if(!rows.length){ document.getElementById('rv-mount-cash').innerHTML='<div class="ab-signin-notice" style="text-align:left">No checking/savings/investment accounts yet, in any book — add one from the header above, or check "This is a bank/cash account" on an existing Asset account in Accounts.</div>'; return; }
+  rvCreate('rv-mount-cash',CASH_RV_COLUMNS,rows,{onRowDoubleClick:id=>{ const r=rows.find(x=>x.id===id); openCashAccountForEdit(id,r?r.book_id:null); },hideExpandColumn:true,showSummaryRow:false});
 }
 function accountPopupParentChanged(){
   const parentId=document.getElementById('acctPop-parent').value;
