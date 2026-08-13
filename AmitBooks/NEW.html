@@ -549,7 +549,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.03</div>
+      <div class="page-version" id="pageVersion">v2.04</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2988,7 +2988,7 @@ function abRenderContacts(){
   const topLevel=abContacts.filter(c=>!c.parent_contact_id);
   const shown = abContactFilter==='all' ? topLevel : topLevel.filter(c=>c[abContactFilter]);
   const childrenOf=pid=>abContacts.filter(c=>c.parent_contact_id===pid);
-  el.innerHTML=`<div class="ab-h">Contacts <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:${abIsVaultUnlocked()?'#8fd19e':'var(--muted)'}" onclick="abToggleVaultLock()">${abIsVaultUnlocked()?'🔓 SSN Vault Unlocked':'🔒 SSN Vault Locked'}</span><input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''"></div>
+  el.innerHTML=`<div class="ab-h">Contacts <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abExportContactsCsv()">⬇ Export CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="abTriggerContactsCsvImport()">⬆ Import CSV</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--gold2)" onclick="openImportForVendorsTab()" data-tip="Bring Vendors in from the same QuickBooks .IIF export used for Accounts, Scopes, and Clients.">⬆ Import Vendors from QuickBooks</span> <span style="cursor:pointer;font-size:11px;font-family:inherit;text-transform:none;letter-spacing:0;color:${abIsVaultUnlocked()?'#8fd19e':'var(--muted)'}" onclick="abToggleVaultLock()">${abIsVaultUnlocked()?'🔓 SSN Vault Unlocked':'🔒 SSN Vault Locked'}</span><input type="file" id="ab-contacts-csv-input" accept=".csv" style="display:none" onchange="abImportContactsCsv(this.files[0]);this.value=''"></div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">SSNs are encrypted client-side (AES-256-GCM) before they ever leave this browser — the database never sees a plaintext SSN. A vault passphrase gates viewing/setting them; if it's ever lost, encrypted SSNs are permanently unrecoverable by design — that's real zero-knowledge encryption, not a limitation to fix.</div>
     <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
       ${filters.map(f=>`<button class="ab-btn" style="${abContactFilter===f[0]?'':'background:transparent;color:var(--muted)'}" onclick="abSetContactFilter('${f[0]}')">${f[1]} ${f[0]==='all'?'('+abContacts.length+')':'('+abContacts.filter(c=>c[f[0]]).length+')'}</button>`).join('')}
@@ -4734,6 +4734,125 @@ async function importCommitClients(){
     setTimeout(()=>popupClose(),1400);
   } finally {
     importClientsCommitInFlight=false;
+  }
+}
+
+// ══════════════════════════════════════════════
+// IMPORT — Vendors → Contacts (is_vendor:true), Ryan's direct instruction,
+// 2026-08-12: Vendors don't have their own dedicated table yet (only
+// Clients has been split out of the old unified `contacts` table so far —
+// see migration_2026-08-07_004's own header comment) — a vendor IS a
+// contacts row with is_vendor=true, same as every other vendor already in
+// this system (Scopes' Preferred Vendor dropdown already reads exactly
+// that: abContacts.filter(c=>c.is_vendor)). This is the real, existing
+// connectivity Ryan's asking for — a vendor imported here immediately
+// shows up in that same dropdown, no separate reconciliation step needed.
+//
+// Field names below are IIF's standard, documented !VEND layout — NOT
+// independently confirmed against a real BOSS export the way !CUST/
+// !ACCNT/!INVITEM were (each of those was checked against Ryan's actual
+// file first). Parsing is still fully header-driven (reads whatever
+// columns the real file's own !VEND line declares, same as every other
+// importer here) — if an actual field name differs from what's assumed
+// below, that one field just comes back blank in review rather than
+// anything breaking or silently importing wrong data. Confirm against a
+// real export and adjust the specific lookups below if that happens.
+function openImportForVendorsTab(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  openImportStepVendors();
+}
+let importParsedVendors=null;
+function openImportStepVendors(){
+  popupOpen(`
+    <div class="dv-sub-h">Vendors → Contacts</div>
+    <div class="import-walkthrough">
+      <b>Vendor List</b> — same export as everything else:
+      <ol>
+        <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
+        <li>A checklist of every list QuickBooks can export appears — <b>none of them are checked by default, so check every single box yourself</b> before clicking OK</li>
+        <li>Click <b>OK</b>, then save the file somewhere you'll remember</li>
+        <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
+      </ol>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Imports as Contacts marked Vendor — the same list Scopes' Preferred Vendor field already reads from, so anything imported here is immediately usable there too. EIN/Tax ID isn't captured (it requires client-side encryption through the SSN Vault, not a plain import field) — set that by hand per vendor afterward if needed.</div>
+    </div>
+    ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
+    <input type="file" id="importVendorsFile" accept=".iif" onchange="importVendorsFileChosen(this.files[0])">
+    <div id="importVendorsReview" style="margin-top:14px"></div>
+    <div class="fv-status" id="importVendorsStatus" style="margin-top:10px"></div>`);
+  if(lastImportFile) importVendorsFileChosen(lastImportFile);
+}
+async function importVendorsFileChosen(file){
+  if(!file)return;
+  lastImportFile=file;
+  const status=document.getElementById('importVendorsStatus');
+  status.textContent='Reading file…';
+  if(!(file.name||'').toLowerCase().endsWith('.iif')){ status.textContent='Vendors only import from the .IIF export right now.'; return; }
+  importParsedVendors=importParseIifVendors(await file.text());
+  if(!importParsedVendors){ status.textContent='Could not find any vendors in that file — if your file definitely has a Vendor List in it, this may mean the column names differ from what\'s expected; let Ryan\'s side know so the parser can be adjusted.'; return; }
+  if(!importParsedVendors.length){ status.textContent='That file has no vendors in it.'; return; }
+  renderImportVendorsReview();
+  status.textContent='';
+}
+function importParseIifVendors(text){
+  const lines=text.split(/\r?\n/);
+  let headerCols=null;
+  const dataRows=[];
+  for(const line of lines){
+    if(!line)continue;
+    const cols=line.split('\t');
+    if(cols[0]==='!VEND'){ headerCols=cols.slice(1); continue; }
+    if(cols[0]==='VEND'&&headerCols){
+      const vals=cols.slice(1);
+      const row={};
+      headerCols.forEach((h,i)=>{ row[h]=vals[i]||''; });
+      dataRows.push(row);
+    }
+  }
+  if(!dataRows.length)return null;
+  return dataRows.filter(r=>r.NAME).map(r=>{
+    const addrParts=[r.ADDR1,r.ADDR2,r.ADDR3,r.ADDR4,r.ADDR5].map(a=>(a||'').trim()).filter(Boolean);
+    return{
+      name:r.NAME.trim(),
+      address:addrParts.length?addrParts.join(', '):null,
+      phone:(r.PHONE1||'').trim()||null,
+      email:(r.EMAIL||'').trim()||null,
+      is1099:(r.VENDOR1099||'').trim().toUpperCase()==='Y',
+      terms:(r.TERMS||'').trim()||null
+    };
+  });
+}
+function renderImportVendorsReview(){
+  const el=document.getElementById('importVendorsReview'); if(!el)return;
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedVendors.length} vendors found.</div>
+    <table class="ab-table"><tr><th>Name</th><th>Phone</th><th>Email</th><th>1099</th></tr>
+    ${importParsedVendors.map(v=>`<tr><td>${abEsc(v.name)}</td><td style="font-size:12px">${abEsc(v.phone||'—')}</td><td style="font-size:12px">${abEsc(v.email||'—')}</td><td style="font-size:12px">${v.is1099?'Yes':'—'}</td></tr>`).join('')}
+    </table>
+    <button class="fv-save" style="margin-top:14px" onclick="importCommitVendors()">Import ${importParsedVendors.length} Vendors</button>`;
+}
+let importVendorsCommitInFlight=false;
+async function importCommitVendors(){
+  if(importVendorsCommitInFlight)return;
+  importVendorsCommitInFlight=true;
+  try{
+    const status=document.getElementById('importVendorsStatus');
+    status.textContent='Importing…';
+    const existingNames=new Set((abContacts||[]).map(c=>(c.name||'').trim().toLowerCase()));
+    const rows=importParsedVendors.filter(v=>!existingNames.has(v.name.trim().toLowerCase())).map(v=>({
+      book_id:abBookId,name:v.name,is_vendor:true,
+      address:v.address,phone:v.phone,email:v.email,
+      payment_terms:v.terms,
+      is_contractor_1099:v.is1099
+    }));
+    const skipped=importParsedVendors.length-rows.length;
+    if(!rows.length){ status.textContent=skipped?`All ${skipped} already exist in this book — nothing new to import.`:'Nothing to import.'; importVendorsCommitInFlight=false; return; }
+    const{error}=await db.from('contacts').insert(rows);
+    if(error){ status.textContent='Error: '+error.message; return; }
+    status.textContent=`Imported ${rows.length} vendor(s)${skipped?`, ${skipped} skipped (already existed)`:''}.`;
+    logThreadEntry(`Imported ${rows.length} vendors from QuickBooks into the current book.`);
+    await abLoadContacts(); abRenderContacts(); abRefreshDropdownSources();
+    setTimeout(()=>popupClose(),1200);
+  } finally {
+    importVendorsCommitInFlight=false;
   }
 }
 
