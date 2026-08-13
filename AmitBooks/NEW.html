@@ -600,7 +600,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.41</div>
+      <div class="page-version" id="pageVersion">v2.42</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -7437,25 +7437,26 @@ function rvRenderColMenu(){
 }
 function rvMenuSearchInput(val){
   if(!rvMenuState)return;
-  // Real bug Ryan caught directly, 2026-08-13: a fresh filter starts with
-  // every value checked (the normal "nothing filtered yet" state).
-  // Searching only narrows which checkboxes are VISIBLE — it never
-  // touched the underlying checked set, so checking just the matches you
-  // could see left every hidden value still checked too. Apply then saw
-  // "everything's checked" and correctly (but uselessly) treated that as
-  // no filter at all — Apply silently doing nothing was the visible
-  // symptom of that invisible full selection. Typing into a still-
-  // untouched, fully-checked filter for the first time now resets the
-  // selection to empty instead, matching the far more common real intent
-  // — "search to find and pick specific ones," not "search to find a few
-  // to exclude from an otherwise-full selection." Only fires once, the
-  // moment search goes from empty to non-empty — later keystrokes on an
-  // already-in-progress selection never touch it.
-  const inst=rvInstances.get(rvMenuState.containerId);
-  const allValues=inst?rvColumnDistinctValues(inst,rvMenuState.key):[];
-  const wasUntouched=!rvMenuState.search&&rvMenuState.checked.size===allValues.length;
-  if(wasUntouched&&val) rvMenuState.checked=new Set();
+  // Ryan's direct instruction, 2026-08-13, refining the fix above: typing
+  // a word should BE the filter, live — every value containing what's
+  // typed gets checked automatically, not just made visible for someone
+  // to go click one by one. Each keystroke recomputes the checked set
+  // fresh from the current search text (a "contains" match against every
+  // real distinct value, not just the ones already shown), so narrowing
+  // or widening the search always keeps the checkboxes matching what's
+  // actually typed. Clearing the search back to empty returns to the
+  // normal "everything checked, no filter" starting state. Manually
+  // checking/unchecking a box after typing still works exactly as before
+  // (rvMenuToggleValue is untouched) — this only changes what typing
+  // itself does.
   rvMenuState.search=val;
+  const inst=rvInstances.get(rvMenuState.containerId);
+  if(inst){
+    const allValues=rvColumnDistinctValues(inst,rvMenuState.key);
+    rvMenuState.checked=val
+      ? new Set(allValues.filter(v=>v.toLowerCase().includes(val.toLowerCase())))
+      : new Set(allValues);
+  }
   rvRenderColMenu();
   const input=document.getElementById('rvColMenuSearch');
   if(input){ input.focus(); input.setSelectionRange(val.length,val.length); }
