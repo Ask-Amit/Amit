@@ -608,7 +608,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.66</div>
+      <div class="page-version" id="pageVersion">v2.67</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1754,6 +1754,7 @@ async function openBulkDeleteAccountsPopup(ids){
     <div class="dv-sub-h" style="color:#e2a3a3">Delete ${names.length} Account${names.length===1?'':'s'}?</div>
     <div class="fv-status" style="margin-bottom:14px">${names.map(n=>abEsc(n)).join(', ')}. Any sub-accounts under these become top-level accounts, not deleted with them. This cannot be undone through the app afterward.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadCurrentBookBackupNow('deleteAccountStatus')">⬇ Download Backup First</button>
       <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmBulkDeleteAccounts('${ids.join(',')}')">Delete Permanently</button>
     </div>
     <div class="fv-status" id="deleteAccountStatus" style="margin-top:10px"></div>`);
@@ -1932,6 +1933,7 @@ async function openDeleteAccountPopup(accountId){
     <div class="dv-sub-h" style="color:#e2a3a3">Delete "${abEsc(acct.account_name)}"?</div>
     <div class="fv-status" style="margin-bottom:14px">${children.length?`This account has ${children.length} sub-account${children.length===1?'':'s'} — they'll become top-level accounts, not deleted with it. `:''}This cannot be undone through the app afterward.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadCurrentBookBackupNow('deleteAccountStatus')">⬇ Download Backup First</button>
       <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteAccount('${accountId}')">Delete Permanently</button>
     </div>
     <div class="fv-status" id="deleteAccountStatus" style="margin-top:10px"></div>`);
@@ -2721,6 +2723,7 @@ function openDeleteScopePopup(itemId){
     <div class="dv-sub-h" style="color:#e2a3a3">Delete "${abEsc(item.name)}"?</div>
     <div class="fv-status" style="margin-bottom:14px">This cannot be undone through the app afterward.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadCurrentBookBackupNow('deleteScopeStatus')">⬇ Download Backup First</button>
       <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteScope('${itemId}')">Delete Permanently</button>
     </div>
     <div class="fv-status" id="deleteScopeStatus" style="margin-top:10px"></div>`);
@@ -3780,7 +3783,10 @@ async function openBulkDeleteContactsPopup(ids){
   popupOpen(`
     <div class="dv-sub-h" style="color:#e2a3a3">Delete ${names.length} Contact${names.length===1?'':'s'}?</div>
     <div class="fv-status" style="margin-bottom:14px">${names.map(n=>abEsc(n)).join(', ')}.${kidsCount?` This also removes ${kidsCount} ${kidsCount===1?'person':'people'} listed under them.`:''} This cannot be undone.</div>
-    <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmBulkDeleteContacts('${ids.join(',')}')">Delete Permanently</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadCurrentBookBackupNow('deleteContactsStatus')">⬇ Download Backup First</button>
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmBulkDeleteContacts('${ids.join(',')}')">Delete Permanently</button>
+    </div>
     <div class="fv-status" id="deleteContactsStatus" style="margin-top:10px"></div>`);
 }
 async function confirmBulkDeleteContacts(idsCsv){
@@ -4174,7 +4180,10 @@ function abDeleteContact(contactId,contactName){
   popupOpen(`
     <div class="dv-sub-h" style="color:#e2a3a3">Delete "${contactName}"?</div>
     <div class="fv-status" style="margin-bottom:14px">This permanently removes this contact${kids?` and the ${kids} ${kids===1?'person':'people'} listed under it`:''}. This cannot be undone.</div>
-    <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteContact('${contactId}')">Delete Permanently</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadCurrentBookBackupNow('deleteContactStatus')">⬇ Download Backup First</button>
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteContact('${contactId}')">Delete Permanently</button>
+    </div>
     <div class="fv-status" id="deleteContactStatus" style="margin-top:10px"></div>`);
 }
 async function confirmDeleteContact(contactId){
@@ -4988,7 +4997,35 @@ async function openEditJobPopup(jobId){
     </div>
     <div class="fv-field" style="margin-top:10px"><label class="fv-label">Status</label><input class="fv-input" id="jobForm-status" value="${abEsc(job.status||'active')}" placeholder="active"></div>
     <button class="fv-save" style="margin-top:14px" onclick="saveJobForm('${jobId}')">Save Job</button>
+    <span style="cursor:pointer;font-size:11px;color:#c97a7a;display:block;margin-top:12px" onclick="openDeleteJobPopup('${jobId}')">🗑 Delete Job</span>
     <div class="fv-status" id="jobFormStatus"></div>`);
+}
+// Real gap Ryan caught, 2026-08-14: there was no way to delete a Job at
+// all — only edit. Now that Job→Invoices/Bills genuinely cascades at the
+// database level (migration_2026-08-14_002/003), deleting a Job is a real
+// upstream event with real consequences below it, so it gets the same
+// two-step confirmation + backup-first offer every other delete in this
+// file uses — never a single click, never silent.
+async function openDeleteJobPopup(jobId){
+  const{data:job}=await db.from('jobs').select('name').eq('id',jobId).single();
+  const{count:invCount}=await db.from('invoices_bills').select('id',{count:'exact',head:true}).eq('job_id',jobId);
+  popupOpen(`
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete "${abEsc(job?job.name:'this job')}"?</div>
+    <div class="fv-status" style="margin-bottom:14px">This permanently removes this job${invCount?` AND all ${invCount} invoice(s)/bill(s) attached to it`:''}. This cannot be undone through the app afterward.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="fv-save" style="background:transparent" onclick="downloadCurrentBookBackupNow('deleteJobStatus')">⬇ Download Backup First</button>
+      <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteJob('${jobId}')">Delete Permanently</button>
+    </div>
+    <div class="fv-status" id="deleteJobStatus" style="margin-top:10px"></div>`);
+}
+async function confirmDeleteJob(jobId){
+  const{error}=await db.from('jobs').delete().eq('id',jobId);
+  if(error){ abAlert(error.message); return; }
+  popupClose();
+  if(abSelectedJobId===jobId){ abSelectedJobId=null; abSelectedJobName=null; refreshClientsPageHeading(); }
+  if(document.getElementById('jobs-tab-mount')) abRenderJobsTab();
+  if(document.getElementById('invoices-tab-mount')) abRenderInvoicesTab();
+  if(document.getElementById('bills-tab-mount')) abRenderBillsTab();
 }
 async function saveJobForm(jobId){
   const nameEl=document.getElementById('jobForm-name');
@@ -5368,8 +5405,10 @@ function openDeleteInvoicePopup(invId){
   popupOpen(`
     <div class="dv-sub-h" style="color:#e08a8a">Delete This Invoice?</div>
     <div style="font-size:13px;color:var(--muted);margin:10px 0 18px">This permanently removes the invoice and its billed/received amounts. This cannot be undone.</div>
-    <button class="fv-save" style="background:#a33;border-color:#a33" onclick="confirmDeleteInvoice('${invId}')">Delete Permanently</button>
-    <button class="fv-save" style="margin-top:8px;background:transparent;border:1px solid var(--line)" onclick="openEditInvoicePopup('${invId}')">Cancel</button>`);
+    <button class="fv-save" style="background:transparent;border:1px solid var(--line)" onclick="downloadCurrentBookBackupNow('deleteInvoiceStatus')">⬇ Download Backup First</button>
+    <button class="fv-save" style="margin-top:8px;background:#a33;border-color:#a33" onclick="confirmDeleteInvoice('${invId}')">Delete Permanently</button>
+    <button class="fv-save" style="margin-top:8px;background:transparent;border:1px solid var(--line)" onclick="openEditInvoicePopup('${invId}')">Cancel</button>
+    <div class="fv-status" id="deleteInvoiceStatus" style="margin-top:10px"></div>`);
 }
 async function confirmDeleteInvoice(invId){
   const{error}=await db.from('invoices_bills').delete().eq('id',invId);
@@ -5550,8 +5589,10 @@ function openDeleteBillPopup(billId){
   popupOpen(`
     <div class="dv-sub-h" style="color:#e08a8a">Delete This Bill?</div>
     <div style="font-size:13px;color:var(--muted);margin:10px 0 18px">This permanently removes the bill and its billed/paid amounts. This cannot be undone.</div>
-    <button class="fv-save" style="background:#a33;border-color:#a33" onclick="confirmDeleteBill('${billId}')">Delete Permanently</button>
-    <button class="fv-save" style="margin-top:8px;background:transparent;border:1px solid var(--line)" onclick="openEditBillPopup('${billId}')">Cancel</button>`);
+    <button class="fv-save" style="background:transparent;border:1px solid var(--line)" onclick="downloadCurrentBookBackupNow('deleteBillStatus')">⬇ Download Backup First</button>
+    <button class="fv-save" style="margin-top:8px;background:#a33;border-color:#a33" onclick="confirmDeleteBill('${billId}')">Delete Permanently</button>
+    <button class="fv-save" style="margin-top:8px;background:transparent;border:1px solid var(--line)" onclick="openEditBillPopup('${billId}')">Cancel</button>
+    <div class="fv-status" id="deleteBillStatus" style="margin-top:10px"></div>`);
 }
 async function confirmDeleteBill(billId){
   const{error}=await db.from('invoices_bills').delete().eq('id',billId);
@@ -5864,6 +5905,29 @@ async function downloadBookBackupNow(bookId,bookName,companyName){
   const base=(companyName&&companyName!=='No Company')?`before-delete-${companyName}-${bookName}`:`before-delete-${bookName}`;
   await downloadJson(snapshot,base);
   if(status) status.textContent='Saved.';
+}
+// Same real backup — the whole current book, not just the one row being
+// deleted — offered on every smaller delete popup too (Account, Scope,
+// Contact, Job, Invoice, Bill), not just Delete Book/Company. Ryan's
+// direct instruction, 2026-08-14: "given them the option to back up" on
+// every upstream delete point, not only the largest ones. Looks up the
+// current book/company name itself (rather than requiring every caller to
+// pass it) so it drops into any popup with just a status element id to
+// write into.
+async function downloadCurrentBookBackupNow(statusElId){
+  const status=document.getElementById(statusElId);
+  if(status) status.textContent='Gathering backup…';
+  const{data:book}=await db.from('books').select('name,company_id').eq('id',abBookId).single();
+  const bookName=book?book.name:'Book';
+  let companyName='';
+  if(book&&book.company_id){
+    const{data:company}=await db.from('companies').select('name').eq('id',book.company_id).single();
+    companyName=company?company.name:'';
+  }
+  const snapshot=await snapshotBook(abBookId,bookName);
+  const base=companyName?`before-delete-${companyName}-${bookName}`:`before-delete-${bookName}`;
+  await downloadJson(snapshot,base);
+  if(status) status.textContent='Backup saved.';
 }
 // ── STANDALONE BACKUP — Ryan's direct instruction, 2026-08-12: backup
 // shouldn't only exist as a step inside deleting something; it needs its
