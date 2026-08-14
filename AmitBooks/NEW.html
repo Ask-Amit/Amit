@@ -608,7 +608,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.69</div>
+      <div class="page-version" id="pageVersion">v2.71</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2589,11 +2589,17 @@ function refreshContactsTabPulse(){
 // can't await mid-render) can read the last real answer instead of
 // re-deriving it from a cache of its own.
 let _clientsShouldPulse=false;
+// Same stale-cache trap Ryan already caught once with ensureCustomerLabel
+// — this looked up "Customer" from the abContactLabels cache, which isn't
+// guaranteed loaded yet by the time this runs (it fired before
+// loadClientsIntoRowView's own abLoadContactLabels call, in fact). Queries
+// contact_labels directly now — no dependency on any other code having
+// loaded anything first.
 async function abLiveClientCount(){
   if(!db||!currentUser||!abBookId)return 0;
-  const customerLabel=(abContactLabels||[]).find(l=>l.label.toLowerCase()==='customer');
-  if(!customerLabel)return 0;
-  const{count}=await db.from('contact_label_links').select('id',{count:'exact',head:true}).eq('book_id',abBookId).eq('label_id',customerLabel.id);
+  const{data:labelRows}=await db.from('contact_labels').select('id').eq('book_id',abBookId).ilike('label','customer').limit(1);
+  if(!labelRows||!labelRows.length)return 0;
+  const{count}=await db.from('contact_label_links').select('id',{count:'exact',head:true}).eq('book_id',abBookId).eq('label_id',labelRows[0].id);
   return count||0;
 }
 async function refreshClientsPageNavPulse(){
@@ -4207,11 +4213,48 @@ async function abConfirmRedeemInvite(token){
 // CASCADE — migration_2026-08-02_007) — worth naming in the warning text
 // since a person's own row disappears along with it, not just the company
 // row itself.
-function abDeleteContact(contactId,contactName){
+// Real accounting-integrity check, added 2026-08-14 — Ryan's direct
+// instruction: "if I delete a vendor... that vendor's bill doesn't [stop
+// existing]... you can't delete something just because you want to if
+// it's already connected to the books." Two real, different cases:
+// (1) this contact is directly the payee/client on a real invoice/bill
+// (invoices_bills.contact_id, which was deliberately never given ON
+// DELETE CASCADE) — the database already hard-blocks this delete outright
+// rather than silently dropping financial history; this just surfaces
+// that as a clear message instead of a raw SQL error. (2) this contact
+// OWNS real Jobs (a Client) — Jobs and their Invoices/Bills DO cascade
+// (Ryan's own explicit instruction, same conversation) but the old
+// warning text never actually disclosed that a cascade was about to
+// happen, which is exactly the kind of silent consequence he's asking to
+// never allow — now named explicitly before the second confirm click.
+async function checkContactUsage(contactId){
+  const[billsRes,jobsRes]=await Promise.all([
+    db.from('invoices_bills').select('id,total_amount,direction').eq('contact_id',contactId),
+    db.from('jobs').select('id').eq('contact_id',contactId)
+  ]);
+  const directBills=billsRes.data||[];
+  const jobIds=(jobsRes.data||[]).map(j=>j.id);
+  let jobInvoices=[];
+  if(jobIds.length){
+    const{data}=await db.from('invoices_bills').select('id').in('job_id',jobIds);
+    jobInvoices=data||[];
+  }
+  return{directBills,jobCount:jobIds.length,jobInvoiceCount:jobInvoices.length};
+}
+async function abDeleteContact(contactId,contactName){
   const kids=(abContacts||[]).filter(c=>c.parent_contact_id===contactId).length;
+  const usage=await checkContactUsage(contactId);
+  if(usage.directBills.length){
+    const total=usage.directBills.reduce((s,b)=>s+(Number(b.total_amount)||0),0);
+    popupOpen(`
+      <div class="dv-sub-h" style="color:#e2a3a3">Can't Delete "${abEsc(contactName)}"</div>
+      <div class="fv-status" style="margin-bottom:14px">This contact is directly attached to <b>${usage.directBills.length}</b> real invoice/bill${usage.directBills.length===1?'':'s'} (totaling ${abMoneyFmt(total)}) — real financial records like these are never silently removed. Reassign or delete those invoices/bills first if this contact truly needs to go.</div>`);
+    return;
+  }
+  const jobWarning=usage.jobCount?` This will also permanently delete <b>${usage.jobCount}</b> job${usage.jobCount===1?'':'s'}${usage.jobInvoiceCount?` and <b>${usage.jobInvoiceCount}</b> invoice(s)/bill(s) attached to ${usage.jobCount===1?'it':'them'}`:''}.`:'';
   popupOpen(`
-    <div class="dv-sub-h" style="color:#e2a3a3">Delete "${contactName}"?</div>
-    <div class="fv-status" style="margin-bottom:14px">This permanently removes this contact${kids?` and the ${kids} ${kids===1?'person':'people'} listed under it`:''}. This cannot be undone.</div>
+    <div class="dv-sub-h" style="color:#e2a3a3">Delete "${abEsc(contactName)}"?</div>
+    <div class="fv-status" style="margin-bottom:14px">This permanently removes this contact${kids?` and the ${kids} ${kids===1?'person':'people'} listed under it`:''}.${jobWarning} This cannot be undone.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="fv-save" style="background:transparent" onclick="downloadCurrentBookBackupNow('deleteContactStatus')">⬇ Download Backup First</button>
       <button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="confirmDeleteContact('${contactId}')">Delete Permanently</button>
