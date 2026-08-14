@@ -608,7 +608,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.67</div>
+      <div class="page-version" id="pageVersion">v2.68</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -699,6 +699,17 @@ select option{color:#2a2418;background:#fff}
 </div>
 
 <script>
+// rvInstances — moved here, 2026-08-14, real bug Ryan hit live in
+// production: this used to be declared much further down, right next to
+// rvCreate itself, but the page-load IIFE (buildPlaceholders →
+// renderAllPages → loadRealBooksIntoRowView → rvCreate) runs earlier in
+// the script's top-to-bottom execution than that line, so the very first
+// page load tried to read rvInstances before its own declaration had run
+// — "Cannot access 'rvInstances' before initialization," breaking the
+// Books row view (and anything downstream of it) silently on every load.
+// Declared first, before anything else in this script, so no future code
+// anywhere in this file can ever hit this same ordering trap again.
+const rvInstances=new Map();
 // ══════════════════════════════════════════════
 // NOMENCLATURE — read this before touching any page/detail/layout code.
 //   PAGE   — one item in the left sidebar (button + fixed number).
@@ -8563,7 +8574,14 @@ function initPageTooltips(containerId,side){
 // both the view and its CSS, no exceptions). Sample data (RV_SAMPLE_*)
 // deliberately NOT copied here — Tab 1 supplies its own real book
 // columns/rows below (BOOK_RV_COLUMNS), same functions, real data.
-const rvInstances=new Map();
+// rvInstances itself moved to the very top of the script, 2026-08-14 —
+// real bug Ryan hit live: this const used to live right here, but the
+// page-load IIFE (buildPlaceholders → renderAllPages →
+// loadRealBooksIntoRowView → rvCreate) runs earlier in the script than
+// this line, so it tried to read rvInstances before this declaration had
+// executed — "Cannot access 'rvInstances' before initialization." Moving
+// the declaration itself, not the code that uses it, since nothing else
+// should have to know or care about this ordering constraint.
 // colWidths now persists across a re-create of the SAME containerId —
 // Ryan's direct instruction, 2026-08-13: manually resized columns were
 // snapping back to default width every time the table reloaded (toggling
