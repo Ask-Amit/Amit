@@ -608,7 +608,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.64</div>
+      <div class="page-version" id="pageVersion">v2.65</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4670,14 +4670,31 @@ const CASH_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none"
 // Factored out of openAddClientPopup, 2026-08-13, so the legacy-clients
 // migration below can reuse the exact same "find or create" logic instead
 // of duplicating it.
+// Rewritten 2026-08-14 — real bug Ryan hit: this used to trust the
+// in-memory abContactLabels cache to decide whether "Customer" already
+// existed. When that cache was stale (label really exists in the DB, but
+// this session's copy of abContactLabels didn't have it yet — e.g. the
+// Clients Import popup opened before anything else had triggered a fresh
+// abLoadContactLabels()), it tried to INSERT a second "Customer" row,
+// hit the real unique(book_id,label) constraint, the insert failed, and
+// with no error handling here, customerLabel silently came back
+// undefined — which then skipped Customer-label-linking for every
+// contact in that import, with no visible error anywhere. Confirmed
+// against Ryan's real data: 424 contacts imported, 0 of them linked to
+// Customer. Now queries the database directly (authoritative, never
+// stale) instead of trusting the cache, and self-heals if a race still
+// produces a duplicate-key error by re-selecting instead of giving up.
 async function ensureCustomerLabel(){
-  if(!abContactLabels.length) await abLoadContactLabels();
-  let customerLabel=abContactLabels.find(l=>l.label.toLowerCase()==='customer');
-  if(!customerLabel){
-    const{data,error}=await db.from('contact_labels').insert({book_id:abBookId,label:'Customer',sort_order:abContactLabels.length}).select().single();
-    if(!error&&data){ await abLoadContactLabels(); customerLabel=abContactLabels.find(l=>l.id===data.id)||data; }
+  const{data:existing}=await db.from('contact_labels').select('*').eq('book_id',abBookId).ilike('label','customer').limit(1);
+  if(existing&&existing.length){ await abLoadContactLabels(); return existing[0]; }
+  const{data,error}=await db.from('contact_labels').insert({book_id:abBookId,label:'Customer',sort_order:0}).select().single();
+  if(error){
+    const{data:recovered}=await db.from('contact_labels').select('*').eq('book_id',abBookId).ilike('label','customer').limit(1);
+    await abLoadContactLabels();
+    return recovered&&recovered.length?recovered[0]:null;
   }
-  return customerLabel;
+  await abLoadContactLabels();
+  return data;
 }
 async function openAddClientPopup(){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
@@ -6921,12 +6938,11 @@ async function importCommitClients(){
     let clientImported=0;
     const pathToId={};
     (existingContacts||[]).forEach(c=>{ pathToId[c.name]=c.id; });
-    const labelLinksToInsert=[];
     if(newClients.length){
       const rows=newClients.map(c=>({book_id:abBookId,name:c.name,street_address:c.street_address,city_state:c.city_state,zip:c.zip,phone:c.phone,email:c.email}));
       const{data,error}=await db.from('contacts').insert(rows).select();
       if(error){ status.textContent='Error creating contacts: '+error.message; return; }
-      data.forEach((row,i)=>{ pathToId[newClients[i].fullPath]=row.id; if(customerLabel) labelLinksToInsert.push({book_id:abBookId,contact_id:row.id,label_id:customerLabel.id}); });
+      data.forEach((row,i)=>{ pathToId[newClients[i].fullPath]=row.id; });
       clientImported=data.length;
     }
     status.textContent=`Imported ${clientImported} client(s), now importing jobs…`;
@@ -6941,12 +6957,34 @@ async function importCommitClients(){
     // visible reason.
     const orphanJobs=jobs.filter(j=>!pathToId[j.parentPath]);
     let orphanImported=0;
+    const orphanContactIds=[];
     if(orphanJobs.length){
       const rows=orphanJobs.map(j=>({book_id:abBookId,name:j.name,street_address:j.street_address,city_state:j.city_state,zip:j.zip,phone:j.phone,email:j.email}));
       const{data,error}=await db.from('contacts').insert(rows).select();
-      if(!error&&data){ orphanImported=data.length; data.forEach(row=>{ if(customerLabel) labelLinksToInsert.push({book_id:abBookId,contact_id:row.id,label_id:customerLabel.id}); }); }
+      if(!error&&data){ orphanImported=data.length; data.forEach(row=>{ pathToId[row.name]=row.id; orphanContactIds.push(row.id); }); }
     }
-    if(labelLinksToInsert.length) await db.from('contact_label_links').insert(labelLinksToInsert);
+    // Real fix, 2026-08-14: link EVERY client this run touched (existing
+    // AND new AND orphan) to the Customer label, not just the ones that
+    // were brand-new inserts. This is what actually repairs contacts that
+    // got created without a link by the old buggy ensureCustomerLabel
+    // (see its own comment) — re-running Import now backfills anyone
+    // still missing the link instead of only fixing it going forward.
+    // upsert+ignoreDuplicates makes this safe to run repeatedly against
+    // contacts that already have the link (unique(contact_id,label_id)).
+    // orphanContactIds captured directly at creation (not looked up by
+    // name through pathToId) so this never risks pulling in an unrelated
+    // existing contact that happens to share a name.
+    if(customerLabel){
+      const clientIds=clients.map(c=>pathToId[c.fullPath]).filter(Boolean);
+      const allLinkRows=[...clientIds,...orphanContactIds].map(id=>({book_id:abBookId,contact_id:id,label_id:customerLabel.id}));
+      if(allLinkRows.length){
+        const{error:linkError}=await db.from('contact_label_links').upsert(allLinkRows,{onConflict:'contact_id,label_id',ignoreDuplicates:true});
+        if(linkError){ status.textContent='Contacts imported, but linking them as Customer failed: '+linkError.message; return; }
+      }
+    } else {
+      status.textContent='Contacts imported, but no "Customer" label could be found or created for this book — check Terminology.';
+      return;
+    }
     let jobImported=0;
     if(jobRows.length){
       const{data,error}=await db.from('jobs').insert(jobRows).select();
