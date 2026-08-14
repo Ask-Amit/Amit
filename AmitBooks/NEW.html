@@ -608,7 +608,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.68</div>
+      <div class="page-version" id="pageVersion">v2.69</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -709,7 +709,28 @@ select option{color:#2a2418;background:#fff}
 // Books row view (and anything downstream of it) silently on every load.
 // Declared first, before anything else in this script, so no future code
 // anywhere in this file can ever hit this same ordering trap again.
+//
+// Same real bug recurred a second time with RV_FUNNEL_SVG (Ryan caught it
+// live again, same session) — this was never a one-off, it's a whole
+// class: any const/let sitting after the page-load IIFE (buildPlaceholders,
+// line ~8440) that the IIFE's own synchronous call chain happens to touch
+// will TDZ-crash on first load. Rather than keep whack-a-moling one
+// variable per bug report, every small top-level constant the Row
+// View/init path could plausibly reach is moved up here at once.
 const rvInstances=new Map();
+let rvMenuState=null;
+const RV_FISCAL_START_MONTH=9;
+const RV_FUNNEL_SVG='<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:middle"><path d="M1 2h14l-5.5 6.5v5L7 15V8.5z"/></svg>';
+let rvFunnelClickTimer=null;
+const spvInstances=new Map();
+const BOOK_SAMPLE_COLUMNS=[
+  {key:'name',label:'Book Name'},
+  {key:'entity_type',label:'Entity Type'},
+  {key:'gated',label:'Password'},
+  {key:'created',label:'Created'}
+];
+const PLUG_CONNECTED_SVG=`<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="7" height="6" rx="1.4"/><path d="M10 11h4"/><path d="M10 13h4"/><rect x="14" y="7" width="7" height="10" rx="1.6"/></svg>`;
+const PLUG_DISCONNECTED_SVG=`<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="9" width="7" height="6" rx="1.4"/><path d="M8 11h2.5"/><path d="M8 13h2.5"/><rect x="16" y="7" width="7" height="10" rx="1.6"/></svg>`;
 // ══════════════════════════════════════════════
 // NOMENCLATURE — read this before touching any page/detail/layout code.
 //   PAGE   — one item in the left sidebar (button + fixed number).
@@ -8705,8 +8726,6 @@ function rvGetVisibleRows(inst){
   }
   return rows;
 }
-let rvMenuState=null;
-const RV_FISCAL_START_MONTH=9;
 function rvFmtDate(d){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
@@ -8759,8 +8778,6 @@ function rvDateCustomApply(){
   rvCloseColMenu();
   rvRenderInstance(containerId);
 }
-const RV_FUNNEL_SVG='<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:middle"><path d="M1 2h14l-5.5 6.5v5L7 15V8.5z"/></svg>';
-let rvFunnelClickTimer=null;
 function rvFunnelClick(e,containerId,key){
   e.stopPropagation();
   if(rvFunnelClickTimer){
@@ -9276,7 +9293,6 @@ function rvHandleKeydown(e,containerId){
 // selector on Tab 1 of Introduction. Disconnected from the live-fetch
 // importer on purpose — Ryan's call, form only for now, real Supabase
 // book data (per signed-in user) wired in later.
-const spvInstances=new Map();
 function spvCreate(containerId,columns,rows,listTitle,addLabel,detailRenderer,externalDetailMountId){
   spvInstances.set(containerId,{columns,rows,selectedId:(rows[0]&&rows[0].id)||null,listTitle:listTitle||null,addLabel:addLabel||null,detailRenderer:detailRenderer||null,externalDetailMountId:externalDetailMountId||null});
   spvRenderInstance(containerId);
@@ -9457,13 +9473,8 @@ function spvSelect(containerId,id){
 // Book-flavored sample data — placeholder rows standing in for real
 // books.* Supabase rows until this is wired to the signed-in user's
 // actual books. Password/gate column included as a visible placeholder
-// field only — no gate logic behind it yet.
-const BOOK_SAMPLE_COLUMNS=[
-  {key:'name',label:'Book Name'},
-  {key:'entity_type',label:'Entity Type'},
-  {key:'gated',label:'Password'},
-  {key:'created',label:'Created'}
-];
+// field only — no gate logic behind it yet. (BOOK_SAMPLE_COLUMNS itself
+// now declared at the very top of the script — see its own comment there.)
 // Open-book line icon — plain stroke SVG, not an emoji, per Ryan's
 // direct instruction: "professional, not cartoonish." Inherits currentColor
 // so it matches the sidebar's existing white/gold text treatment.
@@ -9474,9 +9485,9 @@ const BOOK_SAMPLE_COLUMNS=[
 // hand-drawn curves — for reliability: a plug body (rect) + two straight
 // prong lines + a socket (rect), touching when connected, gapped with the
 // prongs visibly exposed when not. White stroke, meant to sit on the
-// colored circle badge (see .plug-badge CSS).
-const PLUG_CONNECTED_SVG=`<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="9" width="7" height="6" rx="1.4"/><path d="M10 11h4"/><path d="M10 13h4"/><rect x="14" y="7" width="7" height="10" rx="1.6"/></svg>`;
-const PLUG_DISCONNECTED_SVG=`<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="9" width="7" height="6" rx="1.4"/><path d="M8 11h2.5"/><path d="M8 13h2.5"/><rect x="16" y="7" width="7" height="10" rx="1.6"/></svg>`;
+// colored circle badge (see .plug-badge CSS). (PLUG_CONNECTED_SVG/
+// PLUG_DISCONNECTED_SVG themselves now declared at the very top of the
+// script — see the comment there.)
 // CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
 // added 2026-08-06. Multi-row overflow: the tab row grows as many rows
 // behind itself as it needs (plain CSS flex-wrap, see .ch-tab-nav) rather
