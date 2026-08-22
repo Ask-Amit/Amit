@@ -608,7 +608,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.71</div>
+      <div class="page-version" id="pageVersion">v2.72</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6965,17 +6965,15 @@ function openImportStepClients(){
   popupOpen(`
     <div class="dv-sub-h">Customers → ${abEsc(abPluralize(abFieldLabel('client','Client')))} + Jobs</div>
     <div class="import-walkthrough">
-      <b>Customer List</b> — same export as Accounts and Scopes:
+      <b>Two ways to bring this in — either works, use whichever's easier:</b>
       <ol>
-        <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
-        <li>A checklist of every list QuickBooks can export appears — <b>none of them are checked by default, so check every single box yourself</b> before clicking OK</li>
-        <li>Click <b>OK</b>, then save the file somewhere you'll remember</li>
-        <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
+        <li><b>Lists to IIF Files</b> — File → Utilities → Export → Lists to IIF Files…, check every box (none are checked by default), save the file.</li>
+        <li><b>Customer Contact List report</b> — Reports → Customers & Receivables → Customer Contact List (or Customer Phone List), Export → Comma Separated Values (.csv). Ryan's direct catch, 2026-08-14: some Customer/Job entries were missing from the .IIF export that showed up fine in this report — worth using this one if the .IIF ever seems to be missing something.</li>
       </ol>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">QuickBooks stores a Job as a sub-record under its Customer — this brings both over together, Jobs linked to their real Client automatically. Job Type and job start/end dates aren't captured yet (no place for them on the Jobs table currently).</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">QuickBooks stores a Job as a sub-record under its Customer (Customer:Job, or "Parent:Child" in the CSV's Customer column) — this brings both over together, Jobs linked to their real Client automatically. The CSV also carries phone, a Primary Contact name, and a Balance Total (kept as a reference "opening balance," separate from AmitBooks' own live-computed totals). Job Type and job start/end dates aren't captured yet (no place for them on the Jobs table currently).</div>
     </div>
     ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
-    <input type="file" id="importClientsFile" accept=".iif" onchange="importClientsFileChosen(this.files[0])">
+    <input type="file" id="importClientsFile" accept=".iif,.csv" onchange="importClientsFileChosen(this.files[0])">
     <div id="importClientsReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importClientsStatus" style="margin-top:10px"></div>`);
   if(lastImportFile) importClientsFileChosen(lastImportFile);
@@ -6985,12 +6983,89 @@ async function importClientsFileChosen(file){
   lastImportFile=file;
   const status=document.getElementById('importClientsStatus');
   status.textContent='Reading file…';
-  if(!(file.name||'').toLowerCase().endsWith('.iif')){ status.textContent='Customers only import from the .IIF export right now — see the walkthrough above.'; return; }
-  importParsedClients=importParseIifCustomers(await file.text());
+  const lower=(file.name||'').toLowerCase();
+  if(lower.endsWith('.iif')) importParsedClients=importParseIifCustomers(await file.text());
+  else if(lower.endsWith('.csv')) importParsedClients=importParseCsvCustomers(await file.text());
+  else { status.textContent='Customers import from either the .IIF export or the Customer Contact List .csv report — see the walkthrough above.'; return; }
   if(!importParsedClients){ status.textContent='Could not find any customers in that file.'; return; }
   if(!importParsedClients.clients.length){ status.textContent='That file has no customers in it.'; return; }
   renderImportClientsReview();
   status.textContent='';
+}
+// Real RFC4180-style CSV line parser — the IIF importers can split on a
+// bare tab character since IIF is tab-delimited, but this is real comma-
+// separated data with quoted fields that can themselves contain commas
+// (e.g. an address like "100 S King St, Ste 100 #706 Seattle, WA  98104"
+// inside one quoted "Bill to" field) — a naive split(',') would shred
+// those apart. Handles doubled "" as an escaped quote inside a field.
+function parseCsvLine(line){
+  const out=[]; let cur=''; let inQuotes=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(inQuotes){
+      if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else inQuotes=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') inQuotes=true;
+      else if(ch===','){ out.push(cur); cur=''; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+// The "Bill to" column in this report is one combined blob — QuickBooks'
+// own concatenation of name + street + city/state/zip with no delimiter
+// between them (e.g. "Bob Julita PO Box 1098 Pinehurst, ID  83850") — not
+// cleanly split into separate fields the way the IIF's ADDR1-5 are. Pulls
+// the trailing "City, ST ZIP" (comma before the state optional — real
+// data has both "Pinehurst, ID 83850" and "Silverton ID 83867") and
+// leaves everything before it as street_address. That street_address
+// often still has the customer's own name sitting at the front of it
+// (QuickBooks put it there, not us) — left as-is rather than guessed at
+// further; better a little redundant than silently wrong.
+function splitCsvAddressBlob(blob){
+  const m=(blob||'').trim().match(/^(.*?)\s+([A-Za-z .'\-]+?),?\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/);
+  if(m) return{street:m[1].trim()||null,cityState:(m[2].trim()+', '+m[3]).trim(),zip:m[4]};
+  return{street:blob.trim()||null,cityState:null,zip:null};
+}
+// Ryan's direct instruction, 2026-08-14: the QuickBooks "Customer Contact
+// List" report (Customer, Bill to, Primary Contact, Main Phone, Fax,
+// Balance Total) as a second, more complete source than the .IIF export —
+// real entries (a handful of Blue Knoll Road rental properties) showed up
+// here that were missing from a real .IIF export of the same company
+// file. Produces the exact same {clients,jobs} shape importParseIifCustomers
+// does, so it feeds the same review screen and commit logic unchanged.
+function importParseCsvCustomers(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
+  if(lines.length<2)return null;
+  const clients=[],jobs=[];
+  lines.slice(1).forEach(line=>{
+    const cols=parseCsvLine(line);
+    // Leading column is always blank in this report — Customer starts at
+    // index 1: [blank, Customer, Bill to, Primary Contact, Main Phone, Fax, Balance Total]
+    const fullPath=(cols[1]||'').trim();
+    if(!fullPath)return;
+    const parts=fullPath.split(':').map(p=>p.trim()).filter(Boolean);
+    const name=parts[parts.length-1];
+    const addr=splitCsvAddressBlob(cols[2]||'');
+    const balanceRaw=(cols[6]||'').trim().replace(/,/g,'');
+    const balance=balanceRaw?parseFloat(balanceRaw):null;
+    const shared={
+      name,
+      contact_name:(cols[3]||'').trim()||null,
+      street_address:addr.street,
+      city_state:addr.cityState,
+      zip:addr.zip,
+      phone:(cols[4]||'').trim()||null,
+      email:null,
+      opening_balance:(balance===null||isNaN(balance))?null:balance
+    };
+    if(parts.length===1) clients.push({...shared,fullPath});
+    else jobs.push({...shared,fullPath,parentPath:parts.slice(0,-1).join(':'),status:'active'});
+  });
+  if(!clients.length&&!jobs.length)return null;
+  return{clients,jobs};
 }
 // A US address split heuristic, not a guarantee — QuickBooks' BADDR3 in
 // Ryan's real data is one combined "City, ST ZIP" line (e.g. "Kellogg,
@@ -7059,8 +7134,8 @@ function renderImportClientsReview(){
       <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importClientsSelectAll(true)">Select All</button>
       <button class="ab-btn" style="padding:6px 10px;font-size:10px" onclick="importClientsSelectAll(false)">Deselect All</button>
     </div>
-    <table class="ab-table"><tr><th></th><th>${abEsc(clientLabel)}</th><th>Phone</th><th>Email</th><th>Jobs</th></tr>
-    ${clients.map((c,i)=>`<tr><td><input type="checkbox" class="import-client-check" data-idx="${i}" checked></td><td>${abEsc(c.name)}</td><td style="font-size:12px">${abEsc(c.phone||'—')}</td><td style="font-size:12px">${abEsc(c.email||'—')}</td><td style="font-size:12px">${jobs.filter(j=>j.parentPath===c.fullPath).length||'—'}</td></tr>`).join('')}
+    <table class="ab-table"><tr><th></th><th>${abEsc(clientLabel)}</th><th>Phone</th><th>Email</th><th>Jobs</th><th>Balance</th></tr>
+    ${clients.map((c,i)=>`<tr><td><input type="checkbox" class="import-client-check" data-idx="${i}" checked></td><td>${abEsc(c.name)}</td><td style="font-size:12px">${abEsc(c.phone||'—')}</td><td style="font-size:12px">${abEsc(c.email||'—')}</td><td style="font-size:12px">${jobs.filter(j=>j.parentPath===c.fullPath).length||'—'}</td><td style="font-size:12px">${c.opening_balance!=null?abMoneyFmt(c.opening_balance):'—'}</td></tr>`).join('')}
     </table>
     <button class="fv-save" style="margin-top:14px" onclick="importCommitClients()">Import Selected</button>`;
 }
@@ -7101,7 +7176,7 @@ async function importCommitClients(){
     const pathToId={};
     (existingContacts||[]).forEach(c=>{ pathToId[c.name]=c.id; });
     if(newClients.length){
-      const rows=newClients.map(c=>({book_id:abBookId,name:c.name,street_address:c.street_address,city_state:c.city_state,zip:c.zip,phone:c.phone,email:c.email}));
+      const rows=newClients.map(c=>({book_id:abBookId,name:c.name,contact_name:c.contact_name||null,street_address:c.street_address,city_state:c.city_state,zip:c.zip,phone:c.phone,email:c.email,opening_balance:c.opening_balance!=null?c.opening_balance:null}));
       const{data,error}=await db.from('contacts').insert(rows).select();
       if(error){ status.textContent='Error creating contacts: '+error.message; return; }
       data.forEach((row,i)=>{ pathToId[newClients[i].fullPath]=row.id; });
@@ -7110,7 +7185,8 @@ async function importCommitClients(){
     status.textContent=`Imported ${clientImported} client(s), now importing jobs…`;
     const jobRows=jobs.filter(j=>pathToId[j.parentPath]).map(j=>({
       book_id:abBookId,contact_id:pathToId[j.parentPath],name:j.name,
-      street_address:j.street_address,city_state:j.city_state,zip:j.zip,status:j.status
+      street_address:j.street_address,city_state:j.city_state,zip:j.zip,status:j.status,
+      opening_balance:j.opening_balance!=null?j.opening_balance:null
     }));
     // Jobs whose parent Customer wasn't found among either existing or
     // newly-imported contacts become their own standalone Customer-labeled
@@ -7121,7 +7197,7 @@ async function importCommitClients(){
     let orphanImported=0;
     const orphanContactIds=[];
     if(orphanJobs.length){
-      const rows=orphanJobs.map(j=>({book_id:abBookId,name:j.name,street_address:j.street_address,city_state:j.city_state,zip:j.zip,phone:j.phone,email:j.email}));
+      const rows=orphanJobs.map(j=>({book_id:abBookId,name:j.name,contact_name:j.contact_name||null,street_address:j.street_address,city_state:j.city_state,zip:j.zip,phone:j.phone,email:j.email,opening_balance:j.opening_balance!=null?j.opening_balance:null}));
       const{data,error}=await db.from('contacts').insert(rows).select();
       if(!error&&data){ orphanImported=data.length; data.forEach(row=>{ pathToId[row.name]=row.id; orphanContactIds.push(row.id); }); }
     }
