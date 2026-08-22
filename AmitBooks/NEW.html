@@ -75,9 +75,9 @@
 <link rel="icon" type="image/x-icon" href="amit_icon.ico">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- SheetJS — reads native QuickBooks .xlsx exports directly in the
-     browser. Added 2026-08-10: QuickBooks Desktop's Account Listing
-     report has no direct CSV export in Ryan's edition, only "Create New
+<!-- SheetJS — reads native .xlsx exports from the old accounting system
+     directly in the browser. Added 2026-08-10: the old system's Account
+     Listing report has no direct CSV export in Ryan's edition, only "Create New
      Worksheet"/"Update Existing Worksheet" (Excel) or PDF — asking every
      person importing their books to manually re-save as CSV in Excel
      first was real, unacceptable friction ("that's not gonna happen" —
@@ -545,6 +545,19 @@ select option{color:#2a2418;background:#fff}
 /* Two-section book detail pane (Company Profile / Book Settings), added
    2026-08-07 — the right-hand side of Tab 1's Split View. */
 .dv-sub-h{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
+/* In-popup tab strip — Ryan's direct instruction, 2026-08-14: the full
+   Contact detail popup (Clients/Vendors/Contacts all share it) needed a
+   tabbed layout, same shape the old system's own tabbed customer form used, once
+   it grew past a handful of fields — Profile/Reach/Addresses/Billing &
+   Tax/Classification/Connections. Lightweight, popup-scoped variant of
+   the page-level .ch-tab-btn — content panes are pre-built (never
+   destroyed by switching tabs, so nothing typed is ever lost mid-edit)
+   and shown/hidden via cfShowTab, not re-rendered.*/
+.cf-tab-nav{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid rgba(201,168,76,.25)}
+.cf-tab-btn{padding:8px 16px;border:1px solid rgba(201,168,76,.25);border-bottom:none;background:rgba(255,255,255,.03);color:var(--muted);border-radius:8px 8px 0 0;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+.cf-tab-btn.active{background:var(--card-head);color:var(--gold2);font-weight:600;position:relative;top:1px}
+.cf-tab-pane{display:none;padding-top:16px}
+.cf-tab-pane.active{display:block}
 .spv-detail-section{margin-bottom:26px}
 .spv-detail-section+.spv-detail-section{padding-top:20px;border-top:1px solid rgba(201,168,76,.2)}
 .spv-detail-empty-note{font-size:12px;color:var(--dim);font-style:italic;margin-top:4px}
@@ -560,7 +573,7 @@ select option{color:#2a2418;background:#fff}
 .fv-save:hover{background:rgba(201,168,76,.28);border-color:var(--gold)}
 .fv-status{font-size:12px;color:var(--gold2);margin-top:10px}
 /* Real, readable instructional walkthrough text (e.g. the Import wizard's
-   QuickBooks export steps) — Ryan caught this directly, 2026-08-10: the
+   export steps) — Ryan caught this directly, 2026-08-10: the
    generic .fv-status size (12px) was built for small transient status
    messages, not real step-by-step instructions someone actually has to
    read and follow without zooming in. */
@@ -608,7 +621,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.73</div>
+      <div class="page-version" id="pageVersion">v2.74</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1435,7 +1448,7 @@ function abMoneyFmt(n){
 // dialog in this file already uses — not a new pattern, just applying the
 // existing one here too.
 // ══════════════════════════════════════════════
-// Ryan's real-world catch, 2026-08-13: a vendor imported from QuickBooks
+// Ryan's real-world catch, 2026-08-13: a vendor imported from the old system
 // with a literal quote character in its own name ("Ellen Masterson,
 // Treasurer") broke double-click entirely — d.innerHTML escapes <, >, and
 // & (the DOM textContent→innerHTML trick this relies on) but never touches
@@ -1542,7 +1555,7 @@ function abCoaTreeOrder(accounts){
 // draw the person there next, the same visual language already used for
 // steps 1 and 2. Runs every time abRenderCoa runs, so it stays correct
 // whichever book is selected and clears itself the moment real accounts
-// exist (manual add, template, or QuickBooks import — abLoadAccounts+
+// exist (manual add, template, or the old system import — abLoadAccounts+
 // abRenderCoa runs after all three).
 //
 // CORRECTED same day, Ryan's direct instruction after testing: this
@@ -1994,7 +2007,7 @@ async function abImportSelectedTemplate(){
   abTemplatePreview=null;
   await abLoadAccounts(); abRenderCoa();
 }
-// Real subtype list — matches how QuickBooks/Xero actually classify a
+// Real subtype list — matches how the old system/Xero actually classify a
 // liability account. 'accounts_payable' deliberately NOT offered here —
 // real AP is already computed live from the invoices_bills table (see
 // computeBookKpis below), not from a chart_of_accounts balance.
@@ -2703,7 +2716,7 @@ function abRenderItems(){
 //
 // "Cost Account"/"Billable Account" — Ryan's direct instruction,
 // 2026-08-12: renamed from Expense/Income Account on screen, deliberately
-// distancing the wording from QuickBooks' own labels. The underlying
+// distancing the wording from the old system's own labels. The underlying
 // columns (expense_account_id/income_account_id) are unchanged — see
 // migration_2026-08-12_002's own header comment for why. Each account
 // gets its own note field (cost_account_note/billable_account_note, same
@@ -3469,13 +3482,22 @@ let abContactLabelMap={};
 // always stays the book's own local data, untouched by this.
 const AB_ENTITY_SHARED_FIELDS=['name','contact_name','phone','email','street_address','city_state','zip','billing_street_address','billing_city_state','billing_zip'];
 let abContactEntities={};
+// Billing-detail side table (migration_2026-08-14_003) — one row per
+// contact, only for whoever actually needs shipping/payment-method/sales-
+// tax/customer-type fields (Customers/Clients), never created for a
+// Vendor or Employee. Overlaid onto the in-memory contact object the same
+// way labels/attachments/entity fields already are, so the popup's own
+// v() helper reads it with zero special-casing.
+let abContactBillingDetails={};
+const AB_BILLING_DETAIL_FIELDS=['shipping_street_address','shipping_city_state','shipping_zip','preferred_payment_method','sales_tax_status','tax_exempt_number','customer_type'];
 async function abLoadContacts(){
-  if(!abBookId||!db||!currentUser){abContacts=[];abContactAttachCounts={};abContactLabelMap={};abContactEntities={};return;}
+  if(!abBookId||!db||!currentUser){abContacts=[];abContactAttachCounts={};abContactLabelMap={};abContactEntities={};abContactBillingDetails={};return;}
   const{data}=await db.from('contacts').select('*').eq('book_id',abBookId).order('name');
   abContacts=data||[];
   abContactAttachCounts={};
   abContactLabelMap={};
   abContactEntities={};
+  abContactBillingDetails={};
   const ids=abContacts.map(c=>c.id);
   if(ids.length){
     const{data:atts}=await db.from('contact_attachments').select('contact_id').in('contact_id',ids);
@@ -3491,6 +3513,12 @@ async function abLoadContacts(){
         if(ent) AB_ENTITY_SHARED_FIELDS.forEach(f=>{ c[f]=ent[f]; });
       });
     }
+    const{data:billing}=await db.from('contact_billing_details').select('*').in('contact_id',ids);
+    (billing||[]).forEach(b=>{ abContactBillingDetails[b.contact_id]=b; });
+    abContacts.forEach(c=>{
+      const bd=abContactBillingDetails[c.id];
+      if(bd) AB_BILLING_DETAIL_FIELDS.forEach(f=>{ c[f]=bd[f]; });
+    });
   }
 }
 function abRoleTags(c){
@@ -3892,11 +3920,18 @@ async function contactFormAddLabel(){
   contactFormSelectedLabels.add(data.id);
   contactFormRenderLabelChips();
 }
-function contactFormCopyMailingToBilling(){
+// Reused by both Billing and Shipping's own "same as mailing" link —
+// target is 'billing' or 'ship', matching each block's own field id
+// prefix (contactForm-billingaddress/contactForm-shipaddress, etc.).
+function contactFormCopyMailingTo(target){
   ['address','citystate','zip'].forEach(f=>{
-    const from=document.getElementById('contactForm-'+f), to=document.getElementById('contactForm-billing'+f);
+    const from=document.getElementById('contactForm-'+f), to=document.getElementById('contactForm-'+target+f);
     if(from&&to) to.value=from.value;
   });
+}
+function cfShowTab(popupId,tabKey){
+  document.querySelectorAll(`#${popupId} .cf-tab-btn`).forEach(b=>b.classList.toggle('active',b.dataset.tab===tabKey));
+  document.querySelectorAll(`#${popupId} .cf-tab-pane`).forEach(p=>p.classList.toggle('active',p.dataset.tab===tabKey));
 }
 function openContactDetailPopup(contactId){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
@@ -3912,78 +3947,131 @@ function openContactDetailPopup(contactId){
   const existing=contactId?abContacts.find(c=>c.id===contactId):null;
   contactFormSelectedLabels=new Set(existing?(abContactLabelMap[existing.id]||[]):[]);
   const v=key=>existing?(existing[key]||''):'';
+  // Tabbed layout — Ryan's direct instruction, 2026-08-14: "within
+  // the old system they have this in a tabbed format... double-click on a
+  // client's name, it should pop up a tabbed format form." Six tabs,
+  // each renamed away from the old system's own wording (Profile/Reach/
+  // Addresses/Billing & Tax/Classification/Files & Links) rather than a
+  // straight copy of the old system's Address Info/Payment Settings/Sales Tax
+  // Settings/Additional Info tab names. All panes are built up front and
+  // shown/hidden by cfShowTab — nothing is destroyed by switching tabs,
+  // so nothing typed is ever lost mid-edit.
   popupOpen(`
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
       <div style="width:52px;height:52px;border-radius:50%;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2)">${CONTACT_ICON_SVG}</div>
-      <div>
+      <div style="flex:1">
         <div class="dv-sub-h" style="margin:0">${existing?'Edit Contact':'New Contact'}</div>
         <div style="font-size:11px;color:var(--muted)">Anyone this book deals with — a vendor, a customer, an employee, a subcontractor, whatever applies.</div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap" title="Unchecking this hides them from Contacts/Vendors/Clients lists by default, without deleting anything"><input type="checkbox" id="contactForm-active"${existing&&existing.is_active===false?'':' checked'}> Active</label>
     </div>
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin-bottom:8px">Contact</div>
-    <div class="company-form-grid">
-      <div class="fv-field" style="grid-column:1/-1;flex-direction:row;gap:14px;align-items:flex-end">
-        <div class="fv-field" style="flex:1"><label class="fv-label">Name</label><input class="fv-input" id="contactForm-name" autocomplete="off" value="${abEsc(v('name'))}" placeholder="Company or person's name"></div>
-        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;padding-bottom:9px;white-space:nowrap" title="Unchecking this hides them from Contacts/Vendors/Clients lists by default, without deleting anything"><input type="checkbox" id="contactForm-active"${existing&&existing.is_active===false?'':' checked'}> Active</label>
+    <div class="cf-tab-nav" id="contactFormTabs">
+      <button type="button" class="cf-tab-btn active" data-tab="profile" onclick="cfShowTab('canonicalPopupCard','profile')">Profile</button>
+      <button type="button" class="cf-tab-btn" data-tab="reach" onclick="cfShowTab('canonicalPopupCard','reach')">Reach</button>
+      <button type="button" class="cf-tab-btn" data-tab="addresses" onclick="cfShowTab('canonicalPopupCard','addresses')">Addresses</button>
+      <button type="button" class="cf-tab-btn" data-tab="billing" onclick="cfShowTab('canonicalPopupCard','billing')">Billing &amp; Tax</button>
+      <button type="button" class="cf-tab-btn" data-tab="classification" onclick="cfShowTab('canonicalPopupCard','classification')">Classification</button>
+      <button type="button" class="cf-tab-btn" data-tab="files" onclick="cfShowTab('canonicalPopupCard','files')">Files &amp; Links</button>
+    </div>
+
+    <div class="cf-tab-pane active" data-tab="profile">
+      <div class="company-form-grid">
+        <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Name</label><input class="fv-input" id="contactForm-name" autocomplete="off" value="${abEsc(v('name'))}" placeholder="Company or person's name"></div>
+        <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Contact Person</label><input class="fv-input" id="contactForm-contactname" autocomplete="off" value="${abEsc(v('contact_name'))}" placeholder="Who to reach out to, if different from the name above"></div>
+        <div class="fv-field"><label class="fv-label">Their Role/Title</label><input class="fv-input" id="contactForm-jobtitle" value="${abEsc(v('job_title'))}" placeholder="e.g. Property Manager"></div>
       </div>
-      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Contact Person</label><input class="fv-input" id="contactForm-contactname" autocomplete="off" value="${abEsc(v('contact_name'))}" placeholder="Who to reach out to, if different from the name above"></div>
-      <div class="fv-field"><label class="fv-label">Phone</label><input class="fv-input" id="contactForm-phone" value="${abEsc(v('phone'))}" placeholder="(555) 555-5555" oninput="abFormatPhoneInput(this)"></div>
-      <div class="fv-field"><label class="fv-label">Email</label><input class="fv-input" id="contactForm-email" value="${abEsc(v('email'))}" placeholder="name@example.com"></div>
-    </div>
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Labels — as many as this contact needs</div>
-    <div id="contactForm-labelChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input class="fv-input" id="contactForm-newlabel" placeholder="Add a new label (e.g. Subcontractor)" style="max-width:220px" onkeydown="if(event.key==='Enter'){event.preventDefault();contactFormAddLabel();}">
-      <button class="ab-btn" style="align-self:auto" onclick="contactFormAddLabel()">+ Add</button>
-    </div>
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Mailing Address</div>
-    <div class="company-form-grid">
-      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-address" autocomplete="off" value="${abEsc(v('street_address'))}" placeholder="123 Main St"></div>
-      <div class="fv-field">
-        <label class="fv-label">City, State</label>
-        <input class="fv-input" id="contactForm-citystate" value="${abEsc(v('city_state'))}" placeholder="Fills in from ZIP" readonly style="opacity:.85">
-      </div>
-      <div class="fv-field">
-        <label class="fv-label">ZIP</label>
-        <input class="fv-input" id="contactForm-zip" value="${abEsc(v('zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value,'')" style="width:110px">
-        <div id="contactForm-zip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Labels — as many as this contact needs</div>
+      <div id="contactForm-labelChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="fv-input" id="contactForm-newlabel" placeholder="Add a new label (e.g. Subcontractor)" style="max-width:220px" onkeydown="if(event.key==='Enter'){event.preventDefault();contactFormAddLabel();}">
+        <button class="ab-btn" style="align-self:auto" onclick="contactFormAddLabel()">+ Add</button>
       </div>
     </div>
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Billing Address <span style="cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;color:var(--gold2)" onclick="contactFormCopyMailingToBilling()">— same as mailing →</span></div>
-    <div class="company-form-grid">
-      <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-billingaddress" autocomplete="off" value="${abEsc(v('billing_street_address'))}" placeholder="123 Main St"></div>
-      <div class="fv-field">
-        <label class="fv-label">City, State</label>
-        <input class="fv-input" id="contactForm-billingcitystate" value="${abEsc(v('billing_city_state'))}" placeholder="Fills in from ZIP" readonly style="opacity:.85">
+
+    <div class="cf-tab-pane" data-tab="reach">
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin-bottom:8px">Phones &amp; Fax</div>
+      <div class="company-form-grid">
+        <div class="fv-field"><label class="fv-label">Main Phone</label><input class="fv-input" id="contactForm-phone" value="${abEsc(v('phone'))}" placeholder="(555) 555-5555" oninput="abFormatPhoneInput(this)"></div>
+        <div class="fv-field"><label class="fv-label">Work Phone</label><input class="fv-input" id="contactForm-workphone" value="${abEsc(v('work_phone'))}" placeholder="(555) 555-5555" oninput="abFormatPhoneInput(this)"></div>
+        <div class="fv-field"><label class="fv-label">Mobile</label><input class="fv-input" id="contactForm-mobilephone" value="${abEsc(v('mobile_phone'))}" placeholder="(555) 555-5555" oninput="abFormatPhoneInput(this)"></div>
+        <div class="fv-field"><label class="fv-label">Fax</label><input class="fv-input" id="contactForm-fax" value="${abEsc(v('fax'))}" placeholder="(555) 555-5555" oninput="abFormatPhoneInput(this)"></div>
       </div>
-      <div class="fv-field">
-        <label class="fv-label">ZIP</label>
-        <input class="fv-input" id="contactForm-billingzip" value="${abEsc(v('billing_zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value,'billing')" style="width:110px">
-        <div id="contactForm-billingzip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Online</div>
+      <div class="company-form-grid">
+        <div class="fv-field"><label class="fv-label">Email</label><input class="fv-input" id="contactForm-email" value="${abEsc(v('email'))}" placeholder="name@example.com"></div>
+        <div class="fv-field"><label class="fv-label">Second Email</label><input class="fv-input" id="contactForm-secondaryemail" value="${abEsc(v('secondary_email'))}" placeholder="name@example.com"></div>
+        <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Website</label><input class="fv-input" id="contactForm-website" value="${abEsc(v('website'))}" placeholder="https://example.com"></div>
       </div>
     </div>
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Business</div>
-    <div class="company-form-grid">
-      <div class="fv-field"><label class="fv-label">Payment Terms</label><input class="fv-input" id="contactForm-terms" value="${abEsc(v('payment_terms'))}" placeholder="e.g. Net 30"></div>
-      <div class="fv-field"><label class="fv-label">Default Account</label><select class="fv-input" id="contactForm-defaultacct"><option value="">— None —</option>${abAccounts.map(a=>`<option value="${a.id}"${v('default_account_id')===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
+
+    <div class="cf-tab-pane" data-tab="addresses">
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin-bottom:8px">Mailing Address</div>
+      <div class="company-form-grid">
+        <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-address" autocomplete="off" value="${abEsc(v('street_address'))}" placeholder="123 Main St"></div>
+        <div class="fv-field"><label class="fv-label">City, State</label><input class="fv-input" id="contactForm-citystate" value="${abEsc(v('city_state'))}" placeholder="Fills in from ZIP" readonly style="opacity:.85"></div>
+        <div class="fv-field"><label class="fv-label">ZIP</label><input class="fv-input" id="contactForm-zip" value="${abEsc(v('zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value,'')" style="width:110px"><div id="contactForm-zip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div></div>
+      </div>
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Billing Address <span style="cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;color:var(--gold2)" onclick="contactFormCopyMailingTo('billing')">— same as mailing →</span></div>
+      <div class="company-form-grid">
+        <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-billingaddress" autocomplete="off" value="${abEsc(v('billing_street_address'))}" placeholder="123 Main St"></div>
+        <div class="fv-field"><label class="fv-label">City, State</label><input class="fv-input" id="contactForm-billingcitystate" value="${abEsc(v('billing_city_state'))}" placeholder="Fills in from ZIP" readonly style="opacity:.85"></div>
+        <div class="fv-field"><label class="fv-label">ZIP</label><input class="fv-input" id="contactForm-billingzip" value="${abEsc(v('billing_zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value,'billing')" style="width:110px"><div id="contactForm-billingzip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div></div>
+      </div>
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Ship-To Address <span style="cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;color:var(--gold2)" onclick="contactFormCopyMailingTo('ship')">— same as mailing →</span></div>
+      <div class="company-form-grid">
+        <div class="fv-field" style="grid-column:1/-1"><label class="fv-label">Street Address</label><input class="fv-input" id="contactForm-shipaddress" autocomplete="off" value="${abEsc(v('shipping_street_address'))}" placeholder="123 Main St"></div>
+        <div class="fv-field"><label class="fv-label">City, State</label><input class="fv-input" id="contactForm-shipcitystate" value="${abEsc(v('shipping_city_state'))}" placeholder="Fills in from ZIP" readonly style="opacity:.85"></div>
+        <div class="fv-field"><label class="fv-label">ZIP</label><input class="fv-input" id="contactForm-shipzip" value="${abEsc(v('shipping_zip'))}" placeholder="ZIP" maxlength="10" oninput="contactLookupZip(this.value,'ship')" style="width:110px"><div id="contactForm-shipzip-status" style="font-size:11px;color:var(--muted);margin-top:4px"></div></div>
+      </div>
     </div>
-    ${existing?`
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Shared Connection</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Connecting this contact to another Amit account keeps the Contact/Mailing/Billing fields above in sync between both books, live. Labels, Payment Terms, Default Account, and attachments always stay yours alone, never shared.</div>
-    ${existing.entity_id
-      ?`<div class="fv-status" style="margin-bottom:8px">🔗 Connected — the fields above are shared and update on both sides.</div>
-        <button class="ab-btn" style="background:transparent" onclick="abUnlinkContactEntity('${existing.id}')">Unlink</button>`
-      :`<button class="ab-btn" onclick="abGenerateContactInvite('${existing.id}')">🔗 Invite to Connect</button>
-        <div id="contactInvitesList" style="margin-top:10px"></div>`}
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Attachments — W-2/W-4, sales tax certificate, EIN, insurance, contracts, whatever applies to this contact</div>
-    <div id="contactAttachmentsList" style="margin-bottom:10px"><span style="font-size:12px;color:var(--muted)">Loading…</span></div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input class="fv-input" id="contactAttachLabel" placeholder="What is it? e.g. W-2, Insurance" style="max-width:200px">
-      <input type="file" id="contactAttachFile" style="max-width:220px">
-      <button class="ab-btn" onclick="abUploadContactAttachment('${existing.id}')">Upload</button>
+
+    <div class="cf-tab-pane" data-tab="billing">
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin-bottom:8px">Terms &amp; Books</div>
+      <div class="company-form-grid">
+        <div class="fv-field"><label class="fv-label">Payment Terms</label><input class="fv-input" id="contactForm-terms" value="${abEsc(v('payment_terms'))}" placeholder="e.g. Net 30"></div>
+        <div class="fv-field"><label class="fv-label">Default Account</label><select class="fv-input" id="contactForm-defaultacct"><option value="">— None —</option>${abAccounts.map(a=>`<option value="${a.id}"${v('default_account_id')===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
+      </div>
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">How They Pay</div>
+      <div class="company-form-grid">
+        <div class="fv-field"><label class="fv-label">Preferred Method</label><select class="fv-input" id="contactForm-paymentmethod"><option value="">— None —</option>${['Check','Bank Transfer / ACH','Credit Card on File','Cash','Other'].map(m=>`<option value="${m}"${v('preferred_payment_method')===m?' selected':''}>${m}</option>`).join('')}</select></div>
+        ${v('preferred_payment_method')==='Credit Card on File'?'<div class="fv-status" style="grid-column:1/-1;font-size:11px">Card numbers themselves are never stored here — only that a card is the preferred method. Actually charging one would go through a real payment processor (Stripe/Square), never a plain field in this database.</div>':''}
+      </div>
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Tax Status</div>
+      <div class="company-form-grid">
+        <div class="fv-field"><label class="fv-label">Sales Tax</label><select class="fv-input" id="contactForm-salestax"><option value="">— None —</option><option value="Taxable"${v('sales_tax_status')==='Taxable'?' selected':''}>Taxable</option><option value="Exempt"${v('sales_tax_status')==='Exempt'?' selected':''}>Exempt</option></select></div>
+        <div class="fv-field"><label class="fv-label">Exemption/Resale #</label><input class="fv-input" id="contactForm-taxexempt" value="${abEsc(v('tax_exempt_number'))}" placeholder="If exempt"></div>
+      </div>
+      ${existing&&existing.opening_balance!=null?`<div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Starting Balance</div><div class="fv-status">${abMoneyFmt(existing.opening_balance)} — a one-time reference point from before this book existed, not a live total. What's actually owed shows on the Clients list, calculated fresh from real invoices.</div>`:''}
     </div>
-    <div class="fv-status" id="contactAttachStatus"></div>`:`
-    <div style="font-size:11px;color:var(--muted);margin-top:14px">Save this contact first — attachments (documents, photos) can be added once it's a real record.</div>`}
+
+    <div class="cf-tab-pane" data-tab="classification">
+      <div class="company-form-grid">
+        <div class="fv-field"><label class="fv-label">Customer Type</label><input class="fv-input" id="contactForm-customertype" value="${abEsc(v('customer_type'))}" placeholder="e.g. Residential, Commercial"></div>
+      </div>
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Notes</div>
+      <textarea class="fv-input" id="contactForm-notes" rows="5" style="width:100%;resize:vertical" placeholder="Anything worth remembering about them">${abEsc(v('notes'))}</textarea>
+    </div>
+
+    <div class="cf-tab-pane" data-tab="files">
+      ${existing?`
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin-bottom:8px">Shared Connection</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Connecting this contact to another Amit account keeps the Contact/Mailing/Billing fields above in sync between both books, live. Labels, Payment Terms, Default Account, and attachments always stay yours alone, never shared.</div>
+      ${existing.entity_id
+        ?`<div class="fv-status" style="margin-bottom:8px">🔗 Connected — the fields above are shared and update on both sides.</div>
+          <button class="ab-btn" style="background:transparent" onclick="abUnlinkContactEntity('${existing.id}')">Unlink</button>`
+        :`<button class="ab-btn" onclick="abGenerateContactInvite('${existing.id}')">🔗 Invite to Connect</button>
+          <div id="contactInvitesList" style="margin-top:10px"></div>`}
+      <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Attachments — W-2/W-4, sales tax certificate, EIN, insurance, contracts, whatever applies to this contact</div>
+      <div id="contactAttachmentsList" style="margin-bottom:10px"><span style="font-size:12px;color:var(--muted)">Loading…</span></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="fv-input" id="contactAttachLabel" placeholder="What is it? e.g. W-2, Insurance" style="max-width:200px">
+        <input type="file" id="contactAttachFile" style="max-width:220px">
+        <button class="ab-btn" onclick="abUploadContactAttachment('${existing.id}')">Upload</button>
+      </div>
+      <div class="fv-status" id="contactAttachStatus"></div>`:`
+      <div style="font-size:11px;color:var(--muted)">Save this contact first — connections and attachments can be added once it's a real record.</div>`}
+    </div>
+
     <div style="display:flex;gap:10px;margin-top:16px">
       <button class="fv-save" onclick="saveContactDetailForm('${contactId||''}')">${existing?'Save Contact':'Add Contact'}</button>
       ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="abDeleteContact('${existing.id}','${abEsc(existing.name).replace(/'/g,"\\'")}')">Delete Contact</button>`:''}
@@ -4081,11 +4169,38 @@ async function saveContactDetailForm(existingId){
     billing_city_state:document.getElementById('contactForm-billingcitystate').value.trim()||null,
     billing_zip:document.getElementById('contactForm-billingzip').value.trim()||null
   };
+  // General reach fields (2026-08-14) — any contact type could plausibly
+  // need these, so they live on `contacts` itself, book-local like
+  // Payment Terms/Default Account already were, not shared via
+  // contact_entities (only the original Contact/Mailing/Billing fields
+  // sync across a connection).
   const localOnlyFields={
     payment_terms:document.getElementById('contactForm-terms').value.trim()||null,
     default_account_id:document.getElementById('contactForm-defaultacct').value||null,
+    job_title:document.getElementById('contactForm-jobtitle').value.trim()||null,
+    work_phone:document.getElementById('contactForm-workphone').value.trim()||null,
+    mobile_phone:document.getElementById('contactForm-mobilephone').value.trim()||null,
+    fax:document.getElementById('contactForm-fax').value.trim()||null,
+    secondary_email:document.getElementById('contactForm-secondaryemail').value.trim()||null,
+    website:document.getElementById('contactForm-website').value.trim()||null,
+    notes:document.getElementById('contactForm-notes').value.trim()||null,
     is_active:document.getElementById('contactForm-active').checked
   };
+  // Customer-billing-specific fields (2026-08-14, migration_2026-08-14_003)
+  // — Ryan's direct instruction: these don't belong bloating every Vendor/
+  // Employee row, so they live in their own side table instead, one row
+  // per contact, only ever created for whoever actually has one of these
+  // filled in.
+  const billingFields={
+    shipping_street_address:document.getElementById('contactForm-shipaddress').value.trim()||null,
+    shipping_city_state:document.getElementById('contactForm-shipcitystate').value.trim()||null,
+    shipping_zip:document.getElementById('contactForm-shipzip').value.trim()||null,
+    preferred_payment_method:document.getElementById('contactForm-paymentmethod').value||null,
+    sales_tax_status:document.getElementById('contactForm-salestax').value||null,
+    tax_exempt_number:document.getElementById('contactForm-taxexempt').value.trim()||null,
+    customer_type:document.getElementById('contactForm-customertype').value.trim()||null
+  };
+  const hasBillingData=Object.values(billingFields).some(v=>v!=null);
   status.textContent='Saving…';
   let contactId=existingId;
   const existingRow=existingId?abContacts.find(c=>c.id===existingId):null;
@@ -4107,6 +4222,16 @@ async function saveContactDetailForm(existingId){
     const{data,error}=await db.from('contacts').insert({...sharedFields,...localOnlyFields,book_id:abBookId}).select().single();
     if(error){ status.textContent='Error: '+error.message; return; }
     contactId=data.id;
+  }
+  // Only ever create/update a contact_billing_details row when there's
+  // real billing data to hold — a Vendor or Employee whose Billing & Tax
+  // tab was never touched gets no row at all, exactly the "don't bloat
+  // every contact" outcome this table exists for.
+  if(hasBillingData){
+    const{error:billErr}=await db.from('contact_billing_details').upsert({book_id:abBookId,contact_id:contactId,...billingFields},{onConflict:'contact_id'});
+    if(billErr){ status.textContent='Contact saved, but billing details failed: '+billErr.message; return; }
+  } else if(existingRow&&abContactBillingDetails[contactId]){
+    await db.from('contact_billing_details').delete().eq('contact_id',contactId);
   }
   // Labels — unlimited, via contact_label_links (migration_2026-08-13_003):
   // simplest correct approach is delete-then-reinsert the current selection
@@ -4458,7 +4583,7 @@ const CLIENT_RV_COLUMNS=[
 // Default changed from 'active' to 'all', 2026-08-13 — real bug Ryan
 // caught directly: the Jobs count on the Clients tab defaulted to only
 // counting jobs where status literally equals the word "active", but
-// imported jobs carry QuickBooks' real JOBSTATUS values (Awarded, In
+// imported jobs carry the old system's real JOBSTATUS values (Awarded, In
 // Progress, Pending, Not Awarded, Closed...) — none of which are that
 // literal string. Every real imported job was silently excluded from the
 // count (showing 0) even though it existed and showed correctly on the
@@ -4827,7 +4952,7 @@ function openClientEditPopup(contactId){
 // ── MIGRATE LEGACY CLIENTS — Ryan's direct instruction, 2026-08-13: fold
 // the old, separate `clients` table (and its Jobs) into `contacts`, one
 // unified database instead of two disconnected ones. Real clients
-// imported from QuickBooks tonight (the Customers→Clients+Jobs .IIF
+// imported from the old system tonight (the Customers→Clients+Jobs .IIF
 // importer) live in `clients`/jobs.client_id — this moves them into
 // `contacts` (labeled Customer) and repoints their Jobs to
 // jobs.contact_id, WITHOUT deleting the original `clients`/`jobs.client_id`
@@ -5126,11 +5251,11 @@ async function saveJobForm(jobId){
 // from a contact"). Shows both real, going-forward jobs (jobs.contact_id
 // — the QUICKBOOKS_006 migration, matching how Add Job under a Contact
 // creates them) AND legacy imported jobs that still only carry the old
-// jobs.client_id (real QuickBooks data, not yet migrated — see "Migrate
+// jobs.client_id (real the old system data, not yet migrated — see "Migrate
 // Legacy Clients" on the Clients tab) — labeled honestly as legacy rather
 // than silently hidden, same "never hide real data" standard as
 // everywhere else in this file.
-// Real Active/Inactive on Jobs, separate from the QuickBooks status text —
+// Real Active/Inactive on Jobs, separate from the the old system status text —
 // Ryan's direct instruction, 2026-08-13. Same shape as the Clients toggle
 // (leftmost, short label), different table/column
 // (jobs.is_active — migration_2026-08-13_008), so its own renderer rather
@@ -6250,7 +6375,7 @@ async function confirmRestoreWithName(){
 }
 
 // ══════════════════════════════════════════════
-// IMPORT WIZARD — bringing a real set of books over from QuickBooks.
+// IMPORT WIZARD — bringing a real set of books over from the old system.
 // Ryan's direct instruction, 2026-08-10. Deliberately sequenced: Chart of
 // Accounts / Vendors / Customers / Items are master data — no "which
 // year" question, always imported in full. The Journal (actual
@@ -6281,7 +6406,7 @@ async function openImportWizard(){
   } else importAllBooks=[];
   const companyOptions=USER_COMPANIES.map(c=>`<option value="${c.id}">${abEsc(c.name)}</option>`).join('');
   popupOpen(`
-    <div class="dv-sub-h">Import From QuickBooks — Step 1: Which Book?</div>
+    <div class="dv-sub-h">Import Your Books — Step 1: Which Book?</div>
     <div class="fv-status" style="margin-bottom:14px">Pick the company (or create one), then pick an existing book to import into, or create a new one.</div>
     <div class="fv-field"><label class="fv-label">Company</label>
       <select class="fv-input" id="importCompanySelect" onchange="importCompanySelectChanged()"><option value="">— New Company —</option>${companyOptions}</select>
@@ -6373,7 +6498,7 @@ function importParseCsv(text){
     return cells.map(c=>c.trim());
   });
 }
-// QuickBooks' own Account Type labels → this schema's five real buckets
+// the old system's own Account Type labels → this schema's five real buckets
 // (asset/liability/equity/income/expense — same values used everywhere
 // else in this file, e.g. AB_DEBIT_TYPES_NEW). Best-guess only — every
 // row stays editable in the review step before anything is committed,
@@ -6386,10 +6511,10 @@ const QB_ACCOUNT_TYPE_MAP={
   'cost of goods sold':'expense','expense':'expense','other expense':'expense'
 };
 let importParsedAccounts=null;
-// Shared, step-by-step QuickBooks export walkthrough — Ryan's direct
+// Shared, step-by-step the old system export walkthrough — Ryan's direct
 // instruction, 2026-08-10: spell out the actual whole process in plain
 // numbered steps, right inside the app, not just describe the report
-// name and assume someone knows how to get a file out of QuickBooks.
+// name and assume someone knows how to get a file out of the old system.
 // Written once here so every future import step (Vendors, Customers,
 // Items, Journal, Open Items) reuses the same real walkthrough instead of
 // each one re-explaining Excel/CSV export from scratch.
@@ -6425,7 +6550,7 @@ function openImportForAccountsTab(){
 // Real, honest limitation carried over from the Items import — 2026-08-12,
 // Ryan directly reported Tax Category never came in prefilled on any
 // account either. Checked: neither the Account Listing report NOR the IIF
-// !ACCNT record carries a tax-line/tax-category field at all (QuickBooks
+// !ACCNT record carries a tax-line/tax-category field at all (the old system
 // stores that separately from the basic account record). IIF DOES fix the
 // same class of problem the Items import had, though — real ACCNUM
 // instead of parsing a number out of the name text, and a precise
@@ -6460,10 +6585,10 @@ function openImportStep2CoA(){
     <div class="fv-status" id="importStatus" style="margin-top:10px"></div>`);
   if(lastImportFile) importCoaFileChosen(lastImportFile);
 }
-// Reads either a real .csv OR a native QuickBooks .xlsx export (via
+// Reads either a real .csv OR a native the old system .xlsx export (via
 // SheetJS, loaded in <head>) into the same shape either way — an array of
 // row arrays. Ryan's direct instruction, 2026-08-10: his edition of
-// QuickBooks Desktop has no direct CSV export for this report, only
+// the old system has no direct CSV export for this report, only
 // Excel/PDF — requiring a manual Excel-to-CSV re-save first was real
 // friction ("that's not gonna happen"), so the importer reads the native
 // file instead.
@@ -6477,7 +6602,7 @@ async function importReadFileAsRows(file){
   }
   return importParseCsv(await file.text());
 }
-// A real QuickBooks report export usually has a few title rows (report
+// A real the old system report export usually has a few title rows (report
 // name, date range, company name) sitting above the real column headers —
 // scans for the first row that actually looks like a header instead of
 // assuming row 0 is it.
@@ -6569,16 +6694,16 @@ async function importParseAccountReportFile(file){
   const typeCol=header.findIndex(h=>h.includes('type')&&!h.includes('detail'));
   const numCol=header.findIndex(h=>h.includes('number'));
   if(nameCol<0)return null;
-  // Sub-accounts — Ryan caught this directly, 2026-08-10: QuickBooks
+  // Sub-accounts — Ryan caught this directly, 2026-08-10: the old system
   // represents a sub-account as "Parent:Child" in the account name (e.g.
   // "Utilities:Electric"), which the schema had no way to represent at
   // all before migration_2026-08-10_004 added parent_account_id. Colon is
   // reserved purely for that — the account-number-prefix heuristic below
-  // only recognizes QuickBooks' real middot character (·), never a colon,
+  // only recognizes the old system's real middot character (·), never a colon,
   // so the two don't collide.
   return rows.slice(1).filter(r=>r[nameCol]).map(r=>{
     let rawName=r[nameCol],number=numCol>=0?r[numCol]:'';
-    const midDot=rawName.match(/^([\d-]+)\s*·\s*(.+)$/); // QuickBooks sometimes bakes the number into the name, e.g. "1000 · Checking"
+    const midDot=rawName.match(/^([\d-]+)\s*·\s*(.+)$/); // some exports bake the number into the name, e.g. "1000 · Checking"
     if(!number&&midDot){ number=midDot[1];rawName=midDot[2]; }
     const parts=rawName.split(':').map(p=>p.trim()).filter(Boolean);
     const name=parts[parts.length-1];
@@ -6595,7 +6720,7 @@ function renderImportCoaReview(){
   const typeOptions=['asset','liability','equity','income','expense'];
   const subCount=importParsedAccounts.filter(a=>a.parentPath).length;
   el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedAccounts.length} accounts found${subCount?` (${subCount} as sub-accounts, indented under their parent)`:''} — review the type on each before importing.</div>
-    <table class="ab-table"><tr><th>Number</th><th>Name</th><th>QuickBooks Type</th><th>Import As</th></tr>
+    <table class="ab-table"><tr><th>Number</th><th>Name</th><th>Source Type</th><th>Import As</th></tr>
     ${importParsedAccounts.map((a,i)=>`<tr><td>${abEsc(a.number)}</td><td>${'— '.repeat(a.depth)}${abEsc(a.name)}</td><td style="font-size:11px;color:var(--muted)">${abEsc(a.qbType)}</td><td><select onchange="importParsedAccounts[${i}].type=this.value">${typeOptions.map(t=>`<option value="${t}"${a.type===t?' selected':''}>${t}</option>`).join('')}</select></td></tr>`).join('')}
     </table>
     <button class="fv-save" style="margin-top:14px" onclick="importCommitCoa()">Import ${importParsedAccounts.length} Accounts</button>`;
@@ -6687,14 +6812,14 @@ function openImportRoadmap(){
 // ══════════════════════════════════════════════
 // IMPORT — Items → Scopes, Ryan's direct instruction, 2026-08-12: same
 // header treatment as the Chart of Accounts import — but the actual
-// source file changed after real testing. QuickBooks' Item Listing
+// source file changed after real testing. the old system's Item Listing
 // REPORT export doesn't carry the Expense/COGS Account at all by default
 // (only Income Account), which was verified against a real BOSS export —
-// items came over with Cost Account blank even though QuickBooks clearly
+// items came over with Cost Account blank even though the old system clearly
 // has it set (a screenshot of the item's own edit screen showed "Job
 // Expenses" wired up). The real fix isn't smarter guessing against that
 // report; it's a different, better source: File → Utilities → Export →
-// Lists to IIF Files, QuickBooks' own native list-export format. A real
+// Lists to IIF Files, the old system's own native list-export format. A real
 // IIF Item List export (verified against Ryan's actual BOSS company file)
 // carries ACCNT (Income/Billable) and COGSACCNT (Cost/Expense) as two
 // separate columns on every item, natively, no report customization
@@ -6752,7 +6877,7 @@ async function importItemsFileChosen(file){
 // CLASS, etc.) getting its own header line starting with "!" — a full
 // Lists-to-IIF export like Ryan's contains ALL of those in one file even
 // when only Item List was checked, so this only reads the !INVITEM
-// section and ignores the rest. QuickBooks also re-declares a second,
+// section and ignores the rest. the old system also re-declares a second,
 // differently-shaped !INVITEM header later in the file for GRP (group)
 // records — headerCols is only set when the declared columns include
 // ACCNT/COGSACCNT, so that second header is correctly ignored rather
@@ -6778,14 +6903,14 @@ async function importParseIifItems(text){
   if(!dataRows.length)return null;
   const byAccountName={}; abAccounts.forEach(a=>{ if(a.account_name) byAccountName[a.account_name.trim().toLowerCase()]=a.id; });
   const byVendorName={}; abContacts.filter(c=>c.is_vendor).forEach(c=>{ if(c.name) byVendorName[c.name.trim().toLowerCase()]=c.id; });
-  // SUBT (subtotal) and GRP (group) are QuickBooks print-formatting
+  // SUBT (subtotal) and GRP (group) are the old system print-formatting
   // constructs, not real cost/billable categories — nothing to bring in.
   const skipTypes=new Set(['SUBT','GRP']);
   return dataRows.filter(r=>r.NAME&&!skipTypes.has(r.INVITEMTYPE)).map(r=>{
     // "Parent:Child" (e.g. "01 Plans and Permits:01.1 Plans") has no
     // equivalent sub-Scope concept here — the parent segment becomes the
     // Category instead, which is exactly what Category is for, and keeps
-    // QuickBooks' own grouping instead of losing it.
+    // the old system's own grouping instead of losing it.
     const fullPath=r.NAME.trim();
     const parts=fullPath.split(':').map(p=>p.trim()).filter(Boolean);
     const name=parts[parts.length-1];
@@ -6797,7 +6922,7 @@ async function importParseIifItems(text){
       name,category,qbType:r.INVITEMTYPE||'',
       // costAccountName/billableAccountName kept even when matched (not
       // just on failure) — Ryan's direct instruction, 2026-08-12: if the
-      // account QuickBooks names for this Scope doesn't exist in the
+      // account the old system names for this Scope doesn't exist in the
       // Chart of Accounts yet, the Scope import should create it, not
       // leave the Scope unlinked. importCommitItems below does the actual
       // creating; keeping the name here regardless of match status is
@@ -6886,7 +7011,7 @@ async function importCommitItems(){
     const toImport=importParsedItems.filter(it=>!existingNames.has(it.name.trim().toLowerCase()));
     const skipped=importParsedItems.length-toImport.length;
     if(!toImport.length){ status.textContent=skipped?`All ${skipped} already exist in this book — nothing new to import.`:'Nothing to import.'; importItemsCommitInFlight=false; return; }
-    // Auto-create any Cost/Billable account QuickBooks named for a Scope
+    // Auto-create any Cost/Billable account the old system named for a Scope
     // that doesn't exist in the Chart of Accounts yet — Ryan's direct
     // instruction, 2026-08-12: "if it does not exist in our books, and we
     // bring those scopes in, we need to create those within our books."
@@ -6942,7 +7067,7 @@ async function importCommitItems(){
 
 // ══════════════════════════════════════════════
 // IMPORT — Customers → Clients + Jobs, Ryan's direct instruction,
-// 2026-08-12: same file, same pattern as Accounts and Scopes. QuickBooks
+// 2026-08-12: same file, same pattern as Accounts and Scopes. the old system
 // represents a Job as a sub-record under its Customer using the same
 // "Parent:Child" NAME convention already handled for accounts/items — so
 // one pass over the !CUST section produces both a Client (top-level name)
@@ -7000,7 +7125,7 @@ async function importClientsFileChosen(file){
 // (Customize Report → Columns), since that shifts where "Customer",
 // "Bill to", etc. actually land. This reads the real header row once,
 // builds a name→index map, and looks up every field by its real
-// QuickBooks column name — correct no matter which columns are present or
+// the old system column name — correct no matter which columns are present or
 // what order they're in, same discipline the .IIF parsers already use.
 //
 // Field list walked through and confirmed with Ryan, 2026-08-14 —
@@ -7071,7 +7196,7 @@ function importParseCsvCustomers(text){
   if(!clients.length&&!jobs.length)return null;
   return{clients,jobs};
 }
-// A US address split heuristic, not a guarantee — QuickBooks' BADDR3 in
+// A US address split heuristic, not a guarantee — the old system's BADDR3 in
 // Ryan's real data is one combined "City, ST ZIP" line (e.g. "Kellogg,
 // ID  83837"); this pulls a trailing 5 or 5+4 digit ZIP off the end and
 // keeps the rest as city_state, matching clients.city_state/zip's actual
@@ -7255,7 +7380,7 @@ async function importCommitClients(){
 // ══════════════════════════════════════════════
 // IMPORT — Invoices, from the same .IIF export, Ryan's direct instruction,
 // 2026-08-14: "can we pull in all the old invoices from that [IIF] as
-// well?" QuickBooks writes real transactions (not just lists) into the
+// well?" the old system writes real transactions (not just lists) into the
 // same IIF file as !TRNS/!SPL/!ENDTRNS blocks when "Transactions" is
 // checked in the export dialog alongside the lists — this reads the
 // TRNSTYPE=INVOICE ones. Each invoice's NAME field carries the real
@@ -7267,12 +7392,12 @@ async function importCommitClients(){
 // anything real is listed as unmatched rather than silently skipped or
 // guessed at.
 //
-// Honest gap: QuickBooks tracks actual payments as their own separate
+// Honest gap: the old system tracks actual payments as their own separate
 // PAYMENT transactions, not a field on the invoice itself. Without
 // importing those too (a separate, larger effort — matching partial/split
 // payments across invoices), paid_amount can only be a rough guess. This
 // reads IIF's own PAID column when present (Y = fully paid, blank/N = not
-// paid) — a real signal QuickBooks writes, not invented — and leaves
+// paid) — a real signal the old system writes, not invented — and leaves
 // paid_amount at 0 otherwise; it does not attempt partial-payment matching.
 // ══════════════════════════════════════════════
 function openImportForInvoicesTab(){
@@ -7282,7 +7407,7 @@ function openImportForInvoicesTab(){
 let importParsedInvoices=null;
 function openImportStepInvoices(){
   popupOpen(`
-    <div class="dv-sub-h">Invoices (from QuickBooks)</div>
+    <div class="dv-sub-h">Import Invoices</div>
     <div class="import-walkthrough">
       <b>Customer Balance Detail</b> report — the real, always-available path (the Transactions checkbox on the old IIF list export isn't in every QuickBooks version):
       <ol>
@@ -7419,8 +7544,8 @@ function importParseIifInvoices(text){
 // time or silently skipping what doesn't match.
 // ── Customer Balance Detail (.csv) parser — Ryan's direct instruction,
 // 2026-08-14, after finding the Transactions checkbox missing from his
-// QuickBooks' IIF export dialog entirely: this report is always
-// available, any QuickBooks version, via the Excel button on the report
+// the old system's IIF export dialog entirely: this report is always
+// available, any the old system version, via the Excel button on the report
 // itself. Real shape (verified against Ryan's own exported file): a
 // header row, then repeating groups — a quoted Customer name row (its own
 // row, Type blank), sometimes followed by a quoted Job name row nested
@@ -7589,7 +7714,7 @@ async function invAssignClientChanged(i){
 // used after creating a client mid-review so nothing already assigned is lost.
 function reopenImportInvoicesPopup(){
   popupOpen(`
-    <div class="dv-sub-h">Invoices (from QuickBooks)</div>
+    <div class="dv-sub-h">Import Invoices</div>
     <div id="importInvoicesReview"></div>
     <div class="fv-status" id="importInvoicesStatus" style="margin-top:10px"></div>`);
   renderImportInvoicesReview();
@@ -7686,7 +7811,7 @@ function openImportForVendorsTab(){
 let importParsedVendors=null;
 function openImportStepVendors(){
   popupOpen(`
-    <div class="dv-sub-h">QuickBooks Contacts → Contacts</div>
+    <div class="dv-sub-h">Import Contacts</div>
     <div class="import-walkthrough">
       <b>Vendor List, Employee List, and Other Names List</b> — all from the same export as everything else:
       <ol>
@@ -7718,7 +7843,7 @@ async function importVendorsFileChosen(file){
 // One shared parser for any of IIF's flat "NAME + address + phone + email"
 // list sections — VEND, EMP, and OTHERNAME all share this same basic
 // shape in the IIF spec, just under a different section tag.
-// Ryan's real-world catch, 2026-08-13: QuickBooks wraps a field's value in
+// Ryan's real-world catch, 2026-08-13: the old system wraps a field's value in
 // literal quote characters when it contains a comma (e.g. a name like
 // "Eddy, Karey" written into the IIF as the four characters ", E, d, d, y,
 // comma, space, K, ...", with actual quote marks at each end) — this
@@ -9799,7 +9924,7 @@ function renderPageActionBar(detailNum,tabNum){
     // as "Add New Book" above, same destination (the popup), different
     // trigger.
     // Import added 2026-08-12, same file/pattern as Accounts and Scopes —
-    // reads the !CUST section of the same .IIF export (QuickBooks stores
+    // reads the !CUST section of the same .IIF export (the old system stores
     // Jobs as sub-records under a Customer, so this one import brings both
     // Clients and Jobs over together).
     // Import/+Add Client now glow together while this book has no Clients
@@ -9827,7 +9952,7 @@ function renderPageActionBar(detailNum,tabNum){
     // Add Invoice — pre-fills whichever Job is in focus (abSelectedJobId),
     // or offers a Job picker (scoped to the selected client if one's
     // picked, otherwise every job in the book) if none is selected yet.
-    // Import reads real historical invoices out of the same QuickBooks
+    // Import reads real historical invoices out of the same the old system
     // export used for Clients/Jobs (Ryan's direct instruction, 2026-08-14).
     // Import/+Add Invoice glow together while no invoices exist yet —
     // step 7 of the walkthrough; _invoicesShouldPulse is set by
