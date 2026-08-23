@@ -636,7 +636,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.77</div>
+      <div class="page-version" id="pageVersion">v2.78</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4776,7 +4776,7 @@ async function loadClientsIntoRowView(){
     // BOOK_SAMPLE_ROWS above.
     const sampleRows=CLIENT_SAMPLE_ROWS.map(c=>({...c}));
     _clientsCurrentRows=[];
-    rvCreate('rv-mount-clients',CLIENT_RV_COLUMNS,sampleRows,{hideExpandColumn:true,showSummaryRow:true,onRowOpen:id=>selectClientRow(sampleRows,id)});
+    rvCreate('rv-mount-clients',CLIENT_RV_COLUMNS,sampleRows,{hideExpandColumn:true,showSummaryRow:true,onRowOpen:id=>selectClientRow(sampleRows,id),onRowDoubleClick:()=>abAlert('These are sample rows shown because no live sign-in is connected — sign in to see and open your real Clients.')});
     return;
   }
   mount.innerHTML='<div class="detail-empty">Loading…</div>';
@@ -9629,7 +9629,6 @@ function rvRenderInstance(containerId){
 // dropped rather than left as a dangling reference to a function that
 // doesn't exist here.
 function rvHandleRowOpen(containerId,itemId){
-  console.log('[rv-debug] rvHandleRowOpen fired',containerId,itemId);
   const inst=rvInstances.get(containerId);
   if(!inst)return;
   // Instance-specific override — see rvCreate's onRowDoubleClick comment.
@@ -9735,7 +9734,6 @@ function rvStartResize(e,containerId,key){
   document.addEventListener('mouseup',onUp);
 }
 function rvSetFocus(containerId,rowId){
-  console.log('[rv-debug] rvSetFocus (single click) fired',containerId,rowId);
   const inst=rvInstances.get(containerId);if(!inst)return;
   inst.focusedRowId=rowId;
   // Deferred, not synchronous — Ryan's real-world catch, 2026-08-14:
