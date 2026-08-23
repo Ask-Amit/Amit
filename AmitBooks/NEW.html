@@ -220,6 +220,7 @@ header{
    only) since it's global infrastructure, not a layout. ── */
 .popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
 .popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-card.wide{max-width:860px}
 .popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
 .popup-close-btn:hover{color:var(--gold2)}
 
@@ -568,8 +569,8 @@ select option{color:#2a2418;background:#fff}
    the page-level .ch-tab-btn — content panes are pre-built (never
    destroyed by switching tabs, so nothing typed is ever lost mid-edit)
    and shown/hidden via cfShowTab, not re-rendered.*/
-.cf-tab-nav{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid rgba(201,168,76,.25)}
-.cf-tab-btn{padding:8px 16px;border:1px solid rgba(201,168,76,.25);border-bottom:none;background:rgba(255,255,255,.03);color:var(--muted);border-radius:8px 8px 0 0;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.04em;text-transform:uppercase}
+.cf-tab-nav{display:flex;gap:2px;flex-wrap:nowrap;border-bottom:1px solid rgba(201,168,76,.25)}
+.cf-tab-btn{flex:1;padding:8px 10px;border:1px solid rgba(201,168,76,.25);border-bottom:none;background:rgba(255,255,255,.03);color:var(--muted);border-radius:8px 8px 0 0;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;text-align:center}
 .cf-tab-btn.active{background:var(--card-head);color:var(--gold2);font-weight:600;position:relative;top:1px}
 .cf-tab-pane{display:none;padding-top:16px}
 .cf-tab-pane.active{display:block}
@@ -636,7 +637,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.79</div>
+      <div class="page-version" id="pageVersion">v2.80</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4162,7 +4163,7 @@ function openContactDetailPopup(contactId,iconOverride,typeLabelOverride){
       <button class="fv-save" onclick="saveContactDetailForm('${contactId||''}')">${existing?'Save Contact':'Add Contact'}</button>
       ${existing?`<button class="fv-save" style="background:rgba(163,54,54,.25);border-color:#a33636;color:#e2a3a3" onclick="abDeleteContact('${existing.id}','${abEsc(existing.name).replace(/'/g,"\\'")}')">Delete Contact</button>`:''}
     </div>
-    <div class="fv-status" id="contactFormStatus"></div>`);
+    <div class="fv-status" id="contactFormStatus"></div>`,true);
   contactFormRenderLabelChips();
   if(existing){ abRenderContactAttachments(existing.id); if(!existing.entity_id) abRenderContactInvitesList(existing.id); }
 }
@@ -10389,9 +10390,9 @@ function toggleSidebar(){
 // hosts whatever layout instance (copied in from TemplateViews.html) is
 // mounted inside it — content-agnostic, same as a Page or Tab slot.
 // ══════════════════════════════════════════════
-function popupOpen(innerHtml){
+function popupOpen(innerHtml,wide){
   let modal=document.getElementById('canonicalPopup');
-  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+  modal.innerHTML=`<div class="popup-card${wide?' wide':''}" id="canonicalPopupCard">
     <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
     ${innerHtml}
   </div>`;
