@@ -621,7 +621,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.74</div>
+      <div class="page-version" id="pageVersion">v2.75</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -731,6 +731,9 @@ select option{color:#2a2418;background:#fff}
 // variable per bug report, every small top-level constant the Row
 // View/init path could plausibly reach is moved up here at once.
 const rvInstances=new Map();
+// Per-container pending focus-render timers — see rvSetFocus's own
+// comment for why this exists (a real double-click bug, 2026-08-14).
+const rvFocusRenderTimers={};
 let rvMenuState=null;
 const RV_FISCAL_START_MONTH=9;
 const RV_FUNNEL_SVG='<svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:middle"><path d="M1 2h14l-5.5 6.5v5L7 15V8.5z"/></svg>';
@@ -6509,7 +6512,58 @@ const QB_ACCOUNT_TYPE_MAP={
   'equity':'equity',
   'income':'income','other income':'income',
   'cost of goods sold':'expense','expense':'expense','other expense':'expense'
+  // 'non-posting' (QuickBooks' Estimates account) deliberately has no entry
+  // here - AmitBooks has no non-posting/off-balance-sheet account_type at
+  // all, so it falls through to the 'expense' default below and is shown,
+  // like every row, in an editable dropdown before commit - never silently
+  // imported as-is.
 };
+// Best-guess QuickBooks "Tax Line" → AmitBooks tax_category mapping. Ryan's
+// direct instruction, 2026-08-14: Tax Line comes straight off a real
+// Account Listing report (Customize Report → Display → every column
+// checked) and should pre-fill the Tax Category dropdown in the CoA import
+// review screen - but AB_TAX_CATEGORIES is itself a fixed dropdown (see
+// its own definition), so this is a guess to PRE-SELECT that dropdown per
+// row, always still changeable before commit, never written silently.
+// Two real, honest limits: (1) AB_TAX_CATEGORIES only covers Profit & Loss
+// / Schedule K lines (matches Corporate Tax Prep's own scope - no M-1/M-2/
+// M-3) - every Balance Sheet Tax Line ("B/S-Assets: ...", "B/S-Liabs/Eq.:
+// ...") correctly maps to nothing, that's not a gap. (2) the SAME raw Tax
+// Line string can mean different things on different accounts in real
+// QuickBooks data (e.g. "Income: Other income" shows up on both a genuine
+// "Other Income" account and on "Interest Income" - the guess below can
+// only pick one), which is exactly why this is a dropdown, not a silent
+// write.
+const QB_TAX_LINE_MAP={
+  'income: gross receipts or sales not on line 1a':'gross_receipts',
+  'income: other income':'other_income',
+  'schedule k-rentals (not fm 8825): income-rental':'gross_rents_income',
+  'fm 8825-a: gross rents':'gross_rents_income','fm 8825-b: gross rents':'gross_rents_income',
+  'fm 8825-c: gross rents':'gross_rents_income','fm 8825-d: gross rents':'gross_rents_income',
+  'cogs-form 1125-a: purchases':'cogs','cogs-form 1125-a: cost of labor':'cogs','cogs-form 1125-a: other costs':'cogs',
+  'deductions: advertising':'advertising',
+  'deductions: licenses':'taxes_licenses','deductions: state franchise or inc. tax':'taxes_licenses',
+  'deductions: payroll taxes':'taxes_licenses','deductions: local property taxes':'taxes_licenses',
+  'deductions: other miscellaneous taxes':'taxes_licenses',
+  'deductions: interest expense':'interest_expense',
+  'schedule k-inv. interest: interest exp.-investment debts':'interest_expense',
+  'deductions: salaries and wages':'salaries_wages',
+  'deductions: compensation of shareholder/officers':'officer_compensation',
+  'deductions: shareholder medical insurance':'employee_benefits',
+  'deductions: rents':'rents',
+  'deductions: repairs and maintenance':'repairs',
+  'deductions: meals and entertainment (subj to 50% l':'other_deductions',
+  'other deductions: tools':'other_deductions','other deductions: other deductions':'other_deductions',
+  'other deductions: insurance':'other_deductions','other deductions: office expenses':'other_deductions',
+  'other deductions: travel':'other_deductions','other deductions: utilities':'other_deductions',
+  '<unassigned>':null,'<not tax related>':null
+};
+function qbGuessTaxCategory(taxLine){
+  if(!taxLine)return null;
+  const key=taxLine.trim().toLowerCase();
+  if(key.startsWith('b/s-'))return null; // Balance Sheet line - correctly not applicable, not a miss
+  return QB_TAX_LINE_MAP[key]||null;
+}
 let importParsedAccounts=null;
 // Shared, step-by-step the old system export walkthrough — Ryan's direct
 // instruction, 2026-08-10: spell out the actual whole process in plain
@@ -6547,18 +6601,19 @@ function openImportForAccountsTab(){
   importWizardPendingBookName=null;
   openImportStep2CoA();
 }
-// Real, honest limitation carried over from the Items import — 2026-08-12,
-// Ryan directly reported Tax Category never came in prefilled on any
-// account either. Checked: neither the Account Listing report NOR the IIF
-// !ACCNT record carries a tax-line/tax-category field at all (the old system
-// stores that separately from the basic account record). IIF DOES fix the
-// same class of problem the Items import had, though — real ACCNUM
-// instead of parsing a number out of the name text, and a precise
-// ACCNTTYPE code (QB_ACCNT_TYPE_MAP below) instead of guessing from loose
-// report-column wording. Tax Category still has to be set by hand per
-// account after import, same as before — that's not solvable from either
-// export format, so the walkthrough says so plainly instead of implying
-// it'll come over.
+// CORRECTED 2026-08-14 — the note that stood here since 2026-08-12 was
+// wrong, caught by Ryan testing a real BOSS export: the Account Listing
+// report DOES carry a Tax Line field (per-account IRS mapping), it just
+// wasn't showing up because the report wasn't customized to display every
+// column first. With Customize Report → Display → every column checked,
+// Tax Line comes through and is now parsed (see QB_TAX_LINE_MAP above,
+// importParseAccountReportFile below) to pre-fill the Tax Category
+// dropdown per row in the review screen — still always editable before
+// commit, never written silently. The IIF export genuinely still doesn't
+// carry it (QuickBooks' own IIF format has no tax-line field at all) — IIF
+// remains the better source for real ACCNUM + precise ACCNTTYPE codes
+// (QB_ACCNT_TYPE_MAP below), just not for Tax Line/Description/Balance/
+// Active Status, which only the full CSV/Excel report carries.
 const QB_ACCNT_TYPE_MAP={
   BANK:'asset',AR:'asset',OCASSET:'asset',FIXASSET:'asset',OASSET:'asset',
   AP:'liability',CCARD:'liability',OCLIAB:'liability',LTLIAB:'liability',
@@ -6570,14 +6625,26 @@ function openImportStep2CoA(){
   popupOpen(`
     <div class="dv-sub-h">Step 2: Chart of Accounts</div>
     <div class="import-walkthrough">
-      <b>Chart of Accounts</b> — in QuickBooks, the easiest way to bring these over:
+      <b>Chart of Accounts</b> — in QuickBooks, the Account List/Account Listing report is the real, complete source, WITH every display column turned on. Confirmed against a real BOSS export, 2026-08-14. Two different click paths depending which QuickBooks you're on:
+      <div style="margin-top:10px"><b>QuickBooks Online (QBO):</b></div>
       <ol>
-        <li><b>File → Utilities → Export → Lists to IIF Files…</b></li>
-        <li>A checklist of every list QuickBooks can export appears — <b>none of them are checked by default, so check every single box yourself</b> before clicking OK (this file will also carry what future imports — Items, Vendors, Customers — need, so one export covers all of them)</li>
-        <li>Click <b>OK</b>, then save the file somewhere you'll remember</li>
-        <li>Click <b>Choose File</b> below and find that saved <code>.IIF</code> file</li>
+        <li>Reports (left sidebar) → search <b>"Account List"</b> → open the standard report</li>
+        <li>Click <b>Customize</b> (top right)</li>
+        <li>Under <b>Rows/Columns</b>, turn ON <b>every available column</b> — Sub-accounts and Account Numbers, but also everything else offered (Description, Tax Line, Detail Type, etc.), same idea as "check every Display column" on Desktop below, not just a couple of them. Set the date range to <b>All Dates</b>; choose <b>Active only</b> or include inactive accounts, whichever you want brought in</li>
+        <li>Click <b>Run report</b> (or OK)</li>
+        <li>Click the <b>Export</b> icon → <b>Export to Excel</b></li>
+        <li>Save it somewhere you'll remember, then click <b>Choose File</b> below</li>
       </ol>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">Tax Category won't come in prefilled either way — QuickBooks doesn't include it in this kind of export at all, IIF or report. You'll set it per account afterward, same as always. Only have the Account Listing report as Excel/CSV instead? That still works below too.</div>
+      <div style="margin-top:10px"><b>QuickBooks Desktop:</b></div>
+      <ol>
+        <li><b>Lists → Chart of Accounts</b>, or <b>Reports → Accountant &amp; Taxes → Account Listing</b></li>
+        <li>Click <b>Customize Report</b></li>
+        <li>Under <b>Display</b>, check <b>every single column</b> — not just the default few. This is the step that actually matters: with everything checked, this one report carries the account name, type, number, description, active status, balance, AND the Tax Line (IRS line mapping) all at once. You can also include inactive accounts or filter by account type here</li>
+        <li>Click <b>OK</b></li>
+        <li>Click <b>Excel</b> at the top of the report → <b>Create New Worksheet</b> → <b>Create a comma separated values (.csv) file</b> → <b>Export</b></li>
+        <li>Save it somewhere you'll remember, then click <b>Choose File</b> below</li>
+      </ol>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Have a <code>.IIF</code> file instead (Desktop only — File → Utilities → Export → Lists to IIF Files; QuickBooks Online has no IIF export at all)? That still works below too, but it only carries name/number/type/hierarchy — no description, balance, active status, or Tax Line, since QuickBooks' own IIF format doesn't include those fields. The CSV/Excel report above is the more complete source when you have the choice, on either version.</div>
     </div>
     ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
     <input type="file" id="importCoaFile" accept=".iif,.csv,.xlsx,.xls" onchange="importCoaFileChosen(this.files[0])">
@@ -6679,20 +6746,42 @@ function importParseIifAccounts(text){
     const depth=parts.length-1;
     const acctType=(r.ACCNTTYPE||'').trim().toUpperCase();
     const guessed=QB_ACCNT_TYPE_MAP[acctType]||'expense';
-    return{name,fullPath,parentPath,depth,number:(r.ACCNUM||'').trim(),qbType:acctType,type:guessed,isBank:acctType==='BANK'};
+    // description/taxLine/taxCategory/balance stay null - QuickBooks' IIF
+    // format genuinely doesn't carry any of them (see the corrected note
+    // above openImportForAccountsTab). isActive defaults true - IIF's
+    // !ACCNT record has no active/inactive field either.
+    return{name,fullPath,parentPath,depth,number:(r.ACCNUM||'').trim(),qbType:acctType,type:guessed,isBank:acctType==='BANK',description:null,taxLine:'',taxCategory:null,balance:null,isActive:true};
   });
 }
-// Fallback path — the original Account Listing report (Excel/CSV)
-// importer, kept for anyone without the IIF export option.
+// The Account Listing report (Excel/CSV) importer — the more complete
+// source when Customize Report → Display has every column checked (see
+// openImportStep2CoA's walkthrough), confirmed against a real BOSS export
+// 2026-08-14. Also works as a fallback with only name/type/number if
+// someone exports without customizing display columns first — every extra
+// field below just comes back null/default in that case, nothing breaks.
 async function importParseAccountReportFile(file){
   const allRows=await importReadFileAsRows(file);
   const headerIdx=importFindHeaderRowIndex(allRows);
   const rows=allRows.slice(headerIdx);
   if(rows.length<2)return null;
-  const header=rows[0].map(h=>h.toLowerCase());
+  const header=rows[0].map(h=>h.toLowerCase().trim());
   const nameCol=header.findIndex(h=>h.includes('account')&&!h.includes('number')&&!h.includes('type'));
   const typeCol=header.findIndex(h=>h.includes('type')&&!h.includes('detail'));
-  const numCol=header.findIndex(h=>h.includes('number'));
+  // Broadened 2026-08-14 — a real BOSS export's header is "Accnt. #", which
+  // does NOT contain the literal substring "number", so the old
+  // h.includes('number')-only check silently failed to find it on this
+  // exact file (every account number would have imported blank). Now also
+  // matches "accnt"/"acct" paired with "#" or "no", while still catching
+  // "Account Number"-style headers other exports use.
+  const numCol=header.findIndex(h=>h.includes('number')||((h.includes('accnt')||h.includes('acct'))&&(h.includes('#')||h.includes('no'))));
+  const taxCol=header.findIndex(h=>h.includes('tax line'));
+  const descCol=header.findIndex(h=>h.includes('description'));
+  // "Balance", not "Balance Total" — confirmed against the real export:
+  // Balance Total is blank for every Income/COGS/Expense row (only
+  // populated for Balance Sheet accounts), while plain Balance is filled
+  // in for every row either way.
+  const balCol=header.findIndex(h=>h==='balance'||(h.includes('balance')&&!h.includes('total')));
+  const activeCol=header.findIndex(h=>h.includes('active'));
   if(nameCol<0)return null;
   // Sub-accounts — Ryan caught this directly, 2026-08-10: the old system
   // represents a sub-account as "Parent:Child" in the account name (e.g.
@@ -6712,16 +6801,46 @@ async function importParseAccountReportFile(file){
     const depth=parts.length-1;
     const qbType=(typeCol>=0?r[typeCol]:'').toLowerCase();
     const guessed=QB_ACCOUNT_TYPE_MAP[qbType]||'expense';
-    return{name,fullPath,parentPath,depth,number,qbType:typeCol>=0?r[typeCol]:'',type:guessed,isBank:qbType==='bank'};
+    const taxLine=taxCol>=0?(r[taxCol]||'').trim():'';
+    const rawBal=balCol>=0?(r[balCol]||'').replace(/[$,]/g,'').trim():'';
+    const balance=rawBal&&!isNaN(parseFloat(rawBal))?parseFloat(rawBal):null;
+    const rawActive=activeCol>=0?(r[activeCol]||'').trim().toLowerCase():'';
+    const isActive=rawActive?!rawActive.includes('inactive'):true; // no Active Status column at all → assume active, don't invent an exclusion
+    return{
+      name,fullPath,parentPath,depth,number,
+      qbType:typeCol>=0?r[typeCol]:'',type:guessed,isBank:qbType==='bank',
+      description:descCol>=0?(r[descCol]||'').trim()||null:null,
+      taxLine,taxCategory:qbGuessTaxCategory(taxLine),
+      balance,isActive
+    };
   });
 }
 function renderImportCoaReview(){
   const el=document.getElementById('importCoaReview');if(!el)return;
   const typeOptions=['asset','liability','equity','income','expense'];
   const subCount=importParsedAccounts.filter(a=>a.parentPath).length;
-  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedAccounts.length} accounts found${subCount?` (${subCount} as sub-accounts, indented under their parent)`:''} — review the type on each before importing.</div>
-    <table class="ab-table"><tr><th>Number</th><th>Name</th><th>Source Type</th><th>Import As</th></tr>
-    ${importParsedAccounts.map((a,i)=>`<tr><td>${abEsc(a.number)}</td><td>${'— '.repeat(a.depth)}${abEsc(a.name)}</td><td style="font-size:11px;color:var(--muted)">${abEsc(a.qbType)}</td><td><select onchange="importParsedAccounts[${i}].type=this.value">${typeOptions.map(t=>`<option value="${t}"${a.type===t?' selected':''}>${t}</option>`).join('')}</select></td></tr>`).join('')}
+  const taxCatCount=importParsedAccounts.filter(a=>a.taxCategory).length;
+  const balCount=importParsedAccounts.filter(a=>a.balance!=null).length;
+  // Tax Category dropdown pre-selected from qbGuessTaxCategory — same
+  // "never silently guess" pattern already used on Import As (type):
+  // every row's guess is shown, nothing is ever written without a chance
+  // to change it first. Balance shown as read-only reference text, not an
+  // editable field — see chart_of_accounts.imported_balance's own column
+  // comment for why it's informational only, not a posted ledger figure.
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:8px">${importParsedAccounts.length} accounts found${subCount?` (${subCount} as sub-accounts, indented under their parent)`:''}${taxCatCount?`, ${taxCatCount} with a guessed Tax Category`:''}${balCount?`, ${balCount} with a reported balance (reference only — not posted to the ledger)`:''} — review before importing.</div>
+    <table class="ab-table"><tr><th>Number</th><th>Name</th><th>Source Type</th><th>Import As</th><th>Tax Category</th><th>Active</th><th>Balance</th></tr>
+    ${importParsedAccounts.map((a,i)=>`<tr>
+      <td>${abEsc(a.number)}</td>
+      <td>${'— '.repeat(a.depth)}${abEsc(a.name)}${a.description?`<div style="font-size:10px;color:var(--muted);font-style:italic">${abEsc(a.description)}</div>`:''}</td>
+      <td style="font-size:11px;color:var(--muted)">${abEsc(a.qbType)}</td>
+      <td><select onchange="importParsedAccounts[${i}].type=this.value">${typeOptions.map(t=>`<option value="${t}"${a.type===t?' selected':''}>${t}</option>`).join('')}</select></td>
+      <td><select onchange="importParsedAccounts[${i}].taxCategory=this.value||null">
+        <option value=""${!a.taxCategory?' selected':''}>— none —</option>
+        ${AB_TAX_CATEGORIES.map(c=>`<option value="${c[0]}"${a.taxCategory===c[0]?' selected':''}>${c[1]}</option>`).join('')}
+      </select>${a.taxLine?`<div style="font-size:10px;color:var(--muted)" title="Raw Tax Line from the source file">${abEsc(a.taxLine)}</div>`:''}</td>
+      <td style="text-align:center"><input type="checkbox" ${a.isActive?'checked':''} onchange="importParsedAccounts[${i}].isActive=this.checked"></td>
+      <td style="font-size:11px;color:var(--muted)">${a.balance!=null?a.balance.toLocaleString(undefined,{style:'currency',currency:'USD'}):'—'}</td>
+    </tr>`).join('')}
     </table>
     <button class="fv-save" style="margin-top:14px" onclick="importCommitCoa()">Import ${importParsedAccounts.length} Accounts</button>`;
 }
@@ -6786,7 +6905,7 @@ async function importCommitCoa(){
       const level=importParsedAccounts.filter(a=>a.depth===depth);
       if(!level.length)continue;
       status.textContent=`Importing… level ${depth+1} of ${maxDepth+1} (${imported} of ${importParsedAccounts.length} accounts so far)`;
-      const rows=level.map(a=>({book_id:importWizardBookId,account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank,parent_account_id:a.parentPath?(pathToId[a.parentPath]||null):null}));
+      const rows=level.map(a=>({book_id:importWizardBookId,account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank,parent_account_id:a.parentPath?(pathToId[a.parentPath]||null):null,description:a.description||null,is_active:a.isActive,imported_balance:a.balance,tax_category:a.parentPath?null:(a.taxCategory||null)}));
       const{data,error}=await db.from('chart_of_accounts').insert(rows).select();
       if(error){ failed+=level.length; continue; }
       imported+=data.length;
@@ -9485,7 +9604,25 @@ function rvStartResize(e,containerId,key){
 function rvSetFocus(containerId,rowId){
   const inst=rvInstances.get(containerId);if(!inst)return;
   inst.focusedRowId=rowId;
-  rvRenderInstance(containerId);
+  // Deferred, not synchronous — Ryan's real-world catch, 2026-08-14:
+  // double-clicking a row (e.g. to open a Client's detail popup) silently
+  // did nothing, no error at all. Real cause: the FIRST click of that
+  // gesture already ran this handler and rebuilt the entire table via
+  // rvRenderInstance's own innerHTML replacement — swapping out the exact
+  // <tr> DOM element the browser was tracking, mid-gesture. By the time
+  // the second click landed, it hit a brand-new element at that spot, so
+  // the browser never recognized the pair as a double-click at all —
+  // ondblclick simply never fires, no exception, nothing visibly wrong,
+  // which is exactly why this looked like "nothing happens" rather than a
+  // catchable bug. Delaying the re-render past the browser's own double-
+  // click timing window means a genuine double-click's ondblclick always
+  // fires against the still-original row first; a single click still gets
+  // its focus highlight, just a beat later than before — not
+  // perceptible. Keyed per containerId so switching pages/tabs rapidly
+  // can't leave a stale timer rendering into a container that's since
+  // been torn down.
+  clearTimeout(rvFocusRenderTimers[containerId]);
+  rvFocusRenderTimers[containerId]=setTimeout(()=>{ rvRenderInstance(containerId); },320);
   // A single click now also fires onRowOpen — Ryan's direct instruction,
   // 2026-08-07: clicking a row (Book or Client) should update the mini
   // page-header immediately, not require a double-click/Enter first. Safe
