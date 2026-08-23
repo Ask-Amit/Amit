@@ -636,7 +636,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.78</div>
+      <div class="page-version" id="pageVersion">v2.79</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3523,7 +3523,11 @@ let abContactEntities={};
 // way labels/attachments/entity fields already are, so the popup's own
 // v() helper reads it with zero special-casing.
 let abContactBillingDetails={};
-const AB_BILLING_DETAIL_FIELDS=['shipping_street_address','shipping_city_state','shipping_zip','preferred_payment_method','sales_tax_status','tax_exempt_number','customer_type'];
+const AB_BILLING_DETAIL_FIELDS=['shipping_street_address','shipping_city_state','shipping_zip','preferred_payment_method','sales_tax_status','tax_exempt_number','customer_type','card_processor','card_brand','card_last4','card_processor_ref','ach_bank_name','ach_account_holder','ach_routing_number','ach_account_number','ach_account_type'];
+// Standard Payment Terms presets — the usual set any client/vendor
+// relationship uses. "+ Custom…" always stays available underneath so a
+// real, unusual term is never blocked by this list.
+const AB_STANDARD_PAYMENT_TERMS=['Due on Receipt','Net 15','Net 30','Net 45','Net 60','Net 90','2% 10 Net 30','1% 10 Net 30'];
 async function abLoadContacts(){
   if(!abBookId||!db||!currentUser){abContacts=[];abContactAttachCounts={};abContactLabelMap={};abContactEntities={};abContactBillingDetails={};return;}
   const{data}=await db.from('contacts').select('*').eq('book_id',abBookId).order('name');
@@ -3850,7 +3854,7 @@ function abRenderVendorsRv(){
   el.innerHTML=`<div style="margin-bottom:8px"><span style="cursor:pointer;font-size:11px;color:var(--gold2)" onclick="abToggleContactsShowInactive();abRenderVendorsRv()">${abContactsShowInactive?'👁 Showing Inactive — click to hide':'🚫 Inactive Hidden — click to show'}</span></div>
     <div class="rv-wrap" id="rv-mount-vendors"></div>`;
   const rows=buildContactRvRows(abVendorContacts());
-  rvCreate('rv-mount-vendors',CONTACT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openContactDetailPopup(id),hideExpandColumn:true,showSummaryRow:false,selectable:true,onBulkDelete:openBulkDeleteContactsPopup});
+  rvCreate('rv-mount-vendors',CONTACT_RV_COLUMNS,rows,{onRowDoubleClick:id=>openContactDetailPopup(id,CONTACT_ICON_SVG,'Vendor'),hideExpandColumn:true,showSummaryRow:false,selectable:true,onBulkDelete:openBulkDeleteContactsPopup});
 }
 // "+ Add Vendor" — same shape as openAddClientPopup: opens the real
 // Contact popup, pre-selects (creating if needed) the Vendor label.
@@ -3862,7 +3866,7 @@ async function openAddVendorPopup(){
     const{data,error}=await db.from('contact_labels').insert({book_id:abBookId,label:'Vendor',sort_order:abContactLabels.length}).select().single();
     if(!error&&data){ await abLoadContactLabels(); vendorLabel=abContactLabels.find(l=>l.id===data.id)||data; }
   }
-  openContactDetailPopup(null);
+  openContactDetailPopup(null,CONTACT_ICON_SVG,'Vendor');
   if(vendorLabel){ contactFormSelectedLabels.add(vendorLabel.id); contactFormRenderLabelChips(); }
 }
 // Same pattern as abApplyClientTerminology/abApplyScopeTerminology — push
@@ -3934,6 +3938,35 @@ const CONTACT_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="no
 // a label, or adding a brand new one on the fly, never loses whatever else
 // was typed into the rest of the form.
 let contactFormSelectedLabels=new Set();
+// Which chart-of-accounts types make sense as a Default Account, based on
+// which labels are currently checked on this contact — a Customer/Client
+// bills against Income accounts, a Vendor/Subcontractor/Employee gets paid
+// out of Expense accounts. Union across every label checked, so someone
+// carrying two roles (a Subcontractor who's also a Vendor) sees both.
+// HONEST LIMITATION: computed once when the popup opens — toggling a label
+// chip after that doesn't live-update this list until the popup reopens.
+// An unrecognized/no label shows every account, unfiltered.
+const AB_LABEL_ACCOUNT_TYPES={customer:['income'],client:['income'],vendor:['expense'],subcontractor:['expense'],employee:['expense']};
+function contactFormAllowedAccountTypes(){
+  const types=new Set();
+  contactFormSelectedLabels.forEach(id=>{
+    const l=abContactLabels.find(x=>x.id===id);
+    const key=l?l.label.trim().toLowerCase():'';
+    (AB_LABEL_ACCOUNT_TYPES[key]||[]).forEach(t=>types.add(t));
+  });
+  return types;
+}
+function contactFormPaymentMethodChange(sel){
+  const cc=document.getElementById('contactForm-cc-block');
+  const ach=document.getElementById('contactForm-ach-block');
+  if(cc) cc.style.display=sel.value==='Credit Card on File'?'':'none';
+  if(ach) ach.style.display=sel.value==='Bank Transfer / ACH'?'':'none';
+}
+function contactFormTermsSelectChange(sel){
+  const custom=document.getElementById('contactForm-terms-custom'); if(!custom)return;
+  if(sel.value==='__custom__'){ custom.style.display=''; custom.focus(); }
+  else { custom.style.display='none'; custom.value=''; }
+}
 function contactFormRenderLabelChips(){
   const el=document.getElementById('contactForm-labelChips'); if(!el)return;
   el.innerHTML=abContactLabels.map(l=>`<span class="cc-chip${contactFormSelectedLabels.has(l.id)?' active':''}" onclick="contactFormToggleLabel('${l.id}')">${abEsc(l.label)}</span>`).join('')
@@ -3967,7 +4000,7 @@ function cfShowTab(popupId,tabKey){
   document.querySelectorAll(`#${popupId} .cf-tab-btn`).forEach(b=>b.classList.toggle('active',b.dataset.tab===tabKey));
   document.querySelectorAll(`#${popupId} .cf-tab-pane`).forEach(p=>p.classList.toggle('active',p.dataset.tab===tabKey));
 }
-function openContactDetailPopup(contactId){
+function openContactDetailPopup(contactId,iconOverride,typeLabelOverride){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
   // Self-heal a stale/empty abContactLabels — it's only loaded when a book
   // is first selected (selectBookRow), so a session that had this book
@@ -3992,10 +4025,10 @@ function openContactDetailPopup(contactId){
   // so nothing typed is ever lost mid-edit.
   popupOpen(`
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-      <div style="width:52px;height:52px;border-radius:50%;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2)">${CONTACT_ICON_SVG}</div>
+      <div style="width:52px;height:52px;border-radius:50%;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2)">${iconOverride||CONTACT_ICON_SVG}</div>
       <div style="flex:1">
-        <div class="dv-sub-h" style="margin:0">${existing?'Edit Contact':'New Contact'}</div>
-        <div style="font-size:11px;color:var(--muted)">Anyone this book deals with — a vendor, a customer, an employee, a subcontractor, whatever applies.</div>
+        <div class="dv-sub-h" style="margin:0">${existing?'Edit':'New'} ${typeLabelOverride||'Contact'}</div>
+        <div style="font-size:11px;color:var(--muted)">${typeLabelOverride?`Opened from ${typeLabelOverride}s — this is the same shared contact record, just entered from here.`:'Anyone this book deals with — a vendor, a customer, an employee, a subcontractor, whatever applies.'}</div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap" title="Unchecking this hides them from Contacts/Vendors/Clients lists by default, without deleting anything"><input type="checkbox" id="contactForm-active"${existing&&existing.is_active===false?'':' checked'}> Active</label>
     </div>
@@ -4062,13 +4095,32 @@ function openContactDetailPopup(contactId){
     <div class="cf-tab-pane" data-tab="billing">
       <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin-bottom:8px">Terms &amp; Books</div>
       <div class="company-form-grid">
-        <div class="fv-field"><label class="fv-label">Payment Terms</label><input class="fv-input" id="contactForm-terms" value="${abEsc(v('payment_terms'))}" placeholder="e.g. Net 30"></div>
-        <div class="fv-field"><label class="fv-label">Default Account</label><select class="fv-input" id="contactForm-defaultacct"><option value="">— None —</option>${abAccounts.map(a=>`<option value="${a.id}"${v('default_account_id')===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select></div>
+        <div class="fv-field">${(()=>{const termsValue=v('payment_terms');const isCustom=!!termsValue&&!AB_STANDARD_PAYMENT_TERMS.includes(termsValue);return`<label class="fv-label">Payment Terms</label>
+          <select class="fv-input" id="contactForm-terms-select" onchange="contactFormTermsSelectChange(this)">
+            <option value="">— None —</option>
+            ${AB_STANDARD_PAYMENT_TERMS.map(t=>`<option value="${t}"${termsValue===t?' selected':''}>${t}</option>`).join('')}
+            <option value="__custom__"${isCustom?' selected':''}>+ Custom…</option>
+          </select>
+          <input class="fv-input" id="contactForm-terms-custom" value="${abEsc(isCustom?termsValue:'')}" placeholder="Type custom terms" style="margin-top:6px;${isCustom?'':'display:none'}">`;})()}</div>
+        <div class="fv-field">${(()=>{const allowed=contactFormAllowedAccountTypes();const list=allowed.size?abAccounts.filter(a=>allowed.has(a.account_type)):abAccounts;return`<label class="fv-label">Default Account</label><select class="fv-input" id="contactForm-defaultacct"><option value="">— None —</option>${list.map(a=>`<option value="${a.id}"${v('default_account_id')===a.id?' selected':''}>${abEsc((a.account_number?a.account_number+' — ':'')+a.account_name)}</option>`).join('')}</select>`;})()}</div>
       </div>
       <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">How They Pay</div>
       <div class="company-form-grid">
-        <div class="fv-field"><label class="fv-label">Preferred Method</label><select class="fv-input" id="contactForm-paymentmethod"><option value="">— None —</option>${['Check','Bank Transfer / ACH','Credit Card on File','Cash','Other'].map(m=>`<option value="${m}"${v('preferred_payment_method')===m?' selected':''}>${m}</option>`).join('')}</select></div>
-        ${v('preferred_payment_method')==='Credit Card on File'?'<div class="fv-status" style="grid-column:1/-1;font-size:11px">Card numbers themselves are never stored here — only that a card is the preferred method. Actually charging one would go through a real payment processor (Stripe/Square), never a plain field in this database.</div>':''}
+        <div class="fv-field"><label class="fv-label">Preferred Method</label><select class="fv-input" id="contactForm-paymentmethod" onchange="contactFormPaymentMethodChange(this)"><option value="">— None —</option>${['Check','Bank Transfer / ACH','Credit Card on File','Cash','Other'].map(m=>`<option value="${m}"${v('preferred_payment_method')===m?' selected':''}>${m}</option>`).join('')}</select></div>
+      </div>
+      <div class="company-form-grid" id="contactForm-cc-block" style="margin-top:10px;${v('preferred_payment_method')==='Credit Card on File'?'':'display:none'}">
+        <div class="fv-status" style="grid-column:1/-1;font-size:11px">Card numbers themselves are never stored here — only enough to identify which card is on file. Actually charging it goes through a real payment processor (Stripe/Square), never a plain field in this database.</div>
+        <div class="fv-field"><label class="fv-label">Processor</label><select class="fv-input" id="contactForm-cc-processor"><option value="">— None —</option>${['Stripe','Square','PayPal','Other'].map(m=>`<option value="${m}"${v('card_processor')===m?' selected':''}>${m}</option>`).join('')}</select></div>
+        <div class="fv-field"><label class="fv-label">Card Brand</label><select class="fv-input" id="contactForm-cc-brand"><option value="">— None —</option>${['Visa','Mastercard','Amex','Discover','Other'].map(m=>`<option value="${m}"${v('card_brand')===m?' selected':''}>${m}</option>`).join('')}</select></div>
+        <div class="fv-field"><label class="fv-label">Last 4 Digits</label><input class="fv-input" id="contactForm-cc-last4" value="${abEsc(v('card_last4'))}" placeholder="1234" maxlength="4" style="width:90px"></div>
+        <div class="fv-field"><label class="fv-label">Processor Reference ID</label><input class="fv-input" id="contactForm-cc-ref" value="${abEsc(v('card_processor_ref'))}" placeholder="e.g. Stripe customer/card ID"></div>
+      </div>
+      <div class="company-form-grid" id="contactForm-ach-block" style="margin-top:10px;${v('preferred_payment_method')==='Bank Transfer / ACH'?'':'display:none'}">
+        <div class="fv-field"><label class="fv-label">Bank Name</label><input class="fv-input" id="contactForm-ach-bankname" value="${abEsc(v('ach_bank_name'))}"></div>
+        <div class="fv-field"><label class="fv-label">Account Holder Name</label><input class="fv-input" id="contactForm-ach-holder" value="${abEsc(v('ach_account_holder'))}"></div>
+        <div class="fv-field"><label class="fv-label">Routing Number</label><input class="fv-input" id="contactForm-ach-routing" value="${abEsc(v('ach_routing_number'))}" maxlength="9"></div>
+        <div class="fv-field"><label class="fv-label">Account Number</label><input class="fv-input" id="contactForm-ach-account" value="${abEsc(v('ach_account_number'))}"></div>
+        <div class="fv-field"><label class="fv-label">Account Type</label><select class="fv-input" id="contactForm-ach-accttype"><option value="">— None —</option><option value="Checking"${v('ach_account_type')==='Checking'?' selected':''}>Checking</option><option value="Savings"${v('ach_account_type')==='Savings'?' selected':''}>Savings</option></select></div>
       </div>
       <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Tax Status</div>
       <div class="company-form-grid">
@@ -4209,7 +4261,7 @@ async function saveContactDetailForm(existingId){
   // contact_entities (only the original Contact/Mailing/Billing fields
   // sync across a connection).
   const localOnlyFields={
-    payment_terms:document.getElementById('contactForm-terms').value.trim()||null,
+    payment_terms:(document.getElementById('contactForm-terms-select').value==='__custom__'?document.getElementById('contactForm-terms-custom').value.trim():document.getElementById('contactForm-terms-select').value)||null,
     default_account_id:document.getElementById('contactForm-defaultacct').value||null,
     job_title:document.getElementById('contactForm-jobtitle').value.trim()||null,
     work_phone:document.getElementById('contactForm-workphone').value.trim()||null,
@@ -4225,14 +4277,27 @@ async function saveContactDetailForm(existingId){
   // Employee row, so they live in their own side table instead, one row
   // per contact, only ever created for whoever actually has one of these
   // filled in.
+  const paymentMethod=document.getElementById('contactForm-paymentmethod').value||null;
+  // Only ever save the block that matches the currently selected method —
+  // switching from Credit Card on File to ACH (or to nothing) clears the
+  // other side's fields instead of leaving stale hidden data behind.
   const billingFields={
     shipping_street_address:document.getElementById('contactForm-shipaddress').value.trim()||null,
     shipping_city_state:document.getElementById('contactForm-shipcitystate').value.trim()||null,
     shipping_zip:document.getElementById('contactForm-shipzip').value.trim()||null,
-    preferred_payment_method:document.getElementById('contactForm-paymentmethod').value||null,
+    preferred_payment_method:paymentMethod,
     sales_tax_status:document.getElementById('contactForm-salestax').value||null,
     tax_exempt_number:document.getElementById('contactForm-taxexempt').value.trim()||null,
-    customer_type:document.getElementById('contactForm-customertype').value.trim()||null
+    customer_type:document.getElementById('contactForm-customertype').value.trim()||null,
+    card_processor:paymentMethod==='Credit Card on File'?(document.getElementById('contactForm-cc-processor').value||null):null,
+    card_brand:paymentMethod==='Credit Card on File'?(document.getElementById('contactForm-cc-brand').value||null):null,
+    card_last4:paymentMethod==='Credit Card on File'?(document.getElementById('contactForm-cc-last4').value.trim()||null):null,
+    card_processor_ref:paymentMethod==='Credit Card on File'?(document.getElementById('contactForm-cc-ref').value.trim()||null):null,
+    ach_bank_name:paymentMethod==='Bank Transfer / ACH'?(document.getElementById('contactForm-ach-bankname').value.trim()||null):null,
+    ach_account_holder:paymentMethod==='Bank Transfer / ACH'?(document.getElementById('contactForm-ach-holder').value.trim()||null):null,
+    ach_routing_number:paymentMethod==='Bank Transfer / ACH'?(document.getElementById('contactForm-ach-routing').value.trim()||null):null,
+    ach_account_number:paymentMethod==='Bank Transfer / ACH'?(document.getElementById('contactForm-ach-account').value.trim()||null):null,
+    ach_account_type:paymentMethod==='Bank Transfer / ACH'?(document.getElementById('contactForm-ach-accttype').value||null):null
   };
   const hasBillingData=Object.values(billingFields).some(v=>v!=null);
   status.textContent='Saving…';
@@ -4965,7 +5030,7 @@ async function ensureCustomerLabel(){
 async function openAddClientPopup(){
   if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
   const customerLabel=await ensureCustomerLabel();
-  openContactDetailPopup(null);
+  openContactDetailPopup(null,CLIENT_ICON_SVG,'Client');
   if(customerLabel){ contactFormSelectedLabels.add(customerLabel.id); contactFormRenderLabelChips(); }
 }
 // Opens an existing client for editing — the real Contact popup, plus the
@@ -4975,13 +5040,13 @@ async function openAddClientPopup(){
 // openContactDetailPopup itself — that function is shared with the plain
 // Contacts tab, which has no Jobs concept; appending here keeps this
 // addition scoped to where it actually applies.
+// No longer appends a Jobs panel to the popup itself — Ryan's direct
+// correction, 2026-08-22: that panel sat outside the cf-tab system, so it
+// showed underneath every single tab, and the Clients page already has its
+// own dedicated Jobs tab (jobs-tab-mount) that filters to whichever client
+// is selected. Duplicating it here was redundant, not a second real view.
 function openClientEditPopup(contactId){
-  openContactDetailPopup(contactId);
-  const card=document.getElementById('canonicalPopupCard');
-  if(card) card.insertAdjacentHTML('beforeend',`
-    <div class="dv-sub-h" style="font-size:10px;opacity:.75;margin:18px 0 8px">Jobs</div>
-    <div id="contactJobsPanel">Loading…</div>`);
-  renderContactJobsPanel(contactId);
+  openContactDetailPopup(contactId,CLIENT_ICON_SVG,'Client');
 }
 // ── MIGRATE LEGACY CLIENTS — Ryan's direct instruction, 2026-08-13: fold
 // the old, separate `clients` table (and its Jobs) into `contacts`, one
