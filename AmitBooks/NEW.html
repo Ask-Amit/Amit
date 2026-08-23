@@ -361,6 +361,21 @@ header{
 .rv-table-frame{flex:1;min-height:0;display:flex;flex-direction:column;border:6px double rgba(201,168,76,.6);border-radius:8px;overflow:hidden}
 .rv-table-wrap{flex:1;overflow:auto;outline:none}
 .rv-table-wrap:focus-visible{box-shadow:inset 0 0 0 2px rgba(201,168,76,.4)}
+/* Column-group expand/collapse — added 2026-08-14, Ryan's direct
+   instruction, REPLACES an earlier screen-width-only version same day.
+   Ryan's real target isn't screen size, it's a summary-first philosophy
+   across the whole app: every page's main tab should read as a plain
+   answer at a glance (how are the books doing, how are the clients doing)
+   with the accounting detail behind it opt-in, not forced on someone who
+   "just wants to get this done." Company/Book Name (fixed, marked by the
+   existing double-line border) and You Got always show. Available and
+   Coming In are collapsed to just their own total by default; double-
+   clicking either reveals the real numbers behind it (What You
+   Have/Bills You Have, or Owed to You/You Owe), double-click again to
+   collapse. See rvVisibleColumns/rvToggleColGroup in the script, and
+   BOOK_RV_COLUMNS' detailGroup/expandToggleGroup flags — opt-in per
+   column, so every other Row View table in the app is unaffected. */
+.rv-col-toggle{cursor:pointer;color:var(--gold2);margin-right:4px;font-size:10px}
 .rv-summary-row td{background:#132a42;border-top:2px solid var(--gold);position:sticky;bottom:0;z-index:3}
 /* width:100% removed (reverted 2026-08-07, same day added) — it forced
    the table to stretch past its own container and cover the right rail.
@@ -621,7 +636,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.76</div>
+      <div class="page-version" id="pageVersion">v2.77</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1105,26 +1120,27 @@ let USER_COMPANIES=[];
 // on screen (see rvBuildSummaryRow / inst.showSummaryRow below). Book
 // Name and Company are deliberately left off this flag — there's nothing
 // to sum there.
-// responsiveHide:true — added 2026-08-14, Ryan's direct instruction: on a
-// narrow screen only the "anchor" columns show (Company, Book Name,
-// Available, Coming In, You Got — the row-identifiers plus the three real
-// subtotals); the two detail PAIRS that feed those subtotals (What You
-// Have/Bills You Have → Available, and Owed to You/You Owe → Coming In)
-// reveal together once there's real room, via a CSS container query keyed
-// off the table's own available width (see #rv-mount-books-scroll's
-// container-type below) — not the browser window, so it also responds
-// correctly to the sidebar collapsing/expanding, not just a resize. Opt-in
-// per column and scoped by container id in CSS, so this doesn't touch any
-// other Row View table in the app.
+// detailGroup / expandToggleGroup — added 2026-08-14, Ryan's direct
+// instruction (replaces an earlier screen-width-only version from the
+// same session). Company/Book Name and You Got always show. Available and
+// Coming In are each the visible face of a hidden-by-default detail pair
+// (cash_on_hand+bills_ap → available; owed_to_you+short_term_debt →
+// coming_in) — double-clicking Available or Coming In's own header
+// reveals its pair, double-click again collapses it. detailGroup marks a
+// column as belonging to a group (hidden unless that group is expanded);
+// expandToggleGroup marks the summary column whose header double-click
+// controls that group. See rvVisibleColumns/rvToggleColGroup in the
+// script for the mechanism — both flags are opt-in per column, so no
+// other Row View table in the app is affected.
 const BOOK_RV_COLUMNS=[
   {key:'company_name',label:'Company',cellRenderer:companyCellRendererRef},
   {key:'name',label:'Book Name',cellRenderer:bookNameCellRendererRef},
-  {key:'cash_on_hand',label:'What You Have',align:'right',sortFilter:false,groupStart:true,responsiveHide:true,summable:true,description:"The money that's actually sitting in your bank and savings accounts right now. Real, spendable cash — today, not someday."},
-  {key:'bills_ap',label:'Bills You Have',align:'right',sortFilter:false,operatorPrefix:'−',responsiveHide:true,summable:true,description:"Real bills that have landed in front of you — invoices you've actually received and still need to pay. Not a guess, not something looming — an actual bill."},
-  {key:'available',label:'Available',align:'right',sortFilter:false,operatorPrefix:'=',cellRenderer:subtotalCellRendererRef,summable:true,description:"What You Have, minus Bills You Have. In plain terms: after you pay what you already know you owe, this is what's left to work with."},
-  {key:'owed_to_you',label:'Owed to You',align:'right',sortFilter:false,groupStart:true,responsiveHide:true,summable:true,description:"Money other people still owe you — invoices you've sent out that haven't been paid yet. It's not in your pocket yet, but it's coming."},
-  {key:'short_term_debt',label:'You Owe',align:'right',sortFilter:false,operatorPrefix:'−',responsiveHide:true,summable:true,description:"Things you owe that didn't come with an actual bill — a credit card balance quietly adding up, or a short-term loan payment. Real money owed, just not sitting in your inbox as a bill."},
-  {key:'coming_in',label:'Coming In',align:'right',sortFilter:false,operatorPrefix:'=',cellRenderer:subtotalCellRendererRef,summable:true,description:"What's Owed to You, minus what You Owe. A quick read on which way things are leaning before anything actually lands."},
+  {key:'cash_on_hand',label:'What You Have',align:'right',sortFilter:false,groupStart:true,detailGroup:'available',summable:true,description:"The money that's actually sitting in your bank and savings accounts right now. Real, spendable cash — today, not someday."},
+  {key:'bills_ap',label:'Bills You Have',align:'right',sortFilter:false,operatorPrefix:'−',detailGroup:'available',summable:true,description:"Real bills that have landed in front of you — invoices you've actually received and still need to pay. Not a guess, not something looming — an actual bill."},
+  {key:'available',label:'Available',align:'right',sortFilter:false,operatorPrefix:'=',expandToggleGroup:'available',cellRenderer:subtotalCellRendererRef,summable:true,description:"What You Have, minus Bills You Have. In plain terms: after you pay what you already know you owe, this is what's left to work with."},
+  {key:'owed_to_you',label:'Owed to You',align:'right',sortFilter:false,groupStart:true,detailGroup:'coming_in',summable:true,description:"Money other people still owe you — invoices you've sent out that haven't been paid yet. It's not in your pocket yet, but it's coming."},
+  {key:'short_term_debt',label:'You Owe',align:'right',sortFilter:false,operatorPrefix:'−',detailGroup:'coming_in',summable:true,description:"Things you owe that didn't come with an actual bill — a credit card balance quietly adding up, or a short-term loan payment. Real money owed, just not sitting in your inbox as a bill."},
+  {key:'coming_in',label:'Coming In',align:'right',sortFilter:false,operatorPrefix:'=',expandToggleGroup:'coming_in',cellRenderer:subtotalCellRendererRef,summable:true,description:"What's Owed to You, minus what You Owe. A quick read on which way things are leaning before anything actually lands."},
   {key:'you_got',label:'You Got',align:'right',sortFilter:false,groupStart:true,cellRenderer:subtotalCellRendererRef,summable:true,description:"The bottom line. Everything added up together, so you can see where you actually stand right now — without having to dig through anything to figure it out."}
 ];
 
@@ -1171,14 +1187,18 @@ function rvParseMoney(str){
 // negative the way a single book's subtotal is).
 function rvBuildSummaryRow(inst,rows){
   if(!inst.showSummaryRow)return'';
+  // rvVisibleColumns — must match whatever the header/body actually
+  // rendered (see its own comment), or this footer's column count drifts
+  // out of alignment with the table above it.
+  const cols=rvVisibleColumns(inst);
   const sums={};
-  inst.columns.forEach(c=>{ if(c.summable) sums[c.key]=0; });
+  cols.forEach(c=>{ if(c.summable) sums[c.key]=0; });
   rows.forEach(r=>{
-    inst.columns.forEach(c=>{
+    cols.forEach(c=>{
       if(c.summable) sums[c.key]+=rvParseMoney(r[c.key]);
     });
   });
-  const cellsHtml=inst.columns.map((c,idx)=>{
+  const cellsHtml=cols.map((c,idx)=>{
     if(idx===0){
       return `<td class="rv-td-plain" style="font-weight:700;color:var(--gold)">Total (${rows.length} shown)</td>`;
     }
@@ -9053,11 +9073,32 @@ function initPageTooltips(containerId,side){
 // filters, and selection still reset on a real re-create (unchanged) —
 // only column widths are the one thing meant to survive, since that's a
 // layout preference, not session state tied to a specific data load.
+// Column-group expand/collapse — see BOOK_RV_COLUMNS' detailGroup/
+// expandToggleGroup comment for the why. A column with no detailGroup
+// always shows; one WITH a detailGroup only shows once that group's key
+// is in inst.expandedGroups. Used everywhere inst.columns previously fed
+// the header/colgroup/row-cells/summary-row so all four stay in sync
+// (mismatched column counts between them would break the table) — NOT
+// used for the single-item Detail View field list, which deliberately
+// always shows every field regardless of what's collapsed in the table.
+function rvVisibleColumns(inst){
+  return inst.columns.filter(c=>!c.detailGroup||inst.expandedGroups.has(c.detailGroup));
+}
+function rvToggleColGroup(containerId,groupKey){
+  const inst=rvInstances.get(containerId);if(!inst)return;
+  if(inst.expandedGroups.has(groupKey))inst.expandedGroups.delete(groupKey);
+  else inst.expandedGroups.add(groupKey);
+  rvRenderInstance(containerId);
+}
 function rvCreate(containerId,columns,rows,opts={}){
   const prevInst=rvInstances.get(containerId);
   rvInstances.set(containerId,{
     columns,rows,
     sort:null,colFilters:{},filterOrder:[],expanded:new Set(),editingCell:null,
+    // Preserved across re-creates the same way colWidths is below — a
+    // table refreshing its data (e.g. after an edit) shouldn't silently
+    // re-collapse a group the person just opened.
+    expandedGroups:(prevInst&&prevInst.expandedGroups)||new Set(),
     focusedRowId:(rows[0]&&rows[0].id)||null,
     colWidths:(prevInst&&prevInst.colWidths)||{},
     onRowOpen:opts.onRowOpen||null,
@@ -9438,17 +9479,18 @@ function rvRenderInstance(containerId){
   // change — .rv-table-wrap's own overflow:auto still handles a table
   // wider than its container by scrolling, it just no longer force-grows
   // past what its columns actually need.
+  const visibleCols=rvVisibleColumns(inst);
   const colgroupHtml=`<colgroup>
     ${inst.selectable?'<col style="width:24px">':''}
     ${inst.hideExpandColumn?'':'<col style="width:24px">'}
-    ${inst.columns.map(c=>`<col data-key="${c.key}" style="width:${inst.colWidths[c.key]||c.width||160}px">`).join('')}
+    ${visibleCols.map(c=>`<col data-key="${c.key}" style="width:${inst.colWidths[c.key]||c.width||160}px">`).join('')}
   </colgroup>`;
   const rvVisibleFlatIds=inst.selectable?rvFlattenVisible(inst,rows).map(({item:r})=>r.id):[];
   const rvAllVisibleSelected=inst.selectable&&rvVisibleFlatIds.length&&rvVisibleFlatIds.every(id=>inst.selected.has(id));
   const theadHtml=`<tr>
     ${inst.selectable?`<th style="width:24px"><input type="checkbox" ${rvAllVisibleSelected?'checked':''} onclick="event.stopPropagation();rvToggleSelectAllVisible('${containerId}')" title="Select all"></th>`:''}
     ${inst.hideExpandColumn?'':'<th style="width:24px"></th>'}
-    ${inst.columns.map(c=>{
+    ${visibleCols.map(c=>{
       const isSorted=inst.sort&&inst.sort.key===c.key;
       const arrow=isSorted?(inst.sort.dir==='asc'?'▲':'▼'):'';
       const hasFilter=rvColFilterActive(inst.colFilters[c.key]);
@@ -9487,8 +9529,25 @@ function rvRenderInstance(containerId){
       // column's label should read "Active" with only the real capital A,
       // not "ACTIVE" — an explicit per-column opt-out, not a global change.
       const thAlign=c.align==='right'?'text-align:right;':(c.align==='center'?'text-align:center;':'');
+      // expandToggleGroup — added 2026-08-14: double-click toggles this
+      // column's detail group open/closed, with a visible ▸/▾ chevron so
+      // the state (and the fact it's clickable at all) is legible without
+      // anyone having to already know the gesture — Ryan's own real
+      // concern, discoverability, not just the mechanism. This REPLACES
+      // the description-on-dblclick behavior for these specific columns
+      // (Available/Coming In) — their description still exists, moved to
+      // a small ⓘ icon instead, so nothing that already worked (double-
+      // click a header to learn what it means) silently breaks just
+      // because this column also happens to have a description.
+      const isToggle=!!c.expandToggleGroup;
+      const groupOpen=isToggle&&inst.expandedGroups.has(c.expandToggleGroup);
+      const labelDblclick=isToggle
+        ?`event.stopPropagation();rvToggleColGroup('${containerId}','${c.expandToggleGroup}')`
+        :(c.description?`event.stopPropagation();rvShowColumnInfo('${containerId}','${c.key}')`:'');
       return `<th class="${hasFilter?'rv-filtered':''}"${(thAlign||c.groupStart||c.naturalCase)?` style="${thAlign}${c.groupStart?'border-left:6px double rgba(201,168,76,.6);':''}${c.naturalCase?'text-transform:none;':''}"`:''}>
-        <span class="rv-th-label"${c.description?` ondblclick="event.stopPropagation();rvShowColumnInfo('${containerId}','${c.key}')" style="cursor:help"`:''}>${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}</span>
+        ${isToggle?`<span class="rv-col-toggle" onclick="event.stopPropagation();rvToggleColGroup('${containerId}','${c.expandToggleGroup}')" title="${groupOpen?'Click to hide the detail behind this number':'Click to see the detail behind this number'}">${groupOpen?'▾':'▸'}</span>`:''}
+        <span class="rv-th-label"${labelDblclick?` ondblclick="${labelDblclick}" style="cursor:${isToggle?'pointer':'help'}"`:''} title="${isToggle?(groupOpen?'Double-click to hide detail':'Double-click to see detail'):''}">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}</span>
+        ${c.description&&isToggle?`<span class="rv-col-toggle" style="margin-left:2px" onclick="event.stopPropagation();rvShowColumnInfo('${containerId}','${c.key}')" title="What this column means">ⓘ</span>`:''}
         ${c.customFilterBtn?c.customFilterBtn(containerId,c):(c.sortFilter===false?'':`<span class="rv-col-menu-btn${hasFilter?' active':''}" onclick="rvFunnelClick(event,'${containerId}','${c.key}')" title="${hasFilter?'Filter #'+orderNum+' — click to edit, double-click to remove':'Click to sort or filter'}">
           ${RV_FUNNEL_SVG}${hasFilter?`<span class="rv-col-menu-order">-${orderNum}</span>`:''}
         </span>`)}
@@ -9535,7 +9594,7 @@ function rvRenderInstance(containerId){
     return `<tr class="${isChild?'rv-child':'rv-row'}${groupCls}${focused?' focused':''}" onclick="rvSetFocus('${containerId}','${r.id}')" ondblclick="rvHandleRowOpen('${containerId}','${r.id}')">
       ${inst.selectable?`<td><input type="checkbox" ${inst.selected.has(r.id)?'checked':''} onclick="event.stopPropagation();rvToggleRowSelect('${containerId}','${r.id}')"></td>`:''}
       ${inst.hideExpandColumn?'':`<td>${hasKids?`<span class="rv-expand" onclick="event.stopPropagation();rvToggleExpand('${containerId}','${r.id}')">${expanded?'▾':'▸'}</span>`:''}</td>`}
-      ${inst.columns.map((c,idx)=>cellHtml(r,c,idx,isChild)).join('')}
+      ${visibleCols.map((c,idx)=>cellHtml(r,c,idx,isChild)).join('')}
     </tr>`;
   }).join('');
   const summaryHtml=rvBuildSummaryRow(inst,rows);
@@ -9570,6 +9629,7 @@ function rvRenderInstance(containerId){
 // dropped rather than left as a dangling reference to a function that
 // doesn't exist here.
 function rvHandleRowOpen(containerId,itemId){
+  console.log('[rv-debug] rvHandleRowOpen fired',containerId,itemId);
   const inst=rvInstances.get(containerId);
   if(!inst)return;
   // Instance-specific override — see rvCreate's onRowDoubleClick comment.
@@ -9675,6 +9735,7 @@ function rvStartResize(e,containerId,key){
   document.addEventListener('mouseup',onUp);
 }
 function rvSetFocus(containerId,rowId){
+  console.log('[rv-debug] rvSetFocus (single click) fired',containerId,rowId);
   const inst=rvInstances.get(containerId);if(!inst)return;
   inst.focusedRowId=rowId;
   // Deferred, not synchronous — Ryan's real-world catch, 2026-08-14:
