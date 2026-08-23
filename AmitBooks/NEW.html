@@ -621,7 +621,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.75</div>
+      <div class="page-version" id="pageVersion">v2.76</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1105,14 +1105,25 @@ let USER_COMPANIES=[];
 // on screen (see rvBuildSummaryRow / inst.showSummaryRow below). Book
 // Name and Company are deliberately left off this flag — there's nothing
 // to sum there.
+// responsiveHide:true — added 2026-08-14, Ryan's direct instruction: on a
+// narrow screen only the "anchor" columns show (Company, Book Name,
+// Available, Coming In, You Got — the row-identifiers plus the three real
+// subtotals); the two detail PAIRS that feed those subtotals (What You
+// Have/Bills You Have → Available, and Owed to You/You Owe → Coming In)
+// reveal together once there's real room, via a CSS container query keyed
+// off the table's own available width (see #rv-mount-books-scroll's
+// container-type below) — not the browser window, so it also responds
+// correctly to the sidebar collapsing/expanding, not just a resize. Opt-in
+// per column and scoped by container id in CSS, so this doesn't touch any
+// other Row View table in the app.
 const BOOK_RV_COLUMNS=[
   {key:'company_name',label:'Company',cellRenderer:companyCellRendererRef},
   {key:'name',label:'Book Name',cellRenderer:bookNameCellRendererRef},
-  {key:'cash_on_hand',label:'What You Have',align:'right',sortFilter:false,groupStart:true,summable:true,description:"The money that's actually sitting in your bank and savings accounts right now. Real, spendable cash — today, not someday."},
-  {key:'bills_ap',label:'Bills You Have',align:'right',sortFilter:false,operatorPrefix:'−',summable:true,description:"Real bills that have landed in front of you — invoices you've actually received and still need to pay. Not a guess, not something looming — an actual bill."},
+  {key:'cash_on_hand',label:'What You Have',align:'right',sortFilter:false,groupStart:true,responsiveHide:true,summable:true,description:"The money that's actually sitting in your bank and savings accounts right now. Real, spendable cash — today, not someday."},
+  {key:'bills_ap',label:'Bills You Have',align:'right',sortFilter:false,operatorPrefix:'−',responsiveHide:true,summable:true,description:"Real bills that have landed in front of you — invoices you've actually received and still need to pay. Not a guess, not something looming — an actual bill."},
   {key:'available',label:'Available',align:'right',sortFilter:false,operatorPrefix:'=',cellRenderer:subtotalCellRendererRef,summable:true,description:"What You Have, minus Bills You Have. In plain terms: after you pay what you already know you owe, this is what's left to work with."},
-  {key:'owed_to_you',label:'Owed to You',align:'right',sortFilter:false,groupStart:true,summable:true,description:"Money other people still owe you — invoices you've sent out that haven't been paid yet. It's not in your pocket yet, but it's coming."},
-  {key:'short_term_debt',label:'You Owe',align:'right',sortFilter:false,operatorPrefix:'−',summable:true,description:"Things you owe that didn't come with an actual bill — a credit card balance quietly adding up, or a short-term loan payment. Real money owed, just not sitting in your inbox as a bill."},
+  {key:'owed_to_you',label:'Owed to You',align:'right',sortFilter:false,groupStart:true,responsiveHide:true,summable:true,description:"Money other people still owe you — invoices you've sent out that haven't been paid yet. It's not in your pocket yet, but it's coming."},
+  {key:'short_term_debt',label:'You Owe',align:'right',sortFilter:false,operatorPrefix:'−',responsiveHide:true,summable:true,description:"Things you owe that didn't come with an actual bill — a credit card balance quietly adding up, or a short-term loan payment. Real money owed, just not sitting in your inbox as a bill."},
   {key:'coming_in',label:'Coming In',align:'right',sortFilter:false,operatorPrefix:'=',cellRenderer:subtotalCellRendererRef,summable:true,description:"What's Owed to You, minus what You Owe. A quick read on which way things are leaning before anything actually lands."},
   {key:'you_got',label:'You Got',align:'right',sortFilter:false,groupStart:true,cellRenderer:subtotalCellRendererRef,summable:true,description:"The bottom line. Everything added up together, so you can see where you actually stand right now — without having to dig through anything to figure it out."}
 ];
@@ -6880,7 +6891,30 @@ async function importCommitCoa(){
       bookId=newBook.id;
     }
     importWizardBookId=bookId;importWizardCompanyId=companyId;
-    let imported=0,failed=0;
+    let imported=0,updated=0,unchanged=0,failed=0;
+    // IMPORT IDEMPOTENCY — permanent standing rule, AmitBooks/CLAUDE.md,
+    // 2026-08-14: running this same file (or a newer export of the same
+    // books) twice must never create a duplicate. Every parsed row is
+    // matched against what's already in this book — by account_number
+    // when the row has one, else by account_name (case-insensitive) — and
+    // whatever differs gets UPDATED on the existing row rather than
+    // inserted as a second copy. A genuinely new account still inserts
+    // normally. Real trade-off, worth knowing: this means a re-import
+    // silently overwrites any manual edit made in AmitBooks since the
+    // last import (e.g. Ryan reparenting an account by hand) if the
+    // source file still says something different — "update it" was
+    // Ryan's own explicit instruction, this isn't a merge/reconcile step.
+    status.textContent='Checking what already exists in this book…';
+    const{data:existingAccounts}=await db.from('chart_of_accounts').select('*').eq('book_id',bookId);
+    const byNumber={},byName={};
+    (existingAccounts||[]).forEach(a=>{
+      if(a.account_number) byNumber[a.account_number]=a;
+      byName[(a.account_name||'').trim().toLowerCase()]=a;
+    });
+    function findExistingAccount(a){
+      if(a.number&&byNumber[a.number])return byNumber[a.number];
+      return byName[a.name.trim().toLowerCase()]||null;
+    }
     // Batched by hierarchy level, not one row at a time — Ryan reported a
     // real 186-account import sitting at "Importing…" for 5-10 minutes
     // with no way to tell if it was actually stuck; checking the database
@@ -6888,32 +6922,56 @@ async function importCommitCoa(){
     // code did one network round-trip per row, TWICE (insert, then a
     // second pass to link each sub-account to its parent) — up to ~370
     // sequential requests for 186 accounts. Fixed properly, not just
-    // covered up with a bigger spinner: every account at the same depth
-    // (all top-level accounts, then all their direct sub-accounts, etc.)
-    // is inserted in ONE batched request, with parent_account_id already
-    // resolved inline (a child is always inserted after its parent's
-    // batch has completed and gotten its real id, so the lookup always
-    // succeeds) — no separate linking pass needed at all. A real 4-5-level
-    // hierarchy now costs ~4-5 requests total instead of ~370. Live
-    // progress is shown after every level, per the standing rule that a
-    // long-running bulk operation must never sit on a static message with
-    // no way to tell it isn't stuck (root AmitBooks CLAUDE.md,
-    // Interactivity Standard item 8).
+    // covered up with a bigger spinner: every NEW account at the same
+    // depth (all top-level accounts, then all their direct sub-accounts,
+    // etc.) is inserted in ONE batched request, with parent_account_id
+    // already resolved inline. Matched/updated accounts still cost one
+    // request each (Supabase has no batched "update many different rows
+    // to different values" call) — but a row whose fields already match
+    // exactly is skipped with NO request at all, which is what makes
+    // re-running the exact same file a fast, cheap no-op rather than 186
+    // pointless writes. Live progress shown throughout, per the standing
+    // rule that a long-running bulk operation must never sit on a static
+    // message with no way to tell it isn't stuck (Interactivity Standard
+    // item 8).
     const pathToId={};
+    // Pre-seed pathToId for anything that already exists, so a child row
+    // can resolve its parent's real id even when the parent itself is a
+    // match this run (update or unchanged), not a fresh insert.
+    importParsedAccounts.forEach(a=>{ const ex=findExistingAccount(a); if(ex) pathToId[a.fullPath]=ex.id; });
     const maxDepth=importParsedAccounts.reduce((m,a)=>Math.max(m,a.depth),0);
     for(let depth=0;depth<=maxDepth;depth++){
       const level=importParsedAccounts.filter(a=>a.depth===depth);
       if(!level.length)continue;
-      status.textContent=`Importing… level ${depth+1} of ${maxDepth+1} (${imported} of ${importParsedAccounts.length} accounts so far)`;
-      const rows=level.map(a=>({book_id:importWizardBookId,account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank,parent_account_id:a.parentPath?(pathToId[a.parentPath]||null):null,description:a.description||null,is_active:a.isActive,imported_balance:a.balance,tax_category:a.parentPath?null:(a.taxCategory||null)}));
-      const{data,error}=await db.from('chart_of_accounts').insert(rows).select();
-      if(error){ failed+=level.length; continue; }
-      imported+=data.length;
-      data.forEach((row,i)=>{ pathToId[level[i].fullPath]=row.id; });
+      status.textContent=`Importing… level ${depth+1} of ${maxDepth+1} (${imported+updated+unchanged} of ${importParsedAccounts.length} accounts checked so far)`;
+      const toInsert=[];
+      const toUpdate=[];
+      level.forEach(a=>{
+        const parentId=a.parentPath?(pathToId[a.parentPath]||null):null;
+        const values={account_name:a.name,account_number:a.number||null,account_type:a.type,is_bank_account:a.isBank,parent_account_id:parentId,description:a.description||null,is_active:a.isActive,imported_balance:a.balance,tax_category:a.parentPath?null:(a.taxCategory||null)};
+        const ex=findExistingAccount(a);
+        if(!ex){ toInsert.push({values:{...values,book_id:bookId},fullPath:a.fullPath}); return; }
+        // Best-effort field-by-field comparison (string form, null/undefined
+        // treated as equal) — good enough to detect "nothing actually
+        // changed" and skip the write entirely for a true re-run.
+        const changed=Object.keys(values).some(k=>String(values[k]??'')!==String(ex[k]??''));
+        if(changed) toUpdate.push({id:ex.id,values,fullPath:a.fullPath});
+        else { pathToId[a.fullPath]=ex.id; unchanged++; }
+      });
+      if(toInsert.length){
+        const{data,error}=await db.from('chart_of_accounts').insert(toInsert.map(t=>t.values)).select();
+        if(error){ failed+=toInsert.length; }
+        else data.forEach((row,i)=>{ pathToId[toInsert[i].fullPath]=row.id; imported++; });
+      }
+      for(const u of toUpdate){
+        status.textContent=`Updating existing accounts… level ${depth+1} of ${maxDepth+1}`;
+        const{error}=await db.from('chart_of_accounts').update(u.values).eq('id',u.id);
+        if(error){ failed++; } else { pathToId[u.fullPath]=u.id; updated++; }
+      }
     }
-    status.textContent=`Imported ${imported} account(s)${failed?`, ${failed} failed`:''}.`;
+    status.textContent=`${imported} new account(s) imported, ${updated} updated, ${unchanged} already up to date${failed?`, ${failed} failed`:''}.`;
     const importedBookLabel=importWizardPendingBookName||(importAllBooks.find(b=>b.id===importWizardPendingBookId)||{}).name||'a book';
-    logThreadEntry(`Imported ${imported} accounts from QuickBooks into "${importedBookLabel}".`);
+    logThreadEntry(`Imported ${imported} new account(s) and updated ${updated} existing from QuickBooks into "${importedBookLabel}".`);
     await loadRealBooksIntoRowView();
     setTimeout(()=>openImportRoadmap(),900);
   } finally {
@@ -7205,19 +7263,35 @@ function openImportForClientsTab(){
   openImportStepClients();
 }
 let importParsedClients=null;
+// Rewritten as literal, numbered, click-by-click steps, 2026-08-14 —
+// this is read by someone who is not the developer and has no context
+// beyond what's written here, so it names the exact button/menu text at
+// every step rather than compressing a path into a phrase like "Reports
+// → Customers & Receivables → Customer Contact List." Any reasoning
+// about WHY this works this way belongs in a code comment, never in
+// text a stranger reads — no names, no "direct catch" style notes here.
 function openImportStepClients(){
   popupOpen(`
-    <div class="dv-sub-h">Customers → ${abEsc(abPluralize(abFieldLabel('client','Client')))} + Jobs</div>
+    <div class="dv-sub-h">Bring In Your Clients &amp; Jobs</div>
     <div class="import-walkthrough">
-      <b>Two ways to bring this in — either works, use whichever's easier:</b>
       <ol>
-        <li><b>Lists to IIF Files</b> — File → Utilities → Export → Lists to IIF Files…, check every box (none are checked by default), save the file.</li>
-        <li><b>Customer Contact List report</b> — Reports → Customers & Receivables → Customer Contact List (or Customer Phone List), Export → Comma Separated Values (.csv). Ryan's direct catch, 2026-08-14: some Customer/Job entries were missing from the .IIF export that showed up fine in this report — worth using this one if the .IIF ever seems to be missing something.</li>
+        <li>Click <b>Reports</b> at the top.</li>
+        <li>Click <b>Customers &amp; Receivables</b>.</li>
+        <li>Click <b>Customer Contact List</b>.</li>
+        <li>Click <b>Customize Report</b> near the top of the report window.</li>
+        <li>Click the <b>Columns</b> tab.</li>
+        <li>Select <b>every column</b> in the list.</li>
+        <li>Click <b>OK</b>.</li>
+        <li>Click the <b>Excel</b> button near the top of the report.</li>
+        <li>Click <b>Create New Worksheet</b>.</li>
+        <li>Choose <b>Create a comma separated values (.csv) file</b>.</li>
+        <li>Click <b>Export</b>.</li>
+        <li>Name the file (e.g. <code>Clients.csv</code>) and click <b>Save</b>.</li>
+        <li>Come back here and click <b>Choose File</b> below to pick that saved file.</li>
       </ol>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">QuickBooks stores a Job as a sub-record under its Customer (Customer:Job, or "Parent:Child" in the CSV's Customer column) — this brings both over together, Jobs linked to their real Client automatically. The CSV also carries phone, a Primary Contact name, and a Balance Total (kept as a reference "opening balance," separate from AmitBooks' own live-computed totals). Job Type and job start/end dates aren't captured yet (no place for them on the Jobs table currently).</div>
     </div>
     ${lastImportFile?`<div class="fv-status" style="margin-bottom:8px">Automatically using the same file as before — <b>${abEsc(lastImportFile.name)}</b>. Choose File below to pick a different one instead.</div>`:''}
-    <input type="file" id="importClientsFile" accept=".iif,.csv" onchange="importClientsFileChosen(this.files[0])">
+    <input type="file" id="importClientsFile" accept=".csv" onchange="importClientsFileChosen(this.files[0])">
     <div id="importClientsReview" style="margin-top:14px"></div>
     <div class="fv-status" id="importClientsStatus" style="margin-top:10px"></div>`);
   if(lastImportFile) importClientsFileChosen(lastImportFile);
@@ -7228,9 +7302,8 @@ async function importClientsFileChosen(file){
   const status=document.getElementById('importClientsStatus');
   status.textContent='Reading file…';
   const lower=(file.name||'').toLowerCase();
-  if(lower.endsWith('.iif')) importParsedClients=importParseIifCustomers(await file.text());
-  else if(lower.endsWith('.csv')) importParsedClients=importParseCsvCustomers(await file.text());
-  else { status.textContent='Customers import from either the .IIF export or the Customer Contact List .csv report — see the walkthrough above.'; return; }
+  if(!lower.endsWith('.csv')){ status.textContent='Please choose the .csv file saved from the steps above.'; return; }
+  importParsedClients=importParseCsvCustomers(await file.text());
   if(!importParsedClients){ status.textContent='Could not find any customers in that file.'; return; }
   if(!importParsedClients.clients.length){ status.textContent='That file has no customers in it.'; return; }
   renderImportClientsReview();
