@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AmitMeals</title>
+<link rel="icon" type="image/x-icon" href="amit_icon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09141f;
+  --card-head:#0f2338;
+  --border:rgba(201,168,76,0.55);
+  --gold:#c9a84c;
+  --gold2:#e8c56a;
+  --text:#ffffff;
+  --text2:#f0e8d0;
+  --muted:rgba(240,232,208,0.78);
+  --dim:rgba(240,232,208,0.42);
+  --good:#5fae6e;
+  --warn:#c96b4c;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+
+/* ── HEADER ── */
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 28px;background:var(--card-head);border-bottom:2px solid var(--border);flex-shrink:0;position:relative}
+.page-title-wrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+.page-title{font-family:Georgia,serif;font-size:26px;font-weight:700;letter-spacing:.3px;color:var(--gold2)}
+.page-version{font-family:monospace;font-size:11px;letter-spacing:.05em;color:rgba(201,168,76,.55);margin-top:2px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
+.hdr-right{text-align:right;display:flex;align-items:center;gap:14px}
+.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.datetime{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* ── HUB LAYOUT ── */
+.hub{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR — copied verbatim from Templates\template.html ── */
+.sidebar{
+  width:max-content;flex-shrink:0;
+  background:var(--card-head);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar{transition:width .18s ease}
+.sidebar.collapsed{width:64px}
+.sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
+.sidebar.collapsed .page-info{display:none}
+.page-nav{
+  display:flex;align-items:center;gap:10px;
+  padding:6px 4px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;
+  flex-shrink:0;
+  transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;
+}
+.page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
+.page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
+.page-icon.plug-badge.connected{background:#2e7d46}
+.page-icon.plug-badge.disconnected{background:var(--bg)}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:#c73333;animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.plug-icon-glyph{position:relative;z-index:1}
+@keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
+.page-info{flex:1;min-width:0}
+.page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MAIN AREA ── */
+.main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.detail{position:absolute;inset:0;overflow-y:auto;display:none;flex-direction:column;animation:pfade .18s ease}
+.detail.active{display:flex}
+@keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.detail::-webkit-scrollbar{width:5px}
+.detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+.detail-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;background:var(--card-head);border-bottom:2px solid var(--border);flex-shrink:0}
+.detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-body{padding:24px 28px;flex:1}
+
+/* ── TABS ── */
+.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:18px 24px 0;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 20px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 24px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:26px 30px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
+
+/* ── SHARED CONTROLS ── */
+.card{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.22);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+.card-title{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;color:var(--gold2);margin-bottom:10px;text-transform:uppercase}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px}
+label{display:block;font-size:11px;color:var(--dim);letter-spacing:.04em;margin-bottom:4px;text-transform:uppercase}
+input,select,textarea{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.28);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;font-family:inherit;outline:none}
+select option{background:#0f2338;color:#fff}
+input:focus,select:focus,textarea:focus{border-color:var(--gold)}
+textarea{resize:vertical;min-height:60px}
+.field{margin-bottom:10px}
+.btn{background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.5);color:var(--gold2);padding:9px 18px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.07em}
+.btn:hover{background:rgba(201,168,76,.24)}
+.btn-sm{padding:5px 12px;font-size:10px}
+.btn-danger{border-color:rgba(201,107,76,.6);color:#e08a6a}
+.row-list{display:flex;flex-direction:column;gap:8px}
+.row-item{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.18);border-radius:8px;padding:10px 14px}
+.row-item .meta{font-size:11px;color:var(--dim)}
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;letter-spacing:.03em;background:rgba(201,168,76,.15);color:var(--gold2);border:1px solid rgba(201,168,76,.35);margin-right:5px}
+.pill.warn{background:rgba(201,107,76,.15);color:#e08a6a;border-color:rgba(201,107,76,.4)}
+.pill.good{background:rgba(95,174,110,.15);color:#8fd39c;border-color:rgba(95,174,110,.4)}
+.empty-note{color:var(--dim);font-size:12px;font-style:italic;padding:10px 0}
+.stat-tile{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:14px 16px;text-align:center}
+.stat-num{font-family:'Cinzel',serif;font-size:22px;color:var(--gold2);font-weight:700}
+.stat-lbl{font-size:10px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+.recipe-card{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.22);border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.recipe-card h4{font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);margin-bottom:4px}
+.recipe-card .desc{font-size:12px;color:var(--muted);line-height:1.5;margin:6px 0}
+.close-x{cursor:pointer;color:var(--dim);font-size:11px}
+.close-x:hover{color:#e08a6a}
+
+/* ── Copied verbatim from Templates\template.html — POPUP / RIGHT RAIL /
+   TOOLTIP, per Templates\CLAUDE.md's "USE THE TEMPLATE MEANS EXACTLY" ── */
+.popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
+.popup-close-btn:hover{color:var(--gold2)}
+.right-rail{width:64px;flex-shrink:0;background:var(--card-head);border-left:2px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;padding:12px 10px;gap:0;transition:width .18s ease}
+.right-rail::-webkit-scrollbar{width:3px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.right-rail.expanded{width:max-content}
+.right-rail .page-nav{padding:4px;flex-direction:row-reverse}
+.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
+.right-rail .page-info{display:none}
+.right-rail.expanded .page-info{display:block}
+/* RIGHT RAIL ON/OFF STATE — added 2026-08-22, Ryan's direct instruction.
+   The gold .page-nav.active look (shared with the left sidebar's "this is
+   the open page" state) was too subtle to tell an ON toggle (Sign In,
+   Demo Mode) apart from an OFF one at a glance. Right-rail items are
+   toggles, not navigation, so they get their own distinct green
+   on-state — overrides the gold .page-nav.active rule for this rail only. */
+.right-rail .page-nav.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65);box-shadow:0 0 0 1px rgba(46,160,67,.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(46,160,67,.35);border-radius:50%;box-shadow:0 0 0 2px rgba(46,160,67,.55)}
+.right-rail .page-nav.active .page-name{color:#6fe38f}
+.page-hover-tip{position:fixed;z-index:9999;background:#1a3352;border:1px solid rgba(201,168,76,.45);color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;line-height:1.5;padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;opacity:0;pointer-events:none;transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.page-hover-tip.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand brand-logo-link" href="../Hub/amit-hub.html" title="Back to the Amit Hub">
+    <img src="../amit_icon.ico" alt="Amit" style="height:32px;width:32px" onerror="this.style.display='none'">
+    <div>
+      <div class="page-title" id="pageTitle" style="font-size:19px">AmitMeals</div>
+      <div class="page-version" id="pageVersion">v1.00</div>
+    </div>
+  </a>
+  <div class="page-title-wrap">
+    <div class="page-title" id="pageContext">Meal Planning</div>
+    <div class="page-version" id="pageContextSub">PREFERENCES · BUDGET · PORTIONS</div>
+  </div>
+  <div class="hdr-right">
+    <div style="text-align:right">
+      <div class="greeting" id="greeting">Good morning</div>
+      <div class="datetime" id="datetime"></div>
+    </div>
+  </div>
+</header>
+
+<div class="hub">
+  <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()">
+    <div class="page-nav active" id="page-1" onclick="openPage(1)"><div class="page-icon">🧭</div><div class="page-info"><div class="page-name">Introduction</div></div></div>
+    <div class="page-nav" id="page-2" onclick="openPage(2)"><div class="page-icon">👪</div><div class="page-info"><div class="page-name">Household</div></div></div>
+    <div class="page-nav" id="page-3" onclick="openPage(3)"><div class="page-icon">💰</div><div class="page-info"><div class="page-name">Budget</div></div></div>
+    <div class="page-nav" id="page-4" onclick="openPage(4)"><div class="page-icon">📦</div><div class="page-info"><div class="page-name">Pantry</div></div></div>
+    <div class="page-nav" id="page-5" onclick="openPage(5)"><div class="page-icon">📖</div><div class="page-info"><div class="page-name">Recipes</div></div></div>
+    <div class="page-nav" id="page-9" onclick="openPage(9)"><div class="page-icon">👍</div><div class="page-info"><div class="page-name">Food Preferences</div></div></div>
+    <div class="page-nav" id="page-8" onclick="openPage(8)"><div class="page-icon">🎯</div><div class="page-info"><div class="page-name">Menu Generator</div></div></div>
+    <div class="page-nav" id="page-6" onclick="openPage(6)"><div class="page-icon">🗓️</div><div class="page-info"><div class="page-name">Weekly Menu</div></div></div>
+    <div class="page-nav" id="page-7" onclick="openPage(7)"><div class="page-icon">🛒</div><div class="page-info"><div class="page-name">Shopping List</div></div></div>
+  </nav>
+
+  <div class="main-area" id="mainArea">
+
+    <!-- PAGE 1 — INTRODUCTION -->
+    <div class="detail active" id="detail-1">
+      <div class="detail-head"><span class="detail-heading">Introduction</span></div>
+      <div class="detail-body">
+        <div class="card">
+          <div class="card-title">What AmitMeals Does</div>
+          <p style="line-height:1.7;color:var(--text2)">One loop, four steps: <b>Household</b> holds who's eating and what they like (and their calorie needs). <b>Budget</b> sets what you want to spend and where. <b>Pantry</b> tracks what's already on hand. <b>Recipes</b> holds meals with calories, cuisine, prep and storage instructions. <b>Weekly Menu</b> builds a week's plan sized to real portions per person. <b>Shopping List</b> turns that plan into what to actually buy — checking the pantry first, favoring bulk where it will actually get used, and showing projected cost against your budget.</p>
+        </div>
+        <div class="card">
+          <div class="card-title">Get Started</div>
+          <div class="row-list">
+            <div class="row-item"><span>1. Add household members (Household tab) — this drives portion sizing.</span></div>
+            <div class="row-item"><span>2. Set your weekly budget and preferred spend split (Budget tab).</span></div>
+            <div class="row-item"><span>3. Add a few recipes your household actually eats (Recipes tab).</span></div>
+            <div class="row-item"><span>4. Build this week's menu and generate the shopping list.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2 — HOUSEHOLD -->
+    <div class="detail" id="detail-2">
+      <div class="detail-head"><span class="detail-heading">Household</span></div>
+      <div class="detail-body">
+        <div class="card">
+          <div class="card-title">Add a Household Member</div>
+          <div class="grid4">
+            <div class="field"><label>Name</label><input id="hmName" placeholder="Name"></div>
+            <div class="field"><label>Age</label><input id="hmAge" type="number" placeholder="Years"></div>
+            <div class="field"><label>Sex</label><select id="hmSex"><option value="male">Male</option><option value="female">Female</option></select></div>
+            <div class="field"><label>Activity Level</label>
+              <select id="hmActivity">
+                <option value="1.2">Sedentary</option>
+                <option value="1.375">Lightly Active</option>
+                <option value="1.55" selected>Active</option>
+                <option value="1.725">Very Active</option>
+                <option value="1.9">Athletic</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>Height (inches)</label><input id="hmHeight" type="number" placeholder="e.g. 68"></div>
+            <div class="field"><label>Weight (lbs)</label><input id="hmWeight" type="number" placeholder="e.g. 165"></div>
+          </div>
+          <button class="btn" onclick="addHouseholdMember()">+ Add Member</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Household Members</div>
+          <div class="row-list" id="householdList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 3 — BUDGET -->
+    <div class="detail" id="detail-3">
+      <div class="detail-head"><span class="detail-heading">Budget</span></div>
+      <div class="detail-body">
+        <div class="card">
+          <div class="card-title">Weekly Budget</div>
+          <div class="grid2">
+            <div class="field"><label>Weekly Budget Target ($)</label><input id="budgetTotal" type="number" placeholder="e.g. 200" onchange="saveBudget()"></div>
+            <div class="field"><label>Preferred Spend Style</label>
+              <select id="budgetStyle" onchange="saveBudget()">
+                <option value="balanced">Balanced</option>
+                <option value="protein">Protein-Forward</option>
+                <option value="produce">Produce-Forward</option>
+                <option value="thrift">Thrift / Staples-First</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-title" style="margin-top:14px">Preferred Spend Split</div>
+          <div class="grid4">
+            <div class="field"><label>Protein %</label><input id="splitProtein" type="number" value="35" onchange="saveBudget()"></div>
+            <div class="field"><label>Produce %</label><input id="splitProduce" type="number" value="30" onchange="saveBudget()"></div>
+            <div class="field"><label>Staples/Pantry %</label><input id="splitStaples" type="number" value="25" onchange="saveBudget()"></div>
+            <div class="field"><label>Other %</label><input id="splitOther" type="number" value="10" onchange="saveBudget()"></div>
+          </div>
+        </div>
+        <div class="grid4" id="budgetStats"></div>
+      </div>
+    </div>
+
+    <!-- PAGE 4 — PANTRY -->
+    <div class="detail" id="detail-4">
+      <div class="detail-head"><span class="detail-heading">Pantry</span></div>
+      <div class="detail-body">
+        <div class="card">
+          <div class="card-title">Add What's On Hand</div>
+          <div class="grid4">
+            <div class="field"><label>Ingredient</label><input id="pnItem" placeholder="e.g. Rice"></div>
+            <div class="field"><label>Quantity</label><input id="pnQty" placeholder="e.g. 5 lbs"></div>
+            <div class="field"><label>Use By</label><input id="pnUseBy" type="date"></div>
+            <div class="field"><label>&nbsp;</label><button class="btn" style="width:100%" onclick="addPantryItem()">+ Add</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Current Pantry</div>
+          <div class="row-list" id="pantryList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 5 — RECIPES -->
+    <div class="detail" id="detail-5">
+      <div class="detail-head"><span class="detail-heading">Recipes</span></div>
+      <div class="detail-body">
+        <div class="card">
+          <div class="card-title">Recipe Source API Keys</div>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Keys are saved only in this browser's local storage — never written into the app's file, never pushed to GitHub. TheMealDB needs no key. Leave the field blank to skip Spoonacular.</p>
+          <div class="grid3">
+            <div class="field"><label>Spoonacular API Key</label><input id="apiKeySpoonacular" type="password" placeholder="paste key"></div>
+          </div>
+          <button class="btn btn-sm" onclick="saveApiKeys()">💾 Save Keys</button>
+          <div id="apiKeyStatus" style="font-size:12px;color:var(--gold2);margin-top:6px"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Import Real Recipes</div>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Pulls actual recipes — real ingredients, real step-by-step instructions — from <b>TheMealDB</b> (free, no key needed) and, once a key is saved above, <b>Spoonacular</b> too. Nothing here is written by Amit; it's the same instructions you'd get from a recipe book. Everything found lands in the Review queue below first — nothing joins the library until you accept it.</p>
+          <div class="grid3">
+            <div class="field"><label>Cuisine to Import</label><select id="importAreaPick"></select></div>
+            <div class="field"><label>&nbsp;</label><button class="btn" style="width:100%" onclick="importFromPickedArea()">↓ TheMealDB — This Cuisine</button></div>
+            <div class="field"><label>&nbsp;</label><button class="btn btn-sm" style="width:100%" onclick="importAllAreas()">↓ TheMealDB — All Cuisines</button></div>
+          </div>
+          <div class="grid3">
+            <div class="field"><label>Search Term (Spoonacular)</label><input id="importQuery" placeholder="e.g. chicken, tacos, vegetarian dinner"></div>
+            <div class="field"><label>&nbsp;</label><button class="btn" style="width:100%" onclick="importFromSpoonacular()">↓ Spoonacular</button></div>
+          </div>
+          <div id="importStatus" style="font-size:12px;color:var(--gold2);margin-top:6px"></div>
+        </div>
+        <div class="card" id="importQueueCard" style="display:none">
+          <div class="card-title">Review Before Adding to the Stock</div>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Every source lands here first, not straight into the library. Accept the ones you want — they join the one combined Recipe Library below, same pool the Menu Generator draws from regardless of which source found it. Reject the rest.</p>
+          <div id="importQueueList"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Add a Recipe Manually</div>
+          <div class="grid3">
+            <div class="field"><label>Name</label><input id="rcName" placeholder="e.g. Chicken Tacos"></div>
+            <div class="field"><label>Cuisine</label>
+              <select id="rcCuisine">
+                <option>American</option><option>Mexican</option><option>Italian</option><option>Asian</option>
+                <option>Mediterranean</option><option>Indian</option><option>BBQ</option><option>Other</option>
+              </select>
+            </div>
+            <div class="field"><label>Calories (per serving)</label><input id="rcCalories" type="number" placeholder="e.g. 520"></div>
+          </div>
+          <div class="grid4">
+            <div class="field"><label>Meal Type</label><select id="rcMealType"><option value="dinner">Dinner</option><option value="lunch">Lunch</option><option value="breakfast">Breakfast</option><option value="any">Any Meal</option><option value="dessert">Dessert</option><option value="side">Side Dish</option></select></div>
+            <div class="field"><label>Base Servings</label><input id="rcServings" type="number" value="4"></div>
+            <div class="field"><label>Est. Cost to Make ($)</label><input id="rcCost" type="number" placeholder="e.g. 12"></div>
+            <div class="field"><label>Liked By Household?</label>
+              <select id="rcLiked"><option value="yes">Yes</option><option value="no">No</option><option value="unsure">Not Tried Yet</option></select>
+            </div>
+          </div>
+          <div class="field"><label>Ingredients (one per line — "item, qty")</label><textarea id="rcIngredients" placeholder="Chicken breast, 1.5 lbs&#10;Tortillas, 8 ct&#10;Onion, 1"></textarea></div>
+          <div class="grid2">
+            <div class="field"><label>Prep Instructions</label><textarea id="rcPrep" placeholder="How to cook it"></textarea></div>
+            <div class="field"><label>Storage Instructions</label><textarea id="rcStorage" placeholder="Fridge/freezer, how long, reheat notes"></textarea></div>
+          </div>
+          <button class="btn" onclick="addRecipe()">+ Add Recipe</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Recipe Library</div>
+          <div id="recipeList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 9 — FOOD PREFERENCES -->
+    <div class="detail" id="detail-9">
+      <div class="detail-head"><span class="detail-heading">Food Preferences</span></div>
+      <div class="detail-body">
+        <div class="card">
+          <div class="card-title">Hard Rules — Always Applied</div>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px">These apply to every generated menu, every week, automatically — no need to re-type them each time. Checked = excluded.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:14px">
+            <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;color:var(--text2)"><input type="checkbox" id="fpNoPork" onchange="saveFoodPrefs()" style="width:auto"> No Pork</label>
+            <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;color:var(--text2)"><input type="checkbox" id="fpNoBeef" onchange="saveFoodPrefs()" style="width:auto"> No Beef</label>
+            <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;color:var(--text2)"><input type="checkbox" id="fpNoSeafood" onchange="saveFoodPrefs()" style="width:auto"> No Seafood</label>
+            <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;color:var(--text2)"><input type="checkbox" id="fpNoSpicy" onchange="saveFoodPrefs()" style="width:auto"> No Spicy</label>
+            <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:13px;color:var(--text2)"><input type="checkbox" id="fpVegetarian" onchange="saveFoodPrefs()" style="width:auto"> Vegetarian Only</label>
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label>Other ingredients we never want (comma-separated, always excluded)</label>
+            <input id="fpCustomAvoid" placeholder="e.g. cilantro, blue cheese, liver" onchange="saveFoodPrefs()">
+          </div>
+          <div class="field">
+            <label>Things we specifically want more of (comma-separated — favored across every generated week)</label>
+            <input id="fpFavorTerms" placeholder="e.g. hamburger, chicken, pasta" onchange="saveFoodPrefs()">
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Individual Preferences — By Person</div>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Every menu is scored against each person's own list, not one blended household guess. Anyone's hard dislike here excludes an ingredient from the whole week's menu, the same as a Hard Rule above — no re-typing it. Anyone's like gets that ingredient favored more often. Add household members on the Household tab first if the picker below is empty.</p>
+          <div class="field">
+            <label>Who's setting preferences?</label>
+            <select id="ppPersonPick" onchange="renderPersonPrefsUI()"></select>
+          </div>
+          <div id="ppGroups"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Rate Every Recipe</div>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Go through the library once — 👍 Like / 👎 Dislike / — Skip. Liked recipes get favored, disliked ones are excluded from every future generated menu, the same as a hard rule above.</p>
+          <div class="row-list" id="fpRateList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 8 — MENU GENERATOR -->
+    <div class="detail" id="detail-8">
+      <div class="detail-head"><span class="detail-heading">Menu Generator</span></div>
+      <div class="detail-body">
+        <div class="card">
+          <div class="card-title">The Question Set</div>
+          <p style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:14px">This searches your Recipe Library (page 5) — including anything imported from TheMealDB's real recipe database. Live grocery pricing isn't wired in yet, so costs stay at whatever's entered per recipe. Import some real recipes on the Recipes tab first if the library's empty. Answer these and the generator builds a full week within your numbers, pairing batch-cook meals with leftover days where it can.</p>
+
+          <div class="grid2">
+            <div class="field"><label>1. How many days is this menu for?</label><input id="mgDays" type="number" value="7"></div>
+            <div class="field"><label>2. Weekly spending limit ($)</label><input id="mgBudget" type="number" placeholder="pulls from Budget tab if blank"></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>3. Max calories per person, per day</label><input id="mgCalories" type="number" placeholder="pulls household average if blank"></div>
+            <div class="field"><label>4. Meals per day to plan</label><select id="mgMealsPerDay">
+              <option value="1">1 (dinner only)</option>
+              <option value="2">2 (lunch + dinner)</option>
+              <option value="3">3 (breakfast + lunch + dinner)</option>
+            </select></div>
+          </div>
+          <div class="field">
+            <label>5. Preferred cuisines (leave all checked for no preference)</label>
+            <div id="mgCuisineChecks" style="display:flex;flex-wrap:wrap;gap:10px"></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>6. Only use recipes marked "Liked"?</label><select id="mgLikedOnly"><option value="no" selected>No — include untried (recommended until you've rated a few)</option><option value="yes">Yes — liked only</option></select></div>
+            <div class="field"><label>7. Batch-cook & chain the base into new dishes?</label><select id="mgBatch"><option value="yes">Yes — cook a big batch (ground beef, pasta, rice…), then spend it across different meals (tacos → chili → shepherd's pie), never the same plate twice</option><option value="no">No — a fully independent meal every slot</option></select></div>
+          </div>
+          <div class="grid2">
+            <div class="field"><label>8. This week's diet focus</label><select id="mgDietMode">
+              <option value="none">None / Balanced</option>
+              <option value="lowcarb">Low Carb — skip pasta/rice/bread/potato-heavy meals</option>
+              <option value="highprotein">High Protein — favor meat/fish/egg-forward meals</option>
+              <option value="vegetarian">Vegetarian — no meat or fish</option>
+              <option value="lowsodium">Low Sodium / Less Salty — skip cured, brined, heavily salted meals</option>
+            </select></div>
+            <div class="field"><label style="color:var(--dim)">Ingredient avoids are handled automatically — set them once per person on the Food Preferences tab.</label></div>
+          </div>
+          <div class="field">
+            <label>10. Use up what's already in the Pantry first?</label>
+            <select id="mgUsePantry"><option value="yes">Yes — favor recipes that use what we already have, before searching for new meals</option><option value="no">No — just search fresh, ignore the pantry</option></select>
+          </div>
+          <div class="field">
+            <label>11. Anything on sale or a great deal this week? (comma-separated)</label>
+            <input id="mgSaleItems" placeholder="e.g. apples, tomatoes, green peppers, chicken thighs">
+          </div>
+          <button class="btn" onclick="generateWeekMenu(event)">🎯 Generate This Week's Menu</button>
+        </div>
+
+        <div class="card" id="mgResultsCard" style="display:none">
+          <div class="card-title">Generated Week</div>
+          <div id="mgResultsStats" class="grid4" style="margin-bottom:14px"></div>
+          <div id="mgResultsNote"></div>
+          <p style="font-size:11px;color:var(--dim);margin-bottom:8px">Check the ones you like — Amit remembers them and favors them more in every future menu it generates.</p>
+          <div class="row-list" id="mgResultsList"></div>
+          <div style="margin-top:12px;display:flex;gap:10px">
+            <button class="btn btn-sm" onclick="saveLikedSelections()">⭐ Remember What I Checked</button>
+            <button class="btn btn-sm" onclick="commitGeneratedMenu()">✓ Use This as My Weekly Menu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 6 — WEEKLY MENU -->
+    <div class="detail" id="detail-6">
+      <div class="detail-head"><span class="detail-heading">Weekly Menu</span></div>
+      <div class="detail-body">
+        <div class="card">
+          <div class="card-title">Household Calorie Targets</div>
+          <div class="grid4" id="calorieTargets"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">This Week's Menu</div>
+          <div class="field">
+            <label>Add a Recipe to This Week</label>
+            <select id="menuRecipePick"></select>
+            <button class="btn btn-sm" style="margin-top:8px" onclick="addToMenu()">+ Add to Week</button>
+          </div>
+          <div class="row-list" id="menuList" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 7 — SHOPPING LIST -->
+    <div class="detail" id="detail-7">
+      <div class="detail-head">
+        <span class="detail-heading">Shopping List</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="generateShoppingList()">↻ Generate From This Week's Menu</button>
+          <button class="btn btn-sm" onclick="printShoppingList()">🖨 Print</button>
+        </div>
+      </div>
+      <div class="detail-body">
+        <div class="grid4" id="shoppingStats"></div>
+        <p id="shoppingSyncNote" style="font-size:11px;color:var(--dim);margin-bottom:8px"></p>
+        <div class="card">
+          <div class="card-title">Grocery List (Pantry-Checked)</div>
+          <p style="font-size:12px;color:var(--dim);margin-bottom:10px">Check items off as you shop and enter what they actually cost — signed in, this list and every check/price you enter syncs to your account, so it's the same list on your phone as here. Not signed in, it stays on this device only (see the Sign In rail item).</p>
+          <div class="row-list" id="shoppingList"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── RIGHT RAIL — global, present on every page. Copied verbatim
+       from Templates\template.html, built in <script> below. ── -->
+  <nav class="right-rail" id="rightRail" ondblclick="toggleRail()"></nav>
+
+</div>
+
+<!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
+<div class="page-hover-tip" id="pageHoverTip"></div>
+
+<!-- Generic Popup destination — content filled in by whichever layout uses it -->
+<div id="canonicalPopup" class="popup-overlay"></div>
+
+<!-- SYNC / SIGN-IN MODAL -->
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+    <input id="syncEmailInput" type="email" placeholder="your@email.com"
+      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
+    <button id="syncSubmitBtn" onclick="submitSyncEmail()"
+      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      SEND SIGN-IN LINK →
+    </button>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+  </div>
+</div>
+
+<script src="../Amit_Ask_Live.js"></script>
+<script>
+// ══════════════════════════════════════════════
+// AmitMeals — v1.00. Local-first (localStorage) for now; Supabase table
+// shapes below match what a future sync pass will use (see AmitMeals\
+// CLAUDE.md and Database\CLAUDE.md for the shared connection pattern).
+// Not wired to Supabase yet — every function below reads/writes
+// localStorage only, so it works standalone with no login.
+// ══════════════════════════════════════════════
+
+// ══════════════════════════════════════════════
+// Copied verbatim from Templates\template.html — LOGIN CONNECTION / RIGHT
+// RAIL (Ask Amit, Sign In-Sync, Demo Mode, Home) / TOOLTIP / POPUP. Per
+// Templates\CLAUDE.md's "USE THE TEMPLATE MEANS EXACTLY" — do not
+// reconstruct any of this from memory or approximate it.
+// ══════════════════════════════════════════════
+let currentUser=null;
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
+
+async function fetchDemoRows(table,queryString){
+  if(!demoMode)return[];
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${AMIT_DEMO_UID}&${queryString}`,{
+      headers:{apikey:SB_KEY,Accept:'application/json'}
+    });
+    const rows=await res.json();
+    return (Array.isArray(rows)?rows:[]).map(r=>({...r,_isDemo:true}));
+  }catch(e){ return []; }
+}
+
+function initPageTooltips(containerId,side){
+  const tip=document.getElementById('pageHoverTip');
+  const nav=document.getElementById(containerId);
+  if(!tip||!nav)return;
+  nav.addEventListener('mouseover',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    tip.textContent=item.dataset.tip||'';
+    const r=item.getBoundingClientRect();
+    if(side==='left'){
+      tip.style.right=(window.innerWidth-r.left+8)+'px';
+      tip.style.left='auto';
+    } else {
+      tip.style.left=(r.right+8)+'px';
+      tip.style.right='auto';
+    }
+    tip.style.top=(r.top+r.height/2)+'px';
+    tip.style.transform='translateY(-50%)';
+    tip.classList.add('show');
+  });
+  nav.addEventListener('mouseout',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    if(e.relatedTarget&&item.contains(e.relatedTarget))return;
+    tip.classList.remove('show');
+  });
+}
+
+function toggleRail(){ document.getElementById('rightRail').classList.toggle('expanded'); }
+
+const AMIT_HUB_URL='../Hub/amit-hub.html';
+function goToHub(){
+  if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  const ch=new BroadcastChannel('amit_hub_tabs');
+  let acked=false;
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.postMessage({type:'focus-requested'});
+  setTimeout(()=>{
+    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    ch.close();
+  },250);
+}
+
+function popupOpen(innerHtml){
+  let modal=document.getElementById('canonicalPopup');
+  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
+    ${innerHtml}
+  </div>`;
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
+  modal.style.display='flex';
+}
+function popupClose(){
+  const modal=document.getElementById('canonicalPopup');
+  if(modal) modal.style.display='none';
+}
+
+if(db){
+  db.auth.onAuthStateChange(async (event,session)=>{
+    currentUser=session?session.user:null;
+    _updateSyncUI();
+  });
+}
+
+function _updateSyncUI(){
+  const item=document.getElementById('rail-sync');if(!item)return;
+  const icon=document.getElementById('rail-sync-icon');
+  const name=document.getElementById('rail-sync-name');
+  const sub=document.getElementById('rail-sync-sub');
+  icon.classList.add('plug-badge');
+  if(currentUser){
+    icon.innerHTML='<span class="plug-icon-glyph">🔓</span>';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out — Synced';item.title='Signed in · '+currentUser.email;
+    item.classList.add('active');
+    icon.classList.add('connected');icon.classList.remove('disconnected');
+  } else {
+    icon.innerHTML='<span class="plug-icon-glyph">🔒</span>';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In — Not Synced';item.title='';
+    item.classList.remove('active');
+    icon.classList.add('disconnected');icon.classList.remove('connected');
+  }
+}
+
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+}
+
+function toggleDemoMode(){
+  demoMode=!demoMode;
+  localStorage.setItem('amit_demo_mode',demoMode?'on':'off');
+  _updateDemoUI();
+}
+
+function _updateDemoUI(){
+  const icon=document.getElementById('rail-demo-icon');
+  const item=document.getElementById('rail-demo');
+  const name=document.getElementById('rail-demo-name');
+  const sub=document.getElementById('rail-demo-sub');
+  if(!item)return;
+  if(demoMode){
+    icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
+    item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+    item.classList.add('active');
+  } else {
+    icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
+    item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+    item.classList.remove('active');
+  }
+}
+
+async function sendMagicLink(email){
+  if(!db)return'Database not available';
+  const{error}=await db.auth.signInWithOtp({email});
+  return error?error.message:null;
+}
+
+function openSyncModal(){
+  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
+  const m=document.getElementById('syncModal');if(!m)return;
+  m.style.display='flex';
+}
+function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+async function submitSyncEmail(){
+  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
+  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
+  const err=await sendMagicLink(email);
+  if(err){btn.textContent='Try again';btn.disabled=false;}
+  else{
+    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+  }
+}
+
+function buildRightRail(){
+  const rail=document.getElementById('rightRail');
+  if(!rail)return;
+  rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('amitMeals')" data-tip="Ask Amit">
+    <div class="page-icon"><img src="../amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain" onerror="this.style.display='none'"></div>
+    <div class="page-info">
+      <div class="page-name">Ask Amit</div>
+      <div class="page-sub">Walk alongside</div>
+    </div>
+  </div>
+  <div class="page-nav" id="rail-sync" onclick="openSyncModal()" data-tip="Sign In">
+    <div class="page-icon" id="rail-sync-icon">🔒</div>
+    <div class="page-info">
+      <div class="page-name" id="rail-sync-name">Sign In</div>
+      <div class="page-sub" id="rail-sync-sub">Not Synced</div>
+    </div>
+  </div>
+  <div class="page-nav" id="rail-demo" onclick="toggleDemoMode()" data-tip="Demo On">
+    <div class="page-icon" id="rail-demo-icon">🎬</div>
+    <div class="page-info">
+      <div class="page-name" id="rail-demo-name">Demo On</div>
+      <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
+    </div>
+  </div>
+  <div class="page-nav" id="rail-home" onclick="goToHub()" data-tip="Back to the Hub">
+    <div class="page-icon">🏠</div>
+    <div class="page-info">
+      <div class="page-name">Home</div>
+      <div class="page-sub">Back to the Hub</div>
+    </div>
+  </div>`;
+  _updateDemoUI();
+  _updateSyncUI();
+  initPageTooltips('rightRail','left');
+}
+
+const LS_HOUSEHOLD='amitmeals_household';
+const LS_BUDGET='amitmeals_budget';
+const LS_PANTRY='amitmeals_pantry';
+const LS_RECIPES='amitmeals_recipes';
+const LS_MENU='amitmeals_menu';
+const LS_SHOPPING='amitmeals_shopping';
+const LS_FOODPREFS='amitmeals_foodprefs';
+const LS_PERSONPREFS='amitmeals_personprefs';
+
+function loadLS(key,fallback){ try{ return JSON.parse(localStorage.getItem(key))||fallback; }catch(e){ return fallback; } }
+function saveLS(key,val){ localStorage.setItem(key,JSON.stringify(val)); }
+
+// ══════════════════════════════════════════════
+// REAL RECIPE IMPORT — TheMealDB (themealdb.com), a free public recipe
+// database. Nothing here is composed by Amit — every imported recipe's
+// name, ingredient list, measurements, and step-by-step instructions come
+// directly from that source, verbatim, the same way they'd read in a
+// recipe book. Calories and cost aren't part of that source's data, so
+// they're left blank on import — you can enter them per recipe if you want
+// them factored into the calorie/budget math; until then those recipes
+// are simply excluded from calorie-capped or budget-capped generator runs
+// (see generateWeekMenu's baseFilter — a blank calorie/cost never silently
+// counts as 0).
+// Areas below are the ones confirmed to actually have recipes in the free
+// tier (many of the 190+ listed areas return empty) — narrowing to these
+// avoids "Import" doing nothing and looking broken.
+// ══════════════════════════════════════════════
+const MEALDB_AREAS=['American','British','Canadian','Chinese','Croatian','Dutch','Egyptian','Filipino','French','Greek','Indian','Irish','Italian','Jamaican','Japanese','Kenyan','Malaysian','Mexican','Moroccan','Polish','Portuguese','Russian','Spanish','Thai','Tunisian','Turkish','Vietnamese'];
+const MEALDB_BASE='https://www.themealdb.com/api/json/v1/1';
+
+function mealDbToRecipe(m){
+  const ingredients=[];
+  for(let i=1;i<=20;i++){
+    const ing=(m['strIngredient'+i]||'').trim();
+    const meas=(m['strMeasure'+i]||'').trim();
+    if(ing) ingredients.push(meas?`${ing}, ${meas}`:ing);
+  }
+  // MealDB's own category, not just Breakfast, decides mealType — a
+  // "Dessert" or "Side" is neither a real dinner nor lunch, and would
+  // otherwise get pulled straight into meal slots as if it were a full
+  // meal. Anything in NON_MEAL_CATEGORIES is tagged with its own type so
+  // the generator's slotMealType matching (which only fills breakfast/
+  // lunch/dinner/any slots) naturally leaves these out of the week unless
+  // someone deliberately searches for them.
+  const cat=(m.strCategory||'').toLowerCase();
+  const NON_MEAL_CATEGORIES={dessert:'dessert',starter:'side',side:'side','miscellaneous':'side'};
+  const mealType = cat==='breakfast' ? 'breakfast' : (NON_MEAL_CATEGORIES[cat] || 'dinner');
+  return{
+    id:'mealdb_'+m.idMeal,
+    name:m.strMeal,
+    cuisine:m.strArea||'Other',
+    category:m.strCategory||'',
+    mealType,
+    calories:null,
+    servings:4,
+    cost:null,
+    batch:false,
+    ingredients,
+    prep:(m.strInstructions||'').trim(),
+    storage:'Not provided by the source recipe — add your own storage/reheat notes if you want them tracked.',
+    liked:'unsure',preferenceScore:0,
+    _source:'TheMealDB',_sourceUrl:m.strSource||m.strYoutube||'',_sourceId:m.idMeal
+  };
+}
+
+// Imports never write straight into the Recipe Library anymore. Every
+// source (TheMealDB now, Spoonacular once a key exists) lands here as
+// candidates first — Ryan reviews and Accepts/Rejects each one, or Accepts
+// All. Only accepted items merge into LS_RECIPES, which stays the one
+// combined stock every source feeds — the Menu Generator never knows or
+// cares which source a recipe came from, it just draws from one pool.
+let importQueue=[];
+async function importRecipesByArea(area,statusElId){
+  const statusEl=statusElId?document.getElementById(statusElId):null;
+  if(statusEl)statusEl.textContent=`Looking up ${area} recipes…`;
+  const listRes=await fetch(`${MEALDB_BASE}/filter.php?a=${encodeURIComponent(area)}`);
+  const listJson=await listRes.json();
+  const ids=(listJson.meals||[]).map(m=>m.idMeal);
+  if(!ids.length){ if(statusEl)statusEl.textContent=`No recipes found for ${area} in the free database.`; return 0; }
+  const existing=loadLS(LS_RECIPES,[]);
+  const existingIds=new Set(existing.filter(r=>r._source==='TheMealDB').map(r=>r._sourceId));
+  const queuedIds=new Set(importQueue.filter(r=>r._source==='TheMealDB').map(r=>r._sourceId));
+  let found=0;
+  for(let i=0;i<ids.length;i++){
+    if(existingIds.has(ids[i]) || queuedIds.has(ids[i])) continue; // already in the stock or already staged
+    if(statusEl)statusEl.textContent=`Looking up ${area} recipes… (${i+1}/${ids.length})`;
+    try{
+      const res=await fetch(`${MEALDB_BASE}/lookup.php?i=${ids[i]}`);
+      const json=await res.json();
+      const m=(json.meals||[])[0];
+      if(m){ importQueue.push(mealDbToRecipe(m)); found++; }
+    }catch(e){}
+  }
+  if(statusEl)statusEl.textContent=`Found ${found} new recipe(s) from ${area} — review them below before they join the stock.`;
+  renderImportQueue();
+  return found;
+}
+function renderImportQueue(){
+  const el=document.getElementById('importQueueList');
+  const wrap=document.getElementById('importQueueCard');
+  if(!el||!wrap)return;
+  if(!importQueue.length){ wrap.style.display='none'; el.innerHTML=''; return; }
+  wrap.style.display='';
+  el.innerHTML=`<div style="margin-bottom:8px"><button class="btn btn-sm" onclick="acceptAllImportQueue()">✓ Accept All (${importQueue.length})</button> <button class="btn btn-sm btn-danger" onclick="rejectAllImportQueue()">✗ Reject All</button></div>`+
+    importQueue.map((r,i)=>`
+    <div class="row-item">
+      <div><b>${r.name}</b><div class="meta">${r.cuisine}${r.mealType?' · '+r.mealType:''} · ${r._source}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="acceptImportQueueItem(${i})">✓ Add to Stock</button>
+        <button class="btn btn-sm btn-danger" onclick="rejectImportQueueItem(${i})">✗ Skip</button>
+      </div>
+    </div>`).join('');
+}
+function acceptImportQueueItem(i){
+  const r=importQueue[i]; if(!r)return;
+  const existing=loadLS(LS_RECIPES,[]);
+  existing.push(r);
+  saveLS(LS_RECIPES,existing);
+  importQueue.splice(i,1);
+  renderImportQueue(); renderRecipes();
+}
+function rejectImportQueueItem(i){
+  importQueue.splice(i,1);
+  renderImportQueue();
+}
+function acceptAllImportQueue(){
+  const existing=loadLS(LS_RECIPES,[]);
+  existing.push(...importQueue);
+  saveLS(LS_RECIPES,existing);
+  importQueue=[];
+  renderImportQueue(); renderRecipes();
+}
+function rejectAllImportQueue(){
+  importQueue=[];
+  renderImportQueue();
+}
+
+// ── ADDITIONAL RECIPE SOURCES — Spoonacular ──
+// Keys live only in localStorage (LS_APIKEYS) — never hardcoded in this
+// file, so this file stays safe to commit/push publicly. Both sources feed
+// the same importQueue review step as TheMealDB, then the same LS_RECIPES
+// stock once accepted — one combined pool regardless of source.
+const LS_APIKEYS='amitmeals_apikeys';
+function loadApiKeys(){ return loadLS(LS_APIKEYS,{spoonacular:''}); }
+function saveApiKeys(){
+  const k={ spoonacular:document.getElementById('apiKeySpoonacular').value.trim() };
+  saveLS(LS_APIKEYS,k);
+  document.getElementById('apiKeyStatus').textContent='Saved — key stays in this browser only.';
+}
+function loadApiKeysForm(){
+  const k=loadApiKeys();
+  document.getElementById('apiKeySpoonacular').value=k.spoonacular||'';
+}
+
+function spoonacularToRecipe(m){
+  const ingredients=(m.extendedIngredients||[]).map(i=>i.original||i.name);
+  const dishTypes=(m.dishTypes||[]).map(t=>t.toLowerCase());
+  let mealType='dinner';
+  if(dishTypes.includes('breakfast')) mealType='breakfast';
+  else if(dishTypes.includes('dessert')) mealType='dessert';
+  else if(dishTypes.some(t=>t.includes('side'))) mealType='side';
+  else if(dishTypes.includes('lunch')) mealType='lunch';
+  const prep=(m.instructions||'').replace(/<[^>]+>/g,'').trim() ||
+    (m.analyzedInstructions?.[0]?.steps||[]).map(s=>s.step).join(' ');
+  return{
+    id:'spoon_'+m.id,
+    name:m.title,
+    cuisine:(m.cuisines&&m.cuisines[0])||'Other',
+    category:dishTypes[0]||'',
+    mealType,
+    calories:null,
+    servings:m.servings||4,
+    cost:null,
+    batch:false,
+    ingredients,
+    prep,
+    storage:'Not provided by the source recipe — add your own storage/reheat notes if you want them tracked.',
+    liked:'unsure',preferenceScore:0,
+    _source:'Spoonacular',_sourceUrl:m.sourceUrl||'',_sourceId:String(m.id)
+  };
+}
+async function importFromSpoonacular(){
+  const key=loadApiKeys().spoonacular;
+  const statusEl=document.getElementById('importStatus');
+  if(!key){ if(statusEl)statusEl.textContent='No Spoonacular key saved above — add one first.'; return; }
+  const q=(document.getElementById('importQuery').value||'').trim();
+  if(statusEl)statusEl.textContent='Searching Spoonacular…';
+  try{
+    const params=new URLSearchParams({apiKey:key,number:'10',addRecipeInformation:'true',fillIngredients:'true'});
+    if(q) params.set('query',q);
+    const res=await fetch(`https://api.spoonacular.com/recipes/complexSearch?${params}`);
+    const json=await res.json();
+    if(json.status==='failure'){ if(statusEl)statusEl.textContent='Spoonacular error: '+(json.message||'check your key/quota.'); return; }
+    const existing=loadLS(LS_RECIPES,[]);
+    const existingIds=new Set(existing.filter(r=>r._source==='Spoonacular').map(r=>r._sourceId));
+    const queuedIds=new Set(importQueue.filter(r=>r._source==='Spoonacular').map(r=>r._sourceId));
+    let found=0;
+    for(const m of (json.results||[])){
+      const id=String(m.id);
+      if(existingIds.has(id)||queuedIds.has(id))continue;
+      importQueue.push(spoonacularToRecipe(m)); found++;
+    }
+    if(statusEl)statusEl.textContent=`Found ${found} new recipe(s) from Spoonacular — review them below before they join the stock.`;
+    renderImportQueue();
+  }catch(e){ if(statusEl)statusEl.textContent='Spoonacular request failed — check your connection or key.'; }
+}
+
+async function importFromPickedArea(){
+  const area=document.getElementById('importAreaPick').value;
+  await importRecipesByArea(area,'importStatus');
+  renderRecipes();
+}
+async function importAllAreas(){
+  const statusEl=document.getElementById('importStatus');
+  let total=0;
+  for(const area of MEALDB_AREAS){
+    total+=await importRecipesByArea(area,'importStatus');
+  }
+  if(statusEl)statusEl.textContent=`Done — found ${total} new recipe(s) across all cuisines, staged for your review below.`;
+  renderRecipes();
+}
+function renderImportPicker(){
+  const sel=document.getElementById('importAreaPick');
+  if(sel && !sel.dataset.built){
+    sel.innerHTML=MEALDB_AREAS.map(a=>`<option value="${a}">${a}</option>`).join('');
+    sel.dataset.built='1';
+  }
+}
+
+function openPage(n){
+  document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+n)?.classList.add('active');
+  document.getElementById('detail-'+n)?.classList.add('active');
+  if(n===6){ renderCalorieTargets(); renderMenuPicker(); renderMenu(); }
+  if(n===7){ renderShoppingStats(); renderShoppingList(); loadShoppingFromCloud(); }
+  if(n===5){ renderImportPicker(); loadApiKeysForm(); renderImportQueue(); }
+  if(n===9){ loadFoodPrefsForm(); renderFoodPrefsRateList(); renderPersonPickerOptions(); }
+  if(n===8){ renderCuisineChecks(); }
+}
+function toggleSidebar(){ document.getElementById('sidebarPages').classList.toggle('collapsed'); }
+
+// ── HOUSEHOLD + BMI/CALORIE CALC ──
+// Mifflin-St Jeor equation (standard, more reliable across builds than
+// BMI-only formulas) for BMR, times an activity multiplier for daily
+// calorie need (TDEE). BMI is shown as a secondary reference number, not
+// the primary driver — a broad-framed or muscular person can carry a
+// "high" BMI without being over-fed by this math, since sizing runs off
+// actual height/weight/activity, not the BMI category itself.
+function calcBMI(heightIn,weightLb){
+  if(!heightIn||!weightLb)return null;
+  return +(703*weightLb/(heightIn*heightIn)).toFixed(1);
+}
+function bmiCategory(bmi){
+  if(bmi==null)return'—';
+  if(bmi<18.5)return'Underweight';
+  if(bmi<25)return'Normal';
+  if(bmi<30)return'Overweight';
+  return'Higher Range';
+}
+function calcTDEE(age,sex,heightIn,weightLb,activityMult){
+  if(!age||!heightIn||!weightLb)return null;
+  const cm=heightIn*2.54, kg=weightLb*0.4536;
+  const bmr=sex==='male' ? (10*kg+6.25*cm-5*age+5) : (10*kg+6.25*cm-5*age-161);
+  return Math.round(bmr*activityMult);
+}
+
+function addHouseholdMember(){
+  const name=document.getElementById('hmName').value.trim();
+  if(!name){alert('Enter a name');return;}
+  const member={
+    id:Date.now(),
+    name,
+    age:+document.getElementById('hmAge').value||null,
+    sex:document.getElementById('hmSex').value,
+    activity:+document.getElementById('hmActivity').value,
+    height:+document.getElementById('hmHeight').value||null,
+    weight:+document.getElementById('hmWeight').value||null
+  };
+  const list=loadLS(LS_HOUSEHOLD,[]);
+  list.push(member);
+  saveLS(LS_HOUSEHOLD,list);
+  document.getElementById('hmName').value='';document.getElementById('hmAge').value='';
+  document.getElementById('hmHeight').value='';document.getElementById('hmWeight').value='';
+  renderHousehold();
+}
+function removeHouseholdMember(id){
+  saveLS(LS_HOUSEHOLD,loadLS(LS_HOUSEHOLD,[]).filter(m=>m.id!==id));
+  renderHousehold();
+}
+function renderHousehold(){
+  const list=loadLS(LS_HOUSEHOLD,[]);
+  const el=document.getElementById('householdList');
+  if(!list.length){el.innerHTML='<div class="empty-note">No household members added yet.</div>';return;}
+  el.innerHTML=list.map(m=>{
+    const bmi=calcBMI(m.height,m.weight);
+    const tdee=calcTDEE(m.age,m.sex,m.height,m.weight,m.activity);
+    return `<div class="row-item">
+      <div>
+        <b>${m.name}</b>
+        <div class="meta">${m.age||'—'} yrs · ${m.sex} · ${m.height||'—'}in / ${m.weight||'—'}lbs</div>
+        <div class="meta">BMI: ${bmi??'—'} (${bmiCategory(bmi)}) · Est. Daily Need: ${tdee?tdee+' cal':'—'}</div>
+      </div>
+      <span class="close-x" onclick="removeHouseholdMember(${m.id})">REMOVE</span>
+    </div>`;
+  }).join('');
+}
+
+// ── BUDGET ──
+function saveBudget(){
+  const b={
+    total:+document.getElementById('budgetTotal').value||0,
+    style:document.getElementById('budgetStyle').value,
+    split:{
+      protein:+document.getElementById('splitProtein').value||0,
+      produce:+document.getElementById('splitProduce').value||0,
+      staples:+document.getElementById('splitStaples').value||0,
+      other:+document.getElementById('splitOther').value||0
+    }
+  };
+  saveLS(LS_BUDGET,b);
+  renderBudgetStats();
+}
+function renderBudgetStats(){
+  const b=loadLS(LS_BUDGET,{total:0,split:{protein:35,produce:30,staples:25,other:10}});
+  const el=document.getElementById('budgetStats');
+  const parts=[['protein','Protein'],['produce','Produce'],['staples','Staples'],['other','Other']];
+  el.innerHTML=parts.map(([k,lbl])=>{
+    const amt=(b.total*(b.split[k]||0)/100).toFixed(0);
+    return `<div class="stat-tile"><div class="stat-num">$${amt}</div><div class="stat-lbl">${lbl} / week</div></div>`;
+  }).join('');
+}
+function loadBudgetForm(){
+  const b=loadLS(LS_BUDGET,null);
+  if(!b)return;
+  document.getElementById('budgetTotal').value=b.total||'';
+  document.getElementById('budgetStyle').value=b.style||'balanced';
+  document.getElementById('splitProtein').value=b.split?.protein??35;
+  document.getElementById('splitProduce').value=b.split?.produce??30;
+  document.getElementById('splitStaples').value=b.split?.staples??25;
+  document.getElementById('splitOther').value=b.split?.other??10;
+}
+
+// ── PANTRY ──
+function addPantryItem(){
+  const item=document.getElementById('pnItem').value.trim();
+  if(!item){alert('Enter an ingredient');return;}
+  const list=loadLS(LS_PANTRY,[]);
+  list.push({id:Date.now(),item,qty:document.getElementById('pnQty').value.trim(),useBy:document.getElementById('pnUseBy').value});
+  saveLS(LS_PANTRY,list);
+  document.getElementById('pnItem').value='';document.getElementById('pnQty').value='';document.getElementById('pnUseBy').value='';
+  renderPantry();
+}
+function removePantryItem(id){
+  saveLS(LS_PANTRY,loadLS(LS_PANTRY,[]).filter(p=>p.id!==id));
+  renderPantry();
+}
+function renderPantry(){
+  const list=loadLS(LS_PANTRY,[]);
+  const el=document.getElementById('pantryList');
+  if(!list.length){el.innerHTML='<div class="empty-note">Pantry is empty.</div>';return;}
+  const today=new Date().toISOString().slice(0,10);
+  el.innerHTML=list.map(p=>{
+    const soon=p.useBy && p.useBy<=new Date(Date.now()+3*864e5).toISOString().slice(0,10);
+    return `<div class="row-item">
+      <div><b>${p.item}</b><div class="meta">${p.qty||''} ${p.useBy?'· Use by '+p.useBy:''}</div></div>
+      <div>${soon?'<span class="pill warn">USE SOON</span>':''}<span class="close-x" onclick="removePantryItem(${p.id})">REMOVE</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ── RECIPES ──
+function addRecipe(){
+  const name=document.getElementById('rcName').value.trim();
+  if(!name){alert('Enter a recipe name');return;}
+  const rec={
+    id:Date.now(),
+    name,
+    cuisine:document.getElementById('rcCuisine').value,
+    mealType:document.getElementById('rcMealType').value,
+    calories:+document.getElementById('rcCalories').value||null,
+    servings:+document.getElementById('rcServings').value||4,
+    cost:+document.getElementById('rcCost').value||0,
+    liked:document.getElementById('rcLiked').value,
+    ingredients:document.getElementById('rcIngredients').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    prep:document.getElementById('rcPrep').value.trim(),
+    storage:document.getElementById('rcStorage').value.trim()
+  };
+  const list=loadLS(LS_RECIPES,[]);
+  list.push(rec);
+  saveLS(LS_RECIPES,list);
+  ['rcName','rcCalories','rcCost','rcIngredients','rcPrep','rcStorage'].forEach(id=>document.getElementById(id).value='');
+  renderRecipes();
+}
+function removeRecipe(id){
+  saveLS(LS_RECIPES,loadLS(LS_RECIPES,[]).filter(r=>r.id!==id));
+  renderRecipes();
+}
+// One-time fix-up for recipes imported before mealType respected MealDB's
+// own category (everything non-Breakfast used to default to "dinner",
+// which wrongly counted desserts/sides as full meals). Runs silently at
+// load; harmless no-op once everything's already correctly tagged.
+function reclassifyImportedRecipes(){
+  const NON_MEAL_CATEGORIES={dessert:'dessert',starter:'side',side:'side',miscellaneous:'side'};
+  const list=loadLS(LS_RECIPES,[]);
+  let changed=false;
+  list.forEach(r=>{
+    if(r._source!=='TheMealDB')return;
+    const cat=(r.category||'').toLowerCase();
+    const correct = cat==='breakfast' ? 'breakfast' : (NON_MEAL_CATEGORIES[cat] || 'dinner');
+    if(r.mealType!==correct && cat){ r.mealType=correct; changed=true; }
+  });
+  if(changed) saveLS(LS_RECIPES,list);
+}
+
+function renderRecipes(){
+  const list=loadLS(LS_RECIPES,[]);
+  const el=document.getElementById('recipeList');
+  if(!list.length){el.innerHTML="<div class=\"empty-note\">No recipes yet — add your household's real meals above.</div>";return;}
+  el.innerHTML=list.map(r=>`
+    <div class="recipe-card">
+      <h4>${r.name} <span class="pill">${r.cuisine}</span> <span class="pill">${(r.mealType||'dinner').toUpperCase()}</span> ${r.liked==='yes'?'<span class="pill good">LIKED</span>':r.liked==='no'?'<span class="pill warn">DISLIKED</span>':''}</h4>
+      <div class="meta">${r.calories?r.calories+' cal/serving · ':''}Serves ${r.servings} · Est. $${r.cost} to make</div>
+      ${r.ingredients.length?`<div class="desc"><b>Ingredients:</b> ${r.ingredients.join(', ')}</div>`:''}
+      ${r.prep?`<div class="desc"><b>Prep:</b> ${r.prep}</div>`:''}
+      ${r.storage?`<div class="desc"><b>Storage:</b> ${r.storage}</div>`:''}
+      <span class="close-x" onclick="removeRecipe(${r.id})">REMOVE</span>
+    </div>`).join('');
+}
+
+// ── WEEKLY MENU ──
+function renderCalorieTargets(){
+  const list=loadLS(LS_HOUSEHOLD,[]);
+  const el=document.getElementById('calorieTargets');
+  if(!list.length){el.innerHTML='<div class="empty-note">Add household members to see calorie targets.</div>';return;}
+  el.innerHTML=list.map(m=>{
+    const tdee=calcTDEE(m.age,m.sex,m.height,m.weight,m.activity);
+    return `<div class="stat-tile"><div class="stat-num">${tdee||'—'}</div><div class="stat-lbl">${m.name} · cal/day</div></div>`;
+  }).join('');
+}
+function renderMenuPicker(){
+  const recipes=loadLS(LS_RECIPES,[]);
+  const sel=document.getElementById('menuRecipePick');
+  sel.innerHTML=recipes.length ? recipes.map(r=>`<option value="${r.id}">${r.name} (${r.cuisine})</option>`).join('') : '<option value="">No recipes yet — add some first</option>';
+}
+function addToMenu(){
+  const id=+document.getElementById('menuRecipePick').value;
+  if(!id)return;
+  const menu=loadLS(LS_MENU,[]);
+  menu.push({id:Date.now(),recipeId:id});
+  saveLS(LS_MENU,menu);
+  renderMenu();
+}
+function removeFromMenu(id){
+  saveLS(LS_MENU,loadLS(LS_MENU,[]).filter(m=>m.id!==id));
+  renderMenu();
+}
+function renderMenu(){
+  const menu=loadLS(LS_MENU,[]);
+  const recipes=loadLS(LS_RECIPES,[]);
+  const el=document.getElementById('menuList');
+  if(!menu.length){el.innerHTML='<div class="empty-note">No meals added to this week yet.</div>';return;}
+  el.innerHTML=menu.map(m=>{
+    const r=recipes.find(x=>x.id===m.recipeId);
+    if(!r)return'';
+    return `<div class="row-item"><div><b>${r.name}</b><div class="meta">${r.cuisine} · ${r.calories?r.calories+' cal/serving · ':''}Est. $${r.cost}</div></div><span class="close-x" onclick="removeFromMenu(${m.id})">REMOVE</span></div>`;
+  }).join('');
+}
+
+// ── SHOPPING LIST ──
+// Pantry-checked: an ingredient already on hand (matched by name, case-
+// insensitive) is marked covered rather than added again. Bulk-buy is
+// flagged only when the same ingredient appears across 2+ recipes this
+// week — a real repeat use, not a guess — so a bulk suggestion here always
+// corresponds to something that will actually get used up.
+//
+// QUANTITY SUMMING — ingredient lines are free text ("1.5 lbs", "8 ct",
+// "2 cloves"), so this parses a leading number (plain, decimal, or a
+// fraction/mixed-fraction like "1 1/2") off the front of each line and
+// treats the rest as the unit. Same item + same (normalized) unit across
+// every recipe in the week gets added together, so "Chicken breast" at
+// 1.5 lbs in one recipe and 4.5 lbs in another shows as one real 6 lbs
+// line — not two separate entries someone has to add up by hand. A line
+// that doesn't parse (unusual phrasing, no quantity given) still gets
+// listed, just without a numeric total — better than silently dropping it.
+const UNIT_ALIASES={
+  lb:'lbs',lbs:'lbs',pound:'lbs',pounds:'lbs',
+  oz:'oz',ounce:'oz',ounces:'oz',
+  cup:'cups',cups:'cups',
+  tbsp:'tbsp',tablespoon:'tbsp',tablespoons:'tbsp',
+  tsp:'tsp',teaspoon:'tsp',teaspoons:'tsp',
+  can:'can',cans:'can',
+  clove:'cloves',cloves:'cloves',
+  ct:'ct',count:'ct',
+  g:'g',gram:'g',grams:'g',
+  kg:'kg',
+  ml:'ml',
+  slice:'slices',slices:'slices',
+  piece:'pieces',pieces:'pieces',
+  bunch:'bunch',head:'head',
+  '':'' // no unit given — treated as a bare count
+};
+function parseQty(str){
+  const s=(str||'').trim();
+  const m=s.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d*\.?\d+)\s*(.*)$/);
+  if(!m || !m[1]) return {amount:null,unit:s.toLowerCase()};
+  let amount;
+  const amtStr=m[1].trim();
+  if(amtStr.includes('/')){
+    if(amtStr.includes(' ')){
+      const[whole,frac]=amtStr.split(' ');
+      const[n,d]=frac.split('/').map(Number);
+      amount=Number(whole)+(d?n/d:0);
+    } else {
+      const[n,d]=amtStr.split('/').map(Number);
+      amount=d?n/d:null;
+    }
+  } else amount=parseFloat(amtStr);
+  const rawUnit=m[2].trim().toLowerCase().replace(/[().]/g,'');
+  const unit=UNIT_ALIASES[rawUnit] ?? rawUnit;
+  return{amount:isNaN(amount)?null:amount,unit};
+}
+
+// ── REAL UNIT CONVERSION — same ingredient, different units, one real
+// total. Weight units convert to a common oz base; volume units convert to
+// a common tsp base — that part is exact regardless of what the ingredient
+// is (a pound is a pound). Converting volume to weight (a cup of rice vs a
+// pound of rice) genuinely depends on the ingredient's density, so that
+// cross-conversion only happens for the common dry goods below, matched by
+// name — it's not guessed for anything not on this list. Liquids (broth,
+// milk, oil, etc.) are intentionally left in volume terms rather than
+// forced into a weight, since that's how they're actually bought.
+const WEIGHT_TO_OZ={lbs:16,oz:1,g:1/28.3495,kg:35.274};
+const VOLUME_TO_TSP={cups:48,tbsp:3,tsp:1,ml:1/4.9289,l:202.884};
+const DRY_DENSITY_OZ_PER_CUP={rice:6.5,flour:4.25,'all-purpose flour':4.25,sugar:7,'brown sugar':7.5,'powdered sugar':4,butter:8,oats:3,'rolled oats':3,cheese:4,'shredded cheese':4,cheddar:4,mozzarella:4,parmesan:3,breadcrumbs:4,cornmeal:5.5,cocoa:3,'cocoa powder':3};
+const LIQUID_HINT=/milk|broth|stock|water|oil|juice|cream|wine|vinegar|sauce|syrup|buttermilk/i;
+function findDensity(name){
+  const n=name.toLowerCase();
+  if(LIQUID_HINT.test(n))return null;
+  const key=Object.keys(DRY_DENSITY_OZ_PER_CUP).find(k=>n.includes(k));
+  return key?DRY_DENSITY_OZ_PER_CUP[key]:null;
+}
+function formatWeightOz(oz){ return oz>=16 ? `${+(oz/16).toFixed(2)} lbs` : `${+oz.toFixed(2)} oz`; }
+function formatVolumeTsp(tsp){
+  if(tsp>=48) return `${+(tsp/48).toFixed(2)} cups`;
+  if(tsp>=3) return `${+(tsp/3).toFixed(2)} tbsp`;
+  return `${+tsp.toFixed(2)} tsp`;
+}
+
+function generateShoppingList(){
+  const menu=loadLS(LS_MENU,[]);
+  const recipes=loadLS(LS_RECIPES,[]);
+  const pantry=loadLS(LS_PANTRY,[]).map(p=>p.item.toLowerCase());
+  const groups={}; // keyed by ingredient name only — units get reconciled inside the group
+  menu.forEach(m=>{
+    const r=recipes.find(x=>x.id===m.recipeId);
+    if(!r)return;
+    r.ingredients.forEach(ing=>{
+      const parts=ing.split(',');
+      const name=parts[0].trim();
+      const qtyStr=parts.slice(1).join(',').trim();
+      const{amount,unit}=parseQty(qtyStr);
+      const key=name.toLowerCase();
+      if(!groups[key])groups[key]={name,weightOz:0,volumeTsp:0,other:{},hasAmount:false,count:0,recipes:[]};
+      const g=groups[key];
+      if(amount!=null){
+        g.hasAmount=true;
+        if(WEIGHT_TO_OZ[unit]!=null) g.weightOz+=amount*WEIGHT_TO_OZ[unit];
+        else if(VOLUME_TO_TSP[unit]!=null) g.volumeTsp+=amount*VOLUME_TO_TSP[unit];
+        else { g.other[unit||'ct']=(g.other[unit||'ct']||0)+amount; }
+      }
+      g.count++;
+      g.recipes.push(r.name);
+    });
+  });
+  const list=Object.values(groups).map(g=>{
+    // Fold volume into weight when a real density is known for this
+    // ingredient (rice, flour, sugar, etc.) — everything else stays in
+    // its own natural unit rather than a forced/guessed conversion.
+    const density=findDensity(g.name);
+    if(density && g.volumeTsp>0){
+      g.weightOz+=(g.volumeTsp/48)*density;
+      g.volumeTsp=0;
+    }
+    const pieces=[];
+    if(g.weightOz>0) pieces.push(formatWeightOz(g.weightOz));
+    if(g.volumeTsp>0) pieces.push(formatVolumeTsp(g.volumeTsp));
+    Object.entries(g.other).forEach(([u,amt])=>pieces.push(`${+amt.toFixed(2)}${u?' '+u:''}`));
+    return{
+      id:Date.now()+Math.random(),
+      name:g.name,
+      qtyDisplay:g.hasAmount ? pieces.join(' + ') : 'qty varies — check recipes',
+      usedIn:g.recipes.join(', '),
+      haveInPantry:pantry.includes(g.name.toLowerCase()),
+      bulkFlag:g.count>=2,
+      checked:false,
+      actualCost:null
+    };
+  });
+  const totalCost=menu.reduce((sum,m)=>{
+    const r=recipes.find(x=>x.id===m.recipeId);
+    return sum+(r?r.cost:0);
+  },0);
+  saveLS(LS_SHOPPING,{list,totalCost,generatedAt:new Date().toISOString()});
+  syncShoppingToCloud(list);
+  renderShoppingStats();
+  renderShoppingList();
+}
+
+// ── SHOPPING LIST ↔ SUPABASE — real per-item sync, not just a login badge.
+// Signed in: this week's list is pushed to amitmeals_shopping_items on
+// generate, and every checkbox/actual-cost edit updates its own row —
+// meaning a phone signed into the same account sees the same list, checks
+// off in real time, and builds a genuine actual-cost history over time
+// instead of only ever showing the recipe's anticipated cost. Signed out:
+// everything still works off localStorage only, same as before.
+async function syncShoppingToCloud(list){
+  if(!currentUser||!db){document.getElementById('shoppingSyncNote').textContent='Not signed in — this list stays on this device only. Sign in (right rail) to use it from your phone too.';return;}
+  try{
+    await fetch(`${SB_URL}/rest/v1/amitmeals_shopping_items?user_id=eq.${currentUser.id}`,{
+      method:'DELETE',headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`}
+    });
+    const rows=list.map(i=>({user_id:currentUser.id,item_name:i.name,qty_display:i.qtyDisplay,used_in:i.usedIn,bulk_flag:i.bulkFlag,have_in_pantry:i.haveInPantry,checked:i.checked,actual_cost:i.actualCost,local_id:String(i.id)}));
+    const res=await fetch(`${SB_URL}/rest/v1/amitmeals_shopping_items`,{
+      method:'POST',
+      headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,'Content-Type':'application/json',Prefer:'return=representation'},
+      body:JSON.stringify(rows)
+    });
+    const saved=await res.json();
+    if(Array.isArray(saved)){
+      const s=loadLS(LS_SHOPPING,{list:[]});
+      saved.forEach(row=>{
+        const item=s.list.find(i=>String(i.id)===row.local_id);
+        if(item)item.cloudId=row.id;
+      });
+      saveLS(LS_SHOPPING,s);
+    }
+    document.getElementById('shoppingSyncNote').textContent='Synced — this list and every check/cost you enter is saved to your account, reachable from your phone signed into the same account.';
+  }catch(e){
+    document.getElementById('shoppingSyncNote').textContent='Sync failed — list still works here, but did not reach your account. Check your connection.';
+  }
+}
+async function loadShoppingFromCloud(){
+  if(!currentUser||!db)return;
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/amitmeals_shopping_items?user_id=eq.${currentUser.id}&order=id.asc`,{
+      headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,Accept:'application/json'}
+    });
+    const rows=await res.json();
+    if(!Array.isArray(rows)||!rows.length)return;
+    const list=rows.map(r=>({
+      id:r.local_id||('cloud_'+r.id),cloudId:r.id,name:r.item_name,qtyDisplay:r.qty_display,
+      usedIn:r.used_in,haveInPantry:r.have_in_pantry,bulkFlag:r.bulk_flag,
+      checked:r.checked,actualCost:r.actual_cost
+    }));
+    const prev=loadLS(LS_SHOPPING,{list:[],totalCost:0});
+    saveLS(LS_SHOPPING,{list,totalCost:prev.totalCost,generatedAt:prev.generatedAt});
+    renderShoppingStats();
+    renderShoppingList();
+  }catch(e){}
+}
+function toggleShoppingChecked(id){
+  const s=loadLS(LS_SHOPPING,{list:[]});
+  const item=s.list.find(i=>String(i.id)===String(id));
+  if(!item)return;
+  item.checked=!item.checked;
+  saveLS(LS_SHOPPING,s);
+  renderShoppingList();
+  if(currentUser&&db&&item.cloudId){
+    fetch(`${SB_URL}/rest/v1/amitmeals_shopping_items?id=eq.${item.cloudId}`,{
+      method:'PATCH',
+      headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({checked:item.checked})
+    }).catch(()=>{});
+  }
+}
+function setActualCost(id,val){
+  const s=loadLS(LS_SHOPPING,{list:[]});
+  const item=s.list.find(i=>String(i.id)===String(id));
+  if(!item)return;
+  item.actualCost=val===''?null:+val;
+  saveLS(LS_SHOPPING,s);
+  if(currentUser&&db&&item.cloudId){
+    fetch(`${SB_URL}/rest/v1/amitmeals_shopping_items?id=eq.${item.cloudId}`,{
+      method:'PATCH',
+      headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({actual_cost:item.actualCost})
+    }).catch(()=>{});
+  }
+}
+
+function renderShoppingStats(){
+  const s=loadLS(LS_SHOPPING,{list:[],totalCost:0});
+  const b=loadLS(LS_BUDGET,{total:0});
+  const el=document.getElementById('shoppingStats');
+  const over=b.total && s.totalCost>b.total;
+  const actualSpent=s.list.reduce((sum,i)=>sum+(i.actualCost||0),0);
+  el.innerHTML=`
+    <div class="stat-tile"><div class="stat-num">$${s.totalCost.toFixed(0)}</div><div class="stat-lbl">Projected Cost</div></div>
+    <div class="stat-tile"><div class="stat-num">$${actualSpent.toFixed(0)}</div><div class="stat-lbl">Actual Spent So Far</div></div>
+    <div class="stat-tile"><div class="stat-num">$${b.total||0}</div><div class="stat-lbl">Weekly Budget</div></div>
+    <div class="stat-tile"><div class="stat-num" style="color:${over?'var(--warn)':'var(--good)'}">${b.total?(over?'OVER':'ON TRACK'):'—'}</div><div class="stat-lbl">Budget Status</div></div>`;
+}
+function renderShoppingList(){
+  const s=loadLS(LS_SHOPPING,{list:[]});
+  const el=document.getElementById('shoppingList');
+  if(!s.list.length){el.innerHTML="<div class=\"empty-note\">No list yet — build a weekly menu, then click \"Generate From This Week's Menu.\"</div>";return;}
+  el.innerHTML=s.list.map(i=>`
+    <div class="row-item" style="${i.checked?'opacity:.5':''}">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1">
+        <input type="checkbox" ${i.checked?'checked':''} onchange="toggleShoppingChecked('${i.id}')" style="width:auto">
+        <div><b style="${i.checked?'text-decoration:line-through':''}">${i.name}</b> — <span style="color:var(--gold2)">${i.qtyDisplay}</span><div class="meta">Used in: ${i.usedIn}</div></div>
+      </label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" step="0.01" placeholder="actual $" value="${i.actualCost??''}" onchange="setActualCost('${i.id}',this.value)" style="width:80px">
+        ${i.haveInPantry?'<span class="pill good">IN PANTRY</span>':''}${i.bulkFlag?'<span class="pill">BUY BULK</span>':''}
+      </div>
+    </div>`).join('');
+}
+
+// ── PRINT — opens a plain, black-on-white printable list in a new tab.
+// Deliberately not window.print() on the app itself: the app's dark theme
+// and right rail/sidebar aren't meant for paper, and a real grocery-store
+// printout needs to be legible, not a screenshot of the dark UI.
+function printShoppingList(){
+  const s=loadLS(LS_SHOPPING,{list:[]});
+  if(!s.list.length){alert('No list yet — generate one first.');return;}
+  const rows=s.list.map(i=>`
+    <tr>
+      <td style="width:24px"><div style="width:14px;height:14px;border:1.5px solid #333"></div></td>
+      <td><b>${i.name}</b><br><span style="font-size:11px;color:#666">Used in: ${i.usedIn}</span></td>
+      <td>${i.qtyDisplay}</td>
+      <td>${i.haveInPantry?'In Pantry':''}${i.bulkFlag?' Buy Bulk':''}</td>
+      <td style="width:70px">$______</td>
+    </tr>`).join('');
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>AmitMeals — Shopping List</title>
+    <style>
+      body{font-family:Georgia,serif;color:#111;padding:30px;max-width:700px;margin:0 auto}
+      h1{font-size:20px;border-bottom:2px solid #333;padding-bottom:8px}
+      table{width:100%;border-collapse:collapse;margin-top:14px}
+      td{padding:8px 6px;border-bottom:1px solid #ddd;vertical-align:top;font-size:13px}
+      @media print{body{padding:0}}
+    </style></head>
+    <body>
+      <h1>AmitMeals — Shopping List</h1>
+      <div style="font-size:12px;color:#666;margin-bottom:6px">Generated ${new Date(s.generatedAt||Date.now()).toLocaleDateString()}</div>
+      <table>${rows}</table>
+    </body></html>`);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+
+// ── MENU GENERATOR ──
+// Searches the local Recipe Library (not the open web / live grocery
+// prices — that would need a separate price-data integration, flagged in
+// the UI so this isn't overstated). Answers the question set, then picks a
+// day-by-day plan: batch-cook mode pairs a recipe's cook day with a
+// following "leftovers" day (no new cost, no new cooking) so the week
+// actually reflects real 1-cook/2-meal use rather than a fresh recipe
+// every single day.
+let _lastGeneratedPlan=null;
+
+function renderCuisineChecks(){
+  const recipes=loadLS(LS_RECIPES,[]);
+  const cuisines=[...new Set(recipes.map(r=>r.cuisine))];
+  // Library empty (nothing imported yet) — show the real, searchable
+  // cuisine list from TheMealDB itself, checked by default, so this page
+  // never needs a prior manual trip to Recipes to have something to pick
+  // from. Generate will import for whatever's checked here automatically.
+  const source=cuisines.length?cuisines:MEALDB_AREAS;
+  const el=document.getElementById('mgCuisineChecks');
+  el.innerHTML=source.map(c=>`<label style="display:flex;align-items:center;gap:5px;text-transform:none;font-size:12px;color:var(--text2)"><input type="checkbox" class="mg-cuisine-check" value="${c}" checked style="width:auto"> ${c}</label>`).join('');
+}
+
+// ── DIET FOCUS + AVOID-TERMS HEURISTICS ──
+// Real recipe sources (TheMealDB included) don't ship carb/protein grams
+// or a sodium number, so these run off the actual ingredient text and
+// category instead of invented macro data — honest about what it's really
+// checking (ingredient composition), not a precise nutrition claim.
+const CARB_HEAVY=/pasta|noodle|rice|bread|potato|tortilla|sugar|flour|dumpling|bun\b/i;
+const PROTEIN_FORWARD=/beef|chicken|turkey|pork|fish|shrimp|salmon|tuna|lamb|egg|tofu|bean|lentil/i;
+const MEAT_OR_FISH=/beef|chicken|turkey|pork|bacon|sausage|fish|shrimp|salmon|tuna|lamb|anchovy|gelatin|ham\b/i;
+const SALT_HEAVY=/\bsalt\b|soy sauce|bacon|cured|anchovy|olives|feta|parmesan|pickle|brine|ham\b|sausage|fish sauce|miso/i;
+function ingredientText(r){ return (r.ingredients||[]).join(' ').toLowerCase(); }
+
+// ── BATCH-COOK CHAINING — a shared base, not a repeated meal ──
+// Cook one big batch of a core item (ground beef, chicken, pasta, rice,
+// beans), then spend it across several DIFFERENT recipes over the next
+// few days (tacos → chili → shepherd's pie) instead of eating the exact
+// same plate twice. Ordered most-specific-first so "ground beef" matches
+// before the more generic "beef" would.
+const BATCH_BASE_TAGS=[
+  ['ground beef',/ground beef|ground chuck|hamburger meat/i],
+  ['shredded chicken',/shredded chicken|rotisserie chicken|chicken breast|chicken thigh/i],
+  ['pulled pork',/pulled pork|pork shoulder|pork butt/i],
+  ['ground turkey',/ground turkey/i],
+  ['rice',/\brice\b/i],
+  ['pasta',/pasta|spaghetti|penne|noodle/i],
+  ['beans',/black beans|pinto beans|kidney beans|refried beans/i],
+  ['potatoes',/potato/i],
+  ['steak',/\bsteak\b|brisket|ribeye/i]
+];
+function detectBatchBase(r){
+  const text=ingredientText(r);
+  for(const [tag,re] of BATCH_BASE_TAGS){ if(re.test(text)) return tag; }
+  return null;
+}
+function countMatches(text,re){ const m=text.match(new RegExp(re,'gi')); return m?m.length:0; }
+function passesDietMode(r,mode){
+  if(mode==='none')return true;
+  const text=ingredientText(r), cat=(r.category||'').toLowerCase();
+  if(mode==='lowcarb')return countMatches(text,CARB_HEAVY)<2 && cat!=='pasta' && cat!=='dessert' && cat!=='bread';
+  if(mode==='highprotein')return PROTEIN_FORWARD.test(text) || PROTEIN_FORWARD.test(cat);
+  if(mode==='vegetarian')return !MEAT_OR_FISH.test(text) && !MEAT_OR_FISH.test(cat) && cat!=='seafood';
+  if(mode==='lowsodium')return countMatches(text,SALT_HEAVY)<2;
+  return true;
+}
+// ══════════════════════════════════════════════
+// FOOD PREFERENCES DASHBOARD — hard rules that apply to EVERY generated
+// menu automatically, not something re-typed into the Menu Generator each
+// week. Two layers: (1) household-wide rules (no pork, no spicy, etc.,
+// heuristic against ingredient text/category — same honesty caveat as the
+// diet-mode filters: this reads real ingredients, it isn't a certified
+// allergen check); (2) per-recipe like/dislike, rated once here, reused
+// everywhere — a recipe marked disliked is excluded the same as a hard
+// rule, not just deprioritized.
+// ══════════════════════════════════════════════
+const PORK_HINT=/\bpork\b|bacon|\bham\b|prosciutto|chorizo|pancetta/i;
+const BEEF_HINT=/\bbeef\b|\bsteak\b|brisket|\bribeye\b/i;
+const SEAFOOD_HINT=/fish|shrimp|salmon|tuna|anchovy|shellfish|crab|lobster|scallop|cod|tilapia/i;
+const SPICY_HINT=/chili|chilli|jalape|cayenne|sriracha|hot sauce|habanero|szechuan|\bspicy\b|serrano|ghost pepper/i;
+
+function loadFoodPrefs(){
+  return loadLS(LS_FOODPREFS,{noPork:false,noBeef:false,noSeafood:false,noSpicy:false,vegetarian:false,customAvoid:[],favorTerms:[]});
+}
+function saveFoodPrefs(){
+  const prefs={
+    noPork:document.getElementById('fpNoPork').checked,
+    noBeef:document.getElementById('fpNoBeef').checked,
+    noSeafood:document.getElementById('fpNoSeafood').checked,
+    noSpicy:document.getElementById('fpNoSpicy').checked,
+    vegetarian:document.getElementById('fpVegetarian').checked,
+    customAvoid:document.getElementById('fpCustomAvoid').value.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean),
+    favorTerms:document.getElementById('fpFavorTerms').value.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean)
+  };
+  saveLS(LS_FOODPREFS,prefs);
+}
+function loadFoodPrefsForm(){
+  const p=loadFoodPrefs();
+  document.getElementById('fpNoPork').checked=p.noPork;
+  document.getElementById('fpNoBeef').checked=p.noBeef;
+  document.getElementById('fpNoSeafood').checked=p.noSeafood;
+  document.getElementById('fpNoSpicy').checked=p.noSpicy;
+  document.getElementById('fpVegetarian').checked=p.vegetarian;
+  document.getElementById('fpCustomAvoid').value=(p.customAvoid||[]).join(', ');
+  document.getElementById('fpFavorTerms').value=(p.favorTerms||[]).join(', ');
+}
+// ── PER-PERSON FOOD GROUP PREFERENCES ──
+// Broad, curated common-item lists across every real food group, so
+// "I don't like black beans / avocados" has an actual checkbox instead of
+// living only in a free-text field. Each household member gets their own
+// like/dislike set. Any custom item not listed here can be added per group,
+// per person, with the + field at the bottom of that group.
+const FOOD_GROUPS=[
+  {key:'protein',label:'Proteins & Meat',items:['Chicken breast','Chicken thighs','Ground beef','Steak','Pork chops','Bacon','Sausage','Ham','Turkey','Lamb','Tofu','Eggs']},
+  {key:'seafood',label:'Seafood',items:['Salmon','Shrimp','Tuna','Tilapia','Cod','Crab','Lobster','Scallops','Anchovies','Sardines']},
+  {key:'vegetable',label:'Vegetables',items:['Broccoli','Cauliflower','Carrots','Bell peppers','Onions','Garlic','Spinach','Kale','Zucchini','Mushrooms','Tomatoes','Potatoes','Sweet potatoes','Corn','Peas','Green beans','Brussels sprouts','Cabbage','Cucumber','Celery','Asparagus','Eggplant']},
+  {key:'fruit',label:'Fruits',items:['Apples','Bananas','Oranges','Berries','Grapes','Avocado','Pineapple','Mango','Watermelon','Peaches','Pears','Lemon/Lime']},
+  {key:'dairy',label:'Dairy & Eggs',items:['Milk','Cheese','Butter','Yogurt','Sour cream','Cream cheese','Cottage cheese']},
+  {key:'grain',label:'Grains, Pasta & Starches',items:['Rice','Pasta','Bread','Tortillas','Quinoa','Oats','Couscous','Noodles']},
+  {key:'legume',label:'Legumes & Beans',items:['Black beans','Pinto beans','Chickpeas','Lentils','Kidney beans','Refried beans']},
+  {key:'flavor',label:'Spices, Herbs & Flavor',items:['Cilantro','Basil','Parsley','Cumin','Chili powder','Ginger','Curry','Soy sauce','Hot sauce','Blue cheese','Olives','Pickles']}
+];
+function loadAllPersonPrefs(){ return loadLS(LS_PERSONPREFS,{}); }
+function loadPersonPrefs(pid){
+  const all=loadAllPersonPrefs();
+  return all[pid] || {likes:[],dislikes:[],custom:{}};
+}
+function savePersonPrefs(pid,prefs){
+  const all=loadAllPersonPrefs();
+  all[pid]=prefs;
+  saveLS(LS_PERSONPREFS,all);
+}
+function togglePersonItem(pid,item){
+  const p=loadPersonPrefs(pid);
+  const key=item.toLowerCase();
+  const inLikes=p.likes.includes(key), inDislikes=p.dislikes.includes(key);
+  // cycle: neutral -> like -> dislike -> neutral
+  p.likes=p.likes.filter(x=>x!==key); p.dislikes=p.dislikes.filter(x=>x!==key);
+  if(!inLikes && !inDislikes) p.likes.push(key);
+  else if(inLikes) p.dislikes.push(key);
+  savePersonPrefs(pid,p);
+  renderPersonPrefsUI();
+}
+function addCustomPersonItem(pid,groupKey){
+  const input=document.getElementById('ppCustom_'+groupKey);
+  const val=(input.value||'').trim();
+  if(!val)return;
+  const p=loadPersonPrefs(pid);
+  p.custom=p.custom||{};
+  p.custom[groupKey]=p.custom[groupKey]||[];
+  if(!p.custom[groupKey].some(x=>x.toLowerCase()===val.toLowerCase())) p.custom[groupKey].push(val);
+  p.likes.push(val.toLowerCase());
+  savePersonPrefs(pid,p);
+  input.value='';
+  renderPersonPrefsUI();
+}
+function renderPersonPickerOptions(){
+  const sel=document.getElementById('ppPersonPick');
+  if(!sel)return;
+  const list=loadLS(LS_HOUSEHOLD,[]);
+  if(!list.length){ sel.innerHTML='<option value="">No household members yet — add one on the Household tab</option>'; document.getElementById('ppGroups').innerHTML=''; return; }
+  const prev=sel.value;
+  sel.innerHTML=list.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  if(list.some(m=>String(m.id)===prev)) sel.value=prev;
+  renderPersonPrefsUI();
+}
+function renderPersonPrefsUI(){
+  const sel=document.getElementById('ppPersonPick');
+  const el=document.getElementById('ppGroups');
+  if(!sel || !sel.value){ if(el)el.innerHTML=''; return; }
+  const pid=sel.value;
+  const p=loadPersonPrefs(pid);
+  el.innerHTML=FOOD_GROUPS.map(g=>{
+    const custom=(p.custom&&p.custom[g.key])||[];
+    const allItems=[...g.items,...custom];
+    const chips=allItems.map(item=>{
+      const key=item.toLowerCase();
+      const state=p.likes.includes(key)?'like':(p.dislikes.includes(key)?'dislike':'neutral');
+      const bg=state==='like'?'background:rgba(95,174,110,.3);border-color:var(--good)':(state==='dislike'?'background:rgba(201,107,76,.3);border-color:var(--bad,#c96b4c)':'');
+      const icon=state==='like'?'👍 ':(state==='dislike'?'👎 ':'');
+      return `<button type="button" class="btn btn-sm" style="${bg}" onclick="togglePersonItem('${pid}','${item.replace(/'/g,"\\'")}')">${icon}${item}</button>`;
+    }).join('');
+    return `<div style="margin-top:14px">
+      <div style="font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${g.label}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input id="ppCustom_${g.key}" placeholder="Add another ${g.label.toLowerCase()} item…" style="flex:1">
+        <button type="button" class="btn btn-sm" onclick="addCustomPersonItem('${pid}','${g.key}')">+ Add</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+// The one gate every path (Menu Generator AND anything else that pulls
+// from the library) should run every recipe through — a disliked recipe
+// or a hard-ruled-out ingredient never surfaces, full stop, no re-entering
+// the same rule per generation.
+function passesFoodPrefs(r){
+  if(r.liked==='no')return false;
+  const p=loadFoodPrefs();
+  const text=ingredientText(r), cat=(r.category||'').toLowerCase();
+  if(p.noPork && PORK_HINT.test(text))return false;
+  if(p.noBeef && BEEF_HINT.test(text))return false;
+  if(p.noSeafood && (SEAFOOD_HINT.test(text)||cat==='seafood'))return false;
+  if(p.noSpicy && SPICY_HINT.test(text))return false;
+  if(p.vegetarian && (MEAT_OR_FISH.test(text)||MEAT_OR_FISH.test(cat)||cat==='seafood'))return false;
+  if(p.customAvoid?.length && p.customAvoid.some(t=>t && (text.includes(t)||r.name.toLowerCase().includes(t))))return false;
+  // Any household member's individual dislike excludes it too — same
+  // weight as a hard rule, so nobody has to keep re-typing "no black beans."
+  const allPrefs=loadAllPersonPrefs();
+  for(const pid in allPrefs){
+    const person=allPrefs[pid];
+    if(person.dislikes?.some(t=>t && (text.includes(t)||r.name.toLowerCase().includes(t))))return false;
+  }
+  return true;
+}
+function favorPrefsMatchCount(r){
+  const p=loadFoodPrefs();
+  const text=ingredientText(r)+' '+r.name.toLowerCase();
+  let count=p.favorTerms?.length ? p.favorTerms.filter(t=>t && text.includes(t)).length : 0;
+  const allPrefs=loadAllPersonPrefs();
+  for(const pid in allPrefs){
+    const person=allPrefs[pid];
+    count+=person.likes?.filter(t=>t && text.includes(t)).length||0;
+  }
+  return count;
+}
+function renderFoodPrefsRateList(){
+  const recipes=loadLS(LS_RECIPES,[]);
+  const el=document.getElementById('fpRateList');
+  if(!recipes.length){el.innerHTML='<div class="empty-note">No recipes yet — import some real recipes on the Recipes tab first, then come rate them here.</div>';return;}
+  el.innerHTML=recipes.map(r=>`
+    <div class="row-item">
+      <div><b>${r.name}</b><div class="meta">${r.cuisine}${r.mealType?' · '+r.mealType:''}</div></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-sm" style="${r.liked==='yes'?'background:rgba(95,174,110,.3);border-color:var(--good)':''}" onclick="setRecipeLiked('${r.id}','yes')">👍 Like</button>
+        <button class="btn btn-sm btn-danger" style="${r.liked==='no'?'background:rgba(201,107,76,.3)':''}" onclick="setRecipeLiked('${r.id}','no')">👎 Dislike</button>
+      </div>
+    </div>`).join('');
+}
+function setRecipeLiked(id,val){
+  const list=loadLS(LS_RECIPES,[]);
+  const r=list.find(x=>String(x.id)===String(id));
+  if(!r)return;
+  const wasAlready=r.liked===val;
+  r.liked = wasAlready ? 'unsure' : val; // clicking the same choice again clears it back to unrated
+  if(val==='yes' && !wasAlready) r.preferenceScore=(r.preferenceScore||0)+1;
+  saveLS(LS_RECIPES,list);
+  renderFoodPrefsRateList();
+}
+
+function avgHouseholdCalorieTarget(){
+  const list=loadLS(LS_HOUSEHOLD,[]);
+  const vals=list.map(m=>calcTDEE(m.age,m.sex,m.height,m.weight,m.activity)).filter(Boolean);
+  if(!vals.length)return null;
+  return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+}
+
+async function generateWeekMenu(evt){
+  const btn=evt?.target;
+  const pickedCuisines0=[...document.querySelectorAll('.mg-cuisine-check:checked')].map(c=>c.value);
+  let recipes=loadLS(LS_RECIPES,[]);
+
+  // No manual "go add recipes first" dead end — if the library doesn't
+  // have real recipes yet for the cuisines this week is asking for, pull
+  // them from TheMealDB right now, automatically, for exactly what's
+  // checked above (or a sane default spread if nothing's checked yet).
+  const haveForPicked=pickedCuisines0.length ? recipes.some(r=>pickedCuisines0.includes(r.cuisine)) : recipes.length>0;
+  if(!haveForPicked){
+    const areasToImport=(pickedCuisines0.length?pickedCuisines0:MEALDB_AREAS).filter(a=>MEALDB_AREAS.includes(a));
+    if(btn){btn.disabled=true;btn.textContent='Searching real recipes for this week…';}
+    for(const area of areasToImport){
+      await importRecipesByArea(area,null);
+    }
+    if(btn){btn.disabled=false;btn.textContent='🎯 Generate This Week’s Menu';}
+    recipes=loadLS(LS_RECIPES,[]);
+    renderRecipes();
+    if(!recipes.length){alert('No real recipes came back for the selected cuisines from the free database — try checking a few different cuisines.');return;}
+  }
+
+  const days=+document.getElementById('mgDays').value||7;
+  const budget=(+document.getElementById('mgBudget').value)||loadLS(LS_BUDGET,{total:0}).total||9999;
+  const calorieCap=(+document.getElementById('mgCalories').value)||avgHouseholdCalorieTarget()||9999;
+  const mealsPerDay=+document.getElementById('mgMealsPerDay').value;
+  let likedOnly=document.getElementById('mgLikedOnly').value==='yes';
+  const batchMode=document.getElementById('mgBatch').value==='yes';
+  const pickedCuisines=[...document.querySelectorAll('.mg-cuisine-check:checked')].map(c=>c.value);
+  const dietMode=document.getElementById('mgDietMode').value;
+  const usePantryFirst=document.getElementById('mgUsePantry').value==='yes';
+  const saleTerms=document.getElementById('mgSaleItems').value.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+
+  // If "liked only" alone would empty the pool (nothing's been rated yet),
+  // relax it automatically rather than dead-ending on a filter nobody
+  // could have satisfied on a first run — and say so plainly in the result.
+  let autoRelaxedLiked=false;
+  if(likedOnly){
+    const wouldBeEmpty=!recipes.some(r=>r.liked==='yes' && (!pickedCuisines.length||pickedCuisines.includes(r.cuisine)) && passesDietMode(r,dietMode));
+    if(wouldBeEmpty){ likedOnly=false; autoRelaxedLiked=true; }
+  }
+
+  const baseFilter=r=>
+    (!likedOnly || r.liked==='yes') &&
+    (!pickedCuisines.length || pickedCuisines.includes(r.cuisine)) &&
+    (!r.calories || r.calories<=calorieCap) &&
+    passesDietMode(r,dietMode) &&
+    passesFoodPrefs(r); // hard household rules + every person's individual dislikes from the Food Preferences dashboard — always enforced, not re-typed per week
+
+  // Pantry match score — how many of a recipe's ingredients are already on
+  // hand, so "use up the pantry first" actually means something concrete:
+  // recipes that would consume existing stock get pushed to the front of
+  // the week before the generator reaches for anything requiring a fresh
+  // buy. Recipes with zero pantry overlap are still eligible, just sorted
+  // after ones that use what's already there.
+  const pantryNames=loadLS(LS_PANTRY,[]).map(p=>p.item.toLowerCase());
+  function pantryMatchCount(r){
+    if(!pantryNames.length)return 0;
+    const text=ingredientText(r);
+    return pantryNames.filter(p=>text.includes(p)).length;
+  }
+  // Sale match — same mechanism as pantry-match, pointed at whatever was
+  // typed into "on sale this week" instead of what's already on hand.
+  // Ranked ahead of pantry priority: a deal is time-limited (gone once the
+  // sale ends), pantry stock isn't going anywhere, so the generator should
+  // reach for the expiring opportunity first.
+  function saleMatchCount(r){
+    if(!saleTerms.length)return 0;
+    const text=ingredientText(r);
+    return saleTerms.filter(t=>text.includes(t)).length;
+  }
+
+  // Which meal type fills a given slot, for the chosen meals-per-day —
+  // so a 3-meals/day week draws breakfast recipes for slot 1, not
+  // whatever dinner recipe happens to sort first. "any"-typed recipes are
+  // eligible for every slot.
+  function slotMealType(slot){
+    if(mealsPerDay===1)return'dinner';
+    if(mealsPerDay===2)return slot===1?'lunch':'dinner';
+    return slot===1?'breakfast':slot===2?'lunch':'dinner';
+  }
+  function poolFor(type){
+    let p=recipes.filter(r=>baseFilter(r) && (r.mealType==='any'||!r.mealType||r.mealType===type));
+    return p.sort((a,b)=>
+      (saleMatchCount(b)-saleMatchCount(a)) ||
+      (usePantryFirst?(pantryMatchCount(b)-pantryMatchCount(a)):0) ||
+      (favorPrefsMatchCount(b)-favorPrefsMatchCount(a)) ||
+      (b.preferenceScore||0)-(a.preferenceScore||0) ||
+      (a.cost||0)-(b.cost||0));
+  }
+  if(!recipes.some(baseFilter)){alert('No recipes match those filters — loosen the cuisine/calorie/liked-only choices, or add more recipes.');return;}
+
+  const plan=[]; // [{day, slot, mealType, recipe, isLeftover, usesBase, chainedFromDay}]
+  let spent=0, slotsNeeded=days*mealsPerDay, d=1, slot=1;
+  const idxByType={}, lastByType={}; // per-meal-type cursor + last-cooked base, so chaining runs within a meal type across days (today's dinner base → tomorrow's dinner, not tomorrow's breakfast)
+  const usedRecipeIds=new Set(); // never plan the exact same recipe twice in one week — a shared base becomes a different dish, not a repeat
+
+  while(plan.length<slotsNeeded){
+    const type=slotMealType(slot);
+    const pool=poolFor(type);
+    if(!pool.length){slot++;if(slot>mealsPerDay){slot=1;d++;}continue;} // no recipe fits this meal type under current filters — skip the slot rather than crash
+    const prev=lastByType[type];
+    // Batch mode: if the last thing cooked in this slot had a batch-worthy
+    // base (ground beef, pasta, etc.) and it's still within a 3-day window,
+    // look for a DIFFERENT recipe sharing that same base — day 1 tacos'
+    // ground beef becomes day 2's chili, not another plate of tacos.
+    let chained=null;
+    if(batchMode && prev && prev.base && (d-prev.day)<=3){
+      chained=pool.find(r=>!usedRecipeIds.has(r.id) && detectBatchBase(r)===prev.base);
+    }
+    if(chained){
+      plan.push({day:d,slot,mealType:type,recipe:chained,isLeftover:true,usesBase:prev.base,chainedFromDay:prev.day});
+      usedRecipeIds.add(chained.id);
+      lastByType[type]={recipe:chained,base:prev.base,day:d};
+      spent+=(chained.cost||0)*0.4; // shares the already-bought base; only counts the extra ingredients toward budget
+    } else {
+      idxByType[type]=idxByType[type]||0;
+      let tries=0, r=null;
+      while(tries<pool.length){
+        const cand=pool[idxByType[type]%pool.length];
+        idxByType[type]++; tries++;
+        if(!usedRecipeIds.has(cand.id)){ r=cand; break; }
+      }
+      if(!r) r=pool[0]; // pool exhausted of unused recipes — reuse rather than stall the week
+      if(spent+(r.cost||0)>budget && plan.length>0) break; // stop adding new-cook meals once budget's used up
+      const base=detectBatchBase(r);
+      plan.push({day:d,slot,mealType:type,recipe:r,isLeftover:false,usesBase:null});
+      usedRecipeIds.add(r.id);
+      spent+=(r.cost||0);
+      lastByType[type]={recipe:r,base,day:d};
+    }
+    slot++;
+    if(slot>mealsPerDay){slot=1;d++;}
+  }
+
+  _lastGeneratedPlan=plan;
+  const pantryUsedCount=plan.filter(p=>!p.isLeftover && pantryMatchCount(p.recipe)>0).length;
+  const saleUsedCount=plan.filter(p=>!p.isLeftover && saleMatchCount(p.recipe)>0).length;
+  document.getElementById('mgResultsCard').style.display='block';
+  const notes=[];
+  if(autoRelaxedLiked) notes.push('Nothing was marked "Liked" yet, so untried recipes were automatically included this time — check off the ones you like below and future weeks will favor them.');
+  document.getElementById('mgResultsStats').innerHTML=`
+    <div class="stat-tile"><div class="stat-num">$${spent.toFixed(0)}</div><div class="stat-lbl">Projected Cost</div></div>
+    <div class="stat-tile"><div class="stat-num">$${budget}</div><div class="stat-lbl">Limit Given</div></div>
+    <div class="stat-tile"><div class="stat-num">${plan.filter(p=>p.isLeftover).length}</div><div class="stat-lbl">Batch-Chained Days</div></div>
+    <div class="stat-tile"><div class="stat-num">${pantryUsedCount}</div><div class="stat-lbl">Meals Using Pantry Stock</div></div>`;
+  document.getElementById('mgResultsNote').innerHTML=notes.length?`<p style="font-size:12px;color:var(--gold2);margin-bottom:10px">${notes.join(' ')}</p>`:'';
+  document.getElementById('mgResultsList').innerHTML=plan.map((p,i)=>{
+    const pMatch=pantryMatchCount(p.recipe);
+    const sMatch=saleMatchCount(p.recipe);
+    const chainPill=p.isLeftover?`<span class="pill good">🔁 FROM DAY ${p.chainedFromDay}'S ${p.usesBase.toUpperCase()}</span>`:'<span class="pill">COOK TODAY</span>';
+    return `<div class="row-item">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;width:100%">
+        <input type="checkbox" class="mg-like-check" data-recipe-id="${p.recipe.id}" style="width:auto">
+        <div><b>Day ${p.day}${mealsPerDay>1?' · '+p.mealType.charAt(0).toUpperCase()+p.mealType.slice(1):''}</b> — ${p.recipe.name} ${chainPill}${sMatch>0&&!p.isLeftover?'<span class="pill">ON SALE</span>':''}${pMatch>0&&!p.isLeftover?'<span class="pill good">USES PANTRY</span>':''}
+        <div class="meta">${p.recipe.cuisine}${p.recipe.calories?' · '+p.recipe.calories+' cal':''}${p.isLeftover?' · extra ingredients only — the '+p.usesBase+' is already bought':' · $'+p.recipe.cost}${(p.recipe.preferenceScore||0)>0?' · Liked '+p.recipe.preferenceScore+'x before':''}</div></div>
+      </label>
+    </div>`;
+  }).join('');
+}
+
+// A recipe's preferenceScore climbs by 1 every time it's checked here.
+// generateWeekMenu's sort favors higher preferenceScore first (then cost
+// as the tiebreak), so a repeatedly-liked meal shows up more often in
+// future generated weeks — without ever locking out variety, since
+// unliked/untried recipes still remain eligible unless "liked only" is on.
+function saveLikedSelections(){
+  const checked=[...document.querySelectorAll('.mg-like-check:checked')].map(c=>+c.dataset.recipeId);
+  if(!checked.length){alert('Check at least one meal first.');return;}
+  const recipes=loadLS(LS_RECIPES,[]);
+  checked.forEach(id=>{
+    const r=recipes.find(x=>x.id===id);
+    if(r){ r.liked='yes'; r.preferenceScore=(r.preferenceScore||0)+1; }
+  });
+  saveLS(LS_RECIPES,recipes);
+  renderRecipes();
+  alert(checked.length+" meal(s) remembered — they'll be favored more in future generated menus.");
+}
+
+// Pushes the generated plan into the real Weekly Menu (page 6) / shopping
+// flow. Every planned day — fresh-cook or batch-chained — is a real dish
+// with its own ingredient list, so every day goes in. A batch-chained day
+// still needs its own extra ingredients bought (chili's beans and tomatoes
+// on top of day 1's already-bought ground beef) — only the shared base
+// ingredient itself should be skipped twice, and generateShoppingList
+// handles that dedupe by ingredient name, not by skipping whole recipes.
+function commitGeneratedMenu(){
+  if(!_lastGeneratedPlan){return;}
+  const menu=loadLS(LS_MENU,[]);
+  _lastGeneratedPlan.forEach(p=>{
+    menu.push({id:Date.now()+Math.random(),recipeId:p.recipe.id});
+  });
+  saveLS(LS_MENU,menu);
+  openPage(6);
+  alert("This week's menu has been set. Head to Shopping List and click \"Generate\" for the grocery list.");
+}
+
+// ── CLOCK ──
+function updateClock(){
+  const d=new Date();
+  const h=d.getHours();
+  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  document.getElementById('greeting').textContent=sal;
+  document.getElementById('datetime').textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock,30000);
+
+// ── INIT ──
+buildRightRail();
+reclassifyImportedRecipes();
+renderHousehold();
+loadBudgetForm();
+renderBudgetStats();
+renderPantry();
+renderRecipes();
+</script>
+
+</body>
+</html>

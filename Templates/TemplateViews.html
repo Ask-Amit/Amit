@@ -185,6 +185,21 @@ header{
    border-radius/clip-path here, so a round icon (like Amit's own) or any
    other shape renders exactly as its source image is, unaltered. */
 .page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Round plug-status badge for the Sign In/Out rail icon — green when
+   connected, red when not. Added 2026-08-07, ported from AmitBooks/
+   NEW.html as the new standard for this template's own Sign In/Out
+   treatment (Ryan's direct instruction — same config becomes the base for
+   every future project built from this file). Disconnected state pulses:
+   red fills the circle from a point at the center out to the full edge,
+   then collapses back to nothing, looping — a genuine warning cue, not a
+   color-shift-in-place effect. */
+.page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
+.page-icon.plug-badge.connected{background:#2e7d46}
+.page-icon.plug-badge.disconnected{background:var(--bg)}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:#c73333;animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.plug-icon-glyph{position:relative;z-index:1}
+@keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
 .page-info{flex:1;min-width:0}
 .page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -505,7 +520,17 @@ header{
    specifically, not the dark background. Text switches to a dark brown
    for legibility against the light cell — white text (used everywhere
    else in this dark-theme template) wouldn't read against cream. */
-.cv-cell{border:1px solid rgba(0,0,0,.12);border-radius:6px;padding:6px 8px;background:var(--text2);cursor:pointer;transition:all .15s}
+/* min-width:0 fixes a real CSS Grid bug (found 2026-08-06, real pursuit
+   titles surfaced it): grid items default to min-width:auto, which for
+   text content equals its unwrapped min-content width. .cv-chip below
+   uses white-space:nowrap for its ellipsis truncation, so without this,
+   one long pursuit title forces its whole day column to grow past its
+   equal 1fr share, throwing every other column out of alignment (the
+   header row still shows 7 even SUN..SAT columns since .cv-dow-row is a
+   separate grid with no chip content to blow it out — only the day-cell
+   grid below it visibly breaks). overflow:hidden is what actually lets
+   the chip's own ellipsis take effect once the cell can no longer grow. */
+.cv-cell{border:1px solid rgba(0,0,0,.12);border-radius:6px;padding:6px 8px;background:var(--text2);cursor:pointer;transition:all .15s;min-width:0;overflow:hidden}
 .cv-cell:hover{background:#e6d9b8;border-color:rgba(201,168,76,.5)}
 .cv-daynum{font-size:13px;color:#2c2416}
 .cv-cell.adj{opacity:.4}
@@ -624,6 +649,13 @@ header{
 .right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start} /* matches .sidebar's base .page-nav; flex-start packs toward the row-reversed start, i.e. the right */
 .right-rail .page-info{display:none}
 .right-rail.expanded .page-info{display:block}
+/* RIGHT RAIL ON/OFF STATE — added 2026-08-22, matches template.html's own
+   copy of this rule (see there for the full comment). Kept in sync since
+   this file is the reference catalog and template.html's DEMO block
+   mirrors this same right rail. */
+.right-rail .page-nav.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65);box-shadow:0 0 0 1px rgba(46,160,67,.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(46,160,67,.35);border-radius:50%;box-shadow:0 0 0 2px rgba(46,160,67,.55)}
+.right-rail .page-nav.active .page-name{color:#6fe38f}
 
 /* ── PAGE HOVER TOOLTIP — added 2026-08-06, Ryan's direct instruction.
    Hovering a page (its icon when the sidebar is collapsed, or anywhere on
@@ -640,7 +672,8 @@ header{
   position:fixed;z-index:9999;
   background:#1a3352;border:1px solid rgba(201,168,76,.45);
   color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
-  padding:6px 10px;border-radius:6px;white-space:nowrap;max-width:260px;
+  line-height:1.5;
+  padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
   opacity:0;pointer-events:none;
   transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
 }
@@ -1104,27 +1137,43 @@ function toggleRail(){
   document.getElementById('rightRail').classList.toggle('expanded');
 }
 
-// HOME (right rail) — added 2026-08-06, Ryan's direct instruction:
-// navigate back to the Hub without ever spawning a duplicate tab. Uses
-// window.open(url, targetName) with a fixed, named target — this is the
-// one browser mechanism that actually does what Ryan described: the
-// FIRST call opens a new tab and gives it this name; every call AFTER
-// that, as long as that same tab is still open, reuses and FOCUSES that
-// exact tab instead of opening another one — no polling, no tab list,
-// nothing custom-built, this is standard browser behavior tied to the
-// target name alone. If that tab was since closed, the name is free
-// again and the next call simply opens a fresh one.
-// Real limitation, stated plainly rather than glossed over: this only
-// recognizes a Hub tab that THIS mechanism itself opened. A Hub tab the
-// person opened some other way (typed the URL, an old bookmark) has no
-// name browser JS can see or match against — there is no web API that
-// lets one page enumerate or focus an arbitrary tab it didn't open
-// itself; that's a deliberate browser privacy boundary, not a gap in
-// this code. In practice this still satisfies the actual ask, since
-// every "Home" click from any Amit page goes through this exact same
-// named target, so repeat use converges on one shared Hub tab.
+// HOME (right rail) — rebuilt 2026-08-06, Ryan's direct correction to the
+// first version below. The named-window.open approach only recognized a
+// Hub tab that THIS SAME mechanism had itself opened — a Hub tab already
+// open some other way (bookmark, typed URL, opened yesterday) was
+// invisible to it, so it opened a duplicate anyway. Real fix: the Hub
+// itself now carries a BroadcastChannel listener (see amit-hub.html's own
+// "AMIT HUB FOCUS CHANNEL" comment) that answers "yes, I'm here" and
+// focuses itself whenever ANY tab broadcasts on the shared 'amit_hub_tabs'
+// channel — same-origin cross-tab messaging, no server involved, the
+// exact technique already proven in ComputerHealth_Dashboard.html's own
+// tab-dedup mechanism. goToHub() broadcasts first, waits a brief window
+// for that ack, and only opens a new tab if nothing answered — meaning it
+// now correctly recognizes ANY genuinely open Hub tab, not just one this
+// button itself launched.
+//
+// SECOND FIX, 2026-08-06 — RELATIVE PATH, not the hardcoded live URL.
+// BroadcastChannel can only ever be heard by a tab on the exact same
+// origin (a hard browser boundary, no code workaround). The hardcoded
+// absolute https://ask-amit.github.io URL meant this could never actually
+// work while testing locally against an already-open live Hub tab —
+// always a different origin, always silently falling through to a
+// duplicate tab, which is exactly what Ryan caught happening live. A
+// relative path resolves to the local Hub file when tested locally (same
+// origin, channel works) and to the same real live URL once deployed
+// (every shipped Amit project sits as a sibling to Hub/ under Amit/, same
+// origin there too) — fixes both without needing two different URLs.
+const AMIT_HUB_URL='../Hub/amit-hub.html';
 function goToHub(){
-  window.open('https://ask-amit.github.io/Amit/Hub/amit-hub.html','amitHubTab');
+  if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  const ch=new BroadcastChannel('amit_hub_tabs');
+  let acked=false;
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.postMessage({type:'focus-requested'});
+  setTimeout(()=>{
+    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    ch.close();
+  },250);
 }
 
 // ══════════════════════════════════════════════
@@ -2846,6 +2895,17 @@ rvCreate('ch-tab-2-2-rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS,{
   }
 });
 
+// DEEP LINK — open directly to one page via #page=N in the URL, added
+// 2026-08-06 so template.html's "Add Page" layout picker can send someone
+// here to preview exactly the layout they're considering, instead of
+// always landing on Introduction and making them navigate manually. Read-
+// only by nature — this only changes which page is showing on load, it
+// doesn't touch the file, and nothing here writes anything back out.
+if(location.hash.startsWith('#page=')){
+  const _deepLinkPage=parseInt(location.hash.slice(6),10);
+  if(!isNaN(_deepLinkPage)) openPage(_deepLinkPage);
+}
+
 // Tabbed-layout behavior (copied from Computer Health's showTab — folder-tab
 // look, sub-content switching within one detail area — no data hooks
 // attached). Multi-row overflow, Ryan's spec 2026-08-04: the tab row grows
@@ -2960,14 +3020,17 @@ function _updateSyncUI(){
   const icon=document.getElementById('rail-sync-icon');
   const name=document.getElementById('rail-sync-name');
   const sub=document.getElementById('rail-sync-sub');
+  icon.classList.add('plug-badge');
   if(currentUser){
-    icon.textContent='🔓';name.textContent='Sign Out';sub.textContent='Synced';
-    item.dataset.tip='Sign Out';item.title='Signed in · '+currentUser.email;
+    icon.innerHTML='<span class="plug-icon-glyph">🔓</span>';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out — Synced';item.title='Signed in · '+currentUser.email;
     item.classList.add('active'); // same box the left sidebar uses to show which page is active — added 2026-08-06, Ryan's direct instruction, so the collapsed rail still shows on/off state at a glance
+    icon.classList.add('connected');icon.classList.remove('disconnected');
   } else {
-    icon.textContent='🔒';name.textContent='Sign In';sub.textContent='Not Synced';
-    item.dataset.tip='Sign In';item.title='';
+    icon.innerHTML='<span class="plug-icon-glyph">🔒</span>';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In — Not Synced';item.title='';
     item.classList.remove('active');
+    icon.classList.add('disconnected');icon.classList.remove('connected');
   }
 }
 

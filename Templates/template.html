@@ -162,6 +162,21 @@ header{
 .page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
 .page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
 .page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Round plug-status badge for the Sign In/Out rail icon — green when
+   connected, red when not. Added 2026-08-07, ported from AmitBooks/
+   NEW.html as the new standard for this template's own Sign In/Out
+   treatment (Ryan's direct instruction — same config becomes the base for
+   every future project built from this file). Disconnected state pulses:
+   red fills the circle from a point at the center out to the full edge,
+   then collapses back to nothing, looping — a genuine warning cue, not a
+   color-shift-in-place effect. */
+.page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
+.page-icon.plug-badge.connected{background:#2e7d46}
+.page-icon.plug-badge.disconnected{background:var(--bg)}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:#c73333;animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.plug-icon-glyph{position:relative;z-index:1}
+@keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
 .page-info{flex:1;min-width:0}
 .page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -219,6 +234,16 @@ header{
 .right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
 .right-rail .page-info{display:none}
 .right-rail.expanded .page-info{display:block}
+/* RIGHT RAIL ON/OFF STATE — added 2026-08-22, Ryan's direct instruction.
+   The gold .page-nav.active look (shared with the left sidebar's "this is
+   the open page" state) was too subtle to tell an ON toggle (Sign In,
+   Demo Mode) apart from an OFF one at a glance. Right-rail items are
+   toggles, not navigation, so they get their own distinct green
+   on-state — overrides the gold .page-nav.active rule for this rail only.
+   PERMANENT — carry this into every project copied from this template. */
+.right-rail .page-nav.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65);box-shadow:0 0 0 1px rgba(46,160,67,.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(46,160,67,.35);border-radius:50%;box-shadow:0 0 0 2px rgba(46,160,67,.55)}
+.right-rail .page-nav.active .page-name{color:#6fe38f}
 
 /* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
    .sidebar/.right-rail scroll (overflow-y:auto) — per the CSS spec, that
@@ -229,11 +254,22 @@ header{
   position:fixed;z-index:9999;
   background:#1a3352;border:1px solid rgba(201,168,76,.45);
   color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
-  padding:6px 10px;border-radius:6px;white-space:nowrap;max-width:260px;
+  line-height:1.5;
+  padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
   opacity:0;pointer-events:none;
   transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
 }
 .page-hover-tip.show{opacity:1}
+
+/* CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+   added 2026-08-06 so Add Page can instantiate a real Tabbed View directly,
+   not hand a copy-instruction to an outside AI session. */
+.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
 </style>
 </head>
 <body>
@@ -404,6 +440,28 @@ const TEMPLATE_LAYOUTS=[
   {key:'Breadcrumb View',desc:'Chained drill-down navigation with a breadcrumb trail'}
 ];
 
+// Which page number each layout lives on inside TemplateViews.html's own
+// demo — used only to deep-link the 👓 preview link in the layout picker
+// straight to that layout (TemplateViews.html#page=N) instead of always
+// opening to its Introduction page. Keep in sync if TemplateViews.html's
+// own page order ever changes (see its buildPlaceholders()). Page 5 was
+// retired there (Grid View merged into Row View) so it's skipped here too.
+const TEMPLATE_VIEWS_PAGE_MAP={
+  'Tabbed View':2,'Row View':3,'Detail View':4,'Calendar View':6,'Board View':7,
+  'Gallery View':8,'Dashboard View':9,'Split View':10,'Form View':11,'Chart View':12,
+  'Inbox View':13,'Drawer View':14,'Tree View':15,'Breadcrumb View':16,'Day View':17
+};
+
+// Same icon each layout is already shown with inside TemplateViews.html
+// itself (its own hardcoded page icon / NEW_VIEW_ICONS map) — reused here
+// verbatim so the picker card matches what someone actually sees when they
+// click through to preview it, instead of a generic stand-in glyph.
+const TEMPLATE_VIEWS_ICON_MAP={
+  'Tabbed View':'🗂️','Row View':'📋','Detail View':'🔍','Calendar View':'📅','Board View':'🗃️',
+  'Gallery View':'🖼️','Dashboard View':'📈','Split View':'◨','Form View':'📝','Chart View':'📊',
+  'Inbox View':'📥','Drawer View':'🗄️','Tree View':'🌳','Breadcrumb View':'🍞','Day View':'☀️'
+};
+
 async function loadCustomPages(){
   const cacheKey='amit_pages_'+PROJECT_KEY;
   const owner=currentUser?currentUser.id:null;
@@ -454,20 +512,35 @@ function renderAllPages(){
     <div class="detail-empty">Introduction content goes here</div>
   </div>`;
 
+  const toHydrate=[]; // [{id,layoutKey}] — layouts fetched+run from TemplateViews.html after this render lands in the DOM
   customPages.forEach((p,i)=>{
     const id=CUSTOM_PAGE_BASE+i;
-    navHtml+=`<div class="page-nav" id="page-${id}" onclick="openPage(${id})" data-tip="${p.page_name}">
+    const displayName=p.page_name||p.detail_layout_type; // blank name stored — fall back to layout type for the label/tooltip only
+    navHtml+=`<div class="page-nav" id="page-${id}" onclick="openPage(${id})" data-tip="${displayName}">
       <div class="page-icon">▢</div>
-      <div class="page-info"><div class="page-name">${p.page_name}</div><div class="page-sub">${p.detail_layout_type}</div></div>
+      <div class="page-info"><div class="page-name">${displayName}</div><div class="page-sub">${p.detail_layout_type}</div></div>
     </div>`;
-    detailHtml+=`<div class="detail" id="detail-${id}">
-      <div class="detail-head"><span class="detail-heading">${p.page_name}</span></div>
-      <div class="detail-empty">Layout: ${p.detail_layout_type} — ask your AI session to copy the CANONICAL LAYOUT: ${p.detail_layout_type.toUpperCase()} block from Templates\\TemplateViews.html into this page (detail-${id}) to build it out.</div>
-    </div>`;
+    if(p.detail_layout_type==='Tabbed View'){
+      detailHtml+=`<div class="detail" id="detail-${id}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        ${buildTabbedViewHtml(id)}
+      </div>`;
+    } else if(LAYOUT_IMPORT_MANIFEST[p.detail_layout_type]){
+      detailHtml+=`<div class="detail" id="detail-${id}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        <div class="${LAYOUT_IMPORT_MANIFEST[p.detail_layout_type].wrap}" id="tv-mount-${id}"></div>
+      </div>`;
+      toHydrate.push({id,layoutKey:p.detail_layout_type});
+    } else {
+      detailHtml+=`<div class="detail" id="detail-${id}">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        <div class="detail-empty">"${p.detail_layout_type}" has no import entry yet in LAYOUT_IMPORT_MANIFEST.</div>
+      </div>`;
+    }
   });
 
   if(builderMode){
-    navHtml+=`<div class="page-nav" id="page-add" onclick="openAddPageFlow()" data-tip="Add Page" style="border-style:dashed;opacity:.8">
+    navHtml+=`<div class="page-nav" id="page-add" onclick="openLayoutPicker()" data-tip="Add Page" style="border-style:dashed;opacity:.8">
       <div class="page-icon">➕</div>
       <div class="page-info"><div class="page-name">Add Page</div><div class="page-sub">Create a new page</div></div>
     </div>
@@ -480,6 +553,11 @@ function renderAllPages(){
 
   // restore whichever page was open before the re-render, if it still exists
   if(document.getElementById('page-'+activeId)) openPage(isNaN(activeId)?activeId:Number(activeId));
+
+  // pull in and run the real layout code for every TemplateViews-backed
+  // page rebuilt above — the mount divs already exist synchronously; each
+  // one's real content pops in once its fetch/import resolves.
+  toHydrate.forEach(({id,layoutKey})=>hydrateImportedLayout(id,layoutKey));
 }
 
 function finalizeBuilderMode(){
@@ -490,105 +568,53 @@ function finalizeBuilderMode(){
 }
 
 // ══════════════════════════════════════════════
-// ADD PAGE FLOW — name (typed or Inspire Me via the real J shortcut) →
-// layout picker (from TemplateViews.html's canonical list) → create.
+// ADD PAGE FLOW — clicking "Add Page" goes straight to the layout picker
+// (from TemplateViews.html's canonical list) → create. No name-entry step
+// (removed 2026-08-06, Ryan's direct instruction) — the chosen layout's
+// own name becomes the page name; rename later is a future improvement,
+// not part of this flow.
 // ══════════════════════════════════════════════
-function openAddPageFlow(){
-  popupOpen(`
-    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:16px">Add a New Page</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Name this page</div>
-    <input id="addPageNameInput" type="text" placeholder="e.g. Contacts, Inventory, Schedule"
-      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
-      onkeydown="if(event.key==='Enter')addPageNameConfirmed()"/>
-    <div style="display:flex;gap:10px">
-      <button onclick="addPageNameConfirmed()" style="flex:1;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em">USE THIS NAME →</button>
-      <button onclick="runInspireShortcut()" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(240,232,208,.3);color:var(--text2);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em">✨ INSPIRE ME</button>
-    </div>
-    <div id="inspireResult" style="margin-top:14px;font-size:12px;color:var(--muted);line-height:1.6"></div>
-  `);
+// 👓 preview link on each card — opens TemplateViews.html (the never-
+// edited reference catalog) in a new tab, deep-linked via #page=N to that
+// exact layout instead of always landing on Introduction. Read-only by
+// nature: it's a plain link to a file, nothing here can write back into
+// it. Deliberately NOT wired to select-from-that-tab-and-return — a real
+// cross-tab handoff (postMessage, tracking whether that tab is still
+// open) is a lot of moving parts for what a click back in this popup
+// already does in one step once someone's seen what they wanted to see.
+function previewLayoutInNewTab(e,layoutKey){
+  e.stopPropagation();
+  const pageNum=TEMPLATE_VIEWS_PAGE_MAP[layoutKey];
+  window.open('TemplateViews.html'+(pageNum?'#page='+pageNum:''),'_blank');
 }
 
-function addPageNameConfirmed(){
-  const name=(document.getElementById('addPageNameInput')?.value||'').trim();
-  if(!name){ alert('Give the page a name first.'); return; }
-  openLayoutPicker(name);
-}
-
-// Real J Inspire shortcut — amit_shortcuts, activation_key='J',
-// trigger_phrase='inspire'. Confirmed live 2026-08-06: this is a real,
-// existing, is_builtin shortcut (shortcut_type='inline_instruction') whose
-// actual job is to REVIEW THE SESSION SO FAR, run a real web search, and
-// reason through a synthesis. That is genuine LLM reasoning plus live web
-// search — a static browser page cannot execute it under any
-// implementation, so this hands it off to a real AI session rather than
-// faking it locally.
-//
-// THE GAP THIS FIXES (Ryan's correction, 2026-08-06): Add Page is very
-// often the START of a brand-new page with zero session history — there
-// is nothing yet for J Inspire to "review." Handing off the raw shortcut
-// alone would leave the AI session with nothing to work from. So this now
-// asks first, in plain language: "tell me a little about what you're
-// looking for" — then bundles that description together with the real J
-// Inspire instruction as ONE thing to copy into an AI session, so the
-// session has real context to brainstorm from even with no prior history.
-async function runInspireShortcut(){
-  const out=document.getElementById('inspireResult');
-  if(!out)return;
-  out.innerHTML=`
-    <div style="color:var(--gold2);margin-bottom:8px">Tell me a little about what you're looking for, so there's something to brainstorm from — this is a brand-new page with no session history yet.</div>
-    <textarea id="inspireContextInput" rows="3" placeholder="e.g. a place to track customer contacts, or a page that shows upcoming deadlines…"
-      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:12px;outline:none;margin-bottom:8px;font-family:inherit;resize:vertical"></textarea>
-    <button onclick="_fetchInspireWithContext()" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:8px 14px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em">CONTINUE →</button>
-  `;
-  document.getElementById('inspireContextInput')?.focus();
-}
-
-async function _fetchInspireWithContext(){
-  const out=document.getElementById('inspireResult');
-  const context=(document.getElementById('inspireContextInput')?.value||'').trim();
-  if(!db||!out)return;
-  out.textContent='Looking up the "Inspire" shortcut…';
-  try{
-    const res=await fetch(`${SB_URL}/rest/v1/amit_shortcuts?activation_key=eq.J&is_active=eq.true&trigger_phrase=eq.inspire&parent_shortcut_id=is.null&select=*`,{
-      headers:{apikey:SB_KEY,Accept:'application/json'}
-    });
-    const rows=res.ok?await res.json():[];
-    if(!rows.length){
-      out.innerHTML='No "Inspire" J shortcut exists in amit_shortcuts yet — type a name directly above instead.';
-      return;
-    }
-    const shortcut=rows[0];
-    const contextBlock=context?`For context, before running J Inspire itself: this is a brand-new page in an Amit-template project with no prior session history. What I'm looking for: "${context}"\n\nNow run J Inspire on that:\n\n`:'';
-    const fullText=contextBlock+(shortcut.instruction_text||'');
-    const escaped=fullText.replace(/`/g,'\\`').replace(/'/g,"\\'");
-    out.innerHTML=`
-      <div style="color:var(--gold2);margin-bottom:8px">This needs a real AI session to run — it does live web search and reasoning a browser page can't do on its own. Copy it into your AI session, then bring the suggested name back here.</div>
-      <div style="background:rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.25);border-radius:7px;padding:10px 12px;font-size:11px;color:var(--text2);max-height:160px;overflow-y:auto;margin-bottom:8px;white-space:pre-wrap">${fullText}</div>
-      <button onclick="navigator.clipboard.writeText('${escaped}');this.textContent='Copied ✓'" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:8px 14px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em">COPY INSTRUCTION →</button>
-    `;
-  }catch(e){
-    out.textContent='Could not reach the shortcut database — type a name directly above instead.';
-  }
-}
-
-function openLayoutPicker(pageName){
+function openLayoutPicker(){
   const cards=TEMPLATE_LAYOUTS.map(l=>`
-    <div onclick="confirmAddPage('${pageName.replace(/'/g,"\\'")}','${l.key}')"
-      style="border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:12px 14px;cursor:pointer;transition:all .15s"
-      onmouseover="this.style.borderColor='var(--gold)';this.style.background='rgba(201,168,76,.08)'"
-      onmouseout="this.style.borderColor='rgba(201,168,76,.3)';this.style.background='transparent'">
-      <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
-      <div style="font-size:11px;color:var(--muted)">${l.desc}</div>
+    <div onclick="confirmAddPage('${l.key}')"
+      style="border:1px solid rgba(201,168,76,.3);border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;overflow:hidden"
+      onmouseover="this.style.borderColor='var(--gold)'"
+      onmouseout="this.style.borderColor='rgba(201,168,76,.3)'">
+      <div onclick="previewLayoutInNewTab(event,'${l.key}')" title="See what ${l.key} looks like before choosing it"
+        style="flex-shrink:0;width:58px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;background:rgba(201,168,76,.06);border-right:1px solid rgba(201,168,76,.25)"
+        onmouseover="event.stopPropagation();this.style.background='rgba(201,168,76,.22)'"
+        onmouseout="event.stopPropagation();this.style.background='rgba(201,168,76,.06)'">${TEMPLATE_VIEWS_ICON_MAP[l.key]||'▢'}</div>
+      <div onclick="confirmAddPage('${l.key}')" style="flex:1;min-width:0;padding:12px 14px;transition:background .15s"
+        onmouseover="this.style.background='rgba(201,168,76,.08)'"
+        onmouseout="this.style.background='transparent'">
+        <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
+        <div style="font-size:11px;color:var(--muted)">${l.desc}</div>
+      </div>
     </div>`).join('');
   popupOpen(`
     <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Choose a Starting View</div>
-    <div style="font-size:11px;color:var(--dim);margin-bottom:16px">for "${pageName}"</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:16px">Click the icon on any card to open a live preview of that layout in a new tab — come back and click the name/description side to add it here.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
   `);
 }
 
-async function confirmAddPage(pageName,layoutKey){
+async function confirmAddPage(layoutKey){
   const order=customPages.length;
+  const pageName=''; // blank for now — naming/renaming is separate future work
   customPages.push({project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order});
   await saveCustomPage(pageName,layoutKey,order);
   popupClose();
@@ -670,6 +696,184 @@ function initPageTooltips(containerId,side){
   });
 }
 
+// CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+// added 2026-08-06. Multi-row overflow: the tab row grows as many rows
+// behind itself as it needs (plain CSS flex-wrap, see .ch-tab-nav) rather
+// than scrolling or truncating. Selecting a tab that isn't in the front
+// row brings its whole row forward — same behavior as classic multi-row
+// property-sheet tabs.
+function showChTab(detailNum,n){
+  const detail=document.getElementById('detail-'+detailNum);
+  const clickedBtn=event.target;
+  const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
+  if(tabNav){
+    // Only reorder when tabs have genuinely wrapped into multiple rows, and
+    // use a tolerance (not exact offsetTop equality) when grouping a row —
+    // .ch-tab-btn.active has a different margin-top than inactive tabs,
+    // which would otherwise misclassify the active tab as its own row.
+    const wrapped=tabNav.scrollHeight>clickedBtn.offsetHeight*1.5;
+    if(wrapped){
+      const rowTop=clickedBtn.offsetTop;
+      Array.from(tabNav.children)
+        .filter(b=>Math.abs(b.offsetTop-rowTop)<15)
+        .forEach(b=>tabNav.appendChild(b));
+    }
+  }
+  detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
+  clickedBtn.classList.add('active');
+}
+
+// Builds a real, working Tabbed View's inner markup for a given detail id —
+// used by renderAllPages() so a custom page whose detail_layout_type is
+// 'Tabbed View' gets the actual live layout, not placeholder text.
+function buildTabbedViewHtml(detailNum){
+  let tabNavHtml='',tabContentHtml='';
+  for(let t=1;t<=5;t++){
+    tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${detailNum},${t})">Tab ${t}</button>`;
+    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">Tab ${t} content goes here</div>`;
+  }
+  return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
+    <div class="ch-tab-main">${tabContentHtml}</div>`;
+}
+
+// ══════════════════════════════════════════════
+// LAYOUT IMPORTER — fetches TemplateViews.html at the moment a page needs
+// it, cuts out the exact CANONICAL LAYOUT block the person picked (code +
+// its own sample data, contiguous by design — see TemplateViews.html's own
+// "IMPORTING A SINGLE LAYOUT PIECE" note), runs it live, and calls that
+// layout's own create function. Nothing about any of the 14 layouts below
+// is hand-copied into this file ahead of time — this file only knows each
+// one's marker text, its container wrap class, and the one line that
+// creates it, exactly what a person would type by hand if copying it in
+// themselves. Tabbed View (above) is the one exception, kept as a fully
+// local, hand-wired implementation since it was built before this importer
+// existed and already works — no need to route it through a network fetch.
+//
+// REQUIRES being served over http(s) — a file:// page cannot fetch a
+// sibling file's contents (browsers block that at the protocol level, not
+// this code's choice). Run a local server (the Starter Kit's zero-dep dev
+// server, or `npx serve`, or similar) rather than double-clicking this
+// file, or the import will fail with an honest error in the page itself.
+// ══════════════════════════════════════════════
+const LAYOUT_IMPORT_MANIFEST={
+  'Row View':{marker:'ROW VIEW',deps:[],wrap:'rv-wrap',
+    call:id=>`rvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Detail View':{marker:'DETAIL VIEW',deps:['Row View'],wrap:'dv-wrap',
+    call:id=>`dvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);dvOpenForInstance('${id}',RV_SAMPLE_ROWS[0].id);`},
+  'Calendar View':{marker:'CALENDAR VIEW',deps:['Day View'],wrap:'cv-wrap',
+    call:id=>`cvCreate('${id}');`},
+  'Day View':{marker:'DAY VIEW',deps:[],wrap:'dvw-wrap',
+    call:id=>`dayViewCreate('${id}');`},
+  'Board View':{marker:'BOARD VIEW',deps:['Detail View'],wrap:'bv-wrap',
+    call:id=>`bvCreate('${id}',BV_SAMPLE_STATUSES,BV_SAMPLE_ROWS);`},
+  'Gallery View':{marker:'GALLERY VIEW',deps:[],wrap:'glv-wrap',
+    call:id=>`glvCreate('${id}',GLV_SAMPLE_ROWS);`},
+  'Dashboard View':{marker:'DASHBOARD VIEW',deps:[],wrap:'dbv-wrap',
+    call:id=>`dbvCreate('${id}',DBV_SAMPLE_TILES,DBV_SAMPLE_BARS);`},
+  'Split View':{marker:'SPLIT VIEW',deps:['Row View'],wrap:'spv-wrap',
+    call:id=>`spvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Form View':{marker:'FORM VIEW',deps:[],wrap:'fv-wrap',
+    call:id=>`fvCreate('${id}',FV_SAMPLE_FIELDS);`},
+  'Chart View':{marker:'CHART VIEW',deps:[],wrap:'chv-wrap',
+    call:id=>`chvCreate('${id}',CHV_SAMPLE_BARS,CHV_SAMPLE_LINES);`},
+  'Inbox View':{marker:'INBOX VIEW',deps:[],wrap:'ibv-wrap',
+    call:id=>`ibvCreate('${id}',IBV_SAMPLE_ROWS);`},
+  'Drawer View':{marker:'DRAWER VIEW',deps:[],wrap:'drv-wrap',
+    call:id=>`drvCreate('${id}',DRV_SAMPLE_ROWS);`},
+  'Tree View':{marker:'TREE VIEW',deps:[],wrap:'tv-wrap',
+    call:id=>`tvCreate('${id}',TV_SAMPLE_ROWS);`},
+  'Breadcrumb View':{marker:'BREADCRUMB VIEW',deps:[],wrap:'bcv-wrap',
+    call:id=>`bcvCreate('${id}','Pursuits',BCV_SAMPLE_ROOT);`}
+};
+
+let _tvSource=null;
+async function _fetchTemplateViewsSource(){
+  if(_tvSource) return _tvSource;
+  const res=await fetch('TemplateViews.html');
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  _tvSource=await res.text();
+  return _tvSource;
+}
+
+let _tvCssInjected=false;
+function _injectTemplateViewsCss(src){
+  if(_tvCssInjected) return;
+  const m=src.match(/<style>([\s\S]*?)<\/style>/);
+  if(!m) return;
+  const tag=document.createElement('style');
+  tag.id='tv-imported-css';
+  tag.textContent=m[1];
+  document.head.appendChild(tag);
+  _tvCssInjected=true;
+}
+
+// Cuts the one block whose header comment reads "CANONICAL LAYOUT: <marker>"
+// — from that comment line down to wherever the NEXT block's own header
+// starts ("// CANONICAL LAYOUT: " or "// CANONICAL DESTINATION: "), or the
+// "// ── DEMO" wiring at the file's bottom for the last block. Anchored to
+// a real line start (must follow a newline) so a prose MENTION of another
+// block's name elsewhere in a comment can't be mistaken for that block's
+// actual header. Does not stop at every "// ══" divider — each block's own
+// header comment is closed by one of those BEFORE its code even starts, so
+// stopping there would cut every block down to nothing but its comment.
+function _extractCanonicalBlock(src,markerText){
+  const marker='// CANONICAL LAYOUT: '+markerText;
+  const mi=src.indexOf('\n'+marker);
+  if(mi===-1) return null;
+  const lineStart=mi+1;
+  let end=src.length;
+  for(const stop of ['\n// CANONICAL LAYOUT: ','\n// CANONICAL DESTINATION: ','\n// ── DEMO']){
+    const idx=src.indexOf(stop,lineStart+marker.length);
+    if(idx!==-1 && idx<end) end=idx;
+  }
+  return src.slice(lineStart,end);
+}
+
+// Loads a layout's block (and any dependency blocks — e.g. Detail View's
+// sample data lives inside Row View's own block) exactly once each, ever,
+// per page load. A second page using the same layout just calls its
+// already-loaded create function again with a new container id — the
+// block itself (its `const`s) can only be executed once without a
+// "already declared" error, same reason each script tag only runs once.
+const _tvLoadedLayouts=new Set();
+async function importLayoutFromTemplateViews(layoutKey){
+  const manifest=LAYOUT_IMPORT_MANIFEST[layoutKey];
+  if(!manifest) return {ok:false,reason:'"'+layoutKey+'" has no import entry yet'};
+  let src;
+  try{ src=await _fetchTemplateViewsSource(); }
+  catch(e){ return {ok:false,reason:'could not fetch TemplateViews.html ('+e.message+') — this page must be served over http(s), not opened as a file:// path'}; }
+  _injectTemplateViewsCss(src);
+  for(const key of [...manifest.deps,layoutKey]){
+    if(_tvLoadedLayouts.has(key)) continue;
+    const block=_extractCanonicalBlock(src,LAYOUT_IMPORT_MANIFEST[key].marker);
+    if(!block) return {ok:false,reason:'could not find the "'+key+'" block in TemplateViews.html'};
+    const tag=document.createElement('script');
+    tag.textContent=block;
+    document.body.appendChild(tag);
+    _tvLoadedLayouts.add(key);
+  }
+  return {ok:true};
+}
+
+// Fetches + runs the layout, then calls its create function against the
+// already-rendered mount div. Fire-and-forget from renderAllPages() (the
+// mount div itself renders synchronously and instantly; the real content
+// pops in a moment later once the fetch resolves).
+async function hydrateImportedLayout(detailNum,layoutKey){
+  const mountId='tv-mount-'+detailNum;
+  const status=await importLayoutFromTemplateViews(layoutKey);
+  const mount=document.getElementById(mountId);
+  if(!mount) return; // page was re-rendered away (e.g. a newer page replaced it) before the fetch finished
+  if(!status.ok){
+    mount.outerHTML=`<div class="detail-empty">Could not import "${layoutKey}" from TemplateViews.html — ${status.reason}.</div>`;
+    return;
+  }
+  try{ new Function(LAYOUT_IMPORT_MANIFEST[layoutKey].call(mountId))(); }
+  catch(e){ mount.innerHTML=`<div class="detail-empty">"${layoutKey}" loaded but hit an error running it: ${e.message}</div>`; }
+}
+
 function toggleRail(){
   document.getElementById('rightRail').classList.toggle('expanded');
 }
@@ -682,7 +886,22 @@ function toggleRail(){
 // CHANNEL" comment); if a genuinely open Hub tab answers within the brief
 // window below, it focuses itself and nothing else happens here. Only
 // falls back to opening a new tab if nothing answered.
-const AMIT_HUB_URL='https://ask-amit.github.io/Amit/Hub/amit-hub.html';
+//
+// RELATIVE PATH, NOT the hardcoded live URL (fixed 2026-08-06, real bug
+// Ryan caught testing this live) — BroadcastChannel can only ever be heard
+// by a tab on the exact same origin; that's a hard browser security
+// boundary, not something any code here can work around. A hardcoded
+// absolute https://ask-amit.github.io URL meant this could NEVER work
+// while testing this page locally (file:// or localhost) against an
+// already-open Hub tab on the real live site — always a different origin,
+// always silently falling through to opening a duplicate tab. A relative
+// path fixes both cases at once: locally it resolves to the local Hub
+// file (same origin as this page, channel actually works); once a real
+// project ships to ask-amit.github.io/Amit/ProjectName/ (one level under
+// Amit/, same as Hub/), this same relative path resolves to the exact
+// same live Hub URL as before — same origin there too, since every
+// shipped Amit project and the Hub itself sit as siblings under Amit/.
+const AMIT_HUB_URL='../Hub/amit-hub.html';
 function goToHub(){
   if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
   const ch=new BroadcastChannel('amit_hub_tabs');
@@ -749,14 +968,17 @@ function _updateSyncUI(){
   const icon=document.getElementById('rail-sync-icon');
   const name=document.getElementById('rail-sync-name');
   const sub=document.getElementById('rail-sync-sub');
+  icon.classList.add('plug-badge');
   if(currentUser){
-    icon.textContent='🔓';name.textContent='Sign Out';sub.textContent='Synced';
-    item.dataset.tip='Sign Out';item.title='Signed in · '+currentUser.email;
+    icon.innerHTML='<span class="plug-icon-glyph">🔓</span>';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out — Synced';item.title='Signed in · '+currentUser.email;
     item.classList.add('active');
+    icon.classList.add('connected');icon.classList.remove('disconnected');
   } else {
-    icon.textContent='🔒';name.textContent='Sign In';sub.textContent='Not Synced';
-    item.dataset.tip='Sign In';item.title='';
+    icon.innerHTML='<span class="plug-icon-glyph">🔒</span>';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In — Not Synced';item.title='';
     item.classList.remove('active');
+    icon.classList.add('disconnected');icon.classList.remove('connected');
   }
 }
 
