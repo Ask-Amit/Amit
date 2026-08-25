@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Shoshone Honda Yamaha — Monthly Recon Capture</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#14171c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SHY Recon">
+<link rel="apple-touch-icon" href="../amit_icon.png">
 <style>
   :root{
     --bg:#14171c; --panel:#1c2027; --border:#2c313a; --text:#e8e8ea;
@@ -37,6 +43,11 @@
   .lightbox.open{display:flex}
   .lightbox img{max-width:100%;max-height:100%;border-radius:6px}
   .lightbox-close{position:absolute;top:16px;right:20px;color:#fff;font-size:28px;background:none;border:none;cursor:pointer}
+  .install-banner{display:none;background:var(--panel);border:1px solid var(--gold);border-radius:10px;padding:14px;margin:0 0 16px;font-size:13px;align-items:center;justify-content:space-between;gap:12px}
+  .install-banner.show{display:flex}
+  .install-banner button{background:var(--gold);color:#14171c;border:none;border-radius:6px;padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer;flex-shrink:0}
+  .install-banner .txt{color:var(--text)}
+  .install-banner .close-x{background:none;color:var(--muted);font-size:16px;border:none;cursor:pointer;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -46,6 +57,12 @@
 </header>
 
 <div class="wrap">
+  <div class="install-banner" id="installBanner">
+    <span class="txt" id="installText">Add this to your Home Screen for one-tap access.</span>
+    <button id="installBtn" onclick="shyDoInstall()">Add</button>
+    <button class="close-x" onclick="shyDismissInstall()">&times;</button>
+  </div>
+
   <label class="field" for="monthInput">Month being processed</label>
   <input type="month" id="monthInput">
 
@@ -159,6 +176,45 @@ function shyCloseLightbox(e){
 }
 
 shyRenderGroups();
+
+// ── Install prompt (Android/Chrome one-tap, iOS guided) ──
+let shyDeferredPrompt = null;
+const shyIsStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const shyIsIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  shyDeferredPrompt = e;
+  shyMaybeShowInstallBanner();
+});
+
+function shyMaybeShowInstallBanner(){
+  if(shyIsStandalone) return;
+  if(localStorage.getItem('shy_install_dismissed')) return;
+  if(shyIsIOS){
+    document.getElementById('installText').textContent = 'Tap the Share icon below, then "Add to Home Screen".';
+    document.getElementById('installBtn').style.display = 'none';
+    document.getElementById('installBanner').classList.add('show');
+  } else if(shyDeferredPrompt){
+    document.getElementById('installBanner').classList.add('show');
+  }
+}
+
+async function shyDoInstall(){
+  if(!shyDeferredPrompt) return;
+  shyDeferredPrompt.prompt();
+  await shyDeferredPrompt.userChoice;
+  shyDeferredPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+  localStorage.setItem('shy_install_dismissed','1');
+}
+
+function shyDismissInstall(){
+  document.getElementById('installBanner').classList.remove('show');
+  localStorage.setItem('shy_install_dismissed','1');
+}
+
+if(shyIsIOS) setTimeout(shyMaybeShowInstallBanner, 400);
 </script>
 </body>
 </html>
