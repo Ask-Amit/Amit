@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Shoshone Honda Yamaha — Monthly Recon Capture</title>
+<style>
+  :root{
+    --bg:#14171c; --panel:#1c2027; --border:#2c313a; --text:#e8e8ea;
+    --muted:#8b909a; --gold:#c9a24b; --gold2:#e0bd6a;
+    --dailies:#5a8fd6; --merchant:#d6a35a; --bank:#6bbf7a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:5}
+  h1{font-size:17px;margin:0 0 2px;color:var(--gold2)}
+  .sub{font-size:12px;color:var(--muted)}
+  .wrap{max-width:720px;margin:0 auto;padding:16px}
+  label.field{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input[type=month]{width:100%;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-size:16px;margin-bottom:18px}
+  .capture-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:22px}
+  .cap-btn{display:flex;align-items:center;gap:12px;padding:16px;border-radius:10px;border:1px solid var(--border);background:var(--panel);cursor:pointer;font-size:15px;font-weight:600;color:var(--text)}
+  .cap-btn input{display:none}
+  .cap-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .dailies .cap-dot{background:var(--dailies)} .merchant .cap-dot{background:var(--merchant)} .bank .cap-dot{background:var(--bank)}
+  .cap-btn:active{opacity:.7}
+  .status{font-size:13px;color:var(--gold2);min-height:18px;margin-bottom:10px}
+  .section-title{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 10px;border-top:1px solid var(--border);padding-top:16px}
+  .group{margin-bottom:16px}
+  .group h3{font-size:13px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .grid-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+  .thumb{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--border);aspect-ratio:1}
+  .thumb img{width:100%;height:100%;object-fit:cover;cursor:pointer}
+  .thumb .del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer}
+  .empty{color:var(--muted);font-size:13px;font-style:italic}
+  .lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:50;align-items:center;justify-content:center;padding:20px}
+  .lightbox.open{display:flex}
+  .lightbox img{max-width:100%;max-height:100%;border-radius:6px}
+  .lightbox-close{position:absolute;top:16px;right:20px;color:#fff;font-size:28px;background:none;border:none;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <h1>Shoshone Honda Yamaha — Recon Capture</h1>
+  <div class="sub">Monthly books reconciliation — dailies, merchant services, bank statement</div>
+</header>
+
+<div class="wrap">
+  <label class="field" for="monthInput">Month being processed</label>
+  <input type="month" id="monthInput">
+
+  <div class="status" id="statusLine"></div>
+
+  <div class="capture-grid">
+    <label class="cap-btn dailies"><span class="cap-dot"></span> Dailies (POS)
+      <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'dailies')">
+    </label>
+    <label class="cap-btn merchant"><span class="cap-dot"></span> Merchant Services
+      <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'merchant')">
+    </label>
+    <label class="cap-btn bank"><span class="cap-dot"></span> Bank Statement
+      <input type="file" accept="image/*" capture="environment" onchange="shyCapture(this,'bank')">
+    </label>
+  </div>
+
+  <div class="section-title">This month's captures</div>
+  <div id="groupsWrap"></div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="shyCloseLightbox(event)">
+  <button class="lightbox-close" onclick="shyCloseLightbox(event)">&times;</button>
+  <img id="lightboxImg" src="">
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = "https://hleqtjqojksurvkyqixt.supabase.co";
+const SUPABASE_KEY = "sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF";
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const BUCKET = "shy-recon";
+const TYPE_LABELS = {dailies:"Dailies (POS)", merchant:"Merchant Services", bank:"Bank Statement"};
+
+function shyCurrentMonth(){
+  const el = document.getElementById('monthInput');
+  if(!el.value){
+    const d = new Date();
+    el.value = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+  return el.value;
+}
+document.getElementById('monthInput').addEventListener('change', shyRenderGroups);
+
+async function shyCapture(inputEl, type){
+  const file = inputEl.files[0];
+  if(!file) return;
+  const month = shyCurrentMonth();
+  const statusEl = document.getElementById('statusLine');
+  statusEl.textContent = 'Uploading ' + TYPE_LABELS[type] + '...';
+  const ts = Date.now();
+  const path = month + '/' + type + '/' + ts + '-' + file.name.replace(/[^a-zA-Z0-9.]/g,'_');
+  const {error: upErr} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type});
+  if(upErr){ statusEl.textContent = 'Upload failed: ' + upErr.message; return; }
+  const {error: insErr} = await db.from('shy_recon_captures').insert({month, type, storage_path: path});
+  if(insErr){ statusEl.textContent = 'Saved photo but failed to record it: ' + insErr.message; return; }
+  statusEl.textContent = TYPE_LABELS[type] + ' saved.';
+  inputEl.value = '';
+  shyRenderGroups();
+}
+
+function shyPublicUrl(path){
+  return db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+async function shyRenderGroups(){
+  const month = shyCurrentMonth();
+  const wrap = document.getElementById('groupsWrap');
+  wrap.innerHTML = '<div class="empty">Loading...</div>';
+  const {data, error} = await db.from('shy_recon_captures').select('id,type,storage_path,captured_at').eq('month', month).order('captured_at',{ascending:true});
+  if(error){ wrap.innerHTML = '<div class="empty">Could not load: ' + error.message + '</div>'; return; }
+  wrap.innerHTML = '';
+  ['dailies','merchant','bank'].forEach(type=>{
+    const items = (data||[]).filter(r=>r.type===type);
+    const g = document.createElement('div');
+    g.className = 'group';
+    g.innerHTML = '<h3><span class="cap-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--' + type + ')"></span>' + TYPE_LABELS[type] + ' (' + items.length + ')</h3>';
+    const grid = document.createElement('div');
+    grid.className = 'grid-thumbs';
+    if(items.length===0){
+      grid.innerHTML = '<div class="empty">None yet</div>';
+    } else {
+      items.forEach(r=>{
+        const url = shyPublicUrl(r.storage_path);
+        const t = document.createElement('div');
+        t.className = 'thumb';
+        t.innerHTML = '<img src="' + url + '" onclick="shyOpenLightbox(\'' + url + '\')"><button class="del" onclick="shyDelete(\'' + r.id + '\',\'' + r.storage_path + '\')">&times;</button>';
+        grid.appendChild(t);
+      });
+    }
+    g.appendChild(grid);
+    wrap.appendChild(g);
+  });
+}
+
+async function shyDelete(id, path){
+  if(!confirm('Delete this photo?')) return;
+  await db.storage.from(BUCKET).remove([path]);
+  await db.from('shy_recon_captures').delete().eq('id', id);
+  shyRenderGroups();
+}
+
+function shyOpenLightbox(url){
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function shyCloseLightbox(e){
+  if(e.target.id==='lightbox' || e.target.classList.contains('lightbox-close')){
+    document.getElementById('lightbox').classList.remove('open');
+  }
+}
+
+shyRenderGroups();
+</script>
+</body>
+</html>
