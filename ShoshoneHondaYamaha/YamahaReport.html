@@ -28,6 +28,7 @@
   .fix-box { background: #fff8e1; border: 2px solid #c9a24b; border-radius: 5px; padding: 7px 10px; margin-top: 4px; }
   .fix-box .label { font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; color: #8a6d1f; font-weight: bold; }
   .fix-box .instruction { font-size: 11px; margin-top: 3px; line-height: 1.35; }
+  .warn { background: #fdeaea; border: 1px solid #cc8888; border-radius: 4px; padding: 6px 10px; margin-top: 6px; font-size: 9.5px; color: #7a1f1f; }
   p { margin: 4px 0; line-height: 1.35; }
   footer { margin-top: 10px; padding-top: 5px; border-top: 1px solid #ccc; font-size: 8px; color: #888; display: flex; justify-content: space-between; }
   @media print {
@@ -45,8 +46,8 @@
     <p class="sub">Shoshone Honda Yamaha — Merchant Services Reconciliation</p>
   </div>
   <div class="report-date">
-    Date(s) covered: <strong>06/11/2026</strong><br>
-    Batch #0 — Terminal 9117790810
+    Date(s) covered: <strong>05/30/2026</strong><br>
+    Batch #2 — Pinehurst ID 83850
   </div>
 </header>
 
@@ -62,31 +63,31 @@
     </tr>
   </thead>
   <tbody>
-    <tr class="match"><td>VISA</td><td class="amt">$1,373.51</td><td>VIS</td><td class="amt">$1,421.60</td><td>&check;</td></tr>
-    <tr class="match"><td>VISA</td><td class="amt">$56.17</td><td>VIS</td><td class="amt">$58.14</td><td>&check;</td></tr>
-    <tr class="match"><td>VISA</td><td class="amt">$28.57</td><td>VIS</td><td class="amt">$29.57</td><td>&check;</td></tr>
-    <tr class="match"><td>VISA</td><td class="amt">$68.61</td><td>VIS</td><td class="amt">$71.01</td><td>&check;</td></tr>
-    <tr class="match"><td>VISA</td><td class="amt">$14.18</td><td>VIS</td><td class="amt">$14.68</td><td>&check;</td></tr>
-    <tr class="match"><td>MASTERCARD</td><td class="amt">$224.68</td><td>M/C</td><td class="amt">$232.54</td><td>&check;</td></tr>
-    <tr class="match"><td>MASTERCARD</td><td class="amt">$57.23</td><td>VIS (labeled M/C in QB)</td><td class="amt">$59.23</td><td>&check; dollar match, card-type label mismatch</td></tr>
-    <tr class="nomatch"><td>MASTERCARD (***9134)</td><td class="amt">$4,139.96</td><td>M/C</td><td class="amt">$4,139.96</td><td>&cross; not grossed up</td></tr>
-    <tr class="match"><td>Refund #108811 (VISA)</td><td class="amt">-$14.30</td><td>VIS RT</td><td class="amt">-$14.30</td><td>&check; exact</td></tr>
+    <tr class="match"><td>VISA</td><td class="amt">$142.01</td><td>VIS</td><td class="amt">$146.98</td><td>&check;</td></tr>
+    <tr class="match"><td>VISA</td><td class="amt">$66.75</td><td>VIS</td><td class="amt">$69.09</td><td>&check;</td></tr>
+    <tr class="match"><td>OTHER</td><td class="amt">$16.32</td><td>AMX</td><td class="amt">$16.89</td><td>&check; dollar match, card-type label mismatch</td></tr>
+    <tr class="match"><td>MASTERCARD</td><td class="amt">$248.59</td><td>M/C</td><td class="amt">$257.29</td><td>&check;</td></tr>
+    <tr class="match"><td>MASTERCARD</td><td class="amt">$92.81</td><td>M/C</td><td class="amt">$96.06</td><td>&check;</td></tr>
+    <tr class="match"><td>MASTERCARD</td><td class="amt">$77.36</td><td>M/C</td><td class="amt">$80.07</td><td>&check;</td></tr>
+    <tr class="nomatch"><td>&mdash; (no QB entry)</td><td class="amt">&mdash;</td><td>M/C</td><td class="amt">$477.18</td><td>&cross; missing entirely</td></tr>
   </tbody>
 </table>
 
 <div class="totals">
-  <div><span class="label">QuickBooks Subtotal</span><span class="value">$5,948.61</span></div>
-  <div><span class="label">Batch Net (w/o fee)</span><span class="value">$5,808.68</span></div>
-  <div><span class="label">Difference</span><span class="value">$139.93</span></div>
+  <div><span class="label">QuickBooks Subtotal</span><span class="value">$643.84</span></div>
+  <div><span class="label">Batch Net (w/o fee)</span><span class="value">$1,104.89</span></div>
+  <div><span class="label">Difference</span><span class="value">$461.05</span></div>
 </div>
 
 <h2>Root Cause</h2>
-<p>The MasterCard transaction on card ending 9134 was entered into QuickBooks at the full batch (gross) amount of $4,139.96 instead of the net-of-fee amount. Backing out the 3.38% processor fee gives an expected net of approximately $3,999.96. The difference ($139.93) matches $4,139.96 x 3.38% ($139.93) exactly, confirming this single line is the entire day's discrepancy. This is the same error pattern later found on 06/13/2026's large F&amp;I transaction &mdash; a recurring habit, not a one-off, worth checking on every day's largest line.</p>
+<p>Unlike other D-ERROR days on this account, this is not a gross-vs-net entry mistake &mdash; all 6 QuickBooks lines match their batch counterparts exactly (net x 1.035 = batch gross, to the penny). The 7th batch transaction, a $477.18 MasterCard charge (net $461.04), has no corresponding entry anywhere in this QuickBooks deposit. This transaction genuinely belongs to Batch #2 (all 7 batch lines sum exactly to the printed Total, $1,143.56) &mdash; it was simply never entered.</p>
+
+<div class="warn"><strong>Not yet fully resolved:</strong> whether this $461.04 was entered under a different date/deposit elsewhere in QuickBooks, or was never entered at all, was not confirmed before this report was generated. Search QuickBooks for $461.04 (net) or $477.18 (gross), MASTERCARD, around late May/early June 2026 before adding a new line.</p>
 
 <h2>Fix Required</h2>
 <div class="fix-box">
   <div class="label">Action needed in QuickBooks</div>
-  <div class="instruction">On the 06/11/2026 "Deposit -D-ERROR" deposit, change the "Paid by MasterCard # ***9134" line from <strong>$4,139.96</strong> to <strong>$3,999.96</strong>. This brings the deposit subtotal to $5,808.68, matching Batch #0's net total.</div>
+  <div class="instruction">First, search QuickBooks for an existing entry of $461.04 or $477.18 (MasterCard) that may have been recorded on the wrong date. If none exists, add a new line to the 05/30/2026 "Deposit -D-ERROR" deposit: "Paid by MASTERCARD #", MASTER CARD, <strong>$461.04</strong>. This brings the deposit subtotal to $1,104.89, matching Batch #2's net total exactly.</div>
 </div>
 
 <footer>
