@@ -317,6 +317,13 @@ header{
 .amvoice-photo-btn:hover{background:rgba(201,168,76,.22)}
 .amvoice-photo-preview{max-width:220px;max-height:220px;border-radius:10px;border:1px solid rgba(201,168,76,.35);display:block;margin:0 auto}
 .amvoice-savenote{text-align:center;color:var(--dim);font-size:11px;font-style:italic}
+.amvoice-input-row{display:flex;gap:8px;align-items:flex-end}
+.amvoice-textinput{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:12px 14px;font-size:15px;font-family:inherit;color:var(--text2);resize:none;min-height:44px;max-height:140px}
+.amvoice-textinput:focus{outline:none;border-color:var(--gold2)}
+.amvoice-send-btn{background:rgba(201,168,76,.18);border:1px solid rgba(201,168,76,.45);color:var(--gold2);padding:0 18px;height:44px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;white-space:nowrap}
+.amvoice-send-btn:hover{background:rgba(201,168,76,.3)}
+.amvoice-send-btn:disabled{opacity:.5;cursor:default}
+.amvoice-mic-btn.amvoice-optional{width:44px;height:44px;font-size:18px;flex-shrink:0}
 
 /* ── MY COMPUTER (page 6) — read-only Computer Health report list,
    styled to match the amvoice/amdash patterns above, not a new visual
@@ -345,7 +352,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitMobile</div>
-      <div class="page-version" id="pageVersion">v1.01</div>
+      <div class="page-version" id="pageVersion">v1.02</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -646,25 +653,36 @@ function amGoToAmitBooks(){
   window.location.href='../AmitBooks/AmitBooks.html';
 }
 
-// ── VOICE CONVERSATION UI (pages 2-3) — Web Speech API, tap-to-talk
-// (per CLAUDE.md's open-question recommendation, adopted as the v1
-// answer: "tap-to-talk for v1"). Two instances share this same markup/JS,
-// distinguished by a `mode` string passed through data attributes.
+// ── VOICE CONVERSATION UI (pages 2-3) ──
+// FIXED 2026-09-05: the original v1 used SpeechRecognition/
+// webkitSpeechRecognition (Web Speech API) as a tap-to-talk mic button.
+// Ryan confirmed on a real iPhone that this silently does nothing — Apple
+// has never implemented SpeechRecognition in Safari/iOS, on any iOS
+// browser (they're all Safari under the hood). The fix: a plain text
+// input is now the PRIMARY, always-present path. The phone's own OS
+// keyboard has a microphone/dictation button built in — that's a
+// completely different mechanism (native iOS/Android dictation, not a JS
+// API) and needs zero code here; typing into the box and tapping that
+// keyboard mic is how "speaking" now works on iPhone. Where the browser
+// DOES support SpeechRecognition (Chrome/Android), an optional "tap to
+// talk" mic button is shown alongside the text box as a bonus shortcut —
+// but the text box is never hidden or secondary, per Ryan's instruction.
+// Two page instances (Daily Walk / Amit) share this same markup/JS,
+// distinguished by a `mode` string.
 function amVoicePageHtml(mode,prompt,withPhoto){
+  const speechSupported=!!amGetSpeechRecognitionCtor();
   return `<div class="amvoice-wrap">
     <div style="text-align:center;color:var(--muted);font-size:13px;font-style:italic">${prompt}</div>
-    <div class="amvoice-mic-row">
-      <button class="amvoice-mic-btn" id="amMicBtn-${mode}" onclick="amToggleListening('${mode}')" title="Tap to speak">🎙️</button>
-    </div>
-    <div class="amvoice-status" id="amStatus-${mode}">Tap the microphone to speak</div>
-    <div>
-      <div class="amvoice-box-label">You said</div>
-      <div class="amvoice-box amvoice-you" id="amTranscript-${mode}">—</div>
-    </div>
     <div>
       <div class="amvoice-box-label">Amit</div>
       <div class="amvoice-box amvoice-amit" id="amResponse-${mode}">—</div>
     </div>
+    <div class="amvoice-input-row">
+      <textarea class="amvoice-textinput" id="amTextInput-${mode}" placeholder="Type, or tap the microphone on your keyboard to speak…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();amSubmitTextInput('${mode}');}"></textarea>
+      ${speechSupported?`<button class="amvoice-mic-btn amvoice-optional" id="amMicBtn-${mode}" onclick="amToggleListening('${mode}')" title="Tap to talk (optional)">🎙️</button>`:''}
+      <button class="amvoice-send-btn" id="amSendBtn-${mode}" onclick="amSubmitTextInput('${mode}')">Send</button>
+    </div>
+    <div class="amvoice-status" id="amStatus-${mode}">${speechSupported?'Type your message, or tap the mic to talk':'Type your message and tap Send'}</div>
     ${withPhoto?`
     <div class="amvoice-photo-row">
       <label class="amvoice-photo-btn" for="amPhotoInput-${mode}">📷 Add a Photo</label>
@@ -678,12 +696,26 @@ function amVoicePageHtml(mode,prompt,withPhoto){
 
 // Per-mode recognizer state — SpeechRecognition instances aren't reusable
 // across stop/start cleanly on every browser, so a fresh one is created
-// each time listening starts (tap-to-talk, not continuous).
+// each time listening starts (tap-to-talk, not continuous). Only used as
+// the optional bonus path where the browser actually supports it.
 const amRecognizers={};
 const amPendingPhoto={}; // {[mode]: {file, dataUrl, storagePath}}
 
 function amGetSpeechRecognitionCtor(){
   return window.SpeechRecognition||window.webkitSpeechRecognition||null;
+}
+
+// Primary path — reads the text box, submits it exactly the way a
+// finished spoken message used to be submitted, then clears the box.
+function amSubmitTextInput(mode){
+  const input=document.getElementById('amTextInput-'+mode);
+  if(!input)return;
+  const text=input.value.trim();
+  if(!text)return;
+  input.value='';
+  const status=document.getElementById('amStatus-'+mode);
+  if(status)status.textContent='Thinking…';
+  amHandleVoiceInput(mode,text);
 }
 
 function amToggleListening(mode){
@@ -695,12 +727,15 @@ function amToggleListening(mode){
   amStartListening(mode);
 }
 
+// Optional bonus path (Chrome/Android etc.) — dictates INTO the same text
+// box rather than auto-submitting, so the person can review/edit before
+// tapping Send, same as anything else typed there.
 function amStartListening(mode){
   const Ctor=amGetSpeechRecognitionCtor();
   const status=document.getElementById('amStatus-'+mode);
   const btn=document.getElementById('amMicBtn-'+mode);
   if(!Ctor){
-    if(status)status.textContent='Speech recognition is not supported in this browser — try Chrome on Android or Safari on iOS.';
+    if(status)status.textContent='Voice dictation isn\'t available in this browser — type your message instead.';
     return;
   }
   const rec=new Ctor();
@@ -709,7 +744,7 @@ function amStartListening(mode){
   rec.interimResults=true;
   amRecognizers[mode]=rec;
 
-  const transcriptEl=document.getElementById('amTranscript-'+mode);
+  const input=document.getElementById('amTextInput-'+mode);
   btn.classList.add('amvoice-listening');
   btn.textContent='⏹️';
   status.textContent='Listening…';
@@ -717,21 +752,15 @@ function amStartListening(mode){
   rec.onresult=(e)=>{
     let text='';
     for(let i=0;i<e.results.length;i++) text+=e.results[i][0].transcript;
-    if(transcriptEl) transcriptEl.textContent=text||'—';
+    if(input) input.value=text;
   };
   rec.onerror=(e)=>{
-    status.textContent='Could not hear that ('+e.error+') — tap to try again.';
+    status.textContent='Could not hear that ('+e.error+') — type your message instead.';
     amResetMicButton(mode);
   };
   rec.onend=()=>{
     amResetMicButton(mode);
-    const finalText=(transcriptEl?transcriptEl.textContent:'').trim();
-    if(finalText&&finalText!=='—'){
-      status.textContent='Thinking…';
-      amHandleVoiceInput(mode,finalText);
-    } else {
-      status.textContent='Tap the microphone to speak';
-    }
+    status.textContent='Type your message, or tap the mic to talk';
   };
   try{ rec.start(); }
   catch(e){ status.textContent='Could not start listening: '+e.message; amResetMicButton(mode); }
