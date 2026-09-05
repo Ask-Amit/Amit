@@ -308,7 +308,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v6.03</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v6.04</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -788,6 +788,30 @@ function toggleLiveTestMic(){
 // current one. A stale (interrupted) turn's cleanup becomes a no-op —
 // the turn that interrupted it owns finishing the job instead.
 let _hfTurnId = 0;
+// The text Amit is currently speaking, set the moment an utterance
+// starts — used by looksLikeEcho() below to tell real barge-in speech
+// apart from the mic hearing Amit's own voice bleed back through the
+// headset. See the echo-filter comment where _amitSpeaking is set for
+// the full reasoning.
+let _currentSpeakingText = '';
+// True if `heard` looks substantially like a chunk of `spoken` — a loose,
+// word-overlap heuristic, not exact matching, since real speech
+// recognition never transcribes cleanly. 60% of the heard words also
+// appearing in what's being spoken is treated as "this is an echo of
+// that," not a coincidence; below that, it's treated as genuinely
+// different content and let through as a real interruption. Two words or
+// fewer heard is too little to judge reliably either way, so it's let
+// through rather than risking blocking a short, real interruption
+// ("wait, stop" would only be 2 words).
+function looksLikeEcho(heard, spoken){
+  if (!spoken) return false;
+  const norm = s => (s || '').toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
+  const heardWords = norm(heard);
+  if (heardWords.length <= 2) return false;
+  const spokenWords = new Set(norm(spoken));
+  const matches = heardWords.filter(w => spokenWords.has(w)).length;
+  return (matches / heardWords.length) >= 0.6;
+}
 // Ends the "ignore the mic" window and hands control back to hands-free
 // mode — the ONE place that happens, called from every exit path in
 // sendLiveTestQuestion below (success, error, empty question, closed
@@ -805,7 +829,31 @@ function handsFreeTurnDone(onSpeakEnd, myTurn){
   }
   _amitSpeaking = false;
   _handsFreeBusy = false;
-  if (_handsFreeActive) _turnStartResultIndex = _lastResultsLength;
+  _currentSpeakingText = '';
+  // Real bug found by testing, 2026-09-05, fifth pass: Amit's own spoken
+  // answer kept showing up as "heard" even with the mic physically,
+  // verifiably off (hardware mute button, confirmed by testing dictation
+  // into a completely different app at the same time). That's only
+  // possible if it was never live audio at all — it was stale backlog
+  // from a recognition session that's been running continuously,
+  // unrestarted, for the whole conversation. Chromium's recognizer
+  // processes audio with real network delay; a long-running session can
+  // genuinely queue up results from audio captured minutes earlier and
+  // deliver them much later, completely disconnected from what the mic
+  // is doing right now. Flushing the result INDEX (the old fix, still
+  // used below as a fallback) doesn't stop that backlog from existing —
+  // it just skips past whatever had already arrived by that moment. The
+  // real fix is not letting a backlog accumulate in the first place:
+  // force a genuine stop here, which fires the engine's own onend
+  // handler (already wired to auto-restart) — a fresh start() begins a
+  // brand-new session with its OWN empty results list, discarding
+  // whatever backlog the old one was carrying, every single turn.
+  if (_handsFreeActive && _handsFreeRecognition){
+    hfLog('Turn #' + myTurn + ' done — restarting the recognition engine fresh so no backlog carries into the next turn.');
+    try { _handsFreeRecognition.stop(); } catch(e){}
+  } else if (_handsFreeActive){
+    _turnStartResultIndex = _lastResultsLength;
+  }
   if (onSpeakEnd) onSpeakEnd();
 }
 
@@ -873,6 +921,20 @@ async function sendLiveTestQuestion(onSpeakEnd){
       // _hfTurnId above rather than by refusing to listen at all.
       hfLog('Turn #' + myTurn + ' speaking now.');
       _amitSpeaking = true;
+      // ECHO FILTER — added 2026-09-05, fourth pass. Confirmed by direct
+      // testing (Windows dictation ruled out explicitly): real barge-in
+      // means the mic genuinely hears Amit's own voice bleeding back in
+      // through the headset (physical/driver-level bleed, not something
+      // JS can prevent at the audio layer) and was treating it as a new
+      // interruption — a real feedback loop. Since the app already knows
+      // EXACTLY what text Amit is currently speaking, it can tell the
+      // difference: anything heard while _amitSpeaking is true gets
+      // compared against this answer text before being treated as a real
+      // interruption (see looksLikeEcho below, called from onresult). A
+      // genuinely different thing said mid-answer still gets through as
+      // a real barge-in; words that substantially match what's playing
+      // get ignored as echo instead.
+      _currentSpeakingText = data.answer;
       utter.onend = utter.onerror = () => {
         setTimeout(() => handsFreeTurnDone(onSpeakEnd, myTurn), AMIT_SPEECH_TAIL_MS);
       };
@@ -1043,6 +1105,16 @@ function startHandsFreeListening(){
     if (_handsFreeBusy && !_amitSpeaking) return;
     let transcript = '';
     for (let i = _turnStartResultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+    // ECHO FILTER — see _currentSpeakingText's own comment. Only checked
+    // while Amit is actually talking (_amitSpeaking) — there's nothing to
+    // be an echo OF otherwise. Discarding advances _turnStartResultIndex
+    // so the ignored words don't linger and get glued onto a LATER, real
+    // transcript once genuine new speech starts.
+    if (_amitSpeaking && looksLikeEcho(transcript, _currentSpeakingText)){
+      hfLog('Ignored as echo of Amit\'s own answer: "' + transcript.slice(0, 60) + '"');
+      _turnStartResultIndex = e.results.length;
+      return;
+    }
     document.getElementById('live-test-input').value = transcript;
     // Every new bit of speech resets the "they've paused" clock.
     clearTimeout(_handsFreeSilenceTimer);
