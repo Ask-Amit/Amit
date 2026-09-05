@@ -920,6 +920,67 @@ try {
                     Where-Object { $_.CommandLine -like "*amit_mobile_watcher.ps1*" } | Select-Object -First 1
                 Send-Json $response @{ listening = [bool]$running }
             }
+            "/api/claude-status" {
+                # Built 2026-09-05 for the shared AmitMobile/Hub readiness-check
+                # work (see AmitMobile\CLAUDE.md "Connect Amit" section) -
+                # reports whether Claude CODE (the CLI - `claude` - NOT Claude
+                # Desktop, a different, unrelated Anthropic product not used
+                # anywhere in this mechanism) is installed and signed in on
+                # THIS computer.
+                #
+                # Deliberately read-only. Does NOT run `claude auth login`,
+                # `claude auth logout`, `claude setup-token`, or any live
+                # `claude -p` smoke-test call - per this project's own
+                # documented caution (ComputerHealth CLAUDE.md), any of those
+                # can disrupt an already-open Claude Code session on this same
+                # machine. Instead this reads the same on-disk evidence Claude
+                # Code itself relies on, confirmed live on this machine before
+                # writing this check:
+                #   - installed: `claude` resolves on PATH, OR the known npm
+                #     global install location exists directly
+                #     (`%APPDATA%\npm\claude.cmd`) - covers a PATH that
+                #     hasn't refreshed yet in whatever process the bridge
+                #     happens to be running under.
+                #   - connected: `%USERPROFILE%\.claude\.credentials.json`
+                #     exists and contains a real OAuth access token. Real
+                #     shape confirmed on this machine: a top-level
+                #     `claudeAiOauth` object with `accessToken` /
+                #     `refreshToken` / `expiresAt` / `refreshTokenExpiresAt`
+                #     (both timestamps are Unix milliseconds, not ISO
+                #     strings - also confirmed live, not assumed). A present
+                #     access token is treated as connected even past its own
+                #     `expiresAt` - Claude Code silently refreshes an expired
+                #     access token using the refresh token during normal use,
+                #     so that alone doesn't mean disconnected. Only a
+                #     missing/blank access token, or a refresh token whose
+                #     OWN expiry has passed, is reported as not connected.
+                try {
+                    $claudeCmdPath = "$env:APPDATA\npm\claude.cmd"
+                    $installed = [bool](Get-Command claude -ErrorAction SilentlyContinue) -or (Test-Path $claudeCmdPath)
+
+                    $connected = $false
+                    $credPath = "$env:USERPROFILE\.claude\.credentials.json"
+                    if (Test-Path $credPath) {
+                        try {
+                            $cred = Get-Content $credPath -Raw | ConvertFrom-Json
+                            $oauth = $cred.claudeAiOauth
+                            if ($oauth -and $oauth.accessToken) {
+                                $refreshExpired = $false
+                                if ($oauth.refreshTokenExpiresAt) {
+                                    try {
+                                        $refreshExpiry = [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$oauth.refreshTokenExpiresAt).UtcDateTime
+                                        if ($refreshExpiry -lt (Get-Date).ToUniversalTime()) { $refreshExpired = $true }
+                                    } catch { }
+                                }
+                                $connected = -not $refreshExpired
+                            }
+                        } catch { }
+                    }
+                    Send-Json $response @{ installed = $installed; connected = $connected }
+                } catch {
+                    Send-Json $response @{ installed = $false; connected = $false; error = $_.Exception.Message } 500
+                }
+            }
             "/scan" {
                 # AmitBooks/AmitScan - "Scan from this computer" (2026-08-01,
                 # rewritten same day after live testing on Ryan's machine).

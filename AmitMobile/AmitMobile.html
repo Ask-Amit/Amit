@@ -76,6 +76,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.15"></script>
+<script src="../amit_readiness_check.js?v=1.00"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -532,6 +533,7 @@ function amDashboardHtml(){
       <h1>Amit Mobile</h1>
       <p>Your Amit, in your pocket. Tap a tile to begin.</p>
     </div>
+    <div id="amitReadinessBanner" style="display:none;margin:0 0 16px;color:rgba(240,232,208,.9)"></div>
     <div class="amdash-grid">
       <div class="amdash-tile amdash-primary" onclick="openPage(2)">
         <div class="amdash-icon">🙏</div>
@@ -987,6 +989,8 @@ function initPageTooltips(containerId,side){
     _updateSyncUI();
   }
 
+  _refreshAmitReadinessBanner();
+
   initPageTooltips('rightRail','left');
 })();
 
@@ -1050,7 +1054,28 @@ if(db){
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    _refreshAmitReadinessBanner();
   });
+}
+
+// ══════════════════════════════════════════════
+// AMIT READINESS BANNER — see amit_readiness_check.js (Amit root). A
+// brand-new user should see plainly, right on the dashboard tile grid,
+// which of the four readiness steps they're still missing before they
+// even try tapping a tile — per AmitMobile\CLAUDE.md's "Connect Amit"
+// readiness-check work. Uses the shared checkAmitReadiness()/
+// renderReadinessBanner() functions rather than duplicating this logic.
+// ══════════════════════════════════════════════
+async function _refreshAmitReadinessBanner(){
+  const box=document.getElementById('amitReadinessBanner');
+  if(!box||typeof checkAmitReadiness!=='function'||!db)return;
+  try{
+    const status=await checkAmitReadiness(db);
+    renderReadinessBanner(box,status,{
+      onSignInClick:()=>openSyncModal&&openSyncModal(),
+      onConnectClick:()=>goToHub&&goToHub()
+    });
+  }catch(e){ /* never let a readiness check break the dashboard */ }
 }
 
 // Drives the Sign In/Out + Sync rail item.

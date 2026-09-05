@@ -63,6 +63,53 @@ This directly shapes the Supabase schema still marked open below — the capture
 
 **"My Computer" view inside Amit Mobile — BUILT 2026-09-05.** Page 6 / dashboard tile "My Computer" (`amMyComputerHtml()` in `AmitMobile.html`) reads the signed-in user's own `amit_device_events` rows directly from Supabase (`event_type='master_report'`, filtered `user_id=eq.<currentUser.id>`, ordered `created_at desc`, limit 30) — this works today because that table is already written to Supabase (not a local-only temp file), confirmed directly this session. Each report renders as a tappable card: `summary` text + date + severity pill; tapping expands `event_detail.report.insight.strengths`/`.concerns` as two plain labeled lists ("What's running well" / "What to watch"), never raw JSON. Read-only — no edit/delete affordance anywhere on this page. Empty state ("No computer reports yet — install Amit on your desktop to start tracking.") shown honestly when a user has zero rows, rather than a blank screen. Visual style reuses the existing `.amvoice-box`/`.amdash-tile` gold/navy card language — no new visual language introduced.
 
+## Readiness Check — built 2026-09-05, Ryan's direct instruction
+
+Ryan asked for a real, unified "readiness check" instead of static explanatory text — three genuinely separate yes/no questions, checked and reacted to the same way from every entry point into Amit:
+
+1. **Signed into Amit/Hub (Supabase auth)?** — checked instantly and universally from the calling page's own already-initialized Supabase client.
+2. **Is the local Amit background helper installed and running on THIS computer?** — only checkable by trying to reach the shared bridge (`http://localhost:8710/api/device`) with a short timeout; no response means not running.
+3. **Is Claude Code connected on this computer?** — the new, previously-unanswerable piece. Split into two sub-questions on purpose (installed vs. signed in), since they need different fixes.
+
+**This is Claude CODE (the `claude` CLI), not Claude Desktop.** Those are two separate Anthropic products. Claude Desktop is not involved anywhere in this mechanism and no install/check step was added for it.
+
+### Part 1 — `/api/claude-status` on the shared bridge
+
+`ComputerHealth\Watchers\amit_bridge_server.ps1` gained a new read-only endpoint, `/api/claude-status`, returning `{ "installed": bool, "connected": bool }`. **How it determines each, and why this specific method:**
+
+- **installed** — `Get-Command claude` succeeds on PATH, OR `%APPDATA%\npm\claude.cmd` exists directly (covers a PATH that hasn't refreshed in whatever process the bridge happens to be running under).
+- **connected** — `%USERPROFILE%\.claude\.credentials.json` exists and its `claudeAiOauth.accessToken` field is non-empty. This file's real shape was confirmed live on Ryan's own machine before writing the check (not assumed): a top-level `claudeAiOauth` object with `accessToken` / `refreshToken` / `expiresAt` / `refreshTokenExpiresAt` — both timestamps are Unix **milliseconds** integers, also confirmed live. A present access token counts as connected even past its own `expiresAt`, since Claude Code silently refreshes it using the refresh token during normal use — only a missing/blank access token, or a refresh token whose OWN expiry (`refreshTokenExpiresAt`) has passed, is reported as not connected.
+- **Why file-check, not a live smoke test:** per this project's own documented caution (`claude auth login`/`logout`/`setup-token` can disrupt another already-open Claude Code session on the same machine), this endpoint never runs any `claude auth ...` command and never makes a live `claude -p` call either — it's pure on-disk evidence, safe to poll as often as needed with zero side effects on any other session.
+
+### Part 2 — Installer's "Connect Your Claude Account" step
+
+Both `Install_AmitTracker.ps1` copies (`ComputerHealth\Watchers\Install_AmitTracker.ps1` and `ComputerHealth\Watchers\AmitInstaller\Install_AmitTracker.ps1` — kept identical, per this project's Three-Real-Copies-style duplication already used for Step 1b) gained a new **Step 1c**, run right after the existing Step 1b (which already auto-installs Node.js via `winget install OpenJS.NodeJS.LTS` and the Claude Code CLI via `npm install -g @anthropic-ai/claude-code` — that exact, already-documented sequence, reused rather than reinvented). Step 1c does two genuinely separate things, reported distinctly:
+
+1. **Re-checks whether Claude Code is installed at all** (same PATH/`claude.cmd` check as the bridge's endpoint). If Step 1b's automatic install didn't actually succeed, this says so plainly and skips the connect step — it does NOT attempt a second, different install mechanism.
+2. **If installed, checks whether it's signed in** (same credentials-file check as the bridge's endpoint, run locally rather than over HTTP since the bridge may not be running yet at this point in the install). If not connected, it prints the exact honest wording already agreed for this (adapted from AmitBooks-specific phrasing to generic "Amit's live features"):
+
+   > "To use Amit's live features, this computer needs to connect to your own Claude account — this is separate from your Amit sign-in. Clicking Connect opens Anthropic's own login page directly; your Claude credentials go straight to them, never through Amit or stored anywhere here. This only needs to happen once on this computer."
+
+   Then it **offers** (`Read-Host`, wrapped in try/catch so a non-interactive run just skips rather than hanging) to run `claude login` right there — never forced. Declining prints how to connect later (`claude login` from a terminal, or the Hub's Connect Amit panel).
+
+### Part 3 — Shared JS: `amit_readiness_check.js`
+
+New file at Amit root, included the same way as `Amit_Ask_Live.js` (`<script src="../amit_readiness_check.js">`, path adjusted per page depth). Exposes two functions, used identically everywhere:
+
+- **`checkAmitReadiness(supabaseClient)`** — takes the calling page's own already-initialized Supabase client (never creates a second one). Checks Supabase auth state, then tries `GET http://localhost:8710/api/device` with a 2-second timeout to detect the bridge, then (only if the bridge answered) `GET .../api/claude-status`. Returns `{ signedIn, bridgeRunning, claudeInstalled, claudeConnected }`. Never throws — any failed sub-check just reports false rather than breaking the caller.
+- **`renderReadinessBanner(container, status, opts)`** — shows exactly one of the four agreed messages (sign in / connect Amit / Claude not installed / Claude not connected) with a single action button, or hides itself entirely when all four are satisfied. `opts.onSignInClick` / `opts.onConnectClick` are optional callbacks the calling page wires to its own sign-in/Connect-Amit UI. **Style choice, made and documented rather than left open:** neutral inline styles (soft gray/blue, no page-specific palette) — no style-preset parameter, since this one file is shared across pages with very different color schemes (Hub's gold/navy vs. Amit Mobile's own). A future page wanting a different look should wrap the container in its own CSS rather than extending this function.
+
+### Part 4 — Wired into Amit Mobile and the Hub
+
+- **`AmitMobile.html`** — `#amitReadinessBanner` sits above the dashboard tile grid (inside `amDashboardHtml()`), refreshed via `_refreshAmitReadinessBanner()` on both the initial page-load IIFE and every `onAuthStateChange` event. A brand-new user sees immediately, before tapping anything, which step they're missing.
+- **`Hub\amit-hub.html`** — `#amitReadinessBanner` sits directly under the header (near the existing `⚙ CONNECT AMIT` button and the Amit Mobile heartbeat indicator), refreshed the same way (`_refreshAmitReadinessBanner()` on `onAuthStateChange` and on page load). The banner's action button opens the existing `openSyncModal()` or `openConnectAmitModal()` depending on which condition is unmet — no new modal built, this just surfaces the existing ones proactively.
+
+Both integrations are purely additive — neither file's existing script-loading, auth-listener, or UI structure was rebuilt.
+
+**Not yet done:** the installed runtime copy of the bridge/installer at `%LOCALAPPDATA%\AmitComputerHealth\Watchers\` was not re-synced with these changes — per ComputerHealth\CLAUDE.md's Three Real Copies rule, `/api/claude-status` and the installer's Step 1c only reach a real running instance once `Install_AmitTracker.ps1 -Force` is re-run and the bridge process is restarted.
+
+**Genuinely uncertain, flagged rather than guessed past:** the credentials-file check is the most reliable non-invasive signal found on this machine, but it's inherently a heuristic — a corrupted/hand-edited credentials file with a non-empty but bogus `accessToken` would read as "connected" even though a real `claude` call would fail. No live call is made to rule this out, by design, given the documented disruption risk. If this ever proves unreliable in practice, the next step up would be a very short, explicitly opt-in `claude -p "hi" --print` smoke test — deliberately NOT added here without further confirmation it's safe to fire ad hoc.
+
 ## Future App Store Path — architectural constraints to build in from day one (added 2026-09-05, Ryan's direct instruction)
 
 Ryan's stated intent: build the personal version now, but keep the architecture such that going commercial (App Store, paying strangers) later is "an easy fix," not a rebuild. This does NOT mean building billing/metering/Apple submission now — it means not making choices now that would block them later. Four standing constraints, cheap now, expensive to retrofit:

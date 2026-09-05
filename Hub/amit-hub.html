@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.15"></script>
+<script src="../amit_readiness_check.js?v=1.00"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1260,6 +1261,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div onclick="replayTutorial()" title="Show me around again" class="help-btn">?</div>
   </div>
 </header>
+<!-- AMIT READINESS BANNER — see amit_readiness_check.js. Hidden unless
+     something isn't ready (not signed in / bridge not running / Claude
+     not installed / Claude not connected). Sits right under the header so
+     it's visible without opening the Connect Amit modal first. -->
+<div id="amitReadinessBanner" style="display:none;margin:10px 24px 0;color:rgba(240,232,208,.85)"></div>
 <!-- TESTIMONY MODAL -->
 <div class="testimony-overlay" id="testimonyOverlay" onclick="if(event.target===this)closeTestimonyModal()">
   <div class="testimony-modal" onclick="event.stopPropagation()">
@@ -2690,7 +2696,28 @@ if(db){
       if(event==='SIGNED_OUT'||event==='INITIAL_SESSION') checkAuthGate();
       _stopAmitMobileHeartbeat();
     }
+    _refreshAmitReadinessBanner();
   });
+}
+
+// ══════════════════════════════════════════════
+// AMIT READINESS BANNER — see amit_readiness_check.js (Amit root). Uses
+// the shared checkAmitReadiness()/renderReadinessBanner() functions rather
+// than duplicating any of that logic here. Refreshed on every auth-state
+// change (above) so it reacts immediately to sign-in/out, and once more
+// shortly after page load below to catch the case where the bridge/Claude
+// state is what's missing rather than sign-in.
+// ══════════════════════════════════════════════
+async function _refreshAmitReadinessBanner(){
+  const box=document.getElementById('amitReadinessBanner');
+  if(!box||typeof checkAmitReadiness!=='function'||!db)return;
+  try{
+    const status=await checkAmitReadiness(db);
+    renderReadinessBanner(box,status,{
+      onSignInClick:()=>openSyncModal(),
+      onConnectClick:()=>openConnectAmitModal()
+    });
+  }catch(e){ /* never let a readiness check break the Hub */ }
 }
 
 // ══════════════════════════════════════════════
@@ -8677,6 +8704,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!session && !currentUser) checkAuthGate();
     });
   }
+  _refreshAmitReadinessBanner();
 });
 
 // ── LABEL TOOLTIPS ──
