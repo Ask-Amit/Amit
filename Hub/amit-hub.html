@@ -1243,7 +1243,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.26</div>
+    <div class="page-version" id="hubVersionBadge">v6.27</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1251,8 +1251,9 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(240,232,208,.4);text-underline-offset:3px"></div>
       <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
         <div id="syncIndicator" onclick="event.stopPropagation();openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
-        <div id="amitMobileHeartbeatIndicator" title="Amit Mobile live replies work only while the Hub is open and you're signed in" style="display:none;font-size:9px;letter-spacing:.05em;color:rgba(240,232,208,.4);font-family:'Cinzel',serif">⚪ Amit Mobile: Not Listening</div>
+        <div id="amitMobileHeartbeatIndicator" title="Amit Mobile live replies work only while the Hub is open, you're signed in, and this computer is connected" style="display:none;font-size:9px;letter-spacing:.05em;color:rgba(240,232,208,.4);font-family:'Cinzel',serif">⚪ Amit Mobile: Not Listening</div>
         <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Amit setup — installer, QR code, and connection status for this computer" style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">⚙ AMIT SETUP</div>
+        <button id="connectAmitInlineBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="This computer isn't connected yet — click to set it up" style="display:none;font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.95);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.55);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.18)">CONNECT AMIT</button>
         <div id="signInBtn" onclick="event.stopPropagation();openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
         <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
       </div>
@@ -1261,11 +1262,6 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     <div onclick="replayTutorial()" title="Show me around again" class="help-btn">?</div>
   </div>
 </header>
-<!-- AMIT READINESS BANNER — see amit_readiness_check.js. Hidden unless
-     something isn't ready (not signed in / bridge not running / Claude
-     not installed / Claude not connected). Sits right under the header so
-     it's visible without opening the Connect Amit modal first. -->
-<div id="amitReadinessBanner" style="display:none;margin:10px 24px 0;color:rgba(240,232,208,.85)"></div>
 <!-- TESTIMONY MODAL -->
 <div class="testimony-overlay" id="testimonyOverlay" onclick="if(event.target===this)closeTestimonyModal()">
   <div class="testimony-modal" onclick="event.stopPropagation()">
@@ -2701,36 +2697,34 @@ if(db){
 }
 
 // ══════════════════════════════════════════════
-// AMIT READINESS BANNER — see amit_readiness_check.js (Amit root). Uses
-// the shared checkAmitReadiness()/renderReadinessBanner() functions rather
-// than duplicating any of that logic here. Refreshed on every auth-state
-// change (above) so it reacts immediately to sign-in/out, and once more
-// shortly after page load below to catch the case where the bridge/Claude
-// state is what's missing rather than sign-in.
+// AMIT READINESS CHECK — see amit_readiness_check.js (Amit root) for the
+// shared checkAmitReadiness() logic. Consolidated 2026-09-05, Ryan's
+// direct correction: a separate full-width banner AND a header indicator
+// was two places to look at once for the same information. Now there's
+// exactly ONE location — the small header row next to Sign Out — with
+// one of two states: not connected (shows "Not Listening" + a "CONNECT
+// AMIT" button) or connected (shows "Listening", no button — AMIT SETUP
+// reappears instead, as a calm way to reopen setup later, e.g. for the
+// QR code on a new phone).
 // ══════════════════════════════════════════════
 async function _refreshAmitReadinessBanner(){
-  const box=document.getElementById('amitReadinessBanner');
-  if(!box||typeof checkAmitReadiness!=='function'||!db)return;
+  if(typeof checkAmitReadiness!=='function'||!db)return;
+  const indicator=document.getElementById('amitMobileHeartbeatIndicator');
+  const setupBtn=document.getElementById('connectAmitBtn');
+  const connectBtn=document.getElementById('connectAmitInlineBtn');
+  if(!indicator||!setupBtn||!connectBtn)return;
   try{
     const status=await checkAmitReadiness(db);
-    renderReadinessBanner(box,status,{
-      onSignInClick:()=>openSyncModal(),
-      onConnectClick:()=>openConnectAmitModal()
-    });
-    // Only one "go set this up" control on screen at a time. While the
-    // banner is actively telling the user something's missing, hide the
-    // persistent header button so there's exactly one obvious next step,
-    // not two identical-looking buttons. Once everything's ready (banner
-    // hides itself), the header button reappears as the calm "manage it
-    // later" entry point (e.g. to get the QR code again for a new phone).
-    const setupBtn=document.getElementById('connectAmitBtn');
-    if(setupBtn) setupBtn.style.display=(box.style.display==='none')?'':'none';
-    // The heartbeat indicator only proves the Hub-side signal is being
-    // sent — it says nothing about whether the desktop helper or Claude
-    // are actually there to answer. Fold the full readiness check into
-    // what "Listening" means so it never shows green when a phone
-    // message would actually go unanswered.
-    _setAmitMobileHeartbeatIndicator(!!(status.bridgeRunning&&status.claudeConnected));
+    if(!status.signedIn){
+      indicator.style.display='none';
+      setupBtn.style.display='none';
+      connectBtn.style.display='none';
+      return;
+    }
+    const ready=!!(status.bridgeRunning&&status.claudeConnected);
+    _setAmitMobileHeartbeatIndicator(ready);
+    setupBtn.style.display=ready?'':'none';
+    connectBtn.style.display=ready?'none':'';
   }catch(e){ /* never let a readiness check break the Hub */ }
 }
 
