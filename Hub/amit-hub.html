@@ -1243,7 +1243,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.24</div>
+    <div class="page-version" id="hubVersionBadge">v6.25</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1252,7 +1252,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
         <div id="syncIndicator" onclick="event.stopPropagation();openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
         <div id="amitMobileHeartbeatIndicator" title="Amit Mobile live replies work only while the Hub is open and you're signed in" style="display:none;font-size:9px;letter-spacing:.05em;color:rgba(240,232,208,.4);font-family:'Cinzel',serif">⚪ Amit Mobile: Not Listening</div>
-        <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="One-time setup so your phone can reach Amit on this computer" style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">⚙ CONNECT AMIT</div>
+        <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Amit setup — installer, QR code, and connection status for this computer" style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">⚙ AMIT SETUP</div>
         <div id="signInBtn" onclick="event.stopPropagation();openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
         <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
       </div>
@@ -2717,6 +2717,12 @@ async function _refreshAmitReadinessBanner(){
       onSignInClick:()=>openSyncModal(),
       onConnectClick:()=>openConnectAmitModal()
     });
+    // The heartbeat indicator only proves the Hub-side signal is being
+    // sent — it says nothing about whether the desktop helper or Claude
+    // are actually there to answer. Fold the full readiness check into
+    // what "Listening" means so it never shows green when a phone
+    // message would actually go unanswered.
+    _setAmitMobileHeartbeatIndicator(!!(status.bridgeRunning&&status.claudeConnected));
   }catch(e){ /* never let a readiness check break the Hub */ }
 }
 
@@ -2740,7 +2746,11 @@ async function _sendAmitMobileHeartbeat(){
       last_beat:new Date().toISOString(),
       updated_at:new Date().toISOString()
     },{onConflict:'user_id'});
-    _setAmitMobileHeartbeatIndicator(true);
+    // Don't flip the indicator green here — a successful heartbeat only
+    // proves the Hub side is alive, not that the desktop helper or Claude
+    // are actually connected. _refreshAmitReadinessBanner() owns the real
+    // on/off state for the indicator based on the full chain.
+    _refreshAmitReadinessBanner();
   }catch(e){
     console.error('amit_hub_heartbeat upsert failed',e);
     _setAmitMobileHeartbeatIndicator(false);
