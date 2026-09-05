@@ -169,12 +169,17 @@
     container.style.justifyContent = 'space-between';
     container.style.flexWrap = 'wrap';
     container.style.gap = '12px';
-    container.style.background = 'rgba(130,130,130,.10)';
-    container.style.border = '1px solid rgba(130,130,130,.35)';
+    container.style.background = 'rgba(130,130,130,.16)';
+    container.style.border = '1px solid rgba(130,130,130,.4)';
     container.style.borderRadius = '8px';
     container.style.padding = '12px 14px';
     container.style.fontSize = '13px';
     container.style.lineHeight = '1.6';
+    // Explicit light text color, not left to inherit from the page - this
+    // banner sits in dark-navy header areas on both the Hub and Amit
+    // Mobile, and an inherited dark default color made the message
+    // invisible (only the button showed) when this was first tested live.
+    container.style.color = '#e8e2cf';
 
     container.innerHTML =
       '<span style="flex:1;min-width:200px">' + msg + '</span>' +
