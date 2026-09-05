@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ══════════════════════════════════════════════
+     COPYING THIS TEMPLATE FOR A NEW PROJECT — read this first.
+
+     WHAT THIS FILE IS — rebuilt 2026-08-06, Ryan's direct instruction.
+     This is now the MINIMAL STARTER, not the reference catalog. It has
+     Introduction (page 1) plus a few blank placeholder pages, and the
+     global infrastructure every Amit app needs (right rail — Ask Amit,
+     Sign In/Sync, Demo Mode — popup destination, login connection,
+     tooltip mechanism, clock/greeting). It deliberately does NOT contain
+     any of the canonical layouts (Tabbed/Row/Detail/Calendar/Day/Board/
+     Gallery/Dashboard/Split/Form/Chart/Inbox/Drawer/Tree/Breadcrumb
+     View) — those live permanently in Templates\TemplateViews.html, the
+     never-modified reference library. This split exists so a real
+     project's starting file is never bloated with layout code it isn't
+     using — see Templates\CLAUDE.md's "TEMPLATE VIEWS vs TEMPLATE"
+     section for the full reasoning.
+
+     ADDING A LAYOUT TO A REAL PROJECT — go to Templates\TemplateViews.html,
+     find the named "CANONICAL LAYOUT:" or "CANONICAL DESTINATION:" comment
+     block, and copy it verbatim into this file — never reconstruct a
+     layout's behavior from memory or approximation. Wire it into a real
+     page/tab/popup the same way TemplateViews.html's own DEMO block shows
+     it being done there. (J New, once built, automates this hand-off —
+     see Templates\CLAUDE.md.)
+
+     NAMING: the new project's folder name IS the app's name — this copy
+     is "AmitMobile", per AmitMobile\CLAUDE.md's spec (2026-09-05).
+
+     VERSION: #pageVersion starts at v1.00 for this brand-new app. From
+     here forward it is versioned independently (own +0.01/+1.00 history,
+     never synced to any other file's number) — see root CLAUDE.md's
+     VERSIONING STANDARD.
+
+     INTERCONNECTION: this project inherits the whole Amit system's
+     conventions — Session Location Check, Pursuit Attribution
+     ('Amit Mobile'), Shortcut Activation + Shortcut Awareness, and Ask
+     Amit wiring (askAmitLive('amitMobile'), PAGE_CONTEXTS entry added to
+     ../Amit_Ask_Live.js the same session this file was built) all live in
+     AmitMobile\CLAUDE.md.
+
+     NOMENCLATURE: this template uses PAGE (a sidebar item — button + its
+     fixed number), DETAIL (the content area a page opens into), LAYOUT
+     (what kind of content lives inside a detail — Tabbed/Row/Detail/etc,
+     all defined in TemplateViews.html), and DESTINATION (WHERE a layout
+     mounts — a page, a tab slot, or a Popup; Popup is built into this
+     starter since it's generic infrastructure, not a layout itself). Full
+     definitions live in the NOMENCLATURE comment at the top of the
+     <script> block below.
+
+     PAGE ORDER: sidebar display position is controlled by the PAGE_ORDER
+     array in the script below, kept separate from each page's fixed
+     number — reorder pages by editing that array, never by renumbering
+     pages/details themselves. See Templates\CLAUDE.md for why.
+
+     WHAT'S CUSTOM IN THIS COPY (per Amit's limited authority — pages/tabs
+     only, everything else below is the template's protected infrastructure,
+     untouched): page 1 (Dashboard tile grid, replaces the generic
+     Introduction), page 2 (Daily Walk voice conversation), page 3 (Amit
+     general voice conversation + photo capture), page 4 (Zoom/Read This —
+     coming soon), page 5 (Search — coming soon). Two small, explicitly
+     authorized infrastructure changes per AmitMobile\CLAUDE.md: the
+     Supabase client init below now passes {auth:{persistSession:true,
+     autoRefreshToken:true}} (login-persistence bug fix, not new
+     infrastructure), and a <link rel="manifest"> tag was added for PWA
+     installability.
+     ══════════════════════════════════════════════ -->
+<title>AmitMobile</title>
+<link rel="icon" type="image/x-icon" href="amit_icon.ico">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#09141f">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../Amit_Ask_Live.js?v=6.15"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09141f;
+  --card-head:#0f2338;
+  --border:rgba(201,168,76,0.55);
+  --gold:#c9a84c;
+  --gold2:#e8c56a;
+  --text:#ffffff;
+  --text2:#f0e8d0;
+  --muted:rgba(240,232,208,0.78);
+  --dim:rgba(240,232,208,0.42);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+
+body::before{
+  content:'';
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:60vmin;height:60vmin;
+  background:url('amit_icon.ico') center/contain no-repeat;
+  opacity:.035;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+  position:relative;
+}
+.page-title-wrap{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.page-title{
+  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  letter-spacing:.3px;text-transform:none;color:var(--gold2);
+}
+.page-version{
+  font-family:monospace;font-size:11px;letter-spacing:.05em;
+  color:rgba(201,168,76,.55);margin-top:2px;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
+.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.hdr-right{text-align:right}
+.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.datetime{font-size:12px;color:var(--muted);margin-top:2px}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── HUB LAYOUT ── */
+.hub{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:max-content;flex-shrink:0;
+  background:var(--card-head);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar{transition:width .18s ease}
+.sidebar.collapsed{width:64px}
+.sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
+.sidebar.collapsed .page-info{display:none}
+.page-nav{
+  display:flex;align-items:center;gap:10px;
+  padding:6px 4px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;
+  flex-shrink:0;
+  transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;
+}
+.page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
+.page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Round plug-status badge for the Sign In/Out rail icon — green when
+   connected, red when not. Added 2026-08-07, ported from AmitBooks/
+   NEW.html as the new standard for this template's own Sign In/Out
+   treatment (Ryan's direct instruction — same config becomes the base for
+   every future project built from this file). Disconnected state pulses:
+   red fills the circle from a point at the center out to the full edge,
+   then collapses back to nothing, looping — a genuine warning cue, not a
+   color-shift-in-place effect. */
+.page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
+.page-icon.plug-badge.connected{background:#2e7d46}
+.page-icon.plug-badge.disconnected{background:var(--bg)}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:#c73333;animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.plug-icon-glyph{position:relative;z-index:1}
+@keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
+.page-info{flex:1;min-width:0}
+.page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MAIN AREA ── */
+.main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.detail{
+  position:absolute;inset:0;overflow-y:auto;
+  display:none;flex-direction:column;
+  animation:pfade .18s ease;
+}
+.detail.active{display:flex}
+@keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.detail::-webkit-scrollbar{width:5px}
+.detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+
+/* ── DETAIL HEADER ── */
+.detail-head{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 24px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+.detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+
+/* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
+   that can host any layout instance copied in from TemplateViews.html —
+   content-agnostic, same separation as a Page or a Tab slot not caring
+   what's mounted inside them. Built into this starter (not TemplateViews-
+   only) since it's global infrastructure, not a layout. ── */
+.popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
+.popup-close-btn:hover{color:var(--gold2)}
+
+/* ── RIGHT RAIL — global, present on every page, same on every project.
+   Double-click to expand/collapse (mirror of the left sidebar, inverted
+   default: starts collapsed). Ask Amit / Sign In-Sync / Demo Mode all
+   live here permanently — see Templates\CLAUDE.md for the full history
+   of why each piece looks the way it does. ── */
+.right-rail{
+  width:64px;flex-shrink:0;
+  background:var(--card-head);
+  border-left:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+  transition:width .18s ease;
+}
+.right-rail::-webkit-scrollbar{width:3px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.right-rail.expanded{width:max-content}
+.right-rail .page-nav{padding:4px;flex-direction:row-reverse}
+.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
+.right-rail .page-info{display:none}
+.right-rail.expanded .page-info{display:block}
+/* RIGHT RAIL ON/OFF STATE — added 2026-08-22, Ryan's direct instruction.
+   The gold .page-nav.active look (shared with the left sidebar's "this is
+   the open page" state) was too subtle to tell an ON toggle (Sign In,
+   Demo Mode) apart from an OFF one at a glance. Right-rail items are
+   toggles, not navigation, so they get their own distinct green
+   on-state — overrides the gold .page-nav.active rule for this rail only.
+   PERMANENT — carry this into every project copied from this template. */
+.right-rail .page-nav.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65);box-shadow:0 0 0 1px rgba(46,160,67,.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(46,160,67,.35);border-radius:50%;box-shadow:0 0 0 2px rgba(46,160,67,.55)}
+.right-rail .page-nav.active .page-name{color:#6fe38f}
+
+/* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
+   .sidebar/.right-rail scroll (overflow-y:auto) — per the CSS spec, that
+   silently forces the other axis's overflow to 'auto' too, which would
+   clip a CSS-positioned tooltip trying to extend past the container's
+   edge. A single fixed element sidesteps that entirely. ── */
+.page-hover-tip{
+  position:fixed;z-index:9999;
+  background:#1a3352;border:1px solid rgba(201,168,76,.45);
+  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
+  line-height:1.5;
+  padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
+  opacity:0;pointer-events:none;
+  transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.page-hover-tip.show{opacity:1}
+
+/* CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+   added 2026-08-06 so Add Page can instantiate a real Tabbed View directly,
+   not hand a copy-instruction to an outside AI session. */
+.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
+
+/* ── CUSTOM — AMIT MOBILE DASHBOARD GRID (page 1) — new UI per
+   AmitMobile\CLAUDE.md's "Dashboard Architecture" section, built within
+   this detail's content area, styled consistently with the gold/navy
+   palette above. Not a canonical TemplateViews.html layout — a
+   purpose-built tile grid, per this project's own limited authority to
+   change page/tab content. ── */
+.amdash-wrap{padding:32px;max-width:760px;margin:0 auto}
+.amdash-hero{display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:32px}
+.amdash-hero img{width:64px;height:64px;margin-bottom:12px}
+.amdash-hero h1{font-family:'Cinzel',serif;font-size:20px;color:var(--gold2);letter-spacing:.04em}
+.amdash-hero p{color:var(--muted);font-size:13px;margin-top:6px}
+.amdash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px}
+.amdash-tile{
+  background:var(--card-head);border:1px solid rgba(201,168,76,.35);border-radius:14px;
+  padding:22px 16px;text-align:center;cursor:pointer;transition:all .15s;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+}
+.amdash-tile:hover{border-color:var(--gold);background:rgba(201,168,76,.08);transform:translateY(-2px)}
+.amdash-tile.amdash-primary{grid-column:1/-1;background:rgba(201,168,76,.1);border-color:var(--gold)}
+.amdash-tile .amdash-icon{font-size:34px}
+.amdash-tile .amdash-name{font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);letter-spacing:.03em}
+.amdash-tile .amdash-sub{font-size:11px;color:var(--dim)}
+
+/* ── CUSTOM — VOICE CONVERSATION UI (Daily Walk / Amit pages) ── */
+.amvoice-wrap{padding:28px 32px;max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:18px;width:100%}
+.amvoice-mic-row{display:flex;justify-content:center}
+.amvoice-mic-btn{
+  width:110px;height:110px;border-radius:50%;
+  background:rgba(201,168,76,.12);border:2px solid var(--gold);
+  color:var(--gold2);font-size:38px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.amvoice-mic-btn:hover{background:rgba(201,168,76,.22)}
+.amvoice-mic-btn.amvoice-listening{background:rgba(201,84,76,.22);border-color:#e08a6a;animation:amPulse 1.2s ease-in-out infinite}
+@keyframes amPulse{0%,100%{box-shadow:0 0 0 0 rgba(201,84,76,.4)}50%{box-shadow:0 0 0 14px rgba(201,84,76,0)}}
+.amvoice-status{text-align:center;color:var(--muted);font-size:12px;letter-spacing:.04em}
+.amvoice-box{background:rgba(255,255,255,.04);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:14px 16px;min-height:48px;font-size:14px;line-height:1.6}
+.amvoice-box-label{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.amvoice-box.amvoice-you{color:var(--text2)}
+.amvoice-box.amvoice-amit{color:var(--gold2)}
+.amvoice-photo-row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+.amvoice-photo-btn{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);color:var(--gold2);padding:9px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px}
+.amvoice-photo-btn:hover{background:rgba(201,168,76,.22)}
+.amvoice-photo-preview{max-width:220px;max-height:220px;border-radius:10px;border:1px solid rgba(201,168,76,.35);display:block;margin:0 auto}
+.amvoice-savenote{text-align:center;color:var(--dim);font-size:11px;font-style:italic}
+
+/* ── MY COMPUTER (page 6) — read-only Computer Health report list,
+   styled to match the amvoice/amdash patterns above, not a new visual
+   language. ── */
+.amcomp-wrap{padding:28px 32px;max-width:680px;margin:0 auto;display:flex;flex-direction:column;gap:14px;width:100%}
+.amcomp-report{background:rgba(255,255,255,.04);border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:14px 16px;cursor:pointer}
+.amcomp-report:hover{border-color:var(--gold)}
+.amcomp-report-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.amcomp-summary{color:var(--text2);font-size:14px;line-height:1.5}
+.amcomp-date{color:var(--dim);font-size:11px;white-space:nowrap;font-family:'Cinzel',serif;letter-spacing:.03em}
+.amcomp-sev{display:inline-block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:20px;margin-top:6px}
+.amcomp-sev.ok{color:#6fcf97;background:rgba(39,174,96,.14);border:1px solid rgba(39,174,96,.35)}
+.amcomp-sev.warn{color:#e8c56a;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.35)}
+.amcomp-sev.crit{color:#e08a6a;background:rgba(201,84,76,.14);border:1px solid rgba(201,84,76,.35)}
+.amcomp-detail{margin-top:12px;padding-top:12px;border-top:1px solid rgba(201,168,76,.18);display:none}
+.amcomp-detail.open{display:block}
+.amcomp-detail-label{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.amcomp-detail-list{margin:0 0 12px 0;padding-left:18px;font-size:13px;color:var(--muted);line-height:1.6}
+.amcomp-empty{text-align:center;color:var(--dim);font-size:13px;padding:40px 20px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
+    <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
+    <div>
+      <div class="page-title" id="pageTitle" style="font-size:19px">AmitMobile</div>
+      <div class="page-version" id="pageVersion">v1.01</div>
+    </div>
+  </a>
+  <div class="page-title-wrap">
+    <div class="page-title" id="pageContext">—</div>
+    <div class="page-version" id="pageContextSub">CONTEXT</div>
+  </div>
+  <!-- Sign In/Out + Sync lives in the right rail, below Ask Amit — see
+       _updateSyncUI() and the RIGHT RAIL build code in <script>. -->
+  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
+    <div style="text-align:right">
+      <div class="greeting" id="greeting">Good morning</div>
+      <div class="datetime" id="datetime"></div>
+    </div>
+  </div>
+</header>
+
+<div class="hub">
+
+  <!-- ── SIDEBAR — Dashboard + Daily Walk + Amit + Zoom/Read This + Search, built in <script> ── -->
+  <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()"></nav>
+
+  <!-- ── MAIN CONTENT AREA — built in <script> ── -->
+  <div class="main-area" id="mainArea"></div>
+
+  <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
+  <nav class="right-rail" id="rightRail" ondblclick="toggleRail()"></nav>
+
+</div>
+
+<!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
+<div class="page-hover-tip" id="pageHoverTip"></div>
+
+<!-- Generic Popup destination — content filled in by whichever layout uses it -->
+<div id="canonicalPopup" class="popup-overlay"></div>
+
+<!-- SYNC / SIGN-IN MODAL -->
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+    <input id="syncEmailInput" type="email" placeholder="your@email.com"
+      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
+    <button id="syncSubmitBtn" onclick="submitSyncEmail()"
+      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      SEND SIGN-IN LINK →
+    </button>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// NOMENCLATURE — read this before touching any page/detail/layout code.
+//   PAGE   — one item in the left sidebar (button + fixed number).
+//   DETAIL — the content area a page opens into (id `detail-N`).
+//   LAYOUT — what kind of content lives inside a detail. This starter
+//            ships with none built in — every canonical layout (Tabbed/
+//            Row/Detail/Calendar/Day/Board/Gallery/Dashboard/Split/Form/
+//            Chart/Inbox/Drawer/Tree/Breadcrumb View) lives in
+//            Templates\TemplateViews.html, copied in verbatim when a
+//            real project needs one — see the header comment at the top
+//            of this file. This project's own Dashboard grid (page 1) and
+//            voice-conversation UI (pages 2-3) are custom, purpose-built
+//            content, not one of those canonical layouts.
+//   DESTINATION — WHERE a layout mounts: a page, a tab slot, or a Popup.
+//            Popup is built into this starter (see below) since it's
+//            generic infrastructure, not a layout itself.
+// ══════════════════════════════════════════════
+
+let currentUser=null;
+// SB_URL/SB_KEY/db/demoMode declared here, early — a real, confirmed bug
+// from earlier work on this file: demoMode defaults to true (unlike
+// currentUser, which defaults falsy), so anything gating on it can run
+// during the page's very first synchronous script pass, before a
+// later-declared `const` has initialized — a temporal dead zone crash.
+// Declaring all of this up front avoids that class of bug entirely.
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+// AUTH PERSISTENCE — added 2026-09-05, Ryan's direct instruction (per
+// AmitMobile\CLAUDE.md "Login persistence" section): persistSession +
+// autoRefreshToken so a signed-in phone user doesn't have to re-login
+// every couple weeks. This is a config correction to the template's own
+// connection block, not new infrastructure — explicitly authorized.
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}}):null;
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
+
+// ══════════════════════════════════════════════
+// CANONICAL DATA BINDING: DEMO MODE — a general, reusable connection to
+// Amit's own account data, available to ANY current or future view/form
+// built from this template — not wired one-off per view. Ported from the
+// Hub's real, live mechanism (amit-hub.html's demoModeHub/AMIT_DEMO_UID).
+//
+// fetchDemoRows(table, queryString) — the one call any view makes to
+// pull Amit's own rows for demo mode. Returns [] immediately if demo mode
+// is off. Every returned row is tagged _isDemo:true.
+//
+// REVIEW ONLY: any row this returns must never be editable or writable —
+// it's the caller's responsibility to check _isDemo and refuse edits.
+// ══════════════════════════════════════════════
+async function fetchDemoRows(table,queryString){
+  if(!demoMode)return[];
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${AMIT_DEMO_UID}&${queryString}`,{
+      headers:{apikey:SB_KEY,Accept:'application/json'}
+    });
+    const rows=res.ok?await res.json():[];
+    return rows.map(r=>({...r,_isDemo:true}));
+  }catch(e){
+    return[];
+  }
+}
+
+// ══════════════════════════════════════════════
+// AMIT MOBILE — DASHBOARD + PAGES (custom, per AmitMobile\CLAUDE.md's
+// Dashboard Architecture — this replaces the template's generic
+// Add-Page/custom-page system with a fixed, deliberate 5-page set. Amit's
+// authority here is limited to page/tab content, per Templates\CLAUDE.md's
+// "USE THE TEMPLATE MEANS EXACTLY" rule — everything below this section
+// that touches sidebar/detail rendering is new content within that
+// authority, not a change to protected infrastructure (Ask Amit, Sign
+// In/Sync, Demo Mode, Popup, tooltip mechanism, login connection all stay
+// exactly as the template has them).
+// ══════════════════════════════════════════════
+const AM_PAGES=[
+  {id:1,icon:'🧭',name:'Dashboard',sub:'Amit Mobile'},
+  {id:2,icon:'🙏',name:'Daily Walk',sub:'Daily Prayer'},
+  {id:3,icon:'💬',name:'Amit',sub:'Talk & Capture'},
+  {id:4,icon:'🔍',name:'Zoom / Read This',sub:'Coming soon'},
+  {id:5,icon:'🔎',name:'Search',sub:'Coming soon'},
+  {id:6,icon:'🖥️',name:'My Computer',sub:'Health reports'}
+];
+
+function renderAllPages(){
+  const nav=document.getElementById('sidebarPages');
+  const main=document.getElementById('mainArea');
+
+  let navHtml='',detailHtml='';
+  AM_PAGES.forEach(p=>{
+    navHtml+=`<div class="page-nav${p.id===1?' active':''}" id="page-${p.id}" onclick="openPage(${p.id})" data-tip="${p.name}">
+      <div class="page-icon">${p.icon}</div>
+      <div class="page-info"><div class="page-name">${p.name}</div><div class="page-sub">${p.sub}</div></div>
+    </div>`;
+    detailHtml+=`<div class="detail${p.id===1?' active':''}" id="detail-${p.id}">
+      <div class="detail-head"><span class="detail-heading">${p.name}</span></div>
+      <div style="flex:1;overflow-y:auto;display:flex" id="detail-body-${p.id}">${detailBodyFor(p.id)}</div>
+    </div>`;
+  });
+
+  nav.innerHTML=navHtml;
+  main.innerHTML=detailHtml;
+  initPageTooltips('sidebarPages','right');
+  wireVoicePages();
+}
+
+function detailBodyFor(id){
+  if(id===1) return amDashboardHtml();
+  if(id===2) return amVoicePageHtml('dailywalk','Speak your prayer, or whatever is on your heart this morning.');
+  if(id===3) return amVoicePageHtml('general','Speak to Amit — ask anything, or send a photo of what you\'re looking at.',true);
+  if(id===4) return `<div class="detail-empty" style="width:100%">Zoom / Read This — coming soon.</div>`;
+  if(id===5) return `<div class="detail-empty" style="width:100%">Search — coming soon.</div>`;
+  if(id===6) return amMyComputerHtml();
+  return '';
+}
+
+// ── DASHBOARD (page 1) — the tile grid, per CLAUDE.md's Dashboard
+// Architecture. AmitBooks is a real hand-off (window.location), not a
+// sidebar page, since it leaves this app entirely for AmitBooks' own
+// existing, real system, login carried through the shared Supabase
+// session (same origin under ask-amit.github.io/Amit/, cookie/localStorage
+// session already shared — no second sign-in required).
+function amDashboardHtml(){
+  return `<div class="amdash-wrap" style="width:100%">
+    <div class="amdash-hero">
+      <img src="amit_icon.ico" alt="Amit">
+      <h1>Amit Mobile</h1>
+      <p>Your Amit, in your pocket. Tap a tile to begin.</p>
+    </div>
+    <div class="amdash-grid">
+      <div class="amdash-tile amdash-primary" onclick="openPage(2)">
+        <div class="amdash-icon">🙏</div>
+        <div class="amdash-name">Daily Walk / Daily Prayer</div>
+        <div class="amdash-sub">Start your morning with Amit</div>
+      </div>
+      <div class="amdash-tile" onclick="amGoToAmitBooks()">
+        <div class="amdash-icon">📚</div>
+        <div class="amdash-name">AmitBooks</div>
+        <div class="amdash-sub">Receipts & bookkeeping</div>
+      </div>
+      <div class="amdash-tile" onclick="openPage(3)">
+        <div class="amdash-icon">💬</div>
+        <div class="amdash-name">Amit</div>
+        <div class="amdash-sub">Talk, ask, show a photo</div>
+      </div>
+      <div class="amdash-tile" onclick="openPage(4)">
+        <div class="amdash-icon">🔍</div>
+        <div class="amdash-name">Zoom / Read This</div>
+        <div class="amdash-sub">Coming soon</div>
+      </div>
+      <div class="amdash-tile" onclick="openPage(5)">
+        <div class="amdash-icon">🔎</div>
+        <div class="amdash-name">Search</div>
+        <div class="amdash-sub">Coming soon</div>
+      </div>
+      <div class="amdash-tile" onclick="openPage(6)">
+        <div class="amdash-icon">🖥️</div>
+        <div class="amdash-name">My Computer</div>
+        <div class="amdash-sub">Health reports</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── MY COMPUTER (page 6) — read-only view of Computer Health reports,
+// per AmitMobile\CLAUDE.md. Reads amit_device_events rows this signed-in
+// user already owns (event_type='master_report'). No editing/deleting —
+// purely a phone-side viewer onto data Computer Health already wrote.
+let amCompReportsCache=[];
+function amMyComputerHtml(){
+  if(!currentUser||!db){
+    return `<div class="amcomp-wrap"><div class="amcomp-empty">Sign in to see your computer's health reports here.</div></div>`;
+  }
+  // Kick off the async load; render a loading state now, replace once data arrives.
+  amLoadMyComputerReports();
+  return `<div class="amcomp-wrap" id="amCompList"><div class="amcomp-empty">Loading your reports…</div></div>`;
+}
+
+async function amLoadMyComputerReports(){
+  const holder=document.getElementById('amCompList');
+  if(!currentUser||!db){ return; }
+  try{
+    const{data,error}=await db.from('amit_device_events')
+      .select('id,created_at,summary,severity,event_detail')
+      .eq('user_id',currentUser.id)
+      .eq('event_type','master_report')
+      .order('created_at',{ascending:false})
+      .limit(30);
+    if(!holder) return; // user navigated away before this resolved
+    if(error){
+      console.error('amit_device_events fetch failed',error);
+      holder.innerHTML=`<div class="amcomp-empty">Couldn't load your computer reports right now — check your connection and reopen this tile.</div>`;
+      return;
+    }
+    amCompReportsCache=data||[];
+    if(!amCompReportsCache.length){
+      holder.innerHTML=`<div class="amcomp-empty">No computer reports yet — install Amit on your desktop to start tracking.</div>`;
+      return;
+    }
+    holder.innerHTML=amCompReportsCache.map((r,i)=>amCompReportCardHtml(r,i)).join('');
+  }catch(e){
+    console.error(e);
+    if(holder) holder.innerHTML=`<div class="amcomp-empty">Couldn't load your computer reports right now — check your connection and reopen this tile.</div>`;
+  }
+}
+
+function amCompSevClass(sev){
+  const s=(sev||'').toLowerCase();
+  if(s.includes('crit')||s.includes('high')||s.includes('urgent')) return 'crit';
+  if(s.includes('warn')||s.includes('medium')||s.includes('watch')) return 'warn';
+  return 'ok';
+}
+
+function amCompReportCardHtml(r,i){
+  const d=new Date(r.created_at);
+  const dateStr=isNaN(d)?'':d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const sevClass=amCompSevClass(r.severity);
+  const summary=r.summary||'Computer health report';
+  const insight=(r.event_detail&&r.event_detail.report&&r.event_detail.report.insight)||{};
+  const strengths=Array.isArray(insight.strengths)?insight.strengths:[];
+  const concerns=Array.isArray(insight.concerns)?insight.concerns:[];
+  const strengthsHtml=strengths.length?`<ul class="amcomp-detail-list">${strengths.map(s=>`<li>${s}</li>`).join('')}</ul>`:`<div class="amcomp-detail-list" style="padding-left:0">Nothing specific noted.</div>`;
+  const concernsHtml=concerns.length?`<ul class="amcomp-detail-list">${concerns.map(s=>`<li>${s}</li>`).join('')}</ul>`:`<div class="amcomp-detail-list" style="padding-left:0">Nothing flagged.</div>`;
+  return `<div class="amcomp-report" onclick="amToggleCompDetail(${i})">
+    <div class="amcomp-report-top">
+      <div class="amcomp-summary">${summary}</div>
+      <div class="amcomp-date">${dateStr}</div>
+    </div>
+    ${r.severity?`<span class="amcomp-sev ${sevClass}">${r.severity}</span>`:''}
+    <div class="amcomp-detail" id="amCompDetail-${i}">
+      <div class="amcomp-detail-label">What's running well</div>
+      ${strengthsHtml}
+      <div class="amcomp-detail-label">What to watch</div>
+      ${concernsHtml}
+    </div>
+  </div>`;
+}
+
+function amToggleCompDetail(i){
+  const el=document.getElementById('amCompDetail-'+i);
+  if(el) el.classList.toggle('open');
+}
+
+// Real hand-off to AmitBooks' own existing HTML — per CLAUDE.md, AmitBooks
+// is not rebuilt or reimplemented here, this is a deep link into the real
+// system. Same tab (not a new window) so back-navigation returns here.
+function amGoToAmitBooks(){
+  window.location.href='../AmitBooks/AmitBooks.html';
+}
+
+// ── VOICE CONVERSATION UI (pages 2-3) — Web Speech API, tap-to-talk
+// (per CLAUDE.md's open-question recommendation, adopted as the v1
+// answer: "tap-to-talk for v1"). Two instances share this same markup/JS,
+// distinguished by a `mode` string passed through data attributes.
+function amVoicePageHtml(mode,prompt,withPhoto){
+  return `<div class="amvoice-wrap">
+    <div style="text-align:center;color:var(--muted);font-size:13px;font-style:italic">${prompt}</div>
+    <div class="amvoice-mic-row">
+      <button class="amvoice-mic-btn" id="amMicBtn-${mode}" onclick="amToggleListening('${mode}')" title="Tap to speak">🎙️</button>
+    </div>
+    <div class="amvoice-status" id="amStatus-${mode}">Tap the microphone to speak</div>
+    <div>
+      <div class="amvoice-box-label">You said</div>
+      <div class="amvoice-box amvoice-you" id="amTranscript-${mode}">—</div>
+    </div>
+    <div>
+      <div class="amvoice-box-label">Amit</div>
+      <div class="amvoice-box amvoice-amit" id="amResponse-${mode}">—</div>
+    </div>
+    ${withPhoto?`
+    <div class="amvoice-photo-row">
+      <label class="amvoice-photo-btn" for="amPhotoInput-${mode}">📷 Add a Photo</label>
+      <input type="file" accept="image/*" capture="environment" id="amPhotoInput-${mode}" style="display:none" onchange="amHandlePhoto(event,'${mode}')">
+    </div>
+    <img id="amPhotoPreview-${mode}" class="amvoice-photo-preview" style="display:none">
+    `:''}
+    <div class="amvoice-savenote" id="amSaveNote-${mode}"></div>
+  </div>`;
+}
+
+// Per-mode recognizer state — SpeechRecognition instances aren't reusable
+// across stop/start cleanly on every browser, so a fresh one is created
+// each time listening starts (tap-to-talk, not continuous).
+const amRecognizers={};
+const amPendingPhoto={}; // {[mode]: {file, dataUrl, storagePath}}
+
+function amGetSpeechRecognitionCtor(){
+  return window.SpeechRecognition||window.webkitSpeechRecognition||null;
+}
+
+function amToggleListening(mode){
+  const btn=document.getElementById('amMicBtn-'+mode);
+  if(btn&&btn.classList.contains('amvoice-listening')){
+    amStopListening(mode);
+    return;
+  }
+  amStartListening(mode);
+}
+
+function amStartListening(mode){
+  const Ctor=amGetSpeechRecognitionCtor();
+  const status=document.getElementById('amStatus-'+mode);
+  const btn=document.getElementById('amMicBtn-'+mode);
+  if(!Ctor){
+    if(status)status.textContent='Speech recognition is not supported in this browser — try Chrome on Android or Safari on iOS.';
+    return;
+  }
+  const rec=new Ctor();
+  rec.lang='en-US';
+  rec.continuous=false;
+  rec.interimResults=true;
+  amRecognizers[mode]=rec;
+
+  const transcriptEl=document.getElementById('amTranscript-'+mode);
+  btn.classList.add('amvoice-listening');
+  btn.textContent='⏹️';
+  status.textContent='Listening…';
+
+  rec.onresult=(e)=>{
+    let text='';
+    for(let i=0;i<e.results.length;i++) text+=e.results[i][0].transcript;
+    if(transcriptEl) transcriptEl.textContent=text||'—';
+  };
+  rec.onerror=(e)=>{
+    status.textContent='Could not hear that ('+e.error+') — tap to try again.';
+    amResetMicButton(mode);
+  };
+  rec.onend=()=>{
+    amResetMicButton(mode);
+    const finalText=(transcriptEl?transcriptEl.textContent:'').trim();
+    if(finalText&&finalText!=='—'){
+      status.textContent='Thinking…';
+      amHandleVoiceInput(mode,finalText);
+    } else {
+      status.textContent='Tap the microphone to speak';
+    }
+  };
+  try{ rec.start(); }
+  catch(e){ status.textContent='Could not start listening: '+e.message; amResetMicButton(mode); }
+}
+
+function amStopListening(mode){
+  const rec=amRecognizers[mode];
+  if(rec) rec.stop();
+}
+
+function amResetMicButton(mode){
+  const btn=document.getElementById('amMicBtn-'+mode);
+  if(!btn)return;
+  btn.classList.remove('amvoice-listening');
+  btn.textContent='🎙️';
+}
+
+// Handles a completed spoken (or, in principle, typed) message: calls the
+// backend stub, shows + speaks the reply, then logs the exchange.
+async function amHandleVoiceInput(mode,text){
+  const responseEl=document.getElementById('amResponse-'+mode);
+  if(responseEl) responseEl.textContent='Amit is thinking…';
+  const reply=await callAmitBackend(text,mode,responseEl);
+  if(responseEl) responseEl.textContent=reply;
+  amSpeak(reply);
+}
+
+// ══════════════════════════════════════════════
+// callAmitBackend(message, mode, responseEl) — REAL, wired 2026-09-05.
+//
+// Architecture: Supabase Realtime RELAY, not a direct phone-to-desktop
+// connection (per Ryan's design, AmitMobile\CLAUDE.md "Realtime relay").
+// The phone never talks to the desktop directly — both only ever talk to
+// Supabase, which is always reachable (cellular included). Flow:
+//   1. This inserts one row into amit_mobile_captures (reply left null).
+//   2. A desktop bridge — the shared Amit Bridge's amit_mobile_watcher.ps1
+//      companion watcher (ComputerHealth\Watchers\), NOT a separate app —
+//      picks up unanswered rows, gets a real answer from a headless
+//      `claude -p` call, and writes it back onto that row's `reply` column.
+//   3. This function POLLS that one row every 2.5s (see note below on why
+//      polling instead of a Realtime subscription) until `reply` appears
+//      or a 90-second timeout is reached.
+//
+// Poll vs. Realtime, decided honestly: a live Realtime subscription was
+// considered so the reply pushes in the instant it's written, rather than
+// waiting up to 2.5s. A short-interval poll of one single row was used
+// instead because it is far simpler to get right in a single page-load
+// flow (no channel lifecycle to manage, no risk of a dropped-then-silent
+// subscription leaving the UI stuck on "thinking" with no fallback) and
+// the real-world lag difference is negligible next to the 5-40+ seconds a
+// headless claude -p call itself typically takes. Capped at 90 seconds —
+// if nothing comes back by then, an honest failure message is shown
+// instead of silence, per Ryan's explicit instruction that failures must
+// be clear, not silent or confusing.
+// ══════════════════════════════════════════════
+async function callAmitBackend(message,mode,responseEl){
+  if(!currentUser||!db){
+    return "You're not signed in, so Amit can't save this conversation or send it to the desktop bridge. Sign in first, then try again.";
+  }
+  const destination=mode==='dailywalk'?'daily_walk':'general';
+  let photoUrl=null;
+  if(amPendingPhoto[mode]){
+    photoUrl=await amUploadPendingPhoto(mode);
+    delete amPendingPhoto[mode];
+  }
+  let row;
+  try{
+    const{data,error}=await db.from('amit_mobile_captures').insert({
+      user_id:currentUser.id,
+      transcript:message,
+      summary:null, // real auto-summary is future work
+      topic:null,
+      photo_url:photoUrl,
+      destination:destination
+    }).select().single();
+    if(error||!data){
+      console.error('amit_mobile_captures insert failed',error);
+      return "Amit couldn't save this message to start the conversation — check your connection and try again.";
+    }
+    row=data;
+  }catch(e){
+    console.error(e);
+    return "Amit couldn't save this message to start the conversation — check your connection and try again.";
+  }
+
+  // Poll this one row for its reply. 2.5s interval, 90s cap (36 tries).
+  const POLL_MS=2500, MAX_TRIES=36;
+  for(let i=0;i<MAX_TRIES;i++){
+    await new Promise(r=>setTimeout(r,POLL_MS));
+    try{
+      const{data,error}=await db.from('amit_mobile_captures').select('reply').eq('id',row.id).single();
+      if(!error&&data&&data.reply){
+        return data.reply;
+      }
+    }catch(e){ console.error('poll for reply failed',e); }
+    if(responseEl) responseEl.textContent='Amit is thinking'+'.'.repeat((i%3)+1);
+  }
+  return "Amit's desktop isn't listening right now — make sure the desktop bridge is running and your computer isn't asleep. (Your message was saved — Amit will still answer it once the bridge is back, and you can check your history later.)";
+}
+
+function amSpeak(text){
+  if(!('speechSynthesis' in window))return;
+  try{
+    window.speechSynthesis.cancel(); // don't stack overlapping utterances
+    const u=new SpeechSynthesisUtterance(text);
+    u.rate=0.98;
+    window.speechSynthesis.speak(u);
+  }catch(e){/* non-fatal — text is already shown on screen */}
+}
+
+// ── PHOTO CAPTURE (Amit / general page only) ──
+function amHandlePhoto(evt,mode){
+  const file=evt.target.files&&evt.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const preview=document.getElementById('amPhotoPreview-'+mode);
+    if(preview){ preview.src=reader.result; preview.style.display='block'; }
+  };
+  reader.readAsDataURL(file);
+  amPendingPhoto[mode]={file};
+}
+
+// Uploads a pending photo to Supabase Storage, reusing AmitBooks'
+// established pattern exactly (db.storage.from(bucket).upload(path,blob,
+// {contentType})) — see AmitBooks.html's abUploadReceiptImage /
+// abUploadOneScanBlob for the precedent this follows. Bucket
+// 'amitmobile-captures' must be created once in the Supabase dashboard
+// (Storage → New bucket) — see this session's final report for the exact
+// steps; not something this code can create for itself.
+async function amUploadPendingPhoto(mode){
+  const pending=amPendingPhoto[mode];
+  if(!pending||!pending.file||!currentUser||!db)return null;
+  try{
+    const ext=(pending.file.name.split('.').pop()||'jpg').toLowerCase();
+    const path=`${currentUser.id}/${Date.now()}.${ext}`;
+    const{error}=await db.storage.from('amitmobile-captures').upload(path,pending.file,{contentType:pending.file.type||'image/jpeg'});
+    if(error){ console.error('amitmobile-captures upload failed',error); return null; }
+    return path;
+  }catch(e){ console.error(e); return null; }
+}
+
+// NOTE: capture logging (the insert into amit_mobile_captures) used to be
+// its own separate step, called AFTER a stub reply came back. As of the
+// real backend wiring (2026-09-05), the insert has to happen BEFORE the
+// reply exists — the row IS the request, and the desktop bridge writes
+// the reply onto it — so that logic now lives inside callAmitBackend()
+// above rather than in a separate amLogCapture() call. Nothing after the
+// exchange still needs a separate save step; it was saved the moment the
+// question was asked.
+
+// Re-wires nothing structural on re-render (voice pages are self-contained
+// via onclick/onchange attributes already in their HTML) — kept as a small
+// hook in case a future pass needs to attach anything post-render.
+function wireVoicePages(){}
+
+// PAGE HOVER TOOLTIP — delegated on the given container, works no matter
+// how many items exist or whether that container is collapsed/expanded.
+// side: 'right' opens rightward (left sidebar); 'left' opens leftward
+// (right rail — opening rightward there would render off-screen).
+function initPageTooltips(containerId,side){
+  const tip=document.getElementById('pageHoverTip');
+  const nav=document.getElementById(containerId);
+  if(!tip||!nav)return;
+  nav.addEventListener('mouseover',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    tip.textContent=item.dataset.tip||'';
+    const r=item.getBoundingClientRect();
+    if(side==='left'){
+      tip.style.right=(window.innerWidth-r.left+8)+'px';
+      tip.style.left='auto';
+    } else {
+      tip.style.left=(r.right+8)+'px';
+      tip.style.right='auto';
+    }
+    tip.style.top=(r.top+r.height/2)+'px';
+    tip.style.transform='translateY(-50%)';
+    tip.classList.add('show');
+  });
+  nav.addEventListener('mouseout',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    if(e.relatedTarget&&item.contains(e.relatedTarget))return;
+    tip.classList.remove('show');
+  });
+}
+
+(async function buildPlaceholders(){
+  renderAllPages();
+
+  // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
+  const rail=document.getElementById('rightRail');
+  if(rail){
+    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('amitMobile')" data-tip="Ask Amit">
+      <div class="page-icon"><img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
+      <div class="page-info">
+        <div class="page-name">Ask Amit</div>
+        <div class="page-sub">Walk alongside</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-sync" onclick="openSyncModal()" data-tip="Sign In">
+      <div class="page-icon" id="rail-sync-icon">🔒</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-sync-name">Sign In</div>
+        <div class="page-sub" id="rail-sync-sub">Not Synced</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-demo" onclick="toggleDemoMode()" data-tip="Demo On">
+      <div class="page-icon" id="rail-demo-icon">🎬</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-demo-name">Demo On</div>
+        <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-home" onclick="goToHub()" data-tip="Back to the Hub">
+      <div class="page-icon">🏠</div>
+      <div class="page-info">
+        <div class="page-name">Home</div>
+        <div class="page-sub">Back to the Hub</div>
+      </div>
+    </div>`;
+    _updateDemoUI();
+    _updateSyncUI();
+  }
+
+  initPageTooltips('rightRail','left');
+})();
+
+function toggleRail(){
+  document.getElementById('rightRail').classList.toggle('expanded');
+}
+
+// HOME (right rail) — added 2026-08-06, Ryan's direct instruction, same
+// implementation as TemplateViews.html's own goToHub — kept identical
+// between both files on purpose, copy verbatim if either one changes.
+const AMIT_HUB_URL='../Hub/amit-hub.html';
+function goToHub(){
+  if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  const ch=new BroadcastChannel('amit_hub_tabs');
+  let acked=false;
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.postMessage({type:'focus-requested'});
+  setTimeout(()=>{
+    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    ch.close();
+  },250);
+}
+
+function openPage(n){
+  document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
+  const page=document.getElementById('page-'+n);
+  const detail=document.getElementById('detail-'+n);
+  if(page)page.classList.add('active');
+  if(detail)detail.classList.add('active');
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebarPages').classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL DESTINATION: POPUP — NOT a layout type. Generic overlay that
+// hosts whatever layout instance (copied in from TemplateViews.html) is
+// mounted inside it — content-agnostic, same as a Page or Tab slot.
+// ══════════════════════════════════════════════
+function popupOpen(innerHtml){
+  let modal=document.getElementById('canonicalPopup');
+  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
+    ${innerHtml}
+  </div>`;
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
+  modal.style.display='flex';
+}
+function popupClose(){
+  const modal=document.getElementById('canonicalPopup');
+  if(modal) modal.style.display='none';
+}
+
+// ══════════════════════════════════════════════
+// LOGIN CONNECTION — the one live piece of this template. Supabase auth
+// only: knows who is signed in. No data reads/writes beyond that.
+// ══════════════════════════════════════════════
+if(db){
+  db.auth.onAuthStateChange(async (event,session)=>{
+    currentUser=session?session.user:null;
+    _updateSyncUI();
+  });
+}
+
+// Drives the Sign In/Out + Sync rail item.
+function _updateSyncUI(){
+  const item=document.getElementById('rail-sync');if(!item)return;
+  const icon=document.getElementById('rail-sync-icon');
+  const name=document.getElementById('rail-sync-name');
+  const sub=document.getElementById('rail-sync-sub');
+  icon.classList.add('plug-badge');
+  if(currentUser){
+    icon.innerHTML='<span class="plug-icon-glyph">🔓</span>';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out — Synced';item.title='Signed in · '+currentUser.email;
+    item.classList.add('active');
+    icon.classList.add('connected');icon.classList.remove('disconnected');
+  } else {
+    icon.innerHTML='<span class="plug-icon-glyph">🔒</span>';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In — Not Synced';item.title='';
+    item.classList.remove('active');
+    icon.classList.add('disconnected');icon.classList.remove('connected');
+  }
+}
+
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+}
+
+// Drives the Demo rail item and flips the toggle.
+function toggleDemoMode(){
+  demoMode=!demoMode;
+  localStorage.setItem('amit_demo_mode',demoMode?'on':'off');
+  _updateDemoUI();
+}
+
+function _updateDemoUI(){
+  const icon=document.getElementById('rail-demo-icon');
+  const item=document.getElementById('rail-demo');
+  const name=document.getElementById('rail-demo-name');
+  const sub=document.getElementById('rail-demo-sub');
+  if(!item)return;
+  if(demoMode){
+    icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
+    item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+    item.classList.add('active');
+  } else {
+    icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
+    item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+    item.classList.remove('active');
+  }
+}
+
+async function sendMagicLink(email){
+  if(!db)return'Database not available';
+  const{error}=await db.auth.signInWithOtp({email});
+  return error?error.message:null;
+}
+
+function openSyncModal(){
+  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
+  const m=document.getElementById('syncModal');if(!m)return;
+  m.style.display='flex';
+}
+function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+async function submitSyncEmail(){
+  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
+  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
+  const err=await sendMagicLink(email);
+  if(err){btn.textContent='Try again';btn.disabled=false;}
+  else{
+    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+// CLOCK / GREETING — visual only, no data behind it
+// ══════════════════════════════════════════════
+const AMIT_NAME_KEY='amit_user_name';
+function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
+
+function updateClock(){
+  const d=new Date();
+  const h=d.getHours();
+  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const name=getUserName();
+  const g=document.getElementById('greeting');if(g)g.textContent=name?sal+', '+name:sal;
+  const dt=document.getElementById('datetime');
+  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock,30000);
+</script>
+
+</body>
+</html>
