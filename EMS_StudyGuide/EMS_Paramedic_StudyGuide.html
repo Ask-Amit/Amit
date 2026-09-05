@@ -308,7 +308,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v6.02</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v6.03</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -774,6 +774,20 @@ function toggleLiveTestMic(){
   _liveTestRecognition.start();
 }
 
+// BARGE-IN — added 2026-09-05, third pass, Ryan's direct request to get
+// back the ability to speak WHILE Amit is talking (real conversational
+// interrupt), after the earlier stale-transcript-leak and overlapping-
+// fetch bugs were fixed. Naively just removing the "ignore the mic while
+// speaking" guard would reopen a DIFFERENT race: interrupting Amit
+// (speechSynthesis.cancel()) fires that utterance's own onend/onerror,
+// which would otherwise run handsFreeTurnDone() for a turn that's no
+// longer the current one — able to clear flags a NEWER, still-in-flight
+// turn depends on. _hfTurnId is a simple guard against exactly that: each
+// call to sendLiveTestQuestion claims the next id; handsFreeTurnDone only
+// actually does anything if the id it was given still matches the
+// current one. A stale (interrupted) turn's cleanup becomes a no-op —
+// the turn that interrupted it owns finishing the job instead.
+let _hfTurnId = 0;
 // Ends the "ignore the mic" window and hands control back to hands-free
 // mode — the ONE place that happens, called from every exit path in
 // sendLiveTestQuestion below (success, error, empty question, closed
@@ -784,7 +798,11 @@ function toggleLiveTestMic(){
 // same fix, now covering the FULL send-through-speak window, not just
 // the speaking portion (see _handsFreeBusy's own comment for why that
 // distinction is the real fix here, 2026-09-05, second pass).
-function handsFreeTurnDone(onSpeakEnd){
+function handsFreeTurnDone(onSpeakEnd, myTurn){
+  if (myTurn !== undefined && myTurn !== _hfTurnId){
+    hfLog('Stale turn #' + myTurn + ' finished after being interrupted (current is #' + _hfTurnId + ') — ignoring, the newer turn owns cleanup.');
+    return;
+  }
   _amitSpeaking = false;
   _handsFreeBusy = false;
   if (_handsFreeActive) _turnStartResultIndex = _lastResultsLength;
@@ -792,11 +810,18 @@ function handsFreeTurnDone(onSpeakEnd){
 }
 
 async function sendLiveTestQuestion(onSpeakEnd){
+  // Claims this call as the current turn — see _hfTurnId's own comment.
+  // Calling this at all (even from the plain "Send" button, not just
+  // hands-free) is harmless; the id only matters once something checks
+  // it against a LATER call, which only happens in hands-free's barge-in
+  // path below.
+  const myTurn = ++_hfTurnId;
+  hfLog('Turn #' + myTurn + ' starting: "' + document.getElementById('live-test-input').value.trim().slice(0,60) + '"');
   const input = document.getElementById('live-test-input');
   const status = document.getElementById('live-test-status');
   const answerBox = document.getElementById('live-test-answer');
   const question = input.value.trim();
-  if (!question){ status.textContent = 'Type or speak a question first.'; handsFreeTurnDone(onSpeakEnd); return; }
+  if (!question){ status.textContent = 'Type or speak a question first.'; handsFreeTurnDone(onSpeakEnd, myTurn); return; }
 
   answerBox.style.display = 'none';
   status.textContent = 'Sending to the local bridge — this calls a fresh, standalone Claude Code session, usually takes a few seconds...';
@@ -814,11 +839,11 @@ async function sendLiveTestQuestion(onSpeakEnd){
     // bug found by testing: closing the box didn't stop an already-sent
     // question from talking once it finally answered.
     const modalStillOpen = document.getElementById('live-test-modal').style.display !== 'none';
-    if (!modalStillOpen){ handsFreeTurnDone(onSpeakEnd); return; }
+    if (!modalStillOpen){ handsFreeTurnDone(onSpeakEnd, myTurn); return; }
 
     if (data.error){
       status.textContent = '⚠️ ' + data.error;
-      handsFreeTurnDone(onSpeakEnd);
+      handsFreeTurnDone(onSpeakEnd, myTurn);
       return;
     }
     status.textContent = 'Answered — speaking it aloud now.';
@@ -827,32 +852,37 @@ async function sendLiveTestQuestion(onSpeakEnd){
     input.value = '';
 
     if ('speechSynthesis' in window){
+      // Cancelling here is exactly the barge-in interrupt when this call
+      // is a NEWER turn than whatever was already speaking — that
+      // in-progress utterance's own onend/onerror will fire because of
+      // this cancel(), but its handsFreeTurnDone(..., itsOldTurnId) call
+      // will see itsOldTurnId !== _hfTurnId (myTurn already moved it
+      // forward) and correctly no-op instead of clobbering this turn's
+      // state. See _hfTurnId's own comment for the full reasoning.
       window.speechSynthesis.cancel();
       if (!_bestVoice) _bestVoice = _pickBestVoice();
       const utter = new SpeechSynthesisUtterance(data.answer);
       if (_bestVoice) utter.voice = _bestVoice;
       utter.rate = 1.0; // normal speed — tried 20%, then 10%, then 5% faster, settled back to normal after hearing Andrew
-      // _amitSpeaking is checked inside the mic's onresult handler, so any
-      // audio the microphone picks up WHILE Amit is talking gets ignored
-      // outright — a real feedback loop was found by testing (headset mic
-      // catching Amit's own spoken answer and treating it as the next
-      // question). onSpeakEnd, if given, is how hands-free mode knows to
-      // start listening again — but only after AMIT_SPEECH_TAIL_MS extra,
-      // since the browser's "done speaking" event can fire slightly before
-      // the audio has actually finished playing through real speakers/
-      // headphones, and that trailing tail is exactly what was getting
-      // captured as the start of a new question.
+      // _amitSpeaking is checked inside the mic's onresult handler — but,
+      // per Ryan's direct request 2026-09-05 (third pass), NOT to ignore
+      // audio outright anymore, only to skip the "ignore during the
+      // bridge fetch wait" branch (_handsFreeBusy && !_amitSpeaking) —
+      // real speech heard WHILE Amit is talking is now allowed to
+      // interrupt it (barge-in), protected from the earlier race by
+      // _hfTurnId above rather than by refusing to listen at all.
+      hfLog('Turn #' + myTurn + ' speaking now.');
       _amitSpeaking = true;
       utter.onend = utter.onerror = () => {
-        setTimeout(() => handsFreeTurnDone(onSpeakEnd), AMIT_SPEECH_TAIL_MS);
+        setTimeout(() => handsFreeTurnDone(onSpeakEnd, myTurn), AMIT_SPEECH_TAIL_MS);
       };
       window.speechSynthesis.speak(utter);
     } else {
-      handsFreeTurnDone(onSpeakEnd);
+      handsFreeTurnDone(onSpeakEnd, myTurn);
     }
   } catch(err){
     status.textContent = "⚠️ Couldn't reach the local bridge. Is amit_ems_bridge_test.js running (node amit_ems_bridge_test.js) in a terminal on this computer?";
-    handsFreeTurnDone(onSpeakEnd);
+    handsFreeTurnDone(onSpeakEnd, myTurn);
   }
 }
 
@@ -1001,24 +1031,28 @@ function startHandsFreeListening(){
     // while speaking — see that handler's own comment for the full bug
     // this fixes (2026-09-05).
     _lastResultsLength = e.results.length;
-    // Hard guard against the feedback-loop bug found by testing: while
-    // Amit is speaking (or just finished, within the tail buffer), ignore
-    // whatever the mic hears entirely — don't let it become the next
-    // question. The mic itself is never stopped for this, only its
-    // results are ignored, which is what removes the restart-lag/missed-
-    // word problem from the old stop-and-restart-per-turn design.
-    // _handsFreeBusy (not just _amitSpeaking) — see its own comment: this
-    // covers the whole send-through-speak window, including the several-
-    // second wait on the bridge's cold-started response, not just the
-    // moment audio is actually playing.
-    if (_amitSpeaking || _handsFreeBusy) return;
+    // BARGE-IN, 2026-09-05 third pass, Ryan's direct request: only ignore
+    // the mic during the bridge FETCH wait (_handsFreeBusy true, nothing
+    // audible yet to interrupt) — no longer while Amit is actually
+    // speaking (_amitSpeaking). Real speech heard mid-answer is now
+    // allowed through, so it can interrupt Amit via a fresh
+    // sendLiveTestQuestion call below; _hfTurnId (see its own comment)
+    // is what keeps the OLD, interrupted turn's own cleanup from
+    // corrupting the new one when that happens, instead of a blanket
+    // "ignore everything while speaking" rule.
+    if (_handsFreeBusy && !_amitSpeaking) return;
     let transcript = '';
     for (let i = _turnStartResultIndex; i < e.results.length; i++) transcript += e.results[i][0].transcript;
     document.getElementById('live-test-input').value = transcript;
     // Every new bit of speech resets the "they've paused" clock.
     clearTimeout(_handsFreeSilenceTimer);
     _handsFreeSilenceTimer = setTimeout(() => {
-      if (!_handsFreeActive || _handsFreeBusy) return;
+      if (!_handsFreeActive) return;
+      // Same relaxed rule as the onresult guard above — a pause detected
+      // WHILE Amit is speaking is now allowed to fire a real barge-in
+      // send (which will cancel his speech); only block during the pure
+      // fetch-wait sub-phase where nothing is audible to interrupt yet.
+      if (_handsFreeBusy && !_amitSpeaking) return;
       _turnStartResultIndex = e.results.length; // next turn starts fresh from here, mic keeps running
       // Set the instant a send is decided on — BEFORE the fetch even goes
       // out — so nothing else can queue a second overlapping question
