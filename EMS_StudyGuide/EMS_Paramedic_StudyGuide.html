@@ -308,7 +308,7 @@
   <div class="brand">
     <div class="cross"></div>
     <div>
-      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v6.01</span></h1>
+      <h1>Amit <span>— Medical Prep</span> <span id="version-badge" style="font-size:11px;color:var(--dim);border:1px solid var(--border);border-radius:10px;padding:2px 8px;vertical-align:middle;">v6.02</span></h1>
       <div class="sub">Paramedic recertification & national exam readiness</div>
     </div>
   </div>
@@ -371,6 +371,16 @@
     <button class="btn secondary" id="handsfree-btn" onclick="toggleHandsFree()" style="width:100%;margin-top:8px;border-color:var(--good);color:var(--good);">🎙️ Start Hands-Free Conversation</button>
     <div id="live-test-status" style="font-size:12px;color:var(--dim);margin-top:10px;min-height:16px;"></div>
     <div id="live-test-answer" style="display:none;text-align:left;background:rgba(61,220,132,.06);border:1px solid rgba(61,220,132,.25);border-radius:10px;padding:14px 16px;margin-top:8px;font-size:13.5px;line-height:1.6;color:#d7e0ec;"></div>
+    <!-- Diagnostic log — added 2026-09-05, Ryan's real-world testing kept
+         surfacing timing bugs (a resume delay, mic re-prompts) that are
+         genuinely hard to reconstruct from memory afterward. This gives
+         an exact, timestamped trace of every real recognition-engine
+         event as it happens, so a future bug report can be a screenshot
+         of what actually occurred instead of a recollection of it. -->
+    <details style="margin-top:10px;">
+      <summary style="font-size:11px;color:var(--dim);cursor:pointer;">🔧 Diagnostic log (for troubleshooting)</summary>
+      <div id="handsfree-debug-log" style="font-size:10.5px;color:var(--dim);font-family:monospace;max-height:140px;overflow-y:auto;background:rgba(0,0,0,.25);border-radius:6px;padding:8px 10px;margin-top:6px;white-space:pre-wrap;"></div>
+    </details>
     <button class="btn secondary" onclick="closeLiveTestModal()" style="width:100%;margin-top:14px;">Close</button>
   </div>
 </div>
@@ -857,6 +867,18 @@ async function sendLiveTestQuestion(onSpeakEnd){
    own voice as a new question.
 ======================================================================= */
 const HANDSFREE_SILENCE_MS = 2500; // was 1300 — Ryan reported by testing, 2026-09-05: a normal mid-sentence pause was long enough to trip this and get sent as if he were done talking, cutting him off. Raised to give real breathing room between words.
+// Timestamped diagnostic trace — added 2026-09-05, see the modal's own
+// #handsfree-debug-log comment for why. Every real engine event below
+// calls this instead of (or alongside) updating the plain status text,
+// so a confusing real-world timing bug can be screenshotted with exact
+// millisecond gaps between events, not reconstructed from memory.
+function hfLog(msg){
+  const el = document.getElementById('handsfree-debug-log');
+  if (!el) return;
+  const t = new Date();
+  const stamp = t.toLocaleTimeString('en-US', {hour12:false}) + '.' + String(t.getMilliseconds()).padStart(3,'0');
+  el.textContent = '[' + stamp + '] ' + msg + '\n' + el.textContent;
+}
 let _handsFreeActive = false;
 let _handsFreeRecognition = null;
 let _handsFreeSilenceTimer = null;
@@ -878,6 +900,32 @@ let _amitSpeaking = false; // true from the moment Amit starts talking until AMI
 // speaking actually starts.
 let _handsFreeBusy = false;
 const AMIT_SPEECH_TAIL_MS = 500; // extra buffer after "done speaking" fires, since real audio playback can lag that event slightly
+
+// Real bug found by testing, 2026-09-05: left running unattended in a
+// BACKGROUND tab, the mic silently stopped capturing entirely, with no
+// error and no visible cause. This is a well-documented browser behavior,
+// not something page code can prevent outright — Chromium/Edge throttle
+// or fully suspend a hidden tab's media/mic sessions to save power and
+// limit background privacy exposure, and there is no reliable way to ask
+// "is the recognition engine still actually alive" after that happens
+// (Web Speech API exposes no such check). Rather than guess with a timer,
+// this uses the real, purpose-built signal for exactly this situation —
+// the Page Visibility API — and proactively rebuilds the whole engine
+// the moment the tab becomes visible again, since it very likely died
+// (or is in an unreliable state) during whatever time it was hidden,
+// instead of waiting to discover that the hard way.
+document.addEventListener('visibilitychange', () => {
+  if (!_handsFreeActive) return;
+  if (document.hidden){
+    hfLog('Tab went to background — mic session may be throttled/killed by the browser while hidden.');
+  } else {
+    hfLog('Tab back in foreground — rebuilding the recognition engine (assume it died while backgrounded).');
+    if (_handsFreeRecognition){ try { _handsFreeRecognition.stop(); } catch(e){} }
+    _handsFreeRecognition = null;
+    _turnStartResultIndex = 0;
+    startHandsFreeListening();
+  }
+});
 
 function toggleHandsFree(){
   if (_handsFreeActive){ stopHandsFree(); return; }
