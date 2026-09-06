@@ -376,6 +376,32 @@ At the start of a session, if a user is actually signed in (their real Supabase 
 
 ---
 
+## Phone-native shell rebuild — 2026-09-05, Ryan's direct live-phone report
+
+**The real problem:** Ryan tested `AmitMobile.html` on his actual phone (not a resized desktop browser) and found the desktop-style left sidebar (page nav) and right rail (Ask Amit/Sign In/Demo Mode) together left almost no room for the actual content. His own words: "It has all the web addresses up on top and everything... it's a whole website, and it can't even read it... The only thing I see where it says dashboard is I can barely see the edge of the Amit icon. Everything else is taken up by the left icon and the right." He compared it directly against a simple installed phone app that "just opened a simple application and connected."
+
+**First attempt (reverted, do not redo):** a `@media (max-width:600px)` breakpoint that forced `.sidebar`/`.right-rail` down to their icon-only collapsed widths. Before this was fully verified, Ryan found the actual right answer — `AmitBooks\AmitScan\AmitScan.html` — a completely separate, proven one-screen phone app with no side chrome at all. His reaction after seeing it: "That was very simple." A collapsed-but-still-present sidebar+rail was judged the wrong shape even if it technically fit, so the media-query approach was abandoned rather than kept as a fallback.
+
+**What was actually built — a real shell rebuild, not a CSS tweak:** `AmitMobile.html`'s outer layout now follows AmitScan's shape directly: a thin fixed top bar (`#amTopBar`, ~42-58px tall including padding/border) and a full-bleed `#mainArea` filling everything else — **no left sidebar, no right rail, at all, removed from the DOM entirely**, not hidden or collapsed. `#amShell` is `position:relative` inside a `position:fixed;inset:0;height:100dvh` body with `env(safe-area-inset-top/bottom)` padding — the same real values AmitScan.html uses, not guessed ones.
+
+**Top bar contents (left to right):** a back arrow (`#amBackBtn`, hidden on Dashboard, shown on every other page — tap returns to Dashboard via `openPage(1)`) or the Amit logo (shown only on Dashboard, tap opens the Hub via the template's existing `goToHub()`); the current page's title (`#amTopTitle`, driven by `openPage()`); then four small icon-only buttons in `#amTopActions` — Ask Amit, Sign In/Sync, Demo Mode, Home/Hub — which are the exact same four items that used to live in the right rail, calling the exact same underlying functions (`askAmitLive('amitMobile')`, `openSyncModal()`, `toggleDemoMode()`, `goToHub()`). Nothing about the login/sync/demo/Ask-Amit *logic* changed — only the chrome that triggers it shrank from a full vertical rail with labels to four 28px round icon buttons with `title` tooltips.
+
+**Navigation model:** the Dashboard tile grid (page 1) is now the app's actual menu — there is no separate nav list anymore. Every other page (Daily Walk, Amit, Zoom/Read This, Search, My Computer, Pursuits) is reached by tapping its Dashboard tile, and returned from via the top bar's back arrow. `AM_PAGES` and `openPage(n)` are unchanged in spirit — `openPage()` now also drives the top bar's back-button visibility, logo visibility, and title text.
+
+**What moved, not disappeared:** the greeting/date-time clock (`updateClock()`) used to sit in a wide desktop header next to the brand logo — there's no room for that in the thin top bar, so it now writes into the Dashboard hero (`#amGreeting`/`#amDatetime`, inside `amDashboardHtml()`) instead. The page-hover-tooltip mechanism (`initPageTooltips`) was removed outright — it has no meaning on a touch-only phone shell where nothing is hovered, and it existed only to serve the sidebar/rail this rebuild removed.
+
+**Concrete width math, 375px iPhone viewport (the standard check for this fix):**
+- *Before:* sidebar defaulted to `width:max-content` (expanded, full icon+label rows — commonly 150-200px+ depending on the longest label) plus a right rail at `width:64px` collapsed by default → roughly 214-264px of chrome, leaving only ~111-161px (~30-43%) for `#mainArea`. This matches Ryan's real report of barely seeing the edge of one icon.
+- *After:* zero side chrome. `#mainArea` gets the full 375px width (100%) minus nothing — a flex column shell with only a thin top bar above it, not beside it. The top bar's own height (not width) is the only thing subtracted from vertical space: roughly 42-58px depending on safe-area inset, leaving the rest of the screen height for content. This is a full-width fix, not a percentage improvement — there is no longer any side-chrome width to subtract at all.
+
+**Verified before calling this done:** traced through `openPage()`, `_updateSyncUI()`, `_updateDemoUI()`, and the `buildPlaceholders()` IIFE by hand to confirm every element ID referenced by JS actually exists in the new HTML (old IDs like `sidebarPages`, `rightRail`, `rail-sync-name/-sub`, `rail-demo-name/-sub`, `pageTitle`, `pageContext`, `greeting`, `datetime`, `pageHoverTip` were either removed or their referencing code updated to match — nothing left pointing at a since-deleted element). Collapsed-icon tappability is preserved by construction — the four top-bar action buttons are plain `<button>` elements with their original `onclick` handlers, never disabled or covered.
+
+**Version:** bumped v1.03 → v1.04 (own independent counter, per root CLAUDE.md's per-file versioning standard).
+
+**Do not revert to the sidebar/right-rail shell for this file.** If a future session is tempted to "restore the template's normal layout" here, don't — this divergence from `Templates\template.html` is explicit and intentional for AmitMobile's own phone-native identity, documented here and in the file's own top-of-file comment block. `Templates\template.html` itself was not touched by this work and keeps its normal desktop sidebar/rail shell for every other project built from it.
+
+---
+
 ## Read Every Session
 
 Before working in this folder, read in order:

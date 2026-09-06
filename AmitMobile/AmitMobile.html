@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <!-- ══════════════════════════════════════════════
      COPYING THIS TEMPLATE FOR A NEW PROJECT — read this first.
 
@@ -68,6 +70,22 @@
      autoRefreshToken:true}} (login-persistence bug fix, not new
      infrastructure), and a <link rel="manifest"> tag was added for PWA
      installability.
+
+     SHELL REBUILD, 2026-09-05 — explicitly authorized, THIS FILE ONLY, not
+     a change to Templates\template.html: Ryan tested the template's
+     desktop sidebar+right-rail shell on a real phone and found it left
+     almost no room for content. Rather than shrinking that chrome, this
+     file's outer shell was rebuilt to follow AmitBooks\AmitScan\
+     AmitScan.html's proven phone-app shape instead — a thin fixed top bar
+     (#amTopBar: back/logo, page title, and the four small actions that
+     used to be right-rail items) plus a full-bleed #mainArea, no sidebar,
+     no right rail at all. The underlying functions (askAmitLive,
+     openSyncModal/_updateSyncUI, toggleDemoMode/_updateDemoUI, goToHub,
+     the popup destination, the Supabase login listener) are UNCHANGED —
+     only the chrome that triggers them moved. Page 1 (Dashboard)'s tile
+     grid is now the navigation menu; other pages return to it via the top
+     bar's back arrow (see openPage()). Full width-math writeup in
+     AmitMobile\CLAUDE.md.
      ══════════════════════════════════════════════ -->
 <title>AmitMobile</title>
 <link rel="icon" type="image/x-icon" href="amit_icon.ico">
@@ -91,7 +109,10 @@
   --dim:rgba(240,232,208,0.42);
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+body{
+  background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);
+  position:fixed;inset:0;height:100dvh;
+}
 
 body::before{
   content:'';
@@ -105,84 +126,60 @@ body::before{
   z-index:0;
 }
 
-/* ── HEADER ── */
-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 28px;
-  background:var(--card-head);
-  border-bottom:2px solid var(--border);
-  flex-shrink:0;
-  position:relative;
+/* ══════════════════════════════════════════════
+   PHONE-NATIVE SHELL — rebuilt 2026-09-05, replacing the desktop
+   sidebar+right-rail layout entirely (not just collapsing it). Ryan
+   tested the old layout on a real phone and found the expanded sidebar
+   plus right rail left almost no room for content ("it's a whole
+   website, and it can't even read it") — a media query shrinking that
+   chrome down to icon-only strips was tried first and reverted, because
+   Ryan then found the real reference: AmitBooks\AmitScan\AmitScan.html,
+   a proven one-screen-app shape with NO side chrome at all — just a thin
+   fixed top bar, a full-bleed content stage, and a fixed bottom bar for
+   the one primary action. This shell follows that same shape: #amShell
+   (fixed, 100dvh, safe-area padding — same real values AmitScan uses),
+   a thin .amtop bar (back/logo, page title, and the four small action
+   icons that used to live in the right rail), and .main-area/.detail
+   filling 100% of whatever's left — no sidebar, no right rail, nothing
+   else eating width. See AmitMobile\CLAUDE.md for the full before/after
+   width math. ══════════════════════════════════════════════ */
+#amShell{
+  display:flex;flex-direction:column;height:100dvh;
+  padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
+  position:relative;z-index:1;
 }
-.page-title-wrap{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  text-align:center;pointer-events:none;
+.amtop{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 12px;min-height:42px;
+  background:var(--card-head);border-bottom:2px solid var(--border);
+  flex-shrink:0;position:relative;
 }
-.page-title{
-  font-family:Georgia,serif;font-size:26px;font-weight:700;
-  letter-spacing:.3px;text-transform:none;color:var(--gold2);
+.amtop-back{
+  background:none;border:none;color:var(--gold2);font-size:22px;line-height:1;
+  width:30px;height:30px;flex-shrink:0;cursor:pointer;padding:0;
+  display:none;align-items:center;justify-content:center;
 }
-.page-version{
-  font-family:monospace;font-size:11px;letter-spacing:.05em;
-  color:rgba(201,168,76,.55);margin-top:2px;
+.amtop-logo{width:26px;height:26px;flex-shrink:0;cursor:pointer;border-radius:50%}
+.amtop-title{
+  font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);letter-spacing:.03em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  flex:1;min-width:0;
 }
-.brand{display:flex;align-items:center;gap:14px}
-.brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
-.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
-.hdr-right{text-align:right}
-.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
-.datetime{font-size:12px;color:var(--muted);margin-top:2px}
-.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
-.help-btn:hover{border-color:var(--gold);color:var(--gold)}
+.amtop-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.amtop-btn{
+  width:28px;height:28px;border-radius:50%;border:1px solid transparent;
+  background:rgba(255,255,255,.05);color:var(--text2);font-size:14px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  padding:2px;flex-shrink:0;overflow:hidden;
+}
+/* Same green on/off treatment the right rail used for Sign In/Demo
+   toggles — carried forward so the meaning (connected/on vs. not) reads
+   the same way it always has in this template family. */
+.amtop-btn.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65)}
+.amtop-btn.active span{color:#6fe38f}
 
-/* ── HUB LAYOUT ── */
-.hub{display:flex;flex:1;overflow:hidden}
-
-/* ── SIDEBAR ── */
-.sidebar{
-  width:max-content;flex-shrink:0;
-  background:var(--card-head);
-  border-right:2px solid var(--border);
-  display:flex;flex-direction:column;
-  overflow-y:auto;padding:12px 10px;gap:0;
-}
-.sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
-.sidebar{transition:width .18s ease}
-.sidebar.collapsed{width:64px}
-.sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
-.sidebar.collapsed .page-info{display:none}
-.page-nav{
-  display:flex;align-items:center;gap:10px;
-  padding:6px 4px;border-radius:9px;cursor:pointer;
-  border:1px solid transparent;
-  flex-shrink:0;
-  transition:all .18s;user-select:none;
-  position:relative;overflow:hidden;
-}
-.page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
-.page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
-.page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-/* Round plug-status badge for the Sign In/Out rail icon — green when
-   connected, red when not. Added 2026-08-07, ported from AmitBooks/
-   NEW.html as the new standard for this template's own Sign In/Out
-   treatment (Ryan's direct instruction — same config becomes the base for
-   every future project built from this file). Disconnected state pulses:
-   red fills the circle from a point at the center out to the full edge,
-   then collapses back to nothing, looping — a genuine warning cue, not a
-   color-shift-in-place effect. */
-.page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
-.page-icon.plug-badge.connected{background:#2e7d46}
-.page-icon.plug-badge.disconnected{background:var(--bg)}
-.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:#c73333;animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
-.plug-icon-glyph{position:relative;z-index:1}
-@keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
-@media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
-.page-info{flex:1;min-width:0}
-.page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
-.page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* ── MAIN AREA ── */
+/* ── MAIN AREA — now gets essentially the full screen width, not just
+   whatever the sidebar/rail left over. ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
 .detail{
   position:absolute;inset:0;overflow-y:auto;
@@ -193,17 +190,15 @@ header{
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .detail::-webkit-scrollbar{width:5px}
 .detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
-
-/* ── DETAIL HEADER ── */
-.detail-head{
-  display:flex;align-items:center;gap:16px;
-  padding:14px 24px;
-  background:var(--card-head);
-  border-bottom:2px solid var(--border);
-  flex-shrink:0;
-}
-.detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
 .detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+
+/* Tiny version badge, same spirit as AmitScan's bottom-corner #pageVersion —
+   fixed so it survives regardless of which detail is active. */
+.amversion{
+  position:fixed;left:8px;bottom:calc(6px + env(safe-area-inset-bottom));
+  color:var(--dim);font-size:9px;letter-spacing:.03em;opacity:.6;
+  z-index:4;pointer-events:none;
+}
 
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
    that can host any layout instance copied in from TemplateViews.html —
@@ -214,53 +209,6 @@ header{
 .popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
 .popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
 .popup-close-btn:hover{color:var(--gold2)}
-
-/* ── RIGHT RAIL — global, present on every page, same on every project.
-   Double-click to expand/collapse (mirror of the left sidebar, inverted
-   default: starts collapsed). Ask Amit / Sign In-Sync / Demo Mode all
-   live here permanently — see Templates\CLAUDE.md for the full history
-   of why each piece looks the way it does. ── */
-.right-rail{
-  width:64px;flex-shrink:0;
-  background:var(--card-head);
-  border-left:2px solid var(--border);
-  display:flex;flex-direction:column;
-  overflow-y:auto;padding:12px 10px;gap:0;
-  transition:width .18s ease;
-}
-.right-rail::-webkit-scrollbar{width:3px}
-.right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
-.right-rail.expanded{width:max-content}
-.right-rail .page-nav{padding:4px;flex-direction:row-reverse}
-.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
-.right-rail .page-info{display:none}
-.right-rail.expanded .page-info{display:block}
-/* RIGHT RAIL ON/OFF STATE — added 2026-08-22, Ryan's direct instruction.
-   The gold .page-nav.active look (shared with the left sidebar's "this is
-   the open page" state) was too subtle to tell an ON toggle (Sign In,
-   Demo Mode) apart from an OFF one at a glance. Right-rail items are
-   toggles, not navigation, so they get their own distinct green
-   on-state — overrides the gold .page-nav.active rule for this rail only.
-   PERMANENT — carry this into every project copied from this template. */
-.right-rail .page-nav.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65);box-shadow:0 0 0 1px rgba(46,160,67,.4)}
-.right-rail .page-nav.active .page-icon{background:rgba(46,160,67,.35);border-radius:50%;box-shadow:0 0 0 2px rgba(46,160,67,.55)}
-.right-rail .page-nav.active .page-name{color:#6fe38f}
-
-/* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
-   .sidebar/.right-rail scroll (overflow-y:auto) — per the CSS spec, that
-   silently forces the other axis's overflow to 'auto' too, which would
-   clip a CSS-positioned tooltip trying to extend past the container's
-   edge. A single fixed element sidesteps that entirely. ── */
-.page-hover-tip{
-  position:fixed;z-index:9999;
-  background:#1a3352;border:1px solid rgba(201,168,76,.45);
-  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
-  line-height:1.5;
-  padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
-  opacity:0;pointer-events:none;
-  transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
-}
-.page-hover-tip.show{opacity:1}
 
 /* CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
    added 2026-08-06 so Add Page can instantiate a real Tabbed View directly,
@@ -372,43 +320,28 @@ header{
 </head>
 <body>
 
-<header>
-  <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
-    <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
-    <div>
-      <div class="page-title" id="pageTitle" style="font-size:19px">AmitMobile</div>
-      <div class="page-version" id="pageVersion">v1.03</div>
-    </div>
-  </a>
-  <div class="page-title-wrap">
-    <div class="page-title" id="pageContext">—</div>
-    <div class="page-version" id="pageContextSub">CONTEXT</div>
+<div id="amShell">
+
+  <!-- ── THIN TOP BAR — replaces the old desktop header+sidebar+rail.
+       Left: back-to-Dashboard control (hidden on Dashboard itself, where
+       the logo shows instead). Center: current page title. Right: the
+       four small actions that used to live in the right rail (Ask Amit,
+       Sign In/Sync, Demo Mode, Home/Hub) — built in <script>, same
+       underlying functions as before, just a smaller icon-only home. ── -->
+  <div class="amtop" id="amTopBar">
+    <button class="amtop-back" id="amBackBtn" onclick="openPage(1)" aria-label="Back to Dashboard">←</button>
+    <img class="amtop-logo" id="amTopLogo" src="amit_icon.ico" alt="Amit" onclick="goToHub()" title="Back to the Amit Hub">
+    <div class="amtop-title" id="amTopTitle">Amit Mobile</div>
+    <div class="amtop-actions" id="amTopActions"></div>
   </div>
-  <!-- Sign In/Out + Sync lives in the right rail, below Ask Amit — see
-       _updateSyncUI() and the RIGHT RAIL build code in <script>. -->
-  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
-    <div style="text-align:right">
-      <div class="greeting" id="greeting">Good morning</div>
-      <div class="datetime" id="datetime"></div>
-    </div>
-  </div>
-</header>
 
-<div class="hub">
-
-  <!-- ── SIDEBAR — Dashboard + Daily Walk + Amit + Zoom/Read This + Search, built in <script> ── -->
-  <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()"></nav>
-
-  <!-- ── MAIN CONTENT AREA — built in <script> ── -->
+  <!-- ── MAIN CONTENT AREA — built in <script>. Now gets the full width
+       of the screen; no sidebar/rail chrome sits beside it anymore. ── -->
   <div class="main-area" id="mainArea"></div>
-
-  <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
-  <nav class="right-rail" id="rightRail" ondblclick="toggleRail()"></nav>
 
 </div>
 
-<!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
-<div class="page-hover-tip" id="pageHoverTip"></div>
+<div class="amversion" id="pageVersion">v1.04</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -432,7 +365,11 @@ header{
 <script>
 // ══════════════════════════════════════════════
 // NOMENCLATURE — read this before touching any page/detail/layout code.
-//   PAGE   — one item in the left sidebar (button + fixed number).
+//   PAGE   — one entry in AM_PAGES (id, icon, name). Since the 2026-09-05
+//            phone-native shell rebuild there is no sidebar list of these
+//            anymore — page 1 (Dashboard)'s own tile grid is the menu, and
+//            the thin top bar's back arrow returns to it from any other
+//            page (see openPage()).
 //   DETAIL — the content area a page opens into (id `detail-N`).
 //   LAYOUT — what kind of content lives inside a detail. This starter
 //            ships with none built in — every canonical layout (Tabbed/
@@ -514,24 +451,21 @@ const AM_PAGES=[
 ];
 
 function renderAllPages(){
-  const nav=document.getElementById('sidebarPages');
   const main=document.getElementById('mainArea');
 
-  let navHtml='',detailHtml='';
+  // No sidebar nav markup anymore — the Dashboard tile grid (page 1) IS
+  // the navigation menu now (per the phone-native shell rebuild), and the
+  // thin top bar's back button (see openPage()) returns to it from any
+  // other page. Each detail's own heading bar was dropped too — the top
+  // bar's title already shows which page is open, no need to repeat it.
+  let detailHtml='';
   AM_PAGES.forEach(p=>{
-    navHtml+=`<div class="page-nav${p.id===1?' active':''}" id="page-${p.id}" onclick="openPage(${p.id})" data-tip="${p.name}">
-      <div class="page-icon">${p.icon}</div>
-      <div class="page-info"><div class="page-name">${p.name}</div><div class="page-sub">${p.sub}</div></div>
-    </div>`;
     detailHtml+=`<div class="detail${p.id===1?' active':''}" id="detail-${p.id}">
-      <div class="detail-head"><span class="detail-heading">${p.name}</span></div>
       <div style="flex:1;overflow-y:auto;display:flex" id="detail-body-${p.id}">${detailBodyFor(p.id)}</div>
     </div>`;
   });
 
-  nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
-  initPageTooltips('sidebarPages','right');
   wireVoicePages();
 }
 
@@ -648,6 +582,8 @@ function amDashboardHtml(){
       <img src="amit_icon.ico" alt="Amit">
       <h1>Amit Mobile</h1>
       <p>Your Amit, in your pocket. Tap a tile to begin.</p>
+      <p id="amGreeting" style="font-family:'Cinzel',serif;font-size:14px;color:#fff;font-weight:600;margin-top:10px"></p>
+      <p id="amDatetime" style="font-size:11px;color:var(--muted);margin-top:2px"></p>
     </div>
     <div id="amitReadinessBanner" style="display:none;margin:0 0 16px;color:rgba(240,232,208,.9)"></div>
     <div id="amInstallBannerHost"></div>
@@ -1050,85 +986,38 @@ async function amUploadPendingPhoto(mode){
 // hook in case a future pass needs to attach anything post-render.
 function wireVoicePages(){}
 
-// PAGE HOVER TOOLTIP — delegated on the given container, works no matter
-// how many items exist or whether that container is collapsed/expanded.
-// side: 'right' opens rightward (left sidebar); 'left' opens leftward
-// (right rail — opening rightward there would render off-screen).
-function initPageTooltips(containerId,side){
-  const tip=document.getElementById('pageHoverTip');
-  const nav=document.getElementById(containerId);
-  if(!tip||!nav)return;
-  nav.addEventListener('mouseover',(e)=>{
-    const item=e.target.closest('.page-nav');
-    if(!item)return;
-    tip.textContent=item.dataset.tip||'';
-    const r=item.getBoundingClientRect();
-    if(side==='left'){
-      tip.style.right=(window.innerWidth-r.left+8)+'px';
-      tip.style.left='auto';
-    } else {
-      tip.style.left=(r.right+8)+'px';
-      tip.style.right='auto';
-    }
-    tip.style.top=(r.top+r.height/2)+'px';
-    tip.style.transform='translateY(-50%)';
-    tip.classList.add('show');
-  });
-  nav.addEventListener('mouseout',(e)=>{
-    const item=e.target.closest('.page-nav');
-    if(!item)return;
-    if(e.relatedTarget&&item.contains(e.relatedTarget))return;
-    tip.classList.remove('show');
-  });
-}
+// PAGE HOVER TOOLTIP mechanism removed with the sidebar/right-rail shell
+// it existed for (2026-09-05 shell rebuild) — a hover tooltip has no
+// meaning on a touch-only phone shell, and the top bar's icons use plain
+// `title` attributes instead (see buildPlaceholders() above).
 
 (async function buildPlaceholders(){
   renderAllPages();
   amRenderInstallBanner();
 
-  // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
-  const rail=document.getElementById('rightRail');
-  if(rail){
-    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('amitMobile')" data-tip="Ask Amit">
-      <div class="page-icon"><img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
-      <div class="page-info">
-        <div class="page-name">Ask Amit</div>
-        <div class="page-sub">Walk alongside</div>
-      </div>
-    </div>
-    <div class="page-nav" id="rail-sync" onclick="openSyncModal()" data-tip="Sign In">
-      <div class="page-icon" id="rail-sync-icon">🔒</div>
-      <div class="page-info">
-        <div class="page-name" id="rail-sync-name">Sign In</div>
-        <div class="page-sub" id="rail-sync-sub">Not Synced</div>
-      </div>
-    </div>
-    <div class="page-nav" id="rail-demo" onclick="toggleDemoMode()" data-tip="Demo On">
-      <div class="page-icon" id="rail-demo-icon">🎬</div>
-      <div class="page-info">
-        <div class="page-name" id="rail-demo-name">Demo On</div>
-        <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
-      </div>
-    </div>
-    <div class="page-nav" id="rail-home" onclick="goToHub()" data-tip="Back to the Hub">
-      <div class="page-icon">🏠</div>
-      <div class="page-info">
-        <div class="page-name">Home</div>
-        <div class="page-sub">Back to the Hub</div>
-      </div>
-    </div>`;
+  // TOP BAR ACTIONS — Ask Amit / Sign In-Sync / Demo Mode / Home, the
+  // same four functions the right rail used to trigger, now four small
+  // icon buttons in the thin top bar instead of a full-width vertical
+  // rail. Underlying logic (askAmitLive, openSyncModal, toggleDemoMode,
+  // goToHub) is completely unchanged — only the chrome around it shrank.
+  const actions=document.getElementById('amTopActions');
+  if(actions){
+    actions.innerHTML=`<button class="amtop-btn" id="rail-ask-amit" onclick="askAmitLive('amitMobile')" title="Ask Amit">
+      <img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain;border-radius:50%">
+    </button>
+    <button class="amtop-btn" id="rail-sync" onclick="openSyncModal()" title="Sign In">
+      <span id="rail-sync-icon">🔒</span>
+    </button>
+    <button class="amtop-btn" id="rail-demo" onclick="toggleDemoMode()" title="Demo On">
+      <span id="rail-demo-icon">🎬</span>
+    </button>
+    <button class="amtop-btn" id="rail-home" onclick="goToHub()" title="Back to the Hub">🏠</button>`;
     _updateDemoUI();
     _updateSyncUI();
   }
 
   _refreshAmitReadinessBanner();
-
-  initPageTooltips('rightRail','left');
 })();
-
-function toggleRail(){
-  document.getElementById('rightRail').classList.toggle('expanded');
-}
 
 // HOME (right rail) — added 2026-08-06, Ryan's direct instruction, same
 // implementation as TemplateViews.html's own goToHub — kept identical
@@ -1146,17 +1035,28 @@ function goToHub(){
   },250);
 }
 
+// Navigation now flows through the Dashboard tile grid (page 1) as the
+// home/menu, with the thin top bar's back arrow returning to it from any
+// other page — see the shell rebuild note on #amShell above. openPage()
+// also drives the top bar itself: back-arrow vs. logo, and the title text.
 function openPage(n){
-  document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
-  const page=document.getElementById('page-'+n);
   const detail=document.getElementById('detail-'+n);
-  if(page)page.classList.add('active');
   if(detail)detail.classList.add('active');
-}
 
-function toggleSidebar(){
-  document.getElementById('sidebarPages').classList.toggle('collapsed');
+  const p=AM_PAGES.find(x=>x.id===n);
+  const backBtn=document.getElementById('amBackBtn');
+  const logo=document.getElementById('amTopLogo');
+  const title=document.getElementById('amTopTitle');
+  if(n===1){
+    if(backBtn)backBtn.style.display='none';
+    if(logo)logo.style.display='block';
+    if(title)title.textContent='Amit Mobile';
+  }else{
+    if(backBtn)backBtn.style.display='flex';
+    if(logo)logo.style.display='none';
+    if(title)title.textContent=p?p.name:'Amit Mobile';
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -1210,23 +1110,20 @@ async function _refreshAmitReadinessBanner(){
   }catch(e){ /* never let a readiness check break the dashboard */ }
 }
 
-// Drives the Sign In/Out + Sync rail item.
+// Drives the Sign In/Out + Sync top-bar icon. Same underlying meaning as
+// the old right-rail item (green/active = signed in and synced), just a
+// single small icon now instead of an icon+label row.
 function _updateSyncUI(){
   const item=document.getElementById('rail-sync');if(!item)return;
   const icon=document.getElementById('rail-sync-icon');
-  const name=document.getElementById('rail-sync-name');
-  const sub=document.getElementById('rail-sync-sub');
-  icon.classList.add('plug-badge');
   if(currentUser){
-    icon.innerHTML='<span class="plug-icon-glyph">🔓</span>';name.textContent='Sign Out';sub.textContent='Synced';
-    item.dataset.tip='Sign Out — Synced';item.title='Signed in · '+currentUser.email;
+    icon.textContent='🔓';
+    item.title='Signed in · '+currentUser.email+' — tap to sign out';
     item.classList.add('active');
-    icon.classList.add('connected');icon.classList.remove('disconnected');
   } else {
-    icon.innerHTML='<span class="plug-icon-glyph">🔒</span>';name.textContent='Sign In';sub.textContent='Not Synced';
-    item.dataset.tip='Sign In — Not Synced';item.title='';
+    icon.textContent='🔒';
+    item.title='Sign In — tap to sync across devices';
     item.classList.remove('active');
-    icon.classList.add('disconnected');icon.classList.remove('connected');
   }
 }
 
@@ -1247,16 +1144,14 @@ function toggleDemoMode(){
 function _updateDemoUI(){
   const icon=document.getElementById('rail-demo-icon');
   const item=document.getElementById('rail-demo');
-  const name=document.getElementById('rail-demo-name');
-  const sub=document.getElementById('rail-demo-sub');
   if(!item)return;
   if(demoMode){
-    icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
-    item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+    icon.style.opacity='1';
+    item.title="Demo On — showing Amit's demo data, tap to use your own";
     item.classList.add('active');
   } else {
-    icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
-    item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+    icon.style.opacity='.4';
+    item.title='Demo Off — showing your own data, tap to see the demo';
     item.classList.remove('active');
   }
 }
@@ -1287,7 +1182,10 @@ async function submitSyncEmail(){
 }
 
 // ══════════════════════════════════════════════
-// CLOCK / GREETING — visual only, no data behind it
+// CLOCK / GREETING — visual only, no data behind it. Used to live in a
+// wide desktop header next to the brand logo; the phone-native shell has
+// no room for that there, so it now writes into the Dashboard hero
+// (#amGreeting/#amDatetime, see amDashboardHtml()) instead of disappearing.
 // ══════════════════════════════════════════════
 const AMIT_NAME_KEY='amit_user_name';
 function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
@@ -1297,8 +1195,8 @@ function updateClock(){
   const h=d.getHours();
   const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
   const name=getUserName();
-  const g=document.getElementById('greeting');if(g)g.textContent=name?sal+', '+name:sal;
-  const dt=document.getElementById('datetime');
+  const g=document.getElementById('amGreeting');if(g)g.textContent=name?sal+', '+name:sal;
+  const dt=document.getElementById('amDatetime');
   if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 }
 updateClock();
