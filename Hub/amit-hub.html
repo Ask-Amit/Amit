@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.15"></script>
 <script src="../amit_readiness_check.js?v=1.00"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1243,7 +1243,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.38</div>
+    <div class="page-version" id="hubVersionBadge">v6.39</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3128,9 +3128,26 @@ async function _renderConnectAmitQr(){
       }
     }
   }catch(e){ /* fall back to the plain Hub URL below — never block the QR on this */ }
-  if(window.QRCode){
-    new QRCode(qrBox,{text:qrData,width:150,height:150,colorDark:'#1a3352',colorLight:'#ffffff'});
-    qrBox.dataset.rendered='1';
+  // Uses the "qrcode-generator" library (same one AmitBooks already uses
+  // for its own real, long Supabase magic-link QR — see abOpenScanConnect
+  // in AmitBooks.html) rather than "qrcodejs", which was tried first and
+  // threw "code length overflow" on a real magic link — those links are
+  // far longer than a plain URL (they carry a token), and qrcodejs's
+  // version ceiling can't fit that much data. typeNumber 0 = auto-select,
+  // scales up as needed instead of a hard cap.
+  if(typeof qrcode!=='undefined'){
+    try{
+      const qr=qrcode(0,'M');
+      qr.addData(qrData);
+      qr.make();
+      const img=document.createElement('img');
+      img.src=qr.createDataURL(6,2);
+      img.width=150; img.height=150;
+      qrBox.appendChild(img);
+      qrBox.dataset.rendered='1';
+    }catch(qrErr){
+      if(status)status.textContent='Could not draw the code: '+(qrErr?.message||String(qrErr));
+    }
   }
   if(status){
     status.textContent=realLogin
