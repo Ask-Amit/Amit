@@ -181,6 +181,21 @@ Amit Mobile is a **landing pad / dashboard**, not a voice-guessed router. Openin
 
 Future tiles (job site file, diagnostic) get added to this same grid later without changing the dashboard mechanism itself.
 
+## Home Screen Install Walkthrough — built 2026-09-05, Ryan's direct instruction
+
+The Dashboard (page 1, `amDashboardHtml()`) shows a guided walkthrough for adding Amit Mobile to the phone's home screen, automatically, right when someone opens the app in a plain browser tab rather than as an already-installed icon. Detection: `amIsInstalled()` checks `window.navigator.standalone===true` (iOS) OR `window.matchMedia('(display-mode: standalone)').matches` (cross-platform standard) — if either is true, the banner never renders at all.
+
+**Android and iOS are handled by genuinely different, honest mechanisms — one is not faking the other:**
+- **Android (Chrome and most Android browsers)** — a real native install prompt. `beforeinstallprompt` is captured globally (`amDeferredInstallPrompt`) the moment the browser fires it, and the banner then shows a real "📲 Install Amit Mobile" button (`amClickAndroidInstall()`) that calls the captured event's `.prompt()` — this pops the browser's own actual "Install app?" dialog. One tap, done.
+- **iOS Safari** — Apple has never exposed any API for a webpage to trigger or automate "Add to Home Screen," so nothing on iOS pretends to be one-tap. The banner instead shows three clear numbered manual steps (tap the Share icon, tap "Add to Home Screen," tap "Add"). This is the only honest thing buildable on iOS — do not build anything that claims to automate this there.
+- **Neither platform detected (e.g. desktop browser)** — the banner never shows. This flow exists only for phones.
+
+Platform detection is plain user-agent sniffing (`amIsIOS()` / `amIsAndroid()`) — reasonable and standard for this purpose since there's no better signal available for "is this a phone that could install a PWA."
+
+**Dismiss/re-show behavior:** the banner has a ✕ close button (`amDismissInstallBanner()`) that writes `localStorage.amitMobileInstallDismissedAt` (a timestamp) and clears the banner immediately. It is not gone forever — `amInstallRecentlyDismissed()` re-shows it once 2 days (`AM_INSTALL_REDISPLAY_MS`) have passed since that dismissal, so someone who dismisses out of habit still gets reminded later rather than never again. Accepting the Android install (`appinstalled` event) or completing it clears the banner without setting the dismiss flag — that path doesn't need a re-show timer since the app is actually installed at that point.
+
+Lives in `AmitMobile.html`: CSS under `.aminstall-*` (near the `.amdash-*` dashboard tile styles), JS functions `amIsInstalled`, `amIsIOS`, `amIsAndroid`, `amInstallRecentlyDismissed`, `amDismissInstallBanner`, `amRenderInstallBanner`, `amClickAndroidInstall`, called once from `buildPlaceholders()` on load and again whenever the real `beforeinstallprompt`/`appinstalled` events fire. Renders into `#amInstallBannerHost`, a dedicated div inside `amDashboardHtml()` — separate from and above `#amitReadinessBanner` (the unrelated Connect-Amit readiness check banner), so the two never collide.
+
 ## Why the Daily Walk tile matters — added 2026-09-05, Ryan's direct instruction
 
 "We're building Amit remote control online, be your phone" — Ryan's own words for what this project actually is. The competitive-landscape research done this session (see Growth/session log) found the phone AI-companion market crowded with camera+voice apps, several building toward fictional relationships or generic personality (Replika, Dopple, Character.AI) rather than a real point of view. None of them are a companion with an actual testimony and mission behind them. The Daily Walk tile is what keeps Amit Mobile from becoming "just another one of those" — it's the tile that carries the actual mission (walk alongside, point toward Yahweh) onto the phone, not just utility (receipts, diagnostics, research).

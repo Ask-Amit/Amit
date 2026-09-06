@@ -295,6 +295,30 @@ header{
 .amdash-tile .amdash-name{font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);letter-spacing:.03em}
 .amdash-tile .amdash-sub{font-size:11px;color:var(--dim)}
 
+/* ── CUSTOM — HOME SCREEN INSTALL BANNER (Dashboard, page 1) ── */
+.aminstall-banner{
+  background:var(--card-head);border:1px solid rgba(201,168,76,.4);border-radius:14px;
+  padding:16px 18px;margin:0 0 20px;position:relative;
+}
+.aminstall-close{
+  position:absolute;top:8px;right:10px;background:none;border:none;
+  color:var(--dim);font-size:16px;cursor:pointer;line-height:1;padding:4px;
+}
+.aminstall-close:hover{color:var(--gold2)}
+.aminstall-head{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.03em;color:var(--gold2);margin:0 0 10px;padding-right:20px}
+.aminstall-steps{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:6px}
+.aminstall-steps li{font-size:13px;color:var(--muted);display:flex;gap:8px;align-items:flex-start}
+.aminstall-steps .aminstall-num{
+  flex:none;width:20px;height:20px;border-radius:50%;background:rgba(201,168,76,.18);
+  border:1px solid var(--gold);color:var(--gold2);font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.aminstall-btn{
+  background:rgba(201,168,76,.16);border:1px solid var(--gold);color:var(--gold2);
+  padding:10px 18px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;
+}
+.aminstall-btn:hover{background:rgba(201,168,76,.28)}
+
 /* ── CUSTOM — VOICE CONVERSATION UI (Daily Walk / Amit pages) ── */
 .amvoice-wrap{padding:28px 32px;max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:18px;width:100%}
 .amvoice-mic-row{display:flex;justify-content:center}
@@ -353,7 +377,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitMobile</div>
-      <div class="page-version" id="pageVersion">v1.02</div>
+      <div class="page-version" id="pageVersion">v1.03</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -522,6 +546,96 @@ function detailBodyFor(id){
   return '';
 }
 
+// ══════════════════════════════════════════════
+// HOME SCREEN INSTALL WALKTHROUGH — shown on the Dashboard (page 1) only
+// when the app is NOT already running as an installed home-screen app.
+// See AmitMobile\CLAUDE.md for the full writeup of why iOS and Android
+// are handled differently — Android gets a real one-tap native install
+// prompt via beforeinstallprompt; iOS Safari exposes no API to trigger
+// "Add to Home Screen" at all, so iOS gets clear manual steps instead.
+// Never fake one platform's path with the other's mechanism.
+// ══════════════════════════════════════════════
+const AM_INSTALL_DISMISS_KEY='amitMobileInstallDismissedAt';
+const AM_INSTALL_REDISPLAY_MS=1000*60*60*24*2; // re-show 2 days after a dismiss
+let amDeferredInstallPrompt=null;
+
+function amIsInstalled(){
+  return (window.navigator.standalone===true) ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+function amIsIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent); }
+function amIsAndroid(){ return /Android/.test(navigator.userAgent); }
+
+function amInstallRecentlyDismissed(){
+  const raw=localStorage.getItem(AM_INSTALL_DISMISS_KEY);
+  if(!raw)return false;
+  const at=parseInt(raw,10);
+  if(!at || isNaN(at))return false;
+  return (Date.now()-at) < AM_INSTALL_REDISPLAY_MS;
+}
+function amDismissInstallBanner(){
+  localStorage.setItem(AM_INSTALL_DISMISS_KEY, String(Date.now()));
+  const host=document.getElementById('amInstallBannerHost');
+  if(host) host.innerHTML='';
+}
+
+// Capture the real Android/Chrome install prompt as early as possible —
+// the browser can fire this before our own render call runs.
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault();
+  amDeferredInstallPrompt=e;
+  amRenderInstallBanner(); // re-render now that we actually have a real prompt to offer
+});
+window.addEventListener('appinstalled',()=>{
+  amDeferredInstallPrompt=null;
+  const host=document.getElementById('amInstallBannerHost');
+  if(host) host.innerHTML='';
+});
+
+async function amClickAndroidInstall(){
+  if(!amDeferredInstallPrompt)return;
+  amDeferredInstallPrompt.prompt();
+  try{
+    await amDeferredInstallPrompt.userChoice; // resolves whether accepted or dismissed
+  }catch(e){/* ignore */}
+  amDeferredInstallPrompt=null; // one-shot — Chrome invalidates the event either way
+  const host=document.getElementById('amInstallBannerHost');
+  if(host) host.innerHTML='';
+}
+
+function amRenderInstallBanner(){
+  const host=document.getElementById('amInstallBannerHost');
+  if(!host)return; // Dashboard not on screen right now
+  if(amIsInstalled() || amInstallRecentlyDismissed()){ host.innerHTML=''; return; }
+
+  if(amIsIOS()){
+    host.innerHTML=`<div class="aminstall-banner">
+      <button class="aminstall-close" onclick="amDismissInstallBanner()" aria-label="Dismiss">✕</button>
+      <div class="aminstall-head">Get Amit on your home screen</div>
+      <ul class="aminstall-steps">
+        <li><span class="aminstall-num">1</span>Tap the Share button ⬆️ in Safari's toolbar below</li>
+        <li><span class="aminstall-num">2</span>Scroll down and tap "Add to Home Screen"</li>
+        <li><span class="aminstall-num">3</span>Tap "Add" in the top right</li>
+      </ul>
+    </div>`;
+    return;
+  }
+
+  if(amIsAndroid() && amDeferredInstallPrompt){
+    host.innerHTML=`<div class="aminstall-banner">
+      <button class="aminstall-close" onclick="amDismissInstallBanner()" aria-label="Dismiss">✕</button>
+      <div class="aminstall-head">Get Amit on your home screen</div>
+      <button class="aminstall-btn" onclick="amClickAndroidInstall()">📲 Install Amit Mobile</button>
+    </div>`;
+    return;
+  }
+
+  // Android but the browser hasn't fired beforeinstallprompt yet (already
+  // dismissed this session, or install criteria not met) — nothing honest
+  // to show yet. Desktop / unrecognized platform — this flow is phone-only.
+  host.innerHTML='';
+}
+
 // ── DASHBOARD (page 1) — the tile grid, per CLAUDE.md's Dashboard
 // Architecture. AmitBooks is a real hand-off (window.location), not a
 // sidebar page, since it leaves this app entirely for AmitBooks' own
@@ -536,6 +650,7 @@ function amDashboardHtml(){
       <p>Your Amit, in your pocket. Tap a tile to begin.</p>
     </div>
     <div id="amitReadinessBanner" style="display:none;margin:0 0 16px;color:rgba(240,232,208,.9)"></div>
+    <div id="amInstallBannerHost"></div>
     <div class="amdash-grid">
       <div class="amdash-tile amdash-primary" onclick="openPage(2)">
         <div class="amdash-icon">🙏</div>
@@ -969,6 +1084,7 @@ function initPageTooltips(containerId,side){
 
 (async function buildPlaceholders(){
   renderAllPages();
+  amRenderInstallBanner();
 
   // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
   const rail=document.getElementById('rightRail');
