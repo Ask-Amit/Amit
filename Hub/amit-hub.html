@@ -688,6 +688,11 @@ body.bulk-mode .bulk-bar{display:flex}
 .input-row{display:flex;gap:6px;align-items:stretch}
 .input-row .fg-input,.input-row .fg-sel,.input-row .fg-ta{flex:1;min-width:0}
 .fg-input,.fg-sel,.fg-ta{width:100%;background:rgba(0,0,0,.3);border:1.5px solid rgba(201,168,76,.25);border-radius:7px;padding:8px 11px;color:#fff;font-family:'Crimson Pro',serif;font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s}
+/* Native <option> popups are browser-rendered (usually a light background)
+   regardless of the closed select's own dark styling — without this, text
+   inherits the white .fg-input color and becomes invisible against that
+   light background for every row except the one the OS highlights. */
+select.fg-input option,select.fg-sel option{color:#1a1510;background:#fff}
 .fg-input:focus,.fg-sel:focus,.fg-ta:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,168,76,.22),inset 0 0 0 1px rgba(201,168,76,.12);background:rgba(201,168,76,.06)}
 .fg-sel option{background:#0f2338}
 .fg-ta{resize:vertical;min-height:60px}
@@ -1679,9 +1684,21 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <label class="fg-label">Email</label>
             <input class="fg-input" id="amvEmailInput" placeholder="you@email.com">
           </div>
-          <div class="fg" style="margin-bottom:16px">
+          <div class="fg" style="margin-bottom:12px">
             <label class="fg-label">Phone</label>
             <input class="fg-input" id="amvPhoneInput" placeholder="(optional)">
+          </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">Address</label>
+            <input class="fg-input" id="amvAddressInput" placeholder="(optional)">
+          </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">ZIP / Location</label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div id="amvZipDisplay" style="color:rgba(240,232,208,.75);font-size:14px">—</div>
+              <div onclick="amvUpdateZip()" style="color:rgba(120,190,230,.85);font-size:12px;cursor:pointer;text-decoration:underline">Update →</div>
+            </div>
+            <div style="color:rgba(240,232,208,.35);font-size:11px;margin-top:4px">Same ZIP that drives your morning weather — changed in one place, used everywhere.</div>
           </div>
           <button class="btn" onclick="amvSaveMyInfo()" style="margin-bottom:8px">SAVE MY INFO</button>
           <div id="amvInfoSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px;margin-bottom:24px">Saved.</div>
@@ -2746,6 +2763,17 @@ if(db){
       _writeDisplayName();
       loadUserVocab(currentUser.id);
       _pullLocationIfMissing().then(()=>{if(curPanel==='home')renderDayView();});
+      // Owner-contact creation happens right at sign-in, not lazily when
+      // About Me is first opened — per Ryan's direct instruction 2026-09-06:
+      // the moment someone actually logs in (never for a guest — this whole
+      // block only runs when currentUser is set), they should already have
+      // a real contact row waiting for them, flagged owner, so About Me is
+      // just where they go to fill in the rest, not where the row gets
+      // created. _pullCompass() above already restores their display name
+      // from Supabase if this is a returning device, so it's available here.
+      (async()=>{
+        _amvOwnerContact=await getOrCreateOwnerContact(db,currentUser.id,getUserName(),currentUser.email);
+      })();
       if(!wasSignedIn){
         _migrateGuestDataThenPull();
         _syncCompass(getCompass());
@@ -3460,10 +3488,24 @@ async function amvInitAboutMePanel(){
   document.getElementById('amvSignedInContent').style.display=signedIn?'block':'none';
   if(!signedIn) return;
 
-  _amvOwnerContact=await getOrCreateOwnerContact(db,currentUser.id,currentUser.email,currentUser.email);
-  document.getElementById('amvNameInput').value=(_amvOwnerContact&&_amvOwnerContact.name)||'';
+  // Real display name if we have one (set via the Hub's own name-onboarding
+  // flow), never the login email — a bug in the first build of this panel
+  // defaulted brand-new owner-contact rows to the email address, caught by
+  // Ryan live 2026-09-06. Existing rows created before this fix aren't
+  // touched automatically — the person just retypes their real name once.
+  const fallbackDisplayName=(typeof getUserName==='function'&&getUserName())||'';
+  _amvOwnerContact=await getOrCreateOwnerContact(db,currentUser.id,fallbackDisplayName,currentUser.email);
+  // The login name (users.display_name, via getUserName()) is the one
+  // canonical name — per Ryan's direct instruction 2026-09-06, the owner
+  // contact's name should follow it automatically, not drift as a second,
+  // separately-editable copy. If a login name is already known, it wins
+  // over whatever's on the contact row; only falls back to the contact's
+  // own name if no login name has ever been set yet.
+  document.getElementById('amvNameInput').value=fallbackDisplayName||(_amvOwnerContact&&_amvOwnerContact.name)||'';
   document.getElementById('amvEmailInput').value=(_amvOwnerContact&&_amvOwnerContact.email)||currentUser.email||'';
   document.getElementById('amvPhoneInput').value=(_amvOwnerContact&&_amvOwnerContact.phone)||'';
+  document.getElementById('amvAddressInput').value=(_amvOwnerContact&&_amvOwnerContact.address)||'';
+  amvRenderZipDisplay();
 
   if('speechSynthesis' in window){
     await amvPopulateVoices();
@@ -3508,15 +3550,46 @@ async function amvSelectThisVoice(){
   note.style.color=saved?'rgba(180,220,190,.9)':'rgba(255,180,150,.9)';
 }
 
+// The ZIP itself lives on the `users` table (AMIT_ZIP_KEY/AMIT_LOC_KEY
+// locally, synced via _syncLocation) — the exact same value that drives
+// the morning weather widget. Deliberately NOT duplicated onto the owner
+// contact row, per Ryan's direct instruction: one ZIP, not two that can
+// drift apart. This just displays it and reuses the existing update flow.
+function amvRenderZipDisplay(){
+  const loc=(typeof getLoc==='function')?getLoc():null;
+  const el=document.getElementById('amvZipDisplay');
+  if(!el) return;
+  el.textContent=loc?(loc.zip+' — '+loc.city+', '+loc.state):'Not set yet';
+}
+function amvUpdateZip(){
+  const cur=(typeof getZip==='function')?getZip():'';
+  const z=prompt('ZIP code for your morning weather:',cur||'');
+  if(z&&/^\d{5}$/.test(z.trim())){
+    geocodeAndSaveZip(z.trim()).then(ok=>{
+      if(ok){ if(typeof renderWeatherWidget==='function') renderWeatherWidget(); amvRenderZipDisplay(); }
+    });
+  }
+}
+
 async function amvSaveMyInfo(){
   if(!_amvOwnerContact) return;
+  const name=document.getElementById('amvNameInput').value.trim();
   const fields={
-    name:document.getElementById('amvNameInput').value.trim(),
+    name,
     email:document.getElementById('amvEmailInput').value.trim(),
-    phone:document.getElementById('amvPhoneInput').value.trim()
+    phone:document.getElementById('amvPhoneInput').value.trim(),
+    address:document.getElementById('amvAddressInput').value.trim()
   };
   const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,fields);
   if(saved) Object.assign(_amvOwnerContact,fields);
+  // Keep the login name (users.display_name) in lockstep with this same
+  // Name field, per Ryan's direct instruction — one name, not two that
+  // can drift apart. Reuses the Hub's own existing name-save mechanism
+  // rather than writing to `users` directly here.
+  if(name && typeof setUserName==='function'){
+    setUserName(name);
+    if(typeof _writeDisplayName==='function') await _writeDisplayName();
+  }
   const note=document.getElementById('amvInfoSavedNote');
   note.style.display='block';
   note.textContent=saved?'Saved.':'Could not save right now — try again in a moment.';
@@ -3898,7 +3971,15 @@ function renderWeatherWidget(){
   const el=document.getElementById('dvWeatherSlot');if(!el)return;
   const loc=getLoc();
   if(!loc){
-    el.innerHTML=`<div class="cal-dv-weather-setup" onclick="openZipSettingsPrompt()">Add your ZIP for morning weather →</div>`;
+    // Signed-in users are pointed to About Me (the one canonical place for
+    // personal defaults, per Ryan's direct instruction 2026-09-06) rather
+    // than a raw prompt() popup here — a guest with no login still gets the
+    // old direct-prompt path, since About Me has nothing to save to for them.
+    if(db&&currentUser){
+      el.innerHTML=`<div class="cal-dv-weather-setup" onclick="openPanel('aboutme')">Please set your ZIP in About Me so I can show your weather and keep you alert to what's happening in your community →</div>`;
+    } else {
+      el.innerHTML=`<div class="cal-dv-weather-setup" onclick="openZipSettingsPrompt()">Add your ZIP for morning weather →</div>`;
+    }
     return;
   }
   el.innerHTML=`<div class="cal-dv-weather">…</div>`;
