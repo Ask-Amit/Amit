@@ -17,8 +17,8 @@ That means your computer needs to be the one running a small helper program — 
 
 Amit doesn't yet have a paid certificate that tells your browser and Windows "this program is verified" (a real cost that gets added once Amit has enough people using it) — until then, expect two separate warnings, both safe to click past:
 
-1. **Right after downloading `install-Amit.exe`**, your browser (Chrome/Edge) may say something like *"install-Amit.exe isn't commonly downloaded"* or flag it as untrusted. Click the small **∨** or **...** next to the downloaded file, then choose **Keep** (it may ask you to confirm "Keep anyway" a second time — choose Keep again).
-2. **When you actually run the installer**, Windows itself may say *"Windows protected your PC."* Click **More info**, then click **Run anyway**.
+1. **Right after downloading `install-Amit.exe`** (Windows 11/Edge): click the **•••** (more actions) next to the download, then **Keep**. A second popup shows **Cancel** / **Delete** — click the small **∨** arrow next to Delete and choose **Keep anyway**.
+2. **When you actually open the installer**, Windows itself may say *"Windows protected your PC."* Click **More info**, then click **Run anyway**.
 
 Neither of these means anything is actually wrong — they show up for any small, newer program that hasn't yet been downloaded by enough people for Windows/your browser to "recognize" it as common. If you're ever unsure, download it only from the real Hub (`https://ask-amit.github.io/Amit/Hub/amit-hub.html`) via the Connect Amit button, never from anywhere else.
 
