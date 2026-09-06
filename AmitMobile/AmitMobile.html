@@ -341,7 +341,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.07</div>
+<div class="amversion" id="pageVersion">v1.08</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -776,6 +776,15 @@ const amRecognizers={};
 const amPendingPhoto={}; // {[mode]: {file, dataUrl, storagePath}}
 
 function amGetSpeechRecognitionCtor(){
+  // Excludes iOS outright, regardless of feature detection — 2026-09-05,
+  // Ryan's direct correction. Some iOS/Safari versions now report
+  // webkitSpeechRecognition as present, but tested live it gets stuck
+  // (a permanent "listening" circle, never captures anything, can't even
+  // be tapped to cancel). The keyboard's own dictation icon already
+  // covers "speak instead of type" reliably on iOS, so there's no reason
+  // to offer a bonus button that can freeze. Still offered on Android/
+  // Chrome, where it actually works.
+  if(/iPad|iPhone|iPod/.test(navigator.userAgent))return null;
   return window.SpeechRecognition||window.webkitSpeechRecognition||null;
 }
 
