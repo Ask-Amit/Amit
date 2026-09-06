@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Amit Voice</title>
+<style>
+  :root{ --bg:#0b0f14; --panel:#121924; --border:#26364a; --text:#e7edf5; --dim:#8fa2b8;
+    --accent:#ff5a36; --good:#3ddc84; --blue:#4da3ff; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .box{width:100%;max-width:560px;}
+  h1{margin:0 0 4px;font-size:22px;}
+  .sub{color:var(--dim);font-size:12.5px;margin-bottom:20px;}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:8px;background:var(--dim);flex:0 0 auto;}
+  .dot.connected{background:var(--good);box-shadow:0 0 8px var(--good);}
+  .dot.speaking{background:var(--accent);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .status-row{display:flex;align-items:center;font-size:13px;color:var(--dim);margin-bottom:16px;}
+
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;}
+  .controls-grid{display:grid;grid-template-columns:1fr 120px;gap:12px;margin-bottom:12px;}
+  label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);display:block;margin-bottom:5px;}
+  select, input[type=range]{width:100%;}
+  select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 10px;font-size:13px;}
+  .rate-row{display:flex;align-items:center;gap:8px;}
+  .rate-row span{font-size:12px;color:var(--dim);width:38px;text-align:right;font-variant-numeric:tabular-nums;}
+  input[type=range]{accent-color:var(--blue);}
+
+  .transport{display:flex;gap:8px;margin-top:4px;}
+  button{flex:1;background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:10px 8px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;}
+  button:hover{border-color:var(--blue);}
+  button:disabled{opacity:.35;cursor:default;}
+  button.stop-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+  #textDisplay{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;
+    font-size:15px;line-height:1.8;min-height:60px;}
+  #textDisplay .word{padding:1px 2px;border-radius:4px;cursor:pointer;}
+  #textDisplay .word:hover{background:rgba(255,255,255,.08);}
+  #textDisplay .word.current{background:rgba(77,163,255,.28);color:#fff;}
+  .placeholder{color:var(--dim);}
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>🔊 Amit Voice</h1>
+    <div class="sub">Leave this tab open. Speaks automatically when Claude Code sends it something.</div>
+    <div class="status-row"><span class="dot" id="dot"></span><span id="statusText">Connecting...</span></div>
+
+    <div class="panel">
+      <div class="controls-grid" style="grid-template-columns:1fr;">
+        <div>
+          <label for="accentSelect">Accent / Region</label>
+          <select id="accentSelect"></select>
+        </div>
+      </div>
+      <div class="controls-grid">
+        <div>
+          <label for="voiceSelect">Voice</label>
+          <select id="voiceSelect"></select>
+        </div>
+        <div>
+          <label for="rateRange">Speed</label>
+          <div class="rate-row">
+            <input type="range" id="rateRange" min="0.5" max="2" step="0.05" value="1">
+            <span id="rateValue">1.00x</span>
+          </div>
+        </div>
+      </div>
+      <div class="transport">
+        <button id="replayBtn" onclick="replayFromStart()" disabled>↻ Replay</button>
+        <button id="pauseBtn" onclick="togglePause()" disabled>⏸ Pause</button>
+        <button id="stopBtn" class="stop-btn" onclick="stopSpeaking()" disabled>⏹ Stop</button>
+      </div>
+      <div class="transport" style="margin-top:8px;">
+        <button id="testBtn" onclick="speakTestMessage()" style="border-color:var(--blue);color:var(--blue);">🔊 Send Test Message</button>
+      </div>
+      <div class="sub" style="margin:8px 0 0;">Click any word below to jump playback there.</div>
+    </div>
+
+    <div class="panel">
+      <label for="talkInput">Talk to Amit Voice</label>
+      <textarea id="talkInput" placeholder="Type here, or use one of the mic options below..." style="width:100%;min-height:70px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-size:14px;font-family:inherit;resize:vertical;box-sizing:border-box;margin-bottom:8px;"></textarea>
+      <div class="transport">
+        <button id="talkMicBtn" onclick="toggleTalkMic()">🎤 Browser Speech</button>
+        <button onclick="sendTalkInput()" style="border-color:var(--good);color:var(--good);">▶ Speak It Back</button>
+        <button id="pasteBtn" onclick="pasteToVSCode()" style="border-color:var(--accent2, #ffb347);color:#ffb347;">📋 Paste to VS Code</button>
+        <button id="sendClaudeBtn" onclick="sendToClaudeCode()" style="border-color:#c98cff;color:#c98cff;">📨 Send to Claude Code</button>
+      </div>
+      <div class="transport" style="margin-top:8px;">
+        <button id="coldStartBtn" onclick="sendColdStart()" style="border-color:#ff8a5a;color:#ff8a5a;">🐢 Send via Cold-Start Bridge (speed test)</button>
+      </div>
+      <div id="coldStartResult" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:13px;color:var(--dim);"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);">Cold Start Time</div>
+          <div id="coldStartTime" style="font-size:18px;font-weight:700;color:#ff8a5a;margin-top:2px;">—</div>
+        </div>
+        <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;text-align:center;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);">Claude Code Time</div>
+          <div id="claudeCodeTime" style="font-size:18px;font-weight:700;color:#c98cff;margin-top:2px;">—</div>
+        </div>
+      </div>
+      <div class="sub" style="margin:8px 0 0;">Or click in the box above and press <b>Win+H</b> for Windows' own built-in dictation — a second, separate way to test which one transcribes you more accurately. (Claude Code's own microphone can't be reused here — it only works inside its own chat box.)</div>
+    </div>
+
+    <div id="textDisplay"><span class="placeholder">Waiting for the first message...</span></div>
+  </div>
+
+<script>
+  const VOICE_PREF_KEY = 'amitVoice_selectedVoiceName';
+  const ACCENT_PREF_KEY = 'amitVoice_selectedAccent';
+  const RATE_PREF_KEY = 'amitVoice_rate';
+
+  // Friendly labels for the accent/region dropdown. Anything not listed
+  // here still shows up, just using its raw language code as the label —
+  // nothing is ever hidden or dropped just because it's not in this list.
+  const ACCENT_LABELS = {
+    'en-US':'English (United States)', 'en-GB':'English (United Kingdom)',
+    'en-AU':'English (Australia)', 'en-CA':'English (Canada)',
+    'en-IE':'English (Ireland)', 'en-IN':'English (India)',
+    'en-ZA':'English (South Africa)', 'en-NZ':'English (New Zealand)',
+    'es-ES':'Spanish (Spain)', 'es-US':'Spanish (United States)',
+    'es-MX':'Spanish (Mexico)', 'fr-FR':'French (France)',
+    'fr-CA':'French (Canada)', 'de-DE':'German (Germany)',
+    'it-IT':'Italian (Italy)', 'pt-BR':'Portuguese (Brazil)',
+    'pt-PT':'Portuguese (Portugal)', 'ja-JP':'Japanese (Japan)',
+    'zh-CN':'Chinese (Mainland)', 'ko-KR':'Korean (Korea)'
+  };
+  function accentLabel(lang){ return ACCENT_LABELS[lang] || lang; }
+
+  let _voices = [];              // the FULL list, always — never filtered in place
+  let _selectedVoice = null;
+  let _hasUserPickedManually = false; // once true, a later voice-list refresh won't reset their choice
+  let _rate = 1.0;
+  let _currentUtterance = null;
+  let _isPaused = false;
+  let _lastFullText = ''; // the full message, always kept for Replay / click-to-seek
+  let _speakOffset = 0;   // character offset into _lastFullText where the CURRENT utterance begins
+
+  const dot = document.getElementById('dot');
+  const statusText = document.getElementById('statusText');
+  const textDisplay = document.getElementById('textDisplay');
+  const accentSelect = document.getElementById('accentSelect');
+  const voiceSelect = document.getElementById('voiceSelect');
+  const rateRange = document.getElementById('rateRange');
+  const rateValue = document.getElementById('rateValue');
+  const replayBtn = document.getElementById('replayBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn = document.getElementById('stopBtn');
+
+  function pickDefaultVoice(voices){
+    const priorityNames = [
+      'Microsoft Brian Online','Microsoft Brian',
+      'Microsoft Andrew Multilingual','Microsoft Andrew Online','Microsoft Andrew',
+      'Google US English','Microsoft Aria','Microsoft Jenny','Microsoft Guy',
+      'Samantha','Microsoft Zira','Google UK English Female'
+    ];
+    for (const name of priorityNames){
+      const hit = voices.find(v => v.name.includes(name));
+      if (hit) return hit;
+    }
+    const enUS = voices.find(v => /^en-US/i.test(v.lang));
+    if (enUS) return enUS;
+    return voices.find(v => /^en/i.test(v.lang)) || voices[0] || null;
+  }
+
+  // Rebuilds the voice dropdown scoped to ONE accent/language, using each
+  // voice's real index into the full _voices array as the option value —
+  // so selection always resolves to the right voice no matter how the
+  // list is filtered for display.
+  const ALL_ACCENTS_VALUE = '__ALL__';
+  const OTHER_ACCENTS_VALUE = '__OTHER__';
+  const SMALL_GROUP_THRESHOLD = 5; // any language with fewer voices than this gets folded into "Other"
+
+  // Recomputed every populateAccentDropdown() call — the set of language
+  // codes that are too small on their own and belong in the combined
+  // "Other" bucket instead of cluttering the list with their own entry.
+  let _smallLangs = new Set();
+
+  function populateVoiceOptionsForAccent(lang){
+    voiceSelect.innerHTML = '';
+    _voices.forEach((v, i) => {
+      if (lang === OTHER_ACCENTS_VALUE){
+        if (!_smallLangs.has(v.lang)) return;
+      } else if (lang !== ALL_ACCENTS_VALUE && v.lang !== lang){
+        return;
+      }
+      const opt = document.createElement('option');
+      opt.value = i;
+      const showCode = (lang === ALL_ACCENTS_VALUE || lang === OTHER_ACCENTS_VALUE);
+      opt.textContent = showCode ? (v.name + ' (' + v.lang + ')') : v.name;
+      voiceSelect.appendChild(opt);
+    });
+  }
+
+  function populateAccentDropdown(selectedLang){
+    const countByLang = {};
+    _voices.forEach(v => { countByLang[v.lang] = (countByLang[v.lang] || 0) + 1; });
+
+    _smallLangs = new Set(Object.keys(countByLang).filter(l => countByLang[l] < SMALL_GROUP_THRESHOLD));
+    const bigLangs = Object.keys(countByLang)
+      .filter(l => !_smallLangs.has(l))
+      .sort((a, b) => accentLabel(a).localeCompare(accentLabel(b)));
+
+    accentSelect.innerHTML = '';
+
+    const allOpt = document.createElement('option');
+    allOpt.value = ALL_ACCENTS_VALUE;
+    allOpt.textContent = 'All Accents — ' + _voices.length + ' voice(s)';
+    accentSelect.appendChild(allOpt);
+
+    bigLangs.forEach(lang => {
+      const opt = document.createElement('option');
+      opt.value = lang;
+      opt.textContent = accentLabel(lang) + ' — ' + countByLang[lang] + ' voice(s)';
+      accentSelect.appendChild(opt);
+    });
+
+    if (_smallLangs.size){
+      const otherOpt = document.createElement('option');
+      otherOpt.value = OTHER_ACCENTS_VALUE;
+      const otherCount = [..._smallLangs].reduce((sum, l) => sum + countByLang[l], 0);
+      otherOpt.textContent = 'Other (' + _smallLangs.size + ' languages, fewer than ' + SMALL_GROUP_THRESHOLD + ' voices each) — ' + otherCount + ' voice(s)';
+      accentSelect.appendChild(otherOpt);
+    }
+
+    if (bigLangs.includes(selectedLang)){
+      accentSelect.value = selectedLang;
+    } else if (selectedLang && _smallLangs.has(selectedLang)){
+      accentSelect.value = OTHER_ACCENTS_VALUE;
+    }
+  }
+
+  // Full rebuild — called on load and every time the browser's voice list
+  // changes. Always rebuilt from the browser's CURRENT full report, so it
+  // self-heals if the list was incomplete on an earlier call (a known
+  // browser quirk: getVoices() can report a partial list briefly before
+  // onvoiceschanged fires with the complete one). Never resets a voice
+  // the person already manually chose, as long as it's still present.
+  function populateVoices(){
+    _voices = window.speechSynthesis.getVoices();
+    if (!_voices.length) return;
+
+    let targetVoice = _selectedVoice;
+    if (!_hasUserPickedManually || !_voices.includes(targetVoice)){
+      let savedName = null, savedAccent = null;
+      try {
+        savedName = localStorage.getItem(VOICE_PREF_KEY);
+        savedAccent = localStorage.getItem(ACCENT_PREF_KEY);
+      } catch(e){}
+      targetVoice = (savedName && _voices.find(v => v.name === savedName)) || pickDefaultVoice(_voices);
+    }
+    _selectedVoice = targetVoice;
+
+    populateAccentDropdown(_selectedVoice ? _selectedVoice.lang : null);
+    populateVoiceOptionsForAccent(accentSelect.value);
+    const idx = _voices.indexOf(_selectedVoice);
+    if (idx >= 0) voiceSelect.value = idx;
+  }
+
+  accentSelect.addEventListener('change', () => {
+    populateVoiceOptionsForAccent(accentSelect.value);
+    // Land on the first voice in the newly chosen accent group.
+    _selectedVoice = _voices[Number(voiceSelect.value)];
+    _hasUserPickedManually = true;
+    try {
+      localStorage.setItem(ACCENT_PREF_KEY, accentSelect.value);
+      localStorage.setItem(VOICE_PREF_KEY, _selectedVoice.name);
+    } catch(e){}
+  });
+
+  voiceSelect.addEventListener('change', () => {
+    _selectedVoice = _voices[Number(voiceSelect.value)];
+    _hasUserPickedManually = true;
+    try { localStorage.setItem(VOICE_PREF_KEY, _selectedVoice.name); } catch(e){}
+  });
+
+  rateRange.addEventListener('input', () => {
+    _rate = Number(rateRange.value);
+    rateValue.textContent = _rate.toFixed(2) + 'x';
+    try { localStorage.setItem(RATE_PREF_KEY, String(_rate)); } catch(e){}
+  });
+
+  // Restore a saved rate on load, if any.
+  try {
+    const savedRate = localStorage.getItem(RATE_PREF_KEY);
+    if (savedRate){ _rate = Number(savedRate); rateRange.value = _rate; rateValue.textContent = _rate.toFixed(2) + 'x'; }
+  } catch(e){}
+
+  if ('speechSynthesis' in window){
+    populateVoices();
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+  }
+
+  // Splits text into individually-wrapped, clickable word spans with
+  // recorded character ranges, so the onboundary event (which reports a
+  // raw charIndex) can look up exactly which span to highlight, and a
+  // click can look up exactly which offset to seek playback to. This
+  // always renders the FULL message — click-to-seek and Replay just
+  // change where speaking STARTS, the visible transcript never shrinks.
+  function renderWords(text){
+    textDisplay.innerHTML = '';
+    const regex = /\S+/g;
+    let match;
+    let lastEnd = 0;
+    const frag = document.createDocumentFragment();
+    while ((match = regex.exec(text)) !== null){
+      if (match.index > lastEnd){
+        frag.appendChild(document.createTextNode(text.slice(lastEnd, match.index)));
+      }
+      const span = document.createElement('span');
+      span.className = 'word';
+      span.dataset.start = match.index;
+      span.dataset.end = match.index + match[0].length;
+      span.textContent = match[0];
+      span.addEventListener('click', () => startSpeakingFrom(Number(span.dataset.start)));
+      frag.appendChild(span);
+      lastEnd = match.index + match[0].length;
+    }
+    if (lastEnd < text.length) frag.appendChild(document.createTextNode(text.slice(lastEnd)));
+    textDisplay.appendChild(frag);
+  }
+
+  function highlightWordAt(absoluteCharIndex){
+    textDisplay.querySelectorAll('.word.current').forEach(el => el.classList.remove('current'));
+    const spans = textDisplay.querySelectorAll('.word');
+    for (const span of spans){
+      const start = Number(span.dataset.start), end = Number(span.dataset.end);
+      if (absoluteCharIndex >= start && absoluteCharIndex < end){ span.classList.add('current'); break; }
+    }
+  }
+
+  function setTransportEnabled(enabled){
+    // Replay only needs SOME message to have arrived, not "currently
+    // speaking" — you can replay something that already finished.
+    replayBtn.disabled = !_lastFullText;
+    pauseBtn.disabled = !enabled;
+    stopBtn.disabled = !enabled;
+  }
+
+  function togglePause(){
+    if (!_currentUtterance) return;
+    if (_isPaused){
+      window.speechSynthesis.resume();
+      _isPaused = false;
+      pauseBtn.textContent = '⏸ Pause';
+    } else {
+      window.speechSynthesis.pause();
+      _isPaused = true;
+      pauseBtn.textContent = '▶ Resume';
+    }
+  }
+
+  function stopSpeaking(){
+    window.speechSynthesis.cancel();
+    _currentUtterance = null;
+    _isPaused = false;
+    pauseBtn.textContent = '⏸ Pause';
+    setTransportEnabled(false);
+    replayBtn.disabled = !_lastFullText;
+    dot.classList.remove('speaking');
+    statusText.textContent = 'Stopped — waiting...';
+  }
+
+  function replayFromStart(){
+    if (_lastFullText) startSpeakingFrom(0);
+  }
+
+  // The actual engine underneath both a new incoming message AND a
+  // click-to-seek / Replay: speaks _lastFullText starting at `offset`,
+  // while highlightWordAt always receives an ABSOLUTE index (offset +
+  // however far the current utterance has read), so the highlight lines
+  // up correctly against the full, always-visible transcript no matter
+  // where playback actually started from.
+  function startSpeakingFrom(offset){
+    if (!_lastFullText || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    _speakOffset = offset;
+    const utter = new SpeechSynthesisUtterance(_lastFullText.slice(offset));
+    if (_selectedVoice) utter.voice = _selectedVoice;
+    utter.rate = _rate;
+    _currentUtterance = utter;
+    _isPaused = false;
+    pauseBtn.textContent = '⏸ Pause';
+
+    utter.onstart = () => {
+      dot.classList.add('speaking');
+      statusText.textContent = 'Speaking...';
+      setTransportEnabled(true);
+    };
+    utter.onboundary = (e) => {
+      // Not every browser/voice fires word-level boundaries reliably —
+      // when they do, this drives the live highlight. e.charIndex is
+      // relative to the SLICED text, so add back _speakOffset to get the
+      // real position in the full, always-visible transcript.
+      if (e.name === 'word' || e.charIndex !== undefined) highlightWordAt(_speakOffset + e.charIndex);
+    };
+    utter.onend = utter.onerror = () => {
+      dot.classList.remove('speaking');
+      statusText.textContent = 'Connected — waiting...';
+      setTransportEnabled(false);
+      replayBtn.disabled = false;
+      textDisplay.querySelectorAll('.word.current').forEach(el => el.classList.remove('current'));
+      _currentUtterance = null;
+    };
+    window.speechSynthesis.speak(utter);
+  }
+
+  function speak(text){
+    _lastFullText = text;
+    renderWords(text);
+    startSpeakingFrom(0);
+  }
+
+  // A fixed, generic test line so you can try out a newly picked voice,
+  // accent, or speed without ever having to come back and ask Claude Code
+  // to send something first — just press the button.
+  const TEST_MESSAGE = "This is a test of the Amit Voice page. One two three four five six seven eight nine ten. Try switching the voice or the accent, then press this button again to compare.";
+  function speakTestMessage(){ speak(TEST_MESSAGE); }
+
+  // TALK TO AMIT VOICE — a simple loop for testing dictation methods:
+  // type or dictate into the box, press Speak It Back, and the page's own
+  // voice engine reads it aloud. Not yet wired to a live Claude Code
+  // reply — this is purely for comparing how well different mic inputs
+  // (browser speech recognition here, or Windows' own Win+H dictation on
+  // the same box) transcribe you, before deciding whether to connect it
+  // to a real back-and-forth bridge like the EMS page's "Write to Amit."
+  let _talkRecognition = null;
+  let _talkListening = false;
+
+  function toggleTalkMic(){
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const micBtn = document.getElementById('talkMicBtn');
+    if (!SpeechRecognition){
+      alert("This browser doesn't support speech recognition — try Chrome or Edge, or use Win+H instead.");
+      return;
+    }
+    if (_talkListening){ _talkRecognition.stop(); return; }
+
+    _talkRecognition = new SpeechRecognition();
+    _talkRecognition.lang = 'en-US';
+    _talkRecognition.interimResults = true;
+    _talkRecognition.onstart = () => { _talkListening = true; micBtn.textContent = '🔴 Listening...'; };
+    _talkRecognition.onresult = (e) => {
+      let transcript = '';
+      for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
+      const box = document.getElementById('talkInput');
+      box.value = transcript;
+      // Setting .value directly does NOT fire a native 'input' event, so
+      // dictated text would silently never reach the live-mirror listener
+      // below unless this is dispatched manually.
+      box.dispatchEvent(new Event('input'));
+    };
+    _talkRecognition.onerror = () => { micBtn.textContent = '🎤 Browser Speech'; };
+    _talkRecognition.onend = () => { _talkListening = false; micBtn.textContent = '🎤 Browser Speech'; };
+    _talkRecognition.start();
+  }
+
+  function sendTalkInput(){
+    const text = document.getElementById('talkInput').value.trim();
+    if (!text) return;
+    speak(text);
+  }
+
+  // Mechanical only — no AI call, no Anthropic involvement in this step
+  // at all. Copies the text to the clipboard, focuses VS Code, pastes it
+  // into whatever's currently focused there, and presses Enter
+  // automatically (Ryan's explicit choice — he wants to see it land and
+  // submit itself, timed, rather than a manual confirm step).
+  // Pushes the live content of the box to the relay on every keystroke
+  // (lightly debounced), so Claude Code can read the current draft via
+  // GET /current-input at any time — no button press needed for this
+  // direction, since it's just an outgoing HTTP call, not an attempt to
+  // inject anything into another application.
+  let _reportInputTimer = null;
+  document.getElementById('talkInput').addEventListener('input', (e) => {
+    clearTimeout(_reportInputTimer);
+    const text = e.target.value;
+    _reportInputTimer = setTimeout(() => {
+      fetch('http://localhost:8796/report-input', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({text})
+      }).catch(() => {});
+    }, 300);
+  });
+
+  // Queues a DELIBERATE message for the Monitor-based delivery experiment
+  // — separate from the live per-keystroke mirror, this only fires when
+  // you actually press this button. A background watcher script polls
+  // for this, and Claude Code has that watcher armed via its Monitor
+  // tool, so this should arrive as a real notification without anyone
+  // needing to say "go ahead."
+  // The speed-comparison button — spawns a fresh, standalone Claude Code
+  // process per question (same mechanism as the EMS Study Guide's "Write
+  // to Amit"), timed client-side start to finish, so it can be compared
+  // directly against the Monitor-based delivery above.
+  async function sendColdStart(){
+    const text = document.getElementById('talkInput').value.trim();
+    if (!text) return;
+    const btn = document.getElementById('coldStartBtn');
+    const resultBox = document.getElementById('coldStartResult');
+    const original = btn.textContent;
+    const startedAt = performance.now();
+    btn.disabled = true;
+    btn.textContent = '🐢 Cold-starting...';
+    resultBox.style.display = 'block';
+    // Shows exactly what's being sent BEFORE the response comes back, so
+    // a wrong/empty capture is visible immediately instead of only being
+    // guessable from a confusing generic answer afterward.
+    resultBox.textContent = 'Sending: "' + text + '" — spawning a fresh Claude Code process...';
+    try {
+      const resp = await fetch('http://localhost:8796/ask-cold-start', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({text})
+      });
+      const data = await resp.json();
+      const roundTripMs = Math.round(performance.now() - startedAt);
+      if (data.error){
+        resultBox.textContent = '⚠️ ' + data.error;
+      } else {
+        resultBox.textContent = '⏱ ' + roundTripMs + 'ms round trip (server reported ' + data.elapsedMs + 'ms) — "' + data.answer + '"';
+        document.getElementById('coldStartTime').textContent = roundTripMs + 'ms';
+        speak(data.answer);
+      }
+    } catch(err){
+      resultBox.textContent = "Couldn't reach the relay server — is amit_voice_relay.js still running?";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+
+  async function sendToClaudeCode(){
+    const text = document.getElementById('talkInput').value.trim();
+    if (!text) return;
+    const btn = document.getElementById('sendClaudeBtn');
+    const original = btn.textContent;
+    btn.disabled = true;
+
+    // Pre-flight check — this CANNOT fix anything (a webpage has no
+    // ability to restart a Windows process), but it can warn immediately
+    // instead of silently sending into a broken chain. The actual fix,
+    // if either piece is down, is amit_voice_supervisor.js running
+    // separately and restarting them on its own — this is detection
+    // only, not the repair.
+    btn.textContent = '🩺 Checking...';
+    try {
+      const healthResp = await fetch('http://localhost:8796/health', { signal: AbortSignal.timeout(2000) });
+      const health = await healthResp.json();
+      if (health.watcherAlive === false){
+        const proceed = confirm(
+          "The watcher process doesn't look alive (no check-in in a while). " +
+          "If amit_voice_supervisor.js is running, it should restart it shortly on its own. " +
+          "Send anyway?"
+        );
+        if (!proceed){ btn.disabled = false; btn.textContent = original; return; }
+      }
+    } catch(err){
+      alert("Can't reach the relay server at all — is amit_voice_relay.js (or the supervisor) running?");
+      btn.disabled = false;
+      btn.textContent = original;
+      return;
+    }
+
+    btn.textContent = '📨 Sending...';
+    try {
+      await fetch('http://localhost:8796/send-to-claude-code', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({text})
+      });
+    } catch(err){
+      alert("Couldn't reach the relay server — is amit_voice_relay.js still running?");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+
+  async function pasteToVSCode(){
+    const text = document.getElementById('talkInput').value.trim();
+    if (!text) return;
+    const btn = document.getElementById('pasteBtn');
+    const originalLabel = btn.textContent;
+    const startedAt = performance.now();
+    btn.disabled = true;
+    btn.textContent = '📋 Pasting...';
+    try {
+      const resp = await fetch('http://localhost:8796/paste-to-vscode', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({text})
+      });
+      const data = await resp.json();
+      const elapsed = Math.round(performance.now() - startedAt);
+      if (data.error){
+        alert('Paste failed: ' + data.error);
+      } else if (data.vscodeActivated === false){
+        alert('Sent (' + elapsed + 'ms), but VS Code may not have been found/focused — check whether it actually landed there.');
+      } else {
+        console.log('[Amit Voice] Paste-to-VS-Code round trip:', elapsed, 'ms');
+      }
+    } catch(err){
+      alert("Couldn't reach the relay server for this — is amit_voice_relay.js still running?");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  }
+
+  function connect(){
+    const es = new EventSource('http://localhost:8796/events');
+    es.onopen = () => { dot.classList.add('connected'); statusText.textContent = 'Connected — waiting...'; };
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.claudeCodeElapsedMs != null){
+          document.getElementById('claudeCodeTime').textContent = data.claudeCodeElapsedMs + 'ms';
+        }
+        if (data.text) speak(data.text);
+      } catch(err){}
+    };
+    es.onerror = () => {
+      dot.classList.remove('connected');
+      statusText.textContent = 'Disconnected — is amit_voice_relay.js running? Retrying...';
+    };
+  }
+  connect();
+</script>
+</body>
+</html>

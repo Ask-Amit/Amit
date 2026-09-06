@@ -95,6 +95,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.15"></script>
 <script src="../amit_readiness_check.js?v=1.00"></script>
+<script src="../amit_voice_prefs.js?v=1.00"></script>
+<script src="../amit_owner_contact.js?v=1.00"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -371,7 +373,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.09</div>
+<div class="amversion" id="pageVersion">v1.11</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1016,12 +1018,29 @@ async function callAmitBackend(message,mode,photos,pendingBubbleId){
 // around that restriction. Auto-play is left in place for browsers where
 // it does work (desktop Chrome, Android); the button is the honest,
 // always-working fallback everywhere else.
+// Loaded once per sign-in via amit_owner_contact.js (Amit root) — the same
+// owner-contact row (AmitBooks' contacts table, is_owner=true) the Hub's
+// About Me panel reads/writes. Voice now lives there, not the earlier
+// amit_voice_prefs table (left in place, unused, per 2026-09-06 decision —
+// see Hub\Sessions.md). Null means signed out or nothing saved yet;
+// amSpeak() falls back honestly to this browser's own default voice/rate.
+let _amOwnerContact=null;
+async function amLoadVoicePref(){
+  _amOwnerContact=(db&&currentUser)?await getOrCreateOwnerContact(db,currentUser.id,currentUser.email,currentUser.email):null;
+}
+function amPickDefaultVoice(voices){
+  const enUS=voices.find(v=>/^en-US/i.test(v.lang));
+  return enUS||voices.find(v=>/^en/i.test(v.lang))||voices[0]||null;
+}
 function amSpeak(text){
   if(!('speechSynthesis' in window))return;
   try{
     window.speechSynthesis.cancel(); // don't stack overlapping utterances
     const u=new SpeechSynthesisUtterance(text);
-    u.rate=0.98;
+    const voices=window.speechSynthesis.getVoices();
+    const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,_amOwnerContact,amPickDefaultVoice):null;
+    if(voice) u.voice=voice;
+    u.rate=(_amOwnerContact&&_amOwnerContact.voice_rate)?Number(_amOwnerContact.voice_rate):0.98;
     window.speechSynthesis.speak(u);
   }catch(e){/* non-fatal — text is already shown on screen, and the manual
                 🔊 button on the bubble still works */}
@@ -1331,6 +1350,7 @@ function wireVoicePages(){
   }
 
   _refreshAmitReadinessBanner();
+  amLoadVoicePref();
 })();
 
 // HOME (right rail) — added 2026-08-06, Ryan's direct instruction, same
@@ -1402,6 +1422,7 @@ if(db){
     _updateSyncUI();
     _refreshAmitReadinessBanner();
     amInitThreadPages(); // reload real thread history now that sign-in state is known
+    amLoadVoicePref(); // pick up whatever voice was set in the Hub's Amit Voice panel
   });
 }
 

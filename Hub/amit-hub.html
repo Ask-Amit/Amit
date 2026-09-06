@@ -9,6 +9,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../Amit_Ask_Live.js?v=6.15"></script>
 <script src="../amit_readiness_check.js?v=1.00"></script>
+<script src="../amit_voice_prefs.js?v=1.00"></script>
+<script src="../amit_owner_contact.js?v=1.00"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1243,7 +1245,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.40</div>
+    <div class="page-version" id="hubVersionBadge">v6.42</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1369,6 +1371,14 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       <div class="tile-info">
         <div class="tile-name">Mail</div>
         <div class="tile-sub">Inbox · Compose</div>
+      </div>
+    </div>
+
+    <div class="tile" id="tile-aboutme" onclick="openPanel('aboutme')">
+      <div class="tile-icon">🪪</div>
+      <div class="tile-info">
+        <div class="tile-name">About Me</div>
+        <div class="tile-sub">Name · Voice · Contact</div>
       </div>
     </div>
 
@@ -1645,6 +1655,65 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     </div>
 
     <!-- MAIL PANEL -->
+    <!-- ABOUT ME PANEL — the signed-in login's own owner-contact record
+         (AmitBooks' contacts table, is_owner=true) — name/email/phone plus
+         Amit's Voice, all on that one row. Not a modal, per Ryan's
+         direct instruction — a real sidebar destination. 2026-09-06. -->
+    <div class="panel" id="panel-aboutme">
+      <div class="panel-head">
+        <button class="back-btn" onclick="openPanel('home')">← Home</button>
+        <span class="panel-heading">About Me</span>
+      </div>
+      <div class="mail-panel-wrap" style="max-width:560px">
+        <div id="amvSignedOutNote" style="display:none;color:rgba(255,215,140,.9);font-size:13px;line-height:1.6;background:rgba(255,215,140,.08);border:1px solid rgba(255,215,140,.35);border-radius:8px;padding:12px 14px;margin-bottom:20px;text-align:center">
+          Sign in to see and save your own info here.
+        </div>
+
+        <div id="amvSignedInContent">
+          <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:14px">Your Info</div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Name</label>
+            <input class="fg-input" id="amvNameInput" placeholder="Your name">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Email</label>
+            <input class="fg-input" id="amvEmailInput" placeholder="you@email.com">
+          </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">Phone</label>
+            <input class="fg-input" id="amvPhoneInput" placeholder="(optional)">
+          </div>
+          <button class="btn" onclick="amvSaveMyInfo()" style="margin-bottom:8px">SAVE MY INFO</button>
+          <div id="amvInfoSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px;margin-bottom:24px">Saved.</div>
+          <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
+
+          <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:4px">Amit's Voice</div>
+          <div style="color:rgba(240,232,208,.4);font-size:12px;line-height:1.6;margin-bottom:16px">Choose how Amit sounds — used everywhere Amit speaks, including Amit Mobile.</div>
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">ACCENT / REGION</label>
+          <select id="amvAccentSelect" class="fg-input" style="width:100%;margin-bottom:12px"></select>
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">VOICE</label>
+          <select id="amvVoiceSelect" class="fg-input" style="width:100%;margin-bottom:12px"></select>
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">SPEED — <span id="amvRateValue">1.00x</span></label>
+          <input id="amvRateRange" type="range" min="0.6" max="1.6" step="0.05" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:16px">
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">TEST TEXT</label>
+          <textarea id="amvTestText" rows="2" class="fg-input" style="width:100%;margin-bottom:10px;resize:vertical;font-family:inherit">Hello — this is Amit. Walk alongside. Sharpen without cutting. Encourage always.</textarea>
+          <button class="btn btn-ghost" onclick="amvHearIt()" style="margin-bottom:16px">🔊 LET ME HEAR IT</button>
+
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:20px">
+            <span style="color:rgba(240,232,208,.4);font-size:11px;letter-spacing:.06em;margin-right:6px">RATE THIS VOICE:</span>
+            <span id="amvStars" style="font-size:20px;letter-spacing:2px;cursor:pointer"></span>
+          </div>
+
+          <button class="btn" onclick="amvSelectThisVoice()" style="margin-bottom:8px">✅ THIS IS THE VOICE FOR AMIT</button>
+          <div id="amvSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px">Saved — this is now Amit's voice everywhere.</div>
+        </div>
+      </div>
+    </div>
+
     <div class="panel" id="panel-mail">
       <div class="panel-head">
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
@@ -3272,6 +3341,188 @@ function sendConnectAmitEmail(){
   // mailto fallback — no server-side email sending exists yet in this codebase
   window.location.href='mailto:'+encodeURIComponent(to)+'?subject='+subject+'&body='+body;
 }
+
+// ══════════════════════════════════════════════
+// AMIT VOICE MODAL — condensed voice/accent/speed picker, saved per-user
+// via amit_voice_prefs.js (Amit root). Reuses the exact accent-grouping
+// logic proven out in VoiceControl_AskAmit\amit_voice_ARCHIVE_2026-09-05_original.html
+// (the "Other" bucket for languages with fewer than 5 voices, etc.) —
+// condensed down per Ryan's direct instruction: no cold-start/Monitor
+// comparison tooling here, just voice/accent/speed/test/save. Star rating
+// is a session-only comparison aid while trying voices, never persisted —
+// only the final selected voice+accent+rate gets saved to Supabase.
+// ══════════════════════════════════════════════
+const AMV_ACCENT_LABELS={
+  'en-US':'English (United States)','en-GB':'English (United Kingdom)',
+  'en-AU':'English (Australia)','en-CA':'English (Canada)',
+  'en-IE':'English (Ireland)','en-IN':'English (India)',
+  'en-ZA':'English (South Africa)','en-NZ':'English (New Zealand)',
+  'es-ES':'Spanish (Spain)','es-US':'Spanish (United States)',
+  'es-MX':'Spanish (Mexico)','fr-FR':'French (France)',
+  'fr-CA':'French (Canada)','de-DE':'German (Germany)',
+  'it-IT':'Italian (Italy)','pt-BR':'Portuguese (Brazil)',
+  'pt-PT':'Portuguese (Portugal)','ja-JP':'Japanese (Japan)',
+  'zh-CN':'Chinese (Mainland)','ko-KR':'Korean (Korea)'
+};
+const AMV_ALL='__ALL__', AMV_OTHER='__OTHER__', AMV_SMALL_THRESHOLD=5;
+let _amvVoices=[], _amvSelectedVoice=null, _amvRate=1.0, _amvSmallLangs=new Set();
+let _amvRatings={}; // session-only, keyed by voice name — { name: 1-5 }
+let _amvCurrentRating=0;
+
+function amvAccentLabel(lang){ return AMV_ACCENT_LABELS[lang]||lang; }
+
+function amvPopulateVoiceOptionsForAccent(lang){
+  const sel=document.getElementById('amvVoiceSelect'); sel.innerHTML='';
+  _amvVoices.forEach((v,i)=>{
+    if(lang===AMV_OTHER){ if(!_amvSmallLangs.has(v.lang)) return; }
+    else if(lang!==AMV_ALL && v.lang!==lang){ return; }
+    const opt=document.createElement('option');
+    opt.value=i;
+    const showCode=(lang===AMV_ALL||lang===AMV_OTHER);
+    opt.textContent=showCode?(v.name+' ('+v.lang+')'):v.name;
+    sel.appendChild(opt);
+  });
+}
+
+function amvPopulateAccentDropdown(selectedLang){
+  const sel=document.getElementById('amvAccentSelect');
+  const countByLang={};
+  _amvVoices.forEach(v=>{countByLang[v.lang]=(countByLang[v.lang]||0)+1;});
+  _amvSmallLangs=new Set(Object.keys(countByLang).filter(l=>countByLang[l]<AMV_SMALL_THRESHOLD));
+  const bigLangs=Object.keys(countByLang).filter(l=>!_amvSmallLangs.has(l)).sort((a,b)=>amvAccentLabel(a).localeCompare(amvAccentLabel(b)));
+  sel.innerHTML='';
+  const allOpt=document.createElement('option'); allOpt.value=AMV_ALL; allOpt.textContent='All Accents — '+_amvVoices.length+' voice(s)'; sel.appendChild(allOpt);
+  bigLangs.forEach(lang=>{
+    const opt=document.createElement('option'); opt.value=lang;
+    opt.textContent=amvAccentLabel(lang)+' — '+countByLang[lang]+' voice(s)';
+    sel.appendChild(opt);
+  });
+  if(_amvSmallLangs.size){
+    const otherOpt=document.createElement('option'); otherOpt.value=AMV_OTHER;
+    const otherCount=[..._amvSmallLangs].reduce((s,l)=>s+countByLang[l],0);
+    otherOpt.textContent='Other ('+_amvSmallLangs.size+' languages) — '+otherCount+' voice(s)';
+    sel.appendChild(otherOpt);
+  }
+  if(bigLangs.includes(selectedLang)) sel.value=selectedLang;
+  else if(selectedLang && _amvSmallLangs.has(selectedLang)) sel.value=AMV_OTHER;
+}
+
+function amvPickDefaultVoice(voices){
+  const priority=['Microsoft Brian Online','Microsoft Brian','Microsoft Andrew Multilingual','Microsoft Andrew Online','Microsoft Andrew','Google US English','Microsoft Aria','Microsoft Jenny','Microsoft Guy','Samantha','Microsoft Zira','Google UK English Female'];
+  for(const name of priority){ const hit=voices.find(v=>v.name.includes(name)); if(hit) return hit; }
+  const enUS=voices.find(v=>/^en-US/i.test(v.lang)); if(enUS) return enUS;
+  return voices.find(v=>/^en/i.test(v.lang))||voices[0]||null;
+}
+
+// The signed-in login's own owner-contact row (AmitBooks' contacts table,
+// is_owner=true) — resolved once per panel-open via amit_owner_contact.js.
+// Name/email/phone AND voice all live on this one row now, per Ryan's
+// direct instruction 2026-09-06 — the earlier amit_voice_prefs table is
+// left in place, unused, superseded by this.
+let _amvOwnerContact=null;
+
+async function amvPopulateVoices(){
+  _amvVoices=window.speechSynthesis.getVoices();
+  if(!_amvVoices.length) return;
+  let target=_amvSelectedVoice;
+  if(!target || !_amvVoices.includes(target)){
+    const c=_amvOwnerContact;
+    target=(c&&c.voice_name&&_amvVoices.find(v=>v.name===c.voice_name))||amvPickDefaultVoice(_amvVoices);
+    if(c&&c.voice_rate){ _amvRate=Number(c.voice_rate); const rr=document.getElementById('amvRateRange'); if(rr){rr.value=_amvRate; document.getElementById('amvRateValue').textContent=_amvRate.toFixed(2)+'x';} }
+  }
+  _amvSelectedVoice=target;
+  amvPopulateAccentDropdown(_amvSelectedVoice?_amvSelectedVoice.lang:null);
+  amvPopulateVoiceOptionsForAccent(document.getElementById('amvAccentSelect').value);
+  const idx=_amvVoices.indexOf(_amvSelectedVoice);
+  if(idx>=0) document.getElementById('amvVoiceSelect').value=idx;
+  amvRenderStarsForCurrentVoice();
+}
+
+function amvRenderStarsForCurrentVoice(){
+  const el=document.getElementById('amvStars'); if(!el) return;
+  const name=_amvSelectedVoice?_amvSelectedVoice.name:null;
+  _amvCurrentRating=(name&&_amvRatings[name])||0;
+  el.innerHTML='';
+  for(let i=1;i<=5;i++){
+    const star=document.createElement('span');
+    star.textContent=i<=_amvCurrentRating?'★':'☆';
+    star.style.color=i<=_amvCurrentRating?'rgba(201,168,76,.95)':'rgba(240,232,208,.3)';
+    star.onclick=()=>{ if(name) _amvRatings[name]=i; amvRenderStarsForCurrentVoice(); };
+    el.appendChild(star);
+  }
+}
+
+async function amvInitAboutMePanel(){
+  document.getElementById('amvSavedNote').style.display='none';
+  document.getElementById('amvInfoSavedNote').style.display='none';
+  const signedIn=!!(db&&currentUser);
+  document.getElementById('amvSignedOutNote').style.display=signedIn?'none':'block';
+  document.getElementById('amvSignedInContent').style.display=signedIn?'block':'none';
+  if(!signedIn) return;
+
+  _amvOwnerContact=await getOrCreateOwnerContact(db,currentUser.id,currentUser.email,currentUser.email);
+  document.getElementById('amvNameInput').value=(_amvOwnerContact&&_amvOwnerContact.name)||'';
+  document.getElementById('amvEmailInput').value=(_amvOwnerContact&&_amvOwnerContact.email)||currentUser.email||'';
+  document.getElementById('amvPhoneInput').value=(_amvOwnerContact&&_amvOwnerContact.phone)||'';
+
+  if('speechSynthesis' in window){
+    await amvPopulateVoices();
+    window.speechSynthesis.onvoiceschanged=amvPopulateVoices;
+  }
+  const accentSel=document.getElementById('amvAccentSelect');
+  const voiceSel=document.getElementById('amvVoiceSelect');
+  accentSel.onchange=()=>{
+    amvPopulateVoiceOptionsForAccent(accentSel.value);
+    _amvSelectedVoice=_amvVoices[Number(voiceSel.value)];
+    amvRenderStarsForCurrentVoice();
+  };
+  voiceSel.onchange=()=>{
+    _amvSelectedVoice=_amvVoices[Number(voiceSel.value)];
+    amvRenderStarsForCurrentVoice();
+  };
+  const rateRange=document.getElementById('amvRateRange');
+  rateRange.oninput=()=>{
+    _amvRate=Number(rateRange.value);
+    document.getElementById('amvRateValue').textContent=_amvRate.toFixed(2)+'x';
+  };
+}
+
+function amvHearIt(){
+  if(!('speechSynthesis' in window)||!_amvSelectedVoice) return;
+  window.speechSynthesis.cancel();
+  const text=document.getElementById('amvTestText').value.trim();
+  if(!text) return;
+  const u=new SpeechSynthesisUtterance(text);
+  u.voice=_amvSelectedVoice; u.rate=_amvRate;
+  window.speechSynthesis.speak(u);
+}
+
+async function amvSelectThisVoice(){
+  if(!_amvSelectedVoice||!_amvOwnerContact) return;
+  const accent=document.getElementById('amvAccentSelect').value;
+  const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,{voice_name:_amvSelectedVoice.name,voice_accent:accent,voice_rate:_amvRate});
+  if(saved){ _amvOwnerContact.voice_name=_amvSelectedVoice.name; _amvOwnerContact.voice_accent=accent; _amvOwnerContact.voice_rate=_amvRate; }
+  const note=document.getElementById('amvSavedNote');
+  note.style.display='block';
+  note.textContent=saved?'Saved — this is now Amit\'s voice everywhere.':'Could not save right now — try again in a moment.';
+  note.style.color=saved?'rgba(180,220,190,.9)':'rgba(255,180,150,.9)';
+}
+
+async function amvSaveMyInfo(){
+  if(!_amvOwnerContact) return;
+  const fields={
+    name:document.getElementById('amvNameInput').value.trim(),
+    email:document.getElementById('amvEmailInput').value.trim(),
+    phone:document.getElementById('amvPhoneInput').value.trim()
+  };
+  const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,fields);
+  if(saved) Object.assign(_amvOwnerContact,fields);
+  const note=document.getElementById('amvInfoSavedNote');
+  note.style.display='block';
+  note.textContent=saved?'Saved.':'Could not save right now — try again in a moment.';
+  note.style.color=saved?'rgba(180,220,190,.9)':'rgba(255,180,150,.9)';
+}
+
 async function submitSyncEmail(){
   const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
   const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
@@ -3484,6 +3735,7 @@ function openPanel(id){
     }
   }
   if(id==='mail') renderMailPanel();
+  if(id==='aboutme') amvInitAboutMePanel();
   if(id==='prayer') loadPrayer();
   if(id==='calendar') renderCalendar();
   if(id==='home'){calDvDs=homePanelDate||todayStr();renderDayView();}
