@@ -139,6 +139,14 @@ Both integrations are purely additive — neither file's existing script-loading
 
 **Genuinely uncertain, flagged rather than guessed past:** the credentials-file check is the most reliable non-invasive signal found on this machine, but it's inherently a heuristic — a corrupted/hand-edited credentials file with a non-empty but bogus `accessToken` would read as "connected" even though a real `claude` call would fail. No live call is made to rule this out, by design, given the documented disruption risk. If this ever proves unreliable in practice, the next step up would be a very short, explicitly opt-in `claude -p "hi" --print` smoke test — deliberately NOT added here without further confirmation it's safe to fire ad hoc.
 
+## Real one-time QR login — decided and built 2026-09-05, reusing AmitBooks' own pattern
+
+Ryan pointed directly at the answer: AmitBooks already solved "get a phone signed in with zero typing" for its AmitScan feature, via a real, deployed Supabase Edge Function (`AmitBooks\supabase-functions\get-scan-link\index.ts`) that asks Supabase's own admin API to mint a genuine single-use magic-link for the already-signed-in caller, server-side (the service-role key never reaches the browser). The QR code just renders that real link.
+
+Built the Hub's own equivalent: `Hub\supabase-functions\get-mobile-link\index.ts` (near-identical to AmitBooks' version, redirects to the Hub instead of AmitScan). Wired into the Connect Amit modal's Step 3 (`_renderConnectAmitQr()` in `amit-hub.html`): calls the function with the current session's access token, renders the real returned link as the QR code instead of a plain static URL, with an honest fallback to the plain Hub URL if the function call fails for any reason (not yet deployed, network issue, etc.) — the status text under the QR code says plainly which case it is ("signs your phone in directly" vs. "then sign in there"). Regenerated fresh every time Step 3 is shown, never cached, since a magic link is single-use.
+
+**Not yet deployed — needs Ryan's one-time action (same as any Edge Function, per Supabase's own dashboard-based deploy flow, no CLI required):** see the file's own header comment for exact steps.
+
 ## Future App Store Path — architectural constraints to build in from day one (added 2026-09-05, Ryan's direct instruction)
 
 Ryan's stated intent: build the personal version now, but keep the architecture such that going commercial (App Store, paying strangers) later is "an easy fix," not a rebuild. This does NOT mean building billing/metering/Apple submission now — it means not making choices now that would block them later. Four standing constraints, cheap now, expensive to retrofit:

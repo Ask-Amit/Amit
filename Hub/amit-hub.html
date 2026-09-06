@@ -1243,7 +1243,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.37</div>
+    <div class="page-version" id="hubVersionBadge">v6.38</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3087,6 +3087,57 @@ function openSyncModal(){
 function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
 const CONNECT_AMIT_HUB_URL='https://ask-amit.github.io/Amit/Hub/amit-hub.html';
 const CONNECT_AMIT_INSTALLER_URL='https://raw.githubusercontent.com/Ask-Amit/Amit/main/ComputerHealth/install-Amit.exe';
+const AMIT_GET_MOBILE_LINK_URL='https://hleqtjqojksurvkyqixt.supabase.co/functions/v1/get-mobile-link';
+// ══════════════════════════════════════════════
+// CONNECT YOUR PHONE — real one-time login QR, added 2026-09-05.
+// Reuses AmitBooks' own already-working pattern (get-scan-link) rather
+// than inventing a new auth mechanism: a server-side Edge Function asks
+// Supabase's own admin API to mint a genuine, single-use magic-link for
+// the CURRENTLY signed-in user, and we render THAT real link as a QR
+// code instead of just a plain URL. Scanning it signs the phone straight
+// in — no retyping an email, no separate "please check your inbox" step
+// — because Supabase itself issued the link, the same as if it had been
+// emailed. See Hub\supabase-functions\get-mobile-link\index.ts.
+//
+// Regenerated fresh every time Step 3 is shown (never cached/reused)
+// since a magic link is single-use — showing an already-used one would
+// silently fail for whoever scans it second.
+// ══════════════════════════════════════════════
+async function _renderConnectAmitQr(){
+  const qrBox=document.getElementById('connectAmitQR');
+  const status=document.getElementById('connectAmitQrStatus');
+  if(!qrBox)return;
+  qrBox.innerHTML='';
+  qrBox.dataset.rendered='';
+  if(status){status.textContent='Generating your sign-in code…';status.style.display='block';}
+  let qrData=CONNECT_AMIT_HUB_URL;
+  let realLogin=false;
+  try{
+    const{data:sessData}=await db.auth.getSession();
+    const session=sessData?.session;
+    if(session&&session.access_token){
+      const res=await fetch(AMIT_GET_MOBILE_LINK_URL,{
+        method:'POST',
+        headers:{'content-type':'application/json',authorization:'Bearer '+session.access_token},
+        body:'{}'
+      });
+      const out=await res.json().catch(()=>null);
+      if(res.ok&&out&&out.link){
+        qrData=out.link;
+        realLogin=true;
+      }
+    }
+  }catch(e){ /* fall back to the plain Hub URL below — never block the QR on this */ }
+  if(window.QRCode){
+    new QRCode(qrBox,{text:qrData,width:150,height:150,colorDark:'#1a3352',colorLight:'#ffffff'});
+    qrBox.dataset.rendered='1';
+  }
+  if(status){
+    status.textContent=realLogin
+      ? 'Scan this — it signs your phone in directly, no typing needed.'
+      : 'Scan this to open the Hub on your phone, then sign in there.';
+  }
+}
 let _connectAmitStep=1;
 // Step-2 auto-advance poll — while Step 2 (installer download / Claude
 // Code sign-in) is the visible step, quietly re-check readiness every 4s
@@ -3144,11 +3195,7 @@ function _showConnectAmitStep(n,skipAheadNote){
   const step3Note=document.getElementById('caStep3AlreadyConnectedNote');
   if(step3Note)step3Note.style.display=(n===3&&skipAheadNote)?'block':'none';
   if(n===3){
-    const qrBox=document.getElementById('connectAmitQR');
-    if(qrBox&&!qrBox.dataset.rendered&&window.QRCode){
-      qrBox.dataset.rendered='1';
-      new QRCode(qrBox,{text:CONNECT_AMIT_HUB_URL,width:150,height:150,colorDark:'#1a3352',colorLight:'#ffffff'});
-    }
+    _renderConnectAmitQr();
     const emailInput=document.getElementById('connectAmitEmailInput');
     if(emailInput&&!emailInput.value&&typeof currentUser!=='undefined'&&currentUser&&currentUser.email){
       emailInput.value=currentUser.email;
@@ -9107,12 +9154,13 @@ function hideLabelTip(){
         ✓ This computer is already connected — let's get it on your phone.
       </div>
       <div style="color:rgba(120,190,230,.85);font-family:'Cinzel',serif;font-size:15px;letter-spacing:.06em;margin-bottom:10px;text-align:center">GET AMIT ON YOUR PHONE</div>
-      <div style="color:rgba(240,232,208,.7);font-size:15px;line-height:1.6;margin-bottom:16px;text-align:center">
-        Scan with your phone to open the Hub there — sign in with the same account to connect your phone.
+      <div id="connectAmitQrStatus" style="color:rgba(240,232,208,.7);font-size:15px;line-height:1.6;margin-bottom:16px;text-align:center">
+        Scan with your phone to connect it.
       </div>
-      <div style="display:flex;justify-content:center;margin-bottom:18px">
+      <div style="display:flex;justify-content:center;margin-bottom:6px">
         <div id="connectAmitQR" style="background:#fff;padding:10px;border-radius:8px;line-height:0"></div>
       </div>
+      <div style="color:rgba(240,232,208,.35);font-size:12px;line-height:1.5;margin-bottom:18px;text-align:center">This code is single-use and expires — if it doesn't work, close and reopen this step for a fresh one.</div>
 
       <div style="color:rgba(240,232,208,.55);font-size:14px;margin-bottom:8px">Or email yourself the link:</div>
       <div style="display:flex;gap:8px;margin-bottom:16px">
