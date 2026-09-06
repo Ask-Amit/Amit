@@ -298,6 +298,36 @@ body::before{
 .amvoice-send-btn:disabled{opacity:.5;cursor:default}
 .amvoice-mic-btn.amvoice-optional{width:44px;height:44px;font-size:18px;flex-shrink:0}
 
+/* ── CUSTOM — SCROLLING CHAT THREAD (rebuild 2026-09-06) — replaces the
+   old single-box "your message / Amit's reply" layout on Daily Walk (page
+   2) and Amit (page 3). Both pages still share amVoicePageHtml(), just
+   with a real thread now instead of one static response box. ── */
+.amvoice-wrap.amthread-wrap{padding:0;max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:0;width:100%;height:100%}
+.amthread-scroll{flex:1;overflow-y:auto;padding:18px 20px 8px;display:flex;flex-direction:column;gap:10px}
+.amthread-daydivider{text-align:center;color:var(--dim);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:14px 0 4px;font-family:'Cinzel',serif}
+.amthread-daydivider:first-child{margin-top:0}
+.amthread-row{display:flex;width:100%}
+.amthread-row.amthread-you{justify-content:flex-end}
+.amthread-row.amthread-amit{justify-content:flex-start}
+.amthread-bubble{max-width:78%;border-radius:14px;padding:10px 13px;font-size:14px;line-height:1.55;position:relative}
+.amthread-you .amthread-bubble{background:rgba(201,168,76,.16);border:1px solid rgba(201,168,76,.4);color:var(--text2);border-bottom-right-radius:3px}
+.amthread-amit .amthread-bubble{background:rgba(255,255,255,.045);border:1px solid rgba(201,168,76,.22);color:var(--gold2);border-bottom-left-radius:3px}
+.amthread-bubble.amthread-pending{opacity:.65;font-style:italic}
+.amthread-photos{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.amthread-photo-thumb{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid rgba(201,168,76,.35);cursor:pointer}
+.amthread-speak-btn{margin-top:6px;background:none;border:none;color:var(--gold2);opacity:.7;cursor:pointer;font-size:15px;padding:0}
+.amthread-speak-btn:hover{opacity:1}
+.amthread-empty{text-align:center;color:var(--dim);font-size:13px;font-style:italic;padding:30px 20px}
+
+/* Composer — pinned below the scrolling thread, replaces the old
+   always-below-the-fold input row */
+.amcomposer{padding:10px 16px 16px;border-top:1px solid rgba(201,168,76,.18);display:flex;flex-direction:column;gap:8px;background:var(--card-head)}
+.amcomposer-pending-photos{display:flex;gap:8px;flex-wrap:wrap}
+.amcomposer-pending-thumb{position:relative;width:56px;height:56px}
+.amcomposer-pending-thumb img{width:100%;height:100%;object-fit:cover;border-radius:8px;border:1px solid rgba(201,168,76,.4)}
+.amcomposer-pending-thumb .amcomposer-remove{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#b23a3a;color:#fff;font-size:11px;line-height:18px;text-align:center;cursor:pointer;border:1px solid rgba(255,255,255,.6)}
+.amvoice-photo-btn.amcomposer-plus{width:44px;height:44px;border-radius:10px;padding:0;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+
 /* ── MY COMPUTER (page 6) — read-only Computer Health report list,
    styled to match the amvoice/amdash patterns above, not a new visual
    language. ── */
@@ -341,7 +371,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.08</div>
+<div class="amversion" id="pageVersion">v1.09</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -743,28 +773,31 @@ function amGoToHub(){
 // but the text box is never hidden or secondary, per Ryan's instruction.
 // Two page instances (Daily Walk / Amit) share this same markup/JS,
 // distinguished by a `mode` string.
+// REBUILT 2026-09-06 — real scrolling chat thread, day-grouped, multiple
+// photos per message, tap-to-expand thumbnails, and a visible speak-back
+// button on every Amit reply. Replaces the old single text-box + one-reply
+// layout. Both Daily Walk (page 2) and Amit (page 3) still share this one
+// function — see AmitMobile\CLAUDE.md's chat-thread rebuild entry.
 function amVoicePageHtml(mode,prompt,withPhoto){
   const speechSupported=!!amGetSpeechRecognitionCtor();
-  return `<div class="amvoice-wrap">
-    <div style="text-align:center;color:var(--muted);font-size:13px;font-style:italic">${prompt}</div>
-    <div>
-      <div class="amvoice-box-label">Amit</div>
-      <div class="amvoice-box amvoice-amit" id="amResponse-${mode}">—</div>
+  return `<div class="amvoice-wrap amthread-wrap">
+    <div class="amthread-scroll" id="amThreadScroll-${mode}">
+      <div class="amthread-empty" id="amThreadEmpty-${mode}" style="text-align:center;color:var(--muted);font-size:13px;font-style:italic;padding:24px 20px">${prompt}</div>
     </div>
-    <div class="amvoice-input-row">
-      <textarea class="amvoice-textinput" id="amTextInput-${mode}" placeholder="Type, or tap the microphone on your keyboard to speak…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();amSubmitTextInput('${mode}');}"></textarea>
-      ${speechSupported?`<button class="amvoice-mic-btn amvoice-optional" id="amMicBtn-${mode}" onclick="amToggleListening('${mode}')" title="Tap to talk (optional)">🎙️</button>`:''}
-      <button class="amvoice-send-btn" id="amSendBtn-${mode}" onclick="amSubmitTextInput('${mode}')">Send</button>
+    <div class="amcomposer">
+      <div class="amcomposer-pending-photos" id="amPendingPhotos-${mode}"></div>
+      <div class="amvoice-input-row">
+        ${withPhoto?`
+        <label class="amvoice-photo-btn amcomposer-plus" for="amPhotoInput-${mode}" title="Add photos">＋</label>
+        <input type="file" accept="image/*" multiple id="amPhotoInput-${mode}" style="display:none" onchange="amHandlePhotoMulti(event,'${mode}')">
+        `:''}
+        <textarea class="amvoice-textinput" id="amTextInput-${mode}" placeholder="Type, or tap the microphone on your keyboard to speak…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();amSubmitTextInput('${mode}');}"></textarea>
+        ${speechSupported?`<button class="amvoice-mic-btn amvoice-optional" id="amMicBtn-${mode}" onclick="amToggleListening('${mode}')" title="Tap to talk (optional)">🎙️</button>`:''}
+        <button class="amvoice-send-btn" id="amSendBtn-${mode}" onclick="amSubmitTextInput('${mode}')">Send</button>
+      </div>
+      <div class="amvoice-status" id="amStatus-${mode}">${speechSupported?'Type your message, or tap the mic to talk':'Type your message and tap Send'}</div>
+      <div class="amvoice-savenote" id="amSaveNote-${mode}"></div>
     </div>
-    <div class="amvoice-status" id="amStatus-${mode}">${speechSupported?'Type your message, or tap the mic to talk':'Type your message and tap Send'}</div>
-    ${withPhoto?`
-    <div class="amvoice-photo-row">
-      <label class="amvoice-photo-btn" for="amPhotoInput-${mode}">📷 Add a Photo</label>
-      <input type="file" accept="image/*" capture="environment" id="amPhotoInput-${mode}" style="display:none" onchange="amHandlePhoto(event,'${mode}')">
-    </div>
-    <img id="amPhotoPreview-${mode}" class="amvoice-photo-preview" style="display:none">
-    `:''}
-    <div class="amvoice-savenote" id="amSaveNote-${mode}"></div>
   </div>`;
 }
 
@@ -773,7 +806,8 @@ function amVoicePageHtml(mode,prompt,withPhoto){
 // each time listening starts (tap-to-talk, not continuous). Only used as
 // the optional bonus path where the browser actually supports it.
 const amRecognizers={};
-const amPendingPhoto={}; // {[mode]: {file, dataUrl, storagePath}}
+const amPendingPhotos={}; // {[mode]: [{file, dataUrl}, ...]} — multi-photo, rebuilt 2026-09-06
+const amThreadCache={}; // {[mode]: [{id, created_at, transcript, reply, photo_urls:[...]}]} — loaded thread history
 
 function amGetSpeechRecognitionCtor(){
   // Excludes iOS outright, regardless of feature detection — 2026-09-05,
@@ -861,54 +895,77 @@ function amResetMicButton(mode){
   btn.textContent='🎙️';
 }
 
-// Handles a completed spoken (or, in principle, typed) message: calls the
-// backend stub, shows + speaks the reply, then logs the exchange.
+// Handles a completed spoken (or typed) message: builds an optimistic
+// "you" bubble immediately (with any attached photos), sends it through
+// callAmitBackend(), then appends Amit's real reply as its own bubble the
+// moment it lands — rather than overwriting one static response box.
 async function amHandleVoiceInput(mode,text){
-  const responseEl=document.getElementById('amResponse-'+mode);
-  if(responseEl) responseEl.textContent='Amit is thinking…';
-  const reply=await callAmitBackend(text,mode,responseEl);
-  if(responseEl) responseEl.textContent=reply;
+  const pendingPhotos=(amPendingPhotos[mode]||[]).slice();
+  const localPhotoUrls=pendingPhotos.map(p=>p.dataUrl); // shown instantly, pre-upload
+  const youMsg={id:'local-'+Date.now(),created_at:new Date().toISOString(),who:'you',transcript:text,photo_urls:localPhotoUrls};
+  amAppendMessageToThread(mode,youMsg);
+  amClearPendingPhotos(mode);
+
+  const amitMsg={id:'pending-'+Date.now(),created_at:new Date().toISOString(),who:'amit',transcript:'Amit is thinking…',pending:true};
+  amAppendMessageToThread(mode,amitMsg);
+
+  const reply=await callAmitBackend(text,mode,pendingPhotos,amitMsg.id);
+  amitMsg.pending=false;
+  amitMsg.transcript=reply;
+  amUpdateThreadMessage(mode,amitMsg);
   amSpeak(reply);
 }
 
 // ══════════════════════════════════════════════
-// callAmitBackend(message, mode, responseEl) — REAL, wired 2026-09-05.
+// callAmitBackend(message, mode, photos, pendingBubbleId) — REAL, wired
+// 2026-09-05, extended 2026-09-06 for multi-photo.
 //
-// Architecture: Supabase Realtime RELAY, not a direct phone-to-desktop
-// connection (per Ryan's design, AmitMobile\CLAUDE.md "Realtime relay").
-// The phone never talks to the desktop directly — both only ever talk to
-// Supabase, which is always reachable (cellular included). Flow:
-//   1. This inserts one row into amit_mobile_captures (reply left null).
+// Architecture: Supabase relay, not a direct phone-to-desktop connection
+// (per Ryan's design, AmitMobile\CLAUDE.md "The Live Backend"). The phone
+// never talks to the desktop directly — both only ever talk to Supabase,
+// which is always reachable (cellular included). Flow:
+//   1. This uploads any attached photos, then inserts one row into
+//      amit_mobile_captures (reply left null).
 //   2. A desktop bridge — the shared Amit Bridge's amit_mobile_watcher.ps1
 //      companion watcher (ComputerHealth\Watchers\), NOT a separate app —
 //      picks up unanswered rows, gets a real answer from a headless
 //      `claude -p` call, and writes it back onto that row's `reply` column.
-//   3. This function POLLS that one row every 2.5s (see note below on why
-//      polling instead of a Realtime subscription) until `reply` appears
-//      or a 90-second timeout is reached.
+//   3. This function POLLS that one row every 2.5s until `reply` appears
+//      or a 90-second timeout is reached, updating the pending thread
+//      bubble's status text while it waits.
 //
 // Poll vs. Realtime, decided honestly: a live Realtime subscription was
 // considered so the reply pushes in the instant it's written, rather than
 // waiting up to 2.5s. A short-interval poll of one single row was used
-// instead because it is far simpler to get right in a single page-load
-// flow (no channel lifecycle to manage, no risk of a dropped-then-silent
-// subscription leaving the UI stuck on "thinking" with no fallback) and
-// the real-world lag difference is negligible next to the 5-40+ seconds a
-// headless claude -p call itself typically takes. Capped at 90 seconds —
-// if nothing comes back by then, an honest failure message is shown
-// instead of silence, per Ryan's explicit instruction that failures must
-// be clear, not silent or confusing.
+// instead because it is far simpler to get right (no channel lifecycle to
+// manage, no risk of a dropped-then-silent subscription leaving the UI
+// stuck on "thinking" with no fallback) and the real-world lag difference
+// is negligible next to the 5-40+ seconds a headless claude -p call itself
+// typically takes. Capped at 90 seconds — if nothing comes back by then,
+// an honest failure message is shown instead of silence, per Ryan's
+// explicit instruction that failures must be clear, not silent or
+// confusing.
 // ══════════════════════════════════════════════
-async function callAmitBackend(message,mode,responseEl){
+async function callAmitBackend(message,mode,photos,pendingBubbleId){
   if(!currentUser||!db){
     return "You're not signed in, so Amit can't save this conversation or send it to the desktop bridge. Sign in first, then try again.";
   }
   const destination=mode==='dailywalk'?'daily_walk':'general';
-  let photoUrl=null;
-  if(amPendingPhoto[mode]){
-    photoUrl=await amUploadPendingPhoto(mode);
-    delete amPendingPhoto[mode];
+  let photoUrls=[];
+  if(photos&&photos.length){
+    photoUrls=await amUploadPendingPhotos(photos);
   }
+  // MULTI-PHOTO STORAGE DECISION (2026-09-06): amit_mobile_captures.photo_url
+  // is a plain text column (migration_2026-09-05_001) — no schema migration
+  // was needed for this rebuild. Multiple photo paths are stored as a JSON
+  // array string in that same column (e.g. '["path1.jpg","path2.jpg"]').
+  // amParsePhotoUrls() below reads it back and transparently handles BOTH
+  // this new JSON-array format AND any older single-string rows already
+  // logged before this change (falls back to treating the raw value as one
+  // URL if JSON.parse fails or doesn't yield an array). Chosen over adding
+  // a new `photo_urls jsonb` column because it needed zero migration and
+  // every existing read/write path only ever touches this one column.
+  const photoUrlValue=photoUrls.length?JSON.stringify(photoUrls):null;
   let row;
   try{
     const{data,error}=await db.from('amit_mobile_captures').insert({
@@ -916,7 +973,7 @@ async function callAmitBackend(message,mode,responseEl){
       transcript:message,
       summary:null, // real auto-summary is future work
       topic:null,
-      photo_url:photoUrl,
+      photo_url:photoUrlValue,
       destination:destination
     }).select().single();
     if(error||!data){
@@ -939,11 +996,26 @@ async function callAmitBackend(message,mode,responseEl){
         return data.reply;
       }
     }catch(e){ console.error('poll for reply failed',e); }
-    if(responseEl) responseEl.textContent='Amit is thinking'+'.'.repeat((i%3)+1);
+    if(pendingBubbleId){
+      const el=document.getElementById(pendingBubbleId+'-text');
+      if(el) el.textContent='Amit is thinking'+'.'.repeat((i%3)+1);
+    }
   }
   return "Amit's desktop isn't listening right now — make sure the desktop bridge is running and your computer isn't asleep. (Your message was saved — Amit will still answer it once the bridge is back, and you can check your history later.)";
 }
 
+// Auto-play attempt on arrival, kept as a best-effort convenience — but
+// per the 2026-09-06 fix below, this is no longer the only way to hear a
+// reply, since iOS Safari silently blocks speechSynthesis.speak() calls
+// that aren't triggered by a direct user gesture in the same call stack.
+// An auto-play call like this one (fired from inside an awaited async
+// chain, not from a tap) can run with zero error and still produce no
+// sound at all on iPhone specifically. The visible 🔊 button added to
+// every Amit bubble (see amThreadBubbleHtml()) calls amSpeak() straight
+// from its own onclick — a real user gesture — which reliably works
+// around that restriction. Auto-play is left in place for browsers where
+// it does work (desktop Chrome, Android); the button is the honest,
+// always-working fallback everywhere else.
 function amSpeak(text){
   if(!('speechSynthesis' in window))return;
   try{
@@ -951,54 +1023,282 @@ function amSpeak(text){
     const u=new SpeechSynthesisUtterance(text);
     u.rate=0.98;
     window.speechSynthesis.speak(u);
-  }catch(e){/* non-fatal — text is already shown on screen */}
+  }catch(e){/* non-fatal — text is already shown on screen, and the manual
+                🔊 button on the bubble still works */}
 }
 
-// ── PHOTO CAPTURE (Amit / general page only) ──
-function amHandlePhoto(evt,mode){
-  const file=evt.target.files&&evt.target.files[0];
-  if(!file)return;
-  const reader=new FileReader();
-  reader.onload=()=>{
-    const preview=document.getElementById('amPhotoPreview-'+mode);
-    if(preview){ preview.src=reader.result; preview.style.display='block'; }
-  };
-  reader.readAsDataURL(file);
-  amPendingPhoto[mode]={file};
+// ── PHOTO CAPTURE (multi-photo, rebuilt 2026-09-06) ──
+// Accepts several files from one picker action (Ryan's ask: "five or six
+// photos... all on the same day"). Each becomes a small removable thumbnail
+// in the composer strip until Send is tapped; multiple photos attach to
+// ONE outgoing message together.
+function amHandlePhotoMulti(evt,mode){
+  const files=evt.target.files?Array.from(evt.target.files):[];
+  if(!files.length)return;
+  if(!amPendingPhotos[mode]) amPendingPhotos[mode]=[];
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      amPendingPhotos[mode].push({file,dataUrl:reader.result});
+      amRenderPendingPhotoThumbs(mode);
+    };
+    reader.readAsDataURL(file);
+  });
+  evt.target.value=''; // allow picking the same file(s) again later
 }
 
-// Uploads a pending photo to Supabase Storage, reusing AmitBooks'
+function amRenderPendingPhotoThumbs(mode){
+  const host=document.getElementById('amPendingPhotos-'+mode);
+  if(!host)return;
+  const list=amPendingPhotos[mode]||[];
+  host.innerHTML=list.map((p,i)=>`
+    <div class="amcomposer-pending-thumb">
+      <img src="${p.dataUrl}" onclick="amOpenPhotoOverlay('${p.dataUrl}')">
+      <div class="amcomposer-remove" onclick="amRemovePendingPhoto('${mode}',${i})" title="Remove">✕</div>
+    </div>`).join('');
+}
+
+function amRemovePendingPhoto(mode,idx){
+  if(!amPendingPhotos[mode])return;
+  amPendingPhotos[mode].splice(idx,1);
+  amRenderPendingPhotoThumbs(mode);
+}
+
+function amClearPendingPhotos(mode){
+  amPendingPhotos[mode]=[];
+  amRenderPendingPhotoThumbs(mode);
+}
+
+// Uploads every pending photo to Supabase Storage, reusing AmitBooks'
 // established pattern exactly (db.storage.from(bucket).upload(path,blob,
 // {contentType})) — see AmitBooks.html's abUploadReceiptImage /
 // abUploadOneScanBlob for the precedent this follows. Bucket
 // 'amitmobile-captures' must be created once in the Supabase dashboard
-// (Storage → New bucket) — see this session's final report for the exact
-// steps; not something this code can create for itself.
-async function amUploadPendingPhoto(mode){
-  const pending=amPendingPhoto[mode];
-  if(!pending||!pending.file||!currentUser||!db)return null;
+// (Storage → New bucket) — not something this code can create for itself.
+// Returns an array of stored paths (one per successfully uploaded photo;
+// a failed individual upload is skipped rather than failing the whole
+// message, and logged to console).
+async function amUploadPendingPhotos(photos){
+  if(!photos||!photos.length||!currentUser||!db)return[];
+  const paths=[];
+  for(const p of photos){
+    try{
+      const ext=(p.file.name.split('.').pop()||'jpg').toLowerCase();
+      const path=`${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2,7)}.${ext}`;
+      const{error}=await db.storage.from('amitmobile-captures').upload(path,p.file,{contentType:p.file.type||'image/jpeg'});
+      if(error){ console.error('amitmobile-captures upload failed',error); continue; }
+      paths.push(path);
+    }catch(e){ console.error(e); }
+  }
+  return paths;
+}
+
+// Parses the amit_mobile_captures.photo_url column, which can hold either
+// the new JSON-array-of-paths format (this rebuild) or an older plain
+// single-path string (rows logged before 2026-09-06). Never throws.
+function amParsePhotoUrls(raw){
+  if(!raw)return[];
   try{
-    const ext=(pending.file.name.split('.').pop()||'jpg').toLowerCase();
-    const path=`${currentUser.id}/${Date.now()}.${ext}`;
-    const{error}=await db.storage.from('amitmobile-captures').upload(path,pending.file,{contentType:pending.file.type||'image/jpeg'});
-    if(error){ console.error('amitmobile-captures upload failed',error); return null; }
-    return path;
+    const parsed=JSON.parse(raw);
+    if(Array.isArray(parsed))return parsed;
+  }catch(e){/* not JSON — fall through to single-string handling */}
+  return[raw];
+}
+
+// Resolves a stored Storage path to something an <img> can load. Signed
+// URLs are used (not getPublicUrl) since amitmobile-captures follows the
+// same private-bucket-with-RLS pattern as AmitBooks' own capture buckets —
+// a signed URL works whether the bucket ends up public or private, so
+// this is the safe default either way. Cached per-path for the session so
+// re-rendering the thread doesn't re-request a fresh signed URL every time.
+const amPhotoUrlCache={};
+async function amResolvePhotoUrl(path){
+  if(path.startsWith('data:')||path.startsWith('http'))return path; // local preview or already-resolved
+  if(amPhotoUrlCache[path])return amPhotoUrlCache[path];
+  if(!db)return null;
+  try{
+    const{data,error}=await db.storage.from('amitmobile-captures').createSignedUrl(path,3600);
+    if(error||!data)return null;
+    amPhotoUrlCache[path]=data.signedUrl;
+    return data.signedUrl;
   }catch(e){ console.error(e); return null; }
 }
 
-// NOTE: capture logging (the insert into amit_mobile_captures) used to be
-// its own separate step, called AFTER a stub reply came back. As of the
-// real backend wiring (2026-09-05), the insert has to happen BEFORE the
-// reply exists — the row IS the request, and the desktop bridge writes
-// the reply onto it — so that logic now lives inside callAmitBackend()
-// above rather than in a separate amLogCapture() call. Nothing after the
-// exchange still needs a separate save step; it was saved the moment the
-// question was asked.
+// ══════════════════════════════════════════════
+// THREAD RENDERING — day-grouped scrolling chat, built 2026-09-06.
+// ══════════════════════════════════════════════
+
+function amFormatDayHeader(iso){
+  const d=new Date(iso);
+  const today=new Date(); today.setHours(0,0,0,0);
+  const yesterday=new Date(today); yesterday.setDate(yesterday.getDate()-1);
+  const dOnly=new Date(d); dOnly.setHours(0,0,0,0);
+  if(dOnly.getTime()===today.getTime())return'Today';
+  if(dOnly.getTime()===yesterday.getTime())return'Yesterday';
+  return d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:d.getFullYear()!==today.getFullYear()?'numeric':undefined});
+}
+
+function amDayKey(iso){
+  const d=new Date(iso);
+  return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();
+}
+
+// Loads this user's real history for the given mode from
+// amit_mobile_captures (ordered oldest-first) and renders it as the
+// initial thread content — the thread is backed by real logged history,
+// not a blank box every time the page opens.
+async function amLoadThreadHistory(mode){
+  const scroll=document.getElementById('amThreadScroll-'+mode);
+  if(!scroll)return;
+  if(!currentUser||!db){
+    amThreadCache[mode]=[];
+    return; // empty-state prompt already shown by amVoicePageHtml()
+  }
+  const destination=mode==='dailywalk'?'daily_walk':'general';
+  try{
+    const{data,error}=await db.from('amit_mobile_captures')
+      .select('id,created_at,transcript,reply,photo_url')
+      .eq('user_id',currentUser.id)
+      .eq('destination',destination)
+      .order('created_at',{ascending:true})
+      .limit(100);
+    if(error||!data){ console.error('thread history load failed',error); return; }
+    if(!data.length)return; // nothing logged yet — leave the empty-state prompt showing
+    amThreadCache[mode]=[];
+    scroll.innerHTML='';
+    data.forEach(row=>{
+      const photoUrls=amParsePhotoUrls(row.photo_url);
+      amAppendMessageToThread(mode,{id:'you-'+row.id,created_at:row.created_at,who:'you',transcript:row.transcript,photo_urls});
+      if(row.reply){
+        amAppendMessageToThread(mode,{id:'amit-'+row.id,created_at:row.created_at,who:'amit',transcript:row.reply});
+      }
+    });
+    amScrollThreadToBottom(mode);
+  }catch(e){ console.error(e); }
+}
+
+function amScrollThreadToBottom(mode){
+  const scroll=document.getElementById('amThreadScroll-'+mode);
+  if(scroll) scroll.scrollTop=scroll.scrollHeight;
+}
+
+// Appends one message (you or amit) to the live thread, inserting a day
+// divider first if this message starts a new calendar day.
+function amAppendMessageToThread(mode,msg){
+  const scroll=document.getElementById('amThreadScroll-'+mode);
+  if(!scroll)return;
+  const emptyEl=document.getElementById('amThreadEmpty-'+mode);
+  if(emptyEl) emptyEl.remove();
+
+  const cache=amThreadCache[mode]||(amThreadCache[mode]=[]);
+  const lastKey=cache.length?amDayKey(cache[cache.length-1].created_at):null;
+  const thisKey=amDayKey(msg.created_at);
+  cache.push(msg);
+
+  if(thisKey!==lastKey){
+    const divider=document.createElement('div');
+    divider.className='amthread-daydivider';
+    divider.textContent=amFormatDayHeader(msg.created_at);
+    scroll.appendChild(divider);
+  }
+  const row=document.createElement('div');
+  row.innerHTML=amThreadBubbleHtml(msg);
+  scroll.appendChild(row.firstElementChild);
+  amResolveBubblePhotos(msg);
+  amScrollThreadToBottom(mode);
+}
+
+// Updates an already-rendered bubble in place (used when a pending "Amit
+// is thinking…" bubble resolves to the real reply).
+function amUpdateThreadMessage(mode,msg){
+  const bubble=document.getElementById(msg.id);
+  if(!bubble)return;
+  const textEl=document.getElementById(msg.id+'-text');
+  if(textEl) textEl.textContent=msg.transcript;
+  bubble.classList.remove('amthread-pending');
+  // Add the speak button now that a real reply exists (pending bubbles
+  // don't get one — nothing worth speaking yet).
+  const controls=bubble.querySelector('.amthread-controls');
+  if(controls&&!controls.querySelector('.amthread-speak-btn')){
+    const btn=document.createElement('button');
+    btn.className='amthread-speak-btn';
+    btn.title='Speak this reply aloud';
+    btn.textContent='🔊';
+    btn.onclick=()=>amSpeak(msg.transcript);
+    controls.appendChild(btn);
+  }
+  amScrollThreadToBottom(mode);
+}
+
+function amThreadBubbleHtml(msg){
+  const isYou=msg.who==='you';
+  const photos=msg.photo_urls||[];
+  const photosHtml=photos.length?`<div class="amthread-photos" id="${msg.id}-photos">${photos.map((p,i)=>{
+    const immediate=(p.startsWith('data:')||p.startsWith('http'))?p:'';
+    return `<img class="amthread-photo-thumb" src="${immediate}" data-src="${p}" id="${msg.id}-photo-${i}" onclick="amOpenPhotoOverlayResolved('${msg.id}-photo-${i}')">`;
+  }).join('')}</div>`:'';
+  const speakBtn=(!isYou&&!msg.pending)?`<button class="amthread-speak-btn" title="Speak this reply aloud" onclick="amSpeak(document.getElementById('${msg.id}-text').textContent)">🔊</button>`:'';
+  return `<div class="amthread-row amthread-${isYou?'you':'amit'}">
+    <div class="amthread-bubble${msg.pending?' amthread-pending':''}" id="${msg.id}">
+      ${photosHtml}
+      <div id="${msg.id}-text">${amEscapeHtml(msg.transcript)}</div>
+      <div class="amthread-controls">${speakBtn}</div>
+    </div>
+  </div>`;
+}
+
+function amEscapeHtml(s){
+  const d=document.createElement('div');
+  d.textContent=s==null?'':String(s);
+  return d.innerHTML;
+}
+
+// Photo thumbnails are rendered with the raw stored path first (or a local
+// data: URL for a just-sent message), then swapped for a real signed URL
+// once resolved — keeps the thread responsive instead of blocking render
+// on a network round-trip per photo.
+async function amResolveBubblePhotos(msg){
+  const photos=msg.photo_urls||[];
+  for(let i=0;i<photos.length;i++){
+    const el=document.getElementById(msg.id+'-photo-'+i);
+    if(!el)continue;
+    const url=await amResolvePhotoUrl(photos[i]);
+    if(url&&el) el.src=url;
+  }
+}
+
+// Tap/double-tap to expand — reuses the existing canonical popup overlay
+// (popupOpen/popupClose, already used elsewhere in this template) rather
+// than building a second overlay mechanism.
+function amOpenPhotoOverlay(dataUrl){
+  popupOpen(`<img src="${dataUrl}" style="max-width:100%;display:block;border-radius:8px">`);
+}
+function amOpenPhotoOverlayResolved(imgElId){
+  const el=document.getElementById(imgElId);
+  if(!el)return;
+  const src=el.src||el.getAttribute('data-src');
+  if(src) amOpenPhotoOverlay(src);
+}
+
+// Called once per voice page after render (from wireVoicePages()) — loads
+// each mode's real thread history so the conversation isn't blank on
+// every page open.
+function amInitThreadPages(){
+  ['dailywalk','general'].forEach(mode=>{
+    if(document.getElementById('amThreadScroll-'+mode)) amLoadThreadHistory(mode);
+  });
+}
 
 // Re-wires nothing structural on re-render (voice pages are self-contained
-// via onclick/onchange attributes already in their HTML) — kept as a small
-// hook in case a future pass needs to attach anything post-render.
-function wireVoicePages(){}
+// via onclick/onchange attributes already in their HTML) — this hook now
+// also kicks off the real thread-history load for both voice pages.
+function wireVoicePages(){
+  // Rebuilt 2026-09-06: was a no-op before the chat-thread rebuild (voice
+  // pages were fully self-contained via inline onclick/onchange). Now also
+  // kicks off loading each mode's real conversation history so the thread
+  // isn't blank every time the page (re)renders.
+  amInitThreadPages();
+}
 
 // PAGE HOVER TOOLTIP mechanism removed with the sidebar/right-rail shell
 // it existed for (2026-09-05 shell rebuild) — a hover tooltip has no
@@ -1101,6 +1401,7 @@ if(db){
     currentUser=session?session.user:null;
     _updateSyncUI();
     _refreshAmitReadinessBanner();
+    amInitThreadPages(); // reload real thread history now that sign-in state is known
   });
 }
 

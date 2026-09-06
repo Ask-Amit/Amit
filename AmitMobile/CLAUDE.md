@@ -182,6 +182,8 @@ The mobile front door to the whole Amit system — not a narrow single-purpose t
 
 ## Current Status
 
+**2026-09-06 — Daily Walk/Amit tiles rebuilt as a real scrolling, day-grouped chat thread** (multi-photo attach, tap-to-expand thumbnails, visible 🔊 speak button on every Amit reply — the honest fix for iOS Safari blocking non-gesture `speechSynthesis` calls). Full detail in `Sessions.md`'s 2026-09-06 entry — read it before touching `amVoicePageHtml()`, `callAmitBackend()`, or the photo-attach flow again. `amit_mobile_captures.photo_url` now stores multiple photo paths as a JSON array string in the same existing text column (no schema migration) — `amParsePhotoUrls()` handles both that and any older single-path rows.
+
 Not yet built. Architecture settled 2026-09-05 (see "The Dashboard Architecture" below) — sample/skeleton pending Ryan's review before real build begins.
 
 ## The Dashboard Architecture — decided 2026-09-05, Ryan's direct instruction
