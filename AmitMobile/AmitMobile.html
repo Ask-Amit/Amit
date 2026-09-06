@@ -341,7 +341,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.04</div>
+<div class="amversion" id="pageVersion">v1.05</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1091,23 +1091,22 @@ if(db){
 }
 
 // ══════════════════════════════════════════════
-// AMIT READINESS BANNER — see amit_readiness_check.js (Amit root). A
-// brand-new user should see plainly, right on the dashboard tile grid,
-// which of the four readiness steps they're still missing before they
-// even try tapping a tile — per AmitMobile\CLAUDE.md's "Connect Amit"
-// readiness-check work. Uses the shared checkAmitReadiness()/
-// renderReadinessBanner() functions rather than duplicating this logic.
+// AMIT READINESS BANNER — REMOVED 2026-09-05, Ryan's direct correction.
+// checkAmitReadiness() probes http://localhost:8710 to see if the desktop
+// bridge is running — that check only makes sense ON the desktop (where
+// the Hub and the bridge share the same machine's localhost). On a PHONE,
+// "localhost" means the phone itself, which never has anything running on
+// port 8710 — so this banner always incorrectly reported "not connected"
+// and its button sent people back to the Hub, confusing a real live test.
+// Amit Mobile doesn't need this at all: capture always works regardless
+// of the desktop bridge, and live-reply readiness already has its own
+// honest per-message fallback ("Hub isn't open") when it's actually
+// relevant. Left the function as a no-op rather than deleting every call
+// site, so nothing else needs touching.
 // ══════════════════════════════════════════════
 async function _refreshAmitReadinessBanner(){
   const box=document.getElementById('amitReadinessBanner');
-  if(!box||typeof checkAmitReadiness!=='function'||!db)return;
-  try{
-    const status=await checkAmitReadiness(db);
-    renderReadinessBanner(box,status,{
-      onSignInClick:()=>openSyncModal&&openSyncModal(),
-      onConnectClick:()=>goToHub&&goToHub()
-    });
-  }catch(e){ /* never let a readiness check break the dashboard */ }
+  if(box)box.style.display='none';
 }
 
 // Drives the Sign In/Out + Sync top-bar icon. Same underlying meaning as
