@@ -1243,7 +1243,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.34</div>
+    <div class="page-version" id="hubVersionBadge">v6.35</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -2728,15 +2728,15 @@ async function _refreshAmitReadinessBanner(){
       return;
     }
     const ready=!!(status.bridgeRunning&&status.claudeConnected);
-    let attempted=false;
-    try{attempted=localStorage.getItem('amitConnectAttempted')==='1';}catch(e){}
-    if(!ready&&!attempted){
-      // Never attempted setup yet and not connected — nothing to show them,
-      // "Not Listening" would just be confusing noise to someone who
-      // doesn't know what Amit Mobile is. See Ryan's 2026-09-05 correction.
-      indicator.style.display='none';
+    // SIMPLIFIED 2026-09-05, Ryan's further correction: "Not Listening" is
+    // redundant noise regardless of whether setup was ever attempted — the
+    // "Connect Your Phone" button already implies not-connected. Only ever
+    // show this indicator once it's actually true (green "Listening");
+    // show nothing at all otherwise, in every other case.
+    if(ready){
+      _setAmitMobileHeartbeatIndicator(true);
     } else {
-      _setAmitMobileHeartbeatIndicator(ready);
+      indicator.style.display='none';
     }
     setupBtn.style.display=ready?'':'none';
     connectBtn.style.display=ready?'none':'';
