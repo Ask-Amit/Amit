@@ -7,12 +7,25 @@
 // Reuses Supabase's OWN magic-link mechanism — the same one that already
 // emails a sign-in link — except instead of emailing it, we hand the
 // generated link straight back to the caller (who's already signed in on
-// the Hub) to render as a QR code. Scanning it opens the Hub already
+// the Hub) to render as a QR code. Scanning it opens Amit Mobile already
 // authenticated, no different from clicking an emailed link, just
 // delivered by camera instead of by inbox.
 //
 // This has to run server-side because generating that link requires the
 // service-role key, which must never reach the browser.
+//
+// IMPORTANT — Redirect URL allowlist (this is the leading suspect for
+// the "scanning the QR doesn't actually sign the phone in" bug, 2026-09-05):
+// Supabase's Auth settings only honor `redirectTo` when that exact URL (or
+// a matching wildcard) is present in Authentication → URL Configuration →
+// Redirect URLs. If AMIT_MOBILE_URL below is not in that allowlist,
+// Supabase silently ignores redirectTo and sends the browser to the
+// project's default Site URL instead — which never processes the
+// #access_token hash, so the phone lands looking exactly like a fresh,
+// signed-out visitor. Before assuming any code is broken, confirm this
+// exact URL (and the old Hub URL, since AmitBooks' proven-working
+// AMITSCAN_URL is a different path) is listed there, or add a wildcard
+// covering `https://ask-amit.github.io/Amit/**`.
 //
 // Deploy via the Supabase Dashboard (no CLI needed):
 //   1. supabase.com/dashboard → your project → Edge Functions → Deploy a new function
@@ -25,7 +38,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const HUB_URL = "https://ask-amit.github.io/Amit/Hub/amit-hub.html";
+// Points at Amit Mobile, not the Hub — "Connect Your Phone" exists to get
+// someone into Amit Mobile (the phone-first dashboard), not just reopen
+// the Hub on a small screen. Changed 2026-09-05.
+const AMIT_MOBILE_URL = "https://ask-amit.github.io/Amit/AmitMobile/AmitMobile.html";
 
 Deno.serve(async (req) => {
   const cors = {
@@ -54,7 +70,7 @@ Deno.serve(async (req) => {
     const { data, error } = await adminClient.auth.admin.generateLink({
       type: "magiclink",
       email: caller.email,
-      options: { redirectTo: HUB_URL },
+      options: { redirectTo: AMIT_MOBILE_URL },
     });
     if (error || !data?.properties?.action_link) {
       return json({ error: error?.message || "Could not generate a link." }, 400, cors);
