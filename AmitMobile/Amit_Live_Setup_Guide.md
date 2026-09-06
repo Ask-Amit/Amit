@@ -13,7 +13,16 @@ That means your computer needs to be the one running a small helper program — 
 1. **Node.js is NOT required for this.** The Amit Bridge is a PowerShell program (built into every Windows computer already) — nothing extra to install for that part.
 2. **You need your own Claude Code login already set up on this computer**, and it needs to be YOUR OWN Claude subscription — not someone else's, not a shared one. This is important: Amit's replies are powered by your own Claude account on this machine, the same way a subscription works for one person. If you don't have Claude Code installed and signed in yet, ask whoever set up your computer for help getting that done first — this guide assumes it's already working (you can test this yourself by opening a Command Prompt or PowerShell window and typing `claude --version` — if it shows a version number, you're set).
 
-## 3. Getting the Amit Bridge running
+## 3. The two security warnings you'll probably see — this is normal
+
+Amit doesn't yet have a paid certificate that tells your browser and Windows "this program is verified" (a real cost that gets added once Amit has enough people using it) — until then, expect two separate warnings, both safe to click past:
+
+1. **Right after downloading `install-Amit.exe`**, your browser (Chrome/Edge) may say something like *"install-Amit.exe isn't commonly downloaded"* or flag it as untrusted. Click the small **∨** or **...** next to the downloaded file, then choose **Keep** (it may ask you to confirm "Keep anyway" a second time — choose Keep again).
+2. **When you actually run the installer**, Windows itself may say *"Windows protected your PC."* Click **More info**, then click **Run anyway**.
+
+Neither of these means anything is actually wrong — they show up for any small, newer program that hasn't yet been downloaded by enough people for Windows/your browser to "recognize" it as common. If you're ever unsure, download it only from the real Hub (`https://ask-amit.github.io/Amit/Hub/amit-hub.html`) via the Connect Amit button, never from anywhere else.
+
+## 4. Getting the Amit Bridge running
 
 The Amit Bridge is the same program used for "Amit Computer Health" — if that's already installed and running on this computer, **you don't need to do anything else**. Amit Mobile automatically starts listening the moment the Amit Bridge itself starts. There is nothing separate to install or run for Amit Mobile specifically.
 
@@ -33,7 +42,7 @@ Amit Mobile listener started (see amit_mobile_watcher.ps1) — replies to phone 
 
 That second line is the important one — it means Amit is now listening for your phone's questions. Leave this window open.
 
-## 4. Keep the computer from falling asleep
+## 5. Keep the computer from falling asleep
 
 This is the step people forget, and it's the #1 reason "Amit isn't answering" — the computer went to sleep and stopped listening. If your computer sleeps or turns its screen off, the bridge effectively pauses (it can't check for new questions while the machine is asleep), and your phone will wait until it wakes back up.
 
@@ -46,13 +55,13 @@ This is the step people forget, and it's the #1 reason "Amit isn't answering" �
 
 This means the screen may look "off" but the computer is still fully awake and working underneath — that's exactly what you want while you're using Amit Mobile away from your desk. You can always put these settings back to normal later; they only need to be set to Never while you want Amit listening.
 
-## 5. What happens if you close the window or turn off the computer
+## 6. What happens if you close the window or turn off the computer
 
 Nothing is lost. Every question and photo you send from your phone is saved the instant you send it — the "answering machine" analogy again: your message is recorded even if nobody's there to answer yet. When you turn the bridge back on (open the window again, or turn the computer back on), it automatically checks for anything that came in while it was off and answers those first, then keeps going from there.
 
-The only real cost of the bridge being off is time — Amit's replies just wait. This is expected, not a bug: it's the tradeoff of this being a free way to run Amit, without needing to pay for a separate always-on server somewhere. If you want Amit to answer while you're out and about, the computer running this bridge needs to be left on (screen can be off/locked, per step 4 above — it just can't be fully asleep or shut down).
+The only real cost of the bridge being off is time — Amit's replies just wait. This is expected, not a bug: it's the tradeoff of this being a free way to run Amit, without needing to pay for a separate always-on server somewhere. If you want Amit to answer while you're out and about, the computer running this bridge needs to be left on (screen can be off/locked, per step 5 above — it just can't be fully asleep or shut down).
 
-## 6. If something seems stuck
+## 7. If something seems stuck
 
 - Check that the black PowerShell window is still open and hasn't shown any red error text.
 - Check that your computer's screen/sleep settings are still set to Never (Windows sometimes resets these after an update).
