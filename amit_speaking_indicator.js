@@ -45,7 +45,7 @@
      mechanism can't know every page's own icon position), but this is a
      real, checked value rather than a guess, and correct for the Hub and
      any page sharing the same header convention. */
-  top: 12px;
+  top: 24px;
   left: 28px;
   width: 32px;
   height: 32px;
