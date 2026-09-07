@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.50</div>
+    <div class="page-version" id="hubVersionBadge">v6.51</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3593,6 +3593,16 @@ function _amvPickCasualGreeting(nameBit){
 // Real, free weather-alert data — the same National Weather Service
 // endpoint checkLocalAlerts() already uses elsewhere in the Hub
 // (api.weather.gov, no key, no Claude account required — this is plain
+// First word of whatever's in the Name field — Ryan's direct instruction,
+// 2026-09-06: some people save their full name there, and using the whole
+// thing every time a greeting speaks feels impersonal/formal. Only affects
+// what gets SPOKEN — the full name stays exactly as saved everywhere else
+// (About Me's own field, the contact row itself).
+function _amvFirstName(fullName){
+  if(!fullName) return '';
+  return fullName.trim().split(/\s+/)[0];
+}
+
 // public structured data, not something needing AI interpretation).
 // Returns a short spoken sentence naming the real alert, or null if
 // there's no ZIP set yet or nothing active.
@@ -3623,7 +3633,7 @@ async function _amvGreetingText(contact,firstTime,includeAlert){
   // speech engines insert a distinct pause, so "Good morning, Amit" comes
   // out as "Good morning — [pause] — Amit" instead of one smooth phrase.
   // Dropping the comma reads more like natural spoken address.
-  const nameBit=contact.name?(' '+contact.name):'';
+  const nameBit=contact.name?(' '+_amvFirstName(contact.name)):'';
   if(firstTime){
     return `Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always. Welcome to your Hub${nameBit} — this is your home base for pursuits, prayer, your calendar, and walking with Yahweh each day. If you'd like, I can walk you through what this is all about.`;
   }
@@ -3808,7 +3818,7 @@ async function amvToggleGreetingFromAboutMe(){
   // need to tell them where to go, just a warm acknowledgment either way.
   if('speechSynthesis' in window){
     window.speechSynthesis.cancel();
-    const nameBit=_amvOwnerContact.name?(' '+_amvOwnerContact.name):''; // plain space, not comma — see _amvGreetingText's note on TTS pause artifacts
+    const nameBit=_amvOwnerContact.name?(' '+_amvFirstName(_amvOwnerContact.name)):''; // plain space + first name only — see _amvFirstName
     const text=turningOn
       ? `I'm glad you came back${nameBit}. I'm glad I'm able to talk to you again — I look forward to having many conversations with you.`
       : `No problem. Just come back whenever you want, and I'll talk to you some more. Just select it.`;
