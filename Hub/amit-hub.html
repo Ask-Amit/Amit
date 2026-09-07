@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.48</div>
+    <div class="page-version" id="hubVersionBadge">v6.49</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3562,14 +3562,72 @@ async function amvTurnOffGreeting(contactId){
   _amvSpeakWithContact("No problem. I won't be introducing myself daily anymore. But if you want to turn me back on, go to About Me and just select Turn Me Back On.",_amvOwnerContact||{voice_rate:0.85},voices);
 }
 
+// Casual variants for every greeting after the true first-ever one — per
+// Ryan's direct correction, 2026-09-06: "you only introduce yourself by
+// the right name the first time... from there on out we're just having a
+// conversation." None of these re-explain who's speaking or how to say
+// the name — that only happens once, ever, in the real first-time intro
+// below. Picked pseudo-randomly, never the same one twice in a row
+// (tracked via AMV_LAST_VARIANT_KEY), so it doesn't read as a script.
+const AMV_CASUAL_GREETINGS=[
+  (t,n)=>`${t}${n}.`,
+  (t,n)=>`Welcome back${n}.`,
+  (t,n)=>`Good to see you${n}.`,
+  (t,n)=>`${t}${n} — ready when you are.`,
+  (t,n)=>`Welcome back${n}. Let's get into it.`,
+  (t,n)=>`Hey${n} — good to have you back.`,
+  (t,n)=>`${t}${n}. Let's walk through today together.`,
+  (t,n)=>`Welcome back${n}. What's on your heart today?`,
+  (t,n)=>`Good to see you again${n}.`,
+  (t,n)=>`${t}${n} — I'm right here with you.`
+];
+const AMV_LAST_VARIANT_KEY='amit_lastGreetingVariant';
+function _amvPickCasualGreeting(nameBit){
+  const last=Number(localStorage.getItem(AMV_LAST_VARIANT_KEY)||'-1');
+  let idx;
+  do { idx=Math.floor(Math.random()*AMV_CASUAL_GREETINGS.length); } while(idx===last&&AMV_CASUAL_GREETINGS.length>1);
+  localStorage.setItem(AMV_LAST_VARIANT_KEY,String(idx));
+  return AMV_CASUAL_GREETINGS[idx](_amvTimeOfDayGreeting(),nameBit);
+}
+
+// Real, free weather-alert data — the same National Weather Service
+// endpoint checkLocalAlerts() already uses elsewhere in the Hub
+// (api.weather.gov, no key, no Claude account required — this is plain
+// public structured data, not something needing AI interpretation).
+// Returns a short spoken sentence naming the real alert, or null if
+// there's no ZIP set yet or nothing active.
+async function _amvFetchAlertForGreeting(){
+  const loc=(typeof getLoc==='function')?getLoc():null;
+  if(!loc) return null;
+  try{
+    const r=await fetch(`https://api.weather.gov/alerts/active?point=${loc.lat},${loc.lon}`,{headers:{'Accept':'application/geo+json'}});
+    if(!r.ok) return null;
+    const j=await r.json();
+    const feats=j.features||[];
+    if(!feats.length) return null;
+    const top=feats[0].properties;
+    const event=top.event||'a weather alert';
+    return `Before you get started — there's ${/^[aeiou]/i.test(event)?'an':'a'} ${event} in your area right now. Let's take a look at that.`;
+  }catch(e){ return null; }
+}
+
 // Text-building split out from the daily-gate/speaking logic so a manual
 // preview (amvPreviewGreeting, About Me) can reuse the exact same wording
-// without touching the once-a-day localStorage gate below.
-function _amvGreetingText(contact,firstTime){
+// without touching the once-a-day localStorage gate below. `includeAlert`
+// is only true for the real once-a-day greeting — the refocus/return
+// greeting (see the visibilitychange listener below) deliberately skips
+// re-checking alerts, since it would already have been said once that day.
+async function _amvGreetingText(contact,firstTime,includeAlert){
   const nameBit=contact.name?(', '+contact.name):'';
-  return firstTime
-    ? `Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always. Welcome to your Hub${nameBit} — this is your home base for pursuits, prayer, your calendar, and walking with Yahweh each day. If you'd like, I can walk you through what this is all about.`
-    : `Hello — this is Amit, pronounced uh-MEET. ${_amvTimeOfDayGreeting()}${nameBit}.`;
+  if(firstTime){
+    return `Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always. Welcome to your Hub${nameBit} — this is your home base for pursuits, prayer, your calendar, and walking with Yahweh each day. If you'd like, I can walk you through what this is all about.`;
+  }
+  let text=_amvPickCasualGreeting(nameBit);
+  if(includeAlert){
+    const alertLine=await _amvFetchAlertForGreeting();
+    if(alertLine) text+=' '+alertLine;
+  }
+  return text;
 }
 
 async function amvMaybeSpeakGreeting(contact){
@@ -3579,13 +3637,14 @@ async function amvMaybeSpeakGreeting(contact){
   const alreadyToday=localStorage.getItem(AMV_LAST_GREETED_KEY)===today;
   if(alreadyToday && !contact._justCreated) return; // already said hello today — first-ever intro still fires regardless
   localStorage.setItem(AMV_LAST_GREETED_KEY,today);
-  const text=_amvGreetingText(contact,contact._justCreated);
+  localStorage.setItem(AMV_LAST_ACTIVE_KEY,String(Date.now()));
+  const text=await _amvGreetingText(contact,contact._justCreated,true);
   const voices=await _amvGetVoicesReady();
   _amvSpeakWithContact(text,contact,voices);
   _amvShowGreetingToast(contact.id);
 }
 
-// Manual preview from About Me — plays the exact same daily greeting on
+// Manual preview from About Me — plays a real casual-greeting variant on
 // demand, using current name/voice, WITHOUT touching the once-a-day gate
 // or requiring greeting_enabled to be on. Added 2026-09-06 after Ryan
 // tested the real once-a-day behavior and (reasonably) wanted a way to
@@ -3593,10 +3652,35 @@ async function amvMaybeSpeakGreeting(contact){
 // until tomorrow or clearing browser storage by hand.
 async function amvPreviewGreeting(){
   if(!_amvOwnerContact) return;
-  const text=_amvGreetingText(_amvOwnerContact,false);
+  const text=await _amvGreetingText(_amvOwnerContact,false,false);
   const voices=await _amvGetVoicesReady();
   _amvSpeakWithContact(text,_amvOwnerContact,voices);
 }
+
+// Welcome-back-on-return — Ryan's direct instruction, 2026-09-06: if the
+// tab regains focus after a real stretch away (he named >2 hours as
+// "should say something," ~15 minutes as "don't bother"), speak a casual
+// welcome-back line. Deliberately time-gated, not fired on every tab
+// switch — the concern named directly was "how much talking do you do,"
+// so this stays quiet for anything short. Governed by the SAME
+// greeting_enabled flag as the daily greeting — one setting, not a
+// second toggle to manage. No alert re-check here (see _amvGreetingText).
+const AMV_LAST_ACTIVE_KEY='amit_lastActiveAt';
+const AMV_RETURN_THRESHOLD_MS=2*60*60*1000; // 2 hours
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible') return;
+  const lastActive=Number(localStorage.getItem(AMV_LAST_ACTIVE_KEY)||'0');
+  localStorage.setItem(AMV_LAST_ACTIVE_KEY,String(Date.now()));
+  if(!lastActive) return; // nothing to compare against yet
+  const awayMs=Date.now()-lastActive;
+  if(awayMs<AMV_RETURN_THRESHOLD_MS) return;
+  if(!_amvOwnerContact||_amvOwnerContact.greeting_enabled===false) return;
+  (async()=>{
+    const text=await _amvGreetingText(_amvOwnerContact,false,false);
+    const voices=await _amvGetVoicesReady();
+    _amvSpeakWithContact(text,_amvOwnerContact,voices);
+  })();
+});
 
 async function amvInitAboutMePanel(){
   document.getElementById('amvSavedNote').style.display='none';
@@ -3704,7 +3788,7 @@ function amvRenderGreetingToggle(){
   const btnEl=document.getElementById('amvGreetingToggleBtn');
   if(!statusEl||!btnEl||!_amvOwnerContact) return;
   const on=_amvOwnerContact.greeting_enabled!==false;
-  statusEl.textContent=on?'Amit says hello once a day when you sign in.':'Off — Amit stays quiet when you sign in.';
+  statusEl.textContent=on?'Amit says hello once a day, and welcomes you back if you\'ve been away a while.':'Off — Amit stays quiet.';
   btnEl.textContent=on?'TURN OFF':'TURN ME BACK ON';
 }
 async function amvToggleGreetingFromAboutMe(){
@@ -4343,8 +4427,19 @@ async function checkLocalAlerts(loc){
   }catch{slot.innerHTML='';}
 }
 async function checkNationalAlerts(){
+  // Was querying every Extreme/Immediate alert NATIONWIDE with no geographic
+  // filter at all (the old comment at the call site literally said
+  // "regardless of location") — a real bug Ryan caught live 2026-09-06:
+  // tornado warnings from Nebraska and AMBER alerts from other states
+  // popping up regardless of where he actually is. NWS's own alerts
+  // endpoint already supports scoping by point (lat,lon) — the exact same
+  // mechanism checkLocalAlerts() already uses — so this now does the same,
+  // and skips entirely if no ZIP/location has been set yet rather than
+  // falling back to unscoped nationwide noise.
+  const loc=(typeof getLoc==='function')?getLoc():null;
+  if(!loc) return;
   try{
-    const r=await fetch('https://api.weather.gov/alerts/active?severity=Extreme&urgency=Immediate',{headers:{'Accept':'application/geo+json'}});
+    const r=await fetch(`https://api.weather.gov/alerts/active?severity=Extreme&urgency=Immediate&point=${loc.lat},${loc.lon}`,{headers:{'Accept':'application/geo+json'}});
     if(!r.ok)return;
     const j=await r.json();
     const feats=j.features||[];
@@ -9371,7 +9466,7 @@ document.addEventListener('DOMContentLoaded', function(){
   loadHubDemoData();
   checkFirstVisit(); // restore compass for returning users
   checkAmitInbox();
-  checkNationalAlerts(); setInterval(checkNationalAlerts,30*60*1000); // every 30 min, regardless of location
+  checkNationalAlerts(); setInterval(checkNationalAlerts,30*60*1000); // every 30 min — now scoped to the user's own location, see checkNationalAlerts()
   window.addEventListener('resize', ()=>{ updateCalCellScale(); });
 
   // The gate is also supposed to show via onAuthStateChange's INITIAL_SESSION
