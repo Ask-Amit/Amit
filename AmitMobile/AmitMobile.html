@@ -374,7 +374,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.12</div>
+<div class="amversion" id="pageVersion">v1.13</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1038,20 +1038,26 @@ function amPickDefaultVoice(voices){
 function amSpeak(text){
   if(!('speechSynthesis' in window))return;
   try{
-    window.speechSynthesis.cancel(); // don't stack overlapping utterances
-    const u=new SpeechSynthesisUtterance(text);
+    // Routed through the SAME shared speakContactText() (amit_owner_contact.js)
+    // the Hub uses — one owner-contact row, one function, so pitch/volume/
+    // pacing (not just rate) apply identically here too. Per Ryan's direct
+    // instruction 2026-09-06: "whatever set via the Hub... should call all
+    // of those elements into existence wherever speech is enabled."
     const voices=window.speechSynthesis.getVoices();
+    if(typeof speakContactText==='function'){
+      speakContactText(text,_amOwnerContact,voices,{
+        fallbackPicker:amPickDefaultVoice,
+        onStart:()=>{ if(typeof startSpeakingPulse==='function') startSpeakingPulse(); },
+        onEnd:()=>{ if(typeof stopSpeakingPulse==='function') stopSpeakingPulse(); }
+      });
+      return;
+    }
+    // Fallback if the shared file somehow isn't loaded — single plain utterance.
+    window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
     const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,_amOwnerContact,amPickDefaultVoice):null;
     if(voice) u.voice=voice;
     u.rate=(_amOwnerContact&&_amOwnerContact.voice_rate)?Number(_amOwnerContact.voice_rate):0.85;
-    // Top logo breathes while actually speaking — see
-    // amit_speaking_indicator.js (Amit root), Ryan's direct design 2026-09-06.
-    const icon=document.getElementById('amTopLogo');
-    if(typeof startSpeakingPulse==='function'){
-      u.onstart=()=>startSpeakingPulse(icon);
-      u.onend=()=>stopSpeakingPulse(icon);
-      u.onerror=()=>stopSpeakingPulse(icon);
-    }
     window.speechSynthesis.speak(u);
   }catch(e){/* non-fatal — text is already shown on screen, and the manual
                 🔊 button on the bubble still works */}

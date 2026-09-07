@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.52</div>
+    <div class="page-version" id="hubVersionBadge">v6.53</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1727,6 +1727,16 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 
           <label class="fg-label" style="display:block;margin-bottom:5px">SPEED — <span id="amvRateValue">1.00x</span></label>
           <input id="amvRateRange" type="range" min="0.6" max="1.6" step="0.05" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:16px">
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">TONE (PITCH) — <span id="amvPitchValue">1.00</span></label>
+          <input id="amvPitchRange" type="range" min="0.5" max="1.7" step="0.05" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:16px">
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">VOLUME — <span id="amvVolumeValue">100%</span></label>
+          <input id="amvVolumeRange" type="range" min="0.2" max="1" step="0.05" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:16px">
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">PACING (PAUSE BETWEEN SENTENCES) — <span id="amvPauseValue">Normal</span></label>
+          <input id="amvPauseRange" type="range" min="0.4" max="2.5" step="0.1" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:6px">
+          <div style="color:rgba(240,232,208,.35);font-size:11px;margin-bottom:16px">More room to think between sentences, or less — this doesn't change how fast the words themselves come out, only the pause between them.</div>
 
           <label class="fg-label" style="display:block;margin-bottom:5px">TEST TEXT</label>
           <textarea id="amvTestText" rows="2" class="fg-input" style="width:100%;margin-bottom:10px;resize:vertical;font-family:inherit">Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always.</textarea>
@@ -3406,7 +3416,7 @@ const AMV_ACCENT_LABELS={
   'zh-CN':'Chinese (Mainland)','ko-KR':'Korean (Korea)'
 };
 const AMV_ALL='__ALL__', AMV_OTHER='__OTHER__', AMV_SMALL_THRESHOLD=5;
-let _amvVoices=[], _amvSelectedVoice=null, _amvRate=1.0, _amvSmallLangs=new Set();
+let _amvVoices=[], _amvSelectedVoice=null, _amvRate=1.0, _amvPitch=1.0, _amvVolume=1.0, _amvPauseScale=1.0, _amvSmallLangs=new Set();
 let _amvRatings={}; // session-only, keyed by voice name — { name: 1-5 }
 let _amvCurrentRating=0;
 
@@ -3470,6 +3480,9 @@ async function amvPopulateVoices(){
     const c=_amvOwnerContact;
     target=(c&&c.voice_name&&_amvVoices.find(v=>v.name===c.voice_name))||amvPickDefaultVoice(_amvVoices);
     if(c&&c.voice_rate){ _amvRate=Number(c.voice_rate); const rr=document.getElementById('amvRateRange'); if(rr){rr.value=_amvRate; document.getElementById('amvRateValue').textContent=_amvRate.toFixed(2)+'x';} }
+    if(c&&c.voice_pitch){ _amvPitch=Number(c.voice_pitch); const pr=document.getElementById('amvPitchRange'); if(pr){pr.value=_amvPitch; document.getElementById('amvPitchValue').textContent=_amvPitch.toFixed(2);} }
+    if(c&&c.voice_volume!=null){ _amvVolume=Number(c.voice_volume); const vr=document.getElementById('amvVolumeRange'); if(vr){vr.value=_amvVolume; document.getElementById('amvVolumeValue').textContent=Math.round(_amvVolume*100)+'%';} }
+    if(c&&c.voice_pause_scale){ _amvPauseScale=Number(c.voice_pause_scale); const pzr=document.getElementById('amvPauseRange'); if(pzr){pzr.value=_amvPauseScale; document.getElementById('amvPauseValue').textContent=amvPauseLabel(_amvPauseScale);} }
   }
   _amvSelectedVoice=target;
   amvPopulateAccentDropdown(_amvSelectedVoice?_amvSelectedVoice.lang:null);
@@ -3502,6 +3515,13 @@ function amvRenderStarsForCurrentVoice(){
 // (the 0.85x Andrew Multilingual default if nothing's been changed yet).
 // ══════════════════════════════════════════════
 const AMV_LAST_GREETED_KEY='amit_lastGreetedDate';
+function amvPauseLabel(scale){
+  if(scale<=0.7) return 'Quick';
+  if(scale<1.0) return 'A little quicker';
+  if(scale===1.0) return 'Normal';
+  if(scale<1.6) return 'More room to think';
+  return 'Much slower';
+}
 function _amvTimeOfDayGreeting(){
   const h=new Date().getHours();
   if(h<12) return'Good morning';
@@ -3518,19 +3538,25 @@ function _amvGetVoicesReady(){
   });
 }
 function _amvSpeakWithContact(text,contact,voices){
+  // Routed through the shared speakContactText() (amit_owner_contact.js) so
+  // pacing (sentence-by-sentence pauses, scaled by voice_pause_scale) and
+  // pitch/volume all apply consistently, not just rate. The breathing icon
+  // stays on continuously across the whole thing (onStart/onEnd only, never
+  // toggled between sentences) via the same startSpeakingPulse/
+  // stopSpeakingPulse pair used everywhere else.
+  if(typeof speakContactText==='function'){
+    speakContactText(text,contact,voices,{
+      fallbackPicker:amvPickDefaultVoice,
+      onStart:()=>{ if(typeof startSpeakingPulse==='function') startSpeakingPulse(); },
+      onEnd:()=>{ if(typeof stopSpeakingPulse==='function') stopSpeakingPulse(); }
+    });
+    return;
+  }
+  // Fallback if the shared file somehow isn't loaded — single plain utterance.
   const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,contact,amvPickDefaultVoice):null;
   const u=new SpeechSynthesisUtterance(text);
   if(voice) u.voice=voice;
   u.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
-  // The header icon breathes for as long as this line is actually being
-  // spoken — see amit_speaking_indicator.js (Amit root) for the mechanism
-  // and why (Ryan's direct design, 2026-09-06).
-  const icon=document.getElementById('amitHeaderIcon');
-  if(typeof startSpeakingPulse==='function'){
-    u.onstart=()=>startSpeakingPulse(icon);
-    u.onend=()=>stopSpeakingPulse(icon);
-    u.onerror=()=>stopSpeakingPulse(icon);
-  }
   window.speechSynthesis.speak(u);
 }
 
@@ -3677,7 +3703,7 @@ async function amvPreviewGreeting(){
   // first.
   const liveContact={..._amvOwnerContact,
     voice_name:_amvSelectedVoice?_amvSelectedVoice.name:_amvOwnerContact.voice_name,
-    voice_rate:_amvRate};
+    voice_rate:_amvRate,voice_pitch:_amvPitch,voice_volume:_amvVolume,voice_pause_scale:_amvPauseScale};
   _amvSpeakWithContact(text,liveContact,voices);
 }
 
@@ -3761,6 +3787,27 @@ async function amvInitAboutMePanel(){
   // a setting shouldn't require pressing a separate save button once
   // someone's actually done adjusting it.
   rateRange.onchange=_amvAutoSaveVoice;
+
+  const pitchRange=document.getElementById('amvPitchRange');
+  pitchRange.oninput=()=>{
+    _amvPitch=Number(pitchRange.value);
+    document.getElementById('amvPitchValue').textContent=_amvPitch.toFixed(2);
+  };
+  pitchRange.onchange=_amvAutoSaveVoice;
+
+  const volumeRange=document.getElementById('amvVolumeRange');
+  volumeRange.oninput=()=>{
+    _amvVolume=Number(volumeRange.value);
+    document.getElementById('amvVolumeValue').textContent=Math.round(_amvVolume*100)+'%';
+  };
+  volumeRange.onchange=_amvAutoSaveVoice;
+
+  const pauseRange=document.getElementById('amvPauseRange');
+  pauseRange.oninput=()=>{
+    _amvPauseScale=Number(pauseRange.value);
+    document.getElementById('amvPauseValue').textContent=amvPauseLabel(_amvPauseScale);
+  };
+  pauseRange.onchange=_amvAutoSaveVoice;
 }
 
 // Auto-save for the voice/accent/speed controls specifically — separate
@@ -3770,31 +3817,36 @@ async function amvInitAboutMePanel(){
 async function _amvAutoSaveVoice(){
   if(!_amvOwnerContact||!_amvSelectedVoice) return;
   const accent=document.getElementById('amvAccentSelect').value;
-  const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,{voice_name:_amvSelectedVoice.name,voice_accent:accent,voice_rate:_amvRate});
-  if(saved){ _amvOwnerContact.voice_name=_amvSelectedVoice.name; _amvOwnerContact.voice_accent=accent; _amvOwnerContact.voice_rate=_amvRate; }
+  const fields={voice_name:_amvSelectedVoice.name,voice_accent:accent,voice_rate:_amvRate,voice_pitch:_amvPitch,voice_volume:_amvVolume,voice_pause_scale:_amvPauseScale};
+  const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,fields);
+  if(saved) Object.assign(_amvOwnerContact,fields);
 }
 
 function amvHearIt(){
   if(!('speechSynthesis' in window)||!_amvSelectedVoice) return;
-  window.speechSynthesis.cancel();
   const text=document.getElementById('amvTestText').value.trim();
   if(!text) return;
+  const liveContact={voice_name:_amvSelectedVoice.name,voice_rate:_amvRate,voice_pitch:_amvPitch,voice_volume:_amvVolume,voice_pause_scale:_amvPauseScale};
+  if(typeof speakContactText==='function'){
+    speakContactText(text,liveContact,_amvVoices,{
+      fallbackPicker:amvPickDefaultVoice,
+      onStart:()=>{ if(typeof startSpeakingPulse==='function') startSpeakingPulse(); },
+      onEnd:()=>{ if(typeof stopSpeakingPulse==='function') stopSpeakingPulse(); }
+    });
+    return;
+  }
+  window.speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text);
   u.voice=_amvSelectedVoice; u.rate=_amvRate;
-  const icon=document.getElementById('amitHeaderIcon');
-  if(typeof startSpeakingPulse==='function'){
-    u.onstart=()=>startSpeakingPulse(icon);
-    u.onend=()=>stopSpeakingPulse(icon);
-    u.onerror=()=>stopSpeakingPulse(icon);
-  }
   window.speechSynthesis.speak(u);
 }
 
 async function amvSelectThisVoice(){
   if(!_amvSelectedVoice||!_amvOwnerContact) return;
   const accent=document.getElementById('amvAccentSelect').value;
-  const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,{voice_name:_amvSelectedVoice.name,voice_accent:accent,voice_rate:_amvRate});
-  if(saved){ _amvOwnerContact.voice_name=_amvSelectedVoice.name; _amvOwnerContact.voice_accent=accent; _amvOwnerContact.voice_rate=_amvRate; }
+  const fields={voice_name:_amvSelectedVoice.name,voice_accent:accent,voice_rate:_amvRate,voice_pitch:_amvPitch,voice_volume:_amvVolume,voice_pause_scale:_amvPauseScale};
+  const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,fields);
+  if(saved) Object.assign(_amvOwnerContact,fields);
   const note=document.getElementById('amvSavedNote');
   note.style.display='block';
   note.textContent=saved?'Saved — this is now Amit\'s voice everywhere.':'Could not save right now — try again in a moment.';
@@ -4033,10 +4085,37 @@ async function loadPrayer(){
     <div class="prayer-intro">This is what was on Amit's heart this morning.</div>
     <div class="prayer-body" id="prayerBodyText">${pHtml||'<p style="color:var(--dim);font-style:italic">'+entry.title+'</p>'}</div>
     ${rHtml?`<hr class="prayer-divider"><div class="prayer-reflection-head">What shaped this prayer</div><div class="prayer-reflection-body">${rHtml}</div>`:''}
-    <div class="prayer-print-row"><button class="btn btn-ghost" onclick="printPrayer()" style="font-size:13px;padding:8px 18px">🖨 Print This Prayer</button></div>`;
+    <div class="prayer-print-row">
+      <button class="btn btn-ghost" onclick="amvSpeakPrayer()" style="font-size:13px;padding:8px 18px;margin-right:8px">🔊 Hear This Prayer</button>
+      <button class="btn btn-ghost" onclick="printPrayer()" style="font-size:13px;padding:8px 18px">🖨 Print This Prayer</button>
+    </div>`;
   // Update tile
   const ts=document.getElementById('tile-prayer-sub');
   if(ts)ts.textContent=(entry.due_date===today)?'Today\'s prayer':dateStr.split(',')[0];
+}
+
+// PRAYER DELIVERY PROFILE — Ryan's direct instruction, 2026-09-06: prayer
+// should sound "more compassionate," intimate, unhurried. Unlike arbitrary
+// book/article text (where knowing "is this a prayer" would require real
+// AI interpretation — logged as future work, see root CLAUDE.md), this is
+// content Amit already KNOWS is a prayer at the moment it's spoken — no
+// detection needed. So this deliberately adjusts the person's own saved
+// voice profile (never overwrites it) — a bit slower, a bit lower/warmer,
+// noticeably more room between sentences — rather than guessing at tone
+// from the words themselves.
+async function amvSpeakPrayer(){
+  const body=document.getElementById('prayerBodyText');
+  if(!body) return;
+  const text=body.innerText.trim();
+  if(!text) return;
+  const voices=await _amvGetVoicesReady();
+  const base=_amvOwnerContact||{voice_rate:0.85,voice_pitch:1.0,voice_volume:1.0,voice_pause_scale:1.0};
+  const prayerContact={...base,
+    voice_rate:(base.voice_rate?Number(base.voice_rate):0.85)*0.85,
+    voice_pitch:(base.voice_pitch?Number(base.voice_pitch):1.0)*0.94,
+    voice_pause_scale:(base.voice_pause_scale?Number(base.voice_pause_scale):1.0)*1.5
+  };
+  _amvSpeakWithContact(text,prayerContact,voices);
 }
 
 function printPrayer(){

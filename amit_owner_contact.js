@@ -107,3 +107,66 @@ function resolveVoiceFromContact(voices, contact, fallbackPicker){
   }
   return (typeof fallbackPicker === 'function') ? fallbackPicker(voices) : (voices[0] || null);
 }
+
+/*
+  PACING — added 2026-09-06, Ryan's direct instruction. The Web Speech API
+  has no native control over pause LENGTH at sentence breaks — `rate` only
+  speeds up or slows down the words themselves. To give real, independent
+  control over "thinking room" between sentences, this splits text at
+  sentence-ending punctuation (. ! ?) and speaks each sentence as its own
+  utterance, inserting a real JS-timed pause (scaled by the contact's own
+  voice_pause_scale) before starting the next one.
+
+  Deliberately NOT also chunking at commas — that would multiply the
+  utterance count a lot for only a small, already-mostly-handled effect
+  (TTS engines already give commas a brief natural pause as part of their
+  own prosody, whereas sentence-to-sentence pacing is where a real,
+  noticeable "let me think" gap actually lives). Named honestly in
+  Sessions.md rather than silently promised as full punctuation-level
+  control.
+*/
+function _splitIntoSentences(text){
+  const parts = text.match(/[^.!?]+[.!?]*/g) || [text];
+  return parts.map(s => s.trim()).filter(Boolean);
+}
+
+// Speaks `text` using contact's resolved voice/rate/pitch/volume/pacing.
+// Calls onStart() once before the first sentence begins and onEnd() once
+// after the last sentence finishes (or on error) — never between
+// sentences, so a visual speaking-indicator stays on continuously through
+// the inserted pauses instead of flickering off and on.
+function speakContactText(text, contact, voices, opts){
+  opts = opts || {};
+  if (!('speechSynthesis' in window) || !text) return;
+  window.speechSynthesis.cancel(); // never stack utterances/queues
+
+  const voice = resolveVoiceFromContact(voices, contact, opts.fallbackPicker);
+  const rate = (contact && contact.voice_rate) ? Number(contact.voice_rate) : 0.85;
+  const pitch = (contact && contact.voice_pitch) ? Number(contact.voice_pitch) : 1.0;
+  const volume = (contact && contact.voice_volume!=null) ? Number(contact.voice_volume) : 1.0;
+  const pauseScale = (contact && contact.voice_pause_scale) ? Number(contact.voice_pause_scale) : 1.0;
+  const BASE_SENTENCE_PAUSE_MS = 260; // a natural-feeling default gap between sentences at pauseScale=1.0
+
+  const sentences = _splitIntoSentences(text);
+  let i = 0;
+  let started = false;
+
+  function speakNext(){
+    if (i >= sentences.length){
+      if (typeof opts.onEnd === 'function') opts.onEnd();
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(sentences[i]);
+    if (voice) u.voice = voice;
+    u.rate = rate; u.pitch = pitch; u.volume = volume;
+    u.onstart = () => { if (!started){ started = true; if (typeof opts.onStart === 'function') opts.onStart(); } };
+    u.onend = () => {
+      i++;
+      if (i >= sentences.length){ if (typeof opts.onEnd === 'function') opts.onEnd(); return; }
+      setTimeout(speakNext, BASE_SENTENCE_PAUSE_MS * pauseScale);
+    };
+    u.onerror = () => { if (typeof opts.onEnd === 'function') opts.onEnd(); };
+    window.speechSynthesis.speak(u);
+  }
+  speakNext();
+}
