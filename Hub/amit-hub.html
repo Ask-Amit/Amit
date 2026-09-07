@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.49</div>
+    <div class="page-version" id="hubVersionBadge">v6.50</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3618,7 +3618,12 @@ async function _amvFetchAlertForGreeting(){
 // greeting (see the visibilitychange listener below) deliberately skips
 // re-checking alerts, since it would already have been said once that day.
 async function _amvGreetingText(contact,firstTime,includeAlert){
-  const nameBit=contact.name?(', '+contact.name):'';
+  // Deliberately a plain space, not ", " — Ryan caught a real TTS artifact
+  // live 2026-09-06: a comma right before an inserted name makes most
+  // speech engines insert a distinct pause, so "Good morning, Amit" comes
+  // out as "Good morning — [pause] — Amit" instead of one smooth phrase.
+  // Dropping the comma reads more like natural spoken address.
+  const nameBit=contact.name?(' '+contact.name):'';
   if(firstTime){
     return `Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always. Welcome to your Hub${nameBit} — this is your home base for pursuits, prayer, your calendar, and walking with Yahweh each day. If you'd like, I can walk you through what this is all about.`;
   }
@@ -3803,7 +3808,7 @@ async function amvToggleGreetingFromAboutMe(){
   // need to tell them where to go, just a warm acknowledgment either way.
   if('speechSynthesis' in window){
     window.speechSynthesis.cancel();
-    const nameBit=_amvOwnerContact.name?(', '+_amvOwnerContact.name):'';
+    const nameBit=_amvOwnerContact.name?(' '+_amvOwnerContact.name):''; // plain space, not comma — see _amvGreetingText's note on TTS pause artifacts
     const text=turningOn
       ? `I'm glad you came back${nameBit}. I'm glad I'm able to talk to you again — I look forward to having many conversations with you.`
       : `No problem. Just come back whenever you want, and I'll talk to you some more. Just select it.`;
