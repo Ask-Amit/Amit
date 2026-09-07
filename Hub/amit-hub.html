@@ -1250,7 +1250,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.43</div>
+    <div class="page-version" id="hubVersionBadge">v6.44</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1717,7 +1717,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <input id="amvRateRange" type="range" min="0.6" max="1.6" step="0.05" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:16px">
 
           <label class="fg-label" style="display:block;margin-bottom:5px">TEST TEXT</label>
-          <textarea id="amvTestText" rows="2" class="fg-input" style="width:100%;margin-bottom:10px;resize:vertical;font-family:inherit">Hello — this is Amit. Walk alongside. Sharpen without cutting. Encourage always.</textarea>
+          <textarea id="amvTestText" rows="2" class="fg-input" style="width:100%;margin-bottom:10px;resize:vertical;font-family:inherit">Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always.</textarea>
           <button class="btn btn-ghost" onclick="amvHearIt()" style="margin-bottom:16px">🔊 LET ME HEAR IT</button>
 
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:20px">
@@ -2773,6 +2773,7 @@ if(db){
       // from Supabase if this is a returning device, so it's available here.
       (async()=>{
         _amvOwnerContact=await getOrCreateOwnerContact(db,currentUser.id,getUserName(),currentUser.email);
+        amvMaybeSpeakGreeting(_amvOwnerContact);
       })();
       if(!wasSignedIn){
         _migrateGuestDataThenPull();
@@ -3436,7 +3437,7 @@ function amvPopulateAccentDropdown(selectedLang){
 }
 
 function amvPickDefaultVoice(voices){
-  const priority=['Microsoft Brian Online','Microsoft Brian','Microsoft Andrew Multilingual','Microsoft Andrew Online','Microsoft Andrew','Google US English','Microsoft Aria','Microsoft Jenny','Microsoft Guy','Samantha','Microsoft Zira','Google UK English Female'];
+  const priority=['Microsoft Andrew Multilingual','Microsoft Brian Online','Microsoft Brian','Microsoft Andrew Online','Microsoft Andrew','Google US English','Microsoft Aria','Microsoft Jenny','Microsoft Guy','Samantha','Microsoft Zira','Google UK English Female'];
   for(const name of priority){ const hit=voices.find(v=>v.name.includes(name)); if(hit) return hit; }
   const enUS=voices.find(v=>/^en-US/i.test(v.lang)); if(enUS) return enUS;
   return voices.find(v=>/^en/i.test(v.lang))||voices[0]||null;
@@ -3478,6 +3479,48 @@ function amvRenderStarsForCurrentVoice(){
     star.onclick=()=>{ if(name) _amvRatings[name]=i; amvRenderStarsForCurrentVoice(); };
     el.appendChild(star);
   }
+}
+
+// ══════════════════════════════════════════════
+// SPOKEN GREETING ON ARRIVAL — 2026-09-06, Ryan's direct instruction.
+// Every real sign-in (never a guest) gets a brief spoken hello once per
+// day; the very first sign-in ever also gets a fuller spoken introduction
+// — who Amit is, the pronunciation, and an invitation to be walked
+// through the Hub. Uses whatever voice/rate is on the owner-contact row
+// (the 0.85x Andrew Multilingual default if nothing's been changed yet).
+// ══════════════════════════════════════════════
+const AMV_LAST_GREETED_KEY='amit_lastGreetedDate';
+function _amvTimeOfDayGreeting(){
+  const h=new Date().getHours();
+  if(h<12) return'Good morning';
+  if(h<18) return'Good afternoon';
+  return'Good evening';
+}
+function _amvGetVoicesReady(){
+  return new Promise(resolve=>{
+    if(!('speechSynthesis' in window)){resolve([]);return;}
+    let voices=window.speechSynthesis.getVoices();
+    if(voices.length){resolve(voices);return;}
+    window.speechSynthesis.onvoiceschanged=()=>resolve(window.speechSynthesis.getVoices());
+    setTimeout(()=>resolve(window.speechSynthesis.getVoices()),1500); // some browsers never fire onvoiceschanged
+  });
+}
+async function amvMaybeSpeakGreeting(contact){
+  if(!('speechSynthesis' in window)||!contact) return;
+  const today=todayStr();
+  const alreadyToday=localStorage.getItem(AMV_LAST_GREETED_KEY)===today;
+  if(alreadyToday && !contact._justCreated) return; // already said hello today — first-ever intro still fires regardless
+  localStorage.setItem(AMV_LAST_GREETED_KEY,today);
+  const nameBit=contact.name?(', '+contact.name):'';
+  const text=contact._justCreated
+    ? `Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always. Welcome to your Hub${nameBit} — this is your home base for pursuits, prayer, your calendar, and walking with Yahweh each day. If you'd like, I can walk you through what this is all about.`
+    : `Hello — this is Amit, pronounced uh-MEET. ${_amvTimeOfDayGreeting()}${nameBit}.`;
+  const voices=await _amvGetVoicesReady();
+  const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,contact,amvPickDefaultVoice):null;
+  const u=new SpeechSynthesisUtterance(text);
+  if(voice) u.voice=voice;
+  u.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
+  window.speechSynthesis.speak(u);
 }
 
 async function amvInitAboutMePanel(){

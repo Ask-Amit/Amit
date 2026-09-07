@@ -37,7 +37,7 @@ async function getOrCreateOwnerContact(supabaseClient, userId, fallbackName, fal
       .eq('user_id', userId)
       .eq('is_owner', true)
       .maybeSingle();
-    if (existing) return existing;
+    if (existing) return existing; // _justCreated intentionally absent/falsy — this is a returning login
 
     // 2. Find a book this login owns.
     let { data: ownerRows } = await supabaseClient
@@ -64,13 +64,26 @@ async function getOrCreateOwnerContact(supabaseClient, userId, fallbackName, fal
       // not duplicated here.
     }
 
-    // 4. Create the owner-contact row in that book.
+    // 4. Create the owner-contact row in that book. Voice defaults chosen
+    //    live by Ryan, 2026-09-06: Microsoft Andrew Multilingual (Natural)
+    //    at 0.85x — a real value, not the bare table default (1.0/blank),
+    //    so every brand-new login starts from a deliberately chosen pace,
+    //    not whatever a given browser happens to land on first. If that
+    //    exact voice isn't installed on someone's device, resolveVoiceFrom-
+    //    Contact() falls back to the same priority list used everywhere
+    //    else — the rate (a plain number) always applies regardless.
     const { data: created, error: contactErr } = await supabaseClient
       .from('contacts')
-      .insert({ book_id: bookId, user_id: userId, is_owner: true, name: fallbackName||'', email: fallbackEmail||'' })
+      .insert({ book_id: bookId, user_id: userId, is_owner: true, name: fallbackName||'', email: fallbackEmail||'',
+        voice_name: 'Microsoft Andrew Multilingual Online (Natural)', voice_rate: 0.85 })
       .select('*')
       .single();
     if (contactErr) return null;
+    // Flag (not a DB column — just added onto the returned object in memory)
+    // so a caller like the Hub's first-time spoken introduction knows this
+    // row was genuinely just born, not found. Never persisted or read back
+    // from the database itself.
+    created._justCreated = true;
     return created;
   } catch(e){ return null; }
 }
