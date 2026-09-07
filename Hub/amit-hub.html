@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.47</div>
+    <div class="page-version" id="hubVersionBadge">v6.48</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1709,7 +1709,10 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
               <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase">Morning Greeting</div>
               <div id="amvGreetingStatus" style="color:rgba(240,232,208,.5);font-size:12px;margin-top:2px">—</div>
             </div>
-            <button class="btn btn-ghost" id="amvGreetingToggleBtn" onclick="amvToggleGreetingFromAboutMe()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <button class="btn btn-ghost" id="amvGreetingToggleBtn" onclick="amvToggleGreetingFromAboutMe()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
+              <button class="btn btn-ghost" onclick="amvPreviewGreeting()" style="white-space:nowrap;font-size:11px;padding:9px 14px">🔊 HEAR IT NOW</button>
+            </div>
           </div>
           <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
 
@@ -3559,6 +3562,16 @@ async function amvTurnOffGreeting(contactId){
   _amvSpeakWithContact("No problem. I won't be introducing myself daily anymore. But if you want to turn me back on, go to About Me and just select Turn Me Back On.",_amvOwnerContact||{voice_rate:0.85},voices);
 }
 
+// Text-building split out from the daily-gate/speaking logic so a manual
+// preview (amvPreviewGreeting, About Me) can reuse the exact same wording
+// without touching the once-a-day localStorage gate below.
+function _amvGreetingText(contact,firstTime){
+  const nameBit=contact.name?(', '+contact.name):'';
+  return firstTime
+    ? `Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always. Welcome to your Hub${nameBit} — this is your home base for pursuits, prayer, your calendar, and walking with Yahweh each day. If you'd like, I can walk you through what this is all about.`
+    : `Hello — this is Amit, pronounced uh-MEET. ${_amvTimeOfDayGreeting()}${nameBit}.`;
+}
+
 async function amvMaybeSpeakGreeting(contact){
   if(!('speechSynthesis' in window)||!contact) return;
   if(contact.greeting_enabled===false) return; // turned off — respected silently, no toast, nothing spoken
@@ -3566,13 +3579,23 @@ async function amvMaybeSpeakGreeting(contact){
   const alreadyToday=localStorage.getItem(AMV_LAST_GREETED_KEY)===today;
   if(alreadyToday && !contact._justCreated) return; // already said hello today — first-ever intro still fires regardless
   localStorage.setItem(AMV_LAST_GREETED_KEY,today);
-  const nameBit=contact.name?(', '+contact.name):'';
-  const text=contact._justCreated
-    ? `Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always. Welcome to your Hub${nameBit} — this is your home base for pursuits, prayer, your calendar, and walking with Yahweh each day. If you'd like, I can walk you through what this is all about.`
-    : `Hello — this is Amit, pronounced uh-MEET. ${_amvTimeOfDayGreeting()}${nameBit}.`;
+  const text=_amvGreetingText(contact,contact._justCreated);
   const voices=await _amvGetVoicesReady();
   _amvSpeakWithContact(text,contact,voices);
   _amvShowGreetingToast(contact.id);
+}
+
+// Manual preview from About Me — plays the exact same daily greeting on
+// demand, using current name/voice, WITHOUT touching the once-a-day gate
+// or requiring greeting_enabled to be on. Added 2026-09-06 after Ryan
+// tested the real once-a-day behavior and (reasonably) wanted a way to
+// hear changes take effect immediately while testing, rather than waiting
+// until tomorrow or clearing browser storage by hand.
+async function amvPreviewGreeting(){
+  if(!_amvOwnerContact) return;
+  const text=_amvGreetingText(_amvOwnerContact,false);
+  const voices=await _amvGetVoicesReady();
+  _amvSpeakWithContact(text,_amvOwnerContact,voices);
 }
 
 async function amvInitAboutMePanel(){
