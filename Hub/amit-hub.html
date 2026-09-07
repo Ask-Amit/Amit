@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.51</div>
+    <div class="page-version" id="hubVersionBadge">v6.52</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3669,7 +3669,16 @@ async function amvPreviewGreeting(){
   if(!_amvOwnerContact) return;
   const text=await _amvGreetingText(_amvOwnerContact,false,false);
   const voices=await _amvGetVoicesReady();
-  _amvSpeakWithContact(text,_amvOwnerContact,voices);
+  // Speak with whatever's LIVE on the voice/speed controls right now, not
+  // the last-saved values — Ryan caught this live 2026-09-06: he moved the
+  // speed slider and "Hear It Now" still used the old saved rate, since it
+  // only picks up a change once "This Is The Voice For Amit" is pressed.
+  // A preview button should preview the current draft, not require saving
+  // first.
+  const liveContact={..._amvOwnerContact,
+    voice_name:_amvSelectedVoice?_amvSelectedVoice.name:_amvOwnerContact.voice_name,
+    voice_rate:_amvRate};
+  _amvSpeakWithContact(text,liveContact,voices);
 }
 
 // Welcome-back-on-return — Ryan's direct instruction, 2026-09-06: if the
@@ -3735,16 +3744,34 @@ async function amvInitAboutMePanel(){
     amvPopulateVoiceOptionsForAccent(accentSel.value);
     _amvSelectedVoice=_amvVoices[Number(voiceSel.value)];
     amvRenderStarsForCurrentVoice();
+    _amvAutoSaveVoice();
   };
   voiceSel.onchange=()=>{
     _amvSelectedVoice=_amvVoices[Number(voiceSel.value)];
     amvRenderStarsForCurrentVoice();
+    _amvAutoSaveVoice();
   };
   const rateRange=document.getElementById('amvRateRange');
   rateRange.oninput=()=>{
     _amvRate=Number(rateRange.value);
     document.getElementById('amvRateValue').textContent=_amvRate.toFixed(2)+'x';
   };
+  // 'change' (not 'input') — fires once when the slider is released, not
+  // on every tick while dragging. Per Ryan's direct instruction 2026-09-06:
+  // a setting shouldn't require pressing a separate save button once
+  // someone's actually done adjusting it.
+  rateRange.onchange=_amvAutoSaveVoice;
+}
+
+// Auto-save for the voice/accent/speed controls specifically — separate
+// from amvSelectThisVoice (still there, still works, now just redundant
+// with this) so a person doesn't have to remember to press a save button
+// after every tweak while they're comparing voices.
+async function _amvAutoSaveVoice(){
+  if(!_amvOwnerContact||!_amvSelectedVoice) return;
+  const accent=document.getElementById('amvAccentSelect').value;
+  const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,{voice_name:_amvSelectedVoice.name,voice_accent:accent,voice_rate:_amvRate});
+  if(saved){ _amvOwnerContact.voice_name=_amvSelectedVoice.name; _amvOwnerContact.voice_accent=accent; _amvOwnerContact.voice_rate=_amvRate; }
 }
 
 function amvHearIt(){
