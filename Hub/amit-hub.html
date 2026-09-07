@@ -1250,7 +1250,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.44</div>
+    <div class="page-version" id="hubVersionBadge">v6.46</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1702,6 +1702,14 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           </div>
           <button class="btn" onclick="amvSaveMyInfo()" style="margin-bottom:8px">SAVE MY INFO</button>
           <div id="amvInfoSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px;margin-bottom:24px">Saved.</div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,.03);border:1px solid rgba(240,232,208,.12);border-radius:8px;padding:12px 14px;margin-bottom:24px">
+            <div>
+              <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase">Morning Greeting</div>
+              <div id="amvGreetingStatus" style="color:rgba(240,232,208,.5);font-size:12px;margin-top:2px">—</div>
+            </div>
+            <button class="btn btn-ghost" id="amvGreetingToggleBtn" onclick="amvToggleGreetingFromAboutMe()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
+          </div>
           <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
 
           <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:4px">Amit's Voice</div>
@@ -3505,8 +3513,45 @@ function _amvGetVoicesReady(){
     setTimeout(()=>resolve(window.speechSynthesis.getVoices()),1500); // some browsers never fire onvoiceschanged
   });
 }
+function _amvSpeakWithContact(text,contact,voices){
+  const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,contact,amvPickDefaultVoice):null;
+  const u=new SpeechSynthesisUtterance(text);
+  if(voice) u.voice=voice;
+  u.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
+  window.speechSynthesis.speak(u);
+}
+
+// Small dismissible toast shown alongside the spoken greeting — Ryan's
+// direct instruction: the moment Amit introduces itself, there should be
+// an obvious, immediate "Turn Off" option right there, not buried only in
+// About Me. Auto-hides after a while if never clicked.
+function _amvShowGreetingToast(contactId){
+  let t=document.getElementById('amvGreetingToast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='amvGreetingToast';
+    t.style.cssText='position:fixed;top:62px;left:50%;transform:translateX(-50%);background:#1a3352;border:1px solid rgba(201,168,76,.4);border-radius:9px;padding:10px 16px;font-size:12px;color:rgba(240,232,208,.85);z-index:9500;font-family:inherit;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .4s;display:flex;align-items:center;gap:12px';
+    document.body.appendChild(t);
+  }
+  t.innerHTML=`<span>🔊 Amit just said hello</span><span onclick="amvTurnOffGreeting('${contactId}')" style="cursor:pointer;text-decoration:underline;color:rgba(201,168,76,.9)">Turn off daily greeting</span><span onclick="document.getElementById('amvGreetingToast').style.opacity='0'" style="cursor:pointer;opacity:.6">×</span>`;
+  t.style.opacity='1';
+  setTimeout(()=>{if(t)t.style.opacity='0';},12000);
+}
+
+async function amvTurnOffGreeting(contactId){
+  const toast=document.getElementById('amvGreetingToast');
+  if(toast) toast.style.opacity='0';
+  window.speechSynthesis.cancel();
+  await saveOwnerContactFields(db,contactId,{greeting_enabled:false});
+  if(_amvOwnerContact) _amvOwnerContact.greeting_enabled=false;
+  amvRenderGreetingToggle();
+  const voices=await _amvGetVoicesReady();
+  _amvSpeakWithContact("No problem. I won't be introducing myself daily anymore. But if you want to turn me back on, go to About Me and just select Turn Me Back On.",_amvOwnerContact||{voice_rate:0.85},voices);
+}
+
 async function amvMaybeSpeakGreeting(contact){
   if(!('speechSynthesis' in window)||!contact) return;
+  if(contact.greeting_enabled===false) return; // turned off — respected silently, no toast, nothing spoken
   const today=todayStr();
   const alreadyToday=localStorage.getItem(AMV_LAST_GREETED_KEY)===today;
   if(alreadyToday && !contact._justCreated) return; // already said hello today — first-ever intro still fires regardless
@@ -3516,11 +3561,8 @@ async function amvMaybeSpeakGreeting(contact){
     ? `Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always. Welcome to your Hub${nameBit} — this is your home base for pursuits, prayer, your calendar, and walking with Yahweh each day. If you'd like, I can walk you through what this is all about.`
     : `Hello — this is Amit, pronounced uh-MEET. ${_amvTimeOfDayGreeting()}${nameBit}.`;
   const voices=await _amvGetVoicesReady();
-  const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,contact,amvPickDefaultVoice):null;
-  const u=new SpeechSynthesisUtterance(text);
-  if(voice) u.voice=voice;
-  u.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
-  window.speechSynthesis.speak(u);
+  _amvSpeakWithContact(text,contact,voices);
+  _amvShowGreetingToast(contact.id);
 }
 
 async function amvInitAboutMePanel(){
@@ -3549,6 +3591,7 @@ async function amvInitAboutMePanel(){
   document.getElementById('amvPhoneInput').value=(_amvOwnerContact&&_amvOwnerContact.phone)||'';
   document.getElementById('amvAddressInput').value=(_amvOwnerContact&&_amvOwnerContact.address)||'';
   amvRenderZipDisplay();
+  amvRenderGreetingToggle();
 
   if('speechSynthesis' in window){
     await amvPopulateVoices();
@@ -3611,6 +3654,38 @@ function amvUpdateZip(){
     geocodeAndSaveZip(z.trim()).then(ok=>{
       if(ok){ if(typeof renderWeatherWidget==='function') renderWeatherWidget(); amvRenderZipDisplay(); }
     });
+  }
+}
+
+// Mirrors whatever the greeting toast's own toggle does — same underlying
+// field, same function, just reachable from About Me too (per Ryan's
+// direct instruction: "go to About Me and just select Turn Me Back On").
+function amvRenderGreetingToggle(){
+  const statusEl=document.getElementById('amvGreetingStatus');
+  const btnEl=document.getElementById('amvGreetingToggleBtn');
+  if(!statusEl||!btnEl||!_amvOwnerContact) return;
+  const on=_amvOwnerContact.greeting_enabled!==false;
+  statusEl.textContent=on?'Amit says hello once a day when you sign in.':'Off — Amit stays quiet when you sign in.';
+  btnEl.textContent=on?'TURN OFF':'TURN ME BACK ON';
+}
+async function amvToggleGreetingFromAboutMe(){
+  if(!_amvOwnerContact) return;
+  const turningOn=_amvOwnerContact.greeting_enabled===false;
+  await saveOwnerContactFields(db,_amvOwnerContact.id,{greeting_enabled:turningOn});
+  _amvOwnerContact.greeting_enabled=turningOn;
+  amvRenderGreetingToggle();
+  // Spoken in the same breath as the toggle itself — Ryan's direct
+  // instruction, 2026-09-06. Different wording than the toast's own
+  // turn-off line, since here they're already standing in About Me — no
+  // need to tell them where to go, just a warm acknowledgment either way.
+  if('speechSynthesis' in window){
+    window.speechSynthesis.cancel();
+    const nameBit=_amvOwnerContact.name?(', '+_amvOwnerContact.name):'';
+    const text=turningOn
+      ? `I'm glad you came back${nameBit}. I'm glad I'm able to talk to you again — I look forward to having many conversations with you.`
+      : `No problem. Just come back whenever you want, and I'll talk to you some more. Just select it.`;
+    const voices=await _amvGetVoicesReady();
+    _amvSpeakWithContact(text,_amvOwnerContact,voices);
   }
 }
 
