@@ -44,6 +44,11 @@ Fast, no-bloat running record of current state. Full behavioral/identity rules c
 - Hub bumped to v6.44.
 - New standing behavioral rule saved to memory: any text destined for TTS should spell Amit phonetically ("uh-MEET"), never the normal written spelling — see the global memory file `feedback_amit_tts_pronunciation.md`, not duplicated here.
 
+**2026-09-06 (same day, later still) — Greeting on/off toggle, and the icon now breathes while speaking.** Two more pieces:
+- **Greeting toggle** (Ryan's direct instruction): a toast appears alongside the spoken greeting with "Turn off daily greeting" — clicking it stops speech, saves `contacts.greeting_enabled=false` (new column, migration `...003_contacts_greeting_enabled.sql`), and speaks a spoken confirmation. About Me carries the same toggle (`amvToggleGreetingFromAboutMe()`), with its own spoken confirmation both ways ("No problem, come back whenever..." / "I'm glad you came back...").
+- **Speaking indicator — the icon breathes, not glows.** New shared file, Amit root: `amit_speaking_indicator.js` — built via Claude.ai Design from a plain-language spec Ryan requested (own prompt written by Amit, icon supplied), then refined once (no color pulse — the icon itself scales up/down like breathing). Self-contained (injects its own CSS), exposes `startSpeakingPulse(el)`/`stopSpeakingPulse(el)` plus a convenience `amitSpeak()` wrapper for any future page with no existing speak logic of its own. Wired into every place the Hub already speaks (`_amvSpeakWithContact` — covers the greeting, both toggle confirmations — and `amvHearIt`'s test button) via the header icon (`#amitHeaderIcon`, new id added). Amit Mobile wired the same way onto its own top logo (`#amTopLogo`, id already existed). Includes a 250ms safety-net poll that stops the pulse on any element if `speechSynthesis` has actually gone idle, since some browsers drop `onend` after a tab switch or `.cancel()`. Not yet wired into AmitBooks or Computer Health — neither has any text-to-speech yet to attach it to; ready and waiting for whenever they do.
+- Hub bumped to v6.47, AmitMobile.html to v1.12.
+
 ---
 
 *Part of the Amit System. Full identity/behavioral rules: root CLAUDE.md.*

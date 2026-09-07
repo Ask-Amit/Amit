@@ -11,6 +11,7 @@
 <script src="../amit_readiness_check.js?v=1.00"></script>
 <script src="../amit_voice_prefs.js?v=1.00"></script>
 <script src="../amit_owner_contact.js?v=1.00"></script>
+<script src="../amit_speaking_indicator.js?v=1.00"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1245,12 +1246,12 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 
 <header>
   <div class="brand">
-    <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
+    <img id="amitHeaderIcon" src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
     <span class="brand-sub">Walk alongside. Sharpen without cutting. Encourage always.</span>
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.46</div>
+    <div class="page-version" id="hubVersionBadge">v6.47</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3518,6 +3519,15 @@ function _amvSpeakWithContact(text,contact,voices){
   const u=new SpeechSynthesisUtterance(text);
   if(voice) u.voice=voice;
   u.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
+  // The header icon breathes for as long as this line is actually being
+  // spoken — see amit_speaking_indicator.js (Amit root) for the mechanism
+  // and why (Ryan's direct design, 2026-09-06).
+  const icon=document.getElementById('amitHeaderIcon');
+  if(typeof startSpeakingPulse==='function'){
+    u.onstart=()=>startSpeakingPulse(icon);
+    u.onend=()=>stopSpeakingPulse(icon);
+    u.onerror=()=>stopSpeakingPulse(icon);
+  }
   window.speechSynthesis.speak(u);
 }
 
@@ -3622,6 +3632,12 @@ function amvHearIt(){
   if(!text) return;
   const u=new SpeechSynthesisUtterance(text);
   u.voice=_amvSelectedVoice; u.rate=_amvRate;
+  const icon=document.getElementById('amitHeaderIcon');
+  if(typeof startSpeakingPulse==='function'){
+    u.onstart=()=>startSpeakingPulse(icon);
+    u.onend=()=>stopSpeakingPulse(icon);
+    u.onerror=()=>stopSpeakingPulse(icon);
+  }
   window.speechSynthesis.speak(u);
 }
 
