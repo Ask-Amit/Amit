@@ -39,8 +39,14 @@
   style.textContent = `
 #amitSpeakingOverlay {
   position: fixed;
-  top: 10px;
-  left: 14px;
+  /* Matches the Hub header's own padding (12px 28px) so the overlay's
+     32x32 box sits directly on top of the real corner icon there. Not
+     pixel-perfect on every possible page layout (a genuinely per-page-free
+     mechanism can't know every page's own icon position), but this is a
+     real, checked value rather than a guess, and correct for the Hub and
+     any page sharing the same header convention. */
+  top: 12px;
+  left: 28px;
   width: 32px;
   height: 32px;
   z-index: 99999;
