@@ -270,13 +270,14 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.54</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.55</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
     <button id="trackerToggle" class="off" onclick="launchTracker()">Launch Tracker</button>
     <span id="behaviorSpinner" class="hidden" title="App Behavior is actively watching right now">⟳</span>
     <div class="device" id="deviceLabel">Not connected yet — click Launch Tracker</div>
+    <button id="captureConditionsBtn" class="btn hidden" onclick="captureConditions()" title="Tracking was started somewhere other than this tab (likely still needed elsewhere) - this captures a real snapshot into History without stopping anything.">Capture Conditions</button>
     <button id="closeEverythingBtn" class="btn secondary" onclick="closeEverything()" title="Stops the tracker and App Behavior watcher (if running) before closing this tab - closing the tab with the browser's own X leaves them running invisibly in the background, since they're independent Windows processes, not tied to this page.">Close</button>
     <div onclick="openChTutorial()" title="What is Computer Health?" class="help-btn">?</div>
   </div>
@@ -4917,6 +4918,24 @@ let bridgeUp = false;
 let localAccessAttempted = false;
 let trackerRunning = false;
 let CH_INSTALLED_SYNC_PENDING = true; // see pollTrackerStatus() - starts true so an already-running tracker at page load still triggers the scan
+// EXTERNALLY-STARTED MODE - Ryan's direct instruction, 2026-09-08: if
+// tracking is already running when this tab connects, and THIS tab isn't
+// what started it (e.g. auto-launched via the Hub's own auto-connect,
+// while nobody's actually looking at Computer Health), Start/Stop/Close
+// must be disabled here - stopping or closing from this tab would take
+// down a session someone else may still be relying on. A new "Capture
+// Conditions" button does what Stop normally does (captures data, writes
+// it to History) WITHOUT actually stopping anything.
+let trackerStartedByThisTab = false;
+function _chUpdateExternalModeUI(){
+  const externalMode = trackerRunning && !trackerStartedByThisTab;
+  const toggleBtn = document.getElementById('trackerToggle');
+  const closeBtn = document.getElementById('closeEverythingBtn');
+  const captureBtn = document.getElementById('captureConditionsBtn');
+  if (toggleBtn) toggleBtn.disabled = externalMode;
+  if (closeBtn) closeBtn.disabled = externalMode;
+  if (captureBtn) captureBtn.classList.toggle('hidden', !externalMode);
+}
 
 // What Computer Health/Value actually does, in plain language - shown inline
 // on the very first visit (localStorage flag below), and always reachable
@@ -5048,6 +5067,7 @@ function cancelLaunchTracker() {
 function confirmLaunchTracker() {
   document.getElementById('launchWarningModal').classList.add('hidden');
   document.getElementById('deviceLabel').textContent = 'Connecting…';
+  trackerStartedByThisTab = true; // this tab initiated it - Start/Stop/Close stay enabled
   window.location.href = 'amit-tracker://start';
   // This poll IS the real test of "is this installed" - a webpage can't
   // check the filesystem/registry directly, so actually attempting the
@@ -5159,6 +5179,7 @@ async function pollTrackerStatus() {
       btn.textContent = 'Tracker: OFF (click to start)';
       btn.className = 'off';
     }
+    _chUpdateExternalModeUI();
     chRefreshLiveIfActive();
   } catch (e) {
     // Real bug caught live 2026-07-20 (Ryan): this catch was empty, so a
@@ -5230,6 +5251,7 @@ async function toggleTracker() {
   if (!bridgeUp) { showNotRunningScreen(); return; }
   const btn = document.getElementById('trackerToggle');
   const isOn = btn.className === 'on';
+  if (!isOn) trackerStartedByThisTab = true; // starting it here - this tab now owns Stop/Close
   btn.textContent = isOn ? 'Stopping...' : 'Starting...';
   // Cursory overview kept only as a same-instant fallback for the (rare)
   // signed-out case below, where nothing gets saved to History anyway and
@@ -5327,6 +5349,47 @@ async function stopAllTracking() {
   const trackerBtn = document.getElementById('trackerToggle');
   if (bridgeUp && trackerBtn.className === 'on') {
     try { await fetch(BRIDGE + '/api/stop-tracking', { method: 'POST', body: '' }); } catch (e) {}
+  }
+}
+
+// CAPTURE CONDITIONS - Ryan's direct instruction, 2026-09-08: does
+// everything a normal Stop does (captures real data, analyzes it, writes it
+// to History) WITHOUT calling /api/stop-tracking - the watchers, sensor
+// reader, and bridge all keep running exactly as they were. Reuses the same
+// real capture path handleJustStopped() already uses (fetchLocalMetrics,
+// computeTrackerSessionDuration, deriveSessionVerdictFromMetrics,
+// logTrackingSessionEvent, insertMetricsRowsForEvent) - a distinct
+// event_type ('tracking_session_captured') keeps this from ever being
+// confused with a real session-ended row, and each capture gets its own
+// real sessionEndTime, so multiple captures across a day each land as
+// their own separate History entry rather than overwriting one another.
+async function captureConditions() {
+  const btn = document.getElementById('captureConditionsBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Capturing…'; }
+  try {
+    if (!currentUser || !deviceId) {
+      alert('Sign in above first - a capture with nowhere to save isn\'t worth taking.');
+      return;
+    }
+    const metrics = await fetchLocalMetrics('/api/tracker-metrics');
+    const duration = await computeTrackerSessionDuration();
+    let verdict = { severity: 'info', summary: 'A snapshot of current conditions was captured.', concerns: [] };
+    if (metrics && metrics.found && metrics.rows && metrics.rows.length) {
+      try {
+        const specs = await loadHardwareSpecs();
+        await chRefreshConstantSensorKeys(deviceId);
+        verdict = deriveSessionVerdictFromMetrics(metrics.rows, specs);
+      } catch (e) { /* fall back to the plain default above if this fails */ }
+    }
+    const eventId = await logTrackingSessionEvent('tracking_session_captured', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, metrics ? metrics.sessionEndTime : null, { capturedAt: new Date().toISOString(), concerns: verdict.concerns, duration, stillRunning: true });
+    await insertMetricsRowsForEvent(eventId, metrics);
+    const diagMetrics = await fetchLocalMetrics('/api/diagnostics-metrics');
+    await insertMetricsRowsForEvent(eventId, diagMetrics);
+    if (btn) btn.textContent = 'Captured ✓';
+    setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = 'Capture Conditions'; } }, 2500);
+  } catch (e) {
+    console.error('captureConditions failed:', e);
+    if (btn) { btn.disabled = false; btn.textContent = 'Capture Conditions'; }
   }
 }
 
