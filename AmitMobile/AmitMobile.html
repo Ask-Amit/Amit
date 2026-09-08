@@ -382,7 +382,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.26</div>
+<div class="amversion" id="pageVersion">v1.27</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1609,6 +1609,16 @@ function popupClose(){
 // LOGIN CONNECTION — the one live piece of this template. Supabase auth
 // only: knows who is signed in. No data reads/writes beyond that.
 // ══════════════════════════════════════════════
+// ADDED 2026-09-08, Ryan's direct idea — stop relying solely on
+// Supabase's own internal storage-adapter restore (the thing that keeps
+// failing on force-quit). The moment sign-in succeeds, explicitly save
+// the real access/refresh tokens here ourselves, in plain synchronous
+// localStorage (no IndexedDB async race). On load, if Supabase's own
+// restore hasn't produced a session after a short beat, explicitly hand
+// these saved tokens straight back to the client — a second, independent
+// path back to being signed in, under our own control.
+const AM_MANUAL_TOKENS_KEY='amit_mobile_manual_tokens';
+
 if(db){
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?session.user:null;
@@ -1616,8 +1626,32 @@ if(db){
     _refreshAmitReadinessBanner();
     amInitThreadPages(); // reload real thread history now that sign-in state is known
     amLoadVoicePref(); // pick up whatever voice was set in the Hub's Amit Voice panel
+    if(session&&session.access_token&&session.refresh_token){
+      try{
+        localStorage.setItem(AM_MANUAL_TOKENS_KEY,JSON.stringify({
+          access_token:session.access_token,
+          refresh_token:session.refresh_token,
+          saved_at:Date.now()
+        }));
+      }catch(e){ console.error('manual token save failed',e); }
+    }
     amWriteAuthDebugLine(event);
   });
+
+  (async()=>{
+    await new Promise(r=>setTimeout(r,400)); // let Supabase's own restore attempt run first
+    if(currentUser)return; // already signed in normally - nothing to do
+    try{
+      const raw=localStorage.getItem(AM_MANUAL_TOKENS_KEY);
+      if(!raw)return;
+      const{access_token,refresh_token}=JSON.parse(raw);
+      if(!access_token||!refresh_token)return;
+      const{error}=await db.auth.setSession({access_token,refresh_token});
+      if(error) console.error('manual session restore failed',error);
+      // onAuthStateChange fires on its own from setSession() succeeding -
+      // no need to manually update UI here.
+    }catch(e){ console.error('manual restore error',e); }
+  })();
 }
 
 // TEMPORARY DIAGNOSTIC, added 2026-09-08 — see comment on #amAuthDebugLine
@@ -1641,7 +1675,12 @@ async function amWriteAuthDebugLine(event){
       const{data,error}=await db.auth.getSession();
       sessionInfo=error?('getSession error: '+error.message):(data.session?('session found, expires '+new Date(data.session.expires_at*1000).toLocaleString()):'getSession returned no session');
     }catch(e){ sessionInfo='getSession threw: '+e.message; }
-    el.textContent='Debug ['+(event||'load')+']: IDB keys='+JSON.stringify(keys)+' | '+sessionInfo;
+    let manualInfo='none';
+    try{
+      const raw=localStorage.getItem(AM_MANUAL_TOKENS_KEY);
+      manualInfo=raw?('saved '+new Date(JSON.parse(raw).saved_at).toLocaleString()):'none';
+    }catch(e){ manualInfo='(read failed)'; }
+    el.textContent='Debug ['+(event||'load')+']: IDB keys='+JSON.stringify(keys)+' | '+sessionInfo+' | manual backup: '+manualInfo;
   }catch(e){
     el.textContent='Debug: IndexedDB read failed — '+e.message;
   }
