@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.53</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.54</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -6542,7 +6542,19 @@ async function handleJustLaunched() {
 // that has already, at some point, deliberately clicked to connect.
 async function attemptSilentReconnect() {
   if (bridgeUp) return; // already handled by justLaunched/justStopped above
-  if (localStorage.getItem('amit_ch_connected_before') !== '1') return;
+  // REMOVED the amit_ch_connected_before gate here - Ryan's direct catch,
+  // 2026-09-07: this used to skip the silent check ENTIRELY unless that
+  // flag was already true from a past success, so anyone whose flag had
+  // been cleared (or a genuine first-timer whose bridge is ALREADY running
+  // - e.g. started via the Hub's own auto-connect) never even got a silent
+  // attempt, always landing on the full "not connected" screen even when
+  // the bridge was reachable the whole time. Now this always tries the
+  // plain read-only status check on every load, regardless of history -
+  // if it succeeds, zero clicks; if the browser's own Private Network
+  // Access restriction blocks it, the exact same one-click fallback below
+  // still applies. This never auto-launches anything - only ever a status
+  // check - so there is no risk of repeatedly relaunching/resetting a
+  // running session just by loading the page.
   try {
     onConnected(await checkBridge());
   } catch (e) {
@@ -6676,10 +6688,15 @@ if (isDuplicateTab) {
     if (historyTabBtn && historyTabBtn.classList.contains('active')) loadHistory();
   });
 
-  // Nothing here touches localhost automatically except handleJustStopped(),
-  // handleJustLaunched(), and attemptSilentReconnect() - all gated on either
-  // an explicit URL flag set by a script the person already deliberately ran,
-  // or on having connected here before (implicit consent either way).
+  // handleJustStopped()/handleJustLaunched() are gated on an explicit URL
+  // flag set by a script the person already deliberately ran.
+  // attemptSilentReconnect() (2026-09-07: gate on prior connection history
+  // removed, per Ryan's direct instruction) now tries a plain read-only
+  // status check on every load regardless of history - a real, honest
+  // tradeoff worth naming: a genuinely brand-new visitor's very first page
+  // load now also probes localhost automatically, not just returning users.
+  // It is still only ever a status check, never a launch, so nothing is
+  // actually started or changed on their computer without a real click.
   // Everyone else waits for an explicit "Launch Tracker" click.
   handleJustLaunched();
   handleJustStopped();
