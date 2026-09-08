@@ -382,24 +382,47 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.30</div>
+<div class="amversion" id="pageVersion">v1.31</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
 
 <!-- SYNC / SIGN-IN MODAL -->
+<!-- REBUILT 2026-09-08, real proven cause: an installed home-screen icon
+     and any browser tab (even the same one it was created from) are
+     sealed off from each other in storage on iOS — confirmed by direct
+     test, not theory. Any sign-in that requires leaving the icon (tapping
+     an emailed link, scanning a QR that opens Safari) can never land the
+     session back inside the icon. Fix: sign in with a typed 6-digit code
+     instead of a link — the whole exchange happens inside this same
+     already-open page, no navigation, no browser hand-off, nothing to
+     cross a storage boundary. Two-step form, same modal. -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
   <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
-    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
-    <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
-    <input id="syncEmailInput" type="email" inputmode="email" autocomplete="email" placeholder="your@email.com"
-      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:15px;outline:none;margin-bottom:12px;font-family:inherit"
-      onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
-    <button id="syncSubmitBtn" onclick="submitSyncEmail()"
-      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em">
-      SEND SIGN-IN LINK →
-    </button>
-    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:11px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+    <div id="syncStepEmail">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Sign In</div>
+      <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:22px">Enter your email. We'll send you a 6-digit code — type it back in here, no link to tap.</div>
+      <input id="syncEmailInput" type="email" inputmode="email" autocomplete="email" placeholder="your@email.com"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:15px;outline:none;margin-bottom:12px;font-family:inherit"
+        onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
+      <button id="syncSubmitBtn" onclick="submitSyncEmail()"
+        style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em">
+        SEND CODE →
+      </button>
+      <div onclick="closeSyncModal()" style="margin-top:16px;font-size:11px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+    </div>
+    <div id="syncStepCode" style="display:none">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Enter Your Code</div>
+      <div id="syncCodeSentTo" style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:22px"></div>
+      <input id="syncCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:22px;letter-spacing:.3em;text-align:center;outline:none;margin-bottom:12px;font-family:inherit"
+        onkeydown="if(event.key==='Enter')submitSyncCode()"/>
+      <button id="syncCodeSubmitBtn" onclick="submitSyncCode()"
+        style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em">
+        SIGN IN →
+      </button>
+      <div onclick="backToSyncEmail()" style="margin-top:16px;font-size:11px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">USE A DIFFERENT EMAIL</div>
+    </div>
   </div>
 </div>
 
@@ -1829,36 +1852,72 @@ function _updateDemoUI(){
   }
 }
 
-async function sendMagicLink(email){
+// REBUILT 2026-09-08 — real, proven cause: an installed home-screen icon
+// and any browser tab (even the one it was created from) are sealed off
+// from each other in storage on iOS, confirmed by direct test, not
+// theory. A link-based sign-in requires leaving this page to open in a
+// browser, so it can never land the session back inside the icon. A
+// typed 6-digit code needs no navigation at all — the whole exchange
+// happens right here in this same already-open page, so there is no
+// storage boundary to cross in the first place.
+let _syncPendingEmail=null;
+
+async function sendSyncCode(email){
   if(!db)return'Database not available';
-  // Explicit emailRedirectTo, not left to the implicit default (which is
-  // whatever the current page URL happens to be at that exact moment —
-  // including any leftover odd state from an earlier scan attempt, or a
-  // cache-busting ?_v= tag from the version-check reload). A fixed, known
-  // URL means this can never land somewhere invalid, matching the same
-  // explicit pattern already used correctly on the Hub's own sign-in.
-  const{error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:'https://ask-amit.github.io/Amit/AmitMobile/AmitMobile.html'}});
+  // shouldCreateUser defaults true, which is fine — this is still the
+  // legitimate first-sign-in path for a brand-new user, same as before.
+  const{error}=await db.auth.signInWithOtp({email});
   return error?error.message:null;
 }
 
 function openSyncModal(){
   if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
   const m=document.getElementById('syncModal');if(!m)return;
+  backToSyncEmail();
   m.style.display='flex';
 }
 function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+
+function backToSyncEmail(){
+  _syncPendingEmail=null;
+  document.getElementById('syncStepEmail').style.display='block';
+  document.getElementById('syncStepCode').style.display='none';
+  const btn=document.getElementById('syncSubmitBtn');
+  if(btn){btn.textContent='SEND CODE →';btn.disabled=false;}
+  const codeInput=document.getElementById('syncCodeInput');
+  if(codeInput)codeInput.value='';
+}
+
 async function submitSyncEmail(){
   const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
   const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
-  const err=await sendMagicLink(email);
-  if(err){btn.textContent='Try again';btn.disabled=false;}
-  else{
-    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:19px;margin-bottom:14px">Link sent</div>
-      <div style="color:rgba(240,232,208,.7);font-size:15px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
-      <div style="color:rgba(240,232,208,.4);font-size:13px;line-height:1.6;margin-top:12px">Make sure you can check that email <strong>on this same device</strong> — the link needs to be opened here, on your phone, not on a computer or a different phone.</div>
-      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:12px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+  const err=await sendSyncCode(email);
+  if(err){
+    btn.textContent='Try again';btn.disabled=false;
+    alert(err);
+    return;
   }
+  _syncPendingEmail=email;
+  document.getElementById('syncCodeSentTo').textContent='We sent a 6-digit code to '+email+'. Type it below — no need to leave this screen.';
+  document.getElementById('syncStepEmail').style.display='none';
+  document.getElementById('syncStepCode').style.display='block';
+  document.getElementById('syncCodeInput').focus();
+}
+
+async function submitSyncCode(){
+  const code=document.getElementById('syncCodeInput').value.trim();
+  if(!code||!_syncPendingEmail)return;
+  if(!db)return;
+  const btn=document.getElementById('syncCodeSubmitBtn');btn.textContent='Checking…';btn.disabled=true;
+  const{error}=await db.auth.verifyOtp({email:_syncPendingEmail,token:code,type:'email'});
+  if(error){
+    btn.textContent='SIGN IN →';btn.disabled=false;
+    alert(error.message);
+    return;
+  }
+  // onAuthStateChange (SIGNED_IN) picks up currentUser, the manual token
+  // backup, and closes nothing on its own — close the modal here.
+  closeSyncModal();
 }
 
 // ══════════════════════════════════════════════
