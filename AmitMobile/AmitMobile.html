@@ -374,7 +374,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.17</div>
+<div class="amversion" id="pageVersion">v1.18</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1562,7 +1562,13 @@ function _updateDemoUI(){
 
 async function sendMagicLink(email){
   if(!db)return'Database not available';
-  const{error}=await db.auth.signInWithOtp({email});
+  // Explicit emailRedirectTo, not left to the implicit default (which is
+  // whatever the current page URL happens to be at that exact moment —
+  // including any leftover odd state from an earlier scan attempt, or a
+  // cache-busting ?_v= tag from the version-check reload). A fixed, known
+  // URL means this can never land somewhere invalid, matching the same
+  // explicit pattern already used correctly on the Hub's own sign-in.
+  const{error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:'https://ask-amit.github.io/Amit/AmitMobile/AmitMobile.html'}});
   return error?error.message:null;
 }
 
