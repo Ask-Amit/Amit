@@ -382,7 +382,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.32</div>
+<div class="amversion" id="pageVersion">v1.33</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -393,7 +393,7 @@ body::before{
      sealed off from each other in storage on iOS — confirmed by direct
      test, not theory. Any sign-in that requires leaving the icon (tapping
      an emailed link, scanning a QR that opens Safari) can never land the
-     session back inside the icon. Fix: sign in with a typed 6-digit code
+     session back inside the icon. Fix: sign in with a typed sign-in code
      instead of a link — the whole exchange happens inside this same
      already-open page, no navigation, no browser hand-off, nothing to
      cross a storage boundary. Two-step form, same modal. -->
@@ -401,7 +401,7 @@ body::before{
   <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div id="syncStepEmail">
       <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Sign In</div>
-      <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:22px">Enter your email. We'll send you a 6-digit code — type it back in here, no link to tap.</div>
+      <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:22px">Enter your email. We'll send you a sign-in code — type it back in here, no link to tap.</div>
       <input id="syncEmailInput" type="email" inputmode="email" autocomplete="email" placeholder="your@email.com"
         style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:15px;outline:none;margin-bottom:12px;font-family:inherit"
         onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
@@ -414,7 +414,7 @@ body::before{
     <div id="syncStepCode" style="display:none">
       <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Enter Your Code</div>
       <div id="syncCodeSentTo" style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:22px"></div>
-      <input id="syncCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"
+      <input id="syncCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="12345678"
         style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:22px;letter-spacing:.3em;text-align:center;outline:none;margin-bottom:12px;font-family:inherit"
         onkeydown="if(event.key==='Enter')submitSyncCode()"/>
       <button id="syncCodeSubmitBtn" onclick="submitSyncCode()"
@@ -1857,7 +1857,7 @@ function _updateDemoUI(){
 // from each other in storage on iOS, confirmed by direct test, not
 // theory. A link-based sign-in requires leaving this page to open in a
 // browser, so it can never land the session back inside the icon. A
-// typed 6-digit code needs no navigation at all — the whole exchange
+// typed sign-in code needs no navigation at all — the whole exchange
 // happens right here in this same already-open page, so there is no
 // storage boundary to cross in the first place.
 let _syncPendingEmail=null;
@@ -1898,7 +1898,7 @@ async function submitSyncEmail(){
     return;
   }
   _syncPendingEmail=email;
-  document.getElementById('syncCodeSentTo').textContent='We sent a 6-digit code to '+email+'. Type it below — no need to leave this screen. Don\'t see it? Check your spam/junk folder — first-time emails from a new sign-in often land there.';
+  document.getElementById('syncCodeSentTo').textContent='We sent a sign-in code to '+email+'. Type it below — no need to leave this screen. Don\'t see it? Check your spam/junk folder — first-time emails from a new sign-in often land there.';
   document.getElementById('syncStepEmail').style.display='none';
   document.getElementById('syncStepCode').style.display='block';
   document.getElementById('syncCodeInput').focus();
