@@ -382,7 +382,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.27</div>
+<div class="amversion" id="pageVersion">v1.28</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -697,7 +697,10 @@ function amDashboardHtml(){
          actually in storage the moment the app opens — always visible,
          not tied to sign-in state, so it shows on every single load.
          Remove once the real cause is found and fixed. -->
-    <div id="amAuthDebugLine" style="margin:0 0 16px;font-size:11px;color:rgba(200,200,200,.6);word-break:break-all;padding:8px;background:rgba(0,0,0,.2);border-radius:6px"></div>
+    <div style="margin:0 0 16px;padding:8px;background:rgba(0,0,0,.2);border-radius:6px">
+      <div id="amAuthDebugLine" style="font-size:11px;color:rgba(200,200,200,.6);word-break:break-all"></div>
+      <button onclick="amCopyAuthDebugLine()" id="amAuthDebugCopyBtn" style="margin-top:8px;background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.6);color:var(--gold2);padding:8px 16px;border-radius:6px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;cursor:pointer">📋 COPY THIS TO PASTE TO AMIT</button>
+    </div>
     <div id="amitReadinessBanner" style="display:none;margin:0 0 16px;color:rgba(240,232,208,.9)"></div>
     <div id="amInstallBannerHost"></div>
     <div class="amdash-grid">
@@ -1683,6 +1686,24 @@ async function amWriteAuthDebugLine(event){
     el.textContent='Debug ['+(event||'load')+']: IDB keys='+JSON.stringify(keys)+' | '+sessionInfo+' | manual backup: '+manualInfo;
   }catch(e){
     el.textContent='Debug: IndexedDB read failed — '+e.message;
+  }
+}
+
+// Copies the debug line's exact text to the clipboard so it can be
+// pasted directly into a conversation with Amit — added 2026-09-08,
+// Ryan's direct ask, since reading a string of tokens/keys aloud
+// accurately isn't realistic.
+async function amCopyAuthDebugLine(){
+  const el=document.getElementById('amAuthDebugLine');
+  const btn=document.getElementById('amAuthDebugCopyBtn');
+  if(!el||!btn)return;
+  try{
+    await navigator.clipboard.writeText(el.textContent);
+    const orig=btn.textContent;
+    btn.textContent='✓ COPIED — now paste it to Amit';
+    setTimeout(()=>{ btn.textContent=orig; },2500);
+  }catch(e){
+    btn.textContent='Copy failed — select text manually';
   }
 }
 // Run once immediately on load too, before any auth event fires, so the
