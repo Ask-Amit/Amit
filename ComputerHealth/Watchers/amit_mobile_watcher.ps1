@@ -188,7 +188,15 @@ function Test-HubOpen($userId) {
         if ($rows.Count -eq 0) { return $false }
         $lastBeat = [DateTime]::Parse($rows[0].last_beat).ToUniversalTime()
         $ageSeconds = ((Get-Date).ToUniversalTime() - $lastBeat).TotalSeconds
-        return ($ageSeconds -le 60)
+        # Widened 60 -> 150 seconds, 2026-09-08 (real bug caught live):
+        # Ryan reported "Hub isn't open" while the Hub had genuinely been
+        # open the whole time - the Hub's heartbeat timer (every 25s) gets
+        # throttled by the browser when that tab isn't the one actively
+        # focused, a real, expected browser battery-saving behavior, not a
+        # bug in the Hub itself. A background tab's heartbeat can easily
+        # slip past 60s between beats. 150s gives real margin for that
+        # throttling while still catching a genuinely closed Hub.
+        return ($ageSeconds -le 150)
     } catch {
         Write-Host "[amit-mobile-watcher] Heartbeat check failed for user $userId : $($_.Exception.Message)"
         return $false
