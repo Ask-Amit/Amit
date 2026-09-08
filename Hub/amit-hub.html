@@ -1263,6 +1263,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">CONNECT YOUR PHONE</div>
         <button id="connectAmitInlineBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="display:none;font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.95);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.55);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.18)">CONNECT YOUR PHONE</button>
         <div id="signInBtn" onclick="event.stopPropagation();openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
+        <div onclick="event.stopPropagation();amvTestReplayStartup()" title="TEMP TEST BUTTON - delete before shipping. Bypasses the 2-hour away threshold and re-runs the full greeting + auto-connect sequence as if this were a fresh startup." style="font-size:9px;letter-spacing:.05em;color:#ff8a8a;cursor:pointer;font-family:'Cinzel',serif;border:1px dashed rgba(255,138,138,.5);padding:3px 9px;border-radius:4px;background:rgba(255,138,138,.08)">🧪 TEST STARTUP</div>
         <div id="amvConnectingStatus" style="display:none;position:fixed;top:14px;right:14px;z-index:9998;background:#1a1e26;border:1px solid rgba(240,232,208,.25);border-radius:8px;padding:8px 14px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-family:system-ui,sans-serif;font-size:12px;color:rgba(240,232,208,.7)">Connecting to Amit…</div>
         <div id="amvInstallerDownloadedModal" style="display:none;position:fixed;inset:0;z-index:10001;align-items:center;justify-content:center;background:rgba(10,12,16,.72)">
           <div style="max-width:520px;width:90%;max-height:85vh;overflow-y:auto;background:#1a1e26;border:1px solid rgba(120,190,230,.5);border-radius:12px;padding:24px 26px;box-shadow:0 12px 40px rgba(0,0,0,.5);font-family:system-ui,sans-serif;color:#e8e2cf">
@@ -2708,6 +2709,18 @@ let currentUser=null;
 // with nothing coordinating their order. Resolves once the greeting attempt
 // (spoken or silently skipped) is done.
 let _amvGreetingPromise=Promise.resolve();
+// TEMP TEST FUNCTION - delete before shipping. Bypasses the 2-hour away
+// threshold and the once-a-day greeting gate so the full greeting +
+// auto-connect sequence can be replayed on demand, as if it were a fresh
+// startup, without actually waiting.
+function amvTestReplayStartup(){
+  localStorage.removeItem(AMV_LAST_GREETED_KEY);
+  localStorage.removeItem(AMV_LAST_ACTIVE_KEY);
+  sessionStorage.removeItem(AMV_AUTOCONNECT_OFFERED_KEY);
+  if(_amvOwnerContact)_amvOwnerContact.auto_connect_explained=false;
+  _amvGreetingPromise=amvMaybeSpeakGreeting(_amvOwnerContact);
+  _amvGreetingPromise.then(()=>_refreshAmitReadinessBanner());
+}
 
 // AMIT HUB FOCUS CHANNEL — added 2026-08-06, Ryan's direct instruction:
 // "Home" buttons on other Amit pages need to find an already-open Hub
