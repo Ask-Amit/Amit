@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.57</div>
+    <div class="page-version" id="hubVersionBadge">v6.58</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1282,10 +1282,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
         <div id="amvAutoConnectExplainer" style="display:none;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;background:rgba(10,12,16,.72)">
           <div style="max-width:520px;width:90%;background:#1a1e26;border:1px solid rgba(120,190,230,.5);border-radius:12px;padding:26px 28px;box-shadow:0 12px 40px rgba(0,0,0,.5);font-family:system-ui,sans-serif;color:#e8e2cf">
-            <h3 style="margin:0 0 12px;font-family:'Cinzel',serif;font-size:16px;letter-spacing:.05em;color:var(--gold, #c9a84c)">Before we turn this on</h3>
-            <p style="font-size:14px;line-height:1.6;margin:0 0 12px">I'm asking to turn on a small local connection that lets me look at your computer's own performance — things like memory, temperature, and what's installed — so I can tell you honestly if everything's running well.</p>
-            <p style="font-size:14px;line-height:1.6;margin:0 0 12px">It also lets me talk directly to your computer instead of just this webpage — used by features like Amit Coder and Amit Mobile.</p>
-            <p style="font-size:14px;line-height:1.6;margin:0 0 20px">This is a one-time choice. If you don't pick either way, it stays on by default — same as it will from here forward unless you turn it off yourself later in About Me.</p>
+            <h3 style="margin:0 0 12px;font-family:'Cinzel',serif;font-size:16px;letter-spacing:.05em;color:var(--gold, #c9a84c)">You might be asking — why would I want this?</h3>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 10px">Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand.</p>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 10px">It watches over your computer itself — tells you about real problems, whether something needs an upgrade, cooling issues, anything slowing you down — and it keeps watch for potential virus activity too.</p>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 10px">And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer.</p>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 20px">This is a real choice, not something I'll ever force on you. If you don't pick either way, it stays on by default — same as it will from here forward unless you turn it off yourself later in About Me.</p>
             <div style="display:flex;gap:10px;justify-content:flex-end">
               <button type="button" onclick="amvAutoConnectExplainerTurnOff()" style="background:transparent;border:1px solid rgba(240,232,208,.3);color:inherit;padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px">Turn It Off</button>
               <button type="button" onclick="amvAutoConnectExplainerTurnOn()" style="background:rgba(120,190,230,.22);border:1px solid rgba(120,190,230,.6);color:inherit;padding:9px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Turn It On</button>
@@ -2932,10 +2933,20 @@ async function _amvShowAutoConnectExplainer(){
   if(!modal)return;
   modal.style.display='flex';
   if('speechSynthesis' in window&&_amvOwnerContact){
-    const text="Let me tell you what's actually happening here. I'm asking to turn on a small local connection that lets me look at your computer's own performance — things like memory, temperature, and what's installed — so I can tell you honestly if everything's running well. It also lets me talk directly to your computer instead of just this webpage, for features like Amit Coder and Amit Mobile. This is a one-time choice. You can turn it on now, or turn it off if you'd rather not — and if you don't choose either way, it'll just stay on by default, the same as it will from here forward unless you turn it off yourself in About Me.";
+    // Sells the real "why" instead of just describing the mechanism - Ryan's
+    // direct instruction, 2026-09-07: "you may be asking why would I want
+    // you to do this" - answer it with the actual benefits across every
+    // connected feature, encouraging, never forcing.
+    const text="You might be asking — why would I want you to do this? Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand. It watches over your computer itself — tells you about real problems, whether something needs an upgrade, cooling issues, anything slowing you down — and it keeps watch for potential virus activity too. And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer. This is a real choice, not something I'll ever force on you. If you'd rather not, just say so, and I'll leave it right where it is.";
     const voices=await _amvGetVoicesReady();
     _amvSpeakWithContact(text,_amvOwnerContact,voices);
   }
+}
+async function _amvSpeakAutoConnectDecline(){
+  if(!('speechSynthesis' in window)||!_amvOwnerContact)return;
+  const text="I understand. This is available through About Me whenever you'd like it — I'll turn it on the moment you ask. I'm here for you either way.";
+  const voices=await _amvGetVoicesReady();
+  _amvSpeakWithContact(text,_amvOwnerContact,voices);
 }
 async function _amvMarkAutoConnectExplained(enabled){
   const modal=document.getElementById('amvAutoConnectExplainer');
@@ -2953,6 +2964,7 @@ async function amvAutoConnectExplainerTurnOn(){
 }
 async function amvAutoConnectExplainerTurnOff(){
   await _amvMarkAutoConnectExplained(false);
+  _amvSpeakAutoConnectDecline();
 }
 function amvAutoConnectLaunch(){
   const bar=document.getElementById('amvAutoConnectOffer');
