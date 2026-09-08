@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.58</div>
+    <div class="page-version" id="hubVersionBadge">v6.59</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1282,14 +1282,19 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
         <div id="amvAutoConnectExplainer" style="display:none;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;background:rgba(10,12,16,.72)">
           <div style="max-width:520px;width:90%;background:#1a1e26;border:1px solid rgba(120,190,230,.5);border-radius:12px;padding:26px 28px;box-shadow:0 12px 40px rgba(0,0,0,.5);font-family:system-ui,sans-serif;color:#e8e2cf">
-            <h3 style="margin:0 0 12px;font-family:'Cinzel',serif;font-size:16px;letter-spacing:.05em;color:var(--gold, #c9a84c)">You might be asking — why would I want this?</h3>
+            <h3 style="margin:0 0 10px;font-family:'Cinzel',serif;font-size:16px;letter-spacing:.05em;color:var(--gold, #c9a84c)">Connecting Amit</h3>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 14px">I'm about to turn on some monitoring on your computer.</p>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 10px;font-weight:600">You might be asking — why would I want this?</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px">Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand.</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px">It watches over your computer itself — tells you about real problems, whether something needs an upgrade, cooling issues, anything slowing you down — and it keeps watch for potential virus activity too.</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px">And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer.</p>
-            <p style="font-size:14px;line-height:1.6;margin:0 0 20px">This is a real choice, not something I'll ever force on you. If you don't pick either way, it stays on by default — same as it will from here forward unless you turn it off yourself later in About Me.</p>
-            <div style="display:flex;gap:10px;justify-content:flex-end">
-              <button type="button" onclick="amvAutoConnectExplainerTurnOff()" style="background:transparent;border:1px solid rgba(240,232,208,.3);color:inherit;padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px">Turn It Off</button>
-              <button type="button" onclick="amvAutoConnectExplainerTurnOn()" style="background:rgba(120,190,230,.22);border:1px solid rgba(120,190,230,.6);color:inherit;padding:9px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Turn It On</button>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 16px">This is a real choice, not something I'll ever force on you. If you don't pick either way, it stays on by default — same as it will from here forward unless you turn it off yourself later in About Me.</p>
+            <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+              <button type="button" onclick="amvAutoConnectDontAskAgain()" style="background:transparent;border:none;color:rgba(240,232,208,.5);padding:9px 4px;cursor:pointer;font-size:12px;text-decoration:underline">Don't ask me about this again</button>
+              <div style="display:flex;gap:10px">
+                <button type="button" onclick="amvAutoConnectExplainerTurnOff()" style="background:transparent;border:1px solid rgba(240,232,208,.3);color:inherit;padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px">Turn It Off</button>
+                <button type="button" onclick="amvAutoConnectExplainerTurnOn()" style="background:rgba(120,190,230,.22);border:1px solid rgba(120,190,230,.6);color:inherit;padding:9px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Turn It On</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2697,6 +2702,12 @@ const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
 const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
 const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
 let currentUser=null;
+// Lets the auto-connect explainer wait for the morning greeting to actually
+// speak first - Ryan's direct catch, 2026-09-07: the explainer spoke before
+// the greeting one morning, since both fire from the same sign-in event
+// with nothing coordinating their order. Resolves once the greeting attempt
+// (spoken or silently skipped) is done.
+let _amvGreetingPromise=Promise.resolve();
 
 // AMIT HUB FOCUS CHANNEL — added 2026-08-06, Ryan's direct instruction:
 // "Home" buttons on other Amit pages need to find an already-open Hub
@@ -2853,9 +2864,9 @@ if(db){
       // just where they go to fill in the rest, not where the row gets
       // created. _pullCompass() above already restores their display name
       // from Supabase if this is a returning device, so it's available here.
-      (async()=>{
+      _amvGreetingPromise=(async()=>{
         _amvOwnerContact=await getOrCreateOwnerContact(db,currentUser.id,getUserName(),currentUser.email);
-        amvMaybeSpeakGreeting(_amvOwnerContact);
+        await amvMaybeSpeakGreeting(_amvOwnerContact);
       })();
       if(!wasSignedIn){
         _migrateGuestDataThenPull();
@@ -2932,12 +2943,17 @@ async function _amvShowAutoConnectExplainer(){
   const modal=document.getElementById('amvAutoConnectExplainer');
   if(!modal)return;
   modal.style.display='flex';
+  // Wait for the morning greeting to actually happen first - Ryan's direct
+  // catch, 2026-09-07: this used to fire from the same sign-in event with
+  // nothing coordinating order, and one morning the explainer spoke before
+  // the greeting ever did. The greeting always comes first, always.
+  try{ await _amvGreetingPromise; }catch(e){}
   if('speechSynthesis' in window&&_amvOwnerContact){
-    // Sells the real "why" instead of just describing the mechanism - Ryan's
-    // direct instruction, 2026-09-07: "you may be asking why would I want
-    // you to do this" - answer it with the actual benefits across every
-    // connected feature, encouraging, never forcing.
-    const text="You might be asking — why would I want you to do this? Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand. It watches over your computer itself — tells you about real problems, whether something needs an upgrade, cooling issues, anything slowing you down — and it keeps watch for potential virus activity too. And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer. This is a real choice, not something I'll ever force on you. If you'd rather not, just say so, and I'll leave it right where it is.";
+    // Restructured per Ryan's direct instruction, 2026-09-07: lead with
+    // plainly saying what's about to happen, THEN the "why would I want
+    // this" framing, THEN the real benefits - not straight into the sales
+    // pitch with no heads-up first.
+    const text="I'm about to turn on some monitoring on your computer. You might be asking — why would I want this? Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand. It watches over your computer itself — tells you about real problems, whether something needs an upgrade, cooling issues, anything slowing you down — and it keeps watch for potential virus activity too. And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer. This is a real choice, not something I'll ever force on you. If you'd rather not, just say so, and I'll leave it right where it is.";
     const voices=await _amvGetVoicesReady();
     _amvSpeakWithContact(text,_amvOwnerContact,voices);
   }
@@ -2960,11 +2976,35 @@ async function _amvMarkAutoConnectExplained(enabled){
 }
 async function amvAutoConnectExplainerTurnOn(){
   await _amvMarkAutoConnectExplained(true);
+  await _amvSpeakAutoConnectTurnOnConfirm();
   amvAutoConnectLaunch();
+}
+// Explains what's about to appear on screen BEFORE it appears - Ryan's
+// direct instruction, 2026-09-07: someone who just said yes shouldn't be
+// startled by an unexplained Windows permission prompt or a PowerShell
+// window popping up right after.
+async function _amvSpeakAutoConnectTurnOnConfirm(){
+  if(!('speechSynthesis' in window)||!_amvOwnerContact)return;
+  const text="Great. What you're going to see is a few pop-ups come up. If you've never done this before, it'll ask if I can install a small program — that's just a monitoring program, so I can watch over everything and make all the connections. Then you might see something called PowerShell appear — that's just what actually connects your computer, the monitor, and this whole application together. That's all that's happening.";
+  const voices=await _amvGetVoicesReady();
+  _amvSpeakWithContact(text,_amvOwnerContact,voices);
 }
 async function amvAutoConnectExplainerTurnOff(){
   await _amvMarkAutoConnectExplained(false);
   _amvSpeakAutoConnectDecline();
+}
+// Distinct from Turn It Off - Ryan's direct instruction, 2026-09-07: this
+// just stops the EXPLANATION from ever showing again (auto_connect_explained
+// only), without changing whether the connection itself stays on or off -
+// for someone who's fine with it running, just doesn't want the pitch
+// repeated every day.
+async function amvAutoConnectDontAskAgain(){
+  const modal=document.getElementById('amvAutoConnectExplainer');
+  if(modal)modal.style.display='none';
+  if(_amvOwnerContact){
+    await saveOwnerContactFields(db,_amvOwnerContact.id,{auto_connect_explained:true});
+    _amvOwnerContact.auto_connect_explained=true;
+  }
 }
 function amvAutoConnectLaunch(){
   const bar=document.getElementById('amvAutoConnectOffer');
