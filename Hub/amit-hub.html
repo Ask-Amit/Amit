@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.63</div>
+    <div class="page-version" id="hubVersionBadge">v6.64</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3501,10 +3501,22 @@ async function _pullLocationIfMissing(){
   }catch{}
 }
 
-async function sendMagicLink(email){
-  if(!db)return'Database not available';
-  const{error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:'https://ask-amit.github.io/Amit/Hub/amit-hub.html'}});
-  return error?error.message:null;
+// REBUILT 2026-09-08, Ryan's direct instruction — global email+password
+// auth standard, same as Amit Mobile, same shared Supabase project,
+// same user_recovery_questions table and Edge Functions. Replaces every
+// magic-link entry point in the Hub (this modal, the Welcome Back panel,
+// and the new-user onboarding email step all now funnel through here).
+const AMIT_GET_RECOVERY_QUESTIONS_URL='https://hleqtjqojksurvkyqixt.supabase.co/functions/v1/get-recovery-questions';
+const AMIT_RESET_PASSWORD_WITH_ANSWERS_URL='https://hleqtjqojksurvkyqixt.supabase.co/functions/v1/reset-password-with-answers';
+
+async function amHashRecoveryAnswer(answer,salt){
+  const normalized=answer.trim().toLowerCase();
+  const data=new TextEncoder().encode(salt+':'+normalized);
+  const digest=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function amRandomSalt(){
+  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
 async function dbSignOut(){
@@ -3513,19 +3525,157 @@ async function dbSignOut(){
   currentUser=null;_updateSyncUI();
 }
 
-
-function openSyncModal(){
-  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))dbSignOut();return;}
+function openSyncModal(defaultStep){
+  if(currentUser){
+    if(!confirm('Signed in as '+currentUser.email+'\n\nSign out?')){ offerSetPasswordIfNeeded(); return; }
+    dbSignOut();
+    return;
+  }
   const m=document.getElementById('syncModal');if(!m)return;
   if(location.protocol==='file:'){
     document.querySelector('#syncModal .sync-modal-card').innerHTML=`
       <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:15px;margin-bottom:12px">Sync Available on Web</div>
-      <div style="color:rgba(240,232,208,.65);font-size:12px;line-height:1.8;margin-bottom:20px">Sign-in links require the web version.<br>Open Amit Hub at:<br><a href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" target="_blank" style="color:rgba(201,168,76,.8)">ask-amit.github.io/Amit/Hub/amit-hub.html</a></div>
+      <div style="color:rgba(240,232,208,.65);font-size:12px;line-height:1.8;margin-bottom:20px">Password sign-in requires the web version.<br>Open Amit Hub at:<br><a href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" target="_blank" style="color:rgba(201,168,76,.8)">ask-amit.github.io/Amit/Hub/amit-hub.html</a></div>
       <div onclick="closeSyncModal()" style="font-size:9px;color:rgba(240,232,208,.3);cursor:pointer;letter-spacing:.1em">CLOSE</div>`;
+    m.style.display='flex';
+    return;
   }
+  showSyncStep(defaultStep||'signin');
   m.style.display='flex';
 }
 function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+
+function showSyncStep(step){
+  document.getElementById('syncStepSignIn').style.display=step==='signin'?'block':'none';
+  document.getElementById('syncStepSignUp').style.display=step==='signup'?'block':'none';
+  document.getElementById('syncStepForgot').style.display=step==='forgot'?'block':'none';
+  if(step==='forgot'){
+    document.getElementById('forgotStage1').style.display='block';
+    document.getElementById('forgotStage2').style.display='none';
+  }
+}
+
+async function submitSignIn(){
+  const email=document.getElementById('siEmail').value.trim();
+  const password=document.getElementById('siPassword').value;
+  if(!email||!password)return;
+  if(!db)return;
+  const btn=document.getElementById('siSubmitBtn');btn.textContent='Signing in…';btn.disabled=true;
+  const{error}=await db.auth.signInWithPassword({email,password});
+  btn.textContent='SIGN IN →';btn.disabled=false;
+  if(error){ alert(error.message); return; }
+  closeSyncModal();
+}
+
+async function submitSignUp(){
+  const name=document.getElementById('suName').value.trim();
+  const email=document.getElementById('suEmail').value.trim();
+  const password=document.getElementById('suPassword').value;
+  const hint=document.getElementById('suHint').value.trim();
+  const q1=document.getElementById('suQ1').value.trim();
+  const a1=document.getElementById('suA1').value.trim();
+  const q2=document.getElementById('suQ2').value.trim();
+  const a2=document.getElementById('suA2').value.trim();
+  if(!name||!email||!password||!q1||!a1||!q2||!a2){ alert('Please fill in every field — the recovery questions are what get you back in if you forget your password.'); return; }
+  if(password.length<6){ alert('Password should be at least 6 characters.'); return; }
+  if(!db)return;
+  const btn=document.getElementById('suSubmitBtn');btn.textContent='Creating account…';btn.disabled=true;
+  const{data,error}=await db.auth.signUp({email,password,options:{data:{name}}});
+  if(error){ btn.textContent='CREATE ACCOUNT →';btn.disabled=false; alert(error.message); return; }
+  try{
+    const salt1=amRandomSalt(), salt2=amRandomSalt();
+    const hash1=await amHashRecoveryAnswer(a1,salt1);
+    const hash2=await amHashRecoveryAnswer(a2,salt2);
+    await db.from('user_recovery_questions').insert({
+      user_id:data.user.id,
+      password_hint:hint||null,
+      question_1:q1, answer_1_hash:salt1+':'+hash1,
+      question_2:q2, answer_2_hash:salt2+':'+hash2
+    });
+  }catch(e){ console.error('saving recovery questions failed',e); }
+  closeSyncModal();
+}
+
+async function offerSetPasswordIfNeeded(){
+  if(!currentUser)return;
+  if(!confirm('Want to set a password now? This lets you sign in directly next time, without any email step at all.'))return;
+  const name=prompt('Your name:')||'';
+  const password=prompt('Create a password (6+ characters):');
+  if(!password||password.length<6){ alert('Password needs to be at least 6 characters — try again from the sign-in button.'); return; }
+  const hint=prompt('A hint to remind yourself later (optional):')||'';
+  const q1=prompt('Recovery question 1 (e.g. childhood street):');
+  const a1=prompt('Answer to question 1:');
+  const q2=prompt('Recovery question 2 (e.g. favorite place):');
+  const a2=prompt('Answer to question 2:');
+  if(!q1||!a1||!q2||!a2){ alert('Recovery questions are required so you can get back in without email — try again from the sign-in button.'); return; }
+  const{error}=await db.auth.updateUser({password,data:{name}});
+  if(error){ alert(error.message); return; }
+  try{
+    const salt1=amRandomSalt(), salt2=amRandomSalt();
+    const hash1=await amHashRecoveryAnswer(a1,salt1);
+    const hash2=await amHashRecoveryAnswer(a2,salt2);
+    await db.from('user_recovery_questions').upsert({
+      user_id:currentUser.id,
+      password_hint:hint||null,
+      question_1:q1, answer_1_hash:salt1+':'+hash1,
+      question_2:q2, answer_2_hash:salt2+':'+hash2
+    });
+  }catch(e){ console.error('saving recovery questions failed',e); }
+  alert('Password set — you can sign in directly with it next time.');
+}
+
+let _fpEmailForRecovery=null;
+async function loadRecoveryQuestions(){
+  const email=document.getElementById('fpEmail').value.trim();if(!email)return;
+  const btn=document.getElementById('fpLoadBtn');btn.textContent='Looking up…';btn.disabled=true;
+  try{
+    const res=await fetch(AMIT_GET_RECOVERY_QUESTIONS_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email})});
+    const out=await res.json().catch(()=>null);
+    btn.textContent='CONTINUE →';btn.disabled=false;
+    if(!res.ok||!out||out.error){ alert(out&&out.error?out.error:'Could not find recovery questions for that email.'); return; }
+    _fpEmailForRecovery=email;
+    const hintBox=document.getElementById('fpHintBox');
+    if(out.password_hint){ hintBox.textContent='💡 Your hint: '+out.password_hint; hintBox.style.display='block'; }
+    else { hintBox.style.display='none'; }
+    document.getElementById('fpQ1Label').textContent=out.question_1;
+    document.getElementById('fpQ2Label').textContent=out.question_2;
+    document.getElementById('forgotStage1').style.display='none';
+    document.getElementById('forgotStage2').style.display='block';
+  }catch(e){
+    btn.textContent='CONTINUE →';btn.disabled=false;
+    alert('Something went wrong reaching the server — try again.');
+  }
+}
+
+async function submitRecoveryAnswers(){
+  if(!_fpEmailForRecovery)return;
+  const a1=document.getElementById('fpA1').value.trim();
+  const a2=document.getElementById('fpA2').value.trim();
+  const newPassword=document.getElementById('fpNewPassword').value;
+  if(!a1||!a2||!newPassword)return;
+  if(newPassword.length<6){ alert('New password needs to be at least 6 characters.'); return; }
+  const btn=document.getElementById('fpSubmitBtn');btn.textContent='Checking…';btn.disabled=true;
+  try{
+    const res=await fetch(AMIT_RESET_PASSWORD_WITH_ANSWERS_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:_fpEmailForRecovery,answer_1:a1,answer_2:a2,new_password:newPassword})});
+    const out=await res.json().catch(()=>null);
+    btn.textContent='RESET PASSWORD →';btn.disabled=false;
+    if(!res.ok||!out||out.error){ alert(out&&out.error?out.error:'Could not reset your password.'); return; }
+    const{error:siErr}=await db.auth.signInWithPassword({email:_fpEmailForRecovery,password:newPassword});
+    if(siErr){ alert('Password was reset — please sign in with your new password.'); showSyncStep('signin'); return; }
+    closeSyncModal();
+  }catch(e){
+    btn.textContent='RESET PASSWORD →';btn.disabled=false;
+    alert('Something went wrong reaching the server — try again.');
+  }
+}
+
+async function sendPasswordResetEmail(){
+  const email=(_fpEmailForRecovery||document.getElementById('fpEmail').value.trim());
+  if(!email){ alert('Enter your email first.'); return; }
+  if(!db)return;
+  const{error}=await db.auth.resetPasswordForEmail(email,{redirectTo:'https://ask-amit.github.io/Amit/Hub/amit-hub.html'});
+  alert(error?error.message:'A password reset link was sent to '+email+'. This is the one case that still needs email — open it on this same device.');
+}
 // Points at Amit Mobile, not the Hub — "Connect Your Phone" exists to get
 // someone into Amit Mobile (the phone-first dashboard), matching the
 // get-mobile-link Edge Function's own redirectTo. Changed 2026-09-05 —
@@ -4283,20 +4433,6 @@ async function amvSaveMyInfo(){
   note.style.color=saved?'rgba(180,220,190,.9)':'rgba(255,180,150,.9)';
 }
 
-async function submitSyncEmail(){
-  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
-  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
-  const err=await sendMagicLink(email);
-  if(err){btn.textContent='Try again';btn.disabled=false;}
-  else{
-    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
-      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
-      <div style="color:rgba(240,232,208,.4);font-size:11px;line-height:1.6;margin-top:12px">Make sure you can check that email <strong>on this same device</strong> — the link needs to be opened here, not on a different phone or computer.</div>
-      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
-  }
-}
-
 // ══════════════════════════════════════════════
 // STORAGE
 // ══════════════════════════════════════════════
@@ -4964,7 +5100,6 @@ function checkAuthGate(){
     });
     document.getElementById('amitWelcomeBackPanel').classList.remove('hidden');
     modal.classList.add('open');
-    setTimeout(()=>document.getElementById('welcomeBackEmail').focus(),200);
   }
 }
 function continueAsGuest(){
@@ -4972,12 +5107,15 @@ function continueAsGuest(){
   document.getElementById('amitWelcomeBackPanel').classList.add('hidden');
   maybeStartTutorial();
 }
-async function submitWelcomeBackEmail(){
-  const email=document.getElementById('welcomeBackEmail').value.trim();
-  if(!email||!db)return;
-  await db.auth.signInWithOtp({email,options:{emailRedirectTo:window.location.href}});
-  document.getElementById('welcomeBackEmail').value='';
-  document.getElementById('welcomeBackEmail').placeholder='Check your email for the link ✓';
+// REBUILT 2026-09-08, global email+password standard — routes into the
+// same syncModal (signin step) instead of its own separate magic-link
+// call. Closing the name-modal wrapper here is harmless even though
+// syncModal is a separate overlay — onAuthStateChange already closes
+// amitNameModal the instant a real sign-in succeeds either way.
+function submitWelcomeBackEmail(){
+  document.getElementById('amitNameModal').classList.remove('open');
+  document.getElementById('amitWelcomeBackPanel').classList.add('hidden');
+  openSyncModal('signin');
 }
 function checkFirstVisit(){
   // Legacy — now only handles returning-visit compass restore (auth gate handles the modal)
@@ -5320,43 +5458,17 @@ function showPanelHelp(panelId){
 }
 /* ====== END TUTORIAL + PANEL HELP ====== */
 
-async function submitProfileEmail(){
-  if(!db){skipEmailStep();return;}
-  const email=document.getElementById('profileEmailInput').value.trim();
-  if(!email||!email.includes('@')){
-    document.getElementById('profileEmailInput').style.borderColor='rgba(220,80,80,.7)';
-    setTimeout(()=>document.getElementById('profileEmailInput').style.borderColor='',1200);
-    return;
-  }
-  const btn=document.querySelector('#amitNamePanel4 .amit-name-begin');
-  if(btn){btn.textContent='Sending…';btn.disabled=true;}
-  try{
-    const{error}=await db.auth.signInWithOtp({
-      email,
-      options:{emailRedirectTo:'https://ask-amit.github.io/Amit/Hub/amit-hub.html'}
-    });
-    if(error)throw error;
-    // Show "check email" state - this STAYS UP. It does not auto-close.
-    // Closing only ever happens for real once onAuthStateChange sees an
-    // actual signed-in session (from clicking the real email link), or the
-    // person explicitly chooses guest mode below. Auto-closing this after a
-    // few seconds regardless of verification was the bug that let people
-    // straight into the dashboard without ever actually signing in.
-    document.getElementById('amitNamePanel4').innerHTML=`
-      <div class="amit-name-logo"><img src="../amit_icon.png" alt="">AMIT<img src="../amit_icon.png" alt=""></div>
-      <div style="font-size:36px;margin:10px 0">✉</div>
-      <div class="amit-name-question" style="font-size:15px">Check your email.</div>
-      <div style="font-size:13px;color:rgba(240,232,208,.55);line-height:1.75;margin:14px 0 22px;text-align:center">
-        A sign-in link was sent to<br><strong style="color:rgba(240,232,208,.85)">${email}</strong><br><br>
-        Click the link in your email to finish signing in.<br>This screen will stay here until you do.
-      </div>
-      <div style="font-size:11px;color:rgba(240,232,208,.35);line-height:1.6;text-align:center;margin:-8px 0 14px">Make sure you can check that email <strong>on this same device</strong> — the link needs to open here, not on a different phone or computer.</div>
-      <div onclick="showGuestWarning()" style="font-size:10px;color:rgba(240,232,208,.28);cursor:pointer;letter-spacing:.08em;text-align:center;margin-top:6px">Continue as guest instead →</div>`;
-  }catch(e){
-    if(btn){btn.textContent='Send Sign-In Link →';btn.disabled=false;}
-    const inp=document.getElementById('profileEmailInput');
-    if(inp){inp.style.borderColor='rgba(220,80,80,.7)';setTimeout(()=>inp.style.borderColor='',1500);}
-  }
+// REBUILT 2026-09-08, global email+password standard — routes into the
+// same syncModal (signup step) instead of its own separate magic-link
+// call, pre-filling the name this wizard already collected earlier.
+function submitProfileEmail(){
+  document.getElementById('amitNameModal').classList.remove('open');
+  openSyncModal('signup');
+  const nameField=document.getElementById('suName');
+  if(nameField&&!nameField.value) nameField.value=getUserName()||'';
+  const emailField=document.getElementById('suEmail');
+  const prefill=document.getElementById('profileEmailInput');
+  if(emailField&&prefill&&prefill.value.trim()) emailField.value=prefill.value.trim();
 }
 function showAmitStory(){
   document.getElementById('amitNamePanel1').classList.add('hidden');
@@ -10026,9 +10138,9 @@ function hideLabelTip(){
         <div style="font-size:9px;letter-spacing:.18em;color:rgba(201,168,76,.5);font-family:'Cinzel',serif;text-align:center;margin-bottom:10px">SIGN IN WITH EMAIL</div>
         <input class="amit-name-input" id="profileEmailInput" type="email" placeholder="your@email.com"
           style="margin-bottom:8px" onkeydown="if(event.key==='Enter')submitProfileEmail()"/>
-        <button class="amit-name-begin" onclick="submitProfileEmail()">Send Sign-In Link →</button>
+        <button class="amit-name-begin" onclick="submitProfileEmail()">Create Account →</button>
         <div style="font-size:10px;color:rgba(240,232,208,.28);text-align:center;margin-top:6px;line-height:1.5">
-          No password. One click. Amit remembers you everywhere.
+          A password and two recovery questions. Amit remembers you everywhere.
         </div>
       </div>
 
@@ -10104,11 +10216,9 @@ function hideLabelTip(){
       <div style="font-size:12px;color:rgba(240,232,208,.45);line-height:1.7;margin-bottom:22px;text-align:center">
         Sign in to pick up where you left off across all your devices.
       </div>
-      <input class="amit-name-input" id="welcomeBackEmail" type="email" placeholder="your@email.com"
-        style="margin-bottom:8px" onkeydown="if(event.key==='Enter')submitWelcomeBackEmail()"/>
-      <button class="amit-name-begin" onclick="submitWelcomeBackEmail()">Send Sign-In Link →</button>
+      <button class="amit-name-begin" onclick="submitWelcomeBackEmail()">Sign In →</button>
       <div style="font-size:10px;color:rgba(240,232,208,.28);text-align:center;margin-top:6px;line-height:1.5;margin-bottom:18px">
-        No password. One click in your email.
+        Enter your email and password.
       </div>
       <button onclick="continueAsGuest()"
         style="width:100%;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.22);color:rgba(240,232,208,.6);padding:10px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em">
@@ -10156,19 +10266,90 @@ function hideLabelTip(){
   </div>
 </div>
 
-<!-- SYNC / SIGN-IN MODAL -->
+<!-- SYNC / SIGN-IN MODAL — REBUILT 2026-09-08, global email+password
+     standard (Ryan's direct instruction), same pattern as Amit Mobile,
+     same shared user_recovery_questions table / Edge Functions. -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
   <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
-    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
-    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
-    <input id="syncEmailInput" type="email" placeholder="your@email.com"
-      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
-      onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
-    <button id="syncSubmitBtn" onclick="submitSyncEmail()"
-      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
-      SEND SIGN-IN LINK →
-    </button>
-    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+
+    <div id="syncStepSignIn">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sign In</div>
+      <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:16px">Enter your email and password.</div>
+      <input id="siEmail" type="email" placeholder="your@email.com"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:10px;font-family:inherit"/>
+      <input id="siPassword" type="password" placeholder="Password"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+        onkeydown="if(event.key==='Enter')submitSignIn()"/>
+      <button id="siSubmitBtn" onclick="submitSignIn()"
+        style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+        SIGN IN →
+      </button>
+      <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:9px;color:rgba(240,232,208,.4);letter-spacing:.05em">
+        <span onclick="showSyncStep('signup')" style="cursor:pointer">NEW HERE? CREATE ACCOUNT</span>
+        <span onclick="showSyncStep('forgot')" style="cursor:pointer">FORGOT PASSWORD?</span>
+      </div>
+      <div onclick="closeSyncModal()" style="margin-top:14px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+    </div>
+
+    <div id="syncStepSignUp" style="display:none">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Create Your Account</div>
+      <div style="color:rgba(240,232,208,.5);font-size:10px;line-height:1.6;margin-bottom:14px">Your name, email, a password, and two recovery questions in case you ever forget it — no email link needed to get back in.</div>
+      <input id="suName" type="text" placeholder="Your name"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:12px;outline:none;margin-bottom:7px;font-family:inherit"/>
+      <input id="suEmail" type="email" placeholder="your@email.com"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:12px;outline:none;margin-bottom:7px;font-family:inherit"/>
+      <input id="suPassword" type="password" placeholder="Create a password"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:12px;outline:none;margin-bottom:7px;font-family:inherit"/>
+      <input id="suHint" type="text" placeholder="A hint to remind yourself later (optional)"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:11px;outline:none;margin-bottom:10px;font-family:inherit"/>
+      <input id="suQ1" type="text" placeholder="Recovery question 1 (e.g. childhood street)"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:11px;outline:none;margin-bottom:7px;font-family:inherit"/>
+      <input id="suA1" type="text" placeholder="Answer 1"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:11px;outline:none;margin-bottom:7px;font-family:inherit"/>
+      <input id="suQ2" type="text" placeholder="Recovery question 2 (e.g. favorite place)"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:11px;outline:none;margin-bottom:7px;font-family:inherit"/>
+      <input id="suA2" type="text" placeholder="Answer 2"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:11px;outline:none;margin-bottom:12px;font-family:inherit"/>
+      <button id="suSubmitBtn" onclick="submitSignUp()"
+        style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+        CREATE ACCOUNT →
+      </button>
+      <div onclick="showSyncStep('signin')" style="margin-top:14px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">BACK TO SIGN IN</div>
+    </div>
+
+    <div id="syncStepForgot" style="display:none">
+      <div id="forgotStage1">
+        <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Forgot Password</div>
+        <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.6;margin-bottom:14px">Enter your email to see your recovery questions.</div>
+        <input id="fpEmail" type="email" placeholder="your@email.com"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"/>
+        <button onclick="loadRecoveryQuestions()" id="fpLoadBtn"
+          style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+          CONTINUE →
+        </button>
+      </div>
+      <div id="forgotStage2" style="display:none">
+        <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Answer Your Questions</div>
+        <div id="fpHintBox" style="display:none;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;margin-bottom:12px;color:rgba(240,232,208,.8);font-size:11px;text-align:left"></div>
+        <div id="fpQ1Label" style="color:rgba(240,232,208,.6);font-size:11px;text-align:left;margin-bottom:5px"></div>
+        <input id="fpA1" type="text" placeholder="Answer"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:12px;outline:none;margin-bottom:10px;font-family:inherit"/>
+        <div id="fpQ2Label" style="color:rgba(240,232,208,.6);font-size:11px;text-align:left;margin-bottom:5px"></div>
+        <input id="fpA2" type="text" placeholder="Answer"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:12px;outline:none;margin-bottom:10px;font-family:inherit"/>
+        <input id="fpNewPassword" type="password" placeholder="New password"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:12px;outline:none;margin-bottom:12px;font-family:inherit"/>
+        <button onclick="submitRecoveryAnswers()" id="fpSubmitBtn"
+          style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+          RESET PASSWORD →
+        </button>
+      </div>
+      <div style="margin-top:14px;font-size:9px;color:rgba(240,232,208,.4);letter-spacing:.05em">
+        <span onclick="sendPasswordResetEmail()" style="cursor:pointer;text-decoration:underline">Don't remember your answers either? Email me a reset link instead</span>
+      </div>
+      <div onclick="showSyncStep('signin')" style="margin-top:14px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">BACK TO SIGN IN</div>
+    </div>
+
   </div>
 </div>
 
