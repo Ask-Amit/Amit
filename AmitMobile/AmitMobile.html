@@ -374,7 +374,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.13</div>
+<div class="amversion" id="pageVersion">v1.14</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -617,6 +617,10 @@ function amDashboardHtml(){
       <p>Your Amit, in your pocket. Tap a tile to begin.</p>
       <p id="amGreeting" style="font-family:'Cinzel',serif;font-size:14px;color:#fff;font-weight:600;margin-top:10px"></p>
       <p id="amDatetime" style="font-size:11px;color:var(--muted);margin-top:2px"></p>
+    </div>
+    <div id="amNotSignedInBanner" style="display:none;margin:0 0 16px;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:14px 16px;text-align:center">
+      <div style="color:rgba(240,232,208,.9);font-size:14px;margin-bottom:10px">You're not signed in right now — sign in to see your history and talk to Amit.</div>
+      <button onclick="openSyncModal()" style="background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.6);color:var(--gold2);padding:10px 20px;border-radius:6px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.06em;cursor:pointer">SIGN IN</button>
     </div>
     <div id="amitReadinessBanner" style="display:none;margin:0 0 16px;color:rgba(240,232,208,.9)"></div>
     <div id="amInstallBannerHost"></div>
@@ -1468,14 +1472,21 @@ async function _refreshAmitReadinessBanner(){
 function _updateSyncUI(){
   const item=document.getElementById('rail-sync');if(!item)return;
   const icon=document.getElementById('rail-sync-icon');
+  const banner=document.getElementById('amNotSignedInBanner');
   if(currentUser){
     icon.textContent='🔓';
     item.title='Signed in · '+currentUser.email+' — tap to sign out';
     item.classList.add('active');
+    if(banner)banner.style.display='none';
   } else {
     icon.textContent='🔒';
     item.title='Sign In — tap to sync across devices';
     item.classList.remove('active');
+    // Real, unmissable banner, not just a tiny icon — Ryan hit this live:
+    // the top-bar lock icon alone was too easy to miss, and coming back
+    // signed-out (e.g. via iOS's separate storage between a Safari tab
+    // and the home-screen icon) needs an obvious way back in.
+    if(banner)banner.style.display='block';
   }
 }
 
