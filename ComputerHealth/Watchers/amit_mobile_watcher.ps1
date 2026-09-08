@@ -51,6 +51,22 @@ param(
     [string]$StopFlag = "$env:TEMP\amit_mobile_stop.flag"
 )
 
+# SINGLE-INSTANCE GUARD — added 2026-09-08, real bug caught live: Ryan
+# reported a message taking well over a minute to answer, and direct
+# process checks found TWO copies of this script running at once,
+# competing for the same rows and very likely doubling real response
+# time. The bridge's own self-healing supervisor (which restarts this
+# watcher if it's not running) has no way to know a copy is already
+# alive without this — same class of protection AmitTracker.exe already
+# has via its own named Mutex. A second launch attempt exits immediately
+# instead of running in parallel.
+$amMobileCreatedNew = $false
+$amMobileSingleInstance = New-Object System.Threading.Mutex($true, "Global\AmitMobileWatcherRunning", [ref]$amMobileCreatedNew)
+if (-not $amMobileCreatedNew) {
+    Write-Host "[amit-mobile-watcher] Another copy is already running - exiting immediately, not running in parallel."
+    exit
+}
+
 $watcherDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $configPath = Join-Path (Split-Path -Parent (Split-Path -Parent $watcherDir)) "Database\supabase_config.md"
 if (-not (Test-Path $configPath)) {
