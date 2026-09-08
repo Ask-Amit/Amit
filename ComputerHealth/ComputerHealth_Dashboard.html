@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.55</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.56</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5363,6 +5363,29 @@ async function stopAllTracking() {
 // confused with a real session-ended row, and each capture gets its own
 // real sessionEndTime, so multiple captures across a day each land as
 // their own separate History entry rather than overwriting one another.
+// Shared core, reused by the manual Capture Conditions button AND the
+// automatic orphaned-session reconciliation below (?reconcileOrphan=1) -
+// one real capture path, not two copies that could drift apart. Returns
+// the verdict object on success (so callers can report what was found),
+// or null if nothing was captured (not signed in, or genuinely no data).
+async function _chCaptureNow(reasonDetail) {
+  if (!currentUser || !deviceId) return null;
+  const metrics = await fetchLocalMetrics('/api/tracker-metrics');
+  const duration = await computeTrackerSessionDuration();
+  let verdict = { severity: 'info', summary: 'A snapshot of current conditions was captured.', concerns: [] };
+  if (metrics && metrics.found && metrics.rows && metrics.rows.length) {
+    try {
+      const specs = await loadHardwareSpecs();
+      await chRefreshConstantSensorKeys(deviceId);
+      verdict = deriveSessionVerdictFromMetrics(metrics.rows, specs);
+    } catch (e) { /* fall back to the plain default above if this fails */ }
+  }
+  const eventId = await logTrackingSessionEvent('tracking_session_captured', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, metrics ? metrics.sessionEndTime : null, Object.assign({ capturedAt: new Date().toISOString(), concerns: verdict.concerns, duration, stillRunning: true }, reasonDetail || {}));
+  await insertMetricsRowsForEvent(eventId, metrics);
+  const diagMetrics = await fetchLocalMetrics('/api/diagnostics-metrics');
+  await insertMetricsRowsForEvent(eventId, diagMetrics);
+  return verdict;
+}
 async function captureConditions() {
   const btn = document.getElementById('captureConditionsBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Capturing…'; }
@@ -5371,20 +5394,7 @@ async function captureConditions() {
       alert('Sign in above first - a capture with nowhere to save isn\'t worth taking.');
       return;
     }
-    const metrics = await fetchLocalMetrics('/api/tracker-metrics');
-    const duration = await computeTrackerSessionDuration();
-    let verdict = { severity: 'info', summary: 'A snapshot of current conditions was captured.', concerns: [] };
-    if (metrics && metrics.found && metrics.rows && metrics.rows.length) {
-      try {
-        const specs = await loadHardwareSpecs();
-        await chRefreshConstantSensorKeys(deviceId);
-        verdict = deriveSessionVerdictFromMetrics(metrics.rows, specs);
-      } catch (e) { /* fall back to the plain default above if this fails */ }
-    }
-    const eventId = await logTrackingSessionEvent('tracking_session_captured', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, metrics ? metrics.sessionEndTime : null, { capturedAt: new Date().toISOString(), concerns: verdict.concerns, duration, stillRunning: true });
-    await insertMetricsRowsForEvent(eventId, metrics);
-    const diagMetrics = await fetchLocalMetrics('/api/diagnostics-metrics');
-    await insertMetricsRowsForEvent(eventId, diagMetrics);
+    await _chCaptureNow({ reason: 'manual' });
     if (btn) btn.textContent = 'Captured ✓';
     setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = 'Capture Conditions'; } }, 2500);
   } catch (e) {
@@ -6487,6 +6497,59 @@ function closeSessionSummary(showTab) {
   if (showTab) showTabByName(showTab);
 }
 
+// ORPHANED SESSION RECONCILIATION - Ryan's direct instruction, 2026-09-08.
+// Different problem than reconcileMissedSummaries() above: that one catches
+// a session that already STOPPED with no tab open to log it. This catches
+// a session that's still RUNNING, orphaned - e.g. the Hub was closed
+// without anyone stopping tracking, so real data has been quietly piling
+// up with nothing ever capturing it to History. Opened by the Hub itself
+// in a hidden tab (?reconcileOrphan=1) right after its own auto-connect
+// confirms the bridge is reachable - deliberately never shown as a popup
+// on Computer Health itself in this automatic case; the notification
+// belongs on the Hub, via the BroadcastChannel message below, so people
+// start noticing Computer Health there too.
+async function handleReconcileOrphan() {
+  if (new URLSearchParams(window.location.search).get('reconcileOrphan') !== '1') return;
+  const orphanChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('amit_ch_orphan_reconcile') : null;
+  try {
+    if (!localAccessAttempted) {
+      localAccessAttempted = true;
+      onConnected(await checkBridge());
+    }
+    const status = await fetch(BRIDGE + '/api/tracker-status').then(r => r.json()).catch(() => null);
+    if (!status || !status.running) { window.close(); return; } // nothing running, nothing orphaned - quietly done
+    let waited = 0;
+    while ((!deviceId || !currentUser) && waited < 6000) {
+      await new Promise(r => setTimeout(r, 300));
+      waited += 300;
+    }
+    if (!deviceId || !currentUser) { window.close(); return; } // can't reconcile without knowing who/what this is
+    // The actual "orphaned" test, per Ryan's own description: does the
+    // latest real capture for this device already reflect TODAY? If so,
+    // this is a normal, already-accounted-for running session, not an
+    // orphan - nothing to do. If the newest capture is from an earlier day
+    // (or none exists at all), real time has passed uncaptured - reconcile
+    // it now.
+    const { data: latest } = await db.from('amit_device_events')
+      .select('created_at')
+      .eq('device_id', deviceId)
+      .in('event_type', ['tracking_session_ended', 'tracking_session_captured'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const todayStr = new Date().toDateString();
+    const alreadyCapturedToday = latest && latest.length > 0 && new Date(latest[0].created_at).toDateString() === todayStr;
+    if (alreadyCapturedToday) { window.close(); return; }
+    const verdict = await _chCaptureNow({ reason: 'orphan_reconcile', priorCaptureAt: latest && latest.length ? latest[0].created_at : null });
+    if (verdict && orphanChannel) {
+      orphanChannel.postMessage({ deviceName, summary: verdict.summary, severity: verdict.severity, capturedAt: new Date().toISOString() });
+    }
+  } catch (e) {
+    console.error('handleReconcileOrphan failed:', e);
+  } finally {
+    setTimeout(() => window.close(), 1500); // brief grace period for the broadcast/writes to actually flush
+  }
+}
+
 async function handleJustStopped() {
   if (new URLSearchParams(window.location.search).get('justStopped') !== '1') return;
   // Unmistakable visual marker so this tab can never be confused with an
@@ -6763,6 +6826,7 @@ if (isDuplicateTab) {
   // Everyone else waits for an explicit "Launch Tracker" click.
   handleJustLaunched();
   handleJustStopped();
+  handleReconcileOrphan();
   attemptSilentReconnect();
   updateChDemoBtn();
   // Runs immediately for guests too (not just after a real sign-in) so demo
