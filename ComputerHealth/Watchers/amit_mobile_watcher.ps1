@@ -67,12 +67,6 @@ function Get-SupabaseSecretKey {
 
 $SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co'
 $SECRET_KEY = Get-SupabaseSecretKey
-$headers = @{
-    "apikey"        = $SECRET_KEY
-    "Authorization" = "Bearer $SECRET_KEY"
-    "Content-Type"  = "application/json"
-    "Prefer"        = "return=minimal"
-}
 
 $CLAUDE_CLI = "$env:APPDATA\npm\claude.cmd"
 $NEUTRAL_CWD = $env:TEMP
@@ -118,6 +112,10 @@ function Invoke-Claude($prompt) {
         $psi.RedirectStandardError = $true
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
+        # Without this, PowerShell reads claude's stdout using the console's
+        # default codepage instead of UTF-8, mangling real characters like
+        # em dashes into garbage (caught live: an em dash became "ΓÇö").
+        $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
 
         $proc = New-Object System.Diagnostics.Process
         $proc.StartInfo = $psi
@@ -140,10 +138,22 @@ function Invoke-Claude($prompt) {
     }
 }
 
+# FIXED 2026-09-08, real bug caught live: Invoke-RestMethod (PowerShell's
+# built-in HTTP function) silently returned "401 Unauthorized" against
+# Supabase's sb_secret_ style key on this machine, even though the exact
+# same key worked instantly via curl.exe from the same shell, same
+# environment, same moment - proven side by side, not assumed. Root cause
+# inside Invoke-RestMethod/.NET's HTTP stack was not chased further once
+# curl.exe was confirmed reliable; every Supabase call in this script now
+# shells out to curl.exe instead of using Invoke-RestMethod, since that's
+# what's actually proven to work in this real environment.
 function Get-UnansweredCaptures {
     $uri = "$SUPABASE_URL/rest/v1/amit_mobile_captures?reply=is.null&order=created_at.asc&limit=10"
-    try { return Invoke-RestMethod -Uri $uri -Method Get -Headers $headers }
-    catch { Write-Host "[amit-mobile-watcher] Fetch failed: $($_.Exception.Message)"; return @() }
+    try {
+        $json = & curl.exe -s $uri -H "apikey: $SECRET_KEY" -H "Authorization: Bearer $SECRET_KEY"
+        if (-not $json) { return @() }
+        return @($json | ConvertFrom-Json)
+    } catch { Write-Host "[amit-mobile-watcher] Fetch failed: $($_.Exception.Message)"; return @() }
 }
 
 # Hub-open heartbeat gate — added 2026-09-05, per AmitMobile\CLAUDE.md's
@@ -157,7 +167,8 @@ function Get-UnansweredCaptures {
 function Test-HubOpen($userId) {
     $uri = "$SUPABASE_URL/rest/v1/amit_hub_heartbeat?user_id=eq.$userId&select=last_beat"
     try {
-        $rows = @(Invoke-RestMethod -Uri $uri -Method Get -Headers $headers)
+        $json = & curl.exe -s $uri -H "apikey: $SECRET_KEY" -H "Authorization: Bearer $SECRET_KEY"
+        $rows = @($json | ConvertFrom-Json)
         if ($rows.Count -eq 0) { return $false }
         $lastBeat = [DateTime]::Parse($rows[0].last_beat).ToUniversalTime()
         $ageSeconds = ((Get-Date).ToUniversalTime() - $lastBeat).TotalSeconds
@@ -170,9 +181,28 @@ function Test-HubOpen($userId) {
 
 function Write-Reply($id, $reply) {
     $uri = "$SUPABASE_URL/rest/v1/amit_mobile_captures?id=eq.$id"
-    $body = @{ reply = $reply; reply_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ") } | ConvertTo-Json
-    try { Invoke-RestMethod -Uri $uri -Method Patch -Headers $headers -Body $body | Out-Null }
-    catch { Write-Host "[amit-mobile-watcher] Write-back failed for id=$id : $($_.Exception.Message)" }
+    $bodyObj = @{ reply = $reply; reply_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ") }
+    $bodyJson = $bodyObj | ConvertTo-Json -Compress
+    # Written to a temp file and sent via --data-binary "@file" rather than
+    # passed inline on the command line - a reply can contain quotes,
+    # newlines, or other characters that would corrupt a literal inline
+    # curl argument (the same class of shell-quoting risk already solved
+    # this same way for the claude -p prompt via STDIN elsewhere in this
+    # file).
+    $tmpFile = [System.IO.Path]::GetTempFileName()
+    try {
+        # [System.Text.Encoding]::UTF8 silently prepends a BOM (byte-order
+        # mark) - invisible bytes that corrupt Supabase's JSON parsing
+        # ("Empty or invalid json", caught live). A UTF8Encoding built with
+        # $false disables the BOM.
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($tmpFile, $bodyJson, $utf8NoBom)
+        & curl.exe -s -X PATCH $uri -H "apikey: $SECRET_KEY" -H "Authorization: Bearer $SECRET_KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" --data-binary "@$tmpFile" | Out-Null
+    } catch {
+        Write-Host "[amit-mobile-watcher] Write-back failed for id=$id : $($_.Exception.Message)"
+    } finally {
+        Remove-Item $tmpFile -ErrorAction SilentlyContinue
+    }
 }
 
 Write-Host "[amit-mobile-watcher] Amit Mobile listener started. Polling every 5 seconds."
