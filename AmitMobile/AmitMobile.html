@@ -374,7 +374,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.23</div>
+<div class="amversion" id="pageVersion">v1.24</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1602,6 +1602,14 @@ if(db){
     amInitThreadPages(); // reload real thread history now that sign-in state is known
     amLoadVoicePref(); // pick up whatever voice was set in the Hub's Amit Voice panel
   });
+}
+
+// FIXED 2026-09-08 — real gap found by direct comparison against AmitScan
+// (which never loses sign-in on force-quit, same phone, same button, same
+// IndexedDB storage pattern): AmitScan registers a service worker, this
+// app never did. Added, copied from AmitScan's own proven registration.
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
 // FIXED 2026-09-08, Ryan's direct live report: iOS Safari puts a
