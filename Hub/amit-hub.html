@@ -1263,6 +1263,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">CONNECT YOUR PHONE</div>
         <button id="connectAmitInlineBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="display:none;font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.95);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.55);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.18)">CONNECT YOUR PHONE</button>
         <div id="signInBtn" onclick="event.stopPropagation();openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
+        <div id="amvAutoConnectOffer" style="display:none;position:fixed;top:14px;right:14px;z-index:9999;align-items:center;gap:10px;background:#1a1e26;border:1px solid rgba(120,190,230,.55);border-radius:8px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-family:system-ui,sans-serif;font-size:13px;color:#e8e2cf;max-width:360px">
+          <span>Amit's local connection isn't running — start it now?</span>
+          <button type="button" onclick="event.stopPropagation();amvAutoConnectLaunch()" style="background:rgba(120,190,230,.2);border:1px solid rgba(120,190,230,.6);color:inherit;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap">Launch</button>
+          <button type="button" onclick="event.stopPropagation();amvAutoConnectDismiss()" style="background:transparent;border:1px solid rgba(240,232,208,.3);color:inherit;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">Not now</button>
+        </div>
         <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
       </div>
     </div>
@@ -1713,6 +1718,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
               <button class="btn btn-ghost" id="amvGreetingToggleBtn" onclick="amvToggleGreetingFromAboutMe()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
               <button class="btn btn-ghost" onclick="amvPreviewGreeting()" style="white-space:nowrap;font-size:11px;padding:9px 14px">🔊 HEAR IT NOW</button>
             </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,.03);border:1px solid rgba(240,232,208,.12);border-radius:8px;padding:12px 14px;margin-bottom:24px">
+            <div>
+              <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase">Auto-Start Amit Connection</div>
+              <div id="amvAutoConnectStatus" style="color:rgba(240,232,208,.5);font-size:12px;margin-top:2px">—</div>
+            </div>
+            <button class="btn btn-ghost" id="amvAutoConnectToggleBtn" onclick="amvToggleAutoConnect()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
           </div>
           <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
 
@@ -2783,7 +2795,7 @@ if(db){
     // local feature already uses - never a new/separate process). If the
     // bridge isn't running, this just fails quietly - J Manage's own check
     // is what tells the person to come here and connect if that happens.
-    if(session&&(event==='SIGNED_IN'||event==='TOKEN_REFRESHED')){
+    if(session&&(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'||event==='INITIAL_SESSION')){
       fetch('http://localhost:8710/api/coder-token',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -2851,6 +2863,44 @@ if(db){
 // exists yet. A genuinely connected state still always shows the green
 // "Listening" confirmation regardless of the flag.
 // ══════════════════════════════════════════════
+// AUTO-CONNECT — one shared "should Amit offer to start the local bridge
+// right now" check, reused by sign-in AND by the tab regaining focus
+// (Ryan's direct instruction, 2026-09-07: "sometimes they won't even be
+// logging in... once it gains focus, it should run that as well"). Windows
+// itself always requires one manual permission click to launch a local
+// program from a webpage - that's a real OS security wall, not something
+// this code can silence - so "auto" here means auto-OFFERED (one click,
+// prompted automatically), never a fully silent launch. Only offered once
+// per open tab (AMV_AUTOCONNECT_OFFERED_KEY) so it doesn't nag on every
+// ~25s heartbeat tick.
+const AMV_AUTOCONNECT_OFFERED_KEY='amv_autoconnect_offered_this_tab';
+function _amvAutoConnectEnabled(){
+  // Default ON per Ryan's direct instruction - only OFF if explicitly
+  // set false, same pattern as greeting_enabled.
+  return !_amvOwnerContact||_amvOwnerContact.auto_connect_enabled!==false;
+}
+function _amvMaybeOfferAutoConnect(status){
+  if(!status||!status.signedIn||status.bridgeRunning)return;
+  if(!_amvAutoConnectEnabled())return;
+  if(sessionStorage.getItem(AMV_AUTOCONNECT_OFFERED_KEY))return;
+  sessionStorage.setItem(AMV_AUTOCONNECT_OFFERED_KEY,'1');
+  const bar=document.getElementById('amvAutoConnectOffer');
+  if(bar)bar.style.display='flex';
+}
+function amvAutoConnectLaunch(){
+  const bar=document.getElementById('amvAutoConnectOffer');
+  if(bar)bar.style.display='none';
+  // Same real mechanism Computer Health's own dashboard uses - Windows
+  // will show its own one-time permission prompt, which nothing here can
+  // or should skip.
+  window.location.href='amit-tracker://start';
+  setTimeout(()=>{_refreshAmitReadinessBanner();},4000);
+}
+function amvAutoConnectDismiss(){
+  const bar=document.getElementById('amvAutoConnectOffer');
+  if(bar)bar.style.display='none';
+}
+
 async function _refreshAmitReadinessBanner(){
   if(typeof checkAmitReadiness!=='function'||!db)return;
   const indicator=document.getElementById('amitMobileHeartbeatIndicator');
@@ -2859,6 +2909,7 @@ async function _refreshAmitReadinessBanner(){
   if(!indicator||!setupBtn||!connectBtn)return;
   try{
     const status=await checkAmitReadiness(db);
+    _amvMaybeOfferAutoConnect(status);
     if(!status.signedIn){
       indicator.style.display='none';
       setupBtn.style.display='none';
@@ -3737,6 +3788,29 @@ const AMV_LAST_ACTIVE_KEY='amit_lastActiveAt';
 const AMV_RETURN_THRESHOLD_MS=2*60*60*1000; // 2 hours
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState!=='visible') return;
+  // AUTO-CONNECT on regained focus, regardless of how long they were away -
+  // Ryan's direct instruction, 2026-09-07: someone may have this tab saved
+  // and never trigger a fresh sign-in, so a tab merely regaining focus must
+  // also check readiness and re-push the current session's token, not just
+  // the returning-greeting logic below (which stays gated on the 2-hour
+  // threshold, untouched).
+  _refreshAmitReadinessBanner();
+  if(db&&currentUser){
+    db.auth.getSession().then(({data})=>{
+      const session=data&&data.session;
+      if(!session)return;
+      fetch('http://localhost:8710/api/coder-token',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          user_id:session.user.id,
+          email:session.user.email,
+          access_token:session.access_token,
+          expires_at:session.expires_at
+        })
+      }).catch(()=>{});
+    }).catch(()=>{});
+  }
   const lastActive=Number(localStorage.getItem(AMV_LAST_ACTIVE_KEY)||'0');
   localStorage.setItem(AMV_LAST_ACTIVE_KEY,String(Date.now()));
   if(!lastActive) return; // nothing to compare against yet
@@ -3777,6 +3851,7 @@ async function amvInitAboutMePanel(){
   document.getElementById('amvAddressInput').value=(_amvOwnerContact&&_amvOwnerContact.address)||'';
   amvRenderZipDisplay();
   amvRenderGreetingToggle();
+  amvRenderAutoConnectToggle();
 
   if('speechSynthesis' in window){
     await amvPopulateVoices();
@@ -3929,6 +4004,25 @@ async function amvToggleGreetingFromAboutMe(){
     const voices=await _amvGetVoicesReady();
     _amvSpeakWithContact(text,_amvOwnerContact,voices);
   }
+}
+
+// Mirrors amvRenderGreetingToggle/amvToggleGreetingFromAboutMe above — same
+// shape, same owner-contact save pattern, default ON per Ryan's direct
+// instruction 2026-09-07 ("the default is that it's on that we auto start").
+function amvRenderAutoConnectToggle(){
+  const statusEl=document.getElementById('amvAutoConnectStatus');
+  const btnEl=document.getElementById('amvAutoConnectToggleBtn');
+  if(!statusEl||!btnEl||!_amvOwnerContact) return;
+  const on=_amvAutoConnectEnabled();
+  statusEl.textContent=on?"Amit offers to start your local connection automatically when you sign in or come back to this tab.":'Off — Amit never offers automatically; use Connect Now yourself.';
+  btnEl.textContent=on?'TURN OFF':'TURN ME BACK ON';
+}
+async function amvToggleAutoConnect(){
+  if(!_amvOwnerContact) return;
+  const turningOn=_amvOwnerContact.auto_connect_enabled===false;
+  await saveOwnerContactFields(db,_amvOwnerContact.id,{auto_connect_enabled:turningOn});
+  _amvOwnerContact.auto_connect_enabled=turningOn;
+  amvRenderAutoConnectToggle();
 }
 
 async function amvSaveMyInfo(){
