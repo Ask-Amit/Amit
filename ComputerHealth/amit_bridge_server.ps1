@@ -61,6 +61,67 @@ Write-Host "Amit Computer Health bridge server running at http://localhost:$port
 Write-Host "Device ID: $deviceId  |  Device Name: $deviceName"
 Write-Host "Press Ctrl+C to stop."
 
+# ── Amit Mobile listener — auto-start (2026-09-05) ──
+# Per root CLAUDE.md's SINGLE LOCAL CONNECTION STANDARD: Amit Mobile's
+# "desktop is thinking and replying" capability does NOT get its own
+# separate server/port/install. It is a companion watcher script
+# (amit_mobile_watcher.ps1, same folder) launched the same way this
+# bridge already launches activity_watcher2.ps1/resource_watcher.ps1/
+# diagnostics_watcher.ps1 — a hidden background PowerShell process.
+# Unlike those three (which only start when someone clicks "Start
+# Tracking" on the dashboard), this one starts the moment the shared
+# bridge itself starts, because Ryan's stated intent is "Amit's
+# listening all day long" independent of whether the diagnostics
+# tracker is running. If this bridge is running, Amit Mobile is
+# listening. Nothing else to start by hand.
+$amitMobileStopFlag = "$env:TEMP\amit_mobile_stop.flag"
+$amitMobileWatcherPath = Join-Path $watcherDir "amit_mobile_watcher.ps1"
+try { Remove-Item $amitMobileStopFlag -ErrorAction SilentlyContinue } catch {}
+$alreadyRunning = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like "*amit_mobile_watcher.ps1*" } | Select-Object -First 1
+if (-not $alreadyRunning -and (Test-Path $amitMobileWatcherPath)) {
+    try {
+        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$amitMobileWatcherPath`"" -WindowStyle Hidden -ErrorAction Stop
+        Write-Host "Amit Mobile listener started (see amit_mobile_watcher.ps1) - replies to phone captures will be answered automatically."
+    } catch {
+        Write-Host "Amit Mobile listener could not be started: $($_.Exception.Message)"
+    }
+} elseif ($alreadyRunning) {
+    Write-Host "Amit Mobile listener already running."
+}
+
+# ── Performance tracking — auto-start by default (2026-09-05) ──
+# Per AmitMobile's "Connect Amit" design (AmitMobile\CLAUDE.md): when the
+# bridge is running, BOTH the Amit Mobile phone listener (above) AND
+# performance tracking (resource/diagnostics/activity/app-behavior watchers,
+# started today via the existing Start-Tracking() function / the dashboard's
+# Start Tracking button / the /api/start-tracking endpoint) should be ON by
+# default, together, as one switch - not two separate things a person has
+# to remember to turn on. This block does NOT duplicate Start-Tracking()'s
+# logic and does NOT touch /api/start-tracking or /api/stop-tracking's own
+# behavior below - it just calls that exact same endpoint itself, once, a
+# couple seconds after the bridge is up and actually accepting connections
+# (calling it synchronously here, before the accept loop below has started,
+# would hang forever waiting on its own listener).
+#
+# A small sticky flag file is what makes "off" actually stick across a
+# restart: /api/stop-tracking (below) creates it, /api/start-tracking
+# (below) removes it. If the flag is present, this auto-start is skipped -
+# the existing dashboard Start/Stop Tracking buttons are the only UI that
+# ever needs to exist for this; no new UI was built for it here.
+$amitTrackingDisabledFlag = "$env:TEMP\amit_tracking_disabled.flag"
+if (-not (Test-Path $amitTrackingDisabledFlag)) {
+    try {
+        $autoStartCmd = "Start-Sleep -Seconds 2; try { Invoke-RestMethod -Uri 'http://localhost:$port/api/start-tracking' -Method Get -TimeoutSec 25 -ErrorAction Stop | Out-Null } catch {}"
+        Start-Process powershell.exe -ArgumentList "-NoProfile -WindowStyle Hidden -Command `"$autoStartCmd`"" -WindowStyle Hidden -ErrorAction Stop
+        Write-Host "Performance tracking will auto-start (default) in a couple seconds - use Stop Tracking in the dashboard to turn it off (stays off across restarts until Start Tracking is used again)."
+    } catch {
+        Write-Host "Could not schedule auto-start of performance tracking: $($_.Exception.Message)"
+    }
+} else {
+    Write-Host "Performance tracking auto-start is currently OFF (previously stopped via the dashboard) - use Start Tracking to turn it back on."
+}
+
 $handlerScript = {
     param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName)
 
@@ -851,6 +912,75 @@ try {
                 else { Send-Html $response "<h1>Dashboard file not found at $dashboardPath</h1>" }
             }
             "/api/device" { Send-Json $response @{ deviceId = $deviceId; deviceName = $deviceName } }
+            "/api/amit-mobile-status" {
+                # Lets anyone (Ryan, a future dashboard tile, the setup guide's
+                # own troubleshooting step) confirm the Amit Mobile listener is
+                # actually alive without digging through Task Manager.
+                $running = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
+                    Where-Object { $_.CommandLine -like "*amit_mobile_watcher.ps1*" } | Select-Object -First 1
+                Send-Json $response @{ listening = [bool]$running }
+            }
+            "/api/claude-status" {
+                # Built 2026-09-05 for the shared AmitMobile/Hub readiness-check
+                # work (see AmitMobile\CLAUDE.md "Connect Amit" section) -
+                # reports whether Claude CODE (the CLI - `claude` - NOT Claude
+                # Desktop, a different, unrelated Anthropic product not used
+                # anywhere in this mechanism) is installed and signed in on
+                # THIS computer.
+                #
+                # Deliberately read-only. Does NOT run `claude auth login`,
+                # `claude auth logout`, `claude setup-token`, or any live
+                # `claude -p` smoke-test call - per this project's own
+                # documented caution (ComputerHealth CLAUDE.md), any of those
+                # can disrupt an already-open Claude Code session on this same
+                # machine. Instead this reads the same on-disk evidence Claude
+                # Code itself relies on, confirmed live on this machine before
+                # writing this check:
+                #   - installed: `claude` resolves on PATH, OR the known npm
+                #     global install location exists directly
+                #     (`%APPDATA%\npm\claude.cmd`) - covers a PATH that
+                #     hasn't refreshed yet in whatever process the bridge
+                #     happens to be running under.
+                #   - connected: `%USERPROFILE%\.claude\.credentials.json`
+                #     exists and contains a real OAuth access token. Real
+                #     shape confirmed on this machine: a top-level
+                #     `claudeAiOauth` object with `accessToken` /
+                #     `refreshToken` / `expiresAt` / `refreshTokenExpiresAt`
+                #     (both timestamps are Unix milliseconds, not ISO
+                #     strings - also confirmed live, not assumed). A present
+                #     access token is treated as connected even past its own
+                #     `expiresAt` - Claude Code silently refreshes an expired
+                #     access token using the refresh token during normal use,
+                #     so that alone doesn't mean disconnected. Only a
+                #     missing/blank access token, or a refresh token whose
+                #     OWN expiry has passed, is reported as not connected.
+                try {
+                    $claudeCmdPath = "$env:APPDATA\npm\claude.cmd"
+                    $installed = [bool](Get-Command claude -ErrorAction SilentlyContinue) -or (Test-Path $claudeCmdPath)
+
+                    $connected = $false
+                    $credPath = "$env:USERPROFILE\.claude\.credentials.json"
+                    if (Test-Path $credPath) {
+                        try {
+                            $cred = Get-Content $credPath -Raw | ConvertFrom-Json
+                            $oauth = $cred.claudeAiOauth
+                            if ($oauth -and $oauth.accessToken) {
+                                $refreshExpired = $false
+                                if ($oauth.refreshTokenExpiresAt) {
+                                    try {
+                                        $refreshExpiry = [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$oauth.refreshTokenExpiresAt).UtcDateTime
+                                        if ($refreshExpiry -lt (Get-Date).ToUniversalTime()) { $refreshExpired = $true }
+                                    } catch { }
+                                }
+                                $connected = -not $refreshExpired
+                            }
+                        } catch { }
+                    }
+                    Send-Json $response @{ installed = $installed; connected = $connected }
+                } catch {
+                    Send-Json $response @{ installed = $false; connected = $false; error = $_.Exception.Message } 500
+                }
+            }
             "/scan" {
                 # AmitBooks/AmitScan - "Scan from this computer" (2026-08-01,
                 # rewritten same day after live testing on Ryan's machine).
@@ -926,6 +1056,55 @@ try {
                         Remove-Item $finalPath -ErrorAction SilentlyContinue
                         Send-Json $response @{ image = $base64; filename = ("scan-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".jpg") }
                     }
+                } catch {
+                    Send-Json $response @{ error = $_.Exception.Message } 500
+                }
+            }
+            "/api/coder-token" {
+                # AmitCoder's management/child session system (J Manage, 2026-09-07).
+                # Bridges a real, live Hub sign-in to the local credentials file a
+                # Claude Code session reads - a browser tab's Supabase session token
+                # lives only in that tab's own memory, and no other local process can
+                # reach it unless the page itself deliberately sends it somewhere. The
+                # Hub's own onAuthStateChange listener POSTs here on SIGNED_IN and
+                # TOKEN_REFRESHED, so this file stays current as long as the Hub tab
+                # stays open and signed in - same real security posture as
+                # /amit-inbox below: the SIGNED-IN USER's own token, never the
+                # Supabase service-role key, RLS-scoped to just their own data.
+                try {
+                    $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
+                    $json = $body | ConvertFrom-Json
+                    $credPath = "C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\amit_coder_credentials.md"
+                    $content = @"
+# AmitCoder Credentials - LOCAL ONLY, never committed to GitHub
+
+This file holds the real, per-person Supabase connection details a management/child
+session (J Manage, J Instruct, J Check, any child session) needs to reach
+``coder_sessions`` and ``coder_directive_log``. It is read directly by those shortcuts -
+see ``amit_shortcuts`` (activation_key='J', trigger_phrase='manage') Step 1.
+
+**Never commit this file.** It lives only in this OneDrive folder, the same way
+``supabase_config.md`` in this same folder never leaves this computer.
+
+**Written automatically by the Bridge server's /api/coder-token endpoint** (see
+``amit_bridge_server.ps1``), pushed by the Hub's own sign-in flow the moment a real
+session exists or refreshes - never typed in by hand. Last written: $((Get-Date).ToString("o"))
+
+``````
+SUPABASE_URL=https://hleqtjqojksurvkyqixt.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF
+USER_ID=$($json.user_id)
+EMAIL=$($json.email)
+ACCESS_TOKEN=$($json.access_token)
+TOKEN_EXPIRES_AT=$($json.expires_at)
+``````
+
+**Never put the Supabase secret/service-role key in this file.** This file is meant to
+be readable by any management/child session per the ABSOLUTE RULE in J Manage - the
+secret key must never appear here, ever, under any circumstance.
+"@
+                    Set-Content -Path $credPath -Value $content -Encoding utf8
+                    Send-Json $response @{ success = $true; written_at = (Get-Date).ToString("o") }
                 } catch {
                     Send-Json $response @{ error = $_.Exception.Message } 500
                 }
@@ -1203,6 +1382,11 @@ try {
             }
             "/api/start-tracking" {
                 $r = Start-Tracking
+                # Clears the sticky "tracking disabled" flag (2026-09-05) so a
+                # manual Start Tracking here also re-arms auto-start on the
+                # NEXT bridge restart, not just for the current run - see the
+                # auto-start block near the top of this file.
+                try { Remove-Item "$env:TEMP\amit_tracking_disabled.flag" -ErrorAction SilentlyContinue } catch {}
                 # Real gap caught live 2026-07-20 (Ryan) - Start-Tracking() already
                 # collects real failure reasons into $warnings (e.g. the sensor
                 # reader needing UAC approval it never got), but this response
@@ -1213,6 +1397,13 @@ try {
             }
             "/api/stop-tracking" {
                 $r = Stop-Tracking
+                # Sets the sticky "tracking disabled" flag (2026-09-05) so
+                # stopping tracking here also survives a future bridge
+                # restart, instead of auto-starting again next time the
+                # bridge launches - see the auto-start block near the top
+                # of this file. Purely additive: existing stop behavior
+                # (killing the watcher processes above) is unchanged.
+                try { New-Item "$env:TEMP\amit_tracking_disabled.flag" -ItemType File -Force -ErrorAction SilentlyContinue | Out-Null } catch {}
                 Send-JsonRaw $response ('{"stopped":true,"pidCount":' + $r.pids.Count + '}')
             }
             "/api/install-diff-latest" {

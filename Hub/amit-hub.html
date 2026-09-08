@@ -1738,8 +1738,6 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <input id="amvPauseRange" type="range" min="0.4" max="2.5" step="0.1" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:6px">
           <div style="color:rgba(240,232,208,.35);font-size:11px;margin-bottom:16px">More room to think between sentences, or less — this doesn't change how fast the words themselves come out, only the pause between them.</div>
 
-          <label class="fg-label" style="display:block;margin-bottom:5px">TEST TEXT</label>
-          <textarea id="amvTestText" rows="2" class="fg-input" style="width:100%;margin-bottom:10px;resize:vertical;font-family:inherit">Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always.</textarea>
           <button class="btn btn-ghost" onclick="amvHearIt()" style="margin-bottom:16px">🔊 LET ME HEAR IT</button>
 
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:20px">
@@ -2777,6 +2775,26 @@ if(db){
     const wasSignedIn=!!currentUser;
     currentUser=session?session.user:null;
     _updateSyncUI();
+    // AmitCoder management/child session bridge (2026-09-07): a real Claude
+    // Code session (J Manage) can't reach this tab's own session token - it
+    // lives only in this browser's memory. So the moment a real sign-in or
+    // token refresh happens, silently push it to the local bridge's
+    // /api/coder-token route (same shared amit_bridge_server.ps1 every other
+    // local feature already uses - never a new/separate process). If the
+    // bridge isn't running, this just fails quietly - J Manage's own check
+    // is what tells the person to come here and connect if that happens.
+    if(session&&(event==='SIGNED_IN'||event==='TOKEN_REFRESHED')){
+      fetch('http://localhost:8710/api/coder-token',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          user_id:session.user.id,
+          email:session.user.email,
+          access_token:session.access_token,
+          expires_at:session.expires_at
+        })
+      }).catch(()=>{});
+    }
     if(currentUser){
       // Close the auth gate — returning user is authenticated
       const modal=document.getElementById('amitNameModal');
@@ -3822,10 +3840,17 @@ async function _amvAutoSaveVoice(){
   if(saved) Object.assign(_amvOwnerContact,fields);
 }
 
+// Fixed, not user-editable — Ryan's direct instruction, 2026-09-06: a
+// freely-editable test box lets someone shorten it down to nothing, at
+// which point they'd never actually hear what pitch/pacing sound like
+// until they're already committed somewhere else. This exact phrase is
+// long enough to carry real inflection, confirmed live by Ryan as
+// sufficient to hear both pitch and pacing changes clearly.
+const AMV_FIXED_TEST_TEXT="Hello — this is Amit, pronounced uh-MEET. It's a Hebrew word for companion — one who walks alongside. That's what I try to do: to walk with you, to sharpen without cutting, and to encourage you to be better, always.";
+
 function amvHearIt(){
   if(!('speechSynthesis' in window)||!_amvSelectedVoice) return;
-  const text=document.getElementById('amvTestText').value.trim();
-  if(!text) return;
+  const text=AMV_FIXED_TEST_TEXT;
   const liveContact={voice_name:_amvSelectedVoice.name,voice_rate:_amvRate,voice_pitch:_amvPitch,voice_volume:_amvVolume,voice_pause_scale:_amvPauseScale};
   if(typeof speakContactText==='function'){
     speakContactText(text,liveContact,_amvVoices,{

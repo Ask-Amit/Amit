@@ -1060,6 +1060,55 @@ try {
                     Send-Json $response @{ error = $_.Exception.Message } 500
                 }
             }
+            "/api/coder-token" {
+                # AmitCoder's management/child session system (J Manage, 2026-09-07).
+                # Bridges a real, live Hub sign-in to the local credentials file a
+                # Claude Code session reads - a browser tab's Supabase session token
+                # lives only in that tab's own memory, and no other local process can
+                # reach it unless the page itself deliberately sends it somewhere. The
+                # Hub's own onAuthStateChange listener POSTs here on SIGNED_IN and
+                # TOKEN_REFRESHED, so this file stays current as long as the Hub tab
+                # stays open and signed in - same real security posture as
+                # /amit-inbox below: the SIGNED-IN USER's own token, never the
+                # Supabase service-role key, RLS-scoped to just their own data.
+                try {
+                    $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
+                    $json = $body | ConvertFrom-Json
+                    $credPath = "C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\amit_coder_credentials.md"
+                    $content = @"
+# AmitCoder Credentials - LOCAL ONLY, never committed to GitHub
+
+This file holds the real, per-person Supabase connection details a management/child
+session (J Manage, J Instruct, J Check, any child session) needs to reach
+``coder_sessions`` and ``coder_directive_log``. It is read directly by those shortcuts -
+see ``amit_shortcuts`` (activation_key='J', trigger_phrase='manage') Step 1.
+
+**Never commit this file.** It lives only in this OneDrive folder, the same way
+``supabase_config.md`` in this same folder never leaves this computer.
+
+**Written automatically by the Bridge server's /api/coder-token endpoint** (see
+``amit_bridge_server.ps1``), pushed by the Hub's own sign-in flow the moment a real
+session exists or refreshes - never typed in by hand. Last written: $((Get-Date).ToString("o"))
+
+``````
+SUPABASE_URL=https://hleqtjqojksurvkyqixt.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF
+USER_ID=$($json.user_id)
+EMAIL=$($json.email)
+ACCESS_TOKEN=$($json.access_token)
+TOKEN_EXPIRES_AT=$($json.expires_at)
+``````
+
+**Never put the Supabase secret/service-role key in this file.** This file is meant to
+be readable by any management/child session per the ABSOLUTE RULE in J Manage - the
+secret key must never appear here, ever, under any circumstance.
+"@
+                    Set-Content -Path $credPath -Value $content -Encoding utf8
+                    Send-Json $response @{ success = $true; written_at = (Get-Date).ToString("o") }
+                } catch {
+                    Send-Json $response @{ error = $_.Exception.Message } 500
+                }
+            }
             "/amit-inbox" {
                 # AmitBooks "Send Selected to Local Processing" (2026-08-01).
                 # Pulls a Pending Scan's image out of Supabase and drops it
