@@ -267,6 +267,17 @@ When Amit can't tell which destination a capture is for from what Ryan actually 
 
 ---
 
+## Real bug fixed 2026-09-08 — replies never landed, ever, on this machine
+
+Ryan sent real messages from his phone and got "Amit is thinking" forever, no reply, ever. Root cause was two independent bugs in `amit_mobile_watcher.ps1` (the desktop listener script — it physically lives under `ComputerHealth\Watchers\` since it's a companion process inside the shared bridge, per the Single Local Connection Standard, but the feature it powers is entirely Amit Mobile's — full technical detail is logged in `ComputerHealth\CLAUDE.md`'s Current Status section, this entry is the Amit Mobile-side pointer to it):
+
+1. **PowerShell's own `Invoke-RestMethod` silently rejected the real, valid Supabase key with a 401** — proven via a direct side-by-side test (same key, same shell, same moment: `curl.exe` worked instantly, `Invoke-RestMethod` failed every time). Fixed by having the watcher shell out to `curl.exe` for its Supabase calls instead.
+2. **The write-back also failed separately, once the fetch was fixed** — writing the reply to a temp file via `Encoding::UTF8` silently added an invisible BOM that corrupted Supabase's JSON parser. Fixed with an explicit BOM-less encoding.
+
+Also fixed in the same pass: a mangled-character bug (Claude's real em dashes came through as `ΓÇö`) from reading `claude -p`'s output with the wrong codepage.
+
+Verified end-to-end with a real inserted test message, watched live, confirmed a genuine correctly-encoded reply landed in the database — not just "the code looks right now."
+
 ## The Live Backend — Supabase Realtime/Poll Relay, wired 2026-09-05
 
 **This supersedes any earlier idea of a direct phone-to-desktop HTTP connection.** An earlier attempt at that (same-Wi-Fi, phone hits desktop's own IP:port directly) was started and explicitly cancelled by Ryan before completion — its files should not be trusted. The decided, built architecture instead:
