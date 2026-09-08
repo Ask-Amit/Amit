@@ -382,62 +382,107 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.34</div>
+<div class="amversion" id="pageVersion">v1.35</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
 
 <!-- SYNC / SIGN-IN MODAL -->
-<!-- REBUILT 2026-09-08, real proven cause: an installed home-screen icon
-     and any browser tab (even the same one it was created from) are
-     sealed off from each other in storage on iOS — confirmed by direct
-     test, not theory. Any sign-in that requires leaving the icon (tapping
-     an emailed link, scanning a QR that opens Safari) can never land the
-     session back inside the icon. Fix: sign in with a typed sign-in code
-     instead of a link — the whole exchange happens inside this same
-     already-open page, no navigation, no browser hand-off, nothing to
-     cross a storage boundary. Two-step form, same modal. -->
+<!-- REBUILT AGAIN 2026-09-08, Ryan's direct instruction — dropped the
+     magic-link/OTP approach entirely (real, proven storage-isolation
+     issue between Safari and an installed home-screen icon, confirmed by
+     repeated direct testing) in favor of plain email+password. A
+     password needs no email round-trip and no browser hand-off at all,
+     so there is no storage boundary to cross in the first place — this
+     is the global auth standard for the whole Amit system going
+     forward, not just this app. Recovery uses two personal questions
+     (set at signup) as the primary path back in, with a standard
+     Supabase email-reset link kept as a fallback only. -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
   <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
-    <div id="syncStepEmail">
+
+    <div id="syncStepSignIn">
       <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Sign In</div>
-      <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:22px">Enter your email. We'll send you a sign-in code — type it back in here, no link to tap.</div>
-      <input id="syncEmailInput" type="email" inputmode="email" autocomplete="email" placeholder="your@email.com"
+      <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:18px">Enter your email and password.</div>
+      <input id="siEmail" type="email" inputmode="email" autocomplete="email" placeholder="your@email.com"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:15px;outline:none;margin-bottom:10px;font-family:inherit"/>
+      <input id="siPassword" type="password" autocomplete="current-password" placeholder="Password"
         style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:15px;outline:none;margin-bottom:12px;font-family:inherit"
-        onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
-      <button id="syncSubmitBtn" onclick="submitSyncEmail()"
-        style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em">
-        SEND CODE →
-      </button>
-      <div onclick="closeSyncModal()" style="margin-top:16px;font-size:11px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
-    </div>
-    <div id="syncStepCode" style="display:none">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Enter Your Code</div>
-      <div id="syncCodeSentTo" style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.7;margin-bottom:22px"></div>
-      <input id="syncCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="12345678"
-        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:22px;letter-spacing:.3em;text-align:center;outline:none;margin-bottom:12px;font-family:inherit"
-        onkeydown="if(event.key==='Enter')submitSyncCode()"/>
-      <button id="syncCodeSubmitBtn" onclick="submitSyncCode()"
+        onkeydown="if(event.key==='Enter')submitSignIn()"/>
+      <button id="siSubmitBtn" onclick="submitSignIn()"
         style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em">
         SIGN IN →
       </button>
-      <div onclick="backToSyncEmail()" style="margin-top:16px;font-size:11px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">USE A DIFFERENT EMAIL</div>
+      <div style="display:flex;justify-content:space-between;margin-top:16px;font-size:11px;color:rgba(240,232,208,.4);letter-spacing:.05em">
+        <span onclick="showSyncStep('signup')" style="cursor:pointer">NEW HERE? CREATE ACCOUNT</span>
+        <span onclick="showSyncStep('forgot')" style="cursor:pointer">FORGOT PASSWORD?</span>
+      </div>
+      <div onclick="closeSyncModal()" style="margin-top:14px;font-size:11px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
     </div>
+
+    <div id="syncStepSignUp" style="display:none">
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Create Your Account</div>
+      <div style="color:rgba(240,232,208,.5);font-size:12px;line-height:1.6;margin-bottom:16px">Your name, email, a password, and two recovery questions in case you ever forget it — no email link needed to get back in.</div>
+      <input id="suName" type="text" autocomplete="name" placeholder="Your name"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:14px;outline:none;margin-bottom:8px;font-family:inherit"/>
+      <input id="suEmail" type="email" inputmode="email" autocomplete="email" placeholder="your@email.com"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:14px;outline:none;margin-bottom:8px;font-family:inherit"/>
+      <input id="suPassword" type="password" autocomplete="new-password" placeholder="Create a password"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:14px;outline:none;margin-bottom:8px;font-family:inherit"/>
+      <input id="suHint" type="text" placeholder="A hint to remind yourself later (e.g. \"usual pattern + 4\")"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"/>
+      <input id="suQ1" type="text" placeholder="Recovery question 1 (e.g. childhood street)"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;font-family:inherit"/>
+      <input id="suA1" type="text" placeholder="Answer 1"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;font-family:inherit"/>
+      <input id="suQ2" type="text" placeholder="Recovery question 2 (e.g. favorite place)"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:13px;outline:none;margin-bottom:8px;font-family:inherit"/>
+      <input id="suA2" type="text" placeholder="Answer 2"
+        style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"/>
+      <button id="suSubmitBtn" onclick="submitSignUp()"
+        style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em">
+        CREATE ACCOUNT →
+      </button>
+      <div onclick="showSyncStep('signin')" style="margin-top:14px;font-size:11px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">BACK TO SIGN IN</div>
+    </div>
+
+    <div id="syncStepForgot" style="display:none">
+      <div id="forgotStage1">
+        <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Forgot Password</div>
+        <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.6;margin-bottom:16px">Enter your email to see your recovery questions.</div>
+        <input id="fpEmail" type="email" inputmode="email" autocomplete="email" placeholder="your@email.com"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:15px;outline:none;margin-bottom:12px;font-family:inherit"/>
+        <button onclick="loadRecoveryQuestions()" id="fpLoadBtn"
+          style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em">
+          CONTINUE →
+        </button>
+      </div>
+      <div id="forgotStage2" style="display:none">
+        <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:18px;letter-spacing:.06em;margin-bottom:6px">Answer Your Questions</div>
+        <div id="fpHintBox" style="display:none;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;margin-bottom:14px;color:rgba(240,232,208,.8);font-size:13px;text-align:left"></div>
+        <div id="fpQ1Label" style="color:rgba(240,232,208,.6);font-size:13px;text-align:left;margin-bottom:6px"></div>
+        <input id="fpA1" type="text" placeholder="Answer"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:14px;outline:none;margin-bottom:12px;font-family:inherit"/>
+        <div id="fpQ2Label" style="color:rgba(240,232,208,.6);font-size:13px;text-align:left;margin-bottom:6px"></div>
+        <input id="fpA2" type="text" placeholder="Answer"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:14px;outline:none;margin-bottom:12px;font-family:inherit"/>
+        <input id="fpNewPassword" type="password" autocomplete="new-password" placeholder="New password"
+          style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:10px 12px;color:#fff;font-size:14px;outline:none;margin-bottom:12px;font-family:inherit"/>
+        <button onclick="submitRecoveryAnswers()" id="fpSubmitBtn"
+          style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em">
+          RESET PASSWORD →
+        </button>
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:rgba(240,232,208,.4);letter-spacing:.05em">
+        <span onclick="sendPasswordResetEmail()" style="cursor:pointer;text-decoration:underline">Don't remember your answers either? Email me a reset link instead</span>
+      </div>
+      <div onclick="showSyncStep('signin')" style="margin-top:14px;font-size:11px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">BACK TO SIGN IN</div>
+    </div>
+
   </div>
 </div>
 
 <script>
-// CAPTURED FIRST, 2026-09-08 — before Supabase's own client library loads
-// and processes/strips the URL, record exactly what arrived so we can
-// tell for certain whether a real magic-link redirect (an access_token in
-// the hash) actually reached this page, versus a clean URL with nothing
-// in it. Ryan cannot reliably read this off his phone's address bar
-// (confirmed live — it scrolls, doesn't fit, no way to inspect it there),
-// so the app now reports this itself.
-const AM_RAW_HASH_AT_LOAD=window.location.hash||'';
-const AM_RAW_SEARCH_AT_LOAD=window.location.search||'';
-const AM_HAD_ACCESS_TOKEN_AT_LOAD=AM_RAW_HASH_AT_LOAD.includes('access_token=');
-
 // ══════════════════════════════════════════════
 // NOMENCLATURE — read this before touching any page/detail/layout code.
 //   PAGE   — one entry in AM_PAGES (id, icon, name). Since the 2026-09-05
@@ -724,16 +769,6 @@ function amDashboardHtml(){
     <div id="amNotSignedInBanner" style="display:none;margin:0 0 16px;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:14px 16px;text-align:center">
       <div style="color:rgba(240,232,208,.9);font-size:16px;margin-bottom:10px">You're not signed in right now — sign in to see your history and talk to Amit.</div>
       <button onclick="openSyncModal()" style="background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.6);color:var(--gold2);padding:10px 20px;border-radius:6px;font-family:'Cinzel',serif;font-size:15px;letter-spacing:.06em;cursor:pointer">SIGN IN</button>
-    </div>
-    <!-- TEMPORARY DIAGNOSTIC, added 2026-09-08 — two guesses in a row
-         (service worker, apple-touch-icon) didn't fix this, so instead of
-         guessing a third time, show real, direct evidence of what's
-         actually in storage the moment the app opens — always visible,
-         not tied to sign-in state, so it shows on every single load.
-         Remove once the real cause is found and fixed. -->
-    <div style="margin:0 0 16px;padding:8px;background:rgba(0,0,0,.2);border-radius:6px">
-      <div id="amAuthDebugLine" style="font-size:11px;color:rgba(200,200,200,.6);word-break:break-all"></div>
-      <button onclick="amCopyAuthDebugLine()" id="amAuthDebugCopyBtn" style="margin-top:8px;background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.6);color:var(--gold2);padding:8px 16px;border-radius:6px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;cursor:pointer">📋 COPY THIS TO PASTE TO AMIT</button>
     </div>
     <div id="amitReadinessBanner" style="display:none;margin:0 0 16px;color:rgba(240,232,208,.9)"></div>
     <div id="amInstallBannerHost"></div>
@@ -1672,7 +1707,6 @@ if(db){
         }));
       }catch(e){ console.error('manual token save failed',e); }
     }
-    amWriteAuthDebugLine(event);
   });
 
   (async()=>{
@@ -1690,68 +1724,6 @@ if(db){
     }catch(e){ console.error('manual restore error',e); }
   })();
 }
-
-// TEMPORARY DIAGNOSTIC, added 2026-09-08 — see comment on #amAuthDebugLine
-// above. Reads the raw IndexedDB store directly (bypassing Supabase
-// entirely) and reports exactly what's really there, plus what
-// getSession() itself returns, right on screen — real evidence instead
-// of another guess. Remove once the real cause is found and fixed.
-async function amWriteAuthDebugLine(event){
-  const el=document.getElementById('amAuthDebugLine');
-  if(!el)return;
-  try{
-    const d=await amAuthIdb();
-    const keys=await new Promise(res=>{
-      const tx=d.transaction('kv','readonly');
-      const req=tx.objectStore('kv').getAllKeys();
-      req.onsuccess=()=>res(req.result);
-      req.onerror=()=>res(['<error reading keys>']);
-    });
-    let sessionInfo='(getSession threw)';
-    try{
-      const{data,error}=await db.auth.getSession();
-      sessionInfo=error?('getSession error: '+error.message):(data.session?('session found, expires '+new Date(data.session.expires_at*1000).toLocaleString()):'getSession returned no session');
-    }catch(e){ sessionInfo='getSession threw: '+e.message; }
-    let manualInfo='none';
-    try{
-      const raw=localStorage.getItem(AM_MANUAL_TOKENS_KEY);
-      manualInfo=raw?('saved '+new Date(JSON.parse(raw).saved_at).toLocaleString()):'none';
-    }catch(e){ manualInfo='(read failed)'; }
-    el.textContent='Debug ['+(event||'load')+']: URL had access_token='+AM_HAD_ACCESS_TOKEN_AT_LOAD+' (hash len '+AM_RAW_HASH_AT_LOAD.length+', search len '+AM_RAW_SEARCH_AT_LOAD.length+') | IDB keys='+JSON.stringify(keys)+' | '+sessionInfo+' | manual backup: '+manualInfo;
-  }catch(e){
-    el.textContent='Debug: IndexedDB read failed — '+e.message;
-  }
-  // ADDED 2026-09-08, Ryan's direct correction — there's no clipboard
-  // bridge between his phone and this desktop chat, so copy/paste across
-  // devices doesn't work. Send the debug line straight to Supabase
-  // instead (amit_mobile_debug_log, anon-insert-only, see migration
-  // 2026-09-08_001) so it can be read directly with the service key —
-  // no manual step on Ryan's end at all.
-  try{
-    await db.from('amit_mobile_debug_log').insert({event:event||'load',debug_text:el.textContent});
-  }catch(e){ console.error('debug log send failed',e); }
-}
-
-// Copies the debug line's exact text to the clipboard so it can be
-// pasted directly into a conversation with Amit — added 2026-09-08,
-// Ryan's direct ask, since reading a string of tokens/keys aloud
-// accurately isn't realistic.
-async function amCopyAuthDebugLine(){
-  const el=document.getElementById('amAuthDebugLine');
-  const btn=document.getElementById('amAuthDebugCopyBtn');
-  if(!el||!btn)return;
-  try{
-    await navigator.clipboard.writeText(el.textContent);
-    const orig=btn.textContent;
-    btn.textContent='✓ COPIED — now paste it to Amit';
-    setTimeout(()=>{ btn.textContent=orig; },2500);
-  }catch(e){
-    btn.textContent='Copy failed — select text manually';
-  }
-}
-// Run once immediately on load too, before any auth event fires, so the
-// very first paint already shows what was found in storage.
-amWriteAuthDebugLine('initial-load');
 
 // FIXED 2026-09-08 — real gap found by direct comparison against AmitScan
 // (which never loses sign-in on force-quit, same phone, same button, same
@@ -1852,109 +1824,187 @@ function _updateDemoUI(){
   }
 }
 
-// REBUILT 2026-09-08 — real, proven cause: an installed home-screen icon
-// and any browser tab (even the one it was created from) are sealed off
-// from each other in storage on iOS, confirmed by direct test, not
-// theory. A link-based sign-in requires leaving this page to open in a
-// browser, so it can never land the session back inside the icon. A
-// typed sign-in code needs no navigation at all — the whole exchange
-// happens right here in this same already-open page, so there is no
-// storage boundary to cross in the first place.
-let _syncPendingEmail=null;
+// REBUILT AGAIN 2026-09-08, Ryan's direct instruction — global email +
+// password auth standard, replacing magic-link/OTP entirely (real,
+// proven storage-isolation issue between Safari and an installed
+// home-screen icon). A password needs no email round-trip and no
+// browser hand-off, so there's no storage boundary to cross at all.
+const AMIT_GET_RECOVERY_QUESTIONS_URL='https://hleqtjqojksurvkyqixt.supabase.co/functions/v1/get-recovery-questions';
+const AMIT_RESET_PASSWORD_WITH_ANSWERS_URL='https://hleqtjqojksurvkyqixt.supabase.co/functions/v1/reset-password-with-answers';
 
-async function sendSyncCode(email){
-  if(!db)return'Database not available';
-  // shouldCreateUser defaults true, which is fine — this is still the
-  // legitimate first-sign-in path for a brand-new user, same as before.
-  const{error}=await db.auth.signInWithOtp({email});
-  return error?error.message:null;
+// Salted SHA-256 via the browser's native Web Crypto API — no library
+// needed, and the exact same algorithm is replicated server-side in
+// reset-password-with-answers/index.ts for verification. Answers are
+// normalized (trimmed, lowercased) before hashing so "Fluffy" and
+// "fluffy " both work later.
+async function amHashRecoveryAnswer(answer,salt){
+  const normalized=answer.trim().toLowerCase();
+  const data=new TextEncoder().encode(salt+':'+normalized);
+  const digest=await crypto.subtle.digest('SHA-256',data);
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function amRandomSalt(){
+  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
 function openSyncModal(){
-  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
-  const m=document.getElementById('syncModal');if(!m)return;
-  // FIXED 2026-09-08, real bug caught live: switching to the Mail app to
-  // read the code and coming back was resetting this modal to the email
-  // step — the "waiting for a code" state was only ever held in a plain
-  // JS variable, which iOS can wipe when it reloads a backgrounded tab
-  // (same underlying behavior already found and fixed for the chat
-  // thread). Now checks localStorage first — if a code was sent recently
-  // and never completed, jump straight back to the code-entry step
-  // instead of making the person start over and request a new one.
-  const pending=_loadPendingSyncEmail();
-  if(pending){
-    _syncPendingEmail=pending;
-    document.getElementById('syncCodeSentTo').textContent='We already sent a sign-in code to '+pending+'. Type it below. Don\'t see it? Check your spam/junk folder.';
-    document.getElementById('syncStepEmail').style.display='none';
-    document.getElementById('syncStepCode').style.display='block';
-  }else{
-    backToSyncEmail();
+  if(currentUser){
+    // ADDED 2026-09-08 — a real gap Ryan caught live: anyone already
+    // signed in via the old code-based system has NO password at all,
+    // so there's nothing for them to "remember." Since they're already
+    // authenticated right now, this lets them set one directly —
+    // supabase.auth.updateUser() works for whoever is currently signed
+    // in, regardless of how they got that way.
+    if(!confirm('Signed in as '+currentUser.email+'\n\nSign out?')){
+      offerSetPasswordIfNeeded();
+      return;
+    }
+    signOutAmit();
+    return;
   }
+  const m=document.getElementById('syncModal');if(!m)return;
+  showSyncStep('signin');
   m.style.display='flex';
 }
 function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
 
-const AM_SYNC_PENDING_KEY='amit_sync_pending_email';
-const AM_SYNC_PENDING_MAX_AGE_MS=10*60*1000; // codes don't stay valid forever — don't resurrect a stale attempt
-function _savePendingSyncEmail(email){
-  try{ localStorage.setItem(AM_SYNC_PENDING_KEY,JSON.stringify({email,at:Date.now()})); }catch(e){}
-}
-function _loadPendingSyncEmail(){
-  try{
-    const raw=localStorage.getItem(AM_SYNC_PENDING_KEY);
-    if(!raw)return null;
-    const{email,at}=JSON.parse(raw);
-    if(!email||!at||(Date.now()-at)>AM_SYNC_PENDING_MAX_AGE_MS)return null;
-    return email;
-  }catch(e){ return null; }
-}
-function _clearPendingSyncEmail(){
-  try{ localStorage.removeItem(AM_SYNC_PENDING_KEY); }catch(e){}
-}
-
-function backToSyncEmail(){
-  _syncPendingEmail=null;
-  _clearPendingSyncEmail();
-  document.getElementById('syncStepEmail').style.display='block';
-  document.getElementById('syncStepCode').style.display='none';
-  const btn=document.getElementById('syncSubmitBtn');
-  if(btn){btn.textContent='SEND CODE →';btn.disabled=false;}
-  const codeInput=document.getElementById('syncCodeInput');
-  if(codeInput)codeInput.value='';
-}
-
-async function submitSyncEmail(){
-  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
-  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
-  const err=await sendSyncCode(email);
-  if(err){
-    btn.textContent='Try again';btn.disabled=false;
-    alert(err);
-    return;
+function showSyncStep(step){
+  document.getElementById('syncStepSignIn').style.display=step==='signin'?'block':'none';
+  document.getElementById('syncStepSignUp').style.display=step==='signup'?'block':'none';
+  document.getElementById('syncStepForgot').style.display=step==='forgot'?'block':'none';
+  if(step==='forgot'){
+    document.getElementById('forgotStage1').style.display='block';
+    document.getElementById('forgotStage2').style.display='none';
   }
-  _syncPendingEmail=email;
-  _savePendingSyncEmail(email);
-  document.getElementById('syncCodeSentTo').textContent='We sent a sign-in code to '+email+'. Type it below — no need to leave this screen. Don\'t see it? Check your spam/junk folder — first-time emails from a new sign-in often land there.';
-  document.getElementById('syncStepEmail').style.display='none';
-  document.getElementById('syncStepCode').style.display='block';
-  document.getElementById('syncCodeInput').focus();
 }
 
-async function submitSyncCode(){
-  const code=document.getElementById('syncCodeInput').value.trim();
-  if(!code||!_syncPendingEmail)return;
+async function submitSignIn(){
+  const email=document.getElementById('siEmail').value.trim();
+  const password=document.getElementById('siPassword').value;
+  if(!email||!password)return;
   if(!db)return;
-  const btn=document.getElementById('syncCodeSubmitBtn');btn.textContent='Checking…';btn.disabled=true;
-  const{error}=await db.auth.verifyOtp({email:_syncPendingEmail,token:code,type:'email'});
-  if(error){
-    btn.textContent='SIGN IN →';btn.disabled=false;
-    alert(error.message);
-    return;
-  }
-  // onAuthStateChange (SIGNED_IN) picks up currentUser, the manual token
-  // backup, and closes nothing on its own — close the modal here.
-  _clearPendingSyncEmail();
+  const btn=document.getElementById('siSubmitBtn');btn.textContent='Signing in…';btn.disabled=true;
+  const{error}=await db.auth.signInWithPassword({email,password});
+  btn.textContent='SIGN IN →';btn.disabled=false;
+  if(error){ alert(error.message); return; }
   closeSyncModal();
+}
+
+async function submitSignUp(){
+  const name=document.getElementById('suName').value.trim();
+  const email=document.getElementById('suEmail').value.trim();
+  const password=document.getElementById('suPassword').value;
+  const q1=document.getElementById('suQ1').value.trim();
+  const a1=document.getElementById('suA1').value.trim();
+  const q2=document.getElementById('suQ2').value.trim();
+  const a2=document.getElementById('suA2').value.trim();
+  if(!name||!email||!password||!q1||!a1||!q2||!a2){ alert('Please fill in every field — the recovery questions are what get you back in if you forget your password.'); return; }
+  if(password.length<6){ alert('Password should be at least 6 characters.'); return; }
+  if(!db)return;
+  const btn=document.getElementById('suSubmitBtn');btn.textContent='Creating account…';btn.disabled=true;
+  const{data,error}=await db.auth.signUp({email,password,options:{data:{name}}});
+  if(error){ btn.textContent='CREATE ACCOUNT →';btn.disabled=false; alert(error.message); return; }
+  // Email confirmation is OFF for this project (Ryan's direct
+  // instruction — "forget the fancy stuff, keep it simple") so signUp()
+  // returns an already-authenticated session immediately.
+  try{
+    const salt1=amRandomSalt(), salt2=amRandomSalt();
+    const hash1=await amHashRecoveryAnswer(a1,salt1);
+    const hash2=await amHashRecoveryAnswer(a2,salt2);
+    const hint=document.getElementById('suHint').value.trim();
+    await db.from('user_recovery_questions').insert({
+      user_id:data.user.id,
+      password_hint:hint||null,
+      question_1:q1, answer_1_hash:salt1+':'+hash1,
+      question_2:q2, answer_2_hash:salt2+':'+hash2
+    });
+  }catch(e){ console.error('saving recovery questions failed',e); }
+  closeSyncModal();
+}
+
+// Offers to set a password + recovery questions for someone already
+// signed in who doesn't have one yet (the old code-based sign-in users).
+// Reuses the sign-up form's fields/HTML for the password+questions part.
+async function offerSetPasswordIfNeeded(){
+  if(!currentUser)return;
+  if(!confirm('Want to set a password now? This lets you sign in directly next time, without any email step at all.'))return;
+  const name=prompt('Your name:')||'';
+  const password=prompt('Create a password (6+ characters):');
+  if(!password||password.length<6){ alert('Password needs to be at least 6 characters — try again from the sign-in button.'); return; }
+  const hint=prompt('A hint to remind yourself later (optional):')||'';
+  const q1=prompt('Recovery question 1 (e.g. childhood street):');
+  const a1=prompt('Answer to question 1:');
+  const q2=prompt('Recovery question 2 (e.g. favorite place):');
+  const a2=prompt('Answer to question 2:');
+  if(!q1||!a1||!q2||!a2){ alert('Recovery questions are required so you can get back in without email — try again from the sign-in button.'); return; }
+  const{error}=await db.auth.updateUser({password,data:{name}});
+  if(error){ alert(error.message); return; }
+  try{
+    const salt1=amRandomSalt(), salt2=amRandomSalt();
+    const hash1=await amHashRecoveryAnswer(a1,salt1);
+    const hash2=await amHashRecoveryAnswer(a2,salt2);
+    await db.from('user_recovery_questions').upsert({
+      user_id:currentUser.id,
+      password_hint:hint||null,
+      question_1:q1, answer_1_hash:salt1+':'+hash1,
+      question_2:q2, answer_2_hash:salt2+':'+hash2
+    });
+  }catch(e){ console.error('saving recovery questions failed',e); }
+  alert('Password set — you can sign in directly with it next time.');
+}
+
+let _fpEmailForRecovery=null;
+async function loadRecoveryQuestions(){
+  const email=document.getElementById('fpEmail').value.trim();if(!email)return;
+  const btn=document.getElementById('fpLoadBtn');btn.textContent='Looking up…';btn.disabled=true;
+  try{
+    const res=await fetch(AMIT_GET_RECOVERY_QUESTIONS_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email})});
+    const out=await res.json().catch(()=>null);
+    btn.textContent='CONTINUE →';btn.disabled=false;
+    if(!res.ok||!out||out.error){ alert(out&&out.error?out.error:'Could not find recovery questions for that email.'); return; }
+    _fpEmailForRecovery=email;
+    const hintBox=document.getElementById('fpHintBox');
+    if(out.password_hint){ hintBox.textContent='💡 Your hint: '+out.password_hint; hintBox.style.display='block'; }
+    else { hintBox.style.display='none'; }
+    document.getElementById('fpQ1Label').textContent=out.question_1;
+    document.getElementById('fpQ2Label').textContent=out.question_2;
+    document.getElementById('forgotStage1').style.display='none';
+    document.getElementById('forgotStage2').style.display='block';
+  }catch(e){
+    btn.textContent='CONTINUE →';btn.disabled=false;
+    alert('Something went wrong reaching the server — try again.');
+  }
+}
+
+async function submitRecoveryAnswers(){
+  if(!_fpEmailForRecovery)return;
+  const a1=document.getElementById('fpA1').value.trim();
+  const a2=document.getElementById('fpA2').value.trim();
+  const newPassword=document.getElementById('fpNewPassword').value;
+  if(!a1||!a2||!newPassword)return;
+  if(newPassword.length<6){ alert('New password needs to be at least 6 characters.'); return; }
+  const btn=document.getElementById('fpSubmitBtn');btn.textContent='Checking…';btn.disabled=true;
+  try{
+    const res=await fetch(AMIT_RESET_PASSWORD_WITH_ANSWERS_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:_fpEmailForRecovery,answer_1:a1,answer_2:a2,new_password:newPassword})});
+    const out=await res.json().catch(()=>null);
+    btn.textContent='RESET PASSWORD →';btn.disabled=false;
+    if(!res.ok||!out||out.error){ alert(out&&out.error?out.error:'Could not reset your password.'); return; }
+    // Password reset succeeded server-side — sign in with it right here.
+    const{error:siErr}=await db.auth.signInWithPassword({email:_fpEmailForRecovery,password:newPassword});
+    if(siErr){ alert('Password was reset — please sign in with your new password.'); showSyncStep('signin'); return; }
+    closeSyncModal();
+  }catch(e){
+    btn.textContent='RESET PASSWORD →';btn.disabled=false;
+    alert('Something went wrong reaching the server — try again.');
+  }
+}
+
+async function sendPasswordResetEmail(){
+  const email=(_fpEmailForRecovery||document.getElementById('fpEmail').value.trim());
+  if(!email){ alert('Enter your email first.'); return; }
+  if(!db)return;
+  const{error}=await db.auth.resetPasswordForEmail(email,{redirectTo:'https://ask-amit.github.io/Amit/AmitMobile/AmitMobile.html'});
+  alert(error?error.message:'A password reset link was sent to '+email+'. This is the one case that still needs email — open it on this same device.');
 }
 
 // ══════════════════════════════════════════════
