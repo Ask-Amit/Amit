@@ -2720,7 +2720,13 @@ function amvTestReplayStartup(){
   sessionStorage.removeItem(AMV_AUTOCONNECT_OFFERED_KEY);
   if(_amvOwnerContact)_amvOwnerContact.auto_connect_explained=false;
   _amvGreetingPromise=amvMaybeSpeakGreeting(_amvOwnerContact);
-  _amvGreetingPromise.then(()=>_refreshAmitReadinessBanner());
+  // Force-shows the explainer as if genuinely disconnected, regardless of
+  // real bridge state - Ryan's direct instruction, 2026-09-08: the real
+  // readiness check correctly finds nothing to offer when the bridge is
+  // actually connected, which made this button useless for hearing/testing
+  // the explainer's wording. Calls the explainer directly instead of going
+  // through _refreshAmitReadinessBanner()'s real status check.
+  _amvGreetingPromise.then(()=>_amvShowAutoConnectExplainer());
 }
 
 // AMIT HUB FOCUS CHANNEL — added 2026-08-06, Ryan's direct instruction:
