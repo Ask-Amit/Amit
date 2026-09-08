@@ -374,7 +374,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.21</div>
+<div class="amversion" id="pageVersion">v1.22</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -432,7 +432,61 @@ const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
 // autoRefreshToken so a signed-in phone user doesn't have to re-login
 // every couple weeks. This is a config correction to the template's own
 // connection block, not new infrastructure — explicitly authorized.
-const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true}}):null;
+//
+// FIXED 2026-09-08 — real, proven fix reused from AmitScan.html, not
+// guessed: plain localStorage (Supabase's default storage backend) is
+// not reliably durable for an installed iOS home-screen app across a
+// real force-quit (swipe up and away, not just backgrounding) — Ryan
+// confirmed live that Amit Mobile lost its session this way while
+// AmitScan, installed the exact same way, did not. AmitScan's own code
+// comment explains why and already solved it: IndexedDB has held up
+// more reliably than localStorage across force-quits in real-world PWA
+// reports (Apple doesn't document an exact guarantee — a real
+// mitigation, not a certain fix). Supabase's auth client accepts any
+// object implementing getItem/setItem/removeItem as its storage
+// backend, so this is the identical adapter AmitScan already uses,
+// copied verbatim rather than reinvented.
+let amAuthIdbPromise=null;
+function amAuthIdb(){
+  if(amAuthIdbPromise) return amAuthIdbPromise;
+  amAuthIdbPromise=new Promise((res,rej)=>{
+    const req=indexedDB.open('amitmobile-auth',1);
+    req.onupgradeneeded=()=>{ req.result.createObjectStore('kv'); };
+    req.onsuccess=()=>res(req.result);
+    req.onerror=()=>rej(req.error);
+  });
+  return amAuthIdbPromise;
+}
+const amIndexedDbAuthStorage={
+  async getItem(key){
+    const d=await amAuthIdb();
+    return new Promise(res=>{
+      const tx=d.transaction('kv','readonly');
+      const req=tx.objectStore('kv').get(key);
+      req.onsuccess=()=>res(req.result===undefined?null:req.result);
+      req.onerror=()=>res(null);
+    });
+  },
+  async setItem(key,value){
+    const d=await amAuthIdb();
+    return new Promise((res,rej)=>{
+      const tx=d.transaction('kv','readwrite');
+      tx.objectStore('kv').put(value,key);
+      tx.oncomplete=()=>res();
+      tx.onerror=()=>rej(tx.error);
+    });
+  },
+  async removeItem(key){
+    const d=await amAuthIdb();
+    return new Promise((res,rej)=>{
+      const tx=d.transaction('kv','readwrite');
+      tx.objectStore('kv').delete(key);
+      tx.oncomplete=()=>res();
+      tx.onerror=()=>rej(tx.error);
+    });
+  }
+};
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:amIndexedDbAuthStorage}}):null;
 const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
 let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
 
