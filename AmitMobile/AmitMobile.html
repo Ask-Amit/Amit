@@ -382,7 +382,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.25</div>
+<div class="amversion" id="pageVersion">v1.26</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -691,6 +691,13 @@ function amDashboardHtml(){
       <div style="color:rgba(240,232,208,.9);font-size:16px;margin-bottom:10px">You're not signed in right now — sign in to see your history and talk to Amit.</div>
       <button onclick="openSyncModal()" style="background:rgba(201,168,76,.2);border:1px solid rgba(201,168,76,.6);color:var(--gold2);padding:10px 20px;border-radius:6px;font-family:'Cinzel',serif;font-size:15px;letter-spacing:.06em;cursor:pointer">SIGN IN</button>
     </div>
+    <!-- TEMPORARY DIAGNOSTIC, added 2026-09-08 — two guesses in a row
+         (service worker, apple-touch-icon) didn't fix this, so instead of
+         guessing a third time, show real, direct evidence of what's
+         actually in storage the moment the app opens — always visible,
+         not tied to sign-in state, so it shows on every single load.
+         Remove once the real cause is found and fixed. -->
+    <div id="amAuthDebugLine" style="margin:0 0 16px;font-size:11px;color:rgba(200,200,200,.6);word-break:break-all;padding:8px;background:rgba(0,0,0,.2);border-radius:6px"></div>
     <div id="amitReadinessBanner" style="display:none;margin:0 0 16px;color:rgba(240,232,208,.9)"></div>
     <div id="amInstallBannerHost"></div>
     <div class="amdash-grid">
@@ -1609,8 +1616,39 @@ if(db){
     _refreshAmitReadinessBanner();
     amInitThreadPages(); // reload real thread history now that sign-in state is known
     amLoadVoicePref(); // pick up whatever voice was set in the Hub's Amit Voice panel
+    amWriteAuthDebugLine(event);
   });
 }
+
+// TEMPORARY DIAGNOSTIC, added 2026-09-08 — see comment on #amAuthDebugLine
+// above. Reads the raw IndexedDB store directly (bypassing Supabase
+// entirely) and reports exactly what's really there, plus what
+// getSession() itself returns, right on screen — real evidence instead
+// of another guess. Remove once the real cause is found and fixed.
+async function amWriteAuthDebugLine(event){
+  const el=document.getElementById('amAuthDebugLine');
+  if(!el)return;
+  try{
+    const d=await amAuthIdb();
+    const keys=await new Promise(res=>{
+      const tx=d.transaction('kv','readonly');
+      const req=tx.objectStore('kv').getAllKeys();
+      req.onsuccess=()=>res(req.result);
+      req.onerror=()=>res(['<error reading keys>']);
+    });
+    let sessionInfo='(getSession threw)';
+    try{
+      const{data,error}=await db.auth.getSession();
+      sessionInfo=error?('getSession error: '+error.message):(data.session?('session found, expires '+new Date(data.session.expires_at*1000).toLocaleString()):'getSession returned no session');
+    }catch(e){ sessionInfo='getSession threw: '+e.message; }
+    el.textContent='Debug ['+(event||'load')+']: IDB keys='+JSON.stringify(keys)+' | '+sessionInfo;
+  }catch(e){
+    el.textContent='Debug: IndexedDB read failed — '+e.message;
+  }
+}
+// Run once immediately on load too, before any auth event fires, so the
+// very first paint already shows what was found in storage.
+amWriteAuthDebugLine('initial-load');
 
 // FIXED 2026-09-08 — real gap found by direct comparison against AmitScan
 // (which never loses sign-in on force-quit, same phone, same button, same
