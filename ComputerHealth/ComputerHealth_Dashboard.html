@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.57</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.58</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -5380,7 +5380,19 @@ async function _chCaptureNow(reasonDetail) {
       verdict = deriveSessionVerdictFromMetrics(metrics.rows, specs);
     } catch (e) { /* fall back to the plain default above if this fails */ }
   }
-  const eventId = await logTrackingSessionEvent('tracking_session_captured', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, metrics ? metrics.sessionEndTime : null, Object.assign({ capturedAt: new Date().toISOString(), concerns: verdict.concerns, duration, stillRunning: true }, reasonDetail || {}));
+  // Real bug caught live 2026-09-08 (Ryan): /api/tracker-metrics reports a
+  // FIXED sessionEndTime for as long as a session keeps running - it only
+  // changes once tracking actually stops. logTrackingSessionEvent()
+  // dedupes on (device, event_type, sessionEndTime), so every repeat live
+  // capture during the same still-running session collided with the very
+  // first one and silently returned that SAME existing row's id instead of
+  // ever inserting a new one - "Captured ✓" every time, nothing new ever
+  // in History. A live capture has no real "end" yet anyway, so the right
+  // identifier here is a genuinely fresh moment (now), not the watcher's
+  // static session-start marker - passed as capturedNowIso, distinct from
+  // metrics.sessionEndTime (still recorded in event_detail for reference).
+  const capturedNowIso = new Date().toISOString();
+  const eventId = await logTrackingSessionEvent('tracking_session_captured', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, capturedNowIso, Object.assign({ capturedAt: capturedNowIso, watcherSessionEndTime: metrics ? metrics.sessionEndTime : null, concerns: verdict.concerns, duration, stillRunning: true }, reasonDetail || {}));
   await insertMetricsRowsForEvent(eventId, metrics);
   const diagMetrics = await fetchLocalMetrics('/api/diagnostics-metrics');
   await insertMetricsRowsForEvent(eventId, diagMetrics);
@@ -5401,7 +5413,12 @@ async function captureConditions() {
     // re-queries and re-renders the table itself (see its own definition) -
     // cheap either way, and immediately visible if History is the open tab.
     await loadHistory();
-    if (btn) btn.textContent = 'Captured ✓ — see History';
+    // Actually POP the report open, not just write it silently and leave
+    // the person to go find it - Ryan's direct catch, 2026-09-08: "no
+    // report ever popped up." historyData is sorted newest-first, so the
+    // capture that just happened is always index 0 right after a reload.
+    if (historyData && historyData.length) openHistoryDetail(0);
+    if (btn) btn.textContent = 'Captured ✓';
     setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = 'Capture Conditions'; } }, 2500);
   } catch (e) {
     console.error('captureConditions failed:', e);
