@@ -382,7 +382,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.36</div>
+<div class="amversion" id="pageVersion">v1.37</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -780,6 +780,18 @@ function amDashboardHtml(){
     </div>
     <div id="amitReadinessBanner" style="display:none;margin:0 0 16px;color:rgba(240,232,208,.9)"></div>
     <div id="amInstallBannerHost"></div>
+    <!-- ADDED 2026-09-08, Ryan's direct instruction — lets him flip Amit
+         Mobile's reply mechanism from his phone: warm (fast, but only
+         answers while a live Claude Code session is open and watching)
+         vs cold (always available, slower per-reply). Only shown when
+         signed in — a guest has nothing to toggle. -->
+    <div id="amReplyModeToggle" style="display:none;margin:0 0 16px;background:rgba(255,255,255,.04);border:1px solid rgba(201,168,76,.25);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase">Reply Speed</div>
+        <div id="amReplyModeStatus" style="color:rgba(240,232,208,.5);font-size:12px;margin-top:2px">—</div>
+      </div>
+      <button id="amReplyModeBtn" onclick="amToggleReplyMode()" style="white-space:nowrap;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:9px 14px;border-radius:6px;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;cursor:pointer">—</button>
+    </div>
     <div class="amdash-grid">
       <div class="amdash-tile amdash-primary" onclick="openPage(2)">
         <div class="amdash-icon">🙏</div>
@@ -1699,6 +1711,48 @@ function popupClose(){
 // path back to being signed in, under our own control.
 const AM_MANUAL_TOKENS_KEY='amit_mobile_manual_tokens';
 
+// ADDED 2026-09-08, Ryan's direct instruction — real toggle between the
+// desktop watcher's two reply mechanisms (see amit_mobile_watcher.ps1's
+// Get-ReplyMode). 'warm' = fast, but only answers while a live Claude
+// Code session is open and watching. 'cold' (default) = always
+// available, slower per-reply. Stored in amit_mobile_reply_mode, one row
+// per user, readable/writable only by that same signed-in user (RLS).
+async function amLoadReplyMode(){
+  const toggle=document.getElementById('amReplyModeToggle');
+  if(!toggle)return;
+  if(!currentUser||!db){ toggle.style.display='none'; return; }
+  toggle.style.display='flex';
+  try{
+    const{data}=await db.from('amit_mobile_reply_mode').select('mode').eq('user_id',currentUser.id).maybeSingle();
+    amRenderReplyMode((data&&data.mode)||'cold');
+  }catch(e){ console.error('loading reply mode failed',e); amRenderReplyMode('cold'); }
+}
+function amRenderReplyMode(mode){
+  const status=document.getElementById('amReplyModeStatus');
+  const btn=document.getElementById('amReplyModeBtn');
+  if(!status||!btn)return;
+  btn.dataset.mode=mode;
+  if(mode==='warm'){
+    status.textContent='⚡ Fast — needs a live Claude Code session open right now';
+    btn.textContent='SWITCH TO ALWAYS-AVAILABLE';
+  }else{
+    status.textContent='🐢 Always available — works anytime, a bit slower per reply';
+    btn.textContent='SWITCH TO FAST MODE';
+  }
+}
+async function amToggleReplyMode(){
+  if(!currentUser||!db)return;
+  const btn=document.getElementById('amReplyModeBtn');
+  const current=btn.dataset.mode||'cold';
+  const next=current==='warm'?'cold':'warm';
+  btn.disabled=true;
+  try{
+    await db.from('amit_mobile_reply_mode').upsert({user_id:currentUser.id,mode:next});
+    amRenderReplyMode(next);
+  }catch(e){ alert('Could not switch modes right now — try again in a moment.'); }
+  btn.disabled=false;
+}
+
 if(db){
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?session.user:null;
@@ -1706,6 +1760,7 @@ if(db){
     _refreshAmitReadinessBanner();
     amInitThreadPages(); // reload real thread history now that sign-in state is known
     amLoadVoicePref(); // pick up whatever voice was set in the Hub's Amit Voice panel
+    amLoadReplyMode();
     if(session&&session.access_token&&session.refresh_token){
       try{
         localStorage.setItem(AM_MANUAL_TOKENS_KEY,JSON.stringify({
