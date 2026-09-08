@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.65</div>
+    <div class="page-version" id="hubVersionBadge">v6.66</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1745,6 +1745,43 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           </div>
           <button class="btn" onclick="amvSaveMyInfo()" style="margin-bottom:8px">SAVE MY INFO</button>
           <div id="amvInfoSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px;margin-bottom:24px">Saved.</div>
+
+          <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
+
+          <!-- ADDED 2026-09-08, Ryan's direct instruction — a real, always-
+               reachable place to set or change a password, hint, and
+               recovery questions, instead of the one-time prompt()-chain
+               bridge used only for accounts that predate the password
+               system. Same table (user_recovery_questions), same hashing
+               (amHashRecoveryAnswer/amRandomSalt), just a proper form. -->
+          <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:4px">Account & Security</div>
+          <div style="color:rgba(240,232,208,.4);font-size:12px;line-height:1.6;margin-bottom:16px">Set or change your password, hint, and recovery questions any time — leave the password blank to keep your current one.</div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">New Password</label>
+            <input class="fg-input" id="asNewPassword" type="password" placeholder="Leave blank to keep current password">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Password Hint</label>
+            <input class="fg-input" id="asHint" placeholder="A reminder to yourself (optional)">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Recovery Question 1</label>
+            <input class="fg-input" id="asQ1" placeholder="e.g. childhood street">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Answer 1</label>
+            <input class="fg-input" id="asA1" placeholder="Leave blank to keep current answer">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Recovery Question 2</label>
+            <input class="fg-input" id="asQ2" placeholder="e.g. favorite place">
+          </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">Answer 2</label>
+            <input class="fg-input" id="asA2" placeholder="Leave blank to keep current answer">
+          </div>
+          <button class="btn" onclick="amvSaveAccountSecurity()" style="margin-bottom:8px">SAVE ACCOUNT & SECURITY</button>
+          <div id="asSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px;margin-bottom:24px">Saved.</div>
 
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,.03);border:1px solid rgba(240,232,208,.12);border-radius:8px;padding:12px 14px;margin-bottom:24px">
             <div>
@@ -4230,6 +4267,18 @@ async function amvInitAboutMePanel(){
   // own name if no login name has ever been set yet.
   document.getElementById('amvNameInput').value=fallbackDisplayName||(_amvOwnerContact&&_amvOwnerContact.name)||'';
   document.getElementById('amvEmailInput').value=(_amvOwnerContact&&_amvOwnerContact.email)||currentUser.email||'';
+
+  // ADDED 2026-09-08 — prefill the hint/question TEXT if already set
+  // (never the answers themselves, since those are one-way hashed).
+  try{
+    const{data:rq}=await db.from('user_recovery_questions').select('password_hint,question_1,question_2').eq('user_id',currentUser.id).maybeSingle();
+    document.getElementById('asHint').value=(rq&&rq.password_hint)||'';
+    document.getElementById('asQ1').value=(rq&&rq.question_1)||'';
+    document.getElementById('asQ2').value=(rq&&rq.question_2)||'';
+  }catch(e){ console.error('loading recovery questions failed',e); }
+  document.getElementById('asNewPassword').value='';
+  document.getElementById('asA1').value='';
+  document.getElementById('asA2').value='';
   document.getElementById('amvPhoneInput').value=(_amvOwnerContact&&_amvOwnerContact.phone)||'';
   document.getElementById('amvAddressInput').value=(_amvOwnerContact&&_amvOwnerContact.address)||'';
   amvRenderZipDisplay();
@@ -4431,6 +4480,77 @@ async function amvSaveMyInfo(){
   note.style.display='block';
   note.textContent=saved?'Saved.':'Could not save right now — try again in a moment.';
   note.style.color=saved?'rgba(180,220,190,.9)':'rgba(255,180,150,.9)';
+}
+
+// ADDED 2026-09-08, Ryan's direct instruction — a real, always-reachable
+// place in About Me to set or change a password, hint, and recovery
+// questions, instead of routing through the one-time prompt()-chain
+// bridge (offerSetPasswordIfNeeded) that only exists for pre-password
+// accounts. Password field left blank keeps the current password;
+// answer fields left blank keep the current answer (can't show an
+// existing answer back, since it's one-way hashed) as long as its
+// matching question also didn't change.
+async function amvSaveAccountSecurity(){
+  if(!currentUser||!db)return;
+  const newPassword=document.getElementById('asNewPassword').value;
+  const hint=document.getElementById('asHint').value.trim();
+  const q1=document.getElementById('asQ1').value.trim();
+  const a1=document.getElementById('asA1').value.trim();
+  const q2=document.getElementById('asQ2').value.trim();
+  const a2=document.getElementById('asA2').value.trim();
+  const note=document.getElementById('asSavedNote');
+  if(newPassword&&newPassword.length<6){
+    note.style.display='block';note.style.color='rgba(255,180,150,.9)';
+    note.textContent='New password needs to be at least 6 characters.';
+    return;
+  }
+  if((q1&&!a1)||(q2&&!a2)){
+    note.style.display='block';note.style.color='rgba(255,180,150,.9)';
+    note.textContent='A question needs its own answer — fill in both, or leave both blank to keep what you already have.';
+    return;
+  }
+  try{
+    if(newPassword){
+      const{error}=await db.auth.updateUser({password:newPassword});
+      if(error) throw error;
+    }
+    if(hint||q1||a1||q2||a2){
+      const{data:existing}=await db.from('user_recovery_questions').select('*').eq('user_id',currentUser.id).maybeSingle();
+      const row={user_id:currentUser.id};
+      row.password_hint=hint||(existing&&existing.password_hint)||null;
+      if(q1&&a1){
+        const salt1=amRandomSalt();
+        row.question_1=q1;
+        row.answer_1_hash=salt1+':'+await amHashRecoveryAnswer(a1,salt1);
+      }else{
+        row.question_1=(existing&&existing.question_1)||q1||null;
+        row.answer_1_hash=(existing&&existing.answer_1_hash)||null;
+      }
+      if(q2&&a2){
+        const salt2=amRandomSalt();
+        row.question_2=q2;
+        row.answer_2_hash=salt2+':'+await amHashRecoveryAnswer(a2,salt2);
+      }else{
+        row.question_2=(existing&&existing.question_2)||q2||null;
+        row.answer_2_hash=(existing&&existing.answer_2_hash)||null;
+      }
+      if(!row.question_1||!row.answer_1_hash||!row.question_2||!row.answer_2_hash){
+        note.style.display='block';note.style.color='rgba(255,180,150,.9)';
+        note.textContent='Both recovery questions need a question and an answer before they can be saved — fill in the missing one, or leave both entirely blank.';
+        return;
+      }
+      const{error:rqErr}=await db.from('user_recovery_questions').upsert(row);
+      if(rqErr) throw rqErr;
+    }
+    note.style.display='block';note.style.color='rgba(180,220,190,.9)';
+    note.textContent='Saved.';
+    document.getElementById('asNewPassword').value='';
+    document.getElementById('asA1').value='';
+    document.getElementById('asA2').value='';
+  }catch(e){
+    note.style.display='block';note.style.color='rgba(255,180,150,.9)';
+    note.textContent=e&&e.message?e.message:'Could not save right now — try again in a moment.';
+  }
 }
 
 // ══════════════════════════════════════════════
