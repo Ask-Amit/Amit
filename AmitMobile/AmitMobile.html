@@ -374,7 +374,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.14</div>
+<div class="amversion" id="pageVersion">v1.15</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -617,6 +617,10 @@ function amDashboardHtml(){
       <p>Your Amit, in your pocket. Tap a tile to begin.</p>
       <p id="amGreeting" style="font-family:'Cinzel',serif;font-size:14px;color:#fff;font-weight:600;margin-top:10px"></p>
       <p id="amDatetime" style="font-size:11px;color:var(--muted);margin-top:2px"></p>
+    </div>
+    <div id="amUpdateBanner" style="display:none;margin:0 0 16px;background:rgba(120,190,230,.1);border:1px solid rgba(120,190,230,.4);border-radius:8px;padding:14px 16px;text-align:center">
+      <div style="color:rgba(240,232,208,.9);font-size:14px;margin-bottom:10px">A newer version of Amit Mobile is available.</div>
+      <button onclick="amApplyUpdate()" style="background:rgba(120,190,230,.2);border:1px solid rgba(120,190,230,.6);color:rgba(120,190,230,.95);padding:10px 20px;border-radius:6px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.06em;cursor:pointer">UPDATE NOW</button>
     </div>
     <div id="amNotSignedInBanner" style="display:none;margin:0 0 16px;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:14px 16px;text-align:center">
       <div style="color:rgba(240,232,208,.9);font-size:14px;margin-bottom:10px">You're not signed in right now — sign in to see your history and talk to Amit.</div>
@@ -1345,9 +1349,39 @@ function wireVoicePages(){
 // meaning on a touch-only phone shell, and the top bar's icons use plain
 // `title` attributes instead (see buildPlaceholders() above).
 
+// ══════════════════════════════════════════════
+// VERSION CHECK — added 2026-09-06, Ryan's direct instruction: "when it
+// wakes up and does the connection, it should search out to see if
+// there's a new version" — a phone's home-screen icon can otherwise sit
+// on an old cached copy indefinitely with nothing prompting a refresh.
+// Fetches this same page fresh (cache:'no-store', a cache-busting query
+// param) every time the app opens, reads the OTHER copy's #pageVersion
+// text, and compares it to what's actually rendered right now. Never
+// auto-reloads on its own — always asks first via the banner, since a
+// silent reload mid-use (e.g. while typing a message) would be jarring.
+// ══════════════════════════════════════════════
+async function amCheckForUpdate(){
+  try{
+    const res=await fetch(location.pathname+'?_v='+Date.now(),{cache:'no-store'});
+    if(!res.ok)return;
+    const html=await res.text();
+    const m=html.match(/id="pageVersion">v?([\d.]+)</);
+    const liveEl=document.getElementById('pageVersion');
+    const liveVersion=liveEl?liveEl.textContent.replace(/^v/,''):null;
+    if(m&&m[1]&&liveVersion&&m[1]!==liveVersion){
+      const banner=document.getElementById('amUpdateBanner');
+      if(banner)banner.style.display='block';
+    }
+  }catch(e){ /* offline or unreachable — never block the app on this */ }
+}
+function amApplyUpdate(){
+  location.href=location.pathname+'?_v='+Date.now();
+}
+
 (async function buildPlaceholders(){
   renderAllPages();
   amRenderInstallBanner();
+  amCheckForUpdate();
 
   // TOP BAR ACTIONS — Ask Amit / Sign In-Sync / Demo Mode / Home, the
   // same four functions the right rail used to trigger, now four small
