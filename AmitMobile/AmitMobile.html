@@ -382,7 +382,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.28</div>
+<div class="amversion" id="pageVersion">v1.29</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -404,6 +404,17 @@ body::before{
 </div>
 
 <script>
+// CAPTURED FIRST, 2026-09-08 — before Supabase's own client library loads
+// and processes/strips the URL, record exactly what arrived so we can
+// tell for certain whether a real magic-link redirect (an access_token in
+// the hash) actually reached this page, versus a clean URL with nothing
+// in it. Ryan cannot reliably read this off his phone's address bar
+// (confirmed live — it scrolls, doesn't fit, no way to inspect it there),
+// so the app now reports this itself.
+const AM_RAW_HASH_AT_LOAD=window.location.hash||'';
+const AM_RAW_SEARCH_AT_LOAD=window.location.search||'';
+const AM_HAD_ACCESS_TOKEN_AT_LOAD=AM_RAW_HASH_AT_LOAD.includes('access_token=');
+
 // ══════════════════════════════════════════════
 // NOMENCLATURE — read this before touching any page/detail/layout code.
 //   PAGE   — one entry in AM_PAGES (id, icon, name). Since the 2026-09-05
@@ -1683,10 +1694,19 @@ async function amWriteAuthDebugLine(event){
       const raw=localStorage.getItem(AM_MANUAL_TOKENS_KEY);
       manualInfo=raw?('saved '+new Date(JSON.parse(raw).saved_at).toLocaleString()):'none';
     }catch(e){ manualInfo='(read failed)'; }
-    el.textContent='Debug ['+(event||'load')+']: IDB keys='+JSON.stringify(keys)+' | '+sessionInfo+' | manual backup: '+manualInfo;
+    el.textContent='Debug ['+(event||'load')+']: URL had access_token='+AM_HAD_ACCESS_TOKEN_AT_LOAD+' (hash len '+AM_RAW_HASH_AT_LOAD.length+', search len '+AM_RAW_SEARCH_AT_LOAD.length+') | IDB keys='+JSON.stringify(keys)+' | '+sessionInfo+' | manual backup: '+manualInfo;
   }catch(e){
     el.textContent='Debug: IndexedDB read failed — '+e.message;
   }
+  // ADDED 2026-09-08, Ryan's direct correction — there's no clipboard
+  // bridge between his phone and this desktop chat, so copy/paste across
+  // devices doesn't work. Send the debug line straight to Supabase
+  // instead (amit_mobile_debug_log, anon-insert-only, see migration
+  // 2026-09-08_001) so it can be read directly with the service key —
+  // no manual step on Ryan's end at all.
+  try{
+    await db.from('amit_mobile_debug_log').insert({event:event||'load',debug_text:el.textContent});
+  }catch(e){ console.error('debug log send failed',e); }
 }
 
 // Copies the debug line's exact text to the clipboard so it can be
