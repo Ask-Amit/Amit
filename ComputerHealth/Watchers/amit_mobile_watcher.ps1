@@ -229,7 +229,7 @@ function Write-Reply($id, $reply) {
     }
 }
 
-Write-Host "[amit-mobile-watcher] Amit Mobile listener started. Polling every 5 seconds."
+Write-Host "[amit-mobile-watcher] Amit Mobile listener started. Polling every 2.5 seconds."
 Write-Host "[amit-mobile-watcher] Leave the shared Amit Bridge running and this computer awake."
 
 while (-not (Test-Path $StopFlag)) {
@@ -246,7 +246,7 @@ while (-not (Test-Path $StopFlag)) {
         if (-not $answer) { $answer = "Amit had trouble putting a reply together just now - try asking again in a moment." }
         Write-Reply $row.id $answer
     }
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 2.5
 }
 
 Write-Host "[amit-mobile-watcher] Stop flag detected. Shutting down."
