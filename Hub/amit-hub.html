@@ -1263,6 +1263,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">CONNECT YOUR PHONE</div>
         <button id="connectAmitInlineBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="display:none;font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.95);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.55);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.18)">CONNECT YOUR PHONE</button>
         <div id="signInBtn" onclick="event.stopPropagation();openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
+        <div id="amvConnectingStatus" style="display:none;position:fixed;top:14px;right:14px;z-index:9998;background:#1a1e26;border:1px solid rgba(240,232,208,.25);border-radius:8px;padding:8px 14px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-family:system-ui,sans-serif;font-size:12px;color:rgba(240,232,208,.7)">Connecting to Amit…</div>
         <div id="amvAutoConnectOffer" style="display:none;position:fixed;top:14px;right:14px;z-index:9999;align-items:center;gap:10px;background:#1a1e26;border:1px solid rgba(120,190,230,.55);border-radius:8px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-family:system-ui,sans-serif;font-size:13px;color:#e8e2cf;max-width:360px">
           <span>Amit's local connection isn't running — start it now?</span>
           <button type="button" onclick="event.stopPropagation();amvAutoConnectLaunch()" style="background:rgba(120,190,230,.2);border:1px solid rgba(120,190,230,.6);color:inherit;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap">Launch</button>
@@ -2901,12 +2902,26 @@ function amvAutoConnectDismiss(){
   if(bar)bar.style.display='none';
 }
 
+// Visible confirmation the check is actually happening, every time - Ryan's
+// direct instruction, 2026-09-07: this was running silently before, with no
+// feedback unless something needed a click. Shows briefly at the start of
+// every readiness check, then clears itself once the result is known.
+function _amvShowConnectingStatus(){
+  const el=document.getElementById('amvConnectingStatus');
+  if(el)el.style.display='block';
+}
+function _amvHideConnectingStatus(){
+  const el=document.getElementById('amvConnectingStatus');
+  if(el)el.style.display='none';
+}
+
 async function _refreshAmitReadinessBanner(){
   if(typeof checkAmitReadiness!=='function'||!db)return;
   const indicator=document.getElementById('amitMobileHeartbeatIndicator');
   const setupBtn=document.getElementById('connectAmitBtn');
   const connectBtn=document.getElementById('connectAmitInlineBtn');
   if(!indicator||!setupBtn||!connectBtn)return;
+  _amvShowConnectingStatus();
   try{
     const status=await checkAmitReadiness(db);
     _amvMaybeOfferAutoConnect(status);
@@ -2930,6 +2945,7 @@ async function _refreshAmitReadinessBanner(){
     setupBtn.style.display=ready?'':'none';
     connectBtn.style.display=ready?'none':'';
   }catch(e){ /* never let a readiness check break the Hub */ }
+  finally{ _amvHideConnectingStatus(); }
 }
 
 // ══════════════════════════════════════════════
