@@ -382,7 +382,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.33</div>
+<div class="amversion" id="pageVersion">v1.34</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1873,13 +1873,48 @@ async function sendSyncCode(email){
 function openSyncModal(){
   if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
   const m=document.getElementById('syncModal');if(!m)return;
-  backToSyncEmail();
+  // FIXED 2026-09-08, real bug caught live: switching to the Mail app to
+  // read the code and coming back was resetting this modal to the email
+  // step — the "waiting for a code" state was only ever held in a plain
+  // JS variable, which iOS can wipe when it reloads a backgrounded tab
+  // (same underlying behavior already found and fixed for the chat
+  // thread). Now checks localStorage first — if a code was sent recently
+  // and never completed, jump straight back to the code-entry step
+  // instead of making the person start over and request a new one.
+  const pending=_loadPendingSyncEmail();
+  if(pending){
+    _syncPendingEmail=pending;
+    document.getElementById('syncCodeSentTo').textContent='We already sent a sign-in code to '+pending+'. Type it below. Don\'t see it? Check your spam/junk folder.';
+    document.getElementById('syncStepEmail').style.display='none';
+    document.getElementById('syncStepCode').style.display='block';
+  }else{
+    backToSyncEmail();
+  }
   m.style.display='flex';
 }
 function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
 
+const AM_SYNC_PENDING_KEY='amit_sync_pending_email';
+const AM_SYNC_PENDING_MAX_AGE_MS=10*60*1000; // codes don't stay valid forever — don't resurrect a stale attempt
+function _savePendingSyncEmail(email){
+  try{ localStorage.setItem(AM_SYNC_PENDING_KEY,JSON.stringify({email,at:Date.now()})); }catch(e){}
+}
+function _loadPendingSyncEmail(){
+  try{
+    const raw=localStorage.getItem(AM_SYNC_PENDING_KEY);
+    if(!raw)return null;
+    const{email,at}=JSON.parse(raw);
+    if(!email||!at||(Date.now()-at)>AM_SYNC_PENDING_MAX_AGE_MS)return null;
+    return email;
+  }catch(e){ return null; }
+}
+function _clearPendingSyncEmail(){
+  try{ localStorage.removeItem(AM_SYNC_PENDING_KEY); }catch(e){}
+}
+
 function backToSyncEmail(){
   _syncPendingEmail=null;
+  _clearPendingSyncEmail();
   document.getElementById('syncStepEmail').style.display='block';
   document.getElementById('syncStepCode').style.display='none';
   const btn=document.getElementById('syncSubmitBtn');
@@ -1898,6 +1933,7 @@ async function submitSyncEmail(){
     return;
   }
   _syncPendingEmail=email;
+  _savePendingSyncEmail(email);
   document.getElementById('syncCodeSentTo').textContent='We sent a sign-in code to '+email+'. Type it below — no need to leave this screen. Don\'t see it? Check your spam/junk folder — first-time emails from a new sign-in often land there.';
   document.getElementById('syncStepEmail').style.display='none';
   document.getElementById('syncStepCode').style.display='block';
@@ -1917,6 +1953,7 @@ async function submitSyncCode(){
   }
   // onAuthStateChange (SIGNED_IN) picks up currentUser, the manual token
   // backup, and closes nothing on its own — close the modal here.
+  _clearPendingSyncEmail();
   closeSyncModal();
 }
 
