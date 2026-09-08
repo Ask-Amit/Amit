@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.67</div>
+    <div class="page-version" id="hubVersionBadge">v6.68</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3826,10 +3826,6 @@ function _showConnectAmitStep(n,skipAheadNote){
   if(step3Note)step3Note.style.display=(n===3&&skipAheadNote)?'block':'none';
   if(n===3){
     _renderConnectAmitQr();
-    const emailInput=document.getElementById('connectAmitEmailInput');
-    if(emailInput&&!emailInput.value&&typeof currentUser!=='undefined'&&currentUser&&currentUser.email){
-      emailInput.value=currentUser.email;
-    }
   }
 }
 function _connectAmitNeedAccountClicked(){
@@ -3869,18 +3865,6 @@ async function openConnectAmitModal(){
   }catch(e){ /* leave Step 1 showing — never block the modal on this */ }
 }
 function closeConnectAmitModal(){const m=document.getElementById('connectAmitModal');if(m)m.style.display='none';_stopCaStep2Poll();}
-function sendConnectAmitEmail(){
-  const input=document.getElementById('connectAmitEmailInput');
-  const to=(input&&input.value.trim())||'';
-  const subject=encodeURIComponent('Your Amit link');
-  const body=encodeURIComponent(
-    'Open the Hub on this device (phone or desktop):\n'+CONNECT_AMIT_HUB_URL+
-    '\n\nTo connect a desktop computer so it listens for Amit Mobile, download the installer there:\n'+CONNECT_AMIT_INSTALLER_URL+
-    '\n\nSign in with the same account on any device to keep it all connected.'
-  );
-  // mailto fallback — no server-side email sending exists yet in this codebase
-  window.location.href='mailto:'+encodeURIComponent(to)+'?subject='+subject+'&body='+body;
-}
 
 // ══════════════════════════════════════════════
 // AMIT VOICE MODAL — condensed voice/accent/speed picker, saved per-user
@@ -10548,16 +10532,7 @@ function hideLabelTip(){
       <div style="display:flex;justify-content:center;margin-bottom:6px">
         <div id="connectAmitQR" style="background:#fff;padding:10px;border-radius:8px;line-height:0"></div>
       </div>
-      <div style="color:rgba(240,232,208,.35);font-size:12px;line-height:1.5;margin-bottom:18px;text-align:center">This code is single-use and expires — if it doesn't work, close and reopen this step for a fresh one.</div>
-
-      <div style="color:rgba(240,232,208,.55);font-size:14px;margin-bottom:8px">Or email yourself the link:</div>
-      <div style="display:flex;gap:8px;margin-bottom:16px">
-        <input id="connectAmitEmailInput" type="email" placeholder="your@email.com" style="flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(240,232,208,.2);border-radius:6px;color:rgba(240,232,208,.85);font-size:15px;padding:11px 12px">
-        <button onclick="sendConnectAmitEmail()" style="background:rgba(120,190,230,.14);border:1px solid rgba(120,190,230,.45);color:rgba(120,190,230,.95);border-radius:6px;padding:11px 16px;font-size:13px;letter-spacing:.05em;cursor:pointer;white-space:nowrap">EMAIL ME THIS</button>
-      </div>
-      <div style="color:rgba(240,232,208,.4);font-size:13px;line-height:1.6;margin-bottom:20px">
-        This opens your own email app with the links pre-filled — Amit doesn't send this email itself yet.
-      </div>
+      <div style="color:rgba(240,232,208,.35);font-size:12px;line-height:1.5;margin-bottom:20px;text-align:center">Just opens the Amit Mobile address — sign in there with your email and password once you're on it.</div>
       <div onclick="_showConnectAmitStep(2)" style="color:rgba(240,232,208,.4);font-size:12px;letter-spacing:.08em;cursor:pointer;margin-bottom:4px">← Back</div>
     </div>
 
