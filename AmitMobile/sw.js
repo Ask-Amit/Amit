@@ -27,8 +27,14 @@ self.addEventListener('fetch',e=>{
   if(req.method!=='GET') return;
   const url=new URL(req.url);
   if(url.origin!==self.location.origin) return;
+  // FIXED 2026-09-08 — real bug caught live: "network-first" wasn't
+  // actually guaranteeing a fresh copy, because plain fetch(req) can still
+  // be silently satisfied by the BROWSER's own HTTP cache instead of a
+  // real network hit — this app kept showing v1.28 even after v1.29 was
+  // pushed and live, with nothing installed on the phone at all.
+  // {cache:'no-store'} forces an actual network request every time.
   e.respondWith(
-    fetch(req).then(res=>{
+    fetch(req,{cache:'no-store'}).then(res=>{
       const copy=res.clone();
       caches.open(AM_CACHE).then(c=>c.put(req,copy));
       return res;
