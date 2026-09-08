@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.56</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.57</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -4143,7 +4143,7 @@ function actuallyOpenHistoryDetail(i) {
     html += section('Homepage/Search Changes', diff.HomepageChanges, h => `<div class="finding flag">[${h.Browser}] ${h.OldHomepage} → ${h.NewHomepage}</div>`);
     if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
     body.innerHTML = html;
-  } else if (e.event_type === 'tracking_session_ended') {
+  } else if (e.event_type === 'tracking_session_ended' || e.event_type === 'tracking_session_captured') {
     // Real gap found live 2026-07-16 (Ryan): this only ever showed the
     // bare concerns list, never the detailed per-sensor breakdown -
     // App Behavior sessions get the full sectioned renderBehaviorReport()
@@ -5395,7 +5395,13 @@ async function captureConditions() {
       return;
     }
     await _chCaptureNow({ reason: 'manual' });
-    if (btn) btn.textContent = 'Captured ✓';
+    // Real gap Ryan caught live 2026-09-08: the row was writing correctly
+    // to Supabase the whole time (confirmed directly) - History just never
+    // re-fetched to show it, since nothing here told it to. loadHistory()
+    // re-queries and re-renders the table itself (see its own definition) -
+    // cheap either way, and immediately visible if History is the open tab.
+    await loadHistory();
+    if (btn) btn.textContent = 'Captured ✓ — see History';
     setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = 'Capture Conditions'; } }, 2500);
   } catch (e) {
     console.error('captureConditions failed:', e);
