@@ -374,7 +374,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.22</div>
+<div class="amversion" id="pageVersion">v1.23</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1054,12 +1054,24 @@ async function callAmitBackend(message,mode,photos,pendingBubbleId){
     return "Amit couldn't save this message to start the conversation — check your connection and try again.";
   }
 
-  // Poll this one row for its reply. 2.5s interval, 90s cap (36 tries).
+  return await amPollRowForReply(row.id,pendingBubbleId);
+}
+
+// FIXED 2026-09-08 — real bug caught live: on iOS, Safari throttles/freezes
+// setTimeout while a tab is backgrounded, so if this poll loop was mid-wait
+// when the phone went to sleep, it silently resumed (or never truly ran)
+// once the tab woke back up — looking exactly like a phantom "thinking"
+// bubble the person never triggered. Pulled the poll into its own callable
+// function so it can be re-run fresh from amLoadThreadHistory() any time
+// the app resyncs against the real database, instead of trusting one single
+// in-memory loop to survive an unpredictable background/foreground cycle.
+// Poll this one row for its reply. 2.5s interval, 90s cap (36 tries).
+async function amPollRowForReply(rowId,pendingBubbleId){
   const POLL_MS=2500, MAX_TRIES=36;
   for(let i=0;i<MAX_TRIES;i++){
     await new Promise(r=>setTimeout(r,POLL_MS));
     try{
-      const{data,error}=await db.from('amit_mobile_captures').select('reply').eq('id',row.id).single();
+      const{data,error}=await db.from('amit_mobile_captures').select('reply').eq('id',rowId).single();
       if(!error&&data&&data.reply){
         return data.reply;
       }
@@ -1303,6 +1315,18 @@ async function amLoadThreadHistory(mode){
       amAppendMessageToThread(mode,{id:'you-'+row.id,created_at:row.created_at,who:'you',transcript:row.transcript,photo_urls});
       if(row.reply){
         amAppendMessageToThread(mode,{id:'amit-'+row.id,created_at:row.created_at,who:'amit',transcript:row.reply});
+      }else{
+        // FIXED 2026-09-08 — a genuinely still-unanswered message used to be
+        // silently dropped from the reloaded thread (no bubble at all),
+        // which is what made a real in-flight reply look like it had
+        // vanished after the app came back from being backgrounded/frozen.
+        // Now the thread honestly shows it as still pending, and a fresh
+        // poll picks up where an old, possibly-frozen one left off.
+        const bubbleId='amit-'+row.id;
+        amAppendMessageToThread(mode,{id:bubbleId,created_at:row.created_at,who:'amit',transcript:'Amit is thinking…',pending:true});
+        amPollRowForReply(row.id,bubbleId).then(reply=>{
+          amUpdateThreadMessage(mode,{id:bubbleId,pending:false,transcript:reply});
+        });
       }
     });
     amScrollThreadToBottom(mode);
@@ -1579,6 +1603,25 @@ if(db){
     amLoadVoicePref(); // pick up whatever voice was set in the Hub's Amit Voice panel
   });
 }
+
+// FIXED 2026-09-08, Ryan's direct live report: iOS Safari puts a
+// backgrounded tab to sleep (freezing timers, sometimes discarding the
+// page outright to reclaim memory) — coming back later looked exactly
+// like the conversation had been silently wiped, with no code anywhere
+// re-checking reality once the tab woke back up. This re-verifies the
+// real, current sign-in state and reloads the real thread straight from
+// Supabase (never trusting whatever's still sitting in the DOM) every
+// time the tab becomes visible again — the same resync amLoadThreadHistory
+// already does on a normal page load, just re-run on wake instead of only
+// once at startup.
+document.addEventListener('visibilitychange',async()=>{
+  if(document.visibilityState!=='visible'||!db)return;
+  try{
+    const{data:{session}}=await db.auth.getSession();
+    currentUser=session?session.user:null;
+  }catch(e){ console.error('resume session check failed',e); }
+  amInitThreadPages();
+});
 
 // ══════════════════════════════════════════════
 // AMIT READINESS BANNER — REMOVED 2026-09-05, Ryan's direct correction.
