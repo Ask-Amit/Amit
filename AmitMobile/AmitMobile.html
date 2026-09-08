@@ -374,7 +374,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.19</div>
+<div class="amversion" id="pageVersion">v1.20</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1046,8 +1046,39 @@ function amPickDefaultVoice(voices){
   const enUS=voices.find(v=>/^en-US/i.test(v.lang));
   return enUS||voices.find(v=>/^en/i.test(v.lang))||voices[0]||null;
 }
+// VOICE MUTE TOGGLE — added 2026-09-08, Ryan's direct ask: voice was
+// always on with no way to turn it off. A simple localStorage flag,
+// checked at the top of amSpeak() so muting is a hard stop — no partial
+// speaking, no queued utterance left over from before muting.
+function amIsVoiceMuted(){
+  try{ return localStorage.getItem('amitMobileVoiceMuted')==='1'; }catch(e){ return false; }
+}
+function amToggleVoiceMute(){
+  const muted=amIsVoiceMuted();
+  try{ localStorage.setItem('amitMobileVoiceMuted', muted?'0':'1'); }catch(e){}
+  if(!muted&&('speechSynthesis' in window)){
+    try{ window.speechSynthesis.cancel(); }catch(e){}
+    if(typeof stopSpeakingPulse==='function') stopSpeakingPulse();
+  }
+  _updateVoiceMuteUI();
+}
+function _updateVoiceMuteUI(){
+  const btn=document.getElementById('rail-voice');
+  const icon=document.getElementById('rail-voice-icon');
+  if(!btn||!icon)return;
+  if(amIsVoiceMuted()){
+    icon.textContent='🔇';
+    btn.title='Voice: Off — tap to turn on';
+    btn.classList.remove('active');
+  } else {
+    icon.textContent='🔊';
+    btn.title='Voice: On — tap to turn off';
+    btn.classList.add('active');
+  }
+}
 function amSpeak(text){
   if(!('speechSynthesis' in window))return;
+  if(amIsVoiceMuted())return;
   try{
     // Routed through the SAME shared speakContactText() (amit_owner_contact.js)
     // the Hub uses — one owner-contact row, one function, so pitch/volume/
@@ -1408,9 +1439,13 @@ function amApplyUpdate(){
     <button class="amtop-btn" id="rail-demo" onclick="toggleDemoMode()" title="Demo On">
       <span id="rail-demo-icon">🎬</span>
     </button>
+    <button class="amtop-btn" id="rail-voice" onclick="amToggleVoiceMute()" title="Voice: On">
+      <span id="rail-voice-icon">🔊</span>
+    </button>
     <button class="amtop-btn" id="rail-home" onclick="goToHub()" title="Back to the Hub">🏠</button>`;
     _updateDemoUI();
     _updateSyncUI();
+    _updateVoiceMuteUI();
   }
 
   _refreshAmitReadinessBanner();
