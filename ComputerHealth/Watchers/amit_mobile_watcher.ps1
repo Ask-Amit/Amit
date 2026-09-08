@@ -243,6 +243,26 @@ $EVENTS_LOG = Join-Path $watcherDir "amit_mobile_events.log"
 # 2.5-second poll cycle while its `reply` column is still null.
 $loggedIds = New-Object System.Collections.Generic.HashSet[string]
 
+# FIXED 2026-09-08, real bug caught live: the in-memory $loggedIds set
+# alone isn't enough — the bridge's own self-healing supervisor restarts
+# this watcher periodically, and a fresh process starts with an empty
+# set, re-logging the same still-unanswered row every time it restarts
+# (confirmed live: the same message appeared 3 times in one short test).
+# Also check the log FILE itself, which survives a restart, before
+# appending — a real, persistent dedup instead of a memory-only one.
+function Test-AlreadyLogged($rowId) {
+    $rowIdStr = "$rowId"
+    if ($loggedIds.Contains($rowIdStr)) { return $true }
+    if (Test-Path $EVENTS_LOG) {
+        $needle = "`"id`":$rowId,"
+        if (Select-String -Path $EVENTS_LOG -SimpleMatch $needle -Quiet) {
+            [void]$loggedIds.Add($rowIdStr)
+            return $true
+        }
+    }
+    return $false
+}
+
 function Write-Event($row) {
     $eventObj = @{
         id = $row.id
@@ -295,11 +315,10 @@ while (-not (Test-Path $StopFlag)) {
         }
         $mode = Get-ReplyMode $row.user_id
         if ($mode -eq 'warm') {
-            $rowIdStr = "$($row.id)"
-            if (-not $loggedIds.Contains($rowIdStr)) {
+            if (-not (Test-AlreadyLogged $row.id)) {
                 Write-Host "[amit-mobile-watcher] Logging capture id=$($row.id) for warm/live-session reply (mode=warm)"
                 Write-Event $row
-                [void]$loggedIds.Add($rowIdStr)
+                [void]$loggedIds.Add("$($row.id)")
             }
             continue
         }
