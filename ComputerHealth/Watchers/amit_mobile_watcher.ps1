@@ -38,6 +38,19 @@
 # per-row via Test-HubOpen below). Capture/save on the phone is NEVER
 # gated by this - only whether THIS watcher calls Claude for a given row.
 #
+# TWO REPLY MODES, added 2026-09-08, Ryan's direct instruction, toggled
+# per-user from Amit Mobile's own UI (amit_mobile_reply_mode table):
+#   'cold' (default) - this watcher answers it itself, exactly as
+#           described above (a fresh, one-shot claude -p call). Always
+#           available, no open session required, real per-message lag.
+#   'warm' - this watcher does NOT call Claude at all. It appends the
+#           message to a local events log (amit_mobile_events.log) for a
+#           live, already-open Claude Code session to pick up via its
+#           own Monitor tool and answer directly, with full context and
+#           tool access, then write the reply back to Supabase itself.
+#           Fast, but only works while that session is actually open and
+#           watching - see AmitMobile\CLAUDE.md for the full tradeoff.
+#
 # Honest limitations, same as documented in AmitMobile\CLAUDE.md:
 #   - Only works while the shared bridge (and this computer) is awake and
 #     running — see Amit_Live_Setup_Guide.md for the Windows sleep setting.
@@ -203,6 +216,46 @@ function Test-HubOpen($userId) {
     }
 }
 
+# ADDED 2026-09-08, Ryan's direct instruction — a real toggle between two
+# reply mechanisms, readable from his phone (Amit Mobile's own toggle
+# button) and this watcher both. 'warm' logs the message to a local
+# events file for an already-open, live Claude Code session (this exact
+# kind of interactive session, watching via the Monitor tool) to answer
+# directly - fast, but only works while that session is open. 'cold'
+# (default) keeps the existing one-shot claude -p behavior below -
+# slower, but always available, no open session required.
+function Get-ReplyMode($userId) {
+    $uri = "$SUPABASE_URL/rest/v1/amit_mobile_reply_mode?user_id=eq.$userId&select=mode"
+    try {
+        $json = & curl.exe -s $uri -H "apikey: $SECRET_KEY" -H "Authorization: Bearer $SECRET_KEY"
+        $rows = @($json | ConvertFrom-Json)
+        if ($rows.Count -eq 0) { return 'cold' }
+        return $rows[0].mode
+    } catch { return 'cold' }
+}
+
+# Where 'warm' mode logs new messages for a live session's Monitor watch
+# to pick up. One JSON line per message - never rewritten, only appended.
+$EVENTS_LOG = Join-Path $watcherDir "amit_mobile_events.log"
+
+# Tracks which row IDs have already been logged this run, so a message
+# waiting on a live session's reply doesn't get re-appended every single
+# 2.5-second poll cycle while its `reply` column is still null.
+$loggedIds = New-Object System.Collections.Generic.HashSet[string]
+
+function Write-Event($row) {
+    $eventObj = @{
+        id = $row.id
+        user_id = $row.user_id
+        transcript = $row.transcript
+        destination = $row.destination
+        photo_url = $row.photo_url
+        created_at = $row.created_at
+    }
+    $line = $eventObj | ConvertTo-Json -Compress
+    Add-Content -Path $EVENTS_LOG -Value $line -Encoding UTF8
+}
+
 function Write-Reply($id, $reply) {
     $uri = "$SUPABASE_URL/rest/v1/amit_mobile_captures?id=eq.$id"
     $bodyObj = @{ reply = $reply; reply_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ") }
@@ -240,7 +293,17 @@ while (-not (Test-Path $StopFlag)) {
             Write-Reply $row.id "Amit is caught up but the Hub isn't open right now - open the Hub to let Amit reply."
             continue
         }
-        Write-Host "[amit-mobile-watcher] Answering capture id=$($row.id) from user $($row.user_id)"
+        $mode = Get-ReplyMode $row.user_id
+        if ($mode -eq 'warm') {
+            $rowIdStr = "$($row.id)"
+            if (-not $loggedIds.Contains($rowIdStr)) {
+                Write-Host "[amit-mobile-watcher] Logging capture id=$($row.id) for warm/live-session reply (mode=warm)"
+                Write-Event $row
+                [void]$loggedIds.Add($rowIdStr)
+            }
+            continue
+        }
+        Write-Host "[amit-mobile-watcher] Answering capture id=$($row.id) from user $($row.user_id) (mode=cold)"
         $prompt = Build-Prompt $row
         $answer = Invoke-Claude $prompt
         if (-not $answer) { $answer = "Amit had trouble putting a reply together just now - try asking again in a moment." }
