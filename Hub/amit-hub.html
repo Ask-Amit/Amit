@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.69</div>
+    <div class="page-version" id="hubVersionBadge">v6.70</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -2283,18 +2283,33 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
       </div>
       <div id="amvStmReadingView" style="display:none">
-        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(201,168,76,.2)">
-          <button id="amvStmPlayPauseBtn" class="hub-btn-secondary" onclick="amvStmTogglePlayPause()" style="padding:6px 14px">⏸ Pause</button>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px">
+          <button class="hub-btn-secondary" onclick="amvStmSkip(-15)" title="Back a phrase (Left arrow)" style="padding:6px 12px">⏮</button>
+          <button id="amvStmPlayPauseBtn" class="hub-btn-secondary" onclick="amvStmTogglePlayPause()" title="Play/Pause (Spacebar)" style="padding:6px 16px">⏸ Pause</button>
+          <button class="hub-btn-secondary" onclick="amvStmSkip(15)" title="Forward a phrase (Right arrow)" style="padding:6px 12px">⏭</button>
           <button class="hub-btn-secondary" onclick="amvStmStartOver()" style="padding:6px 14px">⟲ Start Over</button>
           <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
             <span>Speed</span>
-            <input type="range" id="amvStmSpeedSlider" min="0.5" max="2" step="0.05" oninput="amvStmSpeedChanged(this.value)" style="width:110px">
+            <input type="range" id="amvStmSpeedSlider" min="0.5" max="2" step="0.05" oninput="amvStmSpeedChanged(this.value)" style="width:100px">
             <span id="amvStmSpeedLabel" style="min-width:30px">1.0x</span>
           </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(201,168,76,.2)">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+            <span>🌙 Sleep after</span>
+            <select id="amvStmSleepSelect" onchange="amvStmSleepChanged(this.value)" style="background:rgba(255,255,255,.06);color:#e8e2cf;border:1px solid rgba(201,168,76,.3);border-radius:4px;padding:3px 6px;font-size:12px">
+              <option value="0">Off</option>
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+            </select>
+          </div>
+          <span id="amvStmProgress" style="font-size:12px;color:var(--dim)"></span>
           <button class="hub-btn-secondary" onclick="amvStmNewText()" style="padding:6px 14px;margin-left:auto">✎ New Text</button>
         </div>
-        <div id="amvStmWordContainer" style="max-height:360px;overflow-y:auto;font-family:Georgia,serif;font-size:16px;line-height:2;color:#e8e2cf" onmouseover="amvStmWordHover(event)"></div>
-        <p style="font-size:11px;color:var(--dim);margin-top:10px;font-style:italic">Move your mouse over any word to jump reading there.</p>
+        <div id="amvStmWordContainer" style="max-height:340px;overflow-y:auto;font-family:Georgia,serif;font-size:16px;line-height:2;color:#e8e2cf" onmouseover="amvStmWordHover(event)"></div>
+        <p style="font-size:11px;color:var(--dim);margin-top:10px;font-style:italic">Move your mouse over any word to jump reading there — or use Spacebar to pause/resume and the arrow keys to skip, no mouse needed. Picks up right where you left off, even tomorrow.</p>
       </div>
     </div>
   </div>
@@ -4089,23 +4104,66 @@ function _amvSpeakWithContact(text,contact,voices){
 // the slider, since Ryan specifically wants a way to slow it down for
 // nighttime listening without changing his global voice setting.
 // ══════════════════════════════════════════════
-const _amvStm={words:[],index:0,rate:0.85,started:false,voices:null};
-function amvOpenSpeakToMe(){
+const AMV_STM_SAVE_KEY='amv_stm_saved_read';
+const _amvStm={words:[],index:0,rate:0.85,started:false,voices:null,sleepTimer:null,sleepAt:null};
+// Persists across closing the modal, reloading the page, or coming back
+// tomorrow - Ryan's direct instruction, 2026-09-10: this is meant for
+// someone genuinely listening their way through something long (a whole
+// section of a book), not a one-sitting toy. Saved on every real word
+// advance (throttled to avoid hammering localStorage on every boundary
+// event) and on every deliberate pause/skip.
+let _amvStmLastSaveIndex=-1;
+function _amvStmSaveProgress(){
+  if(_amvStm.index===_amvStmLastSaveIndex)return;
+  _amvStmLastSaveIndex=_amvStm.index;
+  try{
+    localStorage.setItem(AMV_STM_SAVE_KEY,JSON.stringify({
+      words:_amvStm.words,index:_amvStm.index,rate:_amvStm.rate,savedAt:Date.now()
+    }));
+  }catch(e){/* storage full or unavailable - not worth failing the read over */}
+}
+function _amvStmClearSaved(){
+  try{localStorage.removeItem(AMV_STM_SAVE_KEY);}catch(e){}
+}
+async function amvOpenSpeakToMe(){
   closeHubAmitPanel();
-  _amvStm.words=[];
-  _amvStm.index=0;
-  _amvStm.started=false;
-  document.getElementById('amvStmInputText').value='';
-  document.getElementById('amvStmInputView').style.display='block';
-  document.getElementById('amvStmReadingView').style.display='none';
+  let saved=null;
+  try{ saved=JSON.parse(localStorage.getItem(AMV_STM_SAVE_KEY)||'null'); }catch(e){}
   document.getElementById('amvStmOverlay').style.display='flex';
+  if(saved&&saved.words&&saved.words.length&&saved.index<saved.words.length){
+    // Real resume, not just re-showing the input box - picks up exactly
+    // where a prior session left off, even a completely different day.
+    _amvStm.words=saved.words;
+    _amvStm.rate=saved.rate||0.85;
+    document.getElementById('amvStmSpeedSlider').value=_amvStm.rate;
+    document.getElementById('amvStmSpeedLabel').textContent=_amvStm.rate.toFixed(2)+'x';
+    const container=document.getElementById('amvStmWordContainer');
+    container.innerHTML=_amvStm.words.map((w,i)=>`<span class="stm-word" data-i="${i}" style="cursor:pointer;border-radius:3px;padding:0 1px">${w.replace(/</g,'&lt;')}</span>`).join('');
+    document.getElementById('amvStmInputView').style.display='none';
+    document.getElementById('amvStmReadingView').style.display='block';
+    _amvStm.started=true;
+    _amvStmLastSaveIndex=saved.index;
+    if(!_amvStm.voices)_amvStm.voices=await _amvGetVoicesReady();
+    amvStmReadFrom(saved.index);
+    _amvStmUpdateProgress();
+  } else {
+    _amvStm.words=[];
+    _amvStm.index=0;
+    _amvStm.started=false;
+    document.getElementById('amvStmInputText').value='';
+    document.getElementById('amvStmInputView').style.display='block';
+    document.getElementById('amvStmReadingView').style.display='none';
+  }
 }
 function amvStmClose(){
   window.speechSynthesis.cancel();
+  _amvStmClearSleepTimer();
   document.getElementById('amvStmOverlay').style.display='none';
 }
 function amvStmNewText(){
   window.speechSynthesis.cancel();
+  _amvStmClearSaved();
+  _amvStmClearSleepTimer();
   document.getElementById('amvStmInputView').style.display='block';
   document.getElementById('amvStmReadingView').style.display='none';
 }
@@ -4115,8 +4173,12 @@ async function amvStmBeginReading(){
   // Keeps each token's own trailing whitespace attached, so rejoining
   // words.slice(i).join('') for any starting point reproduces the exact
   // original spacing/line breaks, not a flattened single-space version.
+  // No restrictions on what's pasted here, and none should ever be added -
+  // Ryan's direct instruction: whatever someone copies and pastes is what
+  // gets read, full stop.
   _amvStm.words=raw.match(/\S+\s*/g)||[raw];
   _amvStm.rate=(_amvOwnerContact&&_amvOwnerContact.voice_rate)?Number(_amvOwnerContact.voice_rate):0.85;
+  _amvStmLastSaveIndex=-1;
   document.getElementById('amvStmSpeedSlider').value=_amvStm.rate;
   document.getElementById('amvStmSpeedLabel').textContent=_amvStm.rate.toFixed(2)+'x';
   const container=document.getElementById('amvStmWordContainer');
@@ -4160,21 +4222,41 @@ function amvStmReadFrom(startIndex){
     let acc=0;
     for(let k=0;k<remaining.length;k++){
       acc+=remaining[k].length;
-      if(e.charIndex<acc){ _amvStmHighlight(startIndex+k); _amvStm.index=startIndex+k; break; }
+      if(e.charIndex<acc){
+        _amvStmHighlight(startIndex+k);
+        _amvStm.index=startIndex+k;
+        _amvStmUpdateProgress();
+        _amvStmSaveProgress();
+        break;
+      }
     }
   };
   u.onend=()=>{
     const el=document.querySelector('.stm-word.stm-active');
     if(el){el.classList.remove('stm-active');el.style.background='';}
+    if(_amvStm.index>=_amvStm.words.length-1){
+      // Genuinely finished, not just paused/cancelled mid-read - clear the
+      // saved position so reopening starts fresh instead of "resuming" at
+      // the very end of something already done.
+      _amvStmClearSaved();
+    }
   };
   document.getElementById('amvStmPlayPauseBtn').textContent='⏸ Pause';
   window.speechSynthesis.speak(u);
+  _amvStmUpdateProgress();
+}
+function _amvStmUpdateProgress(){
+  const el=document.getElementById('amvStmProgress');
+  if(!el||!_amvStm.words.length)return;
+  const pct=Math.round((_amvStm.index/_amvStm.words.length)*100);
+  el.textContent=`Word ${_amvStm.index+1} of ${_amvStm.words.length} (${pct}%)`;
 }
 function amvStmTogglePlayPause(){
   const btn=document.getElementById('amvStmPlayPauseBtn');
   if(window.speechSynthesis.speaking&&!window.speechSynthesis.paused){
     window.speechSynthesis.pause();
     btn.textContent='▶ Resume';
+    _amvStmSaveProgress();
   } else if(window.speechSynthesis.paused){
     window.speechSynthesis.resume();
     btn.textContent='⏸ Pause';
@@ -4183,6 +4265,17 @@ function amvStmTogglePlayPause(){
   }
 }
 function amvStmStartOver(){ amvStmReadFrom(0); }
+// Skip back/forward a real phrase's worth of words - Ryan's direct
+// addition, 2026-09-10: works identically via the ⏮/⏭ buttons or the
+// Left/Right arrow keys, so this is fully usable with eyes closed, no
+// mouse needed to re-hear something or jump past a slow patch.
+function amvStmSkip(delta){
+  if(!_amvStm.started)return;
+  let target=_amvStm.index+delta;
+  if(target<0)target=0;
+  if(target>=_amvStm.words.length)target=_amvStm.words.length-1;
+  amvStmReadFrom(target);
+}
 function amvStmSpeedChanged(val){
   _amvStm.rate=Number(val);
   document.getElementById('amvStmSpeedLabel').textContent=_amvStm.rate.toFixed(2)+'x';
@@ -4199,6 +4292,39 @@ function amvStmWordHover(e){
   const i=Number(el.dataset.i);
   if(!isNaN(i)&&i!==_amvStm.index)amvStmReadFrom(i);
 }
+// SLEEP TIMER - Ryan's direct addition, 2026-09-10: real nighttime-listening
+// use case (falling asleep mid-book/article) - stops speech and saves
+// progress automatically after the chosen window, no need to still be awake
+// to close it out cleanly.
+function _amvStmClearSleepTimer(){
+  if(_amvStm.sleepTimer){clearTimeout(_amvStm.sleepTimer);_amvStm.sleepTimer=null;}
+  _amvStm.sleepAt=null;
+}
+function amvStmSleepChanged(minutes){
+  _amvStmClearSleepTimer();
+  const mins=Number(minutes);
+  if(!mins)return;
+  _amvStm.sleepAt=Date.now()+mins*60000;
+  _amvStm.sleepTimer=setTimeout(()=>{
+    window.speechSynthesis.cancel();
+    _amvStmSaveProgress();
+    const btn=document.getElementById('amvStmPlayPauseBtn');
+    if(btn)btn.textContent='▶ Resume';
+    _amvStm.sleepTimer=null;
+  },mins*60000);
+}
+// KEYBOARD CONTROL - Spacebar play/pause, Left/Right arrows skip a phrase -
+// only active while the Speak to Me modal is actually open, and only when
+// not typing in the paste textarea (where a space/arrow key must behave
+// normally). This is what makes the whole tool usable with eyes closed.
+document.addEventListener('keydown',(e)=>{
+  const overlay=document.getElementById('amvStmOverlay');
+  if(!overlay||overlay.style.display!=='flex')return;
+  if(e.target&&e.target.tagName==='TEXTAREA')return;
+  if(e.code==='Space'){ e.preventDefault(); amvStmTogglePlayPause(); }
+  else if(e.code==='ArrowLeft'){ e.preventDefault(); amvStmSkip(-15); }
+  else if(e.code==='ArrowRight'){ e.preventDefault(); amvStmSkip(15); }
+});
 
 // Small dismissible toast shown alongside the spoken greeting — Ryan's
 // direct instruction: the moment Amit introduces itself, there should be
