@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Speak to Me — Amit</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="amit_owner_contact.js"></script>
+<style>
+  body{margin:0;background:#12141a;color:#e8e2cf;font-family:system-ui,sans-serif;display:flex;justify-content:center;padding:30px 16px}
+  .box{max-width:760px;width:100%}
+  h1{font-family:Georgia,serif;color:#c9a84c;font-size:22px;margin:0 0 4px}
+  p.sub{color:#9aa0ab;font-size:13px;margin:0 0 20px}
+  textarea{width:100%;min-height:260px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.35);border-radius:8px;color:#f0e8d0;padding:14px;font-family:Georgia,serif;font-size:15px;line-height:1.6;resize:vertical;box-sizing:border-box}
+  .btn{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.4);color:#e8e2cf;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px}
+  .btn:hover{background:rgba(201,168,76,.15)}
+  .btn.primary{background:rgba(201,168,76,.22);border-color:#c9a84c;font-weight:600}
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:14px 0}
+  .slider-group{display:flex;align-items:center;gap:6px;font-size:12px;color:#9aa0ab}
+  input[type=range]{width:100px}
+  select{background:rgba(255,255,255,.06);color:#e8e2cf;border:1px solid rgba(201,168,76,.35);border-radius:4px;padding:4px 6px;font-size:12px}
+  #wordBox{max-height:400px;overflow-y:auto;font-family:Georgia,serif;font-size:17px;line-height:2;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:16px}
+  .word{cursor:pointer;border-radius:3px;padding:0 1px}
+  .word.active{background:rgba(201,168,76,.4)}
+  #progress{font-size:12px;color:#9aa0ab}
+  .hint{font-size:11px;color:#7a7f89;font-style:italic;margin-top:10px}
+  #readingView{display:none}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>🔊 Speak to Me</h1>
+  <p class="sub">Paste in as much text as you want — read back to you, at your own pace.</p>
+  <p class="sub" id="voiceStatus">Checking your Amit voice settings…</p>
+
+  <div id="inputView">
+    <textarea id="inputText" placeholder="Paste your text here…"></textarea>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn primary" onclick="beginReading()">🔊 Read to Me</button>
+    </div>
+  </div>
+
+  <div id="readingView">
+    <div class="row">
+      <button class="btn" onclick="skip(-15)" title="Back a phrase (Left arrow)">⏮</button>
+      <button class="btn primary" id="playPauseBtn" onclick="togglePlayPause()" title="Play/Pause (Spacebar)">⏸ Pause</button>
+      <button class="btn" onclick="skip(15)" title="Forward a phrase (Right arrow)">⏭</button>
+      <button class="btn" onclick="startOver()">⟲ Start Over</button>
+    </div>
+    <div class="row">
+      <div class="slider-group">
+        <span>Speed</span>
+        <input type="range" id="speedSlider" min="0.5" max="2" step="0.05" value="0.85" oninput="speedChanged(this.value)">
+        <span id="speedLabel">0.85x</span>
+      </div>
+      <div class="slider-group">
+        <span>🔊 Volume</span>
+        <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1" oninput="volumeChanged(this.value)">
+        <span id="volumeLabel">100%</span>
+      </div>
+      <div class="slider-group">
+        <span>🎙 Voice</span>
+        <select id="voiceSelect" onchange="voiceChanged(this.value)"></select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="slider-group">
+        <span>🌙 Sleep after</span>
+        <select id="sleepSelect" onchange="sleepChanged(this.value)">
+          <option value="0">Off</option>
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="45">45 min</option>
+          <option value="60">60 min</option>
+        </select>
+      </div>
+      <span id="progress"></span>
+      <button class="btn" style="margin-left:auto" onclick="newText()">✎ New Text</button>
+    </div>
+    <div id="wordBox" onclick="wordClicked(event)"></div>
+    <p class="hint">Click any word to jump reading there — or use Spacebar to pause/resume and the arrow keys to skip, no mouse needed. Picks up right where you left off, even tomorrow.</p>
+  </div>
+</div>
+
+<script>
+const SAVE_KEY='amv_stm_standalone_save';
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+const state={words:[],index:0,rate:0.85,pitch:1.0,volume:1.0,voiceURI:null,started:false,voices:[],sleepTimer:null,ownerContact:null};
+let lastSaveIndex=-1;
+
+// REAL LOGIN-LINKED VOICE - Ryan's direct instruction, 2026-09-10: this
+// must pull the same voice/speed/pitch/volume he already configured for
+// Amit in the Hub, not its own separate defaults. Reuses the exact same
+// shared contact row and resolver (amit_owner_contact.js) the Hub itself
+// uses - one real source of truth, not a second copy of these settings.
+// Honest limit, stated plainly to the person: this only works when the
+// page is opened at its real, live web address (same origin the Hub
+// signed in on) - a browser session/localStorage never crosses from a
+// local file:// page to a real https:// one, so a login done in the Hub
+// is invisible to a copy of this file opened by double-clicking it.
+async function loadRealVoiceSettings(){
+  const statusEl=document.getElementById('voiceStatus');
+  if(!db){ statusEl.textContent='Using the default Amit voice (Supabase not available here).'; return; }
+  try{
+    const { data:{ session } } = await db.auth.getSession();
+    if(!session||!session.user){
+      statusEl.textContent='Not signed in — using the default Amit voice. Open this from the Hub while signed in to use your own saved voice.';
+      return;
+    }
+    const contact=await getOrCreateOwnerContact(db,session.user.id,session.user.user_metadata?.full_name||'',session.user.email);
+    if(!contact){ statusEl.textContent='Signed in, but your voice settings couldn\'t be loaded — using the default voice.'; return; }
+    state.ownerContact=contact;
+    state.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
+    state.pitch=contact.voice_pitch?Number(contact.voice_pitch):1.0;
+    state.volume=(contact.voice_volume!=null)?Number(contact.voice_volume):1.0;
+    if(contact.voice_name){
+      const match=state.voices.find(v=>v.name===contact.voice_name);
+      if(match)state.voiceURI=match.voiceURI;
+    }
+    document.getElementById('speedSlider').value=state.rate;
+    document.getElementById('speedLabel').textContent=state.rate.toFixed(2)+'x';
+    document.getElementById('volumeSlider').value=state.volume;
+    document.getElementById('volumeLabel').textContent=Math.round(state.volume*100)+'%';
+    const vIdx=state.voices.findIndex(v=>v.voiceURI===state.voiceURI);
+    if(vIdx>=0)document.getElementById('voiceSelect').value=vIdx;
+    statusEl.textContent='Signed in as '+session.user.email+' — using your own Amit voice from the Hub'+(contact.voice_pause_scale&&contact.voice_pause_scale!==1?' (note: your saved sentence-pacing setting doesn\'t carry over here — this reads continuously, word by word, a different playback style than the Hub\'s own sentence-by-sentence speech)':'')+'.';
+  }catch(e){
+    statusEl.textContent='Using the default Amit voice (could not check your sign-in here).';
+  }
+}
+
+function getVoicesReady(){
+  return new Promise(resolve=>{
+    let v=speechSynthesis.getVoices();
+    if(v.length){resolve(v);return;}
+    speechSynthesis.onvoiceschanged=()=>resolve(speechSynthesis.getVoices());
+    setTimeout(()=>resolve(speechSynthesis.getVoices()),1500);
+  });
+}
+
+async function populateVoiceList(){
+  state.voices=await getVoicesReady();
+  const sel=document.getElementById('voiceSelect');
+  sel.innerHTML=state.voices.map((v,i)=>`<option value="${i}">${v.name}${v.lang?' ('+v.lang+')':''}</option>`).join('');
+  // Prefer a natural-sounding English voice by default if one exists
+  const preferred=state.voices.findIndex(v=>/natural|online/i.test(v.name)&&/en/i.test(v.lang));
+  const defaultIdx=preferred>=0?preferred:0;
+  if(state.voices.length){ sel.value=defaultIdx; state.voiceURI=state.voices[defaultIdx].voiceURI; }
+}
+function voiceChanged(idx){
+  const v=state.voices[Number(idx)];
+  if(v){ state.voiceURI=v.voiceURI; if(state.started)readFrom(state.index); }
+}
+
+function saveProgress(){
+  if(state.index===lastSaveIndex)return;
+  lastSaveIndex=state.index;
+  try{
+    localStorage.setItem(SAVE_KEY,JSON.stringify({words:state.words,index:state.index,rate:state.rate,volume:state.volume,voiceURI:state.voiceURI}));
+  }catch(e){}
+}
+function clearSaved(){ try{localStorage.removeItem(SAVE_KEY);}catch(e){} }
+
+window.addEventListener('DOMContentLoaded',async()=>{
+  await populateVoiceList();
+  await loadRealVoiceSettings();
+  let saved=null;
+  try{ saved=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); }catch(e){}
+  if(saved&&saved.words&&saved.words.length&&saved.index<saved.words.length){
+    state.words=saved.words;
+    state.rate=saved.rate||0.85;
+    state.volume=(saved.volume!==undefined)?saved.volume:1.0;
+    if(saved.voiceURI)state.voiceURI=saved.voiceURI;
+    document.getElementById('speedSlider').value=state.rate;
+    document.getElementById('speedLabel').textContent=state.rate.toFixed(2)+'x';
+    document.getElementById('volumeSlider').value=state.volume;
+    document.getElementById('volumeLabel').textContent=Math.round(state.volume*100)+'%';
+    const vIdx=state.voices.findIndex(v=>v.voiceURI===state.voiceURI);
+    if(vIdx>=0)document.getElementById('voiceSelect').value=vIdx;
+    renderWords();
+    document.getElementById('inputView').style.display='none';
+    document.getElementById('readingView').style.display='block';
+    state.started=true;
+    lastSaveIndex=saved.index;
+    readFrom(saved.index);
+  }
+});
+
+function renderWords(){
+  document.getElementById('wordBox').innerHTML=state.words.map((w,i)=>
+    `<span class="word" data-i="${i}">${w.replace(/</g,'&lt;')}</span>`
+  ).join('');
+}
+
+function beginReading(){
+  const raw=document.getElementById('inputText').value;
+  if(!raw||!raw.trim())return;
+  state.words=raw.match(/\S+\s*/g)||[raw];
+  lastSaveIndex=-1;
+  renderWords();
+  document.getElementById('inputView').style.display='none';
+  document.getElementById('readingView').style.display='block';
+  state.started=true;
+  readFrom(0);
+}
+function newText(){
+  speechSynthesis.cancel();
+  clearSleepTimer();
+  clearSaved();
+  document.getElementById('inputView').style.display='block';
+  document.getElementById('readingView').style.display='none';
+}
+function highlight(i){
+  const prev=document.querySelector('.word.active');
+  if(prev)prev.classList.remove('active');
+  const el=document.querySelector(`.word[data-i="${i}"]`);
+  if(el){ el.classList.add('active'); el.scrollIntoView({block:'center',behavior:'smooth'}); }
+}
+function updateProgress(){
+  if(!state.words.length)return;
+  const pct=Math.round((state.index/state.words.length)*100);
+  document.getElementById('progress').textContent=`Word ${state.index+1} of ${state.words.length} (${pct}%)`;
+}
+function readFrom(startIndex){
+  speechSynthesis.cancel();
+  const prev=document.querySelector('.word.active');
+  if(prev)prev.classList.remove('active');
+  if(startIndex>=state.words.length)return;
+  state.index=startIndex;
+  const remaining=state.words.slice(startIndex);
+  const text=remaining.join('');
+  const u=new SpeechSynthesisUtterance(text);
+  const voice=state.voices.find(v=>v.voiceURI===state.voiceURI);
+  if(voice)u.voice=voice;
+  u.rate=state.rate;
+  u.volume=state.volume;
+  u.pitch=state.pitch;
+  u.onboundary=(e)=>{
+    if(e.name&&e.name!=='word')return;
+    let acc=0;
+    for(let k=0;k<remaining.length;k++){
+      acc+=remaining[k].length;
+      if(e.charIndex<acc){ highlight(startIndex+k); state.index=startIndex+k; updateProgress(); saveProgress(); break; }
+    }
+  };
+  u.onend=()=>{
+    const el=document.querySelector('.word.active');
+    if(el)el.classList.remove('active');
+    if(state.index>=state.words.length-1)clearSaved();
+  };
+  document.getElementById('playPauseBtn').textContent='⏸ Pause';
+  speechSynthesis.speak(u);
+  updateProgress();
+}
+function togglePlayPause(){
+  const btn=document.getElementById('playPauseBtn');
+  if(speechSynthesis.speaking&&!speechSynthesis.paused){
+    speechSynthesis.pause(); btn.textContent='▶ Resume'; saveProgress();
+  } else if(speechSynthesis.paused){
+    speechSynthesis.resume(); btn.textContent='⏸ Pause';
+  } else { readFrom(state.index); }
+}
+function startOver(){ readFrom(0); }
+function skip(delta){
+  if(!state.started)return;
+  let t=state.index+delta;
+  if(t<0)t=0; if(t>=state.words.length)t=state.words.length-1;
+  readFrom(t);
+}
+function speedChanged(val){
+  state.rate=Number(val);
+  document.getElementById('speedLabel').textContent=state.rate.toFixed(2)+'x';
+  if(state.started)readFrom(state.index);
+}
+function volumeChanged(val){
+  state.volume=Number(val);
+  document.getElementById('volumeLabel').textContent=Math.round(state.volume*100)+'%';
+  if(state.started)readFrom(state.index);
+}
+function wordClicked(e){
+  if(!state.started)return;
+  const el=e.target.closest('.word');
+  if(!el)return;
+  const i=Number(el.dataset.i);
+  if(!isNaN(i)&&i!==state.index)readFrom(i);
+}
+function clearSleepTimer(){ if(state.sleepTimer){clearTimeout(state.sleepTimer);state.sleepTimer=null;} }
+function sleepChanged(minutes){
+  clearSleepTimer();
+  const mins=Number(minutes);
+  if(!mins)return;
+  state.sleepTimer=setTimeout(()=>{
+    speechSynthesis.cancel();
+    saveProgress();
+    document.getElementById('playPauseBtn').textContent='▶ Resume';
+  },mins*60000);
+}
+document.addEventListener('keydown',(e)=>{
+  if(e.target&&e.target.tagName==='TEXTAREA')return;
+  if(!state.started)return;
+  if(e.code==='Space'){ e.preventDefault(); togglePlayPause(); }
+  else if(e.code==='ArrowLeft'){ e.preventDefault(); skip(-15); }
+  else if(e.code==='ArrowRight'){ e.preventDefault(); skip(15); }
+});
+</script>
+</body>
+</html>

@@ -1251,8 +1251,8 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.72</div>
-    <button onclick="amvOpenSpeakToMe()" title="Paste in text and Amit reads it back to you" style="margin-left:12px;font-size:12px;letter-spacing:.05em;color:rgba(120,190,230,.95);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.55);padding:5px 12px;border-radius:5px;background:rgba(120,190,230,.14)">🔊 Speak to Me</button>
+    <div class="page-version" id="hubVersionBadge">v6.73</div>
+    <button onclick="window.open('../SpeakToMe.html','_blank')" title="Paste in text and Amit reads it back to you" style="margin-left:12px;font-size:12px;letter-spacing:.05em;color:rgba(120,190,230,.95);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.55);padding:5px 12px;border-radius:5px;background:rgba(120,190,230,.14)">🔊 Speak to Me</button>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -2271,7 +2271,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 </div>
 
 <!-- ── SPEAK TO ME MODAL ── -->
-<div class="hub-amit-overlay" id="amvStmOverlay" style="display:none" onclick="if(event.target===this)amvStmClose()">
+<div class="hub-amit-overlay" id="amvStmOverlay" onclick="if(event.target===this)amvStmClose()">
   <div class="hub-amit-box" style="max-width:640px;width:92%">
     <div class="hub-amit-hdr">
       <span class="hub-amit-hdr-title">SPEAK TO ME</span>
@@ -4137,7 +4137,7 @@ async function amvOpenSpeakToMe(){
   closeHubAmitPanel();
   let saved=null;
   try{ saved=JSON.parse(localStorage.getItem(AMV_STM_SAVE_KEY)||'null'); }catch(e){}
-  document.getElementById('amvStmOverlay').style.display='flex';
+  document.getElementById('amvStmOverlay').classList.add('open');
   if(saved&&saved.words&&saved.words.length&&saved.index<saved.words.length){
     // Real resume, not just re-showing the input box - picks up exactly
     // where a prior session left off, even a completely different day.
@@ -4169,7 +4169,7 @@ async function amvOpenSpeakToMe(){
 function amvStmClose(){
   window.speechSynthesis.cancel();
   _amvStmClearSleepTimer();
-  document.getElementById('amvStmOverlay').style.display='none';
+  document.getElementById('amvStmOverlay').classList.remove('open');
 }
 function amvStmNewText(){
   window.speechSynthesis.cancel();
@@ -4342,7 +4342,7 @@ function amvStmSleepChanged(minutes){
 // normally). This is what makes the whole tool usable with eyes closed.
 document.addEventListener('keydown',(e)=>{
   const overlay=document.getElementById('amvStmOverlay');
-  if(!overlay||overlay.style.display!=='flex')return;
+  if(!overlay||!overlay.classList.contains('open'))return;
   if(e.target&&e.target.tagName==='TEXTAREA')return;
   if(e.code==='Space'){ e.preventDefault(); amvStmTogglePlayPause(); }
   else if(e.code==='ArrowLeft'){ e.preventDefault(); amvStmSkip(-15); }
