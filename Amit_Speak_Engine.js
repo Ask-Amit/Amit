@@ -382,6 +382,17 @@ function saveProgress(){
   }catch(e){}
 }
 function clearSaved(){ try{localStorage.removeItem(SAVE_KEY);}catch(e){} }
+// Restores a saved reading position WITHOUT starting audio — a real bug
+// fixed 2026-09-11: this used to call readFrom(saved.index) directly, which
+// starts speechSynthesis speaking immediately. Since mount() (and this
+// function with it) runs again every time a host page re-renders — normal
+// on a page with a Supabase auth-state listener that fires more than once
+// per load — every one of those re-renders was silently restarting audio
+// from wherever the last save point was, which is what looked like the
+// player "playing itself" and "cycling through and restarting" with no one
+// touching Play. Positioning the UI at the saved spot and leaving playback
+// to the person's own Play press is the correct behavior; togglePlayPause()
+// already calls readFrom(state.index) on the first real press.
 function restoreSavedSession(){
   let saved=null;
   try{ saved=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); }catch(e){}
@@ -393,8 +404,11 @@ function restoreSavedSession(){
     syncVoiceControlUI();
     renderWords();
     state.started=true;
+    state.index=saved.index;
     lastSaveIndex=saved.index;
-    readFrom(saved.index);
+    highlight(saved.index);
+    updateProgress();
+    $('as-playPauseBtn').textContent='▶ Resume';
   }
 }
 
