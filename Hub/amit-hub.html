@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.68</div>
+    <div class="page-version" id="hubVersionBadge">v6.69</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -2249,6 +2249,12 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
       </div>
 
       <div class="hub-path-block">
+        <div class="hub-path-label">Speak to Me</div>
+        <button class="hub-btn-secondary" onclick="amvOpenSpeakToMe()">🔊 Speak to Me &rarr;</button>
+        <p class="hub-path-note">Paste in a large amount of text and Amit reads it back to you — pause, resume, or just move your mouse over any word to jump reading there.</p>
+      </div>
+
+      <div class="hub-path-block">
         <div class="hub-path-label" style="color:rgba(255,255,255,.3);">Coming Soon</div>
         <button disabled class="hub-btn-future">Direct Connection — No Account Needed</button>
         <p class="hub-path-note" style="color:rgba(255,255,255,.2);">Amit responds here instantly, for everyone. In development.</p>
@@ -2256,6 +2262,39 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 
       <div style="text-align:center;margin-top:14px;padding-top:12px;border-top:1px solid rgba(201,168,76,.2);">
         <a href="https://ask-amit.github.io/Amit/who_is_god/who_is_god.html" target="_blank" style="font-size:12px;color:var(--dim);text-decoration:none;border-bottom:1px dotted rgba(255,255,255,.2);">Who is Amit? See the evidence &rarr;</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SPEAK TO ME MODAL ── -->
+<div class="hub-amit-overlay" id="amvStmOverlay" style="display:none" onclick="if(event.target===this)amvStmClose()">
+  <div class="hub-amit-box" style="max-width:640px;width:92%">
+    <div class="hub-amit-hdr">
+      <span class="hub-amit-hdr-title">SPEAK TO ME</span>
+      <button class="hub-amit-close" onclick="amvStmClose()" title="Close">&times;</button>
+    </div>
+    <div class="hub-amit-body">
+      <div id="amvStmInputView">
+        <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Paste in as much text as you want — Amit reads it back to you, at your own pace.</p>
+        <textarea id="amvStmInputText" placeholder="Paste your text here…" style="width:100%;min-height:220px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);border-radius:6px;color:#f0e8d0;padding:12px;font-family:Georgia,serif;font-size:14px;line-height:1.6;resize:vertical"></textarea>
+        <div style="margin-top:12px;text-align:right">
+          <button class="hub-btn-primary" onclick="amvStmBeginReading()">🔊 Read to Me &rarr;</button>
+        </div>
+      </div>
+      <div id="amvStmReadingView" style="display:none">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(201,168,76,.2)">
+          <button id="amvStmPlayPauseBtn" class="hub-btn-secondary" onclick="amvStmTogglePlayPause()" style="padding:6px 14px">⏸ Pause</button>
+          <button class="hub-btn-secondary" onclick="amvStmStartOver()" style="padding:6px 14px">⟲ Start Over</button>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+            <span>Speed</span>
+            <input type="range" id="amvStmSpeedSlider" min="0.5" max="2" step="0.05" oninput="amvStmSpeedChanged(this.value)" style="width:110px">
+            <span id="amvStmSpeedLabel" style="min-width:30px">1.0x</span>
+          </div>
+          <button class="hub-btn-secondary" onclick="amvStmNewText()" style="padding:6px 14px;margin-left:auto">✎ New Text</button>
+        </div>
+        <div id="amvStmWordContainer" style="max-height:360px;overflow-y:auto;font-family:Georgia,serif;font-size:16px;line-height:2;color:#e8e2cf" onmouseover="amvStmWordHover(event)"></div>
+        <p style="font-size:11px;color:var(--dim);margin-top:10px;font-style:italic">Move your mouse over any word to jump reading there.</p>
       </div>
     </div>
   </div>
@@ -4031,6 +4070,134 @@ function _amvSpeakWithContact(text,contact,voices){
   if(voice) u.voice=voice;
   u.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
   window.speechSynthesis.speak(u);
+}
+
+// ══════════════════════════════════════════════
+// SPEAK TO ME — Ryan's direct request, 2026-09-10: a real read-along tool
+// inside the Hub for anyone who has a hard time reading at night, or just
+// wants to listen. Paste in a large amount of text, Amit reads it back,
+// with Pause/Resume/Start Over, a live speed slider, and the real feature
+// that makes this different from a plain "read aloud" button - moving the
+// mouse over ANY word jumps reading to start there, live, mid-speech.
+// Deliberately NOT routed through the shared speakContactText() used
+// elsewhere - that function owns its own internal sentence-by-sentence
+// queue, with no way to interrupt mid-sentence and jump to an arbitrary
+// word. This needs real, direct control over one utterance at a time so a
+// hover-jump can cancel and restart exactly where the mouse landed.
+// Voice/pitch still pulled from the same owner-contact settings everyone
+// else uses - only the rate is independently adjustable here, live, via
+// the slider, since Ryan specifically wants a way to slow it down for
+// nighttime listening without changing his global voice setting.
+// ══════════════════════════════════════════════
+const _amvStm={words:[],index:0,rate:0.85,started:false,voices:null};
+function amvOpenSpeakToMe(){
+  closeHubAmitPanel();
+  _amvStm.words=[];
+  _amvStm.index=0;
+  _amvStm.started=false;
+  document.getElementById('amvStmInputText').value='';
+  document.getElementById('amvStmInputView').style.display='block';
+  document.getElementById('amvStmReadingView').style.display='none';
+  document.getElementById('amvStmOverlay').style.display='flex';
+}
+function amvStmClose(){
+  window.speechSynthesis.cancel();
+  document.getElementById('amvStmOverlay').style.display='none';
+}
+function amvStmNewText(){
+  window.speechSynthesis.cancel();
+  document.getElementById('amvStmInputView').style.display='block';
+  document.getElementById('amvStmReadingView').style.display='none';
+}
+async function amvStmBeginReading(){
+  const raw=document.getElementById('amvStmInputText').value;
+  if(!raw||!raw.trim())return;
+  // Keeps each token's own trailing whitespace attached, so rejoining
+  // words.slice(i).join('') for any starting point reproduces the exact
+  // original spacing/line breaks, not a flattened single-space version.
+  _amvStm.words=raw.match(/\S+\s*/g)||[raw];
+  _amvStm.rate=(_amvOwnerContact&&_amvOwnerContact.voice_rate)?Number(_amvOwnerContact.voice_rate):0.85;
+  document.getElementById('amvStmSpeedSlider').value=_amvStm.rate;
+  document.getElementById('amvStmSpeedLabel').textContent=_amvStm.rate.toFixed(2)+'x';
+  const container=document.getElementById('amvStmWordContainer');
+  container.innerHTML=_amvStm.words.map((w,i)=>`<span class="stm-word" data-i="${i}" style="cursor:pointer;border-radius:3px;padding:0 1px">${w.replace(/</g,'&lt;')}</span>`).join('');
+  document.getElementById('amvStmInputView').style.display='none';
+  document.getElementById('amvStmReadingView').style.display='block';
+  _amvStm.started=true;
+  if(!_amvStm.voices)_amvStm.voices=await _amvGetVoicesReady();
+  amvStmReadFrom(0);
+}
+function _amvStmHighlight(i){
+  const prev=document.querySelector('.stm-word.stm-active');
+  if(prev)prev.classList.remove('stm-active');
+  const el=document.querySelector(`.stm-word[data-i="${i}"]`);
+  if(el){
+    el.classList.add('stm-active');
+    el.style.background='rgba(201,168,76,.35)';
+    el.scrollIntoView({block:'center',behavior:'smooth'});
+  }
+}
+function amvStmReadFrom(startIndex){
+  window.speechSynthesis.cancel();
+  // Clear any stale highlight from the utterance just cancelled - its own
+  // onend never fires cleanly on a forced cancel, so nothing else clears it.
+  const prev=document.querySelector('.stm-word.stm-active');
+  if(prev){prev.classList.remove('stm-active');prev.style.background='';}
+  if(startIndex>=_amvStm.words.length)return;
+  _amvStm.index=startIndex;
+  const remaining=_amvStm.words.slice(startIndex);
+  const text=remaining.join('');
+  const u=new SpeechSynthesisUtterance(text);
+  const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(_amvStm.voices||[],_amvOwnerContact||{},amvPickDefaultVoice):null;
+  if(voice)u.voice=voice;
+  u.rate=_amvStm.rate;
+  u.pitch=(_amvOwnerContact&&_amvOwnerContact.voice_pitch)?Number(_amvOwnerContact.voice_pitch):1.0;
+  // Maps this utterance's own charIndex (always relative to ITS OWN text,
+  // starting fresh at 0 every time we jump) back to the real absolute word
+  // index in the full document, by walking remaining's own word lengths.
+  u.onboundary=(e)=>{
+    if(e.name&&e.name!=='word')return;
+    let acc=0;
+    for(let k=0;k<remaining.length;k++){
+      acc+=remaining[k].length;
+      if(e.charIndex<acc){ _amvStmHighlight(startIndex+k); _amvStm.index=startIndex+k; break; }
+    }
+  };
+  u.onend=()=>{
+    const el=document.querySelector('.stm-word.stm-active');
+    if(el){el.classList.remove('stm-active');el.style.background='';}
+  };
+  document.getElementById('amvStmPlayPauseBtn').textContent='⏸ Pause';
+  window.speechSynthesis.speak(u);
+}
+function amvStmTogglePlayPause(){
+  const btn=document.getElementById('amvStmPlayPauseBtn');
+  if(window.speechSynthesis.speaking&&!window.speechSynthesis.paused){
+    window.speechSynthesis.pause();
+    btn.textContent='▶ Resume';
+  } else if(window.speechSynthesis.paused){
+    window.speechSynthesis.resume();
+    btn.textContent='⏸ Pause';
+  } else {
+    amvStmReadFrom(_amvStm.index);
+  }
+}
+function amvStmStartOver(){ amvStmReadFrom(0); }
+function amvStmSpeedChanged(val){
+  _amvStm.rate=Number(val);
+  document.getElementById('amvStmSpeedLabel').textContent=_amvStm.rate.toFixed(2)+'x';
+  // Rate can't be changed on an utterance already in flight - the only way
+  // to actually slow down/speed up live is to restart from the current
+  // word with the new rate, which reads as seamless since it's the exact
+  // same word it was already on.
+  if(_amvStm.started)amvStmReadFrom(_amvStm.index);
+}
+function amvStmWordHover(e){
+  if(!_amvStm.started)return;
+  const el=e.target.closest('.stm-word');
+  if(!el)return;
+  const i=Number(el.dataset.i);
+  if(!isNaN(i)&&i!==_amvStm.index)amvStmReadFrom(i);
 }
 
 // Small dismissible toast shown alongside the spoken greeting — Ryan's
