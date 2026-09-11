@@ -147,8 +147,26 @@ function _getAmitInboxDb(){
     _amitInboxDb = db;
     return _amitInboxDb;
   }
+  // Real gap in the 2026-08-04 fix above, found 2026-09-05 (EMS Study
+  // Guide, whose own client is named `mpDb`, not `db`): the reuse check
+  // only ever looks for a global literally named `db`, so any page using
+  // a different variable name for its own client falls straight through
+  // to creating a second one anyway - reproducing the exact "Multiple
+  // GoTrueClient instances... same storage key" warning this was meant
+  // to prevent, just on pages that don't follow the `db` convention.
+  // Rather than hardcode every page's own variable name in this shared
+  // file (which won't scale to the next page either), give this
+  // fallback client its OWN distinct storageKey - it can no longer
+  // collide with ANY host page's client, whatever that page calls it.
+  // Real trade-off, worth knowing: on a page like this, this client's
+  // login state was never actually reliably shared with the host page's
+  // own client anyway (two clients silently fighting over one storage
+  // key doesn't synchronize them, it just corrupts both) - so this loses
+  // nothing that was genuinely working, and removes a real warning.
   if(typeof supabase !== 'undefined'){
-    _amitInboxDb = supabase.createClient(AMIT_INBOX_SUPABASE_URL, AMIT_INBOX_SUPABASE_KEY);
+    _amitInboxDb = supabase.createClient(AMIT_INBOX_SUPABASE_URL, AMIT_INBOX_SUPABASE_KEY, {
+      auth: { storageKey: 'amit-ask-live-inbox-auth' }
+    });
   }
   return _amitInboxDb;
 }
@@ -433,10 +451,27 @@ const PAGE_DISPLAY_NAMES = {
   amitbooks: 'AmitBooks',
   amitbooksRebuild: 'AmitBooks (rebuild)',
   computerhealth: 'Computer Health',
-  amitWeather: 'AmitWeather'
+  amitWeather: 'AmitWeather',
+  amitMobile: 'Amit Mobile'
 };
 
 const PAGE_CONTEXTS = {
+
+  amitSongs: `## WHERE THIS CONVERSATION STARTED — Amit Songs
+
+The person is on the Amit Songs page — a place to listen to original worship songs written from real study sessions and produced with Suno, starting with "Blow the Shofar," written for the Feast of Trumpets 2026. The lyrics come from genuine scripture study (the new moon watch, the Days of Awe, the shelter Yahweh has always built before judgment — Noah's door, the Passover blood, Rahab's cord, Isaiah's chambers), not generic devotional filler. If they ask about the song, engage with what it's actually about, the same way you would on who_is_god.html's Yeshua tab — this is worship built on real conclusions, not decoration.
+
+  amitMobile: `## WHERE THIS CONVERSATION STARTED — Amit Mobile
+
+This conversation was started from Amit Mobile — the phone-first front door to the whole Amit system, built 2026-09-05. It is a dashboard of tiles (Daily Walk/Daily Prayer, Amit general conversation with voice + photo capture, AmitBooks handoff, and placeholder Zoom/Read This + Search tiles), meant to be added to a phone's home screen as an installable web app. As of this first build, voice in/out (Web Speech API) and photo capture are wired in the interface, but the actual reasoning "brain" behind Daily Walk and Amit conversations is a clearly-labeled stub — it does not yet call a real Amit backend (that requires a future server-side proxy/Edge Function per this project's own CLAUDE.md "Future App Store Path" section, so a phone-side page never holds a live API key directly). If asked what it actually does right now, be honest that the voice/camera capture and dashboard shape are real and working, but the live conversational answers are placeholder text, not yet real.
+
+`,
+
+  amitMeals: `## WHERE THIS CONVERSATION STARTED — AmitMeals
+
+This conversation was started from AmitMeals — a household meal-planning tool in the Amit system, standalone/practical, not mission-facing. It captures each household member's own food likes/dislikes by food group, imports real recipes (TheMealDB, Spoonacular), builds a weekly menu that batch-cooks a base ingredient (ground beef, pasta, rice…) and chains it into different dishes across a few days instead of repeating the same meal, then turns the menu into a bulk-buy shopping list with pantry tracking so nothing goes to waste. Be practical and useful here — this is a domestic tool, not a place for theological content unless the person brings it up themselves.
+
+`,
 
   amitWeather: `## WHERE THIS CONVERSATION STARTED — AmitWeather
 
