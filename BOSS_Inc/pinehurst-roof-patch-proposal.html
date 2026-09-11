@@ -217,6 +217,7 @@
   <div class="sign-field full" style="margin-top:20px;">
     <label for="sg-sigtext">2. Type Your Name to Sign</label>
     <input id="sg-sigtext" type="text" placeholder="Type your full name here to create your signature">
+    <div id="sg-sigmatch" style="display:none;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--cedar);">Your signature should match the name entered above — type the name of the person actually signing.</div>
   </div>
   <div id="sigPreviewBox" style="margin-top:14px;min-height:70px;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--text-mute);">Your signature will appear here</div>
   <div style="margin-top:24px;"><button class="sign-submit" id="sg-submit" disabled>Accept &amp; Sign</button></div>
@@ -243,18 +244,43 @@
 
   function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 
+  function normalizeSignatureText(s){
+    return (s||'').trim().replace(/\s+/g, ' ');
+  }
+
+  var NAME_STOPWORDS = {'the':1,'and':1,'living':1,'trust':1,'llc':1,'inc':1,'estate':1,'family':1,'corp':1,'company':1,'co':1,'revocable':1,'joint':1};
+  function meaningfulWords(s){
+    return (s||'').toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/)
+      .filter(function(w){ return w.length > 1 && !NAME_STOPWORDS[w]; });
+  }
+  function signatureMatchesName(nameStr, sigStr){
+    var nameWords = meaningfulWords(nameStr);
+    var sigWords = meaningfulWords(sigStr);
+    if(!nameWords.length || !sigWords.length) return true; // nothing meaningful to compare yet
+    return sigWords.some(function(w){ return nameWords.indexOf(w) !== -1; });
+  }
+
   async function renderSignatureImage(text, fontFamily){
-    try{ await document.fonts.load('48px "' + fontFamily + '"'); } catch(e){}
+    text = normalizeSignatureText(text);
     var canvas = document.createElement('canvas');
     canvas.width = 600; canvas.height = 150;
     var ctx = canvas.getContext('2d');
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#10151C';
-    ctx.font = '48px "' + fontFamily + '"';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    var maxWidth = canvas.width - 60; // 30px margin each side, so it can never touch or cross the edge
+    var maxFontSize = 48;
+    var minFontSize = 14;
+    var fontSize = maxFontSize;
+    try{ await document.fonts.load(maxFontSize + 'px "' + fontFamily + '"'); } catch(e){}
+    ctx.font = fontSize + 'px "' + fontFamily + '"';
+    while(fontSize > minFontSize && ctx.measureText(text).width > maxWidth){
+      fontSize -= 2;
+      ctx.font = fontSize + 'px "' + fontFamily + '"';
+    }
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2, maxWidth);
     return canvas.toDataURL('image/png');
   }
 
@@ -306,7 +332,9 @@
           '<div class="sig-style f2" data-style="Parisienne" tabindex="0">Your Name</div>'+
           '<div class="sig-style f3" data-style="Caveat" tabindex="0">Your Name</div>'+
         '</div></div>'+
-      '<div class="sign-field full" style="margin-top:20px;"><label for="ow-sigtext">2. Type Your Name to Sign</label><input id="ow-sigtext" type="text" placeholder="Type your full name here to create your signature"></div>'+
+      '<div class="sign-field full" style="margin-top:20px;"><label for="ow-sigtext">2. Type Your Name to Sign</label><input id="ow-sigtext" type="text" placeholder="Type your full name here to create your signature">'+
+        '<div id="ow-sigmatch" style="display:none;margin-top:6px;font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--cedar);">Your signature should match the name entered above &mdash; type the name of the person actually signing.</div>'+
+      '</div>'+
       '<div id="ow-sigPreview" style="margin-top:14px;min-height:70px;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--text-mute);">Your signature will appear here</div>'+
       '<div style="margin-top:24px;"><button class="sign-submit" id="ow-submit" disabled>Countersign &amp; Finalize</button></div>'+
       '<div class="sign-msg" id="ow-msg"></div>';
@@ -319,8 +347,9 @@
     var styleEls = ownerBlock.querySelectorAll('.sig-style');
     var selectedStyle = null;
 
+    var sigMatchEl = document.getElementById('ow-sigmatch');
     function refreshPreview(){
-      var text = sigTextEl.value.trim();
+      var text = normalizeSignatureText(sigTextEl.value);
       if(!selectedStyle || !text){
         sigPreview.style.fontFamily = '';
         sigPreview.style.color = 'var(--text-mute)';
@@ -330,7 +359,9 @@
         sigPreview.style.color = 'var(--ink)';
         sigPreview.textContent = text;
       }
-      submitBtn.disabled = !(nameEl.value.trim() && selectedStyle && sigTextEl.value.trim());
+      var matches = signatureMatchesName(nameEl.value, text);
+      sigMatchEl.style.display = (text && !matches) ? 'block' : 'none';
+      submitBtn.disabled = !(nameEl.value.trim() && selectedStyle && text && matches);
     }
 
     styleEls.forEach(function(el){
@@ -350,12 +381,13 @@
       msgEl.style.color = 'var(--text-soft)';
       msgEl.textContent = 'Saving countersignature…';
       try{
-        var ownerSignatureImage = await renderSignatureImage(sigTextEl.value.trim(), selectedStyle);
+        var ownerSigText = normalizeSignatureText(sigTextEl.value);
+        var ownerSignatureImage = await renderSignatureImage(ownerSigText, selectedStyle);
         var result = await sb.from('boss_signed_contracts')
           .update({
             owner_name: nameEl.value.trim(),
             owner_signature_style: selectedStyle,
-            owner_signature_text: sigTextEl.value.trim(),
+            owner_signature_text: ownerSigText,
             owner_signature_image: ownerSignatureImage,
             owner_signed_at: new Date().toISOString()
           })
@@ -396,8 +428,9 @@
     var selectedStyle = null;
     dateEl.value = new Date().toLocaleDateString();
 
+    var sigMatchEl = document.getElementById('sg-sigmatch');
     function refreshSigPreview(){
-      var text = sigTextEl.value.trim();
+      var text = normalizeSignatureText(sigTextEl.value);
       if(!selectedStyle || !text){
         sigPreview.style.fontFamily = '';
         sigPreview.style.color = 'var(--text-mute)';
@@ -420,7 +453,10 @@
       });
     });
     function checkReady(){
-      submitBtn.disabled = !(nameEl.value.trim() && phoneEl.value.trim() && agreeEl.checked && selectedStyle && sigTextEl.value.trim());
+      var text = normalizeSignatureText(sigTextEl.value);
+      var matches = signatureMatchesName(nameEl.value, text);
+      sigMatchEl.style.display = (text && !matches) ? 'block' : 'none';
+      submitBtn.disabled = !(nameEl.value.trim() && phoneEl.value.trim() && agreeEl.checked && selectedStyle && text && matches);
     }
     [nameEl, phoneEl, agreeEl].forEach(function(el){
       el.addEventListener('input', checkReady);
@@ -442,7 +478,8 @@
         exclusions: 'No guarantee of fully watertight result due to reused roofing material; full roof recoat with Ameri-Coat excluded; replacement panels are green and new screws will not match the faded color of the remainder of the roof.',
         terms: '50% deposit due upon acceptance, 50% due upon completion. Est. start Sept 21, complete by Oct 3.'
       };
-      var signatureImage = await renderSignatureImage(sigTextEl.value.trim(), selectedStyle);
+      var clientSigText = normalizeSignatureText(sigTextEl.value);
+      var signatureImage = await renderSignatureImage(clientSigText, selectedStyle);
       var record = {
         proposal_id: PROPOSAL_ID,
         client_name: nameEl.value.trim(),
@@ -450,7 +487,7 @@
         client_email: 'crystalgoldmine1881@gmail.com',
         additional_notes: notesEl.value.trim(),
         signature_style: selectedStyle,
-        signature_text: sigTextEl.value.trim(),
+        signature_text: clientSigText,
         signature_image: signatureImage,
         signed_at: new Date().toISOString(),
         proposal_snapshot: proposalSnapshot
