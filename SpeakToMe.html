@@ -192,11 +192,28 @@ function getVoicesReady(){
   });
 }
 
-// Human-readable label for a lang code, e.g. "en-US" -> "English (United States)".
-// Simple, not exhaustive — falls back to the raw code for anything unrecognized,
-// same spirit as the Hub's accent grouping but a lighter version of it.
-const LANG_NAMES={'en-US':'English (United States)','en-GB':'English (United Kingdom)','en-AU':'English (Australia)','en-CA':'English (Canada)','en-IN':'English (India)','es-ES':'Spanish (Spain)','es-MX':'Spanish (Mexico)','fr-FR':'French (France)','de-DE':'German (Germany)','it-IT':'Italian (Italy)','pt-BR':'Portuguese (Brazil)','he-IL':'Hebrew (Israel)'};
-function langLabel(code){ return LANG_NAMES[code]||code; }
+// Accent/region grouping — ported EXACTLY from the Hub's original
+// amvPopulateAccentDropdown/amvPopulateVoiceOptionsForAccent (About Me
+// panel), not a lighter reinvention — same threshold, same "Other" bucket,
+// same labels, so this reads as the identical control wherever it shows
+// up. Real bug caught 2026-09-11: an earlier version of this listed every
+// language as its own entry, which produced a huge, unwieldy list instead
+// of grouping the small ones — this replaces that with the real logic.
+const VC_ACCENT_LABELS={
+  'en-US':'English (United States)','en-GB':'English (United Kingdom)',
+  'en-AU':'English (Australia)','en-CA':'English (Canada)',
+  'en-IE':'English (Ireland)','en-IN':'English (India)',
+  'en-ZA':'English (South Africa)','en-NZ':'English (New Zealand)',
+  'es-ES':'Spanish (Spain)','es-US':'Spanish (United States)',
+  'es-MX':'Spanish (Mexico)','fr-FR':'French (France)',
+  'fr-CA':'French (Canada)','de-DE':'German (Germany)',
+  'it-IT':'Italian (Italy)','pt-BR':'Portuguese (Brazil)',
+  'pt-PT':'Portuguese (Portugal)','ja-JP':'Japanese (Japan)',
+  'zh-CN':'Chinese (Mainland)','ko-KR':'Korean (Korea)'
+};
+const VC_ALL='__ALL__', VC_OTHER='__OTHER__', VC_SMALL_THRESHOLD=5;
+let _vcSmallLangs=new Set();
+function vcAccentLabel(lang){ return VC_ACCENT_LABELS[lang]||lang; }
 
 async function populateVoiceList(){
   state.voices=await getVoicesReady();
@@ -206,24 +223,38 @@ async function populateVoiceList(){
   const defaultIdx=preferred>=0?preferred:0;
   if(state.voices.length){
     state.voiceURI=state.voices[defaultIdx].voiceURI;
+    const lang=state.voices[defaultIdx].lang;
     const accentSel=document.getElementById('vcAccentSelect');
-    if(accentSel) accentSel.value=state.voices[defaultIdx].lang;
-    buildVoiceDropdownForAccent(state.voices[defaultIdx].lang);
+    if(accentSel) accentSel.value=_vcSmallLangs.has(lang)?VC_OTHER:lang;
+    buildVoiceDropdownForAccent(accentSel?accentSel.value:lang);
   }
 }
 function buildAccentDropdown(){
   const accentSel=document.getElementById('vcAccentSelect');
   if(!accentSel)return;
-  const langs=[...new Set(state.voices.map(v=>v.lang))].sort();
-  accentSel.innerHTML=langs.map(l=>`<option value="${l}">${langLabel(l)} — ${state.voices.filter(v=>v.lang===l).length} voice(s)</option>`).join('');
+  const countByLang={};
+  state.voices.forEach(v=>{countByLang[v.lang]=(countByLang[v.lang]||0)+1;});
+  _vcSmallLangs=new Set(Object.keys(countByLang).filter(l=>countByLang[l]<VC_SMALL_THRESHOLD));
+  const bigLangs=Object.keys(countByLang).filter(l=>!_vcSmallLangs.has(l)).sort((a,b)=>vcAccentLabel(a).localeCompare(vcAccentLabel(b)));
+  accentSel.innerHTML=`<option value="${VC_ALL}">All Accents — ${state.voices.length} voice(s)</option>`
+    +bigLangs.map(l=>`<option value="${l}">${vcAccentLabel(l)} — ${countByLang[l]} voice(s)</option>`).join('');
+  if(_vcSmallLangs.size){
+    const otherCount=[..._vcSmallLangs].reduce((s,l)=>s+countByLang[l],0);
+    accentSel.innerHTML+=`<option value="${VC_OTHER}">Other (${_vcSmallLangs.size} languages) — ${otherCount} voice(s)</option>`;
+  }
 }
 function buildVoiceDropdownForAccent(lang){
   const sel=document.getElementById('voiceSelect');
   if(!sel)return;
-  const matching=state.voices.filter(v=>v.lang===lang);
+  const showCode=(lang===VC_ALL||lang===VC_OTHER);
+  const matching=state.voices.filter(v=>{
+    if(lang===VC_ALL)return true;
+    if(lang===VC_OTHER)return _vcSmallLangs.has(v.lang);
+    return v.lang===lang;
+  });
   sel.innerHTML=matching.map(v=>{
     const realIdx=state.voices.indexOf(v);
-    return `<option value="${realIdx}">${v.name}</option>`;
+    return `<option value="${realIdx}">${showCode?(v.name+' ('+v.lang+')'):v.name}</option>`;
   }).join('');
   const currentIdx=state.voices.findIndex(v=>v.voiceURI===state.voiceURI);
   if(currentIdx>=0&&matching.includes(state.voices[currentIdx])) sel.value=currentIdx;
@@ -252,7 +283,11 @@ function syncVoiceControlUI(){
   const v=state.voices.find(x=>x.voiceURI===state.voiceURI);
   if(v){
     const accentSel=document.getElementById('vcAccentSelect');
-    if(accentSel){ accentSel.value=v.lang; buildVoiceDropdownForAccent(v.lang); }
+    if(accentSel){
+      const groupVal=_vcSmallLangs.has(v.lang)?VC_OTHER:v.lang;
+      accentSel.value=groupVal;
+      buildVoiceDropdownForAccent(groupVal);
+    }
   }
 }
 function pacingLabelFor(scale){
