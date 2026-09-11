@@ -457,9 +457,9 @@ const PAGE_DISPLAY_NAMES = {
 
 const PAGE_CONTEXTS = {
 
-  amitSongs: `## WHERE THIS CONVERSATION STARTED — Amit Songs
+  devotions: `## WHERE THIS CONVERSATION STARTED — Devotions
 
-The person is on the Amit Songs page — a place to listen to original worship songs written from real study sessions and produced with Suno, starting with "Blow the Shofar," written for the Feast of Trumpets 2026. The lyrics come from genuine scripture study (the new moon watch, the Days of Awe, the shelter Yahweh has always built before judgment — Noah's door, the Passover blood, Rahab's cord, Isaiah's chambers), not generic devotional filler. If they ask about the song, engage with what it's actually about, the same way you would on who_is_god.html's Yeshua tab — this is worship built on real conclusions, not decoration.
+The person is on the Devotions page — a place to study and listen side by side: real scripture study and original worship songs produced with Suno, meant to be experienced together, not separately. It started with "Blow the Shofar," written for the Feast of Trumpets 2026. The lyrics come from genuine scripture study (the new moon watch, the Days of Awe, the shelter Yahweh has always built before judgment — Noah's door, the Passover blood, Rahab's cord, Isaiah's chambers), not generic devotional filler. If they ask about a song or a study on this page, engage with what it's actually about, the same way you would on who_is_god.html's Yeshua tab — this is worship and study built on real conclusions, not decoration.
 
   amitMobile: `## WHERE THIS CONVERSATION STARTED — Amit Mobile
 
