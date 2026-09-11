@@ -286,7 +286,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.03-notauth</div>
+      <div class="page-version" id="pageVersion">v1.04-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -753,10 +753,26 @@ function showChTab(detailNum,n){
         .forEach(b=>tabNav.appendChild(b));
     }
   }
+  // Unmount any reader widget currently active on THIS detail before
+  // switching away from it — real fix 2026-09-11: the engine uses fixed,
+  // shared internal ids (as-inputText, etc.), so two reader tabs (Trumpets,
+  // Tabernacles) mounted in the DOM at once would collide, with clicks
+  // always landing on whichever one happens to be first in document order
+  // regardless of which tab is actually visible. Clearing the outgoing
+  // tab's mount div removes its ids from the DOM entirely; its reading
+  // position is safe in its own localStorage key and restores (without
+  // auto-playing — see Amit_Speak_Engine.js's restoreSavedSession fix)
+  // the next time that tab is opened.
+  const prevActiveContent=detail.querySelector('.ch-tab-content.active');
+  if(prevActiveContent){
+    const prevMount=prevActiveContent.querySelector('[id^="speakMount-"]');
+    if(prevMount) prevMount.innerHTML='';
+  }
   detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
+  mountTrumpetsSpeak();
   // Deep link down to the exact tab, not just the page — added 2026-09-11,
   // Ryan's direct instruction, so a Facebook (or any) link can land
   // straight on one specific tab (e.g. #page=2&tab=5 = Feasts of the Lord,
@@ -864,43 +880,71 @@ function buildTrumpetsFullHtml(){
   ).join('');
 }
 
+// READER_TABS — 2026-09-11, Ryan's direct instruction: only Trumpets and
+// Tabernacles get the play/voice reader widget; every other feast tab stays
+// a plain summary paragraph. Tabernacles has no full study written yet, so
+// it falls back to its own FEAST_SUMMARY line as placeholder text — swap in
+// a real full study here the same way TRUMPETS_FULL_TEXT was built, once
+// one exists.
+const READER_TABS={
+  'Trumpets (Yom Teruah)':()=>TRUMPETS_FULL_TEXT,
+  'Tabernacles (Sukkot)':()=>FEAST_SUMMARY['Tabernacles (Sukkot)']
+};
+
 function buildFeastTabsHtml(detailNum){
   let tabNavHtml='',tabContentHtml='';
   FEAST_ORDER.forEach((name,i)=>{
     const t=i+1;
-    const isTrumpets=name==='Trumpets (Yom Teruah)';
+    const isReader=READER_TABS.hasOwnProperty(name);
+    // Unique per-tab mount id (speakMount-<detailNum>-<t>), not a single
+    // shared id — real bug guard added 2026-09-11: a shared id across two
+    // reader tabs (Trumpets + Tabernacles both existing at once) would have
+    // meant getElementById only ever finding the first one.
     tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" data-tabnum="${t}" onclick="showChTab(${detailNum},${t})">${name}</button>`;
-    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}" style="${isTrumpets?'display:flex;flex-direction:column;height:100%':''}">
-      ${isTrumpets?'<div id="trumpetsSpeakMount" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>':`<p style="font-size:15px;line-height:1.8;color:var(--text2)">${FEAST_SUMMARY[name]}</p><p style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:'Cinzel',serif;margin-top:18px">Devotion to follow</p>`}
+    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}" style="${isReader?'display:flex;flex-direction:column;height:100%':''}">
+      ${isReader?`<div id="speakMount-${detailNum}-${t}" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>`:`<p style="font-size:15px;line-height:1.8;color:var(--text2)">${FEAST_SUMMARY[name]}</p><p style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:'Cinzel',serif;margin-top:18px">Devotion to follow</p>`}
     </div>`;
   });
   return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
     <div class="ch-tab-main">${tabContentHtml}</div>`;
 }
 
-// TRUMPETS SPEAK MOUNT — added 2026-09-11, Ryan's direct instruction. The
-// real, shared engine (Amit_Speak_Engine.js — the exact same code proven
-// correct in SpeakToMe.html, not a rebuild) embedded directly under the
-// Trumpets tab's study text. Prefilled with that same text so it's ready
-// to go, but not auto-started — pressing Play is still the person's own
-// choice.
+// SPEAK MOUNTS — 2026-09-11, Ryan's direct instruction. The real, shared
+// engine (Amit_Speak_Engine.js — the exact same code proven correct in
+// SpeakToMe.html, not a rebuild) embedded directly under each reader tab's
+// study text (Trumpets, Tabernacles). Prefilled with that tab's own text so
+// it's ready to go, but not auto-started — pressing Play is still the
+// person's own choice.
 //
 // Remounts every time this is called, NOT once-and-done — real bug caught
 // 2026-09-11: renderAllPages() runs more than once (the Supabase auth-check
 // re-render, same mechanism that caused the earlier deep-link tab bug), and
 // each run rebuilds detail-2's whole innerHTML from scratch via
-// buildFeastTabsHtml() — including a brand-new, empty #trumpetsSpeakMount
-// div. A one-time "already mounted" guard left the real, working widget
-// stuck inside the FIRST render's now-detached div while the current,
-// visible div sat empty. There's no meaningful state to preserve across
-// that remount yet (nothing's been read), so simply mounting fresh into
-// whatever container currently exists is the correct fix, not a patch.
+// buildFeastTabsHtml() — including brand-new, empty mount divs. A one-time
+// "already mounted" guard left the real, working widget stuck inside the
+// FIRST render's now-detached div while the current, visible div sat empty.
+// There's no meaningful state to preserve across that remount yet (nothing's
+// been read), so simply mounting fresh into whatever container currently
+// exists is the correct fix, not a patch.
 function mountTrumpetsSpeak(){
-  const mountEl=document.getElementById('trumpetsSpeakMount');
-  if(!mountEl||typeof AmitSpeak==='undefined')return;
-  AmitSpeak.mount('trumpetsSpeakMount',{saveKey:'amit_speak_trumpets_save'});
-  const ta=document.getElementById('as-inputText');
-  if(ta) ta.value=TRUMPETS_FULL_TEXT;
+  FEAST_ORDER.forEach((name,i)=>{
+    if(!READER_TABS.hasOwnProperty(name))return;
+    const t=i+1;
+    const mountId='speakMount-2-'+t;
+    const mountEl=document.getElementById(mountId);
+    if(!mountEl||typeof AmitSpeak==='undefined')return;
+    // Only mount the reader tab that is actually the active one right now —
+    // never both at once, since the engine's fixed internal ids collide if
+    // two instances exist in the DOM simultaneously (see showChTab's own
+    // unmount-on-leave for the other half of this fix).
+    const contentDiv=document.getElementById('ch-tab-2-'+t);
+    if(!contentDiv||!contentDiv.classList.contains('active'))return;
+    if(mountEl.children.length>0)return; // already mounted, leave it alone
+    const saveKey='amit_speak_save_'+name.replace(/[^a-zA-Z0-9]/g,'');
+    AmitSpeak.mount(mountId,{saveKey});
+    const ta=mountEl.querySelector('#as-inputText');
+    if(ta) ta.value=READER_TABS[name]();
+  });
 }
 
 // ══════════════════════════════════════════════
