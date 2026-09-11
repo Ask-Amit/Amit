@@ -199,7 +199,7 @@
   </div>
   <div class="sign-grid">
     <div class="sign-field"><label for="sg-name">Full Legal Name</label><input id="sg-name" type="text" value="Raymond &amp; Sherry Cropp" placeholder="Full legal name"></div>
-    <div class="sign-field"><label for="sg-phone">Phone Number</label><input id="sg-phone" type="tel" placeholder="(___) ___-____"></div>
+    <div class="sign-field"><label for="sg-phone">Phone Number</label><input id="sg-phone" type="tel" placeholder="(___) ___-____"><div id="sg-phonematch" style="display:none;margin-top:6px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--cedar);">Enter a valid 10-digit phone number.</div></div>
     <div class="sign-field"><label for="sg-date">Date</label><input id="sg-date" type="text" readonly></div>
     <div class="sign-field full"><label for="sg-notes">Additional Exceptions or Notes (optional)</label><textarea id="sg-notes" placeholder="Anything you'd like added or noted before signing..."></textarea></div>
   </div>
@@ -247,6 +247,11 @@
 
   function normalizeSignatureText(s){
     return (s||'').trim().replace(/\s+/g, ' ');
+  }
+
+  function isValidPhone(s){
+    var digits = (s||'').replace(/\D/g, '');
+    return digits.length >= 10;
   }
 
   var NAME_STOPWORDS = {'the':1,'and':1,'living':1,'trust':1,'llc':1,'inc':1,'estate':1,'family':1,'corp':1,'company':1,'co':1,'revocable':1,'joint':1};
@@ -439,6 +444,7 @@
     dateEl.value = new Date().toLocaleDateString();
 
     var sigMatchEl = document.getElementById('sg-sigmatch');
+    var phoneMatchEl = document.getElementById('sg-phonematch');
     function refreshSigPreview(){
       var text = normalizeSignatureText(sigTextEl.value);
       if(!selectedStyle || !text){
@@ -466,7 +472,9 @@
       var text = normalizeSignatureText(sigTextEl.value);
       var matches = signatureMatchesName(nameEl.value, text);
       sigMatchEl.style.display = (text && !matches) ? 'block' : 'none';
-      submitBtn.disabled = !(nameEl.value.trim() && phoneEl.value.trim() && agreeEl.checked && selectedStyle && text && matches);
+      var phoneOk = isValidPhone(phoneEl.value);
+      phoneMatchEl.style.display = (phoneEl.value.trim() && !phoneOk) ? 'block' : 'none';
+      submitBtn.disabled = !(nameEl.value.trim() && phoneEl.value.trim() && phoneOk && agreeEl.checked && selectedStyle && text && matches);
     }
     [nameEl, phoneEl, agreeEl].forEach(function(el){
       el.addEventListener('input', checkReady);
