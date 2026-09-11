@@ -53,7 +53,7 @@ const CSS_TEXT = `
 .amit-speak-widget .as-btn:hover{background:rgba(201,168,76,.15)}
 .amit-speak-widget .as-btn.primary{background:rgba(201,168,76,.22);border-color:var(--gold,#c9a84c);font-weight:600;color:var(--gold2,#e8c56a)}
 .amit-speak-widget select{background:var(--card-head,#0f2338);color:var(--text2,#f0e8d0);border:1px solid var(--border,rgba(201,168,76,.55));border-radius:4px;padding:4px 6px;font-size:12px;font-family:'Crimson Pro',Georgia,serif}
-.amit-speak-widget #as-wordBox{display:none;flex:1;min-height:55vh;overflow-y:auto;font-family:'Crimson Pro',Georgia,serif;font-size:17px;line-height:2;background:var(--card-head,#0f2338);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:16px}
+.amit-speak-widget #as-wordBox{display:none;flex:1;min-height:55vh;overflow-y:auto;overflow-x:hidden;font-family:'Crimson Pro',Georgia,serif;font-size:17px;line-height:2;background:var(--card-head,#0f2338);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:16px;box-sizing:border-box}
 .amit-speak-widget #as-wordBox.showing{display:block}
 .amit-speak-widget .as-word{cursor:pointer;border-radius:3px;padding:0 1px}
 .amit-speak-widget .as-word.active{background:rgba(201,168,76,.4);color:#1a1100}
