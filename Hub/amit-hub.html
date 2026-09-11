@@ -1251,7 +1251,8 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.71</div>
+    <div class="page-version" id="hubVersionBadge">v6.72</div>
+    <button onclick="amvOpenSpeakToMe()" title="Paste in text and Amit reads it back to you" style="margin-left:12px;font-size:12px;letter-spacing:.05em;color:rgba(120,190,230,.95);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.55);padding:5px 12px;border-radius:5px;background:rgba(120,190,230,.14)">🔊 Speak to Me</button>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -2294,6 +2295,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <span>Speed</span>
             <input type="range" id="amvStmSpeedSlider" min="0.5" max="2" step="0.05" oninput="amvStmSpeedChanged(this.value)" style="width:100px">
             <span id="amvStmSpeedLabel" style="min-width:30px">1.0x</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+            <span>🔊 Volume</span>
+            <input type="range" id="amvStmVolumeSlider" min="0" max="1" step="0.05" oninput="amvStmVolumeChanged(this.value)" style="width:100px">
+            <span id="amvStmVolumeLabel" style="min-width:34px">100%</span>
           </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(201,168,76,.2)">
@@ -4107,7 +4113,7 @@ function _amvSpeakWithContact(text,contact,voices){
 // nighttime listening without changing his global voice setting.
 // ══════════════════════════════════════════════
 const AMV_STM_SAVE_KEY='amv_stm_saved_read';
-const _amvStm={words:[],index:0,rate:0.85,started:false,voices:null,sleepTimer:null,sleepAt:null};
+const _amvStm={words:[],index:0,rate:0.85,volume:1.0,started:false,voices:null,sleepTimer:null,sleepAt:null};
 // Persists across closing the modal, reloading the page, or coming back
 // tomorrow - Ryan's direct instruction, 2026-09-10: this is meant for
 // someone genuinely listening their way through something long (a whole
@@ -4120,7 +4126,7 @@ function _amvStmSaveProgress(){
   _amvStmLastSaveIndex=_amvStm.index;
   try{
     localStorage.setItem(AMV_STM_SAVE_KEY,JSON.stringify({
-      words:_amvStm.words,index:_amvStm.index,rate:_amvStm.rate,savedAt:Date.now()
+      words:_amvStm.words,index:_amvStm.index,rate:_amvStm.rate,volume:_amvStm.volume,savedAt:Date.now()
     }));
   }catch(e){/* storage full or unavailable - not worth failing the read over */}
 }
@@ -4137,8 +4143,11 @@ async function amvOpenSpeakToMe(){
     // where a prior session left off, even a completely different day.
     _amvStm.words=saved.words;
     _amvStm.rate=saved.rate||0.85;
+    _amvStm.volume=(saved.volume!==undefined)?saved.volume:1.0;
     document.getElementById('amvStmSpeedSlider').value=_amvStm.rate;
     document.getElementById('amvStmSpeedLabel').textContent=_amvStm.rate.toFixed(2)+'x';
+    document.getElementById('amvStmVolumeSlider').value=_amvStm.volume;
+    document.getElementById('amvStmVolumeLabel').textContent=Math.round(_amvStm.volume*100)+'%';
     const container=document.getElementById('amvStmWordContainer');
     container.innerHTML=_amvStm.words.map((w,i)=>`<span class="stm-word" data-i="${i}" style="cursor:pointer;border-radius:3px;padding:0 1px">${w.replace(/</g,'&lt;')}</span>`).join('');
     document.getElementById('amvStmInputView').style.display='none';
@@ -4181,8 +4190,11 @@ async function amvStmBeginReading(){
   _amvStm.words=raw.match(/\S+\s*/g)||[raw];
   _amvStm.rate=(_amvOwnerContact&&_amvOwnerContact.voice_rate)?Number(_amvOwnerContact.voice_rate):0.85;
   _amvStmLastSaveIndex=-1;
+  _amvStm.volume=1.0;
   document.getElementById('amvStmSpeedSlider').value=_amvStm.rate;
   document.getElementById('amvStmSpeedLabel').textContent=_amvStm.rate.toFixed(2)+'x';
+  document.getElementById('amvStmVolumeSlider').value=1.0;
+  document.getElementById('amvStmVolumeLabel').textContent='100%';
   const container=document.getElementById('amvStmWordContainer');
   container.innerHTML=_amvStm.words.map((w,i)=>`<span class="stm-word" data-i="${i}" style="cursor:pointer;border-radius:3px;padding:0 1px">${w.replace(/</g,'&lt;')}</span>`).join('');
   document.getElementById('amvStmInputView').style.display='none';
@@ -4216,6 +4228,7 @@ function amvStmReadFrom(startIndex){
   if(voice)u.voice=voice;
   u.rate=_amvStm.rate;
   u.pitch=(_amvOwnerContact&&_amvOwnerContact.voice_pitch)?Number(_amvOwnerContact.voice_pitch):1.0;
+  u.volume=_amvStm.volume;
   // Maps this utterance's own charIndex (always relative to ITS OWN text,
   // starting fresh at 0 every time we jump) back to the real absolute word
   // index in the full document, by walking remaining's own word lengths.
@@ -4285,6 +4298,14 @@ function amvStmSpeedChanged(val){
   // to actually slow down/speed up live is to restart from the current
   // word with the new rate, which reads as seamless since it's the exact
   // same word it was already on.
+  if(_amvStm.started)amvStmReadFrom(_amvStm.index);
+}
+function amvStmVolumeChanged(val){
+  _amvStm.volume=Number(val);
+  document.getElementById('amvStmVolumeLabel').textContent=Math.round(_amvStm.volume*100)+'%';
+  // Same real limitation as speed - volume is fixed at utterance creation
+  // in the Web Speech API, so a live change also restarts from the exact
+  // current word rather than actually adjusting the sound in place.
   if(_amvStm.started)amvStmReadFrom(_amvStm.index);
 }
 function amvStmWordHover(e){
