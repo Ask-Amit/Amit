@@ -106,7 +106,81 @@ const SONGS={
     video:'Blow_the_Shofar.mp4',
     poster:'Blow_the_Shofar_Cover.png',
     stub:'BlowTheShofar.html',
-    closeUrl:'Devotions.html#page=2&tab=5'
+    closeUrl:'Devotions.html#page=2&tab=5',
+    lyrics:`[Verse 1]
+In the seventh month, the first new moon thin
+No one knows the hour it shall begin
+Watchmen on the wall, watching for the moon
+No comfort in the air — it's an alarm, not a tune
+
+[Pre-Chorus]
+Wake up, sleeper, the leaves are on the tree
+Summer's at the door, can't you feel it, can't you see
+The King is calling His people home
+
+[Chorus]
+Blow the shofar, let it cry, let it roar
+Sound the alarm at heaven's door
+Gather the bride, here comes the Son
+This is the sound of the Kingdom come
+Blow the shofar, wake the dead
+Every promise that was ever said
+Rides on this blast, rides on this cry
+Yeshua's coming on the clouds of the sky
+
+[Verse 2]
+Noah heard the rain and shut the door
+Yahweh sealed him in before the flood could roar
+Blood on the post, and the angel passed by
+Rahab tied her cord, and she did not die
+
+[Pre-Chorus]
+Hide me, Father, in the shadow of Your wing
+Let the wrath pass over while the remnant sings
+You've always made a shelter for Your own
+
+[Chorus]
+Blow the shofar, let it cry, let it roar
+Sound the alarm at heaven's door
+Gather the bride, here comes the Son
+This is the sound of the Kingdom come
+Blow the shofar, wake the dead
+Every promise that was ever said
+Rides on this blast, rides on this cry
+Yeshua's coming on the clouds of the sky
+
+[Bridge]
+I don't know the day, I don't know the hour
+But I know the Name, I know the power
+So I'll turn tonight, I'll rend my heart
+Not my garments — let the healing start
+Joy in the morning, then it turns to song
+Because the door is open, and He won't wait long
+
+[Chorus]
+Blow the shofar, let it cry, let it roar
+Sound the alarm at heaven's door
+Gather the bride, here comes the Son
+This is the sound of the Kingdom come
+Blow the shofar, wake the dead
+Every promise that was ever said
+Rides on this blast, rides on this cry
+Yeshua's coming — lift your eyes to the sky
+
+Blow the shofar, wake the dead
+Every promise that was ever said
+Rides on this blast, rides on this cry
+Yeshua's coming — lift your eyes to the sky
+
+[Final Chorus]
+Blow the shofar, let it cry, let it roar
+Sound the alarm at heaven's door
+Gather the bride, here comes the Son
+This is the sound of the Kingdom come
+Blow the shofar, wake the dead
+Every promise that was ever said
+Rides on this blast, rides on this cry
+Yeshua's coming — lift your eyes to the sky`
   }
 };
 </script>
@@ -124,8 +198,26 @@ const SONGS={
 <div class="controls" id="controls" style="display:none">
   <button class="ctl-btn" id="playPauseBtn" onclick="togglePlayPause()">▶ Play</button>
   <button class="ctl-btn" onclick="replaySong()">⟲ Replay</button>
+  <button class="ctl-btn" id="lyricsBtn" onclick="openLyrics()" style="display:none">📜 Lyrics</button>
   <button class="ctl-btn" onclick="shareSong()">🔗 Share</button>
   <button class="ctl-btn close" onclick="closeSong()">✕ Close</button>
+</div>
+
+<!-- LYRICS POPUP — a small card, not a full-screen takeover, so the video
+     keeps playing underneath it. Added 2026-09-11, Ryan's direct
+     instruction: people should be able to open this while the song plays,
+     read along, and print it, without losing the video. -->
+<div id="lyricsOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card-head);border:1px solid var(--gold);border-radius:12px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)">
+      <div style="font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2)" id="lyricsTitle">Lyrics</div>
+      <button class="ctl-btn close" style="padding:4px 12px" onclick="closeLyrics()">✕</button>
+    </div>
+    <div id="lyricsBody" style="padding:18px 22px;overflow-y:auto;white-space:pre-line;line-height:1.7;font-size:14px"></div>
+    <div style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+      <button class="ctl-btn" onclick="printLyrics()">🖨 Print Lyrics</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast">Link copied</div>
@@ -143,13 +235,44 @@ if(!song){
   document.getElementById('songSub').textContent=song.sub;
   document.title=song.title+' — Amit';
   document.getElementById('stage').innerHTML=
-    `<video id="songVideo" src="${song.video}" poster="${song.poster}" playsinline></video>`;
+    `<video id="songVideo" src="${song.video}" poster="${song.poster}" playsinline autoplay></video>`;
   document.getElementById('controls').style.display='flex';
   video=document.getElementById('songVideo');
   const playPauseBtn=document.getElementById('playPauseBtn');
   video.addEventListener('play',()=>playPauseBtn.textContent='⏸ Pause');
   video.addEventListener('pause',()=>playPauseBtn.textContent='▶ Play');
   video.addEventListener('ended',()=>{ video.pause(); setTimeout(closeSong,600); });
+  // Autoplay — added 2026-09-11, Ryan's direct instruction: land on this
+  // page and it just starts. video.play() is called explicitly (not just
+  // the autoplay attribute) because some browsers only honor autoplay
+  // silently-fail rather than throw if the browser's autoplay policy
+  // blocks it (varies by browser/profile — nothing app code can force
+  // past) — the person can still just press Play themselves in that case.
+  video.play().catch(()=>{});
+  if(song.lyrics) document.getElementById('lyricsBtn').style.display='inline-flex';
+}
+
+function openLyrics(){
+  if(!song||!song.lyrics)return;
+  document.getElementById('lyricsTitle').textContent=song.title+' — Lyrics';
+  document.getElementById('lyricsBody').textContent=song.lyrics;
+  document.getElementById('lyricsOverlay').style.display='flex';
+}
+function closeLyrics(){
+  document.getElementById('lyricsOverlay').style.display='none';
+}
+// Prints just the lyrics, in their own window — printing the live app
+// page directly would also try to print the video/controls/whole layout.
+function printLyrics(){
+  if(!song||!song.lyrics)return;
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>${song.title} — Lyrics</title>
+    <style>body{font-family:Georgia,serif;white-space:pre-line;line-height:1.7;padding:40px;max-width:600px;margin:0 auto}
+    h1{font-size:20px;margin-bottom:24px}</style></head>
+    <body><h1>${song.title}</h1>${song.lyrics.replace(/</g,'&lt;')}</body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
 }
 
 function togglePlayPause(){
