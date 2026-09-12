@@ -296,7 +296,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.08-notauth</div>
+      <div class="page-version" id="pageVersion">v1.09-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -535,7 +535,9 @@ function renderAllPages(){
     </div>
   </div>
   <div class="detail" id="detail-2" style="flex-direction:column">
-    <div class="detail-head"><span class="detail-heading" id="detail-heading-2" data-base="Feasts of the Lord">Feasts of the Lord — ${FEAST_ORDER[0]}</span></div>
+    <div class="detail-head"><span class="detail-heading" id="detail-heading-2" data-base="Feasts of the Lord">Feasts of the Lord — ${FEAST_ORDER[0]}</span>
+      <button id="feastSpeakerBtn-2" style="display:none;margin-left:auto;width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:rgba(201,168,76,.1);color:var(--gold2);font-size:16px;cursor:pointer;align-items:center;justify-content:center" onclick="openFeastSpeaker()" title="Play the current tab">🔊</button>
+    </div>
     ${buildFeastTabsHtml(2)}
   </div>`;
 
@@ -766,11 +768,12 @@ function showChTab(detailNum,n){
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
-  // Show/hide the far-right speaker icon per-tab — added 2026-09-11,
+  // Show/hide the header's speaker icon per-tab — added 2026-09-11,
   // Ryan's direct instruction. FEASTS_WITH_SPEAKER decides which tabs get
-  // it; only Trumpets right now.
+  // it; only Trumpets right now. Lives in detail-head, to the left of the
+  // right-rail's Amit icon, not in the tab-nav row.
   const speakerBtn=document.getElementById('feastSpeakerBtn-'+detailNum);
-  if(speakerBtn) speakerBtn.style.display=FEASTS_WITH_SPEAKER.has(FEAST_ORDER[n-1])?'inline-block':'none';
+  if(speakerBtn) speakerBtn.style.display=FEASTS_WITH_SPEAKER.has(FEAST_ORDER[n-1])?'inline-flex':'none';
   // Deep link down to the exact tab, not just the page — added 2026-09-11,
   // Ryan's direct instruction, so a Facebook (or any) link can land
   // straight on one specific tab (e.g. #page=2&tab=5 = Feasts of the Lord,
@@ -910,25 +913,29 @@ function buildFeastTabsHtml(detailNum){
       <p style="font-size:15px;line-height:1.8;color:var(--text2)">${FEAST_SUMMARY[name]}</p><p style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:'Cinzel',serif;margin-top:18px">Devotion to follow</p>${fullStudyBox}
     </div>`;
   });
-  // Speaker icon sits OUTSIDE ch-tab-nav on purpose — that row's own
-  // wrap/reorder logic (showChTab, above) operates on every direct child
-  // of ch-tab-nav, so a button living inside it could get physically
-  // shuffled onto whatever row a narrow screen wraps it into. As a sibling
-  // in its own flex row, it stays pinned at the far right regardless.
-  const startsWithSpeaker=FEASTS_WITH_SPEAKER.has(FEAST_ORDER[0]);
-  return `<div style="display:flex;align-items:flex-end;background:var(--bg);margin:0 24px">
-    <div class="ch-tab-nav" id="ch-tab-nav-${detailNum}" style="margin:0;flex:1">${tabNavHtml}</div>
-    <button class="ch-tab-btn" id="feastSpeakerBtn-${detailNum}" style="display:${startsWithSpeaker?'inline-block':'none'};margin-left:6px" onclick="openFeastSpeaker()" title="Speak to Me">🔊</button>
-  </div>
+  return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
     <div class="ch-tab-main">${tabContentHtml}</div>`;
 }
 
-// Opens the existing compact SpeakToMe.html — same window.open pattern the
-// Hub already uses, so repeated clicks (from here or the Hub) reuse the
-// one window instead of stacking new ones. Nothing else wired in yet —
-// Ryan's explicit "just that" scope, 2026-09-11.
+// Opens the existing compact SpeakToMe.html and hands it the CURRENT
+// active tab's own devotion text, using the PREFILL_KEY handoff mechanism
+// SpeakToMe.html already built for exactly this ("Devotions' 'Hear This'
+// button" — see its own PREFILL HANDOFF comment). One-shot: SpeakToMe.html
+// reads the key once on load, then clears it, so a later plain reopen of
+// that page never silently re-triggers with stale text.
+//
+// Same window.open target name ('amit_speak_to_me') the Hub already uses,
+// so repeated clicks reuse one window instead of stacking new ones. If
+// that window is already open, window.open() alone won't re-navigate it
+// (same URL), so the prefill key would sit unread — the explicit reload()
+// forces it to re-check the key every time the speaker is pressed.
 function openFeastSpeaker(){
-  window.open('../SpeakToMe.html','amit_speak_to_me');
+  const activeBtn=document.querySelector('#ch-tab-nav-2 .ch-tab-btn.active');
+  const name=activeBtn?activeBtn.textContent:FEAST_ORDER[0];
+  const text=(name==='Trumpets (Yom Teruah)')?TRUMPETS_FULL_TEXT:(FEAST_SUMMARY[name]||'');
+  try{ localStorage.setItem('amit_speaktome_prefill', JSON.stringify({text})); }catch(e){}
+  const win=window.open('../SpeakToMe.html','amit_speak_to_me');
+  if(win){ try{ win.location.reload(); }catch(e){} }
 }
 
 // mountTrumpetsSpeak() removed 2026-09-11, Ryan's direct instruction — the
