@@ -296,7 +296,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.15-notauth</div>
+      <div class="page-version" id="pageVersion">v1.16-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -571,7 +571,14 @@ function renderAllPages(){
     }
   });
 
-  if(builderMode){
+  // Real bug, found and fixed 2026-09-11: builderMode alone was just a
+  // per-browser localStorage flag defaulting to true — it had nothing to
+  // do with who was actually signed in, so ANY visitor saw "Add Page"
+  // unless they'd personally clicked Finalize on their own browser. Now
+  // also requires being signed in as Ryan's own account specifically
+  // (AMIT_DEMO_UID) — a normal visitor never sees this regardless of
+  // their own localStorage state.
+  if(builderMode&&currentUser&&currentUser.id===AMIT_DEMO_UID){
     navHtml+=`<div class="page-nav" id="page-add" onclick="openLayoutPicker()" data-tip="Add Page" style="border-style:dashed;opacity:.8">
       <div class="page-icon">➕</div>
       <div class="page-info"><div class="page-name">Add Page</div><div class="page-sub">Create a new page</div></div>
