@@ -296,7 +296,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.09-notauth</div>
+      <div class="page-version" id="pageVersion">v1.10-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -536,7 +536,10 @@ function renderAllPages(){
   </div>
   <div class="detail" id="detail-2" style="flex-direction:column">
     <div class="detail-head"><span class="detail-heading" id="detail-heading-2" data-base="Feasts of the Lord">Feasts of the Lord — ${FEAST_ORDER[0]}</span>
-      <button id="feastSpeakerBtn-2" style="display:none;margin-left:auto;width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:rgba(201,168,76,.1);color:var(--gold2);font-size:16px;cursor:pointer;align-items:center;justify-content:center" onclick="openFeastSpeaker()" title="Play the current tab">🔊</button>
+      <div id="feastSongsRow-2" style="display:flex;gap:8px;margin-left:auto"></div>
+      <button id="feastSpeakerBtn-2" style="display:none;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,.16);box-shadow:0 0 0 1px rgba(201,168,76,.25);cursor:pointer" onclick="openFeastSpeaker()" title="Play the current tab">
+        <span style="font-size:18px">🔊</span><span id="feastSpeakerLabel-2" style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2,#e8c56a);letter-spacing:.04em;font-weight:600;white-space:nowrap">Play</span>
+      </button>
     </div>
     ${buildFeastTabsHtml(2)}
   </div>`;
@@ -768,12 +771,31 @@ function showChTab(detailNum,n){
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
-  // Show/hide the header's speaker icon per-tab — added 2026-09-11,
-  // Ryan's direct instruction. FEASTS_WITH_SPEAKER decides which tabs get
-  // it; only Trumpets right now. Lives in detail-head, to the left of the
-  // right-rail's Amit icon, not in the tab-nav row.
+  // Show/hide the header's speaker button per-tab, styled to match the
+  // sidebar's page-nav tile look (icon + name, gold-bordered) — restyled
+  // 2026-09-11, Ryan's direct instruction, replacing the earlier plain
+  // round icon. Label reads "Play <Feast>" for whichever tab is active.
+  // FEASTS_WITH_SPEAKER decides which tabs get it; only Trumpets right now.
+  const feastName=FEAST_ORDER[n-1];
+  const shortName=feastName.split(' (')[0];
   const speakerBtn=document.getElementById('feastSpeakerBtn-'+detailNum);
-  if(speakerBtn) speakerBtn.style.display=FEASTS_WITH_SPEAKER.has(FEAST_ORDER[n-1])?'inline-flex':'none';
+  if(speakerBtn){
+    speakerBtn.style.display=FEASTS_WITH_SPEAKER.has(feastName)?'inline-flex':'none';
+    const speakerLabel=document.getElementById('feastSpeakerLabel-'+detailNum);
+    if(speakerLabel) speakerLabel.textContent='Play '+shortName;
+  }
+  // Song buttons — same tile look as the speaker button, one per available
+  // song for this tab. Quantity driven by SONGS_BY_FEAST; empty for any
+  // feast with no song yet.
+  const songsRow=document.getElementById('feastSongsRow-'+detailNum);
+  if(songsRow){
+    const songs=SONGS_BY_FEAST[feastName]||[];
+    songsRow.innerHTML=songs.map(s=>
+      `<button style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,.16);box-shadow:0 0 0 1px rgba(201,168,76,.25);cursor:pointer" onclick="playFeastSong('${s.file}')" title="${s.title}">
+        <span style="font-size:18px">🎵</span><span style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2,#e8c56a);letter-spacing:.04em;font-weight:600;white-space:nowrap">${s.title}</span>
+      </button>`
+    ).join('');
+  }
   // Deep link down to the exact tab, not just the page — added 2026-09-11,
   // Ryan's direct instruction, so a Facebook (or any) link can land
   // straight on one specific tab (e.g. #page=2&tab=5 = Feasts of the Lord,
@@ -813,12 +835,29 @@ function buildTabbedViewHtml(detailNum){
 // numbering/naming was asked for in this pass.
 const FEAST_ORDER=['Passover','Unleavened Bread','Firstfruits','Shavuot (Pentecost)','Trumpets (Yom Teruah)','Atonement (Yom Kippur)','Tabernacles (Sukkot)'];
 
-// FEASTS_WITH_SPEAKER — 2026-09-11, Ryan's direct instruction: a speaker
-// icon at the far right of the tab-nav row, independent per tab — some
-// tabs get it, some don't. Only Trumpets for now. Opens the existing
-// compact SpeakToMe.html (same window.open pattern the Hub already uses),
-// nothing else wired up yet per Ryan's explicit "just that" scope.
-const FEASTS_WITH_SPEAKER=new Set(['Trumpets (Yom Teruah)']);
+// FEASTS_WITH_SPEAKER — 2026-09-11, Ryan's direct instruction. Started as
+// Trumpets-only, then widened same session to every feast — every tab has
+// its own devotion text, so every tab gets the button, its label reading
+// "Play <that feast's short name>". Kept as a Set (not just "always true")
+// so a future feast can still be excluded deliberately if that's ever
+// wanted. Opens the existing compact SpeakToMe.html via its PREFILL_KEY
+// handoff, copying whatever devotion text is in the currently active tab —
+// see openFeastSpeaker() below.
+const FEASTS_WITH_SPEAKER=new Set(FEAST_ORDER);
+
+// SONGS_BY_FEAST — 2026-09-11, Ryan's direct instruction. One round icon
+// button per available song, header row, to the LEFT of the speaker icon.
+// Quantity is driven entirely by how many songs exist for that feast —
+// zero shows nothing, one shows one button, etc. Only Trumpets has a song
+// right now ("Blow the Shofar"). Clicking opens the real mp3 file directly
+// (same simple window.open pattern as the speaker button — Ryan's own
+// words: "very simple... unbreakable... no complexity").
+const SONGS_BY_FEAST={
+  'Trumpets (Yom Teruah)':[{title:'Blow the Shofar',file:'Blow_the_Shofar.mp3'}]
+};
+function playFeastSong(file){
+  window.open(file,'amit_song_player');
+}
 const FEAST_SUMMARY={
   'Passover':'Passover — Pesach — falls on 14 Nisan. It commemorates the night in Egypt when the blood of a lamb, marked on the doorposts, caused the angel of death to pass over every house that trusted it. For Christians, it points directly to Yeshua as the Lamb of God — He was crucified at Passover, and His blood is the true covering that causes judgment to pass over anyone who trusts in Him.',
   'Unleavened Bread':'Unleavened Bread — Chag HaMatzot — begins the day after Passover and runs seven days. Israel ate bread made without leaven, fleeing Egypt with no time for dough to rise, and leaven became scripture\'s own picture of sin working its way through something whole. Christians hold Yeshua as the sinless bread — unleavened — and the week itself as a call to purge sin\'s influence out, the way Paul urges believers to "purge out the old leaven" in 1 Corinthians 5.',
