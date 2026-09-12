@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.81</div>
+    <div class="page-version" id="hubVersionBadge">v6.82</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1759,6 +1759,17 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
                bridge used only for accounts that predate the password
                system. Same table (user_recovery_questions), same hashing
                (amHashRecoveryAnswer/amRandomSalt), just a proper form. -->
+          <!-- Blurred whenever Demo Mode is on — added 2026-09-11, Ryan's
+               direct instruction: someone looking at a demo of the Hub
+               (over his shoulder, screen-shared, etc.) should see this
+               section is there without being able to actually read his
+               real password hint or recovery questions. See
+               updateSecurityBlur() (toggled from toggleHubDemo() and on
+               panel open) — CSS blur only, not display:none, so the
+               section's presence stays visible in a demo. Interaction is
+               also disabled while blurred so a demo viewer can't type
+               into or reveal fields meant to stay private. -->
+          <div id="accountSecurityBlock">
           <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:4px">Account & Security</div>
           <div style="color:rgba(240,232,208,.4);font-size:12px;line-height:1.6;margin-bottom:16px">Set or change your password, hint, and recovery questions any time — leave the password blank to keep your current one.</div>
           <div class="fg" style="margin-bottom:12px">
@@ -1787,6 +1798,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           </div>
           <button class="btn" onclick="amvSaveAccountSecurity()" style="margin-bottom:8px">SAVE ACCOUNT & SECURITY</button>
           <div id="asSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px;margin-bottom:24px">Saved.</div>
+          </div>
 
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,.03);border:1px solid rgba(240,232,208,.12);border-radius:8px;padding:12px 14px;margin-bottom:24px">
             <div>
@@ -3546,7 +3558,28 @@ function toggleHubDemo(){
   demoModeHub=!demoModeHub;
   localStorage.setItem('amit_demo_hub',demoModeHub?'on':'off');
   updateHubDemoBtn();
+  updateSecurityBlur();
   render();
+}
+
+// Blurs (never hides) the Account & Security block in About Me whenever
+// Demo Mode is on — added 2026-09-11, Ryan's direct instruction. A demo
+// viewer should see the section is there without being able to read the
+// real password hint or recovery questions. Also disables interaction
+// with it while blurred, so a demo viewer can't type into fields meant
+// to stay private.
+function updateSecurityBlur(){
+  const el=document.getElementById('accountSecurityBlock');
+  if(!el)return;
+  if(demoModeHub){
+    el.style.filter='blur(6px)';
+    el.style.pointerEvents='none';
+    el.style.userSelect='none';
+  } else {
+    el.style.filter='';
+    el.style.pointerEvents='';
+    el.style.userSelect='';
+  }
 }
 
 function updateHubDemoBtn(){
@@ -4568,6 +4601,7 @@ async function amvInitAboutMePanel(){
   const signedIn=!!(db&&currentUser);
   document.getElementById('amvSignedOutNote').style.display=signedIn?'none':'block';
   document.getElementById('amvSignedInContent').style.display=signedIn?'block':'none';
+  updateSecurityBlur();
   if(!signedIn) return;
 
   // Real display name if we have one (set via the Hub's own name-onboarding
