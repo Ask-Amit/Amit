@@ -286,7 +286,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.06-notauth</div>
+      <div class="page-version" id="pageVersion">v1.07-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -876,10 +876,15 @@ function buildFeastTabsHtml(detailNum){
     // Plain scrollable text box under "Devotion to follow" — Trumpets only,
     // 2026-09-11 Ryan's direct instruction. Static text, no reading/voice
     // controls of any kind — just the full study, scrollable on its own.
-    const fullStudyBox=name==='Trumpets (Yom Teruah)'
-      ?`<div style="margin-top:20px;max-height:420px;overflow-y:auto;padding:18px 20px;background:var(--card-head);border:1px solid rgba(201,168,76,.2);border-radius:8px">${buildTrumpetsFullHtml()}</div>`
+    // Box now grows to fill whatever height is actually available (rather
+    // than a fixed max-height leaving dead space below it) — the tab's own
+    // content div becomes a flex column so the box can take flex:1, with
+    // uniform 20px padding on every side including the bottom.
+    const isTrumpets=name==='Trumpets (Yom Teruah)';
+    const fullStudyBox=isTrumpets
+      ?`<div style="flex:1;min-height:0;margin-top:20px;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--card-head);border:1px solid rgba(201,168,76,.2);border-radius:8px">${buildTrumpetsFullHtml()}</div>`
       :'';
-    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">
+    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}" style="${isTrumpets?'display:flex;flex-direction:column;height:100%':''}">
       <p style="font-size:15px;line-height:1.8;color:var(--text2)">${FEAST_SUMMARY[name]}</p><p style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:'Cinzel',serif;margin-top:18px">Devotion to follow</p>${fullStudyBox}
     </div>`;
   });
