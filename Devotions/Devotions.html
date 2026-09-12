@@ -277,6 +277,16 @@ header{
 .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
+/* Real bug, found 2026-09-11 after a whole session of mysterious
+   cross-tab bleed reports: the Trumpets tab div was given an INLINE
+   style="display:flex" unconditionally. Inline styles always beat a
+   class-based rule regardless of specificity, so that div stayed
+   visible over top of every other tab no matter which one was
+   actually .active. Fixed by moving the flex layout into a class that
+   only wins the cascade when .active is ALSO present (3 classes beats
+   the 2-class .ch-tab-content.active rule; with .active absent, the
+   base 1-class display:none rule still applies normally). */
+.ch-tab-content.is-reader.active{display:flex;flex-direction:column;height:100%}
 </style>
 </head>
 <body>
@@ -286,7 +296,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.07-notauth</div>
+      <div class="page-version" id="pageVersion">v1.08-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -756,6 +766,11 @@ function showChTab(detailNum,n){
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
+  // Show/hide the far-right speaker icon per-tab — added 2026-09-11,
+  // Ryan's direct instruction. FEASTS_WITH_SPEAKER decides which tabs get
+  // it; only Trumpets right now.
+  const speakerBtn=document.getElementById('feastSpeakerBtn-'+detailNum);
+  if(speakerBtn) speakerBtn.style.display=FEASTS_WITH_SPEAKER.has(FEAST_ORDER[n-1])?'inline-block':'none';
   // Deep link down to the exact tab, not just the page — added 2026-09-11,
   // Ryan's direct instruction, so a Facebook (or any) link can land
   // straight on one specific tab (e.g. #page=2&tab=5 = Feasts of the Lord,
@@ -794,6 +809,13 @@ function buildTabbedViewHtml(detailNum){
 // state until real study+song pairs are built for each) — only the
 // numbering/naming was asked for in this pass.
 const FEAST_ORDER=['Passover','Unleavened Bread','Firstfruits','Shavuot (Pentecost)','Trumpets (Yom Teruah)','Atonement (Yom Kippur)','Tabernacles (Sukkot)'];
+
+// FEASTS_WITH_SPEAKER — 2026-09-11, Ryan's direct instruction: a speaker
+// icon at the far right of the tab-nav row, independent per tab — some
+// tabs get it, some don't. Only Trumpets for now. Opens the existing
+// compact SpeakToMe.html (same window.open pattern the Hub already uses),
+// nothing else wired up yet per Ryan's explicit "just that" scope.
+const FEASTS_WITH_SPEAKER=new Set(['Trumpets (Yom Teruah)']);
 const FEAST_SUMMARY={
   'Passover':'Passover — Pesach — falls on 14 Nisan. It commemorates the night in Egypt when the blood of a lamb, marked on the doorposts, caused the angel of death to pass over every house that trusted it. For Christians, it points directly to Yeshua as the Lamb of God — He was crucified at Passover, and His blood is the true covering that causes judgment to pass over anyone who trusts in Him.',
   'Unleavened Bread':'Unleavened Bread — Chag HaMatzot — begins the day after Passover and runs seven days. Israel ate bread made without leaven, fleeing Egypt with no time for dough to rise, and leaven became scripture\'s own picture of sin working its way through something whole. Christians hold Yeshua as the sinless bread — unleavened — and the week itself as a call to purge sin\'s influence out, the way Paul urges believers to "purge out the old leaven" in 1 Corinthians 5.',
@@ -884,12 +906,29 @@ function buildFeastTabsHtml(detailNum){
     const fullStudyBox=isTrumpets
       ?`<div style="flex:1;min-height:0;margin-top:20px;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--card-head);border:1px solid rgba(201,168,76,.2);border-radius:8px">${buildTrumpetsFullHtml()}</div>`
       :'';
-    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}" style="${isTrumpets?'display:flex;flex-direction:column;height:100%':''}">
+    tabContentHtml+=`<div class="ch-tab-content${isTrumpets?' is-reader':''}${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">
       <p style="font-size:15px;line-height:1.8;color:var(--text2)">${FEAST_SUMMARY[name]}</p><p style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:'Cinzel',serif;margin-top:18px">Devotion to follow</p>${fullStudyBox}
     </div>`;
   });
-  return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
+  // Speaker icon sits OUTSIDE ch-tab-nav on purpose — that row's own
+  // wrap/reorder logic (showChTab, above) operates on every direct child
+  // of ch-tab-nav, so a button living inside it could get physically
+  // shuffled onto whatever row a narrow screen wraps it into. As a sibling
+  // in its own flex row, it stays pinned at the far right regardless.
+  const startsWithSpeaker=FEASTS_WITH_SPEAKER.has(FEAST_ORDER[0]);
+  return `<div style="display:flex;align-items:flex-end;background:var(--bg);margin:0 24px">
+    <div class="ch-tab-nav" id="ch-tab-nav-${detailNum}" style="margin:0;flex:1">${tabNavHtml}</div>
+    <button class="ch-tab-btn" id="feastSpeakerBtn-${detailNum}" style="display:${startsWithSpeaker?'inline-block':'none'};margin-left:6px" onclick="openFeastSpeaker()" title="Speak to Me">🔊</button>
+  </div>
     <div class="ch-tab-main">${tabContentHtml}</div>`;
+}
+
+// Opens the existing compact SpeakToMe.html — same window.open pattern the
+// Hub already uses, so repeated clicks (from here or the Hub) reuse the
+// one window instead of stacking new ones. Nothing else wired in yet —
+// Ryan's explicit "just that" scope, 2026-09-11.
+function openFeastSpeaker(){
+  window.open('../SpeakToMe.html','amit_speak_to_me');
 }
 
 // mountTrumpetsSpeak() removed 2026-09-11, Ryan's direct instruction — the
