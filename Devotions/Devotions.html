@@ -296,7 +296,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.10-notauth</div>
+      <div class="page-version" id="pageVersion">v1.11-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -791,7 +791,7 @@ function showChTab(detailNum,n){
   if(songsRow){
     const songs=SONGS_BY_FEAST[feastName]||[];
     songsRow.innerHTML=songs.map(s=>
-      `<button style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,.16);box-shadow:0 0 0 1px rgba(201,168,76,.25);cursor:pointer" onclick="playFeastSong('${s.file}')" title="${s.title}">
+      `<button style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,.16);box-shadow:0 0 0 1px rgba(201,168,76,.25);cursor:pointer" onclick="playFeastSong('${s.page}')" title="${s.title}">
         <span style="font-size:18px">🎵</span><span style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2,#e8c56a);letter-spacing:.04em;font-weight:600;white-space:nowrap">${s.title}</span>
       </button>`
     ).join('');
@@ -845,18 +845,26 @@ const FEAST_ORDER=['Passover','Unleavened Bread','Firstfruits','Shavuot (Penteco
 // see openFeastSpeaker() below.
 const FEASTS_WITH_SPEAKER=new Set(FEAST_ORDER);
 
-// SONGS_BY_FEAST — 2026-09-11, Ryan's direct instruction. One round icon
-// button per available song, header row, to the LEFT of the speaker icon.
+// SONGS_BY_FEAST — 2026-09-11, Ryan's direct instruction. One icon button
+// per available song, header row, to the LEFT of the speaker button.
 // Quantity is driven entirely by how many songs exist for that feast —
 // zero shows nothing, one shows one button, etc. Only Trumpets has a song
-// right now ("Blow the Shofar"). Clicking opens the real mp3 file directly
-// (same simple window.open pattern as the speaker button — Ryan's own
-// words: "very simple... unbreakable... no complexity").
+// right now ("Blow the Shofar").
+//
+// `page` points straight at the ONE shared player (AmitMusic.html), not a
+// per-song file — someone already inside the app doesn't need the
+// Facebook-preview stub's redirect hop. Sharing a song (via that player's
+// own Share button) still hands out the song's separate tiny stub link
+// (e.g. BlowTheShofar.html), which is the piece that actually needs to be
+// per-song, since that's the only part Facebook's crawler ever reads
+// directly. See AmitMusic.html's own header comment for the full
+// reasoning — adding a new song means one entry in that page's SONGS
+// object plus one small stub file, never a whole new player page.
 const SONGS_BY_FEAST={
-  'Trumpets (Yom Teruah)':[{title:'Blow the Shofar',file:'Blow_the_Shofar.mp3'}]
+  'Trumpets (Yom Teruah)':[{title:'Blow the Shofar',page:'AmitMusic.html?song=blow-the-shofar'}]
 };
-function playFeastSong(file){
-  window.open(file,'amit_song_player');
+function playFeastSong(page){
+  window.location.href=page;
 }
 const FEAST_SUMMARY={
   'Passover':'Passover — Pesach — falls on 14 Nisan. It commemorates the night in Egypt when the blood of a lamb, marked on the doorposts, caused the angel of death to pass over every house that trusted it. For Christians, it points directly to Yeshua as the Lamb of God — He was crucified at Passover, and His blood is the true covering that causes judgment to pass over anyone who trusts in Him.',

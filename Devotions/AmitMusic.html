@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amit Music</title>
+<link rel="icon" type="image/x-icon" href="amit_icon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#09141f;
+  --card-head:#0f2338;
+  --border:rgba(201,168,76,0.55);
+  --gold:#c9a84c;
+  --gold2:#e8c56a;
+  --text2:#f0e8d0;
+  --muted:rgba(240,232,208,0.78);
+  --dim:rgba(240,232,208,0.42);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg);
+  font-family:'Crimson Pro',Georgia,serif;
+  color:var(--text2);
+  display:flex;flex-direction:column;
+  min-height:100vh;
+}
+header{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 24px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+header img{height:30px;width:30px}
+header .title{font-family:'Cinzel',serif;font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+header .sub{font-size:11px;color:var(--dim);margin-top:2px}
+
+.stage{
+  flex:1;min-height:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:24px;
+  position:relative;
+}
+video{
+  max-width:100%;max-height:100%;
+  width:100%;height:auto;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#000;
+  box-shadow:0 0 0 1px rgba(201,168,76,.15), 0 20px 60px rgba(0,0,0,.5);
+}
+.not-found{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+
+.controls{
+  display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+  padding:16px 24px 24px;
+  flex-shrink:0;
+}
+.ctl-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 20px;border-radius:9px;
+  border:1px solid var(--gold);
+  background:rgba(201,168,76,.16);
+  color:var(--gold2);
+  font-family:'Cinzel',serif;font-size:12px;letter-spacing:.06em;font-weight:600;
+  cursor:pointer;
+  box-shadow:0 0 0 1px rgba(201,168,76,.25);
+}
+.ctl-btn:hover{background:rgba(201,168,76,.26)}
+.ctl-btn.close{border-color:rgba(201,168,76,.3);background:rgba(255,255,255,.03);color:var(--muted)}
+
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--card-head);border:1px solid var(--gold);color:var(--gold2);
+  padding:10px 20px;border-radius:9px;font-family:'Cinzel',serif;font-size:12px;
+  letter-spacing:.04em;opacity:0;transition:opacity .25s,transform .25s;
+  pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     AMIT MUSIC — ONE shared player for every song, driven entirely by
+     ?song=<slug> in the URL. Added 2026-09-11, Ryan's direct instruction,
+     replacing an earlier "one HTML file per song" approach once it became
+     clear the actual player never needed to be duplicated — only the
+     Facebook/Open-Graph preview info does (that piece genuinely can't be
+     dynamic on static hosting, since Facebook's crawler never runs this
+     page's JavaScript and can't see the query string). See each song's own
+     tiny "stub" file (e.g. BlowTheShofar.html) for that other half: real,
+     hardcoded preview tags + an instant redirect to THIS page with the
+     right ?song=. Adding a new song from here forward means: drop in its
+     video/cover files, add one entry to SONGS below, write one small stub
+     file from the same template — never build a whole new player page.
+     ══════════════════════════════════════════════ -->
+<script>
+const SONGS={
+  'blow-the-shofar':{
+    title:'Blow the Shofar',
+    sub:'Feast of Trumpets — Yom Teruah',
+    video:'Blow_the_Shofar.mp4',
+    poster:'Blow_the_Shofar_Cover.png',
+    stub:'BlowTheShofar.html',
+    closeUrl:'Devotions.html#page=2&tab=5'
+  }
+};
+</script>
+
+<header>
+  <img src="amit_icon.ico" alt="Amit">
+  <div>
+    <div class="title" id="songTitle">Amit Music</div>
+    <div class="sub" id="songSub">—</div>
+  </div>
+</header>
+
+<div class="stage" id="stage"></div>
+
+<div class="controls" id="controls" style="display:none">
+  <button class="ctl-btn" id="playPauseBtn" onclick="togglePlayPause()">▶ Play</button>
+  <button class="ctl-btn" onclick="replaySong()">⟲ Replay</button>
+  <button class="ctl-btn" onclick="shareSong()">🔗 Share</button>
+  <button class="ctl-btn close" onclick="closeSong()">✕ Close</button>
+</div>
+
+<div class="toast" id="toast">Link copied</div>
+
+<script>
+const params=new URLSearchParams(window.location.search);
+const slug=params.get('song');
+const song=slug?SONGS[slug]:null;
+let video=null;
+
+if(!song){
+  document.getElementById('stage').innerHTML='<div class="not-found">No song selected.</div>';
+} else {
+  document.getElementById('songTitle').textContent=song.title;
+  document.getElementById('songSub').textContent=song.sub;
+  document.title=song.title+' — Amit';
+  document.getElementById('stage').innerHTML=
+    `<video id="songVideo" src="${song.video}" poster="${song.poster}" playsinline></video>`;
+  document.getElementById('controls').style.display='flex';
+  video=document.getElementById('songVideo');
+  const playPauseBtn=document.getElementById('playPauseBtn');
+  video.addEventListener('play',()=>playPauseBtn.textContent='⏸ Pause');
+  video.addEventListener('pause',()=>playPauseBtn.textContent='▶ Play');
+  video.addEventListener('ended',()=>{ video.pause(); setTimeout(closeSong,600); });
+}
+
+function togglePlayPause(){
+  if(!video)return;
+  if(video.paused){ video.play(); } else { video.pause(); }
+}
+function replaySong(){
+  if(!video)return;
+  video.currentTime=0;
+  video.play();
+}
+// Shares the song's own STUB page, not this player's own URL — the stub
+// is what carries the real, distinct Open Graph preview for that song.
+function shareSong(){
+  if(!song)return;
+  const url=window.location.origin+window.location.pathname.replace(/[^/]*$/,'')+song.stub;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(showToast).catch(()=>{ prompt('Copy this link:',url); });
+  } else {
+    prompt('Copy this link:',url);
+  }
+}
+function showToast(){
+  const t=document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+function closeSong(){
+  window.location.href=song?song.closeUrl:'Devotions.html';
+}
+</script>
+
+</body>
+</html>
