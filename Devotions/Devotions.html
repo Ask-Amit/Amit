@@ -296,7 +296,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.11-notauth</div>
+      <div class="page-version" id="pageVersion">v1.12-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1156,12 +1156,23 @@ function toggleRail(){
 const AMIT_HUB_URL='../Hub/amit-hub.html';
 function goToHub(){
   if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  // Real bug, found and fixed 2026-09-11 testing this exact button: the
+  // fallback window.open() used to happen inside the setTimeout below,
+  // AFTER the async BroadcastChannel round trip. Calling window.open()
+  // outside the synchronous click handler loses the browser's "user
+  // activation" flag, so most browsers silently block it as a popup —
+  // nothing visibly happens when Home is pressed and no Hub tab answers.
+  // Fix: open the tab (blank) synchronously, right here, so the popup
+  // blocker sees it as a direct result of the click either way. Then
+  // either close it (a real Hub tab answered — that tab focuses itself)
+  // or navigate this already-open one to the real URL (nothing answered).
+  const w=window.open('','amitHubTab');
   const ch=new BroadcastChannel('amit_hub_tabs');
   let acked=false;
-  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; if(w)w.close(); ch.close(); } };
   ch.postMessage({type:'focus-requested'});
   setTimeout(()=>{
-    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    if(!acked&&w) w.location.href=AMIT_HUB_URL;
     ch.close();
   },250);
 }
