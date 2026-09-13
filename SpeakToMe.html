@@ -6,6 +6,15 @@
 <link rel="icon" type="image/x-icon" href="amit_icon.ico">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="amit_owner_contact.js"></script>
+<!-- LOCAL PREFILL HANDOFF — added 2026-09-12, Ryan's direct instruction, origin:
+     "J Read Long" shortcut rebuild. A running Claude Code (or any future Amit
+     session with local file + browser access) writes speaktome_local_prefill.js
+     fresh each time, then opens this page. This is deliberately a separate file,
+     not committed to git and never pushed — it only ever exists locally, next to
+     whichever copy of SpeakToMe.html is being opened, and its content is whatever
+     conversation text was just captured. Missing file = harmless 404, script
+     below simply finds nothing and falls through to normal behavior. -->
+<script src="speaktome_local_prefill.js" onerror="void(0)"></script>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <style>
   /* Matched to the shared Amit design system (Hub / Devotions / Templates\template.html)
@@ -95,7 +104,7 @@
       </select>
       <span style="font-size:13px;font-style:italic;color:var(--dim)">Click any word to jump there · Spacebar to pause/resume · arrow keys to skip</span>
       <span id="progress" style="margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap"></span>
-      <span style="font-family:monospace;font-size:10px;letter-spacing:.05em;color:rgba(201,168,76,.5);white-space:nowrap">v1.06</span>
+      <span style="font-family:monospace;font-size:10px;letter-spacing:.05em;color:rgba(201,168,76,.5);white-space:nowrap">v1.07</span>
     </div>
 
     <div id="wordBox" onclick="wordClicked(event)"></div>
@@ -376,6 +385,25 @@ const PREFILL_KEY='amit_speaktome_prefill';
 window.addEventListener('DOMContentLoaded',async()=>{
   await populateVoiceList();
   await loadRealVoiceSettings();
+  // LOCAL PREFILL — checked first, ahead of the localStorage PREFILL_KEY and
+  // any saved paused session. This is the "J Read Long" handoff: whatever
+  // wrote speaktome_local_prefill.js (a running Claude Code session, or any
+  // future Amit session with local file + browser access — deliberately not
+  // tied to any one environment) just opened this page fresh, with fresh
+  // intent to read THIS text right now. A ts guard (compared against the
+  // last one consumed, kept in localStorage) stops a plain page refresh from
+  // silently re-triggering the same read again.
+  try{
+    if(window.AMIT_LOCAL_PREFILL&&window.AMIT_LOCAL_PREFILL.text&&window.AMIT_LOCAL_PREFILL.text.trim()){
+      const lastTs=localStorage.getItem('amit_speaktome_local_prefill_ts');
+      if(String(window.AMIT_LOCAL_PREFILL.ts)!==lastTs){
+        localStorage.setItem('amit_speaktome_local_prefill_ts',String(window.AMIT_LOCAL_PREFILL.ts));
+        document.getElementById('inputText').value=window.AMIT_LOCAL_PREFILL.text;
+        beginReading();
+        return;
+      }
+    }
+  }catch(e){}
   let prefill=null;
   try{ prefill=JSON.parse(localStorage.getItem(PREFILL_KEY)||'null'); }catch(e){}
   if(prefill&&prefill.text&&prefill.text.trim()){
