@@ -237,6 +237,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
+try{
+  if(typeof supabase === 'undefined'){
+    throw new Error('The signing service failed to load. This is usually caused by an ad blocker, privacy browser extension, or a network/firewall filter blocking it — not a problem with your information.');
+  }
   var PROPOSAL_ID = '2026-09-09-002';
   var SUPABASE_URL = 'https://hleqtjqojksurvkyqixt.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
@@ -522,5 +526,15 @@
     });
   }
   init();
+} catch(bootErr){
+  var fallbackTarget = document.getElementById('signBlock') || document.body;
+  var msg = (bootErr && bootErr.message) ? bootErr.message : 'This page could not load fully.';
+  fallbackTarget.innerHTML =
+    '<div style="background:#FBEAEA;border:2px solid #B4522E;padding:24px;font-family:Arial,Helvetica,sans-serif;">' +
+      '<div style="font-weight:bold;font-size:16px;color:#10151C;margin-bottom:10px;">This page could not load fully in your browser.</div>' +
+      '<div style="font-size:14px;line-height:1.6;color:#3A4250;margin-bottom:14px;">' + msg + '</div>' +
+      '<div style="font-size:14px;line-height:1.6;color:#3A4250;">Please try opening this link in a different browser (Chrome or Safari work well), or with any ad blocker / privacy extension turned off for this site. If it still will not load, call or text <strong>208.682.0159</strong> and we will get your signature another way.</div>' +
+    '</div>';
+}
 })();
 </script>
