@@ -40,6 +40,8 @@
 
   .feed{display:flex;flex-direction:column;gap:10px}
   .card{border:1px solid var(--border);background:var(--panel);border-radius:10px;padding:12px;position:relative}
+  .card.from-amit{border-color:var(--gold);background:#20241c}
+  .card .from-tag{font-size:10px;color:var(--gold2);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:2px}
   .card .del{position:absolute;top:8px;right:8px;background:none;color:var(--muted);border:none;font-size:16px;cursor:pointer}
   .card .when{font-size:11px;color:var(--muted);margin-bottom:6px}
   .card .msg{font-size:15px;line-height:1.4;white-space:pre-wrap;padding-right:20px}
@@ -147,7 +149,7 @@ async function amtCapturePhoto(inputEl){
   const path = ts + '-' + file.name.replace(/[^a-zA-Z0-9.]/g,'_');
   const {error: upErr} = await db.storage.from(BUCKET).upload(path, file, {contentType: file.type});
   if(upErr){ amtSetStatus('Upload failed: ' + upErr.message); return; }
-  const {error: insErr} = await db.from(TABLE).insert({kind:'photo', storage_path: path, owner_email: amtGetOwnerEmail()});
+  const {error: insErr} = await db.from(TABLE).insert({kind:'photo', storage_path: path, owner_email: amtGetOwnerEmail(), sender:'user'});
   if(insErr){ amtSetStatus('Saved photo but failed to record it: ' + insErr.message); return; }
   amtSetStatus('Photo saved.');
   inputEl.value = '';
@@ -159,7 +161,7 @@ async function amtSendMessage(){
   const text = el.value.trim();
   if(!text) return;
   amtSetStatus('Sending...');
-  const {error} = await db.from(TABLE).insert({kind:'message', message:text, owner_email: amtGetOwnerEmail()});
+  const {error} = await db.from(TABLE).insert({kind:'message', message:text, owner_email: amtGetOwnerEmail(), sender:'user'});
   if(error){ amtSetStatus('Failed to send: ' + error.message); return; }
   amtSetStatus('Message saved.');
   el.value = '';
@@ -184,15 +186,15 @@ function amtWhen(iso){
 
 async function amtRenderFeed(){
   const wrap = document.getElementById('feedWrap');
-  const {data, error} = await db.from(TABLE).select('id,kind,message,storage_path,owner_email,created_at').order('created_at',{ascending:false}).limit(100);
+  const {data, error} = await db.from(TABLE).select('id,kind,message,storage_path,owner_email,sender,created_at').order('created_at',{ascending:false}).limit(100);
   if(error){ wrap.innerHTML = '<div class="empty">Could not load: ' + error.message + '</div>'; return; }
   if(!data || data.length===0){ wrap.innerHTML = '<div class="empty">Nothing yet — take a photo or send a message.</div>'; return; }
   wrap.innerHTML = '';
   data.forEach(r=>{
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card' + (r.sender === 'amit' ? ' from-amit' : '');
     const whoTag = r.owner_email ? ' &middot; ' + r.owner_email.replace(/</g,'&lt;') : ' &middot; untagged';
-    let inner = '<div class="when">' + amtWhen(r.created_at) + whoTag + '</div>';
+    let inner = (r.sender === 'amit' ? '<div class="from-tag">Amit</div>' : '') + '<div class="when">' + amtWhen(r.created_at) + whoTag + '</div>';
     if(r.kind === 'photo' && r.storage_path){
       const url = amtPublicUrl(r.storage_path);
       inner += '<img src="' + url + '" onclick="amtOpenLightbox(\'' + url + '\')">';
