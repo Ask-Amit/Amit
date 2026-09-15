@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amit Mobile Test — Scan to Open</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#14171c;color:#e8e8ea;font-family:-apple-system,Segoe UI,Roboto,sans-serif;gap:16px;padding:20px;text-align:center}
+  h1{font-size:18px;color:#e0bd6a;margin:0}
+  .sub{font-size:12px;color:#8b909a;max-width:320px}
+  input{font-size:15px;padding:10px 12px;border-radius:8px;border:1px solid #2c313a;background:#1c2027;color:#e8e8ea;width:260px;text-align:center}
+  #qr{background:#fff;padding:16px;border-radius:12px}
+  .url{font-size:11px;color:#8b909a;word-break:break-all;max-width:320px}
+</style>
+</head>
+<body>
+<h1>Scan to open Amit Mobile Test</h1>
+<div class="sub">Every capture from this scanned link gets tagged with the email below — no sign-in, just a label.</div>
+<input id="emailInput" type="email" placeholder="you@example.com" value="">
+<div id="qr"></div>
+<div class="url" id="urlLine"></div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+const BASE_URL = "https://ask-amit.github.io/Amit/AmitMobile/MobileTest.html";
+
+function buildUrl(){
+  const email = document.getElementById('emailInput').value.trim();
+  return email ? (BASE_URL + '?u=' + encodeURIComponent(email)) : BASE_URL;
+}
+
+function renderQr(){
+  const url = buildUrl();
+  const qr = qrcode(0, 'M');
+  qr.addData(url);
+  qr.make();
+  document.getElementById('qr').innerHTML = qr.createImgTag(8, 8);
+  document.getElementById('urlLine').textContent = url;
+}
+
+document.getElementById('emailInput').addEventListener('input', renderQr);
+
+// Remember the last email used here, on this desktop, so it doesn't need retyping.
+const saved = localStorage.getItem('amt_qr_email');
+if(saved) document.getElementById('emailInput').value = saved;
+document.getElementById('emailInput').addEventListener('change', function(){
+  localStorage.setItem('amt_qr_email', this.value.trim());
+});
+
+renderQr();
+</script>
+</body>
+</html>
