@@ -1251,7 +1251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.82</div>
+    <div class="page-version" id="hubVersionBadge">v6.84</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1816,6 +1816,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
               <div id="amvAutoConnectStatus" style="color:rgba(240,232,208,.5);font-size:12px;margin-top:2px">—</div>
             </div>
             <button class="btn btn-ghost" id="amvAutoConnectToggleBtn" onclick="amvToggleAutoConnect()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(255,255,255,.03);border:1px solid rgba(240,232,208,.12);border-radius:8px;padding:12px 14px;margin-bottom:24px">
+            <div>
+              <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase">Explain The Connection</div>
+              <div id="amvExplainStatus" style="color:rgba(240,232,208,.5);font-size:12px;margin-top:2px">—</div>
+            </div>
+            <button class="btn btn-ghost" id="amvExplainToggleBtn" onclick="amvToggleExplainConnection()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
           </div>
           <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
 
@@ -3108,17 +3115,32 @@ function _amvAutoConnectEnabled(){
   // set false, same pattern as greeting_enabled.
   return !_amvOwnerContact||_amvOwnerContact.auto_connect_enabled!==false;
 }
-function _amvMaybeOfferAutoConnect(status){
+async function _amvMaybeOfferAutoConnect(status){
   if(!status||!status.signedIn||status.bridgeRunning)return;
-  if(!_amvAutoConnectEnabled())return;
   if(sessionStorage.getItem(AMV_AUTOCONNECT_OFFERED_KEY))return;
   sessionStorage.setItem(AMV_AUTOCONNECT_OFFERED_KEY,'1');
+  // REAL BUG FIXED 2026-09-15, Ryan's direct catch: this used to read
+  // _amvOwnerContact (and therefore auto_connect_enabled/auto_connect_
+  // explained) BEFORE it was ever loaded - the sign-in handler kicks off
+  // _amvGreetingPromise (which is what actually sets _amvOwnerContact) but
+  // does NOT await it before calling _refreshAmitReadinessBanner() right
+  // after, and the very first heartbeat fires immediately too. So this
+  // function was almost always racing ahead of the owner-contact fetch,
+  // saw _amvOwnerContact as null every single time, and treated that as
+  // "never explained" - which is why the full spoken explanation kept
+  // playing every morning even after "Don't ask me about this again" (or
+  // the About Me toggles) had genuinely saved. Waiting for the same
+  // promise the explainer itself already waits on for ordering fixes the
+  // decision, not just the speech's timing.
+  try{ await _amvGreetingPromise; }catch(e){}
+  if(!_amvAutoConnectEnabled())return;
   // FIRST TIME EVER seeing this (no owner-contact record of having been
   // explained yet) gets a real, front-and-center, spoken explanation
   // instead of the quiet corner prompt - Ryan's direct instruction,
   // 2026-09-07: someone's very first encounter with this should never be
   // "what's this doing to my computer?" with no context. Every time AFTER
-  // this one, the plain small corner offer (already built) is enough.
+  // this one - or any time "Explain The Connection" in About Me is off -
+  // the plain small corner offer (already built) is enough, no speech.
   const neverExplained=!_amvOwnerContact||_amvOwnerContact.auto_connect_explained!==true;
   if(neverExplained){
     _amvShowAutoConnectExplainer();
@@ -3160,6 +3182,7 @@ async function _amvMarkAutoConnectExplained(enabled){
     _amvOwnerContact.auto_connect_explained=true;
     _amvOwnerContact.auto_connect_enabled=enabled;
     if(typeof amvRenderAutoConnectToggle==='function')amvRenderAutoConnectToggle();
+    if(typeof amvRenderExplainToggle==='function')amvRenderExplainToggle();
   }
 }
 async function amvAutoConnectExplainerTurnOn(){
@@ -4636,6 +4659,7 @@ async function amvInitAboutMePanel(){
   amvRenderZipDisplay();
   amvRenderGreetingToggle();
   amvRenderAutoConnectToggle();
+  amvRenderExplainToggle();
 
   if('speechSynthesis' in window){
     await amvPopulateVoices();
@@ -4807,6 +4831,30 @@ async function amvToggleAutoConnect(){
   await saveOwnerContactFields(db,_amvOwnerContact.id,{auto_connect_enabled:turningOn});
   _amvOwnerContact.auto_connect_enabled=turningOn;
   amvRenderAutoConnectToggle();
+}
+
+// Separate from Auto-Start Amit Connection above on purpose - Ryan's direct
+// instruction, 2026-09-13: he wants the connection itself to keep running
+// automatically, just without the spoken explanation repeating every
+// morning. Everyone still hears the full explanation the first time,
+// unprompted (auto_connect_explained defaults false) - this switch is only
+// for turning that talking-through-it OFF (or back on) afterward, on
+// purpose, from About Me itself - not something that only lives inside the
+// one-time popup's "Don't ask me about this again" link.
+function amvRenderExplainToggle(){
+  const statusEl=document.getElementById('amvExplainStatus');
+  const btnEl=document.getElementById('amvExplainToggleBtn');
+  if(!statusEl||!btnEl||!_amvOwnerContact) return;
+  const on=_amvOwnerContact.auto_connect_explained!==true;
+  statusEl.textContent=on?"Amit explains out loud, the first time each day, before it connects.":'Off — Amit connects quietly, no spoken explanation.';
+  btnEl.textContent=on?'TURN OFF':'TURN ME BACK ON';
+}
+async function amvToggleExplainConnection(){
+  if(!_amvOwnerContact) return;
+  const turningOff=_amvOwnerContact.auto_connect_explained!==true; // currently explaining -> silence it
+  await saveOwnerContactFields(db,_amvOwnerContact.id,{auto_connect_explained:turningOff});
+  _amvOwnerContact.auto_connect_explained=turningOff;
+  amvRenderExplainToggle();
 }
 
 async function amvSaveMyInfo(){
