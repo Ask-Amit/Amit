@@ -647,7 +647,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.83</div>
+      <div class="page-version" id="pageVersion">v2.84</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2400,9 +2400,18 @@ async function abComputeOutstandingRows(){
 async function abRenderOutstandingRv(){
   const el=document.getElementById('ab-outstanding-rv'); if(!el)return;
   if(!db||!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in through the Hub to see real outstanding balances — this is sample mode.</div>'; return; }
-  el.innerHTML=`<div class="rv-wrap" id="rv-mount-outstanding"></div>`;
-  const rows=await abComputeOutstandingRows();
-  if(!rows.length){ document.getElementById('rv-mount-outstanding').innerHTML='<div class="ab-signin-notice" style="text-align:left">No outstanding balances tracked yet — add one from the header above.</div>'; return; }
+  el.innerHTML=`<div class="rv-wrap" id="rv-mount-outstanding"></div>
+    <div style="padding:10px 4px"><button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Row</button></div>`;
+  let rows=await abComputeOutstandingRows();
+  // The grid itself is the form — never hide it behind a "no rows yet,
+  // click a button" message (Ryan's direct correction, 2026-09-17). The
+  // very first time this account has nothing tracked, create one blank
+  // row automatically so there's always a live, editable row on screen;
+  // every row after that comes from the "+ Add Vendor Row" header button.
+  if(!rows.length){
+    await db.from('ab_temp_outstanding_balances').insert({user_id:currentUser.id,vendor_name:''});
+    rows=await abComputeOutstandingRows();
+  }
   rvCreate('rv-mount-outstanding',OUTSTANDING_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onCellCommit:abOutstandingCellCommit});
 }
 // Every column funnels through here regardless of which cellRenderer drew
@@ -2418,7 +2427,7 @@ async function abOutstandingCellCommit(rowId,key,val){
 }
 async function abAddOutstandingVendorRow(){
   if(!currentUser){ abAlert('Sign in first.'); return; }
-  const{data}=await db.from('ab_temp_outstanding_balances').insert({user_id:currentUser.id,vendor_name:'New Vendor'}).select().single();
+  const{data}=await db.from('ab_temp_outstanding_balances').insert({user_id:currentUser.id,vendor_name:''}).select().single();
   await abRenderOutstandingRv();
   if(data) rvEditCell('rv-mount-outstanding',data.id,'vendor_name');
 }
