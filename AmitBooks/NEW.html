@@ -647,7 +647,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.82</div>
+      <div class="page-version" id="pageVersion">v2.83</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2338,22 +2338,25 @@ async function abRenderCashRv(){
 // instruction, 2026-09-17: a quick spreadsheet-style monthly outstanding-
 // balance tracker (vendors down the left, alphabetical, fields across the
 // top) to use right now while Bills & Invoices is still being ported into
-// NEW.html. Reads/writes ab_temp_outstanding_balances (migration_2026-09-17_001)
-// — that table's own comment already flags it for replacement once real
-// AP/outstanding-balance reporting exists, so no separate note needed here
-// beyond this one.
+// NEW.html. Reads/writes ab_temp_outstanding_balances (migration_2026-09-17_002
+// — supersedes _001, which was scoped to book_id; Ryan corrected that
+// directly, this table is scoped to the logged-in user only, no book
+// connection at all) — that table's own comment already flags it for
+// replacement once real AP/outstanding-balance reporting exists, so no
+// separate note needed here beyond this one.
 //
 // Column types matter here, not just labels (Ryan's direct correction):
 // statement_date is a real date field, previous_balance/current_balance
-// are real currency fields, vendor_name/last_four are plain text. The
-// shared rv-table engine's generic editable cell is always a plain text
-// input (see rvRenderInstance's cellHtml, ~line 9648), so date/balance
-// columns use their own small cellRenderer below (the same extensibility
-// hook the Books table's Company column uses — companyCellRendererRef) to
-// render a real <input type="date">/<input type="number"> while editing,
-// instead of the generic text box. Both still call the same rvEditCell/
-// rvCommitCell pair every other editable cell in this file uses, so
-// onCellCommit fires identically regardless of which column was edited.
+// are real currency fields, vendor_name/account_number/balance_type are
+// plain text. The shared rv-table engine's generic editable cell is
+// always a plain text input (see rvRenderInstance's cellHtml, ~line
+// 9648), so date/balance columns use their own small cellRenderer below
+// (the same extensibility hook the Books table's Company column uses —
+// companyCellRendererRef) to render a real <input type="date">/<input
+// type="number"> while editing, instead of the generic text box. Both
+// still call the same rvEditCell/rvCommitCell pair every other editable
+// cell in this file uses, so onCellCommit fires identically regardless of
+// which column was edited.
 // ══════════════════════════════════════════════
 function abOutstandingDateCellRenderer(r,c,containerId,isChild){
   const inst=rvInstances.get(containerId);
@@ -2378,29 +2381,34 @@ function abOutstandingMoneyCellRenderer(r,c,containerId,isChild){
 }
 const OUTSTANDING_RV_COLUMNS=[
   {key:'vendor_name',label:'Vendor',editable:true},
-  {key:'last_four',label:'Last Four',editable:true},
-  {key:'statement_date',label:'Statement Date',cellRenderer:abOutstandingDateCellRenderer},
-  {key:'previous_balance',label:'Previous Balance',align:'right',cellRenderer:abOutstandingMoneyCellRenderer},
+  {key:'account_number',label:'Account Number',editable:true},
+  {key:'balance_type',label:'Type',editable:true},
+  {key:'statement_date',label:'Date',cellRenderer:abOutstandingDateCellRenderer},
+  {key:'previous_balance',label:'Previous Balance',align:'right',cellRenderer:abOutstandingMoneyCellRenderer,summable:true},
   {key:'current_balance',label:'Current Balance',align:'right',cellRenderer:abOutstandingMoneyCellRenderer,summable:true}
 ];
+// Scoped to the logged-in user only (user_id = auth.uid(), enforced by
+// this table's own RLS policy too) — deliberately NOT book-scoped. Ryan's
+// direct correction, 2026-09-17: this table connects to nothing but his
+// login, so it reads the same regardless of which book/company is
+// currently open elsewhere in the app.
 async function abComputeOutstandingRows(){
-  if(!abBookId)return[];
-  const{data}=await db.from('ab_temp_outstanding_balances').select('*').eq('book_id',abBookId);
+  if(!currentUser)return[];
+  const{data}=await db.from('ab_temp_outstanding_balances').select('*').eq('user_id',currentUser.id);
   return(data||[]).slice().sort((a,b)=>String(a.vendor_name||'').localeCompare(String(b.vendor_name||''),undefined,{sensitivity:'base'}));
 }
 async function abRenderOutstandingRv(){
   const el=document.getElementById('ab-outstanding-rv'); if(!el)return;
   if(!db||!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in through the Hub to see real outstanding balances — this is sample mode.</div>'; return; }
-  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice" style="text-align:left">Select a book first (Books tab).</div>'; return; }
   el.innerHTML=`<div class="rv-wrap" id="rv-mount-outstanding"></div>`;
   const rows=await abComputeOutstandingRows();
-  if(!rows.length){ document.getElementById('rv-mount-outstanding').innerHTML='<div class="ab-signin-notice" style="text-align:left">No outstanding balances tracked yet for this book — add one from the header above.</div>'; return; }
+  if(!rows.length){ document.getElementById('rv-mount-outstanding').innerHTML='<div class="ab-signin-notice" style="text-align:left">No outstanding balances tracked yet — add one from the header above.</div>'; return; }
   rvCreate('rv-mount-outstanding',OUTSTANDING_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onCellCommit:abOutstandingCellCommit});
 }
 // Every column funnels through here regardless of which cellRenderer drew
 // it (plain editable text or the custom date/money ones above) — rvCommitCell
 // always fires inst.onCellCommit the same way (see rvCommitCell, ~line
-// 9784), so one handler covers all five fields.
+// 9784), so one handler covers all six fields.
 async function abOutstandingCellCommit(rowId,key,val){
   const patch={};
   if(key==='previous_balance'||key==='current_balance') patch[key]=rvParseMoney(String(val))||(Number(val)||0);
@@ -2409,8 +2417,8 @@ async function abOutstandingCellCommit(rowId,key,val){
   await db.from('ab_temp_outstanding_balances').update(patch).eq('id',rowId);
 }
 async function abAddOutstandingVendorRow(){
-  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
-  const{data}=await db.from('ab_temp_outstanding_balances').insert({book_id:abBookId,vendor_name:'New Vendor'}).select().single();
+  if(!currentUser){ abAlert('Sign in first.'); return; }
+  const{data}=await db.from('ab_temp_outstanding_balances').insert({user_id:currentUser.id,vendor_name:'New Vendor'}).select().single();
   await abRenderOutstandingRv();
   if(data) rvEditCell('rv-mount-outstanding',data.id,'vendor_name');
 }
@@ -10439,8 +10447,9 @@ function renderPageActionBar(detailNum,tabNum){
     // Outstanding page header — one button adds a blank vendor row directly
     // (real insert, so it has a real id from the start — no temp-id/local
     // row bookkeeping); the vendor name cell is then editable inline like
-    // every other cell in this table.
-    bar.innerHTML=!abBookId?'':`<button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Vendor Row</button>`;
+    // every other cell in this table. Gated on sign-in only, not a book —
+    // this table isn't book-scoped.
+    bar.innerHTML=!currentUser?'':`<button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Vendor Row</button>`;
   } else {
     bar.innerHTML='';
   }
