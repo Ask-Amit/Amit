@@ -647,7 +647,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.88</div>
+      <div class="page-version" id="pageVersion">v2.89</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2383,7 +2383,31 @@ const OUTSTANDING_MONEY_KEYS=['previous_balance','current_balance','credit_limit
 // uses. Still free-text underneath (not a hard-locked <select>), so a
 // fifth value isn't blocked if one's ever genuinely needed — the four
 // listed are the suggested/expected set, not database-enforced.
+//
+// Rebuilt 2026-09-17, same day — the first version used a native
+// <datalist> dropdown, which Ryan found flickered and vanished on scroll
+// (a real, known browser quirk: a datalist's suggestion popup doesn't
+// reposition or stay open when its scroll container moves, it just
+// closes). Replaced with real inline "ghost text" autocomplete instead —
+// no popup at all, so nothing to flicker or disappear. See
+// abOutstandingTypeAutocomplete below.
 const OUTSTANDING_TYPE_OPTIONS=['Checking','Savings','Credit Card','LOC','Loan'];
+// Fills the rest of the first matching option as pre-selected text while
+// typing (e.g. typing "che" fills in "Checking" with "cking" selected) —
+// Tab/Enter accepts it as-is since the input's real .value is already
+// the full match; typing further overwrites the selected remainder, same
+// as Excel/Sheets autocomplete. Skipped on backspace/delete so removing
+// a character doesn't immediately re-complete itself back.
+function abOutstandingTypeAutocomplete(e,inputEl){
+  if(e.inputType==='deleteContentBackward'||e.inputType==='deleteContentForward')return;
+  const typed=inputEl.value;
+  if(!typed)return;
+  const match=OUTSTANDING_TYPE_OPTIONS.find(opt=>opt.toLowerCase().startsWith(typed.toLowerCase()));
+  if(match&&match.length>typed.length){
+    inputEl.value=match;
+    inputEl.setSelectionRange(typed.length,match.length);
+  }
+}
 function abOutstandingCellRenderer(r,c,containerId,isChild){
   const inst=rvInstances.get(containerId);
   const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
@@ -2393,7 +2417,8 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
   if(editing){
     const inputType=isDate?'date':(isMoney?'number':'text');
     const rawVal=isMoney?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||'')):(r[c.key]||'');
-    return `<td><input type="${inputType}"${isMoney?' step="0.01"':''}${isType?' list="outstandingTypeList"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(rawVal).replace(/"/g,'&quot;')}"
+    return `<td><input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(rawVal).replace(/"/g,'&quot;')}"
+      ${isType?'oninput="abOutstandingTypeAutocomplete(event,this)"':''}
       onkeydown="abOutstandingCellKeydown(event,'${containerId}','${r.id}','${c.key}',this)"
       onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
   }
@@ -2544,8 +2569,7 @@ async function abRenderOutstandingRv(){
   const el=document.getElementById('ab-outstanding-rv'); if(!el)return;
   if(!db||!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in through the Hub to see real outstanding balances — this is sample mode.</div>'; return; }
   el.innerHTML=`<div class="rv-wrap" id="rv-mount-outstanding"></div>
-    <div style="padding:10px 4px"><button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Row</button></div>
-    <datalist id="outstandingTypeList">${OUTSTANDING_TYPE_OPTIONS.map(t=>`<option value="${t}">`).join('')}</datalist>`;
+    <div style="padding:10px 4px"><button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Row</button></div>`;
   let rows=await abComputeOutstandingRows();
   // The grid itself is the form — never hide it behind a "no rows yet,
   // click a button" message (Ryan's direct correction, 2026-09-17). The
