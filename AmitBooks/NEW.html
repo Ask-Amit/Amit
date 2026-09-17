@@ -647,7 +647,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.84</div>
+      <div class="page-version" id="pageVersion">v2.85</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2358,34 +2358,79 @@ async function abRenderCashRv(){
 // cell in this file uses, so onCellCommit fires identically regardless of
 // which column was edited.
 // ══════════════════════════════════════════════
-function abOutstandingDateCellRenderer(r,c,containerId,isChild){
+// Column order drives Tab/Shift+Tab and the four arrow keys below — a
+// single shared cellRenderer for every column (not just date/money) so
+// this Excel-style navigation stays local to the Outstanding grid rather
+// than changing the shared rv-table engine's behavior for every other
+// screen in the app (Ryan's direct instruction, 2026-09-17: work the
+// approved form out to a real level of polish, but don't touch/connect
+// anything beyond what was asked).
+const OUTSTANDING_COL_ORDER=['vendor_name','account_number','balance_type','statement_date','previous_balance','current_balance'];
+function abOutstandingCellRenderer(r,c,containerId,isChild){
   const inst=rvInstances.get(containerId);
   const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
+  const isMoney=c.key==='previous_balance'||c.key==='current_balance';
+  const isDate=c.key==='statement_date';
   if(editing){
-    return `<td><input type="date" class="rv-cell-input" id="rv-cell-input-${containerId}" value="${r[c.key]||''}"
-      onkeydown="event.stopPropagation(); if(event.key==='Enter')rvCommitCell('${containerId}','${r.id}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
+    const inputType=isDate?'date':(isMoney?'number':'text');
+    const rawVal=isMoney?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||'')):(r[c.key]||'');
+    return `<td><input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(rawVal).replace(/"/g,'&quot;')}"
+      onkeydown="abOutstandingCellKeydown(event,'${containerId}','${r.id}','${c.key}',this)"
       onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
   }
-  return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${r[c.key]||''}</span></td>`;
+  const display=isMoney?abMoneyFmt(r[c.key]):(r[c.key]||'');
+  return `<td${isMoney?' style="text-align:right"':''}><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${display}</span></td>`;
 }
-function abOutstandingMoneyCellRenderer(r,c,containerId,isChild){
-  const inst=rvInstances.get(containerId);
-  const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
-  if(editing){
-    const raw=rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||0);
-    return `<td><input type="number" step="0.01" class="rv-cell-input" id="rv-cell-input-${containerId}" value="${raw||''}"
-      onkeydown="event.stopPropagation(); if(event.key==='Enter')rvCommitCell('${containerId}','${r.id}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
-      onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
+// Excel-style cell-to-cell navigation, Ryan's direct instruction,
+// 2026-09-17. Tab/Shift+Tab always move horizontally (committing the
+// current cell first); ArrowDown/ArrowUp always move vertically, same
+// column. ArrowLeft/ArrowRight only jump cells when the text cursor is
+// already at that edge of the field — same as a real spreadsheet, and the
+// only way to do this without breaking normal in-cell text editing
+// (otherwise you could never move the cursor left/right within a value
+// longer than one character). selectionStart access is wrapped in
+// try/catch — some input types (date) don't reliably support it across
+// browsers; if it throws, treat the cursor as already at the edge so the
+// arrow key still does something useful rather than silently failing.
+function abOutstandingAtBoundary(inputEl,edge){
+  try{
+    const atStart=inputEl.selectionStart===0&&inputEl.selectionEnd===0;
+    const atEnd=inputEl.selectionStart===inputEl.value.length&&inputEl.selectionEnd===inputEl.value.length;
+    return edge==='start'?atStart:atEnd;
+  }catch(err){ return true; }
+}
+function abOutstandingCellKeydown(e,containerId,rowId,key,inputEl){
+  e.stopPropagation();
+  const inst=rvInstances.get(containerId); if(!inst)return;
+  const colIdx=OUTSTANDING_COL_ORDER.indexOf(key);
+  const flat=rvFlattenVisible(inst,rvGetVisibleRows(inst));
+  const rowIdx=flat.findIndex(f=>f.item.id===rowId);
+  const moveTo=(targetRowIdx,targetColIdx)=>{
+    if(targetRowIdx<0||targetRowIdx>=flat.length||targetColIdx<0||targetColIdx>=OUTSTANDING_COL_ORDER.length)return false;
+    rvCommitCell(containerId,rowId,key,inputEl.value);
+    rvEditCell(containerId,flat[targetRowIdx].item.id,OUTSTANDING_COL_ORDER[targetColIdx]);
+    return true;
+  };
+  if(e.key==='Tab'){
+    e.preventDefault();
+    if(e.shiftKey){ if(!moveTo(rowIdx,colIdx-1)) moveTo(rowIdx-1,OUTSTANDING_COL_ORDER.length-1); }
+    else { if(!moveTo(rowIdx,colIdx+1)) moveTo(rowIdx+1,0); }
+    return;
   }
-  return `<td style="text-align:right"><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${abMoneyFmt(r[c.key])}</span></td>`;
+  if(e.key==='Enter'){ rvCommitCell(containerId,rowId,key,inputEl.value); return; }
+  if(e.key==='Escape'){ inst.editingCell=null; rvRenderInstance(containerId); return; }
+  if(e.key==='ArrowDown'){ e.preventDefault(); moveTo(rowIdx+1,colIdx); return; }
+  if(e.key==='ArrowUp'){ e.preventDefault(); moveTo(rowIdx-1,colIdx); return; }
+  if(e.key==='ArrowLeft'&&abOutstandingAtBoundary(inputEl,'start')){ e.preventDefault(); moveTo(rowIdx,colIdx-1); return; }
+  if(e.key==='ArrowRight'&&abOutstandingAtBoundary(inputEl,'end')){ e.preventDefault(); moveTo(rowIdx,colIdx+1); return; }
 }
 const OUTSTANDING_RV_COLUMNS=[
-  {key:'vendor_name',label:'Vendor',editable:true},
-  {key:'account_number',label:'Account Number',editable:true},
-  {key:'balance_type',label:'Type',editable:true},
-  {key:'statement_date',label:'Date',cellRenderer:abOutstandingDateCellRenderer},
-  {key:'previous_balance',label:'Previous Balance',align:'right',cellRenderer:abOutstandingMoneyCellRenderer,summable:true},
-  {key:'current_balance',label:'Current Balance',align:'right',cellRenderer:abOutstandingMoneyCellRenderer,summable:true}
+  {key:'vendor_name',label:'Vendor',cellRenderer:abOutstandingCellRenderer},
+  {key:'account_number',label:'Account Number',cellRenderer:abOutstandingCellRenderer},
+  {key:'balance_type',label:'Type',cellRenderer:abOutstandingCellRenderer},
+  {key:'statement_date',label:'Date',cellRenderer:abOutstandingCellRenderer},
+  {key:'previous_balance',label:'Previous Balance',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true},
+  {key:'current_balance',label:'Current Balance',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true}
 ];
 // Scoped to the logged-in user only (user_id = auth.uid(), enforced by
 // this table's own RLS policy too) — deliberately NOT book-scoped. Ryan's
