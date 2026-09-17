@@ -1056,6 +1056,29 @@ function renderAllPages(){
     </div>
   </div>`;
 
+  // OUTSTANDING — page 7, under Cash. Ryan's direct instruction,
+  // 2026-09-17: a temporary/shortcut monthly running-balance tracker for
+  // outstanding bills, to use right now while Bills & Invoices is still
+  // being ported into NEW.html. Reads/writes the ab_temp_outstanding_balances
+  // table (migration_2026-09-17_001), which is explicitly marked temporary
+  // in its own table comment — retire this whole page once real AP/
+  // outstanding-balance reporting exists on the Clients/Bills side.
+  navHtml+=`<div class="page-nav" id="page-7" onclick="openPage(7)" data-tip="Outstanding">
+    <div class="page-icon">${OUTSTANDING_ICON_SVG}</div>
+    <div class="page-info"><div class="page-name">Outstanding</div><div class="page-sub">—</div></div>
+  </div>`;
+  detailHtml+=`<div class="detail" id="detail-7" style="flex-direction:column">
+    <div class="detail-head"><span class="detail-heading">Outstanding</span><div class="page-action-bar" id="page-action-bar-7"></div></div>
+    <div class="ch-tab-nav" id="ch-tab-nav-7" style="margin-top:10px">
+      <button class="ch-tab-btn active" onclick="showChTab(7,1)">Outstanding</button>
+    </div>
+    <div class="ch-tab-main">
+      <div class="ch-tab-content active ch-tab-flex" id="ch-tab-7-1">
+        <div id="ab-outstanding-rv" style="display:flex;flex-direction:column;min-height:0;flex:1"><div class="rv-wrap" id="rv-mount-outstanding"></div></div>
+      </div>
+    </div>
+  </div>`;
+
   nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
   initPageTooltips('sidebarPages','right');
@@ -2309,6 +2332,87 @@ async function abRenderCashRv(){
   const rows=await abComputeCashRows();
   if(!rows.length){ document.getElementById('rv-mount-cash').innerHTML='<div class="ab-signin-notice" style="text-align:left">No checking/savings/investment accounts yet, in any book — add one from the header above, or check "This is a bank/cash account" on an existing Asset account in Accounts.</div>'; return; }
   rvCreate('rv-mount-cash',CASH_RV_COLUMNS,rows,{onRowDoubleClick:id=>{ const r=rows.find(x=>x.id===id); openCashAccountForEdit(id,r?r.book_id:null); },hideExpandColumn:true,showSummaryRow:false});
+}
+// ══════════════════════════════════════════════
+// OUTSTANDING — page 7, temporary shortcut table. Ryan's direct
+// instruction, 2026-09-17: a quick spreadsheet-style monthly outstanding-
+// balance tracker (vendors down the left, alphabetical, fields across the
+// top) to use right now while Bills & Invoices is still being ported into
+// NEW.html. Reads/writes ab_temp_outstanding_balances (migration_2026-09-17_001)
+// — that table's own comment already flags it for replacement once real
+// AP/outstanding-balance reporting exists, so no separate note needed here
+// beyond this one.
+//
+// Column types matter here, not just labels (Ryan's direct correction):
+// statement_date is a real date field, previous_balance/current_balance
+// are real currency fields, vendor_name/last_four are plain text. The
+// shared rv-table engine's generic editable cell is always a plain text
+// input (see rvRenderInstance's cellHtml, ~line 9648), so date/balance
+// columns use their own small cellRenderer below (the same extensibility
+// hook the Books table's Company column uses — companyCellRendererRef) to
+// render a real <input type="date">/<input type="number"> while editing,
+// instead of the generic text box. Both still call the same rvEditCell/
+// rvCommitCell pair every other editable cell in this file uses, so
+// onCellCommit fires identically regardless of which column was edited.
+// ══════════════════════════════════════════════
+function abOutstandingDateCellRenderer(r,c,containerId,isChild){
+  const inst=rvInstances.get(containerId);
+  const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
+  if(editing){
+    return `<td><input type="date" class="rv-cell-input" id="rv-cell-input-${containerId}" value="${r[c.key]||''}"
+      onkeydown="event.stopPropagation(); if(event.key==='Enter')rvCommitCell('${containerId}','${r.id}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
+      onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
+  }
+  return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${r[c.key]||''}</span></td>`;
+}
+function abOutstandingMoneyCellRenderer(r,c,containerId,isChild){
+  const inst=rvInstances.get(containerId);
+  const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
+  if(editing){
+    const raw=rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||0);
+    return `<td><input type="number" step="0.01" class="rv-cell-input" id="rv-cell-input-${containerId}" value="${raw||''}"
+      onkeydown="event.stopPropagation(); if(event.key==='Enter')rvCommitCell('${containerId}','${r.id}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
+      onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
+  }
+  return `<td style="text-align:right"><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${abMoneyFmt(r[c.key])}</span></td>`;
+}
+const OUTSTANDING_RV_COLUMNS=[
+  {key:'vendor_name',label:'Vendor',editable:true},
+  {key:'last_four',label:'Last Four',editable:true},
+  {key:'statement_date',label:'Statement Date',cellRenderer:abOutstandingDateCellRenderer},
+  {key:'previous_balance',label:'Previous Balance',align:'right',cellRenderer:abOutstandingMoneyCellRenderer},
+  {key:'current_balance',label:'Current Balance',align:'right',cellRenderer:abOutstandingMoneyCellRenderer,summable:true}
+];
+async function abComputeOutstandingRows(){
+  if(!abBookId)return[];
+  const{data}=await db.from('ab_temp_outstanding_balances').select('*').eq('book_id',abBookId);
+  return(data||[]).slice().sort((a,b)=>String(a.vendor_name||'').localeCompare(String(b.vendor_name||''),undefined,{sensitivity:'base'}));
+}
+async function abRenderOutstandingRv(){
+  const el=document.getElementById('ab-outstanding-rv'); if(!el)return;
+  if(!db||!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in through the Hub to see real outstanding balances — this is sample mode.</div>'; return; }
+  if(!abBookId){ el.innerHTML='<div class="ab-signin-notice" style="text-align:left">Select a book first (Books tab).</div>'; return; }
+  el.innerHTML=`<div class="rv-wrap" id="rv-mount-outstanding"></div>`;
+  const rows=await abComputeOutstandingRows();
+  if(!rows.length){ document.getElementById('rv-mount-outstanding').innerHTML='<div class="ab-signin-notice" style="text-align:left">No outstanding balances tracked yet for this book — add one from the header above.</div>'; return; }
+  rvCreate('rv-mount-outstanding',OUTSTANDING_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onCellCommit:abOutstandingCellCommit});
+}
+// Every column funnels through here regardless of which cellRenderer drew
+// it (plain editable text or the custom date/money ones above) — rvCommitCell
+// always fires inst.onCellCommit the same way (see rvCommitCell, ~line
+// 9784), so one handler covers all five fields.
+async function abOutstandingCellCommit(rowId,key,val){
+  const patch={};
+  if(key==='previous_balance'||key==='current_balance') patch[key]=rvParseMoney(String(val))||(Number(val)||0);
+  else if(key==='statement_date') patch[key]=val||null;
+  else patch[key]=val;
+  await db.from('ab_temp_outstanding_balances').update(patch).eq('id',rowId);
+}
+async function abAddOutstandingVendorRow(){
+  if(!abBookId){ abAlert('Select a book first (Books tab).'); return; }
+  const{data}=await db.from('ab_temp_outstanding_balances').insert({book_id:abBookId,vendor_name:'New Vendor'}).select().single();
+  await abRenderOutstandingRv();
+  if(data) rvEditCell('rv-mount-outstanding',data.id,'vendor_name');
 }
 function accountPopupParentChanged(){
   const parentId=document.getElementById('acctPop-parent').value;
@@ -4997,6 +5101,7 @@ function selectClientRow(rows,clientId){
 // section-labels/fields — rather than a one-off layout per entity type.
 const CLIENT_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4.14 3.36-7.5 7.5-7.5s7.5 3.36 7.5 7.5"/></svg>`;
 const CASH_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="19" height="13" rx="2"/><circle cx="12" cy="13" r="3"/><path d="M6 6.5v-2h13a2 2 0 0 1 2 2v11"/></svg>`;
+const OUTSTANDING_ICON_SVG=`<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="2.5" width="17" height="19" rx="2"/><path d="M7.5 8h9M7.5 12h9M7.5 16h5"/></svg>`;
 // Add Client now opens the real Contact popup (openContactDetailPopup,
 // built for the Books → Contacts tab) instead of its own separate form —
 // Ryan's direct instruction, 2026-08-13: "it's going in the same
@@ -10141,6 +10246,8 @@ function showChTab(detailNum,n,btnEl){
   if(detailNum===5&&n===1) abRenderVendorsRv();
   // Cash page's own single tab (detailNum 6) — same on-demand pattern.
   if(detailNum===6&&n===1) abRenderCashRv();
+  // Outstanding page's own single tab (detailNum 7) — same on-demand pattern.
+  if(detailNum===7&&n===1) abRenderOutstandingRv();
   // Jobs tab under Clients (detailNum 4, tab 2) — Ryan's direct
   // instruction, 2026-08-13: was a real gap, not just an unbuilt stub —
   // there was no way to browse Jobs at all, or see which contact/client
@@ -10328,6 +10435,12 @@ function renderPageActionBar(detailNum,tabNum){
     } else {
       bar.innerHTML=`<button class="page-action-btn" onclick="openAddCashAccountPopup()"><span>+</span>Add Cash Account</button>`;
     }
+  } else if(detailNum===7&&tabNum===1){
+    // Outstanding page header — one button adds a blank vendor row directly
+    // (real insert, so it has a real id from the start — no temp-id/local
+    // row bookkeeping); the vendor name cell is then editable inline like
+    // every other cell in this table.
+    bar.innerHTML=!abBookId?'':`<button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Vendor Row</button>`;
   } else {
     bar.innerHTML='';
   }
@@ -10389,6 +10502,9 @@ function openPage(n){
   // Cash (page 6) — filtered view over Accounts, same no-separate-load
   // pattern as Vendors.
   if(n===6){ abRenderCashRv(); renderPageActionBar(6,1); }
+  // Outstanding (page 7) — temporary shortcut tracker, same no-separate-
+  // load pattern as Vendors/Cash above.
+  if(n===7){ abRenderOutstandingRv(); renderPageActionBar(7,1); }
 }
 
 function toggleSidebar(){
