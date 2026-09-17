@@ -647,7 +647,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.86</div>
+      <div class="page-version" id="pageVersion">v2.87</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1239,7 +1239,15 @@ function rvBuildSummaryRow(inst,rows){
     if(!c.summable) return `<td class="rv-td-plain"></td>`;
     const groupBorder=c.groupStart?'border-left:6px double rgba(201,168,76,.6);':'';
     const formatted=abMoneyFmt(sums[c.key]);
-    return `<td class="rv-td-plain" style="text-align:right;position:relative;font-weight:700;color:var(--gold);${groupBorder}">${rvOperatorGlyph(c)}${formatted}</td>`;
+    // negativeRed — opt-in per column, Ryan's direct instruction,
+    // 2026-09-17 (Outstanding page: a negative total there represents
+    // real outstanding debt and should read as red, same as each row's
+    // own cell). Off by default — every other summary row (Books,
+    // Clients) keeps its existing plain gold total, since a net position
+    // there isn't itself positive or negative the way a debt total is
+    // (see this function's own header comment).
+    const negRed=c.negativeRed&&sums[c.key]<0;
+    return `<td class="rv-td-plain" style="text-align:right;position:relative;font-weight:700;color:${negRed?'#e06060':'var(--gold)'};${groupBorder}">${rvOperatorGlyph(c)}${formatted}</td>`;
   }).join('');
   return `<tfoot><tr class="rv-summary-row">
     ${inst.hideExpandColumn?'':'<td></td>'}
@@ -2365,21 +2373,61 @@ async function abRenderCashRv(){
 // screen in the app (Ryan's direct instruction, 2026-09-17: work the
 // approved form out to a real level of polish, but don't touch/connect
 // anything beyond what was asked).
-const OUTSTANDING_COL_ORDER=['vendor_name','account_number','balance_type','statement_date','previous_balance','current_balance'];
+const OUTSTANDING_COL_ORDER=['vendor_name','account_number','balance_type','credit_limit','statement_date','previous_balance','current_balance'];
+const OUTSTANDING_MONEY_KEYS=['previous_balance','current_balance','credit_limit'];
+// Ryan's direct instruction, 2026-09-17: Type should self-populate from a
+// fixed list as you type, or via a dropdown — a <datalist> gives both in
+// one control (type-ahead suggestions AND a clickable dropdown arrow)
+// without changing the input away from a plain text field, so it stays
+// compatible with the same Tab/arrow cell navigation every other column
+// uses. Still free-text underneath (not a hard-locked <select>), so a
+// fifth value isn't blocked if one's ever genuinely needed — the four
+// listed are the suggested/expected set, not database-enforced.
+const OUTSTANDING_TYPE_OPTIONS=['Checking','Savings','Credit Card','LOC','Loan'];
 function abOutstandingCellRenderer(r,c,containerId,isChild){
   const inst=rvInstances.get(containerId);
   const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
-  const isMoney=c.key==='previous_balance'||c.key==='current_balance';
+  const isMoney=OUTSTANDING_MONEY_KEYS.includes(c.key);
   const isDate=c.key==='statement_date';
+  const isType=c.key==='balance_type';
   if(editing){
     const inputType=isDate?'date':(isMoney?'number':'text');
     const rawVal=isMoney?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||'')):(r[c.key]||'');
-    return `<td><input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(rawVal).replace(/"/g,'&quot;')}"
+    return `<td><input type="${inputType}"${isMoney?' step="0.01"':''}${isType?' list="outstandingTypeList"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(rawVal).replace(/"/g,'&quot;')}"
       onkeydown="abOutstandingCellKeydown(event,'${containerId}','${r.id}','${c.key}',this)"
       onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
   }
-  const display=isMoney?abMoneyFmt(r[c.key]):(r[c.key]||'');
-  return `<td${isMoney?' style="text-align:right"':''}><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${display}</span></td>`;
+  const isNeg=isMoney&&(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||0))<0;
+  // r[c.key] is already a formatted currency string for money columns
+  // (see abComputeOutstandingRows) — show it as-is, don't re-run
+  // abMoneyFmt on an already-formatted string (Number("$1,234.50") is
+  // NaN, which would silently render as "$0.00").
+  const display=isMoney?(r[c.key]||abMoneyFmt(0)):(isDate?abOutstandingFmtDateDMY(r[c.key]):(r[c.key]||''));
+  return `<td${isMoney?' style="text-align:right"':''}><span class="rv-cell-editable"${isNeg?' style="color:#e06060"':''} onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${display}</span></td>`;
+}
+// Available Credit — computed, not stored (see abComputeOutstandingRows,
+// which fills r.available_credit before this ever renders). Always
+// read-only: no click-to-edit, no input, regardless of editingCell state
+// — there's nothing to type in, it's derived every time from Credit
+// Limit and Current Balance.
+function abOutstandingAvailableCreditRenderer(r,c,containerId,isChild){
+  const isNeg=(rvParseMoney(String(r.available_credit||''))||0)<0;
+  return `<td style="text-align:right"><span${isNeg?' style="color:#e06060"':''}>${r.available_credit||abMoneyFmt(0)}</span></td>`;
+}
+// Display-only numeric Month/Day/Year, 2-digit year (e.g. "09/17/26") —
+// Ryan's direct instruction, 2026-09-17 (supersedes the same-day spelled-
+// out Day Month Year version). The underlying value stays a plain
+// YYYY-MM-DD string (what the date column/input actually stores and what
+// the native <input type="date"> shows while editing — that native
+// picker's own display format is controlled by the browser/OS locale,
+// not something this app can override), so only this read-only display
+// span changes; nothing about how the date is stored or edited changes.
+function abOutstandingFmtDateDMY(val){
+  if(!val)return'';
+  const parts=String(val).split('-');
+  if(parts.length!==3)return val;
+  const[y,m,d]=parts;
+  return `${m.padStart(2,'0')}/${d.padStart(2,'0')}/${y.slice(-2)}`;
 }
 // Excel-style cell-to-cell navigation, Ryan's direct instruction,
 // 2026-09-17. Tab/Shift+Tab always move horizontally (committing the
@@ -2446,26 +2494,58 @@ const OUTSTANDING_RV_COLUMNS=[
   {key:'vendor_name',label:'Vendor',cellRenderer:abOutstandingCellRenderer},
   {key:'account_number',label:'Account Number',cellRenderer:abOutstandingCellRenderer},
   {key:'balance_type',label:'Type',cellRenderer:abOutstandingCellRenderer},
+  {key:'credit_limit',label:'Credit Limit',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
   {key:'statement_date',label:'Date',cellRenderer:abOutstandingCellRenderer},
-  {key:'previous_balance',label:'Previous Balance',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true},
-  {key:'current_balance',label:'Current Balance',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true},
+  {key:'previous_balance',label:'Previous Balance',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
+  {key:'current_balance',label:'Current Balance',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
+  {key:'available_credit',label:'Available Credit',align:'right',cellRenderer:abOutstandingAvailableCreditRenderer,summable:true,negativeRed:true},
   {key:'_update',label:'',sortFilter:false,cellRenderer:abOutstandingUpdateBtnRenderer}
 ];
+// Checking/Savings types carry no credit line, so Available Credit is
+// always 0 for them — everything else is Credit Limit minus Current
+// Balance. Ryan's direct instruction, 2026-09-17.
+const OUTSTANDING_NO_CREDIT_TYPES=['checking','savings'];
+function abOutstandingComputeAvailableCredit(row){
+  const type=String(row.balance_type||'').trim().toLowerCase();
+  if(OUTSTANDING_NO_CREDIT_TYPES.includes(type))return 0;
+  const limit=Number(row.credit_limit)||0;
+  const current=Number(row.current_balance)||0;
+  return limit-current;
+}
 // Scoped to the logged-in user only (user_id = auth.uid(), enforced by
 // this table's own RLS policy too) — deliberately NOT book-scoped. Ryan's
 // direct correction, 2026-09-17: this table connects to nothing but his
 // login, so it reads the same regardless of which book/company is
 // currently open elsewhere in the app.
+//
+// Money fields are formatted into display strings HERE, on the row
+// object itself (abMoneyFmt), before rvCreate ever sees them — matching
+// the convention every other money-summable table in this file already
+// follows (see abComputeCashRows). rvParseMoney (used by the shared
+// summary-row engine, rvBuildSummaryRow) only accepts strings — handing
+// it the raw numeric value Supabase returns would silently sum to 0.
+// That's a real bug this fixes at the same time as adding Credit Limit/
+// Available Credit, since both are summable and would have hit the same
+// silent-zero bug otherwise.
 async function abComputeOutstandingRows(){
   if(!currentUser)return[];
   const{data}=await db.from('ab_temp_outstanding_balances').select('*').eq('user_id',currentUser.id);
-  return(data||[]).slice().sort((a,b)=>String(a.vendor_name||'').localeCompare(String(b.vendor_name||''),undefined,{sensitivity:'base'}));
+  const rows=(data||[]).map(row=>{
+    const availableCredit=abOutstandingComputeAvailableCredit(row);
+    return{...row,
+      previous_balance:abMoneyFmt(row.previous_balance),
+      current_balance:abMoneyFmt(row.current_balance),
+      credit_limit:abMoneyFmt(row.credit_limit),
+      available_credit:abMoneyFmt(availableCredit)};
+  });
+  return rows.sort((a,b)=>String(a.vendor_name||'').localeCompare(String(b.vendor_name||''),undefined,{sensitivity:'base'}));
 }
 async function abRenderOutstandingRv(){
   const el=document.getElementById('ab-outstanding-rv'); if(!el)return;
   if(!db||!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in through the Hub to see real outstanding balances — this is sample mode.</div>'; return; }
   el.innerHTML=`<div class="rv-wrap" id="rv-mount-outstanding"></div>
-    <div style="padding:10px 4px"><button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Row</button></div>`;
+    <div style="padding:10px 4px"><button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Row</button></div>
+    <datalist id="outstandingTypeList">${OUTSTANDING_TYPE_OPTIONS.map(t=>`<option value="${t}">`).join('')}</datalist>`;
   let rows=await abComputeOutstandingRows();
   // The grid itself is the form — never hide it behind a "no rows yet,
   // click a button" message (Ryan's direct correction, 2026-09-17). The
@@ -2484,10 +2564,15 @@ async function abRenderOutstandingRv(){
 // 9784), so one handler covers all six fields.
 async function abOutstandingCellCommit(rowId,key,val){
   const patch={};
-  if(key==='previous_balance'||key==='current_balance') patch[key]=rvParseMoney(String(val))||(Number(val)||0);
+  if(OUTSTANDING_MONEY_KEYS.includes(key)) patch[key]=rvParseMoney(String(val))||(Number(val)||0);
   else if(key==='statement_date') patch[key]=val||null;
   else patch[key]=val;
   await db.from('ab_temp_outstanding_balances').update(patch).eq('id',rowId);
+  // Editing Credit Limit or Current Balance changes Available Credit too
+  // — that column is computed at fetch time (abComputeOutstandingRows),
+  // so a full reload is needed for it to reflect the new numbers rather
+  // than the stale value already sitting in memory.
+  if(key==='credit_limit'||key==='current_balance'||key==='balance_type') await abRenderOutstandingRv();
 }
 async function abAddOutstandingVendorRow(){
   if(!currentUser){ abAlert('Sign in first.'); return; }
