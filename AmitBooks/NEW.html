@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.08</div>
+      <div class="page-version" id="pageVersion">v3.09</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -10485,7 +10485,15 @@ function rvSetFocus(containerId,rowId){
   // can't leave a stale timer rendering into a container that's since
   // been torn down.
   clearTimeout(rvFocusRenderTimers[containerId]);
-  rvFocusRenderTimers[containerId]=setTimeout(()=>{ rvRenderInstance(containerId); },320);
+  // Skip the deferred render if a cell is actively being edited — Ryan's
+  // real bug report, 2026-09-18: this timer firing mid-keystroke rebuilt
+  // the whole table from inst.rows (the not-yet-committed old value),
+  // handing the input a fresh element with the OLD text and no focus —
+  // looked exactly like the edit had silently reverted/auto-saved. The
+  // focus highlight this timer exists for still applies on the next real
+  // render (e.g. when the edit commits), so nothing is lost by skipping it
+  // here.
+  rvFocusRenderTimers[containerId]=setTimeout(()=>{ const i=rvInstances.get(containerId); if(i&&i.editingCell)return; rvRenderInstance(containerId); },320);
   // A single click now also fires onRowOpen — Ryan's direct instruction,
   // 2026-08-07: clicking a row (Book or Client) should update the mini
   // page-header immediately, not require a double-click/Enter first. Safe
