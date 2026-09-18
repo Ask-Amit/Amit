@@ -345,7 +345,7 @@ header{
    tab, fixed here at the same time). Higher specificity than
    .ch-tab-content.active alone, so it only wins when both classes are
    present, and disappears correctly again once .active is removed. */
-.ch-tab-content.active.ch-tab-flex{display:flex;flex-direction:column;min-height:0}
+.ch-tab-content.active.ch-tab-flex{display:flex;flex-direction:column;min-height:0;flex:1}
 
 /* ── ROW VIEW — copied verbatim from TemplateViews.html, added 2026-08-07
    for Tab 1's book list (replacing the Split View list there — the
@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.09</div>
+      <div class="page-version" id="pageVersion">v3.13</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2671,6 +2671,13 @@ function abOutstandingParseDateInput(str){
 // exact same rvCommitCell/abOutstandingCellCommit path a typed value
 // would — abOutstandingParseDateInput's ISO branch above is what makes
 // that work without a separate code path.
+// outstandingSuppressDateBlur — set true right before stealing focus onto
+// the hidden picker, consumed once by abOutstandingDateFieldBlur below.
+let outstandingSuppressDateBlur=false;
+function abOutstandingDateFieldBlur(containerId,rowId,key,val){
+  if(outstandingSuppressDateBlur){ outstandingSuppressDateBlur=false; return; }
+  rvCommitCell(containerId,rowId,key,val);
+}
 function abOutstandingOpenDatePicker(containerId,rowId,key,btnEl){
   const picker=document.getElementById('outstandingHiddenPicker'); if(!picker)return;
   // The picker's own calendar popup renders anchored to wherever THIS
@@ -2687,6 +2694,16 @@ function abOutstandingOpenDatePicker(containerId,rowId,key,btnEl){
   const inst=rvInstances.get(containerId); const row=inst&&inst.rows.find(r=>r.id===rowId);
   picker.value=(row&&row[key])||'';
   picker.onchange=()=>{ if(picker.value) rvCommitCell(containerId,rowId,key,picker.value); };
+  // showPicker()/focus() below steals DOM focus from the still-open text
+  // input sitting next to this button, which fires a premature blur on
+  // it BEFORE the user has picked anything — its own onblur is
+  // onblur="rvCommitCell(...)", so that fired a second, stale commit
+  // racing the real one from the actual date selection. Whichever async
+  // write finished last silently won, which is why a freshly-picked date
+  // sometimes appeared and then reverted to blank right after. Suppress
+  // exactly that one blur-triggered commit — real bug, found and fixed
+  // 2026-09-18 from Ryan's direct report.
+  outstandingSuppressDateBlur=true;
   if(picker.showPicker) picker.showPicker(); else picker.focus();
 }
 function abOutstandingCellRenderer(r,c,containerId,isChild){
@@ -2698,10 +2715,10 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
   if(editing){
     const inputType=isMoney?'number':'text';
     const rawVal=isMoney?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||'')):(isDate?abOutstandingFmtDateDMY(r[c.key]):(r[c.key]||''));
-    const inputHtml=`<input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(rawVal).replace(/"/g,'&quot;')}"
+    const inputHtml=`<input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" name="ab-outstanding-field-${c.key}" value="${String(rawVal).replace(/"/g,'&quot;')}"
       ${isType?'oninput="abOutstandingTypeAutocomplete(event,this)"':''}
       onkeydown="abOutstandingCellKeydown(event,'${containerId}','${r.id}','${c.key}',this)"
-      onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)">`;
+      onblur="${isDate?'abOutstandingDateFieldBlur':'rvCommitCell'}('${containerId}','${r.id}','${c.key}',this.value)">`;
     // onmousedown preventDefault on the picker button stops the text
     // input from blurring (and committing) before the click registers —
     // without it, the blur-triggered re-render can tear down the button
@@ -2805,7 +2822,7 @@ function abOutstandingWebsiteCellRenderer(r,c,containerId,isChild){
   const inst=rvInstances.get(containerId);
   const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
   if(editing){
-    return `<td><input class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(r[c.key]||'').replace(/"/g,'&quot;')}"
+    return `<td><input class="rv-cell-input" id="rv-cell-input-${containerId}" name="ab-outstanding-field-${c.key}" value="${String(r[c.key]||'').replace(/"/g,'&quot;')}"
       onkeydown="abOutstandingCellKeydown(event,'${containerId}','${r.id}','${c.key}',this)"
       onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
   }
@@ -2956,6 +2973,15 @@ async function abOutstandingCellCommit(rowId,key,val){
       row.available_credit=abMoneyFmt(abOutstandingComputeAvailableCredit(row));
     }
   }
+  // Skip this trailing render if the person has already tabbed/clicked
+  // into editing a cell by the time this async DB write finishes —
+  // rebuilding the table here would tear down that live, focused input
+  // mid-keystroke (same failure shape as the vendor-cell revert bug,
+  // different trigger: this commit's OWN async completion, landing after
+  // the next cell was already opened via Tab). Ryan's direct report,
+  // 2026-09-18 — Tab-to-next-cell was opening the field and then
+  // immediately closing it again.
+  if(inst&&inst.editingCell)return;
   if(inst) rvRenderInstance('rv-mount-outstanding');
 }
 async function abAddOutstandingVendorRow(){
