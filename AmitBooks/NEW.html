@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.03</div>
+      <div class="page-version" id="pageVersion">v3.04</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2463,23 +2463,25 @@ function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
 // since the whole popup just goes away.
 async function abOutstandingRevealPassword(containerId,rowId){
   if(!currentUser||!db){ abAlert('Sign in first.'); return; }
-  if(!outstandingSessionPin){
-    const lock=await abOutstandingCheckPinLock();
-    if(lock.locked){ abOutstandingShowLockedPopup(lock.until); return; }
-    const pin=await abPrompt('Enter your PIN:');
-    if(!pin)return;
-    const result=await abOutstandingVerifyPin(pin,lock.contact);
-    if(result.locked){ abOutstandingShowLockedPopup(result.until); return; }
-    if(!result.ok)return;
-    outstandingSessionPin=pin;
-  }
+  // Always re-asks for the PIN, every time the eyeball is pressed — Ryan's
+  // direct correction, 2026-09-17: viewing a password must re-verify
+  // fresh, never silently reuse a PIN that happened to already be cached
+  // in memory from an earlier action (like saving a different password
+  // moments before). Saving elsewhere can still reuse a cached PIN — this
+  // is specifically about the reveal step.
+  const lock=await abOutstandingCheckPinLock();
+  if(lock.locked){ abOutstandingShowLockedPopup(lock.until); return; }
+  const pin=await abPrompt('Enter your PIN to view this:');
+  if(!pin)return;
+  const result=await abOutstandingVerifyPin(pin,lock.contact);
+  if(result.locked){ abOutstandingShowLockedPopup(result.until); return; }
+  if(!result.ok)return;
+  outstandingSessionPin=pin;
   const inst=rvInstances.get(containerId); if(!inst)return;
   const row=inst.rows.find(r=>r.id===rowId); if(!row||!row.access_encrypted)return;
-  let plaintext=outstandingDecryptedAccess.get(rowId);
-  if(!plaintext){
-    try{ plaintext=await amitPinDecrypt(row.access_encrypted,row.access_iv,outstandingSessionPin,outstandingSessionSalt); outstandingDecryptedAccess.set(rowId,plaintext); }
-    catch(e){ abAlert('Could not decrypt this value.'); return; }
-  }
+  let plaintext;
+  try{ plaintext=await amitPinDecrypt(row.access_encrypted,row.access_iv,outstandingSessionPin,outstandingSessionSalt); outstandingDecryptedAccess.set(rowId,plaintext); }
+  catch(e){ abAlert('Could not decrypt this value.'); return; }
   const websiteHtml=row.website_url
     ?`<a href="${abEsc(/^https?:\/\//i.test(row.website_url)?row.website_url:('https://'+row.website_url))}" target="_blank" rel="noopener" style="color:var(--gold2)">🔗 ${abEsc(row.website_url)}</a>`
     :`<span style="color:var(--muted)">No website on file</span>`;
