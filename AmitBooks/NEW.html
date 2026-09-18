@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.04</div>
+      <div class="page-version" id="pageVersion">v3.06</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1561,6 +1561,31 @@ function abPromptSubmit(){
   if(abDialogResolve) abDialogResolve(val);
   popupClose();
 }
+// Dedicated masked prompt for PIN entry — Ryan's direct correction,
+// 2026-09-17: the plain abPrompt() above uses a visible text input,
+// which (a) shows the PIN on screen while typing and (b) browsers will
+// happily remember/suggest a value previously typed into a plain input
+// and prefill it next time, which is exactly what he caught happening.
+// This one uses type="password" (masked, "hashtagged" as he put it) and
+// autocomplete="new-password" (the one value browsers reliably respect
+// for NOT offering to save/prefill it) — never prefilled with a default,
+// on purpose, since a PIN should never appear on screen unless someone
+// just typed it themselves. Left as its own function rather than adding
+// a "masked" option to abPrompt, so nothing that already relies on
+// abPrompt's plain-text behavior anywhere else in this file changes.
+function abPromptPin(message){
+  return new Promise(resolve=>{
+    popupOpen(`<div class="dv-sub-h">${abEsc(message)}</div><input class="fv-input" type="password" autocomplete="new-password" id="abPromptPinInput" style="margin-top:10px" onkeydown="if(event.key==='Enter')abPromptPinSubmit()"><div style="display:flex;gap:10px;margin-top:14px"><button class="fv-save" onclick="abPromptPinSubmit()">OK</button><button class="fv-save" style="background:transparent" onclick="abDialogResolve&&abDialogResolve(null);popupClose()">Cancel</button></div>`);
+    abDialogResolve=resolve;
+    setTimeout(()=>{const el=document.getElementById('abPromptPinInput');if(el)el.focus();},0);
+  });
+}
+function abPromptPinSubmit(){
+  const el=document.getElementById('abPromptPinInput');
+  const val=el?el.value:null;
+  if(abDialogResolve) abDialogResolve(val);
+  popupClose();
+}
 function abExportCsv(filename,columns,rowsData){
   const esc=v=>{ const s=v==null?'':String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
   const lines=[columns.map(c=>esc(c.label)).join(',')];
@@ -2454,7 +2479,7 @@ function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
   if(!r.access_encrypted){
     return `<td style="text-align:center"><button class="page-action-btn" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','access_encrypted')">Set</button></td>`;
   }
-  return `<td style="text-align:center"><span style="cursor:pointer;font-size:15px" title="View for 10 seconds" onclick="event.stopPropagation();abOutstandingRevealPassword('${containerId}','${r.id}')">👁</span></td>`;
+  return `<td style="text-align:center"><span style="cursor:pointer;font-size:26px;line-height:1;display:inline-block" title="View for 10 seconds" onclick="event.stopPropagation();abOutstandingRevealPassword('${containerId}','${r.id}')">👁</span></td>`;
 }
 // Requires a genuinely live, signed-in session (currentUser check) before
 // even prompting for the PIN. Popup shows Vendor / Website (real link) /
@@ -2471,7 +2496,7 @@ async function abOutstandingRevealPassword(containerId,rowId){
   // is specifically about the reveal step.
   const lock=await abOutstandingCheckPinLock();
   if(lock.locked){ abOutstandingShowLockedPopup(lock.until); return; }
-  const pin=await abPrompt('Enter your PIN to view this:');
+  const pin=await abPromptPin('Enter your PIN to view this:');
   if(!pin)return;
   const result=await abOutstandingVerifyPin(pin,lock.contact);
   if(result.locked){ abOutstandingShowLockedPopup(result.until); return; }
@@ -2488,17 +2513,64 @@ async function abOutstandingRevealPassword(containerId,rowId){
   popupOpen(`
     <div class="dv-sub-h">${abEsc(row.vendor_name||'')}</div>
     <div style="margin:14px 0;font-size:14px">${websiteHtml}</div>
-    <div style="font-size:22px;font-weight:700;letter-spacing:1px;margin:14px 0">${abEsc(plaintext)}</div>
-    <div id="outstandingRevealCountdown" style="color:var(--muted);font-size:13px">Closing in 10…</div>
+    <div id="outstandingRevealPasswordDisplay">${abOutstandingRevealPasswordHtml(plaintext,containerId,rowId)}</div>
+    <div id="outstandingRevealCountdown" style="color:var(--muted);font-size:13px;margin-top:8px">Closing in 10…</div>
   `);
+  abOutstandingRevealStartCountdown();
+}
+// Split out so both the initial open and "change it" (below) render the
+// same display — password text plus a 🔄 icon, matching the same visible
+// refresh-icon pattern already used on the Website column, per Ryan's
+// direct instruction, 2026-09-17: "obviously other websites change their
+// password often."
+function abOutstandingRevealPasswordHtml(plaintext,containerId,rowId){
+  return `<span style="font-size:22px;font-weight:700;letter-spacing:1px">${abEsc(plaintext)}</span> <span style="cursor:pointer;font-size:18px" title="Change this password" onclick="abOutstandingRevealStartChange('${containerId}','${rowId}')">🔄</span>`;
+}
+let outstandingRevealTimer=null;
+function abOutstandingRevealStartCountdown(){
+  if(outstandingRevealTimer) clearInterval(outstandingRevealTimer);
   let secondsLeft=10;
-  const timer=setInterval(()=>{
+  const el0=document.getElementById('outstandingRevealCountdown');
+  if(el0) el0.textContent='Closing in '+secondsLeft+'…';
+  outstandingRevealTimer=setInterval(()=>{
     secondsLeft--;
     const el=document.getElementById('outstandingRevealCountdown');
-    if(!el){ clearInterval(timer); return; } // popup already closed by hand
-    if(secondsLeft<=0){ clearInterval(timer); popupClose(); return; }
+    if(!el){ clearInterval(outstandingRevealTimer); return; } // popup already closed by hand
+    if(secondsLeft<=0){ clearInterval(outstandingRevealTimer); popupClose(); return; }
     el.textContent='Closing in '+secondsLeft+'…';
   },1000);
+}
+// Swaps the password display for a real, masked input — clears the old
+// value from view (never pre-filled) and pauses the auto-close countdown
+// while editing, so it can't close mid-type. Cancel restores the old
+// value/display and resumes the countdown from 10.
+function abOutstandingRevealStartChange(containerId,rowId){
+  if(outstandingRevealTimer) clearInterval(outstandingRevealTimer);
+  const el=document.getElementById('outstandingRevealPasswordDisplay'); if(!el)return;
+  el.innerHTML=`<input type="password" autocomplete="new-password" class="fv-input" id="outstandingRevealNewPassword" placeholder="New password" style="width:220px"
+    onkeydown="if(event.key==='Enter')abOutstandingRevealSaveChange('${containerId}','${rowId}'); if(event.key==='Escape')abOutstandingRevealCancelChange('${containerId}','${rowId}')">
+    <button class="fv-save" style="margin-left:6px;padding:6px 12px" onclick="abOutstandingRevealSaveChange('${containerId}','${rowId}')">Save</button>`;
+  setTimeout(()=>{const inp=document.getElementById('outstandingRevealNewPassword');if(inp)inp.focus();},0);
+}
+function abOutstandingRevealCancelChange(containerId,rowId){
+  const plaintext=outstandingDecryptedAccess.get(rowId)||'';
+  const el=document.getElementById('outstandingRevealPasswordDisplay');
+  if(el) el.innerHTML=abOutstandingRevealPasswordHtml(plaintext,containerId,rowId);
+  abOutstandingRevealStartCountdown();
+}
+async function abOutstandingRevealSaveChange(containerId,rowId){
+  const inp=document.getElementById('outstandingRevealNewPassword');
+  const newPlain=inp?inp.value:'';
+  if(!newPlain){ abOutstandingRevealCancelChange(containerId,rowId); return; }
+  const enc=await amitPinEncrypt(newPlain,outstandingSessionPin,outstandingSessionSalt);
+  await db.from('ab_temp_outstanding_balances').update({access_encrypted:enc.encrypted,access_iv:enc.iv}).eq('id',rowId);
+  outstandingDecryptedAccess.set(rowId,newPlain);
+  const inst=rvInstances.get(containerId);
+  const row=inst&&inst.rows.find(r=>r.id===rowId);
+  if(row){ row.access_encrypted='•'; row.access_iv='•'; }
+  const el=document.getElementById('outstandingRevealPasswordDisplay');
+  if(el) el.innerHTML=abOutstandingRevealPasswordHtml(newPlain,containerId,rowId);
+  abOutstandingRevealStartCountdown();
 }
 async function abOutstandingCommitAccess(containerId,rowId,plaintext){
   const inst=rvInstances.get(containerId); if(!inst)return;
@@ -2510,7 +2582,7 @@ async function abOutstandingCommitAccess(containerId,rowId,plaintext){
     if(!outstandingSessionPin){
       const lock=await abOutstandingCheckPinLock();
       if(lock.locked){ abOutstandingShowLockedPopup(lock.until); rvRenderInstance('rv-mount-outstanding'); return; }
-      const pin=await abPrompt('Enter your PIN to save this:');
+      const pin=await abPromptPin('Enter your PIN to save this:');
       if(!pin){ rvRenderInstance('rv-mount-outstanding'); return; }
       const result=await abOutstandingVerifyPin(pin,lock.contact);
       if(result.locked){ abOutstandingShowLockedPopup(result.until); rvRenderInstance('rv-mount-outstanding'); return; }
