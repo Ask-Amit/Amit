@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.01</div>
+      <div class="page-version" id="pageVersion">v3.03</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2424,7 +2424,8 @@ async function abOutstandingVerifyPin(pin,contact){
   }
   const fail=await amitPinRecordFailure(db,contact.id,contact.access_pin_fail_count);
   if(fail.locked) return{ok:false,locked:true,until:fail.until};
-  abAlert('That\'s not the right PIN. '+fail.attemptsLeft+' attempt'+(fail.attemptsLeft===1?'':'s')+' left before a 24-hour lock.');
+  const hintLine=contact.access_pin_hint?(' Your reminder: '+contact.access_pin_hint):'';
+  abAlert('That\'s not the right PIN. '+fail.attemptsLeft+' attempt'+(fail.attemptsLeft===1?'':'s')+' left before a 24-hour lock.'+hintLine);
   return{ok:false};
 }
 function abOutstandingShowLockedPopup(until){
@@ -2736,7 +2737,11 @@ function abOutstandingWebsiteCellRenderer(r,c,containerId,isChild){
   }
   if(!r[c.key]) return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">— set —</span></td>`;
   const href=/^https?:\/\//i.test(r[c.key])?r[c.key]:('https://'+r[c.key]);
-  return `<td><a href="${abEsc(href)}" target="_blank" rel="noopener" style="color:var(--gold2)" onclick="event.stopPropagation()" ondblclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">🔗 Open</a></td>`;
+  // 🔄 edit icon, Ryan's direct instruction, 2026-09-17: a visible way to
+  // correct a mistyped URL, not just the double-click a person would
+  // never discover on their own. Opens the same real edit input, prefilled
+  // with the current value, so it can be selected/deleted/repasted freely.
+  return `<td><a href="${abEsc(href)}" target="_blank" rel="noopener" style="color:var(--gold2)" onclick="event.stopPropagation()">🔗 Open</a> <span style="cursor:pointer" title="Change website address" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">🔄</span></td>`;
 }
 async function abOutstandingUpdateRow(containerId,rowId){
   const inst=rvInstances.get(containerId); if(!inst)return;
