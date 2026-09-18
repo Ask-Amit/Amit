@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.13</div>
+      <div class="page-version" id="pageVersion">v3.14</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2674,6 +2674,10 @@ function abOutstandingParseDateInput(str){
 // outstandingSuppressDateBlur — set true right before stealing focus onto
 // the hidden picker, consumed once by abOutstandingDateFieldBlur below.
 let outstandingSuppressDateBlur=false;
+// outstandingDateEditSnapshot — the real stored date, captured the instant
+// a date cell opens for editing, so an invalid typed value (out-of-range
+// month/day) can be bounced back to it instead of being left on screen.
+const outstandingDateEditSnapshot={};
 function abOutstandingDateFieldBlur(containerId,rowId,key,val){
   if(outstandingSuppressDateBlur){ outstandingSuppressDateBlur=false; return; }
   rvCommitCell(containerId,rowId,key,val);
@@ -2714,6 +2718,14 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
   const isType=c.key==='balance_type';
   if(editing){
     const inputType=isMoney?'number':'text';
+    // Snapshot the real stored value the moment this date cell opens for
+    // editing — rvCommitCell overwrites row[key] with whatever was typed
+    // BEFORE abOutstandingCellCommit ever gets to validate it, so an
+    // out-of-range month/day (e.g. "69/15") was being left sitting in the
+    // cell as text forever, since the invalid-input bailout below had
+    // nothing correct left to fall back to. Ryan's direct report,
+    // 2026-09-18.
+    if(isDate) outstandingDateEditSnapshot[r.id]=r[c.key];
     const rawVal=isMoney?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||'')):(isDate?abOutstandingFmtDateDMY(r[c.key]):(r[c.key]||''));
     const inputHtml=`<input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" name="ab-outstanding-field-${c.key}" value="${String(rawVal).replace(/"/g,'&quot;')}"
       ${isType?'oninput="abOutstandingTypeAutocomplete(event,this)"':''}
@@ -2951,10 +2963,20 @@ async function abOutstandingCellCommit(rowId,key,val){
     if(!String(val||'').trim()){ patch.statement_date=null; }
     else{
       const parsed=abOutstandingParseDateInput(val);
-      // Unparseable, non-empty text — don't write garbage to the date
-      // column. Leave the row untouched and just re-render in place so
-      // the cell snaps back to its real stored value.
-      if(!parsed){ rvRenderInstance('rv-mount-outstanding'); return; }
+      // Unparseable, or out-of-range (month>12 / day>31), non-empty text
+      // — don't write garbage to the date column. rvCommitCell already
+      // stamped the invalid typed text onto row[key] before this
+      // validation ever ran, so restoring the pre-edit snapshot (captured
+      // the instant the cell opened, see abOutstandingCellRenderer) is
+      // what actually makes the cell "snap back" — without this, the
+      // invalid text (e.g. "69/15") was left sitting there permanently.
+      if(!parsed){
+        const inst=rvInstances.get('rv-mount-outstanding');
+        const row=inst&&inst.rows.find(r=>r.id===rowId);
+        if(row) row.statement_date=outstandingDateEditSnapshot[rowId]!==undefined?outstandingDateEditSnapshot[rowId]:null;
+        rvRenderInstance('rv-mount-outstanding');
+        return;
+      }
       patch.statement_date=parsed;
     }
   }
