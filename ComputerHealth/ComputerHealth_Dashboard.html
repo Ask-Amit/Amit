@@ -1594,7 +1594,14 @@ async function chLoadSoftwareGauge() {
     const d = await r.json();
     const records = d.records || [];
     const minidumps = d.minidumps || [];
-    const errorRecords = records.filter(rec => /Error|Hang|unexpected/i.test(rec.source + ' ' + rec.message));
+    // Broadened 2026-09-18, Ryan's direct catch: a real "Installation
+    // Failure: Windows failed to install the following update..." record
+    // was showing up nowhere as a counted error, because the word
+    // "failed" itself was never in this pattern - only Error/Hang/
+    // unexpected were. Windows' own Reliability Monitor genuinely
+    // categorizes install failures this way, without the word "error"
+    // anywhere in the message.
+    const errorRecords = records.filter(rec => /Error|Hang|unexpected|fail/i.test(rec.source + ' ' + rec.message));
     const errorCountSinceUpdate = errorRecords.filter(rec => !rec.beforeLastUpdate).length;
     const errorScore = errorCountSinceUpdate === 0 ? 100 : errorCountSinceUpdate <= 2 ? 85 : errorCountSinceUpdate <= 7 ? 55 : 15;
     const bsodScore = minidumps.length === 0 ? 100 : minidumps.length <= 2 ? 55 : 15;
@@ -5823,7 +5830,25 @@ async function pollReliability() {
     const records = d.records || [];
     const minidumps = d.minidumps || [];
     if (currentUser && deviceId) syncReliabilityToHistory(records, minidumps);
-    const errorRecords = records.filter(rec => /Error|Hang|unexpected/i.test(rec.source + ' ' + rec.message));
+    // Broadened 2026-09-18, Ryan's direct catch: a real "Installation
+    // Failure: Windows failed to install the following update..." record
+    // was showing up under Recent Events below but not being counted as
+    // an error above - the word "failed" was never in this pattern, only
+    // Error/Hang/unexpected were, and Windows' own Reliability Monitor
+    // genuinely categorizes install failures this way with no "error" in
+    // the message text at all.
+    const errorRecords = records.filter(rec => /Error|Hang|unexpected|fail/i.test(rec.source + ' ' + rec.message));
+    // Split into two real, separate categories - Ryan's direct request
+    // 2026-09-18: "errors" (something broke/failed - an install failure,
+    // an application error) and "crashes" (an application hang or an
+    // unexpected shutdown - Windows' own Reliability Monitor categories)
+    // were being merged into one "Errors & Crashes" count, which made it
+    // impossible to tell which kind was actually happening. This is
+    // still distinct from the BSOD card below, which counts real crash
+    // DUMP FILES on disk - hard corroborating evidence - not Reliability
+    // Monitor log entries.
+    const crashRecords = errorRecords.filter(rec => /Hang|unexpected/i.test(rec.source + ' ' + rec.message));
+    const pureErrorRecords = errorRecords.filter(rec => !crashRecords.includes(rec));
     // Windows never purges reliability history just because a later
     // update fixed the underlying cause - the same old entries would
     // otherwise sit there looking like an ongoing unresolved problem
@@ -5832,22 +5857,30 @@ async function pollReliability() {
     // manual log entry), with older entries still shown in full below,
     // just labeled instead of counted as current (Ryan's direct request
     // 2026-07-16).
-    const errorCountSinceUpdate = errorRecords.filter(rec => !rec.beforeLastUpdate).length;
-    const errorCountBeforeUpdate = errorRecords.length - errorCountSinceUpdate;
+    const errorCountSinceUpdate = pureErrorRecords.filter(rec => !rec.beforeLastUpdate).length;
+    const crashCountSinceUpdate = crashRecords.filter(rec => !rec.beforeLastUpdate).length;
+    const errorCountBeforeUpdate = errorRecords.length - errorCountSinceUpdate - crashCountSinceUpdate;
     const lastUpdateLine = d.lastUpdateDate
       ? `Last update installed: ${d.lastUpdateDate}${errorCountBeforeUpdate ? ` - ${errorCountBeforeUpdate} of the entries below happened before that and may already be resolved.` : ''}`
       : 'Could not determine when the last update was installed.';
     document.getElementById('reliabilityCards').innerHTML = `
       <div class="card ${verdictClass(errorCountSinceUpdate,3,7)}">
-        <div class="label">Errors &amp; Crashes Since Your Last Update</div>
+        <div class="label">Errors Since Your Last Update</div>
         <div class="value">${errorCountSinceUpdate}</div>
         <div class="verdict">${verdictText('Errors',errorCountSinceUpdate,3,7,
           'Nothing concerning since your last update.',
           'A few errors since your last update - worth keeping an eye on.',
-          'A real pattern of errors/crashes since your last update - worth investigating what keeps failing.')}
+          'A real pattern of errors since your last update - worth investigating what keeps failing.')}
           <div style="margin-top:6px;color:#8a8f99;font-size:12px">${lastUpdateLine}</div></div></div>
+      <div class="card ${verdictClass(crashCountSinceUpdate,1,3)}">
+        <div class="label">Crashes &amp; Hangs Since Your Last Update</div>
+        <div class="value">${crashCountSinceUpdate}</div>
+        <div class="verdict">${verdictText('Crashes',crashCountSinceUpdate,1,3,
+          'No application hangs or unexpected shutdowns since your last update.',
+          'At least one hang or unexpected shutdown since your last update.',
+          'A real pattern of hangs or unexpected shutdowns since your last update.')}</div></div>
       <div class="card ${verdictClass(minidumps.length,1,3)}">
-        <div class="label">Actual BSOD Crashes</div>
+        <div class="label">Actual BSOD Crash Dump Files</div>
         <div class="value">${minidumps.length}</div>
         <div class="verdict">${verdictText('BSODs',minidumps.length,1,3,
           'No blue-screen crash files found.',
@@ -6323,6 +6356,25 @@ async function logBehaviorSessionToHubHistory(summary, fullLog, duration, mainPr
   if (!currentUser) return;
   const today = new Date().toISOString().slice(0, 10);
   const title = mainProgram ? `Watched ${mainProgram}${duration ? ' for ' + duration : ''}` : summary;
+  // Fetch-before-create dedup — real bug, found and fixed 2026-09-12, Ryan
+  // caught two byte-for-byte identical "Watched..." experience entries on
+  // the Hub Home panel. This function was inserting unconditionally, with
+  // no check for whether the same session had already been logged — the
+  // same duplicate risk already named and fixed in logBehaviorSessionToHistory
+  // above ("reconciliation and this live push could both log the same
+  // session as a duplicate") but never actually applied to this Hub-facing
+  // write. Two calls to stopBehavior() for the same underlying watcher
+  // session (e.g. the dashboard open in two tabs/windows both watching)
+  // produce the same title/notes/completed_date, so that combination is
+  // what's checked before inserting.
+  try {
+    const { data: existing } = await db.from('hub_entries')
+      .select('id')
+      .eq('user_id', currentUser.id).eq('kind', 'experience')
+      .eq('focus', 'AppWatch').eq('title', title).eq('completed_date', today)
+      .limit(1);
+    if (existing && existing.length) return;
+  } catch (e) { /* if the dedup check itself fails, fall through and log anyway — better a rare duplicate than silently losing a real session */ }
   try {
     await db.from('hub_entries').insert({
       id: (crypto.randomUUID ? crypto.randomUUID() : 'ch-' + Date.now() + '-' + Math.random().toString(36).slice(2)),

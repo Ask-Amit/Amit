@@ -1252,7 +1252,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.92</div>
+    <div class="page-version" id="hubVersionBadge">v6.94</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3229,7 +3229,38 @@ async function amvAutoConnectExplainerTurnOn(){
 // window popping up right after.
 async function _amvSpeakAutoConnectTurnOnConfirm(){
   if(!('speechSynthesis' in window)||!_amvOwnerContact)return;
-  const text="Great. What you're going to see is a few pop-ups come up. If you've never done this before, it'll ask if I can install a small program — that's just a monitoring program, so I can watch over everything and make all the connections. Then you might see something called PowerShell appear — that's just what actually connects your computer, the monitor, and this whole application together. That's all that's happening.";
+  // REWRITTEN 2026-09-18, Ryan's direct catch: this used to only describe
+  // the already-installed path ("a few pop-ups... PowerShell") and never
+  // mentioned that on a genuinely new computer, what actually happens
+  // first is a program downloading - which is exactly what Ryan watched
+  // happen live while this text kept talking about PowerShell instead.
+  // Now names both real outcomes honestly, since which one happens isn't
+  // known yet at the moment this line speaks (that takes ~9 seconds to
+  // find out) - see _amvSpeakInstallerDownloading() below for the second,
+  // certain narration once we actually know it's the fresh-install path.
+  const text="Great. Here's what happens next. If Amit's already set up on this computer, you'll just see a quick PowerShell window flash by, connecting everything — nothing for you to do. If this is the first time on this computer, a small setup program will download instead. When that happens, you'll need to go to your Downloads folder, open it, and approve the one Windows prompt — that's what actually installs the monitoring program. Either way, I'll let you know here once it's done.";
+  const voices=await _amvGetVoicesReady();
+  _amvSpeakWithContact(text,_amvOwnerContact,voices);
+}
+// Fires the moment the fresh-install download actually starts - narrates
+// the real thing on screen right then, instead of relying on the earlier
+// hedge above to have been heard/remembered. Ryan's direct catch,
+// 2026-09-18: he saw the file download with no spoken acknowledgment that
+// it had, and the installer hadn't run yet either.
+async function _amvSpeakInstallerDownloading(){
+  if(!('speechSynthesis' in window)||!_amvOwnerContact)return;
+  // EXPANDED 2026-09-18, Ryan's direct instruction: also walk through the
+  // real Windows SmartScreen "unrecognized publisher" warning by voice,
+  // not just leave it to the on-screen modal - this is a brand-new
+  // program that hasn't been downloaded enough times yet for Windows to
+  // recognize it as safe, so a real security prompt WILL show up here,
+  // and someone hearing nothing about it may reasonably stop and not
+  // trust it. Named honestly, with the real click sequence (More info /
+  // ••• → Keep, then the follow-up screen defaulting to Delete → the
+  // small arrow next to it → Keep anyway), and an honest acknowledgment
+  // this is a real, temporary inconvenience until Amit has enough people
+  // running it for Windows to recognize it on its own.
+  const text="It looks like Amit isn't installed on this computer yet, so a small setup program just started downloading. It hasn't installed itself yet — here's what you'll need to do. Since Amit is still a new program, your computer probably won't recognize it yet, and Windows may warn you it's unrecognized. That's expected, not a problem — until enough people have downloaded it, Windows just doesn't know it yet. If you still want to continue, go to your Downloads folder, and when that warning shows up, choose Keep. On the next screen, it'll default to Delete — look for the small arrow right next to it, click that, and choose Keep anyway. Once you do, you'll be able to open the file, and from there it installs itself. I'm sorry for that extra step — it's just something we have to work through until Amit's more widely known. I'll be right here once it's done.";
   const voices=await _amvGetVoicesReady();
   _amvSpeakWithContact(text,_amvOwnerContact,voices);
 }
@@ -3298,6 +3329,7 @@ function _amvOfferInstallerDownload(){
   document.body.appendChild(a);
   a.click();
   a.remove();
+  _amvSpeakInstallerDownloading();
   const modal=document.getElementById('amvInstallerDownloadedModal');
   if(modal)modal.style.display='flex';
 }
