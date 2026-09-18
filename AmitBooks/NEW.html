@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.06</div>
+      <div class="page-version" id="pageVersion">v3.08</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2477,9 +2477,9 @@ function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
       onblur="abOutstandingCommitAccess('${containerId}','${r.id}',this.value)"></td>`;
   }
   if(!r.access_encrypted){
-    return `<td style="text-align:center"><button class="page-action-btn" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','access_encrypted')">Set</button></td>`;
+    return `<td style="text-align:center"><button class="page-action-btn" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');rvEditCell('${containerId}','${r.id}','access_encrypted')">Set</button></td>`;
   }
-  return `<td style="text-align:center"><span style="cursor:pointer;font-size:26px;line-height:1;display:inline-block" title="View for 10 seconds" onclick="event.stopPropagation();abOutstandingRevealPassword('${containerId}','${r.id}')">👁</span></td>`;
+  return `<td style="text-align:center"><span style="cursor:pointer;font-size:26px;line-height:1;display:inline-block" title="View for 10 seconds" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');abOutstandingRevealPassword('${containerId}','${r.id}')">👁</span></td>`;
 }
 // Requires a genuinely live, signed-in session (currentUser check) before
 // even prompting for the PIN. Popup shows Vendor / Website (real link) /
@@ -2715,7 +2715,7 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
   // abMoneyFmt on an already-formatted string (Number("$1,234.50") is
   // NaN, which would silently render as "$0.00").
   const display=isMoney?(r[c.key]||abMoneyFmt(0)):(isDate?abOutstandingFmtDateDMY(r[c.key]):(r[c.key]||''));
-  return `<td${isMoney?' style="text-align:right"':''}><span class="rv-cell-editable"${isNeg?' style="color:#e06060"':''} onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${display}</span></td>`;
+  return `<td${isMoney?' style="text-align:right"':''}><span class="rv-cell-editable"${isNeg?' style="color:#e06060"':''} onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');rvEditCell('${containerId}','${r.id}','${c.key}')">${display}</span></td>`;
 }
 // Available Credit — computed, not stored (see abComputeOutstandingRows,
 // which fills r.available_credit before this ever renders). Always
@@ -2792,7 +2792,7 @@ function abOutstandingCellKeydown(e,containerId,rowId,key,inputEl){
 // part of OUTSTANDING_COL_ORDER — it's an action, not a field to Tab
 // through.
 function abOutstandingUpdateBtnRenderer(r,c,containerId,isChild){
-  return `<td style="padding:6px 8px"><button class="page-action-btn" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();abOutstandingUpdateRow('${containerId}','${r.id}')">Update</button></td>`;
+  return `<td style="padding:6px 8px"><button class="page-action-btn" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');abOutstandingUpdateRow('${containerId}','${r.id}')">Update</button></td>`;
 }
 // Website — Ryan's direct instruction, 2026-09-17: a plain editable URL
 // field that also acts as a real clickable hyperlink (opens in a new tab
@@ -2809,13 +2809,13 @@ function abOutstandingWebsiteCellRenderer(r,c,containerId,isChild){
       onkeydown="abOutstandingCellKeydown(event,'${containerId}','${r.id}','${c.key}',this)"
       onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
   }
-  if(!r[c.key]) return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">— set —</span></td>`;
+  if(!r[c.key]) return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');rvEditCell('${containerId}','${r.id}','${c.key}')">— set —</span></td>`;
   const href=/^https?:\/\//i.test(r[c.key])?r[c.key]:('https://'+r[c.key]);
   // 🔄 edit icon, Ryan's direct instruction, 2026-09-17: a visible way to
   // correct a mistyped URL, not just the double-click a person would
   // never discover on their own. Opens the same real edit input, prefilled
   // with the current value, so it can be selected/deleted/repasted freely.
-  return `<td><a href="${abEsc(href)}" target="_blank" rel="noopener" style="color:var(--gold2)" onclick="event.stopPropagation()">🔗 Open</a> <span style="cursor:pointer" title="Change website address" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">🔄</span></td>`;
+  return `<td><a href="${abEsc(href)}" target="_blank" rel="noopener" style="color:var(--gold2)" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}')">🔗 Open</a> <span style="cursor:pointer" title="Change website address" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');rvEditCell('${containerId}','${r.id}','${c.key}')">🔄</span></td>`;
 }
 async function abOutstandingUpdateRow(containerId,rowId){
   const inst=rvInstances.get(containerId); if(!inst)return;
@@ -2899,6 +2899,21 @@ async function abRenderOutstandingRv(){
     rows=await abComputeOutstandingRows();
   }
   rvCreate('rv-mount-outstanding',OUTSTANDING_RV_COLUMNS,rows,{hideExpandColumn:true,showSummaryRow:true,onCellCommit:abOutstandingCellCommit});
+  abOutstandingRenderTotalBanner(rows);
+}
+// Running total, front and center in the page header — Ryan's direct
+// instruction, 2026-09-17: answer "what's my outstanding amount" in the
+// first half-second, not buried at the bottom of the table after
+// scrolling. Negative total (debt owed) reads as "Outstanding Balance,"
+// positive (net credit) reads as "Available" — same red/gold convention
+// already used for negative values throughout this page.
+function abOutstandingRenderTotalBanner(rows){
+  const bar=document.getElementById('page-action-bar-7'); if(!bar)return;
+  const total=rows.reduce((sum,r)=>sum+(rvParseMoney(String(r.current_balance||''))||0),0);
+  const negative=total<0;
+  const label=negative?'Outstanding Balance':'Available';
+  const amount=abMoneyFmt(Math.abs(total));
+  bar.innerHTML=`<div style="width:100%;text-align:center;font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:${negative?'#e06060':'var(--gold)'}">${label}: ${amount}</div>`;
 }
 // Every column funnels through here regardless of which cellRenderer drew
 // it (plain editable text or the custom date/money ones above) — rvCommitCell
@@ -10289,7 +10304,7 @@ function rvRenderInstance(containerId){
         onkeydown="event.stopPropagation(); if(event.key==='Enter')rvCommitCell('${containerId}','${r.id}','${c.key}',this.value); if(event.key==='Escape'){rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
         onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
     }
-    return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">${prefix}${r[c.key]||''}</span></td>`;
+    return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');rvEditCell('${containerId}','${r.id}','${c.key}')">${prefix}${r[c.key]||''}</span></td>`;
   };
   const flat=rvFlattenVisible(inst,rows);
   // Ryan's direct instruction, 2026-08-12: the child rows under a master
@@ -10971,12 +10986,12 @@ function renderPageActionBar(detailNum,tabNum){
       bar.innerHTML=`<button class="page-action-btn" onclick="openAddCashAccountPopup()"><span>+</span>Add Cash Account</button>`;
     }
   } else if(detailNum===7&&tabNum===1){
-    // Outstanding page header — one button adds a blank vendor row directly
-    // (real insert, so it has a real id from the start — no temp-id/local
-    // row bookkeeping); the vendor name cell is then editable inline like
-    // every other cell in this table. Gated on sign-in only, not a book —
-    // this table isn't book-scoped.
-    bar.innerHTML=!currentUser?'':`<button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Vendor Row</button>`;
+    // Outstanding page header — Ryan's direct instruction, 2026-09-17:
+    // vendor creation doesn't belong here at all (that'll happen through
+    // the real Vendor/Credit Card setup once it exists) — this bar now
+    // just holds the running total, populated by abRenderOutstandingRv
+    // once real row data is loaded (nothing to total yet at this point).
+    bar.innerHTML='';
   } else {
     bar.innerHTML='';
   }
