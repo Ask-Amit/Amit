@@ -647,7 +647,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.89</div>
+      <div class="page-version" id="pageVersion">v2.91</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2373,7 +2373,106 @@ async function abRenderCashRv(){
 // screen in the app (Ryan's direct instruction, 2026-09-17: work the
 // approved form out to a real level of polish, but don't touch/connect
 // anything beyond what was asked).
-const OUTSTANDING_COL_ORDER=['vendor_name','account_number','balance_type','credit_limit','statement_date','previous_balance','current_balance'];
+const OUTSTANDING_COL_ORDER=['vendor_name','sub_account_name','account_number','balance_type','credit_limit','statement_date','previous_balance','current_balance'];
+// ── ACCESS FIELD VAULT — Ryan's direct instruction, 2026-09-17: same
+// real client-side AES-256-GCM/PBKDF2 zero-knowledge model as the
+// existing Company/Contact SSN vault (abDeriveVaultKey/abB64FromBuf/
+// abBufFromB64, defined earlier in this file, are reused as-is — not
+// duplicated). Separate key/salt from those because Outstanding isn't
+// scoped to a book or company at all — it's scoped to the login — so its
+// salt lives in its own tiny table, ab_temp_outstanding_vault, one row
+// per user_id (migration_2026-09-17_004).
+let outstandingVaultKey=null;
+const outstandingDecryptedAccess=new Map(); // rowId -> plaintext, populated on unlock
+const outstandingAccessRevealed=new Set();  // rowId -> shown (vs re-masked) this session
+function abOutstandingIsVaultUnlocked(){ return !!outstandingVaultKey; }
+async function abOutstandingUnlockVault(){
+  if(!currentUser||!db)return false;
+  const{data:vaultRow}=await db.from('ab_temp_outstanding_vault').select('vault_salt').eq('user_id',currentUser.id).maybeSingle();
+  let salt=vaultRow?vaultRow.vault_salt:null;
+  if(!salt){
+    if(!await abConfirm('No Access vault has been set up yet. Set one up now? You\'ll choose a passphrase — write it down somewhere safe. If it\'s lost, anything encrypted with it is permanently unrecoverable. Nobody can reset it.')) return false;
+    salt=abB64FromBuf(crypto.getRandomValues(new Uint8Array(16)));
+    const{error}=await db.from('ab_temp_outstanding_vault').insert({user_id:currentUser.id,vault_salt:salt});
+    if(error){ abAlert(error.message); return false; }
+  }
+  const pass=await abPrompt('Enter the Access vault passphrase:');
+  if(!pass) return false;
+  try{ outstandingVaultKey=await abDeriveVaultKey(pass,salt); return true; }
+  catch(e){ abAlert('Could not unlock the vault: '+e.message); return false; }
+}
+async function abOutstandingEncryptAccess(plaintext){
+  if(!outstandingVaultKey) throw new Error('Vault is locked.');
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const enc=new TextEncoder();
+  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv},outstandingVaultKey,enc.encode(plaintext));
+  return{access_encrypted:abB64FromBuf(ciphertext),access_iv:abB64FromBuf(iv)};
+}
+async function abOutstandingDecryptAccess(ciphertextB64,ivB64){
+  if(!outstandingVaultKey) throw new Error('Vault is locked.');
+  const plainBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv:abBufFromB64(ivB64)},outstandingVaultKey,abBufFromB64(ciphertextB64));
+  return new TextDecoder().decode(plainBuf);
+}
+// Clicking a locked Access cell unlocks the vault (prompting to set one
+// up the first time), then decrypts every currently-loaded row that has
+// a stored value, defaulting each to "revealed" — Ryan's own words: "if
+// I'm logged in and it's unlocked, then you should just display that
+// password." The eyeball toggle (abOutstandingToggleAccessReveal) is for
+// re-masking a specific row afterward, not a second unlock step.
+async function abOutstandingAccessCellClick(containerId,rowId){
+  if(!outstandingVaultKey){
+    const ok=await abOutstandingUnlockVault();
+    if(!ok)return;
+    const inst=rvInstances.get(containerId);
+    for(const row of (inst?inst.rows:[])){
+      if(row.access_encrypted&&row.access_iv&&!outstandingDecryptedAccess.has(row.id)){
+        try{ outstandingDecryptedAccess.set(row.id,await abOutstandingDecryptAccess(row.access_encrypted,row.access_iv)); outstandingAccessRevealed.add(row.id); }
+        catch(e){ /* leave undecrypted — wrong passphrase for pre-existing data isn't possible here since salt is per-user, but guard anyway */ }
+      }
+    }
+  }
+  rvEditCell(containerId,rowId,'access_encrypted');
+}
+function abOutstandingToggleAccessReveal(e,rowId){
+  e.stopPropagation();
+  if(outstandingAccessRevealed.has(rowId)) outstandingAccessRevealed.delete(rowId);
+  else outstandingAccessRevealed.add(rowId);
+  const inst=[...rvInstances.keys()].find(k=>k==='rv-mount-outstanding');
+  if(inst) rvRenderInstance(inst);
+}
+function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
+  const inst=rvInstances.get(containerId);
+  const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
+  if(editing){
+    const current=outstandingDecryptedAccess.get(r.id)||'';
+    return `<td><input type="password" class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(current).replace(/"/g,'&quot;')}"
+      onkeydown="if(event.key==='Enter')this.blur(); if(event.key==='Escape'){event.stopPropagation();rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
+      onblur="abOutstandingCommitAccess('${containerId}','${r.id}',this.value)"></td>`;
+  }
+  if(!outstandingVaultKey||!outstandingDecryptedAccess.has(r.id)){
+    const hasValue=!!r.access_encrypted;
+    return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();abOutstandingAccessCellClick('${containerId}','${r.id}')">${hasValue?'XXXXXXXX':'— set —'}</span></td>`;
+  }
+  const revealed=outstandingAccessRevealed.has(r.id);
+  const plain=outstandingDecryptedAccess.get(r.id)||'';
+  return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();abOutstandingAccessCellClick('${containerId}','${r.id}')">${revealed?abEsc(plain):'XXXXXXXX'}</span> <span style="cursor:pointer" title="Show/hide" onclick="abOutstandingToggleAccessReveal(event,'${r.id}')">👁</span></td>`;
+}
+async function abOutstandingCommitAccess(containerId,rowId,plaintext){
+  const inst=rvInstances.get(containerId); if(!inst)return;
+  inst.editingCell=null;
+  if(!plaintext){
+    outstandingDecryptedAccess.delete(rowId);
+    await db.from('ab_temp_outstanding_balances').update({access_encrypted:null,access_iv:null}).eq('id',rowId);
+  } else {
+    const enc=await abOutstandingEncryptAccess(plaintext);
+    outstandingDecryptedAccess.set(rowId,plaintext);
+    outstandingAccessRevealed.add(rowId);
+    await db.from('ab_temp_outstanding_balances').update(enc).eq('id',rowId);
+  }
+  const row=inst.rows.find(r=>r.id===rowId);
+  if(row){ row.access_encrypted=plaintext?'•':null; row.access_iv=plaintext?'•':null; }
+  rvRenderInstance(containerId);
+}
 const OUTSTANDING_MONEY_KEYS=['previous_balance','current_balance','credit_limit'];
 // Ryan's direct instruction, 2026-09-17: Type should self-populate from a
 // fixed list as you type, or via a dropdown — a <datalist> gives both in
@@ -2408,6 +2507,53 @@ function abOutstandingTypeAutocomplete(e,inputEl){
     inputEl.setSelectionRange(typed.length,match.length);
   }
 }
+// Shorthand date entry — Ryan's direct instruction, 2026-09-17: type
+// "9/21" or "9-21" (month/day, always separated by a slash or dash per
+// his own confirmed usage) and it fills in the current year without
+// having to type it. A native <input type="date"> can't do this — it
+// requires every segment filled through its own calendar UI — so the
+// Date column's main field is a plain text field instead, parsed on
+// commit. "9/21/26" or "9/21/2026" still works if a year IS typed.
+// Also accepts a real ISO "YYYY-MM-DD" string (year-first, 4-digit first
+// part) unchanged — that's what comes back from the 📅 calendar-picker
+// button (abOutstandingOpenDatePicker below), which Ryan asked to keep
+// available alongside shorthand typing, not instead of it. Returns a
+// real YYYY-MM-DD string for storage, or null if it can't be parsed
+// (caller decides what to do with that — see abOutstandingCellCommit).
+function abOutstandingParseDateInput(str){
+  const trimmed=String(str||'').trim();
+  if(!trimmed)return null;
+  const parts=trimmed.split(/[\/\-]/).filter(Boolean);
+  if(parts.length<2)return null;
+  let month,day,year;
+  if(parts.length===3&&parts[0].length===4){
+    year=parseInt(parts[0],10); month=parseInt(parts[1],10); day=parseInt(parts[2],10);
+  } else {
+    month=parseInt(parts[0],10);
+    day=parseInt(parts[1],10);
+    year=parts[2]?parseInt(parts[2],10):new Date().getFullYear();
+    if(parts[2]&&parts[2].length<=2)year=2000+year;
+  }
+  if(!month||!day||month<1||month>12||day<1||day>31)return null;
+  return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+// The 📅 button next to the Date text field — Ryan's direct instruction,
+// 2026-09-17: keep the native calendar picker available too, not just
+// shorthand typing. Reuses one shared hidden <input type="date"> (added
+// once in abRenderOutstandingRv's own markup) rather than creating a new
+// element per row. showPicker() is the modern API for opening a native
+// date input's picker programmatically (Chrome/Edge); .focus() is the
+// fallback for browsers without it. Picking a date routes through the
+// exact same rvCommitCell/abOutstandingCellCommit path a typed value
+// would — abOutstandingParseDateInput's ISO branch above is what makes
+// that work without a separate code path.
+function abOutstandingOpenDatePicker(containerId,rowId,key){
+  const picker=document.getElementById('outstandingHiddenPicker'); if(!picker)return;
+  const inst=rvInstances.get(containerId); const row=inst&&inst.rows.find(r=>r.id===rowId);
+  picker.value=(row&&row[key])||'';
+  picker.onchange=()=>{ if(picker.value) rvCommitCell(containerId,rowId,key,picker.value); };
+  if(picker.showPicker) picker.showPicker(); else picker.focus();
+}
 function abOutstandingCellRenderer(r,c,containerId,isChild){
   const inst=rvInstances.get(containerId);
   const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
@@ -2415,12 +2561,18 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
   const isDate=c.key==='statement_date';
   const isType=c.key==='balance_type';
   if(editing){
-    const inputType=isDate?'date':(isMoney?'number':'text');
-    const rawVal=isMoney?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||'')):(r[c.key]||'');
-    return `<td><input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(rawVal).replace(/"/g,'&quot;')}"
+    const inputType=isMoney?'number':'text';
+    const rawVal=isMoney?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||'')):(isDate?abOutstandingFmtDateDMY(r[c.key]):(r[c.key]||''));
+    const inputHtml=`<input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(rawVal).replace(/"/g,'&quot;')}"
       ${isType?'oninput="abOutstandingTypeAutocomplete(event,this)"':''}
       onkeydown="abOutstandingCellKeydown(event,'${containerId}','${r.id}','${c.key}',this)"
-      onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
+      onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)">`;
+    // onmousedown preventDefault on the picker button stops the text
+    // input from blurring (and committing) before the click registers —
+    // without it, the blur-triggered re-render can tear down the button
+    // mid-click, before its own onclick ever fires.
+    if(isDate) return `<td><div style="display:flex;align-items:center;gap:4px">${inputHtml}<button type="button" title="Pick a date" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0" onmousedown="event.preventDefault()" onclick="event.stopPropagation();abOutstandingOpenDatePicker('${containerId}','${r.id}','${c.key}')">📅</button></div></td>`;
+    return `<td>${inputHtml}</td>`;
   }
   const isNeg=isMoney&&(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||0))<0;
   // r[c.key] is already a formatted currency string for money columns
@@ -2507,6 +2659,25 @@ function abOutstandingCellKeydown(e,containerId,rowId,key,inputEl){
 function abOutstandingUpdateBtnRenderer(r,c,containerId,isChild){
   return `<td style="padding:6px 8px"><button class="page-action-btn" style="padding:4px 10px;font-size:12px" onclick="event.stopPropagation();abOutstandingUpdateRow('${containerId}','${r.id}')">Update</button></td>`;
 }
+// Website — Ryan's direct instruction, 2026-09-17: a plain editable URL
+// field that also acts as a real clickable hyperlink (opens in a new tab
+// — never navigates away from AmitBooks itself). Editing reuses the
+// generic text-input path (no isMoney/isDate/isType special case), same
+// commit mechanism as every other plain column; this cellRenderer only
+// customizes the READ (non-editing) display so it renders as a link
+// instead of plain text.
+function abOutstandingWebsiteCellRenderer(r,c,containerId,isChild){
+  const inst=rvInstances.get(containerId);
+  const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
+  if(editing){
+    return `<td><input class="rv-cell-input" id="rv-cell-input-${containerId}" value="${String(r[c.key]||'').replace(/"/g,'&quot;')}"
+      onkeydown="abOutstandingCellKeydown(event,'${containerId}','${r.id}','${c.key}',this)"
+      onblur="rvCommitCell('${containerId}','${r.id}','${c.key}',this.value)"></td>`;
+  }
+  if(!r[c.key]) return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">— set —</span></td>`;
+  const href=/^https?:\/\//i.test(r[c.key])?r[c.key]:('https://'+r[c.key]);
+  return `<td><a href="${abEsc(href)}" target="_blank" rel="noopener" style="color:var(--gold2)" onclick="event.stopPropagation()" ondblclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','${c.key}')">🔗 Open</a></td>`;
+}
 async function abOutstandingUpdateRow(containerId,rowId){
   const inst=rvInstances.get(containerId); if(!inst)return;
   const row=inst.rows.find(r=>r.id===rowId); if(!row)return;
@@ -2517,14 +2688,17 @@ async function abOutstandingUpdateRow(containerId,rowId){
 }
 const OUTSTANDING_RV_COLUMNS=[
   {key:'vendor_name',label:'Vendor',cellRenderer:abOutstandingCellRenderer},
+  {key:'sub_account_name',label:'Name',cellRenderer:abOutstandingCellRenderer},
   {key:'account_number',label:'Account #',cellRenderer:abOutstandingCellRenderer},
+  {key:'access_encrypted',label:'Access',sortFilter:false,cellRenderer:abOutstandingAccessCellRenderer},
   {key:'balance_type',label:'Type',cellRenderer:abOutstandingCellRenderer},
   {key:'credit_limit',label:'Credit Limit',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
   {key:'statement_date',label:'Date',cellRenderer:abOutstandingCellRenderer},
   {key:'previous_balance',label:'Previous $',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
   {key:'current_balance',label:'Current $',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
   {key:'available_credit',label:'Available Credit',align:'right',cellRenderer:abOutstandingAvailableCreditRenderer,summable:true,negativeRed:true},
-  {key:'_update',label:'',sortFilter:false,width:96,cellRenderer:abOutstandingUpdateBtnRenderer}
+  {key:'_update',label:'',sortFilter:false,width:96,cellRenderer:abOutstandingUpdateBtnRenderer},
+  {key:'website_url',label:'Website',sortFilter:false,width:110,cellRenderer:abOutstandingWebsiteCellRenderer}
 ];
 // Checking/Savings types carry no credit line, so Available Credit is
 // always 0 for them — everything else is Credit Limit minus Current
@@ -2569,7 +2743,8 @@ async function abRenderOutstandingRv(){
   const el=document.getElementById('ab-outstanding-rv'); if(!el)return;
   if(!db||!currentUser){ el.innerHTML='<div class="ab-signin-notice">Sign in through the Hub to see real outstanding balances — this is sample mode.</div>'; return; }
   el.innerHTML=`<div class="rv-wrap" id="rv-mount-outstanding"></div>
-    <div style="padding:10px 4px"><button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Row</button></div>`;
+    <div style="padding:10px 4px"><button class="page-action-btn" onclick="abAddOutstandingVendorRow()"><span>+</span>Add Row</button></div>
+    <input type="date" id="outstandingHiddenPicker" style="position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none">`;
   let rows=await abComputeOutstandingRows();
   // The grid itself is the form — never hide it behind a "no rows yet,
   // click a button" message (Ryan's direct correction, 2026-09-17). The
@@ -2589,14 +2764,27 @@ async function abRenderOutstandingRv(){
 async function abOutstandingCellCommit(rowId,key,val){
   const patch={};
   if(OUTSTANDING_MONEY_KEYS.includes(key)) patch[key]=rvParseMoney(String(val))||(Number(val)||0);
-  else if(key==='statement_date') patch[key]=val||null;
+  else if(key==='statement_date'){
+    if(!String(val||'').trim()){ patch.statement_date=null; }
+    else{
+      const parsed=abOutstandingParseDateInput(val);
+      // Unparseable, non-empty text — don't write garbage to the date
+      // column. Leave the row untouched and force a reload below so the
+      // cell snaps back to displaying its real stored value instead of
+      // leaving the bad typed text sitting on screen.
+      if(!parsed){ await abRenderOutstandingRv(); return; }
+      patch.statement_date=parsed;
+    }
+  }
   else patch[key]=val;
   await db.from('ab_temp_outstanding_balances').update(patch).eq('id',rowId);
   // Editing Credit Limit or Current Balance changes Available Credit too
   // — that column is computed at fetch time (abComputeOutstandingRows),
   // so a full reload is needed for it to reflect the new numbers rather
-  // than the stale value already sitting in memory.
-  if(key==='credit_limit'||key==='current_balance'||key==='balance_type') await abRenderOutstandingRv();
+  // than the stale value already sitting in memory. Date also needs a
+  // reload so the display cell re-formats the newly parsed date via
+  // abOutstandingFmtDateDMY instead of showing the raw typed shorthand.
+  if(key==='credit_limit'||key==='current_balance'||key==='balance_type'||key==='statement_date') await abRenderOutstandingRv();
 }
 async function abAddOutstandingVendorRow(){
   if(!currentUser){ abAlert('Sign in first.'); return; }
