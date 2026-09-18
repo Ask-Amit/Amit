@@ -1,0 +1,11 @@
+-- ══════════════════════════════════════════════
+-- Access PIN verification checksum — Ryan's direct instruction,
+-- 2026-09-17. NOT the PIN itself in recoverable form — the PIN is
+-- self-encoded using the exact same cipher it drives (its own digits, as
+-- their own key), so the only way to reproduce this value is to already
+-- know the real PIN. Purpose: when someone types their PIN, Amit re-runs
+-- the same self-encoding and compares it to this stored value — if it
+-- doesn't match, Amit says so immediately instead of silently decoding
+-- every Access value into garbage with a wrong PIN.
+-- ══════════════════════════════════════════════
+alter table contacts add column if not exists access_pin_check text;

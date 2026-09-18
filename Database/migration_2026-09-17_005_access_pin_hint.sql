@@ -1,0 +1,12 @@
+-- ══════════════════════════════════════════════
+-- Access PIN reminder hint — Ryan's direct instruction, 2026-09-17.
+-- Lives on the owner's own contacts row (the same row About Me already
+-- reads/writes via saveOwnerContactFields, see amit_owner_contact.js) so
+-- it shows up in the Hub's About Me screen. This is NOT the PIN itself —
+-- the PIN is never stored anywhere, only remembered by the person and
+-- typed in each session (see AmitBooks NEW.html's Access field PIN
+-- cipher). This column just holds a plain reminder note, e.g. "same
+-- pattern I used 30 years ago" — his own words, "help me remember what I
+-- wrote," not a real security question.
+-- ══════════════════════════════════════════════
+alter table contacts add column if not exists access_pin_hint text;

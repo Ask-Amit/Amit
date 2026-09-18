@@ -84,6 +84,8 @@
      Ryan's own words). The Import wizard now reads .xlsx natively instead. -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../Amit_Ask_Live.js"></script>
+<script src="../amit_owner_contact.js"></script>
+<script src="../amit_pin_encryption.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -647,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.91</div>
+      <div class="page-version" id="pageVersion">v2.98</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2374,60 +2376,60 @@ async function abRenderCashRv(){
 // approved form out to a real level of polish, but don't touch/connect
 // anything beyond what was asked).
 const OUTSTANDING_COL_ORDER=['vendor_name','sub_account_name','account_number','balance_type','credit_limit','statement_date','previous_balance','current_balance'];
-// ── ACCESS FIELD VAULT — Ryan's direct instruction, 2026-09-17: same
-// real client-side AES-256-GCM/PBKDF2 zero-knowledge model as the
-// existing Company/Contact SSN vault (abDeriveVaultKey/abB64FromBuf/
-// abBufFromB64, defined earlier in this file, are reused as-is — not
-// duplicated). Separate key/salt from those because Outstanding isn't
-// scoped to a book or company at all — it's scoped to the login — so its
-// salt lives in its own tiny table, ab_temp_outstanding_vault, one row
-// per user_id (migration_2026-09-17_004).
-let outstandingVaultKey=null;
-const outstandingDecryptedAccess=new Map(); // rowId -> plaintext, populated on unlock
+// ── ACCESS FIELD PIN ENCRYPTION — real AES-256-GCM/PBKDF2 (400,000
+// rounds), per Ryan's direct instruction, 2026-09-17 — first built as a
+// simpler shift cipher, then rebuilt same day into the real version once
+// Ryan understood the honest strength trade-off and chose real crypto
+// instead. The actual cipher (amitPinEncrypt/amitPinDecrypt/
+// amitPinMakeCheck/amitPinVerify) is the shared, reusable "PIN
+// Encryption" mechanism documented in root CLAUDE.md and built once in
+// amit_pin_encryption.js — see that file for the full math/rationale.
+// Nothing persisted here except the reminder hint and salt/check (all in
+// Hub's About Me / contacts row) — the real PIN itself lives only in the
+// person's memory and this tab's own JS variables for the current
+// session (cleared on reload).
+let outstandingSessionPin=null;
+let outstandingSessionSalt=null;
+const outstandingDecryptedAccess=new Map(); // rowId -> plaintext, populated once the PIN is entered
 const outstandingAccessRevealed=new Set();  // rowId -> shown (vs re-masked) this session
-function abOutstandingIsVaultUnlocked(){ return !!outstandingVaultKey; }
-async function abOutstandingUnlockVault(){
+// Verifies an entered PIN against the checksum saved in Hub → About Me
+// → Set/Change Access PIN (contacts.access_pin_salt/access_pin_check/
+// access_pin_check_iv, resolved via the shared getOrCreateOwnerContact/
+// amit_owner_contact.js — the same owner-contact row About Me itself
+// reads/writes) before trusting it to decrypt anything real. On success,
+// caches the salt for the rest of the session so it isn't re-fetched
+// per row.
+async function abOutstandingVerifyPin(pin){
   if(!currentUser||!db)return false;
-  const{data:vaultRow}=await db.from('ab_temp_outstanding_vault').select('vault_salt').eq('user_id',currentUser.id).maybeSingle();
-  let salt=vaultRow?vaultRow.vault_salt:null;
-  if(!salt){
-    if(!await abConfirm('No Access vault has been set up yet. Set one up now? You\'ll choose a passphrase — write it down somewhere safe. If it\'s lost, anything encrypted with it is permanently unrecoverable. Nobody can reset it.')) return false;
-    salt=abB64FromBuf(crypto.getRandomValues(new Uint8Array(16)));
-    const{error}=await db.from('ab_temp_outstanding_vault').insert({user_id:currentUser.id,vault_salt:salt});
-    if(error){ abAlert(error.message); return false; }
+  const contact=await getOrCreateOwnerContact(db,currentUser.id,currentUser.user_metadata?.display_name||'',currentUser.email||'');
+  if(!contact||!contact.access_pin_check||!contact.access_pin_salt){
+    abAlert('No Access PIN has been set up yet — go to the Hub → About Me → Set/Change Access PIN first.');
+    return false;
   }
-  const pass=await abPrompt('Enter the Access vault passphrase:');
-  if(!pass) return false;
-  try{ outstandingVaultKey=await abDeriveVaultKey(pass,salt); return true; }
-  catch(e){ abAlert('Could not unlock the vault: '+e.message); return false; }
+  if(!await amitPinVerify(pin,contact.access_pin_salt,contact.access_pin_check,contact.access_pin_check_iv)){
+    abAlert('That\'s not the right PIN.');
+    return false;
+  }
+  outstandingSessionSalt=contact.access_pin_salt;
+  return true;
 }
-async function abOutstandingEncryptAccess(plaintext){
-  if(!outstandingVaultKey) throw new Error('Vault is locked.');
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const enc=new TextEncoder();
-  const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv},outstandingVaultKey,enc.encode(plaintext));
-  return{access_encrypted:abB64FromBuf(ciphertext),access_iv:abB64FromBuf(iv)};
-}
-async function abOutstandingDecryptAccess(ciphertextB64,ivB64){
-  if(!outstandingVaultKey) throw new Error('Vault is locked.');
-  const plainBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv:abBufFromB64(ivB64)},outstandingVaultKey,abBufFromB64(ciphertextB64));
-  return new TextDecoder().decode(plainBuf);
-}
-// Clicking a locked Access cell unlocks the vault (prompting to set one
-// up the first time), then decrypts every currently-loaded row that has
-// a stored value, defaulting each to "revealed" — Ryan's own words: "if
-// I'm logged in and it's unlocked, then you should just display that
-// password." The eyeball toggle (abOutstandingToggleAccessReveal) is for
-// re-masking a specific row afterward, not a second unlock step.
+// Clicking a locked Access cell prompts for the PIN once per session
+// (reused after that, same convenience Ryan asked for — "if I'm logged
+// in and it's unlocked, then you should just display that password"),
+// then decrypts every currently-loaded row that has a stored value,
+// defaulting each to revealed. The eyeball toggle re-masks a specific
+// row afterward without needing the PIN again.
 async function abOutstandingAccessCellClick(containerId,rowId){
-  if(!outstandingVaultKey){
-    const ok=await abOutstandingUnlockVault();
-    if(!ok)return;
+  if(!outstandingSessionPin){
+    const pin=await abPrompt('Enter your PIN:');
+    if(!pin)return;
+    if(!await abOutstandingVerifyPin(pin))return;
+    outstandingSessionPin=pin;
     const inst=rvInstances.get(containerId);
     for(const row of (inst?inst.rows:[])){
       if(row.access_encrypted&&row.access_iv&&!outstandingDecryptedAccess.has(row.id)){
-        try{ outstandingDecryptedAccess.set(row.id,await abOutstandingDecryptAccess(row.access_encrypted,row.access_iv)); outstandingAccessRevealed.add(row.id); }
-        catch(e){ /* leave undecrypted — wrong passphrase for pre-existing data isn't possible here since salt is per-user, but guard anyway */ }
+        try{ outstandingDecryptedAccess.set(row.id,await amitPinDecrypt(row.access_encrypted,row.access_iv,outstandingSessionPin,outstandingSessionSalt)); outstandingAccessRevealed.add(row.id); }
+        catch(e){ /* malformed stored value — leave undecrypted rather than crash */ }
       }
     }
   }
@@ -2437,8 +2439,7 @@ function abOutstandingToggleAccessReveal(e,rowId){
   e.stopPropagation();
   if(outstandingAccessRevealed.has(rowId)) outstandingAccessRevealed.delete(rowId);
   else outstandingAccessRevealed.add(rowId);
-  const inst=[...rvInstances.keys()].find(k=>k==='rv-mount-outstanding');
-  if(inst) rvRenderInstance(inst);
+  rvRenderInstance('rv-mount-outstanding');
 }
 function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
   const inst=rvInstances.get(containerId);
@@ -2449,7 +2450,7 @@ function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
       onkeydown="if(event.key==='Enter')this.blur(); if(event.key==='Escape'){event.stopPropagation();rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
       onblur="abOutstandingCommitAccess('${containerId}','${r.id}',this.value)"></td>`;
   }
-  if(!outstandingVaultKey||!outstandingDecryptedAccess.has(r.id)){
+  if(!outstandingSessionPin||!outstandingDecryptedAccess.has(r.id)){
     const hasValue=!!r.access_encrypted;
     return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();abOutstandingAccessCellClick('${containerId}','${r.id}')">${hasValue?'XXXXXXXX':'— set —'}</span></td>`;
   }
@@ -2464,10 +2465,16 @@ async function abOutstandingCommitAccess(containerId,rowId,plaintext){
     outstandingDecryptedAccess.delete(rowId);
     await db.from('ab_temp_outstanding_balances').update({access_encrypted:null,access_iv:null}).eq('id',rowId);
   } else {
-    const enc=await abOutstandingEncryptAccess(plaintext);
+    if(!outstandingSessionPin){
+      const pin=await abPrompt('Enter your PIN to save this:');
+      if(!pin){ rvRenderInstance('rv-mount-outstanding'); return; }
+      if(!await abOutstandingVerifyPin(pin)){ rvRenderInstance('rv-mount-outstanding'); return; }
+      outstandingSessionPin=pin;
+    }
+    const enc=await amitPinEncrypt(plaintext,outstandingSessionPin,outstandingSessionSalt);
     outstandingDecryptedAccess.set(rowId,plaintext);
     outstandingAccessRevealed.add(rowId);
-    await db.from('ab_temp_outstanding_balances').update(enc).eq('id',rowId);
+    await db.from('ab_temp_outstanding_balances').update({access_encrypted:enc.encrypted,access_iv:enc.iv}).eq('id',rowId);
   }
   const row=inst.rows.find(r=>r.id===rowId);
   if(row){ row.access_encrypted=plaintext?'•':null; row.access_iv=plaintext?'•':null; }
@@ -2547,8 +2554,19 @@ function abOutstandingParseDateInput(str){
 // exact same rvCommitCell/abOutstandingCellCommit path a typed value
 // would — abOutstandingParseDateInput's ISO branch above is what makes
 // that work without a separate code path.
-function abOutstandingOpenDatePicker(containerId,rowId,key){
+function abOutstandingOpenDatePicker(containerId,rowId,key,btnEl){
   const picker=document.getElementById('outstandingHiddenPicker'); if(!picker)return;
+  // The picker's own calendar popup renders anchored to wherever THIS
+  // element actually sits on screen — leaving it parked off-screen (its
+  // resting position, so it's invisible the rest of the time) meant the
+  // popup itself opened off-screen too, invisible and unreachable. Move
+  // it to sit exactly on top of the button that was clicked right before
+  // opening it, so the popup anchors somewhere real.
+  if(btnEl){
+    const rect=btnEl.getBoundingClientRect();
+    picker.style.left=rect.left+'px';
+    picker.style.top=rect.bottom+'px';
+  }
   const inst=rvInstances.get(containerId); const row=inst&&inst.rows.find(r=>r.id===rowId);
   picker.value=(row&&row[key])||'';
   picker.onchange=()=>{ if(picker.value) rvCommitCell(containerId,rowId,key,picker.value); };
@@ -2571,7 +2589,7 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
     // input from blurring (and committing) before the click registers —
     // without it, the blur-triggered re-render can tear down the button
     // mid-click, before its own onclick ever fires.
-    if(isDate) return `<td><div style="display:flex;align-items:center;gap:4px">${inputHtml}<button type="button" title="Pick a date" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0" onmousedown="event.preventDefault()" onclick="event.stopPropagation();abOutstandingOpenDatePicker('${containerId}','${r.id}','${c.key}')">📅</button></div></td>`;
+    if(isDate) return `<td><div style="display:flex;align-items:center;gap:4px">${inputHtml}<button type="button" title="Pick a date" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0" onmousedown="event.preventDefault()" onclick="event.stopPropagation();abOutstandingOpenDatePicker('${containerId}','${r.id}','${c.key}',this)">📅</button></div></td>`;
     return `<td>${inputHtml}</td>`;
   }
   const isNeg=isMoney&&(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||0))<0;
@@ -2704,11 +2722,15 @@ const OUTSTANDING_RV_COLUMNS=[
 // always 0 for them — everything else is Credit Limit minus Current
 // Balance. Ryan's direct instruction, 2026-09-17.
 const OUTSTANDING_NO_CREDIT_TYPES=['checking','savings'];
+// rvParseMoney-first, Number() as fallback — row.credit_limit/current_balance
+// may be a raw number (fresh from Supabase, before formatting) or an
+// already-formatted "$1,234.50" string (after a local in-place update —
+// see abOutstandingCellCommit), so this has to handle both correctly.
 function abOutstandingComputeAvailableCredit(row){
   const type=String(row.balance_type||'').trim().toLowerCase();
   if(OUTSTANDING_NO_CREDIT_TYPES.includes(type))return 0;
-  const limit=Number(row.credit_limit)||0;
-  const current=Number(row.current_balance)||0;
+  const limit=rvParseMoney(String(row.credit_limit||''))||(Number(row.credit_limit)||0);
+  const current=rvParseMoney(String(row.current_balance||''))||(Number(row.current_balance)||0);
   return limit-current;
 }
 // Scoped to the logged-in user only (user_id = auth.uid(), enforced by
@@ -2761,6 +2783,14 @@ async function abRenderOutstandingRv(){
 // it (plain editable text or the custom date/money ones above) — rvCommitCell
 // always fires inst.onCellCommit the same way (see rvCommitCell, ~line
 // 9784), so one handler covers all six fields.
+// Updates the row IN PLACE, in memory, and does a local re-render only —
+// never a full reload/re-fetch. Ryan's direct catch, 2026-09-17: a full
+// reload re-sorts the whole table alphabetically by Vendor every time,
+// which yanked a brand-new row to a new position mid-entry the instant
+// its Vendor/Type/etc. got typed in, breaking Tab-through-the-row entry
+// entirely. Sorting only ever happens on a genuinely fresh fetch
+// (opening the page, pressing Add Row) — never as a side effect of
+// editing a field on a row that's already on screen.
 async function abOutstandingCellCommit(rowId,key,val){
   const patch={};
   if(OUTSTANDING_MONEY_KEYS.includes(key)) patch[key]=rvParseMoney(String(val))||(Number(val)||0);
@@ -2769,22 +2799,28 @@ async function abOutstandingCellCommit(rowId,key,val){
     else{
       const parsed=abOutstandingParseDateInput(val);
       // Unparseable, non-empty text — don't write garbage to the date
-      // column. Leave the row untouched and force a reload below so the
-      // cell snaps back to displaying its real stored value instead of
-      // leaving the bad typed text sitting on screen.
-      if(!parsed){ await abRenderOutstandingRv(); return; }
+      // column. Leave the row untouched and just re-render in place so
+      // the cell snaps back to its real stored value.
+      if(!parsed){ rvRenderInstance('rv-mount-outstanding'); return; }
       patch.statement_date=parsed;
     }
   }
   else patch[key]=val;
   await db.from('ab_temp_outstanding_balances').update(patch).eq('id',rowId);
-  // Editing Credit Limit or Current Balance changes Available Credit too
-  // — that column is computed at fetch time (abComputeOutstandingRows),
-  // so a full reload is needed for it to reflect the new numbers rather
-  // than the stale value already sitting in memory. Date also needs a
-  // reload so the display cell re-formats the newly parsed date via
-  // abOutstandingFmtDateDMY instead of showing the raw typed shorthand.
-  if(key==='credit_limit'||key==='current_balance'||key==='balance_type'||key==='statement_date') await abRenderOutstandingRv();
+  const inst=rvInstances.get('rv-mount-outstanding');
+  const row=inst&&inst.rows.find(r=>r.id===rowId);
+  if(row){
+    if(OUTSTANDING_MONEY_KEYS.includes(key)) row[key]=abMoneyFmt(patch[key]);
+    else if(key==='statement_date') row[key]=patch.statement_date;
+    else row[key]=val;
+    // Available Credit is computed, not stored — recompute it locally
+    // whenever something it depends on changed, same math
+    // abComputeOutstandingRows uses on a fresh fetch.
+    if(key==='credit_limit'||key==='current_balance'||key==='balance_type'){
+      row.available_credit=abMoneyFmt(abOutstandingComputeAvailableCredit(row));
+    }
+  }
+  if(inst) rvRenderInstance('rv-mount-outstanding');
 }
 async function abAddOutstandingVendorRow(){
   if(!currentUser){ abAlert('Sign in first.'); return; }

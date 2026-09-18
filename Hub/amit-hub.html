@@ -11,6 +11,7 @@
 <script src="../amit_readiness_check.js?v=1.00"></script>
 <script src="../amit_voice_prefs.js?v=1.00"></script>
 <script src="../amit_owner_contact.js?v=1.00"></script>
+<script src="../amit_pin_encryption.js?v=1.00"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
@@ -1251,7 +1252,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.84</div>
+    <div class="page-version" id="hubVersionBadge">v6.89</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1748,8 +1749,24 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             </div>
             <div style="color:rgba(240,232,208,.35);font-size:11px;margin-top:4px">Same ZIP that drives your morning weather — changed in one place, used everywhere.</div>
           </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">Access PIN Reminder</label>
+            <input class="fg-input" id="amvPinHintInput" placeholder="A note to help you remember your PIN — never the PIN itself">
+            <div style="color:rgba(240,232,208,.35);font-size:11px;margin-top:4px">Used by the Access field on AmitBooks' Outstanding page. This stores only a reminder note — the real PIN is never stored in readable form (see below).</div>
+          </div>
           <button class="btn" onclick="amvSaveMyInfo()" style="margin-bottom:8px">SAVE MY INFO</button>
           <div id="amvInfoSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px;margin-bottom:24px">Saved.</div>
+
+          <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Set / Change Access PIN</label>
+            <input class="fg-input" id="amvPinNewInput" type="password" placeholder="New PIN or passphrase — at least 4 characters" style="margin-bottom:6px" oninput="amvUpdatePinStrength()">
+            <div id="amvPinStrengthNote" style="font-size:12px;margin-bottom:8px;min-height:16px"></div>
+            <input class="fg-input" id="amvPinConfirmInput" type="password" placeholder="Type it again to confirm">
+            <div style="color:rgba(240,232,208,.35);font-size:11px;margin-top:4px">Numbers, letters, symbols, any mix — at least 4 characters. Only a verification check is stored — enough to tell you if you typed the right one, never enough to recover it from the database. If you lose it, there's no automatic reset; you'd need to set a new one, and everything already saved under the old one would need re-entering.</div>
+          </div>
+          <button class="btn" onclick="amvSaveAccessPin()" style="margin-bottom:8px">SAVE PIN</button>
+          <div id="amvPinSavedNote" style="display:none;font-size:13px;margin-bottom:24px">Saved.</div>
 
           <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
 
@@ -4656,6 +4673,7 @@ async function amvInitAboutMePanel(){
   document.getElementById('asA2').value='';
   document.getElementById('amvPhoneInput').value=(_amvOwnerContact&&_amvOwnerContact.phone)||'';
   document.getElementById('amvAddressInput').value=(_amvOwnerContact&&_amvOwnerContact.address)||'';
+  document.getElementById('amvPinHintInput').value=(_amvOwnerContact&&_amvOwnerContact.access_pin_hint)||'';
   amvRenderZipDisplay();
   amvRenderGreetingToggle();
   amvRenderAutoConnectToggle();
@@ -4864,7 +4882,8 @@ async function amvSaveMyInfo(){
     name,
     email:document.getElementById('amvEmailInput').value.trim(),
     phone:document.getElementById('amvPhoneInput').value.trim(),
-    address:document.getElementById('amvAddressInput').value.trim()
+    address:document.getElementById('amvAddressInput').value.trim(),
+    access_pin_hint:document.getElementById('amvPinHintInput').value.trim()
   };
   const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,fields);
   if(saved) Object.assign(_amvOwnerContact,fields);
@@ -4879,6 +4898,59 @@ async function amvSaveMyInfo(){
   const note=document.getElementById('amvInfoSavedNote');
   note.style.display='block';
   note.textContent=saved?'Saved.':'Could not save right now — try again in a moment.';
+  note.style.color=saved?'rgba(180,220,190,.9)':'rgba(255,180,150,.9)';
+}
+
+// ── ACCESS PIN — real AES-256-GCM/PBKDF2, via the shared, reusable "PIN
+// Encryption" mechanism documented in root CLAUDE.md and built once in
+// amit_pin_encryption.js (amitPinNewSalt/amitPinMakeCheck) — see that
+// file for the full math/rationale. Extracted out of this file's own
+// earlier inline copy 2026-09-17, same day, per Ryan's direct
+// instruction ("make it its own separate mechanism... replicatable"),
+// then rebuilt same day again from a weaker shift-cipher into the real
+// AES version per Ryan's further direct instruction.
+//
+// Live strength label as the person types — Ryan's own thresholds,
+// 2026-09-17: under 8 reads as weak, 12+ reads as genuinely strong, 20+
+// reads as effectively impossible to brute-force. This is honest
+// framing, not a hard gate — the real 4-character floor still applies;
+// this just tells the person what they're actually choosing.
+function amvUpdatePinStrength(){
+  const el=document.getElementById('amvPinStrengthNote'); if(!el)return;
+  const len=document.getElementById('amvPinNewInput').value.length;
+  if(!len){ el.textContent=''; return; }
+  let label,color;
+  if(len<8){ label='Weak'; color='rgba(255,150,150,.9)'; }
+  else if(len<12){ label='Good'; color='rgba(240,200,120,.9)'; }
+  else if(len<20){ label='Super strong'; color='rgba(150,220,170,.9)'; }
+  else{ label='Effectively impossible to brute-force'; color='rgba(150,220,170,.9)'; }
+  el.textContent=len+' characters — '+label;
+  el.style.color=color;
+}
+async function amvSaveAccessPin(){
+  if(!_amvOwnerContact)return;
+  const pin=document.getElementById('amvPinNewInput').value.trim();
+  const confirm=document.getElementById('amvPinConfirmInput').value.trim();
+  const note=document.getElementById('amvPinSavedNote');
+  if(pin.length<4){
+    note.style.display='block';note.style.color='rgba(255,180,150,.9)';
+    note.textContent='Needs to be at least 4 characters — numbers, letters, symbols, any mix.';
+    return;
+  }
+  if(pin!==confirm){
+    note.style.display='block';note.style.color='rgba(255,180,150,.9)';
+    note.textContent='Those two didn\'t match — try again.';
+    return;
+  }
+  const salt=_amvOwnerContact.access_pin_salt||amitPinNewSalt();
+  const check=await amitPinMakeCheck(pin,salt);
+  const saved=await saveOwnerContactFields(db,_amvOwnerContact.id,{access_pin_salt:salt,access_pin_check:check.encrypted,access_pin_check_iv:check.iv});
+  if(saved) Object.assign(_amvOwnerContact,{access_pin_salt:salt,access_pin_check:check.encrypted,access_pin_check_iv:check.iv});
+  document.getElementById('amvPinNewInput').value='';
+  document.getElementById('amvPinConfirmInput').value='';
+  amvUpdatePinStrength();
+  note.style.display='block';
+  note.textContent=saved?'PIN saved.':'Could not save right now — try again in a moment.';
   note.style.color=saved?'rgba(180,220,190,.9)':'rgba(255,180,150,.9)';
 }
 
