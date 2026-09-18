@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.14</div>
+      <div class="page-version" id="pageVersion">v3.15</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2479,7 +2479,23 @@ function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
   if(!r.access_encrypted){
     return `<td style="text-align:center"><button class="page-action-btn" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');rvEditCell('${containerId}','${r.id}','access_encrypted')">Set</button></td>`;
   }
-  return `<td style="text-align:center"><span style="cursor:pointer;font-size:26px;line-height:1;display:inline-block" title="View for 10 seconds" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');abOutstandingRevealPassword('${containerId}','${r.id}')">👁</span></td>`;
+  // Reset icon, Ryan's direct request 2026-09-18: a stuck password saved
+  // under the old, now-incompatible cipher (or just plain wrong) can't be
+  // fixed through the normal reveal→change flow, since reveal itself
+  // fails to decrypt it first. This gives a direct way to clear the
+  // field back to "Set" without needing the old value to ever decrypt.
+  return `<td style="text-align:center;white-space:nowrap"><span style="cursor:pointer;font-size:26px;line-height:1;display:inline-block" title="View for 10 seconds" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');abOutstandingRevealPassword('${containerId}','${r.id}')">👁</span> <span style="cursor:pointer;font-size:15px;line-height:1;display:inline-block;opacity:.75" title="Reset — clears this password so a new one can be set" onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');abOutstandingResetPassword('${containerId}','${r.id}')">♻️</span></td>`;
+}
+async function abOutstandingResetPassword(containerId,rowId){
+  if(!currentUser||!db){ abAlert('Sign in first.'); return; }
+  const ok=await abConfirm('Clear this saved password? This cannot be undone — you\'ll need to enter a new one.');
+  if(!ok)return;
+  await db.from('ab_temp_outstanding_balances').update({access_encrypted:null,access_iv:null}).eq('id',rowId);
+  outstandingDecryptedAccess.delete(rowId);
+  const inst=rvInstances.get(containerId);
+  const row=inst&&inst.rows.find(r=>r.id===rowId);
+  if(row){ row.access_encrypted=null; row.access_iv=null; }
+  if(inst) rvRenderInstance(containerId);
 }
 // Requires a genuinely live, signed-in session (currentUser check) before
 // even prompting for the PIN. Popup shows Vendor / Website (real link) /
