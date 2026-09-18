@@ -649,7 +649,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v2.98</div>
+      <div class="page-version" id="pageVersion">v3.01</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2390,57 +2390,57 @@ const OUTSTANDING_COL_ORDER=['vendor_name','sub_account_name','account_number','
 // session (cleared on reload).
 let outstandingSessionPin=null;
 let outstandingSessionSalt=null;
-const outstandingDecryptedAccess=new Map(); // rowId -> plaintext, populated once the PIN is entered
-const outstandingAccessRevealed=new Set();  // rowId -> shown (vs re-masked) this session
+const outstandingDecryptedAccess=new Map(); // rowId -> plaintext, cached once decrypted so re-opening the reveal popup doesn't re-decrypt
+// Fetches the owner contact and checks for an active 24-hour lockout —
+// call this BEFORE ever prompting for a PIN, so a locked-out attempt
+// never even shows the prompt (Ryan's direct instruction, 2026-09-17).
+// Returns {locked:true, until:Date} or {locked:false, contact}.
+async function abOutstandingCheckPinLock(){
+  if(!currentUser||!db)return{locked:false,contact:null};
+  const contact=await getOrCreateOwnerContact(db,currentUser.id,currentUser.user_metadata?.display_name||'',currentUser.email||'');
+  if(!contact)return{locked:false,contact:null};
+  const lockState=amitPinCheckLockout(contact);
+  return lockState.locked?{locked:true,until:lockState.until}:{locked:false,contact};
+}
 // Verifies an entered PIN against the checksum saved in Hub → About Me
 // → Set/Change Access PIN (contacts.access_pin_salt/access_pin_check/
 // access_pin_check_iv, resolved via the shared getOrCreateOwnerContact/
 // amit_owner_contact.js — the same owner-contact row About Me itself
 // reads/writes) before trusting it to decrypt anything real. On success,
-// caches the salt for the rest of the session so it isn't re-fetched
-// per row.
-async function abOutstandingVerifyPin(pin){
-  if(!currentUser||!db)return false;
-  const contact=await getOrCreateOwnerContact(db,currentUser.id,currentUser.user_metadata?.display_name||'',currentUser.email||'');
+// caches the salt for the rest of the session and clears any
+// accumulated failures. On a wrong PIN, records the failure — the 5th
+// one in a row locks verification for 24 hours (amitPinRecordFailure,
+// amit_pin_encryption.js) — and returns that lock state so the caller
+// can show the Locked popup instead of a plain "wrong PIN" alert.
+async function abOutstandingVerifyPin(pin,contact){
   if(!contact||!contact.access_pin_check||!contact.access_pin_salt){
     abAlert('No Access PIN has been set up yet — go to the Hub → About Me → Set/Change Access PIN first.');
-    return false;
+    return{ok:false};
   }
-  if(!await amitPinVerify(pin,contact.access_pin_salt,contact.access_pin_check,contact.access_pin_check_iv)){
-    abAlert('That\'s not the right PIN.');
-    return false;
+  if(await amitPinVerify(pin,contact.access_pin_salt,contact.access_pin_check,contact.access_pin_check_iv)){
+    await amitPinRecordSuccess(db,contact.id);
+    outstandingSessionSalt=contact.access_pin_salt;
+    return{ok:true};
   }
-  outstandingSessionSalt=contact.access_pin_salt;
-  return true;
+  const fail=await amitPinRecordFailure(db,contact.id,contact.access_pin_fail_count);
+  if(fail.locked) return{ok:false,locked:true,until:fail.until};
+  abAlert('That\'s not the right PIN. '+fail.attemptsLeft+' attempt'+(fail.attemptsLeft===1?'':'s')+' left before a 24-hour lock.');
+  return{ok:false};
 }
-// Clicking a locked Access cell prompts for the PIN once per session
-// (reused after that, same convenience Ryan asked for — "if I'm logged
-// in and it's unlocked, then you should just display that password"),
-// then decrypts every currently-loaded row that has a stored value,
-// defaulting each to revealed. The eyeball toggle re-masks a specific
-// row afterward without needing the PIN again.
-async function abOutstandingAccessCellClick(containerId,rowId){
-  if(!outstandingSessionPin){
-    const pin=await abPrompt('Enter your PIN:');
-    if(!pin)return;
-    if(!await abOutstandingVerifyPin(pin))return;
-    outstandingSessionPin=pin;
-    const inst=rvInstances.get(containerId);
-    for(const row of (inst?inst.rows:[])){
-      if(row.access_encrypted&&row.access_iv&&!outstandingDecryptedAccess.has(row.id)){
-        try{ outstandingDecryptedAccess.set(row.id,await amitPinDecrypt(row.access_encrypted,row.access_iv,outstandingSessionPin,outstandingSessionSalt)); outstandingAccessRevealed.add(row.id); }
-        catch(e){ /* malformed stored value — leave undecrypted rather than crash */ }
-      }
-    }
-  }
-  rvEditCell(containerId,rowId,'access_encrypted');
+function abOutstandingShowLockedPopup(until){
+  popupOpen(`
+    <div class="dv-sub-h">🔒 Locked</div>
+    <div style="margin:14px 0;font-size:14px;color:var(--text2)">Too many wrong PIN attempts. Try again in ${amitPinFormatLockRemaining(until)}.</div>
+  `);
 }
-function abOutstandingToggleAccessReveal(e,rowId){
-  e.stopPropagation();
-  if(outstandingAccessRevealed.has(rowId)) outstandingAccessRevealed.delete(rowId);
-  else outstandingAccessRevealed.add(rowId);
-  rvRenderInstance('rv-mount-outstanding');
-}
+// Password cell (renamed from "Access") — Ryan's direct simplification,
+// 2026-09-17, replacing the earlier two-column masked-text+eyeball
+// design same day: one small column only. No value yet -> a "Set"
+// button that opens the real type="password" edit input. A value
+// already exists -> just an eyeball — clicking it opens a popup showing
+// the vendor, its website (a real clickable link), and the password
+// itself, with a live 10-second countdown that closes the popup on its
+// own. "Doesn't take up any more inventory [space]" — Ryan's own words.
 function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
   const inst=rvInstances.get(containerId);
   const editing=inst&&inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
@@ -2450,13 +2450,52 @@ function abOutstandingAccessCellRenderer(r,c,containerId,isChild){
       onkeydown="if(event.key==='Enter')this.blur(); if(event.key==='Escape'){event.stopPropagation();rvInstances.get('${containerId}').editingCell=null;rvRenderInstance('${containerId}');}"
       onblur="abOutstandingCommitAccess('${containerId}','${r.id}',this.value)"></td>`;
   }
-  if(!outstandingSessionPin||!outstandingDecryptedAccess.has(r.id)){
-    const hasValue=!!r.access_encrypted;
-    return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();abOutstandingAccessCellClick('${containerId}','${r.id}')">${hasValue?'XXXXXXXX':'— set —'}</span></td>`;
+  if(!r.access_encrypted){
+    return `<td style="text-align:center"><button class="page-action-btn" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();rvEditCell('${containerId}','${r.id}','access_encrypted')">Set</button></td>`;
   }
-  const revealed=outstandingAccessRevealed.has(r.id);
-  const plain=outstandingDecryptedAccess.get(r.id)||'';
-  return `<td><span class="rv-cell-editable" onclick="event.stopPropagation();abOutstandingAccessCellClick('${containerId}','${r.id}')">${revealed?abEsc(plain):'XXXXXXXX'}</span> <span style="cursor:pointer" title="Show/hide" onclick="abOutstandingToggleAccessReveal(event,'${r.id}')">👁</span></td>`;
+  return `<td style="text-align:center"><span style="cursor:pointer;font-size:15px" title="View for 10 seconds" onclick="event.stopPropagation();abOutstandingRevealPassword('${containerId}','${r.id}')">👁</span></td>`;
+}
+// Requires a genuinely live, signed-in session (currentUser check) before
+// even prompting for the PIN. Popup shows Vendor / Website (real link) /
+// Password together, with a visible 10-9-8… countdown that closes the
+// popup automatically when it hits 0 — no separate re-mask step needed
+// since the whole popup just goes away.
+async function abOutstandingRevealPassword(containerId,rowId){
+  if(!currentUser||!db){ abAlert('Sign in first.'); return; }
+  if(!outstandingSessionPin){
+    const lock=await abOutstandingCheckPinLock();
+    if(lock.locked){ abOutstandingShowLockedPopup(lock.until); return; }
+    const pin=await abPrompt('Enter your PIN:');
+    if(!pin)return;
+    const result=await abOutstandingVerifyPin(pin,lock.contact);
+    if(result.locked){ abOutstandingShowLockedPopup(result.until); return; }
+    if(!result.ok)return;
+    outstandingSessionPin=pin;
+  }
+  const inst=rvInstances.get(containerId); if(!inst)return;
+  const row=inst.rows.find(r=>r.id===rowId); if(!row||!row.access_encrypted)return;
+  let plaintext=outstandingDecryptedAccess.get(rowId);
+  if(!plaintext){
+    try{ plaintext=await amitPinDecrypt(row.access_encrypted,row.access_iv,outstandingSessionPin,outstandingSessionSalt); outstandingDecryptedAccess.set(rowId,plaintext); }
+    catch(e){ abAlert('Could not decrypt this value.'); return; }
+  }
+  const websiteHtml=row.website_url
+    ?`<a href="${abEsc(/^https?:\/\//i.test(row.website_url)?row.website_url:('https://'+row.website_url))}" target="_blank" rel="noopener" style="color:var(--gold2)">🔗 ${abEsc(row.website_url)}</a>`
+    :`<span style="color:var(--muted)">No website on file</span>`;
+  popupOpen(`
+    <div class="dv-sub-h">${abEsc(row.vendor_name||'')}</div>
+    <div style="margin:14px 0;font-size:14px">${websiteHtml}</div>
+    <div style="font-size:22px;font-weight:700;letter-spacing:1px;margin:14px 0">${abEsc(plaintext)}</div>
+    <div id="outstandingRevealCountdown" style="color:var(--muted);font-size:13px">Closing in 10…</div>
+  `);
+  let secondsLeft=10;
+  const timer=setInterval(()=>{
+    secondsLeft--;
+    const el=document.getElementById('outstandingRevealCountdown');
+    if(!el){ clearInterval(timer); return; } // popup already closed by hand
+    if(secondsLeft<=0){ clearInterval(timer); popupClose(); return; }
+    el.textContent='Closing in '+secondsLeft+'…';
+  },1000);
 }
 async function abOutstandingCommitAccess(containerId,rowId,plaintext){
   const inst=rvInstances.get(containerId); if(!inst)return;
@@ -2466,14 +2505,17 @@ async function abOutstandingCommitAccess(containerId,rowId,plaintext){
     await db.from('ab_temp_outstanding_balances').update({access_encrypted:null,access_iv:null}).eq('id',rowId);
   } else {
     if(!outstandingSessionPin){
+      const lock=await abOutstandingCheckPinLock();
+      if(lock.locked){ abOutstandingShowLockedPopup(lock.until); rvRenderInstance('rv-mount-outstanding'); return; }
       const pin=await abPrompt('Enter your PIN to save this:');
       if(!pin){ rvRenderInstance('rv-mount-outstanding'); return; }
-      if(!await abOutstandingVerifyPin(pin)){ rvRenderInstance('rv-mount-outstanding'); return; }
+      const result=await abOutstandingVerifyPin(pin,lock.contact);
+      if(result.locked){ abOutstandingShowLockedPopup(result.until); rvRenderInstance('rv-mount-outstanding'); return; }
+      if(!result.ok){ rvRenderInstance('rv-mount-outstanding'); return; }
       outstandingSessionPin=pin;
     }
     const enc=await amitPinEncrypt(plaintext,outstandingSessionPin,outstandingSessionSalt);
     outstandingDecryptedAccess.set(rowId,plaintext);
-    outstandingAccessRevealed.add(rowId);
     await db.from('ab_temp_outstanding_balances').update({access_encrypted:enc.encrypted,access_iv:enc.iv}).eq('id',rowId);
   }
   const row=inst.rows.find(r=>r.id===rowId);
@@ -2708,7 +2750,7 @@ const OUTSTANDING_RV_COLUMNS=[
   {key:'vendor_name',label:'Vendor',cellRenderer:abOutstandingCellRenderer},
   {key:'sub_account_name',label:'Name',cellRenderer:abOutstandingCellRenderer},
   {key:'account_number',label:'Account #',cellRenderer:abOutstandingCellRenderer},
-  {key:'access_encrypted',label:'Access',sortFilter:false,cellRenderer:abOutstandingAccessCellRenderer},
+  {key:'access_encrypted',label:'Password',sortFilter:false,width:70,cellRenderer:abOutstandingAccessCellRenderer},
   {key:'balance_type',label:'Type',cellRenderer:abOutstandingCellRenderer},
   {key:'credit_limit',label:'Credit Limit',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
   {key:'statement_date',label:'Date',cellRenderer:abOutstandingCellRenderer},

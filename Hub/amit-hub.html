@@ -1252,7 +1252,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.89</div>
+    <div class="page-version" id="hubVersionBadge">v6.92</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1767,6 +1767,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           </div>
           <button class="btn" onclick="amvSaveAccessPin()" style="margin-bottom:8px">SAVE PIN</button>
           <div id="amvPinSavedNote" style="display:none;font-size:13px;margin-bottom:24px">Saved.</div>
+          <button class="btn" style="background:rgba(200,90,90,.15);border-color:rgba(200,90,90,.4);color:rgba(255,180,170,.95);margin-bottom:24px" onclick="amvOpenResetPin()">RESET PIN</button>
 
           <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
 
@@ -2374,6 +2375,21 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
     </div>
     <p style="font-size:12px;color:var(--dim);margin:4px 0 16px;line-height:1.6">Still being built. Not live yet — nothing here can be opened.</p>
     <div id="futureToolsList" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</div>
+
+<!-- ── RESET PIN MODAL — added 2026-09-17, Ryan's direct instruction ── -->
+<div class="overlay" id="amvResetPinOverlay" onclick="if(event.target===this)amvCloseResetPin()">
+  <div class="modal" onclick="event.stopPropagation()" style="width:440px">
+    <div class="modal-hdr">
+      <div class="modal-title">Reset PIN</div>
+      <button onclick="amvCloseResetPin()" class="help-btn" title="Close">✕</button>
+    </div>
+    <p id="amvResetPinText" style="font-size:13px;line-height:1.6;color:var(--text2);margin:4px 0 18px"></p>
+    <div style="display:flex;gap:10px">
+      <button class="btn" style="flex:1;background:rgba(200,90,90,.2);border-color:rgba(200,90,90,.5);color:rgba(255,180,170,.95)" id="amvResetPinProceedBtn" onclick="amvResetPinProceed()">Proceed</button>
+      <button class="btn" style="flex:1" onclick="amvCloseResetPin()">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -4952,6 +4968,73 @@ async function amvSaveAccessPin(){
   note.style.display='block';
   note.textContent=saved?'PIN saved.':'Could not save right now — try again in a moment.';
   note.style.color=saved?'rgba(180,220,190,.9)':'rgba(255,180,150,.9)';
+}
+
+// ── RESET PIN — Ryan's direct instruction, 2026-09-17: a real,
+// two-step-confirmed way to abandon a lost PIN entirely and start over.
+// Explicitly destructive and explained as such, twice, before anything
+// happens — this permanently deletes every value that was encrypted
+// under the old PIN (nobody can ever decrypt it without that exact PIN,
+// so once it's forgotten, the data is already unrecoverable; this step
+// just clears out the now-permanently-scrambled leftovers instead of
+// leaving them sitting in the database forever).
+//
+// Reads the live `amit_pin_encrypted_fields` registry (migration
+// _2026-09-17_009) instead of a hardcoded table list — Ryan's direct
+// correction: "it's going to be more than just this Outstanding...
+// attach it to Social Security numbers, everything highly sensitive."
+// Whatever's registered there gets wiped, automatically, no matter which
+// project added it or when — a reset here truly covers the whole
+// database, not just whatever one file's author remembered to list.
+let amvResetPinStep=1;
+let amvResetPinFieldsCache=null;
+async function amvOpenResetPin(){
+  amvResetPinStep=1;
+  amvResetPinFieldsCache=null;
+  document.getElementById('amvResetPinText').innerHTML='This will permanently delete every value that was locked by your current PIN, on every field it protects — you\'ll need to re-enter that information after setting a new PIN. Nothing else on your account is affected.';
+  document.getElementById('amvResetPinProceedBtn').textContent='Proceed';
+  document.getElementById('amvResetPinOverlay').style.display='flex';
+}
+function amvCloseResetPin(){
+  document.getElementById('amvResetPinOverlay').style.display='none';
+}
+// Step 2 lists exactly which fields (by their registered LABEL only —
+// never the actual data) are about to be wiped, pulled live from the
+// amit_pin_encrypted_fields registry — Ryan's direct instruction,
+// 2026-09-17: "so they know every one of these are going to be deleted."
+async function amvResetPinProceed(){
+  if(amvResetPinStep===1){
+    amvResetPinStep=2;
+    if(!amvResetPinFieldsCache){
+      const{data}=await db.from('amit_pin_encrypted_fields').select('label');
+      amvResetPinFieldsCache=data||[];
+    }
+    const listHtml=amvResetPinFieldsCache.length
+      ?'<ul style="margin:10px 0 0;padding-left:20px">'+amvResetPinFieldsCache.map(f=>`<li>${(f.label||'(unlabeled field)').replace(/</g,'&lt;')}</li>`).join('')+'</ul>'
+      :'<div style="color:var(--dim);margin-top:10px">No fields currently registered.</div>';
+    document.getElementById('amvResetPinText').innerHTML='This is your last chance — once this is done, there\'s no going back. The following will be permanently deleted:'+listHtml;
+    document.getElementById('amvResetPinProceedBtn').textContent='Yes, delete it';
+    return;
+  }
+  amvExecuteResetPin();
+}
+async function amvExecuteResetPin(){
+  if(!currentUser||!db||!_amvOwnerContact)return;
+  const{data:fields}=await db.from('amit_pin_encrypted_fields').select('*');
+  for(const t of (fields||[])){
+    const patch={}; patch[t.enc_column]=null; if(t.iv_column) patch[t.iv_column]=null;
+    await db.from(t.table_name).update(patch).eq(t.user_column,currentUser.id);
+  }
+  const cleared={access_pin_salt:null,access_pin_check:null,access_pin_check_iv:null,access_pin_fail_count:0,access_pin_lock_until:null};
+  await saveOwnerContactFields(db,_amvOwnerContact.id,cleared);
+  Object.assign(_amvOwnerContact,cleared);
+  amvCloseResetPin();
+  document.getElementById('amvPinNewInput').value='';
+  document.getElementById('amvPinConfirmInput').value='';
+  amvUpdatePinStrength();
+  const note=document.getElementById('amvPinSavedNote');
+  note.style.display='block';note.style.color='rgba(180,220,190,.9)';
+  note.textContent='PIN and everything it protected have been cleared. Set a new PIN above whenever you\'re ready.';
 }
 
 // ADDED 2026-09-08, Ryan's direct instruction — a real, always-reachable
