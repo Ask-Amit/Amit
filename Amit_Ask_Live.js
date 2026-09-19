@@ -457,6 +457,12 @@ const PAGE_DISPLAY_NAMES = {
 
 const PAGE_CONTEXTS = {
 
+  thekitchen: `## WHERE THIS CONVERSATION STARTED — The Kitchen
+
+This conversation was started from The Kitchen, inside Amit Health — a point-and-click food/drink composer with three pages. **Ingredients** is where someone picks real items by category (Vegetables, Fruits, Meat & Protein, Grains, Dairy & Alt, Fats & Oils, Liquids), sees each item's full nutrient profile at its default serving, optionally adds a preparation method (baked/fried/grilled/etc — Meat & Protein, Vegetables, Grains only) and category-specific add-ins (seasonings for meat, creamer/sugar for drinks), and builds up a real meal or drink while the page totals everything live — protein, carbs, sugar, sodium, potassium, magnesium, calcium, iron, and vitamins C/A/B6/B12/folate — flagging sodium/sugar/saturated fat when they run high and protein/fiber/potassium/magnesium/vitamins when they're solid. Anything built once can be saved as a named personal preset ("Ryan's Chicken Breast," etc.) tied to whoever's signed in. **Meals** shows those saved presets, organized the same way by category, for one-click reuse. **Menu** is a placeholder, not yet built. Built starting 2026-09-18 as the first real feature inside Amit Health (deliberately not a separate app, so it can eventually cross-reference medications/conditions). If asked what it does, be honest that the ingredient database is a solid starter set, not exhaustive — a missing item is a real, known gap. Real per-login consumption logging (a history table feeding trend tracking and an eventual doctor-facing printout) is planned but not yet built — this version calculates live, it doesn't save a daily log yet.
+
+`,
+
   devotions: `## WHERE THIS CONVERSATION STARTED — Devotions
 
 The person is on the Devotions page — a place to study and listen side by side: real scripture study and original worship songs produced with Suno, meant to be experienced together, not separately. It started with "Blow the Shofar," written for the Feast of Trumpets 2026. The lyrics come from genuine scripture study (the new moon watch, the Days of Awe, the shelter Yahweh has always built before judgment — Noah's door, the Passover blood, Rahab's cord, Isaiah's chambers), not generic devotional filler. If they ask about a song or a study on this page, engage with what it's actually about, the same way you would on who_is_god.html's Yeshua tab — this is worship and study built on real conclusions, not decoration.

@@ -1,0 +1,2119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ══════════════════════════════════════════════
+     COPYING THIS TEMPLATE FOR A NEW PROJECT — read this first.
+
+     WHAT THIS FILE IS — rebuilt 2026-08-06, Ryan's direct instruction.
+     This is now the MINIMAL STARTER, not the reference catalog. It has
+     Introduction (page 1) plus a few blank placeholder pages, and the
+     global infrastructure every Amit app needs (right rail — Ask Amit,
+     Sign In/Sync, Demo Mode — popup destination, login connection,
+     tooltip mechanism, clock/greeting). It deliberately does NOT contain
+     any of the canonical layouts (Tabbed/Row/Detail/Calendar/Day/Board/
+     Gallery/Dashboard/Split/Form/Chart/Inbox/Drawer/Tree/Breadcrumb
+     View) — those live permanently in Templates\TemplateViews.html, the
+     never-modified reference library. This split exists so a real
+     project's starting file is never bloated with layout code it isn't
+     using — see Templates\CLAUDE.md's "TEMPLATE VIEWS vs TEMPLATE"
+     section for the full reasoning.
+
+     ADDING A LAYOUT TO A REAL PROJECT — go to Templates\TemplateViews.html,
+     find the named "CANONICAL LAYOUT:" or "CANONICAL DESTINATION:" comment
+     block, and copy it verbatim into this file — never reconstruct a
+     layout's behavior from memory or approximation. Wire it into a real
+     page/tab/popup the same way TemplateViews.html's own DEMO block shows
+     it being done there. (J New, once built, automates this hand-off —
+     see Templates\CLAUDE.md.)
+
+     NAMING: the new project's folder name IS the app's name. If the
+     folder is `Disco\`, the app is "Disco" — rename every literal
+     occurrence of "Template" below to that exact name:
+       - <title>Template</title>            (this line)
+       - #pageTitle text, currently "Template" (~line 90)
+       - the copied file itself: save as Disco.html, not template.html
+       - askAmitLive('TEMPLATE_NOT_CONFIGURED') → askAmitLive('yourRealKey'),
+         and write that key's real context into ../Amit_Ask_Live.js's
+         PAGE_CONTEXTS — do not skip this, see the comment above that line
+     Use the app's real display name consistently in all three spots —
+     never a variant spelling, never re-derived per file.
+
+     VERSION: #pageVersion always starts at v1.00 for a brand-new app.
+     From here forward it is versioned independently (own +0.01/+1.00
+     history, never synced to any other file's number) — see root
+     CLAUDE.md's VERSIONING STANDARD.
+
+     INTERCONNECTION: a new project is never standalone — it inherits the
+     whole Amit system's conventions. Before/while building it out, the
+     new project's own CLAUDE.md (copied from
+     Templates\Amit_NewProject_Template.md per root CLAUDE.md's NEW
+     PROJECT DIRECTIVE) must carry: the Session Location Check, the
+     Pursuit Attribution clause (its own canonical program name for
+     hub_entries), Shortcut Activation + Shortcut Awareness, and — if
+     it has an "Ask Amit" button — the wiring described above. If the
+     project is likely to grow a running state log, add its own
+     Sessions.md too (see AmitBooks\Sessions.md for the pattern) so a
+     future session can orient fast without re-deriving context.
+
+     NOMENCLATURE: this template uses PAGE (a sidebar item — button + its
+     fixed number), DETAIL (the content area a page opens into), LAYOUT
+     (what kind of content lives inside a detail — Tabbed/Row/Detail/etc,
+     all defined in TemplateViews.html), and DESTINATION (WHERE a layout
+     mounts — a page, a tab slot, or a Popup; Popup is built into this
+     starter since it's generic infrastructure, not a layout itself). Full
+     definitions live in the NOMENCLATURE comment at the top of the
+     <script> block below.
+
+     PAGE ORDER: sidebar display position is controlled by the PAGE_ORDER
+     array in the script below, kept separate from each page's fixed
+     number — reorder pages by editing that array, never by renumbering
+     pages/details themselves. See Templates\CLAUDE.md for why.
+     ══════════════════════════════════════════════ -->
+<title>The Kitchen</title>
+<link rel="icon" type="image/x-icon" href="amit_icon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../Amit_Ask_Live.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09141f;
+  --card-head:#0f2338;
+  --border:rgba(201,168,76,0.55);
+  --gold:#c9a84c;
+  --gold2:#e8c56a;
+  --text:#ffffff;
+  --text2:#f0e8d0;
+  --muted:rgba(240,232,208,0.78);
+  --dim:rgba(240,232,208,0.42);
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+
+body::before{
+  content:'';
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:60vmin;height:60vmin;
+  background:url('amit_icon.ico') center/contain no-repeat;
+  opacity:.035;
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+  position:relative;
+}
+.page-title-wrap{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.page-title{
+  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  letter-spacing:.3px;text-transform:none;color:var(--gold2);
+}
+.page-version{
+  font-family:monospace;font-size:11px;letter-spacing:.05em;
+  color:rgba(201,168,76,.55);margin-top:2px;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
+.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.hdr-right{text-align:right}
+.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.datetime{font-size:12px;color:var(--muted);margin-top:2px}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── HUB LAYOUT ── */
+.hub{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:max-content;flex-shrink:0;
+  background:var(--card-head);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar{transition:width .18s ease}
+.sidebar.collapsed{width:64px}
+.sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
+.sidebar.collapsed .page-info{display:none}
+.page-nav{
+  display:flex;align-items:center;gap:10px;
+  padding:6px 4px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;
+  flex-shrink:0;
+  transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;
+}
+.page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
+.page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Round plug-status badge for the Sign In/Out rail icon — green when
+   connected, red when not. Added 2026-08-07, ported from AmitBooks/
+   NEW.html as the new standard for this template's own Sign In/Out
+   treatment (Ryan's direct instruction — same config becomes the base for
+   every future project built from this file). Disconnected state pulses:
+   red fills the circle from a point at the center out to the full edge,
+   then collapses back to nothing, looping — a genuine warning cue, not a
+   color-shift-in-place effect. */
+.page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
+.page-icon.plug-badge.connected{background:#2e7d46}
+.page-icon.plug-badge.disconnected{background:var(--bg)}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:#c73333;animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.plug-icon-glyph{position:relative;z-index:1}
+@keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
+.page-info{flex:1;min-width:0}
+.page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MAIN AREA ── */
+.main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.detail{
+  position:absolute;inset:0;overflow-y:auto;
+  display:none;flex-direction:column;
+  animation:pfade .18s ease;
+}
+.detail.active{display:flex}
+@keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.detail::-webkit-scrollbar{width:5px}
+.detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+
+/* ── DETAIL HEADER ── */
+.detail-head{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 24px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+.detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+
+/* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
+   that can host any layout instance copied in from TemplateViews.html —
+   content-agnostic, same separation as a Page or a Tab slot not caring
+   what's mounted inside them. Built into this starter (not TemplateViews-
+   only) since it's global infrastructure, not a layout. ── */
+.popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
+.popup-close-btn:hover{color:var(--gold2)}
+
+/* ── RIGHT RAIL — global, present on every page, same on every project.
+   Double-click to expand/collapse (mirror of the left sidebar, inverted
+   default: starts collapsed). Ask Amit / Sign In-Sync / Demo Mode all
+   live here permanently — see Templates\CLAUDE.md for the full history
+   of why each piece looks the way it does. ── */
+.right-rail{
+  width:64px;flex-shrink:0;
+  background:var(--card-head);
+  border-left:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+  transition:width .18s ease;
+}
+.right-rail::-webkit-scrollbar{width:3px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.right-rail.expanded{width:max-content}
+.right-rail .page-nav{padding:4px;flex-direction:row-reverse}
+.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
+.right-rail .page-info{display:none}
+.right-rail.expanded .page-info{display:block}
+/* RIGHT RAIL ON/OFF STATE — added 2026-08-22, Ryan's direct instruction.
+   The gold .page-nav.active look (shared with the left sidebar's "this is
+   the open page" state) was too subtle to tell an ON toggle (Sign In,
+   Demo Mode) apart from an OFF one at a glance. Right-rail items are
+   toggles, not navigation, so they get their own distinct green
+   on-state — overrides the gold .page-nav.active rule for this rail only.
+   PERMANENT — carry this into every project copied from this template. */
+.right-rail .page-nav.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65);box-shadow:0 0 0 1px rgba(46,160,67,.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(46,160,67,.35);border-radius:50%;box-shadow:0 0 0 2px rgba(46,160,67,.55)}
+.right-rail .page-nav.active .page-name{color:#6fe38f}
+
+/* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
+   .sidebar/.right-rail scroll (overflow-y:auto) — per the CSS spec, that
+   silently forces the other axis's overflow to 'auto' too, which would
+   clip a CSS-positioned tooltip trying to extend past the container's
+   edge. A single fixed element sidesteps that entirely. ── */
+.page-hover-tip{
+  position:fixed;z-index:9999;
+  background:#1a3352;border:1px solid rgba(201,168,76,.45);
+  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
+  line-height:1.5;
+  padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
+  opacity:0;pointer-events:none;
+  transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.page-hover-tip.show{opacity:1}
+
+/* CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+   added 2026-08-06 so Add Page can instantiate a real Tabbed View directly,
+   not hand a copy-instruction to an outside AI session. */
+.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
+
+/* ── HEALTHY FOODS — page 1 content, scoped with a food- prefix so nothing
+   here can collide with the template's own shared classes ── */
+.food-tier-btn{background:transparent;border:1px solid var(--border);color:var(--dim);border-radius:8px;padding:6px 14px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.food-tier-btn.active{background:rgba(201,168,76,.15);color:var(--gold2);border-color:var(--gold)}
+.food-item-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.food-item-btn{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;color:var(--text)}
+.food-item-btn:hover{border-color:var(--gold)}
+.food-item-icon{font-size:22px}
+.food-item-name{font-size:11.5px;margin-top:4px;line-height:1.3}
+.food-item-badge{font-size:9px;color:var(--gold);margin-top:2px;display:block}
+.food-picker{display:none;background:rgba(255,255,255,.04);border:1px solid var(--gold);border-radius:10px;padding:12px;margin:10px 24px 0}
+.food-picker.show{display:block}
+.food-add-btn{background:var(--gold);color:#1a1100;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-size:13px;cursor:pointer;width:100%;font-family:inherit}
+.food-built-list{list-style:none;margin:0 0 10px;padding:0}
+.food-built-list li{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}
+.food-rm-btn{background:none;border:none;color:#d9695f;cursor:pointer;font-size:14px}
+.food-empty-note{color:var(--dim);font-size:12.5px;font-style:italic;padding:8px 0}
+.food-section-title{font-family:Georgia,serif;color:var(--gold2);font-size:15px;margin:0 0 8px}
+.food-nutr-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.food-nutr-table td{padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
+.food-n-name{color:var(--dim)}
+.food-n-val{text-align:right;font-weight:600}
+.food-bar-track{background:rgba(255,255,255,.1);border-radius:4px;height:6px;width:100%;margin-top:3px;overflow:hidden}
+.food-bar-fill{height:100%;border-radius:4px}
+.food-flag-good .food-n-val{color:#5fbf7a}
+.food-flag-bad .food-n-val{color:#d9695f}
+.food-flag-watch .food-n-val{color:#d9b25f}
+.food-hint{font-size:11px;color:var(--dim);margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
+    <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
+    <div>
+      <div class="page-title" id="pageTitle" style="font-size:19px">The Kitchen</div>
+      <div class="page-version" id="pageVersion">v1.19</div>
+    </div>
+  </a>
+  <div class="page-title-wrap">
+    <div class="page-title" id="pageContext">—</div>
+    <div class="page-version" id="pageContextSub">CONTEXT</div>
+  </div>
+  <!-- Sign In/Out + Sync lives in the right rail, below Ask Amit — see
+       _updateSyncUI() and the RIGHT RAIL build code in <script>. -->
+  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
+    <div style="text-align:right">
+      <div class="greeting" id="greeting">Good morning</div>
+      <div class="datetime" id="datetime"></div>
+    </div>
+  </div>
+</header>
+
+<div class="hub">
+
+  <!-- ── SIDEBAR — Introduction + blank placeholders, built in <script> ── -->
+  <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()"></nav>
+
+  <!-- ── MAIN CONTENT AREA — built in <script> ── -->
+  <div class="main-area" id="mainArea"></div>
+
+  <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
+  <nav class="right-rail" id="rightRail" ondblclick="toggleRail()"></nav>
+
+</div>
+
+<!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
+<div class="page-hover-tip" id="pageHoverTip"></div>
+
+<!-- Generic Popup destination — content filled in by whichever layout uses it -->
+<div id="canonicalPopup" class="popup-overlay"></div>
+
+<!-- SYNC / SIGN-IN MODAL -->
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+    <input id="syncEmailInput" type="email" placeholder="your@email.com"
+      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
+    <button id="syncSubmitBtn" onclick="submitSyncEmail()"
+      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      SEND SIGN-IN LINK →
+    </button>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// NOMENCLATURE — read this before touching any page/detail/layout code.
+//   PAGE   — one item in the left sidebar (button + fixed number).
+//   DETAIL — the content area a page opens into (id `detail-N`).
+//   LAYOUT — what kind of content lives inside a detail. This starter
+//            ships with none built in — every canonical layout (Tabbed/
+//            Row/Detail/Calendar/Day/Board/Gallery/Dashboard/Split/Form/
+//            Chart/Inbox/Drawer/Tree/Breadcrumb View) lives in
+//            Templates\TemplateViews.html, copied in verbatim when a
+//            real project needs one — see the header comment at the top
+//            of this file.
+//   DESTINATION — WHERE a layout mounts: a page, a tab slot, or a Popup.
+//            Popup is built into this starter (see below) since it's
+//            generic infrastructure, not a layout itself.
+// ══════════════════════════════════════════════
+
+let currentUser=null;
+// SB_URL/SB_KEY/db/demoMode declared here, early — a real, confirmed bug
+// from earlier work on this file: demoMode defaults to true (unlike
+// currentUser, which defaults falsy), so anything gating on it can run
+// during the page's very first synchronous script pass, before a
+// later-declared `const` has initialized — a temporal dead zone crash.
+// Declaring all of this up front avoids that class of bug entirely.
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
+
+// ══════════════════════════════════════════════
+// CANONICAL DATA BINDING: DEMO MODE — a general, reusable connection to
+// Amit's own account data, available to ANY current or future view/form
+// built from this template — not wired one-off per view. Ported from the
+// Hub's real, live mechanism (amit-hub.html's demoModeHub/AMIT_DEMO_UID).
+//
+// fetchDemoRows(table, queryString) — the one call any view makes to
+// pull Amit's own rows for demo mode. Returns [] immediately if demo mode
+// is off. Every returned row is tagged _isDemo:true.
+//
+// REVIEW ONLY: any row this returns must never be editable or writable —
+// it's the caller's responsibility to check _isDemo and refuse edits.
+// Row View (in TemplateViews.html) already enforces this at its own
+// rvEditCell/rvCommitCell chokepoint; a non-Row-View layout must
+// implement its own _isDemo check the same way.
+// ══════════════════════════════════════════════
+async function fetchDemoRows(table,queryString){
+  if(!demoMode)return[];
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${AMIT_DEMO_UID}&${queryString}`,{
+      headers:{apikey:SB_KEY,Accept:'application/json'}
+    });
+    const rows=res.ok?await res.json():[];
+    return rows.map(r=>({...r,_isDemo:true}));
+  }catch(e){
+    return[];
+  }
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE — the mechanism that lets a real project grow its own pages at
+// runtime, added 2026-08-06, Ryan's direct instruction. Introduction (id 1)
+// is the only fixed built-in page. Every page after it is a CUSTOM PAGE —
+// created via the "Add Page" row, which always renders last, pushed down
+// one row every time a new page is created above it. Custom pages get IDs
+// starting at CUSTOM_PAGE_BASE so they never collide with page 1.
+//
+// PERSISTENCE — matches how Demo Mode already works (Supabase, not
+// localStorage-only, so a project's page list looks the same on any
+// computer): signed-in users' pages are read/written to the
+// `template_pages` Supabase table, scoped by user_id + PROJECT_KEY. A
+// localStorage cache mirrors every write and is the fallback source when
+// signed out (Supabase requires a real owner row) — see
+// Templates\CLAUDE.md for the table schema and the migration SQL.
+//
+// BUILDER MODE — the Add Page row (and this whole flow) is meant to be
+// hidden before a project ships to real users. finalizeBuilderMode()
+// flips a one-way localStorage flag; to re-enable it during further
+// development, run localStorage.removeItem('amit_builder_mode') in the
+// console (or set it to 'on') and reload — this is a developer action,
+// not a runtime user-facing toggle.
+// ══════════════════════════════════════════════
+const PROJECT_KEY=(document.getElementById('pageTitle')?.textContent||'template').trim();
+const CUSTOM_PAGE_BASE=1000;
+const BUILDER_MODE_KEY='amit_builder_mode';
+let builderMode=localStorage.getItem(BUILDER_MODE_KEY)!=='off';
+let customPages=[]; // [{page_name, detail_layout_type, page_order}], loaded before first render
+
+// TemplateViews.html's canonical layouts, offered in the Add Page view-picker.
+// Names/order match that file's own "CANONICAL LAYOUT:" comment headers —
+// keep this list in sync if a layout is ever added there.
+const TEMPLATE_LAYOUTS=[
+  {key:'Tabbed View',desc:'Tab strip inside one page — multiple content panes, one active at a time'},
+  {key:'Row View',desc:'Excel-style sortable rows, click a column header to sort, inline editable cells'},
+  {key:'Detail View',desc:'Single-record drill-down endpoint — fields laid out for one item'},
+  {key:'Calendar View',desc:'Month grid, real data per day, click a day to open Day View'},
+  {key:'Day View',desc:'Single-day agenda card — exact Hub day-view port'},
+  {key:'Board View',desc:'Kanban columns by status, drag between them'},
+  {key:'Gallery View',desc:'Visual card grid — image-first browsing'},
+  {key:'Dashboard View',desc:'Stat tiles plus a simple bar chart'},
+  {key:'Split View',desc:'Master list + detail pane side by side, no page navigation needed'},
+  {key:'Form View',desc:'Dedicated create/edit layout, separate from the row/list it feeds'},
+  {key:'Chart View',desc:'Chart-first data visualization'},
+  {key:'Inbox View',desc:'Stream/queue with checkbox multi-select and bulk actions'},
+  {key:'Drawer View',desc:'Lightweight overlay detail sliding in from an edge'},
+  {key:'Tree View',desc:'Hierarchical parent/child navigation'},
+  {key:'Breadcrumb View',desc:'Chained drill-down navigation with a breadcrumb trail'}
+];
+
+// Which page number each layout lives on inside TemplateViews.html's own
+// demo — used only to deep-link the 👓 preview link in the layout picker
+// straight to that layout (TemplateViews.html#page=N) instead of always
+// opening to its Introduction page. Keep in sync if TemplateViews.html's
+// own page order ever changes (see its buildPlaceholders()). Page 5 was
+// retired there (Grid View merged into Row View) so it's skipped here too.
+const TEMPLATE_VIEWS_PAGE_MAP={
+  'Tabbed View':2,'Row View':3,'Detail View':4,'Calendar View':6,'Board View':7,
+  'Gallery View':8,'Dashboard View':9,'Split View':10,'Form View':11,'Chart View':12,
+  'Inbox View':13,'Drawer View':14,'Tree View':15,'Breadcrumb View':16,'Day View':17
+};
+
+// Same icon each layout is already shown with inside TemplateViews.html
+// itself (its own hardcoded page icon / NEW_VIEW_ICONS map) — reused here
+// verbatim so the picker card matches what someone actually sees when they
+// click through to preview it, instead of a generic stand-in glyph.
+const TEMPLATE_VIEWS_ICON_MAP={
+  'Tabbed View':'🗂️','Row View':'📋','Detail View':'🔍','Calendar View':'📅','Board View':'🗃️',
+  'Gallery View':'🖼️','Dashboard View':'📈','Split View':'◨','Form View':'📝','Chart View':'📊',
+  'Inbox View':'📥','Drawer View':'🗄️','Tree View':'🌳','Breadcrumb View':'🍞','Day View':'☀️'
+};
+
+async function loadCustomPages(){
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const owner=currentUser?currentUser.id:null;
+  if(owner&&db){
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/template_pages?user_id=eq.${owner}&project_key=eq.${encodeURIComponent(PROJECT_KEY)}&order=page_order.asc`,{
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,Accept:'application/json'}
+      });
+      if(res.ok){
+        const rows=await res.json();
+        localStorage.setItem(cacheKey,JSON.stringify(rows));
+        return rows;
+      }
+    }catch(e){}
+  }
+  try{ return JSON.parse(localStorage.getItem(cacheKey)||'[]'); }catch(e){ return []; }
+}
+
+async function saveCustomPage(pageName,layoutKey,order){
+  const owner=currentUser?currentUser.id:null;
+  const row={project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order};
+  if(owner&&db){
+    try{
+      await fetch(`${SB_URL}/rest/v1/template_pages`,{
+        method:'POST',
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body:JSON.stringify({...row,user_id:owner})
+      });
+    }catch(e){}
+  }
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]');
+  cached.push(row);
+  localStorage.setItem(cacheKey,JSON.stringify(cached));
+}
+
+function renderAllPages(){
+  const nav=document.getElementById('sidebarPages');
+  const main=document.getElementById('mainArea');
+  const activeId=document.querySelector('.page-nav.active')?.id?.replace('page-','')||'1';
+
+  let navHtml=`<div class="page-nav active" id="page-1" onclick="openPage(1)" data-tip="Ingredients">
+    <div class="page-icon">🧺</div>
+    <div class="page-info"><div class="page-name">Ingredients</div><div class="page-sub">Build it, see it</div></div>
+  </div>`;
+  let detailHtml=`<div class="detail active" id="detail-1" style="flex-direction:column">
+    <div class="detail-head"><span class="detail-heading">Ingredients</span></div>
+    ${buildFoodPageHtml()}
+  </div>`;
+
+  // Page 2 — My Blends: same tab layout/category set as page 1, but each
+  // tab lists only this person's saved presets for that category, not the
+  // full ingredient list. Hardcoded here (not the runtime Add Page/custom
+  // page system) since this is a real built-in feature, not an end-user-
+  // created generic page — same treatment page 1 already gets.
+  navHtml += `<div class="page-nav" id="page-2" onclick="openPage(2)" data-tip="Meals">
+    <div class="page-icon">🥗</div>
+    <div class="page-info"><div class="page-name">Meals</div><div class="page-sub">What you've built</div></div>
+  </div>`;
+  detailHtml += `<div class="detail" id="detail-2" style="flex-direction:column">
+    <div class="detail-head"><span class="detail-heading">Meals</span></div>
+    ${buildBlendsPageHtml()}
+  </div>`;
+
+  // Page 3 — Menu: created now as an empty placeholder per Ryan's direct
+  // instruction ("don't put anything for now") — real content comes later.
+  navHtml += `<div class="page-nav" id="page-3" onclick="openPage(3)" data-tip="Menu">
+    <div class="page-icon">📋</div>
+    <div class="page-info"><div class="page-name">Menu</div><div class="page-sub">—</div></div>
+  </div>`;
+  detailHtml += `<div class="detail" id="detail-3">
+    <div class="detail-head"><span class="detail-heading">Menu</span></div>
+    <div class="detail-empty">Coming soon</div>
+  </div>`;
+
+  // Page 4 — Consult: not functional yet (real content, not a blank
+  // placeholder, per Ryan's direct instruction) — describes what this page
+  // will actually do once built, and names the real dependency it needs.
+  navHtml += `<div class="page-nav" id="page-4" onclick="openPage(4)" data-tip="Consult">
+    <div class="page-icon">🩺</div>
+    <div class="page-info"><div class="page-name">Consult</div><div class="page-sub">Not yet built</div></div>
+  </div>`;
+  detailHtml += `<div class="detail" id="detail-4">
+    <div class="detail-head"><span class="detail-heading">Consult</span></div>
+    <div style="max-width:640px;margin:32px auto;padding:0 24px;line-height:1.8;font-size:14px;color:var(--text2)">
+      <p style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">Not Built Yet — Here's What This Page Will Do</p>
+      <p style="margin-bottom:14px">You'll be able to describe what you're actually experiencing — "I'm not sleeping," "my heart's been pounding," whatever it is — in your own words, right here.</p>
+      <p style="margin-bottom:14px">Amit will look at what you've actually logged in Ingredients and Meals (and, later, Medications) and reason from your real intake, not a guess — pointing out where something might genuinely be light or heavy, and naming real, honest possibilities worth raising. Every suggestion is framed plainly as an educated guess, not a certainty — because that's what it actually is.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">This is meant to be ongoing, not one-and-done.</b> Amit will ask you to come back and follow up — "how did tonight go," "did that help" — and adjust from there: taper this back, add that in, watch what actually changes. A running conversation that tracks what worked and what didn't, night over night, not a single verdict.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">Both directions, not just one.</b> Consult works forward (catching something before you eat it) and backward (something's already not right, and it's time to look at why). That reactive starting point may actually live on a different Amit Health page — a "how are you feeling" check-in, not yet built — and from there, the real move would be: "let's start tracking your diet — go to The Kitchen and start logging your meals." The goal is real data to reason from, aimed at seeing whether diet can genuinely help alleviate what you're feeling before reaching for medication, not instead of a doctor.</p>
+      <p style="margin-bottom:14px">This requires a real, connected Claude Pro (or equivalent paid) account to work — the same live reasoning "Research It" hands off to your own Claude session today, except this page would need to run continuously, not just for one copy-paste exchange. Without that connection, this page has nothing to reason with.</p>
+      <div style="margin-top:24px;padding:16px 18px;background:rgba(217,105,95,.08);border:1px solid rgba(217,105,95,.35);border-radius:10px;color:#e8b8b2;font-size:13px;line-height:1.7">
+        <b>Amit is not a doctor, and nothing here is a diagnosis.</b> Whatever comes back is a pattern worth mentioning to a real doctor — never a replacement for one. If something feels urgent, don't wait on this page. Call your doctor.
+      </div>
+      <p style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:32px 0 14px">Preventative, Not Just Reactive</p>
+      <p style="margin-bottom:14px">Once diagnosed conditions and current medications are tracked elsewhere in Amit Health, Consult will read from those too — not just symptoms and what you've eaten. That makes it forward-looking, not only backward-looking: before something goes into a meal, Amit could say "given what's on file for you, you may want to skip this — consider this instead," rather than only explaining things after the fact.</p>
+      <p style="margin-bottom:14px">Everyone signs in with their own account, and everyone's conditions, medications, and history stay entirely inside their own login — never shared, blended, or cross-referenced with anyone else's. Your data is yours; the next person's is theirs.</p>
+      <p style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:32px 0 14px">What Else Feeds This — The Full Running List</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">Allergy &amp; Intolerance Profile.</b> A personal list of what you actually can't have — shellfish, gluten, lactose, whatever's real for you — checked automatically against anything picked in Ingredients, warning you right at the point of choosing, not after.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">Drug-Food Interaction Awareness.</b> Once Medications is tracked elsewhere in Amit Health, real, documented interactions (grapefruit and statins, vitamin K-heavy greens and blood thinners, and others like them) get flagged directly here — a real caution worth raising with a pharmacist, never a silent green light.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">A Plain Weekly Summary.</b> Pure math over your own history, no AI or Pro account needed — "sodium ran high 4 of 7 days this week, potassium was solid, sugar spiked Tuesday." Available the moment real logging exists.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">How Each Meal Sat With You.</b> An optional note right when something's logged — did it agree with you or not — attached to that specific meal, not buried in a separate page.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">A Daily Feeling Scale.</b> Worse, the same, or better than before — a simple running record tied to each day, alongside what was actually eaten that day.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">A Food Preference Rating.</b> Liked it or didn't, per meal — not about health, just what's actually worth repeating — used to sharpen future menu suggestions toward things you'll actually want to eat again.</p>
+      <p style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:32px 0 14px">Doctor Consult — A Real Handoff, Not Just a Chat Log</p>
+      <p style="margin-bottom:14px">Out of everything tracked above, Amit will be able to generate a real, printable report: what you actually ate each day, how you rated each meal, your daily feeling scale, what you told Amit you were experiencing, and what the running conversation noticed about what seemed to help versus what didn't.</p>
+      <p style="margin-bottom:14px">The point is to hand your actual doctor something real and complete — not "I think I've been having headaches," but an honest day-by-day record they can actually look at and evaluate against your real intake, instead of relying on memory alone in a ten-minute appointment.</p>
+    </div>
+  </div>`;
+
+  // Page 5 — Fasting: not functional yet. Documents the actual 2026-09-18
+  // conversation (Ryan's real two 7-day water fasts, the electrolyte/sleep
+  // finding, the research-honesty framework) so nothing gets lost before
+  // this is built out properly with real sourcing.
+  navHtml += `<div class="page-nav" id="page-5" onclick="openPage(5)" data-tip="Fasting">
+    <div class="page-icon">🌙</div>
+    <div class="page-info"><div class="page-name">Fasting</div><div class="page-sub">Not yet built</div></div>
+  </div>`;
+  detailHtml += `<div class="detail" id="detail-5">
+    <div class="detail-head"><span class="detail-heading">Fasting</span></div>
+    <div style="max-width:640px;margin:32px auto;padding:0 24px;line-height:1.8;font-size:14px;color:var(--text2)">
+      <p style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px">Not Built Yet — What's Captured Here So Far</p>
+      <p style="margin-bottom:14px">This page came out of a real conversation, not a feature request in the abstract — Ryan did two 7-day water fasts this year (the first in spring, for real medical issues, on his sister's suggestion; the second more recently), and this page is meant to hold what a fast actually is, what's genuinely documented about it, and what he personally experienced — honestly separated from each other.</p>
+
+      <p style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:28px 0 14px">Why This Page Has To Be Careful About Sourcing</p>
+      <p style="margin-bottom:14px">Fasting information online is a genuine mess — one source says one thing, the next says the opposite, and it's rarely clear which claims are real. When this page gets built out for real, it needs to keep four different tiers of information honestly separate, never blended into one confident voice:</p>
+      <p style="margin-bottom:10px"><b style="color:var(--gold2)">1. Well-established science</b> — the metabolic switch from glucose to ketones, real electrolyte depletion risk (sodium, potassium, magnesium), autophagy increasing with duration, documented growth hormone changes. Real, published, peer-reviewed.</p>
+      <p style="margin-bottom:10px"><b style="color:var(--gold2)">2. Real but still-developing research</b> — the exact timeline and magnitude of benefits (mental clarity, inflammation markers, longevity effects), promising but not fully settled, with real individual variation.</p>
+      <p style="margin-bottom:10px"><b style="color:var(--gold2)">3. Hype dressed up as science</b> — a real finding stretched into a much bigger claim than the actual study supports. This is most of what's confusing online.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">4. Type-specific practical experience</b> (water fast vs. Daniel Fast vs. partial fast) — more scattered, less rigorously studied as its own category, but real, consistent wisdom from people who've actually done each one. Presented honestly as "commonly reported," never as "proven."</p>
+
+      <p style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:28px 0 14px">What Ryan Actually Experienced (Real Data, Not Yet Formal Research)</p>
+      <p style="margin-bottom:14px">Shorter attempts in the past (3-4 days) consistently left him feeling drained — likely because that window ends right in the roughest metabolic transition (glycogen depletion, blood sugar swings), before the body fully shifts over to running on ketones.</p>
+      <p style="margin-bottom:14px">Both full 7-day fasts felt notably better by comparison — more mental clarity, no need for coffee, real energy — consistent with what's commonly reported once someone is fully fat-adapted. The second 7-day fast felt even better than the first, also a commonly reported pattern (the body adapting to handling extended fasts more smoothly with repeated practice).</p>
+      <p style="margin-bottom:14px">On day 7 of the most recent fast: real energy, zero hunger, felt like he could have gone another 7 days without eating. This lines up with documented hormonal patterns (ghrelin, the primary hunger hormone, spikes early and drops substantially once ketosis is fully established) — genuinely normal, though "feeling capable" isn't the same as "would be equally safe indefinitely," since real depletion (electrolytes, eventually protein) continues whether or not hunger is felt.</p>
+      <p style="margin-bottom:14px"><b style="color:var(--gold2)">The electrolyte finding, specific and real:</b> during the fast, Ryan supplemented potassium and magnesium (water fast only, no other supplements). He'd been sleeping fragmented 3-4 hour stretches all week, waking with heart palpitations. After adding those two supplements, he slept 8 hours straight — no palpitations. That's a striking, specific before/after data point, and it lines up with well-documented fasting science: extended water fasting depletes potassium, magnesium, and sodium, and that depletion is a real, recognized cause of exactly what he was experiencing.</p>
+
+      <p style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;margin:28px 0 14px">How This Should Eventually Work In The App</p>
+      <p style="margin-bottom:14px">A real Fasting mode — a button/tab letting someone declare a fasting period (dates, type: water-only, partial, Daniel Fast, etc.) — tied into the Life Events layer as tracked context, not a separate system. Refeeding guidance (small portions, gradual reintroduction, dilution, timing) uses the same meal-level feeling notes and daily feeling scale already built elsewhere in The Kitchen.</p>
+      <p style="margin-bottom:14px">Ryan's own electrolyte/sleep story is the working example for how Recommendation Receipts + Consult's ongoing follow-up should function once built: Amit suggests something (with its reasoning attached) → follows up on how it went → reasons from the real before/after pattern, not just one good night → proposes a forward-looking next step ("this looks like it's been off for a while — want to try supplementing every evening for a week and see if it holds?"). That loop is what turns a single good result into a real, personal, trackable pattern.</p>
+      <p style="margin-bottom:14px">Christian-specific guidance belongs here too, rooted in Amit's own biblical identity — different fasting types (a full fast, a Daniel-style partial fast) have different real physical needs, and the spiritual practice and physical safety should be addressed together, honestly, the same careful tone as everywhere else in this app.</p>
+
+      <div style="margin-top:24px;padding:16px 18px;background:rgba(217,105,95,.08);border:1px solid rgba(217,105,95,.35);border-radius:10px;color:#e8b8b2;font-size:13px;line-height:1.7">
+        <b>None of this is medical advice.</b> Fasting isn't safe for everyone — certain diabetics on specific medications, anyone with a history of eating disorders, pregnant or breastfeeding women, and anyone already underweight should not attempt extended fasting without real medical guidance. Ryan's experience is one person's real data, not a universal result.
+      </div>
+    </div>
+  </div>`;
+
+  const toHydrate=[]; // [{id,layoutKey}] — layouts fetched+run from TemplateViews.html after this render lands in the DOM
+  customPages.forEach((p,i)=>{
+    const id=CUSTOM_PAGE_BASE+i;
+    const displayName=p.page_name||p.detail_layout_type; // blank name stored — fall back to layout type for the label/tooltip only
+    navHtml+=`<div class="page-nav" id="page-${id}" onclick="openPage(${id})" data-tip="${displayName}">
+      <div class="page-icon">▢</div>
+      <div class="page-info"><div class="page-name">${displayName}</div><div class="page-sub">${p.detail_layout_type}</div></div>
+    </div>`;
+    if(p.detail_layout_type==='Tabbed View'){
+      detailHtml+=`<div class="detail" id="detail-${id}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        ${buildTabbedViewHtml(id)}
+      </div>`;
+    } else if(LAYOUT_IMPORT_MANIFEST[p.detail_layout_type]){
+      detailHtml+=`<div class="detail" id="detail-${id}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        <div class="${LAYOUT_IMPORT_MANIFEST[p.detail_layout_type].wrap}" id="tv-mount-${id}"></div>
+      </div>`;
+      toHydrate.push({id,layoutKey:p.detail_layout_type});
+    } else {
+      detailHtml+=`<div class="detail" id="detail-${id}">
+        <div class="detail-head"><span class="detail-heading">${displayName}</span></div>
+        <div class="detail-empty">"${p.detail_layout_type}" has no import entry yet in LAYOUT_IMPORT_MANIFEST.</div>
+      </div>`;
+    }
+  });
+
+  if(builderMode){
+    navHtml+=`<div class="page-nav" id="page-add" onclick="openLayoutPicker()" data-tip="Add Page" style="border-style:dashed;opacity:.8">
+      <div class="page-icon">➕</div>
+      <div class="page-info"><div class="page-name">Add Page</div><div class="page-sub">Create a new page</div></div>
+    </div>
+    <div onclick="finalizeBuilderMode()" style="font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.06em;text-align:center;padding:6px 4px;margin-top:4px" title="Hides Add Page permanently for shipping — re-enable via localStorage in dev tools">FINALIZE — HIDE ADD PAGE</div>`;
+  }
+
+  nav.innerHTML=navHtml;
+  main.innerHTML=detailHtml;
+  initPageTooltips('sidebarPages','right');
+
+  // restore whichever page was open before the re-render, if it still exists
+  if(document.getElementById('page-'+activeId)) openPage(isNaN(activeId)?activeId:Number(activeId));
+
+  // pull in and run the real layout code for every TemplateViews-backed
+  // page rebuilt above — the mount divs already exist synchronously; each
+  // one's real content pops in once its fetch/import resolves.
+  toHydrate.forEach(({id,layoutKey})=>hydrateImportedLayout(id,layoutKey));
+
+  // Page 1 (Healthy Foods) — re-hydrate the food-composer's dynamic bits
+  // every time this function runs (initial load, auth state change, etc.)
+  // since detailHtml above just rebuilt its static shell from scratch.
+  foodRenderCatBar();
+  foodRenderAllItemGrids();
+  foodRenderBlendsGrids();
+  foodRenderMeal();
+}
+
+function finalizeBuilderMode(){
+  if(!confirm('Hide "Add Page" for shipping? This is meant to be a one-way step before a project goes live — to bring it back during further development, run localStorage.removeItem(\'amit_builder_mode\') in the browser console and reload.'))return;
+  builderMode=false;
+  localStorage.setItem(BUILDER_MODE_KEY,'off');
+  renderAllPages();
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE FLOW — clicking "Add Page" goes straight to the layout picker
+// (from TemplateViews.html's canonical list) → create. No name-entry step
+// (removed 2026-08-06, Ryan's direct instruction) — the chosen layout's
+// own name becomes the page name; rename later is a future improvement,
+// not part of this flow.
+// ══════════════════════════════════════════════
+// 👓 preview link on each card — opens TemplateViews.html (the never-
+// edited reference catalog) in a new tab, deep-linked via #page=N to that
+// exact layout instead of always landing on Introduction. Read-only by
+// nature: it's a plain link to a file, nothing here can write back into
+// it. Deliberately NOT wired to select-from-that-tab-and-return — a real
+// cross-tab handoff (postMessage, tracking whether that tab is still
+// open) is a lot of moving parts for what a click back in this popup
+// already does in one step once someone's seen what they wanted to see.
+function previewLayoutInNewTab(e,layoutKey){
+  e.stopPropagation();
+  const pageNum=TEMPLATE_VIEWS_PAGE_MAP[layoutKey];
+  window.open('TemplateViews.html'+(pageNum?'#page='+pageNum:''),'_blank');
+}
+
+function openLayoutPicker(){
+  const cards=TEMPLATE_LAYOUTS.map(l=>`
+    <div onclick="confirmAddPage('${l.key}')"
+      style="border:1px solid rgba(201,168,76,.3);border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;overflow:hidden"
+      onmouseover="this.style.borderColor='var(--gold)'"
+      onmouseout="this.style.borderColor='rgba(201,168,76,.3)'">
+      <div onclick="previewLayoutInNewTab(event,'${l.key}')" title="See what ${l.key} looks like before choosing it"
+        style="flex-shrink:0;width:58px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;background:rgba(201,168,76,.06);border-right:1px solid rgba(201,168,76,.25)"
+        onmouseover="event.stopPropagation();this.style.background='rgba(201,168,76,.22)'"
+        onmouseout="event.stopPropagation();this.style.background='rgba(201,168,76,.06)'">${TEMPLATE_VIEWS_ICON_MAP[l.key]||'▢'}</div>
+      <div onclick="confirmAddPage('${l.key}')" style="flex:1;min-width:0;padding:12px 14px;transition:background .15s"
+        onmouseover="this.style.background='rgba(201,168,76,.08)'"
+        onmouseout="this.style.background='transparent'">
+        <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
+        <div style="font-size:11px;color:var(--muted)">${l.desc}</div>
+      </div>
+    </div>`).join('');
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Choose a Starting View</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:16px">Click the icon on any card to open a live preview of that layout in a new tab — come back and click the name/description side to add it here.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+  `);
+}
+
+async function confirmAddPage(layoutKey){
+  const order=customPages.length;
+  const pageName=''; // blank for now — naming/renaming is separate future work
+  customPages.push({project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order});
+  await saveCustomPage(pageName,layoutKey,order);
+  popupClose();
+  renderAllPages();
+  openPage(CUSTOM_PAGE_BASE+order);
+}
+
+(async function buildPlaceholders(){
+  customPages=await loadCustomPages();
+  renderAllPages();
+
+  // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
+  const rail=document.getElementById('rightRail');
+  if(rail){
+    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('thekitchen')" data-tip="Ask Amit">
+      <div class="page-icon"><img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
+      <div class="page-info">
+        <div class="page-name">Ask Amit</div>
+        <div class="page-sub">Walk alongside</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-sync" onclick="openSyncModal()" data-tip="Sign In">
+      <div class="page-icon" id="rail-sync-icon">🔒</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-sync-name">Sign In</div>
+        <div class="page-sub" id="rail-sync-sub">Not Synced</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-demo" onclick="toggleDemoMode()" data-tip="Demo On">
+      <div class="page-icon" id="rail-demo-icon">🎬</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-demo-name">Demo On</div>
+        <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-home" onclick="goToHub()" data-tip="Back to the Hub">
+      <div class="page-icon">🏠</div>
+      <div class="page-info">
+        <div class="page-name">Home</div>
+        <div class="page-sub">Back to the Hub</div>
+      </div>
+    </div>`;
+    _updateDemoUI();
+    _updateSyncUI();
+  }
+
+  initPageTooltips('rightRail','left');
+})();
+
+// PAGE HOVER TOOLTIP — delegated on the given container, works no matter
+// how many items exist or whether that container is collapsed/expanded.
+// side: 'right' opens rightward (left sidebar); 'left' opens leftward
+// (right rail — opening rightward there would render off-screen).
+function initPageTooltips(containerId,side){
+  const tip=document.getElementById('pageHoverTip');
+  const nav=document.getElementById(containerId);
+  if(!tip||!nav)return;
+  nav.addEventListener('mouseover',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    tip.textContent=item.dataset.tip||'';
+    const r=item.getBoundingClientRect();
+    if(side==='left'){
+      tip.style.right=(window.innerWidth-r.left+8)+'px';
+      tip.style.left='auto';
+    } else {
+      tip.style.left=(r.right+8)+'px';
+      tip.style.right='auto';
+    }
+    tip.style.top=(r.top+r.height/2)+'px';
+    tip.style.transform='translateY(-50%)';
+    tip.classList.add('show');
+  });
+  nav.addEventListener('mouseout',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    if(e.relatedTarget&&item.contains(e.relatedTarget))return;
+    tip.classList.remove('show');
+  });
+}
+
+// CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+// added 2026-08-06. Multi-row overflow: the tab row grows as many rows
+// behind itself as it needs (plain CSS flex-wrap, see .ch-tab-nav) rather
+// than scrolling or truncating. Selecting a tab that isn't in the front
+// row brings its whole row forward — same behavior as classic multi-row
+// property-sheet tabs.
+function showChTab(detailNum,n){
+  const detail=document.getElementById('detail-'+detailNum);
+  const clickedBtn=event.target;
+  const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
+  if(tabNav){
+    // Only reorder when tabs have genuinely wrapped into multiple rows, and
+    // use a tolerance (not exact offsetTop equality) when grouping a row —
+    // .ch-tab-btn.active has a different margin-top than inactive tabs,
+    // which would otherwise misclassify the active tab as its own row.
+    const wrapped=tabNav.scrollHeight>clickedBtn.offsetHeight*1.5;
+    if(wrapped){
+      const rowTop=clickedBtn.offsetTop;
+      Array.from(tabNav.children)
+        .filter(b=>Math.abs(b.offsetTop-rowTop)<15)
+        .forEach(b=>tabNav.appendChild(b));
+    }
+  }
+  detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
+  clickedBtn.classList.add('active');
+}
+
+// Builds a real, working Tabbed View's inner markup for a given detail id —
+// used by renderAllPages() so a custom page whose detail_layout_type is
+// 'Tabbed View' gets the actual live layout, not placeholder text.
+function buildTabbedViewHtml(detailNum){
+  let tabNavHtml='',tabContentHtml='';
+  for(let t=1;t<=5;t++){
+    tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${detailNum},${t})">Tab ${t}</button>`;
+    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">Tab ${t} content goes here</div>`;
+  }
+  return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
+    <div class="ch-tab-main">${tabContentHtml}</div>`;
+}
+
+// ══════════════════════════════════════════════
+// LAYOUT IMPORTER — fetches TemplateViews.html at the moment a page needs
+// it, cuts out the exact CANONICAL LAYOUT block the person picked (code +
+// its own sample data, contiguous by design — see TemplateViews.html's own
+// "IMPORTING A SINGLE LAYOUT PIECE" note), runs it live, and calls that
+// layout's own create function. Nothing about any of the 14 layouts below
+// is hand-copied into this file ahead of time — this file only knows each
+// one's marker text, its container wrap class, and the one line that
+// creates it, exactly what a person would type by hand if copying it in
+// themselves. Tabbed View (above) is the one exception, kept as a fully
+// local, hand-wired implementation since it was built before this importer
+// existed and already works — no need to route it through a network fetch.
+//
+// REQUIRES being served over http(s) — a file:// page cannot fetch a
+// sibling file's contents (browsers block that at the protocol level, not
+// this code's choice). Run a local server (the Starter Kit's zero-dep dev
+// server, or `npx serve`, or similar) rather than double-clicking this
+// file, or the import will fail with an honest error in the page itself.
+// ══════════════════════════════════════════════
+const LAYOUT_IMPORT_MANIFEST={
+  'Row View':{marker:'ROW VIEW',deps:[],wrap:'rv-wrap',
+    call:id=>`rvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Detail View':{marker:'DETAIL VIEW',deps:['Row View'],wrap:'dv-wrap',
+    call:id=>`dvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);dvOpenForInstance('${id}',RV_SAMPLE_ROWS[0].id);`},
+  'Calendar View':{marker:'CALENDAR VIEW',deps:['Day View'],wrap:'cv-wrap',
+    call:id=>`cvCreate('${id}');`},
+  'Day View':{marker:'DAY VIEW',deps:[],wrap:'dvw-wrap',
+    call:id=>`dayViewCreate('${id}');`},
+  'Board View':{marker:'BOARD VIEW',deps:['Detail View'],wrap:'bv-wrap',
+    call:id=>`bvCreate('${id}',BV_SAMPLE_STATUSES,BV_SAMPLE_ROWS);`},
+  'Gallery View':{marker:'GALLERY VIEW',deps:[],wrap:'glv-wrap',
+    call:id=>`glvCreate('${id}',GLV_SAMPLE_ROWS);`},
+  'Dashboard View':{marker:'DASHBOARD VIEW',deps:[],wrap:'dbv-wrap',
+    call:id=>`dbvCreate('${id}',DBV_SAMPLE_TILES,DBV_SAMPLE_BARS);`},
+  'Split View':{marker:'SPLIT VIEW',deps:['Row View'],wrap:'spv-wrap',
+    call:id=>`spvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Form View':{marker:'FORM VIEW',deps:[],wrap:'fv-wrap',
+    call:id=>`fvCreate('${id}',FV_SAMPLE_FIELDS);`},
+  'Chart View':{marker:'CHART VIEW',deps:[],wrap:'chv-wrap',
+    call:id=>`chvCreate('${id}',CHV_SAMPLE_BARS,CHV_SAMPLE_LINES);`},
+  'Inbox View':{marker:'INBOX VIEW',deps:[],wrap:'ibv-wrap',
+    call:id=>`ibvCreate('${id}',IBV_SAMPLE_ROWS);`},
+  'Drawer View':{marker:'DRAWER VIEW',deps:[],wrap:'drv-wrap',
+    call:id=>`drvCreate('${id}',DRV_SAMPLE_ROWS);`},
+  'Tree View':{marker:'TREE VIEW',deps:[],wrap:'tv-wrap',
+    call:id=>`tvCreate('${id}',TV_SAMPLE_ROWS);`},
+  'Breadcrumb View':{marker:'BREADCRUMB VIEW',deps:[],wrap:'bcv-wrap',
+    call:id=>`bcvCreate('${id}','Pursuits',BCV_SAMPLE_ROOT);`}
+};
+
+let _tvSource=null;
+async function _fetchTemplateViewsSource(){
+  if(_tvSource) return _tvSource;
+  const res=await fetch('TemplateViews.html');
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  _tvSource=await res.text();
+  return _tvSource;
+}
+
+let _tvCssInjected=false;
+function _injectTemplateViewsCss(src){
+  if(_tvCssInjected) return;
+  const m=src.match(/<style>([\s\S]*?)<\/style>/);
+  if(!m) return;
+  const tag=document.createElement('style');
+  tag.id='tv-imported-css';
+  tag.textContent=m[1];
+  document.head.appendChild(tag);
+  _tvCssInjected=true;
+}
+
+// Cuts the one block whose header comment reads "CANONICAL LAYOUT: <marker>"
+// — from that comment line down to wherever the NEXT block's own header
+// starts ("// CANONICAL LAYOUT: " or "// CANONICAL DESTINATION: "), or the
+// "// ── DEMO" wiring at the file's bottom for the last block. Anchored to
+// a real line start (must follow a newline) so a prose MENTION of another
+// block's name elsewhere in a comment can't be mistaken for that block's
+// actual header. Does not stop at every "// ══" divider — each block's own
+// header comment is closed by one of those BEFORE its code even starts, so
+// stopping there would cut every block down to nothing but its comment.
+function _extractCanonicalBlock(src,markerText){
+  const marker='// CANONICAL LAYOUT: '+markerText;
+  const mi=src.indexOf('\n'+marker);
+  if(mi===-1) return null;
+  const lineStart=mi+1;
+  let end=src.length;
+  for(const stop of ['\n// CANONICAL LAYOUT: ','\n// CANONICAL DESTINATION: ','\n// ── DEMO']){
+    const idx=src.indexOf(stop,lineStart+marker.length);
+    if(idx!==-1 && idx<end) end=idx;
+  }
+  return src.slice(lineStart,end);
+}
+
+// Loads a layout's block (and any dependency blocks — e.g. Detail View's
+// sample data lives inside Row View's own block) exactly once each, ever,
+// per page load. A second page using the same layout just calls its
+// already-loaded create function again with a new container id — the
+// block itself (its `const`s) can only be executed once without a
+// "already declared" error, same reason each script tag only runs once.
+const _tvLoadedLayouts=new Set();
+async function importLayoutFromTemplateViews(layoutKey){
+  const manifest=LAYOUT_IMPORT_MANIFEST[layoutKey];
+  if(!manifest) return {ok:false,reason:'"'+layoutKey+'" has no import entry yet'};
+  let src;
+  try{ src=await _fetchTemplateViewsSource(); }
+  catch(e){ return {ok:false,reason:'could not fetch TemplateViews.html ('+e.message+') — this page must be served over http(s), not opened as a file:// path'}; }
+  _injectTemplateViewsCss(src);
+  for(const key of [...manifest.deps,layoutKey]){
+    if(_tvLoadedLayouts.has(key)) continue;
+    const block=_extractCanonicalBlock(src,LAYOUT_IMPORT_MANIFEST[key].marker);
+    if(!block) return {ok:false,reason:'could not find the "'+key+'" block in TemplateViews.html'};
+    const tag=document.createElement('script');
+    tag.textContent=block;
+    document.body.appendChild(tag);
+    _tvLoadedLayouts.add(key);
+  }
+  return {ok:true};
+}
+
+// Fetches + runs the layout, then calls its create function against the
+// already-rendered mount div. Fire-and-forget from renderAllPages() (the
+// mount div itself renders synchronously and instantly; the real content
+// pops in a moment later once the fetch resolves).
+async function hydrateImportedLayout(detailNum,layoutKey){
+  const mountId='tv-mount-'+detailNum;
+  const status=await importLayoutFromTemplateViews(layoutKey);
+  const mount=document.getElementById(mountId);
+  if(!mount) return; // page was re-rendered away (e.g. a newer page replaced it) before the fetch finished
+  if(!status.ok){
+    mount.outerHTML=`<div class="detail-empty">Could not import "${layoutKey}" from TemplateViews.html — ${status.reason}.</div>`;
+    return;
+  }
+  try{ new Function(LAYOUT_IMPORT_MANIFEST[layoutKey].call(mountId))(); }
+  catch(e){ mount.innerHTML=`<div class="detail-empty">"${layoutKey}" loaded but hit an error running it: ${e.message}</div>`; }
+}
+
+function toggleRail(){
+  document.getElementById('rightRail').classList.toggle('expanded');
+}
+
+// HOME (right rail) — added 2026-08-06, Ryan's direct instruction, same
+// implementation as TemplateViews.html's own goToHub — kept identical
+// between both files on purpose, copy verbatim if either one changes.
+// Broadcasts on the shared 'amit_hub_tabs' channel first (the Hub itself
+// carries the matching listener — see amit-hub.html's own "AMIT HUB FOCUS
+// CHANNEL" comment); if a genuinely open Hub tab answers within the brief
+// window below, it focuses itself and nothing else happens here. Only
+// falls back to opening a new tab if nothing answered.
+//
+// RELATIVE PATH, NOT the hardcoded live URL (fixed 2026-08-06, real bug
+// Ryan caught testing this live) — BroadcastChannel can only ever be heard
+// by a tab on the exact same origin; that's a hard browser security
+// boundary, not something any code here can work around. A hardcoded
+// absolute https://ask-amit.github.io URL meant this could NEVER work
+// while testing this page locally (file:// or localhost) against an
+// already-open Hub tab on the real live site — always a different origin,
+// always silently falling through to opening a duplicate tab. A relative
+// path fixes both cases at once: locally it resolves to the local Hub
+// file (same origin as this page, channel actually works); once a real
+// project ships to ask-amit.github.io/Amit/ProjectName/ (one level under
+// Amit/, same as Hub/), this same relative path resolves to the exact
+// same live Hub URL as before — same origin there too, since every
+// shipped Amit project and the Hub itself sit as siblings under Amit/.
+const AMIT_HUB_URL='../Hub/amit-hub.html';
+function goToHub(){
+  if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  const ch=new BroadcastChannel('amit_hub_tabs');
+  let acked=false;
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.postMessage({type:'focus-requested'});
+  setTimeout(()=>{
+    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    ch.close();
+  },250);
+}
+
+function openPage(n){
+  document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
+  const page=document.getElementById('page-'+n);
+  const detail=document.getElementById('detail-'+n);
+  if(page)page.classList.add('active');
+  if(detail)detail.classList.add('active');
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebarPages').classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL DESTINATION: POPUP — NOT a layout type. Generic overlay that
+// hosts whatever layout instance (copied in from TemplateViews.html) is
+// mounted inside it — content-agnostic, same as a Page or Tab slot.
+// ══════════════════════════════════════════════
+function popupOpen(innerHtml){
+  let modal=document.getElementById('canonicalPopup');
+  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
+    ${innerHtml}
+  </div>`;
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
+  modal.style.display='flex';
+}
+function popupClose(){
+  const modal=document.getElementById('canonicalPopup');
+  if(modal) modal.style.display='none';
+}
+
+// ══════════════════════════════════════════════
+// LOGIN CONNECTION — the one live piece of this template. Supabase auth
+// only: knows who is signed in. No data reads/writes beyond that.
+// ══════════════════════════════════════════════
+if(db){
+  db.auth.onAuthStateChange(async (event,session)=>{
+    currentUser=session?session.user:null;
+    _updateSyncUI();
+    // re-pull this project's pages under the now-current owner, so a
+    // signed-in user's real Supabase page list replaces whatever the
+    // signed-out localStorage cache was showing
+    customPages=await loadCustomPages();
+    renderAllPages();
+  });
+}
+
+// Drives the Sign In/Out + Sync rail item.
+function _updateSyncUI(){
+  const item=document.getElementById('rail-sync');if(!item)return;
+  const icon=document.getElementById('rail-sync-icon');
+  const name=document.getElementById('rail-sync-name');
+  const sub=document.getElementById('rail-sync-sub');
+  icon.classList.add('plug-badge');
+  if(currentUser){
+    icon.innerHTML='<span class="plug-icon-glyph">🔓</span>';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out — Synced';item.title='Signed in · '+currentUser.email;
+    item.classList.add('active');
+    icon.classList.add('connected');icon.classList.remove('disconnected');
+  } else {
+    icon.innerHTML='<span class="plug-icon-glyph">🔒</span>';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In — Not Synced';item.title='';
+    item.classList.remove('active');
+    icon.classList.add('disconnected');icon.classList.remove('connected');
+  }
+}
+
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+}
+
+// Drives the Demo rail item and flips the toggle.
+function toggleDemoMode(){
+  demoMode=!demoMode;
+  localStorage.setItem('amit_demo_mode',demoMode?'on':'off');
+  _updateDemoUI();
+  // A real project's own views should re-fetch their demo-scoped data
+  // here too, the same way Calendar View/Day View do in TemplateViews.html
+  // (cvActiveContainers.forEach(...), dayViewInstances.forEach(...)) —
+  // add that wiring once real layouts using fetchDemoRows exist on this
+  // page.
+}
+
+function _updateDemoUI(){
+  const icon=document.getElementById('rail-demo-icon');
+  const item=document.getElementById('rail-demo');
+  const name=document.getElementById('rail-demo-name');
+  const sub=document.getElementById('rail-demo-sub');
+  if(!item)return;
+  if(demoMode){
+    icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
+    item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+    item.classList.add('active');
+  } else {
+    icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
+    item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+    item.classList.remove('active');
+  }
+}
+
+async function sendMagicLink(email){
+  if(!db)return'Database not available';
+  const{error}=await db.auth.signInWithOtp({email});
+  return error?error.message:null;
+}
+
+function openSyncModal(){
+  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
+  const m=document.getElementById('syncModal');if(!m)return;
+  m.style.display='flex';
+}
+function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+async function submitSyncEmail(){
+  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
+  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
+  const err=await sendMagicLink(email);
+  if(err){btn.textContent='Try again';btn.disabled=false;}
+  else{
+    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
+      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+// CLOCK / GREETING — visual only, no data behind it
+// ══════════════════════════════════════════════
+const AMIT_NAME_KEY='amit_user_name';
+function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
+
+function updateClock(){
+  const d=new Date();
+  const h=d.getHours();
+  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const name=getUserName();
+  const g=document.getElementById('greeting');if(g)g.textContent=name?sal+', '+name:sal;
+  const dt=document.getElementById('datetime');
+  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock,30000);
+
+// ══════════════════════════════════════════════
+// HEALTHY FOODS — Page 1 content. Uses the CANONICAL LAYOUT: TABBED VIEW
+// pieces already built into this template (.ch-tab-nav/.ch-tab-btn/
+// .ch-tab-main/.ch-tab-content, showChTab()) for the category tab strip —
+// nothing about the tab mechanism itself is reinvented here, only the
+// content inside each tab and the basket/totals area below it.
+//
+// Layout, per Ryan's direct spec: top half of the page = category tabs +
+// item picker. Bottom half, two columns = the running basket (left,
+// stair-stepping as items are added) and the complete live nutrient
+// totals (right), both spanning every category, not just whichever tab
+// is currently open.
+// ══════════════════════════════════════════════
+const FOOD_DB = {
+  'Vegetables': {icon:'🥕', items:[
+    {id:'carrot',name:'Carrot',icon:'🥕',tier:'basic',baseUnit:'1 medium carrot',
+     units:{'1 medium carrot':1,'1 cup chopped':1.9,'1 large carrot':1.4},
+     n:{cal:25,protein:0.6,carbs:6,fiber:1.7,sugar:2.9,fat:0.1,satfat:0,sodium:42,potassium:195,magnesium:7,calcium:20,iron:0.2,vitC:3.6,vitA:509,vitB6:0.07,vitB12:0,folate:12}},
+    {id:'broccoli',name:'Broccoli',icon:'🥦',tier:'basic',baseUnit:'1 cup chopped',
+     units:{'1 cup chopped':1,'1 stalk':1.5,'1 floret':0.15},
+     n:{cal:31,protein:2.6,carbs:6,fiber:2.4,sugar:1.5,fat:0.3,satfat:0,sodium:30,potassium:288,magnesium:19,calcium:43,iron:0.7,vitC:81,vitA:31,vitB6:0.16,vitB12:0,folate:57}},
+    {id:'celery',name:'Celery',icon:'🥬',tier:'basic',baseUnit:'1 stalk',
+     units:{'1 stalk':1,'1 cup chopped':4,'1 large stalk':1.3},
+     n:{cal:6,protein:0.3,carbs:1.2,fiber:0.6,sugar:0.5,fat:0.1,satfat:0,sodium:32,potassium:104,magnesium:4,calcium:16,iron:0.1,vitC:1.6,vitA:9,vitB6:0.02,vitB12:0,folate:14}},
+    {id:'spinach',name:'Spinach',icon:'🍃',tier:'basic',baseUnit:'1 cup raw',
+     units:{'1 cup raw':1,'1 cup cooked':4.5,'1 oz':1},
+     n:{cal:7,protein:0.9,carbs:1.1,fiber:0.7,sugar:0.1,fat:0.1,satfat:0,sodium:24,potassium:167,magnesium:24,calcium:30,iron:0.8,vitC:8.4,vitA:141,vitB6:0.06,vitB12:0,folate:58}},
+    {id:'onion',name:'Onion',icon:'🧅',tier:'basic',baseUnit:'1/2 cup chopped',
+     units:{'1/2 cup chopped':1,'1 cup chopped':2,'1 medium onion':2.2},
+     n:{cal:32,protein:0.9,carbs:7.5,fiber:1.3,sugar:3.4,fat:0.1,satfat:0,sodium:3,potassium:116,magnesium:6,calcium:16,iron:0.1,vitC:4,vitA:0,vitB6:0.09,vitB12:0,folate:15}},
+    {id:'bellpepper',name:'Bell Pepper',icon:'🫑',tier:'basic',baseUnit:'1 medium pepper',
+     units:{'1 medium pepper':1,'1 cup chopped':1.5},
+     n:{cal:24,protein:1,carbs:5.5,fiber:1.7,sugar:3.5,fat:0.2,satfat:0,sodium:3,potassium:211,magnesium:10,calcium:7,iron:0.4,vitC:95,vitA:117,vitB6:0.25,vitB12:0,folate:33}},
+    {id:'tomato',name:'Tomato',icon:'🍅',tier:'other',baseUnit:'1 medium tomato',
+     units:{'1 medium tomato':1,'1 cup chopped':1.8},
+     n:{cal:22,protein:1.1,carbs:4.8,fiber:1.5,sugar:3.2,fat:0.2,satfat:0,sodium:6,potassium:292,magnesium:11,calcium:12,iron:0.3,vitC:16,vitA:75,vitB6:0.08,vitB12:0,folate:15}},
+    {id:'cucumber',name:'Cucumber',icon:'🥒',tier:'other',baseUnit:'1/2 cup sliced',
+     units:{'1/2 cup sliced':1,'1 whole cucumber':6},
+     n:{cal:8,protein:0.3,carbs:1.9,fiber:0.3,sugar:0.9,fat:0.1,satfat:0,sodium:1,potassium:76,magnesium:6,calcium:8,iron:0.1,vitC:1.4,vitA:2,vitB6:0.02,vitB12:0,folate:3}},
+    {id:'sweetpotato',name:'Sweet Potato',icon:'🍠',tier:'other',baseUnit:'1 medium, baked',
+     units:{'1 medium, baked':1,'1 cup cubed':1.4},
+     n:{cal:112,protein:2,carbs:26,fiber:3.8,sugar:7.4,fat:0.1,satfat:0,sodium:71,potassium:542,magnesium:31,calcium:43,iron:0.7,vitC:22,vitA:1096,vitB6:0.34,vitB12:0,folate:9}},
+    {id:'kale',name:'Kale',icon:'🥬',tier:'other',baseUnit:'1 cup raw, chopped',
+     units:{'1 cup raw, chopped':1,'1 cup cooked':2.2},
+     n:{cal:33,protein:2.9,carbs:6,fiber:1.3,sugar:0.6,fat:0.6,satfat:0.1,sodium:29,potassium:299,magnesium:22,calcium:100,iron:1.1,vitC:80,vitA:206,vitB6:0.18,vitB12:0,folate:19}},
+    {id:'mushroom',name:'Mushroom',icon:'🍄',tier:'other',baseUnit:'1 cup sliced',
+     units:{'1 cup sliced':1,'5 whole':0.9},
+     n:{cal:15,protein:2.2,carbs:2.3,fiber:0.7,sugar:1.4,fat:0.2,satfat:0,sodium:4,potassium:223,magnesium:8,calcium:2,iron:0.4,vitC:1.7,vitA:0,vitB6:0.06,vitB12:0.02,folate:9}},
+    {id:'garlic',name:'Garlic',icon:'🧄',tier:'other',baseUnit:'1 clove',
+     units:{'1 clove':1,'1 tbsp minced':3},
+     n:{cal:4,protein:0.2,carbs:1,fiber:0.1,sugar:0,fat:0,satfat:0,sodium:0.5,potassium:12,magnesium:0.7,calcium:5,iron:0.05,vitC:0.9,vitA:0,vitB6:0.04,vitB12:0,folate:0.1}},
+  ]},
+  'Fruits': {icon:'🍎', items:[
+    {id:'apple',name:'Apple',icon:'🍎',tier:'basic',baseUnit:'1 medium apple',
+     units:{'1 medium apple':1,'1 cup sliced':0.9},
+     n:{cal:95,protein:0.5,carbs:25,fiber:4.4,sugar:19,fat:0.3,satfat:0,sodium:2,potassium:195,magnesium:9,calcium:11,iron:0.2,vitC:8.4,vitA:5,vitB6:0.06,vitB12:0,folate:5}},
+    {id:'banana',name:'Banana',icon:'🍌',tier:'basic',baseUnit:'1 medium banana',
+     units:{'1 medium banana':1,'1 cup sliced':1.5},
+     n:{cal:105,protein:1.3,carbs:27,fiber:3.1,sugar:14,fat:0.4,satfat:0.1,sodium:1,potassium:422,magnesium:32,calcium:6,iron:0.3,vitC:10,vitA:3,vitB6:0.43,vitB12:0,folate:24}},
+    {id:'blueberries',name:'Blueberries',icon:'🫐',tier:'basic',baseUnit:'1 cup',
+     units:{'1 cup':1,'1/2 cup':0.5},
+     n:{cal:84,protein:1.1,carbs:21,fiber:3.6,sugar:15,fat:0.5,satfat:0,sodium:1,potassium:114,magnesium:9,calcium:9,iron:0.4,vitC:14,vitA:5,vitB6:0.08,vitB12:0,folate:9}},
+    {id:'strawberries',name:'Strawberries',icon:'🍓',tier:'basic',baseUnit:'1 cup sliced',
+     units:{'1 cup sliced':1,'5 whole':0.5},
+     n:{cal:49,protein:1,carbs:12,fiber:3,sugar:7.4,fat:0.5,satfat:0,sodium:2,potassium:220,magnesium:16,calcium:24,iron:0.6,vitC:89,vitA:1,vitB6:0.07,vitB12:0,folate:35}},
+    {id:'orange',name:'Orange',icon:'🍊',tier:'basic',baseUnit:'1 medium orange',
+     units:{'1 medium orange':1,'1 cup sections':1.7},
+     n:{cal:62,protein:1.2,carbs:15,fiber:3.1,sugar:12,fat:0.2,satfat:0,sodium:0,potassium:237,magnesium:13,calcium:52,iron:0.1,vitC:70,vitA:14,vitB6:0.08,vitB12:0,folate:40}},
+    {id:'avocado',name:'Avocado',icon:'🥑',tier:'basic',baseUnit:'1/2 avocado',
+     units:{'1/2 avocado':1,'1 whole avocado':2},
+     n:{cal:161,protein:2,carbs:8.6,fiber:6.7,sugar:0.7,fat:15,satfat:2.1,sodium:7,potassium:487,magnesium:29,calcium:12,iron:0.6,vitC:10,vitA:7,vitB6:0.2,vitB12:0,folate:81}},
+    {id:'grapes',name:'Grapes',icon:'🍇',tier:'other',baseUnit:'1 cup',
+     units:{'1 cup':1,'10 grapes':0.35},
+     n:{cal:104,protein:1.1,carbs:27,fiber:1.4,sugar:23,fat:0.2,satfat:0,sodium:3,potassium:288,magnesium:11,calcium:16,iron:0.5,vitC:5,vitA:6,vitB6:0.15,vitB12:0,folate:4}},
+    {id:'watermelon',name:'Watermelon',icon:'🍉',tier:'other',baseUnit:'1 cup diced',
+     units:{'1 cup diced':1,'1 wedge':2.9},
+     n:{cal:46,protein:0.9,carbs:11.5,fiber:0.6,sugar:9.4,fat:0.2,satfat:0,sodium:2,potassium:170,magnesium:15,calcium:11,iron:0.3,vitC:12,vitA:43,vitB6:0.07,vitB12:0,folate:5}},
+    {id:'pineapple',name:'Pineapple',icon:'🍍',tier:'other',baseUnit:'1 cup chunks',
+     units:{'1 cup chunks':1},
+     n:{cal:82,protein:0.9,carbs:22,fiber:2.3,sugar:16,fat:0.2,satfat:0,sodium:2,potassium:180,magnesium:20,calcium:21,iron:0.5,vitC:79,vitA:2,vitB6:0.16,vitB12:0,folate:30}},
+    {id:'mango',name:'Mango',icon:'🥭',tier:'other',baseUnit:'1 cup sliced',
+     units:{'1 cup sliced':1,'1 whole mango':1.5},
+     n:{cal:99,protein:1.4,carbs:25,fiber:2.6,sugar:23,fat:0.6,satfat:0.1,sodium:2,potassium:277,magnesium:17,calcium:18,iron:0.3,vitC:60,vitA:89,vitB6:0.2,vitB12:0,folate:71}},
+    {id:'lemon',name:'Lemon (juice)',icon:'🍋',tier:'other',baseUnit:'1 tbsp juice',
+     units:{'1 tbsp juice':1,'1 whole lemon juiced':3},
+     n:{cal:3,protein:0.05,carbs:1,fiber:0.05,sugar:0.4,fat:0,satfat:0,sodium:0.3,potassium:16,magnesium:1,calcium:0.8,iron:0,vitC:7.4,vitA:0,vitB6:0.01,vitB12:0,folate:0.6}},
+  ]},
+  'Meat & Protein': {icon:'🍗', items:[
+    {id:'chicken_breast',name:'Chicken Breast',icon:'🍗',tier:'basic',baseUnit:'4 oz cooked',
+     units:{'4 oz cooked':1,'6 oz cooked':1.5,'8 oz cooked':2},
+     n:{cal:187,protein:35,carbs:0,fiber:0,sugar:0,fat:4,satfat:1.1,sodium:84,potassium:332,magnesium:35,calcium:16,iron:1.1,vitC:0,vitA:6,vitB6:0.6,vitB12:0.4,folate:5}},
+    {id:'ground_beef',name:'Ground Beef (85/15)',icon:'🥩',tier:'basic',baseUnit:'4 oz cooked',
+     units:{'4 oz cooked':1,'6 oz cooked':1.5},
+     n:{cal:290,protein:24,carbs:0,fiber:0,sugar:0,fat:21,satfat:8.2,sodium:80,potassium:318,magnesium:22,calcium:20,iron:2.5,vitC:0,vitA:0,vitB6:0.35,vitB12:2.5,folate:8}},
+    {id:'salmon',name:'Salmon',icon:'🐟',tier:'basic',baseUnit:'4 oz cooked',
+     units:{'4 oz cooked':1,'6 oz cooked':1.5},
+     n:{cal:233,protein:25,carbs:0,fiber:0,sugar:0,fat:14,satfat:2.9,sodium:63,potassium:429,magnesium:34,calcium:13,iron:0.4,vitC:0,vitA:24,vitB6:0.6,vitB12:3.2,folate:19}},
+    {id:'egg',name:'Egg',icon:'🥚',tier:'basic',baseUnit:'1 large egg',
+     units:{'1 large egg':1,'2 large eggs':2,'3 large eggs':3},
+     n:{cal:72,protein:6.3,carbs:0.4,fiber:0,sugar:0.2,fat:5,satfat:1.6,sodium:71,potassium:69,magnesium:6,calcium:28,iron:0.9,vitC:0,vitA:80,vitB6:0.09,vitB12:0.6,folate:24}},
+    {id:'greek_yogurt',name:'Greek Yogurt (plain)',icon:'🥣',tier:'basic',baseUnit:'1 cup',
+     units:{'1 cup':1,'1/2 cup':0.5},
+     n:{cal:146,protein:25,carbs:8,fiber:0,sugar:8,fat:4,satfat:2.6,sodium:87,potassium:352,magnesium:19,calcium:250,iron:0.1,vitC:0,vitA:2,vitB6:0.1,vitB12:1.4,folate:19}},
+    {id:'shrimp',name:'Shrimp',icon:'🍤',tier:'other',baseUnit:'4 oz cooked',
+     units:{'4 oz cooked':1},
+     n:{cal:120,protein:23,carbs:1,fiber:0,sugar:0,fat:1.7,satfat:0.3,sodium:222,potassium:220,magnesium:39,calcium:52,iron:0.4,vitC:1.4,vitA:0,vitB6:0.1,vitB12:1.6,folate:5}},
+    {id:'turkey_breast',name:'Turkey Breast',icon:'🦃',tier:'other',baseUnit:'4 oz cooked',
+     units:{'4 oz cooked':1},
+     n:{cal:153,protein:34,carbs:0,fiber:0,sugar:0,fat:1,satfat:0.3,sodium:59,potassium:302,magnesium:31,calcium:14,iron:1.4,vitC:0,vitA:0,vitB6:0.6,vitB12:0.4,folate:8}},
+    {id:'pork_chop',name:'Pork Chop',icon:'🥓',tier:'other',baseUnit:'4 oz cooked',
+     units:{'4 oz cooked':1},
+     n:{cal:218,protein:26,carbs:0,fiber:0,sugar:0,fat:12,satfat:4.3,sodium:57,potassium:353,magnesium:23,calcium:15,iron:0.7,vitC:0,vitA:5,vitB6:0.4,vitB12:0.6,folate:4}},
+    {id:'tofu',name:'Tofu',icon:'⬜',tier:'other',baseUnit:'1/2 cup',
+     units:{'1/2 cup':1,'1 cup':2},
+     n:{cal:94,protein:10,carbs:2.3,fiber:0.4,sugar:0.6,fat:5.9,satfat:0.9,sodium:9,potassium:150,magnesium:37,calcium:434,iron:1.4,vitC:0,vitA:0,vitB6:0.05,vitB12:0,folate:19}},
+    {id:'tuna_canned',name:'Tuna (canned, water)',icon:'🐟',tier:'other',baseUnit:'3 oz drained',
+     units:{'3 oz drained':1},
+     n:{cal:73,protein:16.5,carbs:0,fiber:0,sugar:0,fat:0.6,satfat:0.2,sodium:210,potassium:201,magnesium:20,calcium:9,iron:0.6,vitC:0,vitA:16,vitB6:0.15,vitB12:1.5,folate:1}},
+  ]},
+  'Grains': {icon:'🌾', items:[
+    {id:'brown_rice',name:'Brown Rice',icon:'🍚',tier:'basic',baseUnit:'1 cup cooked',
+     units:{'1 cup cooked':1,'1/2 cup cooked':0.5},
+     n:{cal:216,protein:5,carbs:45,fiber:3.5,sugar:0.7,fat:1.8,satfat:0.4,sodium:10,potassium:154,magnesium:84,calcium:20,iron:0.8,vitC:0,vitA:0,vitB6:0.28,vitB12:0,folate:8}},
+    {id:'oats',name:'Oats (rolled, dry)',icon:'🥣',tier:'basic',baseUnit:'1/2 cup dry',
+     units:{'1/2 cup dry':1,'1 cup dry':2},
+     n:{cal:150,protein:5,carbs:27,fiber:4,sugar:1,fat:2.5,satfat:0.5,sodium:0,potassium:143,magnesium:44,calcium:21,iron:1.7,vitC:0,vitA:0,vitB6:0.05,vitB12:0,folate:14}},
+    {id:'whole_wheat_bread',name:'Whole Wheat Bread',icon:'🍞',tier:'basic',baseUnit:'1 slice',
+     units:{'1 slice':1,'2 slices':2},
+     n:{cal:81,protein:4,carbs:14,fiber:2,sugar:1.6,fat:1.1,satfat:0.2,transfat:0,sodium:144,potassium:70,magnesium:23,calcium:30,iron:0.9,vitC:0,vitA:0,vitB6:0.05,vitB12:0,folate:14},
+     concerns:{preservatives:true}, notes:'Most mass-market commercial loaves use a preservative (commonly calcium propionate) to resist mold — check the label if avoiding this matters to you.'},
+    {id:'quinoa',name:'Quinoa',icon:'🌾',tier:'basic',baseUnit:'1 cup cooked',
+     units:{'1 cup cooked':1,'1/2 cup cooked':0.5},
+     n:{cal:222,protein:8,carbs:39,fiber:5.2,sugar:1.6,fat:3.6,satfat:0.4,sodium:13,potassium:318,magnesium:118,calcium:31,iron:2.8,vitC:0,vitA:1,vitB6:0.24,vitB12:0,folate:78}},
+    {id:'pasta',name:'Pasta (cooked)',icon:'🍝',tier:'other',baseUnit:'1 cup cooked',
+     units:{'1 cup cooked':1},
+     n:{cal:221,protein:8,carbs:43,fiber:2.5,sugar:0.8,fat:1.3,satfat:0.2,sodium:1,potassium:61,magnesium:25,calcium:10,iron:1.9,vitC:0,vitA:0,vitB6:0.06,vitB12:0,folate:167}},
+    {id:'white_rice',name:'White Rice',icon:'🍚',tier:'other',baseUnit:'1 cup cooked',
+     units:{'1 cup cooked':1},
+     n:{cal:205,protein:4.3,carbs:45,fiber:0.6,sugar:0.1,fat:0.4,satfat:0.1,sodium:2,potassium:55,magnesium:19,calcium:16,iron:1.9,vitC:0,vitA:0,vitB6:0.14,vitB12:0,folate:92}},
+    {id:'tortilla',name:'Tortilla (flour, 8in)',icon:'🫓',tier:'other',baseUnit:'1 tortilla',
+     units:{'1 tortilla':1,'2 tortillas':2},
+     n:{cal:146,protein:4,carbs:24,fiber:1.4,sugar:0.6,fat:3.6,satfat:0.9,transfat:0,sodium:364,potassium:60,magnesium:14,calcium:59,iron:1.5,vitC:0,vitA:0,vitB6:0.03,vitB12:0,folate:38},
+     concerns:{preservatives:true}, notes:'Commercial flour tortillas commonly include a preservative (often calcium propionate) for shelf life.'},
+  ]},
+  'Dairy & Alt': {icon:'🧀', items:[
+    {id:'cheddar',name:'Cheddar Cheese',icon:'🧀',tier:'basic',baseUnit:'1 oz',
+     units:{'1 oz':1,'2 oz':2},
+     n:{cal:113,protein:7,carbs:0.4,fiber:0,sugar:0.1,fat:9.3,satfat:5.9,sodium:174,potassium:21,magnesium:8,calcium:200,iron:0.2,vitC:0,vitA:75,vitB6:0.02,vitB12:0.2,folate:5}},
+    {id:'cottage_cheese',name:'Cottage Cheese',icon:'🥣',tier:'other',baseUnit:'1/2 cup',
+     units:{'1/2 cup':1,'1 cup':2},
+     n:{cal:90,protein:12,carbs:5,fiber:0,sugar:3,fat:2.5,satfat:1.6,sodium:348,potassium:130,magnesium:6,calcium:65,iron:0.1,vitC:0,vitA:37,vitB6:0.08,vitB12:0.6,folate:14}},
+  ]},
+  'Liquids': {icon:'🥤', items:[
+    {id:'water',name:'Water',icon:'💧',tier:'basic',baseUnit:'8 fl oz',
+     units:{'8 fl oz':1,'16 fl oz':2,'1 liter':4.2},
+     n:{cal:0,protein:0,carbs:0,fiber:0,sugar:0,fat:0,satfat:0,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+    {id:'milk_2percent',name:'Milk (2%)',icon:'🥛',tier:'basic',baseUnit:'1 cup',
+     units:{'1 cup':1,'1/2 cup':0.5,'16 fl oz':2},
+     n:{cal:122,protein:8,carbs:12,fiber:0,sugar:12,fat:4.8,satfat:3.1,sodium:100,potassium:366,magnesium:27,calcium:293,iron:0.1,vitC:0,vitA:134,vitB6:0.1,vitB12:1.1,folate:12}},
+    {id:'almond_milk',name:'Almond Milk (unsweet.)',icon:'🥛',tier:'basic',baseUnit:'1 cup',
+     units:{'1 cup':1,'16 fl oz':2},
+     n:{cal:39,protein:1.5,carbs:3.4,fiber:0.7,sugar:0.3,fat:2.9,satfat:0,sodium:189,potassium:176,magnesium:16,calcium:449,iron:0.5,vitC:0,vitA:110,vitB6:0,vitB12:0,folate:0}},
+    {id:'coffee_black',name:'Coffee (black)',icon:'☕',tier:'basic',baseUnit:'1 cup',
+     units:{'1 cup':1,'16 fl oz':2},
+     n:{cal:2,protein:0.3,carbs:0,fiber:0,sugar:0,fat:0,satfat:0,sodium:5,potassium:118,magnesium:7,calcium:5,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:5}},
+    {id:'tea_unsweet',name:'Tea (unsweetened)',icon:'🍵',tier:'basic',baseUnit:'1 cup',
+     units:{'1 cup':1,'16 fl oz':2},
+     n:{cal:2,protein:0,carbs:0.5,fiber:0,sugar:0,fat:0,satfat:0,sodium:7,potassium:88,magnesium:7,calcium:0,iron:0.1,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:11}},
+    {id:'orange_juice',name:'Orange Juice',icon:'🧃',tier:'basic',baseUnit:'1 cup',
+     units:{'1 cup':1,'16 fl oz':2},
+     n:{cal:112,protein:1.7,carbs:26,fiber:0.5,sugar:21,fat:0.5,satfat:0.1,sodium:2,potassium:496,magnesium:27,calcium:27,iron:0.5,vitC:124,vitA:25,vitB6:0.1,vitB12:0,folate:74}},
+    {id:'apple_juice',name:'Apple Juice',icon:'🧃',tier:'other',baseUnit:'1 cup',
+     units:{'1 cup':1,'16 fl oz':2},
+     n:{cal:114,protein:0.2,carbs:28,fiber:0.2,sugar:24,fat:0.3,satfat:0,sodium:10,potassium:249,magnesium:8,calcium:16,iron:0.3,vitC:2.2,vitA:0,vitB6:0.07,vitB12:0,folate:0}},
+    {id:'cranberry_juice',name:'Cranberry Juice Cocktail',icon:'🧃',tier:'other',baseUnit:'1 cup',
+     units:{'1 cup':1,'16 fl oz':2},
+     n:{cal:137,protein:0,carbs:34,fiber:0.3,sugar:31,fat:0,satfat:0,transfat:0,sodium:5,potassium:61,magnesium:6,calcium:8,iron:0.4,vitC:90,vitA:0,vitB6:0.06,vitB12:0,folate:0},
+     concerns:{hfcs:true}, notes:'"Cocktail" means it\'s sweetened, not straight cranberry juice — commonly with high-fructose corn syrup. Look for unsweetened 100% cranberry juice if avoiding this matters to you.'},
+    {id:'soda_cola',name:'Soda (cola)',icon:'🥤',tier:'other',baseUnit:'12 fl oz can',
+     units:{'12 fl oz can':1,'16 fl oz':1.33},
+     n:{cal:140,protein:0,carbs:39,fiber:0,sugar:39,fat:0,satfat:0,transfat:0,sodium:45,potassium:4,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0},
+     concerns:{hfcs:true}, notes:'Standard US cola formulations are sweetened with high-fructose corn syrup.'},
+  ]},
+  'Fats & Oils': {icon:'🫒', items:[
+    {id:'olive_oil',name:'Olive Oil',icon:'🫒',tier:'basic',baseUnit:'1 tbsp',
+     units:{'1 tbsp':1,'1 tsp':0.33},
+     n:{cal:119,protein:0,carbs:0,fiber:0,sugar:0,fat:13.5,satfat:1.9,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0.1,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+    {id:'peanut_butter',name:'Peanut Butter',icon:'🥜',tier:'basic',baseUnit:'2 tbsp',
+     units:{'2 tbsp':1,'1 tbsp':0.5},
+     n:{cal:188,protein:8,carbs:6.9,fiber:1.9,sugar:3,fat:16,satfat:3.3,sodium:147,potassium:208,magnesium:57,calcium:14,iron:0.6,vitC:0,vitA:0,vitB6:0.17,vitB12:0,folate:24}},
+    {id:'butter',name:'Butter',icon:'🧈',tier:'other',baseUnit:'1 tbsp',
+     units:{'1 tbsp':1,'1 tsp':0.33},
+     n:{cal:102,protein:0.1,carbs:0,fiber:0,sugar:0,fat:11.5,satfat:7.3,sodium:82,potassium:3,magnesium:0,calcium:3,iron:0,vitC:0,vitA:97,vitB6:0,vitB12:0.01,folate:0}},
+    {id:'almonds',name:'Almonds',icon:'🌰',tier:'other',baseUnit:'1 oz (~23 nuts)',
+     units:{'1 oz (~23 nuts)':1},
+     n:{cal:164,protein:6,carbs:6.1,fiber:3.5,sugar:1.2,fat:14.2,satfat:1.1,sodium:0,potassium:208,magnesium:76,calcium:76,iron:1.1,vitC:0,vitA:0,vitB6:0.02,vitB12:0,folate:12}},
+    {id:'walnuts',name:'Walnuts',icon:'🌰',tier:'other',baseUnit:'1 oz (~14 halves)',
+     units:{'1 oz (~14 halves)':1},
+     n:{cal:185,protein:4.3,carbs:3.9,fiber:1.9,sugar:0.7,fat:18.5,satfat:1.7,sodium:1,potassium:125,magnesium:45,calcium:28,iron:0.8,vitC:1.3,vitA:0,vitB6:0.15,vitB12:0,folate:28}},
+  ]},
+};
+
+const FOOD_DV = {protein:50,carbs:275,fiber:28,sugar:50,fat:78,satfat:20,transfat:2,sodium:2300,potassium:4700,magnesium:420,calcium:1300,iron:18,vitC:90,vitA:900,vitB6:1.7,vitB12:2.4,folate:400};
+const FOOD_NUTR_LABELS = {
+  cal:'Calories', protein:'Protein (g)', carbs:'Carbs (g)', fiber:'Fiber (g)', sugar:'Sugar (g)',
+  fat:'Total Fat (g)', satfat:'Saturated Fat (g)', transfat:'Trans Fat (g)', sodium:'Sodium (mg)', potassium:'Potassium (mg)',
+  magnesium:'Magnesium (mg)', calcium:'Calcium (mg)', iron:'Iron (mg)', vitC:'Vitamin C (mg)',
+  vitA:'Vitamin A (mcg)', vitB6:'Vitamin B6 (mg)', vitB12:'Vitamin B12 (mcg)', folate:'Folate (mcg)'
+};
+// transfat's DV (2g) is a deliberately low reference, not an official FDA
+// %DV — real guidance is "no safe amount," so even a small quantity should
+// read as a strong red flag rather than sitting near 0%.
+const FOOD_WATCH_HIGH = ['sodium','sugar','satfat','transfat'];
+const FOOD_GOOD_HIGH = ['protein','fiber','potassium','magnesium','vitC','vitA','vitB6','vitB12','folate'];
+
+// CONCERNS — presence/absence flags, not quantified amounts (real mg
+// figures for these generally aren't published on labels, so tracking
+// "does this contain it" honestly beats inventing a fake number). Rolled
+// up across everything in the basket so a pattern is visible at a glance.
+const FOOD_CONCERNS = {
+  msg:'MSG', dyes:'Artificial Dyes', sweeteners:'Artificial Sweeteners',
+  preservatives:'Preservatives / Nitrates', hfcs:'High-Fructose Corn Syrup'
+};
+
+// Add-ins — generalized per category, not just drinks. Each category that
+// has its own list here shows an "ADD-INS" box in the picker when an item
+// from that category is selected; a category with no entry here (e.g.
+// Fruits) just doesn't show the box. Each entry is per-unit (e.g. "1 tsp",
+// "1 tbsp") so picking a quantity of 2 doubles its own nutrients, same
+// scaling model as a regular food item. Not exhaustive by design — Ryan's
+// own words, "we're not going to catch everything" — this covers the
+// common case per category and grows over time the same way Basics does.
+const FOOD_ADDINS = {
+  'Liquids': {
+    creamer:{name:'Creamer (1 tbsp)',icon:'🥛',n:{cal:20,protein:0.4,carbs:0.6,fiber:0,sugar:0.6,fat:1.7,satfat:1.1,sodium:6,potassium:20,magnesium:0,calcium:16,iron:0,vitC:0,vitA:15,vitB6:0,vitB12:0,folate:0}},
+    milk_splash:{name:'Milk Splash (1 tbsp)',icon:'🥛',n:{cal:8,protein:0.5,carbs:0.8,fiber:0,sugar:0.8,fat:0.3,satfat:0.2,sodium:6,potassium:23,magnesium:2,calcium:18,iron:0,vitC:0,vitA:8,vitB6:0.01,vitB12:0.07,folate:1}},
+    sugar_packet:{name:'Sugar (1 packet)',icon:'🧂',n:{cal:15,protein:0,carbs:4,fiber:0,sugar:4,fat:0,satfat:0,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+    sweetener_packet:{name:'Sweetener, zero-cal (1 packet)',icon:'✨',n:{cal:0,protein:0,carbs:1,fiber:0,sugar:0,fat:0,satfat:0,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+    honey:{name:'Honey (1 tbsp)',icon:'🍯',n:{cal:64,protein:0.1,carbs:17,fiber:0,sugar:17,fat:0,satfat:0,sodium:1,potassium:11,magnesium:0.8,calcium:1,iron:0.1,vitC:0.1,vitA:0,vitB6:0,vitB12:0,folate:0.4}},
+    cinnamon:{name:'Cinnamon (1 tsp)',icon:'🌰',n:{cal:6,protein:0.1,carbs:2,fiber:1.2,sugar:0.1,fat:0,satfat:0,sodium:0,potassium:11,magnesium:1.6,calcium:26,iron:0.9,vitC:0.1,vitA:0,vitB6:0,vitB12:0,folate:0}},
+    vanilla_syrup:{name:'Flavored Syrup (1 pump)',icon:'🍶',n:{cal:20,protein:0,carbs:5,fiber:0,sugar:5,fat:0,satfat:0,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+  },
+  'Meat & Protein': {
+    salt:{name:'Salt (1/4 tsp)',icon:'🧂',n:{cal:0,protein:0,carbs:0,fiber:0,sugar:0,fat:0,satfat:0,sodium:590,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+    black_pepper:{name:'Black Pepper (1/4 tsp)',icon:'⚫',n:{cal:1,protein:0,carbs:0.3,fiber:0.1,sugar:0,fat:0,satfat:0,sodium:0,potassium:4,magnesium:1,calcium:2,iron:0.1,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+    garlic_powder:{name:'Garlic Powder (1/4 tsp)',icon:'🧄',n:{cal:3,protein:0.2,carbs:0.7,fiber:0.1,sugar:0,fat:0,satfat:0,sodium:0.4,potassium:9,magnesium:0.5,calcium:2,iron:0,vitC:0.2,vitA:0,vitB6:0.02,vitB12:0,folate:0}},
+    paprika:{name:'Paprika (1/2 tsp)',icon:'🌶️',n:{cal:3,protein:0.2,carbs:0.6,fiber:0.4,sugar:0.1,fat:0.1,satfat:0,sodium:1,potassium:26,magnesium:2,calcium:1,iron:0.3,vitC:0.2,vitA:322,vitB6:0.03,vitB12:0,folate:1}},
+    cumin:{name:'Cumin (1/2 tsp)',icon:'🌾',n:{cal:4,protein:0.2,carbs:0.5,fiber:0.1,sugar:0,fat:0.2,satfat:0,sodium:2,potassium:19,magnesium:5,calcium:10,iron:0.7,vitC:0,vitA:2,vitB6:0.01,vitB12:0,folate:1}},
+    italian_seasoning:{name:'Italian Seasoning (1 tsp)',icon:'🌿',n:{cal:3,protein:0.1,carbs:0.7,fiber:0.4,sugar:0,fat:0.1,satfat:0,sodium:0,potassium:14,magnesium:2,calcium:20,iron:0.3,vitC:0.6,vitA:5,vitB6:0,vitB12:0,folate:1}},
+    soy_sauce:{name:'Soy Sauce (1 tbsp)',icon:'🥢',n:{cal:9,protein:1.3,carbs:0.8,fiber:0.1,sugar:0.1,fat:0,satfat:0,sodium:902,potassium:64,magnesium:6,calcium:3,iron:0.3,vitC:0,vitA:0,vitB6:0.02,vitB12:0,folate:2}},
+    bbq_sauce:{name:'BBQ Sauce (2 tbsp)',icon:'🍖',n:{cal:60,protein:0.4,carbs:15,fiber:0.3,sugar:12,fat:0.3,satfat:0,sodium:380,potassium:130,magnesium:6,calcium:12,iron:0.4,vitC:1,vitA:14,vitB6:0.04,vitB12:0,folate:2}},
+  },
+};
+
+// Preparation method — single-select (unlike add-ins), since something is
+// baked OR fried, not both. Only offered where it actually applies —
+// Meat & Protein, Vegetables, Grains. "As-Is / No Added Oil" is the
+// baseline (zero nutrient change); every other method adds whatever real
+// oil/fat that cooking method actually contributes.
+const FOOD_PREP_CATS = ['Meat & Protein','Vegetables','Grains'];
+const FOOD_PREP_METHODS = {
+  asis:{name:'As-Is / No Added Oil',n:{cal:0,protein:0,carbs:0,fiber:0,sugar:0,fat:0,satfat:0,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+  baked:{name:'Baked / Roasted',n:{cal:0,protein:0,carbs:0,fiber:0,sugar:0,fat:0,satfat:0,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+  grilled:{name:'Grilled',n:{cal:0,protein:0,carbs:0,fiber:0,sugar:0,fat:0,satfat:0,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+  steamed:{name:'Steamed / Boiled',n:{cal:0,protein:0,carbs:0,fiber:0,sugar:0,fat:0,satfat:0,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+  air_fried:{name:'Air Fried (~1 tsp oil)',n:{cal:40,protein:0,carbs:0,fiber:0,sugar:0,fat:4.5,satfat:0.6,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+  pan_fried:{name:'Pan-Fried (~1 tbsp oil)',n:{cal:119,protein:0,carbs:0,fiber:0,sugar:0,fat:13.5,satfat:1.9,sodium:0,potassium:0,magnesium:0,calcium:0,iron:0,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+  deep_fried:{name:'Deep Fried (batter + oil)',n:{cal:220,protein:2,carbs:15,fiber:0.5,sugar:0,fat:16,satfat:2.5,sodium:190,potassium:0,magnesium:0,calcium:10,iron:0.5,vitC:0,vitA:0,vitB6:0,vitB12:0,folate:0}},
+};
+
+function foodDisplayName(){
+  const n = getUserName();
+  if(n) return n;
+  if(currentUser && currentUser.email) return currentUser.email.split('@')[0];
+  return 'Your';
+}
+function foodUserKey(){ return currentUser ? currentUser.id : 'guest'; }
+function foodItemCategory(id){ for(const cat of FOOD_CATS){ if(FOOD_DB[cat].items.some(i=>i.id===id)) return cat; } return null; }
+
+const FOOD_PRESET_PREFIX = 'amitFood_presets_';
+function foodLoadPresets(){
+  try{ return JSON.parse(localStorage.getItem(FOOD_PRESET_PREFIX+foodUserKey())||'{}'); }catch(e){ return {}; }
+}
+function foodSavePresets(p){ localStorage.setItem(FOOD_PRESET_PREFIX+foodUserKey(), JSON.stringify(p)); }
+
+const FOOD_USED_KEY = 'amitFood_usedItems';
+const FOOD_REMOVED_KEY = 'amitFood_removedFromBasics';
+let foodUsedItems = JSON.parse(localStorage.getItem(FOOD_USED_KEY) || '[]');
+let foodRemovedBasics = JSON.parse(localStorage.getItem(FOOD_REMOVED_KEY) || '[]');
+function foodSaveRemoved(){ localStorage.setItem(FOOD_REMOVED_KEY, JSON.stringify(foodRemovedBasics)); }
+function foodIsInBasics(it){ return (it.tier==='basic'||foodUsedItems.includes(it.id)) && !foodRemovedBasics.includes(it.id); }
+
+// "Remove Item from Basics" — popup lists whatever's currently showing
+// under Basics for this one category; picking one demotes it back to
+// Other Items. Works on both a default 'basic' item and one that was
+// promoted by use — foodRemovedBasics overrides either case.
+function foodOpenRemoveBasics(cat){
+  const items = FOOD_DB[cat].items.filter(foodIsInBasics);
+  const rows = items.map(it=>`
+    <div onclick="foodRemoveFromBasics('${it.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid rgba(201,168,76,.25);border-radius:8px;cursor:pointer;margin-bottom:6px">
+      <span style="font-size:18px">${it.icon}</span><span>${it.name}</span>
+    </div>`).join('') || `<p style="color:var(--dim);font-size:12.5px;font-style:italic">Nothing in Basics for ${cat} right now.</p>`;
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Remove from Basics — ${cat}</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:14px">Pick what you don't use — it goes back under Other Items.</div>
+    ${rows}
+  `);
+}
+function foodRemoveFromBasics(id){
+  if(!foodRemovedBasics.includes(id)){ foodRemovedBasics.push(id); foodSaveRemoved(); }
+  popupClose();
+  foodRenderAllItemGrids();
+}
+let foodCurrentTier = 'basics';
+let foodPickerItem = null;
+let foodMeal = []; // {id,name,icon,qty,unit,n:{scaled}}
+const FOOD_CATS = Object.keys(FOOD_DB);
+
+function foodSaveUsed(){ localStorage.setItem(FOOD_USED_KEY, JSON.stringify(foodUsedItems)); }
+function foodFindItem(id){ for(const cat of FOOD_CATS){ const f=FOOD_DB[cat].items.find(i=>i.id===id); if(f) return f; } return null; }
+
+// Builds detail-1's full markup — the tab bar (top) using the existing
+// showChTab(1,n) mechanism, each tab holding a Basics/Other toggle + item
+// grid for that category, then the basket (bottom-left) and live totals
+// (bottom-right) below the tab box, spanning all categories at once.
+function buildFoodPageHtml(){
+  let tabNav='', tabContent='';
+  FOOD_CATS.forEach((cat,i)=>{
+    const n=i+1;
+    tabNav+=`<button class="ch-tab-btn${n===1?' active':''}" onclick="showChTab(1,${n})">${FOOD_DB[cat].icon} ${cat}</button>`;
+    tabContent+=`<div class="ch-tab-content${n===1?' active':''}" id="ch-tab-1-${n}">
+      <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+        <button class="food-tier-btn active" id="foodTier-${n}-basics" onclick="foodSetTier('basics')">Your ${cat}</button>
+        <button class="food-tier-btn" id="foodTier-${n}-other" onclick="foodSetTier('other')">Other ${cat}</button>
+        <button class="food-tier-btn" style="margin-left:auto;color:#d9b25f;border-color:rgba(217,178,95,.4)" onclick="foodOpenRemoveBasics('${cat}')">Remove Item from Basics</button>
+      </div>
+      <div class="food-item-grid" id="foodGrid-${n}"></div>
+    </div>`;
+  });
+  return `
+  <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div style="flex:0 0 auto;display:flex;flex-direction:column">
+      <div class="ch-tab-nav" id="ch-tab-nav-1">${tabNav}</div>
+      <div class="ch-tab-main" style="flex:0 0 auto;overflow:visible">${tabContent}</div>
+      <div class="food-picker" id="foodPicker">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <b id="foodPickName" style="color:var(--gold2);font-size:14px"></b>
+          <button onclick="foodClosePicker()" style="background:none;border:none;color:var(--dim);font-size:16px;cursor:pointer">✕</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin:10px 0">
+          <input type="number" id="foodPickQty" min="0" step="0.25" value="1" oninput="foodRenderPickPreview()"
+            style="width:70px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:14px">
+          <select id="foodPickUnit" onchange="foodRenderPickPreview()"
+            style="background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:13px"></select>
+        </div>
+        <div id="foodPrepBox" style="display:none;border-top:1px solid rgba(255,255,255,.08);margin-top:10px;padding-top:10px">
+          <div style="font-size:11px;color:var(--gold2);margin-bottom:6px;letter-spacing:.04em">HOW IS IT PREPARED?</div>
+          <div id="foodPrepList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+        <div id="foodCondimentsBox" style="display:none;border-top:1px solid rgba(255,255,255,.08);margin-top:10px;padding-top:10px">
+          <div style="font-size:11px;color:var(--gold2);margin-bottom:6px;letter-spacing:.04em">ADD-INS</div>
+          <div id="foodCondimentsList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        </div>
+        <div id="foodPickPreview" style="font-size:11px;color:var(--dim);line-height:1.7;margin:8px 0"></div>
+        <div style="display:flex;gap:8px">
+          <button class="food-add-btn" onclick="foodAddToMeal()">+ Add to what I'm building</button>
+          <button class="food-add-btn" id="foodStandardBtn" style="display:none;background:transparent;border:1px solid var(--gold);color:var(--gold2);white-space:nowrap;width:auto;padding:8px 14px" onclick="foodSaveStandardDrink()">⭐ Save as My Usual</button>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:16px 24px;overflow-y:auto;min-height:0">
+      <div>
+        <div class="food-section-title">What's In This</div>
+        <ul class="food-built-list" id="foodBasketList"></ul>
+        <div id="foodEmptyNote" class="food-empty-note">Nothing added yet — pick something above to get started.</div>
+        <div id="foodMealNotes"></div>
+      </div>
+      <div>
+        <div class="food-section-title">Totals — Good, Bad &amp; the Ugly</div>
+        <table class="food-nutr-table" id="foodNutrTable"></table>
+        <p class="food-hint">% shown is share of a standard 2,000-calorie day. Sodium, sugar, and saturated fat flag red when high — protein, fiber, potassium, magnesium, and vitamins flag green when solid.</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function foodRenderCatBar(){ /* tab bar is static markup from buildFoodPageHtml, nothing to refresh here */ }
+
+// ══════════════════════════════════════════════
+// ADD NEW ITEM — for anything not already in the starter database (navel
+// oranges vs. plain oranges, a specific brand, whatever). Two paths:
+// Research It (hands the person a ready-made prompt for their own real
+// Claude session, since this static page can't call an API on its own
+// without a real server-side proxy holding a key — that infrastructure
+// doesn't exist yet system-wide) or manual entry. Custom items get merged
+// into FOOD_DB at runtime and persisted separately so they survive reload.
+// ══════════════════════════════════════════════
+const FOOD_CUSTOM_KEY = 'amitFood_customItems';
+function foodLoadCustomItems(){ try{ return JSON.parse(localStorage.getItem(FOOD_CUSTOM_KEY)||'{}'); }catch(e){ return {}; } }
+function foodSaveCustomItem(cat,item){
+  const all=foodLoadCustomItems();
+  if(!all[cat]) all[cat]=[];
+  all[cat].push(item);
+  localStorage.setItem(FOOD_CUSTOM_KEY, JSON.stringify(all));
+}
+// Merges any previously-saved custom items into FOOD_DB in memory — run
+// once at load, and again (for just the new one) each time an item's added.
+function foodMergeCustomItemsIntoDb(){
+  const all=foodLoadCustomItems();
+  Object.keys(all).forEach(cat=>{
+    if(!FOOD_DB[cat]) return;
+    all[cat].forEach(item=>{
+      if(!FOOD_DB[cat].items.some(i=>i.id===item.id)) FOOD_DB[cat].items.push(item);
+    });
+  });
+}
+
+const FOOD_NUTR_FIELD_ORDER = ['cal','protein','carbs','fiber','sugar','fat','satfat','transfat','sodium','potassium','magnesium','calcium','iron','vitC','vitA','vitB6','vitB12','folate'];
+const FOOD_NUTR_PROMPT_KEYS = {cal:'calories',protein:'protein_g',carbs:'carbs_g',fiber:'fiber_g',sugar:'sugar_g',fat:'fat_g',satfat:'satfat_g',transfat:'transfat_g',sodium:'sodium_mg',potassium:'potassium_mg',magnesium:'magnesium_mg',calcium:'calcium_mg',iron:'iron_mg',vitC:'vitc_mg',vitA:'vita_mcg',vitB6:'vitb6_mg',vitB12:'vitb12_mcg',folate:'folate_mcg'};
+const FOOD_CONCERN_PROMPT_KEYS = {msg:'contains_msg',dyes:'contains_artificial_dyes',sweeteners:'contains_artificial_sweeteners',preservatives:'contains_preservatives_or_nitrates',hfcs:'contains_hfcs'};
+
+function foodOpenAddNew(cat){
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:10px">Add a New Item — ${cat}</div>
+    <input id="foodNewItemName" type="text" placeholder="e.g. Navel Orange" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:9px 11px;font-size:13px;margin-bottom:14px">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="food-add-btn" onclick="foodStartResearch('${cat}')">🔬 Research It (paste into your own Claude)</button>
+      <button class="food-add-btn" style="background:transparent;border:1px solid var(--gold);color:var(--gold2)" onclick="foodOpenManualEntry('${cat}')">✍️ I'll Tell You Myself</button>
+    </div>
+  `);
+}
+
+function foodResearchPromptText(name,cat){
+  const lines = FOOD_NUTR_FIELD_ORDER.map(k=>FOOD_NUTR_PROMPT_KEYS[k]+': ').join('\n');
+  return `I'm building a food-nutrition tool and need real nutrition facts for one item: "${name}" (category: ${cat}).
+
+Note: I typed this name myself, so it may be misspelled or informally worded — use the fact that it's a ${cat} item to figure out what I actually mean if the spelling is off.
+
+Research this and reply with ONLY the lines below, filled in with real numbers for one standard single serving — no other text before or after:
+
+default_serving: [state the standard serving, e.g. "1 medium" or "1 cup"]
+${lines}
+contains_msg: [yes or no]
+contains_artificial_dyes: [no, or name which ones — e.g. "Red 40, Yellow 5"]
+contains_artificial_sweeteners: [yes or no]
+contains_preservatives_or_nitrates: [yes or no]
+contains_hfcs: [yes or no — high-fructose corn syrup]
+additional_notes: [anything else worth knowing that isn't covered above — allergens, other notable compounds, special health considerations, anything real and relevant. Leave blank if there's genuinely nothing to add.]`;
+}
+
+let foodCurrentResearchPrompt = '';
+async function foodStartResearch(cat){
+  const nameInput=document.getElementById('foodNewItemName');
+  const name=nameInput.value.trim();
+  if(!name){ nameInput.focus(); return; }
+  foodCurrentResearchPrompt = foodResearchPromptText(name,cat);
+  let copied=false;
+  try{ await navigator.clipboard.writeText(foodCurrentResearchPrompt); copied=true; }catch(e){ copied=false; }
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:10px">Research "${name}"</div>
+    <p style="font-size:12.5px;color:var(--muted);line-height:1.7;margin-bottom:10px">
+      ${copied?"It's already copied — go to your Claude session and press Ctrl+V.":'Copy the text below (your browser blocked auto-copy):'}
+      Lost it, or copied something else in between? Press Copy Again below, then paste.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="food-add-btn" style="width:auto;padding:8px 16px" onclick="foodRecopyPrompt()">📋 Copy Again</button>
+      <span id="foodCopyConfirm" style="align-self:center;font-size:11px;color:#5fbf7a"></span>
+    </div>
+    <textarea readonly onclick="this.select()" style="width:100%;height:110px;background:var(--bg);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:8px;font-size:11px;font-family:monospace;margin-bottom:12px">${foodCurrentResearchPrompt}</textarea>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:6px">Paste Claude's reply here:</p>
+    <textarea id="foodResearchReply" placeholder="Paste the answer here…" style="width:100%;height:130px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px;font-size:12px;margin-bottom:12px"></textarea>
+    <button class="food-add-btn" onclick="foodImportResearchedItem('${cat}','${name.replace(/'/g,"\\'")}')">Import This Item</button>
+  `);
+}
+async function foodRecopyPrompt(){
+  const note=document.getElementById('foodCopyConfirm');
+  try{
+    await navigator.clipboard.writeText(foodCurrentResearchPrompt);
+    if(note){ note.textContent='Copied!'; setTimeout(()=>{ if(note) note.textContent=''; },2000); }
+  }catch(e){
+    if(note) note.textContent='Could not copy — select the text below manually.';
+  }
+}
+
+function foodImportResearchedItem(cat,name){
+  const raw=document.getElementById('foodResearchReply').value;
+  const n={};
+  FOOD_NUTR_FIELD_ORDER.forEach(k=>{
+    const promptKey=FOOD_NUTR_PROMPT_KEYS[k];
+    const m=raw.match(new RegExp(promptKey+'\\s*:\\s*([\\d.]+)','i'));
+    n[k]=m?parseFloat(m[1]):0;
+  });
+  const servingMatch=raw.match(/default_serving\s*:\s*(.+)/i);
+  const baseUnit=servingMatch?servingMatch[1].trim():'1 serving';
+  const notesMatch=raw.match(/additional_notes\s*:\s*([\s\S]*)/i);
+  const notes=notesMatch?notesMatch[1].trim():'';
+  const concerns=foodParseConcernsFromText(raw);
+  foodCommitNewItem(cat,name,baseUnit,n,notes,concerns);
+}
+
+// Shared by both the research-reply parser and could be reused elsewhere —
+// dyes is the one concern that can carry a real value (which dyes) rather
+// than a flat yes/no, so it's stored as that text when present.
+function foodParseConcernsFromText(raw){
+  const concerns={};
+  Object.keys(FOOD_CONCERN_PROMPT_KEYS).forEach(key=>{
+    const promptKey=FOOD_CONCERN_PROMPT_KEYS[key];
+    const m=raw.match(new RegExp(promptKey+'\\s*:\\s*(.+)','i'));
+    if(!m){ concerns[key]=false; return; }
+    const val=m[1].trim();
+    if(key==='dyes'){
+      concerns[key] = /^no\b/i.test(val) ? false : val;
+    } else {
+      concerns[key] = /^yes\b/i.test(val);
+    }
+  });
+  return concerns;
+}
+
+function foodOpenManualEntry(cat){
+  const rows=FOOD_NUTR_FIELD_ORDER.map(k=>`
+    <div>
+      <label style="font-size:10px;color:var(--dim);display:block;margin-bottom:2px">${FOOD_NUTR_LABELS[k]}</label>
+      <input type="number" step="0.1" id="foodManual-${k}" value="0" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 7px;font-size:12px">
+    </div>`).join('');
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:10px">Tell Amit What's In It</div>
+    <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">Standard serving (e.g. "1 medium", "1 cup")</label>
+    <input id="foodManualServing" type="text" value="1 serving" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 10px;font-size:13px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">${rows}</div>
+    <label style="font-size:11px;color:var(--gold2);display:block;margin-bottom:6px">Known concerns (check any that apply)</label>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+      <label style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px"><input type="checkbox" id="foodConcern-msg"> MSG</label>
+      <label style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px"><input type="checkbox" id="foodConcern-dyes-cb" onchange="document.getElementById('foodConcern-dyes-name').style.display=this.checked?'block':'none'"> Artificial Dyes — which one(s)? <input type="text" id="foodConcern-dyes-name" placeholder="e.g. Red 40" style="display:none;flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 6px;font-size:11px"></label>
+      <label style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px"><input type="checkbox" id="foodConcern-sweeteners"> Artificial Sweeteners</label>
+      <label style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px"><input type="checkbox" id="foodConcern-preservatives"> Preservatives / Nitrates</label>
+      <label style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px"><input type="checkbox" id="foodConcern-hfcs"> High-Fructose Corn Syrup</label>
+    </div>
+    <label style="font-size:11px;color:var(--dim);display:block;margin-bottom:4px">Anything else worth knowing? (allergens, notable compounds, etc. — optional)</label>
+    <textarea id="foodManualNotes" style="width:100%;height:60px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px;font-size:12px;margin-bottom:16px"></textarea>
+    <button class="food-add-btn" onclick="foodSaveManualItem('${cat}')">Save This Item</button>
+  `);
+}
+
+function foodSaveManualItem(cat){
+  const nameInput=document.getElementById('foodNewItemName');
+  const name = nameInput ? nameInput.value.trim() : '';
+  if(!name) return;
+  const baseUnit=document.getElementById('foodManualServing').value.trim()||'1 serving';
+  const n={};
+  FOOD_NUTR_FIELD_ORDER.forEach(k=>{ n[k]=parseFloat(document.getElementById('foodManual-'+k).value)||0; });
+  const notes=document.getElementById('foodManualNotes').value.trim();
+  const dyesChecked=document.getElementById('foodConcern-dyes-cb').checked;
+  const concerns={
+    msg:document.getElementById('foodConcern-msg').checked,
+    dyes: dyesChecked ? (document.getElementById('foodConcern-dyes-name').value.trim()||true) : false,
+    sweeteners:document.getElementById('foodConcern-sweeteners').checked,
+    preservatives:document.getElementById('foodConcern-preservatives').checked,
+    hfcs:document.getElementById('foodConcern-hfcs').checked
+  };
+  foodCommitNewItem(cat,name,baseUnit,n,notes,concerns);
+}
+
+// Shared final step for both paths — creates the real item, merges it into
+// FOOD_DB so it behaves exactly like a built-in item from here on, saves it
+// so it survives reload, and lands it under Other Items (same as any item —
+// it promotes to Basics the first time it's actually used, no special case).
+function foodCommitNewItem(cat,name,baseUnit,n,notes,concerns){
+  // tier:'basic' — if someone went to the trouble of adding it, they're
+  // going to use it; no reason to make them find it under Other Items
+  // first. Icon is a placeholder ❓ for now — a real icon picker is a
+  // later pass, not part of this flow yet.
+  const item={
+    id:'custom_'+Date.now(),
+    name, icon: '❓', tier:'basic',
+    baseUnit, units:{[baseUnit]:1}, n, notes: notes||'', concerns: concerns||{}
+  };
+  FOOD_DB[cat].items.push(item);
+  foodSaveCustomItem(cat,item);
+  popupClose();
+  foodRenderAllItemGrids();
+}
+
+// Run once at load — pulls in anything saved from a previous session
+// before the first render, so a custom item is there immediately, not
+// missing until the next time something else triggers a re-render.
+foodMergeCustomItemsIntoDb();
+
+// PAGE 2 — THE PANTRY: same category/tab shape as page 1, but each tab
+// shows only this person's saved presets for that category, not the raw
+// ingredient list. Selecting one adds it straight to the same shared
+// basket/totals that page 1 builds — this is just a second, faster way to
+// add something you've already built once, not a separate meal.
+function buildBlendsPageHtml(){
+  let tabNav='', tabContent='';
+  FOOD_CATS.forEach((cat,i)=>{
+    const n=i+1;
+    tabNav+=`<button class="ch-tab-btn${n===1?' active':''}" onclick="showChTab(2,${n})">${FOOD_DB[cat].icon} ${cat}</button>`;
+    tabContent+=`<div class="ch-tab-content${n===1?' active':''}" id="ch-tab-2-${n}">
+      <div class="food-item-grid" id="foodBlendGrid-${n}"></div>
+    </div>`;
+  });
+  return `
+  <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div style="flex:0 0 auto;display:flex;flex-direction:column">
+      <div class="ch-tab-nav" id="ch-tab-nav-2">${tabNav}</div>
+      <div class="ch-tab-main" style="flex:0 0 auto;overflow:visible">${tabContent}</div>
+    </div>
+  </div>`;
+}
+function foodRenderBlendsGrids(){
+  const presetsByCat = foodLoadPresets();
+  FOOD_CATS.forEach((cat,i)=>{
+    const n=i+1;
+    const grid=document.getElementById('foodBlendGrid-'+n);
+    if(!grid) return;
+    const presets=presetsByCat[cat]||[];
+    grid.innerHTML = presets.map(p=>`
+      <div class="food-item-btn" style="position:relative;border-color:var(--gold)" onclick="foodAddPresetToMeal('${cat}','${p.id}')">
+        <span onclick="event.stopPropagation();foodDeletePreset('${cat}','${p.id}')" title="Remove this preset" style="position:absolute;top:3px;right:6px;font-size:11px;color:var(--dim);cursor:pointer">✕</span>
+        <div class="food-item-icon">${p.icon}</div>
+        <div class="food-item-name">${p.label}</div>
+      </div>`).join('') || `<p class="food-empty-note">Nothing saved under ${cat} yet — build one on the Healthy Foods page and Save as My Usual.</p>`;
+  });
+}
+
+function foodSetTier(tier){
+  foodCurrentTier = tier;
+  FOOD_CATS.forEach((cat,i)=>{
+    const n=i+1;
+    const bb=document.getElementById('foodTier-'+n+'-basics'), ob=document.getElementById('foodTier-'+n+'-other');
+    if(bb) bb.classList.toggle('active', tier==='basics');
+    if(ob) ob.classList.toggle('active', tier==='other');
+  });
+  foodClosePicker();
+  foodRenderAllItemGrids();
+}
+
+function foodRenderAllItemGrids(){
+  const presetsByCat = foodLoadPresets();
+  FOOD_CATS.forEach((cat,i)=>{
+    const n=i+1;
+    const grid=document.getElementById('foodGrid-'+n);
+    if(!grid) return;
+    const items=FOOD_DB[cat].items;
+    const list = foodCurrentTier==='basics'
+      ? items.filter(foodIsInBasics)
+      : items.filter(it=>!foodIsInBasics(it));
+    let html = list.map(it=>`
+      <div class="food-item-btn" onclick="foodOpenPicker('${it.id}')">
+        <div class="food-item-icon">${it.icon}</div>
+        <div class="food-item-name">${it.name}</div>
+        ${foodUsedItems.includes(it.id)?'<span class="food-item-badge">used before</span>':''}
+      </div>`).join('');
+    html += `<div class="food-item-btn" style="border-style:dashed;opacity:.85" onclick="foodOpenAddNew('${cat}')">
+        <div class="food-item-icon">➕</div>
+        <div class="food-item-name">Add New Item</div>
+      </div>`;
+    // Saved "usual" presets always live under Basics, never Other Items —
+    // they're literally the person's own most-used version of something.
+    if(foodCurrentTier==='basics'){
+      const presets=presetsByCat[cat]||[];
+      html += presets.map(p=>`
+        <div class="food-item-btn" style="position:relative;border-color:var(--gold)" onclick="foodAddPresetToMeal('${cat}','${p.id}')">
+          <span onclick="event.stopPropagation();foodDeletePreset('${cat}','${p.id}')" title="Remove this preset" style="position:absolute;top:3px;right:6px;font-size:11px;color:var(--dim);cursor:pointer">✕</span>
+          <div class="food-item-icon">${p.icon}</div>
+          <div class="food-item-name">${p.label}</div>
+          <span class="food-item-badge">⭐ your usual</span>
+        </div>`).join('');
+    }
+    grid.innerHTML = html || '<p class="food-empty-note">Nothing here yet.</p>';
+  });
+}
+
+function foodScaledNutrients(item,qty,unit){
+  const mult=item.units[unit]*qty;
+  const out={};
+  Object.keys(item.n).forEach(k=>out[k]=item.n[k]*mult);
+  return out;
+}
+let foodPickerCondiments = {}; // {addinKey: qty}
+let foodActiveAddins = null; // whichever FOOD_ADDINS[category] applies to the item currently in the picker, or null
+function foodOpenPicker(id){
+  foodPickerItem=foodFindItem(id);
+  foodPickerCondiments={};
+  document.getElementById('foodPickName').textContent=foodPickerItem.icon+' '+foodPickerItem.name;
+  const unitSel=document.getElementById('foodPickUnit');
+  unitSel.innerHTML=Object.keys(foodPickerItem.units).map(u=>`<option value="${u}">${u}</option>`).join('');
+  document.getElementById('foodPickQty').value=1;
+
+  const cat=foodItemCategory(id);
+  foodActiveAddins = FOOD_ADDINS[cat] || null;
+  const condBox=document.getElementById('foodCondimentsBox');
+  const standardBtn=document.getElementById('foodStandardBtn');
+  condBox.style.display = foodActiveAddins ? 'block' : 'none';
+  standardBtn.style.display = (foodActiveAddins||FOOD_PREP_CATS.includes(cat)) ? '' : 'none';
+  if(foodActiveAddins){
+    document.getElementById('foodCondimentsList').innerHTML = Object.keys(foodActiveAddins).map(k=>{
+      const c=foodActiveAddins[k];
+      return `<button type="button" class="food-tier-btn" id="foodCond-${k}" onclick="foodToggleCondiment('${k}')">${c.icon} ${c.name}</button>`;
+    }).join('');
+  }
+
+  foodPickerPrep = FOOD_PREP_CATS.includes(cat) ? 'asis' : null;
+  const prepBox=document.getElementById('foodPrepBox');
+  prepBox.style.display = foodPickerPrep ? 'block' : 'none';
+  if(foodPickerPrep){
+    document.getElementById('foodPrepList').innerHTML = Object.keys(FOOD_PREP_METHODS).map(k=>
+      `<button type="button" class="food-tier-btn${k==='asis'?' active':''}" id="foodPrep-${k}" onclick="foodSetPrep('${k}')">${FOOD_PREP_METHODS[k].name}</button>`
+    ).join('');
+  }
+
+  document.getElementById('foodPicker').classList.add('show');
+  foodRenderPickPreview();
+}
+let foodPickerPrep = null; // key into FOOD_PREP_METHODS, or null when this item's category has no prep concept
+function foodSetPrep(key){
+  foodPickerPrep=key;
+  Object.keys(FOOD_PREP_METHODS).forEach(k=>{
+    const b=document.getElementById('foodPrep-'+k);
+    if(b) b.classList.toggle('active', k===key);
+  });
+  foodRenderPickPreview();
+}
+function foodToggleCondiment(key){
+  const btn=document.getElementById('foodCond-'+key);
+  if(foodPickerCondiments[key]){
+    delete foodPickerCondiments[key];
+    btn.classList.remove('active');
+  } else {
+    foodPickerCondiments[key]=1;
+    btn.classList.add('active');
+  }
+  foodRenderPickPreview();
+}
+function foodClosePicker(){
+  const p=document.getElementById('foodPicker'); if(p)p.classList.remove('show');
+  foodPickerItem=null; foodPickerCondiments={}; foodActiveAddins=null; foodPickerPrep=null;
+}
+// Combines the base item's scaled nutrients with every selected add-in's
+// nutrients (each scaled by its own qty) plus whatever the chosen
+// preparation method itself contributes (real oil/fat from frying, zero
+// from baking/steaming/grilling).
+function foodCombinedNutrients(qty,unit){
+  const n=foodScaledNutrients(foodPickerItem,qty,unit);
+  if(foodActiveAddins){
+    Object.keys(foodPickerCondiments).forEach(k=>{
+      const cn=foodActiveAddins[k].n, mult=foodPickerCondiments[k];
+      Object.keys(cn).forEach(field=>n[field]=(n[field]||0)+cn[field]*mult);
+    });
+  }
+  if(foodPickerPrep && FOOD_PREP_METHODS[foodPickerPrep]){
+    const pn=FOOD_PREP_METHODS[foodPickerPrep].n;
+    Object.keys(pn).forEach(field=>n[field]=(n[field]||0)+pn[field]);
+  }
+  return n;
+}
+function foodCondimentSummary(){
+  if(!foodActiveAddins) return '';
+  return Object.keys(foodPickerCondiments).map(k=>{
+    const q=foodPickerCondiments[k];
+    return foodActiveAddins[k].name.replace(/\s*\(.*?\)/,'')+(q>1?` x${q}`:'');
+  }).join(', ');
+}
+// The prep method only gets named in a summary when it's not the neutral
+// baseline ("As-Is") — no point cluttering "Chicken Breast, Baked" for the
+// default case when baking adds nothing over as-is anyway... except Ryan
+// wants the method itself always visible once a prep-capable item is
+// picked, so it always shows once one is selected.
+function foodPrepSummary(){
+  if(!foodPickerPrep) return '';
+  return FOOD_PREP_METHODS[foodPickerPrep].name;
+}
+function foodFullSummary(){
+  const parts=[foodPrepSummary(),foodCondimentSummary()].filter(Boolean);
+  return parts.join(' · ');
+}
+function foodRenderPickPreview(){
+  if(!foodPickerItem) return;
+  const qty=parseFloat(document.getElementById('foodPickQty').value)||0;
+  const unit=document.getElementById('foodPickUnit').value;
+  const n=foodCombinedNutrients(qty,unit);
+  const summary=foodFullSummary();
+  document.getElementById('foodPickPreview').innerHTML=
+    (summary?`<div style="color:var(--gold2);margin-bottom:4px">${summary}</div>`:'')+
+    `<b>${Math.round(n.cal)} cal</b> · Protein ${n.protein.toFixed(1)}g · Carbs ${n.carbs.toFixed(1)}g · Sugar ${n.sugar.toFixed(1)}g · Sodium ${Math.round(n.sodium)}mg · Potassium ${Math.round(n.potassium)}mg · Magnesium ${Math.round(n.magnesium)}mg`+
+    foodConcernsBadgeHtml(foodPickerItem.concerns)+
+    (foodPickerItem.notes?`<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.08);color:var(--muted);font-style:italic">${foodPickerItem.notes}</div>`:'');
+}
+// Renders whichever concern flags are actually true/set on an item as a
+// small red warning line — shared by the picker preview and (summed
+// across the whole basket) the totals section.
+function foodConcernsBadgeHtml(concerns){
+  if(!concerns) return '';
+  const active=Object.keys(FOOD_CONCERNS).filter(k=>concerns[k]);
+  if(!active.length) return '';
+  return `<div style="margin-top:6px;color:#d9695f;font-size:11px">⚠️ ${active.map(k=>k==='dyes'&&typeof concerns.dyes==='string'?'Artificial Dyes ('+concerns.dyes+')':FOOD_CONCERNS[k]).join(' · ')}</div>`;
+}
+function foodAddToMeal(){
+  if(!foodPickerItem) return;
+  const qty=parseFloat(document.getElementById('foodPickQty').value)||0;
+  const unit=document.getElementById('foodPickUnit').value;
+  if(qty<=0) return;
+  const summary=foodFullSummary();
+  foodMeal.push({id:foodPickerItem.id,name:foodPickerItem.name+(summary?' — '+summary:''),icon:foodPickerItem.icon,qty,unit,n:foodCombinedNutrients(qty,unit),concerns:foodPickerItem.concerns||{},notes:foodPickerItem.notes||''});
+  if(!foodUsedItems.includes(foodPickerItem.id)){ foodUsedItems.push(foodPickerItem.id); foodSaveUsed(); }
+  if(foodRemovedBasics.includes(foodPickerItem.id)){ foodRemovedBasics=foodRemovedBasics.filter(x=>x!==foodPickerItem.id); foodSaveRemoved(); }
+  foodClosePicker();
+  foodRenderAllItemGrids();
+  foodRenderMeal();
+}
+
+// "This Is My Standard Drink" — saves the base item + whatever condiments
+// are currently checked as one named preset, scoped to whoever's actually
+// signed in (foodUserKey()). The preset then shows up as its own tile in
+// that category's Basics, labeled with the person's own name, and clicking
+// it adds the whole built drink in one click — no re-picking condiments.
+function foodSaveStandardDrink(){
+  if(!foodPickerItem) return;
+  const qty=parseFloat(document.getElementById('foodPickQty').value)||0;
+  const unit=document.getElementById('foodPickUnit').value;
+  const n=foodCombinedNutrients(qty,unit);
+  const defaultLabel=foodDisplayName()+"'s "+foodPickerItem.name;
+  popupOpen(`
+    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:10px">Save as Your Usual</div>
+    <input id="foodPresetNameInput" type="text" value="${defaultLabel}" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:9px 11px;font-size:13px;margin-bottom:14px">
+    <button class="food-add-btn" onclick="foodConfirmSaveStandardDrink()">Save</button>
+  `);
+}
+function foodConfirmSaveStandardDrink(){
+  const label=document.getElementById('foodPresetNameInput').value.trim();
+  if(!label) return;
+  const qty=parseFloat(document.getElementById('foodPickQty').value)||0;
+  const unit=document.getElementById('foodPickUnit').value;
+  const cat=foodItemCategory(foodPickerItem.id);
+  const presets=foodLoadPresets();
+  if(!presets[cat]) presets[cat]=[];
+  presets[cat].push({
+    id:'preset_'+Date.now(), label, icon:foodPickerItem.icon,
+    baseId:foodPickerItem.id, baseName:foodPickerItem.name, baseQty:qty, baseUnit:unit,
+    condimentSummary:foodFullSummary(),
+    n:foodCombinedNutrients(qty,unit),
+    concerns:foodPickerItem.concerns||{},
+    notes:foodPickerItem.notes||''
+  });
+  foodSavePresets(presets);
+  popupClose();
+  foodClosePicker();
+  foodRenderAllItemGrids();
+  foodRenderBlendsGrids();
+}
+function foodAddPresetToMeal(cat,presetId){
+  const presets=foodLoadPresets();
+  const p=(presets[cat]||[]).find(x=>x.id===presetId);
+  if(!p) return;
+  foodMeal.push({id:p.id,name:p.label+(p.condimentSummary?' ('+p.baseName+' + '+p.condimentSummary+')':' ('+p.baseName+')'),icon:p.icon,qty:p.baseQty,unit:p.baseUnit,n:p.n,concerns:p.concerns||{},notes:p.notes||''});
+  foodRenderMeal();
+}
+function foodDeletePreset(cat,presetId){
+  const presets=foodLoadPresets();
+  presets[cat]=(presets[cat]||[]).filter(x=>x.id!==presetId);
+  foodSavePresets(presets);
+  foodRenderAllItemGrids();
+  foodRenderBlendsGrids();
+}
+function foodRemoveFromMeal(idx){ foodMeal.splice(idx,1); foodRenderMeal(); }
+
+function foodRenderMeal(){
+  const list=document.getElementById('foodBasketList');
+  const empty=document.getElementById('foodEmptyNote');
+  if(!list) return; // page 1 not yet in the DOM on this pass
+  if(foodMeal.length===0){
+    list.innerHTML=''; if(empty)empty.style.display='block';
+    document.getElementById('foodNutrTable').innerHTML='';
+    const nb=document.getElementById('foodMealNotes'); if(nb)nb.innerHTML='';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  list.innerHTML=foodMeal.map((m,i)=>`
+    <li style="flex-direction:column;align-items:stretch">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>${m.icon} ${m.name} — ${m.qty} ${m.unit}</span><button class="food-rm-btn" onclick="foodRemoveFromMeal(${i})">✕</button>
+      </div>
+      ${m.notes?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-top:3px">${m.notes}</div>`:''}
+    </li>`).join('');
+
+  // Any notes attached to what's actually in this meal, gathered in one
+  // place — these don't fit a nutrient category, so they get their own
+  // section rather than being buried per-line only.
+  const notesBlock=document.getElementById('foodMealNotes');
+  if(notesBlock){
+    const withNotes=foodMeal.filter(m=>m.notes);
+    notesBlock.innerHTML = withNotes.length ? `
+      <div class="food-section-title" style="font-size:13px;margin-top:14px">Notes on What's Here</div>
+      ${withNotes.map(m=>`<div style="font-size:11.5px;color:var(--muted);margin-bottom:6px"><b style="color:var(--gold2)">${m.icon} ${m.name.split(' — ')[0]}:</b> ${m.notes}</div>`).join('')}
+    ` : '';
+  }
+
+  const totals={};
+  Object.keys(FOOD_NUTR_LABELS).forEach(k=>totals[k]=0);
+  foodMeal.forEach(m=>Object.keys(totals).forEach(k=>totals[k]+=m.n[k]||0));
+
+  const rows=Object.keys(FOOD_NUTR_LABELS).filter(k=>k!=='cal').map(k=>{
+    const val=totals[k], dv=FOOD_DV[k];
+    const pct=dv?Math.min(100,(val/dv*100)):null;
+    let flagClass='';
+    if(FOOD_WATCH_HIGH.includes(k)&&pct!==null){ flagClass=pct>=60?'food-flag-bad':(pct>=30?'food-flag-watch':''); }
+    if(FOOD_GOOD_HIGH.includes(k)&&pct!==null){ flagClass=pct>=30?'food-flag-good':''; }
+    const barColor=flagClass==='food-flag-bad'?'#d9695f':flagClass==='food-flag-watch'?'#d9b25f':flagClass==='food-flag-good'?'#5fbf7a':'var(--gold)';
+    return `<tr class="${flagClass}">
+      <td class="food-n-name">${FOOD_NUTR_LABELS[k]}${dv?`<div class="food-bar-track"><div class="food-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>`:''}</td>
+      <td class="food-n-val">${val<10?val.toFixed(1):Math.round(val)}${dv?` <span style="color:var(--dim);font-weight:400">(${Math.round(pct)}% DV)</span>`:''}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('foodNutrTable').innerHTML=
+    `<tr><td class="food-n-name"><b>Calories</b></td><td class="food-n-val"><b>${Math.round(totals.cal)}</b></td></tr>`+rows;
+}
+</script>
+
+</body>
+</html>
