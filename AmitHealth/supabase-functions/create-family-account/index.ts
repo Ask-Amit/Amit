@@ -23,13 +23,21 @@
 // the child to have their own real, working email address. Magic-link
 // sign-in (used everywhere else in Amit) requires a real inbox to click
 // a link from — a young child usually doesn't have one. This creates a
-// REAL Supabase login for the child directly, with a password the
-// parent sets on their behalf, fully activated immediately — no email
-// sent, no magic link needed until the child adds their own real email
-// later ("graduation" — zero data migration, since everything was
-// already tied to this same login ID). Graduation would replace this
+// REAL Supabase login for the child directly, fully activated immediately
+// — no email sent, no magic link needed until the child adds their own
+// real email later ("graduation" — zero data migration, since everything
+// was already tied to this same login ID). Graduation would replace this
 // synthetic address with the child's own real one via a normal Supabase
 // email-change flow — not built yet, not needed until someone graduates.
+//
+// REVISED AGAIN 2026-09-19 (Ryan's direct instruction): no separate
+// password gets invented for the child either. The `password` this
+// function receives is the GUARDIAN'S OWN existing account password,
+// typed in by them rather than a new one made up on the spot — it
+// becomes the child's login password too, so there's only ever one
+// password to remember at creation time. The child can change theirs
+// independently once they're signed in; nothing ties the two passwords
+// together after this point, it's just the starting value.
 //
 // This does NOT replace magic-link sign-in for anyone else. Both
 // methods exist side by side in the same Supabase project.
