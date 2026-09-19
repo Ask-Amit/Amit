@@ -1252,7 +1252,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.97</div>
+    <div class="page-version" id="hubVersionBadge">v6.98</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1729,7 +1729,18 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <button class="btn btn-ghost" onclick="document.getElementById('amvVoiceSectionAnchor').scrollIntoView({behavior:'smooth',block:'start'})" title="Jump straight to Amit's Voice settings below">🎚 Adjust Amit's Voice</button>
         </div>
       </div>
-      <style>.amv-tab-btn.active{background:rgba(201,168,76,.16)!important;border-color:var(--gold)!important;color:var(--gold)!important}</style>
+      <style>
+        /* Real tabbed-layout classes, copied from Templates\TemplateViews.html
+           (Computer Health's folder-tab UI) — the bordered box + folder-tab
+           look every other tabbed area in Amit uses. Not previously defined
+           in the Hub; About Me's tabs were missing them entirely. */
+        .ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;padding:0;background:var(--bg);flex-shrink:0}
+        .ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+        .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+        .ch-tab-main{min-height:0;padding:28px 32px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+        #amvTabBar.ch-tab-nav{margin:0}
+        #amvTabMain.ch-tab-main{margin:0 0 20px}
+      </style>
       <div class="mail-panel-wrap" style="max-width:560px">
         <div id="amvSignedOutNote" style="display:none;color:rgba(255,215,140,.9);font-size:13px;line-height:1.6;background:rgba(255,215,140,.08);border:1px solid rgba(255,215,140,.35);border-radius:8px;padding:12px 14px;margin-bottom:20px;text-align:center">
           Sign in to see and save your own info here.
@@ -1751,15 +1762,17 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
              Later, real fix: actually split the original block apart
              into these tabs for good and retire this mirroring layer.
              ══════════════════════════════════════════════ -->
-        <div class="view-tabs" id="amvTabBar" style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid rgba(240,232,208,.15)">
-          <button class="btn btn-ghost amv-tab-btn active" data-tab="info" onclick="amvSwitchTab('info')" style="border-radius:8px 8px 0 0;border-bottom:none">Your Info</button>
-          <button class="btn btn-ghost amv-tab-btn" data-tab="family" onclick="amvSwitchTab('family')" style="border-radius:8px 8px 0 0;border-bottom:none">Family</button>
-          <button class="btn btn-ghost amv-tab-btn" data-tab="voice" onclick="amvSwitchTab('voice')" style="border-radius:8px 8px 0 0;border-bottom:none">Voice &amp; Sound</button>
-          <button class="btn btn-ghost amv-tab-btn" data-tab="security" onclick="amvSwitchTab('security')" style="border-radius:8px 8px 0 0;border-bottom:none">Security</button>
+        <div class="ch-tab-nav" id="amvTabBar">
+          <button class="ch-tab-btn amv-tab-btn active" data-tab="info" onclick="amvSwitchTab('info')">Your Info</button>
+          <button class="ch-tab-btn amv-tab-btn" data-tab="family" onclick="amvSwitchTab('family')">Family</button>
+          <button class="ch-tab-btn amv-tab-btn" data-tab="voice" onclick="amvSwitchTab('voice')">Voice &amp; Sound</button>
+          <button class="ch-tab-btn amv-tab-btn" data-tab="security" onclick="amvSwitchTab('security')">Security</button>
         </div>
 
+        <div class="ch-tab-main" id="amvTabMain">
+
         <!-- TAB: YOUR INFO — copy of the real fields, mirrored into the originals -->
-        <div class="amv-tab-pane" id="amvTab-info">
+        <div class="amv-tab-pane ch-tab-content active" id="amvTab-info">
           <div class="fg" style="margin-bottom:12px">
             <label class="fg-label">Name</label>
             <input class="fg-input" id="d_amvNameInput" placeholder="Your name" oninput="amvMirror('d_amvNameInput','amvNameInput')">
@@ -1794,7 +1807,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
 
         <!-- TAB: FAMILY — genuinely new, no original to mirror -->
-        <div class="amv-tab-pane" id="amvTab-family" style="display:none">
+        <div class="amv-tab-pane ch-tab-content" id="amvTab-family" style="display:none">
           <div style="color:rgba(240,232,208,.5);font-size:12px;line-height:1.7;margin-bottom:18px">Add a child or family member — they get their own real, independent login, with a password you set now. No email needed for them until they're ready to take over their own account someday.</div>
           <div id="amvFamilyList" style="margin-bottom:18px"></div>
           <button class="btn btn-ghost" onclick="amvOpenAddFamily()" style="margin-bottom:8px">➕ ADD FAMILY MEMBER</button>
@@ -1825,7 +1838,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
 
         <!-- TAB: VOICE & SOUND — copy of the real fields, mirrored into the originals -->
-        <div class="amv-tab-pane" id="amvTab-voice" style="display:none">
+        <div class="amv-tab-pane ch-tab-content" id="amvTab-voice" style="display:none">
           <div style="color:rgba(240,232,208,.4);font-size:12px;line-height:1.6;margin-bottom:16px">Choose how Amit sounds — used everywhere Amit speaks.</div>
 
           <label class="fg-label" style="display:block;margin-bottom:5px">ACCENT / REGION</label>
@@ -1859,7 +1872,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
 
         <!-- TAB: SECURITY — copy of the real fields, mirrored into the originals -->
-        <div class="amv-tab-pane" id="amvTab-security" style="display:none">
+        <div class="amv-tab-pane ch-tab-content" id="amvTab-security" style="display:none">
           <div class="fg" style="margin-bottom:12px">
             <label class="fg-label">Set / Change Access PIN</label>
             <input class="fg-input" id="d_amvPinNewInput" type="password" placeholder="New PIN or passphrase — at least 4 characters" style="margin-bottom:6px" oninput="amvMirrorPin()">
@@ -1902,6 +1915,8 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <button class="btn" onclick="amvSaveAccountSecurity()" style="margin-bottom:8px">SAVE ACCOUNT &amp; SECURITY</button>
           <div id="d_asSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px">Saved.</div>
         </div>
+
+        </div><!-- /ch-tab-main #amvTabMain -->
 
         <!-- ORIGINAL CONTENT — completely untouched, just hidden. Every ID,
              every function, every bit of existing wiring stays exactly as
