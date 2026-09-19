@@ -39,6 +39,14 @@
 // independently once they're signed in; nothing ties the two passwords
 // together after this point, it's just the starting value.
 //
+// REVISED AGAIN 2026-09-19 (Ryan's direct instruction): that typed
+// password is now actually VERIFIED against the guardian's real account
+// before anything is created — see the real sign-in check below. Before
+// this, being signed in (having a valid JWT) was the only gate, meaning
+// anyone at an already-open, unattended browser session could type any
+// string and it would just become the new account's password. Now the
+// value has to actually be correct.
+//
 // This does NOT replace magic-link sign-in for anyone else. Both
 // methods exist side by side in the same Supabase project.
 //
@@ -108,6 +116,35 @@ Deno.serve(async (req) => {
     const { data: { user: guardian }, error: authErr } = await callerClient.auth.getUser();
     if (authErr || !guardian) {
       return json({ error: "Could not verify who's calling this." }, 401, cors);
+    }
+
+    // REAL password check, added 2026-09-19 (Ryan's direct instruction) —
+    // being signed in isn't authorization by itself to create a family
+    // account on someone's behalf (an already-open, unattended browser
+    // session shouldn't be enough). Before this, whatever the parent
+    // typed was just reused as-is for the new account, with nothing
+    // confirming it was actually their real password. This verifies it
+    // by attempting a real sign-in with the guardian's own email + the
+    // typed password, on a throwaway client — if that fails, the typed
+    // value is wrong and nothing gets created.
+    //
+    // Known limitation, on record: this only works for a guardian whose
+    // own account actually has a password set. Someone who has only ever
+    // signed in via magic link has no password on file, and this check
+    // will always fail for them — Family Accounts effectively requires
+    // the guardian to have a password-based (or password+magic-link)
+    // account of their own. Not addressed here; flag to Ryan if a
+    // magic-link-only guardian needs to use this.
+    if (!guardian.email) {
+      return json({ error: "Your account has no email on file to verify against." }, 400, cors);
+    }
+    const verifyClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!);
+    const { error: verifyErr } = await verifyClient.auth.signInWithPassword({
+      email: guardian.email,
+      password,
+    });
+    if (verifyErr) {
+      return json({ error: "That doesn't match your account password." }, 401, cors);
     }
 
     const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
