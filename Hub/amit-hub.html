@@ -1252,7 +1252,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.99</div>
+    <div class="page-version" id="hubVersionBadge">v7.00</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -4373,6 +4373,12 @@ async function amvPopulateVoices(){
   const idx=_amvVoices.indexOf(_amvSelectedVoice);
   if(idx>=0) document.getElementById('amvVoiceSelect').value=idx;
   amvRenderStarsForCurrentVoice();
+  // Keep the About Me tab's duplicate Accent/Voice selects in sync too.
+  // Voices often load asynchronously (onvoiceschanged fires after the
+  // page's own one-time tab-sync already ran), so without this the
+  // duplicates stay permanently empty even though the real originals
+  // behind them are populated correctly.
+  if(typeof amvSyncDuplicatesFromOriginals==='function') amvSyncDuplicatesFromOriginals();
 }
 
 function amvRenderStarsForCurrentVoice(){
