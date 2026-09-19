@@ -1252,7 +1252,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v6.96</div>
+    <div class="page-version" id="hubVersionBadge">v6.97</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1729,11 +1729,184 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <button class="btn btn-ghost" onclick="document.getElementById('amvVoiceSectionAnchor').scrollIntoView({behavior:'smooth',block:'start'})" title="Jump straight to Amit's Voice settings below">🎚 Adjust Amit's Voice</button>
         </div>
       </div>
+      <style>.amv-tab-btn.active{background:rgba(201,168,76,.16)!important;border-color:var(--gold)!important;color:var(--gold)!important}</style>
       <div class="mail-panel-wrap" style="max-width:560px">
         <div id="amvSignedOutNote" style="display:none;color:rgba(255,215,140,.9);font-size:13px;line-height:1.6;background:rgba(255,215,140,.08);border:1px solid rgba(255,215,140,.35);border-radius:8px;padding:12px 14px;margin-bottom:20px;text-align:center">
           Sign in to see and save your own info here.
         </div>
 
+        <!-- ══════════════════════════════════════════════
+             ABOUT ME TABS — added 2026-09-19, Ryan's direct instruction.
+             Workaround shape, not the final architecture: the ORIGINAL
+             content block below (id="amvOriginalWrap") is completely
+             untouched — same IDs, same functions, same everything — just
+             hidden. Three of the four tabs (Your Info / Voice & Sound /
+             Security) are real, visually-scoped COPIES of the matching
+             original fields, each duplicate field live-mirrored into its
+             real original counterpart on every input via amvMirror() —
+             so the untouched original always holds current data, and
+             every existing Save button keeps working completely
+             unmodified, since it just reads from the original elements
+             it always has. Family is the one genuinely new tab.
+             Later, real fix: actually split the original block apart
+             into these tabs for good and retire this mirroring layer.
+             ══════════════════════════════════════════════ -->
+        <div class="view-tabs" id="amvTabBar" style="display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid rgba(240,232,208,.15)">
+          <button class="btn btn-ghost amv-tab-btn active" data-tab="info" onclick="amvSwitchTab('info')" style="border-radius:8px 8px 0 0;border-bottom:none">Your Info</button>
+          <button class="btn btn-ghost amv-tab-btn" data-tab="family" onclick="amvSwitchTab('family')" style="border-radius:8px 8px 0 0;border-bottom:none">Family</button>
+          <button class="btn btn-ghost amv-tab-btn" data-tab="voice" onclick="amvSwitchTab('voice')" style="border-radius:8px 8px 0 0;border-bottom:none">Voice &amp; Sound</button>
+          <button class="btn btn-ghost amv-tab-btn" data-tab="security" onclick="amvSwitchTab('security')" style="border-radius:8px 8px 0 0;border-bottom:none">Security</button>
+        </div>
+
+        <!-- TAB: YOUR INFO — copy of the real fields, mirrored into the originals -->
+        <div class="amv-tab-pane" id="amvTab-info">
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Name</label>
+            <input class="fg-input" id="d_amvNameInput" placeholder="Your name" oninput="amvMirror('d_amvNameInput','amvNameInput')">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Email</label>
+            <input class="fg-input" id="d_amvEmailInput" placeholder="you@email.com" oninput="amvMirror('d_amvEmailInput','amvEmailInput')">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Phone</label>
+            <input class="fg-input" id="d_amvPhoneInput" placeholder="(optional)" oninput="amvMirror('d_amvPhoneInput','amvPhoneInput')">
+          </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">Address</label>
+            <input class="fg-input" id="d_amvAddressInput" placeholder="(optional)" oninput="amvMirror('d_amvAddressInput','amvAddressInput')">
+          </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">ZIP / Location</label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div id="d_amvZipDisplay" style="color:rgba(240,232,208,.75);font-size:14px">—</div>
+              <div onclick="amvUpdateZip()" style="color:rgba(120,190,230,.85);font-size:12px;cursor:pointer;text-decoration:underline">Update →</div>
+            </div>
+            <div style="color:rgba(240,232,208,.35);font-size:11px;margin-top:4px">Same ZIP that drives your morning weather — changed in one place, used everywhere.</div>
+          </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">Access PIN Reminder</label>
+            <input class="fg-input" id="d_amvPinHintInput" placeholder="A note to help you remember your PIN — never the PIN itself" oninput="amvMirror('d_amvPinHintInput','amvPinHintInput')">
+            <div style="color:rgba(240,232,208,.35);font-size:11px;margin-top:4px">Used by the Access field on AmitBooks' Outstanding page. This stores only a reminder note — the real PIN is never stored in readable form.</div>
+          </div>
+          <button class="btn" onclick="amvSaveMyInfo()" style="margin-bottom:8px">SAVE MY INFO</button>
+          <div id="d_amvInfoSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px">Saved.</div>
+        </div>
+
+        <!-- TAB: FAMILY — genuinely new, no original to mirror -->
+        <div class="amv-tab-pane" id="amvTab-family" style="display:none">
+          <div style="color:rgba(240,232,208,.5);font-size:12px;line-height:1.7;margin-bottom:18px">Add a child or family member — they get their own real, independent login, with a password you set now. No email needed for them until they're ready to take over their own account someday.</div>
+          <div id="amvFamilyList" style="margin-bottom:18px"></div>
+          <button class="btn btn-ghost" onclick="amvOpenAddFamily()" style="margin-bottom:8px">➕ ADD FAMILY MEMBER</button>
+          <div id="amvFamilyAddForm" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid rgba(240,232,208,.12)">
+            <div class="fg" style="margin-bottom:12px">
+              <label class="fg-label">Name</label>
+              <input class="fg-input" id="amvFamNameInput" placeholder="Their name">
+            </div>
+            <div class="fg" style="margin-bottom:12px">
+              <label class="fg-label">Relationship</label>
+              <select class="fg-input" id="amvFamRelSelect">
+                <option value="parent">Child</option>
+                <option value="spouse">Spouse</option>
+                <option value="guardian">Other / Guardian</option>
+              </select>
+            </div>
+            <div class="fg" style="margin-bottom:12px">
+              <label class="fg-label">Login Email (a real, unique address — a "+" alias off your own works, e.g. you+jacob@gmail.com)</label>
+              <input class="fg-input" id="amvFamEmailInput" placeholder="you+jacob@gmail.com">
+            </div>
+            <div class="fg" style="margin-bottom:16px">
+              <label class="fg-label">Password (you set this — they can change it themselves later)</label>
+              <input class="fg-input" id="amvFamPasswordInput" type="password" placeholder="At least 6 characters">
+            </div>
+            <button class="btn" onclick="amvCreateFamilyAccount()" id="amvFamCreateBtn" style="margin-bottom:8px">CREATE ACCOUNT</button>
+            <div id="amvFamAddNote" style="font-size:13px;margin-bottom:8px"></div>
+          </div>
+        </div>
+
+        <!-- TAB: VOICE & SOUND — copy of the real fields, mirrored into the originals -->
+        <div class="amv-tab-pane" id="amvTab-voice" style="display:none">
+          <div style="color:rgba(240,232,208,.4);font-size:12px;line-height:1.6;margin-bottom:16px">Choose how Amit sounds — used everywhere Amit speaks.</div>
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">ACCENT / REGION</label>
+          <select id="d_amvAccentSelect" class="fg-input" style="width:100%;margin-bottom:12px" onchange="amvMirror('d_amvAccentSelect','amvAccentSelect')"></select>
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">VOICE</label>
+          <select id="d_amvVoiceSelect" class="fg-input" style="width:100%;margin-bottom:12px" onchange="amvMirror('d_amvVoiceSelect','amvVoiceSelect')"></select>
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">SPEED — <span id="d_amvRateValue">1.00x</span></label>
+          <input id="d_amvRateRange" type="range" min="0.6" max="1.6" step="0.05" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:16px" oninput="amvMirrorRange('d_amvRateRange','amvRateRange','d_amvRateValue','amvRateValue')">
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">TONE (PITCH) — <span id="d_amvPitchValue">1.00</span></label>
+          <input id="d_amvPitchRange" type="range" min="0.5" max="1.7" step="0.05" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:16px" oninput="amvMirrorRange('d_amvPitchRange','amvPitchRange','d_amvPitchValue','amvPitchValue')">
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">VOLUME — <span id="d_amvVolumeValue">100%</span></label>
+          <input id="d_amvVolumeRange" type="range" min="0.2" max="1" step="0.05" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:16px" oninput="amvMirrorRange('d_amvVolumeRange','amvVolumeRange','d_amvVolumeValue','amvVolumeValue')">
+
+          <label class="fg-label" style="display:block;margin-bottom:5px">PACING — <span id="d_amvPauseValue">Normal</span></label>
+          <input id="d_amvPauseRange" type="range" min="0.4" max="2.5" step="0.1" value="1.0" style="width:100%;accent-color:rgba(201,168,76,.8);margin-bottom:6px" oninput="amvMirrorRange('d_amvPauseRange','amvPauseRange','d_amvPauseValue','amvPauseValue')">
+          <div style="color:rgba(240,232,208,.35);font-size:11px;margin-bottom:16px">More room to think between sentences, or less.</div>
+
+          <button class="btn btn-ghost" onclick="amvHearIt()" style="margin-bottom:16px">🔊 LET ME HEAR IT</button>
+
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:20px">
+            <span style="color:rgba(240,232,208,.4);font-size:11px;letter-spacing:.06em;margin-right:6px">RATE THIS VOICE:</span>
+            <span id="d_amvStars" style="font-size:20px;letter-spacing:2px;cursor:pointer"></span>
+          </div>
+
+          <button class="btn" onclick="amvSelectThisVoice()" style="margin-bottom:8px">✅ THIS IS THE VOICE FOR AMIT</button>
+          <div id="d_amvSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px">Saved — this is now Amit's voice everywhere.</div>
+        </div>
+
+        <!-- TAB: SECURITY — copy of the real fields, mirrored into the originals -->
+        <div class="amv-tab-pane" id="amvTab-security" style="display:none">
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Set / Change Access PIN</label>
+            <input class="fg-input" id="d_amvPinNewInput" type="password" placeholder="New PIN or passphrase — at least 4 characters" style="margin-bottom:6px" oninput="amvMirrorPin()">
+            <div id="d_amvPinStrengthNote" style="font-size:12px;margin-bottom:8px;min-height:16px"></div>
+            <input class="fg-input" id="d_amvPinConfirmInput" type="password" placeholder="Type it again to confirm" oninput="amvMirror('d_amvPinConfirmInput','amvPinConfirmInput')">
+            <div style="color:rgba(240,232,208,.35);font-size:11px;margin-top:4px">If you lose it, there's no automatic reset — everything saved under the old one would need re-entering.</div>
+          </div>
+          <button class="btn" onclick="amvSaveAccessPin()" style="margin-bottom:8px">SAVE PIN</button>
+          <div id="d_amvPinSavedNote" style="display:none;font-size:13px;margin-bottom:24px">Saved.</div>
+          <button class="btn" style="background:rgba(200,90,90,.15);border-color:rgba(200,90,90,.4);color:rgba(255,180,170,.95);margin-bottom:24px" onclick="amvOpenResetPin()">RESET PIN</button>
+
+          <div style="height:1px;background:rgba(240,232,208,.12);margin:24px 0"></div>
+
+          <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:4px">Account & Security</div>
+          <div style="color:rgba(240,232,208,.4);font-size:12px;line-height:1.6;margin-bottom:16px">Leave the password blank to keep your current one.</div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">New Password</label>
+            <input class="fg-input" id="d_asNewPassword" type="password" placeholder="Leave blank to keep current password" oninput="amvMirror('d_asNewPassword','asNewPassword')">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Password Hint</label>
+            <input class="fg-input" id="d_asHint" placeholder="A reminder to yourself (optional)" oninput="amvMirror('d_asHint','asHint')">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Recovery Question 1</label>
+            <input class="fg-input" id="d_asQ1" placeholder="e.g. childhood street" oninput="amvMirror('d_asQ1','asQ1')">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Answer 1</label>
+            <input class="fg-input" id="d_asA1" placeholder="Leave blank to keep current answer" oninput="amvMirror('d_asA1','asA1')">
+          </div>
+          <div class="fg" style="margin-bottom:12px">
+            <label class="fg-label">Recovery Question 2</label>
+            <input class="fg-input" id="d_asQ2" placeholder="e.g. favorite place" oninput="amvMirror('d_asQ2','asQ2')">
+          </div>
+          <div class="fg" style="margin-bottom:16px">
+            <label class="fg-label">Answer 2</label>
+            <input class="fg-input" id="d_asA2" placeholder="Leave blank to keep current answer" oninput="amvMirror('d_asA2','asA2')">
+          </div>
+          <button class="btn" onclick="amvSaveAccountSecurity()" style="margin-bottom:8px">SAVE ACCOUNT &amp; SECURITY</button>
+          <div id="d_asSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px">Saved.</div>
+        </div>
+
+        <!-- ORIGINAL CONTENT — completely untouched, just hidden. Every ID,
+             every function, every bit of existing wiring stays exactly as
+             it was. The tabs above mirror INTO this block on every input. -->
+        <div id="amvOriginalWrap" style="display:none;width:0;height:0;overflow:hidden">
         <div id="amvSignedInContent">
           <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;color:var(--gold);text-transform:uppercase;margin-bottom:14px">Your Info</div>
           <div class="fg" style="margin-bottom:12px">
@@ -1888,6 +2061,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 
           <button class="btn" onclick="amvSelectThisVoice()" style="margin-bottom:8px">✅ THIS IS THE VOICE FOR AMIT</button>
           <div id="amvSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px">Saved — this is now Amit's voice everywhere.</div>
+        </div>
         </div>
       </div>
     </div>
@@ -4786,6 +4960,146 @@ async function amvInitAboutMePanel(){
     document.getElementById('amvPauseValue').textContent=amvPauseLabel(_amvPauseScale);
   };
   pauseRange.onchange=_amvAutoSaveVoice;
+
+  // Tab layer, added 2026-09-19 — pull current values from the (now
+  // populated) originals into their duplicate tab fields, reset to the
+  // Your Info tab, and load the Family list. Everything above this line
+  // is completely untouched from before the tabs existed.
+  amvSyncDuplicatesFromOriginals();
+  amvSwitchTab('info');
+  amvLoadFamilyList();
+}
+
+// ══════════════════════════════════════════════
+// ABOUT ME TABS — mirroring layer, added 2026-09-19. See the big comment
+// above the tab bar's HTML for the full reasoning. Nothing below this
+// point touches any of the original fields' own logic — it only sets
+// their .value and fires the same events a real user action would, so
+// their EXISTING handlers (defined above, untouched) do the real work.
+// ══════════════════════════════════════════════
+function amvSwitchTab(name){
+  document.querySelectorAll('.amv-tab-pane').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.amv-tab-btn').forEach(b=>b.classList.remove('active'));
+  const pane=document.getElementById('amvTab-'+name);
+  const btn=document.querySelector('.amv-tab-btn[data-tab="'+name+'"]');
+  if(pane)pane.style.display='block';
+  if(btn)btn.classList.add('active');
+}
+
+// Generic mirror — copies a duplicate field's value into its real
+// original counterpart, then fires both 'input' and 'change' on the
+// original so whichever event its own existing handler listens for
+// actually runs (some use oninput, some onchange, some both).
+function amvMirror(dupId,realId){
+  const dup=document.getElementById(dupId), real=document.getElementById(realId);
+  if(!dup||!real) return;
+  real.value=dup.value;
+  real.dispatchEvent(new Event('input',{bubbles:true}));
+  real.dispatchEvent(new Event('change',{bubbles:true}));
+}
+
+// Range sliders specifically — mirrors the value, lets the original's
+// own oninput handler compute its correctly-formatted display text (so
+// this never has to reimplement that formatting), then copies that
+// resulting text onto the duplicate's own visible span.
+function amvMirrorRange(dupId,realId,dupSpanId,realSpanId){
+  amvMirror(dupId,realId);
+  const realSpan=document.getElementById(realSpanId), dupSpan=document.getElementById(dupSpanId);
+  if(realSpan&&dupSpan) dupSpan.textContent=realSpan.textContent;
+}
+
+// PIN is special-cased — amvUpdatePinStrength() reads amvPinNewInput and
+// writes into amvPinStrengthNote by ID directly (not an event listener),
+// so after mirroring the value we call it directly, then copy its result
+// onto the duplicate's own strength note.
+function amvMirrorPin(){
+  amvMirror('d_amvPinNewInput','amvPinNewInput');
+  amvUpdatePinStrength();
+  const realNote=document.getElementById('amvPinStrengthNote'), dupNote=document.getElementById('d_amvPinStrengthNote');
+  if(realNote&&dupNote){ dupNote.textContent=realNote.textContent; dupNote.style.color=realNote.style.color; }
+}
+
+// Pulls CURRENT values from the originals into the duplicates — the
+// reverse direction, run once right after the originals are populated on
+// panel open, so the tabs show real current data instead of blanks.
+function amvSyncDuplicatesFromOriginals(){
+  ['amvNameInput','amvEmailInput','amvPhoneInput','amvAddressInput','amvPinHintInput',
+   'amvPinConfirmInput','asNewPassword','asHint','asQ1','asA1','asQ2','asA2'].forEach(id=>{
+    const real=document.getElementById(id), dup=document.getElementById('d_'+id);
+    if(real&&dup) dup.value=real.value;
+  });
+  const zipReal=document.getElementById('amvZipDisplay'), zipDup=document.getElementById('d_amvZipDisplay');
+  if(zipReal&&zipDup) zipDup.textContent=zipReal.textContent;
+  ['amvAccentSelect','amvVoiceSelect'].forEach(id=>{
+    const real=document.getElementById(id), dup=document.getElementById('d_'+id);
+    if(real&&dup){ dup.innerHTML=real.innerHTML; dup.value=real.value; }
+  });
+  [['amvRateRange','amvRateValue'],['amvPitchRange','amvPitchValue'],['amvVolumeRange','amvVolumeValue'],['amvPauseRange','amvPauseValue']].forEach(([r,s])=>{
+    const realR=document.getElementById(r), dupR=document.getElementById('d_'+r);
+    const realS=document.getElementById(s), dupS=document.getElementById('d_'+s);
+    if(realR&&dupR) dupR.value=realR.value;
+    if(realS&&dupS) dupS.textContent=realS.textContent;
+  });
+  const realStars=document.getElementById('amvStars'), dupStars=document.getElementById('d_amvStars');
+  if(realStars&&dupStars) dupStars.innerHTML=realStars.innerHTML;
+}
+
+// ══════════════════════════════════════════════
+// FAMILY TAB — genuinely new, calls the deployed create-family-account
+// Edge Function. Reads family links this account is guardian over,
+// scoped by RLS ("see own family links" — auth.uid() = guardian_user_id).
+// ══════════════════════════════════════════════
+async function amvLoadFamilyList(){
+  const listEl=document.getElementById('amvFamilyList');
+  if(!listEl||!db||!currentUser) return;
+  const{data,error}=await db.from('hea_family_links').select('id,linked_display_name,relationship,active').eq('guardian_user_id',currentUser.id).order('created_at',{ascending:true});
+  if(error||!data||!data.length){
+    listEl.innerHTML='<div style="color:rgba(240,232,208,.35);font-size:12px;font-style:italic">No family members added yet.</div>';
+    return;
+  }
+  const relLabel={parent:'Child',spouse:'Spouse',guardian:'Guardian'};
+  listEl.innerHTML=data.map(f=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.03);border:1px solid rgba(240,232,208,.12);border-radius:8px;padding:10px 14px;margin-bottom:8px">
+      <div>
+        <div style="font-size:14px">${f.linked_display_name||'(unnamed)'}</div>
+        <div style="font-size:11px;color:rgba(240,232,208,.4)">${relLabel[f.relationship]||f.relationship}${f.active?'':' — access removed'}</div>
+      </div>
+    </div>`).join('');
+}
+function amvOpenAddFamily(){
+  const form=document.getElementById('amvFamilyAddForm');
+  form.style.display=form.style.display==='none'?'block':'none';
+}
+async function amvCreateFamilyAccount(){
+  const name=document.getElementById('amvFamNameInput').value.trim();
+  const relationship=document.getElementById('amvFamRelSelect').value;
+  const email=document.getElementById('amvFamEmailInput').value.trim();
+  const password=document.getElementById('amvFamPasswordInput').value;
+  const note=document.getElementById('amvFamAddNote');
+  const btn=document.getElementById('amvFamCreateBtn');
+  if(!name||!email||!password){ note.style.color='rgba(255,150,150,.9)'; note.textContent='Name, email, and password are all required.'; return; }
+  if(password.length<6){ note.style.color='rgba(255,150,150,.9)'; note.textContent='Password needs to be at least 6 characters.'; return; }
+  btn.disabled=true; btn.textContent='Creating…'; note.textContent='';
+  try{
+    const{data:{session}}=await db.auth.getSession();
+    if(!session){ note.style.color='rgba(255,150,150,.9)'; note.textContent='You need to be signed in to do this.'; btn.disabled=false; btn.textContent='CREATE ACCOUNT'; return; }
+    const res=await fetch(SB_URL+'/functions/v1/create-family-account',{
+      method:'POST',
+      headers:{'content-type':'application/json','Authorization':'Bearer '+session.access_token,'apikey':SB_KEY},
+      body:JSON.stringify({email,password,display_name:name,relationship})
+    });
+    const out=await res.json().catch(()=>null);
+    btn.disabled=false; btn.textContent='CREATE ACCOUNT';
+    if(!res.ok||!out||out.error){ note.style.color='rgba(255,150,150,.9)'; note.textContent=(out&&out.error)?out.error:'Could not create that account.'; return; }
+    note.style.color='rgba(180,220,190,.9)'; note.textContent='Account created for '+name+'.';
+    document.getElementById('amvFamNameInput').value='';
+    document.getElementById('amvFamEmailInput').value='';
+    document.getElementById('amvFamPasswordInput').value='';
+    amvLoadFamilyList();
+  }catch(e){
+    btn.disabled=false; btn.textContent='CREATE ACCOUNT';
+    note.style.color='rgba(255,150,150,.9)'; note.textContent='Something went wrong reaching the server — try again.';
+  }
 }
 
 // Auto-save for the voice/accent/speed controls specifically — separate
