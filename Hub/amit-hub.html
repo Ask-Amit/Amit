@@ -1257,7 +1257,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v7.18</div>
+    <div class="page-version" id="hubVersionBadge">v7.19</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -1930,9 +1930,11 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <!-- TAB: APPEARANCE — genuinely new (added 2026-10-01), no original
              to mirror, standalone like Family. Driven entirely by the shared
              root ../amit_appearance.js (presets, validation, save to
-             hub_appearance, preview). The sample panel below is styled with
-             var(--amit-*) tokens (classic fallbacks) so a preset visibly
-             changes it, even though the rest of the Hub isn't tokenized yet. -->
+             hub_appearance, preview). Picking a theme applies it live to
+             the real page via amitAppearancePreview (header/sidebar/Home
+             already tokenized as of 2026-10-01) — no separate sample box,
+             since the page itself is the preview. Other panels follow as
+             their own rounds are tokenized. -->
         <div class="ch-tab-content" id="ch-tab-aboutme-5">
           <style>
             .amv-app-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px}
@@ -1941,20 +1943,6 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             .amv-app-card.active{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(232,197,106,.45)}
             .amv-app-card-custom{border-style:dashed}
             .amv-app-card-name{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-top:7px}
-            .amv-app-sample{background:var(--amit-bg,#09141f);color:var(--amit-text-soft,#f0e8d0);border:1px solid var(--amit-border,rgba(201,168,76,0.55));border-radius:var(--amit-radius,12px);padding:14px;margin-bottom:20px;font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif)}
-            .amv-app-sample-card{background:var(--amit-card-bg,rgba(255,255,255,.03));border:1px solid var(--amit-card-border,rgba(201,168,76,.22));border-radius:var(--amit-radius,12px);padding:12px;margin-top:10px}
-            .amv-app-sample-surface{background:var(--amit-surface,#0f2338);border-radius:var(--amit-radius,12px);padding:12px}
-            .amv-app-sample-h{font-family:var(--amit-font-heading,'Cinzel',serif);color:var(--amit-accent-bright,#e8c56a);font-size:15px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
-            .amv-app-sample-muted{color:var(--amit-muted,rgba(240,232,208,0.78));font-size:13px}
-            .amv-app-sample-dim{color:var(--amit-dim,rgba(240,232,208,0.42));font-size:12px}
-            .amv-app-sample-input{width:100%;background:var(--amit-input-bg,#f4f1e6);color:var(--amit-input-text,#2a2418);border:1px solid var(--amit-input-border,rgba(201,168,76,.4));border-radius:var(--amit-input-radius,6px);padding:7px 10px;font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);font-size:14px;outline:none;margin-bottom:8px}
-            .amv-app-sample-input:focus{box-shadow:0 0 0 3px var(--amit-focus-ring,rgba(201,168,76,.5))}
-            .amv-app-sample-input option{background:var(--amit-option-bg,#fff);color:var(--amit-option-text,#2a2418)}
-            .amv-app-sample-btn{background:var(--amit-btn-bg,rgba(201,168,76,.16));border:1px solid var(--amit-btn-border,#c9a84c);color:var(--amit-btn-text,#e8c56a);border-radius:var(--amit-btn-radius,6px);padding:7px 14px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.09em;cursor:pointer}
-            .amv-app-sample-btn:hover{background:var(--amit-btn-hover-bg,rgba(201,168,76,.3))}
-            .amv-app-sample-row{display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--amit-row-sep,rgba(201,168,76,.12));font-size:13px}
-            .amv-app-sample-row:hover{background:var(--amit-row-hover,rgba(255,255,255,.04))}
-            .amv-app-sample-thead{background:var(--amit-table-head-bg,#0f2338);color:var(--amit-table-head-text,#e8c56a);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
             .amv-app-ctl{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
             .amv-app-ctl input[type=color]{width:100%;height:32px;border:1px solid rgba(201,168,76,.3);border-radius:6px;background:transparent;cursor:pointer;padding:2px}
           </style>
@@ -1970,26 +1958,6 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <textarea id="amvAppImportText" class="fg-input" rows="2" placeholder="#c9a84c, #0f2338, #f0e8d0, #e8c56a ..." style="width:100%;margin-bottom:8px;resize:vertical"></textarea>
             <button class="btn btn-ghost" type="button" onclick="amvAppearanceImportPalette()">IMPORT COLORS</button>
             <div id="amvAppImportNote" style="font-size:12px;min-height:16px;margin-top:6px"></div>
-          </div>
-
-          <label class="fg-label" style="display:block;margin-bottom:8px">Live Sample</label>
-          <div class="amv-app-sample">
-            <div class="amv-app-sample-surface">
-              <div class="amv-app-sample-h">Word for Today</div>
-              <div style="color:var(--amit-text,#ffffff);font-size:15px;margin-bottom:4px">Shalom, peace that is whole and complete.</div>
-              <div class="amv-app-sample-muted">This is how body text and muted text will read.</div>
-              <div class="amv-app-sample-dim">Dim helper text, such as hints and timestamps.</div>
-            </div>
-            <div class="amv-app-sample-card">
-              <input class="amv-app-sample-input" placeholder="A sample input field">
-              <select class="amv-app-sample-input"><option>A sample dropdown</option><option>Second option</option></select>
-              <button type="button" class="amv-app-sample-btn">Sample Button</button>
-            </div>
-            <div class="amv-app-sample-card" style="padding:0;overflow:hidden">
-              <div class="amv-app-sample-row amv-app-sample-thead"><span>Item</span><span>Amount</span></div>
-              <div class="amv-app-sample-row"><span>First row</span><span>$12.00</span></div>
-              <div class="amv-app-sample-row" style="border-bottom:none"><span>Second row</span><span>$4.50</span></div>
-            </div>
           </div>
 
           <label class="fg-label" style="display:block;margin-bottom:8px">Colors</label>
