@@ -9,22 +9,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-<script src="../Amit_Ask_Live.js?v=6.14"></script>
+<script src="../Amit_Ask_Live.js?v=6.15"></script>
+<script src="../amit_appearance.js?v=1.06"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#09141f;
-  --card-head:#0f2338;
-  --border:rgba(201,168,76,0.55);
-  --gold:#c9a84c;
-  --gold2:#e8c56a;
-  --text:#ffffff;
-  --text2:#f0e8d0;
-  --muted:rgba(240,232,208,0.78);
-  --dim:rgba(240,232,208,0.42);
+  --bg:var(--amit-bg,#09141f);
+  --card-head:var(--amit-surface,#0f2338);
+  --border:var(--amit-border,rgba(201,168,76,0.55));
+  --gold:var(--amit-accent,#c9a84c);
+  --gold2:var(--amit-accent-bright,#e8c56a);
+  --text:var(--amit-text,#ffffff);
+  --text2:var(--amit-text-soft,#f0e8d0);
+  --muted:var(--amit-muted,rgba(240,232,208,0.78));
+  --dim:var(--amit-dim,rgba(240,232,208,0.42));
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);color:var(--text);display:flex;flex-direction:column}
 
 body::before{
   content:'';
@@ -52,20 +53,20 @@ header{
   text-align:center;pointer-events:none;
 }
 .page-title{
-  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  font-family:var(--amit-font-title,Georgia,serif);font-size:26px;font-weight:700;
   letter-spacing:.3px;text-transform:none;color:var(--gold2);
 }
 .page-version{
   font-family:monospace;font-size:11px;letter-spacing:.05em;
-  color:rgba(201,168,76,.55);margin-top:2px;
+  color:rgba(var(--amit-accent-rgb,201,168,76),.55);margin-top:2px;
 }
 .brand{display:flex;align-items:center;gap:14px}
 .brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
-.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.brand-sub{font-style:italic;color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px}
 .hdr-right{text-align:right}
-.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:600}
 .datetime{font-size:12px;color:var(--muted);margin-top:2px}
-.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:rgba(var(--amit-text-rgb,240,232,208),.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
 .help-btn:hover{border-color:var(--gold);color:var(--gold)}
 
 /* ── HUB LAYOUT ── */
@@ -80,7 +81,7 @@ header{
   overflow-y:auto;padding:12px 10px;gap:5px;
 }
 .sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .sidebar{transition:width .18s ease}
 .sidebar.collapsed{width:60px}
 .sidebar.collapsed .tile{justify-content:center;padding:10px 0}
@@ -104,33 +105,33 @@ header{
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
 }
-.tile:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
-.tile.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.tile:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border-color:rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.tile.active{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25)}
 .tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
 .tile-info{flex:1;min-width:0}
-.tile-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.tile-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:600}
 .tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ── ASK AMIT SIDEBAR — matches Hub/Council exactly, added 2026-07-25 ── */
 .ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0}
 .ask-amit-tile{
   display:flex;align-items:center;gap:10px;width:100%;
-  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.45);
+  background:rgba(var(--amit-accent-rgb,201,168,76),.1);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);
   border-radius:9px;padding:11px 12px;cursor:pointer;
   transition:all .18s;
 }
-.ask-amit-tile:hover{background:rgba(201,168,76,.22);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2)}
+.ask-amit-tile:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.22);border-color:var(--gold);box-shadow:0 0 8px rgba(var(--amit-accent-rgb,201,168,76),.2)}
 .ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
-.ask-amit-name{font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
+.ask-amit-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
 .ask-amit-sub{font-size:11px;color:var(--muted);margin-top:2px}
 
 /* ── HUB LINK TILE — added for AmitBooks, always sits above Ask Amit ── */
 .hub-link-tile{
   display:flex;align-items:center;gap:10px;width:100%;
-  background:rgba(255,255,255,.04);border:1px solid rgba(201,168,76,.25);
+  background:rgba(var(--amit-overlay-rgb,255,255,255),.04);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);
   border-radius:9px;padding:11px 12px;cursor:pointer;
   transition:all .18s;margin-bottom:6px;
 }
-.hub-link-tile:hover{background:rgba(255,255,255,.08);border-color:var(--gold)}
+.hub-link-tile:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.08);border-color:var(--gold)}
 
 /* ── MAIN AREA ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
@@ -142,7 +143,7 @@ header{
 .panel.active{display:flex}
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .panel::-webkit-scrollbar{width:5px}
-.panel::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+.panel::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:3px}
 
 /* ── PANEL HEADER ── */
 .panel-head{
@@ -152,22 +153,22 @@ header{
   border-bottom:2px solid var(--border);
   flex-shrink:0;
 }
-.panel-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
-.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.panel-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(var(--amit-text-rgb,240,232,208),.25);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
 /* ── TABBED LAYOUT (copied structure from Computer Health's folder-tab UI — no data behind it) ── */
 .ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
-.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
-.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 
 /* ── ABOOKS OPERATIONAL UI — added when Layer 0 came alive ── */
 .ab-section{margin-bottom:26px}
-.ab-h{font-family:'Cinzel',serif;color:var(--gold2);font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
-.ab-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:12px;margin-bottom:14px}
-.ab-form input,.ab-form select{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;font-family:inherit}
+.ab-h{font-family:var(--amit-font-heading,'Cinzel',serif);color:var(--gold2);font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+.ab-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px;padding:12px;margin-bottom:14px}
+.ab-form input,.ab-form select{background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:6px;padding:8px 10px;color:var(--amit-text,#fff);font-size:13px;font-family:inherit}
 /* ── Fallback theming for any select/input/textarea NOT inside a
    styled .ab-form (table row pickers, inline row editors, etc.) — never
    let a native control fall back to browser white. Cream, matching the
@@ -176,9 +177,9 @@ header{
    so entry forms keep their dark-on-navy look and only bare/unstyled
    controls pick this up. ── */
 select,input[type=text],input[type=number],input[type=date],input[type=email],input[type=search],textarea{
-  background:#f4f1e6;color:#2a2418;border:1px solid rgba(201,168,76,.4);border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12px
+  background:var(--amit-input-bg,#f4f1e6);color:var(--amit-input-text,#2a2418);border:1px solid var(--amit-input-border,rgba(var(--amit-accent-rgb,201,168,76),.4));border-radius:var(--amit-input-radius,6px);padding:5px 8px;font-family:inherit;font-size:12px
 }
-select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);outline-offset:1px}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--amit-focus-ring,rgba(var(--amit-accent-rgb,201,168,76),.5));outline-offset:1px}
 /* The dropdown POPUP list always renders with the browser's own native
    (light) background, regardless of the select's own dark background -
    that's OS-controlled and can't be styled away. Every select above
@@ -187,36 +188,36 @@ select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);ou
    except whichever one has the highlight bar. This was the actual bug
    behind every "this dropdown looks empty" report (Type, Basis, Role,
    etc.) - one shared root cause, fixed here once for all of them. */
-select option{color:#2a2418;background:#fff}
+select option{color:var(--amit-option-text,#2a2418);background:var(--amit-option-bg,#fff)}
 .ab-form label{font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:3px}
 .ab-field{display:flex;flex-direction:column}
-.ab-btn{background:rgba(201,168,76,.16);border:1px solid var(--gold);color:var(--gold2);padding:8px 16px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;align-self:flex-end}
-.ab-btn:hover{background:rgba(201,168,76,.3)}
+.ab-btn{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border:1px solid var(--gold);color:var(--gold2);padding:8px 16px;border-radius:6px;cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.06em;align-self:flex-end}
+.ab-btn:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.3)}
 .ab-table{width:100%;border-collapse:collapse;font-size:13px}
-.ab-table th{text-align:left;color:var(--muted);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid rgba(201,168,76,.3)}
-.ab-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--text2)}
-.ab-table tr:hover td{background:rgba(255,255,255,.03)}
+.ab-table th{text-align:left;color:var(--muted);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.ab-table td{padding:8px 10px;border-bottom:1px solid rgba(var(--amit-overlay-rgb,255,255,255),.05);color:var(--text2)}
+.ab-table tr:hover td{background:rgba(var(--amit-overlay-rgb,255,255,255),.03)}
 .ab-empty{color:var(--dim);font-style:italic;padding:16px;text-align:center;font-size:13px}
-.ab-book-bar{display:flex;align-items:center;gap:10px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:10px 14px;margin-bottom:20px}
-.ab-book-bar select{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:6px 10px;color:#fff;font-size:13px}
-.ab-signin-notice{background:rgba(255,255,255,.03);border:1px dashed rgba(201,168,76,.3);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:13px}
-.ab-card{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:14px 18px;flex:1;min-width:160px}
-.ab-card .n{font-family:'Cinzel',serif;font-size:22px;color:var(--gold2)}
+.ab-book-bar{display:flex;align-items:center;gap:10px;background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:10px 14px;margin-bottom:20px}
+.ab-book-bar select{background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:6px;padding:6px 10px;color:var(--amit-text,#fff);font-size:13px}
+.ab-signin-notice{background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px dashed rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:13px}
+.ab-card{background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px;padding:14px 18px;flex:1;min-width:160px}
+.ab-card .n{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:22px;color:var(--gold2)}
 .ab-card .l{font-size:11px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-top:4px}
 
 /* ── VISUAL MODE — the document-shaped skin over the same real data.
    "Simple" (the spreadsheet-fast forms above) stays the default on every
    screen; this is the opt-in layer for anyone who thinks in paper. ── */
-.ab-vswitch{display:inline-flex;align-items:center;gap:0;border:1px solid rgba(201,168,76,.35);border-radius:20px;overflow:hidden;margin-bottom:16px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.07em}
+.ab-vswitch{display:inline-flex;align-items:center;gap:0;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:20px;overflow:hidden;margin-bottom:16px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.07em}
 .ab-vswitch span{padding:7px 16px;cursor:pointer;color:var(--muted);transition:all .15s}
-.ab-vswitch span.on{background:rgba(201,168,76,.25);color:var(--gold2)}
+.ab-vswitch span.on{background:rgba(var(--amit-accent-rgb,201,168,76),.25);color:var(--gold2)}
 .ab-doc-wrap{display:flex;flex-wrap:wrap;gap:20px;margin-top:6px}
 
 /* — Checkbook: an actual check you fill out, plus a register tape below — */
 .ab-check{width:100%;max-width:560px;background:linear-gradient(135deg,#f4f1e6,#e9e4d0);color:#2a2418;border-radius:10px;padding:20px 24px;box-shadow:0 4px 18px rgba(0,0,0,.35);position:relative;font-family:'Georgia',serif;border:1px solid #c9a84c}
 .ab-check::before{content:'';position:absolute;inset:6px;border:1px dashed rgba(42,36,24,.25);border-radius:6px;pointer-events:none}
 .ab-check .ck-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
-.ab-check .ck-bank{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;color:#6b5a2a;text-transform:uppercase}
+.ab-check .ck-bank{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;letter-spacing:.1em;color:#6b5a2a;text-transform:uppercase}
 .ab-check .ck-num{font-size:12px;color:#6b5a2a}
 .ab-check .ck-field{border-bottom:1px solid rgba(42,36,24,.4);padding:4px 2px;font-size:14px;flex:1}
 .ab-check .ck-field input,.ab-check select.ck-field{background:transparent;border:none;width:100%;font-family:'Georgia',serif;font-size:14px;color:#2a2418}
@@ -224,22 +225,22 @@ select option{color:#2a2418;background:#fff}
 .ab-check .ck-amount-box{border:2px solid #6b5a2a;border-radius:4px;padding:6px 10px;font-size:16px;font-weight:600;min-width:100px;text-align:right}
 .ab-check .ck-signature{border-bottom:1px solid rgba(42,36,24,.4);width:180px;margin-left:auto;margin-top:22px;font-family:'Brush Script MT',cursive;font-size:20px;color:#3a3020;text-align:center}
 .ab-check .ck-memo{font-size:11px;color:#8a7a4a;font-style:italic}
-.ab-register{width:100%;max-width:340px;background:repeating-linear-gradient(#1c1a12,#1c1a12 27px,rgba(201,168,76,.12) 28px);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:10px 4px;font-size:12px;max-height:420px;overflow-y:auto}
+.ab-register{width:100%;max-width:340px;background:repeating-linear-gradient(#1c1a12,#1c1a12 27px,rgba(var(--amit-accent-rgb,201,168,76),.12) 28px);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:10px 4px;font-size:12px;max-height:420px;overflow-y:auto}
 .ab-register .rg-row{display:grid;grid-template-columns:52px 1fr 60px 64px;gap:6px;padding:4px 8px;color:var(--text2)}
-.ab-register .rg-row.hd{color:var(--gold2);font-family:'Cinzel',serif;font-size:9px;letter-spacing:.05em;text-transform:uppercase}
+.ab-register .rg-row.hd{color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;letter-spacing:.05em;text-transform:uppercase}
 .ab-register .rg-bal{text-align:right;font-variant-numeric:tabular-nums}
 
 /* — Bills / Invoices: document-shaped cards in a gallery — */
 .ab-doc-card{width:280px;min-height:200px;background:#fbf9f2;color:#2a2418;border-radius:6px;padding:18px 20px;position:relative;box-shadow:0 3px 14px rgba(0,0,0,.3);font-family:'Georgia',serif;overflow:hidden}
 .ab-doc-card.bill{border-top:5px solid #b23a3a}
 .ab-doc-card.invoice{border-top:5px solid #2f7a4f}
-.ab-doc-card .doc-kind{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8a7a4a}
+.ab-doc-card .doc-kind{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8a7a4a}
 .ab-doc-card .doc-who{font-size:16px;font-weight:700;margin:4px 0 2px}
 .ab-doc-card .doc-date{font-size:11px;color:#7a6a4a;margin-bottom:10px}
 .ab-doc-card .doc-amt{font-size:24px;font-weight:700;color:#2a2418}
 .ab-doc-card .doc-memo{font-size:11px;color:#6a5a3a;margin-top:8px;font-style:italic}
 .ab-doc-card .doc-flag{font-size:10px;color:#b23a3a;margin-top:6px}
-.ab-doc-card .doc-stamp{position:absolute;top:38%;right:-18px;transform:rotate(-18deg);border:4px solid #b23a3a;color:#b23a3a;font-family:'Cinzel',serif;font-weight:700;font-size:22px;letter-spacing:.1em;padding:4px 22px;opacity:.85}
+.ab-doc-card .doc-stamp{position:absolute;top:38%;right:-18px;transform:rotate(-18deg);border:4px solid #b23a3a;color:#b23a3a;font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:700;font-size:22px;letter-spacing:.1em;padding:4px 22px;opacity:.85}
 .ab-doc-card .doc-stamp.partial{border-color:#c98a2a;color:#c98a2a}
 
 /* — Purchase orders: same document family, its own accent — */
@@ -248,8 +249,8 @@ select option{color:#2a2418;background:#fff}
 /* — Generic record card (contacts, items, assets, employees, etc.) — a
    rolodex/index-card look reused across every list-style screen so the
    effort scales without forty bespoke layouts. — */
-.ab-rolo{width:230px;background:rgba(255,255,255,.04);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:14px 16px;position:relative;border-left:4px solid var(--gold)}
-.ab-rolo .ro-kicker{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ab-rolo{width:230px;background:rgba(var(--amit-overlay-rgb,255,255,255),.04);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:14px 16px;position:relative;border-left:4px solid var(--gold)}
+.ab-rolo .ro-kicker{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .ab-rolo .ro-title{font-size:15px;font-weight:600;color:var(--text2);margin:3px 0 6px}
 .ab-rolo .ro-line{font-size:12px;color:var(--muted);margin-bottom:2px}
 .ab-rolo .ro-badge{position:absolute;top:12px;right:12px;font-size:9px;padding:2px 7px;border-radius:8px;background:rgba(100,220,160,.15);color:#8fe0b8;border:1px solid rgba(100,220,160,.4)}
@@ -262,7 +263,7 @@ select option{color:#2a2418;background:#fff}
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitBooks</div>
-      <div class="page-version" id="pageVersion">v2.24</div>
+      <div class="page-version" id="pageVersion">v2.25</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -274,9 +275,9 @@ select option{color:#2a2418;background:#fff}
       <div class="greeting" id="greeting">Good morning</div>
       <div class="datetime" id="datetime"></div>
       <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
-        <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
-        <div id="signInBtn" onclick="openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
-        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
+        <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(var(--amit-text-rgb,240,232,208),.28);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif)">☁ SYNC</div>
+        <div id="signInBtn" onclick="openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(var(--amit-accent-rgb,201,168,76),.8);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);padding:3px 9px;border-radius:4px;background:rgba(var(--amit-accent-rgb,201,168,76),.07)">SIGN IN</div>
+        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(var(--amit-accent-rgb,201,168,76),.9);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:600;border-left:1px solid rgba(var(--amit-text-rgb,240,232,208),.2);padding-left:8px">SIGN OUT</div>
       </div>
     </div>
   </div>
@@ -300,42 +301,42 @@ select option{color:#2a2418;background:#fff}
 
 <!-- SYNC / SIGN-IN MODAL -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
-    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
-    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+  <div class="sync-modal-card" style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
     <input id="syncEmailInput" type="email" placeholder="your@email.com"
-      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      style="width:100%;background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:7px;padding:11px 13px;color:var(--amit-text,#fff);font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
       onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
     <button id="syncSubmitBtn" onclick="submitSyncEmail()"
-      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      style="width:100%;background:rgba(var(--amit-accent-rgb,201,168,76),.12);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);color:rgba(var(--amit-accent-rgb,201,168,76),.9);padding:11px;border-radius:7px;cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.08em">
       SEND SIGN-IN LINK →
     </button>
-    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(var(--amit-text-rgb,240,232,208),.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
   </div>
 </div>
 
 <div id="scanConnectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:32px 36px;max-width:400px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto">
-    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:19px;letter-spacing:.06em;margin-bottom:8px">Connect AmitScan</div>
+  <div style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:32px 36px;max-width:400px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto">
+    <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:19px;letter-spacing:.06em;margin-bottom:8px">Connect AmitScan</div>
 
-    <div style="background:rgba(240,232,208,.05);border:1px solid rgba(240,232,208,.15);border-radius:8px;padding:14px 16px;margin-bottom:18px;text-align:left;font-size:12.5px;line-height:1.6;color:rgba(240,232,208,.75)">
-      <b style="color:rgba(201,168,76,.85)">What happens when you scan this:</b><br>
+    <div style="background:rgba(var(--amit-text-rgb,240,232,208),.05);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.15);border-radius:8px;padding:14px 16px;margin-bottom:18px;text-align:left;font-size:12.5px;line-height:1.6;color:rgba(var(--amit-text-rgb,240,232,208),.75)">
+      <b style="color:rgba(var(--amit-accent-rgb,201,168,76),.85)">What happens when you scan this:</b><br>
       Just scanning it once works perfectly fine on its own — it opens AmitScan already signed in, no typing, ready to capture right then. Nothing more is required.<br><br>
-      <b style="color:rgba(201,168,76,.85)">Want it to stay on your phone for next time?</b><br>
+      <b style="color:rgba(var(--amit-accent-rgb,201,168,76),.85)">Want it to stay on your phone for next time?</b><br>
       You can save it to your home screen so it opens like a real app from then on — after scanning, your phone will offer to walk you through saving it (Share icon → Add to Home Screen on iPhone, or the ⋮ menu → Install app on Android). If you save it, it may ask you to sign in with your Hub email <i>one more time</i> from the saved icon itself — that's normal, not a malfunction, it's how your phone keeps that saved copy connected to your account. Once that's done, you won't be asked again.<br><br>
-      <b style="color:rgba(201,168,76,.85)">Important:</b> if it asks you to sign in again, check your email <u>on that same phone</u> and tap the link there — not on your computer. Tapping it on your computer signs your computer in, not your phone, and the saved icon will still show disconnected.<br><br>
+      <b style="color:rgba(var(--amit-accent-rgb,201,168,76),.85)">Important:</b> if it asks you to sign in again, check your email <u>on that same phone</u> and tap the link there — not on your computer. Tapping it on your computer signs your computer in, not your phone, and the saved icon will still show disconnected.<br><br>
       Either way is fine, and saving it is always reversible — remove it from your home screen anytime and nothing is lost.
     </div>
 
-    <div id="scanConnectStatus" style="color:rgba(240,232,208,.6);font-size:14px;line-height:1.6;margin-bottom:18px">Generating your code...</div>
+    <div id="scanConnectStatus" style="color:rgba(var(--amit-text-rgb,240,232,208),.6);font-size:14px;line-height:1.6;margin-bottom:18px">Generating your code...</div>
     <div id="scanConnectQrWrap" style="background:#fff;border-radius:10px;padding:14px;display:inline-block;min-height:200px;min-width:200px"></div>
-    <div style="color:rgba(240,232,208,.5);font-size:13px;line-height:1.65;margin-top:16px">Open your phone's Camera app and point it at the code. Tap the banner that appears. This code expires after a few minutes for security — reopen this if it stops working.</div>
-    <div onclick="closeScanConnectModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CLOSE</div>
+    <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:13px;line-height:1.65;margin-top:16px">Open your phone's Camera app and point it at the code. Tap the banner that appears. This code expires after a few minutes for security — reopen this if it stops working.</div>
+    <div onclick="closeScanConnectModal()" style="margin-top:16px;font-size:9px;color:rgba(var(--amit-text-rgb,240,232,208),.25);cursor:pointer;letter-spacing:.1em">CLOSE</div>
   </div>
 </div>
 
 <div id="abScanLightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;flex-direction:column">
-  <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,.04)">
+  <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(var(--amit-overlay-rgb,255,255,255),.04)">
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="ab-btn" style="background:transparent;color:var(--text2)" onclick="abScanRotate()">⟳ Rotate</button>
       <button class="ab-btn" id="abScanCropBtn" style="background:transparent;color:var(--text2)" onclick="abScanEnterCrop()">▦ Crop</button>
@@ -343,7 +344,7 @@ select option{color:#2a2418;background:#fff}
       <button class="ab-btn" id="abScanCancelCropBtn" style="display:none;background:transparent;color:var(--muted)" onclick="abScanExitCrop()">Cancel Crop</button>
       <button class="ab-btn" id="abScanDeleteBtn" style="background:transparent;color:#c0553f;border-color:#c0553f" onclick="abScanDeleteCapture()">Delete</button>
     </div>
-    <div onclick="abCloseScanLightbox()" title="Close" style="display:flex;align-items:center;gap:6px;color:#fff;font-size:14px;cursor:pointer;padding:6px 10px;border:1px solid rgba(255,255,255,.25);border-radius:6px">
+    <div onclick="abCloseScanLightbox()" title="Close" style="display:flex;align-items:center;gap:6px;color:var(--amit-text,#fff);font-size:14px;cursor:pointer;padding:6px 10px;border:1px solid rgba(var(--amit-overlay-rgb,255,255,255),.25);border-radius:6px">
       <span>Close</span><span style="font-size:20px;line-height:1">×</span>
     </div>
   </div>
@@ -363,10 +364,10 @@ select option{color:#2a2418;background:#fff}
          line Ryan found unclear. Blocks the canvas on purpose so the person
          must choose before continuing. -->
     <div id="abScanCropConfirm" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.7);align-items:center;justify-content:center;z-index:5">
-      <div style="background:#1a3352;border:1px solid rgba(201,168,76,.5);border-radius:14px;padding:28px 34px;max-width:380px;text-align:center;box-shadow:0 10px 50px rgba(0,0,0,.6)">
+      <div style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:14px;padding:28px 34px;max-width:380px;text-align:center;box-shadow:0 10px 50px rgba(0,0,0,.6)">
         <div style="font-size:32px;margin-bottom:10px">✓</div>
-        <div style="color:rgba(201,168,76,.95);font-family:'Cinzel',serif;font-size:16px;margin-bottom:8px">Crop area captured</div>
-        <div style="color:rgba(240,232,208,.75);font-size:13px;line-height:1.6;margin-bottom:20px">Saved as its own new pending scan. What next?</div>
+        <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.95);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;margin-bottom:8px">Crop area captured</div>
+        <div style="color:rgba(var(--amit-text-rgb,240,232,208),.75);font-size:13px;line-height:1.6;margin-bottom:20px">Saved as its own new pending scan. What next?</div>
         <div style="display:flex;flex-direction:column;gap:10px">
           <button class="ab-btn" onclick="abScanConfirmCropNext()">Crop the Next One</button>
           <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanConfirmCropDone()">Done — Close This Scan</button>
@@ -381,40 +382,40 @@ select option{color:#2a2418;background:#fff}
      every popup says "AmitBooks", not the browser's own "ask-amit.github.io
      says" chrome, which no page can override. See abAlert/abConfirm/abPrompt. -->
 <div id="abDialogModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+  <div style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:28px 32px;max-width:420px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
       <img src="../amit_icon.png" alt="" style="width:20px;height:20px;border-radius:50%">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:15px;letter-spacing:.05em">AmitBooks</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:15px;letter-spacing:.05em">AmitBooks</div>
     </div>
-    <div id="abDialogMessage" style="color:rgba(240,232,208,.85);font-size:13px;line-height:1.6;margin-bottom:16px;white-space:pre-wrap"></div>
+    <div id="abDialogMessage" style="color:rgba(var(--amit-text-rgb,240,232,208),.85);font-size:13px;line-height:1.6;margin-bottom:16px;white-space:pre-wrap"></div>
     <input id="abDialogInput" type="text" style="display:none;width:100%;margin-bottom:16px;box-sizing:border-box">
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button id="abDialogCancelBtn" class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25);display:none">Cancel</button>
+      <button id="abDialogCancelBtn" class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(var(--amit-text-rgb,240,232,208),.25);display:none">Cancel</button>
       <button id="abDialogOkBtn" class="ab-btn">OK</button>
     </div>
   </div>
 </div>
 
 <div id="abNomenclatureModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+  <div style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:center;margin-bottom:6px">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">Customize Field Names — This Book</div>
-      <div onclick="abCloseNomenclatureEditor()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em">Customize Field Names — This Book</div>
+      <div onclick="abCloseNomenclatureEditor()" style="margin-left:auto;font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Turn a field on or off, or rename what it's called on screen. Off fields stay off everywhere — reports, forms, headers — until turned back on.</div>
     <div id="abNomenclatureEditorBody" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abCloseNomenclatureEditor()">Cancel</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(var(--amit-text-rgb,240,232,208),.25)" onclick="abCloseNomenclatureEditor()">Cancel</button>
       <button class="ab-btn" onclick="abSaveNomenclatureEditor()">Save Changes</button>
     </div>
   </div>
 </div>
 
 <div id="abPresetPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+  <div style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:center;margin-bottom:6px">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em" id="abPresetPickerTitle">Pick What You Want</div>
-      <div onclick="abClosePresetPicker()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em" id="abPresetPickerTitle">Pick What You Want</div>
+      <div onclick="abClosePresetPicker()" style="margin-left:auto;font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Not all-or-nothing — check only what you actually want pulled into this book. You can come back and pull in pieces from other industries too; nothing here overwrites a field you've already customized.</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -423,32 +424,32 @@ select option{color:#2a2418;background:#fff}
     </div>
     <div id="abPresetPickerBody" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abClosePresetPicker()">Cancel</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(var(--amit-text-rgb,240,232,208),.25)" onclick="abClosePresetPicker()">Cancel</button>
       <button class="ab-btn" onclick="abApplyPresetSelection()">Pull Into This Book</button>
     </div>
   </div>
 </div>
 
 <div id="abPermissionsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:760px;width:94%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+  <div style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:26px 28px;max-width:760px;width:94%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:center;margin-bottom:6px">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">Default Authorizations</div>
-      <div onclick="abClosePermissionsMatrix()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em">Default Authorizations</div>
+      <div onclick="abClosePermissionsMatrix()" style="margin-left:auto;font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">What each role can see and do in this book, by area. Owner always has full access everywhere. This is a starting point — more areas get their own gate as the rest of the app is walked through and wired to actually enforce this.</div>
     <div id="abPermissionsBody" style="overflow-y:auto;flex:1"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abClosePermissionsMatrix()">Cancel</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(var(--amit-text-rgb,240,232,208),.25)" onclick="abClosePermissionsMatrix()">Cancel</button>
       <button class="ab-btn" onclick="abSavePermissionsMatrix()">Save Authorizations</button>
     </div>
   </div>
 </div>
 
 <div id="abScanDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:720px;width:94%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+  <div style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:26px 28px;max-width:720px;width:94%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:center;margin-bottom:14px">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">Review Scan</div>
-      <div onclick="abCloseScanDetail()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em">Review Scan</div>
+      <div onclick="abCloseScanDetail()" style="margin-left:auto;font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
     </div>
     <div style="overflow-y:auto;flex:1;display:flex;gap:20px">
       <div style="flex:0 0 200px">
@@ -456,20 +457,20 @@ select option{color:#2a2418;background:#fff}
       </div>
       <div id="abScanDetailBody" style="flex:1;min-width:0"></div>
     </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid rgba(240,232,208,.1)">
-      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abCloseScanDetail()">Cancel</button>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid rgba(var(--amit-text-rgb,240,232,208),.1)">
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(var(--amit-text-rgb,240,232,208),.25)" onclick="abCloseScanDetail()">Cancel</button>
       <button class="ab-btn" onclick="abSaveScanDetail()">Save Changes</button>
     </div>
   </div>
 </div>
 
 <div id="journalModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:900px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+  <div style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:26px 28px;max-width:900px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:center;margin-bottom:6px">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">General Journal</div>
-      <div onclick="closeJournalModal()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em">General Journal</div>
+      <div onclick="closeJournalModal()" style="margin-left:auto;font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
     </div>
-    <div style="color:rgba(240,232,208,.45);font-size:11px;margin-bottom:14px">Every posted entry, by date. Double-click a row to see its debit/credit lines.</div>
+    <div style="color:rgba(var(--amit-text-rgb,240,232,208),.45);font-size:11px;margin-bottom:14px">Every posted entry, by date. Double-click a row to see its debit/credit lines.</div>
     <div id="journalModalBody" style="overflow-y:auto;flex:1">Loading…</div>
   </div>
 </div>
@@ -497,15 +498,15 @@ const AB_NAV_ORDER=[21,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
 // ══════════════════════════════════════════════
 const TODO_CONTENT = `
 <style>
-  .td-h1{font-family:'Cinzel',serif;color:var(--gold2);font-size:16px;letter-spacing:.05em;margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid rgba(201,168,76,.3)}
+  .td-h1{font-family:var(--amit-font-heading,'Cinzel',serif);color:var(--gold2);font-size:16px;letter-spacing:.05em;margin:26px 0 10px;padding-bottom:6px;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3)}
   .td-h1:first-child{margin-top:0}
-  .td-item{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:12px 16px;margin-bottom:10px}
+  .td-item{background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px;padding:12px 16px;margin-bottom:10px}
   .td-title{font-weight:600;color:var(--text2);font-size:14px;margin-bottom:4px}
   .td-why{font-size:13px;line-height:1.6;color:var(--muted)}
-  .td-tag{display:inline-block;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.08em;padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle}
+  .td-tag{display:inline-block;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;letter-spacing:.08em;padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle}
   .td-tag.now{background:rgba(100,220,160,.15);color:#8fe0b8;border:1px solid rgba(100,220,160,.4)}
-  .td-tag.next{background:rgba(201,168,76,.15);color:var(--gold2);border:1px solid rgba(201,168,76,.4)}
-  .td-tag.open{background:rgba(240,232,208,.08);color:var(--muted);border:1px solid rgba(240,232,208,.2)}
+  .td-tag.next{background:rgba(var(--amit-accent-rgb,201,168,76),.15);color:var(--gold2);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4)}
+  .td-tag.open{background:rgba(var(--amit-text-rgb,240,232,208),.08);color:var(--muted);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.2)}
   .td-tag.vision{background:rgba(140,160,220,.12);color:#a8b8e8;border:1px solid rgba(140,160,220,.35)}
   .td-tag.bug{background:rgba(220,120,120,.14);color:#f0a8a8;border:1px solid rgba(220,120,120,.4)}
 </style>
@@ -791,7 +792,7 @@ const TODO_CONTENT = `
 <div class="td-why">Amit noticing a pattern in incoming bills and proposing a new project/job automatically, rather than requiring the user to create it first.</div></div>
 
 <div class="td-h1">Master Build Order — the one list, worked one item at a time</div>
-<div class="td-item" style="background:rgba(201,168,76,.06);border-color:rgba(201,168,76,.4)">
+<div class="td-item" style="background:rgba(var(--amit-accent-rgb,201,168,76),.06);border-color:rgba(var(--amit-accent-rgb,201,168,76),.4)">
 <div class="td-why" style="color:var(--text2)">
 Everything above, combined into the actual working order. Ryan doesn't need to hold this — Amit works it top to bottom, one piece at a time, surfacing only what needs a human decision, a pasted SQL command, or an answer to a direct question along the way. Items 14+ are captured but not yet slotted into strict order — Ryan is still gathering competitor comparisons before that gets finalized.
 <br><br>
@@ -860,7 +861,7 @@ const FULL_SPEC_CONTENT = `
 <div class="td-item" style="padding:22px 20px">
   <div class="td-title" style="font-size:16px;margin-bottom:8px">🔖 AmitAccounting_Spec.md — the full original record</div>
   <div class="td-why" style="margin-bottom:16px">This is the complete brainstorm and design history AmitBooks is being built from — every session, the full relationship-arc vision, competitive research against QuickBooks/Knowify/Wave, the pricing history, and everything not yet condensed into the To Do tab. Come back here any time to re-read it in full rather than the summarized version.</div>
-  <a href="../AmitAccounting/AmitAccounting_Spec.md" target="_blank" style="display:inline-block;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.5);color:var(--gold2);padding:10px 20px;border-radius:8px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:.06em;text-decoration:none">OPEN THE FULL SPEC →</a>
+  <a href="../AmitAccounting/AmitAccounting_Spec.md" target="_blank" style="display:inline-block;background:rgba(var(--amit-accent-rgb,201,168,76),.14);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);color:var(--gold2);padding:10px 20px;border-radius:8px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;letter-spacing:.06em;text-decoration:none">OPEN THE FULL SPEC →</a>
 </div>
 <div class="td-item">
   <div class="td-title">AmitAccounting folder — CLAUDE.md</div>
@@ -877,7 +878,7 @@ const FULL_SPEC_CONTENT = `
 // shape, deduped — not a chronological log of every idea mentioned.
 // ══════════════════════════════════════════════
 const FEATURE_MAP_CONTENT = `
-<div class="td-item" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
+<div class="td-item" style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)">
 <div class="td-title" style="font-size:15px">How to read this</div>
 <div class="td-why">Nine independent AI voices answered the same architecture question cold, without seeing each other's work. Where several converged on the same structural call independently, that's real signal — flagged below as CONFIRMED. Everything else is a synthesized best-of. Nothing here has been built yet; this replaces guessing with a real target.</div>
 </div>
@@ -904,7 +905,7 @@ const FEATURE_MAP_CONTENT = `
 <div class="td-item"><div class="td-title">Payment processor integration — Square, Stripe, etc.</div><div class="td-why">Credit card processing; likely shares infrastructure with the POS integration point, since Square is both a POS and a processor.</div></div>
 <div class="td-item"><div class="td-title">Cash App / Venmo / P2P payment integration</div><div class="td-why">The real work is cleanly separating personal from business activity in a mixed-use account, not just importing a raw feed.</div></div>
 <div class="td-item"><div class="td-title">Estimating tie-in — BOSStimator</div><div class="td-why">The estimating tool already planned elsewhere in the Amit system should feed AmitBooks' estimates directly rather than AmitBooks duplicating estimating logic — still needs your confirmation this is the intended tie-in.</div></div>
-<div class="td-item" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)"><div class="td-title">Amit's Expense Claim Helper — your direct instruction, not optional</div><div class="td-why">When a user isn't sure whether something is deductible, Amit walks them through it in plain language, names the IRS rule that applies, and what Tim would flag. This is Amit Bookkeeper Mode made concrete, not a bolt-on.</div></div>
+<div class="td-item" style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)"><div class="td-title">Amit's Expense Claim Helper — your direct instruction, not optional</div><div class="td-why">When a user isn't sure whether something is deductible, Amit walks them through it in plain language, names the IRS rule that applies, and what Tim would flag. This is Amit Bookkeeper Mode made concrete, not a bolt-on.</div></div>
 <div class="td-item"><div class="td-title">Sensitive-data tiering, extended to SSNs</div><div class="td-why">Same client-side, zero-knowledge encryption model as account/routing numbers — administrator-only decrypt, tied to the role system.</div></div>
 <div class="td-item"><div class="td-title">Classes & Locations, as a named dimension</div><div class="td-why">The generic Tags/Dimensions primitive covers this mechanically, but it needs its own UI surface, not just be implied.</div></div>
 <div class="td-item"><div class="td-title">Custom dashboards + personalized KPIs</div><div class="td-why">From the QuickBooks comparison pass.</div></div>
@@ -1360,6 +1361,7 @@ if(db){
   db.auth.onAuthStateChange((event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
     abInit();
   });
 }
@@ -1373,7 +1375,7 @@ function _updateSyncUI(){
     if(logoutBtn)logoutBtn.style.display='block';
     if(signInBtn)signInBtn.style.display='none';
   } else {
-    el.textContent='';el.style.color='rgba(240,232,208,.28)';el.title='';
+    el.textContent='';el.style.color='rgba(var(--amit-text-rgb,240,232,208),.28)';el.title='';
     if(logoutBtn)logoutBtn.style.display='none';
     if(signInBtn)signInBtn.style.display='block';
   }
@@ -1405,9 +1407,9 @@ async function submitSyncEmail(){
   if(err){btn.textContent='Try again';btn.disabled=false;}
   else{
     document.querySelector('#syncModal .sync-modal-card').innerHTML=`
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
-      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
-      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(var(--amit-text-rgb,240,232,208),.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(var(--amit-text-rgb,240,232,208),.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
   }
 }
 
@@ -1723,7 +1725,7 @@ function abRenderOnboardingChecklist(){
   const steps=AB_ONBOARD_STEPS.map(s=>({...s,isDone:s.done()}));
   const doneCount=steps.filter(s=>s.isDone).length;
   if(doneCount===steps.length) return '';
-  return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:14px;margin-bottom:20px">
+  return `<div class="ab-section" style="background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:14px;margin-bottom:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div class="ab-h" style="margin:0">Getting Started (${doneCount}/${steps.length})</div>
       <a href="#" onclick="abDismissOnboarding();return false" style="font-size:11px;color:var(--muted)">Dismiss</a>
@@ -1760,7 +1762,7 @@ function abRenderDashboard(){
     ${abRenderPatternSuggestions()}
     ${abDashCustomizing?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Pick which KPI tiles show up top — your choice is remembered per book.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
-      ${AB_KPI_DEFS.map(k=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:1px solid rgba(201,168,76,.3);border-radius:6px;cursor:pointer;${activeKpis.includes(k.key)?'background:rgba(201,168,76,.12)':''}"><input type="checkbox" ${activeKpis.includes(k.key)?'checked':''} onchange="abToggleDashKpi('${k.key}')">${k.label}</label>`).join('')}
+      ${AB_KPI_DEFS.map(k=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:6px;cursor:pointer;${activeKpis.includes(k.key)?'background:rgba(var(--amit-accent-rgb,201,168,76),.12)':''}"><input type="checkbox" ${activeKpis.includes(k.key)?'checked':''} onchange="abToggleDashKpi('${k.key}')">${k.label}</label>`).join('')}
     </div>`:`
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px">
       ${activeKpis.map(key=>{ const k=AB_KPI_DEFS.find(d=>d.key===key); if(!k)return''; return `<div class="ab-card"><div class="n">${k.compute()}</div><div class="l">${k.label}</div></div>`; }).join('')||'<div class="ab-empty">No KPIs selected — click Customize KPIs above</div>'}
@@ -2135,7 +2137,7 @@ function abRenderCoa(){
   const el=document.getElementById('ab-coa'); if(!el)return;
   if(!abBookId){el.innerHTML='<div class="ab-signin-notice">Create a book first (Dashboard tab).</div>';return;}
   el.innerHTML=`<div class="ab-h">Chart of Accounts</div>
-    ${abTemplatePreview ? abTemplatePickerHtml() : (abAccounts.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
+    ${abTemplatePreview ? abTemplatePickerHtml() : (abAccounts.length?'':`<div class="ab-form" style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)">
       <div class="ab-field"><label>Start from an industry template</label>
         <select id="ab-coa-template-industry"><option value="construction">Construction</option></select>
       </div>
@@ -2247,7 +2249,7 @@ function abTemplatePickerHtml(){
   let rows='';
   Object.keys(groups).forEach(type=>{
     if(!groups[type].length)return;
-    rows+=`<div style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.06em;text-transform:uppercase;margin:12px 0 4px">${typeLabel[type]}</div>`;
+    rows+=`<div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2);letter-spacing:.06em;text-transform:uppercase;margin:12px 0 4px">${typeLabel[type]}</div>`;
     groups[type].forEach(t=>{
       const already=existingNumbers.has(t.account_number);
       rows+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;color:${already?'var(--dim)':'var(--text2)'};cursor:${already?'default':'pointer'}">
@@ -2257,7 +2259,7 @@ function abTemplatePickerHtml(){
       </label>`;
     });
   });
-  return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:16px 18px">
+  return `<div class="ab-section" style="background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:8px;padding:16px 18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div class="ab-h" style="margin:0">Construction Template — pick what you want</div>
       <div style="display:flex;gap:8px">
@@ -2268,7 +2270,7 @@ function abTemplatePickerHtml(){
     <div style="max-height:340px;overflow-y:auto;padding-right:6px">${rows}</div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="ab-btn" onclick="abImportSelectedTemplate()">Import Selected</button>
-      <button class="ab-btn" style="background:transparent;border-color:rgba(240,232,208,.3);color:var(--muted)" onclick="abCancelTemplatePreview()">Cancel — I'll build my own</button>
+      <button class="ab-btn" style="background:transparent;border-color:rgba(var(--amit-text-rgb,240,232,208),.3);color:var(--muted)" onclick="abCancelTemplatePreview()">Cancel — I'll build my own</button>
     </div>
   </div>`;
 }
@@ -2500,7 +2502,7 @@ function abRenderContacts(){
       <table class="ab-table"><tr>${abSmartTh(tk,'name','Name')}${abSmartTh(tk,'roles','Roles')}<th>SSN</th><th></th></tr>
       ${sorted.map(c=>`<tr><td>${abEsc(c.name)}</td><td>${abRoleTags(c)}</td><td style="font-size:11px">${c.ssn_encrypted?`•••-••-•••• <a href="#" onclick="abViewDecryptedSSN('${c.id}');return false" style="color:var(--gold2)">View</a>`:`<a href="#" onclick="abSetContactSSN('${c.id}');return false" style="color:var(--gold2)">Set</a>`}</td><td><a href="#" onclick="abTogglePersonForm('${c.id}');return false" style="color:var(--gold2);font-size:12px">+ Add Person</a></td></tr>
       <tr id="ab-person-form-${c.id}" style="display:none"><td colspan="4">${abPersonFormHtml(c.id)}</td></tr>
-      ${childrenOf(c.id).map(p=>`<tr style="background:rgba(240,232,208,.02)"><td style="padding-left:28px">↳ ${abEsc(p.name)}${p.title?` <span style="color:var(--muted);font-size:11px">— ${abEsc(p.title)}</span>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(p.phone||'')}${p.phone&&p.email?' · ':''}${abEsc(p.email||'')}</td><td></td><td></td></tr>`).join('')}`).join('')||`<tr><td class="ab-empty" colspan="4">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
+      ${childrenOf(c.id).map(p=>`<tr style="background:rgba(var(--amit-text-rgb,240,232,208),.02)"><td style="padding-left:28px">↳ ${abEsc(p.name)}${p.title?` <span style="color:var(--muted);font-size:11px">— ${abEsc(p.title)}</span>`:''}</td><td style="font-size:11px;color:var(--muted)">${abEsc(p.phone||'')}${p.phone&&p.email?' · ':''}${abEsc(p.email||'')}</td><td></td><td></td></tr>`).join('')}`).join('')||`<tr><td class="ab-empty" colspan="4">${abContactFilter==='all'?'No contacts yet — add your first vendor or customer above':'None in this category yet'}</td></tr>`}
       </table>`;
     })():`
     <div class="ab-doc-wrap">
@@ -2588,10 +2590,10 @@ function abRenderPipeline(){
       ${AB_LEAD_STAGES.map(([key,label])=>{
         const cards=leads.filter(c=>c.lead_stage===key);
         const colValue=cards.reduce((s,c)=>s+(Number(c.lead_value)||0),0);
-        return `<div style="background:rgba(240,232,208,.04);border:1px solid rgba(240,232,208,.15);border-radius:8px;padding:10px;min-height:120px">
+        return `<div style="background:rgba(var(--amit-text-rgb,240,232,208),.04);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.15);border-radius:8px;padding:10px;min-height:120px">
           <div style="font-weight:600;font-size:13px;margin-bottom:2px">${label} <span style="color:var(--muted);font-weight:400">(${cards.length})</span></div>
           <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${colValue?abMoney(colValue):'—'}</div>
-          ${cards.map(c=>`<div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:8px;margin-bottom:8px;cursor:pointer" onclick="abOpenContact('${c.id}','${abEsc(c.name).replace(/'/g,"\\'")}')">
+          ${cards.map(c=>`<div style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:6px;padding:8px;margin-bottom:8px;cursor:pointer" onclick="abOpenContact('${c.id}','${abEsc(c.name).replace(/'/g,"\\'")}')">
             <div style="font-size:13px;font-weight:600">${abEsc(c.name)}</div>
             ${c.lead_value?`<div style="font-size:12px;color:var(--muted)">${abMoney(c.lead_value)}</div>`:''}
             ${c.lead_source?`<div style="font-size:11px;color:var(--dim)">via ${abEsc(c.lead_source)}</div>`:''}
@@ -2622,7 +2624,7 @@ function abRenderItems(){
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">
       A Scope is the real-world category of work or material — "Framing," "HVAC," "Concrete" — not the same as a Chart of Accounts entry. Everything charged to a job gets grouped under a Scope for job costing, no matter whether it ends up being labor, material, subcontractor, or equipment on any given bill — that's picked per line when you enter the bill, not fixed here. Every Scope can point at two accounts: where the cost lands when you buy it (<b>Expense Account</b>), and where the revenue lands when you bill someone for it (<b>Income Account</b>).
     </div>
-    ${abItemTemplatePreview ? abItemTemplatePickerHtml() : (abItems.length?'':`<div class="ab-form" style="background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)">
+    ${abItemTemplatePreview ? abItemTemplatePickerHtml() : (abItems.length?'':`<div class="ab-form" style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)">
       <div class="ab-field"><label>Start from an industry template</label>
         <select id="ab-item-template-industry"><option value="construction">Construction</option></select>
       </div>
@@ -2709,7 +2711,7 @@ function abItemTemplatePickerHtml(){
       ${(!expOk||!incOk)?' <span style="font-size:11px;color:#f0a8a8">— load Chart of Accounts first to wire this one up</span>':''}
     </label>`;
   });
-  return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:16px 18px">
+  return `<div class="ab-section" style="background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:8px;padding:16px 18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div class="ab-h" style="margin:0">Construction Scopes Template</div>
       <div style="display:flex;gap:8px">
@@ -2720,7 +2722,7 @@ function abItemTemplatePickerHtml(){
     <div style="max-height:300px;overflow-y:auto;padding-right:6px">${rows}</div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="ab-btn" onclick="abImportSelectedItemTemplate()">Import Selected</button>
-      <button class="ab-btn" style="background:transparent;border-color:rgba(240,232,208,.3);color:var(--muted)" onclick="abItemTemplatePreview=null;abRenderItems()">Cancel — I'll build my own</button>
+      <button class="ab-btn" style="background:transparent;border-color:rgba(var(--amit-text-rgb,240,232,208),.3);color:var(--muted)" onclick="abItemTemplatePreview=null;abRenderItems()">Cancel — I'll build my own</button>
     </div>
   </div>`;
 }
@@ -2908,7 +2910,7 @@ async function abShowBillDetail(billId){
   const lines=abInvoiceBillLinesCache.filter(l=>l.invoice_bill_id===billId);
   const{data:pays}=await db.from('payments').select('*').eq('invoice_bill_id',billId).order('payment_date',{ascending:false});
   const el=document.getElementById('ab-billdetail-panel'); if(!el)return;
-  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:16px 18px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div class="ab-h" style="margin:0">${r.direction==='bill_payable'?'Bill':'Invoice'} — ${abEsc(r.document_code||'')}</div>
       <a href="#" onclick="document.getElementById('ab-billdetail-panel').innerHTML='';return false" style="color:var(--muted);font-size:12px">✕ Close</a>
@@ -3295,7 +3297,7 @@ async function abRenderNomenclature(){
     <div class="ab-h" style="font-size:15px">This Book's Current Setup</div>
     ${currentPreset?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Started from the <b>${abEsc(currentPreset.display_name)}</b> preset.</div>`:'<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">No preset applied yet — pick one below to get started.</div>'}
     ${activeFields.length?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-      ${activeFields.map(f=>`<span style="font-size:12px;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.18);border-radius:12px;padding:4px 12px">${abEsc(f.display_label)}</span>`).join('')}
+      ${activeFields.map(f=>`<span style="font-size:12px;background:rgba(var(--amit-text-rgb,240,232,208),.06);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.18);border-radius:12px;padding:4px 12px">${abEsc(f.display_label)}</span>`).join('')}
     </div>`:''}
     <button class="ab-btn" ${activeFields.length?'':'disabled style="background:transparent;color:var(--muted);cursor:not-allowed"'} onclick="abOpenNomenclatureEditor()">Customize Field Names</button>
 
@@ -3304,7 +3306,7 @@ async function abRenderNomenclature(){
     <div style="display:flex;flex-wrap:wrap;gap:10px">
       ${abNomenclaturePresetsCache.map(p=>{
         const count=abNomenclaturePresetCount(p.id);
-        return `<div ondblclick="abOpenPresetPicker('${p.preset_key}')" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer" title="Double-click to choose which fields/values to pull in">
+        return `<div ondblclick="abOpenPresetPicker('${p.preset_key}')" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(var(--amit-accent-rgb,201,168,76),.1)':'rgba(var(--amit-text-rgb,240,232,208),.04)'};border:1px solid ${p.id===currentPresetId?'rgba(var(--amit-accent-rgb,201,168,76),.5)':'rgba(var(--amit-text-rgb,240,232,208),.15)'};border-radius:8px;padding:12px 14px;cursor:pointer" title="Double-click to choose which fields/values to pull in">
           <div style="font-weight:600">${abEsc(p.display_name)}${count?` <span style="color:var(--gold2);font-weight:400">(${count})</span>`:''}${p.id===currentPresetId?' <span style="font-size:10px;color:#8fd19e;font-weight:400">— started here</span>':''}</div>
         </div>`;
       }).join('')}
@@ -3422,7 +3424,7 @@ function abOpenNomenclatureEditor(){
     const isPicklist=master&&master.is_picklist;
     const values=(abNomenclatureValuesCache||[]).filter(v=>v.field_key===f.field_key);
     return`<div class="ab-nom-field-block" data-field-key="${f.field_key}">
-      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(240,232,208,.08)">
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(var(--amit-text-rgb,240,232,208),.08)">
         ${isPicklist?`<span onclick="abNomToggleValues('${f.field_key}')" style="cursor:pointer;font-size:11px;color:var(--gold2);width:14px;flex-shrink:0" id="ab-nom-caret-${f.field_key}">▸</span>`:'<span style="width:14px;flex-shrink:0"></span>'}
         <input type="checkbox" id="ab-nom-active-${f.field_key}" ${f.active?'checked':''} style="flex-shrink:0">
         <input type="text" id="ab-nom-label-${f.field_key}" value="${abEsc(f.display_label)}" style="flex:1" placeholder="${abEsc(f.field_key)}">
@@ -3504,8 +3506,8 @@ function abRenderIntegrations(){
     <div class="ab-h" style="font-size:15px">Payment Processors</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">Not connected — each needs its own developer account and API keys before it can do anything real.</div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
-      ${AB_PAYMENT_PROCESSORS.map(p=>`<div style="flex:1;min-width:220px;background:rgba(240,232,208,.04);border:1px solid rgba(240,232,208,.15);border-radius:8px;padding:14px">
-        <div style="font-weight:600;margin-bottom:6px">${p.name} <span style="font-size:10px;color:var(--muted);font-weight:400;border:1px solid rgba(240,232,208,.25);border-radius:10px;padding:1px 8px;margin-left:4px">Not Connected</span></div>
+      ${AB_PAYMENT_PROCESSORS.map(p=>`<div style="flex:1;min-width:220px;background:rgba(var(--amit-text-rgb,240,232,208),.04);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.15);border-radius:8px;padding:14px">
+        <div style="font-weight:600;margin-bottom:6px">${p.name} <span style="font-size:10px;color:var(--muted);font-weight:400;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.25);border-radius:10px;padding:1px 8px;margin-left:4px">Not Connected</span></div>
         <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${p.note}</div>
         <button class="ab-btn" style="background:transparent;color:var(--muted);cursor:not-allowed" disabled>Connect (needs API keys)</button>
       </div>`).join('')}
@@ -3516,11 +3518,11 @@ function abRenderIntegrations(){
       Which engine reads your receipts once OCR is built. Pick now so the first build targets the right one instead of guessing later.
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
-      <label style="flex:1;min-width:220px;cursor:pointer;background:${ocrPref==='google_vision'?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${ocrPref==='google_vision'?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:14px">
+      <label style="flex:1;min-width:220px;cursor:pointer;background:${ocrPref==='google_vision'?'rgba(var(--amit-accent-rgb,201,168,76),.1)':'rgba(var(--amit-text-rgb,240,232,208),.04)'};border:1px solid ${ocrPref==='google_vision'?'rgba(var(--amit-accent-rgb,201,168,76),.5)':'rgba(var(--amit-text-rgb,240,232,208),.15)'};border-radius:8px;padding:14px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="radio" name="ab-ocr" ${ocrPref==='google_vision'?'checked':''} onchange="abSetOcrPref('google_vision')"><span style="font-weight:600">Google Cloud Vision</span><span style="font-size:10px;color:#8fd19e;border:1px solid rgba(143,209,158,.4);border-radius:10px;padding:1px 8px">Free tier — 1,000/mo</span></div>
         <div style="font-size:12px;color:var(--muted)">Real recurring free tier, not a trial. The right one to start with since it costs nothing until volume is real. Weaker on messy handwriting than Claude Vision.</div>
       </label>
-      <label style="flex:1;min-width:220px;cursor:pointer;background:${ocrPref==='claude_vision'?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${ocrPref==='claude_vision'?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:14px">
+      <label style="flex:1;min-width:220px;cursor:pointer;background:${ocrPref==='claude_vision'?'rgba(var(--amit-accent-rgb,201,168,76),.1)':'rgba(var(--amit-text-rgb,240,232,208),.04)'};border:1px solid ${ocrPref==='claude_vision'?'rgba(var(--amit-accent-rgb,201,168,76),.5)':'rgba(var(--amit-text-rgb,240,232,208),.15)'};border-radius:8px;padding:14px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><input type="radio" name="ab-ocr" ${ocrPref==='claude_vision'?'checked':''} onchange="abSetOcrPref('claude_vision')"><span style="font-weight:600">Claude Vision</span><span style="font-size:10px;color:#e8b866;border:1px solid rgba(232,184,102,.4);border-radius:10px;padding:1px 8px">Pay per image</span></div>
         <div style="font-size:12px;color:var(--muted)">No ongoing free tier — costs from the first image. Better at reading messy handwriting and the red-marker job/category annotations once that standard is built. Good fallback for receipts Google's OCR gets wrong.</div>
       </label>
@@ -3532,7 +3534,7 @@ function abRenderIntegrations(){
       This is what powers <b>Scan Receipt</b> on the Bills &amp; Invoices tab — it reads a photo of a receipt and pulls out the vendor, amount, and date. This is <b>your own key</b>, billed to your own Anthropic account, not Ryan's — get one free at <b>console.anthropic.com</b> → API Keys → Create Key (a few minutes, pay-per-use, usually just cents per receipt). It's stored only in this browser, never sent anywhere but Anthropic itself.
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <input id="ab-anthropic-key" type="password" placeholder="sk-ant-..." value="${abEsc(abGetAnthropicKey())}" style="width:320px;padding:8px 10px;border-radius:6px;border:1px solid rgba(240,232,208,.25);background:rgba(240,232,208,.06);color:var(--text2)">
+      <input id="ab-anthropic-key" type="password" placeholder="sk-ant-..." value="${abEsc(abGetAnthropicKey())}" style="width:320px;padding:8px 10px;border-radius:6px;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.25);background:rgba(var(--amit-text-rgb,240,232,208),.06);color:var(--text2)">
       <button class="ab-btn" onclick="abSaveAnthropicKey()">Save</button>
       <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abTestAnthropicKey()">Test Key</button>
       <span id="ab-anthropic-status" style="font-size:12px;color:var(--muted)"></span>
@@ -3692,7 +3694,7 @@ async function abRenderScanPending(){
     const thumb=signed?.signedUrl||'';
     abScanPendingRows[idx]={row:r,url:thumb};
     const when=new Date(r.captured_at).toLocaleString();
-    return `<div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:10px">
+    return `<div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.15);border-radius:8px;margin-bottom:10px">
       <input type="checkbox" class="ab-scan-pick" data-idx="${idx}" onchange="abScanUpdateSelectedCount()" style="width:18px;height:18px;flex:0 0 auto">
       ${thumb?`<img src="${thumb}" ondblclick="abOpenScanLightbox(${idx})" style="width:64px;height:64px;object-fit:cover;border-radius:6px;background:#111;cursor:zoom-in" title="Double-click to view larger">`:'<div style="width:64px;height:64px;border-radius:6px;background:#111"></div>'}
       <div style="flex:1">
@@ -3708,7 +3710,7 @@ async function abRenderScanPending(){
       <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanSelectAll()">Select All</button>
       <button class="ab-btn" style="background:transparent;color:var(--muted)" onclick="abScanSelectNone()">Select None</button>
       <span id="abScanSelectedCount" style="font-size:12px;color:var(--muted)">0 selected</span>
-      <button class="ab-btn" style="background:transparent;border-color:rgba(201,168,76,.5)" onclick="abScanSendSelectedToLocal('light')" title="Whole-receipt only — vendor, date, amount, one Scope, how it was paid. Fast and cheap. Best when everything needed is already written on the receipt in one place.">Quick Scan</button>
+      <button class="ab-btn" style="background:transparent;border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)" onclick="abScanSendSelectedToLocal('light')" title="Whole-receipt only — vendor, date, amount, one Scope, how it was paid. Fast and cheap. Best when everything needed is already written on the receipt in one place.">Quick Scan</button>
       <button class="ab-btn" onclick="abScanSendSelectedToLocal('detailed')" title="Full line-item breakdown, multiple Scopes/Projects per receipt if the content supports it. Slower, more thorough.">Detailed Scan</button>
       <button class="ab-btn" style="background:transparent;color:#c0553f;border-color:#c0553f" onclick="abScanDeleteSelected()">Delete Selected</button>
     </div>
@@ -3760,7 +3762,7 @@ async function abRenderScanWorking(){
     const summaryLine=ready
       ? `${abEsc(ex.vendor||'Unknown vendor')} — ${ex.amount?abMoney(ex.amount):'—'}${ex.date?' · '+abEsc(ex.date):''}${scopesSummary?' · '+scopesSummary:''}`
       : 'Still processing…';
-    return `<div class="ab-scan-work-row" data-idx="${idx}" ondblclick="abOpenScanDetail(${idx})" style="display:flex;gap:14px;align-items:center;padding:8px 12px;border:1px solid rgba(240,232,208,.15);border-radius:8px;margin-bottom:8px;cursor:${ready?'pointer':'default'}" title="${ready?'Double-click to review and complete':''}">
+    return `<div class="ab-scan-work-row" data-idx="${idx}" ondblclick="abOpenScanDetail(${idx})" style="display:flex;gap:14px;align-items:center;padding:8px 12px;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.15);border-radius:8px;margin-bottom:8px;cursor:${ready?'pointer':'default'}" title="${ready?'Double-click to review and complete':''}">
       ${thumb?`<img src="${thumb}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;background:#111;flex:0 0 auto">`:'<div style="width:56px;height:56px;border-radius:6px;background:#111;flex:0 0 auto"></div>'}
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${modeLabel[r.mode]||r.mode} — ${summaryLine}</div>
@@ -3796,7 +3798,7 @@ function abOpenScanDetail(idx){
     <div id="ab-sd-groups"></div>
     <button class="ab-btn" style="font-size:11px;padding:5px 10px;margin-top:4px;margin-bottom:14px" onclick="abScanDetailAddGroup()">+ Add Row</button>
     ${ex.line_items&&ex.line_items.length?`<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Line items captured</div>
-      <div style="font-size:12px;background:rgba(240,232,208,.04);border-radius:6px;padding:8px 10px;margin-bottom:12px;max-height:100px;overflow-y:auto">${ex.line_items.map(li=>abEsc(typeof li==='string'?li:JSON.stringify(li))).join('<br>')}</div>`:''}
+      <div style="font-size:12px;background:rgba(var(--amit-text-rgb,240,232,208),.04);border-radius:6px;padding:8px 10px;margin-bottom:12px;max-height:100px;overflow-y:auto">${ex.line_items.map(li=>abEsc(typeof li==='string'?li:JSON.stringify(li))).join('<br>')}</div>`:''}
     ${ex.confidence_note?`<div style="font-size:11.5px;color:var(--muted);font-style:italic">${abEsc(ex.confidence_note)}</div>`:''}
     <div class="ab-signin-notice" style="text-align:left;margin-top:12px;font-size:11.5px">Saving updates this proposal — turning it into a real posted Bill is a separate step, not done here yet.</div>
   `;
@@ -4271,7 +4273,7 @@ async function abShowEstimatesFor(tagId){
   const tag=abTags.find(t=>t.id===tagId);
   const{data}=await db.from('estimates').select('*').eq('tag_id',tagId).order('created_at',{ascending:false});
   const el=document.getElementById('ab-estimates-panel'); if(!el)return;
-  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:16px 18px">
     <div class="ab-h">Estimates for ${abEsc(tag?tag.name:'')}</div>
     <div class="ab-form">
       <div class="ab-field"><label>Amount</label><input id="ab-est-amount" type="number" step="0.01" style="width:100px" placeholder="0.00"></div>
@@ -4308,7 +4310,7 @@ async function abShowMilestonesFor(tagId){
   const rows=data||[];
   const total=rows.reduce((s,m)=>s+Number(m.amount||0),0);
   const billed=rows.filter(m=>m.status!=='pending').reduce((s,m)=>s+Number(m.amount||0),0);
-  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:16px 18px">
     <div class="ab-h">Milestones for ${abEsc(tag?tag.name:'')}</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${abMoney(billed)} billed of ${abMoney(total)} total contract value</div>
     <div class="ab-form">
@@ -4379,7 +4381,7 @@ async function abShowJobBudget(tagId){
   const totalActual=rows.reduce((s,r)=>s+r.actual,0);
   const totalForecast=rows.reduce((s,r)=>s+r.forecast,0);
   const totalVariance=totalForecast-totalBudget;
-  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:16px 18px">
     <div class="ab-h">Job Cost Budget — ${abEsc(tag?tag.name:'')}</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">
       Set a budget per Scope, enter real % Physically Complete as work happens (0% = nothing spent yet, full budget still expected). Forecast at Completion = Actual ÷ % Complete once work has started — the standard earned-value formula. More Scope lines, each with an honest % complete, means a more accurate total forecast.
@@ -4440,7 +4442,7 @@ async function abShowPaymentPlanFor(invoiceBillId){
   const{data:plan}=await db.from('payment_plans').select('*,payment_plan_installments(*)').eq('invoice_bill_id',invoiceBillId).maybeSingle();
   const el=document.getElementById('ab-planpanel'); if(!el)return;
   if(!plan){
-    el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+    el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:16px 18px">
       <div class="ab-h">Set Up a Payment Plan — ${abEsc(inv?inv.contacts.name:'')}, ${abMoney(inv?Number(inv.total_amount)-Number(inv.paid_amount):0)} remaining</div>
       <div class="ab-form">
         <div class="ab-field"><label># of Installments</label><input id="ab-pp-count" type="number" min="2" value="3" style="width:70px"></div>
@@ -4452,7 +4454,7 @@ async function abShowPaymentPlanFor(invoiceBillId){
     return;
   }
   const rows=plan.payment_plan_installments||[];
-  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:16px 18px">
+  el.innerHTML=`<div class="ab-section" style="margin-top:18px;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:16px 18px">
     <div class="ab-h">Payment Plan — ${abEsc(inv?inv.contacts.name:'')}</div>
     <table class="ab-table"><tr><th>Due</th><th>Amount</th><th>Status</th></tr>
     ${rows.sort((a,b)=>a.due_date<b.due_date?-1:1).map(r=>`<tr><td>${r.due_date}</td><td>${abMoney(r.amount)}</td><td>${abEsc(r.status)}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="3">No installments</td></tr>'}
@@ -5878,7 +5880,7 @@ function abRenderCustomReport(){
       Build your own view: pick which account types to include, optionally narrow to a date range, and get a live total. This is the same engine the standard reports above run on — just exposed directly.
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-      ${typeLabels.map(([t,label])=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:1px solid rgba(201,168,76,.3);border-radius:6px;cursor:pointer;${cfg.types.includes(t)?'background:rgba(201,168,76,.12)':''}"><input type="checkbox" ${cfg.types.includes(t)?'checked':''} onchange="abCustomReportToggleType('${t}')">${label}</label>`).join('')}
+      ${typeLabels.map(([t,label])=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:5px 10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:6px;cursor:pointer;${cfg.types.includes(t)?'background:rgba(var(--amit-accent-rgb,201,168,76),.12)':''}"><input type="checkbox" ${cfg.types.includes(t)?'checked':''} onchange="abCustomReportToggleType('${t}')">${label}</label>`).join('')}
     </div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;font-size:12px">
       <span>Date range (optional):</span>
@@ -6611,7 +6613,7 @@ function abRenderJournalModal(){
     ${sorted.map(je=>{
       const amount=(je.journal_lines||[]).reduce((s,l)=>s+(Number(l.debit)||0),0);
       const checked=abJournalSelected.has(je.id);
-      return `<tr style="cursor:pointer;${checked?'background:rgba(201,168,76,.12)':''}"
+      return `<tr style="cursor:pointer;${checked?'background:rgba(var(--amit-accent-rgb,201,168,76),.12)':''}"
         onmousedown="abJournalRowMouseDown('${je.id}',event)" onmouseenter="abJournalRowMouseEnter('${je.id}')"
         ondblclick="abJournalDrill('txn','${je.id}','${je.entry_date||''} — ${abEsc((je.memo||'').slice(0,24))}')">
         <td><input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation()" onchange="abJournalCheckboxToggle('${je.id}',this.checked)"></td>
@@ -7243,7 +7245,7 @@ function abRenderPayroll(){
   el.innerHTML=`<div class="ab-h">Add an Employee</div>
     ${abVisualSwitch('payroll','abRenderPayroll')}
     ${!yearAvailable?`<div class="ab-signin-notice" style="text-align:left;background:rgba(220,120,120,.1);border-color:rgba(220,120,120,.4)">No IRS tax table loaded for ${currentYear} yet — add it on the IRS Tax Tables tab before running payroll, or withholding can't be calculated.</div>`:''}
-    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px;background:rgba(201,168,76,.08);border-color:rgba(201,168,76,.5)"><b>This is a self-service tool, not a managed payroll service.</b> AmitBooks calculates federal withholding from the IRS tax tables loaded on the IRS Tax Tables tab and posts it as a real payroll expense — but it is <b>your responsibility</b> to confirm those tables are the current, accurate IRS numbers for the year you're running payroll in, and to confirm every employee's W-4 answers are entered correctly. AmitBooks doesn't file anything, doesn't verify anything against the IRS on your behalf, and doesn't carry that responsibility for you.</div>
+    <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px;background:rgba(var(--amit-accent-rgb,201,168,76),.08);border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)"><b>This is a self-service tool, not a managed payroll service.</b> AmitBooks calculates federal withholding from the IRS tax tables loaded on the IRS Tax Tables tab and posts it as a real payroll expense — but it is <b>your responsibility</b> to confirm those tables are the current, accurate IRS numbers for the year you're running payroll in, and to confirm every employee's W-4 answers are entered correctly. AmitBooks doesn't file anything, doesn't verify anything against the IRS on your behalf, and doesn't carry that responsibility for you.</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:10px">Federal withholding is calculated from the real IRS Percentage Method (Pub 15-T) using each employee's actual Form W-4 answers below — this is not a guess. State withholding is NOT calculated (every state is different); Step 2 "multiple jobs" checkbox isn't handled in this version — leave it off for the standard calculation.</div>
     <div class="ab-form">
       <div class="ab-field"><label>Person</label>
@@ -7938,7 +7940,7 @@ function abRenderWarranties(){
       <div class="ro-kicker">Warranty</div>
       <div class="ro-title">${abEsc(w.description||'')}</div>
       <div class="ro-line">Coverage ends: ${w.coverage_end||'—'}</div>
-      <div class="ro-badge" style="${w.status==='active'?'':'background:rgba(240,232,208,.08);color:var(--muted);border-color:rgba(240,232,208,.2)'}">${abEsc(w.status)}</div>
+      <div class="ro-badge" style="${w.status==='active'?'':'background:rgba(var(--amit-text-rgb,240,232,208),.08);color:var(--muted);border-color:rgba(var(--amit-text-rgb,240,232,208),.2)'}">${abEsc(w.status)}</div>
     </div>`).join('')||'<div class="ab-empty">No warranties tracked yet</div>'}
     </div>`}`;
 }
@@ -8031,9 +8033,9 @@ function abRenderCrm(){
       ${sorted.map(c=>`<tr><td>${c.activity_date||''}</td><td${c.contact_id?` style="cursor:pointer" ondblclick="abOpenContact('${c.contact_id}','${abEsc(c.contacts?c.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(c.contacts?c.contacts.name:'')}</td><td>${abEsc(c.activity_type||'')}</td><td>${abEsc(c.notes||'')}</td></tr>`).join('')||'<tr><td class="ab-empty" colspan="4">No activity logged yet</td></tr>'}
       </table>`;
     })():`
-    <div style="border-left:2px solid rgba(201,168,76,.35);margin-left:10px;padding-left:20px">
+    <div style="border-left:2px solid rgba(var(--amit-accent-rgb,201,168,76),.35);margin-left:10px;padding-left:20px">
     ${abCrmCache.map(c=>`<div style="position:relative;margin-bottom:16px">
-      <div style="position:absolute;left:-27px;top:2px;width:14px;height:14px;border-radius:50%;background:rgba(201,168,76,.25);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:8px">${typeIcon[c.activity_type]||'•'}</div>
+      <div style="position:absolute;left:-27px;top:2px;width:14px;height:14px;border-radius:50%;background:rgba(var(--amit-accent-rgb,201,168,76),.25);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:8px">${typeIcon[c.activity_type]||'•'}</div>
       <div style="font-size:11px;color:var(--muted)">${c.activity_date||''} — <span${c.contact_id?` style="cursor:pointer;text-decoration:underline" ondblclick="abOpenContact('${c.contact_id}','${abEsc(c.contacts?c.contacts.name:'')}')" title="Double-click to open this contact"`:''}>${abEsc(c.contacts?c.contacts.name:'')}</span></div>
       <div style="font-size:13px;color:var(--text2)">${abEsc(c.notes||abEsc(c.activity_type))}</div>
     </div>`).join('')||'<div class="ab-empty">No activity logged yet</div>'}
@@ -8169,7 +8171,7 @@ function abRenderQbImportTab(){
     <div class="ab-form">
       <div class="ab-field" style="flex:1"><label>CSV file</label><input type="file" id="ab-qb-file" accept=".csv,.txt" onchange="abQbFileChosen(event)"></div>
     </div>
-    <textarea id="ab-qb-paste" placeholder="…or paste the raw CSV text here" style="width:100%;min-height:110px;margin-top:8px;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.25);border-radius:6px;color:inherit;padding:10px;font-family:monospace;font-size:12px"></textarea>
+    <textarea id="ab-qb-paste" placeholder="…or paste the raw CSV text here" style="width:100%;min-height:110px;margin-top:8px;background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:6px;color:inherit;padding:10px;font-family:monospace;font-size:12px"></textarea>
     <div style="margin-top:10px">
       <button class="ab-btn" onclick="abQbParse()">Parse &amp; Review</button>
     </div>
@@ -8317,7 +8319,7 @@ function abRenderQbMapping(){
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Review every account and every name below before importing. Each one either matches something already in this book (pre-selected) or is proposed as new, with a type/role you can change. Nothing is written until you click Commit at the bottom.</div>
 
     <div class="ab-h" style="font-size:14px">Accounts (${abQbAccountRows.length})</div>
-    <div id="ab-qb-acct-scroll" style="max-height:340px;overflow-y:auto;border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-bottom:20px">
+    <div id="ab-qb-acct-scroll" style="max-height:340px;overflow-y:auto;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px;margin-bottom:20px">
       <table class="ab-table"><thead><tr><th>Import name</th><th>Used</th><th>Action</th><th>Type</th></tr></thead><tbody>
       ${abQbAccountRows.map((r,i)=>`<tr>
         <td>${abEsc(r.name)}</td><td>${r.count}</td>
@@ -8333,7 +8335,7 @@ function abRenderQbMapping(){
     </div>
 
     <div class="ab-h" style="font-size:14px">Vendors / Customers / Jobs (${abQbNameRows.length})</div>
-    <div id="ab-qb-name-scroll" style="max-height:340px;overflow-y:auto;border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-bottom:16px">
+    <div id="ab-qb-name-scroll" style="max-height:340px;overflow-y:auto;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px;margin-bottom:16px">
       <table class="ab-table"><thead><tr><th>Import name</th><th>Used</th><th>Action</th><th>Role (if new)</th></tr></thead><tbody>
       ${abQbNameRows.map((r,i)=>`<tr>
         <td>${abEsc(r.name)}</td><td>${r.count}</td>
@@ -8516,14 +8518,14 @@ function abRenderAuditLog(errMsg){
       <div class="ab-card"><div class="n">${Object.keys(byTable).length}</div><div class="l">Table(s) affected${Object.keys(byTable).length?' — '+Object.entries(byTable).map(([t,c])=>`${abEsc(t)} (${c})`).join(', '):''}</div></div>
     </div>
     <div style="margin-bottom:12px">
-      <input placeholder="Search everything ever deleted — a vendor name, a job, an amount…" value="${abEsc(abAuditSearchText)}" oninput="abAuditSetSearch(this.value)" style="width:100%;max-width:420px;padding:8px 10px;border-radius:6px;border:1px solid rgba(240,232,208,.25);background:rgba(240,232,208,.06);color:var(--text2)">
+      <input placeholder="Search everything ever deleted — a vendor name, a job, an amount…" value="${abEsc(abAuditSearchText)}" oninput="abAuditSetSearch(this.value)" style="width:100%;max-width:420px;padding:8px 10px;border-radius:6px;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.25);background:rgba(var(--amit-text-rgb,240,232,208),.06);color:var(--text2)">
     </div>
     ${abSmartSavedViewsMenu(tk)}${abSmartStatusBar(tk,{when:'When',table:'Table',action:'Action',summary:'What'})}
     <table class="ab-table" style="font-size:12px"><tr>${abSmartTh(tk,'when','When')}${abSmartTh(tk,'table','Table')}${abSmartTh(tk,'action','Action')}${abSmartTh(tk,'summary','What')}<th></th></tr>
     ${sorted.map(a=>{
       const open=abAuditLogExpanded.has(a.id);
       const rows=[`<tr style="cursor:pointer" ondblclick="abToggleAuditRow('${a.id}')" title="Double-click to ${open?'collapse':'expand'}"><td>${(a.created_at||'').replace('T',' ').slice(0,19)}</td><td>${abEsc(a.table_name)}</td><td>${abEsc(a.action)}</td><td>${abEsc(abSummarizeAuditEntry(a))}</td><td>${open?'▾':'▸'}</td></tr>`];
-      if(open) rows.push(`<tr><td colspan="5" style="background:rgba(255,255,255,.02)"><pre style="white-space:pre-wrap;font-size:11px;margin:8px 0;color:var(--muted)">${abEsc(JSON.stringify(a.old_value,null,2))}</pre></td></tr>`);
+      if(open) rows.push(`<tr><td colspan="5" style="background:rgba(var(--amit-overlay-rgb,255,255,255),.02)"><pre style="white-space:pre-wrap;font-size:11px;margin:8px 0;color:var(--muted)">${abEsc(JSON.stringify(a.old_value,null,2))}</pre></td></tr>`);
       return rows.join('');
     }).join('')||`<tr><td class="ab-empty" colspan="5">${abAuditSearchText?'Nothing deleted matches that search':'Nothing has been deleted yet — this log fills in automatically the moment something is'}</td></tr>`}
     </table>`;
