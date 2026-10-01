@@ -4,8 +4,14 @@
 <meta charset="UTF-8">
 <title>Computer Health</title>
 <link rel="icon" type="image/png" href="../amit_icon.png">
+<!-- Shared per-login Appearance (theme). Path is ../ (not ../../) because the
+     live GitHub Pages copy sits at ComputerHealth/ComputerHealth_Dashboard.html,
+     one level below the root - same depth the amit_icon.png link above assumes.
+     When served by the local bridge at localhost:8710/ this 404s harmlessly and
+     the page stays on its own classic colors (every var() below has a fallback). -->
+<script src="../amit_appearance.js?v=1.06"></script>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: var(--amit-color-scheme, dark); }
   /* App-shell layout, not a page that grows/shrinks per tab - Ryan's
      direct request 2026-07-15: the panel should always fill the available
      screen height consistently, whichever tab is active, with only the
@@ -13,19 +19,19 @@
      bar/nav stay fixed at their natural height; main is the one flexible
      region that takes up the rest of the viewport and scrolls internally. */
   html, body { height:100%; }
-  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:#12141a; color:#e8e8ec; margin:0; padding:0; display:flex; flex-direction:column; overflow:hidden; }
-  header { background:#1c1f28; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2a2e3a; }
-  header h1 { font-size:20px; margin:0; color:#d4af37; }
-  header .device { font-size:13px; color:#9aa0ab; }
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; background:var(--amit-bg,#12141a); color:var(--amit-text,#e8e8ec); margin:0; padding:0; display:flex; flex-direction:column; overflow:hidden; }
+  header { background:var(--amit-surface,#1c1f28); padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--amit-row-sep,#2a2e3a); }
+  header h1 { font-size:20px; margin:0; color:var(--amit-accent,#d4af37); }
+  header .device { font-size:13px; color:var(--amit-muted,#9aa0ab); }
   /* Visible "something is actively being captured right now" cue - Ryan's
      direct request 2026-07-15, once App Behavior started sampling
      silently in the background every second instead of loudly every 10. */
   @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
-  #behaviorSpinner { display:inline-block; font-size:20px; color:#c9a84c; animation:spin 1.2s linear infinite; }
-  #loginBar { padding:10px 24px; background:#1c1f28; border-bottom:1px solid #2a2e3a; display:flex; gap:10px; align-items:center; }
-  #loginBar input { padding:6px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; }
-  #loginBar button, .btn { padding:6px 14px; border-radius:6px; border:none; background:#d4af37; color:#12141a; font-weight:600; cursor:pointer; }
-  .btn.secondary { background:#3a3f4c; color:#e8e8ec; }
+  #behaviorSpinner { display:inline-block; font-size:20px; color:var(--amit-accent,#c9a84c); animation:spin 1.2s linear infinite; }
+  #loginBar { padding:10px 24px; background:var(--amit-surface,#1c1f28); border-bottom:1px solid var(--amit-row-sep,#2a2e3a); display:flex; gap:10px; align-items:center; }
+  #loginBar input { padding:6px 10px; border-radius:6px; border:1px solid var(--amit-input-border,#3a3f4c); background:var(--amit-input-bg,#0f1116); color:var(--amit-input-text,#e8e8ec); }
+  #loginBar button, .btn { padding:6px 14px; border-radius:6px; border:none; background:var(--amit-accent,#d4af37); color:var(--amit-bg,#12141a); font-weight:600; cursor:pointer; }
+  .btn.secondary { background:var(--amit-surface-hover,#3a3f4c); color:var(--amit-text,#e8e8ec); }
   .btn.danger { background:#b23a3a; color:#fff; }
   /* Real browser-tab look, per Ryan's reference layout (2026-07-15): tabs
      sit on top of a bordered panel, and the active tab visually merges
@@ -51,13 +57,13 @@
      shared bar-wide line) - a background tab's top border is what makes
      it read as "boxed off," which a shared line couldn't do cleanly
      once the active tab stopped participating in it. */
-  nav { display:flex; align-items:flex-end; gap:6px; margin:0 24px; padding:0; background:#12141a; }
+  nav { display:flex; align-items:flex-end; gap:6px; margin:0 24px; padding:0; background:var(--amit-bg,#12141a); }
   /* Switched from margin tricks to direct padding + font-size for the
      height difference - Ryan's direct request 2026-07-15 after the
      margin-based approach visibly failed twice. Padding controls box
      height unambiguously in normal flow; margin interacting with
      align-items:flex-end was clearly not landing the way it should have. */
-  nav button { padding:9px 22px; margin-top:10px; border:1px solid #3a3f4c; background:#14161d; color:#9aa0ab; border-radius:10px 10px 0 0; cursor:pointer; font-size:13px; }
+  nav button { padding:9px 22px; margin-top:10px; border:1px solid var(--amit-card-border,#3a3f4c); background:var(--amit-bg,#14161d); color:var(--amit-muted,#9aa0ab); border-radius:10px 10px 0 0; cursor:pointer; font-size:13px; }
   /* Two separate jobs, two separate values - conflating them made the
      active tab read as SHORTER instead of taller (caught live 2026-07-15).
      margin-top is what controls height/prominence: -6px here vs. +8px on
@@ -66,7 +72,7 @@
      a small -3px purely to hide the seam against main's border underneath
      it - that number is about covering a hairline, not about height, and
      was wrongly doing double duty before. */
-  nav button.active { padding:12px 26px; margin-top:-2px; margin-bottom:-3px; border-bottom:none; background:#1c1f28; color:#d4af37; font-weight:600; font-size:14px; position:relative; z-index:2; }
+  nav button.active { padding:12px 26px; margin-top:-2px; margin-bottom:-3px; border-bottom:none; background:var(--amit-surface,#1c1f28); color:var(--amit-accent,#d4af37); font-weight:600; font-size:14px; position:relative; z-index:2; }
   /* flex:1 fills whatever height is left after header/login/device bar/nav;
      min-height:0 is required here or a flex child silently refuses to
      shrink below its content size and overflow-y just never kicks in -
@@ -82,80 +88,80 @@
   /* Top-left square, not rounded - the panel's own left edge sits
      directly under the leftmost tab always, since main never moves
      regardless of which tab is active (Ryan, 2026-07-15). */
-  main { flex:1; min-height:0; overflow-y:auto; padding:28px 32px; margin:0 24px 24px; background:#1c1f28; border:1px solid #3a3f4c; border-radius:0 12px 12px 12px; }
+  main { flex:1; min-height:0; overflow-y:auto; padding:28px 32px; margin:0 24px 24px; background:var(--amit-surface,#1c1f28); border:1px solid var(--amit-card-border,#3a3f4c); border-radius:0 12px 12px 12px; }
   .tab { display:none; }
   .tab.active { display:block; }
   .card-row { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
-  .card { background:#262a36; border-radius:10px; padding:16px 20px; min-width:180px; flex:1; border-left:4px solid #3a3f4c; }
+  .card { background:var(--amit-surface-raised,#262a36); border-radius:10px; padding:16px 20px; min-width:180px; flex:1; border-left:4px solid var(--amit-card-border,#3a3f4c); }
   .card.good { border-left-color:#4caf6d; }
   .card.warn { border-left-color:#e0a72e; }
   .card.bad { border-left-color:#d05555; }
-  .card .label { font-size:12px; color:#9aa0ab; text-transform:uppercase; letter-spacing:0.5px; }
+  .card .label { font-size:12px; color:var(--amit-muted,#9aa0ab); text-transform:uppercase; letter-spacing:0.5px; }
   .card .value { font-size:26px; font-weight:700; margin:4px 0; }
-  .card .verdict { font-size:13px; color:#c7cad1; }
-  .getting-started { background:#262a36; border:1px solid #d4af37; border-radius:12px; padding:22px 26px; margin-bottom:22px; }
-  .getting-started h3 { margin:0 0 8px; color:#d4af37; font-size:17px; }
-  .getting-started p { margin:0 0 14px; color:#c7cad1; font-size:14px; line-height:1.5; }
+  .card .verdict { font-size:13px; color:var(--amit-text-soft,#c7cad1); }
+  .getting-started { background:var(--amit-surface-raised,#262a36); border:1px solid var(--amit-accent,#d4af37); border-radius:12px; padding:22px 26px; margin-bottom:22px; }
+  .getting-started h3 { margin:0 0 8px; color:var(--amit-accent,#d4af37); font-size:17px; }
+  .getting-started p { margin:0 0 14px; color:var(--amit-text-soft,#c7cad1); font-size:14px; line-height:1.5; }
   .getting-started .btn { font-size:14px; padding:9px 20px; }
-  .section-title { font-size:15px; color:#d4af37; margin:18px 0 8px; }
-  .ch-gauge-panel { background:#181b23; border:1px solid #2a2e3a; border-radius:12px; padding:18px 20px 14px; margin-bottom:22px; }
+  .section-title { font-size:15px; color:var(--amit-accent,#d4af37); margin:18px 0 8px; }
+  .ch-gauge-panel { background:var(--amit-surface,#181b23); border:1px solid var(--amit-row-sep,#2a2e3a); border-radius:12px; padding:18px 20px 14px; margin-bottom:22px; }
   /* Ryan's direct request 2026-07-18: sub-tabs on the LEFT for the Charts
      tab, not on top like the main nav - a distinct sidebar-style
      navigation so it reads as "a tool within a tab," not another row of
      top tabs competing with the main nav bar. */
   .ch-charts-layout { display:flex; gap:24px; align-items:flex-start; }
   .ch-charts-sidebar { flex:none; width:150px; display:flex; flex-direction:column; gap:6px; }
-  .ch-charts-subtab { padding:9px 14px; border-radius:8px; font-size:13px; color:#9aa0ab; cursor:pointer; border:1px solid transparent; }
-  .ch-charts-subtab:hover { background:#1c1f28; }
-  .ch-charts-subtab.active { background:#262a36; color:#d4af37; border-color:#3a3f4c; font-weight:600; }
+  .ch-charts-subtab { padding:9px 14px; border-radius:8px; font-size:13px; color:var(--amit-muted,#9aa0ab); cursor:pointer; border:1px solid transparent; }
+  .ch-charts-subtab:hover { background:var(--amit-surface,#1c1f28); }
+  .ch-charts-subtab.active { background:var(--amit-surface-raised,#262a36); color:var(--amit-accent,#d4af37); border-color:var(--amit-card-border,#3a3f4c); font-weight:600; }
   .ch-charts-divider { height:1px; background:#2a2e3a; margin:10px 0; }
   .ch-charts-scope { font-size:12.5px; text-align:left; }
-  .ch-charts-scope.active { background:#d4af37; color:#12141a; }
+  .ch-charts-scope.active { background:var(--amit-accent,#d4af37); color:var(--amit-bg,#12141a); }
   .ch-charts-main { flex:1; min-width:0; }
-  .ch-charts-main select { width:100%; max-width:420px; padding:8px 10px; border-radius:8px; background:#181b23; border:1px solid #3a3f4c; color:#e8e8ec; font-size:13px; }
-  #chChartCanvas { width:100%; max-width:900px; height:auto; background:#181b23; border:1px solid #2a2e3a; border-radius:12px; }
-  .ch-level-section { padding:14px 0; border-top:1px solid #22252e; transition: padding .2s ease; }
+  .ch-charts-main select { width:100%; max-width:420px; padding:8px 10px; border-radius:8px; background:var(--amit-input-bg,#181b23); border:1px solid var(--amit-input-border,#3a3f4c); color:var(--amit-input-text,#e8e8ec); font-size:13px; }
+  #chChartCanvas { width:100%; max-width:900px; height:auto; background:var(--amit-surface,#181b23); border:1px solid var(--amit-row-sep,#2a2e3a); border-radius:12px; }
+  .ch-level-section { padding:14px 0; border-top:1px solid var(--amit-row-sep,#22252e); transition: padding .2s ease; }
   .ch-level-section:first-child { border-top:none; padding-top:0; }
   .ch-level-section.ch-collapsed { padding:8px 0; opacity:0.72; }
   .ch-level-section.ch-collapsed .ch-level-title { font-size:11px; }
   .ch-level-section.ch-collapsed .ch-gauge-grid { gap:10px; }
   .ch-level-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .ch-level-title { font-size:13px; font-weight:700; color:#d4af37; text-transform:uppercase; letter-spacing:.05em; }
+  .ch-level-title { font-size:13px; font-weight:700; color:var(--amit-accent,#d4af37); text-transform:uppercase; letter-spacing:.05em; }
   .ch-back-btn { font-size:11.5px; padding:5px 12px; }
-  .ch-scale-note { font-size:11.5px; color:#8a8f99; margin-bottom:12px; font-style:italic; }
-  .ch-legend { display:flex; flex-wrap:wrap; gap:18px; margin-bottom:14px; font-size:11px; color:#9aa0ab; }
+  .ch-scale-note { font-size:11.5px; color:var(--amit-muted,#8a8f99); margin-bottom:12px; font-style:italic; }
+  .ch-legend { display:flex; flex-wrap:wrap; gap:18px; margin-bottom:14px; font-size:11px; color:var(--amit-muted,#9aa0ab); }
   .ch-legend span { display:inline-flex; align-items:center; gap:6px; }
   .ch-legend i { width:14px; height:4px; display:inline-block; border-radius:2px; }
   .ch-gauge-grid { display:flex; flex-wrap:wrap; gap:22px; justify-content:flex-start; align-items:flex-start; }
   .ch-gauge-cell { display:flex; flex-direction:column; align-items:center; cursor:pointer; width:150px; }
   .ch-gauge-cell canvas { display:block; }
-  .ch-gauge-cell .ch-glabel { margin-top:6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#c7cad1; text-align:center; }
-  .ch-gauge-cell .ch-gsub { font-size:11px; color:#8a8f99; text-align:center; }
+  .ch-gauge-cell .ch-glabel { margin-top:6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--amit-text-soft,#c7cad1); text-align:center; }
+  .ch-gauge-cell .ch-gsub { font-size:11px; color:var(--amit-muted,#8a8f99); text-align:center; }
   .ch-gauge-cell .ch-gband { font-size:10px; color:#7a6f57; text-align:center; margin-top:1px; font-family:ui-monospace, Consolas, monospace; }
-  .ch-gauge-cell:hover .ch-glabel { color:#d4af37; }
-  .ch-gauge-meta { text-align:center; font-size:12px; color:#8a8f99; margin-top:12px; }
-  .ch-gauge-meta b { color:#c7cad1; }
+  .ch-gauge-cell:hover .ch-glabel { color:var(--amit-accent,#d4af37); }
+  .ch-gauge-meta { text-align:center; font-size:12px; color:var(--amit-muted,#8a8f99); margin-top:12px; }
+  .ch-gauge-meta b { color:var(--amit-text-soft,#c7cad1); }
   .ch-sensor-table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
-  .ch-sensor-table th { text-align:left; color:#9aa0ab; font-weight:600; padding:6px 10px; border-bottom:1px solid #2a2e3a; }
-  .ch-sensor-table td { padding:6px 10px; border-bottom:1px dashed #22252e; color:#c7cad1; }
-  .ch-sensor-table tr:hover td { background:#1e212b; }
+  .ch-sensor-table th { text-align:left; color:var(--amit-muted,#9aa0ab); font-weight:600; padding:6px 10px; border-bottom:1px solid var(--amit-row-sep,#2a2e3a); }
+  .ch-sensor-table td { padding:6px 10px; border-bottom:1px dashed var(--amit-row-sep,#22252e); color:var(--amit-text-soft,#c7cad1); }
+  .ch-sensor-table tr:hover td { background:var(--amit-surface-hover,#1e212b); }
   .ch-grade-A { color:#4caf6d; } .ch-grade-B { color:#8bc34a; } .ch-grade-C { color:#e0a72e; } .ch-grade-D { color:#e0803f; } .ch-grade-F { color:#d05555; }
   .controls { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
-  .controls input { padding:8px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; }
+  .controls input { padding:8px 10px; border-radius:6px; border:1px solid var(--amit-input-border,#3a3f4c); background:var(--amit-input-bg,#0f1116); color:var(--amit-input-text,#e8e8ec); }
   .log-box { background:#0f1116; border-radius:8px; padding:12px 16px; font-family:Consolas, monospace; font-size:12px; color:#9be89b; max-height:340px; overflow-y:auto; white-space:pre-wrap; }
-  .finding { background:#262a36; border-radius:8px; padding:12px 16px; margin-bottom:8px; border-left:4px solid #3a3f4c; }
+  .finding { background:var(--amit-surface-raised,#262a36); border-radius:8px; padding:12px 16px; margin-bottom:8px; border-left:4px solid var(--amit-card-border,#3a3f4c); }
   .finding.flag { border-left-color:#e0a72e; }
-  .finding .meta { font-size:11px; color:#8a8f99; margin-top:4px; }
-  #statusMsg { font-size:13px; color:#9aa0ab; margin-left:auto; }
+  .finding .meta { font-size:11px; color:var(--amit-muted,#8a8f99); margin-top:4px; }
+  #statusMsg { font-size:13px; color:var(--amit-muted,#9aa0ab); margin-left:auto; }
   .hidden { display:none !important; }
-  .history-item { background:#262a36; border-radius:8px; padding:12px 16px; margin-bottom:8px; }
-  .history-item .when { font-size:11px; color:#8a8f99; }
-  .history-table { width:100%; border-collapse:collapse; background:#262a36; border-radius:8px; overflow:hidden }
-  .history-table th { text-align:left; padding:10px 14px; background:#12141a; color:#8a8f99; font-size:12px; text-transform:uppercase; cursor:pointer; user-select:none; white-space:nowrap }
-  .history-table th:hover { color:#c9a84c }
+  .history-item { background:var(--amit-surface-raised,#262a36); border-radius:8px; padding:12px 16px; margin-bottom:8px; }
+  .history-item .when { font-size:11px; color:var(--amit-muted,#8a8f99); }
+  .history-table { width:100%; border-collapse:collapse; background:var(--amit-surface-raised,#262a36); border-radius:8px; overflow:hidden }
+  .history-table th { text-align:left; padding:10px 14px; background:var(--amit-bg,#12141a); color:var(--amit-muted,#8a8f99); font-size:12px; text-transform:uppercase; cursor:pointer; user-select:none; white-space:nowrap }
+  .history-table th:hover { color:var(--amit-accent,#c9a84c) }
   .history-table th .sort-arrow { opacity:0.5; margin-left:4px }
-  .history-table td { padding:10px 14px; border-top:1px solid #2a2d38; font-size:13px; vertical-align:top }
-  .history-table tr:hover td { background:#22252f }
+  .history-table td { padding:10px 14px; border-top:1px solid var(--amit-row-sep,#2a2d38); font-size:13px; vertical-align:top }
+  .history-table tr:hover td { background:var(--amit-surface-hover,#22252f) }
   /* Installed Programs table - Ryan's direct request 2026-07-19: the
      shared .history-table hover/border colors above are too close in
      value to the row background to actually see (#22252f hover vs
@@ -168,7 +174,7 @@
      2026-07-19. */
   /* Real bug found 2026-07-19 (Ryan, live testing - confirmed by
      reproducing it): a completely separate, unscoped rule elsewhere in
-     this stylesheet (plain `th, td { border-bottom:1px solid #2a2e3a }`,
+     this stylesheet (plain `th, td { border-bottom:1px solid var(--amit-row-sep,#2a2e3a) }`,
      meant for a different simple table) applies to every <td> on the
      page, including these. With border-collapse:collapse, that row's
      border-BOTTOM and this row's border-TOP merge at the same shared
@@ -177,7 +183,7 @@
      border-bottom:none removes the competing edge entirely so there's
      nothing left to lose that conflict to. */
   .ip-table td { border-bottom:none }
-  .ip-table tbody tr:not(:first-child) td { border-top:1px solid #12141a }
+  .ip-table tbody tr:not(:first-child) td { border-top:1px solid var(--amit-bg,#12141a) }
   /* Real time-gap boundary within a date group - Ryan's direct request
      2026-07-19: items installed close together (~10 min) are very
      likely one real install event (an app plus its runtime
@@ -186,60 +192,60 @@
      line above it (must include tbody to tie its specificity and win by
      appearing later in the stylesheet), just border-style:double
      instead of solid so it visually reads as a stronger break. */
-  .ip-table tbody tr.cluster-break td { border-top:5px double #12141a }
+  .ip-table tbody tr.cluster-break td { border-top:5px double var(--amit-bg,#12141a) }
   .ip-table tr:hover td { background:#37404f }
   .ip-table tr { cursor:zoom-in }
-  .history-table .view-link { color:#c9a84c; cursor:pointer; white-space:nowrap }
+  .history-table .view-link { color:var(--amit-accent,#c9a84c); cursor:pointer; white-space:nowrap }
   .history-table .view-link:hover { text-decoration:underline }
   .history-table .delete-icon { cursor:pointer; opacity:0.6; font-size:14px }
   .history-table .delete-icon:hover { opacity:1 }
   table { width:100%; border-collapse:collapse; }
-  th, td { text-align:left; padding:8px 10px; font-size:13px; border-bottom:1px solid #2a2e3a; }
-  th { color:#9aa0ab; font-weight:600; }
+  th, td { text-align:left; padding:8px 10px; font-size:13px; border-bottom:1px solid var(--amit-row-sep,#2a2e3a); }
+  th { color:var(--amit-muted,#9aa0ab); font-weight:600; }
   .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000; }
-  .overlay-card { background:#1c1f28; border-radius:14px; padding:28px 32px; max-width:480px; border:1px solid #3a3f4c; }
-  .overlay-card h2 { color:#d4af37; margin-top:0; font-size:19px; }
-  .overlay-card p { color:#c7cad1; font-size:14px; line-height:1.5; }
+  .overlay-card { background:var(--amit-surface,#1c1f28); border-radius:14px; padding:28px 32px; max-width:480px; border:1px solid var(--amit-card-border,#3a3f4c); }
+  .overlay-card h2 { color:var(--amit-accent,#d4af37); margin-top:0; font-size:19px; }
+  .overlay-card p { color:var(--amit-text-soft,#c7cad1); font-size:14px; line-height:1.5; }
   .overlay-card .actions { display:flex; gap:10px; margin-top:18px; }
   .code-box { background:#0f1116; border-radius:8px; padding:12px 16px; font-family:Consolas, monospace; font-size:12px; color:#9be89b; margin:12px 0; word-break:break-all; }
   #trackerToggle { padding:6px 14px; border-radius:6px; border:none; font-weight:600; cursor:pointer; }
   #trackerToggle.on { background:#4caf6d; color:#0f1116; }
-  #trackerToggle.off { background:#3a3f4c; color:#e8e8ec; }
+  #trackerToggle.off { background:var(--amit-surface-hover,#3a3f4c); color:var(--amit-text,#e8e8ec); }
   #chDemoBtn { padding:6px 14px; border-radius:6px; border:none; font-weight:600; cursor:pointer; font-size:12px; letter-spacing:0.05em; }
-  #chDemoBtn.on { background:#d4af37; color:#12141a; }
-  #chDemoBtn.off { background:#3a3f4c; color:#8a8f99; }
-  .walkthrough-step { background:#12141a; border-radius:8px; padding:10px 14px; margin:10px 0; border-left:3px solid #d4af37; }
-  .walkthrough-step strong { color:#e8e8ec; font-size:13px; }
-  .walkthrough-step p { font-size:13px; color:#9aa0ab; margin:6px 0 0; }
-  .walkthrough-img { max-width:100%; border-radius:6px; margin-top:8px; border:1px solid #3a3f4c; }
-  #deviceBar { padding:10px 24px; background:#181b23; border-bottom:1px solid #2a2e3a; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  #deviceBar select { padding:6px 10px; border-radius:6px; border:1px solid #3a3f4c; background:#0f1116; color:#e8e8ec; max-width:260px; }
+  #chDemoBtn.on { background:var(--amit-accent,#d4af37); color:var(--amit-bg,#12141a); }
+  #chDemoBtn.off { background:var(--amit-surface-hover,#3a3f4c); color:var(--amit-muted,#8a8f99); }
+  .walkthrough-step { background:var(--amit-bg,#12141a); border-radius:8px; padding:10px 14px; margin:10px 0; border-left:3px solid var(--amit-accent,#d4af37); }
+  .walkthrough-step strong { color:var(--amit-text,#e8e8ec); font-size:13px; }
+  .walkthrough-step p { font-size:13px; color:var(--amit-muted,#9aa0ab); margin:6px 0 0; }
+  .walkthrough-img { max-width:100%; border-radius:6px; margin-top:8px; border:1px solid var(--amit-card-border,#3a3f4c); }
+  #deviceBar { padding:10px 24px; background:var(--amit-surface,#181b23); border-bottom:1px solid var(--amit-row-sep,#2a2e3a); display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  #deviceBar select { padding:6px 10px; border-radius:6px; border:1px solid var(--amit-input-border,#3a3f4c); background:var(--amit-input-bg,#0f1116); color:var(--amit-input-text,#e8e8ec); max-width:260px; }
   .device-badge { font-size:11px; padding:3px 9px; border-radius:20px; font-weight:600; }
   .device-badge.current { background:#4caf6d; color:#0f1116; }
-  .device-badge.other { background:#3a3f4c; color:#c7cad1; }
+  .device-badge.other { background:var(--amit-surface-hover,#3a3f4c); color:var(--amit-text-soft,#c7cad1); }
   .viewing-other-banner { background:#2a2410; border:1px solid #e0a72e; border-radius:8px; padding:10px 16px; margin-bottom:16px; font-size:13px; color:#e0c477; }
   .help-btn { background:rgba(220,50,75,.12); border:1px solid rgba(220,50,75,.6); border-radius:50%; width:26px; height:26px; font-size:13px; font-weight:700; cursor:pointer; color:#e03358; display:inline-flex; align-items:center; justify-content:center; padding:0; transition:all .2s; flex-shrink:0; line-height:1; }
   .help-btn:hover { background:rgba(220,50,75,.25); border-color:rgba(220,50,75,.95); color:#f04468; }
   .feature-explainer { margin-top:16px; }
-  .feature-explainer .feature-card { background:#12141a; border:1px solid #3a3f4c; border-radius:8px; margin-bottom:8px; overflow:hidden; }
-  .feature-explainer .feature-head { padding:12px 16px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; color:#e8e8ec; }
-  .feature-explainer .feature-head:hover { background:#181b23; }
-  .feature-explainer .feature-body { padding:0 16px; max-height:0; overflow:hidden; transition:max-height .2s ease, padding .2s ease; font-size:13px; color:#9aa0ab; line-height:1.5; }
+  .feature-explainer .feature-card { background:var(--amit-bg,#12141a); border:1px solid var(--amit-card-border,#3a3f4c); border-radius:8px; margin-bottom:8px; overflow:hidden; }
+  .feature-explainer .feature-head { padding:12px 16px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; font-size:14px; font-weight:600; color:var(--amit-text,#e8e8ec); }
+  .feature-explainer .feature-head:hover { background:var(--amit-surface,#181b23); }
+  .feature-explainer .feature-body { padding:0 16px; max-height:0; overflow:hidden; transition:max-height .2s ease, padding .2s ease; font-size:13px; color:var(--amit-muted,#9aa0ab); line-height:1.5; }
   .feature-explainer .feature-card.open .feature-body { max-height:200px; padding:0 16px 14px; }
-  .feature-explainer .feature-head .arrow { transition:transform .2s; color:#d4af37; }
+  .feature-explainer .feature-head .arrow { transition:transform .2s; color:var(--amit-accent,#d4af37); }
   .feature-explainer .feature-card.open .arrow { transform:rotate(90deg); }
   .status-badge { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; padding:2px 8px; border-radius:10px; margin-left:10px; }
   .status-badge.now { background:rgba(76,175,109,.15); color:#4caf6d; border:1px solid rgba(76,175,109,.4); }
-  .status-badge.later { background:rgba(154,160,171,.12); color:#9aa0ab; border:1px solid rgba(154,160,171,.3); }
-  .help-tab-nav { display:flex; gap:4px; margin:14px 0 16px; border-bottom:1px solid #3a3f4c; flex-wrap:wrap; }
-  .help-tab-btn { background:none; border:none; color:#9aa0ab; padding:8px 14px; cursor:pointer; font-size:13px; font-weight:600; border-bottom:2px solid transparent; }
-  .help-tab-btn.active { color:#d4af37; border-bottom-color:#d4af37; }
-  .help-tab-btn:hover { color:#e8e8ec; }
+  .status-badge.later { background:rgba(154,160,171,.12); color:var(--amit-muted,#9aa0ab); border:1px solid rgba(154,160,171,.3); }
+  .help-tab-nav { display:flex; gap:4px; margin:14px 0 16px; border-bottom:1px solid var(--amit-card-border,#3a3f4c); flex-wrap:wrap; }
+  .help-tab-btn { background:none; border:none; color:var(--amit-muted,#9aa0ab); padding:8px 14px; cursor:pointer; font-size:13px; font-weight:600; border-bottom:2px solid transparent; }
+  .help-tab-btn.active { color:var(--amit-accent,#d4af37); border-bottom-color:var(--amit-accent,#d4af37); }
+  .help-tab-btn:hover { color:var(--amit-text,#e8e8ec); }
   .help-tab-pane { display:none; }
   .help-tab-pane.active { display:block; }
   .tier-table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
-  .tier-table th { text-align:left; padding:8px 10px; color:#d4af37; border-bottom:1px solid #3a3f4c; }
-  .tier-table td { padding:8px 10px; border-bottom:1px solid #22252e; color:#c7cad1; }
+  .tier-table th { text-align:left; padding:8px 10px; color:var(--amit-accent,#d4af37); border-bottom:1px solid var(--amit-card-border,#3a3f4c); }
+  .tier-table td { padding:8px 10px; border-bottom:1px solid var(--amit-row-sep,#22252e); color:var(--amit-text-soft,#c7cad1); }
   .tier-table td.yes { color:#4caf6d; font-weight:700; text-align:center; }
   .tier-table td.no { color:#6a6f79; text-align:center; }
   /* Bottom-of-tab Current/Future buttons - Ryan's direct request
@@ -247,30 +253,30 @@
      actually captures right now vs. what's sitting captured-but-unused or
      genuinely not built yet, so nothing gets silently forgotten the way
      the five unused Diagnostics signals were before tonight. */
-  .capture-info-row { display:flex; gap:10px; margin-top:24px; padding-top:16px; border-top:1px solid #2a2e3a; }
+  .capture-info-row { display:flex; gap:10px; margin-top:24px; padding-top:16px; border-top:1px solid var(--amit-row-sep,#2a2e3a); }
   .hw-device-nav { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0 18px; }
-  .hw-device-btn { background:#262a36; border:1px solid #3a3f4c; color:#c7cad1; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
-  .hw-device-btn.active { background:#d4af37; color:#12141a; border-color:#d4af37; }
-  .hw-device-btn:hover:not(.active) { border-color:#d4af37; color:#e8e8ec; }
-  .hw-history-trail { font-size:11px; color:#7a7f89; margin-top:2px; }
-  .hw-spreadsheet-wrap { overflow-x:auto; border:1px solid #3a3f4c; border-radius:8px; }
+  .hw-device-btn { background:var(--amit-surface-raised,#262a36); border:1px solid var(--amit-card-border,#3a3f4c); color:var(--amit-text-soft,#c7cad1); padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+  .hw-device-btn.active { background:var(--amit-accent,#d4af37); color:var(--amit-bg,#12141a); border-color:var(--amit-accent,#d4af37); }
+  .hw-device-btn:hover:not(.active) { border-color:var(--amit-accent,#d4af37); color:var(--amit-text,#e8e8ec); }
+  .hw-history-trail { font-size:11px; color:var(--amit-dim,#7a7f89); margin-top:2px; }
+  .hw-spreadsheet-wrap { overflow-x:auto; border:1px solid var(--amit-card-border,#3a3f4c); border-radius:8px; }
   .hw-spreadsheet { border-collapse:collapse; font-size:12px; white-space:nowrap; }
-  .hw-spreadsheet th, .hw-spreadsheet td { border:1px solid #22252e; padding:6px 8px; text-align:center; }
-  .hw-spreadsheet th.hw-time-col, .hw-spreadsheet td.hw-time-col { text-align:left; background:#181b23; position:sticky; left:0; z-index:1; }
-  .hw-spreadsheet thead th { background:#262a36; height:120px; vertical-align:bottom; padding-bottom:10px; text-align:center; }
+  .hw-spreadsheet th, .hw-spreadsheet td { border:1px solid var(--amit-row-sep,#22252e); padding:6px 8px; text-align:center; }
+  .hw-spreadsheet th.hw-time-col, .hw-spreadsheet td.hw-time-col { text-align:left; background:var(--amit-surface,#181b23); position:sticky; left:0; z-index:1; }
+  .hw-spreadsheet thead th { background:var(--amit-surface-raised,#262a36); height:120px; vertical-align:bottom; padding-bottom:10px; text-align:center; }
   /* Ryan's direct request 2026-08-02: header labels were left-indented
      over their column while the values below sat right-indented - the
      two were offset from each other. Both are centered now, as the
      standard for every device's table on this tab (one shared class). */
-  .hw-col-label { writing-mode:vertical-rl; transform:rotate(180deg); font-weight:600; color:#d4af37; font-size:11px; white-space:nowrap; margin:0 auto; display:table; }
+  .hw-col-label { writing-mode:vertical-rl; transform:rotate(180deg); font-weight:600; color:var(--amit-accent,#d4af37); font-size:11px; white-space:nowrap; margin:0 auto; display:table; }
   .hw-spreadsheet tbody tr:nth-child(even) { background:#15171d; }
-  .hw-spreadsheet tbody tr:hover { background:#22252e; }
+  .hw-spreadsheet tbody tr:hover { background:var(--amit-surface-hover,#22252e); }
 </style>
 </head>
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:#7a7f89;font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.58</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:var(--amit-dim,#7a7f89);font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.59</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -294,12 +300,12 @@
     </div>
 
     <div class="help-tab-pane active" id="helptab-features">
-      <p style="color:#c7cad1">Computer Health watches this specific machine and translates what it finds into plain language — not raw numbers you have to interpret yourself. Click any item below for what it actually does:</p>
+      <p style="color:var(--amit-text-soft,#c7cad1)">Computer Health watches this specific machine and translates what it finds into plain language — not raw numbers you have to interpret yourself. Click any item below for what it actually does:</p>
       <div class="feature-explainer" id="chTutorialFeatureList"></div>
     </div>
 
     <div class="help-tab-pane" id="helptab-tiers">
-      <p style="color:#c7cad1">Everything here runs on one program — the difference between free and paid isn't a different tool, it's how much of it stays saved for you to look back on.</p>
+      <p style="color:var(--amit-text-soft,#c7cad1)">Everything here runs on one program — the difference between free and paid isn't a different tool, it's how much of it stays saved for you to look back on.</p>
       <table class="tier-table">
         <tr><th></th><th>Free</th><th>Paid</th></tr>
         <tr><td>Instant resource/CPU checks</td><td class="yes">✓</td><td class="yes">✓</td></tr>
@@ -310,11 +316,11 @@
         <tr><td>Upgrade Advisor (what to actually buy)</td><td class="no">✗</td><td class="yes">✓</td></tr>
         <tr><td>Active troubleshooting walkthrough</td><td class="no">✗</td><td class="yes">✓</td></tr>
       </table>
-      <p style="color:#9aa0ab;font-size:13px;margin-top:10px">Free-tier data lives only on this computer — close the tab or restart, and it's gone. That's by design, not a limitation we're hiding: nothing about the free tier costs us anything ongoing, which is exactly why it can stay free.</p>
+      <p style="color:var(--amit-muted,#9aa0ab);font-size:13px;margin-top:10px">Free-tier data lives only on this computer — close the tab or restart, and it's gone. That's by design, not a limitation we're hiding: nothing about the free tier costs us anything ongoing, which is exactly why it can stay free.</p>
     </div>
 
     <div class="help-tab-pane" id="helptab-payment">
-      <p style="color:#c7cad1">There are three ways to get the paid tier, depending on what you actually need <span class="status-badge later">Coming later</span></p>
+      <p style="color:var(--amit-text-soft,#c7cad1)">There are three ways to get the paid tier, depending on what you actually need <span class="status-badge later">Coming later</span></p>
       <div class="feature-explainer">
         <div class="feature-card open">
           <div class="feature-head" style="cursor:default"><span>📄 One-Time Report</span></div>
@@ -329,12 +335,12 @@
           <div class="feature-body" style="max-height:260px;padding:0 16px 14px">Ongoing tracked history, scheduled weekly check-ins reminded through the Hub. Builders managing many machines get fleet tracking and their own public reputation score, with volume-based pricing as the number of machines grows.</div>
         </div>
       </div>
-      <p style="color:#9aa0ab;font-size:13px;margin-top:6px">Pricing and the actual payment method aren't finalized yet — this tab describes the plan, not something you can buy today.</p>
+      <p style="color:var(--amit-muted,#9aa0ab);font-size:13px;margin-top:6px">Pricing and the actual payment method aren't finalized yet — this tab describes the plan, not something you can buy today.</p>
     </div>
 
     <div class="help-tab-pane" id="helptab-why">
-      <p style="color:#c7cad1">Amit Computer Value is the funding engine that keeps the rest of the Amit system free — the daily Hub, the biblical research, the discipleship companion. Every paid report or subscription here funds all of that staying free for everyone else.</p>
-      <p style="color:#c7cad1">The diagnostic depth this app is built on came from a real event: Ryan's own new computer was crashing, and the same step-by-step process used to find bad RAM sticks and fix it became the blueprint for what this tool does for anyone — technical or not.</p>
+      <p style="color:var(--amit-text-soft,#c7cad1)">Amit Computer Value is the funding engine that keeps the rest of the Amit system free — the daily Hub, the biblical research, the discipleship companion. Every paid report or subscription here funds all of that staying free for everyone else.</p>
+      <p style="color:var(--amit-text-soft,#c7cad1)">The diagnostic depth this app is built on came from a real event: Ryan's own new computer was crashing, and the same step-by-step process used to find bad RAM sticks and fix it became the blueprint for what this tool does for anyone — technical or not.</p>
     </div>
 
     <div class="actions">
@@ -350,7 +356,7 @@
 </div>
 
 <div id="deviceBar" class="hidden">
-  <span style="font-size:13px;color:#9aa0ab">Viewing:</span>
+  <span style="font-size:13px;color:var(--amit-muted,#9aa0ab)">Viewing:</span>
   <select id="deviceSelect" onchange="onDeviceSelectChange()"></select>
   <span id="deviceBadge"></span>
   <button class="btn secondary" id="renameDeviceBtn" onclick="renameCurrentDevice()" style="font-size:12px;padding:4px 10px">Rename</button>
@@ -373,7 +379,7 @@
     <h2>Tracking Stopped</h2>
     <p>Everything has been shut down — the watchers and LibreHardwareMonitor are no longer running, nothing is using resources in the background.</p>
     <div id="sessionSummaryOverview"></div>
-    <p id="sessionSummaryDetail" style="color:#c7cad1">Reviewing what was captured this session...</p>
+    <p id="sessionSummaryDetail" style="color:var(--amit-text-soft,#c7cad1)">Reviewing what was captured this session...</p>
     <div class="actions">
       <button class="btn" onclick="closeSessionSummary('history')">View History</button>
       <button class="btn secondary" onclick="closeSessionSummary()">Close</button>
@@ -415,8 +421,8 @@
 <div class="overlay hidden" id="youngHistoryModal">
   <div class="overlay-card" style="max-width:620px;max-height:85vh;overflow-y:auto">
     <h2>Before you read this report</h2>
-    <p style="color:#c7cad1">This computer has only completed <strong id="youngHistorySessionCount">?</strong> tracking session(s) so far — Amit needs at least 10 before it can fully tell real readings apart from a couple of things that only look like readings.</p>
-    <p style="color:#c7cad1">Two things worth knowing before anything in this report worries you:</p>
+    <p style="color:var(--amit-text-soft,#c7cad1)">This computer has only completed <strong id="youngHistorySessionCount">?</strong> tracking session(s) so far — Amit needs at least 10 before it can fully tell real readings apart from a couple of things that only look like readings.</p>
+    <p style="color:var(--amit-text-soft,#c7cad1)">Two things worth knowing before anything in this report worries you:</p>
     <div class="walkthrough-step">
       <strong>Some "sensors" are actually just labels, not measurements.</strong>
       <p>Certain hardware — NVMe drives especially — reports its own built-in safety limit (like "Critical Temperature: 84°C") sitting right alongside its real live temperature in the same data. That number isn't what the drive is running at; it's the maker's own line in the sand for "this would be too hot," reported the exact same way every single time, because it's a fixed spec, not something the drive is measuring right now.</p>
@@ -425,8 +431,8 @@
       <strong>Some sensors exist on the board but aren't actually connected to anything.</strong>
       <p>A motherboard built to support, say, 10 fan headers doesn't always ship in a case with 10 fans installed — this one might only have 4. The other 6 headers are still real sensors the board reports on, they just don't have a fan plugged into them, so they'll sit at 0 forever. That's an empty header, not a failed fan.</p>
     </div>
-    <p style="color:#c7cad1">Amit's way of telling these apart: watch each individual sensor across at least 10 separate tracking runs. A real reading moves around with real use. A spec label or an empty header never moves, ever — same exact number, every single time. Once a sensor proves itself constant across 10 full runs, it quietly stops appearing in reports and stops being flagged, automatically, no one has to fix anything by hand. And if it ever DOES start moving again in the future — say a fan actually gets installed in one of those empty headers — it comes right back the next time it's checked.</p>
-    <p style="color:#c7cad1"><strong>This computer just doesn't have enough history yet to make that call for every sensor.</strong> So a reading in the report below marked "Investigate" may turn out, a few sessions from now, to have been one of these — a label, not an emergency. It's not a false alarm exactly; it's an honest "not confirmed yet," and Amit would rather tell you that plainly than either hide it or cry wolf.</p>
+    <p style="color:var(--amit-text-soft,#c7cad1)">Amit's way of telling these apart: watch each individual sensor across at least 10 separate tracking runs. A real reading moves around with real use. A spec label or an empty header never moves, ever — same exact number, every single time. Once a sensor proves itself constant across 10 full runs, it quietly stops appearing in reports and stops being flagged, automatically, no one has to fix anything by hand. And if it ever DOES start moving again in the future — say a fan actually gets installed in one of those empty headers — it comes right back the next time it's checked.</p>
+    <p style="color:var(--amit-text-soft,#c7cad1)"><strong>This computer just doesn't have enough history yet to make that call for every sensor.</strong> So a reading in the report below marked "Investigate" may turn out, a few sessions from now, to have been one of these — a label, not an emergency. It's not a false alarm exactly; it's an honest "not confirmed yet," and Amit would rather tell you that plainly than either hide it or cry wolf.</p>
     <div class="actions">
       <button class="btn" onclick="chProceedFromYoungHistoryNotice()">Understood — show me the report</button>
     </div>
@@ -444,15 +450,15 @@
 <div class="overlay hidden" id="verifyConditionsModal">
   <div class="overlay-card" style="max-width:560px">
     <h2>🛡 Verify Conditions</h2>
-    <p style="color:#c7cad1">This is a paid-subscription feature — not available on the Free tier yet.</p>
-    <p style="color:#c7cad1">With the paid version, Amit would go through this exact list — every installed program, every driver — and:</p>
-    <ul style="color:#c7cad1;margin:10px 0 10px 20px;line-height:1.7">
+    <p style="color:var(--amit-text-soft,#c7cad1)">This is a paid-subscription feature — not available on the Free tier yet.</p>
+    <p style="color:var(--amit-text-soft,#c7cad1)">With the paid version, Amit would go through this exact list — every installed program, every driver — and:</p>
+    <ul style="color:var(--amit-text-soft,#c7cad1);margin:10px 0 10px 20px;line-height:1.7">
       <li>Check the real current version of each one against what's actually installed here, program by program, driver by driver</li>
       <li>Flag anything that's out of date and needs updating</li>
       <li>Cross-check each one against known malware/virus history, so an update itself doesn't turn out to be the actual problem</li>
       <li>Once you pick which ones to update, go find the real updated driver or installer and download it straight to this computer, ready for you to install — no hunting for it yourself</li>
     </ul>
-    <p style="color:#c7cad1">All of it done automatically — no manually double-clicking each row one at a time, and nothing to search for on your own.</p>
+    <p style="color:var(--amit-text-soft,#c7cad1)">All of it done automatically — no manually double-clicking each row one at a time, and nothing to search for on your own.</p>
     <div class="actions">
       <button class="btn" onclick="document.getElementById('verifyConditionsModal').classList.add('hidden')">Got it</button>
     </div>
@@ -462,7 +468,7 @@
 <div class="overlay hidden" id="historyDeleteModal">
   <div class="overlay-card" style="max-width:440px">
     <h2>Delete this history entry?</h2>
-    <p style="color:#c7cad1" id="historyDeleteText">This can't be undone.</p>
+    <p style="color:var(--amit-text-soft,#c7cad1)" id="historyDeleteText">This can't be undone.</p>
     <div class="actions">
       <button class="btn secondary" onclick="document.getElementById('historyDeleteModal').classList.add('hidden')">Cancel</button>
       <button class="btn danger" id="historyDeleteConfirmBtn" onclick="confirmDeleteHistoryEntry()">Delete</button>
@@ -514,8 +520,8 @@
 <div class="overlay hidden" id="historyCapWarningModal">
   <div class="overlay-card" style="max-width:480px">
     <h2>Your free history is almost full</h2>
-    <p id="historyCapWarningText" style="color:#c7cad1">We've kept 8 of your last 10 events. The free plan only holds your 10 most recent — once it's full, each new one quietly replaces your oldest.</p>
-    <p style="color:#c7cad1">This is real, valuable data about your computer's history — worth keeping complete, not just the last few. Upgrade to Pro to hold onto everything for as long as you want, not just a rolling 10.</p>
+    <p id="historyCapWarningText" style="color:var(--amit-text-soft,#c7cad1)">We've kept 8 of your last 10 events. The free plan only holds your 10 most recent — once it's full, each new one quietly replaces your oldest.</p>
+    <p style="color:var(--amit-text-soft,#c7cad1)">This is real, valuable data about your computer's history — worth keeping complete, not just the last few. Upgrade to Pro to hold onto everything for as long as you want, not just a rolling 10.</p>
     <div class="actions">
       <button class="btn" onclick="document.getElementById('historyCapWarningModal').classList.add('hidden')">Got it</button>
     </div>
@@ -524,7 +530,7 @@
 
 <div class="overlay hidden" id="notRunningScreen">
   <div class="overlay-card" style="max-width:560px;max-height:85vh;overflow-y:auto">
-    <p id="quickLaunchStatus" style="color:#9aa0ab;font-size:13px"></p>
+    <p id="quickLaunchStatus" style="color:var(--amit-muted,#9aa0ab);font-size:13px"></p>
 
     <div class="walkthrough-step" style="border-left-color:#4caf6d;background:#12241a">
       <strong>✅ Already installed this before? Try this first.</strong>
@@ -533,7 +539,7 @@
         <button class="btn secondary" onclick="document.getElementById('notRunningScreen').classList.add('hidden'); launchTracker()">Try the browser launch again</button>
         <button class="btn secondary" onclick="document.getElementById('notRunningScreen').classList.add('hidden')">Close</button>
       </div>
-      <p style="margin-top:10px;font-size:12px;color:#9aa0ab">
+      <p style="margin-top:10px;font-size:12px;color:var(--amit-muted,#9aa0ab)">
         Removed it, on a new computer, or this still doesn't work?
         <a href="#" onclick="localStorage.removeItem('amit_ch_connected_before'); document.getElementById('notRunningFullWalkthrough').classList.remove('hidden'); return false;" style="color:#78bee6">Show the install steps directly</a> — no need to know anything technical, just click there.
       </p>
@@ -589,7 +595,7 @@
       <button class="btn secondary" onclick="document.getElementById('notRunningScreen').classList.add('hidden')">I'll do this later</button>
       <button class="btn secondary" onclick="location.reload()">I've done this — Retry</button>
     </div>
-    <p style="font-size:12px;color:#8a8f99;margin-top:10px">After downloading: just double-click it. No right-click, no extra steps.</p>
+    <p style="font-size:12px;color:var(--amit-muted,#8a8f99);margin-top:10px">After downloading: just double-click it. No right-click, no extra steps.</p>
     </div>
   </div>
 </div>
@@ -626,7 +632,7 @@
          the tree redraws in place at whatever depth is open, instead of
          showing a static last-session snapshot. -->
     <div class="ch-gauge-panel" id="chGaugePanel">
-      <div id="chGaugeGrid"><em style="color:#8a8f99">Loading last run…</em></div>
+      <div id="chGaugeGrid"><em style="color:var(--amit-muted,#8a8f99)">Loading last run…</em></div>
       <div class="ch-gauge-meta" id="chGaugeMeta"></div>
     </div>
     <div class="getting-started" id="gettingStartedBanner">
@@ -638,14 +644,14 @@
     <div class="section-title">Right now, in plain language</div>
     <div style="margin-bottom:14px">
       <button class="btn" id="freeUpBtn" onclick="runFreeUpOptimize()">Free Up &amp; Optimize</button>
-      <span style="font-size:12px;color:#8a8f99;margin-left:10px">Clears safe background clutter, then checks the real cause if your mouse or typing feels jerky.</span>
+      <span style="font-size:12px;color:var(--amit-muted,#8a8f99);margin-left:10px">Clears safe background clutter, then checks the real cause if your mouse or typing feels jerky.</span>
       <div id="freeUpResults" style="display:none;margin-top:10px;padding:12px 14px;border-radius:8px;background:rgba(120,120,120,0.08);font-size:13px;line-height:1.6"></div>
     </div>
     <div class="card-row" id="overviewCards"></div>
     <div class="card-row" id="overviewDiagCards"></div>
     <div class="card-row" id="overviewBrowserCards"></div>
     <div class="section-title">Recent flags</div>
-    <div id="overviewFindings"><em style="color:#8a8f99">Nothing flagged yet.</em></div>
+    <div id="overviewFindings"><em style="color:var(--amit-muted,#8a8f99)">Nothing flagged yet.</em></div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('overview','current')">✓ Currently Captured</button>
       <button class="btn secondary" onclick="showCaptureInfo('overview','future')">＋ Future</button>
@@ -668,14 +674,14 @@
     <div class="section-title">Full hardware breakdown</div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
       <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="loadHardwareTree()">↻ Refresh Now</button>
-      <span style="font-size:12px;color:#7a7f89">Auto-refreshes every 30 seconds</span>
+      <span style="font-size:12px;color:var(--amit-dim,#7a7f89)">Auto-refreshes every 30 seconds</span>
     </div>
     <div class="section-title" style="font-size:13px;margin-top:0">Drive Health (SMART)</div>
-    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">A drive's long-term condition, not its live activity - added 2026-07-16, separate from the live sensor tree below since it answers a different question ("is this drive okay") rather than "what is it doing right now."</p>
-    <div id="driveHealthCards" style="margin-bottom:16px"><em style="color:#8a8f99">Loading…</em></div>
+    <p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:-6px">A drive's long-term condition, not its live activity - added 2026-07-16, separate from the live sensor tree below since it answers a different question ("is this drive okay") rather than "what is it doing right now."</p>
+    <div id="driveHealthCards" style="margin-bottom:16px"><em style="color:var(--amit-muted,#8a8f99)">Loading…</em></div>
     <div id="hardwareCategoryNav" class="hw-device-nav"></div>
     <div id="hardwareInstanceNav" class="hw-device-nav hidden"></div>
-    <div id="hardwareTree"><em style="color:#8a8f99">Waiting for data...</em></div>
+    <div id="hardwareTree"><em style="color:var(--amit-muted,#8a8f99)">Waiting for data...</em></div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('hardware','current')">✓ Currently Captured</button>
       <button class="btn secondary" onclick="showCaptureInfo('hardware','future')">＋ Future</button>
@@ -695,7 +701,7 @@
 
   <div class="tab" id="tab-behavior">
     <div class="section-title">App Behavior Watcher</div>
-    <p style="font-size:13px;color:#9aa0ab">Point-and-click: click <strong>Start Watching</strong>, then just go open whatever program you want to check - it'll be detected automatically the moment it starts. No need to know its exact process name.</p>
+    <p style="font-size:13px;color:var(--amit-muted,#9aa0ab)">Point-and-click: click <strong>Start Watching</strong>, then just go open whatever program you want to check - it'll be detected automatically the moment it starts. No need to know its exact process name.</p>
     <div class="controls">
       <input type="text" id="behaviorSessionLabel" placeholder="Name this session, e.g. &quot;Starting VS Code with Claude&quot;" style="min-width:260px">
     </div>
@@ -704,8 +710,8 @@
       <button class="btn" id="behaviorStartBtn" onclick="startBehavior()">Start Watching</button>
       <button class="btn danger hidden" id="behaviorStopBtn" onclick="stopBehavior()">Stop</button>
     </div>
-    <p style="font-size:13px;color:#9aa0ab">File writes are time-correlated (not proven per-process) — network connections are exactly attributed. Auto-detect can pick up more than one program (e.g. VS Code launching git alongside it) - the session name above is what lets you tell what a past session actually was when you come back to History later, since the auto-detected process names alone won't mean much on their own.</p>
-    <div id="behaviorSessionLabelDisplay" class="hidden" style="font-weight:600;color:#d4af37;margin-bottom:6px"></div>
+    <p style="font-size:13px;color:var(--amit-muted,#9aa0ab)">File writes are time-correlated (not proven per-process) — network connections are exactly attributed. Auto-detect can pick up more than one program (e.g. VS Code launching git alongside it) - the session name above is what lets you tell what a past session actually was when you come back to History later, since the auto-detected process names alone won't mean much on their own.</p>
+    <div id="behaviorSessionLabelDisplay" class="hidden" style="font-weight:600;color:var(--amit-accent,#d4af37);margin-bottom:6px"></div>
     <div class="log-box" id="behaviorLog">No session running.</div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('behavior','current')">✓ Currently Captured</button>
@@ -719,7 +725,7 @@
       <button class="btn" onclick="installStart()">1. Start Baseline (before you download/install)</button>
       <button class="btn secondary" onclick="installCompare()">2. Compare Now (after install finishes)</button>
     </div>
-    <div id="installResult"><em style="color:#8a8f99">No comparison run yet.</em></div>
+    <div id="installResult"><em style="color:var(--amit-muted,#8a8f99)">No comparison run yet.</em></div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('install','current')">✓ Currently Captured</button>
       <button class="btn secondary" onclick="showCaptureInfo('install','future')">＋ Future</button>
@@ -729,15 +735,15 @@
   <div class="tab" id="tab-installedprograms">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
       <div class="section-title" style="margin:0">Installed Programs</div>
-      <button id="chVerifyConditionsBtn" onclick="openVerifyConditionsModal()" style="padding:6px 14px;border-radius:6px;border:none;font-weight:600;cursor:pointer;font-size:12px;letter-spacing:0.05em;background:#d4af37;color:#12141a;flex-shrink:0">🛡 Verify Conditions</button>
+      <button id="chVerifyConditionsBtn" onclick="openVerifyConditionsModal()" style="padding:6px 14px;border-radius:6px;border:none;font-weight:600;cursor:pointer;font-size:12px;letter-spacing:0.05em;background:var(--amit-accent,#d4af37);color:var(--amit-bg,#12141a);flex-shrink:0">🛡 Verify Conditions</button>
     </div>
-    <p style="font-size:12px;color:#9aa0ab;margin-top:6px">Captured automatically every time tracking starts on this computer - grouped by the date each program first showed up (real registry data, cross-checked against each install folder's own creation date so an ordinary update never looks like a fresh install). Newest at the top, since anything that just appeared is usually the first place to look if something started acting up recently. Double-click a program to search for what it is.</p>
-    <div id="installedProgramsBody"><em style="color:#8a8f99">Loading…</em></div>
+    <p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:6px">Captured automatically every time tracking starts on this computer - grouped by the date each program first showed up (real registry data, cross-checked against each install folder's own creation date so an ordinary update never looks like a fresh install). Newest at the top, since anything that just appeared is usually the first place to look if something started acting up recently. Double-click a program to search for what it is.</p>
+    <div id="installedProgramsBody"><em style="color:var(--amit-muted,#8a8f99)">Loading…</em></div>
   </div>
 
   <div class="tab" id="tab-browser">
     <div class="section-title">Browser — condensed</div>
-    <p style="font-size:13px;color:#9aa0ab">A browser doesn't run one process per tab — it runs one per tab, plus one per extension (even sitting idle), plus GPU/network/utility helpers shared across everything. A high process count usually means extensions, not open tabs.</p>
+    <p style="font-size:13px;color:var(--amit-muted,#9aa0ab)">A browser doesn't run one process per tab — it runs one per tab, plus one per extension (even sitting idle), plus GPU/network/utility helpers shared across everything. A high process count usually means extensions, not open tabs.</p>
     <div id="browserCards"></div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('browser','current')">✓ Currently Captured</button>
@@ -747,20 +753,20 @@
 
   <div class="tab" id="tab-reliability">
     <div class="section-title">Windows Update</div>
-    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">Checks directly against Windows Update itself, whether or not automatic update checking is turned on - a stuck or postponed update is a common, real cause of the recurring crashes shown on the Errors tab.</p>
-    <div id="restartPendingCard" style="margin-bottom:10px"><em style="color:#8a8f99">Checking…</em></div>
-    <div id="pendingUpdatesResult"><em style="color:#8a8f99">Searching Windows Update - this runs automatically, takes a few seconds…</em></div>
+    <p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:-6px">Checks directly against Windows Update itself, whether or not automatic update checking is turned on - a stuck or postponed update is a common, real cause of the recurring crashes shown on the Errors tab.</p>
+    <div id="restartPendingCard" style="margin-bottom:10px"><em style="color:var(--amit-muted,#8a8f99)">Checking…</em></div>
+    <div id="pendingUpdatesResult"><em style="color:var(--amit-muted,#8a8f99)">Searching Windows Update - this runs automatically, takes a few seconds…</em></div>
 
     <div class="section-title" style="margin-top:24px">Driver Updates</div>
-    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">Installed driver version for each detected hardware component. Windows Update is checked automatically where it covers a driver; for anything it doesn't (most GPU drivers, for instance), a direct link to the manufacturer's driver page is given instead of guessing.</p>
-    <div id="driverUpdatesResult"><em style="color:#8a8f99">Reading installed drivers…</em></div>
+    <p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:-6px">Installed driver version for each detected hardware component. Windows Update is checked automatically where it covers a driver; for anything it doesn't (most GPU drivers, for instance), a direct link to the manufacturer's driver page is given instead of guessing.</p>
+    <div id="driverUpdatesResult"><em style="color:var(--amit-muted,#8a8f99)">Reading installed drivers…</em></div>
 
     <div style="margin-top:16px">
       <button class="btn secondary" style="font-size:12px;padding:5px 12px" onclick="checkPendingUpdates(); checkDriverUpdates();">Check Again</button>
     </div>
 
     <div class="section-title" style="margin-top:24px">Recent update events</div>
-    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">What Windows and installed programs have actually put in this computer's own update history - Windows updates, driver installs, app installers. Ryan's direct request 2026-08-02: these were previously mixed into the Errors tab's "Recent events," which made a routine install look like something broken. That list is now Errors-only; this is Updates-only.</p>
+    <p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:-6px">What Windows and installed programs have actually put in this computer's own update history - Windows updates, driver installs, app installers. Ryan's direct request 2026-08-02: these were previously mixed into the Errors tab's "Recent events," which made a routine install look like something broken. That list is now Errors-only; this is Updates-only.</p>
     <div id="updateEventsList" class="log-box" style="max-height:400px;overflow-y:auto">Loading…</div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('reliability','current')">✓ Currently Captured</button>
@@ -770,7 +776,7 @@
 
   <div class="tab" id="tab-errors">
     <div class="section-title">Errors — crash and failure history</div>
-    <p style="font-size:12px;color:#9aa0ab;margin-top:-6px">This isn't about how fast your computer is right now — it's about what's actually broken or crashed over time. Windows already tracks this in the background on its own (the Reliability Monitor); this reads that same record.</p>
+    <p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:-6px">This isn't about how fast your computer is right now — it's about what's actually broken or crashed over time. Windows already tracks this in the background on its own (the Reliability Monitor); this reads that same record.</p>
     <div id="reliabilityCards"></div>
     <div class="section-title" style="margin-top:20px">Recent events</div>
     <div id="reliabilityList" class="log-box" style="max-height:400px;overflow-y:auto">Loading…</div>
@@ -784,7 +790,7 @@
 
   <div class="tab" id="tab-security">
     <div class="section-title">Security &amp; Backup</div>
-    <p style="font-size:13px;color:#9aa0ab">Is this computer actually protected right now — from malware, and from data loss? Two different kinds of protection, checked together since they're both "is my data actually safe" questions.</p>
+    <p style="font-size:13px;color:var(--amit-muted,#9aa0ab)">Is this computer actually protected right now — from malware, and from data loss? Two different kinds of protection, checked together since they're both "is my data actually safe" questions.</p>
     <div id="securityCards"></div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('security','current')">✓ Currently Captured</button>
@@ -794,11 +800,11 @@
 
   <div class="tab" id="tab-history">
     <div class="section-title">This computer's history</div>
-    <p id="historyIntro" style="font-size:13px;color:#9aa0ab">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
+    <p id="historyIntro" style="font-size:13px;color:var(--amit-muted,#9aa0ab)">Sign in to see everything ever detected on this device — installs, flags, and resource anomalies, going back as far as you've been tracking.</p>
     <div id="historyCapNotice" class="hidden" style="background:#2a2410;border:1px solid #e0a72e;border-radius:8px;padding:10px 16px;margin-bottom:14px;font-size:13px;color:#e0c477">On the free plan, only your last 10 events are kept - older ones roll off as new ones come in. <strong>Upgrade to Pro</strong> for complete, unlimited history.</div>
     <div style="margin-bottom:14px">
       <button class="btn" id="masterReportBtn" onclick="generateMasterReport()">Generate Master Report</button>
-      <span style="font-size:12px;color:#8a8f99;margin-left:10px">Reviews every session ever recorded for this computer and tells the real story over time - not just one snapshot.</span>
+      <span style="font-size:12px;color:var(--amit-muted,#8a8f99);margin-left:10px">Reviews every session ever recorded for this computer and tells the real story over time - not just one snapshot.</span>
     </div>
     <div id="masterReportPanel" style="display:none;margin-bottom:20px;border-radius:10px;background:rgba(120,120,120,0.08);border:1px solid rgba(224,167,46,0.3)">
       <div style="display:flex;justify-content:flex-end;padding:8px 10px 0">
@@ -806,7 +812,7 @@
       </div>
       <div id="masterReportContent" style="padding:0 18px 16px 18px"></div>
     </div>
-    <div id="historyList"><em style="color:#8a8f99">Sign in to load history.</em></div>
+    <div id="historyList"><em style="color:var(--amit-muted,#8a8f99)">Sign in to load history.</em></div>
     <div class="capture-info-row">
       <button class="btn secondary" onclick="showCaptureInfo('history','current')">✓ Currently Captured</button>
       <button class="btn secondary" onclick="showCaptureInfo('history','future')">＋ Future</button>
@@ -828,7 +834,7 @@
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <select id="chSensorPicker" onchange="chRenderSelectedChart()"><option>Loading…</option></select>
           <div id="chStatRow" class="hidden" style="display:flex;gap:8px;align-items:center">
-            <label style="font-size:12px;color:#9aa0ab">Statistic:</label>
+            <label style="font-size:12px;color:var(--amit-muted,#9aa0ab)">Statistic:</label>
             <select id="chStatPicker" onchange="chSetChartStat(this.value)">
               <option value="avg">Average</option>
               <option value="min">Minimum</option>
@@ -837,8 +843,8 @@
             </select>
           </div>
         </div>
-        <div id="chChartStatus" style="font-size:12px;color:#8a8f99;margin:8px 0"></div>
-        <div id="chChartTitle" style="font-size:13px;font-weight:600;color:#d4af37;margin-bottom:6px"></div>
+        <div id="chChartStatus" style="font-size:12px;color:var(--amit-muted,#8a8f99);margin:8px 0"></div>
+        <div id="chChartTitle" style="font-size:13px;font-weight:600;color:var(--amit-accent,#d4af37);margin-bottom:6px"></div>
         <canvas id="chChartCanvas" width="900" height="440"></canvas>
       </div>
     </div>
@@ -1037,6 +1043,9 @@ db.auth.getSession().then(({ data: { session } }) => {
     showSignedInAs(currentUser.email);
     onSessionConfirmed();
   }
+  // Shared Appearance: session state is known now - pull this login's saved
+  // theme (or clear it when signed out). Deferred so it never blocks load.
+  if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
 });
 } // end if (db)
 
@@ -1693,13 +1702,13 @@ async function chLoadRegistry() {
 
 async function loadComputerHealthTree(devId) {
   const grid = document.getElementById('chGaugeGrid');
-  if (!devId || !db) { if (grid) grid.innerHTML = '<em style="color:#8a8f99">No device connected yet.</em>'; return; }
+  if (!devId || !db) { if (grid) grid.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No device connected yet.</em>'; return; }
   const registry = await chLoadRegistry();
   const { data: ev } = await db.from('amit_device_events')
     .select('id,created_at').eq('device_id', devId).eq('event_type', 'tracking_session_ended')
     .order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (!ev) {
-    if (grid) grid.innerHTML = '<em style="color:#8a8f99">No completed runs yet for this computer.</em>';
+    if (grid) grid.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No completed runs yet for this computer.</em>';
     return;
   }
   const { data: rows } = await db.from('amit_device_session_metrics')
@@ -3012,7 +3021,7 @@ async function pollDriveHealth() {
     const drives = d.drives || [];
     const el = document.getElementById('driveHealthCards');
     if (!el) return;
-    if (drives.length === 0) { el.innerHTML = '<em style="color:#8a8f99">No drive health data available.</em>'; return; }
+    if (drives.length === 0) { el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No drive health data available.</em>'; return; }
     el.innerHTML = drives.map(dr => {
       const healthy = dr.healthStatus === 'Healthy';
       const extras = [];
@@ -3057,7 +3066,7 @@ async function loadHardwareTree() {
       // Never had a successful load at all (not just a lost connection) -
       // there's genuinely nothing to fall back to yet.
       catNav.innerHTML = ''; instNav.classList.add('hidden');
-      container.innerHTML = '<em style="color:#8a8f99">Couldn\'t reach LibreHardwareMonitor\'s sensor data yet. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
+      container.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Couldn\'t reach LibreHardwareMonitor\'s sensor data yet. Make sure it\'s running with Options → Remote Web Server → Run enabled.</em>';
       return;
     }
   }
@@ -3065,7 +3074,7 @@ async function loadHardwareTree() {
   const devices = getHardwareDevices(hardwareLiveTree).filter(d => (d.Children || []).length > 0);
   if (devices.length === 0) {
     catNav.innerHTML = ''; instNav.classList.add('hidden');
-    container.innerHTML = '<em style="color:#8a8f99">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
+    container.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No hardware data yet - LibreHardwareMonitor may still be starting up.</em>';
     return;
   }
 
@@ -3162,7 +3171,7 @@ function renderHardwareSpreadsheet() {
   const container = document.getElementById('hardwareTree');
   const devices = getHardwareDevices(hardwareLiveTree);
   const device = devices.find(d => d.Text === hardwareSelectedDevice);
-  if (!device) { container.innerHTML = '<em style="color:#8a8f99">Select a component above.</em>'; return; }
+  if (!device) { container.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Select a component above.</em>'; return; }
 
   const prefix = device.Text + '>';
   // Column set = every distinct sensor ever seen for this device across the
@@ -3181,10 +3190,10 @@ function renderHardwareSpreadsheet() {
 
   if (columns.length === 0) {
     container.innerHTML = `
-      <div class="card" style="flex:none;width:100%;border-left-color:#d4af37">
-        <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device).label}</div>
-        <div style="font-size:12px;color:#7a7f89;margin-bottom:10px">${device.Text}</div>
-        <em style="color:#8a8f99">No history captured yet for this component - give it a minute (readings are captured every 30 seconds), or click Refresh Now.</em>
+      <div class="card" style="flex:none;width:100%;border-left-color:var(--amit-accent,#d4af37)">
+        <div class="label" style="font-size:14px;color:var(--amit-text,#e8e8ec);margin-bottom:2px">${categorizeHardware(device).label}</div>
+        <div style="font-size:12px;color:var(--amit-dim,#7a7f89);margin-bottom:10px">${device.Text}</div>
+        <em style="color:var(--amit-muted,#8a8f99)">No history captured yet for this component - give it a minute (readings are captured every 30 seconds), or click Refresh Now.</em>
       </div>`;
     return;
   }
@@ -3204,9 +3213,9 @@ function renderHardwareSpreadsheet() {
 
   container.innerHTML = `
     ${connectionNotice}
-    <div class="card" style="flex:none;width:100%;border-left-color:#d4af37;margin-bottom:10px">
-      <div class="label" style="font-size:14px;color:#e8e8ec;margin-bottom:2px">${categorizeHardware(device).label}</div>
-      <div style="font-size:12px;color:#7a7f89">${device.Text} — ${recentFirst.length} reading${recentFirst.length === 1 ? '' : 's'} (newest first, one row per 30-second capture)</div>
+    <div class="card" style="flex:none;width:100%;border-left-color:var(--amit-accent,#d4af37);margin-bottom:10px">
+      <div class="label" style="font-size:14px;color:var(--amit-text,#e8e8ec);margin-bottom:2px">${categorizeHardware(device).label}</div>
+      <div style="font-size:12px;color:var(--amit-dim,#7a7f89)">${device.Text} — ${recentFirst.length} reading${recentFirst.length === 1 ? '' : 's'} (newest first, one row per 30-second capture)</div>
     </div>
     <div class="hw-spreadsheet-wrap">
       <table class="hw-spreadsheet">
@@ -3225,9 +3234,9 @@ async function loadHistory() {
       : 'Sign in to see everything ever detected on this device - installs, flags, and resource anomalies, going back as far as you\'ve been tracking.';
   }
   const capNotice = document.getElementById('historyCapNotice');
-  if (!currentUser) { list.innerHTML = '<em style="color:#8a8f99">Sign in to load history.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
+  if (!currentUser) { list.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Sign in to load history.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
   const targetId = viewingDeviceId || deviceId;
-  if (!targetId) { list.innerHTML = '<em style="color:#8a8f99">No computer selected.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
+  if (!targetId) { list.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No computer selected.</em>'; if (capNotice) capNotice.classList.add('hidden'); return; }
   const unlimited = isUnlimitedHistoryAccount();
   let { data, error } = await db.from('amit_device_events').select('*').eq('device_id', targetId).order('created_at', { ascending: false }).limit(unlimited ? 1000 : 100);
   if (error) { list.innerHTML = '<em>Error loading history: ' + error.message + '</em>'; return; }
@@ -3248,7 +3257,7 @@ async function loadHistory() {
     data = data.slice(0, FREE_TIER_HISTORY_CAP);
   }
   if (capNotice) capNotice.classList.toggle('hidden', unlimited || !data || data.length < FREE_TIER_HISTORY_CAP);
-  if (!data || data.length === 0) { list.innerHTML = '<em style="color:#8a8f99">No events logged yet for this device.</em>'; return; }
+  if (!data || data.length === 0) { list.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No events logged yet for this device.</em>'; return; }
   // Kept on a global so the click handler below can look an entry back up
   // by index without a second DB round-trip - the full row (including
   // event_detail) is already sitting in memory from the query above.
@@ -3504,7 +3513,7 @@ async function generateMasterReport() {
   };
 
   _lastMasterReportData = reportData;
-  panel.innerHTML = `<div style="margin-bottom:12px"><button class="btn" onclick="openMasterReportStandalone()">Open Full Report ↗</button> <span style="font-size:12px;color:#8a8f99;margin-left:8px">Opens as its own page, printable - one tab per component, charted over every session.</span></div>` + renderMasterReportHtml(reportData);
+  panel.innerHTML = `<div style="margin-bottom:12px"><button class="btn" onclick="openMasterReportStandalone()">Open Full Report ↗</button> <span style="font-size:12px;color:var(--amit-muted,#8a8f99);margin-left:8px">Opens as its own page, printable - one tab per component, charted over every session.</span></div>` + renderMasterReportHtml(reportData);
   btn.disabled = false;
 
   // Save it to History - Ryan's direct request 2026-08-08: this should
@@ -3535,7 +3544,7 @@ function mrDateRangeStr(periodStart, periodEnd) {
 function renderMasterReportHtml(reportData) {
   const { n, overall, excludedNote, sensors, insight, componentSummary, periodStart, periodEnd } = reportData;
   let html = `<div style="font-size:16px;font-weight:600;color:#e0a72e;margin-bottom:2px">Master Report — ${n} session${n === 1 ? '' : 's'} reviewed</div>`;
-  html += `<div style="font-size:12px;color:#8a8f99;margin-bottom:10px;font-family:ui-monospace,'SFMono-Regular',Consolas,monospace">Covers ${mrDateRangeStr(periodStart, periodEnd)} — this exact window is locked in permanently, even if reopened later</div>`;
+  html += `<div style="font-size:12px;color:var(--amit-muted,#8a8f99);margin-bottom:10px;font-family:ui-monospace,'SFMono-Regular',Consolas,monospace">Covers ${mrDateRangeStr(periodStart, periodEnd)} — this exact window is locked in permanently, even if reopened later</div>`;
   html += `<p style="margin:0 0 14px;line-height:1.6">${overall}</p>`;
   if (componentSummary && componentSummary.length) {
     html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px">' + componentSummary.map(c => {
@@ -3558,9 +3567,9 @@ function renderMasterReportHtml(reportData) {
     html += `<div style="border-left:3px solid ${dotColor};padding:8px 12px;background:rgba(0,0,0,0.15);border-radius:0 6px 6px 0">
       <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMasterReportDetail(${i})">
         <span><strong>${escHtml(r.label)}</strong> — ${escHtml(r.trend.verdict)}</span>
-        <span style="font-size:11px;color:#8a8f99;text-decoration:underline;white-space:nowrap;margin-left:10px">Detail →</span>
+        <span style="font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;white-space:nowrap;margin-left:10px">Detail →</span>
       </div>
-      <div id="mrDetail${i}" class="hidden" style="margin-top:8px;font-size:12px;color:#c7cad1;line-height:1.7">
+      <div id="mrDetail${i}" class="hidden" style="margin-top:8px;font-size:12px;color:var(--amit-text-soft,#c7cad1);line-height:1.7">
         ${r.series.map(s => `${new Date(s.date).toLocaleDateString()}: avg ${fmtMasterNum(s.avg)}, range ${fmtMasterNum(s.min)}–${fmtMasterNum(s.max)}`).join('<br>')}
       </div>
     </div>`;
@@ -3972,7 +3981,7 @@ function renderHistoryTable() {
       const stableNum = i + 1;
       const sevColor = e.severity==='critical'?'#d05555':e.severity==='warning'?'#e0a72e':'#8a8f99';
       return `<tr>
-        <td style="color:#7a7f89">${stableNum}</td>
+        <td style="color:var(--amit-dim,#7a7f89)">${stableNum}</td>
         <td><span class="delete-icon" title="Delete this history entry" onclick="promptDeleteHistoryEntry(${i})">🗑️</span></td>
         <td>${historyComputerName}</td>
         <td>${new Date(e.created_at).toLocaleString()}</td>
@@ -4065,7 +4074,7 @@ function showCaptureInfo(tabKey, which) {
   document.getElementById('captureInfoTitle').textContent = which === 'current' ? '✓ Currently Captured' : '＋ Future — Not Captured Yet';
   document.getElementById('captureInfoBody').innerHTML = items.length
     ? '<ul style="margin:6px 0 0 18px;line-height:1.7">' + items.map(i => `<li>${i}</li>`).join('') + '</ul>'
-    : '<em style="color:#8a8f99">Nothing here right now.</em>';
+    : '<em style="color:var(--amit-muted,#8a8f99)">Nothing here right now.</em>';
   document.getElementById('captureInfoModal').classList.remove('hidden');
 }
 
@@ -4129,7 +4138,7 @@ function actuallyOpenHistoryDetail(i) {
       _lastMasterReportData = d.report;
       body.innerHTML = `<div style="margin-bottom:12px"><button class="btn" onclick="openMasterReportStandalone()">Open Full Report ↗</button></div>` + renderMasterReportHtml(d.report);
     } else {
-      body.innerHTML = '<em style="color:#8a8f99">This report has no saved detail.</em>';
+      body.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">This report has no saved detail.</em>';
     }
   } else if (e.event_type === 'app_behavior_session') {
     // Same structured report the live stop popup shows - Ryan's direct
@@ -4148,7 +4157,7 @@ function actuallyOpenHistoryDetail(i) {
     html += section('New Scheduled Tasks', diff.NewTasks, t => `<div class="finding flag">${t.TaskPath}${t.TaskName}</div>`);
     html += section('New Browser Extensions', diff.NewExtensions, ext => `<div class="finding flag">[${ext.Browser}] ${ext.Id}</div>`);
     html += section('Homepage/Search Changes', diff.HomepageChanges, h => `<div class="finding flag">[${h.Browser}] ${h.OldHomepage} → ${h.NewHomepage}</div>`);
-    if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
+    if (total === 0) html += '<em style="color:var(--amit-muted,#8a8f99)">Nothing extra was added — clean install.</em>';
     body.innerHTML = html;
   } else if (e.event_type === 'tracking_session_ended' || e.event_type === 'tracking_session_captured') {
     // Real gap found live 2026-07-16 (Ryan): this only ever showed the
@@ -4162,13 +4171,13 @@ function actuallyOpenHistoryDetail(i) {
     const concerns = d.concerns || [];
     body.innerHTML = (concerns.length
       ? '<ul>' + concerns.map(c => `<li>${c}</li>`).join('') + '</ul>'
-      : '<em style="color:#8a8f99">No specific concerns were flagged this session.</em>') +
-      '<div id="trackerMetricsBreakdown" style="margin-top:14px"><em style="color:#8a8f99">Loading resource breakdown…</em></div>';
+      : '<em style="color:var(--amit-muted,#8a8f99)">No specific concerns were flagged this session.</em>') +
+      '<div id="trackerMetricsBreakdown" style="margin-top:14px"><em style="color:var(--amit-muted,#8a8f99)">Loading resource breakdown…</em></div>';
     document.getElementById('historyDetailModal').classList.remove('hidden');
     loadTrackerMetricsBreakdown(e.id);
     return;
   } else {
-    body.innerHTML = `<pre style="white-space:pre-wrap;font-size:12px;background:#12141a;padding:12px;border-radius:6px">${JSON.stringify(d, null, 2).replace(/</g,'&lt;')}</pre>`;
+    body.innerHTML = `<pre style="white-space:pre-wrap;font-size:12px;background:var(--amit-bg,#12141a);padding:12px;border-radius:6px">${JSON.stringify(d, null, 2).replace(/</g,'&lt;')}</pre>`;
   }
   document.getElementById('historyDetailModal').classList.remove('hidden');
 }
@@ -4473,20 +4482,20 @@ function openIssueGuidance(severity, key, title, metricName, reason) {
   if (severity === 'watch') {
     titleEl.textContent = '◐ Watch: ' + title + ' - ' + metricName;
     bodyEl.innerHTML =
-      `<p style="color:#c7cad1"><strong>What was seen:</strong> ${escHtml(reason)}</p>` +
-      (g ? `<p style="color:#c7cad1"><strong>Why this is being watched:</strong> ${escHtml(g.why)}</p>
-      <p style="color:#c7cad1"><strong>The standard being measured against:</strong> ${escHtml(g.standard)}</p>` : '') +
-      `<p style="color:#8a8f99;font-size:12px;margin-top:10px">Watch items are not a problem right now - they are here so a real pattern gets caught early instead of arriving as a surprise later.</p>`;
+      `<p style="color:var(--amit-text-soft,#c7cad1)"><strong>What was seen:</strong> ${escHtml(reason)}</p>` +
+      (g ? `<p style="color:var(--amit-text-soft,#c7cad1)"><strong>Why this is being watched:</strong> ${escHtml(g.why)}</p>
+      <p style="color:var(--amit-text-soft,#c7cad1)"><strong>The standard being measured against:</strong> ${escHtml(g.standard)}</p>` : '') +
+      `<p style="color:var(--amit-muted,#8a8f99);font-size:12px;margin-top:10px">Watch items are not a problem right now - they are here so a real pattern gets caught early instead of arriving as a surprise later.</p>`;
   } else {
     titleEl.textContent = '⚠ ' + title + ' - ' + metricName;
     bodyEl.innerHTML =
       `<p style="padding:10px 14px;background:#12141a;border-left:4px solid #e0a72e;border-radius:6px;color:#e0c477">This is a warning, not a diagnosis. It flags a real, possible condition worth a look - most of the time these resolve with one simple step below. Nothing has been damaged just because it showed up here.</p>` +
-      `<p style="color:#c7cad1;margin-top:10px"><strong>What was seen:</strong> ${escHtml(reason)}</p>` +
-      (g ? `<p style="color:#c7cad1"><strong>What this actually means:</strong> ${escHtml(g.why)}</p>
-      <p style="color:#c7cad1"><strong>The standard being measured against:</strong> ${escHtml(g.standard)}</p>
-      <div style="margin-top:14px;padding:12px 14px;background:#12141a;border-radius:6px">
-        <div style="font-weight:600;color:#e8e9ec;margin-bottom:8px">Suggestions - ways to correct or investigate this</div>
-        <ul style="margin:0 0 0 18px;color:#c7cad1">${g.suggestions.map(s => `<li style="margin:6px 0">${escHtml(s)}</li>`).join('')}</ul>
+      `<p style="color:var(--amit-text-soft,#c7cad1);margin-top:10px"><strong>What was seen:</strong> ${escHtml(reason)}</p>` +
+      (g ? `<p style="color:var(--amit-text-soft,#c7cad1)"><strong>What this actually means:</strong> ${escHtml(g.why)}</p>
+      <p style="color:var(--amit-text-soft,#c7cad1)"><strong>The standard being measured against:</strong> ${escHtml(g.standard)}</p>
+      <div style="margin-top:14px;padding:12px 14px;background:var(--amit-bg,#12141a);border-radius:6px">
+        <div style="font-weight:600;color:var(--amit-text,#e8e9ec);margin-bottom:8px">Suggestions - ways to correct or investigate this</div>
+        <ul style="margin:0 0 0 18px;color:var(--amit-text-soft,#c7cad1)">${g.suggestions.map(s => `<li style="margin:6px 0">${escHtml(s)}</li>`).join('')}</ul>
       </div>` : '');
   }
   document.getElementById('issueGuidanceModal').classList.remove('hidden');
@@ -4506,17 +4515,17 @@ function openPerfDetail(key) {
   const r = LAST_PERF_RESOURCE, d = LAST_PERF_DIAGNOSTICS, b = LAST_PERF_BROWSER;
 
   function section(whatItIs, howUsed, normalRange, consumersHtml) {
-    return `<p style="color:#c7cad1"><strong>What this measures:</strong> ${whatItIs}</p>
-      <p style="color:#c7cad1"><strong>How the computer uses it:</strong> ${howUsed}</p>
-      <p style="color:#c7cad1"><strong>What's normal vs. not:</strong> ${normalRange}</p>
+    return `<p style="color:var(--amit-text-soft,#c7cad1)"><strong>What this measures:</strong> ${whatItIs}</p>
+      <p style="color:var(--amit-text-soft,#c7cad1)"><strong>How the computer uses it:</strong> ${howUsed}</p>
+      <p style="color:var(--amit-text-soft,#c7cad1)"><strong>What's normal vs. not:</strong> ${normalRange}</p>
       ${consumersHtml || ''}`;
   }
 
   function top5Html(top5, label) {
-    if (!top5 || !top5.length) return '<p style="color:#8a8f99;font-size:12px;margin-top:10px">No per-process breakdown captured yet - this fills in once the tracker has run for at least one sample.</p>';
-    return `<div style="margin-top:14px;padding:12px 14px;background:#12141a;border-radius:6px">
-      <div style="font-weight:600;color:#e8e9ec;margin-bottom:8px">${label}</div>
-      <ul style="margin:0 0 0 18px;color:#c7cad1;font-variant-numeric:tabular-nums">${top5.map(p => `<li style="margin:4px 0">${escHtml(p.name)} — ${fmtMB(p.mb)}</li>`).join('')}</ul>
+    if (!top5 || !top5.length) return '<p style="color:var(--amit-muted,#8a8f99);font-size:12px;margin-top:10px">No per-process breakdown captured yet - this fills in once the tracker has run for at least one sample.</p>';
+    return `<div style="margin-top:14px;padding:12px 14px;background:var(--amit-bg,#12141a);border-radius:6px">
+      <div style="font-weight:600;color:var(--amit-text,#e8e9ec);margin-bottom:8px">${label}</div>
+      <ul style="margin:0 0 0 18px;color:var(--amit-text-soft,#c7cad1);font-variant-numeric:tabular-nums">${top5.map(p => `<li style="margin:4px 0">${escHtml(p.name)} — ${fmtMB(p.mb)}</li>`).join('')}</ul>
     </div>`;
   }
 
@@ -4524,10 +4533,10 @@ function openPerfDetail(key) {
   // two samples with a time gap to compute a rate, so the very first
   // reading of a fresh tracking session may briefly show none yet.
   function topCpuHtml(topCpu) {
-    if (!topCpu || !topCpu.length) return '<p style="color:#8a8f99;font-size:12px;margin-top:10px">No per-process CPU breakdown yet - this needs two samples a short time apart to measure a rate, so it fills in shortly after tracking starts.</p>';
-    return `<div style="margin-top:14px;padding:12px 14px;background:#12141a;border-radius:6px">
-      <div style="font-weight:600;color:#e8e9ec;margin-bottom:8px">What's actually using it (top 5 programs by measured CPU%, grouped across all their own processes)</div>
-      <ul style="margin:0 0 0 18px;color:#c7cad1;font-variant-numeric:tabular-nums">${topCpu.map(p => `<li style="margin:4px 0">${escHtml(p.name)} — ${p.pct}%</li>`).join('')}</ul>
+    if (!topCpu || !topCpu.length) return '<p style="color:var(--amit-muted,#8a8f99);font-size:12px;margin-top:10px">No per-process CPU breakdown yet - this needs two samples a short time apart to measure a rate, so it fills in shortly after tracking starts.</p>';
+    return `<div style="margin-top:14px;padding:12px 14px;background:var(--amit-bg,#12141a);border-radius:6px">
+      <div style="font-weight:600;color:var(--amit-text,#e8e9ec);margin-bottom:8px">What's actually using it (top 5 programs by measured CPU%, grouped across all their own processes)</div>
+      <ul style="margin:0 0 0 18px;color:var(--amit-text-soft,#c7cad1);font-variant-numeric:tabular-nums">${topCpu.map(p => `<li style="margin:4px 0">${escHtml(p.name)} — ${p.pct}%</li>`).join('')}</ul>
     </div>`;
   }
 
@@ -4590,7 +4599,7 @@ function openPerfDetail(key) {
       `Total memory used across every open browser, combined — ${fmtMB(b.totalMemMB)}${b.installedRamMB ? ` (${((b.totalMemMB/b.installedRamMB)*100).toFixed(0)}% of installed RAM)` : ''}.`,
       'Every open tab, extension, and background helper process (GPU, utility processes) draws memory on its own - a browser with many tabs open behaves like several separate programs running at once, by design, not a leak by itself.',
       'Under 1.5GB total is a light load. 1.5-3GB is sizeable - normal with several tabs, worth watching if it keeps climbing. Above 3GB is heavy and a likely contributor to overall slowness.',
-      rows ? `<div style="margin-top:14px;padding:12px 14px;background:#12141a;border-radius:6px"><div style="font-weight:600;color:#e8e9ec;margin-bottom:8px">By browser</div><ul style="margin:0 0 0 18px;color:#c7cad1;font-variant-numeric:tabular-nums">${rows}</ul></div>` : ''
+      rows ? `<div style="margin-top:14px;padding:12px 14px;background:var(--amit-bg,#12141a);border-radius:6px"><div style="font-weight:600;color:var(--amit-text,#e8e9ec);margin-bottom:8px">By browser</div><ul style="margin:0 0 0 18px;color:var(--amit-text-soft,#c7cad1);font-variant-numeric:tabular-nums">${rows}</ul></div>` : ''
     );
   }
   titleEl.textContent = title;
@@ -4614,11 +4623,11 @@ function renderComponentRollup(analysis) {
     statusText = 'Everything within range.';
     color = COLOR.good;
   }
-  const infoNote = infoCount ? ` <span style="color:#8a8f99">(${infoCount} likely sensor misreport${infoCount === 1 ? '' : 's'} noted, not a real concern.)</span>` : '';
+  const infoNote = infoCount ? ` <span style="color:var(--amit-muted,#8a8f99)">(${infoCount} likely sensor misreport${infoCount === 1 ? '' : 's'} noted, not a real concern.)</span>` : '';
   // Double-click anywhere on the row, not just the link text - Ryan's
   // direct request 2026-07-17: the whole report area should feel
   // drillable, not just one small link buried in it.
-  return `<li style="margin:6px 0;cursor:pointer" ondblclick="openComponentSpreadsheet('${escHtml(analysis.component)}')" title="Double-click for the full sensor-by-sensor breakdown"><strong>${escHtml(analysis.component)}</strong> <span style="color:#8a8f99">(${analysis.sensorCount} sensors combined):</span> <span style="color:${color}">${statusText}</span>${infoNote} <span class="view-link" onclick="openComponentSpreadsheet('${escHtml(analysis.component)}')">View full breakdown →</span></li>`;
+  return `<li style="margin:6px 0;cursor:pointer" ondblclick="openComponentSpreadsheet('${escHtml(analysis.component)}')" title="Double-click for the full sensor-by-sensor breakdown"><strong>${escHtml(analysis.component)}</strong> <span style="color:var(--amit-muted,#8a8f99)">(${analysis.sensorCount} sensors combined):</span> <span style="color:${color}">${statusText}</span>${infoNote} <span class="view-link" onclick="openComponentSpreadsheet('${escHtml(analysis.component)}')">View full breakdown →</span></li>`;
 }
 
 function openComponentSpreadsheet(component) {
@@ -4628,10 +4637,10 @@ function openComponentSpreadsheet(component) {
   issues.forEach(i => { issueMap[i.title + '|' + i.metric_name] = i; });
   document.getElementById('componentSpreadsheetTitle').textContent = component + ' — Full Sensor Breakdown';
   let html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-  html += '<tr style="text-align:left;border-bottom:1px solid #3a3f4c"><th style="padding:6px 8px">Sensor</th><th style="padding:6px 8px">Category</th><th style="padding:6px 8px">Min</th><th style="padding:6px 8px">Max</th><th style="padding:6px 8px">Avg</th><th style="padding:6px 8px">Status</th></tr>';
+  html += '<tr style="text-align:left;border-bottom:1px solid var(--amit-card-border,#3a3f4c)"><th style="padding:6px 8px">Sensor</th><th style="padding:6px 8px">Category</th><th style="padding:6px 8px">Min</th><th style="padding:6px 8px">Max</th><th style="padding:6px 8px">Avg</th><th style="padding:6px 8px">Status</th></tr>';
   rows.forEach(r => {
     const issue = issueMap[r.title + '|' + r.metric_name];
-    const rowBg = issue ? (issue.severity === 'investigate' ? 'background:#2a1414' : issue.severity === 'watch' ? 'background:#2a2410' : 'background:#12141a') : '';
+    const rowBg = issue ? (issue.severity === 'investigate' ? 'background:#2a1414' : issue.severity === 'watch' ? 'background:#2a2410' : 'background:var(--amit-bg,#12141a)') : '';
     const clickableStyle = (issue && issue.severity !== 'info') ? 'cursor:pointer;text-decoration:underline dotted' : '';
     const attrSafe = (s) => escHtml(s).replace(/"/g, '&quot;').replace(/'/g, "\\'");
     const statusOnclick = (issue && issue.severity !== 'info')
@@ -4640,9 +4649,9 @@ function openComponentSpreadsheet(component) {
     const statusText = issue
       ? `<span style="color:${issue.severity === 'investigate' ? '#e07a7a' : issue.severity === 'watch' ? '#e0c477' : '#8a8f99'};${clickableStyle}"${statusOnclick}>${issue.severity === 'investigate' ? '⚠ Investigate' : issue.severity === 'watch' ? '◐ Watch' : 'ℹ Note'}</span>`
       : '<span style="color:#4caf6d">OK</span>';
-    html += `<tr style="border-bottom:1px solid #22242c;${rowBg}"><td style="padding:6px 8px">${escHtml(r.title)} - ${escHtml(r.metric_name)}</td><td style="padding:6px 8px;color:#8a8f99">${escHtml(r.category)}</td><td style="padding:6px 8px">${r.min_value}</td><td style="padding:6px 8px">${r.max_value}</td><td style="padding:6px 8px">${r.avg_value != null ? Math.round(r.avg_value * 100) / 100 : ''}</td><td style="padding:6px 8px">${statusText}</td></tr>`;
+    html += `<tr style="border-bottom:1px solid #22242c;${rowBg}"><td style="padding:6px 8px">${escHtml(r.title)} - ${escHtml(r.metric_name)}</td><td style="padding:6px 8px;color:var(--amit-muted,#8a8f99)">${escHtml(r.category)}</td><td style="padding:6px 8px">${r.min_value}</td><td style="padding:6px 8px">${r.max_value}</td><td style="padding:6px 8px">${r.avg_value != null ? Math.round(r.avg_value * 100) / 100 : ''}</td><td style="padding:6px 8px">${statusText}</td></tr>`;
     if (issue) {
-      html += `<tr style="${rowBg}"><td colspan="6" style="padding:2px 8px 10px 8px;font-size:11px;color:#9aa0ab">${escHtml(issue.reason)}</td></tr>`;
+      html += `<tr style="${rowBg}"><td colspan="6" style="padding:2px 8px 10px 8px;font-size:11px;color:var(--amit-muted,#9aa0ab)">${escHtml(issue.reason)}</td></tr>`;
     }
   });
   html += '</table></div>';
@@ -4664,11 +4673,11 @@ function renderCombinedAnalysis(analyses) {
   const totalSensors = analyses.reduce((sum, a) => sum + a.sensorCount, 0);
   let html = '<div class="section-title" style="margin-top:20px">3. Combined Analysis</div>';
   if (investigate.length === 0 && watch.length === 0) {
-    html += `<p style="margin:6px 0;padding:10px 14px;background:#12141a;border-left:4px solid #4caf6d;border-radius:6px">Across all ${analyses.length} component${analyses.length === 1 ? '' : 's'} and ${totalSensors} sensors combined, nothing stood out as a concern. This session looks like a healthy, properly-functioning system under whatever load it was carrying.</p>`;
+    html += `<p style="margin:6px 0;padding:10px 14px;background:var(--amit-bg,#12141a);border-left:4px solid #4caf6d;border-radius:6px">Across all ${analyses.length} component${analyses.length === 1 ? '' : 's'} and ${totalSensors} sensors combined, nothing stood out as a concern. This session looks like a healthy, properly-functioning system under whatever load it was carrying.</p>`;
   } else {
     const investigateComponents = [...new Set(investigate.map(i => i.component))];
     const color = investigate.length ? '#e07a7a' : '#e0c477';
-    html += `<p style="margin:6px 0;padding:10px 14px;background:#12141a;border-left:4px solid ${color};border-radius:6px">Across all ${analyses.length} components and ${totalSensors} sensors combined: `;
+    html += `<p style="margin:6px 0;padding:10px 14px;background:var(--amit-bg,#12141a);border-left:4px solid ${color};border-radius:6px">Across all ${analyses.length} components and ${totalSensors} sensors combined: `;
     if (investigate.length) html += `<strong style="color:#e07a7a">${investigate.length} item${investigate.length === 1 ? '' : 's'} need${investigate.length === 1 ? 's' : ''} investigation</strong>, in ${escHtml(investigateComponents.join(', '))}. `;
     if (watch.length) html += `${watch.length} item${watch.length === 1 ? '' : 's'} worth watching. `;
     html += `Everything else looked normal.</p>`;
@@ -4686,7 +4695,7 @@ async function loadTrackerMetricsBreakdown(eventId) {
   try {
     const { data, error } = await db.from('amit_device_session_metrics').select('*').eq('event_id', eventId);
     if (error || !data || data.length === 0) {
-      el.innerHTML = '<em style="color:#8a8f99">No detailed sensor data was captured for this session.</em>';
+      el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No detailed sensor data was captured for this session.</em>';
       return;
     }
     // Grouped by component (CPU/GPU/RAM/Storage/Other) - Ryan's direct
@@ -4724,7 +4733,7 @@ async function loadTrackerMetricsBreakdown(eventId) {
     let html = '<div style="display:flex;justify-content:flex-end;margin-top:10px">' +
       '<button class="btn secondary" style="font-size:12px;padding:6px 12px" onclick="downloadMasterDump(\'' + new Date().toISOString().slice(0, 10) + '\')">⬇ Download Master Dump (CSV)</button></div>';
     html += '<div class="section-title" style="margin-top:10px">1. Resource Usage — Combined Analysis Per Component</div>';
-    html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Each component\'s sensors analyzed together, not one at a time - click "View full breakdown" for the complete sensor-by-sensor spreadsheet with any flagged items highlighted.</p>';
+    html += '<p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:-4px">Each component\'s sensors analyzed together, not one at a time - click "View full breakdown" for the complete sensor-by-sensor spreadsheet with any flagged items highlighted.</p>';
     html += sectionSummaryBanner(section1Investigate, section1Watch, 'Across all components');
     html += '<ul style="margin:6px 0 0 18px">' + analyses.map(renderComponentRollup).join('') + '</ul>';
     html += buildThermalHeadroomSection(byComponent, escHtml, specs);
@@ -4732,7 +4741,7 @@ async function loadTrackerMetricsBreakdown(eventId) {
     html += await buildLongevitySection(byComponent);
     el.innerHTML = html;
   } catch (err) {
-    el.innerHTML = '<em style="color:#8a8f99">Could not load resource breakdown.</em>';
+    el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Could not load resource breakdown.</em>';
   }
 }
 
@@ -4821,14 +4830,14 @@ async function buildLongevitySection(byComponent) {
   });
 
   if (findings.length === 0) {
-    return '<div class="section-title" style="margin-top:20px">4. Longevity Outlook</div><p style="margin:6px 0;color:#9aa0ab;font-size:12.5px">Not enough data to estimate remaining hardware lifespan this session - this drive\'s controller doesn\'t report wear data, and no recognized CPU/GPU/motherboard generation was found to infer age from.</p>';
+    return '<div class="section-title" style="margin-top:20px">4. Longevity Outlook</div><p style="margin:6px 0;color:var(--amit-muted,#9aa0ab);font-size:12.5px">Not enough data to estimate remaining hardware lifespan this session - this drive\'s controller doesn\'t report wear data, and no recognized CPU/GPU/motherboard generation was found to infer age from.</p>';
   }
 
   const overallGrade = gradeFromScore(worstScore);
   const gradeColor = { A: '#4caf6d', B: '#4caf6d', C: '#e0c477', D: '#e07a7a', F: '#e07a7a' }[overallGrade];
   let html = '<div class="section-title" style="margin-top:20px">4. Longevity Outlook</div>';
-  html += '<p style="font-size:12px;color:#9aa0ab;margin-top:-4px">A separate question from today\'s performance: how much runway does this hardware have left. Drive wear is real measured data; hardware age is inferred from model naming, not a certified purchase date - treat it as a helpful signal, not a diagnosis.</p>';
-  html += `<div style="margin:10px 0;padding:10px 14px;background:#12141a;border-left:4px solid ${gradeColor};border-radius:6px"><strong style="color:${gradeColor};font-size:16px">Longevity grade: ${overallGrade}</strong></div>`;
+  html += '<p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:-4px">A separate question from today\'s performance: how much runway does this hardware have left. Drive wear is real measured data; hardware age is inferred from model naming, not a certified purchase date - treat it as a helpful signal, not a diagnosis.</p>';
+  html += `<div style="margin:10px 0;padding:10px 14px;background:var(--amit-bg,#12141a);border-left:4px solid ${gradeColor};border-radius:6px"><strong style="color:${gradeColor};font-size:16px">Longevity grade: ${overallGrade}</strong></div>`;
   html += '<ul style="margin:6px 0 0 18px">' + findings.map(f => `<li style="margin:6px 0">[${f.grade}] ${f.text}</li>`).join('') + '</ul>';
   return html;
 }
@@ -4867,13 +4876,13 @@ function findTempRows(rows, component) {
 function sectionSummaryBanner(investigateCount, watchCount, totalLabel) {
   const COLOR = { bad: '#e07a7a', warn: '#e0c477', good: '#4caf6d' };
   if (investigateCount === 0 && watchCount === 0) {
-    return `<p style="margin:6px 0 10px;padding:10px 14px;background:#12141a;border-left:4px solid ${COLOR.good};border-radius:6px">${totalLabel}: nothing stood out as a concern.</p>`;
+    return `<p style="margin:6px 0 10px;padding:10px 14px;background:var(--amit-bg,#12141a);border-left:4px solid ${COLOR.good};border-radius:6px">${totalLabel}: nothing stood out as a concern.</p>`;
   }
   const color = investigateCount > 0 ? COLOR.bad : COLOR.warn;
   let text = `${totalLabel}: `;
   if (investigateCount > 0) text += `<strong style="color:${COLOR.bad}">${investigateCount} item${investigateCount === 1 ? '' : 's'} need${investigateCount === 1 ? 's' : ''} investigation</strong>. `;
   if (watchCount > 0) text += `${watchCount} item${watchCount === 1 ? '' : 's'} worth watching. `;
-  return `<p style="margin:6px 0 10px;padding:10px 14px;background:#12141a;border-left:4px solid ${color};border-radius:6px">${text}</p>`;
+  return `<p style="margin:6px 0 10px;padding:10px 14px;background:var(--amit-bg,#12141a);border-left:4px solid ${color};border-radius:6px">${text}</p>`;
 }
 
 function buildThermalHeadroomSection(byComponent, esc, specs) {
@@ -4907,7 +4916,7 @@ function buildThermalHeadroomSection(byComponent, esc, specs) {
   });
   if (lines.length === 0) return '';
   const banner = sectionSummaryBanner(investigateCount, watchCount, 'Thermal headroom across all sensed devices');
-  return '<div class="section-title" style="margin-top:16px">2. Thermal Headroom</div><p style="font-size:12px;color:#9aa0ab;margin-top:-4px">Safe limits are drawn from the hardware specs database - manufacturer numbers where known, otherwise a labeled estimate - not measured from this specific machine.</p>' + banner + '<ul style="margin:6px 0 0 18px">' + lines.join('') + '</ul>';
+  return '<div class="section-title" style="margin-top:16px">2. Thermal Headroom</div><p style="font-size:12px;color:var(--amit-muted,#9aa0ab);margin-top:-4px">Safe limits are drawn from the hardware specs database - manufacturer numbers where known, otherwise a labeled estimate - not measured from this specific machine.</p>' + banner + '<ul style="margin:6px 0 0 18px">' + lines.join('') + '</ul>';
 }
 
 // --- Device init ---
@@ -5304,7 +5313,7 @@ async function toggleTracker() {
       const overviewEl = document.getElementById('sessionSummaryOverview');
       const color = verdict.severity === 'red' ? '#d05555' : verdict.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
       const icon = verdict.severity === 'red' ? '🔴' : verdict.severity === 'yellow' ? '🟡' : '🟢';
-      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${verdict.summary}</strong></div>`;
+      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:var(--amit-bg,#12141a);border-radius:6px;margin:14px 0"><strong>${icon} ${verdict.summary}</strong></div>`;
       // Fetched BEFORE creating the event now (not after) - real
       // duplicate caught live 2026-07-16: reconciliation and this live
       // push are two separate code paths that can both decide to log
@@ -5326,7 +5335,7 @@ async function toggleTracker() {
       const overviewEl = document.getElementById('sessionSummaryOverview');
       const color = overview.severity === 'red' ? '#d05555' : overview.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
       const icon = overview.severity === 'red' ? '🔴' : overview.severity === 'yellow' ? '🟡' : '🟢';
-      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
+      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:var(--amit-bg,#12141a);border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
       detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
     }
   }
@@ -5545,7 +5554,7 @@ async function pollResource() {
       const p = parseResourceLine(last);
       LAST_PERF_RESOURCE = p;
       const ramCard = `<div class="card ${verdictClass(p.ramPct,70,90)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('ram')" title="Click Detail, or double-click anywhere on the card">
-        <span onclick="openPerfDetail('ram')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
+        <span onclick="openPerfDetail('ram')" style="position:absolute;top:8px;right:10px;font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;cursor:pointer">Detail →</span>
         <div class="label">Memory (RAM)</div>
         <div class="value">${p.ramPct !== null ? p.ramPct+'%' : '—'}</div>
         <div class="verdict">${verdictText('RAM',p.ramPct,70,90,
@@ -5553,7 +5562,7 @@ async function pollResource() {
           'Getting fuller — fine for now, worth watching if it climbs.',
           'Memory is nearly full. This can cause slowdowns and stutter.')}</div></div>`;
       const cpuCard = `<div class="card ${verdictClass(p.cpuPct,60,85)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('cpu')" title="Click Detail, or double-click anywhere on the card">
-        <span onclick="openPerfDetail('cpu')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
+        <span onclick="openPerfDetail('cpu')" style="position:absolute;top:8px;right:10px;font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;cursor:pointer">Detail →</span>
         <div class="label">Processor (CPU)</div>
         <div class="value">${p.cpuPct !== null ? p.cpuPct+'%' : '—'}</div>
         <div class="verdict">${verdictText('CPU',p.cpuPct,60,85,
@@ -5612,7 +5621,7 @@ async function pollDiagnostics() {
       LAST_PERF_DIAGNOSTICS = { dpcPct, diskPct, diskMs, procQueueLen, ctxSwitchPerSec, freeSpacePct, usedSpacePct };
       const diagCardsHtml = `
         <div class="card ${verdictClass(dpcPct,3,8)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('dpc')" title="Click Detail, or double-click anywhere on the card">
-          <span onclick="openPerfDetail('dpc')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
+          <span onclick="openPerfDetail('dpc')" style="position:absolute;top:8px;right:10px;font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">Input Lag Risk (DPC time)</div>
           <div class="value">${dpcPct !== null ? dpcPct+'%' : '—'}</div>
           <div class="verdict">${verdictText('DPC',dpcPct,3,8,
@@ -5620,7 +5629,7 @@ async function pollDiagnostics() {
             'Slightly elevated — could explain occasional stutter.',
             'High — this is a common cause of laggy mouse/keyboard. Worth investigating drivers.')}</div></div>
         <div class="card ${verdictClass(diskPct,50,85)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('diskActivity')" title="Click Detail, or double-click anywhere on the card">
-          <span onclick="openPerfDetail('diskActivity')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
+          <span onclick="openPerfDetail('diskActivity')" style="position:absolute;top:8px;right:10px;font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">Disk Activity</div>
           <div class="value">${diskPct !== null ? diskPct+'%' : '—'}</div>
           <div class="verdict">${verdictText('Disk',diskPct,50,85,
@@ -5628,15 +5637,15 @@ async function pollDiagnostics() {
             'Disk is busy — normal during file operations.',
             'Disk is maxed out — this alone can make everything feel frozen.')}</div></div>
         <div class="card ${verdictClass(procQueueLen,2,5)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('cpuBacklog')" title="Click Detail, or double-click anywhere on the card">
-          <span onclick="openPerfDetail('cpuBacklog')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
+          <span onclick="openPerfDetail('cpuBacklog')" style="position:absolute;top:8px;right:10px;font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">CPU Backlog (Processor Queue)</div>
-          <div class="value">${procQueueLen !== null ? procQueueLen : '—'}${ctxSwitchPerSec !== null ? ' <span style="font-size:12px;color:#8a8f99;font-weight:400">(' + ctxSwitchPerSec.toLocaleString() + ' switches/sec)</span>' : ''}</div>
+          <div class="value">${procQueueLen !== null ? procQueueLen : '—'}${ctxSwitchPerSec !== null ? ' <span style="font-size:12px;color:var(--amit-muted,#8a8f99);font-weight:400">(' + ctxSwitchPerSec.toLocaleString() + ' switches/sec)</span>' : ''}</div>
           <div class="verdict">${verdictText('CPU Backlog',procQueueLen,2,5,
             'CPU is keeping up fine — nothing waiting in line.',
             'Some threads waiting for CPU time — worth watching if this stays consistent.',
             'Real backlog — the CPU cannot keep up with demand right now.')}</div></div>
         <div class="card ${verdictClass(diskMs,10,30)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('diskResponse')" title="Click Detail, or double-click anywhere on the card">
-          <span onclick="openPerfDetail('diskResponse')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
+          <span onclick="openPerfDetail('diskResponse')" style="position:absolute;top:8px;right:10px;font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">Disk Response Time</div>
           <div class="value">${diskMs !== null ? diskMs+'ms' : '—'}</div>
           <div class="verdict">${verdictText('Disk Response',diskMs,10,30,
@@ -5644,7 +5653,7 @@ async function pollDiagnostics() {
             'A bit slow — normal for a busy hard drive, worth watching on an SSD.',
             'Genuinely slow — this could be why things feel sluggish.')}</div></div>
         <div class="card ${verdictClass(usedSpacePct,80,90)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('freeSpace')" title="Click Detail, or double-click anywhere on the card">
-          <span onclick="openPerfDetail('freeSpace')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
+          <span onclick="openPerfDetail('freeSpace')" style="position:absolute;top:8px;right:10px;font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;cursor:pointer">Detail →</span>
           <div class="label">Free Disk Space</div>
           <div class="value">${freeSpacePct !== null ? freeSpacePct+'%' : '—'}</div>
           <div class="verdict">${verdictText('Free Space',usedSpacePct,80,90,
@@ -5682,12 +5691,12 @@ async function pollRestartPending() {
 
 async function checkPendingUpdates() {
   const el = document.getElementById('pendingUpdatesResult');
-  el.innerHTML = '<em style="color:#8a8f99">Searching Windows Update - this can take several seconds…</em>';
+  el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Searching Windows Update - this can take several seconds…</em>';
   try {
     const r = await fetch(BRIDGE + '/api/pending-updates');
     const d = await r.json();
     if (!d.found) {
-      el.innerHTML = '<em style="color:#8a8f99">Could not search Windows Update right now.</em>';
+      el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Could not search Windows Update right now.</em>';
       return;
     }
     if (d.count === 0) {
@@ -5701,7 +5710,7 @@ async function checkPendingUpdates() {
       <div class="log-box" style="margin-bottom:10px">${d.titles.join('\n')}</div>
       <button class="btn" onclick="startInstallUpdates()" id="installUpdatesBtn">Install Updates</button>
       <div id="installUpdatesStatus" style="margin-top:10px"></div>`;
-  } catch (e) { el.innerHTML = '<em style="color:#8a8f99">Search failed.</em>'; }
+  } catch (e) { el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Search failed.</em>'; }
 }
 
 // Driver Updates section, added same day (Ryan's direct request) -
@@ -5715,12 +5724,12 @@ async function checkPendingUpdates() {
 // answer here is worse than an honest "check manually" link.
 async function checkDriverUpdates() {
   const el = document.getElementById('driverUpdatesResult');
-  el.innerHTML = '<em style="color:#8a8f99">Reading installed drivers and checking Windows Update - this can take several seconds…</em>';
+  el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Reading installed drivers and checking Windows Update - this can take several seconds…</em>';
   try {
     const r = await fetch(BRIDGE + '/api/driver-updates');
     const d = await r.json();
     if (!d.found || !d.drivers || !d.drivers.length) {
-      el.innerHTML = '<em style="color:#8a8f99">Could not read installed drivers right now.</em>';
+      el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Could not read installed drivers right now.</em>';
       return;
     }
     const flaggedCount = d.drivers.filter(dr => dr.windowsUpdateAvailable).length;
@@ -5730,7 +5739,7 @@ async function checkDriverUpdates() {
         : `<a href="${dr.vendorLink}" target="_blank" rel="noopener" style="color:#7ab8e0">Check ${dr.manufacturer || 'manufacturer'}'s driver page →</a>`;
       return `<div style="padding:8px 0;border-bottom:1px solid #2a2d36">
           <div style="font-weight:600">${dr.deviceName}</div>
-          <div style="font-size:12px;color:#9aa0ab">Installed: ${dr.driverVersion} (${dr.driverDate || 'date unknown'})</div>
+          <div style="font-size:12px;color:var(--amit-muted,#9aa0ab)">Installed: ${dr.driverVersion} (${dr.driverDate || 'date unknown'})</div>
           <div style="font-size:12px;margin-top:2px">${flag}</div>
         </div>`;
     }).join('');
@@ -5739,7 +5748,7 @@ async function checkDriverUpdates() {
         <div class="value">${flaggedCount ? flaggedCount + ' flagged by Windows Update' : 'Nothing flagged by Windows Update'}</div>
         <div class="verdict">Windows Update only covers some drivers - GPU drivers especially usually need checking directly with the manufacturer.</div></div>
       <div class="log-box" style="max-height:400px;overflow-y:auto">${rows}</div>`;
-  } catch (e) { el.innerHTML = '<em style="color:#8a8f99">Driver check failed.</em>'; }
+  } catch (e) { el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Driver check failed.</em>'; }
 }
 
 // Ryan's direct request 2026-07-16 (revised same day) - the original
@@ -5757,7 +5766,7 @@ async function startInstallUpdates() {
   const statusEl = document.getElementById('installUpdatesStatus');
   btn.disabled = true;
   btn.textContent = 'Opening Windows Update…';
-  statusEl.innerHTML = '<em style="color:#8a8f99">Opening the Windows Update settings page…</em>';
+  statusEl.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Opening the Windows Update settings page…</em>';
   let opened = false;
   try {
     const r = await fetch(BRIDGE + '/api/open-windows-update', { method: 'POST' });
@@ -5768,7 +5777,7 @@ async function startInstallUpdates() {
     btn.disabled = false; btn.textContent = 'Install Updates';
     return;
   }
-  statusEl.innerHTML = '<em style="color:#8a8f99">Stopping the tracker and monitor so nothing is interrupted…</em>';
+  statusEl.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Stopping the tracker and monitor so nothing is interrupted…</em>';
   await stopAllTracking();
   btn.classList.add('hidden');
   statusEl.innerHTML = `<div class="card good" style="max-width:520px">
@@ -5789,9 +5798,9 @@ async function restartComputerNow() {
   const statusEl = document.getElementById('restartNowStatus');
   btn.disabled = true;
   btn.textContent = 'Closing everything down first…';
-  statusEl.innerHTML = '<em style="color:#8a8f99">Stopping any active tracking and saving History before restarting…</em>';
+  statusEl.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Stopping any active tracking and saving History before restarting…</em>';
   try { await stopAllTracking(); } catch (e) {}
-  statusEl.innerHTML = '<em style="color:#8a8f99">Restarting in 15 seconds…</em>';
+  statusEl.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Restarting in 15 seconds…</em>';
   try {
     await fetch(BRIDGE + '/api/restart-computer', { method: 'POST' });
     statusEl.innerHTML = '<em style="color:#e0a72e">Restarting in 15 seconds - Windows will show its own countdown.</em>';
@@ -5871,7 +5880,7 @@ async function pollReliability() {
           'Nothing concerning since your last update.',
           'A few errors since your last update - worth keeping an eye on.',
           'A real pattern of errors since your last update - worth investigating what keeps failing.')}
-          <div style="margin-top:6px;color:#8a8f99;font-size:12px">${lastUpdateLine}</div></div></div>
+          <div style="margin-top:6px;color:var(--amit-muted,#8a8f99);font-size:12px">${lastUpdateLine}</div></div></div>
       <div class="card ${verdictClass(crashCountSinceUpdate,1,3)}">
         <div class="label">Crashes &amp; Hangs Since Your Last Update</div>
         <div class="value">${crashCountSinceUpdate}</div>
@@ -5917,7 +5926,7 @@ async function pollSecurity() {
     const r = await fetch(BRIDGE + '/api/security');
     const d = await r.json();
     if (!d.found) {
-      document.getElementById('securityCards').innerHTML = '<em style="color:#8a8f99">Could not read antivirus status - Windows Defender may not be the active antivirus on this machine.</em>';
+      document.getElementById('securityCards').innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Could not read antivirus status - Windows Defender may not be the active antivirus on this machine.</em>';
       return;
     }
     const realTimeOk = d.antivirusEnabled && d.realTimeProtectionEnabled;
@@ -5970,7 +5979,7 @@ async function pollBrowser() {
     const d = await r.json();
     const browsers = d.browsers || [];
     if (browsers.length === 0) {
-      document.getElementById('browserCards').innerHTML = '<em style="color:#8a8f99">No supported browsers detected running (Edge, Chrome, Firefox).</em>';
+      document.getElementById('browserCards').innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No supported browsers detected running (Edge, Chrome, Firefox).</em>';
       document.getElementById('overviewBrowserCards').innerHTML = '';
       return;
     }
@@ -6024,7 +6033,7 @@ async function pollBrowser() {
     LAST_PERF_BROWSER = { totalMemMB: totalMem, installedRamMB, byBrowser: browsers };
     document.getElementById('overviewBrowserCards').innerHTML = `
       <div class="card ${verdictClass(totalMem, 1500, 3000)}" style="cursor:pointer;position:relative" ondblclick="openPerfDetail('browserMem')" title="Click Detail, or double-click anywhere on the card">
-        <span onclick="openPerfDetail('browserMem')" style="position:absolute;top:8px;right:10px;font-size:11px;color:#8a8f99;text-decoration:underline;cursor:pointer">Detail →</span>
+        <span onclick="openPerfDetail('browserMem')" style="position:absolute;top:8px;right:10px;font-size:11px;color:var(--amit-muted,#8a8f99);text-decoration:underline;cursor:pointer">Detail →</span>
         <div class="label">Browser Memory (all browsers combined)</div>
         <div class="value">${formatMem(totalMem)}</div>
         <div class="verdict">${verdictText('browsermem', totalMem, 1500, 3000,
@@ -6233,20 +6242,20 @@ function renderBehaviorReport(text) {
   const section = (title, inner) => inner ? `<div class="section-title" style="margin-top:16px">${title}</div>${inner}` : '';
   const bullets = items => '<ul style="margin:6px 0 0 18px">' + items.map(i => `<li style="margin:4px 0">${i}</li>`).join('') + '</ul>';
 
-  let html = `<p style="color:#8a8f99;margin:0 0 4px">Watched <strong>${esc(watched)}</strong> for <strong>${esc(duration)}</strong></p>`;
+  let html = `<p style="color:var(--amit-muted,#8a8f99);margin:0 0 4px">Watched <strong>${esc(watched)}</strong> for <strong>${esc(duration)}</strong></p>`;
 
   if (nothingLine) {
-    html += `<p style="margin:14px 0;padding:10px 14px;background:#12141a;border-left:4px solid #4caf6d;border-radius:6px">${esc(nothingLine)}</p>`;
+    html += `<p style="margin:14px 0;padding:10px 14px;background:var(--amit-bg,#12141a);border-left:4px solid #4caf6d;border-radius:6px">${esc(nothingLine)}</p>`;
     document.getElementById('behaviorSummaryBody').innerHTML = html;
     return html;
   }
 
   if (storyLine) {
-    html += `<p style="margin:10px 0;font-style:italic;color:#c7cad1">${esc(storyLine.replace('STORY: ', ''))}</p>`;
+    html += `<p style="margin:10px 0;font-style:italic;color:var(--amit-text-soft,#c7cad1)">${esc(storyLine.replace('STORY: ', ''))}</p>`;
   }
 
   html += section('1. Process Activity', bullets(
-    (detected.length ? detected.map(d => `<strong>${esc(d.name)}</strong> (PID ${d.pid})${d.expected ? ' <span style="color:#8a8f99">— expected Windows background process</span>' : d.repeat ? ' <span style="color:#e0a72e">— new instance, opened again</span>' : ''}`) : ['No new programs were detected during this session.'])
+    (detected.length ? detected.map(d => `<strong>${esc(d.name)}</strong> (PID ${d.pid})${d.expected ? ' <span style="color:var(--amit-muted,#8a8f99)">— expected Windows background process</span>' : d.repeat ? ' <span style="color:#e0a72e">— new instance, opened again</span>' : ''}`) : ['No new programs were detected during this session.'])
     .concat(processStoryLine ? [esc(processStoryLine)] : [])
   ));
 
@@ -6390,7 +6399,7 @@ async function logBehaviorSessionToHubHistory(summary, fullLog, duration, mainPr
 }
 
 async function installStart() {
-  document.getElementById('installResult').innerHTML = '<em style="color:#8a8f99">Baseline captured. Go install/download now, then click Compare.</em>';
+  document.getElementById('installResult').innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Baseline captured. Go install/download now, then click Compare.</em>';
   await fetch(BRIDGE + '/api/install-start', { method:'POST' });
 }
 async function installCompare() {
@@ -6407,7 +6416,7 @@ async function installCompare() {
   html += section('New Scheduled Tasks', diff.NewTasks, t => `<div class="finding flag">${t.TaskPath}${t.TaskName}</div>`);
   html += section('New Browser Extensions', diff.NewExtensions, e => `<div class="finding flag">[${e.Browser}] ${e.Id}</div>`);
   html += section('Homepage/Search Changes', diff.HomepageChanges, h => `<div class="finding flag">[${h.Browser}] ${h.OldHomepage} → ${h.NewHomepage}</div>`);
-  if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
+  if (total === 0) html += '<em style="color:var(--amit-muted,#8a8f99)">Nothing extra was added — clean install.</em>';
   document.getElementById('installResult').innerHTML = html;
   // Previously a clean result (nothing added) never got logged at all - only
   // when something was found. Ryan's point: History should show that a
@@ -6680,7 +6689,7 @@ async function handleJustStopped() {
     if (overviewEl) {
       const color = verdict.severity === 'red' ? '#d05555' : verdict.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
       const icon = verdict.severity === 'red' ? '🔴' : verdict.severity === 'yellow' ? '🟡' : '🟢';
-      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${verdict.summary}</strong></div>`;
+      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:var(--amit-bg,#12141a);border-radius:6px;margin:14px 0"><strong>${icon} ${verdict.summary}</strong></div>`;
     }
     const justStoppedEventId = await logTrackingSessionEvent('tracking_session_ended', verdict.severity === 'red' ? 'critical' : verdict.severity === 'yellow' ? 'warning' : 'info', verdict.summary, justStoppedMetrics ? justStoppedMetrics.sessionEndTime : null, { endedAt: new Date().toISOString(), concerns: verdict.concerns, duration: justStoppedDuration });
     await insertMetricsRowsForEvent(justStoppedEventId, justStoppedMetrics);
@@ -6696,7 +6705,7 @@ async function handleJustStopped() {
     if (overviewEl) {
       const color = overview.severity === 'red' ? '#d05555' : overview.severity === 'yellow' ? '#e0a72e' : '#4caf6d';
       const icon = overview.severity === 'red' ? '🔴' : overview.severity === 'yellow' ? '🟡' : '🟢';
-      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:#12141a;border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
+      overviewEl.innerHTML = `<div style="border-left:4px solid ${color};padding:10px 14px;background:var(--amit-bg,#12141a);border-radius:6px;margin:14px 0"><strong>${icon} ${overview.summary}</strong></div>`;
     }
     detail.textContent = 'Sign in above to save a record of this session for next time — this one wasn\'t saved since you weren\'t signed in.';
   }
@@ -7021,7 +7030,7 @@ async function chShowInstallDiffDetail(eventId) {
   html += section('New Scheduled Tasks', diff.NewTasks, t => `<div class="finding flag">${t.TaskPath}${t.TaskName}</div>`);
   html += section('New Browser Extensions', diff.NewExtensions, ex => `<div class="finding flag">[${ex.Browser}] ${ex.Id}</div>`);
   html += section('Homepage/Search Changes', diff.HomepageChanges, h => `<div class="finding flag">[${h.Browser}] ${h.OldHomepage} → ${h.NewHomepage}</div>`);
-  if (total === 0) html += '<em style="color:#8a8f99">Nothing extra was added — clean install.</em>';
+  if (total === 0) html += '<em style="color:var(--amit-muted,#8a8f99)">Nothing extra was added — clean install.</em>';
   body.innerHTML = html;
   document.getElementById('historyDetailModal').classList.remove('hidden');
 }
@@ -7035,8 +7044,8 @@ async function chLoadInstalledProgramsTab() {
   const el = document.getElementById('installedProgramsBody');
   if (!el || !db) return;
   const devId = viewingDeviceId || deviceId;
-  if (!devId) { el.innerHTML = '<em style="color:#8a8f99">Sign in and connect a computer to see its installed-programs history.</em>'; return; }
-  el.innerHTML = '<em style="color:#8a8f99">Loading…</em>';
+  if (!devId) { el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Sign in and connect a computer to see its installed-programs history.</em>'; return; }
+  el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">Loading…</em>';
   const [{ data: rows }, { data: notes }] = await Promise.all([
     db.from('amit_installed_programs').select('*').eq('device_id', devId).order('date_value', { ascending: false }),
     db.from('amit_installed_program_date_notes').select('*').eq('device_id', devId)
@@ -7071,7 +7080,7 @@ async function chSaveDateNote(devId, dateValue, text) {
 
 function chRenderInstalledPrograms(rows, notes, devId) {
   const el = document.getElementById('installedProgramsBody');
-  if (!rows.length) { el.innerHTML = '<em style="color:#8a8f99">No installed-programs history yet - it\'s captured the next time tracking starts on this device.</em>'; return; }
+  if (!rows.length) { el.innerHTML = '<em style="color:var(--amit-muted,#8a8f99)">No installed-programs history yet - it\'s captured the next time tracking starts on this device.</em>'; return; }
 
   const noteByDate = new Map(notes.map(n => [n.date_value, n.note]));
   const groups = new Map(); // date_value (or null) -> rows[]
@@ -7148,7 +7157,7 @@ function chRenderInstalledPrograms(rows, notes, devId) {
     html += `<div class="card" style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
         <div class="section-title" style="margin:0">${dateLabel}</div>
-        <input type="text" id="${noteId}" value="${(savedNote || '').replace(/"/g,'&quot;')}" placeholder="Add a comment for this date…" style="flex:1;min-width:220px;max-width:420px;padding:6px 10px;border-radius:6px;border:1px solid #3a3f4c;background:#0f1116;color:#e8e8ec;font-size:12px"
+        <input type="text" id="${noteId}" value="${(savedNote || '').replace(/"/g,'&quot;')}" placeholder="Add a comment for this date…" style="flex:1;min-width:220px;max-width:420px;padding:6px 10px;border-radius:6px;border:1px solid var(--amit-input-border,#3a3f4c);background:var(--amit-input-bg,#0f1116);color:var(--amit-input-text,#e8e8ec);font-size:12px"
           onchange="chSaveDateNote('${devId}', ${dateKey === null ? 'null' : `'${dateKey}'`}, this.value)">
       </div>
       <table class="history-table ip-table" style="width:100%;table-layout:fixed">
@@ -7191,9 +7200,9 @@ function chRenderInstalledPrograms(rows, notes, devId) {
         const timeLabel = r.install_datetime ? new Date(r.install_datetime).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '—';
         return `<tr class="${r._clusterBreak ? 'cluster-break' : ''}" ondblclick="chOpenProgramSearch('${esc(r.display_name)}','${esc(r.publisher)}','${esc(r.version)}')" title="Double-click this row to search for what it is">
           <td>${badge}</td>
-          <td><span style="color:#c9a84c">🔍</span> ${r.display_name}${watcherLink}</td>
-          <td style="color:#9aa0ab">${r.publisher || '—'}</td><td style="color:#9aa0ab">${r.version || '—'}</td>
-          <td style="color:#9aa0ab">${timeLabel}</td>
+          <td><span style="color:var(--amit-accent,#c9a84c)">🔍</span> ${r.display_name}${watcherLink}</td>
+          <td style="color:var(--amit-muted,#9aa0ab)">${r.publisher || '—'}</td><td style="color:var(--amit-muted,#9aa0ab)">${r.version || '—'}</td>
+          <td style="color:var(--amit-muted,#9aa0ab)">${timeLabel}</td>
         </tr>`;
       }).join('') +
       `</tbody></table></div>`;
