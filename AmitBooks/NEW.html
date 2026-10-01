@@ -86,21 +86,22 @@
 <script src="../Amit_Ask_Live.js"></script>
 <script src="../amit_owner_contact.js"></script>
 <script src="../amit_pin_encryption.js"></script>
+<script src="../amit_appearance.js?v=1.06"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#09141f;
-  --card-head:#0f2338;
-  --border:rgba(201,168,76,0.55);
-  --gold:#c9a84c;
-  --gold2:#e8c56a;
-  --text:#ffffff;
-  --text2:#f0e8d0;
-  --muted:rgba(240,232,208,0.78);
-  --dim:rgba(240,232,208,0.42);
+  --bg:var(--amit-bg,#09141f);
+  --card-head:var(--amit-surface,#0f2338);
+  --border:var(--amit-border,rgba(var(--amit-accent-rgb,201,168,76),0.55));
+  --gold:var(--amit-accent,#c9a84c);
+  --gold2:var(--amit-accent-bright,#e8c56a);
+  --text:var(--amit-text,#ffffff);
+  --text2:var(--amit-text-soft,#f0e8d0);
+  --muted:var(--amit-muted,rgba(var(--amit-text-rgb,240,232,208),0.78));
+  --dim:var(--amit-dim,rgba(var(--amit-text-rgb,240,232,208),0.42));
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);color:var(--text);display:flex;flex-direction:column}
 
 body::before{
   content:'';
@@ -128,20 +129,20 @@ header{
   text-align:center;pointer-events:none;
 }
 .page-title{
-  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  font-family:var(--amit-font-title,Georgia,serif);font-size:26px;font-weight:700;
   letter-spacing:.3px;text-transform:none;color:var(--gold2);
 }
 .page-version{
-  font-family:monospace;font-size:11px;letter-spacing:.05em;
-  color:rgba(201,168,76,.55);margin-top:2px;
+  font-family:var(--amit-font-mono,monospace);font-size:11px;letter-spacing:.05em;
+  color:rgba(var(--amit-accent-rgb,201,168,76),.55);margin-top:2px;
 }
 .brand{display:flex;align-items:center;gap:14px}
 .brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
-.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.brand-sub{font-style:italic;color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px}
 .hdr-right{text-align:right}
-.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:600}
 .datetime{font-size:12px;color:var(--muted);margin-top:2px}
-.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:rgba(var(--amit-text-rgb,240,232,208),.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
 .help-btn:hover{border-color:var(--gold);color:var(--gold)}
 
 /* ── HUB LAYOUT ── */
@@ -156,7 +157,7 @@ header{
   overflow-y:auto;padding:12px 10px;gap:0;
 }
 .sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .sidebar{transition:width .18s ease}
 .sidebar.collapsed{width:64px}
 .sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
@@ -169,14 +170,14 @@ header{
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
 }
-.page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
-.page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.page-nav:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border-color:rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.page-nav.active{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25)}
 .page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 /* Round plug-status badge — green when connected, red when not, per
    Ryan's direct instruction. Applied to the Sign In/Out rail icon in
    place of its plain square page-icon background. */
 .page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
-.page-icon.plug-badge.connected{background:#2e7d46}
+.page-icon.plug-badge.connected{background:var(--amit-ok,#2e7d46)}
 .page-icon.plug-badge.disconnected{background:var(--bg)}
 /* Red fill grows from nothing (a point at the badge's center) out to the
    full edge of the circle, then collapses back to nothing — not a color
@@ -184,12 +185,12 @@ header{
    lock glyph (.plug-icon-glyph is explicitly positioned+z-indexed above
    it — without that, this positioned pseudo-element would paint OVER
    plain inline text per normal stacking order). */
-.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:#c73333;animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:var(--amit-danger,#c73333);animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
 .plug-icon-glyph{position:relative;z-index:1}
 @keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
 .page-info{flex:1;min-width:0}
-.page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.page-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:600}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── MAIN AREA ── */
@@ -202,7 +203,7 @@ header{
 .detail.active{display:flex}
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .detail::-webkit-scrollbar{width:5px}
-.detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+.detail::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:3px}
 
 /* ── DETAIL HEADER ── */
 .detail-head{
@@ -212,18 +213,18 @@ header{
   border-bottom:2px solid var(--border);
   flex-shrink:0;
 }
-.detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
-.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.detail-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(var(--amit-text-rgb,240,232,208),.25);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
    that can host any layout instance copied in from TemplateViews.html —
    content-agnostic, same separation as a Page or a Tab slot not caring
    what's mounted inside them. Built into this starter (not TemplateViews-
    only) since it's global infrastructure, not a layout. ── */
-.popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
-.popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-overlay{display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.6));z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
 .popup-card.wide{max-width:860px}
-.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(var(--amit-text-rgb,240,232,208),.5);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.08em}
 .popup-close-btn:hover{color:var(--gold2)}
 
 /* ── RIGHT RAIL — global, present on every page, same on every project.
@@ -240,7 +241,7 @@ header{
   transition:width .18s ease;
 }
 .right-rail::-webkit-scrollbar{width:3px}
-.right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .right-rail.expanded{width:max-content}
 .right-rail .page-nav{padding:4px;flex-direction:row-reverse}
 .right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
@@ -252,8 +253,8 @@ header{
    Demo Mode) apart from an OFF one at a glance. Right-rail items are
    toggles, not navigation, so they get their own distinct green
    on-state — overrides the gold .page-nav.active rule for this rail only. */
-.right-rail .page-nav.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65);box-shadow:0 0 0 1px rgba(46,160,67,.4)}
-.right-rail .page-nav.active .page-icon{background:rgba(46,160,67,.35);border-radius:50%;box-shadow:0 0 0 2px rgba(46,160,67,.55)}
+.right-rail .page-nav.active{background:rgba(var(--amit-on-rgb,46,160,67),.20);border-color:rgba(var(--amit-on-rgb,46,160,67),.65);box-shadow:0 0 0 1px rgba(var(--amit-on-rgb,46,160,67),.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(var(--amit-on-rgb,46,160,67),.35);border-radius:50%;box-shadow:0 0 0 2px rgba(var(--amit-on-rgb,46,160,67),.55)}
 .right-rail .page-nav.active .page-name{color:#6fe38f}
 
 /* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
@@ -263,8 +264,8 @@ header{
    edge. A single fixed element sidesteps that entirely. ── */
 .page-hover-tip{
   position:fixed;z-index:9999;
-  background:#1a3352;border:1px solid rgba(201,168,76,.45);
-  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
+  background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);
+  color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.05em;
   line-height:1.5;
   padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
   opacity:0;pointer-events:none;
@@ -293,15 +294,15 @@ header{
    though .detail-head's own padding never changed. Tightening this is
    what actually narrows the row — shared class, so the fix applies
    everywhere at once. */
-.page-action-btn{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:var(--gold2);padding:5px 14px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;display:flex;align-items:center;gap:6px;transition:background .15s,border-color .15s}
-.page-action-btn:hover{background:rgba(201,168,76,.22);border-color:var(--gold)}
+.page-action-btn{background:var(--amit-btn-bg,rgba(var(--amit-accent-rgb,201,168,76),.12));border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);color:var(--amit-btn-text,var(--gold2));padding:5px 14px;border-radius:var(--amit-btn-radius,7px);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.05em;display:flex;align-items:center;gap:6px;transition:background .15s,border-color .15s}
+.page-action-btn:hover{background:var(--amit-btn-hover-bg,rgba(var(--amit-accent-rgb,201,168,76),.22));border-color:var(--gold)}
 /* First-run "Add New Company" — pulsing, with a "1" step badge, so a
    brand-new account with nothing yet has one unmistakable first move
    instead of a row of equal-weight buttons. Ryan's direct instruction,
    2026-08-12. */
 @keyframes pageActionPulse{0%,100%{box-shadow:0 0 0 0 rgba(46,125,70,.6)}50%{box-shadow:0 0 0 10px rgba(46,125,70,0)}}
-.page-action-btn-pulse{animation:pageActionPulse 1.8s ease-in-out infinite;background:rgba(46,125,70,.22);border-color:#2e7d46}
-.page-action-step-badge{background:#2e7d46;color:#fff;font-weight:700;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;animation:pageActionPulse 1.8s ease-in-out infinite}
+.page-action-btn-pulse{animation:pageActionPulse 1.8s ease-in-out infinite;background:rgba(46,125,70,.22);border-color:var(--amit-ok,#2e7d46)}
+.page-action-step-badge{background:var(--amit-ok,#2e7d46);color:var(--amit-text,#fff);font-weight:700;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;animation:pageActionPulse 1.8s ease-in-out infinite}
 /* Step 6 of the same onboarding walkthrough (Company→Book→Accounts→Scopes→
    Contacts→Clients), added 2026-08-14 — Ryan's direct instruction. Every
    earlier step pulsed a TAB button inside the Books page; Clients is its
@@ -310,9 +311,9 @@ header{
    same visual language (border/background glow), reusing the identical
    pageActionPulse keyframe and page-action-step-badge for the numbered
    circle so it reads as the same system, not a new one. */
-.page-nav-pulse{animation:pageActionPulse 1.8s ease-in-out infinite;background:rgba(46,125,70,.18);border-color:#2e7d46}
+.page-nav-pulse{animation:pageActionPulse 1.8s ease-in-out infinite;background:rgba(46,125,70,.18);border-color:var(--amit-ok,#2e7d46)}
 .ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
-.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
 /* padding halved from 28px 32px, 2026-08-12 (Ryan's direct instruction) —
    shared by every tab under the Books page (Books/Accounts/Scopes/
@@ -332,7 +333,7 @@ header{
    other (non-Row-View) tab too: a plain block child with no flex:1 just
    keeps its natural content height as a flex item, so this element's own
    overflow-y:auto still scrolls it exactly as before. */
-.ch-tab-main{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;padding:14px 18px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-main{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;padding:14px 18px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 /* Row View tabs (Books, Accounts, Clients — anything mounting .rv-wrap
@@ -371,9 +372,9 @@ header{
    drift apart from each other because they are cells of the same table,
    not three different tables trying to approximate each other's widths.
    .rv-table-frame is just the decorative outer border now, nothing more. */
-.rv-table-frame{flex:1;min-height:0;display:flex;flex-direction:column;border:6px double rgba(201,168,76,.6);border-radius:8px;overflow:hidden}
+.rv-table-frame{flex:1;min-height:0;display:flex;flex-direction:column;border:6px double rgba(var(--amit-accent-rgb,201,168,76),.6);border-radius:8px;overflow:hidden}
 .rv-table-wrap{flex:1;overflow:auto;outline:none}
-.rv-table-wrap:focus-visible{box-shadow:inset 0 0 0 2px rgba(201,168,76,.4)}
+.rv-table-wrap:focus-visible{box-shadow:inset 0 0 0 2px rgba(var(--amit-accent-rgb,201,168,76),.4)}
 /* Column-group expand/collapse — added 2026-08-14, Ryan's direct
    instruction, REPLACES an earlier screen-width-only version same day.
    Ryan's real target isn't screen size, it's a summary-first philosophy
@@ -389,7 +390,7 @@ header{
    BOOK_RV_COLUMNS' detailGroup/expandToggleGroup flags — opt-in per
    column, so every other Row View table in the app is unaffected. */
 .rv-col-toggle{cursor:pointer;color:var(--gold2);margin-right:4px;font-size:10px}
-.rv-summary-row td{background:#132a42;border-top:2px solid var(--gold);position:sticky;bottom:0;z-index:3}
+.rv-summary-row td{background:var(--amit-surface-raised,#132a42);border-top:2px solid var(--gold);position:sticky;bottom:0;z-index:3}
 /* width:100% removed (reverted 2026-08-07, same day added) — it forced
    the table to stretch past its own container and cover the right rail.
    Back to sizing to its real columns, same as before that change. */
@@ -408,42 +409,42 @@ header{
    time. border-spacing:0 keeps cells visually flush (no gap opens up),
    same tight look as collapse, but without the sticky-breaking behavior. */
 .rv-table{border-collapse:separate;border-spacing:0;font-size:16px;table-layout:fixed}
-.rv-table th{background:var(--card-head);color:var(--gold2);text-align:left;padding:11px 36px 11px 12px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:3}
+.rv-table th{background:var(--amit-table-head-bg,var(--card-head));color:var(--amit-table-head-text,var(--gold2));text-align:left;padding:11px 36px 11px 12px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.05em;text-transform:uppercase;user-select:none;border-bottom:2px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:3}
 .rv-th-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;max-width:100%;vertical-align:middle}
 .rv-table th .rv-arrow{margin-left:4px;opacity:.75}
 .rv-table th.rv-filtered{color:var(--gold)}
-.rv-col-menu-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;display:inline-flex;align-items:center;gap:1px;color:rgba(240,232,208,.55);opacity:1;padding:4px 5px;border-radius:5px;border:1px solid transparent;user-select:none}
-.rv-col-menu-btn:hover{color:var(--gold2);background:rgba(201,168,76,.1)}
-.rv-col-menu-btn.active{color:var(--gold);background:rgba(201,168,76,.16);border-color:var(--gold)}
-.rv-col-menu-order{font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:0;font-family:'Cinzel',serif}
-.rv-col-menu{display:none;background:#132a42;border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:10px;width:220px;box-shadow:0 8px 30px rgba(0,0,0,.5);font-family:'Crimson Pro',Georgia,serif;text-transform:none;letter-spacing:0}
+.rv-col-menu-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;display:inline-flex;align-items:center;gap:1px;color:rgba(var(--amit-text-rgb,240,232,208),.55);opacity:1;padding:4px 5px;border-radius:5px;border:1px solid transparent;user-select:none}
+.rv-col-menu-btn:hover{color:var(--gold2);background:rgba(var(--amit-accent-rgb,201,168,76),.1)}
+.rv-col-menu-btn.active{color:var(--gold);background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold)}
+.rv-col-menu-order{font-size:9px;font-weight:700;color:var(--gold2);letter-spacing:0;font-family:var(--amit-font-heading,'Cinzel',serif)}
+.rv-col-menu{display:none;background:var(--amit-surface-raised,#132a42);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:8px;padding:10px;width:220px;box-shadow:0 8px 30px rgba(0,0,0,.5);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);text-transform:none;letter-spacing:0}
 .rv-col-menu-sort{display:flex;flex-direction:column;gap:4px;margin-bottom:8px}
-.rv-col-menu-sort button{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.25);color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
-.rv-col-menu-sort button:hover{background:rgba(201,168,76,.15)}
-.rv-col-menu-divider{height:1px;background:rgba(201,168,76,.2);margin:8px 0}
-.rv-col-menu-search{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);border:1px solid rgba(201,168,76,.3);border-radius:5px;padding:6px 8px;color:#fff;font-size:12px;margin-bottom:6px;outline:none;font-family:inherit}
+.rv-col-menu-sort button{background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);color:var(--amit-text,#fff);padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
+.rv-col-menu-sort button:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.15)}
+.rv-col-menu-divider{height:1px;background:rgba(var(--amit-accent-rgb,201,168,76),.2);margin:8px 0}
+.rv-col-menu-search{width:100%;box-sizing:border-box;background:rgba(var(--amit-overlay-rgb,255,255,255),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:5px;padding:6px 8px;color:var(--amit-text,#fff);font-size:12px;margin-bottom:6px;outline:none;font-family:inherit}
 .rv-col-menu-selectall{font-size:11px;color:var(--gold2);margin-bottom:6px;cursor:pointer}
 .rv-col-menu-selectall span:hover{text-decoration:underline}
 .rv-col-menu-list{max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
-.rv-col-menu-item{display:flex;align-items:center;gap:7px;font-size:12px;color:#fff;padding:3px 2px;cursor:pointer}
+.rv-col-menu-item{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--amit-text,#fff);padding:3px 2px;cursor:pointer}
 .rv-col-menu-empty{font-size:11px;color:var(--dim);padding:6px 2px}
 .rv-col-menu-actions{display:flex;justify-content:space-between;gap:8px;margin-top:4px}
-.rv-col-menu-actions button{flex:1;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:'Cinzel',serif;letter-spacing:.05em}
-.rv-col-menu-btn-clear{background:rgba(255,255,255,.05);border:1px solid rgba(240,232,208,.25);color:var(--muted)}
-.rv-col-menu-btn-apply{background:rgba(201,168,76,.18);border:1px solid var(--gold);color:var(--gold2)}
+.rv-col-menu-actions button{flex:1;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:var(--amit-font-heading,'Cinzel',serif);letter-spacing:.05em}
+.rv-col-menu-btn-clear{background:rgba(var(--amit-overlay-rgb,255,255,255),.05);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.25);color:var(--muted)}
+.rv-col-menu-btn-apply{background:rgba(var(--amit-accent-rgb,201,168,76),.18);border:1px solid var(--gold);color:var(--gold2)}
 .rv-col-menu-datebtns{display:flex;flex-direction:column;gap:4px;margin-bottom:2px}
-.rv-col-menu-datebtns button{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.25);color:#fff;padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
-.rv-col-menu-datebtns button:hover{background:rgba(201,168,76,.15)}
+.rv-col-menu-datebtns button{background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);color:var(--amit-text,#fff);padding:6px 8px;border-radius:5px;cursor:pointer;font-size:12px;text-align:left;font-family:inherit}
+.rv-col-menu-datebtns button:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.15)}
 .rv-col-menu-date-custom{display:flex;flex-direction:column;gap:8px;margin:8px 0}
 .rv-col-menu-date-custom label{font-size:10px;color:var(--muted);display:block}
-.rv-col-menu-date-custom input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);border:1px solid rgba(201,168,76,.3);border-radius:5px;padding:6px 8px;color:#fff;font-size:12px;font-family:inherit;margin-top:3px}
-.rv-table td{padding:0;border-bottom:1px solid rgba(201,168,76,.12);overflow:hidden}
+.rv-col-menu-date-custom input{width:100%;box-sizing:border-box;background:rgba(var(--amit-overlay-rgb,255,255,255),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:5px;padding:6px 8px;color:var(--amit-text,#fff);font-size:12px;font-family:inherit;margin-top:3px}
+.rv-table td{padding:0;border-bottom:1px solid var(--amit-row-sep,rgba(var(--amit-accent-rgb,201,168,76),.12));overflow:hidden}
 .rv-table td.rv-td-plain{padding:11px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rv-table th,.rv-table td{border-right:1px solid rgba(201,168,76,.06)}
+.rv-table th,.rv-table td{border-right:1px solid rgba(var(--amit-accent-rgb,201,168,76),.06)}
 .rv-table th:last-child,.rv-table td:last-child{border-right:none}
 .rv-col-resizer{position:absolute;top:0;right:-3px;width:6px;height:100%;cursor:col-resize;z-index:3;user-select:none}
-.rv-col-resizer:hover,.rv-col-resizer.resizing{background:rgba(201,168,76,.4)}
-.rv-table tr.rv-row:hover td{background:rgba(255,255,255,.04)}
+.rv-col-resizer:hover,.rv-col-resizer.resizing{background:rgba(var(--amit-accent-rgb,201,168,76),.4)}
+.rv-table tr.rv-row:hover td{background:var(--amit-row-hover,rgba(var(--amit-overlay-rgb,255,255,255),.04))}
 /* Cream/parchment, matching the Hub's own calendar day-view cards
    (amit-hub.html .cal-dv-main.dv-today, #f5eed8) — Ryan's direct
    instruction, 2026-08-12, naming that exact color by where he'd seen it
@@ -461,7 +462,7 @@ header{
 .rv-table tr.rv-child-last td{border-bottom:2px solid #3b6ea5}
 .rv-table tr.rv-child td:first-child{border-left:2px solid #3b6ea5}
 .rv-table tr.rv-child td:last-child{border-right:2px solid #3b6ea5}
-.rv-table tr.rv-row.focused td{background:rgba(201,168,76,.1)}
+.rv-table tr.rv-row.focused td{background:rgba(var(--amit-accent-rgb,201,168,76),.1)}
 /* Full box around the focused row — replacing the old thin left bar,
    added 2026-08-07, Ryan's direct instruction: with several columns
    tinted their own colors (subtotals, the Company autocomplete cell),
@@ -478,11 +479,11 @@ header{
    .rv-expand triangle in its own column (that stays as-is for Books'
    Company/Book grouping). Reuses the pageActionPulse keyframe already
    defined above for the same green glow used on onboarding steps. */
-.rv-acct-expand{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-right:7px;border-radius:4px;border:1px solid #2e7d46;background:rgba(46,125,70,.25);color:#8fd19e;font-weight:700;font-size:12px;line-height:1;cursor:pointer;animation:pageActionPulse 2.2s ease-in-out infinite}
+.rv-acct-expand{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;margin-right:7px;border-radius:4px;border:1px solid var(--amit-ok,#2e7d46);background:rgba(46,125,70,.25);color:#8fd19e;font-weight:700;font-size:12px;line-height:1;cursor:pointer;animation:pageActionPulse 2.2s ease-in-out infinite}
 .rv-acct-expand:hover{background:rgba(46,125,70,.4)}
 .rv-cell-editable{display:block;padding:8px 12px;cursor:text;color:var(--text2);min-height:1em}
-.rv-cell-editable:hover{background:rgba(201,168,76,.1)}
-.rv-cell-input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.1);border:1px solid var(--gold);padding:7px 11px;color:#fff;font-size:13px;font-family:inherit;outline:none}
+.rv-cell-editable:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.1)}
+.rv-cell-input{width:100%;box-sizing:border-box;background:rgba(var(--amit-overlay-rgb,255,255,255),.1);border:1px solid var(--gold);padding:7px 11px;color:var(--amit-text,#fff);font-size:13px;font-family:inherit;outline:none}
 
 /* ── CHART OF ACCOUNTS — copied verbatim from AmitBooks.html (Books &
    Setup → Chart of Accounts), Ryan's direct instruction, 2026-08-07: same
@@ -490,24 +491,24 @@ header{
    NEW.html's Tab 2 (renamed "Accounts") instead of AmitBooks.html's
    Books & Setup panel. Nothing behavioral changed. ── */
 .ab-section{margin-bottom:26px}
-.ab-h{font-family:'Cinzel',serif;color:var(--gold2);font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
-.ab-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:12px;margin-bottom:14px}
-.ab-form input,.ab-form select{background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;font-family:inherit}
+.ab-h{font-family:var(--amit-font-heading,'Cinzel',serif);color:var(--gold2);font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0 0 10px}
+.ab-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--amit-card-bg,rgba(var(--amit-overlay-rgb,255,255,255),.03));border:1px solid var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.2));border-radius:8px;padding:12px;margin-bottom:14px}
+.ab-form input,.ab-form select{background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:6px;padding:8px 10px;color:var(--amit-text,#fff);font-size:13px;font-family:inherit}
 select,input[type=text],input[type=number],input[type=date],input[type=email],input[type=search],textarea{
-  background:#f4f1e6;color:#2a2418;border:1px solid rgba(201,168,76,.4);border-radius:6px;padding:5px 8px;font-family:inherit;font-size:12px
+  background:var(--amit-input-bg,#f4f1e6);color:var(--amit-input-text,#2a2418);border:1px solid var(--amit-input-border,rgba(var(--amit-accent-rgb,201,168,76),.4));border-radius:var(--amit-input-radius,6px);padding:5px 8px;font-family:inherit;font-size:12px
 }
-select:focus,input:focus,textarea:focus{outline:2px solid rgba(201,168,76,.5);outline-offset:1px}
-select option{color:#2a2418;background:#fff}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--amit-focus-ring,rgba(var(--amit-accent-rgb,201,168,76),.5));outline-offset:1px}
+select option{color:var(--amit-option-text,#2a2418);background:var(--amit-option-bg,#fff)}
 .ab-form label{font-size:10px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:3px}
 .ab-field{display:flex;flex-direction:column}
-.ab-btn{background:rgba(201,168,76,.16);border:1px solid var(--gold);color:var(--gold2);padding:8px 16px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;align-self:flex-end}
-.ab-btn:hover{background:rgba(201,168,76,.3)}
+.ab-btn{background:var(--amit-btn-bg,rgba(var(--amit-accent-rgb,201,168,76),.16));border:1px solid var(--amit-btn-border,var(--gold));color:var(--amit-btn-text,var(--gold2));padding:8px 16px;border-radius:var(--amit-btn-radius,6px);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.06em;align-self:flex-end}
+.ab-btn:hover{background:var(--amit-btn-hover-bg,rgba(var(--amit-accent-rgb,201,168,76),.3))}
 .ab-table{width:100%;border-collapse:collapse;font-size:13px}
-.ab-table th{text-align:left;color:var(--muted);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid rgba(201,168,76,.3)}
-.ab-table td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--text2)}
-.ab-table tr:hover td{background:rgba(255,255,255,.03)}
+.ab-table th{text-align:left;color:var(--muted);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:6px 10px;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.ab-table td{padding:8px 10px;border-bottom:1px solid var(--amit-row-sep,rgba(var(--amit-overlay-rgb,255,255,255),.05));color:var(--text2)}
+.ab-table tr:hover td{background:var(--amit-row-hover,rgba(var(--amit-overlay-rgb,255,255,255),.03))}
 .ab-empty{color:var(--dim);font-style:italic;padding:16px;text-align:center;font-size:13px}
-.ab-signin-notice{background:rgba(255,255,255,.03);border:1px dashed rgba(201,168,76,.3);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:13px}
+.ab-signin-notice{background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px dashed rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:24px;text-align:center;color:var(--muted);font-size:13px}
 /* ── CONTACT DATABASE — card grid, Ryan's direct instruction 2026-08-13:
    "an amazing contact database... very, very, very simple to use." Same
    theme tokens as the rest of the app (gold/parchment on navy), a fresh
@@ -518,23 +519,23 @@ select option{color:#2a2418;background:#fff}
 .cc-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
 .cc-search{min-width:260px;flex:1;max-width:420px}
 .cc-chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
-.cc-chip{background:transparent;border:1px solid rgba(201,168,76,.32);color:var(--muted);padding:5px 13px;border-radius:20px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.06em;text-transform:uppercase;transition:background .15s,color .15s,border-color .15s;user-select:none}
-.cc-chip:hover{border-color:rgba(201,168,76,.6);color:var(--text2)}
-.cc-chip.active{background:rgba(201,168,76,.18);border-color:var(--gold);color:var(--gold2)}
+.cc-chip{background:transparent;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.32);color:var(--muted);padding:5px 13px;border-radius:20px;cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.06em;text-transform:uppercase;transition:background .15s,color .15s,border-color .15s;user-select:none}
+.cc-chip:hover{border-color:rgba(var(--amit-accent-rgb,201,168,76),.6);color:var(--text2)}
+.cc-chip.active{background:rgba(var(--amit-accent-rgb,201,168,76),.18);border-color:var(--gold);color:var(--gold2)}
 .cc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px;padding-bottom:20px}
-.cc-card{position:relative;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.22);border-radius:12px;padding:16px 16px 44px;cursor:pointer;transition:border-color .15s,background .15s,transform .1s}
-.cc-card:hover{border-color:rgba(201,168,76,.6);background:rgba(255,255,255,.05);transform:translateY(-1px)}
-.cc-avatar{width:44px;height:44px;border-radius:50%;background:rgba(201,168,76,.16);border:1px solid rgba(201,168,76,.5);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2);font-family:'Cinzel',serif;font-weight:700;font-size:14px;letter-spacing:.02em}
-.cc-name{font-family:Georgia,serif;font-size:15px;font-weight:700;color:var(--text2);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-card{position:relative;background:var(--amit-card-bg,rgba(var(--amit-overlay-rgb,255,255,255),.03));border:1px solid var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.22));border-radius:12px;padding:16px 16px 44px;cursor:pointer;transition:border-color .15s,background .15s,transform .1s}
+.cc-card:hover{border-color:rgba(var(--amit-accent-rgb,201,168,76),.6);background:rgba(var(--amit-overlay-rgb,255,255,255),.05);transform:translateY(-1px)}
+.cc-avatar{width:44px;height:44px;border-radius:50%;background:rgba(var(--amit-accent-rgb,201,168,76),.16);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:700;font-size:14px;letter-spacing:.02em}
+.cc-name{font-family:var(--amit-font-title,Georgia,serif);font-size:15px;font-weight:700;color:var(--text2);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cc-sub{font-size:11.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cc-labels{display:flex;flex-wrap:wrap;gap:5px;margin-top:11px}
-.cc-label-pill{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);color:var(--gold2);padding:2px 9px;border-radius:20px;font-size:10px;letter-spacing:.03em;white-space:nowrap}
+.cc-label-pill{background:rgba(var(--amit-accent-rgb,201,168,76),.12);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);color:var(--gold2);padding:2px 9px;border-radius:20px;font-size:10px;letter-spacing:.03em;white-space:nowrap}
 .cc-meta{margin-top:10px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
 .cc-meta a{color:var(--text2);text-decoration:none}
 .cc-meta a:hover{color:var(--gold2)}
 .cc-badges{position:absolute;top:12px;right:12px;display:flex;gap:8px;align-items:center}
 .cc-badge{font-size:10px;color:var(--muted)}
-.cc-people{margin-top:11px;padding-top:9px;border-top:1px dashed rgba(201,168,76,.25)}
+.cc-people{margin-top:11px;padding-top:9px;border-top:1px dashed rgba(var(--amit-accent-rgb,201,168,76),.25)}
 .cc-person-row{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--muted);padding:2px 0}
 .cc-person-row a{color:inherit;text-decoration:none;opacity:.5}
 .cc-person-row a:hover{opacity:1;color:#e2a3a3}
@@ -553,26 +554,26 @@ select option{color:#2a2418;background:#fff}
    from TemplateViews.html for the Tab 1 book selector. ── */
 .spv-wrap{margin:0;display:flex;flex:1;min-height:0;gap:18px}
 .spv-list-col{display:flex;flex-direction:column;gap:10px;width:360px;flex-shrink:0}
-.spv-list-title{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
-.spv-list{flex-shrink:0;overflow-y:auto;border:1px solid rgba(201,168,76,.25);border-radius:8px}
-.spv-item{padding:10px 18px;border-bottom:1px solid rgba(201,168,76,.12);cursor:pointer;font-family:Georgia,serif;font-size:13px;font-weight:700;color:var(--text)}
-.spv-item:hover{background:rgba(255,255,255,.04)}
-.spv-item.active{background:rgba(201,168,76,.14);color:var(--gold2)}
+.spv-list-title{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.spv-list{flex-shrink:0;overflow-y:auto;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:8px}
+.spv-item{padding:10px 18px;border-bottom:1px solid var(--amit-row-sep,rgba(var(--amit-accent-rgb,201,168,76),.12));cursor:pointer;font-family:var(--amit-font-title,Georgia,serif);font-size:13px;font-weight:700;color:var(--text)}
+.spv-item:hover{background:var(--amit-row-hover,rgba(var(--amit-overlay-rgb,255,255,255),.04))}
+.spv-item.active{background:rgba(var(--amit-accent-rgb,201,168,76),.14);color:var(--gold2)}
 /* Add New Book row — visually separated from the real book rows above it
    (dashed top border, tinted background, gold text) so it never reads as
    just another book in the list, while still living inside the same
    scrolling .spv-list container so it rides along at the bottom as the
    real list grows. */
-.spv-item-add{padding:14px 18px;cursor:pointer;font-family:Georgia,serif;font-size:20px;font-weight:700;color:var(--gold2);display:flex;align-items:center;gap:10px;border-top:2px dashed rgba(201,168,76,.4);background:rgba(201,168,76,.05)}
-.spv-item-add:hover{background:rgba(201,168,76,.13)}
+.spv-item-add{padding:14px 18px;cursor:pointer;font-family:var(--amit-font-title,Georgia,serif);font-size:20px;font-weight:700;color:var(--gold2);display:flex;align-items:center;gap:10px;border-top:2px dashed rgba(var(--amit-accent-rgb,201,168,76),.4);background:rgba(var(--amit-accent-rgb,201,168,76),.05)}
+.spv-item-add:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.13)}
 .spv-item-add-icon{font-size:22px;line-height:1;font-weight:400}
 .spv-detail{flex:1;overflow-y:auto}
 .dv-fields{display:grid;grid-template-columns:140px 1fr;row-gap:10px;column-gap:16px;max-width:520px;margin-bottom:28px}
-.dv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.dv-value{font-size:14px;color:#fff}
+.dv-label{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.dv-value{font-size:14px;color:var(--amit-text,#fff)}
 /* Two-section book detail pane (Company Profile / Book Settings), added
    2026-08-07 — the right-hand side of Tab 1's Split View. */
-.dv-sub-h{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
+.dv-sub-h{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold2);margin-bottom:10px}
 /* In-popup tab strip — Ryan's direct instruction, 2026-08-14: the full
    Contact detail popup (Clients/Vendors/Contacts all share it) needed a
    tabbed layout, same shape the old system's own tabbed customer form used, once
@@ -581,24 +582,24 @@ select option{color:#2a2418;background:#fff}
    the page-level .ch-tab-btn — content panes are pre-built (never
    destroyed by switching tabs, so nothing typed is ever lost mid-edit)
    and shown/hidden via cfShowTab, not re-rendered.*/
-.cf-tab-nav{display:flex;gap:2px;flex-wrap:nowrap;border-bottom:1px solid rgba(201,168,76,.25)}
-.cf-tab-btn{flex:1;padding:8px 10px;border:1px solid rgba(201,168,76,.25);border-bottom:none;background:rgba(255,255,255,.03);color:var(--muted);border-radius:8px 8px 0 0;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;text-align:center}
+.cf-tab-nav{display:flex;gap:2px;flex-wrap:nowrap;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25)}
+.cf-tab-btn{flex:1;padding:8px 10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-bottom:none;background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:8px 8px 0 0;cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap;text-align:center}
 .cf-tab-btn.active{background:var(--card-head);color:var(--gold2);font-weight:600;position:relative;top:1px}
 .cf-tab-pane{display:none;padding-top:16px}
 .cf-tab-pane.active{display:block}
 .spv-detail-section{margin-bottom:26px}
-.spv-detail-section+.spv-detail-section{padding-top:20px;border-top:1px solid rgba(201,168,76,.2)}
+.spv-detail-section+.spv-detail-section{padding-top:20px;border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2)}
 .spv-detail-empty-note{font-size:12px;color:var(--dim);font-style:italic;margin-top:4px}
 
 /* ── FORM VIEW fields — copied verbatim from TemplateViews.html, used for
    the company create/edit popup below. ── */
 .fv-wrap{margin:24px;max-width:520px}
 .fv-field{margin-bottom:16px}
-.fv-label{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
-.fv-input,.fv-textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:14px;font-family:inherit;outline:none}
+.fv-label{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px}
+.fv-input,.fv-textarea{width:100%;box-sizing:border-box;background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:7px;padding:9px 11px;color:var(--amit-text,#fff);font-size:14px;font-family:inherit;outline:none}
 .fv-textarea{min-height:80px;resize:vertical}
-.fv-save{background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);color:var(--gold2);padding:10px 22px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;transition:background .15s,border-color .15s}
-.fv-save:hover{background:rgba(201,168,76,.28);border-color:var(--gold)}
+.fv-save{background:var(--amit-btn-bg,rgba(var(--amit-accent-rgb,201,168,76),.15));border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);color:var(--amit-btn-text,var(--gold2));padding:10px 22px;border-radius:var(--amit-btn-radius,7px);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.06em;transition:background .15s,border-color .15s}
+.fv-save:hover{background:var(--amit-btn-hover-bg,rgba(var(--amit-accent-rgb,201,168,76),.28));border-color:var(--gold)}
 .fv-status{font-size:12px;color:var(--gold2);margin-top:10px}
 /* Real, readable instructional walkthrough text (e.g. the Import wizard's
    export steps) — Ryan caught this directly, 2026-08-10: the
@@ -615,23 +616,23 @@ select option{color:#2a2418;background:#fff}
    the Books Row View's own Company cell, same fixed-position/JS-anchored
    pattern as #rvColMenu (the cell sits inside a scrolling table, so a
    CSS-nested dropdown would get clipped). ── */
-.company-ac-input{width:100%;box-sizing:border-box;background:rgba(255,255,255,.1);border:1px solid var(--gold);padding:7px 11px;color:#fff;font-size:13px;font-family:inherit;outline:none}
-.company-ac-menu{display:none;position:fixed;z-index:9999;background:#132a42;border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:6px;width:240px;max-height:220px;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.5)}
-.company-ac-item{padding:8px 10px;border-radius:5px;cursor:pointer;font-size:13px;color:#fff}
-.company-ac-item:hover{background:rgba(201,168,76,.15)}
+.company-ac-input{width:100%;box-sizing:border-box;background:rgba(var(--amit-overlay-rgb,255,255,255),.1);border:1px solid var(--gold);padding:7px 11px;color:var(--amit-text,#fff);font-size:13px;font-family:inherit;outline:none}
+.company-ac-menu{display:none;position:fixed;z-index:9999;background:var(--amit-surface-raised,#132a42);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:8px;padding:6px;width:240px;max-height:220px;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.company-ac-item{padding:8px 10px;border-radius:5px;cursor:pointer;font-size:13px;color:var(--amit-text,#fff)}
+.company-ac-item:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.15)}
 .company-ac-empty{padding:8px 10px;font-size:12px;color:var(--dim);font-style:italic}
-.company-ac-new{padding:8px 10px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--gold2);border-top:1px solid rgba(201,168,76,.2);margin-top:4px}
-.company-ac-new:hover{background:rgba(201,168,76,.15)}
+.company-ac-new{padding:8px 10px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--gold2);border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);margin-top:4px}
+.company-ac-new:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.15)}
 
 /* ── CUSTOM DROPDOWN — replaces native <select> for Entity Type/Basis/
    Tax Year End in the Company popup. Fully page-drawn, not OS-native. ── */
-.cdrop-trigger{width:100%;box-sizing:border-box;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:9px 11px;color:#fff;font-size:14px;font-family:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.cdrop-trigger:hover{border-color:rgba(201,168,76,.5)}
+.cdrop-trigger{width:100%;box-sizing:border-box;background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:7px;padding:9px 11px;color:var(--amit-text,#fff);font-size:14px;font-family:inherit;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cdrop-trigger:hover{border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)}
 .cdrop-trigger-arrow{opacity:.6;font-size:11px;flex-shrink:0}
-.cdrop-menu{display:none;position:fixed;z-index:10000;background:#132a42;border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:6px;max-height:260px;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.5)}
-.cdrop-item{padding:8px 10px;border-radius:5px;cursor:pointer;font-size:13px;color:#fff;white-space:nowrap}
-.cdrop-item:hover{background:rgba(201,168,76,.15)}
-.cdrop-item.active{background:rgba(201,168,76,.14);color:var(--gold2)}
+.cdrop-menu{display:none;position:fixed;z-index:10000;background:var(--amit-surface-raised,#132a42);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:8px;padding:6px;max-height:260px;overflow-y:auto;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.cdrop-item{padding:8px 10px;border-radius:5px;cursor:pointer;font-size:13px;color:var(--amit-text,#fff);white-space:nowrap}
+.cdrop-item:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.15)}
+.cdrop-item.active{background:rgba(var(--amit-accent-rgb,201,168,76),.14);color:var(--gold2)}
 
 /* Company popup — 5-row, two-column address-label layout, added
    2026-08-07, Ryan's direct instruction: wider, not taller, less
@@ -649,7 +650,7 @@ select option{color:#2a2418;background:#fff}
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">New</div>
-      <div class="page-version" id="pageVersion">v3.15</div>
+      <div class="page-version" id="pageVersion">v3.16</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -705,26 +706,26 @@ select option{color:#2a2418;background:#fff}
      fixed-position modals, same as the source file — not built on
      popupOpen()/#canonicalPopup, since that's how these already worked in
      AmitBooks.html and nothing about them changed. ── -->
-<div id="abNomenclatureModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+<div id="abNomenclatureModal" style="display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.6));z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:center;margin-bottom:6px">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">Customize Field Names — This Book</div>
-      <div onclick="abCloseNomenclatureEditor()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em">Customize Field Names — This Book</div>
+      <div onclick="abCloseNomenclatureEditor()" style="margin-left:auto;font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Turn a field on or off, or rename what it's called on screen. Off fields stay off everywhere — reports, forms, headers — until turned back on.</div>
     <div id="abNomenclatureEditorBody" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abCloseNomenclatureEditor()">Cancel</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(var(--amit-text-rgb,240,232,208),.25)" onclick="abCloseNomenclatureEditor()">Cancel</button>
       <button class="ab-btn" onclick="abSaveNomenclatureEditor()">Save Changes</button>
     </div>
   </div>
 </div>
 
-<div id="abPresetPickerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+<div id="abPresetPickerModal" style="display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.6));z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:26px 28px;max-width:640px;width:92%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.5)">
     <div style="display:flex;align-items:center;margin-bottom:6px">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em" id="abPresetPickerTitle">Pick What You Want</div>
-      <div onclick="abClosePresetPicker()" style="margin-left:auto;font-size:11px;color:rgba(240,232,208,.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em" id="abPresetPickerTitle">Pick What You Want</div>
+      <div onclick="abClosePresetPicker()" style="margin-left:auto;font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4);cursor:pointer;letter-spacing:.08em">CLOSE ✕</div>
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Not all-or-nothing — check only what you actually want pulled into this book. You can come back and pull in pieces from other industries too; nothing here overwrites a field you've already customized.</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -733,7 +734,7 @@ select option{color:#2a2418;background:#fff}
     </div>
     <div id="abPresetPickerBody" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:6px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(240,232,208,.25)" onclick="abClosePresetPicker()">Cancel</button>
+      <button class="ab-btn" style="background:transparent;color:var(--muted);border-color:rgba(var(--amit-text-rgb,240,232,208),.25)" onclick="abClosePresetPicker()">Cancel</button>
       <button class="ab-btn" onclick="abApplyPresetSelection()">Pull Into This Book</button>
     </div>
   </div>
@@ -953,7 +954,7 @@ function renderAllPages(){
     <div style="margin:24px;max-width:720px">
       <div class="ab-signin-notice" style="text-align:left;margin-bottom:18px">What's left to build in this file, in the order it's realistically tackled. Edit TODO_ITEMS in the script to keep this current.</div>
       <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px">
-        ${TODO_ITEMS.map(t=>`<li style="display:flex;gap:10px;align-items:flex-start;background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:12px 14px">
+        ${TODO_ITEMS.map(t=>`<li style="display:flex;gap:10px;align-items:flex-start;background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px;padding:12px 14px">
           <span style="color:var(--gold2);flex-shrink:0">▢</span>
           <span style="font-size:13px;color:var(--text2);line-height:1.5">${t}</span>
         </li>`).join('')}
@@ -1199,7 +1200,7 @@ const BOOK_RV_COLUMNS=[
 // correctly (handled at each call site).
 function rvOperatorGlyph(c){
   if(!c.operatorPrefix)return'';
-  return `<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#fff;font-weight:700;font-size:15px">${c.operatorPrefix}</span>`;
+  return `<span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--amit-text,#fff);font-weight:700;font-size:15px">${c.operatorPrefix}</span>`;
 }
 // Reverses abMoneyFmt — "$1,234.56"/"-$1,234.56" back to a plain number —
 // so the summary row (rvBuildSummaryRow) can add up whatever's already
@@ -1239,7 +1240,7 @@ function rvBuildSummaryRow(inst,rows){
       return `<td class="rv-td-plain" style="font-weight:700;color:var(--gold)">Total (${rows.length} shown)</td>`;
     }
     if(!c.summable) return `<td class="rv-td-plain"></td>`;
-    const groupBorder=c.groupStart?'border-left:6px double rgba(201,168,76,.6);':'';
+    const groupBorder=c.groupStart?'border-left:6px double rgba(var(--amit-accent-rgb,201,168,76),.6);':'';
     const formatted=abMoneyFmt(sums[c.key]);
     // negativeRed — opt-in per column, Ryan's direct instruction,
     // 2026-09-17 (Outstanding page: a negative total there represents
@@ -1249,7 +1250,14 @@ function rvBuildSummaryRow(inst,rows){
     // there isn't itself positive or negative the way a debt total is
     // (see this function's own header comment).
     const negRed=c.negativeRed&&sums[c.key]<0;
-    return `<td class="rv-td-plain" style="text-align:right;position:relative;font-weight:700;color:${negRed?'#e06060':'var(--gold)'};${groupBorder}">${rvOperatorGlyph(c)}${formatted}</td>`;
+    // positiveGreen — same opt-in pattern as negativeRed just above, added
+    // 2026-09-18 for the same Outstanding page (Previous $/Current $
+    // columns): a positive total there is a real good state (net money in
+    // hand/owed to Ryan), not just a neutral gold number. Off by default,
+    // same reasoning as negativeRed's own comment.
+    const posGreen=c.positiveGreen&&sums[c.key]>0;
+    const totalColor=negRed?'#e06060':(posGreen?'#7fc97f':'var(--gold)');
+    return `<td class="rv-td-plain" style="text-align:right;position:relative;font-weight:700;color:${totalColor};${groupBorder}">${rvOperatorGlyph(c)}${formatted}</td>`;
   }).join('');
   return `<tfoot><tr class="rv-summary-row">
     ${inst.hideExpandColumn?'':'<td></td>'}
@@ -1257,7 +1265,7 @@ function rvBuildSummaryRow(inst,rows){
   </tr></tfoot>`;
 }
 function subtotalCellRendererRef(r,c){
-  const groupBorder=c.groupStart?'border-left:6px double rgba(201,168,76,.6);':'';
+  const groupBorder=c.groupStart?'border-left:6px double rgba(var(--amit-accent-rgb,201,168,76),.6);':'';
   const val=r[c.key];
   const isZero=val==='$0.00';
   // Zero (exactly "$0.00") gets no background AND plain white text — Ryan's
@@ -1265,7 +1273,7 @@ function subtotalCellRendererRef(r,c){
   // leaving the text still gold, which was the actual bug being reported
   // here). Every other loading/blank/error state still uses the neutral
   // gold tint+text, unchanged.
-  let bg=isZero?'transparent':'rgba(201,168,76,.1)',color=isZero?'#fff':'var(--gold2)';
+  let bg=isZero?'transparent':'rgba(var(--amit-accent-rgb,201,168,76),.1)',color=isZero?'#fff':'var(--gold2)';
   if(typeof val==='string'&&val.startsWith('-')){
     bg='rgba(163,54,54,.16)';color='#e2a3a3';
   } else if(typeof val==='string'&&/^\$[1-9]/.test(val)){
@@ -1891,7 +1899,7 @@ async function openBulkDeleteAccountsPopup(ids){
   const checked=await Promise.all(ids.map(async id=>({id,u:await checkAccountUsage(id,abBookId)})));
   const blocked=checked.filter(({u})=>accountUsageBlocked(u));
   if(blocked.length){
-    const html=blocked.map(({id,u})=>{ const a=abAccounts.find(x=>x.id===id); return accountUsageBlockHtml(a?a.account_name:'',u); }).join('<hr style="border-color:rgba(201,168,76,.2);margin:16px 0">');
+    const html=blocked.map(({id,u})=>{ const a=abAccounts.find(x=>x.id===id); return accountUsageBlockHtml(a?a.account_name:'',u); }).join('<hr style="border-color:rgba(var(--amit-accent-rgb,201,168,76),.2);margin:16px 0">');
     popupOpen(`<div class="dv-sub-h" style="color:#e2a3a3">${blocked.length} of ${ids.length} Account${ids.length===1?'':'s'} Can't Be Deleted</div>
       <div class="fv-status" style="margin-bottom:14px">Nothing was deleted — fix everything below, then try again.</div>
       ${html}`);
@@ -1986,17 +1994,17 @@ function abTemplatePickerHtml(){
   let rows='';
   Object.keys(groups).forEach(type=>{
     if(!groups[type].length)return;
-    rows+=`<div style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.06em;text-transform:uppercase;margin:12px 0 4px">${typeLabel[type]}</div>`;
+    rows+=`<div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2);letter-spacing:.06em;text-transform:uppercase;margin:12px 0 4px">${typeLabel[type]}</div>`;
     groups[type].forEach(t=>{
       const already=existingNumbers.has(t.account_number);
       rows+=`<label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;font-size:13px;color:${already?'var(--dim)':'var(--text2)'};cursor:${already?'default':'pointer'}">
         <input type="checkbox" class="ab-tmpl-check" value="${t.id}" ${already?'disabled':'checked'}>
-        <span style="font-family:monospace;color:var(--muted);width:44px;display:inline-block">${abEsc(t.account_number||'')}</span>
+        <span style="font-family:var(--amit-font-mono,monospace);color:var(--muted);width:44px;display:inline-block">${abEsc(t.account_number||'')}</span>
         ${abEsc(t.account_name)}${already?' <span style="font-size:11px;color:var(--dim)">(already in your book)</span>':''}
       </label>`;
     });
   });
-  return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:16px 18px">
+  return `<div class="ab-section" style="background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:8px;padding:16px 18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div class="ab-h" style="margin:0">Construction Template — pick what you want</div>
       <div style="display:flex;gap:8px">
@@ -2007,7 +2015,7 @@ function abTemplatePickerHtml(){
     <div style="max-height:340px;overflow-y:auto;padding-right:6px">${rows}</div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="ab-btn" onclick="abImportSelectedTemplate()">Import Selected</button>
-      <button class="ab-btn" style="background:transparent;border-color:rgba(240,232,208,.3);color:var(--muted)" onclick="abCancelTemplatePreview()">Cancel — I'll build my own</button>
+      <button class="ab-btn" style="background:transparent;border-color:rgba(var(--amit-text-rgb,240,232,208),.3);color:var(--muted)" onclick="abCancelTemplatePreview()">Cancel — I'll build my own</button>
     </div>
   </div>`;
 }
@@ -2732,6 +2740,11 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
   const isMoney=OUTSTANDING_MONEY_KEYS.includes(c.key);
   const isDate=c.key==='statement_date';
   const isType=c.key==='balance_type';
+  // Previous $/Current $ only — Credit Limit and Available Credit keep
+  // their existing plain-sign behavior. Ryan's direct instruction,
+  // 2026-09-18.
+  const isBalanceCol=c.key==='previous_balance'||c.key==='current_balance';
+  const isLiabRow=isBalanceCol&&abOutstandingIsLiabilityType(r.balance_type);
   if(editing){
     const inputType=isMoney?'number':'text';
     // Snapshot the real stored value the moment this date cell opens for
@@ -2742,6 +2755,11 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
     // nothing correct left to fall back to. Ryan's direct report,
     // 2026-09-18.
     if(isDate) outstandingDateEditSnapshot[r.id]=r[c.key];
+    // Editing always shows the TRUE signed value, even on a liability row
+    // - the read-only display below is the only place the sign gets
+    // stripped for readability. The sign itself has to survive editing,
+    // or re-saving an existing row untouched would silently flip its
+    // red/green meaning (see the color rule a few lines below).
     const rawVal=isMoney?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||'')):(isDate?abOutstandingFmtDateDMY(r[c.key]):(r[c.key]||''));
     const inputHtml=`<input type="${inputType}"${isMoney?' step="0.01"':''} class="rv-cell-input" id="rv-cell-input-${containerId}" name="ab-outstanding-field-${c.key}" value="${String(rawVal).replace(/"/g,'&quot;')}"
       ${isType?'oninput="abOutstandingTypeAutocomplete(event,this)"':''}
@@ -2754,13 +2772,29 @@ function abOutstandingCellRenderer(r,c,containerId,isChild){
     if(isDate) return `<td><div style="display:flex;align-items:center;gap:4px">${inputHtml}<button type="button" title="Pick a date" style="background:none;border:none;cursor:pointer;font-size:14px;padding:0" onmousedown="event.preventDefault()" onclick="event.stopPropagation();abOutstandingOpenDatePicker('${containerId}','${r.id}','${c.key}',this)">📅</button></div></td>`;
     return `<td>${inputHtml}</td>`;
   }
-  const isNeg=isMoney&&(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||0))<0;
+  const balNum=isBalanceCol?(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||0)):0;
+  // Same red/green rule for every balance row, asset or liability -
+  // matches how Ryan's actual data is already entered (existing credit
+  // card debt is typed as a NEGATIVE number - "the balances are negative,
+  // because it's, I owe that much"). Negative = red (money owed, or an
+  // overdrawn checking account); positive = green (a healthy asset
+  // balance, or a real credit sitting on a liability account - they owe
+  // HIM). Zero stays neutral either way. Liability rows are the one
+  // exception on DISPLAY only (stripped to unsigned text below) - the
+  // color still reads off the true stored sign, never the display text.
+  const balColor=(isBalanceCol&&balNum!==0)?(balNum<0?'#e06060':'#7fc97f'):null;
+  const isNeg=isMoney&&!isBalanceCol&&(rvParseMoney(String(r[c.key]||''))||(Number(r[c.key])||0))<0;
   // r[c.key] is already a formatted currency string for money columns
   // (see abComputeOutstandingRows) — show it as-is, don't re-run
   // abMoneyFmt on an already-formatted string (Number("$1,234.50") is
-  // NaN, which would silently render as "$0.00").
-  const display=isMoney?(r[c.key]||abMoneyFmt(0)):(isDate?abOutstandingFmtDateDMY(r[c.key]):(r[c.key]||''));
-  return `<td${isMoney?' style="text-align:right"':''}><span class="rv-cell-editable"${isNeg?' style="color:#e06060"':''} onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');rvEditCell('${containerId}','${r.id}','${c.key}')">${display}</span></td>`;
+  // NaN, which would silently render as "$0.00"). Liability balance
+  // cells are the one exception: always show the plain unsigned amount,
+  // never a minus sign — "I'd rather put the positive amount there so I
+  // can read it" (Ryan, 2026-09-18) — the red/green color alone carries
+  // whether it's owed or a credit.
+  const display=isMoney?((isLiabRow?abMoneyFmt(Math.abs(balNum)):r[c.key])||abMoneyFmt(0)):(isDate?abOutstandingFmtDateDMY(r[c.key]):(r[c.key]||''));
+  const cellColor=isBalanceCol?balColor:(isNeg?'#e06060':null);
+  return `<td${isMoney?' style="text-align:right"':''}><span class="rv-cell-editable"${cellColor?` style="color:${cellColor}"`:''} onclick="event.stopPropagation();rvSetFocus('${containerId}','${r.id}');rvEditCell('${containerId}','${r.id}','${c.key}')">${display}</span></td>`;
 }
 // Available Credit — computed, not stored (see abComputeOutstandingRows,
 // which fills r.available_credit before this ever renders). Always
@@ -2878,8 +2912,8 @@ const OUTSTANDING_RV_COLUMNS=[
   {key:'balance_type',label:'Type',cellRenderer:abOutstandingCellRenderer},
   {key:'credit_limit',label:'Credit Limit',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
   {key:'statement_date',label:'Date',cellRenderer:abOutstandingCellRenderer},
-  {key:'previous_balance',label:'Previous $',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
-  {key:'current_balance',label:'Current $',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true},
+  {key:'previous_balance',label:'Previous $',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true,positiveGreen:true},
+  {key:'current_balance',label:'Current $',align:'right',cellRenderer:abOutstandingCellRenderer,summable:true,negativeRed:true,positiveGreen:true},
   {key:'available_credit',label:'Available Credit',align:'right',cellRenderer:abOutstandingAvailableCreditRenderer,summable:true,negativeRed:true},
   {key:'_update',label:'',sortFilter:false,width:96,cellRenderer:abOutstandingUpdateBtnRenderer},
   {key:'website_url',label:'Website',sortFilter:false,width:110,cellRenderer:abOutstandingWebsiteCellRenderer}
@@ -2888,6 +2922,22 @@ const OUTSTANDING_RV_COLUMNS=[
 // always 0 for them — everything else is Credit Limit minus Current
 // Balance. Ryan's direct instruction, 2026-09-17.
 const OUTSTANDING_NO_CREDIT_TYPES=['checking','savings'];
+// Liability types — Ryan's direct instruction, 2026-09-18: display only.
+// Previous $/Current $ on these rows always show the plain unsigned
+// amount (never a minus sign — "I'd rather put the positive amount
+// there so I can read it"). Color is NOT type-based - see the single
+// negative=red/positive=green rule in abOutstandingCellRenderer, which
+// applies identically to every balance row regardless of type, matching
+// how debt is actually entered on this page today (negative = he owes
+// it, positive on a liability row = a real credit sitting there, they
+// owe HIM). This is this app's own internal sign convention, not the
+// literal real-world credit-statement one (which runs the opposite way)
+// — kept this way on purpose so existing entered data never silently
+// flips meaning.
+const OUTSTANDING_LIABILITY_TYPES=['credit card','line of credit','loan'];
+function abOutstandingIsLiabilityType(type){
+  return OUTSTANDING_LIABILITY_TYPES.includes(String(type||'').trim().toLowerCase());
+}
 // rvParseMoney-first, Number() as fallback — row.credit_limit/current_balance
 // may be a raw number (fresh from Supabase, before formatting) or an
 // already-formatted "$1,234.50" string (after a local in-place update —
@@ -2950,15 +3000,15 @@ async function abRenderOutstandingRv(){
 // instruction, 2026-09-17: answer "what's my outstanding amount" in the
 // first half-second, not buried at the bottom of the table after
 // scrolling. Negative total (debt owed) reads as "Outstanding Balance,"
-// positive (net credit) reads as "Available" — same red/gold convention
-// already used for negative values throughout this page.
+// positive (net credit) reads as "Available" — red/green convention
+// (2026-09-18: green now means "good" throughout this page, not gold).
 function abOutstandingRenderTotalBanner(rows){
   const bar=document.getElementById('page-action-bar-7'); if(!bar)return;
   const total=rows.reduce((sum,r)=>sum+(rvParseMoney(String(r.current_balance||''))||0),0);
   const negative=total<0;
   const label=negative?'Outstanding Balance':'Available';
   const amount=abMoneyFmt(Math.abs(total));
-  bar.innerHTML=`<div style="width:100%;text-align:center;font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:${negative?'#e06060':'var(--gold)'}">${label}: ${amount}</div>`;
+  bar.innerHTML=`<div style="width:100%;text-align:center;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;font-weight:700;color:${negative?'#e06060':'#7fc97f'}">${label}: ${amount}</div>`;
 }
 // Every column funnels through here regardless of which cellRenderer drew
 // it (plain editable text or the custom date/money ones above) — rvCommitCell
@@ -3714,7 +3764,7 @@ function abItemTemplatePickerHtml(){
       ${(!expOk||!incOk)?' <span style="font-size:11px;color:#f0a8a8">— load Chart of Accounts first to wire this one up</span>':''}
     </label>`;
   });
-  return `<div class="ab-section" style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.4);border-radius:8px;padding:16px 18px">
+  return `<div class="ab-section" style="background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:8px;padding:16px 18px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div class="ab-h" style="margin:0">Construction Scopes Template</div>
       <div style="display:flex;gap:8px">
@@ -3725,7 +3775,7 @@ function abItemTemplatePickerHtml(){
     <div style="max-height:300px;overflow-y:auto;padding-right:6px">${rows}</div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="ab-btn" onclick="abImportSelectedItemTemplate()">Import Selected</button>
-      <button class="ab-btn" style="background:transparent;border-color:rgba(240,232,208,.3);color:var(--muted)" onclick="abItemTemplatePreview=null;abRenderItems()">Cancel — I'll build my own</button>
+      <button class="ab-btn" style="background:transparent;border-color:rgba(var(--amit-text-rgb,240,232,208),.3);color:var(--muted)" onclick="abItemTemplatePreview=null;abRenderItems()">Cancel — I'll build my own</button>
     </div>
   </div>`;
 }
@@ -3847,7 +3897,7 @@ function abContactLabelsSectionHtml(){
   return `<div class="ab-h" style="font-size:15px;margin-top:28px">Contact Labels — Pick up to Four per Contact</div>
     <div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Customer, Vendor, Employee, 1099, Subcontractor, Donor, Tenant — whatever roles this book actually needs. A contact can carry up to four at once. Add whatever this industry calls for; nothing here is fixed.</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-      ${abContactLabels.map(l=>`<span style="font-size:12px;background:rgba(240,232,208,.06);border:1px solid rgba(240,232,208,.18);border-radius:12px;padding:4px 8px 4px 12px;display:inline-flex;align-items:center;gap:6px">${abEsc(l.label)}<a href="#" onclick="abDeleteContactLabel('${l.id}');return false" style="color:#c97a7a;font-size:11px">✕</a></span>`).join('')||'<span style="font-size:12px;color:var(--muted)">No labels yet.</span>'}
+      ${abContactLabels.map(l=>`<span style="font-size:12px;background:rgba(var(--amit-text-rgb,240,232,208),.06);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.18);border-radius:12px;padding:4px 8px 4px 12px;display:inline-flex;align-items:center;gap:6px">${abEsc(l.label)}<a href="#" onclick="abDeleteContactLabel('${l.id}');return false" style="color:#c97a7a;font-size:11px">✕</a></span>`).join('')||'<span style="font-size:12px;color:var(--muted)">No labels yet.</span>'}
     </div>
     <div style="display:flex;gap:8px">
       <input id="ab-new-contact-label" class="fv-input" placeholder="e.g. Subcontractor" style="max-width:220px" onkeydown="if(event.key==='Enter')abAddContactLabel()">
@@ -3879,13 +3929,13 @@ async function abRenderNomenclature(){
     ${abContactLabelsSectionHtml()}
 
     <div class="ab-h" style="font-size:15px;margin-top:28px">Industry Presets — Pull Pieces Into This Book</div>
-    ${abBrowsingAccountTemplate?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px;background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.5)">Picking a Chart of Accounts template — double-click a preset below to use it as this book's starting Chart of Accounts. <a href="#" onclick="abCancelAccountTemplateBrowsing();return false" style="color:var(--gold2)">Cancel, back to Accounts →</a></div>`
+    ${abBrowsingAccountTemplate?`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px;background:rgba(var(--amit-accent-rgb,201,168,76),.1);border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)">Picking a Chart of Accounts template — double-click a preset below to use it as this book's starting Chart of Accounts. <a href="#" onclick="abCancelAccountTemplateBrowsing();return false" style="color:var(--gold2)">Cancel, back to Accounts →</a></div>`
       :`<div class="ab-signin-notice" style="text-align:left;margin-bottom:14px">Hover a card to see who it's for and what it sets up. Double-click to see exactly what it offers and pick only what you want — not all-or-nothing. Mix pieces from several industries into one book; the count on each card shows how many of its fields/values are currently active here.</div>`}
     <div style="display:flex;flex-wrap:wrap;gap:10px">
       ${abNomenclaturePresetsCache.map(p=>{
         const count=abNomenclaturePresetCount(p.id);
         const dblclick=abBrowsingAccountTemplate?`abSelectPresetForAccountTemplate('${p.preset_key}')`:`abOpenPresetPicker('${p.preset_key}')`;
-        return `<div ondblclick="${dblclick}" onmouseover="showPresetHoverTip(event,'${p.preset_key}')" onmouseout="hidePresetHoverTip()" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(201,168,76,.1)':'rgba(240,232,208,.04)'};border:1px solid ${p.id===currentPresetId?'rgba(201,168,76,.5)':'rgba(240,232,208,.15)'};border-radius:8px;padding:12px 14px;cursor:pointer">
+        return `<div ondblclick="${dblclick}" onmouseover="showPresetHoverTip(event,'${p.preset_key}')" onmouseout="hidePresetHoverTip()" style="flex:1;min-width:220px;background:${p.id===currentPresetId?'rgba(var(--amit-accent-rgb,201,168,76),.1)':'rgba(var(--amit-text-rgb,240,232,208),.04)'};border:1px solid ${p.id===currentPresetId?'rgba(var(--amit-accent-rgb,201,168,76),.5)':'rgba(var(--amit-text-rgb,240,232,208),.15)'};border-radius:8px;padding:12px 14px;cursor:pointer">
           <div style="font-weight:600">${abEsc(p.display_name)}${count?` <span style="color:var(--gold2);font-weight:400">(${count})</span>`:''}${p.id===currentPresetId?' <span style="font-size:10px;color:#8fd19e;font-weight:400">— started here</span>':''}</div>
         </div>`;
       }).join('')}
@@ -4137,7 +4187,7 @@ function abOpenNomenclatureEditor(){
     const isPicklist=masterRow&&masterRow.is_picklist;
     const values=(abNomenclatureValuesCache||[]).filter(v=>v.field_key===f.field_key);
     return`<div class="ab-nom-field-block" data-field-key="${f.field_key}" data-field-id="${f.id}">
-      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(240,232,208,.08)">
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(var(--amit-text-rgb,240,232,208),.08)">
         ${isPicklist?`<span onclick="abNomToggleValues('${f.field_key}')" style="cursor:pointer;font-size:11px;color:var(--gold2);width:14px;flex-shrink:0" id="ab-nom-caret-${f.field_key}">▸</span>`:'<span style="width:14px;flex-shrink:0"></span>'}
         <input type="checkbox" id="ab-nom-active-${f.field_key}" ${f.active?'checked':''} style="flex-shrink:0">
         <input type="text" id="ab-nom-label-${f.field_key}" value="${abEsc(f.display_label)}" style="flex:1" placeholder="${abEsc(f.field_key)}">
@@ -4754,7 +4804,7 @@ function openContactDetailPopup(contactId,iconOverride,typeLabelOverride){
   // so nothing typed is ever lost mid-edit.
   popupOpen(`
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-      <div style="width:52px;height:52px;border-radius:50%;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2)">${iconOverride||CONTACT_ICON_SVG}</div>
+      <div style="width:52px;height:52px;border-radius:50%;background:rgba(var(--amit-accent-rgb,201,168,76),.14);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2)">${iconOverride||CONTACT_ICON_SVG}</div>
       <div style="flex:1">
         <div class="dv-sub-h" style="margin:0">${existing?'Edit':'New'} ${typeLabelOverride||'Contact'}</div>
         <div style="font-size:11px;color:var(--muted)">${typeLabelOverride?`Opened from ${typeLabelOverride}s — this is the same shared contact record, just entered from here.`:'Anyone this book deals with — a vendor, a customer, an employee, a subcontractor, whatever applies.'}</div>
@@ -4910,7 +4960,7 @@ async function abLoadContactAttachmentsList(contactId){
 async function abRenderContactAttachments(contactId){
   const el=document.getElementById('contactAttachmentsList'); if(!el)return;
   const rows=await abLoadContactAttachmentsList(contactId);
-  el.innerHTML=rows.length?rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(240,232,208,.04);border:1px solid rgba(240,232,208,.15);border-radius:6px;margin-bottom:4px;font-size:12px">
+  el.innerHTML=rows.length?rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:rgba(var(--amit-text-rgb,240,232,208),.04);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.15);border-radius:6px;margin-bottom:4px;font-size:12px">
       <span>${r.label?`<b>${abEsc(r.label)}</b> — `:''}${abEsc(r.file_name)}</span>
       <span style="display:flex;gap:10px;flex-shrink:0">
         <a href="#" onclick="abViewContactAttachment('${r.storage_path}');return false" style="color:var(--gold2)">View</a>
@@ -5091,15 +5141,15 @@ function abShowInviteLinkPopup(token){
   popupOpen(`
     <div class="dv-sub-h">Connect Link Ready</div>
     <div class="fv-status" style="margin-bottom:12px">Send this code to them however you'd normally reach them (text, email, call), along with these directions: open your own AmitBooks, go to the <b>Books</b> tab, click the <b>Contacts</b> sub-tab, then click "🔗 Connect a Shared Contact" and paste this code in. It's good for 30 days, works once, and never shares any login.</div>
-    <input class="fv-input" readonly value="${abEsc(token)}" onclick="this.select()" style="font-family:monospace;font-size:13px;margin-bottom:10px">
+    <input class="fv-input" readonly value="${abEsc(token)}" onclick="this.select()" style="font-family:var(--amit-font-mono,monospace);font-size:13px;margin-bottom:10px">
     <button class="ab-btn" onclick="navigator.clipboard.writeText('${token}');this.textContent='Copied ✓'">Copy Code</button>`);
 }
 async function abRenderContactInvitesList(contactId){
   const el=document.getElementById('contactInvitesList'); if(!el)return;
   const{data}=await db.from('contact_connect_invites').select('*').eq('contact_id',contactId).is('redeemed_at',null).eq('revoked',false).order('created_at',{ascending:false});
   const rows=data||[];
-  el.innerHTML=rows.length?`<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Pending connect links for this contact:</div>`+rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:rgba(240,232,208,.04);border:1px solid rgba(240,232,208,.15);border-radius:6px;margin-bottom:4px;font-size:12px">
-      <span style="font-family:monospace">${abEsc(r.token)}</span>
+  el.innerHTML=rows.length?`<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Pending connect links for this contact:</div>`+rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:rgba(var(--amit-text-rgb,240,232,208),.04);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.15);border-radius:6px;margin-bottom:4px;font-size:12px">
+      <span style="font-family:var(--amit-font-mono,monospace)">${abEsc(r.token)}</span>
       <span style="display:flex;gap:10px"><a href="#" onclick="navigator.clipboard.writeText('${r.token}');return false" style="color:var(--gold2)">Copy</a><a href="#" onclick="abRevokeInvite('${r.id}','${contactId}');return false" style="color:#c97a7a">Revoke</a></span>
     </div>`).join(''):'';
 }
@@ -5119,7 +5169,7 @@ function abOpenConnectSharedContactPopup(){
   popupOpen(`
     <div class="dv-sub-h">Connect a Shared Contact</div>
     <div class="fv-status" style="margin-bottom:12px">Paste the connect code someone sent you. You'll see who it's for before anything links.</div>
-    <input class="fv-input" id="connectTokenInput" placeholder="Paste connect code here" style="font-family:monospace" autocomplete="off">
+    <input class="fv-input" id="connectTokenInput" placeholder="Paste connect code here" style="font-family:var(--amit-font-mono,monospace)" autocomplete="off">
     <button class="ab-btn" style="margin-top:10px" onclick="abLookupInvitePreview()">Look Up</button>
     <div id="connectPreviewArea" style="margin-top:14px"></div>`);
 }
@@ -5919,7 +5969,7 @@ async function loadJobsForContact(contactId){
 }
 function contactJobRowHtml(j){
   const addr=[j.street_address,j.city_state,j.zip].filter(Boolean).join(', ');
-  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(240,232,208,.08)">
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(var(--amit-text-rgb,240,232,208),.08)">
     <div><b>${abEsc(j.name)}</b>${addr?` <span style="color:var(--muted);font-size:11px">— ${abEsc(addr)}</span>`:''}</div>
     <a href="#" onclick="openEditJobPopup('${j.id}');return false" style="color:var(--gold2);font-size:12px">Modify</a>
   </div>`;
@@ -6637,7 +6687,7 @@ function openClientAddPopup(){
   if(!abBookId){ alert('Select a book on the Books tab first.'); return; }
   popupOpen(`
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
-      <div style="width:52px;height:52px;border-radius:50%;background:rgba(201,168,76,.14);border:1px solid rgba(201,168,76,.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2)">${CLIENT_ICON_SVG}</div>
+      <div style="width:52px;height:52px;border-radius:50%;background:rgba(var(--amit-accent-rgb,201,168,76),.14);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--gold2)">${CLIENT_ICON_SVG}</div>
       <div>
         <div class="dv-sub-h" style="margin:0">New ${abEsc(abFieldLabel('client','Client'))}</div>
         <div style="font-size:11px;color:var(--muted)">Someone you bill for work — their permanent info, not a specific job's address.</div>
@@ -9075,7 +9125,7 @@ async function abOpenNextReadinessItem(){
   if(!card||card.querySelector('.ab-checklist-banner'))return;
   const banner=document.createElement('div');
   banner.className='ab-checklist-banner';
-  banner.style.cssText='background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.5);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--gold2);display:flex;justify-content:space-between;align-items:center;gap:10px';
+  banner.style.cssText='background:rgba(var(--amit-accent-rgb,201,168,76),.15);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:var(--gold2);display:flex;justify-content:space-between;align-items:center;gap:10px';
   banner.innerHTML=`<span>Let's fix these together — ${doneCount} of ${abReadinessTotal} done. This one: <b>${abEsc(next.label)}</b></span><a href="#" onclick="abSkipReadinessItem();return false" style="color:var(--muted);font-size:11px;flex-shrink:0">Skip →</a>`;
   card.insertBefore(banner,card.firstChild);
 }
@@ -9513,7 +9563,7 @@ function openCompanyEditPopup(bookId,existingCompany,prefillName,bookCount){
             <label class="fv-label">NAICS Code</label>
             <div style="display:flex;gap:8px;align-items:center">
               <input class="fv-input" id="companyForm-naics_code" value="${esc(v('naics_code'))}" style="width:70px">
-              <a href="https://www.census.gov/naics/" target="_blank" rel="noopener" title="Look up your NAICS code on the Census Bureau's official site" style="flex-shrink:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(201,168,76,.4);border-radius:7px;background:rgba(201,168,76,.08);text-decoration:none;font-size:16px">🔭</a>
+              <a href="https://www.census.gov/naics/" target="_blank" rel="noopener" title="Look up your NAICS code on the Census Bureau's official site" style="flex-shrink:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:7px;background:rgba(var(--amit-accent-rgb,201,168,76),.08);text-decoration:none;font-size:16px">🔭</a>
             </div>
           </div>
         </div>
@@ -10339,7 +10389,7 @@ function rvRenderInstance(containerId){
       const labelDblclick=isToggle
         ?`event.stopPropagation();rvToggleColGroup('${containerId}','${c.expandToggleGroup}')`
         :(c.description?`event.stopPropagation();rvShowColumnInfo('${containerId}','${c.key}')`:'');
-      return `<th class="${hasFilter?'rv-filtered':''}"${(thAlign||c.groupStart||c.naturalCase)?` style="${thAlign}${c.groupStart?'border-left:6px double rgba(201,168,76,.6);':''}${c.naturalCase?'text-transform:none;':''}"`:''}>
+      return `<th class="${hasFilter?'rv-filtered':''}"${(thAlign||c.groupStart||c.naturalCase)?` style="${thAlign}${c.groupStart?'border-left:6px double rgba(var(--amit-accent-rgb,201,168,76),.6);':''}${c.naturalCase?'text-transform:none;':''}"`:''}>
         ${isToggle?`<span class="rv-col-toggle" onclick="event.stopPropagation();rvToggleColGroup('${containerId}','${c.expandToggleGroup}')" title="${groupOpen?'Click to hide the detail behind this number':'Click to see the detail behind this number'}">${groupOpen?'▾':'▸'}</span>`:''}
         <span class="rv-th-label"${labelDblclick?` ondblclick="${labelDblclick}" style="cursor:${isToggle?'pointer':'help'}"`:''} title="${isToggle?(groupOpen?'Double-click to hide detail':'Double-click to see detail'):''}">${c.label}${arrow?`<span class="rv-arrow">${arrow}</span>`:''}</span>
         ${c.description&&isToggle?`<span class="rv-col-toggle" style="margin-left:2px" onclick="event.stopPropagation();rvShowColumnInfo('${containerId}','${c.key}')" title="What this column means">ⓘ</span>`:''}
@@ -10359,7 +10409,7 @@ function rvRenderInstance(containerId){
     // plain-text editable cell — everything else in this function is untouched.
     if(c.cellRenderer) return c.cellRenderer(r,c,containerId,isChild);
     if(!c.editable||r._isDemo){
-      const plainStyle=(c.align==='right'?'text-align:right;':'')+(c.groupStart?'border-left:6px double rgba(201,168,76,.6);':'')+(c.operatorPrefix?'position:relative;':'');
+      const plainStyle=(c.align==='right'?'text-align:right;':'')+(c.groupStart?'border-left:6px double rgba(var(--amit-accent-rgb,201,168,76),.6);':'')+(c.operatorPrefix?'position:relative;':'');
       return `<td class="rv-td-plain"${plainStyle?` style="${plainStyle}"`:''}>${rvOperatorGlyph(c)}${prefix}${r._isDemo&&idx===0?'✦ ':''}${r[c.key]||''}</td>`;
     }
     const editing=inst.editingCell&&inst.editingCell.rowId===r.id&&inst.editingCell.key===c.key;
@@ -11161,6 +11211,10 @@ if(db){
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    // Appearance (2026-10-01): pull this login's saved theme (or clear it on
+    // sign-out). Deferred with setTimeout so no supabase call is awaited
+    // inside this callback (supabase-js v2 can deadlock if you do).
+    if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
     renderAllPages();
   });
 }
