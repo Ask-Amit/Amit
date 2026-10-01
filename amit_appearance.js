@@ -325,8 +325,7 @@ const AMIT_APPEARANCE_PRESETS = {
     'btn-bg':'rgba(138,154,78,.18)','btn-hover-bg':'rgba(138,154,78,.32)','btn-border':'#8a9a4e','btn-text':'#aebd73','btn-radius':'6px',
     'card-bg':'rgba(255,255,255,.04)','card-border':'rgba(138,154,78,.25)',
     'table-head-bg':'#393f2d','table-head-text':'#aebd73','row-sep':'rgba(138,154,78,.14)','row-hover':'rgba(255,255,255,.05)'
-  })
-};
+  }),
   newsroom: _amitAppearancePreset('Newsroom Navy',
     'https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600&display=swap', {
     'bg':'#eef1f4','surface':'#ffffff','surface-raised':'#0a2342','surface-hover':'#123058','tooltip-bg':'#0a2342',
@@ -342,7 +341,86 @@ const AMIT_APPEARANCE_PRESETS = {
     'card-bg':'#ffffff','card-border':'rgba(10,35,66,.14)',
     'table-head-bg':'#0a2342','table-head-text':'#ffffff','row-sep':'rgba(10,35,66,.1)','row-hover':'rgba(10,35,66,.04)'
   }),
-  // 'custom' — the Custom Import slot, added after the object above exists
+  // ── TRUE CREAM THEMES (added 2026-10-01, Ryan's direct request — the
+  // earlier "light" set leaned gray/sage rather than a genuinely warm
+  // cream background). All five share the same cream bg/ivory surface;
+  // only the accent, border and fonts change between them.
+  cream: _amitAppearancePreset('Warm Cream', null, {
+    'bg':'#f7ecd2','surface':'#fffaf0','surface-raised':'#f0e0bd','surface-hover':'#e8d4a8','tooltip-bg':'#3a2a14',
+    'accent':'#a9752f','accent-bright':'#8a5c1f','accent-rgb':'169,117,47',
+    'border':'rgba(169,117,47,0.4)','text':'#2e2210','text-soft':'#3a2a14','text-rgb':'58,42,20',
+    'muted':'rgba(58,42,20,0.72)','dim':'rgba(58,42,20,0.45)',
+    'overlay-rgb':'0,0,0','on-rgb':'46,160,67','ok':'#2e7d46','danger':'#b03030','overlay':'rgba(255,255,255,.7)',
+    'font-heading':"'Cinzel',serif",'font-body':"'Crimson Pro',Georgia,serif",'font-title':'Georgia,serif','font-mono':'monospace','font-scale':'1',
+    'radius':'12px','tab-radius':'10px','bg-image':'none','watermark-opacity':'.06','color-scheme':'light',
+    'input-bg':'#fffaf0','input-text':'#2e2210','input-border':'rgba(169,117,47,.5)','input-radius':'6px',
+    'focus-ring':'rgba(169,117,47,.45)','option-bg':'#fff','option-text':'#2e2210',
+    'btn-bg':'rgba(169,117,47,.16)','btn-hover-bg':'rgba(169,117,47,.3)','btn-border':'#a9752f','btn-text':'#6e4a1f','btn-radius':'6px',
+    'card-bg':'rgba(0,0,0,.02)','card-border':'rgba(169,117,47,.3)',
+    'table-head-bg':'#f0e0bd','table-head-text':'#6e4a1f','row-sep':'rgba(169,117,47,.18)','row-hover':'rgba(0,0,0,.03)'
+  }),
+  creamforest: _amitAppearancePreset('Cream & Forest',
+    'https://fonts.googleapis.com/css2?family=Lora:wght@400;600&display=swap', {
+    'bg':'#f6edd8','surface':'#fffdf4','surface-raised':'#ecdfc1','surface-hover':'#e2d2a9','tooltip-bg':'#1e2e1c',
+    'accent':'#3f6b3f','accent-bright':'#2f5230','accent-rgb':'63,107,63',
+    'border':'rgba(63,107,63,0.4)','text':'#1c2318','text-soft':'#262f20','text-rgb':'38,47,32',
+    'muted':'rgba(38,47,32,0.72)','dim':'rgba(38,47,32,0.45)',
+    'overlay-rgb':'0,0,0','on-rgb':'46,160,67','ok':'#2e7d46','danger':'#b4403c','overlay':'rgba(255,255,255,.7)',
+    'font-heading':"'Lora',Georgia,serif",'font-body':"'Lora',Georgia,serif",'font-title':"'Lora',Georgia,serif",'font-mono':'monospace','font-scale':'1',
+    'radius':'12px','tab-radius':'10px','bg-image':'none','watermark-opacity':'.06','color-scheme':'light',
+    'input-bg':'#fffdf4','input-text':'#1c2318','input-border':'rgba(63,107,63,.45)','input-radius':'6px',
+    'focus-ring':'rgba(63,107,63,.4)','option-bg':'#fff','option-text':'#1c2318',
+    'btn-bg':'rgba(63,107,63,.16)','btn-hover-bg':'rgba(63,107,63,.3)','btn-border':'#3f6b3f','btn-text':'#2a4a2a','btn-radius':'6px',
+    'card-bg':'rgba(0,0,0,.02)','card-border':'rgba(63,107,63,.28)',
+    'table-head-bg':'#ecdfc1','table-head-text':'#2a4a2a','row-sep':'rgba(63,107,63,.16)','row-hover':'rgba(0,0,0,.03)'
+  }),
+  creamwine: _amitAppearancePreset('Cream & Burgundy',
+    'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&display=swap', {
+    'bg':'#f8ead8','surface':'#fffaf2','surface-raised':'#f0ddc5','surface-hover':'#e7cfae','tooltip-bg':'#321318',
+    'accent':'#8c2f3a','accent-bright':'#6f2530','accent-rgb':'140,47,58',
+    'border':'rgba(140,47,58,0.38)','text':'#241314','text-soft':'#301a1c','text-rgb':'48,26,28',
+    'muted':'rgba(48,26,28,0.72)','dim':'rgba(48,26,28,0.45)',
+    'overlay-rgb':'0,0,0','on-rgb':'46,160,67','ok':'#2e7d46','danger':'#8c2f3a','overlay':'rgba(255,255,255,.7)',
+    'font-heading':"'Playfair Display',Georgia,serif",'font-body':"'Crimson Pro',Georgia,serif",'font-title':"'Playfair Display',Georgia,serif",'font-mono':'monospace','font-scale':'1',
+    'radius':'12px','tab-radius':'10px','bg-image':'none','watermark-opacity':'.06','color-scheme':'light',
+    'input-bg':'#fffaf2','input-text':'#241314','input-border':'rgba(140,47,58,.45)','input-radius':'6px',
+    'focus-ring':'rgba(140,47,58,.4)','option-bg':'#fff','option-text':'#241314',
+    'btn-bg':'rgba(140,47,58,.15)','btn-hover-bg':'rgba(140,47,58,.28)','btn-border':'#8c2f3a','btn-text':'#6f2530','btn-radius':'6px',
+    'card-bg':'rgba(0,0,0,.02)','card-border':'rgba(140,47,58,.26)',
+    'table-head-bg':'#f0ddc5','table-head-text':'#6f2530','row-sep':'rgba(140,47,58,.15)','row-hover':'rgba(0,0,0,.03)'
+  }),
+  creamnavy: _amitAppearancePreset('Cream & Navy',
+    'https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Inter:wght@400;500;600&display=swap', {
+    'bg':'#f7edda','surface':'#fffcf3','surface-raised':'#ecdfc6','surface-hover':'#e1d2b4','tooltip-bg':'#15233a',
+    'accent':'#2c4a73','accent-bright':'#1f3757','accent-rgb':'44,74,115',
+    'border':'rgba(44,74,115,0.38)','text':'#17202c','text-soft':'#1f2a38','text-rgb':'31,42,56',
+    'muted':'rgba(31,42,56,0.72)','dim':'rgba(31,42,56,0.45)',
+    'overlay-rgb':'0,0,0','on-rgb':'46,160,67','ok':'#2e7d46','danger':'#b03030','overlay':'rgba(255,255,255,.7)',
+    'font-heading':"'Montserrat',system-ui,sans-serif",'font-body':"'Inter',system-ui,sans-serif",'font-title':"'Montserrat',system-ui,sans-serif",'font-mono':'monospace','font-scale':'1',
+    'radius':'10px','tab-radius':'8px','bg-image':'none','watermark-opacity':'.05','color-scheme':'light',
+    'input-bg':'#fffcf3','input-text':'#17202c','input-border':'rgba(44,74,115,.42)','input-radius':'6px',
+    'focus-ring':'rgba(44,74,115,.4)','option-bg':'#fff','option-text':'#17202c',
+    'btn-bg':'rgba(44,74,115,.15)','btn-hover-bg':'rgba(44,74,115,.28)','btn-border':'#2c4a73','btn-text':'#1f3757','btn-radius':'6px',
+    'card-bg':'rgba(0,0,0,.02)','card-border':'rgba(44,74,115,.24)',
+    'table-head-bg':'#ecdfc6','table-head-text':'#1f3757','row-sep':'rgba(44,74,115,.14)','row-hover':'rgba(0,0,0,.03)'
+  }),
+  creamplum: _amitAppearancePreset('Cream & Plum',
+    'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=EB+Garamond:wght@400;600&display=swap', {
+    'bg':'#f8ead9','surface':'#fffbf3','surface-raised':'#f0dec6','surface-hover':'#e5d0b4','tooltip-bg':'#281a33',
+    'accent':'#6e4a8c','accent-bright':'#573a70','accent-rgb':'110,74,140',
+    'border':'rgba(110,74,140,0.38)','text':'#211829','text-soft':'#2a2032','text-rgb':'42,32,50',
+    'muted':'rgba(42,32,50,0.72)','dim':'rgba(42,32,50,0.45)',
+    'overlay-rgb':'0,0,0','on-rgb':'46,160,67','ok':'#2e7d46','danger':'#b03030','overlay':'rgba(255,255,255,.7)',
+    'font-heading':"'Cormorant Garamond',Georgia,serif",'font-body':"'EB Garamond',Georgia,serif",'font-title':"'Cormorant Garamond',Georgia,serif",'font-mono':'monospace','font-scale':'1',
+    'radius':'12px','tab-radius':'10px','bg-image':'none','watermark-opacity':'.06','color-scheme':'light',
+    'input-bg':'#fffbf3','input-text':'#211829','input-border':'rgba(110,74,140,.42)','input-radius':'6px',
+    'focus-ring':'rgba(110,74,140,.4)','option-bg':'#fff','option-text':'#211829',
+    'btn-bg':'rgba(110,74,140,.15)','btn-hover-bg':'rgba(110,74,140,.28)','btn-border':'#6e4a8c','btn-text':'#573a70','btn-radius':'6px',
+    'card-bg':'rgba(0,0,0,.02)','card-border':'rgba(110,74,140,.24)',
+    'table-head-bg':'#f0dec6','table-head-text':'#573a70','row-sep':'rgba(110,74,140,.14)','row-hover':'rgba(0,0,0,.03)'
+  })
+};
+// 'custom' — the Custom Import slot, added after the object above exists
 // (a preset can't reference AMIT_APPEARANCE_PRESETS from inside its own
 // literal). Starts as a plain copy of classic; the Hub's import tools
 // (paste hex codes, or sample colors from an uploaded image) set overrides
@@ -357,6 +435,7 @@ AMIT_APPEARANCE_PRESETS.custom = _amitAppearancePreset('Custom Import', null,
 // presets are added over time, so the UI should read this array, not
 // Object.keys(AMIT_APPEARANCE_PRESETS).
 const AMIT_APPEARANCE_ORDER = [
+  'cream','creamforest','creamwine','creamnavy','creamplum',
   'parchment','sage','powder','rosequartz','linen',
   'teal','terracotta','slate','mauve','olive',
   'classic','emerald','burgundy','charcoal','purple',
