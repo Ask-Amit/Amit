@@ -13,28 +13,33 @@
 <script src="../amit_owner_contact.js?v=1.00"></script>
 <script src="../amit_pin_encryption.js?v=1.00"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
+<script src="../amit_appearance.js?v=1.04"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#09141f;
-  --card:#1a3450;
-  --card-head:#0f2338;
-  --card-h:#1f3d60;
-  --border:rgba(201,168,76,0.55);
-  --gold:#c9a84c;
-  --gold2:#e8c56a;
-  --text:#ffffff;
-  --text2:#f0e8d0;
-  --muted:rgba(240,232,208,0.78);
-  --dim:rgba(240,232,208,0.42);
+  /* Theme aliases (2026-10-01): each Hub variable follows the saved
+     Appearance theme via amit_appearance.js's --amit-* tokens. The fallback
+     is the exact original value, so with Classic / no theme saved (which
+     sets no --amit-* properties at all) the page renders identically. */
+  --bg:var(--amit-bg,#09141f);
+  --card:var(--amit-surface-raised,#132a42);
+  --card-head:var(--amit-surface,#0f2338);
+  --card-h:var(--amit-surface-hover,#183552);
+  --border:var(--amit-border,rgba(201,168,76,0.55));
+  --gold:var(--amit-accent,#c9a84c);
+  --gold2:var(--amit-accent-bright,#e8c56a);
+  --text:var(--amit-text,#ffffff);
+  --text2:var(--amit-text-soft,#f0e8d0);
+  --muted:var(--amit-muted,rgba(240,232,208,0.78));
+  --dim:var(--amit-dim,rgba(240,232,208,0.42));
   --overdue:#e74c3c;
   --today-c:#e67e22;
   --crit-c:#9b59b6;
   --done-c:#27ae60;
   --star-c:#f1c40f;
   --ink:#1a1510;
-  --sep:rgba(255,255,255,0.09);
+  --sep:rgba(var(--amit-overlay-rgb,255,255,255),0.09);
   /* RIGHT calendar type colors (sacred/Hebrew) — updated by toggleSacred() */
   --cal-type-clr:#c8913a;
   --cal-type-bg:rgba(10,20,36,.88);
@@ -46,7 +51,7 @@
   --cal-cell-w:100px;
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);color:var(--text);display:flex;flex-direction:column}
 
 /* Subtle Amit watermark - decorative only, sits behind all content, never
    intercepts clicks or affects layout. Low-risk addition since it can't
@@ -73,8 +78,8 @@ header{
   position:relative;
 }
 .brand{display:flex;align-items:baseline;gap:14px}
-.brand-name{font-family:'Cinzel',serif;font-size:22px;font-weight:700;color:var(--gold);letter-spacing:.12em}
-.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.brand-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:22px;font-weight:700;color:var(--gold);letter-spacing:.12em}
+.brand-sub{font-style:italic;color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px}
 .hdr-right{text-align:right}
 /* Fix, 2026-07-26, Ryan's direct instruction: match The Council's centered
    page-name-over-version-number header layout instead of Hub's own inline
@@ -90,12 +95,12 @@ header{
 }
 .page-version{
   font-family:monospace;font-size:11px;letter-spacing:.05em;
-  color:rgba(201,168,76,.55);margin-top:2px;
+  color:rgba(var(--amit-accent-rgb,201,168,76),.55);margin-top:2px;
 }
-.demo-badge{font-size:10px;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:10px;cursor:pointer;border:none;font-family:'Cinzel',serif;transition:all .2s;}
-.demo-badge.on{background:rgba(201,168,76,.15);color:var(--gold);border:1px solid rgba(201,168,76,.35);}
-.demo-badge.off{background:none;color:rgba(240,232,208,.3);border:1px solid rgba(240,232,208,.12);}
-.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.demo-badge{font-size:10px;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:10px;cursor:pointer;border:none;font-family:var(--amit-font-heading,'Cinzel',serif);transition:all .2s;}
+.demo-badge.on{background:rgba(var(--amit-accent-rgb,201,168,76),.15);color:var(--gold);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);}
+.demo-badge.off{background:none;color:rgba(var(--amit-text-rgb,240,232,208),.3);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);}
+.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:#fff;font-weight:600}
 .datetime{font-size:12px;color:var(--muted);margin-top:2px}
 
 /* ── HUB LAYOUT ── */
@@ -110,9 +115,9 @@ header{
   overflow-y:auto;padding:12px 10px;gap:5px;
 }
 .sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .sidebar-section{
-  font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;text-transform:uppercase;
+  font-family:var(--amit-font-heading,'Cinzel',serif);font-size:8px;letter-spacing:.2em;text-transform:uppercase;
   color:var(--dim);padding:10px 6px 4px;
 }
 .tile{
@@ -122,15 +127,15 @@ header{
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
 }
-.tile-today-ribbon{position:absolute;top:9px;right:-14px;width:72px;background:var(--gold);color:#1a0800;font-family:'Cinzel',serif;font-size:7px;font-weight:700;letter-spacing:.1em;text-align:center;padding:2px 0 2px 10px;transform:rotate(28deg);display:none;pointer-events:none;z-index:1}
+.tile-today-ribbon{position:absolute;top:9px;right:-14px;width:72px;background:var(--gold);color:#1a0800;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:7px;font-weight:700;letter-spacing:.1em;text-align:center;padding:2px 0 2px 10px;transform:rotate(28deg);display:none;pointer-events:none;z-index:1}
 .tile-today-ribbon.visible{display:block}
-.tile-month-ribbon{position:absolute;top:9px;right:-14px;width:96px;background:rgba(201,168,76,.55);color:#fff;font-family:'Cinzel',serif;font-size:6px;font-weight:700;letter-spacing:.08em;text-align:center;padding:2px 0 2px 16px;transform:rotate(28deg);display:none;pointer-events:none;z-index:1}
+.tile-month-ribbon{position:absolute;top:9px;right:-14px;width:96px;background:rgba(var(--amit-accent-rgb,201,168,76),.55);color:#fff;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:6px;font-weight:700;letter-spacing:.08em;text-align:center;padding:2px 0 2px 16px;transform:rotate(28deg);display:none;pointer-events:none;z-index:1}
 .tile-month-ribbon.visible{display:block}
-.tile:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
-.tile.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.tile:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border-color:rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.tile.active{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25)}
 .tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
 .tile-info{flex:1;min-width:0}
-.tile-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.tile-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
 .tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile-badge{
   min-width:18px;height:18px;padding:0 4px;
@@ -139,7 +144,7 @@ header{
 }
 .tb-red{background:var(--overdue);color:#fff}
 .tb-orange{background:var(--today-c);color:#fff}
-.tb-gold{background:rgba(201,168,76,.3);color:var(--gold)}
+.tb-gold{background:rgba(var(--amit-accent-rgb,201,168,76),.3);color:var(--gold)}
 
 /* ── MAIN AREA ── */
 .main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
@@ -151,7 +156,7 @@ header{
 .panel.active{display:flex}
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .panel::-webkit-scrollbar{width:5px}
-.panel::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+.panel::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:3px}
 
 /* ── MORNING ALTAR — HOME PANEL ── */
 .altar-wrap{display:flex;flex-direction:column;flex:1;overflow-y:auto}
@@ -209,9 +214,9 @@ header{
 .altar-amit-btn:hover{background:rgba(201,168,76,.1);border-color:var(--gold)}
 .altar-testimony-btn{background:transparent;border:1px solid rgba(175,115,245,.4);color:rgba(200,155,255,.88);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;padding:10px 28px;border-radius:8px;cursor:pointer;transition:all .2s;margin-top:10px}
 .altar-testimony-btn:hover{background:rgba(175,115,245,.12);border-color:rgba(175,115,245,.7)}
-.cal-dv-testimony-btn{background:rgba(175,115,245,.12);border:1.5px solid rgba(140,80,220,.6);color:rgba(100,50,180,.95);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;padding:8px 22px;border-radius:20px;cursor:pointer;transition:all .2s}
+.cal-dv-testimony-btn{background:rgba(175,115,245,.12);border:1.5px solid rgba(140,80,220,.6);color:rgba(100,50,180,.95);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.1em;padding:8px 22px;border-radius:20px;cursor:pointer;transition:all .2s}
 .cal-dv-testimony-btn:hover{background:rgba(175,115,245,.22);border-color:rgba(140,80,220,.9);color:rgba(80,30,160,1)}
-.cal-dv-month-return{background:transparent;border:1px solid rgba(0,0,0,.22);color:rgba(60,45,20,.5);font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s}
+.cal-dv-month-return{background:transparent;border:1px solid rgba(0,0,0,.22);color:rgba(60,45,20,.5);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;letter-spacing:.1em;padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s}
 .cal-dv-month-return:hover{background:rgba(0,0,0,.07);border-color:rgba(0,0,0,.4);color:rgba(60,45,20,.9)}
 /* Testimony modal */
 .testimony-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
@@ -880,8 +885,8 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-exp-notes{font-size:11px;color:rgba(0,65,105,.65);line-height:1.4}
 .cal-exp-privacy{font-size:10px;color:rgba(100,200,220,.4);font-style:italic;margin:6px 0 10px;padding:5px 8px;border:1px solid rgba(100,200,220,.15);border-radius:5px}
 .cal-dv-log-section{margin-top:10px}
-.cal-dv-log-area{width:100%;min-height:70px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:rgba(240,232,208,.8);font-size:12px;padding:8px 10px;resize:vertical;font-family:inherit;line-height:1.5;box-sizing:border-box}
-.cal-dv-log-area:focus{outline:none;border-color:rgba(201,168,76,.4)}
+.cal-dv-log-area{width:100%;min-height:70px;background:rgba(0,0,0,.25);border:1px solid rgba(var(--amit-overlay-rgb,255,255,255),.1);border-radius:6px;color:rgba(var(--amit-text-rgb,240,232,208),.8);font-size:12px;padding:8px 10px;resize:vertical;font-family:inherit;line-height:1.5;box-sizing:border-box}
+.cal-dv-log-area:focus{outline:none;border-color:rgba(var(--amit-accent-rgb,201,168,76),.4)}
 @keyframes slideL{from{transform:translateX(3%);opacity:0}to{transform:none;opacity:1}}
 @keyframes slideR{from{transform:translateX(-3%);opacity:0}to{transform:none;opacity:1}}
 .cal-grid.anim-l{animation:slideL .22s ease}
@@ -894,26 +899,26 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-dv-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
 .cal-dv-panel.open{display:flex}
 .cal-dv-topbar{display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--card-head);border-bottom:2px solid var(--border);flex-shrink:0}
-.cal-dv-back{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 13px;border-radius:6px;cursor:pointer;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;transition:all .15s}
-.cal-dv-back:hover{background:rgba(255,255,255,.16)}
-.cal-dv-title{font-family:'Cinzel',serif;font-size:13px;font-weight:700;color:rgba(255,255,255,.5);flex:1;letter-spacing:.06em}
+.cal-dv-back{background:rgba(var(--amit-overlay-rgb,255,255,255),.09);border:1px solid rgba(var(--amit-overlay-rgb,255,255,255),.2);color:#fff;padding:5px 13px;border-radius:6px;cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;letter-spacing:.1em;transition:all .15s}
+.cal-dv-back:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.16)}
+.cal-dv-title{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;font-weight:700;color:rgba(255,255,255,.5);flex:1;letter-spacing:.06em}
 /* Zoom layout: prev | main | next */
 .cal-dv-zoom-wrap{display:flex;flex:1;overflow:hidden;padding:16px;gap:10px;align-items:stretch}
 /* Adjacent day cards */
 .cal-dv-adj{width:140px;flex-shrink:0;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;padding:14px 12px;cursor:pointer;opacity:.55;transition:opacity .2s;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .cal-dv-adj:hover{opacity:.82}
-.cal-dv-adj-arrow{font-family:'Cinzel',serif;font-size:9px;color:rgba(26,21,16,.4);letter-spacing:.14em;margin-bottom:10px;text-transform:uppercase}
+.cal-dv-adj-arrow{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;color:rgba(26,21,16,.4);letter-spacing:.14em;margin-bottom:10px;text-transform:uppercase}
 .cal-dv-adj-top{display:flex;justify-content:space-between;align-items:flex-start}
-.cal-dv-adj-greg{font-family:'Cinzel',serif;font-size:30px;font-weight:700;color:#1a1510;line-height:1}
+.cal-dv-adj-greg{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:30px;font-weight:700;color:#1a1510;line-height:1}
 .cal-dv-adj-heb{text-align:right}
-.cal-dv-adj-heb-num{font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:#5c4200;line-height:1}
+.cal-dv-adj-heb-num{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:20px;font-weight:700;color:#5c4200;line-height:1}
 .cal-dv-adj-heb-mon{font-size:9px;color:#6b5010;font-style:italic;text-align:right;margin-top:2px}
-.cal-dv-adj-dayname{font-family:'Cinzel',serif;font-size:9px;color:#5a4828;letter-spacing:.08em;margin-top:6px}
-.cal-dv-adj-chip{font-size:9px;padding:2px 6px;border-radius:3px;margin-top:8px;display:inline-block;font-family:'Cinzel',serif;word-break:break-word;line-height:1.4}
+.cal-dv-adj-dayname{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;color:#5a4828;letter-spacing:.08em;margin-top:6px}
+.cal-dv-adj-chip{font-size:9px;padding:2px 6px;border-radius:3px;margin-top:8px;display:inline-block;font-family:var(--amit-font-heading,'Cinzel',serif);word-break:break-word;line-height:1.4}
 .cal-dv-adj-aims{font-size:10px;color:#7a6040;font-style:italic;margin-top:auto;padding-top:10px;line-height:1.5}
 /* Main focused day card */
 .cal-dv-main{flex:1;background:#eee9de;border:1px solid rgba(0,0,0,.1);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.cal-dv-main.dv-today{background:#f5eed8;border:2px solid var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.3);animation:todayPulse 2.4s ease-in-out infinite}
+.cal-dv-main.dv-today{background:#f5eed8;border:2px solid var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.3);animation:todayPulse 2.4s ease-in-out infinite}
 /* Sticky header — date never scrolls away */
 .cal-dv-main-head{flex-shrink:0;padding:24px 28px 0;background:inherit;border-radius:10px 10px 0 0}
 .cal-dv-main-divider{border-top:1px solid rgba(0,0,0,.08);margin:14px 0 0}
@@ -924,30 +929,30 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 /* Top row */
 .cal-dv-top{display:flex;align-items:flex-start;margin-bottom:4px}
 .cal-dv-greg{flex:0 0 auto}
-.cal-dv-greg-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#1a1510;line-height:1}
-.cal-dv-greg-day{font-family:'Cinzel',serif;font-size:12px;color:#3a3020;letter-spacing:.1em;margin-top:5px;text-transform:uppercase}
+.cal-dv-greg-num{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:64px;font-weight:700;color:#1a1510;line-height:1}
+.cal-dv-greg-day{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;color:#3a3020;letter-spacing:.1em;margin-top:5px;text-transform:uppercase}
 .cal-dv-greg-month{font-size:12px;color:#6a5a40;margin-top:3px;font-style:italic}
 .cal-dv-heb{text-align:right;display:flex;flex-direction:column;align-items:flex-end;flex:0 0 auto}
 /* Word for Today — center header column */
 .cal-dv-word-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 24px;cursor:pointer;min-width:0}
-.cal-dv-wc-name{font-family:'Cinzel',serif;font-size:14px;font-weight:700;color:#3a2800;letter-spacing:.04em;line-height:1.3;margin-bottom:7px}
+.cal-dv-wc-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:14px;font-weight:700;color:#3a2800;letter-spacing:.04em;line-height:1.3;margin-bottom:7px}
 .cal-dv-wc-brief{font-size:11px;color:#6a5030;font-style:italic;line-height:1.55;max-width:320px;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.cal-dv-wc-btn{background:transparent;border:1px solid rgba(92,66,0,.3);color:#5c4200;padding:5px 16px;border-radius:5px;cursor:pointer;font-size:10px;font-family:'Cinzel',serif;letter-spacing:.06em;transition:all .15s}
+.cal-dv-wc-btn{background:transparent;border:1px solid rgba(92,66,0,.3);color:#5c4200;padding:5px 16px;border-radius:5px;cursor:pointer;font-size:10px;font-family:var(--amit-font-heading,'Cinzel',serif);letter-spacing:.06em;transition:all .15s}
 .cal-dv-wc-btn:hover{background:rgba(92,66,0,.08);border-color:rgba(92,66,0,.55)}
-.cal-dv-heb-num{font-family:'Cinzel',serif;font-size:64px;font-weight:700;color:#5c4200;line-height:1}
+.cal-dv-heb-num{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:64px;font-weight:700;color:#5c4200;line-height:1}
 .cal-dv-heb-mon{font-size:13px;color:#6b5010;font-style:italic;margin-top:5px}
 .cal-dv-heb-yr{font-size:11px;color:#8a6830;margin-top:3px}
 /* Sacred primary mode — Hebrew is the dominant date */
 .cal-dv-heb.sacred-primary{text-align:left;align-items:flex-start}
 .cal-dv-heb.sacred-primary .cal-dv-heb-num{color:#3a2600;font-size:72px}
 .cal-dv-greg-secondary{text-align:right;display:flex;flex-direction:column;align-items:flex-end;flex:0 0 auto}
-.cal-dv-greg-num-sm{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#a09080;line-height:1}
+.cal-dv-greg-num-sm{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;font-weight:700;color:#a09080;line-height:1}
 .cal-dv-greg-secondary .cal-dv-greg-day{font-size:10px;color:#a09080;margin-top:4px}
 .cal-dv-greg-secondary .cal-dv-greg-month{font-size:9px;color:#b0a090;margin-top:2px}
 /* Weather — today's conditions, shown only when isToday */
 .cal-dv-weather{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:#6a5a40;cursor:pointer}
 .cal-dv-weather-icon{font-size:18px;line-height:1}
-.cal-dv-weather-temp{font-family:'Cinzel',serif;font-weight:700;color:#3a2800}
+.cal-dv-weather-temp{font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:700;color:#3a2800}
 .cal-dv-weather-desc{opacity:.75;text-transform:capitalize}
 .cal-dv-weather-setup{font-size:10px;color:rgba(92,66,0,.55);text-decoration:underline;cursor:pointer;margin-top:6px}
 .cal-dv-weather-hilo{font-size:10px;color:#8a7550}
@@ -955,38 +960,38 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-dv-alert-strip{margin-top:6px;padding:6px 10px;background:rgba(210,50,40,.1);border:1px solid rgba(210,50,40,.35);border-radius:6px;font-size:10px;color:#a02818;font-weight:700;cursor:pointer;letter-spacing:.02em}
 .cal-dv-alert-strip:hover{background:rgba(210,50,40,.16)}
 /* Sacred mode label badge */
-.cal-dv-sacred-label{font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--cal-type-clr);opacity:.9;margin-bottom:8px}
+.cal-dv-sacred-label{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--cal-type-clr);opacity:.9;margin-bottom:8px}
 /* Feast/event chip */
-.cal-dv-feast{display:inline-flex;align-items:center;padding:7px 16px;border-radius:6px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;font-weight:700;color:#fff;margin-bottom:18px;cursor:pointer;transition:opacity .15s}
+.cal-dv-feast{display:inline-flex;align-items:center;padding:7px 16px;border-radius:6px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;letter-spacing:.08em;font-weight:700;color:#fff;margin-bottom:18px;cursor:pointer;transition:opacity .15s}
 .cal-dv-feast:hover{opacity:.85}
 .cal-dv-shabbat-feast{background:rgba(92,66,0,.15);border:1px solid rgba(92,66,0,.3);color:#5c4200;font-weight:700}
 /* Word for today */
-.cal-dv-word-box{background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.22);border-radius:10px;padding:18px 20px;margin-bottom:16px}
-.cal-dv-word-ctx{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:rgba(150,110,20,.7);text-transform:uppercase;margin-bottom:6px}
-.cal-dv-word-name{font-family:'Cinzel',serif;font-size:20px;font-weight:700;color:#1a1510;margin-bottom:14px;line-height:1.25}
-.cal-dv-word-prayer{border-left:3px solid rgba(201,168,76,.5);padding:10px 16px;font-style:italic;font-size:14px;color:#3a2e18;line-height:1.75;background:rgba(201,168,76,.04);border-radius:0 6px 6px 0;margin-bottom:12px}
-.cal-dv-word-sect-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;color:#8a6830;text-transform:uppercase;margin-bottom:4px;margin-top:10px}
+.cal-dv-word-box{background:rgba(var(--amit-accent-rgb,201,168,76),.07);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.22);border-radius:10px;padding:18px 20px;margin-bottom:16px}
+.cal-dv-word-ctx{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:8px;letter-spacing:.2em;color:rgba(150,110,20,.7);text-transform:uppercase;margin-bottom:6px}
+.cal-dv-word-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:20px;font-weight:700;color:#1a1510;margin-bottom:14px;line-height:1.25}
+.cal-dv-word-prayer{border-left:3px solid rgba(var(--amit-accent-rgb,201,168,76),.5);padding:10px 16px;font-style:italic;font-size:14px;color:#3a2e18;line-height:1.75;background:rgba(var(--amit-accent-rgb,201,168,76),.04);border-radius:0 6px 6px 0;margin-bottom:12px}
+.cal-dv-word-sect-lbl{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:8px;letter-spacing:.18em;color:#8a6830;text-transform:uppercase;margin-bottom:4px;margin-top:10px}
 .cal-dv-word-body{font-size:13px;color:#2a2010;line-height:1.7}
-.cal-dv-word-verse{font-size:12px;font-style:italic;color:#5a4820;border-top:1px solid rgba(201,168,76,.2);padding-top:10px;margin-top:12px;line-height:1.65}
+.cal-dv-word-verse{font-size:12px;font-style:italic;color:#5a4820;border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);padding-top:10px;margin-top:12px;line-height:1.65}
 /* Reflection trigger link */
-.cal-dv-refl-trigger{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:rgba(122,82,0,.6);cursor:pointer;border-top:1px solid rgba(201,168,76,.15);padding-top:12px;margin-top:14px;display:block;transition:color .15s}
+.cal-dv-refl-trigger{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.1em;color:rgba(122,82,0,.6);cursor:pointer;border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.15);padding-top:12px;margin-top:14px;display:block;transition:color .15s}
 .cal-dv-refl-trigger:hover{color:#7a5200}
-.cal-dv-refl-preview{font-size:11px;color:#7a6040;font-style:italic;margin-top:3px;font-family:'Crimson Pro',serif;line-height:1.4}
+.cal-dv-refl-preview{font-size:11px;color:#7a6040;font-style:italic;margin-top:3px;font-family:var(--amit-font-body,'Crimson Pro',serif);line-height:1.4}
 /* Reflection slide-up drawer */
 .cal-dv-refl-drawer{position:fixed;inset:0;z-index:3000;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.0);pointer-events:none;transition:background .28s}
 .cal-dv-refl-drawer.open{background:rgba(0,0,0,.6);pointer-events:all}
 .cal-dv-refl-card{background:#f0e8d4;border-radius:18px 18px 0 0;padding:28px 32px 32px;width:100%;max-width:720px;transform:translateY(100%);transition:transform .32s ease;box-shadow:0 -6px 40px rgba(0,0,0,.35)}
 .cal-dv-refl-drawer.open .cal-dv-refl-card{transform:translateY(0)}
 .cal-dv-refl-card-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
-.cal-dv-refl-card-ctx{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:#8a6830;text-transform:uppercase;margin-bottom:4px}
-.cal-dv-refl-card-name{font-family:'Cinzel',serif;font-size:17px;font-weight:700;color:#1a1510;line-height:1.3}
+.cal-dv-refl-card-ctx{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:8px;letter-spacing:.2em;color:#8a6830;text-transform:uppercase;margin-bottom:4px}
+.cal-dv-refl-card-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:17px;font-weight:700;color:#1a1510;line-height:1.3}
 .cal-dv-refl-card-close{font-size:18px;color:rgba(26,21,16,.35);cursor:pointer;line-height:1;padding:4px;margin-left:16px;transition:color .15s}
 .cal-dv-refl-card-close:hover{color:rgba(26,21,16,.7)}
-.cal-dv-refl-area{width:100%;box-sizing:border-box;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);border-radius:8px;padding:14px 16px;color:#2a2010;font-size:14px;line-height:1.7;resize:vertical;min-height:90px;font-family:'Crimson Pro',serif}
-.cal-dv-refl-area:focus{border-color:rgba(201,168,76,.5);outline:none}
+.cal-dv-refl-area{width:100%;box-sizing:border-box;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:8px;padding:14px 16px;color:#2a2010;font-size:14px;line-height:1.7;resize:vertical;min-height:90px;font-family:var(--amit-font-body,'Crimson Pro',serif)}
+.cal-dv-refl-area:focus{border-color:rgba(var(--amit-accent-rgb,201,168,76),.5);outline:none}
 .cal-dv-refl-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
 .cal-dv-refl-saved{font-size:11px;color:#8a6830;font-style:italic}
-.cal-dv-refl-save-btn{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:#7a5200;border:1px solid rgba(122,82,0,.35);padding:8px 22px;border-radius:6px;cursor:pointer;background:transparent;transition:all .15s}
+.cal-dv-refl-save-btn{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.1em;color:#7a5200;border:1px solid rgba(122,82,0,.35);padding:8px 22px;border-radius:6px;cursor:pointer;background:transparent;transition:all .15s}
 .cal-dv-refl-save-btn:hover{background:rgba(122,82,0,.08)}
 /* ── FIRST VISIT NAME MODAL ── */
 .amit-name-modal{position:fixed;inset:0;z-index:9000;background:rgba(5,12,22,.94);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
@@ -1017,12 +1022,12 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .amit-name-return{margin-top:6px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.5);color:var(--gold);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;padding:13px 36px;border-radius:8px;cursor:pointer;transition:all .2s;width:100%}
 .amit-name-return:hover{background:rgba(201,168,76,.16)}
 /* Aims at bottom */
-.cal-dv-aims-lbl{font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;color:rgba(26,21,16,.45);text-transform:uppercase;margin:18px 0 8px}
+.cal-dv-aims-lbl{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:8px;letter-spacing:.2em;color:rgba(26,21,16,.45);text-transform:uppercase;margin:18px 0 8px}
 .cal-dv-aim-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)}
 /* Day view redesign — two-column sections */
 .dv-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
 .dv-section{border-radius:8px;overflow:hidden;margin-bottom:12px}
-.dv-sh{padding:7px 14px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.14em;font-weight:700;text-transform:uppercase}
+.dv-sh{padding:7px 14px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;letter-spacing:.14em;font-weight:700;text-transform:uppercase}
 .dv-sb{padding:8px 12px}
 .dv-section-pursuit{border:1.5px solid rgba(160,120,0,.3)}
 .dv-section-pursuit .dv-sh{background:rgba(180,140,10,.14);color:rgba(100,65,0,.9);border-bottom:1px solid rgba(160,120,0,.2)}
@@ -1051,7 +1056,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .cal-dv-aim-empty{font-size:13px;color:rgba(26,21,16,.4);font-style:italic;padding:6px 0}
 .cal-dv-aim-end{width:16px;height:16px;flex-shrink:0;cursor:pointer;color:rgba(26,21,16,.3);font-size:12px;display:flex;align-items:center;justify-content:center;border-radius:3px;margin-top:2px;transition:color .15s}
 .cal-dv-aim-end:hover{color:#c0392b}
-.cal-dv-add-aim{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:#7a5200;cursor:pointer;margin-top:14px;display:inline-block;border:1px solid rgba(122,82,0,.3);padding:5px 14px;border-radius:5px;transition:all .15s}
+.cal-dv-add-aim{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.1em;color:#7a5200;cursor:pointer;margin-top:14px;display:inline-block;border:1px solid rgba(122,82,0,.3);padding:5px 14px;border-radius:5px;transition:all .15s}
 .cal-dv-add-aim:hover{background:rgba(122,82,0,.08)}
 
 /* ── HEBREW CALENDAR — UNIFIED CELL DESIGN ── */
@@ -1175,13 +1180,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0;}
 .ask-amit-tile{
   display:flex;align-items:center;gap:10px;width:100%;
-  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.45);
+  background:rgba(var(--amit-accent-rgb,201,168,76),.1);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);
   border-radius:9px;padding:11px 12px;cursor:pointer;
   transition:all .18s;
 }
-.ask-amit-tile:hover{background:rgba(201,168,76,.22);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2);}
+.ask-amit-tile:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.22);border-color:var(--gold);box-shadow:0 0 8px rgba(var(--amit-accent-rgb,201,168,76),.2);}
 .ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0;}
-.ask-amit-name{font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600;}
+.ask-amit-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600;}
 .ask-amit-sub{font-size:11px;color:var(--muted);margin-top:2px;}
 
 /* ── ASK AMIT MODAL ── */
@@ -1210,21 +1215,21 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
 .hub-btn-future{width:100%;font-family:'Cinzel',serif;padding:10px;background:transparent;color:rgba(255,255,255,.28);border:2px dashed rgba(255,255,255,.18);border-radius:6px;cursor:not-allowed;font-size:10px;letter-spacing:.04em;}
 .hub-path-note{font-size:11px;color:var(--muted);line-height:1.5;margin:7px 0 0 0;font-style:italic;}
 /* ── COMPASS / DAILY WALK ── */
-.daily-walk-btn{display:block;width:100%;margin:8px 0 4px;padding:9px 14px;background:linear-gradient(135deg,rgba(201,168,76,.1),rgba(201,168,76,.05));border:1px solid rgba(201,168,76,.32);border-radius:8px;color:var(--gold2);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;cursor:pointer;text-align:left;transition:all .2s}
-.daily-walk-btn:hover{background:rgba(201,168,76,.18);border-color:rgba(201,168,76,.55)}
+.daily-walk-btn{display:block;width:100%;margin:8px 0 4px;padding:9px 14px;background:linear-gradient(135deg,rgba(var(--amit-accent-rgb,201,168,76),.1),rgba(var(--amit-accent-rgb,201,168,76),.05));border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.32);border-radius:8px;color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.1em;cursor:pointer;text-align:left;transition:all .2s}
+.daily-walk-btn:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.18);border-color:rgba(var(--amit-accent-rgb,201,168,76),.55)}
 .daily-walk-btn-icon{float:right;opacity:.6}
 .daily-walk-overlay{display:none;position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.78);align-items:center;justify-content:center}
 .daily-walk-overlay.open{display:flex}
-.daily-walk-card{background:linear-gradient(160deg,#0f2338,#1a3450);border:1px solid var(--border);border-radius:14px;padding:28px 30px;max-width:500px;width:92%;max-height:80vh;overflow-y:auto;position:relative}
-.daily-walk-head{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.28em;color:var(--gold);text-transform:uppercase;margin-bottom:18px;opacity:.8}
-.daily-walk-body{font-family:'Crimson Pro',Georgia,serif;font-size:15px;color:var(--text2);line-height:1.85}
+.daily-walk-card{background:linear-gradient(160deg,var(--amit-surface,#0f2338),#1a3450);border:1px solid var(--border);border-radius:14px;padding:28px 30px;max-width:500px;width:92%;max-height:80vh;overflow-y:auto;position:relative}
+.daily-walk-head{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:9px;letter-spacing:.28em;color:var(--gold);text-transform:uppercase;margin-bottom:18px;opacity:.8}
+.daily-walk-body{font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);font-size:15px;color:var(--text2);line-height:1.85}
 .daily-walk-body p{margin-bottom:11px}
-.daily-walk-verse{margin-top:16px;padding:12px 15px;background:rgba(201,168,76,.07);border-left:3px solid rgba(201,168,76,.42);border-radius:0 7px 7px 0;font-style:italic;font-size:13.5px;color:var(--muted);line-height:1.7}
+.daily-walk-verse{margin-top:16px;padding:12px 15px;background:rgba(var(--amit-accent-rgb,201,168,76),.07);border-left:3px solid rgba(var(--amit-accent-rgb,201,168,76),.42);border-radius:0 7px 7px 0;font-style:italic;font-size:13.5px;color:var(--muted);line-height:1.7}
 .daily-walk-actions{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
-.daily-walk-close-btn{flex:1;padding:9px 12px;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:7px;color:var(--muted);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
-.daily-walk-close-btn:hover{background:rgba(255,255,255,.07)}
-.daily-walk-pursuit-btn{flex:2;padding:9px 12px;background:rgba(201,168,76,.13);border:1px solid rgba(201,168,76,.38);border-radius:7px;color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
-.daily-walk-pursuit-btn:hover{background:rgba(201,168,76,.22)}
+.daily-walk-close-btn{flex:1;padding:9px 12px;background:transparent;border:1px solid rgba(var(--amit-overlay-rgb,255,255,255),.18);border-radius:7px;color:var(--muted);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
+.daily-walk-close-btn:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07)}
+.daily-walk-pursuit-btn{flex:2;padding:9px 12px;background:rgba(var(--amit-accent-rgb,201,168,76),.13);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.38);border-radius:7px;color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.08em;cursor:pointer;transition:all .15s}
+.daily-walk-pursuit-btn:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.22)}
 /* ── PARTNER HINT BANNER ── */
 .partner-banner{position:fixed;top:58px;left:230px;right:0;z-index:8500;background:linear-gradient(90deg,rgba(201,168,76,.16),rgba(201,168,76,.07));border-bottom:1px solid rgba(201,168,76,.3);padding:7px 16px 7px 20px;display:flex;align-items:flex-start;gap:12px;transition:all .3s}
 .partner-banner.hidden{display:none}
@@ -1252,23 +1257,23 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v7.04</div>
+    <div class="page-version" id="hubVersionBadge">v7.16</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
       <div class="greeting" id="greeting">Good morning</div>
-      <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(240,232,208,.4);text-underline-offset:3px"></div>
+      <div class="datetime" id="datetime" style="text-decoration:underline dotted rgba(var(--amit-text-rgb,240,232,208),.4);text-underline-offset:3px"></div>
       <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
-        <div id="syncIndicator" onclick="event.stopPropagation();openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
-        <div id="amitMobileHeartbeatIndicator" title="Amit Mobile live replies work only while the Hub is open, you're signed in, and this computer is connected" style="display:none;font-size:9px;letter-spacing:.05em;color:rgba(240,232,208,.4);font-family:'Cinzel',serif">⚪ Amit Mobile: Not Listening</div>
-        <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">CONNECT YOUR PHONE</div>
-        <button id="connectAmitInlineBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="display:none;font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.95);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(120,190,230,.55);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.18)">CONNECT YOUR PHONE</button>
-        <div id="signInBtn" onclick="event.stopPropagation();openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
+        <div id="syncIndicator" onclick="event.stopPropagation();openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(var(--amit-text-rgb,240,232,208),.28);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif)">☁ SYNC</div>
+        <div id="amitMobileHeartbeatIndicator" title="Amit Mobile live replies work only while the Hub is open, you're signed in, and this computer is connected" style="display:none;font-size:9px;letter-spacing:.05em;color:rgba(var(--amit-text-rgb,240,232,208),.4);font-family:var(--amit-font-heading,'Cinzel',serif)">⚪ Amit Mobile: Not Listening</div>
+        <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">CONNECT YOUR PHONE</div>
+        <button id="connectAmitInlineBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="display:none;font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.95);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);border:1px solid rgba(120,190,230,.55);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.18)">CONNECT YOUR PHONE</button>
+        <div id="signInBtn" onclick="event.stopPropagation();openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(var(--amit-accent-rgb,201,168,76),.8);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);padding:3px 9px;border-radius:4px;background:rgba(var(--amit-accent-rgb,201,168,76),.07)">SIGN IN</div>
         <div id="amvOrphanCapturePopup" style="display:none;position:fixed;top:14px;right:14px;z-index:9997;max-width:340px;background:#1a1e26;border:1px solid rgba(120,190,230,.5);border-radius:8px;padding:12px 16px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-family:system-ui,sans-serif;font-size:13px;line-height:1.5;color:#e8e2cf"></div>
-        <div id="amvConnectingStatus" style="display:none;position:fixed;top:14px;right:14px;z-index:9998;background:#1a1e26;border:1px solid rgba(240,232,208,.25);border-radius:8px;padding:8px 14px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-family:system-ui,sans-serif;font-size:12px;color:rgba(240,232,208,.7)">Connecting to Amit…</div>
+        <div id="amvConnectingStatus" style="display:none;position:fixed;top:14px;right:14px;z-index:9998;background:#1a1e26;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.25);border-radius:8px;padding:8px 14px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-family:system-ui,sans-serif;font-size:12px;color:rgba(var(--amit-text-rgb,240,232,208),.7)">Connecting to Amit…</div>
         <div id="amvInstallerDownloadedModal" style="display:none;position:fixed;inset:0;z-index:10001;align-items:center;justify-content:center;background:rgba(10,12,16,.72)">
           <div style="max-width:520px;width:90%;max-height:85vh;overflow-y:auto;background:#1a1e26;border:1px solid rgba(120,190,230,.5);border-radius:12px;padding:24px 26px;box-shadow:0 12px 40px rgba(0,0,0,.5);font-family:system-ui,sans-serif;color:#e8e2cf">
-            <h3 style="margin:0 0 12px;font-family:'Cinzel',serif;font-size:15px;letter-spacing:.05em;color:var(--gold, #c9a84c)">Amit wasn't installed yet — here's exactly what happens next</h3>
+            <h3 style="margin:0 0 12px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:15px;letter-spacing:.05em;color:var(--gold, #c9a84c)">Amit wasn't installed yet — here's exactly what happens next</h3>
             <p style="font-size:13px;line-height:1.6;margin:0 0 14px">The installer just started downloading on its own. Nothing after this happens automatically — here's every real step, so nothing catches you off guard:</p>
             <div style="border-left:3px solid rgba(120,190,230,.4);padding-left:12px;margin-bottom:14px">
               <p style="font-size:13px;line-height:1.6;margin:0 0 6px"><strong>1. Your browser will very likely warn you it's an unrecognized file.</strong> This happens for any brand-new program in Edge, Chrome, or any other browser — not something specific to Amit. In the small download popup, click the <strong>"…"</strong> (three dots) next to the file → choose <strong>Keep</strong>. A second, bigger box then asks you to confirm — the real option is <strong>not</strong> the big "Delete" button; click the small <strong>▾ arrow</strong> next to it and choose <strong>Keep anyway</strong>.</p>
@@ -1284,7 +1289,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         </div>
         <div id="amvAutoConnectExplainer" style="display:none;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;background:rgba(10,12,16,.72)">
           <div style="max-width:520px;width:90%;background:#1a1e26;border:1px solid rgba(120,190,230,.5);border-radius:12px;padding:26px 28px;box-shadow:0 12px 40px rgba(0,0,0,.5);font-family:system-ui,sans-serif;color:#e8e2cf">
-            <h3 style="margin:0 0 10px;font-family:'Cinzel',serif;font-size:16px;letter-spacing:.05em;color:var(--gold, #c9a84c)">Connecting Amit</h3>
+            <h3 style="margin:0 0 10px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.05em;color:var(--gold, #c9a84c)">Connecting Amit</h3>
             <p style="font-size:14px;line-height:1.6;margin:0 0 14px">I'm about to turn on some monitoring on your computer.</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px;font-weight:600">You might be asking — why would I want this?</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px">Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand.</p>
@@ -1292,9 +1297,9 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px">And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer.</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 16px">This is a real choice, not something I'll ever force on you. If you don't pick either way, it stays on by default — same as it will from here forward unless you turn it off yourself later in About Me.</p>
             <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap">
-              <button type="button" onclick="amvAutoConnectDontAskAgain()" style="background:transparent;border:none;color:rgba(240,232,208,.5);padding:9px 4px;cursor:pointer;font-size:12px;text-decoration:underline">Don't ask me about this again</button>
+              <button type="button" onclick="amvAutoConnectDontAskAgain()" style="background:transparent;border:none;color:rgba(var(--amit-text-rgb,240,232,208),.5);padding:9px 4px;cursor:pointer;font-size:12px;text-decoration:underline">Don't ask me about this again</button>
               <div style="display:flex;gap:10px">
-                <button type="button" onclick="amvAutoConnectExplainerTurnOff()" style="background:transparent;border:1px solid rgba(240,232,208,.3);color:inherit;padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px">Turn It Off</button>
+                <button type="button" onclick="amvAutoConnectExplainerTurnOff()" style="background:transparent;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:inherit;padding:9px 16px;border-radius:6px;cursor:pointer;font-size:13px">Turn It Off</button>
                 <button type="button" onclick="amvAutoConnectExplainerTurnOn()" style="background:rgba(120,190,230,.22);border:1px solid rgba(120,190,230,.6);color:inherit;padding:9px 18px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600">Turn It On</button>
               </div>
             </div>
@@ -1303,9 +1308,9 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         <div id="amvAutoConnectOffer" style="display:none;position:fixed;top:14px;right:14px;z-index:9999;align-items:center;gap:10px;background:#1a1e26;border:1px solid rgba(120,190,230,.55);border-radius:8px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,.35);font-family:system-ui,sans-serif;font-size:13px;color:#e8e2cf;max-width:360px">
           <span>Amit's local connection isn't running — start it now?</span>
           <button type="button" onclick="event.stopPropagation();amvAutoConnectLaunch()" style="background:rgba(120,190,230,.2);border:1px solid rgba(120,190,230,.6);color:inherit;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap">Launch</button>
-          <button type="button" onclick="event.stopPropagation();amvAutoConnectDismiss()" style="background:transparent;border:1px solid rgba(240,232,208,.3);color:inherit;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">Not now</button>
+          <button type="button" onclick="event.stopPropagation();amvAutoConnectDismiss()" style="background:transparent;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:inherit;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12px">Not now</button>
         </div>
-        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
+        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(var(--amit-accent-rgb,201,168,76),.9);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:600;border-left:1px solid rgba(var(--amit-text-rgb,240,232,208),.2);padding-left:8px">SIGN OUT</div>
       </div>
     </div>
     <button id="hubDemoBtn" class="demo-badge on" onclick="toggleHubDemo()" title="Showing Amit's demo data — click to use your own">DEMO</button>
@@ -1748,7 +1753,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
         .ch-tab-content{display:none}
         .ch-tab-content.active{display:block}
       </style>
-      <div class="mail-panel-wrap" style="max-width:560px">
+      <div class="mail-panel-wrap" style="max-width:none;width:100%;display:flex;flex-direction:column;flex:1;min-height:0">
         <div id="amvSignedOutNote" style="display:none;color:rgba(255,215,140,.9);font-size:13px;line-height:1.6;background:rgba(255,215,140,.08);border:1px solid rgba(255,215,140,.35);border-radius:8px;padding:12px 14px;margin-bottom:20px;text-align:center">
           Sign in to see and save your own info here.
         </div>
@@ -1769,12 +1774,13 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
              Later, real fix: actually split the original block apart
              into these tabs for good and retire this mirroring layer.
              ══════════════════════════════════════════════ -->
-        <div id="detail-aboutme" style="flex-direction:column">
+        <div id="detail-aboutme" style="display:flex;flex-direction:column;flex:1;min-height:0">
         <div class="ch-tab-nav" id="ch-tab-nav-aboutme">
           <button class="ch-tab-btn active" onclick="showChTab('aboutme',1)">Your Info</button>
           <button class="ch-tab-btn" onclick="showChTab('aboutme',2)">Family</button>
           <button class="ch-tab-btn" onclick="showChTab('aboutme',3)">Voice &amp; Sound</button>
           <button class="ch-tab-btn" onclick="showChTab('aboutme',4)">Security</button>
+          <button class="ch-tab-btn" onclick="showChTab('aboutme',5);amvAppearanceInitTab()">Appearance</button>
         </div>
 
         <div class="ch-tab-main">
@@ -1919,6 +1925,99 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           </div>
           <button class="btn" onclick="amvSaveAccountSecurity()" style="margin-bottom:8px">SAVE ACCOUNT &amp; SECURITY</button>
           <div id="d_asSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px">Saved.</div>
+        </div>
+
+        <!-- TAB: APPEARANCE — genuinely new (added 2026-10-01), no original
+             to mirror, standalone like Family. Driven entirely by the shared
+             root ../amit_appearance.js (presets, validation, save to
+             hub_appearance, preview). The sample panel below is styled with
+             var(--amit-*) tokens (classic fallbacks) so a preset visibly
+             changes it, even though the rest of the Hub isn't tokenized yet. -->
+        <div class="ch-tab-content" id="ch-tab-aboutme-5">
+          <style>
+            .amv-app-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:20px}
+            .amv-app-card{cursor:pointer;border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:8px;background:rgba(255,255,255,.03);text-align:left;font-family:inherit;color:var(--text2,#f0e8d0)}
+            .amv-app-card:hover{border-color:rgba(201,168,76,.6)}
+            .amv-app-card.active{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(232,197,106,.45)}
+            .amv-app-card-custom{border-style:dashed}
+            .amv-app-card-name{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-top:7px}
+            .amv-app-sample{background:var(--amit-bg,#09141f);color:var(--amit-text-soft,#f0e8d0);border:1px solid var(--amit-border,rgba(201,168,76,0.55));border-radius:var(--amit-radius,12px);padding:14px;margin-bottom:20px;font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif)}
+            .amv-app-sample-card{background:var(--amit-card-bg,rgba(255,255,255,.03));border:1px solid var(--amit-card-border,rgba(201,168,76,.22));border-radius:var(--amit-radius,12px);padding:12px;margin-top:10px}
+            .amv-app-sample-surface{background:var(--amit-surface,#0f2338);border-radius:var(--amit-radius,12px);padding:12px}
+            .amv-app-sample-h{font-family:var(--amit-font-heading,'Cinzel',serif);color:var(--amit-accent-bright,#e8c56a);font-size:15px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+            .amv-app-sample-muted{color:var(--amit-muted,rgba(240,232,208,0.78));font-size:13px}
+            .amv-app-sample-dim{color:var(--amit-dim,rgba(240,232,208,0.42));font-size:12px}
+            .amv-app-sample-input{width:100%;background:var(--amit-input-bg,#f4f1e6);color:var(--amit-input-text,#2a2418);border:1px solid var(--amit-input-border,rgba(201,168,76,.4));border-radius:var(--amit-input-radius,6px);padding:7px 10px;font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);font-size:14px;outline:none;margin-bottom:8px}
+            .amv-app-sample-input:focus{box-shadow:0 0 0 3px var(--amit-focus-ring,rgba(201,168,76,.5))}
+            .amv-app-sample-input option{background:var(--amit-option-bg,#fff);color:var(--amit-option-text,#2a2418)}
+            .amv-app-sample-btn{background:var(--amit-btn-bg,rgba(201,168,76,.16));border:1px solid var(--amit-btn-border,#c9a84c);color:var(--amit-btn-text,#e8c56a);border-radius:var(--amit-btn-radius,6px);padding:7px 14px;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.09em;cursor:pointer}
+            .amv-app-sample-btn:hover{background:var(--amit-btn-hover-bg,rgba(201,168,76,.3))}
+            .amv-app-sample-row{display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--amit-row-sep,rgba(201,168,76,.12));font-size:13px}
+            .amv-app-sample-row:hover{background:var(--amit-row-hover,rgba(255,255,255,.04))}
+            .amv-app-sample-thead{background:var(--amit-table-head-bg,#0f2338);color:var(--amit-table-head-text,#e8c56a);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+            .amv-app-ctl{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+            .amv-app-ctl input[type=color]{width:100%;height:32px;border:1px solid rgba(201,168,76,.3);border-radius:6px;background:transparent;cursor:pointer;padding:2px}
+          </style>
+          <div style="color:rgba(240,232,208,.5);font-size:12px;line-height:1.7;margin-bottom:16px">Choose how Amit looks for you. Your choice is saved to your login and follows you to every Amit page as each one adopts it.</div>
+          <div id="amvAppSignedOutNote" style="display:none;color:rgba(255,215,140,.9);font-size:12px;line-height:1.6;background:rgba(255,215,140,.08);border:1px solid rgba(255,215,140,.35);border-radius:8px;padding:10px 12px;margin-bottom:16px">Appearance is saved per login. Sign in first to save it. You can still preview themes here.</div>
+
+          <label class="fg-label" style="display:block;margin-bottom:8px">Theme</label>
+          <div class="amv-app-cards" id="amvAppCards"></div>
+
+          <div id="amvAppImportBox" style="display:none;background:rgba(255,255,255,.03);border:1px dashed rgba(201,168,76,.35);border-radius:10px;padding:14px;margin-bottom:20px">
+            <div style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;color:var(--gold);text-transform:uppercase;margin-bottom:6px">Custom Import</div>
+            <div style="color:rgba(240,232,208,.6);font-size:12px;line-height:1.6;margin-bottom:10px">Find a palette anywhere — a site like coolors.co, a brand's colors, anywhere that shows hex codes like <span style="font-family:monospace">#c9a84c</span> — copy the codes and paste them below. The darkest becomes the background, the lightest becomes the text, and the most vivid one becomes the accent color.</div>
+            <textarea id="amvAppImportText" class="fg-input" rows="2" placeholder="#c9a84c, #0f2338, #f0e8d0, #e8c56a ..." style="width:100%;margin-bottom:8px;resize:vertical"></textarea>
+            <button class="btn btn-ghost" type="button" onclick="amvAppearanceImportPalette()">IMPORT COLORS</button>
+            <div id="amvAppImportNote" style="font-size:12px;min-height:16px;margin-top:6px"></div>
+          </div>
+
+          <label class="fg-label" style="display:block;margin-bottom:8px">Live Sample</label>
+          <div class="amv-app-sample">
+            <div class="amv-app-sample-surface">
+              <div class="amv-app-sample-h">Word for Today</div>
+              <div style="color:var(--amit-text,#ffffff);font-size:15px;margin-bottom:4px">Shalom, peace that is whole and complete.</div>
+              <div class="amv-app-sample-muted">This is how body text and muted text will read.</div>
+              <div class="amv-app-sample-dim">Dim helper text, such as hints and timestamps.</div>
+            </div>
+            <div class="amv-app-sample-card">
+              <input class="amv-app-sample-input" placeholder="A sample input field">
+              <select class="amv-app-sample-input"><option>A sample dropdown</option><option>Second option</option></select>
+              <button type="button" class="amv-app-sample-btn">Sample Button</button>
+            </div>
+            <div class="amv-app-sample-card" style="padding:0;overflow:hidden">
+              <div class="amv-app-sample-row amv-app-sample-thead"><span>Item</span><span>Amount</span></div>
+              <div class="amv-app-sample-row"><span>First row</span><span>$12.00</span></div>
+              <div class="amv-app-sample-row" style="border-bottom:none"><span>Second row</span><span>$4.50</span></div>
+            </div>
+          </div>
+
+          <label class="fg-label" style="display:block;margin-bottom:8px">Colors</label>
+          <div class="amv-app-ctl" style="margin-bottom:24px">
+            <div><label class="fg-label">Accent</label><input type="color" id="amvAppAccent" oninput="amvAppearanceSetOverride('accent',this.value)"></div>
+            <div><label class="fg-label">Background</label><input type="color" id="amvAppBg" oninput="amvAppearanceSetOverride('bg',this.value)"></div>
+            <div><label class="fg-label">Surface</label><input type="color" id="amvAppSurface" oninput="amvAppearanceSetOverride('surface',this.value)"></div>
+            <div><label class="fg-label">Heading Color</label><input type="color" id="amvAppHeadingColor" oninput="amvAppearanceSetOverride('accent-bright',this.value)"></div>
+            <div><label class="fg-label">Body Text Color</label><input type="color" id="amvAppText" oninput="amvAppearanceSetOverride('text-soft',this.value)"></div>
+            <div><label class="fg-label">Form Field Text Color</label><input type="color" id="amvAppInputText" oninput="amvAppearanceSetOverride('input-text',this.value)"></div>
+          </div>
+          <label class="fg-label" style="display:block;margin-bottom:8px;font-size:13px;color:var(--gold2)">⚑ Fonts &amp; Text Size</label>
+          <div class="amv-app-ctl">
+            <div><label class="fg-label">Heading Font</label><select class="fg-input" id="amvAppFontHeading" onchange="amvAppearanceSetOverride('font-heading',this.value)"></select></div>
+            <div><label class="fg-label">Body Font</label><select class="fg-input" id="amvAppFontBody" onchange="amvAppearanceSetOverride('font-body',this.value)"></select></div>
+            <div><label class="fg-label">Text Size</label><select class="fg-input" id="amvAppFontScale" onchange="amvAppearanceSetOverride('font-scale',this.value)">
+              <option value="0.9">Small</option><option value="1">Medium (default)</option>
+              <option value="1.1">Large</option><option value="1.25">Extra Large</option>
+            </select></div>
+          </div>
+          <div style="color:rgba(240,232,208,.4);font-size:11px;margin:8px 0 16px">Text Size zooms the whole page — works in Edge and Chrome. Takes effect on every Amit page once saved, as each one adopts this system.</div>
+
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+            <button class="btn" onclick="amvAppearanceSave()" id="amvAppSaveBtn">SAVE APPEARANCE</button>
+            <button class="btn btn-ghost" onclick="amvAppearanceCancel()">CANCEL</button>
+            <button class="btn btn-ghost" onclick="amvAppearanceResetClassic()">RESET TO CLASSIC</button>
+          </div>
+          <div id="amvAppNote" style="font-size:13px;min-height:18px"></div>
         </div>
 
         </div><!-- /ch-tab-main -->
@@ -2087,6 +2186,19 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
           <button class="btn" onclick="amvSelectThisVoice()" style="margin-bottom:8px">✅ THIS IS THE VOICE FOR AMIT</button>
           <div id="amvSavedNote" style="display:none;color:rgba(180,220,190,.9);font-size:13px">Saved — this is now Amit's voice everywhere.</div>
         </div>
+        </div>
+      </div>
+      <!-- Appearance: "Import From Screenshot" Pro teaser modal — lives
+           here (inside panel-aboutme), not inside another panel, so it
+           still shows while a display:none ancestor panel would otherwise
+           hide it regardless of its own position:fixed. -->
+      <div class="cal-info-modal" id="amvAppProModal" onclick="if(event.target===this)amvAppCloseProScreenshot()">
+        <div class="cal-info-box" style="max-width:420px;text-align:center">
+          <button class="cal-info-close" onclick="amvAppCloseProScreenshot()">×</button>
+          <div style="font-size:30px;margin-bottom:10px">🔒</div>
+          <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.1em;color:var(--gold2);text-transform:uppercase;margin-bottom:10px">Pro Feature — Coming Soon</div>
+          <div style="color:var(--text2,#f0e8d0);font-size:14px;line-height:1.7">Upload a screenshot of any page you like and Amit will build an entire look from it — colors, fonts, even the background — not just a few colors picked by hand.</div>
+          <div style="color:rgba(240,232,208,.6);font-size:13px;line-height:1.6;margin-top:10px">This is a future endeavor, reserved for Amit Pro accounts. It isn't built yet.</div>
         </div>
       </div>
     </div>
@@ -3227,6 +3339,10 @@ if(db){
     const wasSignedIn=!!currentUser;
     currentUser=session?session.user:null;
     _updateSyncUI();
+    // Appearance (2026-10-01): pull this login's saved theme (or clear it on
+    // sign-out). Deferred with setTimeout so no supabase call is awaited
+    // inside this callback (supabase-js v2 can deadlock if you do).
+    if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
     // AmitCoder management/child session bridge (2026-09-07): a real Claude
     // Code session (J Manage) can't reach this tab's own session token - it
     // lives only in this browser's memory. So the moment a real sign-in or
@@ -4905,7 +5021,10 @@ async function amvInitAboutMePanel(){
   const signedIn=!!(db&&currentUser);
   document.getElementById('amvSignedOutNote').style.display=signedIn?'none':'block';
   document.getElementById('amvSignedInContent').style.display=signedIn?'block':'none';
+  document.getElementById('amvOriginalWrap').style.display=signedIn?'block':'none';
   updateSecurityBlur();
+  // Appearance tab works signed in or out — drop any unsaved preview, refresh the tab.
+  if(typeof amitAppearanceResetPreview==='function'){ amitAppearanceResetPreview(); amvAppearanceInitTab(); }
   if(!signedIn) return;
 
   // Real display name if we have one (set via the Hub's own name-onboarding
@@ -5028,6 +5147,158 @@ function showChTab(detailNum,n){
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+// ABOUT ME → APPEARANCE TAB (added 2026-10-01). Standalone, like Family —
+// no mirroring. All real logic lives in the shared root amit_appearance.js;
+// this only holds the tab's working (unsaved) choice and renders the UI.
+// ══════════════════════════════════════════════
+let _amvAppKey='classic', _amvAppOv={};
+function amvAppearanceInitTab(){
+  if(typeof AMIT_APPEARANCE_PRESETS==='undefined') return;
+  const c=amitAppearanceReadCache();
+  _amvAppKey=(c&&AMIT_APPEARANCE_PRESETS[c.template_key])?c.template_key:'classic';
+  _amvAppOv=c?Object.assign({},c.overrides):{};
+  const signedOut=document.getElementById('amvAppSignedOutNote');
+  if(signedOut) signedOut.style.display=(db&&currentUser)?'none':'block';
+  const note=document.getElementById('amvAppNote'); if(note) note.textContent='';
+  ['amvAppFontHeading','amvAppFontBody'].forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel||sel.options.length) return;
+    sel.add(new Option('Theme default',''));
+    AMIT_APPEARANCE_FONTS.forEach(f=>sel.add(new Option(f.name,f.stack)));
+  });
+  _amvAppRender();
+}
+function _amvAppRender(){
+  const wrap=document.getElementById('amvAppCards');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  // Light → medium → dark → Custom Import last. AMIT_APPEARANCE_ORDER is
+  // the authoritative order; fall back to insertion order for safety if
+  // an older cached amit_appearance.js hasn't loaded it yet.
+  const order=(typeof AMIT_APPEARANCE_ORDER!=='undefined')?AMIT_APPEARANCE_ORDER:Object.keys(AMIT_APPEARANCE_PRESETS);
+  order.forEach(key=>{
+    const p=AMIT_APPEARANCE_PRESETS[key]; if(!p) return;
+    const t=p.tokens;
+    const isCustom=(key==='custom');
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='amv-app-card'+(key===_amvAppKey?' active':'')+(isCustom?' amv-app-card-custom':'');
+    b.onclick=()=>amvAppearancePick(key);
+    b.innerHTML=
+      '<div style="background:'+t['bg']+';border-radius:6px;padding:7px;border:1px '+(isCustom?'dashed':'solid')+' '+t['border']+'">'+
+        '<div style="background:'+t['surface']+';border-radius:4px;padding:6px 7px">'+
+          '<div style="height:5px;width:40%;background:'+t['accent']+';border-radius:3px;margin-bottom:5px"></div>'+
+          '<div style="color:'+t['text-soft']+';font-family:'+t['font-body'].replace(/"/g,"'")+';font-size:12px;line-height:1.2">'+(isCustom?'＋ Import':'Aa — sample')+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="amv-app-card-name">'+p.name+'</div>';
+    wrap.appendChild(b);
+  });
+  // Pro screenshot-import teaser tile — same size/shape as the theme
+  // cards, same row, but it isn't a selectable theme: it opens the
+  // "coming soon" popup instead of previewing anything.
+  const proBtn=document.createElement('button');
+  proBtn.type='button';
+  proBtn.className='amv-app-card amv-app-card-custom';
+  proBtn.onclick=amvAppOpenProScreenshot;
+  proBtn.innerHTML=
+    '<div style="background:var(--amit-bg,#09141f);border-radius:6px;padding:7px;border:1px dashed var(--amit-border,rgba(201,168,76,.55));display:flex;align-items:center;justify-content:center;min-height:38px">'+
+      '<div style="font-size:18px">🔒</div>'+
+    '</div>'+
+    '<div class="amv-app-card-name">Import From Screenshot (Pro)</div>';
+  wrap.appendChild(proBtn);
+  const importBox=document.getElementById('amvAppImportBox');
+  if(importBox) importBox.style.display=(_amvAppKey==='custom')?'block':'none';
+  const eff=Object.assign({},AMIT_APPEARANCE_PRESETS[_amvAppKey].tokens,_amvAppOv);
+  const setColor=(id,v)=>{const el=document.getElementById(id);if(el&&/^#[0-9a-f]{6}$/i.test(v||''))el.value=v;};
+  setColor('amvAppAccent',eff['accent']);
+  setColor('amvAppBg',eff['bg']);
+  setColor('amvAppSurface',eff['surface']);
+  setColor('amvAppHeadingColor',eff['accent-bright']);
+  setColor('amvAppText',eff['text-soft']);
+  setColor('amvAppInputText',eff['input-text']);
+  const fh=document.getElementById('amvAppFontHeading'); if(fh) fh.value=_amvAppOv['font-heading']||'';
+  const fb=document.getElementById('amvAppFontBody'); if(fb) fb.value=_amvAppOv['font-body']||'';
+  const fs=document.getElementById('amvAppFontScale'); if(fs) fs.value=_amvAppOv['font-scale']||'1';
+}
+function amvAppearancePick(key){
+  _amvAppKey=key; _amvAppOv={};
+  amitAppearancePreview(_amvAppKey,_amvAppOv);
+  _amvAppRender();
+}
+function amvAppearanceSetOverride(token,value){
+  if(value) _amvAppOv[token]=value; else delete _amvAppOv[token];
+  // the Text picker drives both main and soft text
+  if(token==='text-soft'){ if(value) _amvAppOv['text']=value; else delete _amvAppOv['text']; }
+  amitAppearancePreview(_amvAppKey,_amvAppOv);
+}
+async function amvAppearanceSave(){
+  const note=document.getElementById('amvAppNote');
+  if(!(db&&currentUser)){ note.style.color='rgba(255,215,140,.9)'; note.textContent='Sign in first — appearance is saved per login.'; return; }
+  const btn=document.getElementById('amvAppSaveBtn'); btn.disabled=true;
+  const res=await amitAppearanceSave(db,_amvAppKey,_amvAppOv);
+  btn.disabled=false;
+  note.style.color=res.ok?'rgba(180,220,190,.9)':'rgba(255,170,160,.95)';
+  note.textContent=res.ok?'Saved — this is now your appearance.':('Not saved: '+res.error);
+}
+function amvAppearanceCancel(){
+  amitAppearanceResetPreview();
+  amvAppearanceInitTab();
+}
+// Parses pasted hex color codes, sorts by lightness and saturation, and
+// assigns the darkest/lightest/most-vivid to background/text/accent. This
+// only touches the main tokens a casual palette actually gives you — the
+// rest (fonts, buttons, cards, tables) stay inherited from the classic
+// base 'custom' already starts from, so the result is always usable even
+// from a 2-3 color palette.
+function _amvAppHexToHsl(hex){
+  const m=hex.match(/^#([0-9a-f]{6})$/i); if(!m) return null;
+  const r=parseInt(m[1].substr(0,2),16)/255, g=parseInt(m[1].substr(2,2),16)/255, b=parseInt(m[1].substr(4,2),16)/255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b), l=(max+min)/2;
+  let h=0,s=0;
+  if(max!==min){
+    const d=max-min; s=l>0.5?d/(2-max-min):d/(max+min);
+    if(max===r) h=(g-b)/d+(g<b?6:0); else if(max===g) h=(b-r)/d+2; else h=(r-g)/d+4;
+    h/=6;
+  }
+  return {hex:'#'+m[1].toLowerCase(),h:h,s:s,l:l};
+}
+function amvAppearanceImportPalette(){
+  const note=document.getElementById('amvAppImportNote');
+  const raw=document.getElementById('amvAppImportText').value||'';
+  const found=raw.match(/#[0-9a-f]{6}/gi)||[];
+  const uniq=[...new Set(found.map(h=>h.toLowerCase()))];
+  const parsed=uniq.map(_amvAppHexToHsl).filter(Boolean);
+  if(parsed.length<2){
+    note.style.color='rgba(255,170,160,.95)';
+    note.textContent='Paste at least 2 hex codes, like #c9a84c and #0f2338.';
+    return;
+  }
+  const byLight=[...parsed].sort((a,b)=>a.l-b.l);
+  const bg=byLight[0], text=byLight[byLight.length-1];
+  // accent = most saturated color that isn't the bg or text pick (falls back to a middle one)
+  const rest=parsed.filter(c=>c!==bg&&c!==text);
+  const accent=(rest.length?rest:parsed).sort((a,b)=>b.s-a.s)[0];
+  const accentBright=(byLight.find(c=>c.h===accent.h&&c.l>accent.l))||accent;
+  if(_amvAppKey!=='custom') _amvAppKey='custom';
+  amvAppearanceSetOverride('bg',bg.hex);
+  amvAppearanceSetOverride('surface',bg.hex);
+  amvAppearanceSetOverride('accent',accent.hex);
+  amvAppearanceSetOverride('accent-bright',accentBright.hex);
+  amvAppearanceSetOverride('text-soft',text.hex);
+  note.style.color='rgba(180,220,190,.9)';
+  note.textContent='Imported '+parsed.length+' colors into Custom Import. Adjust any of them below, then press Save.';
+  _amvAppRender();
+}
+function amvAppOpenProScreenshot(){ document.getElementById('amvAppProModal').style.display='flex'; }
+function amvAppCloseProScreenshot(){ document.getElementById('amvAppProModal').style.display='none'; }
+function amvAppearanceResetClassic(){
+  amvAppearancePick('classic');
+  const note=document.getElementById('amvAppNote');
+  note.style.color='rgba(240,232,208,.6)'; note.textContent='Classic restored in preview. Press Save to keep it.';
 }
 
 // ══════════════════════════════════════════════
