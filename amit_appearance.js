@@ -42,7 +42,10 @@
     Fonts:      font-heading, font-body, font-title, font-mono, font-scale
                 (font-scale applies as page zoom, Chromium only — see
                 _amitAppearanceApply — since most pages size text in fixed
-                px, not rem, so a CSS variable alone can't resize it yet)
+                px, not rem, so a CSS variable alone can't resize it yet),
+                font-heading-weight, font-body-weight (override-only, e.g.
+                'bold' — unset means the element's own hardcoded weight
+                shows, same no-op pattern as every other token)
     Shape/misc: radius, tab-radius, bg-image, watermark-opacity, color-scheme
     Inputs:     input-bg, input-text, input-border, input-radius,
                 focus-ring, option-bg, option-text
@@ -70,6 +73,7 @@ const AMIT_APPEARANCE_TOKENS = {
   'border':'color','text':'color','text-soft':'color','text-rgb':'rgb','muted':'color','dim':'color',
   'overlay-rgb':'rgb','on-rgb':'rgb','ok':'color','danger':'color','overlay':'color',
   'font-heading':'font','font-body':'font','font-title':'font','font-mono':'font','font-scale':'number',
+  'font-heading-weight':'weight','font-body-weight':'weight',
   'radius':'length','tab-radius':'length','bg-image':'image','watermark-opacity':'number','color-scheme':'scheme',
   'input-bg':'color','input-text':'color','input-border':'color','input-radius':'length',
   'focus-ring':'color','option-bg':'color','option-text':'color',
@@ -450,6 +454,7 @@ const _AMIT_APP_RE = {
   length: /^(0|\d*\.?\d+(px|rem|em|%))$/,
   number: /^\d*\.?\d+$/,
   font:   /^[A-Za-z0-9 ,'"\-]{1,200}$/,
+  weight: /^(normal|bold|[1-9]00)$/,
   scheme: /^(dark|light|normal|light dark|dark light)$/
 };
 
