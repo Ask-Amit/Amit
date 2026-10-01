@@ -7,22 +7,27 @@
 <link rel="icon" type="image/png" href="../amit_icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../Amit_Ask_Live.js?v=6.14"></script>
+<script src="../Amit_Ask_Live.js?v=6.15"></script>
+<script src="../amit_appearance.js?v=1.06"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#09141f;
-  --card-head:#0f2338;
-  --border:rgba(201,168,76,0.55);
-  --gold:#c9a84c;
-  --gold2:#e8c56a;
-  --text:#ffffff;
-  --text2:#f0e8d0;
-  --muted:rgba(240,232,208,0.78);
-  --dim:rgba(240,232,208,0.42);
+  /* Theme aliases (2026-10-01): each variable follows the saved Appearance
+     theme via ../amit_appearance.js's --amit-* tokens. The fallback is the
+     exact original value, so with Classic / no theme saved (which sets no
+     --amit-* properties at all) the page renders identically. */
+  --bg:var(--amit-bg,#09141f);
+  --card-head:var(--amit-surface,#0f2338);
+  --border:var(--amit-border,rgba(201,168,76,0.55));
+  --gold:var(--amit-accent,#c9a84c);
+  --gold2:var(--amit-accent-bright,#e8c56a);
+  --text:var(--amit-text,#ffffff);
+  --text2:var(--amit-text-soft,#f0e8d0);
+  --muted:var(--amit-muted,rgba(240,232,208,0.78));
+  --dim:var(--amit-dim,rgba(240,232,208,0.42));
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);color:var(--text);display:flex;flex-direction:column}
 
 body::before{
   content:'';
@@ -50,19 +55,19 @@ header{
   text-align:center;pointer-events:none;
 }
 .page-title{
-  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  font-family:var(--amit-font-title,Georgia,serif);font-size:26px;font-weight:700;
   letter-spacing:.3px;text-transform:none;color:var(--gold2);
 }
 .page-version{
-  font-family:monospace;font-size:11px;letter-spacing:.05em;
-  color:rgba(201,168,76,.55);margin-top:2px;
+  font-family:var(--amit-font-mono,monospace);font-size:11px;letter-spacing:.05em;
+  color:rgba(var(--amit-accent-rgb,201,168,76),.55);margin-top:2px;
 }
 .brand{display:flex;align-items:baseline;gap:14px}
-.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.brand-sub{font-style:italic;color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px}
 .hdr-right{text-align:right}
-.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:600}
 .datetime{font-size:12px;color:var(--muted);margin-top:2px}
-.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:rgba(var(--amit-text-rgb,240,232,208),.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
 .help-btn:hover{border-color:var(--gold);color:var(--gold)}
 
 /* ── HUB LAYOUT ── */
@@ -77,7 +82,7 @@ header{
   overflow-y:auto;padding:12px 10px;gap:5px;
 }
 .sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .sidebar{transition:width .18s ease}
 .sidebar.collapsed{width:60px}
 .sidebar.collapsed .tile{justify-content:center;padding:10px 0}
@@ -89,23 +94,23 @@ header{
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
 }
-.tile:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
-.tile.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.tile:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border-color:rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.tile.active{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25)}
 .tile-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
 .tile-info{flex:1;min-width:0}
-.tile-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.tile-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:600}
 .tile-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ── ASK AMIT SIDEBAR — matches Hub/Council exactly ── */
 .ask-amit-wrap{margin-top:auto;padding:12px 0 4px;border-top:1px solid var(--border);flex-shrink:0}
 .ask-amit-tile{
   display:flex;align-items:center;gap:10px;width:100%;
-  background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.45);
+  background:rgba(var(--amit-accent-rgb,201,168,76),.1);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);
   border-radius:9px;padding:11px 12px;cursor:pointer;
   transition:all .18s;
 }
-.ask-amit-tile:hover{background:rgba(201,168,76,.22);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2)}
+.ask-amit-tile:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.22);border-color:var(--gold);box-shadow:0 0 8px rgba(var(--amit-accent-rgb,201,168,76),.2)}
 .ask-amit-icon{font-size:18px;width:26px;text-align:center;flex-shrink:0}
-.ask-amit-name{font-family:'Cinzel',serif;font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
+.ask-amit-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2);letter-spacing:.04em;font-weight:600}
 .ask-amit-sub{font-size:11px;color:var(--muted);margin-top:2px}
 
 /* ── MAIN AREA ── */
@@ -118,7 +123,7 @@ header{
 .panel.active{display:flex}
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .panel::-webkit-scrollbar{width:5px}
-.panel::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+.panel::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:3px}
 
 /* ── PANEL HEADER ── */
 .panel-head{
@@ -128,41 +133,41 @@ header{
   border-bottom:2px solid var(--border);
   flex-shrink:0;
 }
-.panel-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
-.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.panel-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.panel-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(var(--amit-text-rgb,240,232,208),.25);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
 /* ── TABBED LAYOUT (copied structure from Computer Health's folder-tab UI) ── */
 .ch-tab-nav{display:flex;align-items:flex-end;gap:6px;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
-.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
-.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 12px 12px 12px}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 
 /* ── AMITCODER-SPECIFIC CONTENT STYLES (additive only — nothing above this line is touched) ── */
 .panel-body p{margin-bottom:12px;line-height:1.8}
-.panel-body h3{color:var(--gold2);font-size:15px;margin:20px 0 8px;font-family:'Cinzel',serif}
+.panel-body h3{color:var(--gold2);font-size:15px;margin:20px 0 8px;font-family:var(--amit-font-heading,'Cinzel',serif)}
 .panel-body ul{margin:6px 0 14px 22px;line-height:1.8}
 .panel-body li{margin-bottom:6px}
-.panel-body code{background:rgba(255,255,255,.08);padding:1px 6px;border-radius:3px;color:var(--gold2);font-size:13px}
+.panel-body code{background:rgba(var(--amit-overlay-rgb,255,255,255),.08);padding:1px 6px;border-radius:3px;color:var(--gold2);font-size:13px}
 .badge{display:inline-block;margin-top:14px;padding:5px 12px;border:1px solid var(--border);border-radius:3px;color:var(--gold);font-size:11px;letter-spacing:.05em}
 .finding{border-left:2px solid var(--gold);padding:6px 0 6px 14px;margin:10px 0;color:var(--muted);font-size:13px;line-height:1.7}
 .finding b{color:var(--text2)}
-.btn{font-family:'Cinzel',serif;font-size:11px;cursor:pointer;border-radius:6px;padding:8px 16px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text2)}
-.btn:hover{background:rgba(255,255,255,.09)}
-.btn-gold{border-color:rgba(201,168,76,.5);color:var(--gold2);background:rgba(201,168,76,.1)}
-.btn-gold:hover{background:rgba(201,168,76,.18)}
+.btn{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;cursor:pointer;border-radius:6px;padding:8px 16px;border:1px solid var(--border);background:rgba(var(--amit-overlay-rgb,255,255,255),.05);color:var(--text2)}
+.btn:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.09)}
+.btn-gold{border-color:rgba(var(--amit-accent-rgb,201,168,76),.5);color:var(--gold2);background:rgba(var(--amit-accent-rgb,201,168,76),.1)}
+.btn-gold:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.18)}
 .btn-sm{padding:5px 11px;font-size:10.5px}
-.trigger-tag{display:inline-block;background:rgba(201,168,76,.14);color:var(--gold2);border:1px solid rgba(201,168,76,.4);border-radius:4px;padding:2px 9px;font-weight:600;font-size:12px}
+.trigger-tag{display:inline-block;background:rgba(var(--amit-accent-rgb,201,168,76),.14);color:var(--gold2);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:4px;padding:2px 9px;font-weight:600;font-size:12px}
 .trigger-tag.builtin-tag{background:rgba(120,170,220,.14);color:#9fc2ea;border-color:rgba(120,170,220,.4)}
 .sc-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px}
 .sc-filters{display:flex;gap:6px}
-.sc-filter{font-size:11px;padding:5px 13px;border-radius:12px;border:1px solid var(--border);cursor:pointer;color:var(--muted);font-family:'Cinzel',serif}
-.sc-filter.active{border-color:var(--gold);color:var(--gold2);background:rgba(201,168,76,.12)}
-.sc-card{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:rgba(255,255,255,.02);overflow:hidden}
+.sc-filter{font-size:11px;padding:5px 13px;border-radius:12px;border:1px solid var(--border);cursor:pointer;color:var(--muted);font-family:var(--amit-font-heading,'Cinzel',serif)}
+.sc-filter.active{border-color:var(--gold);color:var(--gold2);background:rgba(var(--amit-accent-rgb,201,168,76),.12)}
+.sc-card{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:rgba(var(--amit-overlay-rgb,255,255,255),.02);overflow:hidden}
 .sc-card.builtin{border-color:rgba(120,170,220,.35)}
 .sc-card-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer}
-.sc-card-head:hover{background:rgba(255,255,255,.03)}
+.sc-card-head:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.03)}
 .sc-type{font-size:10px;color:var(--dim);border:1px solid var(--border);border-radius:4px;padding:1px 7px;letter-spacing:.03em;text-transform:uppercase}
 .sc-instruction{flex:1;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sc-origin{font-size:10px;letter-spacing:.05em;color:var(--dim)}
@@ -170,30 +175,30 @@ header{
 .sc-card.expanded .sc-caret{transform:rotate(90deg)}
 .sc-subs{display:none;border-top:1px solid var(--border);background:rgba(0,0,0,.15)}
 .sc-card.expanded .sc-subs{display:block}
-.sc-sub-row{display:flex;align-items:center;gap:10px;padding:9px 14px 9px 34px;font-size:12.5px;border-top:1px solid rgba(255,255,255,.04)}
+.sc-sub-row{display:flex;align-items:center;gap:10px;padding:9px 14px 9px 34px;font-size:12.5px;border-top:1px solid rgba(var(--amit-overlay-rgb,255,255,255),.04)}
 .sc-chain{display:flex;align-items:center;gap:5px;padding:2px 14px 12px;flex-wrap:wrap}
-.sc-chain-node{height:24px;padding:0 10px;border-radius:12px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.4);display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--gold2);flex-shrink:0;white-space:nowrap;transition:transform .15s,box-shadow .15s}
-.sc-chain-node:hover{transform:translateY(-2px);box-shadow:0 3px 10px rgba(201,168,76,.25)}
+.sc-chain-node{height:24px;padding:0 10px;border-radius:12px;background:rgba(var(--amit-accent-rgb,201,168,76),.12);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--gold2);flex-shrink:0;white-space:nowrap;transition:transform .15s,box-shadow .15s}
+.sc-chain-node:hover{transform:translateY(-2px);box-shadow:0 3px 10px rgba(var(--amit-accent-rgb,201,168,76),.25)}
 .sc-chain-node.chained{background:rgba(120,170,220,.12);border-color:rgba(120,170,220,.4);color:#9fc2ea}
 .sc-chain-arrow{color:var(--dim);font-size:13px;flex-shrink:0}
 .sc-card{transition:border-color .15s,box-shadow .15s}
-.sc-card:hover{border-color:rgba(201,168,76,.55);box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.sc-card:hover{border-color:rgba(var(--amit-accent-rgb,201,168,76),.55);box-shadow:0 2px 12px rgba(0,0,0,.25)}
 .live-pulse-dot{display:inline-block;animation:livePulse 2s ease-in-out infinite}
 @keyframes livePulse{0%,100%{opacity:1}50%{opacity:.35}}
 .tile{transition:transform .12s,border-color .18s,background .18s}
 .tile:hover{transform:translateX(2px)}
 .timeline{position:relative;padding-left:22px}
-.timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:linear-gradient(to bottom,rgba(201,168,76,.5),rgba(201,168,76,.1))}
+.timeline::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:linear-gradient(to bottom,rgba(var(--amit-accent-rgb,201,168,76),.5),rgba(var(--amit-accent-rgb,201,168,76),.1))}
 .timeline-item{position:relative;padding-bottom:18px}
 .timeline-item:last-child{padding-bottom:0}
-.timeline-dot{position:absolute;left:-22px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--gold);border:2px solid var(--card-head);box-shadow:0 0 0 1px rgba(201,168,76,.5)}
-.timeline-content{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;padding:12px 16px;opacity:.85;transition:opacity .15s,border-color .15s}
-.timeline-content:hover{opacity:1;border-color:rgba(201,168,76,.4)}
+.timeline-dot{position:absolute;left:-22px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--gold);border:2px solid var(--card-head);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.5)}
+.timeline-content{background:rgba(var(--amit-overlay-rgb,255,255,255),.02);border:1px solid var(--border);border-radius:8px;padding:12px 16px;opacity:.85;transition:opacity .15s,border-color .15s}
+.timeline-content:hover{opacity:1;border-color:rgba(var(--amit-accent-rgb,201,168,76),.4)}
 .doc-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:14px 0 20px}
-.doc-icon-card{display:flex;gap:12px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;padding:14px;transition:border-color .15s,transform .15s}
-.doc-icon-card:hover{border-color:rgba(201,168,76,.45);transform:translateY(-2px)}
+.doc-icon-card{display:flex;gap:12px;background:rgba(var(--amit-overlay-rgb,255,255,255),.02);border:1px solid var(--border);border-radius:8px;padding:14px;transition:border-color .15s,transform .15s}
+.doc-icon-card:hover{border-color:rgba(var(--amit-accent-rgb,201,168,76),.45);transform:translateY(-2px)}
 .doc-icon-card .doc-icon{font-size:22px;flex-shrink:0}
-.doc-icon-card b{color:var(--gold2);font-family:'Cinzel',serif;font-size:12px;display:block;margin-bottom:4px}
+.doc-icon-card b{color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;display:block;margin-bottom:4px}
 .doc-icon-card p{font-size:12px;color:var(--muted);margin:0;line-height:1.6}
 .sc-sub-row:first-child{border-top:none}
 .sc-sub-row::before{content:'└─';color:var(--dim);margin-right:2px}
@@ -202,17 +207,17 @@ header{
 .toggle input{opacity:0;width:0;height:0}
 .toggle-track{position:absolute;inset:0;background:var(--border);border-radius:9px;cursor:pointer;transition:.15s}
 .toggle-track::before{content:'';position:absolute;width:13px;height:13px;left:2px;top:2px;background:var(--muted);border-radius:50%;transition:.15s}
-.toggle input:checked + .toggle-track{background:rgba(201,168,76,.4)}
+.toggle input:checked + .toggle-track{background:rgba(var(--amit-accent-rgb,201,168,76),.4)}
 .toggle input:checked + .toggle-track::before{transform:translateX(15px);background:var(--gold)}
 .toggle input:disabled + .toggle-track{opacity:.35;cursor:not-allowed}
 .shortcuts-empty{padding:36px 20px;text-align:center;color:var(--dim);font-size:13px;border:1px dashed var(--border);border-radius:6px;margin-top:12px}
-.sc-form{display:none;border:1px solid rgba(201,168,76,.4);border-radius:8px;background:rgba(201,168,76,.05);padding:18px;margin-bottom:18px}
+.sc-form{display:none;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:8px;background:rgba(var(--amit-accent-rgb,201,168,76),.05);padding:18px;margin-bottom:18px}
 .sc-form.open{display:block}
-.sc-form label{display:block;font-size:10.5px;color:var(--gold2);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;margin-top:12px;font-family:'Cinzel',serif}
+.sc-form label{display:block;font-size:10.5px;color:var(--gold2);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;margin-top:12px;font-family:var(--amit-font-heading,'Cinzel',serif)}
 .sc-form label:first-child{margin-top:0}
 .sc-form input[type=text],.sc-form textarea,.sc-form select{
-  width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;
-  padding:9px 11px;color:#fff;font-size:13px;font-family:'Crimson Pro',serif;outline:none;
+  width:100%;background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid var(--border);border-radius:6px;
+  padding:9px 11px;color:var(--amit-text,#fff);font-size:13px;font-family:var(--amit-font-body,'Crimson Pro',serif);outline:none;
 }
 /* Real bug fixed 2026-08-04: the closed select box picks up the dark theme
    fine, but the OPEN dropdown list of <option>s is rendered by the browser
@@ -233,26 +238,26 @@ select option{background:#132844;color:#fff;}
 .check-step{display:flex;align-items:flex-start;gap:14px;padding:16px 0;border-bottom:1px solid var(--border)}
 .check-step:last-child{border-bottom:none}
 .check-box{width:22px;height:22px;border:1px solid var(--border);border-radius:6px;flex-shrink:0;margin-top:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--gold)}
-.check-box.done{background:rgba(201,168,76,.2);border-color:var(--gold)}
-.check-title{color:var(--text2);font-size:14px;font-weight:600;font-family:'Cinzel',serif}
+.check-box.done{background:rgba(var(--amit-accent-rgb,201,168,76),.2);border-color:var(--gold)}
+.check-title{color:var(--text2);font-size:14px;font-weight:600;font-family:var(--amit-font-heading,'Cinzel',serif)}
 .check-title.done{text-decoration:line-through;color:var(--dim)}
 .check-desc{color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.7}
 .check-link{color:var(--gold2);text-decoration:none;border-bottom:1px dotted var(--gold)}
 .check-progress{height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:22px}
 .check-progress-fill{height:100%;background:var(--gold);transition:width .2s}
 .history-day{border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:13px 17px;opacity:.55}
-.history-day-date{color:var(--gold2);font-size:12.5px;font-weight:600;margin-bottom:4px;font-family:'Cinzel',serif}
+.history-day-date{color:var(--gold2);font-size:12.5px;font-weight:600;margin-bottom:4px;font-family:var(--amit-font-heading,'Cinzel',serif)}
 .history-day-summary{color:var(--muted);font-size:13px}
 .settings-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
 .settings-label{color:var(--text2);font-size:13.5px}
 .settings-sub{color:var(--dim);font-size:11.5px;margin-top:2px}
 .tut-overlay{position:fixed;inset:0;background:rgba(6,14,26,.72);z-index:9000;display:flex;align-items:center;justify-content:center;padding:30px}
-.tut-modal{background:#0f2038;border:1px solid rgba(201,168,76,.35);border-radius:12px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto;padding:26px 30px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-.tut-modal h2{color:var(--gold2);font-family:'Cinzel',serif;font-size:18px;margin:0 0 14px}
-.tut-modal h4{color:var(--gold2);font-family:'Cinzel',serif;font-size:12.5px;letter-spacing:.05em;margin:18px 0 6px;text-transform:uppercase}
+.tut-modal{background:#0f2038;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:12px;max-width:640px;width:100%;max-height:85vh;overflow-y:auto;padding:26px 30px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.tut-modal h2{color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:18px;margin:0 0 14px}
+.tut-modal h4{color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12.5px;letter-spacing:.05em;margin:18px 0 6px;text-transform:uppercase}
 .tut-modal p,.tut-modal li{color:var(--muted);font-size:13px;line-height:1.7}
 .tut-modal .trigger-tag{margin:0 2px}
-.tut-close{float:right;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px}
+.tut-close{float:right;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px}
 </style>
 </head>
 <body>
@@ -260,7 +265,7 @@ select option{background:#132844;color:#fff;}
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">AmitCoder</div>
-    <div class="page-version" id="pageVersion">v6.40</div>
+    <div class="page-version" id="pageVersion">v6.41</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -271,9 +276,9 @@ select option{background:#132844;color:#fff;}
       <div class="greeting" id="greeting">Good morning</div>
       <div class="datetime" id="datetime"></div>
       <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:3px">
-        <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(240,232,208,.28);cursor:pointer;font-family:'Cinzel',serif">☁ SYNC</div>
-        <div id="signInBtn" onclick="openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(201,168,76,.8);cursor:pointer;font-family:'Cinzel',serif;border:1px solid rgba(201,168,76,.3);padding:3px 9px;border-radius:4px;background:rgba(201,168,76,.07)">SIGN IN</div>
-        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(201,168,76,.9);cursor:pointer;font-family:'Cinzel',serif;font-weight:600;border-left:1px solid rgba(240,232,208,.2);padding-left:8px">SIGN OUT</div>
+        <div id="syncIndicator" onclick="openSyncModal()" style="font-size:9px;letter-spacing:.07em;color:rgba(var(--amit-text-rgb,240,232,208),.28);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif)">☁ SYNC</div>
+        <div id="signInBtn" onclick="openSyncModal()" title="Sign in to sync your data" style="font-size:9px;letter-spacing:.1em;color:rgba(var(--amit-accent-rgb,201,168,76),.8);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);padding:3px 9px;border-radius:4px;background:rgba(var(--amit-accent-rgb,201,168,76),.07)">SIGN IN</div>
+        <div id="logoutBtn" onclick="signOutAmit()" title="Sign out" style="display:none;font-size:10px;letter-spacing:.08em;color:rgba(var(--amit-accent-rgb,201,168,76),.9);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:600;border-left:1px solid rgba(var(--amit-text-rgb,240,232,208),.2);padding-left:8px">SIGN OUT</div>
       </div>
     </div>
   </div>
@@ -294,14 +299,14 @@ select option{background:#132844;color:#fff;}
   style="position:fixed;right:24px;bottom:24px;width:48px;height:48px;border-radius:50%;background:var(--card-head);border:2px solid var(--gold);color:var(--gold2);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:900;box-shadow:0 4px 16px rgba(0,0,0,.4)">+</div>
 
 <div id="ideasModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:28px 32px;max-width:520px;width:92%;max-height:80vh;overflow-y:auto">
+  <div style="background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:28px 32px;max-width:520px;width:92%;max-height:80vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em">Future Ideas for AmitCoder</div>
-      <div onclick="closeIdeasModal()" style="cursor:pointer;color:rgba(240,232,208,.4);font-size:20px;line-height:1">×</div>
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em">Future Ideas for AmitCoder</div>
+      <div onclick="closeIdeasModal()" style="cursor:pointer;color:rgba(var(--amit-text-rgb,240,232,208),.4);font-size:20px;line-height:1">×</div>
     </div>
-    <div style="color:rgba(240,232,208,.5);font-size:11.5px;line-height:1.6;margin-bottom:16px">Shared brainstorm backlog — add or remove ideas. Visible to any signed-in AmitCoder user.</div>
+    <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:11.5px;line-height:1.6;margin-bottom:16px">Shared brainstorm backlog — add or remove ideas. Visible to any signed-in AmitCoder user.</div>
     <div style="display:flex;gap:8px;margin-bottom:16px">
-      <input type="text" id="ideaTitleInput" placeholder="New idea…" style="flex:1;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:6px;padding:8px 10px;color:#fff;font-size:13px;font-family:inherit" onkeydown="if(event.key==='Enter')addIdea()">
+      <input type="text" id="ideaTitleInput" placeholder="New idea…" style="flex:1;background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:6px;padding:8px 10px;color:var(--amit-text,#fff);font-size:13px;font-family:inherit" onkeydown="if(event.key==='Enter')addIdea()">
       <button class="btn btn-gold btn-sm" onclick="addIdea()">add</button>
     </div>
     <div id="ideasListWrap"></div>
@@ -311,17 +316,17 @@ select option{background:#132844;color:#fff;}
 
 <!-- SYNC / SIGN-IN MODAL -->
 <div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
-    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
-    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+  <div class="sync-modal-card" style="background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
     <input id="syncEmailInput" type="email" placeholder="your@email.com"
-      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      style="width:100%;background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:7px;padding:11px 13px;color:var(--amit-text,#fff);font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
       onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
     <button id="syncSubmitBtn" onclick="submitSyncEmail()"
-      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      style="width:100%;background:rgba(var(--amit-accent-rgb,201,168,76),.12);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);color:rgba(var(--amit-accent-rgb,201,168,76),.9);padding:11px;border-radius:7px;cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.08em">
       SEND SIGN-IN LINK →
     </button>
-    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(var(--amit-text-rgb,240,232,208),.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
   </div>
 </div>
 
@@ -381,7 +386,7 @@ const PLACEHOLDER_COUNT=3;
             </svg>
             <p style="color:var(--muted);font-size:13px;margin:0">Everything Ryan had to learn by trial and error, in order. Check each off as you go — your progress is saved.</p>
           </div>
-          <div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--muted)">
+          <div style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:var(--muted)">
             <b style="color:var(--gold2)">How to use this list:</b> <b>Double-click</b> any step to open a full, detailed walkthrough of exactly what to do. <b>Click the small box</b> on the left once you've actually done it, to mark it complete and track your progress.
           </div>
           <div class="check-progress"><div class="check-progress-fill" id="checkProgressFill" style="width:0%"></div></div>
@@ -414,8 +419,8 @@ const PLACEHOLDER_COUNT=3;
 // find and edit later without touching the generation mechanism.
 function tabRealContent(t){
   if(t===1){
-    return `<div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:16px 20px;margin-bottom:18px">
-        <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:6px">⚡ VERIFIED, NOT ASSUMED</div>
+    return `<div style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:10px;padding:16px 20px;margin-bottom:18px">
+        <div style="color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.05em;margin-bottom:6px">⚡ VERIFIED, NOT ASSUMED</div>
         <p style="margin:0">Most AI coding tools ship code that looks right and quietly isn't - real 2026 developer research puts trust in AI-generated output at under half. AmitCoder's answer isn't more automation, it's proof: <span class="trigger-tag">J review</span> reads the code honestly, <span class="trigger-tag">J debug</span> actually runs it end to end and watches it happen, and nothing gets "fixed" without asking first. That's the standard this whole workspace is built to.</p>
       </div>
       <p>This is the space where your coding history will live.</p>
@@ -440,8 +445,8 @@ function tabRealContent(t){
         <button class="btn btn-gold btn-sm" onclick="toggleCreateForm()">+ new shortcut</button>
       </div>
       <div class="sc-form" id="scForm">
-        <div id="scFormTitle" style="color:var(--gold2);font-family:'Cinzel',serif;font-size:12px;letter-spacing:.05em;margin-bottom:10px">+ new shortcut</div>
-        <div style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.35);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--muted)">
+        <div id="scFormTitle" style="color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;letter-spacing:.05em;margin-bottom:10px">+ new shortcut</div>
+        <div style="background:rgba(var(--amit-accent-rgb,201,168,76),.1);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13px;color:var(--muted)">
           <b style="color:var(--gold2)">New here? The easiest way to do this:</b> just tell Amit what you want in your coding session - "create a shortcut that does X." Amit can actually understand what you mean and check if something already covers it, which this form below can't fully do on its own. Use this form directly once you already know exactly what you want.
         </div>
         <div style="display:flex;gap:10px">
@@ -454,7 +459,7 @@ function tabRealContent(t){
             <input type="text" id="scTrigger" placeholder="e.g. copy, Charlie, search — no key prefix, that's picked above" oninput="checkSimilarShortcuts()">
           </div>
         </div>
-        <div id="scSimilarWrap" style="display:none;margin:8px 0;padding:10px 14px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:8px;font-size:12px;color:var(--muted)"></div>
+        <div id="scSimilarWrap" style="display:none;margin:8px 0;padding:10px 14px;background:rgba(var(--amit-accent-rgb,201,168,76),.08);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;font-size:12px;color:var(--muted)"></div>
         <label>Type</label>
         <select id="scType" onchange="onTypeChange()">
           <option value="inline_instruction">Simple — one instruction</option>
@@ -472,7 +477,7 @@ function tabRealContent(t){
           <button class="btn btn-gold btn-sm" id="scSaveBtn" onclick="saveShortcut()">save</button>
         </div>
       </div>
-      <div id="shortcutsStatHeader" style="margin-bottom:16px;padding:14px 18px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.25);border-radius:8px;display:flex;gap:28px;flex-wrap:wrap"></div>
+      <div id="shortcutsStatHeader" style="margin-bottom:16px;padding:14px 18px;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:8px;display:flex;gap:28px;flex-wrap:wrap"></div>
       <div class="sc-toolbar" style="flex-direction:column;align-items:flex-start;gap:10px">
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
           <div class="sc-filters">
@@ -496,7 +501,7 @@ function tabRealContent(t){
             <div class="sc-filter" id="scSortDesc" onclick="setSort('desc')" title="Sort Z to A">Z→A</div>
           </div>
           <button class="btn btn-sm" id="scKeyCycleBtn" onclick="cycleKeyFilter()" title="Click to cycle through available keys, one at a time">Key: All</button>
-          <input type="text" id="scSearchInput" placeholder="🔍 Search name or description..." oninput="renderShortcuts()" style="flex:1;min-width:180px;background:#1a3352;border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:#fff;font-family:inherit;font-size:12px">
+          <input type="text" id="scSearchInput" placeholder="🔍 Search name or description..." oninput="renderShortcuts()" style="flex:1;min-width:180px;background:var(--amit-tooltip-bg,#1a3352);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--amit-text,#fff);font-family:inherit;font-size:12px">
           <button class="btn btn-sm" onclick="resetAllShortcutFilters()">↺ reset filters</button>
         </div>
       </div>
@@ -599,7 +604,7 @@ function tabRealContent(t){
         <label>Description</label>
         <textarea id="libDescription" placeholder="What it does, how to use it" style="min-height:44px"></textarea>
         <label>Code</label>
-        <textarea id="libCode" placeholder="Paste the actual code here" style="min-height:120px;font-family:monospace;font-size:12px"></textarea>
+        <textarea id="libCode" placeholder="Paste the actual code here" style="min-height:120px;font-family:var(--amit-font-mono,monospace);font-size:12px"></textarea>
         <div class="sc-form-actions">
           <button class="btn btn-sm" onclick="toggleLibraryForm()">cancel</button>
           <button class="btn btn-gold btn-sm" onclick="saveLibraryEntry()">share</button>
@@ -607,7 +612,7 @@ function tabRealContent(t){
       </div>
       <div style="margin-bottom:14px">
         <input type="text" id="libSearchInput" placeholder="Search by title or language…" oninput="renderLibrary()"
-          style="width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:6px;padding:9px 11px;color:#fff;font-size:13px;font-family:'Crimson Pro',serif">
+          style="width:100%;background:rgba(var(--amit-overlay-rgb,255,255,255),.06);border:1px solid var(--border);border-radius:6px;padding:9px 11px;color:var(--amit-text,#fff);font-size:13px;font-family:var(--amit-font-body,'Crimson Pro',serif)">
       </div>
       <div id="libraryList"></div>
       <div class="shortcuts-empty" id="libraryEmpty" style="display:none">Nothing shared yet — be the first.</div>
@@ -667,6 +672,7 @@ function isAdminUser(){return!!(currentUser&&ADMIN_USER_IDS.includes(currentUser
 if(db){
   db.auth.onAuthStateChange((event,session)=>{
     currentUser=session?session.user:null;
+    if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
     _updateSyncUI();
     loadShortcuts();
     updateAccountIdDisplay();
@@ -692,7 +698,7 @@ function _updateSyncUI(){
     if(logoutBtn)logoutBtn.style.display='block';
     if(signInBtn)signInBtn.style.display='none';
   } else {
-    el.textContent='';el.style.color='rgba(240,232,208,.28)';el.title='';
+    el.textContent='';el.style.color='rgba(var(--amit-text-rgb,240,232,208),.28)';el.title='';
     if(logoutBtn)logoutBtn.style.display='none';
     if(signInBtn)signInBtn.style.display='block';
   }
@@ -724,9 +730,9 @@ async function submitSyncEmail(){
   if(err){btn.textContent='Try again';btn.disabled=false;}
   else{
     document.querySelector('#syncModal .sync-modal-card').innerHTML=`
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
-      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
-      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(var(--amit-text-rgb,240,232,208),.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(var(--amit-text-rgb,240,232,208),.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
   }
 }
 
@@ -861,7 +867,7 @@ function celebrateChecklistComplete(){
   if(wrap&&!document.getElementById('checklistDoneBanner')){
     const banner=document.createElement('div');
     banner.id='checklistDoneBanner';
-    banner.style.cssText='margin-top:16px;padding:14px 18px;background:rgba(78,201,176,.1);border:1px solid rgba(78,201,176,.4);border-radius:8px;color:#8fe0c8;font-size:13px;text-align:center;font-family:Cinzel,serif';
+    banner.style.cssText='margin-top:16px;padding:14px 18px;background:rgba(78,201,176,.1);border:1px solid rgba(78,201,176,.4);border-radius:8px;color:#8fe0c8;font-size:13px;text-align:center;font-family:var(--amit-font-heading,Cinzel,serif)';
     banner.textContent='✓ Set up complete — you\'re ready to build.';
     wrap.parentElement.appendChild(banner);
   }
@@ -923,7 +929,7 @@ async function loadAmitBuilds(){
   if(!data||!data.length){wrap.innerHTML=`<p style="color:var(--dim);font-size:12.5px">Nothing logged yet. Amit's own build sessions will appear here as they happen.</p>`;return;}
   wrap.innerHTML=`<div class="timeline">`+data.map(e=>`<div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-content">
       <div class="history-day-date">${e.completed_date?new Date(e.completed_date+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):''}</div>
-      <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:14px;margin:4px 0">${escapeHtml(e.title||'')}</div>
+      <div style="color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:14px;margin:4px 0">${escapeHtml(e.title||'')}</div>
       <div class="history-day-summary" style="opacity:1">${escapeHtml(e.notes||'')}</div>
     </div></div>`).join('')+`</div>`;
 }
@@ -944,7 +950,7 @@ async function loadIdeas(){
   signedOut.style.display='none';
   const{data,error}=await db.from('amit_coder_ideas').select('*').order('created_at',{ascending:true});
   if(error||!data){wrap.innerHTML='<div style="color:var(--dim);font-size:12px">Could not load ideas yet - has the amit_coder_ideas table been created?</div>';return;}
-  wrap.innerHTML=data.map(i=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid rgba(201,168,76,.2)">
+  wrap.innerHTML=data.map(i=>`<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2)">
     <div style="flex:1">
       <div style="color:var(--text2);font-size:13px;font-weight:600">${escapeHtml(i.title)}</div>
       ${i.notes?`<div style="color:var(--muted);font-size:11.5px;margin-top:3px;line-height:1.6">${escapeHtml(i.notes)}</div>`:''}
@@ -1303,9 +1309,9 @@ function renderShortcuts(){
   if(statHeader){
     const builtinCount=masters.filter(m=>m.is_builtin).length;
     statHeader.innerHTML=`
-      <div><div class="stat-countup" id="statShortcuts" style="font-size:22px;color:var(--gold2);font-family:'Cinzel',serif;font-weight:700">0</div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">shortcuts</div></div>
-      <div><div class="stat-countup" id="statSteps" style="font-size:22px;color:var(--gold2);font-family:'Cinzel',serif;font-weight:700">0</div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">automated steps</div></div>
-      <div><div class="stat-countup" id="statBuiltin" style="font-size:22px;color:var(--gold2);font-family:'Cinzel',serif;font-weight:700">0</div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">built in, ready now</div></div>`;
+      <div><div class="stat-countup" id="statShortcuts" style="font-size:22px;color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:700">0</div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">shortcuts</div></div>
+      <div><div class="stat-countup" id="statSteps" style="font-size:22px;color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:700">0</div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">automated steps</div></div>
+      <div><div class="stat-countup" id="statBuiltin" style="font-size:22px;color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-weight:700">0</div><div style="font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">built in, ready now</div></div>`;
     animateCountUp('statShortcuts',masters.length);
     animateCountUp('statSteps',totalSteps);
     animateCountUp('statBuiltin',builtinCount);
@@ -1330,7 +1336,7 @@ function renderShortcuts(){
     // Friendlier type labels - "inline instruction" is jargon, "Simple" reads
     // instantly. Display-only rename, doesn't touch the stored value.
     const typeLabel=m.shortcut_type==='master'?'Master':'Simple';
-    const stepBadge=subs.length?`<span class="sc-type" style="color:var(--gold2);border-color:rgba(201,168,76,.4)">⚡ ${subs.length} step${subs.length===1?'':'s'}</span>`:'';
+    const stepBadge=subs.length?`<span class="sc-type" style="color:var(--gold2);border-color:rgba(var(--amit-accent-rgb,201,168,76),.4)">⚡ ${subs.length} step${subs.length===1?'':'s'}</span>`:'';
     html+=`<div class="sc-card${m.is_builtin?' builtin':''}" id="sc-card-${m.id}">
       <div class="sc-card-head" onclick="toggleCard('${m.id}')" ${canEdit?`ondblclick="event.stopPropagation();editShortcut('${m.id}')"`:''} title="${canEdit?(m.is_builtin?'Double-click to edit (Amit admin)':'Double-click to edit'):'Builtin — read-only'}">
         <span class="sc-caret">▶</span>
@@ -1353,10 +1359,10 @@ function renderShortcuts(){
         const label=isChained?(scAllRows.find(r=>r.id===s.referenced_shortcut_id)?.trigger_phrase||'?'):s.trigger_phrase;
         return `${i>0?'<span class="sc-chain-arrow">→</span>':''}<span class="sc-chain-node${isChained?' chained':''}" title="${escapeHtml(s.instruction_text||label)}">${escapeHtml(label)}</span>`;
       }).join('')}</div>`:''}
-      ${canLink?`<div class="sc-sub-row" id="link-picker-${m.id}" style="display:none;background:rgba(201,168,76,.06)" onclick="event.stopPropagation()">
+      ${canLink?`<div class="sc-sub-row" id="link-picker-${m.id}" style="display:none;background:rgba(var(--amit-accent-rgb,201,168,76),.06)" onclick="event.stopPropagation()">
         ${aliasTarget?`<span style="color:var(--muted);font-size:12px">Linked to <b>${escapeHtml(aliasTarget.trigger_phrase)}</b> — same instructions and subtasks as that shortcut.</span>
           <button class="btn btn-sm" style="margin-left:auto" onclick="setAlias('${m.id}',null)">Unlink</button>`
-        :`<select id="link-select-${m.id}" style="width:auto;flex:1;background:#1a3352;border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:#fff;font-family:inherit">
+        :`<select id="link-select-${m.id}" style="width:auto;flex:1;background:var(--amit-tooltip-bg,#1a3352);border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:var(--amit-text,#fff);font-family:inherit">
             <option value="">Choose a shortcut to link to…</option>
             ${otherMasters.map(o=>`<option value="${o.id}">${escapeHtml(o.trigger_phrase)}</option>`).join('')}
           </select>
