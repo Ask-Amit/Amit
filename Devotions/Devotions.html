@@ -83,21 +83,22 @@
 <script src="../Amit_Ask_Live.js"></script>
 <script src="../amit_owner_contact.js"></script>
 <script src="../Amit_Speak_Engine.js"></script>
+<script src="../amit_appearance.js?v=1.06"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#09141f;
-  --card-head:#0f2338;
-  --border:rgba(201,168,76,0.55);
-  --gold:#c9a84c;
-  --gold2:#e8c56a;
-  --text:#ffffff;
-  --text2:#f0e8d0;
-  --muted:rgba(240,232,208,0.78);
-  --dim:rgba(240,232,208,0.42);
+  --bg:var(--amit-bg,#09141f);
+  --card-head:var(--amit-surface,#0f2338);
+  --border:var(--amit-border,rgba(var(--amit-accent-rgb,201,168,76),0.55));
+  --gold:var(--amit-accent,#c9a84c);
+  --gold2:var(--amit-accent-bright,#e8c56a);
+  --text:var(--amit-text,#ffffff);
+  --text2:var(--amit-text-soft,#f0e8d0);
+  --muted:var(--amit-muted,rgba(var(--amit-text-rgb,240,232,208),0.78));
+  --dim:var(--amit-dim,rgba(var(--amit-text-rgb,240,232,208),0.42));
 }
 html,body{height:100%;overflow:hidden}
-body{background:var(--bg);font-family:'Crimson Pro',Georgia,serif;color:var(--text);display:flex;flex-direction:column}
+body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);color:var(--text);display:flex;flex-direction:column}
 
 body::before{
   content:'';
@@ -106,7 +107,7 @@ body::before{
   transform:translate(-50%,-50%);
   width:60vmin;height:60vmin;
   background:url('amit_icon.ico') center/contain no-repeat;
-  opacity:.035;
+  opacity:var(--amit-watermark-opacity,.035);
   pointer-events:none;
   z-index:0;
 }
@@ -125,20 +126,20 @@ header{
   text-align:center;pointer-events:none;
 }
 .page-title{
-  font-family:Georgia,serif;font-size:26px;font-weight:700;
+  font-family:var(--amit-font-title,Georgia,serif);font-size:26px;font-weight:700;
   letter-spacing:.3px;text-transform:none;color:var(--gold2);
 }
 .page-version{
-  font-family:monospace;font-size:11px;letter-spacing:.05em;
-  color:rgba(201,168,76,.55);margin-top:2px;
+  font-family:var(--amit-font-mono,monospace);font-size:11px;letter-spacing:.05em;
+  color:rgba(var(--amit-accent-rgb,201,168,76),.55);margin-top:2px;
 }
 .brand{display:flex;align-items:center;gap:14px}
 .brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
-.brand-sub{font-style:italic;color:rgba(240,232,208,.55);font-size:12px}
+.brand-sub{font-style:italic;color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px}
 .hdr-right{text-align:right}
-.greeting{font-family:'Cinzel',serif;font-size:16px;color:#fff;font-weight:600}
+.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:600}
 .datetime{font-size:12px;color:var(--muted);margin-top:2px}
-.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(240,232,208,.3);color:rgba(240,232,208,.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:rgba(var(--amit-text-rgb,240,232,208),.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
 .help-btn:hover{border-color:var(--gold);color:var(--gold)}
 
 /* ── HUB LAYOUT ── */
@@ -153,7 +154,7 @@ header{
   overflow-y:auto;padding:12px 10px;gap:0;
 }
 .sidebar::-webkit-scrollbar{width:3px}
-.sidebar::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .sidebar{transition:width .18s ease}
 .sidebar.collapsed{width:64px}
 .sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
@@ -166,8 +167,8 @@ header{
   transition:all .18s;user-select:none;
   position:relative;overflow:hidden;
 }
-.page-nav:hover{background:rgba(255,255,255,.07);border-color:rgba(201,168,76,.3)}
-.page-nav.active{background:rgba(201,168,76,.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(201,168,76,.25)}
+.page-nav:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border-color:rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.page-nav.active{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25)}
 .page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 /* Round plug-status badge for the Sign In/Out rail icon — green when
    connected, red when not. Added 2026-08-07, ported from AmitBooks/
@@ -178,14 +179,14 @@ header{
    then collapses back to nothing, looping — a genuine warning cue, not a
    color-shift-in-place effect. */
 .page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
-.page-icon.plug-badge.connected{background:#2e7d46}
+.page-icon.plug-badge.connected{background:var(--amit-ok,#2e7d46)}
 .page-icon.plug-badge.disconnected{background:var(--bg)}
-.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:#c73333;animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:var(--amit-danger,#c73333);animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
 .plug-icon-glyph{position:relative;z-index:1}
 @keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
 @media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
 .page-info{flex:1;min-width:0}
-.page-name{font-family:'Cinzel',serif;font-size:11px;color:#fff;letter-spacing:.04em;font-weight:600}
+.page-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:600}
 .page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ── MAIN AREA ── */
@@ -198,7 +199,7 @@ header{
 .detail.active{display:flex}
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .detail::-webkit-scrollbar{width:5px}
-.detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
+.detail::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:3px}
 
 /* ── DETAIL HEADER ── */
 .detail-head{
@@ -208,17 +209,17 @@ header{
   border-bottom:2px solid var(--border);
   flex-shrink:0;
 }
-.detail-heading{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
-.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(240,232,208,.25);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.detail-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(var(--amit-text-rgb,240,232,208),.25);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 
 /* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
    that can host any layout instance copied in from TemplateViews.html —
    content-agnostic, same separation as a Page or a Tab slot not caring
    what's mounted inside them. Built into this starter (not TemplateViews-
    only) since it's global infrastructure, not a layout. ── */
-.popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center}
-.popup-card{background:var(--card-head);border:1px solid rgba(201,168,76,.5);border-radius:12px;padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
-.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(240,232,208,.5);cursor:pointer;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em}
+.popup-overlay{display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.6));z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:var(--amit-radius,12px);padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(var(--amit-text-rgb,240,232,208),.5);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.08em}
 .popup-close-btn:hover{color:var(--gold2)}
 
 /* ── RIGHT RAIL — global, present on every page, same on every project.
@@ -235,7 +236,7 @@ header{
   transition:width .18s ease;
 }
 .right-rail::-webkit-scrollbar{width:3px}
-.right-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:2px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
 .right-rail.expanded{width:max-content}
 .right-rail .page-nav{padding:4px;flex-direction:row-reverse}
 .right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
@@ -248,8 +249,8 @@ header{
    toggles, not navigation, so they get their own distinct green
    on-state — overrides the gold .page-nav.active rule for this rail only.
    PERMANENT — carry this into every project copied from this template. */
-.right-rail .page-nav.active{background:rgba(46,160,67,.20);border-color:rgba(46,160,67,.65);box-shadow:0 0 0 1px rgba(46,160,67,.4)}
-.right-rail .page-nav.active .page-icon{background:rgba(46,160,67,.35);border-radius:50%;box-shadow:0 0 0 2px rgba(46,160,67,.55)}
+.right-rail .page-nav.active{background:rgba(var(--amit-on-rgb,46,160,67),.20);border-color:rgba(var(--amit-on-rgb,46,160,67),.65);box-shadow:0 0 0 1px rgba(var(--amit-on-rgb,46,160,67),.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(var(--amit-on-rgb,46,160,67),.35);border-radius:50%;box-shadow:0 0 0 2px rgba(var(--amit-on-rgb,46,160,67),.55)}
 .right-rail .page-nav.active .page-name{color:#6fe38f}
 
 /* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
@@ -259,8 +260,8 @@ header{
    edge. A single fixed element sidesteps that entirely. ── */
 .page-hover-tip{
   position:fixed;z-index:9999;
-  background:#1a3352;border:1px solid rgba(201,168,76,.45);
-  color:var(--gold2);font-family:'Cinzel',serif;font-size:10px;letter-spacing:.05em;
+  background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);
+  color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.05em;
   line-height:1.5;
   padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
   opacity:0;pointer-events:none;
@@ -272,9 +273,9 @@ header{
    added 2026-08-06 so Add Page can instantiate a real Tabbed View directly,
    not hand a copy-instruction to an outside AI session. */
 .ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
-.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(201,168,76,.25);background:rgba(255,255,255,.03);color:var(--muted);border-radius:10px 10px 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:var(--amit-tab-radius,10px) var(--amit-tab-radius,10px) 0 0;cursor:pointer;font-size:13px;font-family:inherit}
 .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
-.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.25);border-radius:0 12px 12px 12px}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 var(--amit-radius,12px) var(--amit-radius,12px) var(--amit-radius,12px)}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 /* Real bug, found 2026-09-11 after a whole session of mysterious
@@ -296,7 +297,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.20-notauth</div>
+      <div class="page-version" id="pageVersion">v1.22-notauth</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -333,18 +334,18 @@ header{
 <div id="canonicalPopup" class="popup-overlay"></div>
 
 <!-- SYNC / SIGN-IN MODAL -->
-<div id="syncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-  <div class="sync-modal-card" style="background:#1a3352;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
-    <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
-    <div style="color:rgba(240,232,208,.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.55));z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
     <input id="syncEmailInput" type="email" placeholder="your@email.com"
-      style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(201,168,76,.3);border-radius:7px;padding:11px 13px;color:#fff;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      style="width:100%;background:var(--amit-input-bg,rgba(var(--amit-overlay-rgb,255,255,255),.07));border:1px solid var(--amit-input-border,rgba(var(--amit-accent-rgb,201,168,76),.3));border-radius:var(--amit-input-radius,7px);padding:11px 13px;color:var(--amit-input-text,#fff);font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
       onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
     <button id="syncSubmitBtn" onclick="submitSyncEmail()"
-      style="width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.45);color:rgba(201,168,76,.9);padding:11px;border-radius:7px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em">
+      style="width:100%;background:var(--amit-btn-bg,rgba(var(--amit-accent-rgb,201,168,76),.12));border:1px solid var(--amit-btn-border,rgba(var(--amit-accent-rgb,201,168,76),.45));color:var(--amit-btn-text,rgba(var(--amit-accent-rgb,201,168,76),.9));padding:11px;border-radius:var(--amit-btn-radius,7px);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.08em">
       SEND SIGN-IN LINK →
     </button>
-    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(var(--amit-text-rgb,240,232,208),.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
   </div>
 </div>
 
@@ -537,8 +538,8 @@ function renderAllPages(){
   <div class="detail" id="detail-2" style="flex-direction:column">
     <div class="detail-head"><span class="detail-heading" id="detail-heading-2" data-base="Feasts of the Lord">Feasts of the Lord — ${FEAST_ORDER[0]}</span>
       <div id="feastSongsRow-2" style="display:flex;gap:8px;margin-left:auto"></div>
-      <button id="feastSpeakerBtn-2" style="display:none;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,.16);box-shadow:0 0 0 1px rgba(201,168,76,.25);cursor:pointer" onclick="openFeastSpeaker()" title="Play the current tab">
-        <span style="font-size:18px">🔊</span><span id="feastSpeakerLabel-2" style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2,#e8c56a);letter-spacing:.04em;font-weight:600;white-space:nowrap">Play</span>
+      <button id="feastSpeakerBtn-2" style="display:none;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(var(--amit-accent-rgb,201,168,76),.16);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25);cursor:pointer" onclick="openFeastSpeaker()" title="Play the current tab">
+        <span style="font-size:18px">🔊</span><span id="feastSpeakerLabel-2" style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2,#e8c56a);letter-spacing:.04em;font-weight:600;white-space:nowrap">Play</span>
       </button>
     </div>
     ${buildFeastTabsHtml(2)}
@@ -583,7 +584,7 @@ function renderAllPages(){
       <div class="page-icon">➕</div>
       <div class="page-info"><div class="page-name">Add Page</div><div class="page-sub">Create a new page</div></div>
     </div>
-    <div onclick="finalizeBuilderMode()" style="font-size:9px;color:rgba(240,232,208,.25);cursor:pointer;letter-spacing:.06em;text-align:center;padding:6px 4px;margin-top:4px" title="Hides Add Page permanently for shipping — re-enable via localStorage in dev tools">FINALIZE — HIDE ADD PAGE</div>`;
+    <div onclick="finalizeBuilderMode()" style="font-size:9px;color:rgba(var(--amit-text-rgb,240,232,208),.25);cursor:pointer;letter-spacing:.06em;text-align:center;padding:6px 4px;margin-top:4px" title="Hides Add Page permanently for shipping — re-enable via localStorage in dev tools">FINALIZE — HIDE ADD PAGE</div>`;
   }
 
   nav.innerHTML=navHtml;
@@ -645,22 +646,22 @@ function previewLayoutInNewTab(e,layoutKey){
 function openLayoutPicker(){
   const cards=TEMPLATE_LAYOUTS.map(l=>`
     <div onclick="confirmAddPage('${l.key}')"
-      style="border:1px solid rgba(201,168,76,.3);border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;overflow:hidden"
+      style="border:1px solid var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.3));border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;overflow:hidden"
       onmouseover="this.style.borderColor='var(--gold)'"
-      onmouseout="this.style.borderColor='rgba(201,168,76,.3)'">
+      onmouseout="this.style.borderColor='var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.3))'">
       <div onclick="previewLayoutInNewTab(event,'${l.key}')" title="See what ${l.key} looks like before choosing it"
-        style="flex-shrink:0;width:58px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;background:rgba(201,168,76,.06);border-right:1px solid rgba(201,168,76,.25)"
-        onmouseover="event.stopPropagation();this.style.background='rgba(201,168,76,.22)'"
-        onmouseout="event.stopPropagation();this.style.background='rgba(201,168,76,.06)'">${TEMPLATE_VIEWS_ICON_MAP[l.key]||'▢'}</div>
+        style="flex-shrink:0;width:58px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border-right:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25)"
+        onmouseover="event.stopPropagation();this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.22)'"
+        onmouseout="event.stopPropagation();this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.06)'">${TEMPLATE_VIEWS_ICON_MAP[l.key]||'▢'}</div>
       <div onclick="confirmAddPage('${l.key}')" style="flex:1;min-width:0;padding:12px 14px;transition:background .15s"
-        onmouseover="this.style.background='rgba(201,168,76,.08)'"
+        onmouseover="this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.08)'"
         onmouseout="this.style.background='transparent'">
-        <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
+        <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
         <div style="font-size:11px;color:var(--muted)">${l.desc}</div>
       </div>
     </div>`).join('');
   popupOpen(`
-    <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Choose a Starting View</div>
+    <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Choose a Starting View</div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:16px">Click the icon on any card to open a live preview of that layout in a new tab — come back and click the name/description side to add it here.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
   `);
@@ -798,8 +799,8 @@ function showChTab(detailNum,n){
   if(songsRow){
     const songs=SONGS_BY_FEAST[feastName]||[];
     songsRow.innerHTML=songs.map(s=>
-      `<button style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(201,168,76,.16);box-shadow:0 0 0 1px rgba(201,168,76,.25);cursor:pointer" onclick="playFeastSong('${s.page}')" title="${s.title}">
-        <span style="font-size:18px">🎵</span><span style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold2,#e8c56a);letter-spacing:.04em;font-weight:600;white-space:nowrap">${s.title}</span>
+      `<button style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(var(--amit-accent-rgb,201,168,76),.16);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25);cursor:pointer" onclick="playFeastSong('${s.page}')" title="${s.title}">
+        <span style="font-size:18px">🎵</span><span style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2,#e8c56a);letter-spacing:.04em;font-weight:600;white-space:nowrap">${s.title}</span>
       </button>`
     ).join('');
   }
@@ -994,6 +995,55 @@ function buildAtonementFullHtml(){
   ).join('');
 }
 
+// The full Tabernacles (Sukkot) study — added 2026-09-25, Ryan's direct
+// instruction, built from a live session with him on the eve of the feast
+// that year. Story-format, same as Atonement: the origin, the Second Temple
+// pilgrimage walked day by day, Yeshua at the feast (John 7-9), how to keep
+// it now, and the end of the age. Kept free of a specific calendar date so it
+// reads correctly whenever someone lands on it. Paragraphs split on blank
+// lines; the same raw text is what the Play button hands to SpeakToMe.html.
+const TABERNACLES_FULL_TEXT = `Let me walk you through this one as a story, the way you would live it if you were there. First, where it came from. Then, the road up to Jerusalem and the seven days of the feast. Then what Yeshua did in the middle of it. Then how you keep it now, and what is still ahead.
+
+Begin with the wilderness. Israel has just left Egypt, and their first camp after Rameses is a place called Succoth, which simply means booths. From there Yahweh goes ahead of them in a pillar of cloud by day and fire by night. For forty years they live in temporary shelters, with no fields, no walls and no permanent home, and He dwells in the middle of them in a tent of His own, the Tabernacle. That is what this feast remembers. Leviticus twenty-three says it plainly: you shall dwell in booths for seven days, so that your generations may know that I made the children of Israel dwell in booths when I brought them out of the land of Egypt.
+
+It is also a harvest feast. Long before it had a memory attached, it was called the Feast of Ingathering, at the end of the year, when the grain, the wine and the oil were all in. The Torah gives it one command above all the others: you shall rejoice. Not just you. Your sons and daughters, your servants, the Levite, the stranger, the orphan and the widow. Nothing is said about the feast being kept before Sinai, so I won't claim that it was. What we do know is that people have always gathered when the harvest is in, and Yahweh took that ordinary joy and made an appointment out of it.
+
+Now step forward to the days of Yeshua. It is the fifteenth day of the seventh month, and the whole nation is on the move. It has been only five days since Yom Kippur, and here is a detail that is easy to miss: the moment that fast ended, families began to build. The hammering started before the evening meal was even finished. Poles go up, palm fronds and willow and myrtle go across the top, thin enough that you can see the stars through it, and fruit hangs from the branches. Then you pack. If you live in Galilee, you travel to Jerusalem in a caravan, singing the Songs of Ascent, with your second tithe money in a pouch, because Deuteronomy commands you to spend it on this feast, on whatever your heart desires, and to rejoice before Yahweh.
+
+Jerusalem is packed beyond its size. Some pilgrims rent rooms, but most sleep in booths everywhere: on rooftops, in courtyards, in gardens, all along the slopes of the Mount of Olives. The whole hillside becomes a city of leaves. Your booth is your home for the week. You eat there, you talk there, you sleep there. And it is deliberately fragile, because it is meant to remind you that everything you have depends on Him, not on your walls.
+
+The first evening is a holy day, so no ordinary work. The meal is bread and wine, roasted meat from the peace offerings, and everything the harvest gave: grapes, figs, dates, pomegranates, olives and honey. The Torah does not hand you a menu, but it does hand you a table, and the table is meant to be full and open to everyone in town.
+
+Each morning you go up to the Temple with your lulav, a bundle of palm, myrtle and willow, and an etrog, a citron, in the other hand. The Levites sing Hallel, Psalms one hundred thirteen through one hundred eighteen, and at the words Save now, Hoshana, from Psalm one hundred eighteen, the whole crowd shakes its branches toward the four directions, up and down, and the sound is like wind moving through a forest. Meanwhile the priests offer bulls: thirteen on the first day and one fewer each day after, until seven on the seventh. Seventy in all, which the sages understood as an offering for the seventy nations of the earth. Even here, the feast is looking past Israel to everyone.
+
+Then comes the water. Every morning a priest goes down to the Pool of Siloam with a golden flask and a crowd behind him. He fills it, and they come back through the Water Gate to the blast of the trumpets, and at the altar he pours the water out together with the wine, while the people sing from Isaiah twelve: with joy you will draw water from the wells of salvation. It is a prayer for rain and for the harvest to come, and in the language of the prophets, for the Spirit to be poured out.
+
+And then the nights. In the Court of Women stand four enormous golden lamps, lit with wicks made from the old garments of the priests, so bright that the sages said no courtyard in Jerusalem went without its light. Torch-bearing elders dance in front of it. Levites stand on the fifteen steps with harps and lyres and cymbals. The women watch from the gallery above. The joy goes on late into the night, and the rabbis said that whoever has not seen the rejoicing of the water-drawing has never seen rejoicing in his life. Then you walk back through the dark to your booth, still singing, and fall asleep with the stars showing through the roof.
+
+If a Sabbath falls in the middle of the week, nothing changes about the feast, but you rest from carrying and waving, and you read Scripture in your booth. Many read Ecclesiastes, a sober book in the middle of the loudest joy of the year, as if to remind you that the joy is a gift and not an achievement. On the seventh day, the priests and the people circle the altar seven times with willow branches, crying out for salvation, and it is the highest point of the prayer for water. Then there is one more day, an eighth, a solemn assembly, and it is as if Yahweh says: stay one more day, I am not ready for you to leave.
+
+This is the setting for John chapters seven through nine, and once you see it you cannot unsee it. Yeshua goes up quietly, not with the caravan. He teaches in the Temple, and then it is the last day, the great day of the feast, and the priest is pouring out the water, and thousands are singing about the wells of salvation, and in the hush that follows a man stands up in the crowd and cries out: If anyone thirsts, let him come to Me and drink. He who believes in Me, as the Scripture has said, out of his heart will flow rivers of living water. John tells us He said this about the Spirit, who had not yet been given.
+
+That night, the four great lamps blaze in the Court of Women, and John tells us He is teaching right there, in the treasury, which stood in that same court. And He says: I am the light of the world. He who follows Me shall not walk in darkness, but have the light of life. Everyone listening knew exactly what He was pointing at. Then, in chapter nine, He heals a man born blind and sends him to wash in the Pool of Siloam, the very pool the water was drawn from. The water, the light, the pool, all of them answered in a single week.
+
+And John opens his whole Gospel with the same picture. The Word became flesh and tabernacled among us. That word means He pitched His tent among us, just as Yahweh once pitched His tent in the middle of the camp. Some have even suggested, working backward from the priestly courses in Luke, that His birth fell near this feast. That is an inference, not something the text says, but it fits the picture beautifully.
+
+So how do you keep this feast now? Not as a burden, and not as a test of who belongs. The Torah welcomes the foreigner who joins himself to Yahweh, and Zechariah says the nations themselves will one day keep it. Here is what it looks like. Rest on the first day and the eighth. Build a booth, even a simple one, with a roof you can see the stars through, and eat your meals there, and sleep there if you can. If you cannot build one, then eat a meal outside, under the sky, on purpose. Take the four species and rejoice with them. Read the Torah aloud. Read John seven through nine in your booth, and let it land in the very setting where it was said. Set money aside beforehand for the feast, and spend it on a table with room for the poor, the stranger and the widow, because that is the command. And rejoice. Of all the feasts, this is the one where joy is the assignment.
+
+One caution. Much of the exact detail I described, the water ceremony, the lamps, the willow circling, comes from the Mishnah and from Josephus, not from the Torah itself. Use it to understand the feast, not to bind anyone. The commands are the ones in Leviticus and Deuteronomy, and the rest is history worth knowing.
+
+And now the part still ahead. The spring feasts were fulfilled at His first coming, on their very days. The fall feasts are waiting. Trumpets, the gathering blast. Atonement, a nation turning. And then Tabernacles, the dwelling. Zechariah fourteen shows Yahweh standing on the Mount of Olives, living waters flowing out of Jerusalem, and the nations going up every year to keep this feast. Ezekiel sees a river flowing out from the Temple, and everything it touches lives. Isaiah four sees a canopy of cloud and fire over Zion, a booth for shade from the heat. Amos says Yahweh will raise up the fallen booth of David.
+
+And Revelation ties it all together. A great multitude from every nation stands before the throne holding palm branches, and the One on the throne spreads His tabernacle over them, and leads them to springs of living water. Then the very last chapters: behold, the tabernacle of God is with men, and He will dwell with them. He gives the water of life without cost, and the city has no need of the sun, because the Lamb is its light. Dwelling, water and light, all fulfilled at once.
+
+So keep it in three tenses, the way you keep Atonement. It was: a people in tents, and a God who camped in the middle of them. It is: the Word who tabernacled among us, the water and the light for anyone who will come to Him. And it will be: the day He pitches His tent among us for good, and every nation comes up to worship. Stand in the middle one, looking back with gratitude and forward with joy, and let this be the week in the year when you build something fragile, sit under the stars, and remember that you were never meant to carry your own shelter. He dwells with you.`;
+
+function buildTabernaclesFullHtml(){
+  return TABERNACLES_FULL_TEXT.split('\n\n').map(p=>
+    `<p style="font-size:15px;line-height:1.8;color:var(--text2);margin-bottom:18px">${p}</p>`
+  ).join('');
+}
+
 // 2026-09-11, Ryan's direct instruction: reader mechanism (Amit_Speak_Engine.js
 // mount) removed from every tab, including Trumpets and Tabernacles, to get
 // back to a clean, uniform baseline. Every tab shows its summary paragraph +
@@ -1013,14 +1063,17 @@ function buildFeastTabsHtml(detailNum){
     // uniform 20px padding on every side including the bottom.
     const isTrumpets=name==='Trumpets (Yom Teruah)';
     const isAtonement=name==='Atonement (Yom Kippur)';
-    const hasFullStudy=isTrumpets||isAtonement;
+    const isTabernacles=name==='Tabernacles (Sukkot)';
+    const hasFullStudy=isTrumpets||isAtonement||isTabernacles;
     const fullStudyBox=isTrumpets
-      ?`<div style="flex:1;min-height:0;margin-top:20px;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--card-head);border:1px solid rgba(201,168,76,.2);border-radius:8px">${buildTrumpetsFullHtml()}</div>`
+      ?`<div style="flex:1;min-height:0;margin-top:20px;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px">${buildTrumpetsFullHtml()}</div>`
       :isAtonement
-      ?`<div style="flex:1;min-height:0;margin-top:20px;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--card-head);border:1px solid rgba(201,168,76,.2);border-radius:8px">${buildAtonementFullHtml()}</div>`
+      ?`<div style="flex:1;min-height:0;margin-top:20px;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px">${buildAtonementFullHtml()}</div>`
+      :isTabernacles
+      ?`<div style="flex:1;min-height:0;margin-top:20px;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px">${buildTabernaclesFullHtml()}</div>`
       :'';
     tabContentHtml+=`<div class="ch-tab-content${hasFullStudy?' is-reader':''}${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">
-      <p style="font-size:15px;line-height:1.8;color:var(--text2)">${FEAST_SUMMARY[name]}</p><p style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:'Cinzel',serif;margin-top:18px">Devotion to follow</p>${fullStudyBox}
+      <p style="font-size:15px;line-height:1.8;color:var(--text2)">${FEAST_SUMMARY[name]}</p><p style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:var(--amit-font-heading,'Cinzel',serif);margin-top:18px">Devotion to follow</p>${fullStudyBox}
     </div>`;
   });
   return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
@@ -1042,7 +1095,7 @@ function buildFeastTabsHtml(detailNum){
 function openFeastSpeaker(){
   const activeBtn=document.querySelector('#ch-tab-nav-2 .ch-tab-btn.active');
   const name=activeBtn?activeBtn.textContent:FEAST_ORDER[0];
-  const text=(name==='Trumpets (Yom Teruah)')?TRUMPETS_FULL_TEXT:(name==='Atonement (Yom Kippur)')?ATONEMENT_FULL_TEXT:(FEAST_SUMMARY[name]||'');
+  const text=(name==='Trumpets (Yom Teruah)')?TRUMPETS_FULL_TEXT:(name==='Atonement (Yom Kippur)')?ATONEMENT_FULL_TEXT:(name==='Tabernacles (Sukkot)')?TABERNACLES_FULL_TEXT:(FEAST_SUMMARY[name]||'');
   try{ localStorage.setItem('amit_speaktome_prefill', JSON.stringify({text})); }catch(e){}
   const win=window.open('../SpeakToMe.html','amit_speak_to_me');
   if(win){ try{ win.location.reload(); }catch(e){} }
@@ -1325,6 +1378,7 @@ if(false && db){
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?session.user:null;
     _updateSyncUI();
+    if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
     // re-pull this project's pages under the now-current owner, so a
     // signed-in user's real Supabase page list replaces whatever the
     // signed-out localStorage cache was showing
@@ -1408,9 +1462,9 @@ async function submitSyncEmail(){
   if(err){btn.textContent='Try again';btn.disabled=false;}
   else{
     document.querySelector('#syncModal .sync-modal-card').innerHTML=`
-      <div style="color:rgba(201,168,76,.9);font-family:'Cinzel',serif;font-size:17px;margin-bottom:14px">Link sent</div>
-      <div style="color:rgba(240,232,208,.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
-      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(240,232,208,.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(var(--amit-text-rgb,240,232,208),.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(var(--amit-text-rgb,240,232,208),.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
   }
 }
 
