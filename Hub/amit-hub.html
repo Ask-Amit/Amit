@@ -1257,7 +1257,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v7.23</div>
+    <div class="page-version" id="hubVersionBadge">v7.24</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3364,6 +3364,15 @@ if(db){
         if(getLoc())_syncLocation(getLoc());
         _showSignInWelcome(currentUser.email);
       } else {
+        // Already signed in on return (a saved session resuming, not a
+        // fresh sign-in) — still reconcile first. Ryan's direct
+        // instruction 2026-10-03: every time the Hub confirms someone is
+        // signed in, quietly check for any local-only pursuits Supabase
+        // doesn't have yet and upload them, not just on the one-time
+        // guest-to-account transition above.
+        _reconcileLocalEntries().then(r=>{
+          if(r.entries>0||r.reflections>0) console.log('Reconciled on return visit:',r.entries,'entries,',r.reflections,'reflections');
+        }).catch(e=>console.warn('_reconcileLocalEntries (return visit):',e));
         _pullEntries();
         _pullReflections();
       }
@@ -3846,23 +3855,29 @@ async function _writeDisplayName(){
   try{await db.from('users').upsert({id:currentUser.id,email:currentUser.email,display_name:name},{onConflict:'id'});}catch{}
 }
 
-async function _migrateGuestDataThenPull(){
-  if(!db||!currentUser)return;
-  try{
-    // Check if user already has data in Supabase
-    const{data:existing}=await db.from('hub_entries').select('id').eq('user_id',currentUser.id).limit(1);
-    if(existing&&existing.length>0){
-      // Returning user — Supabase is truth, pull it down
-      await _pullEntries();
-      await _pullReflections();
-      return;
-    }
-    // First-ever sign-in — migrate guest localStorage data to Supabase
-    const localData=JSON.parse(localStorage.getItem(KEY)||'[]');
-    const localRefl=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
-    if(localData.length>0){
-      // Push all local entries to Supabase
-      const rows=localData.map(t=>({
+// Pushes any local-only rows (by id) up to Supabase under the current
+// login. Used both for a brand-new account's first sign-in (where
+// everything local is new) and for every later sign-in (where only a
+// few stray local entries, if any, actually need uploading — added
+// 2026-10-03, Ryan's direct instruction, after a real gap was found:
+// the old one-shot migration only ever ran once, the very first time an
+// account had zero Supabase rows, so anything created locally after
+// that point — or while signed out later on — was silently stranded in
+// that one browser forever. This version re-checks every sign-in instead
+// of trusting that first migration as permanent truth.
+async function _reconcileLocalEntries(){
+  if(!db||!currentUser)return{entries:0,reflections:0};
+  const localData=JSON.parse(localStorage.getItem(KEY)||'[]');
+  const localRefl=JSON.parse(localStorage.getItem(REFL_KEY)||'{}');
+  let entryCount=0,reflCount=0;
+  if(localData.length>0){
+    // Only the ids Supabase doesn't already have — cheap, one id column,
+    // not a full-row pull, so this stays fast on every normal sign-in.
+    const{data:existingIds}=await db.from('hub_entries').select('id').eq('user_id',currentUser.id);
+    const haveIds=new Set((existingIds||[]).map(r=>r.id));
+    const missing=localData.filter(t=>!haveIds.has(t.id));
+    if(missing.length>0){
+      const rows=missing.map(t=>({
         id:t.id,user_id:currentUser.id,
         kind:t.kind||'pursuit',title:t.title||'',notes:t.notes||null,
         purpose:t.cat||null,focus:t.subcat||null,program:t.program||null,
@@ -3872,22 +3887,34 @@ async function _migrateGuestDataThenPull(){
         starred:t.starred||false,is_sample:false,
         tags:t.tags||[],parent_id:t.parentId||null,sort_order:t.sortOrder||0
       }));
-      // Upsert in batches of 50 to avoid request size limits
       for(let i=0;i<rows.length;i+=50){
         await db.from('hub_entries').upsert(rows.slice(i,i+50),{onConflict:'id'});
       }
+      entryCount=missing.length;
     }
-    // Migrate reflections
+  }
+  if(Object.keys(localRefl).length>0){
+    // Reflections are keyed by date, not id — upsert is naturally
+    // idempotent here (onConflict already de-dupes), so re-sending
+    // every sign-in is harmless and needs no separate diff step.
     const reflRows=Object.entries(localRefl).map(([date,content])=>({
       user_id:currentUser.id,reflection_date:date,content
     }));
-    if(reflRows.length>0){
-      await db.from('hub_reflections').upsert(reflRows,{onConflict:'user_id,reflection_date'});
+    await db.from('hub_reflections').upsert(reflRows,{onConflict:'user_id,reflection_date'});
+    reflCount=reflRows.length;
+  }
+  return{entries:entryCount,reflections:reflCount};
+}
+
+async function _migrateGuestDataThenPull(){
+  if(!db||!currentUser)return;
+  try{
+    const result=await _reconcileLocalEntries();
+    if(result.entries>0||result.reflections>0){
+      console.log('Reconciled local-only data to Supabase:',result.entries,'entries,',result.reflections,'reflections');
     }
-    // Now pull back from Supabase as the new source of truth
     await _pullEntries();
     await _pullReflections();
-    console.log('Guest data migrated to Supabase:',localData.length,'entries,',reflRows.length,'reflections');
   }catch(e){
     console.warn('_migrateGuestDataThenPull:',e);
     // Fallback: just pull whatever is in Supabase
