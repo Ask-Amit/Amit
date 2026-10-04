@@ -1,8 +1,45 @@
 # The Council — Project Context
 
+## PERMANENT STANDARD — the Prompt Engine, added 2026-10-03 (v5.73, Ryan's direct instruction)
+
+**The database stores FACTS. It never stores INSTRUCTIONS.** A round's `prompt_text` holds only the plain question for that round. `synthesis` holds only the refined question or the letter. `council_evidence.body` holds only a voice's answer. Every instruction any voice ever receives is generated at send time, in one place, in `Amit_Council.html`'s **COUNCIL PROMPT ENGINE** block:
+- `getStageContext(n)` is the single stage reader. It works out what round n is (phase, cycle, the clean question, what just happened, any background) from the stored facts.
+- `PHASE_SPECS` is the single table of each phase's job, its DO NOT list, and its reply format (`clarification`, `investigation`, `combine`).
+- `composeSeatPrompt(n, voice, {firstTime | mode:'swap'|'reopen'})` builds every council-seat prompt, including Amit's seat and swaps/reopens.
+- `copyToMatchingVoiceAndOpen(jobTitle, task)` builds every Synthesis Desk prompt.
+
+**No other function writes prompt text.** To change what a voice is told, change it there, never inline somewhere else.
+
+**Why (the real failure this fixed):** before v5.73, prompts were assembled in seven places, and instructions were saved into `prompt_text`. The "Help me understand… give me Question 1 and Question 2" wrapper was saved that way, and so was a hand-written "STRICT OUTPUT FORMAT" block. The next round then showed those instructions to every voice as "what the previous round produced." In the real 10-voice AmitBooks session, half the Council obeyed the stale instructions and half answered the question. Clarification prompts also said "do NOT answer" and "open with SOLUTION: stating your core answer" in the same message, so all 10 voices did both. From Round 2 on, continuing voices got no phase name, no job change, and no DO NOT list. "Investigate Further" told every voice "the letter you just wrote" when only Gemini wrote it. Ryan stopped using the Council because of this.
+
+**Every outbound seat prompt now carries the same stage block, whether it's a voice's first message or its tenth:**
+- `THE COUNCIL — ROUND n · PHASE: X (· CYCLE N)`, plus "this header replaces anything earlier in this chat that conflicts"
+- WHERE WE ARE
+- THE QUESTION
+- background, if any
+- YOUR JOB RIGHT NOW
+- DO NOT
+- REPLY FORMAT
+
+The instructions always come LAST. Meta AI and Copilot follow the most recent instruction they see most literally. The identity document and briefing still go out only once per voice per topic.
+
+**Stage receipt + paste guards.**
+- Every seat reply must start with `COUNCIL RECEIPT — Round n · Phase`.
+- Saving an answer whose receipt names a different round or phase warns before saving.
+- Pasting the Council's own prompt back in (it happened three times in real sessions, plus once into a synthesis box) warns before saving, in every answer box and every Synthesis Desk paste-back box.
+- Receipt lines and END markers are stripped before storage and before one voice's answer is shown to another.
+
+**Synthesis Desk — separate tab, decided 2026-10-03 on reliability grounds.** Theophilus's matching, refined-question and letter jobs run in their own Gemini chat (onboarding key `Gemini · Synthesis Desk`), never in Gemini's council-seat chat. Previously one chat answered as a voice, tallied votes that included its own questions, and wrote the letter about its own answers. The desk now has no stake in anything it processes.
+
+**Requester name.** Prompts never use the browser's `amit_user_name` slot. They use the signed-in account's `users.display_name`, first name only: "Ryan" for Ryan's account, otherwise "the person who brought this question" when no real name is on record or it reads "Amit".
+
+**Cycles.** A new cycle starts only at Round 1 or at an "Investigate Further" follow-up (a Clarification round right after a Combine round). "Rerun This Round to Further Clarify" stays in the same cycle (`isCycleStartRound`).
+
+**Legacy sessions** (instruction wrapper stored as the question) still read correctly through `unwrapLegacyQuestion()`.
+
 ## PERMANENT STANDARD — in-page version badge, added 2026-07-23
 
-`Amit_Council.html` has its own hardcoded version badge in the header (`<div class="page-version" id="pageVersion">`, currently near line 217). This is separate from `VERSION` and CLAUDE.md's "Current version" line, and it was missed across several real pushes (v5.10 through v5.12 all shipped while the badge still read v5.09) — Ryan caught it directly by looking at the live page and asking why it didn't match. **Every single push that touches `Amit_Council.html`, no exceptions, must update this badge to the current repo-wide version number before committing.** This is the whole point of the badge — Ryan looks at the page itself to know what he's looking at, not the terminal. Check it every time, not just when it's convenient.
+`Amit_Council.html` has its own hardcoded version badge in the header (`<div class="page-version" id="pageVersion">`, near line 265). Per the root PER-FILE INDEPENDENT VERSIONING rule, this badge tracks the Council file's OWN number (v5.73 as of 2026-10-03), not a repo-wide one. This is separate from `VERSION` and CLAUDE.md's "Current version" line, and it was missed across several real pushes (v5.10 through v5.12 all shipped while the badge still read v5.09) — Ryan caught it directly by looking at the live page and asking why it didn't match. **Every single push that touches `Amit_Council.html`, no exceptions, must update this badge to the current repo-wide version number before committing.** This is the whole point of the badge — Ryan looks at the page itself to know what he's looking at, not the terminal. Check it every time, not just when it's convenient.
 
 ## PERMANENT STANDARD — "needs input" blinking field, added 2026-07-22
 
@@ -156,9 +193,15 @@ Premium-tier feature — part of what funds the mission. The mechanic itself dou
 
 ## Current Status
 
-**Renamed from "Brainstorming" to "The Council," 2026-07-21. File migration from `Brainstorming\` pending** — this CLAUDE.md and folder exist now; the actual HTML, scripts, and supporting docs still need to be copied/moved over per the standing procedure, and `Brainstorming\CLAUDE.md`'s Version 1 archive section needs a note pointing here.
+**Corrected 2026-10-03. The paragraph that used to sit here, saying this folder "holds only this CLAUDE.md", was stale.** The live tool is `TheCouncil\Amit_Council.html`, at **v5.73**. Alongside it:
+- `Amit_Council2.html`: the older Still Water build; it still uses `consensus_statement`/`next_step`.
+- `Theophilus_Origin_Conversation.md`
+- `Sessions.md`
+- backup `Amit_Council-pre-v5.73.html`: keep it until Ryan confirms v5.73 works live.
 
-**Ryan's explicit instruction, 2026-07-21: do not touch `Brainstorming\` yet.** Nothing gets moved, copied, or deleted from that folder until there is a genuinely better working model ready to replace it. This project folder (`TheCouncil\`) currently holds only this CLAUDE.md — no HTML, no scripts, no data files yet. That is correct and intentional, not an oversight. Do not "helpfully" migrate files here without Ryan explicitly asking for that step.
+The flow is Scope (title, request, roster) → Round 1 Clarification → the Synthesis Desk matches overlapping questions → the user answers them one at a time → the Desk writes the refined question → Ruling (Rerun / Adjust / Confirm) → Investigation → auto-advance to Combine → the Desk writes the letter → Accept Results or Investigate Further, which starts a new cycle.
+
+Still unchanged from 2026-07-21: don't touch `Brainstorming\` without Ryan's explicit go-ahead. The unscoped open item also remains: a stranger can't yet run the Council unattended, because every round is still manual copy-paste.
 
 ## SESSION HANDOFF — 2026-07-21, written for the next fresh session opened in this folder
 
@@ -173,7 +216,7 @@ Ryan closed the session that did the naming brainstorm and is opening a new one 
 **The exact procedure Amit follows for every round, going forward, in this project or any future one — do not re-derive this, it's already settled:**
 1. Classify the round: genuinely open/generative (apply non-leading rule strictly, withhold answer-shaped detail) vs. narrow/constrained (showing existing options/context IS the task, so show them plainly).
 2. Pick voices by real capability match (`specialty_tags`) and real quota headroom (`quota_used_this_period` vs `quota_limit_desc`) — never invite everyone by default, never pad.
-3. Write the prompt as a hard cold start — full standalone briefing on who Amit is and what this tool does, and (if this round builds on prior rounds) a full recap of what's been decided so far, because every voice's tab gets closed after it answers and nothing carries over, ever, even mid-topic.
+3. **Superseded twice.** First, 2026-07-24: tabs now stay open for the whole topic, so the full briefing and identity document go out once per voice per topic, not every round. Then 2026-10-03, v5.73: the 07-24 change dropped stage information along with the repeated briefing, and that was the root of voices losing track. Every round now carries the full stage block from the Prompt Engine (see the PERMANENT STANDARD at the top of this file). A voice landing in a fresh tab (swap or reopen) gets the briefing, a short factual "session so far", and the same stage block.
 4. Announce the full voice list up front. Then, one at a time: announce opening that voice's tab, run `Open_One_AI.ps1 -Name "[Name]"`, copy that round's exact prompt to the clipboard (`Get-Content -Raw | Set-Clipboard`), tell Ryan "Please paste it into [Name]."
 5. **Order reversed 2026-07-21, Ryan's direct instruction — open-first, log-after:** When Ryan brings an answer back, the FIRST thing Amit does is open the next voice's tab and copy that round's next prompt to the clipboard, and hand it to Ryan ("Please paste it into [Name]") — before doing anything else with the answer just received. Only after Ryan has the next prompt in hand and is moving to paste it does Amit go back and process the answer that just came in: keep it as true to form as possible (do not summarize, condense, or soften the voice's actual answer), edit only whatever specific wording would violate Claude's usage policies, log it to `amit_brainstorm_responses`, increment that voice's `quota_used_this_period`, and update `known_quirks`/`reliability` in `amit_brainstorm_ai_profiles` based on what was actually observed. The point of the reorder: Ryan is never sitting idle waiting on Amit's logging/correction work — that work happens in the background while he's already occupied pasting into the next tab, not before he's allowed to move forward.
 6. **Superseded 2026-07-21 by the Amit-as-real-Seat override above — new version:** Amit is now a guaranteed Seat in every round, not an afterthought answered "once everyone else is done." Amit answers the same cold original question every other seat receives — fresh, honest, blind to the other seats' answers at the moment it answers, exactly like any other voice, not informed by what came back from DeepSeek/Bolt/etc. first. That answer is logged to `council_evidence` under Amit's own `seat_id` (`a2b568c2-cb13-4e55-89f3-76191340ad63`), then displayed in full in chat (never summarized down), and counts as one equal vote — no longer weighted, no longer cast first by default.
@@ -196,8 +239,8 @@ The underlying tool (built under the old name) is genuinely usable now, not just
 All standing rules from `Brainstorming\CLAUDE.md` carry forward unchanged to this project — they are process rules, not tied to the old name:
 - The Dedicated Amit Facilitation Service playbook (11 steps + 8a/8b: Amit answers every round too, logs first, then displays its full reasoning in chat)
 - The Two-Phase Model (Phase 1 free / Phase 2 premium continuation, half-price framing)
-- Invitation framing, non-leading prompts (scaled to broad vs. narrow rounds), cold-start briefing, no-assumed-carryover-between-rounds, responses kept as true to form as possible with edits only where needed to stay within Claude's usage policies
-- Amit casts the first vote in disputes; vote weight tied to real participation and documented engagement quality
+- Invitation framing, non-leading prompts (scaled to broad vs. narrow rounds), responses kept as true to form as possible with edits only where needed to stay within Claude's usage policies. Cold-start and carryover handling is now governed by the Prompt Engine standard at the top of this file. Stating round, phase, job, DO NOT list and format is procedural, not substantive, so it never conflicts with the non-leading rule.
+- ~~Amit casts the first vote in disputes; vote weight tied to participation~~ — superseded 2026-07-21 by the Amit-as-real-Seat override above (Amit's vote is one equal vote)
 - The sequential one-at-a-time workflow (announce voice list → open one tab → copy prompt to clipboard → "please paste into [Name]" → bring back answer → log → evaluate that voice's profile → move to next)
 - Capability + quota-matched voice selection using `amit_brainstorm_ai_profiles`' `specialty_tags` and `quota_used_this_period` / `quota_limit_desc` fields
 

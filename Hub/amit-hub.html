@@ -1257,7 +1257,7 @@ input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webki
   </div>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Hub</div>
-    <div class="page-version" id="hubVersionBadge">v7.24</div>
+    <div class="page-version" id="hubVersionBadge">v7.25</div>
   </div>
   <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
     <div onclick="openPanel('calendar')" title="Open Calendar" style="cursor:pointer;text-align:right">
@@ -3342,8 +3342,11 @@ if(db){
       // Close the auth gate — returning user is authenticated
       const modal=document.getElementById('amitNameModal');
       if(modal&&modal.classList.contains('open')) modal.classList.remove('open');
+      // v7.25: _pullCompass now decides the name direction itself (account
+      // name wins; browser name only fills an empty account) - the old
+      // unconditional _writeDisplayName() here pushed a stale browser name
+      // over the real one on every sign-in.
       _pullCompass();
-      _writeDisplayName();
       loadUserVocab(currentUser.id);
       _pullLocationIfMissing().then(()=>{if(curPanel==='home')renderDayView();});
       // Owner-contact creation happens right at sign-in, not lazily when
@@ -3833,10 +3836,21 @@ async function _pullCompass(){
   if(!db||!currentUser)return;
   try{
     const{data}=await db.from('users').select('compass_score,compass_tier,compass_signals,display_name').eq('id',currentUser.id).maybeSingle();
-    if(!data)return;
-    // Supabase is truth — always restore on sign-in
-    if(data.display_name&&!getUserName()){
-      setUserName(data.display_name);
+    // Fix, v7.25, 2026-10-03 (found during The Council's prompt diagnostic):
+    // "Supabase is truth" was the intent, but this only restored the name
+    // when the browser had NONE, and sign-in separately pushed the browser's
+    // name INTO the database every time (_writeDisplayName, removed from the
+    // sign-in path). So a stale browser name - "Amit," typed once into a
+    // name prompt - always won over the account's real name, and spread to
+    // every Amit page that reads this shared slot (Council prompts told
+    // outside AIs the asker was "Amit"; Ask Amit; the EMS study guide's
+    // prefill). Now: the account's own name always wins; the browser's name
+    // is only written up when the account doesn't have one yet.
+    if(!data){_writeDisplayName();return;}
+    if(data.display_name){
+      if(getUserName()!==data.display_name)setUserName(data.display_name);
+    } else if(getUserName()){
+      _writeDisplayName();
     }
     const loc=getCompass();
     saveCompass({...loc,

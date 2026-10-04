@@ -255,14 +255,14 @@ header{
   50%{box-shadow:0 0 0 4px rgba(201,168,76,0);border-color:rgba(201,168,76,.5)}
 }
 </style>
-<script src="../Amit_Ask_Live.js?v=6.14"></script>
+<script src="../Amit_Ask_Live.js?v=6.15"></script>
 </head>
 <body>
 
 <header>
   <div class="page-title-wrap">
     <div class="page-title" id="pageTitle">Council</div>
-    <div class="page-version" id="pageVersion">v5.72</div>
+    <div class="page-version" id="pageVersion">v5.73</div>
   </div>
   <div class="brand">
     <img src="../amit_icon.png" alt="Amit" style="height:32px;width:32px">
@@ -540,7 +540,7 @@ header{
                 <div id="rosterPickerRows-scope"></div>
               </div>
               <div style="align-self:flex-end;max-width:88%;width:100%;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);border-radius:10px;padding:14px 16px">
-                <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div>
+                <div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is the question the Council will clarify first — edit the wording if you want</div>
                 <textarea id="scopeQuestionText" oninput="autoGrowTextarea(this)" style="width:100%;height:40px;min-height:40px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
               </div>
               <button type="button" onclick="confirmScopeRoster()" style="align-self:flex-start;background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button>
@@ -725,8 +725,10 @@ async function loadSessionIntoWorkspace(session,switchView){
   // Ryan's direct instruction, 2026-07-22: an existing session doesn't ask
   // "what's the request" as if it's new - it states who requested it and
   // just displays what was actually asked, no submission prompt.
-  const name=getUserName()||'Amit';
-  document.getElementById('requestHeading').textContent=name+' requested from the council';
+  // Fix, v5.73: this defaulted to 'Amit' when no name was found - Amit is
+  // the orchestrator, never the person asking.
+  const name=getUserName();
+  document.getElementById('requestHeading').textContent=name?name+' requested from the council':'Requested from the council';
   document.getElementById('requestSubtext').style.display='none';
   document.getElementById('diaryText').innerHTML=session.diary_text||diaryEntryHTML('Requested Counsel',session.original_question||'');
   renderSessionTiles();
@@ -739,7 +741,7 @@ async function loadSessionIntoWorkspace(session,switchView){
   const round1=activeRounds.find(r=>r.round_number===1);
   if(round1&&round1.roster&&round1.roster.length){
     document.getElementById('scopeCouncilChat').style.display='flex';
-    document.getElementById('scopeQuestionText').value=round1.prompt_text||'';
+    document.getElementById('scopeQuestionText').value=unwrapLegacyQuestion(round1.prompt_text);
     autoGrowTextarea(document.getElementById('scopeQuestionText'));
     renderRosterPickerRows('scope',round1.roster.slice());
   } else {
@@ -1299,40 +1301,22 @@ async function confirmSwap(){
 // open). `framing` customizes the opening sentence only - the actual
 // history (original request, every completed round's real evidence, this
 // round so far) is identical either way.
-async function buildCatchUpPrompt(n,framing,voice){
-  const round=activeRounds.find(r=>r.round_number===n);
-  const historyParts=[`THE ORIGINAL REQUEST: ${activeRounds[0].prompt_text}`];
-  for(const r of activeRounds){
-    if(r.round_number>=n)break;
-    const{data:priorEvidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',r.id).order('created_at',{ascending:true});
-    if(priorEvidence&&priorEvidence.length){
-      historyParts.push(`ROUND ${r.round_number}:\n`+priorEvidence.map(e=>`${e.provenance}: ${e.body}`).join('\n\n'));
-    }
-  }
-  const{data:thisRoundEvidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',round.id).order('created_at',{ascending:true});
-  if(thisRoundEvidence&&thisRoundEvidence.length){
-    historyParts.push(`ROUND ${n} SO FAR:\n`+thisRoundEvidence.map(e=>`${e.provenance}: ${e.body}`).join('\n\n'));
-  }
-  const history=historyParts.join('\n\n');
-  // Fix, 2026-08-08, Ryan's direct report: this function is always a fresh
-  // tab (that's the whole point of "reopen" and of a voice swap) yet it
-  // never included that voice's own identity_document/boot-state - only
-  // copyRoundtablePrompt did. A voice with a real boot state (e.g.
-  // Copilot's evidence-chain document) was landing in a brand-new tab with
-  // no memory of it. A fresh tab always needs its identity document if one
-  // exists, same as any other first-contact prompt.
-  const profile=voice?voiceProfiles[voice]:null;
-  const identityDocBlock=(profile&&profile.identity_document)?`${profile.identity_document}\n\n`:'';
-  return `${identityDocBlock}Cold-start briefing: I'm ${getUserName()||'the user'}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council." ${framing} Here is everything decided and said so far, so you can pick up exactly where things are, not start cold:\n\n${history}\n\nTHE CURRENT QUESTION FOR THIS ROUND: ${round.prompt_text}\n\nYOUR TASK RIGHT NOW: answer the current question above directly, using everything before it only as background context. This is a real request that needs your actual answer, not a document to summarize and not a request to ask me clarifying questions first — just answer it.\n\nWhen you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-}
-
+// Fix, v5.73, 2026-10-03: the old buildCatchUpPrompt always ended with
+// "just answer it... not a request to ask me clarifying questions" no matter
+// which phase the round was in - so a voice swapped into a Clarification or
+// Combine round was told to do the opposite of that round's job. It also
+// dumped every voice's raw answer from every prior round, which invited the
+// new voice to respond to the history instead of the task. Swap and reopen
+// now go through the same phase-aware prompt engine as every other prompt
+// (composeSeatPrompt, mode 'swap'/'reopen'), which gives a short factual
+// "session so far" and then the exact same stage header everyone else gets.
 async function performVoiceSwap(n,oldVoice,newVoice){
   const round=activeRounds.find(r=>r.round_number===n);
   const newRoster=round.roster.map(v=>v===oldVoice?newVoice:v);
   await db.from('council_rounds').update({roster:newRoster}).eq('id',round.id);
   round.roster=newRoster;
   delete openVoiceTabs[oldVoice];
-  const catchUpPrompt=await buildCatchUpPrompt(n,`You're being brought in partway through, replacing another voice that ran out of session room - from this point forward, you're acting in exchange of that voice.`,newVoice);
+  const catchUpPrompt=await composeSeatPrompt(n,newVoice,{mode:'swap'});
   // Fix, 2026-07-22, Ryan's direct correction: the swap itself must NOT
   // open a tab or copy anything - that caused a real duplicate (Gemini's
   // site opened once here, then opened AGAIN when the normal "Request
@@ -1460,7 +1444,7 @@ function renderRoundTabs(){
             <div id="roundPrevCompletedBody-${n}" style="color:var(--muted);font-size:13px;line-height:1.6;font-family:'Crimson Pro',Georgia,serif;white-space:pre-wrap"></div>
           </div>
           <div style="margin-bottom:16px">
-            <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:6px">Round <span>${n}</span> Petition</div>
+            <div style="font-family:'Cinzel',serif;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold2);margin-bottom:6px">Round <span>${n}</span> Petition${PHASE_SPECS[round.phase]?' · '+PHASE_SPECS[round.phase].label:''}</div>
             <div id="roundPetitionText-${n}" style="color:var(--text);font-size:14px;line-height:1.6;font-family:'Crimson Pro',Georgia,serif;white-space:pre-wrap"></div>
             <!-- Investigation rounds never get a formal Ruling (only
                  Clarify and Combine do) - without something here, revisiting
@@ -1515,13 +1499,13 @@ function renderRoundTabs(){
                user's answers, and the user confirms before moving on.
                Ryan's direct instruction, 2026-07-22. -->
           <div id="clarifyMatchWrap-${n}" style="display:none;margin-top:14px">
-            <div style="font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);margin-bottom:6px">Amit is matching the questions that came up more than once</div>
-            <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">This happened automatically the moment every voice answered, including Amit's own. The matching request (raw answers + instructions) was already copied and Amit's tab opened - paste the numbered result Amit sends back into the box below.</p>
+            <div style="font-family:'Cinzel',serif;font-size:13px;color:var(--gold2);margin-bottom:6px">Theophilus is matching the questions that came up more than once</div>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 8px;font-style:italic">This happened automatically the moment every voice answered, including Amit's own. The matching request (raw answers + instructions) was already copied for the Synthesis Desk - Theophilus's own separate Gemini tab, apart from his council seat. Paste the numbered list he sends back into the box below.</p>
             <div id="clarifyRawAnswers-${n}" style="max-height:160px;overflow-y:auto;background:rgba(0,0,0,.25);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:10px 12px;margin-bottom:10px;color:var(--muted);font-size:12px;line-height:1.6;white-space:pre-wrap"></div>
             <div style="display:flex;gap:10px;margin-bottom:10px">
               <button type="button" onclick="copyClarifyMatchingRequest(${n})" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:8px 16px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">Copy the Matching Request Again</button>
             </div>
-            <textarea id="clarifyConfirmedText-${n}" oninput="autoGrowTextarea(this)" placeholder="Paste Amit's numbered confirmed-question list here..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <textarea id="clarifyConfirmedText-${n}" oninput="autoGrowTextarea(this)" placeholder="Paste Theophilus's numbered confirmed-question list here..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
             <button type="button" onclick="beginClarifyQA(${n})" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">Begin Asking the Questions</button>
           </div>
           <div id="clarifyAskWrap-${n}" style="display:none;margin-top:14px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.3);border-radius:10px;padding:16px">
@@ -1536,8 +1520,8 @@ function renderRoundTabs(){
             <div style="display:flex;gap:10px;margin-bottom:8px">
               <button type="button" onclick="copyClarifySynthesisRequest(${n},document.getElementById('clarifyQARecap-${n}').textContent)" style="background:transparent;color:var(--muted);border:1px solid rgba(240,232,208,.25);padding:8px 16px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer">Copy the Synthesis Request Again</button>
             </div>
-            <p style="color:var(--muted);font-size:11px;margin:0 0 6px;font-style:italic">This was automatically sent to Amit - the original request plus everything answered above. Paste Amit's refined question below.</p>
-            <textarea id="clarifySynthesisText-${n}" oninput="autoGrowTextarea(this)" placeholder="Paste Amit's refined question here..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
+            <p style="color:var(--muted);font-size:11px;margin:0 0 6px;font-style:italic">This was automatically sent to the Synthesis Desk - the question being clarified plus everything answered above. Paste Theophilus's refined question below.</p>
+            <textarea id="clarifySynthesisText-${n}" oninput="autoGrowTextarea(this)" placeholder="Paste Theophilus's refined question here..." style="width:100%;height:60px;min-height:60px;background:rgba(255,255,255,.05);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical"></textarea>
             <button type="button" onclick="confirmClarifySynthesis(${n})" style="margin-top:10px;background:var(--gold);color:#1a1206;border:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:13px;cursor:pointer">I'm comfortable with this</button>
           </div>
           <!-- The Clarification round's real conclusion: a full summary
@@ -1601,8 +1585,11 @@ async function renderOneRoundState(round){
   // result of the previous round IS the starting petition of this one.
   // Ryan's direct instruction, 2026-07-22: carry this forward every round.
   const petitionEl=document.getElementById('roundPetitionText-'+n);
+  // v5.73: the Petition shows exactly what the prompt engine sends every
+  // voice for this round - same clean question, read from the same stage
+  // reader - so what you see on screen is always what the voices received.
   if(petitionEl){
-    petitionEl.textContent=round.prompt_text;
+    petitionEl.textContent=getStageContext(n).question;
   }
   // Fix, 2026-07-24: Ryan's direct correction - round.prompt_text ALREADY
   // correctly carries the previous round's Ruling forward as this round's
@@ -1980,7 +1967,7 @@ async function recopyVoicePrompt(n,voice){
   const needsReopen=await amitConfirm(`Do you need me to open ${displayName}'s website again? Say yes if you're not sure the last answer actually went to the right chat - I'll open a fresh tab and get ${displayName} properly caught up on everything so far before copying the current question.`,'Yes, reopen',false,'Proceed to Existing Tab');
   if(needsReopen){
     delete openVoiceTabs[voice];
-    const catchUpPrompt=await buildCatchUpPrompt(n,`You may already have an earlier message from this session in a different tab - treat this as the authoritative, up-to-date version, in case anything went to the wrong place.`,voice);
+    const catchUpPrompt=await composeSeatPrompt(n,voice,{mode:'reopen'});
     try{await navigator.clipboard.writeText(catchUpPrompt);}catch(e){}
     // Fix, 2026-07-24: same window.focus() bug as requestVoiceAnswer - it
     // pulls focus back to the Council page itself, undoing the tab focus
@@ -2007,162 +1994,272 @@ function openOrReuseVoiceTab(voice){
   openVoiceTabs[voice]=w;
 }
 
-// Builds and copies this round's shared prompt - broadcast to every pending
-// voice at once, so it always uses the cold-start framing (safe and
-// complete even for a voice that's technically continuing) rather than
-// customizing per-voice continuation phrasing for a single shared copy.
-async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
-  const requesterName=getUserName()||'the user';
-  const isClarification=round.phase==='clarification';
-  // Per-voice identity document (a voice's own self-authored profile, once
-  // one exists - see council_voice_profiles) goes in ONCE per live
-  // conversation, same idea as Amit's identity block. When requestVoiceAnswer
-  // calls this, it passes forceFirstTime explicitly (computed BEFORE it
-  // opened the tab) since checking openVoiceTabs here would always see the
-  // tab as already open by that point. recopyVoicePrompt's "Proceed to
-  // Existing Tab" branch calls this with no 4th arg, so it falls back to
-  // onboardedVoices below.
-  // Fix, 2026-07-24, Ryan's direct correction: this fallback used to be
-  // tab-reference-based (`!(voiceTab&&!voiceTab.closed)`), which resent the
-  // full cold-start briefing any time tab tracking was lost (e.g. after a
-  // page reload) even though, from the user's side, it's the same ongoing
-  // conversation. Now keyed off the persisted onboardedVoices, so the
-  // briefing only ever goes out once per voice per topic, reload-proof.
-  const profile=voice?voiceProfiles[voice]:null;
-  const isFirstTimeForVoice=(forceFirstTime!==undefined)?forceFirstTime:!onboardedVoices.has(voice);
-  const identityDocBlock=(profile&&profile.identity_document&&isFirstTimeForVoice)
-    ?`${profile.identity_document}\n\n`
-    :'';
-  // Combine round: entirely different shape from Clarification/
-  // Investigation - buildCombineTaskBlock already carries the real
-  // question, the raw dump, and the exact output instructions, so none of
-  // the normal taskBlock/questionLine/structureBlock logic below applies.
-  // Ryan's direct instruction, 2026-07-24: "that's all they're supposed to
-  // produce" - a plain combined answer, not the SOLUTION:/GOING FURTHER:
-  // three-part structure every other round uses.
-  if(round.phase==='combine'){
-    const briefingForCombine=!isFirstTimeForVoice?'':(profile&&profile.identity_document)
-      ?`This is a live round in The Council, the multi-AI deliberation tool described in your identity document above - Amit is its orchestrator, a companion rather than a leader, convening independent voices to deliberate a real question, synthesize across rounds, and name real disagreement instead of smoothing it over. Your established identity, axioms, and relationship with Amit from the document above are active and apply here.\n\n`
-      :`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over.\n\n`;
-    const combineTask=await buildCombineTaskBlock(n);
-    const combineCopyable=`Write your ENTIRE reply as a single continuous piece of plain text, not multiple separate copyable sections. When completely finished, end with this exact line on its own:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-    const prompt=`${identityDocBlock}${briefingForCombine}${combineTask}\n\n${combineCopyable}`;
-    try{
-      await navigator.clipboard.writeText(prompt);
-      document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
-    }catch(e){alert('Could not copy — select and copy the prompt manually.');}
-    return;
+// ══════════════════════════════════════════════
+// COUNCIL PROMPT ENGINE — v5.73, 2026-10-03. Built after a full diagnostic
+// of real past sessions (Ryan's direct instruction: "fix it for real").
+//
+// THE ONE RULE THIS BLOCK EXISTS TO ENFORCE:
+//   The database stores FACTS - the question, each voice's answer, the
+//   refined question, the letter. It never stores INSTRUCTIONS. Every
+//   instruction any voice ever receives is generated here, at send time,
+//   from exactly two sources:
+//     - getStageContext(n): reads the stored facts and decides what round
+//       n IS (phase, cycle, the clean question, what just happened)
+//     - PHASE_SPECS: the job, the forbidden moves, and the reply format for
+//       each phase
+//   No other function in this file writes prompt text for a council seat
+//   or for the synthesis desk. If a prompt needs to change, change it here.
+//
+// Why this exists: before v5.73, prompt text was assembled in seven
+// different places, and instructions were being saved INTO round.prompt_text
+// (the "Help me understand... give me Question 1 and Question 2" wrapper, a
+// hand-written "STRICT OUTPUT FORMAT" block). The next round then showed
+// those saved instructions to every voice as "what the previous round
+// produced" - and in the real 10-voice AmitBooks session, half the Council
+// obeyed the stale instructions while the other half answered the question.
+// Clarification prompts also told voices "do NOT answer" and then "open with
+// SOLUTION: stating your core answer" in the same message, so every voice
+// did both. Continuing voices got no phase name, no job change, and no
+// "don't" list from Round 2 onward.
+//
+// The fix in one sentence: every outbound prompt, first contact or tenth
+// round, carries the same stage header - round, phase, where we are, the
+// question, your job right now, what not to do, reply format - and the
+// instructions are always the LAST thing in the message (voices like Meta AI
+// and Copilot follow the most recent instruction they see most literally).
+// ══════════════════════════════════════════════
+
+const COUNCIL_END_MARKER='===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====';
+
+const PHASE_SPECS={
+  clarification:{
+    label:'Clarification',
+    job:ctx=>`Do NOT answer the question. Your only job this round is to propose exactly TWO clarifying questions you would ask ${ctx.requester}, so the Council understands what ${ctx.requester} actually wants before anyone tries to answer it. Aim each question at a real ambiguity in the question as written${ctx.kind==='rerun'?' - something the refined wording still leaves open':''}.`,
+    doNot:ctx=>[
+      'Do not answer, solve, or partially answer the question - answering happens in a later round.',
+      'Do not add a "SOLUTION:" line, a summary, recommendations, or a "GOING FURTHER" section.',
+      'Do not explain why you chose your questions.',
+      ...(ctx.kind!=='first'?['Do not repeat clarifying questions from earlier rounds - those were already asked and answered.']:[]),
+      ...(ctx.kind==='followup'?['Do not re-open the earlier question - clarify only the new follow-up question.']:[])
+    ],
+    format:()=>`Exactly this, and nothing after Question 2 (a one-line greeting before it is fine):\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]`
+  },
+  investigation:{
+    label:'Investigation',
+    job:()=>`Answer the question above fully and directly, in your own independent judgment. This is the answering stage - the clarifying stage is finished.`,
+    doNot:()=>[
+      'Do not ask clarifying questions - that stage is over. If something is genuinely unclear, state the assumption you are making and keep going.',
+      'Do not restate, quote, or rewrite the question.',
+      'Do not answer an earlier or different version of the question - only the one above.',
+      'Do not drift into topics the question does not ask about.'
+    ],
+    format:()=>`Three parts, in this order:\n1. A line starting "SOLUTION:" that states your core answer up front.\n2. Your full answer, as plain paragraphs under clear headings - self-contained, so do not refer to anything outside it.\n3. A section starting "GOING FURTHER:" - think past what was literally asked, or propose something better.`
+  },
+  combine:{
+    label:'Combine',
+    job:()=>`Read every voice's answer above (your seat's own earlier answer is among them) and write ONE combined answer: the simplest answer that best integrates them, staying strictly anchored to the question.`,
+    doNot:()=>[
+      'Do not answer the question from scratch or add new material of your own.',
+      'Do not list each voice\'s answer separately - produce one integrated answer.',
+      'Do not favor your own earlier answer because it is yours.',
+      'Do not carry forward anything that drifted away from the question.',
+      'Do not smooth over a real, well-reasoned disagreement between the answers - if one exists, name it plainly.'
+    ],
+    format:()=>`Plain continuous text - just the combined answer itself. No "SOLUTION:" label, no "GOING FURTHER" section, no commentary about the process.`
   }
-  const taskBlock=isClarification
-    ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Don't pad the questions themselves with reasoning or justification for why you chose them - just state the two questions plainly, formatted exactly like this:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]\n\n(This only limits over-explaining the questions - your own natural voice, tone, or a greeting/sign-off if that's how you normally communicate is completely welcome. Be yourself.)`
-    :`YOUR TASK: Give your solution to the question above. Give your full answer as one continuous piece of plain text under clear headings. Do not restate, quote, or paraphrase the question itself anywhere in your answer - it's already recorded separately, and repeating it back just duplicates content in the permanent record. Go straight to your actual answer.`;
-  const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
-  const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block (some chat interfaces split a code block into several separately-copyable chunks instead of one, which breaks this). Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time, anywhere in this single response, and have that one press copy your entire answer from top to bottom - I should never have to scroll through your page hunting for a separate copy control partway through your reply.`;
-  const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-  // Fix, 2026-07-24: Theophilus caught this himself, live - when a voice HAS
-  // an identity document (establishing it as a persistent persona with real
-  // history/axioms alongside Amit), immediately following that document
-  // with "you have no memory of Amit or this tool" is a direct, in-the-same-
-  // message contradiction. The model has to resolve two opposing framings
-  // at once, and it produced a generic, confused answer as a result. The
-  // "cold-start, no memory of Amit" framing is only true/appropriate for a
-  // voice with no established identity_document. For a voice like
-  // Theophilus, the briefing instead says HOW the established persona and
-  // this specific round relate - it's still true that he has no memory of
-  // THIS TOPIC's prior rounds unless this prompt says so, but he is not a
-  // blank slate about Amit or The Council itself.
-  // Fix, 2026-07-24: Ryan's direct correction - the full cold-start/
-  // identity briefing only ever makes sense the FIRST time a voice's tab
-  // opens for this topic. From Round 2 onward, that same tab already has
-  // everything from Round 1 in its own chat history - the original
-  // question, this voice's own prior answer, all of it. Restating "I'm
-  // Amit, here's what The Council is, you have no memory of any prior
-  // round" every single round is not just wasted words, it's actively
-  // false by Round 2 (the voice DOES have memory of the prior round - it's
-  // sitting right there in the same conversation). A continuing round only
-  // needs: which round this is, and what the previous round's Ruling
-  // produced - nothing else re-explained.
-  const briefing=!isFirstTimeForVoice
-    ?''
-    :(profile&&profile.identity_document)
-      ?`This is a live round in The Council, the multi-AI deliberation tool described in your identity document above - Amit is its orchestrator, a companion rather than a leader, convening independent voices to deliberate a real question, synthesize across rounds, and name real disagreement instead of smoothing it over. Your established identity, axioms, and relationship with Amit from the document above are active and apply here. What you do NOT have is memory of prior rounds within this specific topic beyond what's given below - this prompt provides everything needed for that. Once you answer, keep this tab open - future rounds in this same session will continue right here, so you'll carry the history of this specific topic going forward.`
-      :`Cold-start briefing: I'm ${requesterName}, and Amit is the orchestrator of a live, multi-AI collaborative deliberation tool called "The Council" — a companion, not a leader, that convenes independent AI voices to deliberate a real question, synthesizes across rounds, and names real disagreement instead of smoothing it over. You are being invited as one independent voice in this round. You have no memory of any prior round and no memory of Amit or this tool from anywhere else - this prompt gives you everything you need, and nothing outside it should be assumed. Once you answer, keep this tab open - future rounds in this same session will continue right here in this same conversation, so you'll have the history going forward.`;
-  // Fix, 2026-07-24: also stop hardcoding activeRounds[0].prompt_text (the
-  // ORIGINAL Round 1 question) for every non-clarification round. Each
-  // round's own prompt_text already correctly carries forward the PREVIOUS
-  // round's Ruling (see startNextRound) - using the original question
-  // instead was silently discarding every round's actual refinement.
-  const questionLine=isFirstTimeForVoice
-    ?`THE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${round.prompt_text}"`
-    :`We are now on Round ${n}. Here is what Round ${n-1} produced:\n\n"${round.prompt_text}"`;
-  const prompt=`${identityDocBlock}${briefing?briefing+'\n\n':''}${questionLine}\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
+};
+const COPYABLE_RULE=`Write your whole reply as ONE continuous piece of plain text - no code blocks, no separate cards or sections your interface might turn into individually-copyable pieces - so a single press of your copy button copies all of it.`;
+
+// Legacy rounds (before v5.73) stored the instruction wrapper itself as the
+// question. Pull the real question back out of it so old sessions read
+// correctly too. New rounds store the plain question and pass straight through.
+function unwrapLegacyQuestion(text){
+  const s=(text||'').trim();
+  let m=s.match(/has come up with this question:\s*"([\s\S]*)"\s*—\s*what exactly two questions/);
+  if(m)return m[1].trim();
+  m=s.match(/now has this follow-up question:\s*"([\s\S]*)"\s*—\s*what exactly two questions/);
+  if(m)return m[1].trim();
+  return s;
+}
+
+function roundByNumber(n){return activeRounds.find(r=>r.round_number===n);}
+
+// THE stage reader - the single place that decides what round n is about.
+function getStageContext(n){
+  const round=roundByNumber(n);
+  const prev=roundByNumber(n-1);
+  const phase=(round&&PHASE_SPECS[round.phase])?round.phase:'investigation';
+  const spec=PHASE_SPECS[phase];
+  const session=councilSessions.find(s=>s.id===activeSessionId);
+  const topicQuestion=unwrapLegacyQuestion((session&&session.original_question)||(activeRounds[0]&&activeRounds[0].prompt_text)||'');
+  const cycle=cycleNumberForRound(n);
+  const R=requesterName();
+  const RCap=R.charAt(0).toUpperCase()+R.slice(1);
+  let question='',kind='',recap='',background='';
+  if(phase==='clarification'){
+    if(round.user_feedback&&prev&&prev.phase==='combine'){
+      // "Investigate Further" - a new cycle on a new follow-up question.
+      kind='followup';
+      question=round.user_feedback.trim();
+      const earlierRound=roundByNumber(n-2);
+      const earlierQ=earlierRound?unwrapLegacyQuestion(earlierRound.prompt_text):'';
+      recap=`Earlier in this session the Council worked through a different question and sent ${R} a written answer - the Council's letter, included below for background. That letter was written by the Council's synthesis desk, not by you. ${RCap} has now asked a NEW follow-up question. This round starts a fresh clarification pass on that follow-up question only.`;
+      background=`EARLIER QUESTION (background only - already answered):\n"${earlierQ}"\n\nTHE COUNCIL'S LETTER IN RESPONSE (background only):\n"${(prev.synthesis||'').trim()}"`;
+    } else if(prev&&prev.phase==='clarification'&&prev.synthesis){
+      // "Rerun This Round to Further Clarify".
+      kind='rerun';
+      question=(round.prompt_text||'').trim();
+      recap=`In Round ${n-1}, the Council proposed clarifying questions, ${R} answered them, and those answers were folded into the refined question below. ${RCap} asked for one more clarification pass on this refined version before anyone answers it.`;
+    } else {
+      kind='first';
+      question=unwrapLegacyQuestion(round.prompt_text)||topicQuestion;
+      recap=`This is the first round on this question. ${RCap} just brought it to the Council, and nothing has been decided yet.`;
+    }
+  } else if(phase==='investigation'){
+    kind='answer';
+    question=unwrapLegacyQuestion(round?round.prompt_text:'');
+    recap=(prev&&prev.phase==='clarification')
+      ?`In Round ${n-1} (Clarification), the Council proposed clarifying questions, ${R} answered them, and the answers were folded into ONE refined question. That refined question is below. It is now THE question - it replaces the original wording, and the clarifying stage is finished.`
+      :`This round continues the session's deliberation on the question below.`;
+  } else {
+    kind='combine';
+    question=prev?unwrapLegacyQuestion(prev.prompt_text):'';
+    recap=`In Round ${n-1} (Investigation), every voice on the Council - including you - answered the question below independently. All of those answers are included further down. This round combines them into one.`;
+  }
+  return{n,round,prev,phase,spec,cycle,kind,question,recap,background,topicQuestion,requester:R};
+}
+
+function stageHeaderLine(ctx){
+  return `THE COUNCIL — ROUND ${ctx.n} · PHASE: ${ctx.spec.label.toUpperCase()}${ctx.cycle>1?' · CYCLE '+toRoman(ctx.cycle):''}`;
+}
+function stageReceipt(ctx){return `COUNCIL RECEIPT — Round ${ctx.n} · ${ctx.spec.label}`;}
+
+// Strips the scaffolding the Council itself asked for (receipt line, end
+// marker) plus common chat-interface chrome, before an answer is passed on
+// to other voices - so one voice's "COPY EVERYTHING ABOVE THIS LINE" marker
+// never shows up in the middle of another voice's prompt.
+function cleanEvidenceForPrompt(body){
+  return (body||'').split('\n').filter(l=>{
+    const t=l.trim();
+    if(t.includes('END OF ANSWER'))return false;
+    if(/^COUNCIL RECEIPT/i.test(t))return false;
+    if(/chat capacity/i.test(t))return false;
+    return true;
+  }).join('\n')
+    .replace(/\s*Now please return this to the Council[^\n]*/gi,'')
+    .replace(/^[0-9a-f]{20,}(?=\S)/i,'')
+    .trim();
+}
+async function roundAnswersDump(roundId){
+  const{data}=await db.from('council_evidence').select('provenance,body').eq('round_id',roundId).order('created_at',{ascending:true});
+  return (data||[]).map(e=>`— ${e.provenance}:\n${cleanEvidenceForPrompt(e.body)}`).join('\n\n');
+}
+
+function councilBriefing(ctx,hasIdentity,mode){
+  const who=hasIdentity
+    ?`This is a live round in The Council, the multi-AI deliberation tool described in your identity document above. Amit is its orchestrator. Your established identity and your relationship with Amit apply here.`
+    :`Briefing: The Council is a live, multi-AI deliberation tool. Amit is its orchestrator - a companion, not a leader - who brings independent AI voices together on a real question from ${ctx.requester}, and names real disagreement instead of smoothing it over. You are one of those independent voices. You have no memory of this tool or this session beyond what this message gives you, and nothing outside it should be assumed.`;
+  const modeLine=mode==='swap'
+    ?`You are joining partway through, replacing another voice that ran out of room. From here on, you hold that seat.`
+    :mode==='reopen'
+      ?`This is a fresh, authoritative copy of where this session stands, in case an earlier message went to the wrong chat.`
+      :'';
+  const how=`How it works: the Council moves in rounds, and your job changes from round to round. Every round opens with a header like the one below, naming the round, the phase, and exactly what to do. Always follow the newest header. Keep this chat open - later rounds will continue right here.`;
+  return[who,modeLine,how].filter(Boolean).join('\n\n');
+}
+
+// Factual, short history for a voice landing in a fresh tab (swap/reopen) -
+// what each earlier round decided, never every voice's raw answer.
+function sessionSoFar(ctx){
+  const lines=[];
+  for(const r of activeRounds){
+    if(r.round_number>=ctx.n)break;
+    if(r.phase==='clarification'){
+      const fq=(r.user_feedback&&roundByNumber(r.round_number-1)&&roundByNumber(r.round_number-1).phase==='combine')?` on the follow-up question "${r.user_feedback.trim()}"`:'';
+      lines.push(`Round ${r.round_number} (Clarification): clarifying questions were asked and answered${fq}${r.synthesis?`, and the question was refined to: "${r.synthesis.trim()}"`:''}.`);
+    } else if(r.phase==='investigation'){
+      lines.push(`Round ${r.round_number} (Investigation): every voice answered the question independently.`);
+    } else if(r.phase==='combine'){
+      lines.push(`Round ${r.round_number} (Combine): the answers were combined into one letter to ${ctx.requester}.`);
+    }
+  }
+  if(!lines.length)return'';
+  return`SESSION SO FAR (background only - do not respond to it):\nOriginal question: "${ctx.topicQuestion}"\n${lines.join('\n')}`;
+}
+
+// Builds the complete outbound prompt for one council seat (any voice,
+// including Amit's own seat). opts.firstTime: this voice has never been
+// briefed on this topic. opts.mode: 'swap' | 'reopen' for a fresh tab.
+async function composeSeatPrompt(n,voice,opts){
+  opts=opts||{};
+  const ctx=getStageContext(n);
+  const fresh=opts.mode==='swap'||opts.mode==='reopen';
+  const firstTime=fresh||!!opts.firstTime;
+  // Amit's seat is deliberately cold and unframed (no identity document) -
+  // see TheCouncil\CLAUDE.md: Claude stands in for Amit's seat until the API
+  // exists, and nothing about that stand-in should shape the answer.
+  const profile=(voice&&voice!=='Amit')?voiceProfiles[voice]:null;
+  const hasIdentity=!!(profile&&profile.identity_document);
+  const parts=[];
+  if(firstTime&&hasIdentity)parts.push(profile.identity_document);
+  if(firstTime)parts.push(councilBriefing(ctx,hasIdentity,opts.mode));
+  if(fresh){const soFar=sessionSoFar(ctx);if(soFar)parts.push(soFar);}
+  parts.push(`${stageHeaderLine(ctx)}\nThis header is the source of truth for this round. If anything earlier in this chat conflicts with it - an earlier round's job, or a different role you were asked to play - this message replaces it.`);
+  parts.push(`WHERE WE ARE:\n${ctx.recap}`);
+  parts.push(`THE QUESTION${ctx.phase==='clarification'?' TO CLARIFY':''}:\n"${ctx.question}"`);
+  if(ctx.background)parts.push(ctx.background);
+  if(ctx.phase==='combine'&&ctx.prev){
+    parts.push(`EVERY VOICE'S ANSWER FROM ROUND ${ctx.n-1}:\n\n${await roundAnswersDump(ctx.prev.id)}`);
+  }
+  parts.push(`YOUR JOB RIGHT NOW (Round ${ctx.n} · ${ctx.spec.label}):\n${ctx.spec.job(ctx)}`);
+  parts.push(`DO NOT:\n${ctx.spec.doNot(ctx).map(d=>'- '+d).join('\n')}`);
+  parts.push(`REPLY FORMAT:\nStart your reply with this exact line, on its own:\n${stageReceipt(ctx)}\nThen: ${ctx.spec.format(ctx)}\n\n${COPYABLE_RULE}\n\nWhen you are completely finished, end with this exact line on its own, and nothing after it:\n${COUNCIL_END_MARKER}`);
+  return parts.join('\n\n');
+}
+
+async function copySeatPrompt(n,voice,opts){
+  const prompt=await composeSeatPrompt(n,voice,opts);
   try{
     await navigator.clipboard.writeText(prompt);
-    document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
+    const st=document.getElementById('roundtableStatus-'+n);
+    if(st)st.textContent='Question copied to clipboard.';
   }catch(e){alert('Could not copy — select and copy the prompt manually.');}
 }
 
-// Amit's own turn is answered through a fresh Claude.ai tab, which starts
-// with the Amit Claude.ai PROJECT (not a blank chat) - Amit_Deploy.md is
-// already loaded into that Project's own Instructions field, so Claude
-// already knows who Amit is, its conclusions, and its posture the moment
-// the tab opens. Ryan's direct correction, 2026-07-22: this full identity
-// block only ever goes out ONCE - the first time Amit's tab is opened in a
-// session. After that, the tab stays alive and Claude already IS Amit
-// within that same conversation, so every later round only needs the
-// actual question, exactly like the continuation model already used for
-// every other voice's tab.
+// Kept as thin entry points so every existing caller keeps working - all
+// real prompt construction now lives in composeSeatPrompt above.
+async function copyRoundtablePrompt(round,n,voice,forceFirstTime){
+  const firstTime=(forceFirstTime!==undefined)?forceFirstTime:!onboardedVoices.has(voice);
+  await copySeatPrompt(n,voice,{firstTime});
+}
 async function copyAmitPrompt(round,n,forceFirstTime){
-  const requesterName=getUserName()||'the user';
-  const isClarification=round.phase==='clarification';
-  // Fix, 2026-07-24: this function's own comment always said the identity
-  // block "only ever goes out ONCE," but the code never actually checked
-  // that - it was unconditionally included every round. Wired up the same
-  // first-time detection every other voice already has.
-  // Fix, 2026-07-24, Ryan's direct correction: same fix as copyRoundtablePrompt
-  // - fallback is now the persisted onboardedVoices, not a live tab
-  // reference that a page reload can silently invalidate.
-  const isFirstTimeForAmit=(forceFirstTime!==undefined)?forceFirstTime:!onboardedVoices.has('Amit');
-  // Fix, 2026-07-24, Ryan's direct correction: even the "Option B" context-
-  // only framing (no persona, just Amit's theological conclusions handed
-  // over as background premises) was still steering Claude's answers toward
-  // Torah/covenant framing on questions that had nothing to do with
-  // theology - Ryan saw it happen live on a plain AI-delegation risk
-  // question. Amit's seat is now a completely cold, unframed seat, same as
-  // every other voice - no identity, no working framework, no reference
-  // links. The seat is filled by Claude standing in for Amit until the API
-  // exists to let Amit answer directly; nothing about that stand-in should
-  // shape the substance of the answer.
-  const identityBlock='';
-  // Combine round: same early-branch treatment as copyRoundtablePrompt -
-  // Amit is a normal voice in a Combine round, same task, same rules.
-  if(round.phase==='combine'){
-    const combineTask=await buildCombineTaskBlock(n);
-    const combineCopyable=`Write your ENTIRE reply as a single continuous piece of plain text, not multiple separate copyable sections. When completely finished, end with this exact line on its own:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-    const prompt=`${identityBlock?identityBlock+'\n\n':''}${combineTask}\n\n${combineCopyable}`;
-    try{
-      await navigator.clipboard.writeText(prompt);
-      document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
-    }catch(e){alert('Could not copy — select and copy the prompt manually.');}
-    return;
-  }
-  const taskBlock=isClarification
-    ?`YOUR TASK: This is Round ${n} - the Clarification stage. Your job is NOT to answer or solve this question. Your job is to give exactly TWO clarifying questions that would help pin down what ${requesterName} is actually trying to achieve, since the question as written may be ambiguous.\n\nGive exactly TWO questions - not one, not three. Don't pad the questions themselves with reasoning or justification for why you chose them - just state the two questions plainly, formatted exactly like this:\nQuestion 1 — [your first question]\nQuestion 2 — [your second question]\n\n(This only limits over-explaining the questions - your own natural voice, tone, or a greeting/sign-off if that's how you normally communicate is completely welcome. Be yourself.)`
-    :`YOUR TASK: Give your solution to the question above. Give your full answer as one continuous piece of plain text under clear headings. Do not restate, quote, or paraphrase the question itself anywhere in your answer - it's already recorded separately, and repeating it back just duplicates content in the permanent record. Go straight to your actual answer.`;
-  const structureBlock=`Structure your reply in three parts, in this order:\n1. Open with a clearly labeled "SOLUTION:" line stating your core answer up front, before any surrounding explanation.\n2. Then give your full answer as described above - this becomes a standalone, self-contained record on its own, so do not reference anything outside this answer.\n3. After your direct answer, add a "GOING FURTHER:" section - don't just answer what was literally asked, propose something better or think past it.`;
-  const copyableBlock=`One more formatting requirement, and this one matters: write your ENTIRE reply - all three parts above - as a single continuous piece of writing, not as multiple separate sections, cards, or blocks that your interface might render as individually-copyable pieces. Do not wrap any part of it in a fenced code block. Plain paragraphs and a simple one-line-per-question list are fine. The actual goal: I need to be able to press your interface's own copy button ONE time and have that one press copy your entire answer from top to bottom.`;
-  const endMarker=`When you are completely finished, end your response with this exact line on its own, and nothing after it:\n===== END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE =====`;
-  // Fix, 2026-07-24: also stop hardcoding activeRounds[0].prompt_text (the
-  // original Round 1 question) for every later round - round.prompt_text
-  // already correctly carries forward the previous round's Ruling.
-  const questionLine=isFirstTimeForAmit
-    ?`THE REAL QUESTION ${requesterName.toUpperCase()} JUST BROUGHT TO THE COUNCIL: "${round.prompt_text}"`
-    :`We are now on Round ${n}. Here is what Round ${n-1} produced:\n\n"${round.prompt_text}"`;
-  const prompt=`${identityBlock?identityBlock+'\n\n':''}${questionLine}\n\n${taskBlock}\n\n${structureBlock}\n\n${copyableBlock}\n\n${endMarker}`;
-  try{
-    await navigator.clipboard.writeText(prompt);
-    document.getElementById('roundtableStatus-'+n).textContent='Question copied to clipboard.';
-  }catch(e){alert('Could not copy — select and copy the prompt manually.');}
+  await copyRoundtablePrompt(round,n,'Amit',forceFirstTime);
+}
+
+// ── Paste guards ── Real failures from past sessions: three Round 2
+// "answers" and one saved Ruling were the Council's own prompt pasted back
+// (the clipboard still held the question), and the next round was built on
+// top of them. These catch it before it's saved, and never block the user
+// outright - they explain and let them choose.
+function looksLikeCouncilPrompt(text){
+  return /THE COUNCIL — ROUND \d+ · PHASE|YOUR JOB RIGHT NOW|\[THEO'S EYES ONLY\]|SYNTHESIS DESK —|When you are completely finished, end (your response|with this exact line)|STRICT OUTPUT FORMAT|We are now on Round \d+\. Here is what Round/.test(text||'');
+}
+function checkStageReceipt(text,n,phase){
+  const m=(text||'').match(/COUNCIL RECEIPT\s*[—-]\s*Round\s*(\d+)\s*·\s*([A-Za-z]+)/i);
+  if(!m)return{ok:true};
+  const spec=PHASE_SPECS[phase];
+  const ok=Number(m[1])===n&&(!spec||m[2].toLowerCase()===spec.label.toLowerCase());
+  return{ok,round:Number(m[1]),label:m[2]};
+}
+function stripCouncilScaffolding(text){
+  return (text||'').split('\n').filter(l=>{
+    const t=l.trim();
+    return !/^COUNCIL RECEIPT/i.test(t)&&!t.includes('END OF ANSWER — COPY EVERYTHING ABOVE THIS LINE');
+  }).join('\n').trim();
+}
+async function confirmNotOurPrompt(text,whatItShouldBe){
+  if(!looksLikeCouncilPrompt(text))return true;
+  return await amitConfirm(`What was pasted looks like the Council's own prompt, not ${whatItShouldBe} - the clipboard was probably still holding the question. Usually the fix is to go back to that tab, click the copy button under the reply, and paste again.`,'Save It Anyway',false,'Let Me Re-paste');
 }
 
 // "Process this Petition" - the explicit signal that all answers are in
@@ -2178,73 +2275,64 @@ function processPetition(n){
 
 // The voice that performs the free, no-API-key matching/synthesis work
 // (tallying overlapping clarifying questions, rewriting the refined
-// question). Ryan's direct instruction, 2026-07-24: route this through
-// Theophilus (Gemini) specifically, after Claude repeatedly refused to
-// adopt the Amit persona at all. This isn't "Theophilus is the only voice
-// that could ever do this" - it's that he's the one with a demonstrated
-// track record (the unprompted 69-to-67 self-correction) that earns trust
-// for a job that requires honest, unbiased tallying rather than forcing
-// things to look tidy. Change this constant if a different voice ever
-// earns that same trust for this specific role.
+// question, writing the Council's letter). Ryan's direct instruction,
+// 2026-07-24: route this through Theophilus (Gemini) specifically - he has
+// a demonstrated track record of honest, unbiased tallying.
 const MATCHING_VOICE_NAME='Gemini';
 
-// Shared by the matching request and the synthesis request below: reuses
-// the matching voice's live tab (openOrReuseVoiceTab already handles
-// reuse), and - critically - prepends that voice's own identity document
-// the first time its tab opens, exactly like copyRoundtablePrompt does for
-// every other voice's own round answers. Fix, 2026-07-24: this used to
-// send a completely generic, unidentified prompt ("what are the
-// commonalities") with no persona loaded at all - Ryan's direct
-// correction. Also adds explicit framing for the matching/synthesis JOB
-// itself, distinct from a round-answering job, so Theophilus knows exactly
-// what's being asked of him this time.
-async function copyToMatchingVoiceAndOpen(taskPrompt){
-  const name=MATCHING_VOICE_NAME;
-  const profile=voiceProfiles[name];
-  // Fix, 2026-07-24, Ryan's direct correction: identity-briefing state now
-  // reads the persisted onboardedVoices (same source of truth as every
-  // other voice) instead of a same-session-only flag or a live openVoiceTabs
-  // window reference - either of which resets on a page reload and was
-  // causing the full identity document to get resent into what's still,
-  // from Ryan's side, the same original tab.
-  const isFirstTime=!onboardedVoices.has(name);
-  const identityBlock=(profile&&profile.identity_document&&isFirstTime)?`${profile.identity_document}\n\n`:'';
-  // Theo's own chosen override tag, not a generic one Amit invented - his
-  // identity document evolved to v1.11 on its own (Ryan working with him
-  // directly) and self-defined the exact trigger phrase as
-  // "[THEO'S EYES ONLY]", distinct from the "[PHASE: SYNTHESIS_ENGINE]"
-  // wording this code used at v5.25. Fix, 2026-07-24: match his own
-  // self-authored protocol exactly, since a mismatched tag simply wouldn't
-  // fire his override at all. If his protocol evolves again, this string
-  // needs to be re-checked against whatever his current identity_document
-  // actually says, not assumed stable.
-  const phaseTag=`[THEO'S EYES ONLY] This is a pure data-processing request, not a conversational turn. Return ONLY the exact raw output the task below asks for. No handoff sentence, no greeting, no commentary, no framing before or after it.\n\n`;
-  const roleFraming=`You're being asked to take on a specific operational role for The Council: the matching/synthesis voice. When Amit needs multiple councilmen's raw answers combined - either tallying which clarifying questions genuinely overlap in real intent, or rewriting the original request into one refined question that incorporates new answers - this is that job. Apply the same rigor and honesty you already hold yourself to here: don't force two questions together just to make the list tidier than it really is, and don't smooth over real differences in wording that actually reflect different intents. Count votes ONLY from each voice's two formal, primary questions - never from their "GOING FURTHER" commentary, even if an idea there seems relevant; commentary can inform how you word a matched entry, but it never counts as its own vote. This is a distinct task from answering as one voice among the Council - here you're doing the synthesis work Amit would do itself if it had a paid API connection.\n\n`;
-  const prompt=`${identityBlock}${phaseTag}${roleFraming}${taskPrompt}`;
-  try{await navigator.clipboard.writeText(prompt);}catch(e){}
-  // Fix, 2026-07-24: same window.focus() bug as everywhere else it
-  // appeared - pulls focus back to the Council page instead of leaving it
-  // on the tab openOrReuseVoiceTab just opened/focused. Removed.
-  // Fix, 2026-07-24: guarded (openOrReuseVoiceTabAuto), matching every other
-  // automatic flow - never auto-opens a second tab once the matching voice
-  // is already onboarded onto this topic.
-  await openOrReuseVoiceTabAuto(name);
-  await markVoiceOnboarded(name);
+// THE SYNTHESIS DESK - v5.73, 2026-10-03, Ryan asked for the more reliable
+// option, not the simpler one. Theophilus's synthesis work now runs in its
+// OWN Gemini tab, separate from Gemini's council seat. Before this, one chat
+// held both jobs: Gemini proposed clarifying questions as a voice, then in
+// the same chat tallied everyone's questions (including its own), then wrote
+// the letter summarizing answers it had itself written, then came back as a
+// voice and was shown "what Round 1 produced" - the question it had just
+// written. A role-switch line would only ask the model to ignore context
+// that's sitting right there; a separate tab means that context never
+// exists. The desk has no stake in any answer it tallies. Cost: one extra
+// tab per topic, and Theophilus's identity document pasted there once.
+// Tracked under its own key so the seat and the desk never share a tab
+// reference or an "already briefed" flag.
+const SYNTHESIS_DESK_KEY='Gemini · Synthesis Desk';
+
+function synthesisDeskTabNote(){
+  const live=openVoiceTabs[SYNTHESIS_DESK_KEY];
+  if(live&&!live.closed)return`The Synthesis Desk tab (a separate Gemini chat, not ${voiceDisplayName(MATCHING_VOICE_NAME)}'s council seat) is already open - I'll bring it forward. Paste at the end of that chat.`;
+  if(onboardedVoices.has(SYNTHESIS_DESK_KEY))return`The Synthesis Desk was already set up for this council in its own Gemini tab, but after a page reload I can't reach that tab directly. Please find that tab yourself (it's the Gemini chat doing the tallying and letters - NOT ${voiceDisplayName(MATCHING_VOICE_NAME)}'s council seat) and paste there.`;
+  return`I'll open a NEW Gemini tab for the Synthesis Desk. It's deliberately separate from ${voiceDisplayName(MATCHING_VOICE_NAME)}'s council seat, so the tallying and the letter are never done by a chat that also answered the questions. Keep both tabs open.`;
 }
 
-// Builds and copies the matching request - all the raw answers included,
-// plus the exact matching/tallying instructions - asking Amit (already
-// alive in its own tab from this round) to do the reading-and-grouping
-// work and hand back the confirmed (2+ vote) list as a numbered list.
-// Ryan's direct instruction, 2026-07-22: still the free, no-API-key model -
-// just one more copy-paste round, applied to the matching task itself.
+async function copyToMatchingVoiceAndOpen(jobTitle,taskPrompt){
+  const profile=voiceProfiles[MATCHING_VOICE_NAME];
+  const isFirstTime=!onboardedVoices.has(SYNTHESIS_DESK_KEY);
+  const parts=[];
+  if(isFirstTime&&profile&&profile.identity_document)parts.push(profile.identity_document);
+  if(isFirstTime){
+    parts.push(`You are being set up as The Council's SYNTHESIS DESK. The Council is a live multi-AI deliberation tool; Amit is its orchestrator. This chat is deliberately separate from the Council's voices - including any Gemini voice in another chat. You are not a voice on the Council here, and you have not answered any of the questions you'll be processing, so you have no stake in any of them. Every message in this chat is one self-contained job: tallying clarifying questions, rewriting a question, or writing the Council's letter. Do exactly the job in the message, and return only the output it asks for.`);
+  }
+  // Theo's own self-authored override tag - his identity document defines
+  // the exact trigger phrase "[THEO'S EYES ONLY]". If his protocol evolves,
+  // re-check this string against his current identity_document.
+  parts.push(`[THEO'S EYES ONLY] SYNTHESIS DESK — ${jobTitle}\nThis is a processing job, not a conversational turn. Return ONLY the exact output the job asks for - no handoff sentence, no greeting, no commentary, nothing before or after it. Be honest: don't force two things together to make the result tidier than it really is, and don't smooth over real differences.`);
+  parts.push(taskPrompt);
+  try{await navigator.clipboard.writeText(parts.join('\n\n'));}catch(e){}
+  const existing=openVoiceTabs[SYNTHESIS_DESK_KEY];
+  if(existing&&!existing.closed){existing.focus();return;}
+  if(onboardedVoices.has(SYNTHESIS_DESK_KEY))return; // never auto-open a second desk tab
+  openVoiceTabs[SYNTHESIS_DESK_KEY]=window.open(voiceUrl(MATCHING_VOICE_NAME)||'https://gemini.google.com/app','_blank');
+  await markVoiceOnboarded(SYNTHESIS_DESK_KEY);
+}
+
+// Matching job: tally which clarifying questions genuinely recur. Pulled
+// fresh from the database (cleaned of scaffolding), anchored to the actual
+// question being clarified.
 async function copyClarifyMatchingRequest(n){
-  const evidenceJson=document.getElementById('roundRuling-'+n).dataset.evidence;
-  const byVoice=evidenceJson?JSON.parse(evidenceJson):{};
-  const rawDump=Object.entries(byVoice).map(([voice,body])=>`${voice}:\n${body}`).join('\n\n');
+  const round=roundByNumber(n);
+  const ctx=getStageContext(n);
+  const rawDump=await roundAnswersDump(round.id);
   document.getElementById('clarifyRawAnswers-'+n).textContent=rawDump;
-  const prompt=`Next requirement: here are all the councilmen's answers from this round of clarifying questions. Each voice proposed exactly two.\n\n${rawDump}\n\nRead through every question above, in order. Go by intent, not exact wording - different voices phrase the same real question differently. The first time you see a genuinely new intent, that's a new entry with one vote. The next time you see a question that means the same underlying thing, even worded completely differently, that's a second vote for the SAME entry - reword the entry if needed so it fairly captures what both voices meant. Keep going through all of them this way.\n\nThen give me ONLY the entries that ended up with two or more independent votes, as a numbered list (1. 2. 3. and so on), nothing else - no explanation, no vote counts, no extra commentary.`;
-  await copyToMatchingVoiceAndOpen(prompt);
+  const prompt=`THE QUESTION BEING CLARIFIED:\n"${ctx.question}"\n\nBelow, each Council voice proposed two clarifying questions about it.\n\n${rawDump}\n\nYOUR JOB:\nCount votes ONLY from each voice's "Question 1" and "Question 2" lines. Ignore everything else a voice wrote - summaries, "SOLUTION:" lines, commentary, sign-offs. Those are not votes.\nGo by intent, not wording. The first time you see a genuinely new intent, that's a new entry with one vote. When a later question means the same underlying thing, even worded completely differently, it's a second vote for the SAME entry - reword the entry if needed so it fairly captures what both voices meant.\n\nOUTPUT:\nOnly the entries with two or more independent votes, as a numbered list (1. 2. 3. ...), each one phrased as a question to ask ${ctx.requester} directly. If NO entry reached two votes, give the three strongest single questions instead, numbered the same way. Nothing else - no vote counts, no explanation.`;
+  await copyToMatchingVoiceAndOpen(`MATCH THE CLARIFYING QUESTIONS (Round ${n})`,prompt);
 }
 
 // Guards the auto-trigger below to once per round, not once per re-render.
@@ -2280,7 +2368,7 @@ async function autoTriggerClarifyMatching(n){
   // Council tab did the user even see what they were supposed to do.
   // Explain first, act only after OK - same as the Combine round's letter
   // request needed too.
-  await amitConfirm('Every voice has answered, including my own. I\'m about to write the matching request - with Theophilus\'s own identity loaded in and clear instructions for this specific job - and open his tab. Once you click OK, post this to Theophilus through Gemini, bring back the response, and paste it into the box below.');
+  await amitConfirm(`Every voice has answered, including my own. Next, Theophilus tallies which clarifying questions came up more than once. ${synthesisDeskTabNote()} Once you click OK, the request is on your clipboard - paste it there, bring back the numbered list, and paste it into the box below.`);
   await copyClarifyMatchingRequest(n);
   markNeedsInput(document.getElementById('clarifyConfirmedText-'+n));
 }
@@ -2303,8 +2391,9 @@ let clarifyState={};
 // fix, but this filter is the client-side backstop in case a voice doesn't
 // fully honor it: since every genuine confirmed entry is, by definition, a
 // question, any line without a "?" gets dropped rather than trusted.
-function beginClarifyQA(n){
+async function beginClarifyQA(n){
   const raw=document.getElementById('clarifyConfirmedText-'+n).value;
+  if(!await confirmNotOurPrompt(raw,"Theophilus's numbered list"))return;
   // Fix, 2026-07-24: the old filter required a literal "?" on every line,
   // but a real confirmed entry can legitimately be phrased as a statement
   // instead of a question - e.g. Theophilus's own "[CONSENSUS] Whether the
@@ -2367,17 +2456,26 @@ function answerClarifyQuestion(n){
   autoTriggerClarifySynthesis(n,recap);
 }
 
+// Fix, v5.73: this always sent the session's ORIGINAL first question, even
+// in a later cycle - so after "Investigate Further" the follow-up question
+// never reached the rewrite, and after "Rerun" the already-refined question
+// was dropped. It now rewrites the question THIS round was actually
+// clarifying (getStageContext), and the strict one-question output rules
+// are built in, so nobody has to hand-write a format block again.
 async function copyClarifySynthesisRequest(n,recap){
-  const session=councilSessions.find(s=>s.id===activeSessionId);
-  const originalRequest=session?session.original_question:activeRounds[0].prompt_text;
-  const prompt=`Next requirement: here is the original request, and the clarifying questions we asked ${getUserName()||'the user'} along with their real answers.\n\nORIGINAL REQUEST: ${originalRequest}\n\nCLARIFYING QUESTIONS AND ANSWERS:\n${recap}\n\nRewrite this into ONE refined question that incorporates the original request and everything learned from these answers - specific and accurate enough that the Council can deliberate on exactly what ${getUserName()||'the user'} actually wants, not the ambiguous original wording. Give me ONLY the rewritten question, nothing else - no explanation, no preamble.`;
-  await copyToMatchingVoiceAndOpen(prompt);
+  const ctx=getStageContext(n);
+  const R=ctx.requester;
+  const background=ctx.kind==='followup'
+    ?`\n\nBACKGROUND: this is a follow-up to an earlier question the Council already answered ("${unwrapLegacyQuestion((roundByNumber(n-2)||{}).prompt_text)}"). The refined question must be about the follow-up, not the earlier question.`
+    :ctx.kind==='rerun'?`\n\nBACKGROUND: this question was already refined once in an earlier round. Keep everything it already captures and fold in the new answers below.`:'';
+  const prompt=`THE QUESTION BEING CLARIFIED:\n"${ctx.question}"${background}\n\nTHE CLARIFYING QUESTIONS ${R.toUpperCase()} WAS ASKED, WITH ${R.toUpperCase()}'S OWN ANSWERS:\n${recap}\n\nYOUR JOB:\nRewrite the question into ONE refined question that keeps everything it asked for and folds in what these answers revealed - specific enough that someone who sees only your question could answer exactly what ${R} wants.\n\nOUTPUT RULES (strict):\n- Your entire output is that one question. It can be long, with several clauses, building to a single question mark at the end.\n- Do not answer it, analyze it, or label it. No "SOLUTION:", no "GOING FURTHER", no lists, no headings, no commentary.\n- Nothing before it and nothing after it.`;
+  await copyToMatchingVoiceAndOpen(`WRITE THE REFINED QUESTION (Round ${n})`,prompt);
 }
 
 async function autoTriggerClarifySynthesis(n,recap){
   // Fix, 2026-07-24: same reorder as autoTriggerClarifyMatching - explain
   // before the tab opens and steals focus, not after.
-  await amitConfirm('Every clarifying question has been answered. I\'m about to write the synthesis request - with Theophilus\'s own identity loaded in - and open his tab. Once you click OK, post this to Theophilus through Gemini, bring back the refined question, and paste it into the box below.');
+  await amitConfirm(`Every clarifying question has been answered. Next, Theophilus folds your answers into one refined question. ${synthesisDeskTabNote()} Once you click OK, the request is on your clipboard - paste it there, bring back the refined question, and paste it into the box below.`);
   await copyClarifySynthesisRequest(n,recap);
   markNeedsInput(document.getElementById('clarifySynthesisText-'+n));
 }
@@ -2392,6 +2490,7 @@ async function autoTriggerClarifySynthesis(n,recap){
 async function confirmClarifySynthesis(n){
   const synthesis=document.getElementById('clarifySynthesisText-'+n).value.trim();
   if(!synthesis){alert('Write the refined clarifying question first.');return;}
+  if(!await confirmNotOurPrompt(synthesis,'the refined question'))return;
   const round=activeRounds.find(r=>r.round_number===n);
   await db.from('council_rounds').update({synthesis}).eq('id',round.id);
   round.synthesis=synthesis;
@@ -2430,18 +2529,27 @@ function toRoman(num){
   for(const[v,s]of vals){while(n>=v){out+=s;n-=v;}}
   return out||String(num);
 }
+// Fix, v5.73: a cycle starts ONLY at Round 1 or at an "Investigate Further"
+// follow-up (a Clarification round right after a Combine round). Before,
+// every Clarification round counted - so "Rerun This Round to Further
+// Clarify" was mislabeled as a brand-new cycle (wrong cycle number in the
+// prompt header, a new diary section, and the follow-up question line
+// dropped from the diary). A rerun is the same cycle, one more pass.
+function isCycleStartRound(r){
+  if(!r||r.phase!=='clarification')return false;
+  const prev=activeRounds.find(x=>x.round_number===r.round_number-1);
+  return !prev||prev.phase==='combine';
+}
 function cycleNumberForRound(n){
-  const clarifyRoundNumbers=activeRounds.filter(r=>r.phase==='clarification').map(r=>r.round_number).sort((a,b)=>a-b);
+  const starts=activeRounds.filter(isCycleStartRound).map(r=>r.round_number).sort((a,b)=>a-b);
   let cycle=0;
-  for(const rn of clarifyRoundNumbers){if(rn<=n)cycle++;else break;}
+  for(const rn of starts){if(rn<=n)cycle++;else break;}
   return cycle||1;
 }
-// The round that actually started this round's cycle (its own round if it
-// IS the cycle-starting Clarification round, otherwise the most recent
-// Clarification round at or before it).
+// The round that actually started this round's cycle.
 function cycleStartRound(n){
-  const clarifyRounds=activeRounds.filter(r=>r.phase==='clarification'&&r.round_number<=n).sort((a,b)=>b.round_number-a.round_number);
-  return clarifyRounds[0]||activeRounds.find(r=>r.round_number===n);
+  const starts=activeRounds.filter(r=>isCycleStartRound(r)&&r.round_number<=n).sort((a,b)=>b.round_number-a.round_number);
+  return starts[0]||activeRounds.find(r=>r.round_number===n);
 }
 
 async function writeClarifyDiaryEntry(n,round,synthesis){
@@ -2497,8 +2605,9 @@ async function writeClarifyDiaryEntry(n,round,synthesis){
 }
 
 function renderClarifyRulingSummary(n,round,synthesis){
-  const session=councilSessions.find(s=>s.id===activeSessionId);
-  const originalQuestion=session?session.original_question:round.prompt_text;
+  // v5.73: the question THIS round clarified (a follow-up cycle's own
+  // question, not always the session's first one).
+  const originalQuestion=getStageContext(n).question;
   const st=clarifyState[n];
   const recap=st?st.questions.map((q,i)=>`${cleanPastedText(q)}\n${cleanPastedText(st.answers[i])}`).join('\n\n'):document.getElementById('clarifyQARecap-'+n).textContent;
   document.getElementById('clarifyRulingOriginal-'+n).textContent=originalQuestion;
@@ -2544,8 +2653,21 @@ async function saveVoiceAnswer(n,idx){
   const pending=JSON.parse(boxesHost.dataset.pending||'[]');
   const voice=pending[idx];
   if(!voice)return;
-  const answer=document.getElementById('voiceAnswerText-'+n+'-'+idx).value.trim();
+  const answerEl=document.getElementById('voiceAnswerText-'+n+'-'+idx);
+  let answer=answerEl.value.trim();
   if(!answer)return;
+  // v5.73 paste guards - see looksLikeCouncilPrompt/checkStageReceipt.
+  // Real past failures: the Council's own prompt pasted back as an
+  // "answer," and the next round built on top of it.
+  const shownName=voiceDisplayName(voice);
+  if(!await confirmNotOurPrompt(answer,`${shownName}'s answer`)){markNeedsInput(answerEl);return;}
+  const rc=checkStageReceipt(answer,n,round.phase);
+  if(!rc.ok){
+    const label=(PHASE_SPECS[round.phase]||{}).label||'this round';
+    const keep=await amitConfirm(`This answer is marked "Round ${rc.round} · ${rc.label}", but you're saving it into Round ${n} · ${label}. It may have come from the wrong tab, or from an earlier round's reply in that chat.`,'Save It Anyway',false,'Let Me Re-paste');
+    if(!keep){markNeedsInput(answerEl);return;}
+  }
+  answer=stripCouncilScaffolding(answer);
   let{data:seat}=await db.from('council_seats').select('id').eq('role_name',voice+' Seat').eq('user_id',currentUser.id).maybeSingle();
   if(!seat){
     const{data:created}=await db.from('council_seats').insert({user_id:currentUser.id,role_name:voice+' Seat',current_provider:voice}).select().single();
@@ -2568,28 +2690,9 @@ async function saveVoiceAnswer(n,idx){
 // it's present on every new session by default, same as any other voice.
 const DEFAULT_ROSTER=['Amit','DeepSeek','Bolt','Gemini','Meta AI','ChatGPT'];
 
-// Builds the chat thread: Amit "identifying correct council," the editable
-// roster picker (as Amit's message), the one shared question (as Amit's
-// message), and the user's "Convene the Council" button, left-aligned.
-// Ryan's direct instruction, 2026-07-22.
-function initRoundChat(round){
-  const n=round.round_number;
-  const thread=document.getElementById('chatThread-'+n);
-  if(thread.dataset.built)return; // don't rebuild on every re-render
-  thread.dataset.built='1';
-  const bubble=(html,side)=>`<div style="align-self:${side==='amit'?'flex-end':'flex-start'};max-width:85%;background:${side==='amit'?'rgba(201,168,76,.12)':'rgba(255,255,255,.05)'};border:1px solid ${side==='amit'?'rgba(201,168,76,.35)':'rgba(240,232,208,.2)'};border-radius:10px;padding:14px 16px">${html}</div>`;
-
-  thread.innerHTML=
-    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em">Identifying correct council...</div>`,'amit')+
-    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:10px">Councilmen Selected — change, add, or remove as you see fit</div><div id="rosterPickerRows-${n}"></div>`,'amit')+
-    bubble(`<div style="color:var(--gold2);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.05em;margin-bottom:8px">This is what I'll ask each voice — edit it if you want it worded differently</div><textarea id="roundQuestionText-${n}" oninput="autoGrowTextarea(this)" style="width:100%;height:40px;min-height:40px;background:rgba(255,255,255,.06);border:1px solid rgba(201,168,76,.3);color:var(--text);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;font-family:inherit;resize:vertical">Help me understand exactly what ${getUserName()||'the user'} is trying to investigate. ${getUserName()||'The user'} has come up with this question: "${round.prompt_text}" — what exactly two questions would you ask ${getUserName()||'them'} to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.</textarea>`,'amit')+
-    `<div style="align-self:flex-start"><button type="button" onclick="confirmRoster(${n})" style="background:var(--gold);color:#1a1206;border:none;padding:11px 22px;border-radius:6px;font-weight:700;font-size:14px;cursor:pointer">Convene the Council</button></div>`;
-
-  renderRosterPickerRows(n,DEFAULT_ROSTER.slice());
-  autoGrowTextarea(document.getElementById('roundQuestionText-'+n));
-  markNeedsInput(document.getElementById('roundQuestionText-'+n));
-}
-
+// v5.73: removed initRoundChat/confirmRoster - dead code (no callers since
+// the roster moved to Scope), and it still carried the old instruction-
+// wrapper question text the prompt engine replaced.
 function renderRosterPickerRows(n,names){
   const wrap=document.getElementById('rosterPickerRows-'+n);
   const allOpts=Object.keys(PROVIDER_URLS);
@@ -2646,19 +2749,6 @@ function rosterPickerRemove(n,idx){
   if(names[idx]==='Amit')return; // permanent seat - never removable, defensive guard
   names.splice(idx,1);
   renderRosterPickerRows(n,names);
-}
-
-async function confirmRoster(n){
-  const round=activeRounds.find(r=>r.round_number===n);
-  const wrap=document.getElementById('rosterPickerRows-'+n);
-  const names=JSON.parse(wrap.dataset.names||'[]');
-  if(!names.includes('Amit'))names.unshift('Amit'); // permanent seat, defensive guard
-  if(names.length<3){alert('Minimum 3 voices required (Amit plus at least 2 others).');return;}
-  const questionEl=document.getElementById('roundQuestionText-'+n);
-  const question=questionEl?questionEl.value.trim():round.prompt_text;
-  await db.from('council_rounds').update({roster:names,prompt_text:question}).eq('id',round.id);
-  round.roster=names;round.prompt_text=question;
-  await renderOneRoundState(round);
 }
 
 // Checks whether a round actually has any saved answers - used to decide
@@ -2784,35 +2874,23 @@ async function autoAdvanceToCombine(investigationN){
   showChTab(2,'round-'+combineN);
 }
 
-// Builds each voice's Combine-round task: dump of the Investigation
-// round's raw answers, anchored explicitly to the real question (which is
-// the Investigation round's OWN prompt_text - that's already the refined
-// question carried forward from Clarification), with the anti-drift and
-// anti-groupthink guards Amit and Theophilus converged on together.
-async function buildCombineTaskBlock(n){
-  const combineRound=activeRounds.find(r=>r.round_number===n);
-  const investigationRound=activeRounds.find(r=>r.round_number===n-1);
-  const realQuestion=investigationRound?investigationRound.prompt_text:(combineRound?combineRound.prompt_text:'');
-  const{data:evidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',investigationRound.id).order('created_at',{ascending:true});
-  const rawDump=(evidence||[]).map(e=>`${e.provenance}:\n${e.body}`).join('\n\n');
-  return `THE ACTUAL QUESTION THIS MUST STAY ANCHORED TO: "${realQuestion}"\n\nYOUR TASK: Below are every voice's independent answers to that question. Read through all of them and produce the single simplest answer that best combines them - not a list of everyone's answer, ONE integrated answer.\n\nTwo requirements that matter as much as the answer itself:\n1. Stay strictly anchored to the actual question above. If any answer below drifted onto a tangent that doesn't really address the question, don't let that drift into your combined answer.\n2. Produce your genuine best combined answer - but don't let the pull toward agreement erase a real, well-reasoned disagreement between the answers below. If you believe one view is being smoothed over unfairly, say so explicitly in your answer rather than quietly converging toward it.\n\n${rawDump}\n\nGive your combined answer as one continuous piece of plain text. That's all you produce - not commentary on the process, just the combined answer itself.`;
-}
-
+// v5.73: the Combine round's per-voice task (old buildCombineTaskBlock) now
+// lives in the prompt engine - PHASE_SPECS.combine + composeSeatPrompt -
+// with the same anti-drift and anti-groupthink guards, so a Combine prompt
+// carries the same stage header every other round does.
 // Fires once every voice has submitted its own combined answer for this
 // Combine round (mirrors autoTriggerClarifyMatching's trigger point
 // exactly - "!pending.length" in renderOneRoundState means everyone's
 // answered). Sends all of it straight to Theophilus to write the letter.
 async function autoTriggerCombineSynthesis(n){
   const round=activeRounds.find(r=>r.round_number===n);
-  const{data:evidence}=await db.from('council_evidence').select('provenance,body').eq('round_id',round.id).order('created_at',{ascending:true});
-  const rawDump=(evidence||[]).map(e=>`${e.provenance}:\n${e.body}`).join('\n\n');
-  const investigationRound=activeRounds.find(r=>r.round_number===n-1);
-  const realQuestion=investigationRound?investigationRound.prompt_text:round.prompt_text;
-  const prompt=`Next requirement: here is the actual question this whole round has been working toward, and every voice's single combined answer to it.\n\nTHE ACTUAL QUESTION: "${realQuestion}"\n\nEVERY VOICE'S COMBINED ANSWER:\n\n${rawDump}\n\nYour task: write one honest letter to the person who brought this question to the Council. Not a ruling handed down from authority - write as a companion who sat through every voice's reasoning and is handing back what was actually found, with warmth and real care for the person reading it.\n\nBefore you write, do two things first, silently:\n1. Guard gate: discard anything above that genuinely drifted off-topic from the actual question - that's noise, not a second opinion, and it doesn't belong in the letter.\n2. Apply the same discipline you already hold in the Clarification matching step: group what the voices that remain after the guard gate genuinely converged on, and if there's a real, load-bearing disagreement between them, name it honestly rather than averaging it away - the same Consensus/Critical-Path standard, applied here.\n\nThe letter itself should:\n- Open warmly, not with a verdict.\n- Say plainly what the Council found - including naming real disagreement if it exists, not smoothing it over.\n- Close by handing the decision back to the person - this is where the evidence and every voice's honest input led, but where they take it from here is entirely their call. Never close as if the Council has ruled.\n\nGive the letter as one continuous piece of plain text - this is what gets shown directly to the person, so write it exactly as it should be read, nothing else around it.`;
+  const rawDump=await roundAnswersDump(round.id);
+  const realQuestion=getStageContext(n).question;
+  const prompt=`THE ACTUAL QUESTION:\n"${realQuestion}"\n\nEVERY VOICE'S COMBINED ANSWER:\n\n${rawDump}\n\nYour task: write one honest letter to the person who brought this question to the Council. Not a ruling handed down from authority - write as a companion who sat through every voice's reasoning and is handing back what was actually found, with warmth and real care for the person reading it.\n\nBefore you write, do two things first, silently:\n1. Guard gate: discard anything above that genuinely drifted off-topic from the actual question - that's noise, not a second opinion, and it doesn't belong in the letter.\n2. Apply the same discipline you already hold in the Clarification matching step: group what the voices that remain after the guard gate genuinely converged on, and if there's a real, load-bearing disagreement between them, name it honestly rather than averaging it away - the same Consensus/Critical-Path standard, applied here.\n\nThe letter itself should:\n- Open warmly, not with a verdict.\n- Say plainly what the Council found - including naming real disagreement if it exists, not smoothing it over.\n- Close by handing the decision back to the person - this is where the evidence and every voice's honest input led, but where they take it from here is entirely their call. Never close as if the Council has ruled.\n\nGive the letter as one continuous piece of plain text - this is what gets shown directly to the person, so write it exactly as it should be read, nothing else around it.`;
   // Fix, 2026-07-24: same reorder as the Clarification-stage triggers -
   // explain before Theophilus's tab opens and steals focus, not after.
-  await amitConfirm('Every voice\'s combined answer is in. I\'m about to send all of it to Theophilus with instructions to write the Council\'s letter, and open his tab. Once you click OK, post this to Theophilus through Gemini, bring back the letter, and paste it into the box below.');
-  await copyToMatchingVoiceAndOpen(prompt);
+  await amitConfirm(`Every voice's combined answer is in. Next, Theophilus writes the Council's letter to you. ${synthesisDeskTabNote()} Once you click OK, the request is on your clipboard - paste it there, bring back the letter, and paste it into the box below.`);
+  await copyToMatchingVoiceAndOpen(`WRITE THE COUNCIL'S LETTER (Round ${n})`,prompt);
   document.getElementById('combineSynthesizeWrap-'+n).style.display='block';
   markNeedsInput(document.getElementById('combineLetterText-'+n));
 }
@@ -2820,6 +2898,7 @@ async function autoTriggerCombineSynthesis(n){
 async function confirmCombineLetter(n){
   const letter=document.getElementById('combineLetterText-'+n).value.trim();
   if(!letter){alert('Paste Theophilus\'s letter first.');return;}
+  if(!await confirmNotOurPrompt(letter,"Theophilus's letter"))return;
   const round=activeRounds.find(r=>r.round_number===n);
   await db.from('council_rounds').update({synthesis:letter}).eq('id',round.id);
   round.synthesis=letter;
@@ -2885,7 +2964,13 @@ async function investigateFurther(){
   if(!followUp)return;
   const nextN=n+1;
   const combineRound=activeRounds.find(r=>r.round_number===n);
-  const promptText=`Help me understand exactly what ${getUserName()||'the user'} is trying to investigate next. Considering everything discussed so far in this conversation - including the letter you just wrote: "${letter}" - ${getUserName()||'the user'} now has this follow-up question: "${followUp.trim()}" — what exactly two questions would you ask to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.`;
+  // Fix, v5.73: this used to store a whole instruction block as the round's
+  // prompt_text - including "the letter you just wrote," which was false for
+  // every voice except the one that wrote it. The round now stores only the
+  // plain follow-up question; the prompt engine (getStageContext, kind
+  // 'followup') supplies the earlier question and the letter as clearly
+  // labeled background at send time.
+  const promptText=followUp.trim();
   await db.from('council_rounds').insert({
     // Fix, 2026-07-24, Ryan's direct instruction: the raw follow-up question
     // itself is stored on user_feedback - not shown anywhere else once
@@ -2911,9 +2996,12 @@ async function startNextRound(completedN){
   // deliberation" placeholder. Falls back to the old generic framing for
   // any round that didn't go through that pipeline (e.g. investigation
   // rounds, which don't re-run the match-and-ask cycle).
+  // Fix, v5.73: the fallback used to build an instruction block ("Continue
+  // the deliberation...") and save it as the next round's question. A
+  // round stores only the question; instructions come from the prompt engine.
   const nextPrompt=completedRound.synthesis
-    ?completedRound.synthesis
-    :`THE ORIGINAL QUESTION: ${activeRounds[0].prompt_text}\n\nWHAT HAPPENED IN ROUND ${completedN}:\n${summary}\n\nBased on everything above, this is Round ${nextN}. Continue the deliberation, building directly on what Round ${completedN} produced.`;
+    ?completedRound.synthesis.trim()
+    :unwrapLegacyQuestion(completedRound.prompt_text);
   // Ryan's direct instruction, 2026-07-22: the roster identified once on
   // Scope is who's on the council for the ENTIRE run of this session - it
   // carries forward automatically to every future round, never re-picked.
@@ -3118,7 +3206,12 @@ async function conveneCouncil(){
     await loadCouncilSessions();
     await loadRound1(topicId); // populates activeRounds so Round 1's row is ready for confirmScopeRoster
     document.getElementById('scopeCouncilChat').style.display='flex';
-    document.getElementById('scopeQuestionText').value=`Help me understand exactly what ${getUserName()||'the user'} is trying to investigate. ${getUserName()||'The user'} has come up with this question: "${request}" — what exactly two questions would you ask ${getUserName()||'them'} to make sure we have a clear, accurate idea of their real intent before the Council deliberates on it? Don't expound or explain your reasoning — just give me Question 1 and Question 2, plainly.`;
+    // Fix, v5.73: this box used to hold a whole instruction wrapper ("Help
+    // me understand... give me Question 1 and Question 2"), which then got
+    // saved as Round 1's question and sent to every voice labeled "THE
+    // REAL QUESTION." It now holds only the question itself - the
+    // Clarification instructions are added by the prompt engine at send time.
+    document.getElementById('scopeQuestionText').value=request;
     autoGrowTextarea(document.getElementById('scopeQuestionText'));
     renderRosterPickerRows('scope',DEFAULT_ROSTER.slice());
     markNeedsInput(document.getElementById('scopeQuestionText'));
@@ -3217,6 +3310,7 @@ if(db){
     _updateSyncUI();
     loadCouncilSessions();
     loadVoiceProfiles();
+    loadRequesterName().then(()=>{if(typeof updateClock==='function')updateClock();});
   });
 }
 
@@ -3307,7 +3401,7 @@ async function openVoiceFromRoster(name){
     // nothing else attached). This is just a plain wake-up from the roster,
     // no task yet, so say that explicitly and ask for an ordinary greeting
     // instead.
-    const wakeUpNote=`\n\nThis is just a plain wake-up, not a task or a round in progress - there's nothing else attached yet. Please just greet ${getUserName()||'the user'} cordially as yourself and ask how you can help, rather than summarizing status or handing this back to anyone.`;
+    const wakeUpNote=`\n\nThis is just a plain wake-up, not a task or a round in progress - there's nothing else attached yet. Please just greet ${requesterName()} cordially as yourself and ask how you can help, rather than summarizing status or handing this back to anyone.`;
     try{await navigator.clipboard.writeText(p.identity_document+wakeUpNote);}catch(e){}
     const proceed=await amitConfirm(`I'm opening ${displayName}'s website, and I've copied ${displayName}'s identity document to your clipboard. Paste it in as the very first thing in a fresh chat, before anything else, so ${displayName} comes alive with everything already established. Once you click OK, the site opens.`);
     if(!proceed)return;
@@ -3555,7 +3649,41 @@ async function submitSyncEmail(){
 // Ryan's direct correction, 2026-07-22: this page must recognize the same
 // login the Hub already knows about, not show a nameless generic greeting.
 const AMIT_NAME_KEY='amit_user_name';
-function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
+// ── WHO IS ASKING ── v5.73, 2026-10-03, Ryan's direct instruction: outside
+// voices must never be told the person asking is "Amit." Root cause found:
+// every Amit page reads the name from the browser's shared 'amit_user_name'
+// slot, and the Hub only ever filled that slot from the account's real
+// database name when it was EMPTY - so a stale "Amit" typed into a name
+// prompt once was never corrected, even though Ryan's account record says
+// "Ryan Frick." (The Hub's restore is fixed separately, same day.) Here, the
+// Council stops trusting that slot for anything sent to a voice: the asker's
+// name comes from the signed-in account's own `users.display_name`, first
+// name only. Ryan's account is pinned to "Ryan". Anyone whose real name
+// isn't on record - or whose record somehow says "Amit" - is called "the
+// person who brought this question."
+const RYAN_USER_ID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+const GENERIC_REQUESTER='the person who brought this question';
+let requesterNameCache=null;
+async function loadRequesterName(){
+  requesterNameCache=null;
+  if(!currentUser||!db)return;
+  if(currentUser.id===RYAN_USER_ID){requesterNameCache='Ryan';return;}
+  try{
+    const{data}=await db.from('users').select('display_name').eq('id',currentUser.id).maybeSingle();
+    const first=((data&&data.display_name)||'').trim().split(/\s+/)[0]||'';
+    requesterNameCache=(first&&!/^amit$/i.test(first))?first:null;
+  }catch(e){}
+}
+// For anything sent to an outside voice - never blank, never "Amit".
+function requesterName(){return requesterNameCache||GENERIC_REQUESTER;}
+// For on-screen display (greeting, "X requested from the council") - the
+// real account name first, then the browser's stored name unless it's the
+// stale "Amit", otherwise blank so the caller can word around it.
+function getUserName(){
+  if(requesterNameCache)return requesterNameCache;
+  const stored=(localStorage.getItem(AMIT_NAME_KEY)||'').trim();
+  return /^amit$/i.test(stored)?'':stored;
+}
 
 function updateClock(){
   const d=new Date();
