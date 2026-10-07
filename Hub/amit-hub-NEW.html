@@ -10,7 +10,7 @@
 <script src="../Amit_Ask_Live.js?v=6.15"></script>
 <script src="../amit_readiness_check.js?v=1.00"></script>
 <script src="../amit_voice_prefs.js?v=1.00"></script>
-<script src="../amit_owner_contact.js?v=1.00"></script>
+<script src="../amit_owner_contact.js?v=1.01"></script>
 <script src="../amit_pin_encryption.js?v=1.00"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
@@ -1388,7 +1388,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.00</div>
+      <div class="page-version" id="hubVersionBadge">v8.01</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -4613,6 +4613,8 @@ function amvPopulateAccentDropdown(selectedLang){
 }
 
 function amvPickDefaultVoice(voices){
+  // One global default for every app (amit_owner_contact.js, 2026-10-06).
+  if(typeof amitPickDefaultVoice==='function') return amitPickDefaultVoice(voices);
   const priority=['Microsoft Andrew Multilingual','Microsoft Brian Online','Microsoft Brian','Microsoft Andrew Online','Microsoft Andrew','Google US English','Microsoft Aria','Microsoft Jenny','Microsoft Guy','Samantha','Microsoft Zira','Google UK English Female'];
   for(const name of priority){ const hit=voices.find(v=>v.name.includes(name)); if(hit) return hit; }
   const enUS=voices.find(v=>/^en-US/i.test(v.lang)); if(enUS) return enUS;
@@ -4625,6 +4627,17 @@ function amvPickDefaultVoice(voices){
 // direct instruction 2026-09-06 — the earlier amit_voice_prefs table is
 // left in place, unused, superseded by this.
 let _amvOwnerContact=null;
+// Makes sure the signed-in person's saved voice (About Me) is loaded before Amit speaks.
+// Fix 2026-10-06 (Ryan caught it): "Hear This Prayer" pressed before the sign-in load finished
+// silently fell back to a default voice instead of the one chosen in About Me.
+async function _amvEnsureOwnerContact(){
+  if(_amvOwnerContact||!db||!currentUser) return _amvOwnerContact;
+  try{ await _amvGreetingPromise; }catch(e){}
+  if(!_amvOwnerContact&&typeof getOrCreateOwnerContact==='function'){
+    try{ _amvOwnerContact=await getOrCreateOwnerContact(db,currentUser.id,getUserName(),currentUser.email); }catch(e){}
+  }
+  return _amvOwnerContact;
+}
 
 async function amvPopulateVoices(){
   _amvVoices=window.speechSynthesis.getVoices();
@@ -4716,7 +4729,7 @@ function _amvSpeakWithContact(text,contact,voices){
   const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,contact,amvPickDefaultVoice):null;
   const u=new SpeechSynthesisUtterance(text);
   if(voice) u.voice=voice;
-  u.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
+  u.rate=contact.voice_rate?Number(contact.voice_rate):(typeof AMIT_DEFAULT_VOICE!=='undefined'?AMIT_DEFAULT_VOICE.voice_rate:1.1);
   window.speechSynthesis.speak(u);
 }
 
@@ -4738,7 +4751,7 @@ function _amvSpeakWithContact(text,contact,voices){
 // nighttime listening without changing his global voice setting.
 // ══════════════════════════════════════════════
 const AMV_STM_SAVE_KEY='amv_stm_saved_read';
-const _amvStm={words:[],index:0,rate:0.85,volume:1.0,started:false,voices:null,sleepTimer:null,sleepAt:null};
+const _amvStm={words:[],index:0,rate:(typeof AMIT_DEFAULT_VOICE!=='undefined'?AMIT_DEFAULT_VOICE.voice_rate:1.1),volume:1.0,started:false,voices:null,sleepTimer:null,sleepAt:null};
 // Persists across closing the modal, reloading the page, or coming back
 // tomorrow - Ryan's direct instruction, 2026-09-10: this is meant for
 // someone genuinely listening their way through something long (a whole
@@ -4813,7 +4826,8 @@ async function amvStmBeginReading(){
   // Ryan's direct instruction: whatever someone copies and pastes is what
   // gets read, full stop.
   _amvStm.words=raw.match(/\S+\s*/g)||[raw];
-  _amvStm.rate=(_amvOwnerContact&&_amvOwnerContact.voice_rate)?Number(_amvOwnerContact.voice_rate):0.85;
+  await _amvEnsureOwnerContact();
+  _amvStm.rate=(_amvOwnerContact&&_amvOwnerContact.voice_rate)?Number(_amvOwnerContact.voice_rate):(typeof AMIT_DEFAULT_VOICE!=='undefined'?AMIT_DEFAULT_VOICE.voice_rate:1.1);
   _amvStmLastSaveIndex=-1;
   _amvStm.volume=1.0;
   document.getElementById('amvStmSpeedSlider').value=_amvStm.rate;
@@ -6143,9 +6157,10 @@ async function amvSpeakPrayer(){
   const text=body.innerText.trim();
   if(!text) return;
   const voices=await _amvGetVoicesReady();
-  const base=_amvOwnerContact||{voice_rate:0.85,voice_pitch:1.0,voice_volume:1.0,voice_pause_scale:1.0};
+  await _amvEnsureOwnerContact();
+  const base=_amvOwnerContact||((typeof AMIT_DEFAULT_VOICE!=='undefined')?{...AMIT_DEFAULT_VOICE}:{voice_rate:1.1,voice_pitch:1.0,voice_volume:1.0,voice_pause_scale:1.2});
   const prayerContact={...base,
-    voice_rate:(base.voice_rate?Number(base.voice_rate):0.85)*0.85,
+    voice_rate:(base.voice_rate?Number(base.voice_rate):(typeof AMIT_DEFAULT_VOICE!=='undefined'?AMIT_DEFAULT_VOICE.voice_rate:1.1))*0.85,
     voice_pitch:(base.voice_pitch?Number(base.voice_pitch):1.0)*0.94,
     voice_pause_scale:(base.voice_pause_scale?Number(base.voice_pause_scale):1.0)*1.5
   };

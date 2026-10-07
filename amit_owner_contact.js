@@ -23,21 +23,72 @@
   Supabase client — never creates its own.
 */
 
+// ══════════════════════════════════════════════
+// THE GLOBAL DEFAULT VOICE — Ryan's direct instruction, 2026-10-06: "The
+// default voice should be what I have set up right now, under my account.
+// That's globally." These are the exact values from Ryan's own saved About
+// Me record as of that day. Used for every brand-new owner-contact row, and
+// whenever no saved voice is available (signed out, not loaded yet, or the
+// saved voice isn't installed on this device). One place, used by every app.
+// ══════════════════════════════════════════════
+const AMIT_DEFAULT_VOICE = {
+  voice_name: 'Microsoft Brian Multilingual Online (Natural) - English (United States)',
+  voice_accent: 'en-US',
+  voice_rate: 1.1,
+  voice_pitch: 1,
+  voice_volume: 1,
+  voice_pause_scale: 1.2
+};
+
+// Picks the default voice from what this device actually has installed:
+// the exact default voice first, then any English "Microsoft Brian" voice,
+// then any US English voice, then any English voice.
+function amitPickDefaultVoice(voices){
+  if (!voices || !voices.length) return null;
+  const exact = voices.find(v => v.name === AMIT_DEFAULT_VOICE.voice_name);
+  if (exact) return exact;
+  const isEnglish = v => /^en/i.test(v.lang) || /English/i.test(v.name);
+  const brian = voices.find(v => /Microsoft\s*Brian\s*Multilingual/i.test(v.name) && isEnglish(v))
+             || voices.find(v => /Microsoft\s*Brian/i.test(v.name) && isEnglish(v));
+  if (brian) return brian;
+  return voices.find(v => /^en-US/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang)) || voices[0] || null;
+}
+
+// One lookup per user at a time, per page — so two callers firing at once
+// (sign-in plus a button press, say) share one result instead of each
+// deciding "none exists" and creating its own row.
+const _amitOwnerContactInFlight = {};
+
 // Finds (or creates, if genuinely none exists yet) the signed-in user's
 // owner-contact row. Returns the full contacts row, or null if the client/
 // userId is missing or something failed — callers should treat null as
 // "nothing to show yet," never throw a wall.
 async function getOrCreateOwnerContact(supabaseClient, userId, fallbackName, fallbackEmail){
   if (!supabaseClient || !userId) return null;
+  if (_amitOwnerContactInFlight[userId]) return _amitOwnerContactInFlight[userId];
+  const p = _getOrCreateOwnerContactInner(supabaseClient, userId, fallbackName, fallbackEmail);
+  _amitOwnerContactInFlight[userId] = p;
+  try { return await p; } finally { delete _amitOwnerContactInFlight[userId]; }
+}
+
+async function _getOrCreateOwnerContactInner(supabaseClient, userId, fallbackName, fallbackEmail){
   try {
     // 1. Already have one? — the common case after the first call ever.
-    const { data: existing } = await supabaseClient
+    //    FIX 2026-10-06: this used .maybeSingle(), which returns an ERROR (no
+    //    row) the moment more than one owner row exists — the code then
+    //    treated that as "none exists" and tried to create another. Ryan's
+    //    account had picked up three accidental duplicates (Oct 4), so every
+    //    page load got no voice record at all and spoke in the default
+    //    voice instead of his saved one. Now: read all owner rows, use the
+    //    ORIGINAL (oldest) one, and never create a new row if any exists.
+    const { data: rows, error: readErr } = await supabaseClient
       .from('contacts')
       .select('*')
       .eq('user_id', userId)
       .eq('is_owner', true)
-      .maybeSingle();
-    if (existing) return existing; // _justCreated intentionally absent/falsy — this is a returning login
+      .order('created_at', { ascending: true });
+    if (readErr) return null; // couldn't read — never create blind
+    if (rows && rows.length) return rows[0]; // _justCreated intentionally absent/falsy — this is a returning login
 
     // 2. Find a book this login owns.
     let { data: ownerRows } = await supabaseClient
@@ -64,18 +115,15 @@ async function getOrCreateOwnerContact(supabaseClient, userId, fallbackName, fal
       // not duplicated here.
     }
 
-    // 4. Create the owner-contact row in that book. Voice defaults chosen
-    //    live by Ryan, 2026-09-06: Microsoft Andrew Multilingual (Natural)
-    //    at 0.85x — a real value, not the bare table default (1.0/blank),
-    //    so every brand-new login starts from a deliberately chosen pace,
-    //    not whatever a given browser happens to land on first. If that
-    //    exact voice isn't installed on someone's device, resolveVoiceFrom-
-    //    Contact() falls back to the same priority list used everywhere
-    //    else — the rate (a plain number) always applies regardless.
+    // 4. Create the owner-contact row in that book, starting from the
+    //    global default voice (AMIT_DEFAULT_VOICE above — Ryan's own saved
+    //    settings, 2026-10-06; this used to be Andrew Multilingual at 0.85x).
+    //    If that exact voice isn't installed on someone's device,
+    //    resolveVoiceFromContact() falls back to amitPickDefaultVoice().
     const { data: created, error: contactErr } = await supabaseClient
       .from('contacts')
       .insert({ book_id: bookId, user_id: userId, is_owner: true, name: fallbackName||'', email: fallbackEmail||'',
-        voice_name: 'Microsoft Andrew Multilingual Online (Natural)', voice_rate: 0.85 })
+        ...AMIT_DEFAULT_VOICE })
       .select('*')
       .single();
     if (contactErr) return null;
@@ -105,7 +153,9 @@ function resolveVoiceFromContact(voices, contact, fallbackPicker){
     const hit = voices.find(v => v.name === contact.voice_name);
     if (hit) return hit;
   }
-  return (typeof fallbackPicker === 'function') ? fallbackPicker(voices) : (voices[0] || null);
+  // No saved voice, or it isn't installed here: the global default (2026-10-06).
+  // A caller's own fallbackPicker is ignored on purpose — one default, everywhere.
+  return amitPickDefaultVoice(voices);
 }
 
 /*
@@ -141,10 +191,11 @@ function speakContactText(text, contact, voices, opts){
   window.speechSynthesis.cancel(); // never stack utterances/queues
 
   const voice = resolveVoiceFromContact(voices, contact, opts.fallbackPicker);
-  const rate = (contact && contact.voice_rate) ? Number(contact.voice_rate) : 0.85;
-  const pitch = (contact && contact.voice_pitch) ? Number(contact.voice_pitch) : 1.0;
-  const volume = (contact && contact.voice_volume!=null) ? Number(contact.voice_volume) : 1.0;
-  const pauseScale = (contact && contact.voice_pause_scale) ? Number(contact.voice_pause_scale) : 1.0;
+  const D = AMIT_DEFAULT_VOICE; // global default when nothing is saved (2026-10-06)
+  const rate = (contact && contact.voice_rate) ? Number(contact.voice_rate) : D.voice_rate;
+  const pitch = (contact && contact.voice_pitch) ? Number(contact.voice_pitch) : D.voice_pitch;
+  const volume = (contact && contact.voice_volume!=null) ? Number(contact.voice_volume) : D.voice_volume;
+  const pauseScale = (contact && contact.voice_pause_scale) ? Number(contact.voice_pause_scale) : D.voice_pause_scale;
   const BASE_SENTENCE_PAUSE_MS = 260; // a natural-feeling default gap between sentences at pauseScale=1.0
 
   const sentences = _splitIntoSentences(text);
