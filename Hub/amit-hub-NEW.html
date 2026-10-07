@@ -1388,7 +1388,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.08</div>
+      <div class="page-version" id="hubVersionBadge">v8.09</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -5662,20 +5662,26 @@ async function amvSelectThisVoice(){
 // the morning weather widget. Deliberately NOT duplicated onto the owner
 // contact row, per Ryan's direct instruction: one ZIP, not two that can
 // drift apart. This just displays it and reuses the existing update flow.
+// Updates BOTH copies of the ZIP display — About Me shows the d_ copy; this used to refresh
+// only the hidden original, so an updated ZIP looked like it never changed (fixed 2026-10-07).
+function _amvSetZipText(text){
+  ['amvZipDisplay','d_amvZipDisplay'].forEach(id=>{const el=document.getElementById(id); if(el) el.textContent=text;});
+}
 function amvRenderZipDisplay(){
   const loc=(typeof getLoc==='function')?getLoc():null;
-  const el=document.getElementById('amvZipDisplay');
-  if(!el) return;
-  el.textContent=loc?(loc.zip+' — '+loc.city+', '+loc.state):'Not set yet';
+  _amvSetZipText(loc?(loc.zip+' — '+loc.city+', '+loc.state):'Not set yet');
 }
 function amvUpdateZip(){
   const cur=(typeof getZip==='function')?getZip():'';
   const z=prompt('ZIP code for your morning weather:',cur||'');
-  if(z&&/^\d{5}$/.test(z.trim())){
-    geocodeAndSaveZip(z.trim()).then(ok=>{
-      if(ok){ if(typeof renderWeatherWidget==='function') renderWeatherWidget(); amvRenderZipDisplay(); }
-    });
-  }
+  if(z===null) return; // cancelled
+  const zip=z.trim();
+  if(!/^\d{5}$/.test(zip)){ _amvSetZipText('Please enter a 5-digit ZIP — nothing was changed'); setTimeout(amvRenderZipDisplay,4000); return; }
+  _amvSetZipText('Looking up '+zip+'…');
+  geocodeAndSaveZip(zip).then(ok=>{
+    if(ok){ if(typeof renderWeatherWidget==='function') renderWeatherWidget(); amvRenderZipDisplay(); }
+    else { _amvSetZipText('Could not find ZIP '+zip+' — nothing was changed'); setTimeout(amvRenderZipDisplay,4000); }
+  });
 }
 
 // Mirrors whatever the greeting toast's own toggle does — same underlying
