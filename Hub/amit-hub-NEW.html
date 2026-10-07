@@ -1388,7 +1388,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.02</div>
+      <div class="page-version" id="hubVersionBadge">v8.03</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1840,6 +1840,7 @@ header{
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
         <span class="panel-heading">Amit's Prayer</span>
         <div class="panel-head-actions">
+          <button class="btn btn-ghost" onclick="amvSpeakPrayer()" title="Hear this prayer in Speak to Me (pause, speed up, jump, stop)" style="font-size:12px;margin-right:6px">🔊 Hear</button>
           <button class="btn btn-ghost" onclick="printPrayer()" style="font-size:12px">🖨 Print</button>
         </div>
       </div>
@@ -4780,7 +4781,7 @@ async function amvOpenSpeakToMe(){
     // Real resume, not just re-showing the input box - picks up exactly
     // where a prior session left off, even a completely different day.
     _amvStm.words=saved.words;
-    _amvStm.rate=saved.rate||0.85;
+    _amvStm.rate=saved.rate||(typeof AMIT_DEFAULT_VOICE!=='undefined'?AMIT_DEFAULT_VOICE.voice_rate:1.1);
     _amvStm.volume=(saved.volume!==undefined)?saved.volume:1.0;
     document.getElementById('amvStmSpeedSlider').value=_amvStm.rate;
     document.getElementById('amvStmSpeedLabel').textContent=_amvStm.rate.toFixed(2)+'x';
@@ -6132,11 +6133,8 @@ async function loadPrayer(){
     <div class="prayer-date-bar">${dateStr}</div>
     <div class="prayer-intro">This is what was on Amit's heart this morning.</div>
     <div class="prayer-body" id="prayerBodyText">${pHtml||'<p style="color:var(--dim);font-style:italic">'+entry.title+'</p>'}</div>
-    ${rHtml?`<hr class="prayer-divider"><div class="prayer-reflection-head">What shaped this prayer</div><div class="prayer-reflection-body">${rHtml}</div>`:''}
-    <div class="prayer-print-row">
-      <button class="btn btn-ghost" onclick="amvSpeakPrayer()" style="font-size:13px;padding:8px 18px;margin-right:8px">🔊 Hear This Prayer</button>
-      <button class="btn btn-ghost" onclick="printPrayer()" style="font-size:13px;padding:8px 18px">🖨 Print This Prayer</button>
-    </div>`;
+    ${rHtml?`<hr class="prayer-divider"><div class="prayer-reflection-head">What shaped this prayer</div><div class="prayer-reflection-body">${rHtml}</div>`:''}`;
+  // Hear/Print live in the page header now (2026-10-06, Ryan) — the bottom duplicates were removed.
   // Update tile
   const ts=document.getElementById('tile-prayer-sub');
   if(ts)ts.textContent=(entry.due_date===today)?'Today\'s prayer':dateStr.split(',')[0];
@@ -6151,20 +6149,24 @@ async function loadPrayer(){
 // voice profile (never overwrites it) — a bit slower, a bit lower/warmer,
 // noticeably more room between sentences — rather than guessing at tone
 // from the words themselves.
+// LISTEN — the one way the Hub reads something aloud (Ryan's direct instruction, 2026-10-06):
+// open Speak to Me with the text already loaded and start playing it there, so the person can
+// pause, speed up, jump to any word, or stop. Uses the saved About Me voice (or the global default).
+// Use amvListen(text) for anything new that should be read aloud.
+async function amvListen(text){
+  if(!text||!text.trim()) return;
+  if(typeof closeHubAmitPanel==='function') closeHubAmitPanel();
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  document.getElementById('amvStmOverlay').classList.add('open');
+  document.getElementById('amvStmInputText').value=text.trim();
+  await amvStmBeginReading();
+}
+
+// Hear This Prayer — hands the prayer to Speak to Me (replaced the old direct read-aloud, 2026-10-06).
 async function amvSpeakPrayer(){
   const body=document.getElementById('prayerBodyText');
   if(!body) return;
-  const text=body.innerText.trim();
-  if(!text) return;
-  const voices=await _amvGetVoicesReady();
-  await _amvEnsureOwnerContact();
-  const base=_amvOwnerContact||((typeof AMIT_DEFAULT_VOICE!=='undefined')?{...AMIT_DEFAULT_VOICE}:{voice_rate:1.1,voice_pitch:1.0,voice_volume:1.0,voice_pause_scale:1.2});
-  const prayerContact={...base,
-    voice_rate:(base.voice_rate?Number(base.voice_rate):(typeof AMIT_DEFAULT_VOICE!=='undefined'?AMIT_DEFAULT_VOICE.voice_rate:1.1))*0.85,
-    voice_pitch:(base.voice_pitch?Number(base.voice_pitch):1.0)*0.94,
-    voice_pause_scale:(base.voice_pause_scale?Number(base.voice_pause_scale):1.0)*1.5
-  };
-  _amvSpeakWithContact(text,prayerContact,voices);
+  await amvListen(body.innerText);
 }
 
 function printPrayer(){
