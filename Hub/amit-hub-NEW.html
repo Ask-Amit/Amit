@@ -1388,7 +1388,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.07</div>
+      <div class="page-version" id="hubVersionBadge">v8.08</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2795,7 +2795,7 @@ header{
           <span id="amvStmProgress" style="font-size:12px;color:var(--dim)"></span>
           <button class="hub-btn-secondary" onclick="amvStmNewText()" style="padding:6px 14px;margin-left:auto">✎ New Text</button>
         </div>
-        <div id="amvStmWordContainer" style="max-height:340px;overflow-y:auto;font-family:Georgia,serif;font-size:16px;line-height:2;color:#e8e2cf" onmouseover="amvStmWordHover(event)"></div>
+        <div id="amvStmWordContainer" style="max-height:340px;overflow-y:auto;font-family:Georgia,serif;font-size:16px;line-height:2;color:#e8e2cf" onclick="amvStmWordClick(event)"></div>
         <p style="font-size:11px;color:var(--dim);margin-top:10px;font-style:italic">Move your mouse over any word to jump reading there — or use Spacebar to pause/resume and the arrow keys to skip, no mouse needed. Picks up right where you left off, even tomorrow.</p>
       </div>
     </div>
@@ -4844,8 +4844,9 @@ async function amvStmBeginReading(){
   amvStmReadFrom(0);
 }
 function _amvStmHighlight(i){
-  const prev=document.querySelector('.stm-word.stm-active');
-  if(prev)prev.classList.remove('stm-active');
+  // Only the word being spoken is highlighted — clear the previous word fully (class AND its
+  // background), which used to be left behind so several words stayed gold (fixed 2026-10-07).
+  document.querySelectorAll('.stm-word.stm-active').forEach(p=>{p.classList.remove('stm-active');p.style.background='';});
   const el=document.querySelector(`.stm-word[data-i="${i}"]`);
   if(el){
     el.classList.add('stm-active');
@@ -4948,7 +4949,9 @@ function amvStmVolumeChanged(val){
   // current word rather than actually adjusting the sound in place.
   if(_amvStm.started)amvStmReadFrom(_amvStm.index);
 }
-function amvStmWordHover(e){
+// Click a word to start reading from it (Ryan, 2026-10-07: same as the Speak to Me app — hovering
+// must never stop or jump the reading; it used to jump on mouse-over).
+function amvStmWordClick(e){
   if(!_amvStm.started)return;
   const el=e.target.closest('.stm-word');
   if(!el)return;
