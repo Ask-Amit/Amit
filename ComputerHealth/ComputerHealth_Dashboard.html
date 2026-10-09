@@ -558,7 +558,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.05</div>
+      <div class="page-version" id="pageVersion">v5.06</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -8449,6 +8449,19 @@ async function chlConnectNow(btn){btn.disabled=true;btn.textContent='Connectingâ
   btn.disabled=false;btn.textContent='Connect now';chlConnectBarSync()}
 const _chlOnConnected2=onConnected;onConnected=function(d){_chlOnConnected2(d);chlConnectBarSync()};
 setInterval(chlConnectBarSync,2000);chlConnectBarSync();
+// AUTO-CONNECT (v5.06, Ryan): the page used to check for the tracker once,
+// at load, and give up. Now, for a signed-in person, it keeps checking
+// quietly every 5 seconds and whenever the tab comes back into view â€” so if
+// the watcher is running (or starts later, or the connection drops), the
+// page picks it up by itself. Only ever a read-only status check, never a
+// launch. If Edge asks to let this site reach this device, Allow makes it
+// stick for every future visit.
+let chlProbing=false;
+async function chlAutoConnect(){if(chlProbing||bridgeUp||!currentUser)return;chlProbing=true;
+  try{const d=await checkBridge();if(d&&d.deviceId&&!bridgeUp)onConnected(d)}catch(e){}finally{chlProbing=false}}
+setInterval(chlAutoConnect,5000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')chlAutoConnect()});
+setTimeout(chlAutoConnect,1500);
 
 </script>
 <script>
