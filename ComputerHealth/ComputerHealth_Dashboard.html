@@ -558,7 +558,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.02</div>
+      <div class="page-version" id="pageVersion">v5.03</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -8449,8 +8449,42 @@ async function chFetch(url,ms=1800){const c=new AbortController();const t=setTim
 // Most specific spec row wins (same rule as the classic dashboard's chFindSpec, v4.60).
 function chFindSpec(specs,text,extraTest){let best=null,bestLen=-1;(specs||[]).forEach(s=>{if(!s.regex||(extraTest&&!extraTest(s)))return;const m=(text||'').match(s.regex);if(!m)return;const len=/generic/i.test(s.model_family||'')?0:m[0].length;if(len>bestLen||(len===bestLen&&best&&best.confidence!=='manufacturer-spec'&&s.confidence==='manufacturer-spec')){best=s;bestLen=len}});return best}
 
+// Reads go straight to the Supabase REST API with the signed-in person's own
+// token (or the public key for the demo), not through the page's shared
+// supabase-js client. Signed in, that client is busy with three sign-in
+// listeners at once and a read here could wait behind them forever. Same
+// call shape as supabase-js (from/select/eq/order/limit), same RLS rules.
+function chToken(){try{for(const k of Object.keys(localStorage)){if(/^sb-.*-auth-token$/.test(k)){const v=JSON.parse(localStorage.getItem(k));const t=v&&(v.access_token||(v.currentSession&&v.currentSession.access_token));if(t)return t}}}catch(e){}return null}
+const chdb={from(t){const q={t,p:[],sel:'*',ord:null,lim:null};const b={
+  select(s){q.sel=s;return b},eq(col,v){q.p.push(col+'=eq.'+encodeURIComponent(v));return b},
+  order(col,o){q.ord=col+'.'+(o&&o.ascending===false?'desc':'asc');return b},limit(n){q.lim=n;return b},
+  then(res,rej){const qs=['select='+encodeURIComponent(q.sel)].concat(q.p);if(q.ord)qs.push('order='+q.ord);if(q.lim)qs.push('limit='+q.lim);
+    const tok=currentUser?chToken():null;
+    return fetch(SB_URL+'/rest/v1/'+q.t+'?'+qs.join('&'),{headers:{apikey:SB_KEY,Authorization:'Bearer '+(tok||SB_KEY),Accept:'application/json'},cache:'no-store'})
+      .then(r=>r.ok?r.json().then(d=>({data:d,error:null})):r.text().then(x=>({data:null,error:{message:r.status+' '+x}}))).then(res,rej)}};return b}};
 // ---------- loading ----------
+// One load at a time, never hangs (v5.03): signed in, the template, the v4.60
+// engine and this dashboard all react to sign-in on the same Supabase client,
+// and a request here could wait behind the others forever ("Loading…" stuck).
+// Now: a second request while one is running just queues one more run; the
+// whole load has a 25 s limit; a failure shows what happened and retries.
+let chLoading=false,chLoadAgain=false,chRetries=0;
 async function chLoad(){
+  if(chLoading){chLoadAgain=true;return}
+  chLoading=true;
+  try{
+    await Promise.race([chLoadInner(),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timed out waiting for the database")),25000))]);
+    chRetries=0;
+  }catch(e){
+    console.error("Computer Health load:",e);
+    CH.loaded=true;CH.msg="Couldn’t finish loading ("+(e&&e.message||e)+"). Trying again…";if(!CH.dev)chdRenderAll();
+    if(chRetries++<4)setTimeout(chLoad,4000*chRetries);
+  }finally{
+    chLoading=false;
+    if(chLoadAgain){chLoadAgain=false;setTimeout(chLoad,300)}
+  }
+}
+async function chLoadInner(){
   CH.loaded=false;CH.msg='Loading your computer’s health…';chdRenderAll();
   // 1) the bridge on this computer, if it's running
   const dv=await chFetch(CH_BRIDGE+'/api/device');
@@ -8458,21 +8492,21 @@ async function chLoad(){
   if(CH.bridge){const st=await chFetch(CH_BRIDGE+'/api/tracker-status');CH.running=!!(st&&st.running)}else CH.running=false;
   // 2) whose data: the signed-in person, or Amit's own account in Demo Mode
   const owner=currentUser?currentUser.id:(demoMode?AMIT_DEMO_UID:null);
-  if(!db||!owner){CH.msg=db?'Sign in (right rail) to see your own computer, or turn Demo On to explore Amit’s.':'Can’t reach the database right now.';CH.loaded=true;chdRenderAll();return}
-  const {data:devs}=await db.from('amit_devices').select('*').eq('owner_user_id',owner).order('created_at',{ascending:true});
+  if(!owner){CH.msg=db?'Sign in (right rail) to see your own computer, or turn Demo On to explore Amit’s.':'Can’t reach the database right now.';CH.loaded=true;chdRenderAll();return}
+  const {data:devs}=await chdb.from('amit_devices').select('*').eq('owner_user_id',owner).order('created_at',{ascending:true});
   CH.devices=devs||[];
   CH.dev=CH.devices.find(d=>d.id&&CH.devId&&d.id.toLowerCase()===CH.devId)||null;
   if(!CH.dev&&CH.devices.length){
     // otherwise the computer with the most recent tracked run
-    let best=null,bestT='';for(const d of CH.devices){const {data:e}=await db.from('amit_device_events').select('created_at').eq('device_id',d.id).order('created_at',{ascending:false}).limit(1);if(e&&e[0]&&e[0].created_at>bestT){bestT=e[0].created_at;best=d}}
+    let best=null,bestT='';for(const d of CH.devices){const {data:e}=await chdb.from('amit_device_events').select('created_at').eq('device_id',d.id).order('created_at',{ascending:false}).limit(1);if(e&&e[0]&&e[0].created_at>bestT){bestT=e[0].created_at;best=d}}
     CH.dev=best||CH.devices[0];
   }
   if(!CH.dev){CH.msg=currentUser?'No computer is connected to your account yet. Install the Amit tracker from the current dashboard and run it once.':'No demo computer found.';CH.loaded=true;chdRenderAll();return}
   const did=CH.dev.id;const isThis=CH.bridge&&CH.devId===did.toLowerCase();
   const [ev,specs,rel]=await Promise.all([
-    db.from('amit_device_events').select('id,event_type,severity,summary,created_at,event_detail').eq('device_id',did).order('created_at',{ascending:true}).limit(1000),
-    db.from('amit_hardware_specs').select('*'),
-    db.from('amit_device_reliability_log').select('event_type,source,product,message,occurred_at,dump_file_name').eq('device_id',did).order('occurred_at',{ascending:true}).limit(2000)
+    chdb.from('amit_device_events').select('id,event_type,severity,summary,created_at,event_detail').eq('device_id',did).order('created_at',{ascending:true}).limit(1000),
+    chdb.from('amit_hardware_specs').select('*'),
+    chdb.from('amit_device_reliability_log').select('event_type,source,product,message,occurred_at,dump_file_name').eq('device_id',did).order('occurred_at',{ascending:true}).limit(2000)
   ]);
   CH.events=(ev.data||[]);
   CH.specs=(specs.data||[]).map(s=>{let regex=null;try{regex=new RegExp(s.model_pattern,'i')}catch(e){}return {...s,regex}});
@@ -8481,7 +8515,7 @@ async function chLoad(){
   const runs=CH.events.filter(e=>e.event_type==='tracking_session_ended'||e.event_type==='tracking_session_captured');
   CH.latest=[...runs].reverse().find(e=>e.event_type==='tracking_session_ended')||runs[runs.length-1]||null;
   CH.rows=[];
-  if(CH.latest){const {data:r}=await db.from('amit_device_session_metrics').select('component,title,metric_name,category,min_value,avg_value,max_value').eq('event_id',CH.latest.id).limit(4000);CH.rows=r||[]}
+  if(CH.latest){const {data:r}=await chdb.from('amit_device_session_metrics').select('component,title,metric_name,category,min_value,avg_value,max_value').eq('event_id',CH.latest.id).limit(4000);CH.rows=r||[]}
   // 3) the live 30-second readings, only from this computer's own bridge
   CH.trace=[];if(isThis)await chLoadTrace();
   chBuildParts();
@@ -8582,7 +8616,7 @@ function chJudge(p){
 async function chLoadPartHistory(runs){
   const ids=new Set(runs.map(r=>r.id));const tOf={};runs.forEach(r=>tOf[r.id]=r.created_at);CH.hist={};
   await Promise.all(CH.parts.filter(p=>p.key).map(async p=>{
-    const {data}=await db.from('amit_device_session_metrics').select('event_id,min_value,avg_value,max_value').eq('device_id',CH.dev.id).eq('component',p.comp).eq('title',CH.rows.find(r=>(r.title||'').trim()===p.key.title&&r.component===p.comp)?.title||p.key.title).eq('metric_name',p.key.metric).limit(1000);
+    const {data}=await chdb.from('amit_device_session_metrics').select('event_id,min_value,avg_value,max_value').eq('device_id',CH.dev.id).eq('component',p.comp).eq('title',CH.rows.find(r=>(r.title||'').trim()===p.key.title&&r.component===p.comp)?.title||p.key.title).eq('metric_name',p.key.metric).limit(1000);
     CH.hist[p.id]=(data||[]).filter(d=>ids.has(d.event_id)).map(d=>({t:tOf[d.event_id],min:d.min_value,avg:d.avg_value,max:d.max_value})).sort((a,b)=>a.t<b.t?-1:1);
   }));
   CH.parts.forEach(chJudge);
@@ -8861,7 +8895,7 @@ function chDrawTable(){const p=chExpertPart,q=(document.getElementById('chdFlt')
 async function chOpenSensor([comp,title,metric,cat]){
   const deep=document.getElementById('chdDeep');deep.innerHTML='<div class="chd-msg">Loading this reading’s history…</div>';
   const runs=chRuns();const tOf={};runs.forEach(r=>tOf[r.id]=r.created_at);
-  const {data}=await db.from('amit_device_session_metrics').select('event_id,min_value,avg_value,max_value').eq('device_id',CH.dev.id).eq('component',comp).eq('title',title).eq('metric_name',metric).eq('category',cat).limit(1000);
+  const {data}=await chdb.from('amit_device_session_metrics').select('event_id,min_value,avg_value,max_value').eq('device_id',CH.dev.id).eq('component',comp).eq('title',title).eq('metric_name',metric).eq('category',cat).limit(1000);
   const pts=(data||[]).filter(d=>tOf[d.event_id]).map(d=>({t:tOf[d.event_id],min:d.min_value,avg:d.avg_value,max:d.max_value})).sort((a,b)=>a.t<b.t?-1:1);
   const mx=pts.map(p=>p.max),mean=mx.reduce((a,b)=>a+b,0)/(mx.length||1),n=mx.length,m0=(n-1)/2;const slope=n>1?mx.reduce((a,v,i)=>a+(i-m0)*(v-mean),0)/mx.reduce((a,v,i)=>a+(i-m0)**2,0):0;
   const lim=chRowLimit(chExpertPart,{category:cat,metric_name:metric});
