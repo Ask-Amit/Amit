@@ -31,7 +31,7 @@ class AmitInstaller
     // embeds the dashboard as a resource, so one shared number means you
     // can look at either version and immediately know if the other is
     // stale, instead of cross-referencing two independent counters.
-    const string CURRENT_VERSION = "4.39";
+    const string CURRENT_VERSION = "4.49";
 
     // Every file Install_AmitTracker.ps1 expects to find sitting next to it.
     // Logical resource names (via plain /resource:path, no explicit name)
@@ -41,6 +41,7 @@ class AmitInstaller
     {
         "Install_AmitTracker.ps1",
         "amit_bridge_server.ps1",
+        "amit_mobile_watcher.ps1",
         "activity_watcher2.ps1",
         "resource_watcher.ps1",
         "diagnostics_watcher.ps1",
@@ -86,12 +87,6 @@ class AmitInstaller
         {
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
-            // First thing on launch, as requested: check for a newer
-            // version. Best-effort only - never blocks or fails the install
-            // that follows, since everything needed for that is already
-            // bundled in this exe regardless of how this check goes.
-            CheckForUpdateNonBlocking();
-
             string tempDir = Path.Combine(Path.GetTempPath(), "AmitInstallerFiles");
             Directory.CreateDirectory(tempDir);
             ExtractEmbeddedFiles(tempDir);
@@ -112,8 +107,12 @@ class AmitInstaller
 
             // Don't stop at "installed" - finish the job. Install_AmitTracker.ps1
             // always places Run_AmitTracker.ps1 at this exact location, so
-            // start tracking and open the dashboard immediately, rather than
-            // making someone go back to the browser and click Retry themselves.
+            // start tracking immediately, rather than making someone go back
+            // to the browser and click Retry themselves. Pass -NoOpenDashboard
+            // (added 2026-09-05, Ryan's direct correction) - a first-time
+            // person installing from the Hub via Amit Mobile's Connect Amit
+            // flow should stay on the Hub, not get yanked into Computer
+            // Health's dashboard just because tracking also started.
             string installedWatchersDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "AmitComputerHealth", "Watchers");
@@ -124,10 +123,23 @@ class AmitInstaller
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + runScript + "\"",
+                    Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"" + runScript + "\" -NoOpenDashboard",
                     UseShellExecute = true,
                     WindowStyle = ProcessWindowStyle.Hidden
                 });
+                // Nothing visibly opens now (no dashboard pop-up) - without
+                // this, a person has no way to tell the install actually
+                // finished. FIXED 2026-09-05, Ryan's direct correction: the
+                // original wording ("go back to your Hub tab") read as "you
+                // are done" when the actual next step is putting Amit on
+                // your phone - this computer being connected is only half
+                // the job. Now points at the real next step explicitly.
+                MessageBox.Show(
+                    "This computer is now connected - it will show \"Amit Mobile: Listening\" in the Hub shortly.\n\n" +
+                    "Next step: get Amit on your phone. Go back to your Hub tab and scroll down to \"Get Amit On Your Phone\" to scan the QR code (or open Amit Mobile directly from your phone's browser).",
+                    "Amit Installer - Computer Connected",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
             }
             else
             {
@@ -174,38 +186,14 @@ class AmitInstaller
         }
     }
 
-    static void CheckForUpdateNonBlocking()
-    {
-        try
-        {
-            using (var client = new WebClient())
-            {
-                client.Headers.Add("User-Agent", "AmitInstaller");
-                var task = client.DownloadStringTaskAsync(
-                    "https://raw.githubusercontent.com/Ask-Amit/Amit/main/VERSION");
-                if (!task.Wait(3000)) return; // timed out - move on, install still works fully offline
-                string remote = task.Result.Trim();
-                Version rv, cv;
-                if (!string.IsNullOrEmpty(remote) &&
-                    Version.TryParse(remote, out rv) &&
-                    Version.TryParse(CURRENT_VERSION, out cv) &&
-                    rv > cv)
-                {
-                    MessageBox.Show(
-                        "A newer version of Amit (" + remote + ") is available - this installer (v" + CURRENT_VERSION +
-                        ") will still install and work fine, but you may want to grab the latest copy from the dashboard afterward.",
-                        "Amit Installer - Update Available",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                }
-            }
-        }
-        catch
-        {
-            // Any failure here - network down, DNS, TLS, a slow revocation
-            // check, whatever - is exactly the class of environment-specific
-            // flakiness this whole rework exists to be immune to. The actual
-            // install never depends on this succeeding, so just move on.
-        }
-    }
+    // REMOVED 2026-09-05, Ryan's direct correction: this used to compare
+    // CURRENT_VERSION against the repo-wide root VERSION file, back when
+    // the whole system used one shared number everywhere. That policy was
+    // retired (see root CLAUDE.md's VERSIONING STANDARD - PER-FILE
+    // INDEPENDENT VERSIONING) in favor of every file tracking its own
+    // separate number. This check never got removed and kept comparing
+    // two now-unrelated numbers, producing a confusing "update available"
+    // popup (e.g. "6.17" vs "4.40") that meant nothing. Deleted rather
+    // than repointed - there is no longer a single meaningful "latest
+    // version" number for this installer to check itself against.
 }

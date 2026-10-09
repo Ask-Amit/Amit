@@ -362,8 +362,21 @@ $handlerScript = {
             $historyCount = $searcher.GetTotalHistoryCount()
             if ($historyCount -eq 0) { return $null }
             $history = $searcher.QueryHistory(0, [Math]::Min($historyCount, 50))
-            $lastSuccess = $history | Where-Object { $_.Operation -eq 1 -and $_.ResultCode -eq 2 } |
-                Sort-Object Date -Descending | Select-Object -First 1
+            # Real bug fixed 2026-09-18, Ryan's direct catch: Defender
+            # signature updates (and MSRT) install successfully multiple
+            # times a DAY, and were counting as "the last update" with no
+            # filtering - so "last update" was effectively always "a few
+            # hours ago," which pushed every genuinely recent error
+            # (Ryan found real application errors from the last 4 days)
+            # into "beforeLastUpdate" and hid them from the count above,
+            # even though they were current and real. Excluding these
+            # routine, high-frequency titles means "last update" reflects
+            # an actual meaningful Windows/driver/app update, not
+            # background signature churn.
+            $lastSuccess = $history | Where-Object {
+                $_.Operation -eq 1 -and $_.ResultCode -eq 2 -and
+                $_.Title -notmatch 'Security Intelligence|Antivirus|Antispyware|Malicious Software Removal Tool|Defender'
+            } | Sort-Object Date -Descending | Select-Object -First 1
             if ($lastSuccess) { return $lastSuccess.Date }
             return $null
         } catch { return $null }

@@ -46,6 +46,9 @@ class AmitTrackerWindow : Form
     {
         this.trayOnly = trayOnly;
         exeDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        // Windows shutdown/sign-out while tracking runs (2026-10-08) - see
+        // StopForWindowsShutdown below. Both hooks call the same guarded method.
+        Microsoft.Win32.SystemEvents.SessionEnding += (s, e) => StopForWindowsShutdown("SessionEnding");
 
         Text = "Amit - Tracker";
         Width = 440;
@@ -248,11 +251,59 @@ class AmitTrackerWindow : Form
 
     private void OnFormClosing(object sender, FormClosingEventArgs e)
     {
+        // Never block Windows itself (2026-10-08): this guard used to cancel
+        // the close for EVERY reason, including Windows shutting down - then
+        // ran the full Stop (bridge wait, opening a browser tab, an 8 s
+        // grace) while Windows waited. That held shutdowns up; on 8 nights
+        // the power went off before Windows finished. Now a Windows shutdown
+        // gets the quick clean stop and the close goes through immediately.
+        if (e.CloseReason == CloseReason.WindowsShutDown || e.CloseReason == CloseReason.TaskManagerClosing)
+        {
+            StopForWindowsShutdown("FormClosing:" + e.CloseReason);
+            try { if (trayIcon != null) trayIcon.Visible = false; } catch { }
+            return;
+        }
         if (!stopping)
         {
             e.Cancel = true;
             StopTracker();
         }
+    }
+
+    // ── WINDOWS SHUTDOWN WITH TRACKING STILL RUNNING (2026-10-08, Ryan) ──
+    // Ryan shut the computer down with the watchers still running, and on 8
+    // nights Windows recorded the shutdown as "unexpected": its own crash
+    // record (Kernel-Power 41, SleepInProgress=6) showed a normal shutdown
+    // already in progress when the power went off - it never finished. The
+    // watchers and the sensor driver were left running into the shutdown.
+    // Now, the moment Windows announces it is shutting down or signing out,
+    // tracking is stopped the same way the Stop button stops it (the bridge
+    // writes the session summary), a marker records that it was a shutdown
+    // stop, and the window gets out of Windows' way. The dashboard saves that
+    // session to History the next time it opens (reconcileMissedSummaries).
+    // Bounded to ~4 s so it never becomes the thing holding the shutdown up.
+    private int shutdownStopDone = 0;
+    private void StopForWindowsShutdown(string source)
+    {
+        if (Interlocked.Exchange(ref shutdownStopDone, 1) != 0) return;
+        string log = Path.Combine(Path.GetTempPath(), "amit_tracker_debug.log");
+        try { File.AppendAllText(log, DateTime.Now + " - Windows is shutting down (" + source + "): stopping tracking cleanly\r\n"); } catch { }
+        try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "amit_shutdown_stop.json"), "{\"stoppedAt\":\"" + DateTime.UtcNow.ToString("o") + "\",\"reason\":\"windows-shutdown\"}"); } catch { }
+        try
+        {
+            var req = (HttpWebRequest)WebRequest.Create(bridgeBase + "/api/stop-tracking");
+            req.Method = "POST"; req.ContentLength = 0; req.Timeout = 4000;
+            using (req.GetResponse()) { }
+            File.AppendAllText(log, DateTime.Now + " - shutdown stop: tracking stopped\r\n");
+        }
+        catch (Exception ex) { try { File.AppendAllText(log, DateTime.Now + " - shutdown stop: bridge call did not finish (" + ex.Message + ")\r\n"); } catch { } }
+        stopping = true; stopTriggered = 1;
+    }
+    protected override void WndProc(ref Message m)
+    {
+        const int WM_QUERYENDSESSION = 0x0011;
+        if (m.Msg == WM_QUERYENDSESSION) StopForWindowsShutdown("WM_QUERYENDSESSION");
+        base.WndProc(ref m);
     }
 
     private int stopTriggered = 0;

@@ -380,6 +380,8 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
 .chd-hint{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:12px}
 .chd-hint kbd{font-family:var(--amit-font-mono,monospace);font-size:11px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-bottom-width:2px;border-radius:4px;padding:0 5px}
 @media (max-width:820px){.chd{padding:14px}.chd-hero{grid-template-columns:1fr}.chd-tabgrid{grid-template-columns:1fr}}
+.chd-sol ol.chd-steps{margin:0;padding-left:20px;color:var(--text2);font-size:15px;line-height:1.45}
+.chd-sol ol.chd-steps li{margin:3px 0}
 
 /* ── v4.60 Computer Health tool styles, scoped to .chl so they never touch the template frame (2026-10-08) ── */
 @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
@@ -556,7 +558,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.01</div>
+      <div class="page-version" id="pageVersion">v5.02</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -8557,7 +8559,7 @@ function chBuildParts(){
   // Windows
   const since=Date.now()-30*864e5;const sd=CH.rel.filter(e=>e.k==='shutdown'),sd30=sd.filter(e=>new Date(e.at)>since),fl=CH.rel.filter(e=>e.k==='failed'),hg=CH.rel.filter(e=>e.k==='hang'),bs=CH.rel.filter(e=>e.k==='bsod'),up=CH.rel.filter(e=>e.k==='update');
   P.push({id:'win',ic:'🪟',name:'Windows',model:'Updates · errors · shutdowns',comp:'Windows',kind:'win',unit:'',val:null,sd,sd30,fl,hg,bs,lastUp:up[up.length-1]||null,
-    extra:[['Switched off without shutting down (30 days)',String(sd30.length)],['Blue-screen crashes',String(bs.length)],['Updates that failed',String(fl.length)],['Last update installed',up.length?chD(up[up.length-1].at):'–'],['Program freezes logged',String(hg.length)],['History kept since',CH.rel.length?chD(CH.rel[0].at):'–']]});
+    extra:[['Unfinished shutdowns (30 days)',String(sd30.length)],['Blue-screen crashes',String(bs.length)],['Updates that failed',String(fl.length)],['Last update installed',up.length?chD(up[up.length-1].at):'–'],['Program freezes logged',String(hg.length)],['History kept since',CH.rel.length?chD(CH.rel[0].at):'–']]});
   // status + plain-language sentence for each
   P.forEach(chJudge);CH.parts=P;if(!chPartTab||!P.find(p=>p.id===chPartTab))chPartTab=P[0]?P[0].id:null;
 }
@@ -8572,8 +8574,8 @@ function chJudge(p){
   } else if(p.kind==='pct'){p.status=p.val>90?'watch':'good';p.say=p.val>90?`Nearly full at its busiest (${chNum(p.val)}%). Programs may slow down.`:`Plenty of room. At its busiest it used ${chNum(p.val)}%.`;}
   else if(p.kind==='fan'){p.status=p.spinning?'good':'watch';p.say=p.spinning?'The main fan is spinning normally.':'No fan reported spinning during this run. Worth a look.';}
   else if(p.kind==='net'){p.status='good';p.say='Connected. Nothing unusual.';}
-  else if(p.kind==='win'){p.status=p.bs.length?'crit':p.sd30.length>=2?'watch':'good';
-    p.say=p.bs.length?`Windows recorded ${p.bs.length} blue-screen crash${p.bs.length>1?'es':''}.`:p.sd30.length>=2?`Windows says it was switched off without shutting down ${p.sd30.length} times in the last 30 days.`:'No crashes or unexpected shutdowns lately.';}
+  else if(p.kind==='win'){const sdAfter=p.sd30.filter(e=>e.at>=CH_SHUTDOWN_FIX).length;p.status=p.bs.length?'crit':sdAfter>=1?'watch':'good';
+    p.say=p.bs.length?`Windows recorded ${p.bs.length} blue-screen crash${p.bs.length>1?'es':''}.`:sdAfter?`Windows didn’t finish shutting down ${sdAfter} time${sdAfter>1?'s':''} since the Oct 8 tracker fix.`:p.sd30.length?`No crashes. The ${p.sd30.length} unfinished shutdowns before Oct 8 were caused by the tracker and are fixed.`:'No crashes or unfinished shutdowns lately.';}
   else{p.status='none';p.say='No temperature reported for this part.';}
   if(p.key&&CH.hist[p.id]){const peaks=CH.hist[p.id].slice(0,-1).map(h=>h.max);p.norm=[chPct(peaks,.1),chPct(peaks,.9)];}
 }
@@ -8665,15 +8667,47 @@ function chRenderOverview(el){
   el.querySelectorAll('[data-opt]').forEach(b=>b.onclick=()=>{chOpt=b.dataset.opt;try{localStorage.setItem('chd_opt',chOpt)}catch(e){}chdRenderAll()});
   chBindMode(el);chBindParts(el);el.querySelectorAll('[data-x]').forEach(b=>b.onclick=e=>{e.stopPropagation();chOpenExpert(b.dataset.x)});
 }
+// ---------- every finding comes with a solution (2026-10-08, Ryan: "an alarm
+// without a solution is not much help") ----------
+// The tracker fix that stops it holding Windows shutdown up went in here:
+const CH_SHUTDOWN_FIX='2026-10-09T02:51:00Z';
+// Buttons jump straight to the tool in this dashboard that does the step.
+const CH_GO={free:['⚡ Free Up & Optimize',"chlGo('overview')"],sensors:['🌡 Hardware sensors',"chlGo('hardware')"],browser:['🌐 Browser check',"chlGo('browser')"],progs:['📦 Installed programs',"chlGo('installedprograms')"],updates:['⬆️ Updates & drivers',"chlGo('reliability')"],errors:['⚠️ Problems',"openPage(4)"],history:['📜 History',"chlGo('history')"],behavior:['👁 App Behavior',"chlGo('behavior')"],security:['🛡️ Protection',"openPage(6)"]};
+function chSolution(p){
+  const s={what:'',steps:[],go:[],check:''};
+  if(p.wear!=null&&p.wear>=75){s.what=`The drive itself reports ${chNum(p.wear)}% of its rated life used. Drives often keep working past 100%, but the risk of losing data rises, and this is the drive your files live on.`;
+    s.steps=['Back up what matters today: OneDrive, or an external drive.','Open the drive maker’s tool (Samsung Magician for Samsung) and install any firmware update. Some early 980 PRO firmware wore these drives out too fast.','Plan to replace the drive in the coming months. Amit can walk you through copying everything to a new one.'];
+    s.go=[CH_GO.sensors];s.check='Hardware sensors → Drive Health shows the drive’s own life report. If “life used” keeps climbing quickly, replace it sooner.';return s}
+  if(p.kind==='temp'&&(p.status==='watch'||p.status==='crit')){s.what=`It reached ${chNum(p.val)}°C. Its limit is ${chNum(p.lim)}°C. Heat that close to the limit makes parts slow themselves down and wear faster.`;
+    s.steps=['Make sure the vents aren’t blocked and the computer has room to breathe.','Check that the fans are spinning (Hardware sensors shows each fan’s speed).','Blow the dust out of the case and heatsinks. Dust is the most common cause.','If it’s a few years old, fresh thermal paste on the processor usually drops it 5–10°C.'];
+    s.go=[CH_GO.sensors];s.check='Run tracking for 30 minutes of normal use afterward. Its heartbeat and limit bar here show whether it came down.';return s}
+  if(p.used!=null&&p.used>=90){s.what=`The drive is ${chNum(p.used)}% full. Windows needs free space for updates and memory overflow.`;
+    s.steps=['Run Free Up & Optimize to clear safe clutter.','Uninstall programs you don’t use (Installed programs lists them by date).','Move photos and videos to OneDrive or an external drive.'];s.go=[CH_GO.free,CH_GO.progs];s.check='The space used figure on this drive updates on the next run.';return s}
+  if(p.kind==='pct'&&p.status==='watch'){s.what='Memory nearly ran out at busy moments, so Windows had to use the much slower drive instead.';
+    s.steps=['Close programs and browser tabs you aren’t using.','Check browser extensions. They use memory even when idle.','If it happens every day, adding memory is the real fix. Ask Amit what fits this computer.'];s.go=[CH_GO.browser,CH_GO.free];s.check='The memory heartbeat here shows whether the busy peaks come down.';return s}
+  if(p.kind==='fan'&&p.status==='watch'){s.what='No fan reported spinning during the run.';s.steps=['Look inside: is the processor fan turning?','Check its cable is plugged into the “CPU_FAN” header on the board.','In the BIOS, make sure the fan isn’t set to stop.'];s.go=[CH_GO.sensors];s.check='Hardware sensors shows the fan speed live.';return s}
+  if(p.kind==='win'){
+    if(p.bs.length){s.what='Windows crashed and saved crash files.';s.steps=['Note what you were doing when it happened.','Update drivers (Updates & drivers lists them).','Run Windows Memory Diagnostic (search for it in Start) to test the memory.','Ask Amit to read the crash files with you.'];s.go=[CH_GO.errors,CH_GO.updates];s.check='The Problems page shows whether any new crashes appear.';return s}
+    const before=p.sd30.filter(e=>e.at<CH_SHUTDOWN_FIX),after=p.sd30.filter(e=>e.at>=CH_SHUTDOWN_FIX);
+    if(after.length){s.what=`Windows didn’t finish shutting down ${after.length} time${after.length>1?'s':''} since the tracker fix on Oct 8. Something else is holding shutdown up, or power is being cut.`;
+      s.steps=['Shut down with Start → Shut down and wait for the screen to go dark before switching anything off.','If it hangs on “Shutting down”, note which program Windows says is still running.','Turn off Fast Startup (Control Panel → Power Options → “Choose what the power buttons do”) and see if it stops.','Ask Amit to look at the power events with you.'];s.go=[CH_GO.errors];s.check='The Problems page shows whether new ones appear.';return s}
+    if(before.length){s.what=`Resolved: on ${before.length} night${before.length>1?'s':''} a normal shutdown had started, but the Amit tracker held it up (it asked Windows to wait while it saved), and the power went off before Windows finished. That was fixed on Oct 8. The tracker now stops itself cleanly and lets Windows shut down right away.`;
+      s.steps=['Nothing to do. You can shut down any time, even while tracking runs.','The session that was running gets saved to History the next time this dashboard opens.'];s.go=[CH_GO.history];s.check='If a new one ever appears after Oct 8, this card turns back into a warning with what to try.';return s}
+    if(p.fl.length){s.what='Some Windows updates failed to install.';s.steps=['Open Updates & drivers and check whether newer updates installed since.','If one keeps failing, run Settings → System → Troubleshoot → Windows Update.'];s.go=[CH_GO.updates];s.check='Failed updates disappear from the list once a newer one installs.';return s}
+  }
+  if(p.status==='none'){s.what='Amit has no published limit for this exact part yet.';s.steps=['It’s compared with its own normal instead. Watch for readings well above the shaded band.','Ask Amit to look up this part’s limit.'];s.check='';return s}
+  s.what='Nothing to fix.';s.steps=[p.kind==='temp'?'Keep vents clear and dust the case every 6–12 months.':p.kind==='pct'?'Close programs you’re not using when things feel slow.':'Keep tracking now and then so Amit can spot changes early.'];return s;
+}
+function chSolutionHTML(p,compact){const s=chSolution(p);return `<div class="chd-sol"><div class="chd-sec" style="margin-top:${compact?8:18}px"><h4>What to do</h4></div><p class="chd-say" style="margin-bottom:6px">${chEsc(s.what)}</p><ol class="chd-steps">${s.steps.map(x=>`<li>${chEsc(x)}</li>`).join('')}</ol>${s.go.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">${s.go.map(g=>`<button class="chd-btn" onclick="event.stopPropagation();popupClose();${g[1]}">${g[0]} ›</button>`).join('')}</div>`:''}${s.check?`<p class="chd-src" style="margin-top:8px"><b>How to know it worked:</b> ${chEsc(s.check)}</p>`:''}</div>`}
 function chAttCard(p){
-  let title=p.say,steps=[];
-  if(p.wear!=null&&p.wear>=75){title=`Back up your files: your ${p.name} drive is wearing out${p.hours!=null&&p.hours<10000?' early':''}`;steps=['Make sure your important files are backed up (OneDrive or an external drive).','Check the drive maker’s tool (for Samsung, Samsung Magician) for a firmware update.','Plan to replace this drive in the coming months.']}
-  else if(p.kind==='win'&&p.bs.length){title=`Windows crashed with a blue screen ${p.bs.length} time${p.bs.length>1?'s':''}`;steps=['Note what you were doing when it happened.','Open the Problems page for the crash dates.','Ask Amit to look at the crash files with you.']}
-  else if(p.kind==='win'){title=`Your computer was switched off without shutting down ${p.sd30.length} times`;const hrs=p.sd30.map(e=>new Date(e.at).getHours());const eve=hrs.every(h=>h>=17||h<2);steps=['If you turn it off with a power strip or the power button, use Start → Shut down first. Cutting power can damage files.','If you didn’t turn it off, tell Amit. It can watch power and temperature on the next run to find the cause.'];if(eve)title+=', always in the evening'}
-  else if(p.kind==='temp'){title=`Your ${p.name.toLowerCase()} is running hot`;steps=['Make sure the vents aren’t blocked and the fans are spinning.','Clean out dust if it’s been a while.','Ask Amit what to check next.']}
-  else if(p.kind==='pct'){title='Your memory is nearly full at busy moments';steps=['Close programs you aren’t using.','Ask Amit whether more memory would help.']}
-  else if(p.kind==='fan'){title='No fan was reported spinning';steps=['Check that the processor fan is plugged in and turning.']}
-  return `<article class="chd-card clk ${p.status}" data-part="${p.id}">${chSt(p.status)}<h3>${chEsc(title)}</h3><p>${chEsc(p.say)}</p>${steps.length?`<ol>${steps.map(s=>`<li>${chEsc(s)}</li>`).join('')}</ol>`:''}<div class="foot"><span>${chEsc(p.model)}</span><button class="chd-btn" data-x="${p.id}">Technical detail ›</button></div></article>`;
+  let title=p.say;
+  if(p.wear!=null&&p.wear>=75)title=`Back up your files: your ${p.name} drive is wearing out${p.hours!=null&&p.hours<10000?" early":""}`;
+  else if(p.kind==="win"&&p.bs.length)title=`Windows crashed with a blue screen ${p.bs.length} time${p.bs.length>1?"s":""}`;
+  else if(p.kind==="win")title="Windows didn’t finish shutting down";
+  else if(p.kind==="temp")title=`Your ${p.name.toLowerCase()} is running hot`;
+  else if(p.kind==="pct")title="Your memory is nearly full at busy moments";
+  else if(p.kind==="fan")title="No fan was reported spinning";
+  return `<article class="chd-card clk ${p.status}" data-part="${p.id}">${chSt(p.status)}<h3>${chEsc(title)}</h3>${chSolutionHTML(p,true)}<div class="foot"><span>${chEsc(p.model)}</span><button class="chd-btn" data-x="${p.id}">Technical detail ›</button></div></article>`;
 }
 function chPartsGrid(){return `<div class="chd-parts">${CH.parts.map(p=>`<article class="chd-card clk" data-part="${p.id}"><div class="chd-ptop"><div class="chd-pnm"><span class="ic">${p.ic}</span><div style="min-width:0"><b>${chEsc(p.name)}</b><span>${chEsc(p.model)}</span></div></div>${chSt(p.status)}</div>
   ${p.val!=null||chTraceOf(p)?`<div class="chd-big"><b data-chval="${p.id}">${chFmt(p,chNow(p))}</b><span>${chMode==='live'?'right now':p.kind==='temp'?'peak this run':p.kind==='pct'?'at its busiest':'average this run'}</span></div>`:''}
@@ -8751,6 +8785,7 @@ function chPartBody(p,where){
      <div style="font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);font-size:28px;font-weight:600;color:var(--text);margin:2px 0 4px">${p.ic} ${chEsc(p.name)}</div>${chSt(p.status)}</div>
      ${p.val!=null||chTraceOf(p)?`<div style="text-align:right"><div style="font-family:var(--amit-font-mono,monospace);font-size:32px;color:var(--text)" data-chval="${p.id}">${chFmt(p,chNow(p))}</div><div style="font-size:13px;color:var(--muted)">${chMode==='live'?'right now':'this run'}</div></div>`:''}</div>
    <p class="chd-say" style="font-size:17px;margin-top:10px">${chEsc(p.say)}</p>
+   ${chSolutionHTML(p)}
    ${p.kind!=='win'?`<div class="chd-sec"><h4>Heartbeat</h4><span>${chMode==='live'?'Every reading, as it arrives':'The whole run, a reading about every 30 seconds'}</span></div><div data-chhb="${p.id}" data-w="${w}" data-h="130">${chHB(p,w,130)}</div>`:''}
    ${p.lim!=null&&p.kind!=='fan'&&p.kind!=='net'?`<div class="chd-sec"><h4>How close to its limit</h4><span>band = your normal · line = limit</span></div>${chHeadroom(p,w)}`:''}
    ${p.kind==='win'?`<div class="chd-sec"><h4>What Windows recorded</h4><span>most recent first</span></div>${CH.rel.filter(e=>!['update','install'].includes(e.k)).slice(-8).reverse().map(chEvRow).join('')||'<div class="chd-src">Nothing recorded.</div>'}`:''}
@@ -8777,7 +8812,7 @@ function chLineChart(el,pts,{limit,norm,unit,band,w}={}){
   svg.querySelector('.hit').addEventListener('mousemove',e=>{const b=svg.getBoundingClientRect();const x=(e.clientX-b.left)/b.width*W0;const i=Math.max(0,Math.min(pts.length-1,Math.round((x-L)/(W0-L-R)*(pts.length-1))));xh.setAttribute('x1',X(i));xh.setAttribute('x2',X(i));xh.setAttribute('opacity',.6);const p=pts[i];chTip(e,`<b>${chDT(p.t)}</b>High ${chNum(p.max,1)}${unit||''}${p.avg!=null?' · average '+chNum(p.avg,1):''}${p.min!=null?' · low '+chNum(p.min,1):''}`)});
   svg.querySelector('.hit').addEventListener('mouseleave',()=>{xh.setAttribute('opacity',0);chTipHide()});
 }
-function chEvRow(e){const s={shutdown:['⚡','var(--amit-danger,#c73333)','Switched off without shutting down','Power was cut or the computer stopped responding. Windows noticed when it started again.'],failed:['✕','#e0a72e','A Windows update failed','Windows retries later. Check that newer updates installed.'],hang:['◆','#e0a72e','A program stopped responding','Windows closed it. One of these is usually harmless.'],bsod:['☠','var(--amit-danger,#c73333)','Blue-screen crash','Windows crashed and saved a crash file.']}[e.k]||['•','var(--muted)',e.k,''];
+function chEvRow(e){const s={shutdown:['⚡','var(--amit-danger,#c73333)','Windows didn’t finish shutting down','A shutdown started but the power went off before Windows finished. Before Oct 8 this was the Amit tracker holding shutdown up (fixed).'],failed:['✕','#e0a72e','A Windows update failed','Windows retries later. Check that newer updates installed.'],hang:['◆','#e0a72e','A program stopped responding','Windows closed it. One of these is usually harmless.'],bsod:['☠','var(--amit-danger,#c73333)','Blue-screen crash','Windows crashed and saved a crash file.']}[e.k]||['•','var(--muted)',e.k,''];
   return `<div class="chd-ev"><span class="d">${chDT(e.at)}</span><span style="color:${s[1]};font-size:16px">${s[0]}</span><span><b style="color:var(--text)">${s[2]}</b><br><span style="color:var(--muted);font-size:13.5px">${chEsc(s[3])}</span></span></div>`}
 function chRenderTimeline(el){
   const runs=chRuns();el.innerHTML=chHint+`<div class="chd-card"><div class="chd-sec" style="margin-top:0"><h4>Every run and every Windows event</h4><span>${runs.length} runs · ${CH.rel.length} Windows records</span></div><div class="chd-svgwrap" id="chdRec3"></div></div>
