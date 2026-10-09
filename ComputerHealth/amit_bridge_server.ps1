@@ -1422,7 +1422,9 @@ secret key must never appear here, ever, under any circumstance.
             "/api/install-diff-latest" {
                 $snapDir = "$env:TEMP\amit_install_snapshots"
                 $latest = if (Test-Path $snapDir) { Get-ChildItem "$snapDir\diff_report_*.json" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1 } else { $null }
-                if ($latest) { Send-Json $response @{ found = $true; content = (Get-Content $latest.FullName -Raw) } }
+                # Plain text (2026-10-08): Get-Content's attached PSDrive/PSProvider
+                # metadata made ConvertTo-Json -Depth 8 hang - why Compare Now never answered.
+                if ($latest) { Send-Json $response @{ found = $true; content = [System.IO.File]::ReadAllText($latest.FullName) } }
                 else { Send-Json $response @{ found = $false } }
             }
             "/api/start-behavior" {
@@ -1523,15 +1525,23 @@ secret key must never appear here, ever, under any circumstance.
                     Send-JsonRaw $response '{"found":false,"sessionEndTime":null,"rows":[]}'
                 }
             }
+            # 2026-10-08: wait for THIS process only, capped at 2 minutes.
+            # Start-Process -Wait also waited on things beyond the snapshot
+            # process and never returned - Compare Now hung with its report
+            # already written, so the page never got an answer.
             "/api/install-start" {
-                Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\install_snapshot_watcher.ps1`" -Start" -WindowStyle Hidden -Wait
+                $snapProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\install_snapshot_watcher.ps1`" -Start" -WindowStyle Hidden -PassThru
+                [void]$snapProc.WaitForExit(120000)
                 Send-Json $response @{ baselineStarted = $true }
             }
             "/api/install-compare" {
-                Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\install_snapshot_watcher.ps1`" -Compare" -WindowStyle Hidden -Wait
+                $snapProc = Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$watcherDir\install_snapshot_watcher.ps1`" -Compare" -WindowStyle Hidden -PassThru
+                [void]$snapProc.WaitForExit(120000)
                 $snapDir = "$env:TEMP\amit_install_snapshots"
                 $latest = Get-ChildItem "$snapDir\diff_report_*.json" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-                if ($latest) { Send-Json $response @{ found = $true; content = (Get-Content $latest.FullName -Raw) } }
+                # Plain text (2026-10-08): Get-Content's attached PSDrive/PSProvider
+                # metadata made ConvertTo-Json -Depth 8 hang - why Compare Now never answered.
+                if ($latest) { Send-Json $response @{ found = $true; content = [System.IO.File]::ReadAllText($latest.FullName) } }
                 else { Send-Json $response @{ found = $false } }
             }
             default {

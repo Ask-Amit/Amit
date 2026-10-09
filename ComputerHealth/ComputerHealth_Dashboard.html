@@ -558,7 +558,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.03</div>
+      <div class="page-version" id="pageVersion">v5.04</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -8402,6 +8402,36 @@ chlMount();
 // silently on load. The v4.60 engine calls onConnected() at that moment; the
 // new dashboard reloads right then so it switches to Live with real readings.
 const _chlOnConnected=onConnected;onConnected=function(d){_chlOnConnected(d);setTimeout(()=>{if(typeof chLoad==='function')chLoad()},800)};
+// ONE-BUTTON INSTALL WATCH (v5.04, Ryan): Start before installing, Stop after.
+// Start = the "before" snapshot (Install Watch) + App Behavior watching the
+// installer as it runs (files it writes, network connections). Stop = stop
+// App Behavior (its file/network report opens) + compare against the
+// snapshot (new programs, startup entries, scheduled tasks, browser
+// extensions, homepage changes, shown below). The original two buttons stay
+// underneath for anyone who wants the steps separately.
+(function(){const tab=document.getElementById('tab-install');if(!tab||document.getElementById('chlIW'))return;
+  const box=document.createElement('div');box.id='chlIW';box.className='chl-iw';
+  box.innerHTML='<div class="section-title">Watch an install, start to finish</div>'+
+   '<p style="font-size:14px;color:var(--amit-text-soft,#c7cad1);margin:6px 0 10px">Click <strong>Start</strong> before you download or run an installer. Amit takes a snapshot of this computer and watches what the installer does while you install: files it writes and places it connects to. When it’s finished, click <strong>Stop</strong> to see everything it added or changed.</p>'+
+   '<div class="controls"><button class="btn" id="chlIWStart" onclick="chlIWStart()">▶ Start watching this install</button><button class="btn danger hidden" id="chlIWStop" onclick="chlIWStop()">■ Stop and show what it did</button><span id="chlIWStatus" style="font-size:13px;color:var(--amit-muted,#9aa0ab)"></span></div><hr style="border:0;border-top:1px solid var(--amit-row-sep,rgba(201,168,76,.15));margin:16px 0">';
+  tab.insertBefore(box,tab.firstChild);})();
+async function chlIWStart(){
+  const st=document.getElementById('chlIWStatus'),a=document.getElementById('chlIWStart'),b=document.getElementById('chlIWStop');
+  if(!bridgeUp){st.textContent='Connect the tracker first (Launch Tracker at the top of Overview).';return}
+  a.disabled=true;st.textContent='Taking the before snapshot… (a few seconds)';
+  try{await installStart()}catch(e){}
+  try{document.getElementById('behaviorProcessName').value='';document.getElementById('behaviorSessionLabel').value='Install watch · '+new Date().toLocaleString();startBehavior()}catch(e){}
+  a.classList.add('hidden');a.disabled=false;b.classList.remove('hidden');
+  st.textContent='Watching. Go ahead and install now, then click Stop when it’s done.';
+}
+async function chlIWStop(){
+  const st=document.getElementById('chlIWStatus'),a=document.getElementById('chlIWStart'),b=document.getElementById('chlIWStop');
+  b.disabled=true;st.textContent='Stopping and comparing… (this takes up to a minute)';
+  try{await stopBehavior()}catch(e){}
+  try{await installCompare()}catch(e){document.getElementById('installResult').innerHTML='<em>The comparison didn’t come back. Make sure the tracker is still connected, then click “2. Compare Now”.</em>'}
+  b.classList.add('hidden');b.disabled=false;a.classList.remove('hidden');
+  st.textContent='Done. What the install added is below; the file and network activity opened in its own window and is saved in History.';
+}
 
 </script>
 <script>
