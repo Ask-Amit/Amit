@@ -276,7 +276,7 @@
 <body>
 
 <header>
-  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:var(--amit-dim,#7a7f89);font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.59</span></h1>
+  <h1 style="display:flex;align-items:center;gap:10px"><img src="../amit_icon.png" alt="Amit" style="height:26px;width:26px">Computer Health <span style="font-size:11px;color:var(--amit-dim,#7a7f89);font-weight:400;letter-spacing:0" title="Matches the version number in the GitHub commit that last touched this page">v4.60</span></h1>
   <div style="display:flex;align-items:center;gap:16px">
     <span class="status-badge now" style="cursor:pointer" onclick="openChTutorial()" title="Everyone is on the Free tier right now - paid tiers are planned, not live yet">FREE TIER</span>
     <button id="chDemoBtn" class="off" onclick="toggleChDemo()">DEMO</button>
@@ -1296,11 +1296,31 @@ async function syncReliabilityToHistory(records, minidumps) {
     });
     if (newRows.length === 0) return;
 
-    await db.from('amit_device_reliability_log').insert(newRows);
+    // Fixed 2026-10-08 (Ryan): nothing had saved since July 18. Windows logs
+    // several updates installed in the same second, which collide on the
+    // table's unique index - one collision rejected the WHOLE batch, and the
+    // error was never checked, so it failed silently on every sync. Now: drop
+    // exact repeats inside the batch, check the error, and if the batch is
+    // rejected fall back to one row at a time so one conflict can't block
+    // the rest. (migration_2026-10-08_001 widens the index to include the
+    // product name so same-second updates are all kept.)
+    const seen = new Set();
+    const batch = newRows.filter(r => { const k = [r.event_type, r.occurred_at, r.source || '', r.product || '', r.dump_file_name || ''].join('|'); if (seen.has(k)) return false; seen.add(k); return true; });
+    const { error: batchErr } = await db.from('amit_device_reliability_log').insert(batch);
+    if (batchErr) {
+      let saved = 0;
+      for (const row of batch) {
+        const { error } = await db.from('amit_device_reliability_log').insert(row);
+        if (!error) saved++;
+      }
+      console.warn('syncReliabilityToHistory: batch rejected (' + batchErr.message + '); saved ' + saved + ' of ' + batch.length + ' one at a time.');
+    }
 
     // Free-tier cap enforced AFTER insert, same eviction pattern as
     // logEvent() - trims down to the cap, oldest first, so a bulk sync
-    // can't silently blow past the limit in one shot.
+    // can't silently blow past the limit in one shot. Gated the same way as
+    // logEvent()'s cap (2026-10-08) - it used to run unconditionally.
+    if (isUnlimitedHistoryAccount()) return;
     const { count } = await db.from('amit_device_reliability_log').select('id', { count: 'exact', head: true }).eq('device_id', deviceId);
     if (count && count > FREE_TIER_RELIABILITY_CAP) {
       const { data: oldest } = await db.from('amit_device_reliability_log').select('id').eq('device_id', deviceId).order('occurred_at', { ascending: true }).limit(count - FREE_TIER_RELIABILITY_CAP);
@@ -4305,6 +4325,17 @@ async function chRefreshConstantSensorKeys(devId) {
 // diagnosis.
 function analyzeComponentRows(component, rows, specs) {
   const issues = [];
+  // Fixed 2026-10-08 (Ryan): a drive that reports its OWN warning temperature
+  // (e.g. Samsung 980 PRO: "Warning Temperature" 81°C) is judged against that,
+  // not the generic ~70°C SSD figure in amit_hardware_specs - the generic limit
+  // was flagging a normal 58°C as "getting close" and turning sessions critical.
+  // Read before the constant-sensor filter below, since that filter removes
+  // exactly these fixed threshold rows.
+  const ownLimitByTitle = {};
+  rows.forEach(r => {
+    const n = (r.metric_name || '').toLowerCase();
+    if (/warning temp/.test(n) && typeof r.max_value === 'number' && r.max_value > 0 && r.max_value <= IMPLAUSIBLE_TEMP_C) ownLimitByTitle[r.title] = r.max_value;
+  });
   rows = rows.filter(r => !CH_CONSTANT_SENSOR_KEYS.has(chConstantKey(component, r.title, r.metric_name)));
   rows.forEach(r => {
     const name = (r.metric_name || '').toLowerCase();
@@ -4329,11 +4360,17 @@ function analyzeComponentRows(component, rows, specs) {
       if (max > IMPLAUSIBLE_TEMP_C) {
         flagged = { severity: 'info', key: 'implausible_temp', reason: `Peaked at ${max}°C - not a physically real reading for this sensor, almost certainly a misreport. Safe to ignore, but worth confirming nothing else relies on this exact sensor.` };
       } else {
-        const known = (specs || []).find(s => s.max_temp_c != null && s.regex && s.regex.test(r.title || ''));
-        if (known) {
-          const headroom = known.max_temp_c - max;
-          if (headroom <= 0) flagged = { severity: 'investigate', key: 'temperature', reason: `Peaked at ${max}°C, at or above the typical safe limit (~${known.max_temp_c}°C) for this hardware - worth investigating cooling.` };
-          else if (headroom <= 15) flagged = { severity: 'investigate', key: 'temperature', reason: `Peaked at ${max}°C, only ~${Math.round(headroom)}°C below the typical safe limit (~${known.max_temp_c}°C) - getting close, worth keeping an eye on.` };
+        const own = ownLimitByTitle[r.title];
+        const spec = chFindSpec(specs, r.title, s => s.max_temp_c != null);
+        const limit = own != null ? own : (spec ? spec.max_temp_c : null);
+        const limitLabel = own != null ? `this part's own reported warning point (${own}°C)` : `the typical safe limit (~${limit}°C) for this hardware`;
+        if (limit != null) {
+          // 2026-10-08: "investigate" (critical) only when a part actually
+          // reaches its limit; within 10°C is "watch". Previously anything
+          // within 15°C was critical, which over-alarmed normal sessions.
+          const headroom = limit - max;
+          if (headroom <= 0) flagged = { severity: 'investigate', key: 'temperature', reason: `Peaked at ${max}°C, at or above ${limitLabel} - worth investigating cooling.` };
+          else if (headroom <= 10) flagged = { severity: 'watch', key: 'temperature', reason: `Peaked at ${max}°C, only ~${Math.round(headroom)}°C below ${limitLabel} - getting close, worth keeping an eye on.` };
         }
       }
     } else if (/interrupt time|dpc time/.test(name)) {
@@ -4354,7 +4391,11 @@ function analyzeComponentRows(component, rows, specs) {
       if (typeof avg === 'number' && avg > 90) flagged = { severity: 'watch', key: 'load_usage', reason: `Averaged ${Math.round(avg)}% throughout the session - sustained near-maximum load.` };
     } else if (/fan/.test(name) && max === 0) {
       flagged = { severity: 'watch', key: 'fan_zero', reason: `Read 0 RPM for the entire session - worth confirming this fan is actually spinning, if the system genuinely has one at this position.` };
-    } else if (/voltage|vcore|vid/.test(name) && typeof avg === 'number' && avg > 0) {
+    } else if (/voltage|vcore/.test(name) && !/\bvid\b/.test(name) && typeof avg === 'number' && avg > 0) {
+      // 2026-10-08: per-core VID is the voltage the CPU *requests*, and it
+      // swings widely by design as cores boost and idle (normal on Ryzen) -
+      // it was producing most of the "Watch" items every session. Real
+      // supply rails (Vcore, +12V, etc.) are still checked.
       const swing = (max - min) / avg;
       if (swing > 0.15) flagged = { severity: 'watch', key: 'voltage_swing', reason: `Swung from ${min} to ${max} (about ${Math.round(swing * 100)}% variation) - more movement than typical, not necessarily a problem on its own.` };
     }
@@ -4765,6 +4806,22 @@ async function loadTrackerMetricsBreakdown(eventId) {
 // model_pattern is compiled to a real RegExp for matching against
 // whatever a sensor's own title says.
 let CACHED_HARDWARE_SPECS = null;
+// Picks the MOST SPECIFIC spec row for a part name (2026-10-08, Ryan): every
+// lookup used to take the first row that matched, in no set order, so the
+// generic "any SSD = 70°C" row could win over a real drive-specific row. Now
+// the row whose pattern matched the longest stretch of the name wins, and a
+// "(generic)" family row only applies when nothing specific matches.
+function chFindSpec(specs, text, extraTest) {
+  let best = null, bestLen = -1;
+  (specs || []).forEach(s => {
+    if (!s.regex || (extraTest && !extraTest(s))) return;
+    const m = (text || '').match(s.regex);
+    if (!m) return;
+    const len = /generic/i.test(s.model_family || '') ? 0 : m[0].length;
+    if (len > bestLen || (len === bestLen && best && best.confidence !== 'manufacturer-spec' && s.confidence === 'manufacturer-spec')) { best = s; bestLen = len; }
+  });
+  return best;
+}
 async function loadHardwareSpecs() {
   if (CACHED_HARDWARE_SPECS) return CACHED_HARDWARE_SPECS;
   if (!db) return [];
@@ -4819,7 +4876,7 @@ async function buildLongevitySection(byComponent) {
   });
   const currentYear = new Date().getFullYear();
   titlesToCheck.forEach(({ title, compType }) => {
-    const known = specs.find(s => s.component_type === compType && s.release_year != null && s.regex && s.regex.test(title || ''));
+    const known = chFindSpec(specs, title, s => s.component_type === compType && s.release_year != null);
     if (!known) return;
     const age = currentYear - known.release_year;
     const ageScore = age <= 3 ? 95 : age <= 5 ? 80 : age <= 7 ? 62 : age <= 9 ? 42 : 20;
@@ -4902,7 +4959,7 @@ function buildThermalHeadroomSection(byComponent, esc, specs) {
         lines.push(`<li style="margin:4px 0"><strong>${esc(title)}:</strong> peaked at ${peak}°C, which isn't a physically real reading for this kind of sensor - almost certainly a misreported sensor value, not an actual temperature. Safe to ignore.</li>`);
         return;
       }
-      const known = (specs || []).find(s => s.max_temp_c != null && s.regex && s.regex.test(title));
+      const known = chFindSpec(specs, title, s => s.max_temp_c != null);
       if (!known) return;
       const headroom = known.max_temp_c - peak;
       let verdict;
@@ -5386,9 +5443,16 @@ async function stopAllTracking() {
 // or null if nothing was captured (not signed in, or genuinely no data).
 async function _chCaptureNow(reasonDetail) {
   if (!currentUser || !deviceId) return null;
-  const metrics = await fetchLocalMetrics('/api/tracker-metrics');
+  // Fixed 2026-10-08 (Ryan): this used to read /api/tracker-metrics - the file
+  // written only when a session STOPS - so every capture re-saved the previous
+  // session's numbers (5 duplicate History rows found). Use the live file the
+  // watcher rewrites every ~30s, and only if it's actually fresh; a finished,
+  // unsaved session is already handled by reconcileMissedSummaries().
+  let metrics = await fetchLocalMetrics('/api/tracker-metrics-live');
+  const liveAgeMs = (metrics && metrics.sessionEndTime) ? Date.now() - new Date(metrics.sessionEndTime).getTime() : Infinity;
+  if (!(liveAgeMs < 5 * 60 * 1000)) metrics = null;
   const duration = await computeTrackerSessionDuration();
-  let verdict = { severity: 'info', summary: 'A snapshot of current conditions was captured.', concerns: [] };
+  let verdict = { severity: 'info', summary: metrics ? 'A snapshot of current conditions was captured.' : 'Tracking isn\'t running, so there were no fresh readings to capture.', concerns: [] };
   if (metrics && metrics.found && metrics.rows && metrics.rows.length) {
     try {
       const specs = await loadHardwareSpecs();
@@ -6495,7 +6559,7 @@ async function runCursoryOverview() {
     // of guessing one number for everything.
     const specs = await loadHardwareSpecs();
     const limitFor = (deviceText) => {
-      const match = specs.find(s => s.max_temp_c != null && s.regex && s.regex.test(deviceText));
+      const match = chFindSpec(specs, deviceText, s => s.max_temp_c != null);
       return match ? match.max_temp_c : null;
     };
     for (const device of devices) {
