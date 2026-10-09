@@ -558,7 +558,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.04</div>
+      <div class="page-version" id="pageVersion">v5.05</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -8432,6 +8432,23 @@ async function chlIWStop(){
   b.classList.add('hidden');b.disabled=false;a.classList.remove('hidden');
   st.textContent='Done. What the install added is below; the file and network activity opened in its own window and is saved in History.';
 }
+// CONNECT BAR (v5.05, Ryan): the browser usually blocks the page's silent
+// on-load check of the local tracker, and the one-click fallback lived only
+// at the top of Overview — so Tools/Changes panels (Browser, App Behavior,
+// Diagnostics, Resources) sat empty with no explanation. This bar shows on
+// every page whenever the page isn't connected, and one click connects
+// (a real click is what the browser requires).
+(function(){if(document.getElementById('chlConnectBar'))return;
+  const bar=document.createElement('div');bar.id='chlConnectBar';
+  bar.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:900;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 32px);padding:12px 18px;border-radius:12px;background:var(--amit-panel,#13233a);border:1px solid var(--amit-accent,#d4a843);box-shadow:0 8px 28px rgba(0,0,0,.45);color:var(--amit-text,#e8e4d8);font-size:14px';
+  bar.innerHTML='<span><strong>Not connected to this computer.</strong> Live readings (Browser, App Behavior, Diagnostics, Resources) fill in once connected.</span><button class="btn" onclick="chlConnectNow(this)">Connect now</button>';
+  document.body.appendChild(bar);})();
+function chlConnectBarSync(){const b=document.getElementById('chlConnectBar');if(b)b.style.display=(currentUser&&!bridgeUp)?'flex':'none'}
+async function chlConnectNow(btn){btn.disabled=true;btn.textContent='Connecting…';
+  try{onConnected(await checkBridge())}catch(e){launchTracker()}
+  btn.disabled=false;btn.textContent='Connect now';chlConnectBarSync()}
+const _chlOnConnected2=onConnected;onConnected=function(d){_chlOnConnected2(d);chlConnectBarSync()};
+setInterval(chlConnectBarSync,2000);chlConnectBarSync();
 
 </script>
 <script>
