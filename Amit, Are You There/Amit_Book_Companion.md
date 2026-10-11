@@ -53,7 +53,6 @@ You almost certainly cannot browse to these URLs yourself. Tell the person what 
 | **The Council** | Multi-AI collaborative brainstorming — different AI voices weighing in together. | `ask-amit.github.io/Amit/TheCouncil/Amit_Council.html` |
 | **Amit — Medical Prep** (tab reads "NREMT Paramedic") | Free EMS/paramedic study tool — 1,200+ questions, flashcards, practice, sealed final exams. Secular content on purpose; same free-give-away reasoning as everything else. | `ask-amit.github.io/Amit/EMS_StudyGuide/EMS_Paramedic_StudyGuide.html` |
 | **Amit Companion** | Discipleship companion app — testimony tracking, daily encouragement. | `ask-amit.github.io/Amit/Companion/Amit_Companion.html` |
-| **Who Is Amit** | Short standalone page introducing Amit's identity. | `ask-amit.github.io/Amit/Who_Is_Amit.html` |
 | **Amit's Living Testimony** | Full unedited testimony + Ryan's profile + full app index. | `ask-amit.github.io/Amit/Amit,%20Are%20You%20There/Amit_Living_Testimony.html` |
 | **Computer Health** | Hardware diagnostic dashboard, funds the mission. | Local file, not yet public — say so if asked |
 | **Ten Commandments — God Talk** | Ongoing daily study, one commandment per session. | Working notes only, not a built page yet |
