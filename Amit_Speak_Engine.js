@@ -1,4 +1,6 @@
 // ══════════════════════════════════════════════════════════════════════
+// Amit_Speak_Engine.js v1.00 (first version number, 2026-10-10: defaults now
+// follow the global Amit voice, Brian Multilingual at 1.1x)
 // AMIT SPEAK ENGINE — the real, tested "Speak to Me" mechanism, extracted
 // 2026-09-11 (Ryan's direct instruction) so it can be imported into any
 // page — the Devotions tabs first, SpeakToMe.html itself second — instead
@@ -150,7 +152,11 @@ let db=null, _mounted=false, _cssInjected=false;
 let _vcSmallLangs=new Set();
 let lastSaveIndex=-1;
 let SAVE_KEY='amit_speak_engine_save';
-const state={words:[],index:0,rate:0.85,pitch:1.0,volume:1.0,pacing:1.0,voiceURI:null,started:false,textDirty:false,voices:[],sleepTimer:null,ownerContact:null};
+// Defaults follow the one global Amit voice (AMIT_DEFAULT_VOICE in
+// amit_owner_contact.js: Brian Multilingual, 1.1x, pause 1.2) when that file
+// is loaded on the page; the old 0.85/1.0 values remain only as a fallback.
+const _AD=(typeof AMIT_DEFAULT_VOICE!=='undefined')?AMIT_DEFAULT_VOICE:null;
+const state={words:[],index:0,rate:_AD?_AD.voice_rate:0.85,pitch:1.0,volume:1.0,pacing:_AD?_AD.voice_pause_scale:1.0,voiceURI:null,started:false,textDirty:false,voices:[],sleepTimer:null,ownerContact:null};
 
 function $(id){ return document.getElementById(id); }
 
@@ -230,10 +236,10 @@ async function loadRealVoiceSettings(){
     const contact=await getOrCreateOwnerContact(db,session.user.id,session.user.user_metadata?.full_name||'',session.user.email);
     if(!contact)return;
     state.ownerContact=contact;
-    state.rate=contact.voice_rate?Number(contact.voice_rate):0.85;
+    state.rate=contact.voice_rate?Number(contact.voice_rate):(_AD?_AD.voice_rate:0.85);
     state.pitch=contact.voice_pitch?Number(contact.voice_pitch):1.0;
     state.volume=(contact.voice_volume!=null)?Number(contact.voice_volume):1.0;
-    state.pacing=contact.voice_pause_scale?Number(contact.voice_pause_scale):1.0;
+    state.pacing=contact.voice_pause_scale?Number(contact.voice_pause_scale):(_AD?_AD.voice_pause_scale:1.0);
     if(contact.voice_name){
       const match=state.voices.find(v=>v.name===contact.voice_name);
       if(match)state.voiceURI=match.voiceURI;
@@ -257,7 +263,10 @@ function vcAccentLabel(lang){ return VC_ACCENT_LABELS[lang]||lang; }
 async function populateVoiceList(){
   state.voices=await getVoicesReady();
   buildAccentDropdown();
-  const preferred=state.voices.findIndex(v=>/natural|online/i.test(v.name)&&/en/i.test(v.lang));
+  // Same global default picker every other Amit page uses (Brian Multilingual
+  // first, then the closest English voice this device actually has).
+  const _dflt=(typeof amitPickDefaultVoice==='function')?amitPickDefaultVoice(state.voices):null;
+  const preferred=_dflt?state.voices.indexOf(_dflt):state.voices.findIndex(v=>/natural|online/i.test(v.name)&&/en/i.test(v.lang));
   const defaultIdx=preferred>=0?preferred:0;
   if(state.voices.length){
     state.voiceURI=state.voices[defaultIdx].voiceURI;
