@@ -1388,7 +1388,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.10</div>
+      <div class="page-version" id="hubVersionBadge">v8.11</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1564,11 +1564,11 @@ header{
       </div>
     </div>
 
-    <div class="tile page-nav" id="tile-mail" onclick="openPanel('mail')" data-tip="Mail">
+    <div class="tile page-nav" id="tile-mail" onclick="openPanel('mail')" data-tip="Communications">
       <div class="page-icon">✉️</div>
       <div class="page-info">
-        <div class="page-name">Mail</div>
-        <div class="page-sub tile-sub">Inbox · Compose</div>
+        <div class="page-name">Communications</div>
+        <div class="page-sub tile-sub">Email · Chats</div>
       </div>
     </div>
 
@@ -2321,12 +2321,55 @@ header{
     <div class="panel" id="panel-mail">
       <div class="panel-head">
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
-        <span class="panel-heading">Mail</span>
-        <div class="panel-head-actions">
+        <span class="panel-heading">Communications</span>
+      </div>
+      <div class="mail-panel-wrap" style="max-width:none;width:100%">
+        <!-- ══════════════════════════════════════════════
+             COMMUNICATIONS — created 2026-10-11, Ryan's direct instruction.
+             The Mail page, now a tabbed page that can hold every kind of
+             communication. Uses the SAME tabbed layout About Me uses
+             (.ch-tab-nav / .ch-tab-btn / .ch-tab-main / .ch-tab-content and
+             showChTab(), all pulled from Templates\TemplateViews.html and
+             already defined once above in the About Me panel's <style>).
+             ADDING A TAB: add one <button class="ch-tab-btn"
+             onclick="showChTab('comm',N)"> and one <div class="ch-tab-content"
+             id="ch-tab-comm-N"> inside .ch-tab-main, N being the next number.
+             Tab 1 Email is the original Mail page, untouched. Tab 2 Chats is
+             the future AmitChat (see AmitChat\CLAUDE.md); a placeholder for now.
+             The panel's internal id stays "mail" so nothing that points at it breaks.
+             ══════════════════════════════════════════════ -->
+        <style>
+          /* TABBED VIEW — the template's own CSS, verbatim from Templates\template.html
+             ("CANONICAL LAYOUT: TABBED VIEW"). The ONLY change is the "#panel-mail " prefix on each
+             selector, so About Me's older copy of these class names is not affected. This is why the
+             tab box fills the page (flex:1) and follows the Appearance tokens
+             (--amit-tab-radius, --amit-radius, --amit-accent-rgb) exactly as the template does. */
+          #panel-mail .ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+          #panel-mail .ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:var(--amit-tab-radius,10px) var(--amit-tab-radius,10px) 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+          #panel-mail .ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+          #panel-mail .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 var(--amit-radius,12px) var(--amit-radius,12px) var(--amit-radius,12px)}
+          #panel-mail .ch-tab-content{display:none}
+          #panel-mail .ch-tab-content.active{display:block}
+          /* The template mounts the tabbed view inside a flex-column .detail container;
+             this panel stands in for it. */
+          #panel-mail .mail-panel-wrap{flex:1;display:flex;flex-direction:column;min-height:0;padding:0}
+          #panel-mail #detail-comm{flex:1;display:flex;flex-direction:column;min-height:0}
+          /* the Chats placeholder fills its tab box */
+          #panel-mail #ch-tab-comm-2.active{display:flex;flex-direction:column;height:100%}
+          #panel-mail #ch-tab-comm-2 > div:nth-of-type(2){flex:1;min-height:0;grid-template-rows:1fr}
+        </style>
+        <div id="detail-comm" style="flex-direction:column">
+        <div class="ch-tab-nav" id="ch-tab-nav-comm">
+          <button class="ch-tab-btn active" onclick="showChTab('comm',1)">Email</button>
+          <button class="ch-tab-btn" onclick="showChTab('comm',2)">Chats</button>
+        </div>
+        <div class="ch-tab-main">
+
+        <!-- TAB 1: EMAIL — the original Mail page content, unchanged -->
+        <div class="ch-tab-content active" id="ch-tab-comm-1">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
           <button class="btn btn-ghost" onclick="toggleMailForm()">+ Add Account</button>
         </div>
-      </div>
-      <div class="mail-panel-wrap">
 
         <!-- Add account form (hidden by default) -->
         <div class="mail-add-form" id="mailAddForm">
@@ -2378,6 +2421,25 @@ header{
         <!-- Mail tasks -->
         <div class="mail-tasks-header" style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:10px">Mail-Related Pursuits</div>
         <div id="mailTasks" style="font-size:14px;color:var(--muted)"></div>
+        </div><!-- /ch-tab-comm-1 -->
+
+        <!-- TAB 2: CHATS — placeholder until AmitChat is built -->
+        <div class="ch-tab-content" id="ch-tab-comm-2">
+          <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.16em;color:var(--gold);text-transform:uppercase;margin-bottom:12px">Chats</div>
+          <div style="display:grid;grid-template-columns:minmax(180px,260px) 1fr;gap:16px;align-items:stretch">
+            <div style="border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:10px;padding:14px;min-height:220px">
+              <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Your conversations</div>
+              <div style="color:var(--dim);font-size:13px">No conversations yet.</div>
+            </div>
+            <div style="border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:10px;padding:18px;display:flex;flex-direction:column;justify-content:center;gap:8px;min-height:220px">
+              <div style="color:var(--gold2);font-weight:600">AmitChat is coming</div>
+              <div style="color:var(--muted);font-size:14px;line-height:1.6">Private conversations with your friends, saved so you can come back to them. Not built yet. This tab is where they will live, next to Email.</div>
+            </div>
+          </div>
+        </div>
+
+        </div><!-- /ch-tab-main -->
+        </div><!-- /detail-comm -->
       </div>
     </div>
 
@@ -6713,8 +6775,9 @@ function submitAmitName(){
   setUserName(v);
   const cp=getCompass();
   if(!cp.firstVisit){cp.name=v;cp.firstVisit=new Date().toISOString().slice(0,10);saveCompass(cp);}
-  // ZIP step first (powers morning weather) — recognition/email happen after
-  showZipStep(v);
+  // ZIP step removed 2026-10-11 (Ryan): the ZIP is set under About Me, not in the welcome flow.
+  // afterZipStep() simply continues to recognition/email; the ZIP panel markup is now unused.
+  afterZipStep();
 }
 function showZipStep(name){
   document.getElementById('amitNamePanel1').classList.add('hidden');
@@ -12046,7 +12109,7 @@ function toggleSidebar(){document.getElementById('sidebarPages').classList.toggl
 
 // Header context: the title in the middle of the top bar follows the open page (and About Me's tab).
 const HUB_CONTEXT={home:['Home','Today'],calendar:['Calendar','View by date'],todo:['Pursuits','Your aims'],
-  verse:['Word for Today',''],prayer:["Amit's Prayer","Today's prayer"],mail:['Mail','Inbox · Compose'],
+  verse:['Word for Today',''],prayer:["Amit's Prayer","Today's prayer"],mail:['Communications','Email · Chats'],
   aboutme:['About Me','Your Info'],whoisgod:['Who Is God','Evidence foundation'],compval:['Computer Value','Your computer'],
   coder:['AmitCoder','Session history'],boss:['BOSStimator','Estimating']};
 function hubSetContext(id,subOverride){
