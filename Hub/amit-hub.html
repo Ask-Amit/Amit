@@ -14,6 +14,7 @@
 <script src="../amit_pin_encryption.js?v=1.00"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
+<script src="../amit_chat.js?v=0.01"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1388,7 +1389,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.11</div>
+      <div class="page-version" id="hubVersionBadge">v8.13</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2322,6 +2323,7 @@ header{
       <div class="panel-head">
         <button class="back-btn" onclick="openPanel('home')">← Home</button>
         <span class="panel-heading">Communications</span>
+        <span id="commUnreadTop" style="display:none;margin-left:auto;font-size:12px;color:var(--gold2)"></span>
       </div>
       <div class="mail-panel-wrap" style="max-width:none;width:100%">
         <!-- ══════════════════════════════════════════════
@@ -2350,18 +2352,20 @@ header{
           #panel-mail .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 var(--amit-radius,12px) var(--amit-radius,12px) var(--amit-radius,12px)}
           #panel-mail .ch-tab-content{display:none}
           #panel-mail .ch-tab-content.active{display:block}
+          /* The Hub still carries About Me's older global .ch-tab-main{max-height:75vh}; the template has no max-height,
+             so reset it here or the box stops short of the bottom. */
+          #panel-mail .ch-tab-main{max-height:none}
           /* The template mounts the tabbed view inside a flex-column .detail container;
              this panel stands in for it. */
           #panel-mail .mail-panel-wrap{flex:1;display:flex;flex-direction:column;min-height:0;padding:0}
           #panel-mail #detail-comm{flex:1;display:flex;flex-direction:column;min-height:0}
           /* the Chats placeholder fills its tab box */
           #panel-mail #ch-tab-comm-2.active{display:flex;flex-direction:column;height:100%}
-          #panel-mail #ch-tab-comm-2 > div:nth-of-type(2){flex:1;min-height:0;grid-template-rows:1fr}
         </style>
         <div id="detail-comm" style="flex-direction:column">
         <div class="ch-tab-nav" id="ch-tab-nav-comm">
           <button class="ch-tab-btn active" onclick="showChTab('comm',1)">Email</button>
-          <button class="ch-tab-btn" onclick="showChTab('comm',2)">Chats</button>
+          <button class="ch-tab-btn" id="ch-tab-btn-comm-chats" onclick="showChTab('comm',2)">Chats</button>
         </div>
         <div class="ch-tab-main">
 
@@ -2423,19 +2427,9 @@ header{
         <div id="mailTasks" style="font-size:14px;color:var(--muted)"></div>
         </div><!-- /ch-tab-comm-1 -->
 
-        <!-- TAB 2: CHATS — placeholder until AmitChat is built -->
+        <!-- TAB 2: CHATS — the shared AmitChat engine (amit_chat.js), roomy two-pane view. Sample data until the database is connected. -->
         <div class="ch-tab-content" id="ch-tab-comm-2">
-          <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.16em;color:var(--gold);text-transform:uppercase;margin-bottom:12px">Chats</div>
-          <div style="display:grid;grid-template-columns:minmax(180px,260px) 1fr;gap:16px;align-items:stretch">
-            <div style="border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:10px;padding:14px;min-height:220px">
-              <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Your conversations</div>
-              <div style="color:var(--dim);font-size:13px">No conversations yet.</div>
-            </div>
-            <div style="border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:10px;padding:18px;display:flex;flex-direction:column;justify-content:center;gap:8px;min-height:220px">
-              <div style="color:var(--gold2);font-weight:600">AmitChat is coming</div>
-              <div style="color:var(--muted);font-size:14px;line-height:1.6">Private conversations with your friends, saved so you can come back to them. Not built yet. This tab is where they will live, next to Email.</div>
-            </div>
-          </div>
+          <div id="amitChatPanelMount" style="flex:1;min-height:0;height:100%"></div>
         </div>
 
         </div><!-- /ch-tab-main -->
@@ -12156,6 +12150,10 @@ function hubRailSyncClick(){ if(currentUser){ if(confirm('Signed in as '+current
       <div class="page-icon"><img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
       <div class="page-info"><div class="page-name">Ask Amit</div><div class="page-sub">Walk alongside</div></div>
     </div>
+    <div class="page-nav" id="rail-chat" onclick="AmitChat.togglePopup()" data-tip="AmitChat" style="display:none">
+      <div class="page-icon" style="position:relative">💬<span class="acx-badge" id="rail-chat-badge" style="display:none">0</span></div>
+      <div class="page-info"><div class="page-name">Chats</div><div class="page-sub">AmitChat</div></div>
+    </div>
     <div class="page-nav" id="rail-sync" onclick="hubRailSyncClick()" data-tip="Sign In">
       <div class="page-icon" id="rail-sync-icon">🔒</div>
       <div class="page-info"><div class="page-name" id="rail-sync-name">Sign In</div><div class="page-sub" id="rail-sync-sub">Not Synced</div></div>
@@ -12174,6 +12172,17 @@ function hubRailSyncClick(){ if(currentUser){ if(confirm('Signed in as '+current
   _hubRailSync();_hubRailDemo();
   hubSetContext((typeof curPanel!=='undefined'&&curPanel)||'home');
 })();
+
+// AmitChat: the chat icon in the right rail shows for signed-in people (or in preview with ?chatpreview=1).
+// A made-up unread count is shown only in preview, never to a real visitor.
+function _hubRailChat(){
+  const e=document.getElementById('rail-chat'); if(!e||!window.AmitChat) return;
+  const on=!!(typeof currentUser!=='undefined'&&currentUser)||AmitChat.preview;
+  e.style.display=on?'':'none';
+  if(on) AmitChat.refreshUnread(); else AmitChat.setUnread(0);
+}
+(function(){const _us2=_updateSyncUI;_updateSyncUI=function(){const r=_us2.apply(this,arguments);_hubRailChat();return r;};})();
+if(window.AmitChat){ AmitChat.mountPanel(document.getElementById('amitChatPanelMount')); _hubRailChat(); }
 </script>
 </body>
 </html>

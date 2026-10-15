@@ -79,3 +79,6 @@ Mail page renamed Communications and turned into a tabbed page using the same ta
 
 ### 2026-10-11 (correction) — Communications tabs now use the template CSS exactly
 First version copied About Me tabs (adapted copy: fixed height, no Appearance radius tokens). Replaced with the template's own CANONICAL LAYOUT: TABBED VIEW CSS, verbatim, each selector prefixed with #panel-mail so About Me is unchanged. Also: ZIP step removed from the first-visit welcome flow (About Me holds the ZIP). Still v8.11, local, not pushed.
+
+### 2026-10-14 — Hub v8.13: AmitChat preview (popup, right-rail icon, Chats tab)
+New shared root file amit_chat.js (v0.01) holds the one chat engine. The Hub loads it and shows (1) a chat icon in the right rail, visible to signed-in people (or with ?chatpreview=1), with an unread-chats badge; (2) a docked popup chat box opened from that icon; (3) the Communications > Chats tab hosting the same engine in a two-pane view. Everything runs on clearly labeled SAMPLE data and saves nothing; a made-up unread count shows only with ?chatpreview=1. Unread count also appears in the Chats tab name and at the top of the Communications page. Communications tab box uses the template's own tab CSS (scoped) plus a reset of About Me's older max-height. Backup of v8.10 era: amit-hub-pre-v8.11.html.
