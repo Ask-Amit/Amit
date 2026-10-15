@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.03 — 2026-10-15. Smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
+   v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
 
    Include with  <script src="../amit_chat.js"></script>  (path per depth).
@@ -22,7 +22,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.03';
+  var VERSION = 'v0.04';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
 
   /* ── small helpers ── */
@@ -43,6 +43,28 @@
     return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()] + ' ' + d.getDate();
   }
   function fail(r) { if (r && r.error) throw new Error(r.error.message || 'Something went wrong'); return r; }
+  function uid() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2); }
+  function fmtSize(b) { return b < 1024 ? b + ' B' : b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB'; }
+  /* phone photos are huge; shrink to at most 1600 px on the long side, JPEG. Small ones are left alone. */
+  function shrinkImage(file) {
+    return new Promise(function (resolve) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var w = img.naturalWidth, h = img.naturalHeight, big = Math.max(w, h);
+        if (big <= 1600 && file.size <= 700 * 1024) { resolve({ blob: file, type: file.type, name: file.name }); return; }
+        var k = Math.min(1, 1600 / big), cv = document.createElement('canvas');
+        cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        cv.toBlob(function (b) {
+          if (!b) { resolve({ blob: file, type: file.type, name: file.name }); return; }
+          resolve({ blob: b, type: 'image/jpeg', name: (file.name || 'photo').replace(/\.[A-Za-z0-9]+$/, '') + '.jpg' });
+        }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve({ blob: file, type: file.type, name: file.name }); };
+      img.src = url;
+    });
+  }
 
   /* ════════ SAMPLE SOURCE (made-up people and words; nothing here is real) ════════ */
   var SAMPLE = [
@@ -84,13 +106,16 @@
     function snippet(m) {
       if (!m) return '';
       if (m.deleted_at) return 'Message removed';
+      if (m.message_type === 'system') return nameOf(m.sender_id) + ' ' + (m.body || '');
       if (m.message_type === 'photo') return '[photo]';
       if (m.message_type === 'file') return '[file]';
       if (m.message_type === 'voice') return '[voice message]';
       return m.body || '';
     }
     var src = {
-      live: true, label: 'Live', me: me, nameOf: nameOf,
+      live: true, label: 'Live', me: me, nameOf: nameOf, amit: null,
+      /* Amit's own account id (null until the Amit migration has been run) */
+      amitReady: db.rpc('cha_amit_id').then(function (r) { if (r && r.data) src.amit = r.data; }, function () {}),
 
       listConversations: function () {
         return db.from('cha_participants')
@@ -135,23 +160,29 @@
       },
 
       getConversation: function (id, before) {
-        var q = db.from('cha_messages').select('id,sender_id,body,message_type,reply_to,created_at,edited_at,deleted_at')
+        var q = db.from('cha_messages').select('id,sender_id,body,message_type,payload,status,reply_to,created_at,edited_at,deleted_at')
           .eq('conversation_id', id).order('created_at', { ascending: false }).limit(PAGE);
         if (before) q = q.lt('created_at', before);
-        return Promise.all([
+        return src.amitReady.then(function () { return Promise.all([
           q,
           db.from('cha_participants').select('user_id,status,last_read_message_id,show_receipts').eq('conversation_id', id),
           db.from('cha_conversations').select('id,title,kind,created_by').eq('id', id).maybeSingle()
-        ]).then(function (res) {
+        ]); }).then(function (res) {
           fail(res[0]); fail(res[1]); fail(res[2]);
           var rows = (res[0].data || []).slice().reverse();
           var parts = res[1].data || [], conv = res[2].data || {};
           return loadNames(parts.map(function (x) { return x.user_id; }).concat(rows.map(function (x) { return x.sender_id; }))).then(function () {
             var others = parts.filter(function (x) { return x.user_id !== me && x.status === 'accepted'; });
+            var amitIn = !!(src.amit && parts.some(function (x) { return x.user_id === src.amit && x.status === 'accepted'; }));
             var msgs = rows.map(function (m) {
-              return { id: m.id, from: m.sender_id === me ? 'me' : 'them', name: nameOf(m.sender_id), time: fmtTime(m.created_at), iso: m.created_at,
-                       text: m.deleted_at ? 'Message removed' : (m.body || (m.message_type !== 'text' ? '[' + m.message_type + ']' : '')),
-                       removed: !!m.deleted_at, edited: !!m.edited_at, sender: m.sender_id };
+              var isSys = m.message_type === 'system', isAmit = !!src.amit && m.sender_id === src.amit;
+              var text = m.deleted_at ? 'Message removed'
+                : isSys ? nameOf(m.sender_id) + ' ' + (m.body || '')
+                : (m.body || (m.message_type !== 'text' ? '[' + m.message_type + ']' : ''));
+              return { id: m.id, from: isSys ? 'system' : (m.sender_id === me ? 'me' : (isAmit ? 'amit' : 'them')), name: nameOf(m.sender_id), time: fmtTime(m.created_at), iso: m.created_at,
+                       text: text, removed: !!m.deleted_at, edited: !!m.edited_at, sender: m.sender_id,
+                       type: m.message_type, payload: m.payload || {},
+                       waitingAmit: amitIn && !isAmit && !isSys && m.status === 'new' && !m.deleted_at && /(^|\s)@amit\b/i.test(m.body || '') };
             });
             var myParticipant = parts.filter(function (x) { return x.user_id === me; })[0] || {};
             // read receipts: who has read up to my latest message
@@ -172,7 +203,8 @@
               members: ['You'].concat(others.map(function (o) { return nameOf(o.user_id); })).join(', '),
               messages: msgs, seen: seen, typing: '', hasMore: (res[0].data || []).length === PAGE,
               oldest: rows.length ? rows[0].created_at : null, lastId: lastRow ? lastRow.id : null,
-              myLastRead: myParticipant.last_read_message_id || null
+              myLastRead: myParticipant.last_read_message_id || null,
+              amitIn: amitIn, amitId: src.amit
             };
           });
         });
@@ -186,6 +218,35 @@
         var t = (text || '').trim();
         if (!t) return Promise.reject(new Error('Type a message first.'));
         return db.from('cha_messages').insert({ conversation_id: id, sender_id: me, body: t }).select('id').then(fail);
+      },
+      summonAmit: function (id) { return db.rpc('cha_summon_amit', { p_conv: id }).then(function (r) { fail(r); return r.data; }); },
+      /* private files: signed links last 10 minutes (short on purpose, so a removed member's old links die quickly); cached so a chat redraw does not ask again */
+      _urls: {},
+      signedUrl: function (path, downloadName) {
+        var k = path + '|' + (downloadName || ''), c = src._urls[k];
+        if (c && c.exp > Date.now()) return Promise.resolve(c.url);
+        return db.storage.from('amitchat-files').createSignedUrl(path, 600, downloadName ? { download: downloadName } : undefined)
+          .then(function (r) { fail(r); src._urls[k] = { url: r.data.signedUrl, exp: Date.now() + 540000 }; return r.data.signedUrl; });
+      },
+      /* photo or file: upload, post as a message, link it in cha_attachments. Photos are shrunk first. 10 MB limit. */
+      sendAttachment: function (id, file) {
+        var MAX = 10 * 1024 * 1024;
+        if (!file) return Promise.reject(new Error('No file chosen.'));
+        var isImg = /^image\/(jpeg|png|webp)$/.test(file.type);
+        return (isImg ? shrinkImage(file) : Promise.resolve({ blob: file, type: file.type || 'application/octet-stream', name: file.name })).then(function (p) {
+          if (p.blob.size > MAX) throw new Error('That file is over 10 MB.');
+          var safe = (p.name || 'file').replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80);
+          var path = id + '/' + uid() + '-' + safe;
+          return db.storage.from('amitchat-files').upload(path, p.blob, { contentType: p.type, upsert: false }).then(function (up) {
+            fail(up);
+            var kind = isImg ? 'photo' : 'file';
+            return db.from('cha_messages').insert({ conversation_id: id, sender_id: me, message_type: kind, body: p.name || 'file',
+              payload: { name: p.name || 'file', mime: p.type, size: p.blob.size, path: path } }).select('id').then(function (m) {
+              if (m.error) { db.storage.from('amitchat-files').remove([path]); throw new Error(m.error.message); }
+              return db.from('cha_attachments').insert({ conversation_id: id, message_id: m.data[0].id, uploader: me, file_path: path, kind: kind, mime: p.type, size_bytes: p.blob.size });
+            });
+          });
+        });
       },
       unreadChats: function () {
         return db.rpc('cha_unread_chats').then(function (r) { fail(r); return typeof r.data === 'number' ? r.data : 0; });
@@ -280,6 +341,13 @@
     '.acx-b.me{align-self:flex-end;background:rgba(var(--amit-accent-rgb,201,168,76),.18)}',
     '.acx-b.amit{align-self:flex-start;background:rgba(var(--amit-accent-rgb,201,168,76),.08);border-color:rgba(var(--amit-accent-rgb,201,168,76),.5)}',
     '.acx-b.removed{opacity:.55;font-style:italic}',
+    '.acx-ib{background:none;border:none;cursor:pointer;font-size:17px;padding:2px 4px;opacity:.8;color:inherit;line-height:1;flex-shrink:0}.acx-ib:hover{opacity:1}.acx-ib:disabled{opacity:.35;cursor:default}',
+    '.acx-ib img{width:20px;height:20px;display:block;object-fit:contain}',
+    '.acx-img{display:block;max-width:100%;max-height:220px;border-radius:8px;margin-top:4px;cursor:zoom-in;background:rgba(var(--amit-overlay-rgb,255,255,255),.06);min-width:60px;min-height:40px}',
+    '.acx-file{display:inline-block;margin-top:4px;padding:5px 10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:8px;background:rgba(var(--amit-overlay-rgb,255,255,255),.05);color:inherit;font:inherit;cursor:pointer;max-width:100%;text-align:left;overflow-wrap:anywhere}',
+    '.acx-sys{align-self:center;font-size:12px;font-style:italic;color:var(--amit-dim,rgba(240,232,208,.42))}',
+    '.acx-wait{font-size:11px;font-style:italic;margin-top:3px;color:var(--amit-muted,rgba(240,232,208,.78))}',
+    '.acx-drop{outline:2px dashed var(--amit-accent,#c9a84c);outline-offset:-4px}',
     '.acx-meta{align-self:flex-end;font-size:11px;color:var(--amit-dim,rgba(240,232,208,.42))}',
     '.acx-typing{font-size:12px;font-style:italic;color:var(--amit-muted,rgba(240,232,208,.78))}',
     '.acx-card{border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4);border-radius:8px;padding:8px 10px;font-size:13px;background:rgba(var(--amit-overlay-rgb,255,255,255),.04)}',
@@ -385,9 +453,17 @@
       var msgsDiv = el('div', 'acx-msgs'); t.appendChild(msgsDiv);
       var comp = el('div', 'acx-comp'); t.appendChild(comp);
       var ta = null, sendBtn = null;
+      var fileBtn = null, photoBtn = null, amitBtn = null, fileIn = null, photoIn = null;
       if (live) {
-        ta = el('textarea'); ta.rows = 1; ta.placeholder = 'Type a message…';
+        fileBtn = el('button', 'acx-ib', '\uD83D\uDCCE'); fileBtn.title = 'Attach a file (up to 10 MB)';
+        photoBtn = el('button', 'acx-ib', '\uD83D\uDCF7'); photoBtn.title = 'Send a photo';
+        amitBtn = el('button', 'acx-ib'); amitBtn.title = 'Amit'; amitBtn.style.display = 'none';
+        var ai = el('img'); ai.src = AmitChat.iconUrl; ai.alt = 'Amit'; ai.onerror = function () { amitBtn.textContent = 'A'; }; amitBtn.appendChild(ai);
+        fileIn = el('input'); fileIn.type = 'file'; fileIn.multiple = true; fileIn.style.display = 'none';
+        photoIn = el('input'); photoIn.type = 'file'; photoIn.accept = 'image/*'; photoIn.multiple = true; photoIn.style.display = 'none';
+        ta = el('textarea'); ta.rows = 1; ta.placeholder = 'Type a message\u2026';
         sendBtn = el('button', 'acx-btn go', 'Send');
+        comp.appendChild(fileBtn); comp.appendChild(photoBtn); comp.appendChild(amitBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
         comp.appendChild(ta); comp.appendChild(sendBtn);
       } else {
         comp.appendChild(el('span', 'acx-ic', '＋')); comp.appendChild(el('span', 'acx-ic', '📷')); comp.appendChild(el('span', 'acx-ic', '🎤'));
@@ -416,10 +492,25 @@
           cd.appendChild(el('div', null, 'Cause: ' + c.card.cause)); msgsDiv.appendChild(cd);
         }
         state.msgs.forEach(function (x) {
+          if (x.from === 'system') { msgsDiv.appendChild(el('div', 'acx-sys', x.text)); return; }
           var bub = el('div', 'acx-b ' + x.from + (x.removed ? ' removed' : ''));
-          bub.appendChild(el('small', null, x.name + ' · ' + x.time + (x.edited ? ' · edited' : '')));
-          bub.appendChild(document.createTextNode(x.text));
-          if (x.eye) { var ey = el('span', null, ' 👁️'); ey.title = 'Research'; bub.appendChild(ey); }
+          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '')));
+          var pl = x.payload || {};
+          if (!x.removed && x.type === 'photo' && pl.path) {
+            var im = el('img', 'acx-img'); im.alt = pl.name || 'photo'; im.title = (pl.name || 'photo') + ' \u2014 click to open';
+            src.signedUrl(pl.path).then(function (u) { im.src = u; }, function () { im.alt = '(photo unavailable)'; });
+            im.onclick = function () { src.signedUrl(pl.path).then(function (u) { window.open(u, '_blank', 'noopener'); }); };
+            bub.appendChild(im);
+          } else if (!x.removed && x.type === 'file' && pl.path) {
+            var fb = el('button', 'acx-file', '\uD83D\uDCC4 ' + (pl.name || 'file') + ' \u00B7 ' + fmtSize(pl.size || 0));
+            fb.title = 'Only open files from people you trust';
+            fb.onclick = function () { src.signedUrl(pl.path, pl.name || 'file').then(function (u) { var a = document.createElement('a'); a.href = u; a.download = pl.name || 'file'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }, function (e) { toast(e.message); }); };
+            bub.appendChild(fb);
+          } else {
+            bub.appendChild(document.createTextNode(x.text));
+          }
+          if (x.eye) { var ey = el('span', null, ' \uD83D\uDC41\uFE0F'); ey.title = 'Research'; bub.appendChild(ey); }
+          if (x.waitingAmit) bub.appendChild(el('div', 'acx-wait', '\u23F3 Waiting for Amit \u2014 he answers when his session checks'));
           msgsDiv.appendChild(bub);
         });
         if (c.seen) msgsDiv.appendChild(el('div', 'acx-meta', c.seen));
@@ -432,12 +523,13 @@
         return src.getConversation(convId).then(function (c) {
           if (destroyed) return;
           state.conv = c; tt.textContent = c.title; ts.textContent = 'Members: ' + c.members;
+          if (amitBtn) { amitBtn.style.display = c.amitId ? '' : 'none'; amitBtn.title = c.amitIn ? 'Ask Amit (adds @Amit to your message)' : 'Invite Amit to this chat'; }
           // merge, keeping any older messages already loaded
           var have = {}; c.messages.forEach(function (m) { have[m.id] = 1; });
           var older = state.msgs.filter(function (m) { return !have[m.id] && c.messages.length && m.iso < c.messages[0].iso; });
           state.msgs = older.concat(c.messages);
           if (!older.length) { state.more = c.hasMore; state.oldest = c.oldest; }
-          var sig = state.msgs.map(function (m) { return m.id + (m.edited ? 'e' : '') + (m.removed ? 'x' : ''); }).join(',') + '|' + c.seen + '|' + c.typing;
+          var sig = state.msgs.map(function (m) { return m.id + (m.edited ? 'e' : '') + (m.removed ? 'x' : '') + (m.waitingAmit ? 'w' : ''); }).join(',') + (c.amitIn ? '|A' : '') + '|' + c.seen + '|' + c.typing;
           if (sig !== state.sig || first) { if (!first) bump(); state.sig = sig; renderMsgs(c, first ? 'bottom' : null); }
           if (live && c.lastId && c.lastId !== c.myLastRead) { src.markRead(convId, c.lastId).then(function () { AmitChat.refreshUnread(); }); }
         }, function (e) { DBG.lastError = (e && e.message) || String(e); if (first) { msgsDiv.innerHTML = ''; errBox(msgsDiv, e); } });
@@ -450,7 +542,36 @@
           .then(function () { msgsDiv.scrollTop = msgsDiv.scrollHeight; }, function (e) { toast(e.message); })
           .then(function () { state.busy = false; sendBtn.disabled = false; ta.focus(); });
       }
+      function setBusy(b) { [fileBtn, photoBtn, sendBtn].forEach(function (x) { if (x) x.disabled = b; }); }
+      function sendFiles(files) {
+        if (!live || !files || !files.length || state.busy) return;
+        var list = Array.prototype.slice.call(files, 0, 5);
+        state.busy = true; setBusy(true);
+        var p = Promise.resolve();
+        list.forEach(function (f) {
+          p = p.then(function () { toast('Sending ' + (f.name || 'file') + '\u2026'); return src.sendAttachment(convId, f); })
+               .catch(function (e) { toast((f.name || 'File') + ': ' + e.message); });
+        });
+        p.then(function () { bump(); return load(false); }).then(function () { msgsDiv.scrollTop = msgsDiv.scrollHeight; state.busy = false; setBusy(false); });
+      }
+      function amitClick() {
+        var c = state.conv; if (!c) return;
+        if (c.amitIn) { var at = ta.selectionStart || 0; if (!/@amit/i.test(ta.value)) { ta.value = '@Amit ' + ta.value; } ta.focus(); ta.dispatchEvent(new Event('input')); return; }
+        if (!confirm('Invite Amit to this chat?\n\nEveryone here will see that Amit joined. Amit reads this chat only to answer when someone writes @Amit, and he replies when his session checks.')) return;
+        amitBtn.disabled = true;
+        src.summonAmit(convId).then(function () { toast('Amit joined this chat'); bump(); return load(false); }, function (e) { toast(e.message); })
+          .then(function () { amitBtn.disabled = false; });
+      }
       if (live) {
+        fileBtn.onclick = function () { fileIn.value = ''; fileIn.click(); };
+        photoBtn.onclick = function () { photoIn.value = ''; photoIn.click(); };
+        fileIn.onchange = function () { sendFiles(fileIn.files); };
+        photoIn.onchange = function () { sendFiles(photoIn.files); };
+        amitBtn.onclick = amitClick;
+        t.addEventListener('dragover', function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0) { e.preventDefault(); t.classList.add('acx-drop'); } });
+        t.addEventListener('dragleave', function () { t.classList.remove('acx-drop'); });
+        t.addEventListener('drop', function (e) { t.classList.remove('acx-drop'); if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { e.preventDefault(); sendFiles(e.dataTransfer.files); } });
+        ta.addEventListener('paste', function (e) { var fs = e.clipboardData && e.clipboardData.files; if (fs && fs.length) { e.preventDefault(); sendFiles(fs); } });
         sendBtn.onclick = send;
         ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
         ta.addEventListener('input', function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 110) + 'px'; });
@@ -685,6 +806,7 @@
 
   var AmitChat = {
     version: VERSION,
+    iconUrl: 'amit_icon.ico',
     source: sampleSource,
     live: null,
     preview: /[?&]chatpreview=1/.test(location.search),

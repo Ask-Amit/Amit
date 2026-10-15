@@ -88,3 +88,6 @@ amit_chat.js v0.02 connects to Supabase when signed in: friend code and link (?f
 
 ### 2026-10-15 — Hub v8.15: chat refresh is smart, nothing always running
 Removed the always-running chat timers. The unread number is now checked only when Amit opens, when the person returns to the page from another app or tab, when the chat is opened, and when they change page inside Amit (at most once every 30 s, via openPanel -> AmitChat.onNavigate). While the chat box or Chats tab is on screen it checks every 3 s after activity, then every 10 s, then every 30 s once quiet, and stops completely when closed or hidden. amit_chat.js v0.03. Real-page test with two throwaway accounts: 22 of 22 (reply measured about 3 s; zero checks while closed).
+
+### 2026-10-15 — Hub v8.16: chat photos and files, Amit icon (hidden until set up)
+amit_chat.js v0.04: paperclip and camera buttons, drag-and-drop and paste; files up to 10 MB in the private amitchat-files bucket, photos shrunk to 1600 px JPEG, linked in cha_attachments, opened through 10-minute signed links; picture shown inline, file as a chip. Amit icon in the composer invites Amit into the chat / adds @Amit to a message; it stays hidden until the Amit database step (migration _004) has been run. 14 of 14 page tests with throwaway accounts.
