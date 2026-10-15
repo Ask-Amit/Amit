@@ -14,7 +14,7 @@
 <script src="../amit_pin_encryption.js?v=1.00"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
-<script src="../amit_chat.js?v=0.01"></script>
+<script src="../amit_chat.js?v=0.02"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1389,7 +1389,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.13</div>
+      <div class="page-version" id="hubVersionBadge">v8.14</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6715,7 +6715,11 @@ function dismissNationalAlert(id){
 function checkAuthGate(){
   // Called after auth state is known. If no session, show appropriate panel.
   if(currentUser)return; // signed in — no gate needed
+  // The first sign-in check can fire before this large page has finished loading, when the
+  // welcome box below does not exist yet (fixed 2026-10-15). Wait for the page, then run.
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',checkAuthGate,{once:true});return;}
   const modal=document.getElementById('amitNameModal');
+  if(!modal)return;
   const name=getUserName();
   if(!name){
     // New user — full onboarding
@@ -6723,11 +6727,11 @@ function checkAuthGate(){
     setTimeout(()=>document.getElementById('amitNameInput').focus(),200);
   } else {
     // Returning guest — welcome back panel
-    document.getElementById('welcomeBackName').textContent=name;
+    const wn=document.getElementById('welcomeBackName');if(wn)wn.textContent=name;
     ['amitNamePanel1','amitNameZipPanel','amitNamePanel4','guestWarningPanel','amitNamePanel3','amitNamePanel2'].forEach(id=>{
       const el=document.getElementById(id);if(el)el.classList.add('hidden');
     });
-    document.getElementById('amitWelcomeBackPanel').classList.remove('hidden');
+    const wb=document.getElementById('amitWelcomeBackPanel');if(wb)wb.classList.remove('hidden');
     modal.classList.add('open');
   }
 }
@@ -12179,6 +12183,9 @@ function _hubRailChat(){
   const e=document.getElementById('rail-chat'); if(!e||!window.AmitChat) return;
   const on=!!(typeof currentUser!=='undefined'&&currentUser)||AmitChat.preview;
   e.style.display=on?'':'none';
+  // signed in: switch the chat to real data; signed out: back to the sample, timers stopped
+  if(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db) AmitChat.connect(db,currentUser.id);
+  else AmitChat.disconnect();
   if(on) AmitChat.refreshUnread(); else AmitChat.setUnread(0);
 }
 (function(){const _us2=_updateSyncUI;_updateSyncUI=function(){const r=_us2.apply(this,arguments);_hubRailChat();return r;};})();
