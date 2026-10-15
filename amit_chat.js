@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.02 — 2026-10-14. LIVE mode added (real Supabase data). Sample mode stays
+   v0.03 — 2026-10-15. Smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
 
    Include with  <script src="../amit_chat.js"></script>  (path per depth).
@@ -22,8 +22,8 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.02';
-  var POLL_MS = 5000, BADGE_MS = 15000, PAGE = 50;
+  var VERSION = 'v0.03';
+  var PAGE = 50, NAV_THROTTLE_MS = 30000;
 
   /* ── small helpers ── */
   function el(tag, cls, text) {
@@ -313,7 +313,7 @@
   /* ════════ THE VIEW (one component, used by the popup and the panel) ════════ */
   var views = [];
   /* diagnostics, readable in the browser console as AmitChat.debug */
-  var DBG = { ticks: 0, visibleTicks: 0, badgeTicks: 0, lastUnread: null, lastError: null, rerenders: 0, connects: 0, disconnects: 0 };
+  var DBG = { ticks: 0, visibleTicks: 0, badgeTicks: 0, lastUnread: null, lastError: null, rerenders: 0, connects: 0, disconnects: 0, polls: 0, unreadChecks: 0 };
   function createView(container, wide) {
     var src = AmitChat.source, live = !!src.live;
     var root = el('div', 'acx-root'), left = null, right = null, main = null;
@@ -321,7 +321,8 @@
     if (wide) { left = el('div', 'acx-left'); right = el('div', 'acx-right'); root.appendChild(left); root.appendChild(right); }
     else { main = el('div', 'acx-main'); root.appendChild(main); }
     var area = wide ? right : main;
-    var cur = { view: 'list', arg: null }, thread = null, destroyed = false, listCache = null, timer = null;
+    var cur = { view: 'list', arg: null }, thread = null, destroyed = false, listCache = null;
+    var lastActive = Date.now(), loopT = null, inSight = false, listSig = null;
 
     function visible() { return !destroyed && root.offsetParent !== null && !document.hidden; }
     function errBox(parent, e) { parent.appendChild(el('div', 'acx-err', (e && e.message) || 'Something went wrong. Try again.')); }
@@ -362,7 +363,11 @@
     }
     function loadList() {
       return Promise.all([src.listConversations(), live ? src.invites().catch(function () { return []; }) : Promise.resolve([])]).then(function (res) {
-        listCache = res; return res;
+        listCache = res;
+        var sig = res[0].map(function (c) { return c.id + '|' + c.last + '|' + c.unread; }).join(';') + '#' + (res[1] || []).length;
+        if (listSig !== null && sig !== listSig) bump();
+        listSig = sig;
+        return res;
       });
     }
     function renderListInto(target) {
@@ -433,7 +438,7 @@
           state.msgs = older.concat(c.messages);
           if (!older.length) { state.more = c.hasMore; state.oldest = c.oldest; }
           var sig = state.msgs.map(function (m) { return m.id + (m.edited ? 'e' : '') + (m.removed ? 'x' : ''); }).join(',') + '|' + c.seen + '|' + c.typing;
-          if (sig !== state.sig || first) { state.sig = sig; renderMsgs(c, first ? 'bottom' : null); }
+          if (sig !== state.sig || first) { if (!first) bump(); state.sig = sig; renderMsgs(c, first ? 'bottom' : null); }
           if (live && c.lastId && c.lastId !== c.myLastRead) { src.markRead(convId, c.lastId).then(function () { AmitChat.refreshUnread(); }); }
         }, function (e) { DBG.lastError = (e && e.message) || String(e); if (first) { msgsDiv.innerHTML = ''; errBox(msgsDiv, e); } });
       }
@@ -441,7 +446,7 @@
         if (!live || state.busy) return;
         var v = ta.value; if (!v.trim()) return;
         state.busy = true; sendBtn.disabled = true;
-        src.send(convId, v).then(function () { ta.value = ''; ta.style.height = ''; return load(false); })
+        src.send(convId, v).then(function () { ta.value = ''; ta.style.height = ''; bump(); return load(false); })
           .then(function () { msgsDiv.scrollTop = msgsDiv.scrollHeight; }, function (e) { toast(e.message); })
           .then(function () { state.busy = false; sendBtn.disabled = false; ta.focus(); });
       }
@@ -600,17 +605,35 @@
     } else {
       if (wide) { renderListInto(left); show('list'); } else show('list');
     }
-    if (live) { timer = setInterval(function () { DBG.ticks++; if (visible()) { DBG.visibleTicks++; refreshAll(); } }, POLL_MS); }
-    /* the moment this view comes into sight (tab opened, popup opened), refresh instead of showing a stale list */
+    /* SMART REFRESH: nothing runs unless this view is on screen AND the page is in front.
+       While on screen it checks every 3 s after activity, then every 10 s, then every 30 s once quiet.
+       Any new message, send, or opening resets it to fast. Closing or hiding the view stops it completely. */
+    function nextDelay() { return AmitChat.interval(Date.now() - lastActive); }
+    function loop() {
+      loopT = null;
+      if (destroyed || !inSight || document.hidden) return;
+      DBG.polls++;
+      refreshAll();
+      loopT = setTimeout(loop, nextDelay());
+    }
+    function startLoop() { if (!live || loopT || destroyed || !inSight || document.hidden) return; loopT = setTimeout(loop, nextDelay()); }
+    function stopLoop() { if (loopT) { clearTimeout(loopT); loopT = null; } }
+    function bump() { lastActive = Date.now(); if (loopT) { stopLoop(); startLoop(); } }
     var io = null;
     if (live && 'IntersectionObserver' in window) {
-      io = new IntersectionObserver(function (entries) { if (entries.some(function (e) { return e.isIntersecting; })) refreshAll(); });
+      io = new IntersectionObserver(function (entries) {
+        inSight = entries.some(function (e) { return e.isIntersecting; });
+        if (inSight && !document.hidden) { lastActive = Date.now(); refreshAll(); stopLoop(); startLoop(); }
+        else stopLoop();
+      });
       io.observe(root);
     }
 
     return {
-      destroy: function () { destroyed = true; if (timer) clearInterval(timer); if (io) io.disconnect(); },
-      refresh: refreshAll
+      destroy: function () { destroyed = true; stopLoop(); if (io) io.disconnect(); },
+      refresh: refreshAll,
+      resume: function () { if (inSight && !document.hidden) { lastActive = Date.now(); refreshAll(); stopLoop(); startLoop(); } },
+      pause: stopLoop
     };
   }
 
@@ -658,9 +681,7 @@
   }
 
   /* ════════ BADGE POLLER + PUBLIC API ════════ */
-  var badgeTimer = null;
-  function startBadge() { stopBadge(); badgeTimer = setInterval(function () { DBG.badgeTicks++; if (!document.hidden) AmitChat.refreshUnread(); }, BADGE_MS); }
-  function stopBadge() { if (badgeTimer) { clearInterval(badgeTimer); badgeTimer = null; } }
+  var lastUnreadAt = 0;
 
   var AmitChat = {
     version: VERSION,
@@ -673,7 +694,7 @@
     togglePopup: function () {
       var p = buildPopup();
       if (p.classList.contains('open')) p.classList.remove('open');
-      else { p.classList.add('open'); p.classList.remove('min'); if (popView && AmitChat.live) popView.refresh(); }
+      else { p.classList.add('open'); p.classList.remove('min'); if (popView && AmitChat.live) { popView.resume(); AmitChat.refreshUnread(); } }
     },
     mountPanel: function (target) {
       if (!target) return;
@@ -689,12 +710,12 @@
       DBG.connects++;
       AmitChat.live = { me: userId, db: db };
       AmitChat.useSource(makeLiveSource(db, userId));
-      rerenderAll(); AmitChat.refreshUnread(); startBadge(); AmitChat.handleFriendLink();
+      rerenderAll(); AmitChat.refreshUnread(); AmitChat.handleFriendLink();
     },
     disconnect: function () {
       if (!AmitChat.live) return;
       DBG.disconnects++;
-      stopBadge(); AmitChat.live = null; AmitChat.useSource(sampleSource);
+      AmitChat.live = null; AmitChat.useSource(sampleSource);
       if (pop) pop.classList.remove('open');
       rerenderAll(); AmitChat.setUnread(0);
     },
@@ -719,17 +740,26 @@
       var top = document.getElementById('commUnreadTop');
       if (top) { top.textContent = n > 0 ? 'Unread chats ' + n : ''; top.style.display = n > 0 ? '' : 'none'; }
     },
+    /* how long to wait before the next check, given how long the chat has been quiet */
+    interval: function (quietMs) { return quietMs < 120000 ? 3000 : quietMs < 600000 ? 10000 : 30000; },
+    /* the page calls this when the person moves to another page inside Amit; checks the count at most every 30 s */
+    onNavigate: function () {
+      if (!AmitChat.live || document.hidden) return;
+      if (Date.now() - lastUnreadAt >= NAV_THROTTLE_MS) AmitChat.refreshUnread();
+    },
     refreshUnread: function () {
       if (!AmitChat.source.live && !AmitChat.preview) { AmitChat.setUnread(0); return; }
+      lastUnreadAt = Date.now(); DBG.unreadChecks++;
       AmitChat.source.unreadChats().then(function (n) { DBG.lastUnread = n; AmitChat.setUnread(n); }, function (e) { DBG.lastError = 'unread: ' + ((e && e.message) || e); });
     }
   };
   /* when the person comes back to this tab, catch up right away instead of waiting for the next tick */
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden || !AmitChat.live) return;
-    AmitChat.refreshUnread();
-    if (popView && pop && pop.classList.contains('open')) popView.refresh();
-    panelTargets.forEach(function (p) { if (p.view) p.view.refresh(); });
+    if (!AmitChat.live) return;
+    if (document.hidden) { if (popView) popView.pause(); panelTargets.forEach(function (p) { if (p.view) p.view.pause(); }); return; }
+    AmitChat.refreshUnread();                     // back in Amit: update the number
+    if (popView) popView.resume();                // and catch up any open chat
+    panelTargets.forEach(function (p) { if (p.view) p.view.resume(); });
   });
   window.AmitChat = AmitChat;
 })();
