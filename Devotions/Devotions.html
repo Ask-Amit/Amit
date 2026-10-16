@@ -514,7 +514,7 @@ h3 .rn-mark,h2 .rn-mark{font-size:.8em;vertical-align:middle;margin-left:10px;op
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.40</div>
+      <div class="page-version" id="pageVersion">v1.41</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -569,6 +569,32 @@ h3 .rn-mark,h2 .rn-mark{font-size:.8em;vertical-align:middle;margin-left:10px;op
 <script>
 // CANONICAL LAYOUT: MULTI-ROW TAB VIEW — copied verbatim from TemplateViews.html (v1.06), added 2026-10-16 for the Who Is God page.
 // Placed first in this script so its const is defined before renderAllPages() runs. Used by WhoIsGod.js (mrtCreate('wig-mrt', ...)).
+const MRT_SAMPLE_TABS=[
+  {id:'overview',label:'Overview',html:'<h3 style="margin-top:0">Multi-Row Tab View</h3><p>Tabs fill a row. When a row is full, the next row appears behind it. Click a tab in a back row and that whole row comes to the front; the tabs in each row stay in the same row.</p><p>Resize the window and the rows re-fit. The tab you have open stays open.</p>'},
+  {id:'details',label:'Details',html:'Details content goes here'},
+  {id:'history',label:'History',html:'History content goes here'},
+  {id:'settings',label:'Settings',html:'Settings content goes here'},
+  {id:'permissions',label:'Permissions',html:'Permissions content goes here'},
+  {id:'notifications',label:'Notifications',html:'Notifications content goes here'},
+  {id:'integrations',label:'Integrations',html:'Integrations content goes here'},
+  {id:'billing',label:'Billing and Payments',html:'Billing and Payments content goes here'},
+  {id:'reports',label:'Reports',html:'Reports content goes here'},
+  {id:'audit',label:'Audit Log',html:'Audit Log content goes here'},
+  {id:'security',label:'Security',html:'Security content goes here'},
+  {id:'team',label:'Team Members',html:'Team Members content goes here'},
+  {id:'import',label:'Data Import',html:'Data Import content goes here'},
+  {id:'export',label:'Data Export',html:'Data Export content goes here'},
+  {id:'appearance',label:'Appearance',html:'Appearance content goes here'},
+  {id:'shortcuts',label:'Keyboard Shortcuts',html:'Keyboard Shortcuts content goes here'},
+  {id:'advanced',label:'Advanced',html:'Advanced content goes here'},
+  {id:'plugins',label:'Plugins',html:'Plugins content goes here'},
+  {id:'language',label:'Language and Region',html:'Language and Region content goes here'},
+  {id:'accessibility',label:'Accessibility',html:'Accessibility content goes here'},
+  {id:'backup',label:'Backup and Restore',html:'Backup and Restore content goes here'},
+  {id:'updates',label:'Updates',html:'Updates content goes here'},
+  {id:'licenses',label:'Licenses',html:'Licenses content goes here'},
+  {id:'about',label:'About',html:'About content goes here'}
+];
 const mrtInstances=new Map();
 function mrtEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function mrtCreate(containerId,tabs,opts){
@@ -767,6 +793,7 @@ let customPages=[]; // [{page_name, detail_layout_type, page_order}], loaded bef
 // keep this list in sync if a layout is ever added there.
 const TEMPLATE_LAYOUTS=[
   {key:'Tabbed View',desc:'Tab strip inside one page — multiple content panes, one active at a time'},
+  {key:'Multi-Row Tab View',desc:'Many tabs in stacked 3-D rows like Word\'s Options dialog — the row you click comes to the front'},
   {key:'Row View',desc:'Excel-style sortable rows, click a column header to sort, inline editable cells'},
   {key:'Detail View',desc:'Single-record drill-down endpoint — fields laid out for one item'},
   {key:'Calendar View',desc:'Month grid, real data per day, click a day to open Day View'},
@@ -2296,6 +2323,8 @@ function openFeastSpeaker(){
 // file, or the import will fail with an honest error in the page itself.
 // ══════════════════════════════════════════════
 const LAYOUT_IMPORT_MANIFEST={
+  'Multi-Row Tab View':{marker:'MULTI-ROW TAB VIEW',deps:[],wrap:'mrt-wrap',
+    call:id=>`mrtCreate('${id}',MRT_SAMPLE_TABS);`},
   'Row View':{marker:'ROW VIEW',deps:[],wrap:'rv-wrap',
     call:id=>`rvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
   'Detail View':{marker:'DETAIL VIEW',deps:['Row View'],wrap:'dv-wrap',
@@ -2375,7 +2404,7 @@ function _extractCanonicalBlock(src,markerText){
 // already-loaded create function again with a new container id — the
 // block itself (its `const`s) can only be executed once without a
 // "already declared" error, same reason each script tag only runs once.
-const _tvLoadedLayouts=new Set();
+const _tvLoadedLayouts=new Set(['Multi-Row Tab View']);   // already built into this page (see the copy at the top of this script)
 async function importLayoutFromTemplateViews(layoutKey){
   const manifest=LAYOUT_IMPORT_MANIFEST[layoutKey];
   if(!manifest) return {ok:false,reason:'"'+layoutKey+'" has no import entry yet'};

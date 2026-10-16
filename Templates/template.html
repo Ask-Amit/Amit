@@ -436,6 +436,7 @@ let customPages=[]; // [{page_name, detail_layout_type, page_order}], loaded bef
 // keep this list in sync if a layout is ever added there.
 const TEMPLATE_LAYOUTS=[
   {key:'Tabbed View',desc:'Tab strip inside one page — multiple content panes, one active at a time'},
+  {key:'Multi-Row Tab View',desc:'Many tabs in stacked 3-D rows like Word\'s Options dialog — the row you click comes to the front'},
   {key:'Row View',desc:'Excel-style sortable rows, click a column header to sort, inline editable cells'},
   {key:'Detail View',desc:'Single-record drill-down endpoint — fields laid out for one item'},
   {key:'Calendar View',desc:'Month grid, real data per day, click a day to open Day View'},
@@ -529,7 +530,7 @@ function renderAllPages(){
     const id=CUSTOM_PAGE_BASE+i;
     const displayName=p.page_name||p.detail_layout_type; // blank name stored — fall back to layout type for the label/tooltip only
     navHtml+=`<div class="page-nav" id="page-${id}" onclick="openPage(${id})" data-tip="${displayName}">
-      <div class="page-icon">▢</div>
+      <div class="page-icon">${TEMPLATE_VIEWS_ICON_MAP[p.detail_layout_type]||'📄'}</div>
       <div class="page-info"><div class="page-name">${displayName}</div><div class="page-sub">${p.detail_layout_type}</div></div>
     </div>`;
     if(p.detail_layout_type==='Tabbed View'){
@@ -770,6 +771,8 @@ function buildTabbedViewHtml(detailNum){
 // file, or the import will fail with an honest error in the page itself.
 // ══════════════════════════════════════════════
 const LAYOUT_IMPORT_MANIFEST={
+  'Multi-Row Tab View':{marker:'MULTI-ROW TAB VIEW',deps:[],wrap:'mrt-wrap',
+    call:id=>`mrtCreate('${id}',MRT_SAMPLE_TABS);`},
   'Row View':{marker:'ROW VIEW',deps:[],wrap:'rv-wrap',
     call:id=>`rvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
   'Detail View':{marker:'DETAIL VIEW',deps:['Row View'],wrap:'dv-wrap',
