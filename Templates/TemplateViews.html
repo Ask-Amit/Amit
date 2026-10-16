@@ -240,6 +240,30 @@ header{
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
 
+/* ── MULTI-ROW TAB VIEW — added 2026-10-16, Ryan's direct instruction (see the CANONICAL LAYOUT: MULTI-ROW TAB VIEW comment in <script>).
+   Reworked the same day from Ryan's picture (Word's Options dialog): the rows are a THREE-DIMENSIONAL STACK, not floating strips.
+   - tabs touch: no gap between them, neighbouring borders overlap by 1px
+   - every row has the width of the content panel; each row BEHIND the front one is shifted right by one step (--mrt-step), so it starts further in
+     on the left and its last tab shows a stepped edge on the right; the panel keeps that room free on its right (--mrt-pad)
+   - rows sit directly on top of each other, with no space; the open tab is taller and rises up over the row behind it
+   - the LAST tab of every row behind runs DOWN behind the rows in front of it and stops at the top of the panel (mrtLayout), so its right edge
+     shows as a long stepped side, like the edge of a card in a stack (Ryan's second correction, 2026-10-16). Tabs are opaque so the rows in front cover it.
+   mrtFit() measures the rows (.mrt-flat = measuring state) and builds one fixed .mrt-row per group (.mrt-rows = finished state); mrtLayout() sets the shifts.
+   In a finished row the tabs stretch (flex-grow) so every row ends flush, like the tabbed Options dialogs. */
+.mrt-wrap{--mrt-step:10px;--mrt-pad:0px;display:flex;flex-direction:column;flex:1;min-height:0}
+.mrt-nav{display:flex;flex-wrap:wrap;align-items:flex-end;margin:0 24px;padding:16px 0 0;background:var(--bg);flex-shrink:0}
+.mrt-nav.mrt-flat{padding-right:calc(var(--mrt-pad) + 8px)}   /* 8px of slack: the open tab is bold and a little wider than the measured inactive tab */
+.mrt-nav.mrt-rows{flex-direction:column;flex-wrap:nowrap;align-items:flex-start}
+.mrt-row{display:flex;align-items:flex-end;width:calc(100% - var(--mrt-pad))}
+.mrt-btn{padding:6px 16px;margin:0 0 0 -1px;border:1px solid rgba(201,168,76,.32);border-bottom:none;background-color:var(--bg);background-image:linear-gradient(rgba(255,255,255,.04),rgba(255,255,255,.04));color:var(--muted);border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap}
+.mrt-row .mrt-btn{flex:1 1 auto;text-align:center}
+.mrt-row .mrt-btn:first-child{margin-left:0}
+.mrt-btn:hover{color:var(--gold2)}
+.mrt-btn.active{padding:9px 18px 7px;margin-top:-3px;margin-bottom:-1px;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:13.5px;position:relative;z-index:3}
+.mrt-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 calc(24px + var(--mrt-pad)) 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.32);border-radius:0 0 12px 12px}
+.mrt-content{display:none}
+.mrt-content.active{display:block}
+
 /* ── ROW VIEW — the other layout type a detail area can hold: Excel-style,
    sortable/filterable, expandable child rows, PLUS per-column inline
    editing. Every column header carries a ▾ menu button (added 2026-08-06,
@@ -692,7 +716,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Template</div>
-      <div class="page-version" id="pageVersion">v1.00</div>
+      <div class="page-version" id="pageVersion">v1.03</div>
     </div>
   </a>
   <!-- Center block - whichever context this specific app needs to show
@@ -887,7 +911,7 @@ const PAGE_COUNT=20;
 // the sidebar, not at the end with the other placeholders. Page NUMBERS
 // stay fixed (17 stays 17) — only this display-order list changes, per
 // the standing PAGE ORDER vs PAGE NUMBER rule above.
-const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>idx+7).filter(n=>n!==17)];
+const PAGE_ORDER=[1,2,5,3,4,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>idx+7).filter(n=>n!==17)];
 (function buildPlaceholders(){
   const nav=document.getElementById('sidebarPages');
   const main=document.getElementById('mainArea');
@@ -909,13 +933,13 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
     // per-column property), so Grid View no longer exists as its own view.
     // Page 5 falls back to the generic Placeholder handling below.
     const NEW_VIEW_NAMES={
-      6:'Calendar View',7:'Board View',8:'Gallery View',
+      5:'Multi-Row Tab View',6:'Calendar View',7:'Board View',8:'Gallery View',
       9:'Dashboard View',10:'Split View',11:'Form View',12:'Chart View',
       13:'Inbox View',14:'Drawer View',15:'Tree View',16:'Breadcrumb View',
       17:'Day View'
     };
     const NEW_VIEW_ICONS={
-      6:'📅',7:'🗃️',8:'🖼️',
+      5:'📑',6:'📅',7:'🗃️',8:'🖼️',
       9:'📈',10:'◨',11:'📝',12:'📊',
       13:'📥',14:'🗄️',15:'🌳',16:'🍞',
       17:'☀️'
@@ -961,6 +985,12 @@ const PAGE_ORDER=[1,2,3,4,5,6,17,...Array.from({length:PAGE_COUNT-7},(_,idx)=>id
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
         <div class="detail-head"><span class="detail-heading">${label}</span></div>
         <div class="dv-wrap" id="dv-mount"></div>
+      </div>`;
+    } else if(i===5){
+      // Page 5 re-used 2026-10-16 (it was the retired Grid View slot) for the Multi-Row Tab View demo.
+      detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
+        <div class="detail-head"><span class="detail-heading">${label}</span></div>
+        <div class="mrt-wrap" id="mrt-mount"></div>
       </div>`;
     } else if(i===6){
       detailHtml+=`<div class="detail${i===1?' active':''}" id="detail-${i}" style="flex-direction:column">
@@ -2908,6 +2938,167 @@ function bcvJumpTo(containerId,pathIdx){
   bcvRenderInstance(containerId);
 }
 
+// ══════════════════════════════════════════════
+// CANONICAL LAYOUT: MULTI-ROW TAB VIEW — a tab strip that looks and behaves
+// like the tabbed Options dialogs of older desktop programs (Ryan's picture:
+// Word's Options dialog). Added 2026-10-16, Ryan's direct instruction: "create
+// a duplicate of the tab view and call it multi-row tab." Tabbed View itself
+// is untouched; this is a separate, self-contained layout (own CSS, own
+// functions, own sample data), usable at any destination — a page, a tab
+// slot, or a popup — exactly like every other layout here.
+//
+// WHY IT IS NOT JUST A COPY OF TABBED VIEW'S CODE: Tabbed View's strip is one
+// flat, wrapping list. On every click showChTab() re-appends the clicked
+// tab's row, and because tabs differ in width the browser's greedy wrap
+// re-fits the loose tabs, so tabs can jump between rows. This layout MEASURES
+// the rows once (a row fills up; the next row sits behind it) and from then
+// on keeps each row as a FIXED group. Clicking any tab brings its whole row to
+// the front (the bottom row, touching the content) and leaves every other
+// row's members exactly where they were. A tab only changes row if the width
+// changes (window resized, panel opened): then the rows are re-measured and
+// the open tab stays open.
+//
+// mrtCreate(containerId, tabs, opts)
+//   tabs = [{id:'unique-simple-id', label:'Text on the tab',
+//            html:'<p>static content</p>',            // either this...
+//            mount:(paneElement, tab)=>{...}}]         // ...or this (runs once, the first time the tab is shown)
+//   opts = {initial:id-or-index, onSelect:(id,tab)=>{...}}
+//   Tab ids should be plain letters, digits, dashes or underscores.
+// mrtSelect(containerId, id)  — open a tab (brings its row to the front)
+// mrtActive(containerId)      — the id of the open tab
+// Look (reworked 2026-10-16 from Ryan's picture of Word's Options dialog): the rows are a 3-D stack. Tabs touch, every row has the width of the panel,
+// and each row BEHIND the front one is shifted right by one step, so it starts further in and shows a stepped edge on the right. See the .mrt-* CSS.
+// Keyboard: Left/Right arrows on the strip move between tabs.
+// Instance-based, like Row View: any number can be alive at once, each keyed
+// by the id of the element it is mounted into.
+// ══════════════════════════════════════════════
+const MRT_SAMPLE_TABS=[
+  {id:'overview',label:'Overview',html:'<h3 style="margin-top:0">Multi-Row Tab View</h3><p>Tabs fill a row. When a row is full, the next row appears behind it. Click a tab in a back row and that whole row comes to the front; the tabs in each row stay in the same row.</p><p>Resize the window and the rows re-fit. The tab you have open stays open.</p>'},
+  {id:'details',label:'Details',html:'Details content goes here'},
+  {id:'history',label:'History',html:'History content goes here'},
+  {id:'settings',label:'Settings',html:'Settings content goes here'},
+  {id:'permissions',label:'Permissions',html:'Permissions content goes here'},
+  {id:'notifications',label:'Notifications',html:'Notifications content goes here'},
+  {id:'integrations',label:'Integrations',html:'Integrations content goes here'},
+  {id:'billing',label:'Billing and Payments',html:'Billing and Payments content goes here'},
+  {id:'reports',label:'Reports',html:'Reports content goes here'},
+  {id:'audit',label:'Audit Log',html:'Audit Log content goes here'},
+  {id:'security',label:'Security',html:'Security content goes here'},
+  {id:'team',label:'Team Members',html:'Team Members content goes here'},
+  {id:'import',label:'Data Import',html:'Data Import content goes here'},
+  {id:'export',label:'Data Export',html:'Data Export content goes here'},
+  {id:'appearance',label:'Appearance',html:'Appearance content goes here'},
+  {id:'shortcuts',label:'Keyboard Shortcuts',html:'Keyboard Shortcuts content goes here'},
+  {id:'advanced',label:'Advanced',html:'Advanced content goes here'},
+  {id:'plugins',label:'Plugins',html:'Plugins content goes here'},
+  {id:'language',label:'Language and Region',html:'Language and Region content goes here'},
+  {id:'accessibility',label:'Accessibility',html:'Accessibility content goes here'},
+  {id:'backup',label:'Backup and Restore',html:'Backup and Restore content goes here'},
+  {id:'updates',label:'Updates',html:'Updates content goes here'},
+  {id:'licenses',label:'Licenses',html:'Licenses content goes here'},
+  {id:'about',label:'About',html:'About content goes here'}
+];
+const mrtInstances=new Map();
+function mrtEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function mrtCreate(containerId,tabs,opts){
+  opts=opts||{};
+  const wrap=document.getElementById(containerId);if(!wrap)return null;
+  const old=mrtInstances.get(containerId);if(old&&old.ro)old.ro.disconnect();
+  wrap.classList.add('mrt-wrap');
+  const pick=opts.initial!=null?(typeof opts.initial==='number'?tabs[opts.initial]:tabs.find(t=>t.id===opts.initial)):null;
+  const inst={containerId,tabs,opts,activeId:(pick||tabs[0]).id,mounted:{},built:false,width:0,ro:null};
+  mrtInstances.set(containerId,inst);
+  const navHtml=tabs.map(t=>`<button type="button" class="mrt-btn" role="tab" data-mrt-id="${mrtEsc(t.id)}" aria-selected="false" onclick="mrtSelect('${containerId}','${mrtEsc(t.id)}')">${mrtEsc(t.label)}</button>`).join('');
+  const bodyHtml=tabs.map(t=>`<div class="mrt-content" role="tabpanel" data-mrt-pane="${mrtEsc(t.id)}"></div>`).join('');
+  wrap.innerHTML=`<div class="mrt-nav mrt-flat" role="tablist">${navHtml}</div><div class="mrt-main">${bodyHtml}</div>`;
+  const nav=wrap.querySelector('.mrt-nav');
+  nav.addEventListener('keydown',e=>{
+    if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft')return;
+    const i=inst.tabs.findIndex(t=>t.id===inst.activeId);
+    const next=inst.tabs[(i+(e.key==='ArrowRight'?1:inst.tabs.length-1))%inst.tabs.length];
+    e.preventDefault();mrtSelect(containerId,next.id);
+    const b=nav.querySelector('.mrt-btn.active');if(b)b.focus();
+  });
+  mrtActivate(inst,inst.activeId,false);
+  // Rows are measured when the strip is actually on screen with a real width: a layout created inside a page or tab that is not showing yet
+  // has no width, so the observer fits it the moment it appears, and re-fits whenever the width changes.
+  if(typeof ResizeObserver!=='undefined'){inst.ro=new ResizeObserver(()=>mrtFit(containerId));inst.ro.observe(nav);}
+  else mrtFit(containerId);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>mrtFit(containerId,true));   // the real font changes tab widths
+  return inst;
+}
+function mrtActivate(inst,id,bringRow){
+  const wrap=document.getElementById(inst.containerId);if(!wrap)return;
+  wrap.querySelectorAll('.mrt-btn').forEach(b=>{const on=b.getAttribute('data-mrt-id')===id;b.classList.toggle('active',on);b.setAttribute('aria-selected',on?'true':'false');});
+  wrap.querySelectorAll('.mrt-content').forEach(p=>p.classList.toggle('active',p.getAttribute('data-mrt-pane')===id));
+  inst.activeId=id;
+  const pane=wrap.querySelector('.mrt-content[data-mrt-pane="'+id+'"]');
+  const tab=inst.tabs.find(t=>t.id===id);
+  if(pane&&tab&&!inst.mounted[id]){
+    inst.mounted[id]=true;
+    if(tab.html!=null)pane.innerHTML=tab.html;
+    if(typeof tab.mount==='function')tab.mount(pane,tab);
+  }
+  if(bringRow){
+    const nav=wrap.querySelector('.mrt-nav');const b=nav&&nav.querySelector('.mrt-btn.active');
+    const row=b&&b.closest('.mrt-row');
+    if(row&&row!==nav.lastElementChild){nav.appendChild(row);mrtLayout(wrap);}   // that whole row comes to the front; the other rows keep their tabs
+  }
+}
+function mrtSelect(containerId,id){
+  const inst=mrtInstances.get(containerId);if(!inst)return;
+  mrtActivate(inst,id,true);
+  if(inst.opts.onSelect)inst.opts.onSelect(id,inst.tabs.find(t=>t.id===id));
+}
+function mrtActive(containerId){const i=mrtInstances.get(containerId);return i?i.activeId:null;}
+// Shifts each row by its depth: the last row in the strip is the FRONT row (depth 0, flush with the panel); each row behind it is one step further right.
+function mrtLayout(wrap){
+  const nav=wrap.querySelector('.mrt-nav');if(!nav)return;
+  const rows=nav.querySelectorAll('.mrt-row');
+  const step=parseFloat(getComputedStyle(wrap).getPropertyValue('--mrt-step'))||10;
+  wrap.style.setProperty('--mrt-pad',(Math.max(0,rows.length-1)*step)+'px');
+  rows.forEach((r,i)=>{r.style.marginLeft=((rows.length-1-i)*step)+'px';});
+  // The last tab of every row BEHIND the front row runs down behind the rows in front of it and stops at the top of the panel. Its text stays at
+  // the top (extra bottom padding); a matching negative bottom margin keeps the row's own height unchanged, so nothing else moves.
+  const panelTop=wrap.querySelector('.mrt-main').getBoundingClientRect().top;
+  rows.forEach((r,i)=>{
+    const last=r.lastElementChild;if(!last)return;
+    last.style.paddingBottom='';last.style.marginBottom='';                    // reset (the row may have just come to the front)
+    if(i===rows.length-1)return;                                                // the front row does not extend
+    const extra=Math.max(0,Math.round(panelTop-r.getBoundingClientRect().bottom));
+    if(extra){last.style.paddingBottom=(6+extra)+'px';last.style.marginBottom=(-extra)+'px';}
+  });
+}
+// Measures how many tabs fit per row, then builds one fixed .mrt-row per group. Rows are as wide as the panel minus the room the stepped edges
+// need on the right, and that room depends on the number of rows, so the fit is repeated until the row count and the room agree.
+function mrtFit(containerId,force){
+  const inst=mrtInstances.get(containerId);const wrap=document.getElementById(containerId);
+  if(!inst||!wrap)return;
+  const nav=wrap.querySelector('.mrt-nav');
+  if(!nav||nav.offsetParent===null||!nav.clientWidth)return;               // not showing yet: fit when it appears
+  if(inst.built&&!force&&nav.clientWidth===inst.width)return;              // only a change of width re-fits (the rows' own shifts do not change the nav width)
+  const step=parseFloat(getComputedStyle(wrap).getPropertyValue('--mrt-step'))||10;
+  const btns=inst.tabs.map(t=>nav.querySelector('.mrt-btn[data-mrt-id="'+t.id+'"]'));
+  const activeBtn=btns.find(b=>b.classList.contains('active'));
+  btns.forEach(b=>b.classList.remove('active'));                           // the open tab is taller; it would skew the measuring
+  let k=1,groups=[];
+  for(let guard=0;guard<btns.length+1;guard++){
+    wrap.style.setProperty('--mrt-pad',((k-1)*step)+'px');
+    nav.className='mrt-nav mrt-flat';nav.innerHTML='';
+    btns.forEach(b=>nav.appendChild(b));
+    groups=[];let cur=[],top=null;
+    btns.forEach(b=>{const t=b.offsetTop;if(top===null||Math.abs(t-top)>8){if(cur.length)groups.push(cur);cur=[];top=t;}cur.push(b);});
+    if(cur.length)groups.push(cur);
+    if(groups.length<=k)break;
+    k=groups.length;
+  }
+  nav.innerHTML='';nav.className='mrt-nav mrt-rows';
+  groups.forEach(g=>{const r=document.createElement('div');r.className='mrt-row';g.forEach(b=>r.appendChild(b));nav.appendChild(r);});
+  if(activeBtn){activeBtn.classList.add('active');const row=activeBtn.closest('.mrt-row');if(row)nav.appendChild(row);}
+  mrtLayout(wrap);
+  inst.built=true;inst.width=nav.clientWidth;
+}
+
 // ── DEMO: proves the model end to end ──────────────────────────────────
 // Page 3 (standalone Row View) and Page 4 (standalone Detail View) keep
 // their original page-level behavior via the default instances below.
@@ -2923,6 +3114,7 @@ function bcvJumpTo(containerId,pathIdx){
 // buildPlaceholders has already created the mount elements — not from
 // inside that earlier IIFE.
 rvCreate('rv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
+mrtCreate('mrt-mount',MRT_SAMPLE_TABS);
 dvCreate('dv-mount',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);
 cvCreate('cv-mount');
 dayViewCreate('dayview-mount');
