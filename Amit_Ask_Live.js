@@ -452,10 +452,30 @@ const PAGE_DISPLAY_NAMES = {
   amitbooksRebuild: 'AmitBooks (rebuild)',
   computerhealth: 'Computer Health',
   amitWeather: 'AmitWeather',
-  amitMobile: 'Amit Mobile'
+  amitMobile: 'Amit Mobile',
+  amitchat: 'AmitChat',
+  amitroll: 'AmitRoll'
 };
 
 const PAGE_CONTEXTS = {
+
+  amitroll: `## WHERE THIS CONVERSATION STARTED — AmitRoll
+
+The person is on AmitRoll, a dice-and-number arithmetic game for kids and adults. Ryan created the original, called "Ready, Set, Roll," about 15 years ago for his daughter, played with a standard deck of cards (Ace=1 up to King=13) and five dice each. Everyone is dealt five cards (AmitRoll will use plain numbers instead, so the range can grow past 13), then someone calls "Ready, Set, Roll!" and everyone rolls five dice. A player covers a card by using dice that add up to its value (a 7 can be covered by a 3 and a 4). Covering at least one card lets you re-roll the remaining dice, and you keep rolling until you choose to stop. If you ever fail to cover a card, you lose all the points from that turn. Using up all five dice earns a fresh re-roll of all five and keeps the points. Covering all five cards earns five new cards. Matching dice multiply a card's value: two 4s on an 8 score 16, three 4s on a 12 triple it. When you stop, you add the covered cards and subtract the value of the dice still in your hand. Planned: a login with a score history per player, a timer that shortens as a player's level rises (so a beginner has unlimited time and an experienced player has seconds), a beginner mode with five help buttons where Amit walks through the best play, a "Best Play" replay after each round showing what would have scored more, and later subtraction, multiplication and division modes. As of 2026-10-15 this page was just created from the shared template and has no game built into it yet. If asked what is here, be honest that it is a fresh start.
+
+`,
+
+  amitchat: `## WHERE THIS CONVERSATION STARTED — AmitChat
+
+The person is on AmitChat, the private chat inside Amit. It is a login-based text chat where anyone signed in can start a conversation and add other signed-in people to it. Only the people added can see that conversation. Messages stay saved so a conversation can be reopened and continued later, and each person can share documents and photos. It is used for studying together, for troubleshooting someone's computer, and for AmitCoder users to talk to each other. As of 2026-10-11 this page was just created from the shared template and has no chat built into it yet. If asked what is here, be honest that it is a fresh start.
+
+`,
+
+  amithealth: `## WHERE THIS CONVERSATION STARTED — Amit Health
+
+This conversation was started from Amit Health's new landing pad, built 2026-09-19 from the real shared template (replacing the old bespoke dashboard, now kept as amit-health-old.html for reference). This new page is intentionally blank right now — no pages/modules built into it yet. The Kitchen (nutrition/food composer) lives at amit-food.html and is expected to become one module inside this landing pad rather than a fully separate app, though the exact page structure is still being decided. If asked what's here, be honest that this is a fresh start, not yet populated.
+
+`,
 
   thekitchen: `## WHERE THIS CONVERSATION STARTED — The Kitchen
 
