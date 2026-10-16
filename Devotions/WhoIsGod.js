@@ -8,7 +8,7 @@
 var WIG_SRC='../who_is_god/who_is_god.html';
 var WIG_GROUPS=[
   {n:4,icon:'🔍',name:'The Evidence',tabs:[['onereligion','Which Religion Is True?'],['method','Approach'],['apocrypha','Additional Texts']]},
-  {n:5,icon:'⚖️',name:'Torah and the Covenants',tabs:[['covenants','The Covenants'],['arguments','The 12 Key Arguments'],['onebody','One Body'],['appointed','The Appointed Times']]},
+  {n:5,icon:'⚖️',name:'Torah and the Covenants',tabs:[['covenants','The Covenants'],['arguments','The 12 Key Arguments'],['onebody','One Body']]},
   {n:6,icon:'🕯️',name:'The Churches',tabs:[['scores','Church Comparisons'],['synthesis','Seven Churches'],['lampstands','The Seven Lampstands'],['doihaveitwrong','Do I Have It Wrong?']]},
   {n:7,icon:'⏳',name:'What Is Ahead',tabs:[['millennial','Millennial Proof'],['rapture','Pre/Mid/Post']]},
   {n:8,icon:'🕊️',name:'Yeshua',tabs:[['amit-life','Yeshua'],['saved','Are You Saved?']]},
@@ -19,6 +19,8 @@ var WIG_GROUPS=[
 var WIG_PORTED={method:1,arguments:1,onebody:1,apocrypha:1,doihaveitwrong:1,language:1,millennial:1,appointed:1};
 var WIG_INDEX={};  // tab id -> {page,tab}
 WIG_GROUPS.forEach(function(g){g.tabs.forEach(function(t,i){WIG_INDEX[t[0]]={page:g.n,tab:i+1,label:t[1]};});});
+// The Appointed Times is not in a Who Is God group: it is the introduction tab of Feasts of the Lord (page 2, tab number 8, shown first).
+WIG_INDEX.appointed={page:2,tab:8,label:'The Appointed Times'};
 var wigCache={};
 
 function wigNavHtml(){

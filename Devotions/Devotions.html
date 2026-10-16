@@ -479,7 +479,7 @@ h3 .rn-mark,h2 .rn-mark{font-size:.8em;vertical-align:middle;margin-left:10px;op
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.36</div>
+      <div class="page-version" id="pageVersion">v1.37</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -722,7 +722,7 @@ function renderAllPages(){
     </div>
   </div>
   <div class="detail" id="detail-2" style="flex-direction:column">
-    <div class="detail-head"><span class="detail-heading" id="detail-heading-2" data-base="Feasts of the Lord">Feasts of the Lord — ${FEAST_ORDER[0]}</span>
+    <div class="detail-head"><span class="detail-heading" id="detail-heading-2" data-base="Feasts of the Lord">Feasts of the Lord — The Appointed Times</span>
       <div id="feastSongsRow-2" style="display:flex;gap:8px;margin-left:auto"></div>
       <button id="feastSpeakerBtn-2" style="display:none;align-items:center;gap:8px;padding:6px 12px;border-radius:9px;border:1px solid var(--gold,#c9a84c);background:rgba(var(--amit-accent-rgb,201,168,76),.16);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25);cursor:pointer" onclick="openFeastSpeaker()" title="Play the current tab">
         <span style="font-size:18px">🔊</span><span id="feastSpeakerLabel-2" style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--gold2,#e8c56a);letter-spacing:.04em;font-weight:600;white-space:nowrap">Play</span>
@@ -1003,7 +1003,11 @@ function showChTab(detailNum,n){
 // (Passover) showed no Play or song button until another tab was clicked.
 // Harmless on other pages, since the elements only exist on Feasts.
 function updateFeastHeader(detailNum,feastName){
-  if(!feastName) return;
+  if(!feastName){
+    const sb=document.getElementById('feastSpeakerBtn-'+detailNum); if(sb) sb.style.display='none';
+    const sr=document.getElementById('feastSongsRow-'+detailNum); if(sr) sr.innerHTML='';
+    return;
+  }
   const shortName=feastName.split(' (')[0];
   const speakerBtn=document.getElementById('feastSpeakerBtn-'+detailNum);
   if(speakerBtn){
@@ -2067,7 +2071,7 @@ function buildFeastTabsHtml(detailNum){
   let tabNavHtml='',tabContentHtml='';
   FEAST_ORDER.forEach((name,i)=>{
     const t=i+1;
-    tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" data-tabnum="${t}" onclick="showChTab(${detailNum},${t})">${name}</button>`;
+    tabNavHtml+=`<button class="ch-tab-btn" data-tabnum="${t}" onclick="showChTab(${detailNum},${t})">${name}</button>`;
     // Plain scrollable text box under "Devotion to follow" — Trumpets only,
     // 2026-09-11 Ryan's direct instruction. Static text, no reading/voice
     // controls of any kind — just the full study, scrollable on its own.
@@ -2089,10 +2093,16 @@ function buildFeastTabsHtml(detailNum){
       :springText
       ?`<div style="flex:1;min-height:0;margin-top:20px;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.2);border-radius:8px">${buildPlainStudyHtml(springText)}</div>`
       :'';
-    tabContentHtml+=`<div class="ch-tab-content${hasFullStudy?' is-reader':''}${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">
+    tabContentHtml+=`<div class="ch-tab-content${hasFullStudy?' is-reader':''}" id="ch-tab-${detailNum}-${t}">
       <p style="font-size:15px;line-height:1.8;color:var(--text2)">${FEAST_SUMMARY[name]}</p><p style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-family:var(--amit-font-heading,'Cinzel',serif);margin-top:18px">Devotion to follow</p>${fullStudyBox}
     </div>`;
   });
+  // The Appointed Times introduction (added 2026-10-15, Ryan's direction: Leviticus 23 calls these "my appointed times", so they belong here as the
+  // introduction to the feasts). It takes the next free tab NUMBER (so every existing #page=2&tab=N feast link keeps landing on the same feast)
+  // but is shown FIRST (order:-1) and opens by default. Its text is moved from who_is_god (whoisgod/appointed.html), filled by wigHydrate().
+  const introNum=FEAST_ORDER.length+1;
+  tabNavHtml+=`<button class="ch-tab-btn active" data-tabnum="${introNum}" style="order:-1" onclick="showChTab(${detailNum},${introNum})">The Appointed Times</button>`;
+  tabContentHtml+=`<div class="ch-tab-content active" id="ch-tab-${detailNum}-${introNum}"><div class="wig-content" data-wig-tab="appointed"><div class="wig-loading">Loading&hellip;</div></div></div>`;
   return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
     <div class="ch-tab-main">${tabContentHtml}</div>`;
 }
