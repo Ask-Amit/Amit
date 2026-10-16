@@ -14,7 +14,7 @@
 <script src="../amit_pin_encryption.js?v=1.00"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
-<script src="../amit_chat.js?v=0.07"></script>
+<script src="../amit_chat.js?v=0.09"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1389,7 +1389,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.19</div>
+      <div class="page-version" id="hubVersionBadge">v8.21</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1957,6 +1957,17 @@ header{
         <div class="ch-tab-content" id="ch-tab-aboutme-2">
           <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:12px;line-height:1.7;margin-bottom:18px">Add a child or family member — they get their own real, independent login, with a password you set now. No email needed for them until they're ready to take over their own account someday.</div>
           <div id="amvFamilyList" style="margin-bottom:18px"></div>
+          <div id="amvChildInviteBox" style="margin:0 0 18px;padding:14px;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);border-radius:8px">
+            <div style="font-size:14px;margin-bottom:6px">Let a child set up their own account</div>
+            <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:12px;line-height:1.6;margin-bottom:10px">Enter your child's own email address. When they sign in to Amit with that exact address, they are linked to you automatically, with the birth date and chat setting you choose here. A young person with no invitation from a guardian cannot use chat. You need your own birth date saved in About Me first, and this is only for a child under 18.</div>
+            <div class="fg" style="margin-bottom:10px"><label class="fg-label">Child's name</label><input class="fg-input" id="amvInvName" placeholder="Their name"></div>
+            <div class="fg" style="margin-bottom:10px"><label class="fg-label">Child's email address</label><input class="fg-input" id="amvInvEmail" type="email" placeholder="their@email.com"></div>
+            <div class="fg" style="margin-bottom:10px"><label class="fg-label">Child's birth date</label><input class="fg-input" id="amvInvBirth" type="date" style="max-width:190px"></div>
+            <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:10px"><input type="checkbox" id="amvInvAllow" checked> Allow them to use chat (you can read their chats until they turn 18)</label>
+            <button class="btn" onclick="amvInviteChild()" style="margin-bottom:8px">AUTHORIZE THIS EMAIL</button>
+            <div id="amvInvNote" style="font-size:13px;margin-bottom:8px"></div>
+            <div id="amvChildInviteList"></div>
+          </div>
           <button class="btn btn-ghost" onclick="amvOpenAddFamily()" style="margin-bottom:8px">➕ ADD FAMILY MEMBER</button>
           <div id="amvFamilyAddForm" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid rgba(var(--amit-text-rgb,240,232,208),.12)">
             <div class="fg" style="margin-bottom:12px">
@@ -5356,6 +5367,7 @@ async function amvInitAboutMePanel(){
   // if invoked programmatically like this.
   amvLoadFamilyList();
   if(typeof amvLoadBirth==='function') amvLoadBirth();
+  if(typeof amvLoadChildInvites==='function') amvLoadChildInvites();
 }
 
 // showChTab — the ONE tabbed-layout switching function, pulled verbatim
@@ -5663,10 +5675,37 @@ async function amvSetChildChat(childId,on){
   if(r.error){ alert(r.error.message); return; }
   amvLoadFamilyList();
 }
+// ---- A guardian authorizes their child's own email (the child then sets up their own account) ----
+async function amvInviteChild(){
+  const g=id=>document.getElementById(id), note=g('amvInvNote');
+  const name=g('amvInvName').value.trim(), email=g('amvInvEmail').value.trim(), birth=g('amvInvBirth').value, allow=g('amvInvAllow').checked;
+  const bad=m=>{ note.style.color='rgba(255,150,150,.9)'; note.textContent=m; };
+  if(!name||!email||!birth){ bad('Name, email and birth date are all required.'); return; }
+  if(!confirm('Authorize '+email+' for '+name+'?\n\nWhen they sign in to Amit with this exact email address, they will be linked to your account as your child, with the birth date '+_amvFmtDate(birth)+'. Chat will be '+(allow?'ON':'OFF')+'.')) return;
+  const r=await db.rpc('cha_invite_child',{p_email:email,p_name:name,p_birth:birth,p_allow_chat:allow});
+  if(r.error){ bad(r.error.message); return; }
+  note.style.color='rgba(180,220,190,.9)'; note.textContent='Saved. Ask '+name+' to sign in to Amit with '+email+'.';
+  g('amvInvName').value=''; g('amvInvEmail').value=''; g('amvInvBirth').value='';
+  amvLoadChildInvites();
+}
+async function amvLoadChildInvites(){
+  const el=document.getElementById('amvChildInviteList'); if(!el||!db||!currentUser) return;
+  let rows=[]; try{ const r=await db.rpc('cha_my_child_invites'); if(!r.error&&r.data) rows=r.data; else if(r.error){ document.getElementById('amvChildInviteBox').style.display='none'; return; } }catch(e){}
+  document.getElementById('amvChildInviteBox').style.display='';
+  if(!rows.length){ el.innerHTML=''; return; }
+  const sub='font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.45)';
+  el.innerHTML='<div style="'+sub+';margin:6px 0">Invitations</div>'+rows.map(r=>'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-top:1px solid rgba(var(--amit-text-rgb,240,232,208),.08)"><div><div style="font-size:13px">'+_amvEsc(r.child_name)+' &middot; '+_amvEsc(r.email)+'</div><div style="'+sub+'">'+(r.status==='claimed'?'Signed in and linked':'Waiting for them to sign in')+' &middot; chat '+(r.allow_chat?'allowed':'not allowed')+'</div></div>'+(r.status==='pending'?'<button class="btn btn-ghost" onclick="amvCancelChildInvite(\''+r.id+'\')">CANCEL</button>':'')+'</div>').join('');
+}
+async function amvCancelChildInvite(id){
+  if(!confirm('Cancel this invitation?')) return;
+  const r=await db.rpc('cha_cancel_child_invite',{p_id:id}); if(r.error){ alert(r.error.message); return; }
+  amvLoadChildInvites();
+}
 // ---- My own birth date (About Me > My Info) ----
 async function amvLoadBirth(){
   const box=document.getElementById('d_amvBirthBlock'), view=document.getElementById('d_amvBirthView');
   if(!box||!view||!db||!currentUser) return;
+  try{ await db.rpc('cha_claim_child_invite'); }catch(e){}   // a guardian may have authorized this email: link now
   let p=null; try{ const r=await db.rpc('cha_my_profile'); if(!r.error) p=r.data; }catch(e){}
   if(!p){ box.style.display='none'; return; }   // the chat safeguarding step is not installed: nothing to show
   box.style.display='';
@@ -5681,7 +5720,7 @@ async function amvSaveBirth(){
   const r=await db.rpc('cha_set_birth_date',{p_date:v});
   if(r.error){ alert(r.error.message); return; }
   amvLoadBirth();
-  if(window.AmitChat&&AmitChat.refresh) try{ AmitChat.refresh(); }catch(e){}
+  if(window.AmitChat&&AmitChat.recheck) try{ AmitChat.recheck(); }catch(e){}
 }
 function amvOpenAddFamily(){
   const form=document.getElementById('amvFamilyAddForm');

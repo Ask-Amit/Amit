@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
+   v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
 
    Include with  <script src="../amit_chat.js"></script>  (path per depth).
@@ -22,7 +22,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.07';
+  var VERSION = 'v0.09';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
 
   /* ── small helpers ── */
@@ -105,6 +105,16 @@
     });
   }
 
+  /* what a helper needs to know about the person's browser (sent with a help request) */
+  function envInfo() {
+    var ua = navigator.userAgent || '', b = 'Unknown browser', m;
+    if ((m = /Edg\/([\d.]+)/.exec(ua))) b = 'Edge ' + m[1]; else if ((m = /Chrome\/([\d.]+)/.exec(ua))) b = 'Chrome ' + m[1];
+    else if ((m = /Firefox\/([\d.]+)/.exec(ua))) b = 'Firefox ' + m[1]; else if ((m = /Version\/([\d.]+).*Safari/.exec(ua))) b = 'Safari ' + m[1];
+    var os = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+    var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+    return { browser: b, system: os, screen: (screen.width || 0) + 'x' + (screen.height || 0), window: innerWidth + 'x' + innerHeight, language: navigator.language || '', timezone: tz, online: navigator.onLine ? 'yes' : 'no' };
+  }
+
   function makeLiveSource(db, me) {
     var names = {}; names[me] = 'You';
     function nameOf(id) { return names[id] || 'Someone'; }
@@ -183,12 +193,14 @@
           db.from('cha_participants').select('user_id,status,last_read_message_id,show_receipts').eq('conversation_id', id),
           db.from('cha_conversations').select('id,title,kind,created_by,pinned_message_id,delete_requested_at').eq('id', id).maybeSingle(),
           before ? Promise.resolve({ data: [] }) : db.from('cha_notes').select('id,body,created_at').eq('conversation_id', id).order('created_at', { ascending: true }).limit(200),
-          db.rpc('cha_member_times', { p_conv: id })
+          db.rpc('cha_member_times', { p_conv: id }),
+          before ? Promise.resolve({ data: [] }) : db.from('cha_items').select('id,message_id,kind,text,state,created_by,confidential,answered_at,created_at').eq('conversation_id', id).order('created_at', { ascending: true }).limit(300)
         ]); }).then(function (res) {
           fail(res[0]); fail(res[1]); fail(res[2]);
           var rows = (res[0].data || []).slice().reverse();
           var parts = res[1].data || [], conv = res[2].data || {};
-          return loadNames(parts.map(function (x) { return x.user_id; }).concat(rows.map(function (x) { return x.sender_id; }))).then(function () {
+          var itemRows = (res[5] && !res[5].error && res[5].data) || [];
+          return loadNames(parts.map(function (x) { return x.user_id; }).concat(rows.map(function (x) { return x.sender_id; })).concat(itemRows.map(function (x) { return x.created_by; }))).then(function () {
             var others = parts.filter(function (x) { return x.user_id !== me && x.status === 'accepted'; });
             var amitIn = !!(src.amit && parts.some(function (x) { return x.user_id === src.amit && x.status === 'accepted'; }));
             var msgs = rows.map(function (m) {
@@ -228,6 +240,7 @@
               db.from('cha_messages').select('id,sender_id,body,deleted_at').eq('id', conv.pinned_message_id).maybeSingle().then(function (r) { return r && r.data; }, function () { return null; }));
             return pinP.then(function (pm) {
             return {
+              items: itemRows.map(function (i) { return { id: i.id, messageId: i.message_id, kind: i.kind, text: i.text, state: i.state, by: nameOf(i.created_by), mine: i.created_by === me, confidential: !!i.confidential, answeredAt: i.answered_at }; }),
               pin: pm && !pm.deleted_at ? { id: pm.id, name: nameOf(pm.sender_id), text: pm.body || '' } : null,
               deleteAt: conv.delete_requested_at || null, creator: conv.created_by === me, times: times.length <= 3 ? times : [],
               id: id, title: conv.title || others.map(function (o) { return nameOf(o.user_id); }).join(', ') || 'Chat',
@@ -242,6 +255,8 @@
         });
       },
 
+      /* remembers which chat this person opened last: that is the chat "J chat" reads for them */
+      touchChat: function (id) { return db.from('cha_participants').update({ last_opened_at: new Date().toISOString() }).eq('conversation_id', id).eq('user_id', me).then(function () {}, function () {}); },
       markRead: function (id, lastId) {
         if (!lastId) return Promise.resolve();
         return db.from('cha_participants').update({ last_read_message_id: lastId }).eq('conversation_id', id).eq('user_id', me).then(function (r) { return r; });
@@ -356,6 +371,40 @@
         });
       },
       chatWatched: function (id) { return db.rpc('cha_chat_watched', { p_conv: id }).then(function (r) { return !r.error && r.data === true; }, function () { return false; }); },
+      /* a guardian's invitation (migration _010): claimed quietly when the invited child signs in */
+      claimInvite: function () { return db.rpc('cha_claim_child_invite').then(function (r) { return r && r.data; }, function () { return null; }); },
+      /* items: steps, decisions, questions, prayer requests, notes (migration _011) */
+      addItem: function (id, kind, text, opts) {
+        opts = opts || {}; var t = (text || '').trim();
+        if (!t) return Promise.reject(new Error('Type something first.'));
+        var row = { conversation_id: id, kind: kind, text: t.slice(0, 2000), created_by: me };
+        if (opts.messageId) row.message_id = opts.messageId; if (opts.confidential) row.confidential = true;
+        return db.from('cha_items').insert(row).select('id').then(fail);
+      },
+      setItemState: function (itemId, state) {
+        var u = { state: state }; u.answered_at = state === 'done' ? new Date().toISOString() : null;
+        return db.from('cha_items').update(u).eq('id', itemId).then(fail);
+      },
+      deleteItem: function (itemId) { return db.from('cha_items').delete().eq('id', itemId).then(fail); },
+      sendFixCard: function (id, f) {
+        var summary = ((f.doing || f.happened || '') + '').replace(/\s+/g, ' ').trim().slice(0, 90);
+        return db.from('cha_messages').insert({ conversation_id: id, sender_id: me, message_type: 'card', body: 'Help request: ' + summary,
+          payload: { kind: 'fix', doing: (f.doing || '').slice(0, 3000), happened: (f.happened || '').slice(0, 3000), tried: (f.tried || '').slice(0, 3000), env: f.env || {} } }).select('id').then(fail);
+      },
+      /* Open Loops: follow-ups Amit suggested, private to me (migration _011) */
+      loops: function () {
+        return db.from('cha_loops').select('id,conversation_id,kind,text,status,snooze_until,created_at').in('status', ['open', 'accepted', 'snoozed']).order('created_at', { ascending: false }).limit(50).then(function (r) {
+          if (r.error) return []; var now = Date.now();
+          return (r.data || []).filter(function (l) { return l.status !== 'snoozed' || (l.snooze_until && new Date(l.snooze_until).getTime() <= now); })
+            .map(function (l) { return { id: l.id, conv: l.conversation_id, kind: l.kind, text: l.text, status: l.status === 'snoozed' ? 'open' : l.status }; });
+        }, function () { return []; });
+      },
+      decideLoop: function (id, action, days) {
+        var u = { decided_at: new Date().toISOString() };
+        if (action === 'accept') u.status = 'accepted'; else if (action === 'done') u.status = 'done'; else if (action === 'dismiss') u.status = 'dismissed';
+        else if (action === 'snooze') { u.status = 'snoozed'; u.snooze_until = new Date(Date.now() + (days || 1) * 864e5).toISOString(); }
+        return db.from('cha_loops').update(u).eq('id', id).then(fail);
+      },
       /* safeguarding and friends */
       profile: function () { return db.rpc('cha_my_profile').then(function (r) { fail(r); return r.data || {}; }); },
       setBirthDate: function (d) { return db.rpc('cha_set_birth_date', { p_date: d }).then(function (r) { fail(r); return r.data; }); },
@@ -537,6 +586,14 @@
     '.acx-b.reading{outline:1px solid rgba(var(--amit-accent-rgb,201,168,76),.75)}',
     '.acx-thead .acx-spk{margin-left:auto}.acx-thead .acx-spk+.acx-srch{margin-left:0}.acx-spk.on{opacity:1;text-shadow:0 0 6px rgba(var(--amit-accent-rgb,201,168,76),.9)}',
     '.acx-rbar{display:flex;align-items:center;gap:6px;padding:5px 10px;font-size:12px;border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);background:rgba(var(--amit-accent-rgb,201,168,76),.1)}.acx-rbar span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.acx-fix{border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:8px;padding:8px 10px;margin-top:4px;background:rgba(var(--amit-overlay-rgb,255,255,255),.04);font-size:13px;white-space:normal}',
+    '.acx-fixrow{margin-top:4px;white-space:pre-wrap}.acx-fixlab{opacity:.65}.acx-fixhead{margin-top:8px;font-size:12px;font-weight:600}',
+    '.acx-step{display:flex;gap:6px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:4px 0;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.12)}',
+    '.acx-step.acx-st-done .acx-stt{text-decoration:line-through;opacity:.7}.acx-step.acx-st-failed .acx-stt{color:#e07a67}.acx-step.acx-st-na .acx-stt{opacity:.55;font-style:italic}',
+    '.acx-sb{display:inline-flex;gap:2px}.acx-sb button{background:none;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:5px;color:inherit;cursor:pointer;font-size:12px;padding:0 5px;line-height:18px}.acx-sb button.on{background:rgba(var(--amit-accent-rgb,201,168,76),.35)}',
+    '.acx-items{border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:8px;padding:6px 10px;font-size:12px}.acx-items>button{background:none;border:none;color:inherit;font:inherit;font-weight:600;cursor:pointer;padding:0}',
+    '.acx-item{display:flex;gap:6px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:3px 0}.acx-item.acx-st-done .acx-itt{text-decoration:line-through;opacity:.7}',
+    '.acx-clip{display:block;max-height:9em;overflow:hidden}.acx-moretxt{background:none;border:none;color:inherit;text-decoration:underline;cursor:pointer;font-size:11px;padding:0;margin-top:2px;display:block}',
     '.acx-watch{font-size:11px;font-style:italic;color:var(--amit-muted,rgba(240,232,208,.78))}',
     '.acx-b.note{align-self:flex-end;background:transparent;border-style:dashed}',
     '.acx-del{border:1px solid #d63b2f;background:rgba(214,59,47,.1);border-radius:8px;padding:6px 10px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}',
@@ -600,7 +657,7 @@
     else { main = el('div', 'acx-main'); root.appendChild(main); }
     var area = wide ? right : main;
     var cur = { view: 'list', arg: null }, thread = null, destroyed = false, listCache = null;
-    var prof = null, gate = !!live, forMeCache = null, forMeAt = 0;   // while the birth-date check is pending nothing else may draw
+    var prof = null, gate = !!live, gateWhy = null, rechecking = false, recheckFn = null, forMeCache = null, forMeAt = 0;   // while the birth-date check is pending nothing else may draw
     var lastActive = Date.now(), loopT = null, inSight = false, listSig = null;
 
     function visible() { return !destroyed && root.offsetParent !== null && !document.hidden; }
@@ -647,11 +704,11 @@
       if (!force && forMeCache && Date.now() - forMeAt < 20000) return Promise.resolve(forMeCache);
       return Promise.all([
         src.friends().catch(function () { return null; }), src.guardianQueue().catch(function () { return []; }),
-        src.repliesToMe().catch(function () { return []; }), src.invites().catch(function () { return []; })
+        src.repliesToMe().catch(function () { return []; }), src.invites().catch(function () { return []; }), src.loops ? src.loops() : Promise.resolve([])
       ]).then(function (r) {
         forMeAt = Date.now();
-        forMeCache = { requests: r[0] ? r[0].incoming : [], guardian: r[1], replies: r[2], invites: r[3] };
-        forMeCache.count = forMeCache.requests.length + forMeCache.guardian.length + forMeCache.replies.length + forMeCache.invites.length;
+        forMeCache = { requests: r[0] ? r[0].incoming : [], guardian: r[1], replies: r[2], invites: r[3], loops: r[4] || [] };
+        forMeCache.count = forMeCache.requests.length + forMeCache.guardian.length + forMeCache.replies.length + forMeCache.invites.length + forMeCache.loops.filter(function (l) { return l.status === 'open'; }).length;
         return forMeCache;
       });
     }
@@ -742,7 +799,7 @@
       function draw() {
         loadForMe(true).then(function (d) {
           if (destroyed) return; page.innerHTML = '';
-          if (!d.count) { page.appendChild(el('div', 'acx-empty', 'Nothing is waiting for you.')); return; }
+          if (!d.count && !(d.loops && d.loops.length)) { page.appendChild(el('div', 'acx-empty', 'Nothing is waiting for you.')); return; }
           function line(sec, text, btns) {
             var l = el('div', 'acx-line'); l.appendChild(el('div', null, text));
             var w = el('div'); w.style.cssText = 'display:flex;gap:6px'; btns.forEach(function (x) { w.appendChild(x); }); l.appendChild(w); sec.appendChild(l);
@@ -765,6 +822,24 @@
             var r2 = el('div', 'acx-sec'); r2.appendChild(el('h4', null, 'Chat invitations'));
             d.invites.forEach(function (iv) { line(r2, iv.by + ' invited you to \u201C' + iv.title + '\u201D', [mk('Accept', 'go', function () { return src.respondInvite(iv.id, true); }), mk('Decline', '', function () { return src.respondInvite(iv.id, false); })]); });
             page.appendChild(r2);
+          }
+          var openLoops = (d.loops || []).filter(function (l) { return l.status === 'open'; }), keptLoops = (d.loops || []).filter(function (l) { return l.status === 'accepted'; });
+          function loopLine(sec, l, btns) {
+            var ln = el('div', 'acx-line'); var w0 = el('div'); w0.appendChild(el('div', null, l.text)); w0.appendChild(el('div', 'acx-ts', l.kind === 'question' ? 'An unanswered question' : l.kind === 'promise' ? 'A promise' : l.kind === 'prayer' ? 'A prayer request' : 'A follow-up'));
+            ln.appendChild(w0); var w = el('div'); w.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap'; btns.forEach(function (b) { w.appendChild(b); });
+            if (l.conv) { var ob = el('button', 'acx-btn', 'Open chat'); ob.onclick = function () { show('thread', l.conv); }; w.appendChild(ob); }
+            ln.appendChild(w); sec.appendChild(ln);
+          }
+          if (openLoops.length) {
+            var lp = el('div', 'acx-sec'); lp.appendChild(el('h4', null, 'Follow-ups Amit suggests'));
+            lp.appendChild(el('div', 'acx-ts', 'Only you can see these. Nothing is sent to anyone.'));
+            openLoops.forEach(function (l) { loopLine(lp, l, [mk('Keep', 'go', function () { return src.decideLoop(l.id, 'accept'); }), mk('Snooze 1 day', '', function () { return src.decideLoop(l.id, 'snooze', 1); }), mk('Snooze 1 week', '', function () { return src.decideLoop(l.id, 'snooze', 7); }), mk('Dismiss', '', function () { return src.decideLoop(l.id, 'dismiss'); })]); });
+            page.appendChild(lp);
+          }
+          if (keptLoops.length) {
+            var kp = el('div', 'acx-sec'); kp.appendChild(el('h4', null, 'Kept: still to do'));
+            keptLoops.forEach(function (l) { loopLine(kp, l, [mk('Done', 'go', function () { return src.decideLoop(l.id, 'done'); })]); });
+            page.appendChild(kp);
           }
           if (d.replies.length) {
             var r3 = el('div', 'acx-sec'); r3.appendChild(el('h4', null, 'Replies to you'));
@@ -868,7 +943,7 @@
       var replyBar = el('div', 'acx-replybar'); replyBar.style.display = 'none'; t.appendChild(replyBar);
       var comp = el('div', 'acx-comp'); t.appendChild(comp);
       var ta = null, sendBtn = null;
-      var fileBtn = null, photoBtn = null, amitBtn = null, fileIn = null, photoIn = null, voiceBtn = null, videoBtn = null, noteBtn = null, silentBtn = null, moreBtn = null, typing = null;
+      var fileBtn = null, photoBtn = null, amitBtn = null, fileIn = null, photoIn = null, voiceBtn = null, videoBtn = null, noteBtn = null, silentBtn = null, moreBtn = null, fixBtn = null, itemBtn = null, typing = null;
       if (live && !ro) {
         fileBtn = el('button', 'acx-ib', '\uD83D\uDCCE'); fileBtn.title = 'Attach a file (up to 10 MB)';
         photoBtn = el('button', 'acx-ib', '\uD83D\uDCF7'); photoBtn.title = 'Send a photo';
@@ -876,6 +951,8 @@
         videoBtn = el('button', 'acx-ib acx-xtra', '\uD83C\uDFA5'); videoBtn.title = 'Share a video-call link';
         noteBtn = el('button', 'acx-ib acx-xtra', '\uD83D\uDCDD'); noteBtn.title = 'Save what you typed as a private note (only you see it)';
         silentBtn = el('button', 'acx-ib acx-xtra', '\uD83D\uDD15'); silentBtn.title = 'Send silently: does not add to their unread badge';
+        fixBtn = el('button', 'acx-ib acx-xtra', '\uD83D\uDEE0'); fixBtn.title = 'Help me fix this (a guided help request)';
+        itemBtn = el('button', 'acx-ib acx-xtra', '\u2795'); itemBtn.title = 'Add a question, decision, prayer request or note to this chat';
         moreBtn = el('button', 'acx-ib', '\u22EF'); moreBtn.title = 'More options';
         amitBtn = el('button', 'acx-ib'); amitBtn.title = 'Amit'; amitBtn.style.display = 'none';
         var ai = el('img'); ai.src = AmitChat.iconUrl; ai.alt = 'Amit'; ai.onerror = function () { amitBtn.textContent = 'A'; }; amitBtn.appendChild(ai);
@@ -883,7 +960,7 @@
         photoIn = el('input'); photoIn.type = 'file'; photoIn.accept = 'image/*'; photoIn.multiple = true; photoIn.style.display = 'none';
         ta = el('textarea'); ta.rows = 1; ta.placeholder = 'Type a message\u2026';
         sendBtn = el('button', 'acx-btn go', 'Send');
-        comp.appendChild(fileBtn); comp.appendChild(photoBtn); comp.appendChild(voiceBtn); comp.appendChild(amitBtn); comp.appendChild(moreBtn); comp.appendChild(videoBtn); comp.appendChild(noteBtn); comp.appendChild(silentBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
+        comp.appendChild(fileBtn); comp.appendChild(photoBtn); comp.appendChild(voiceBtn); comp.appendChild(amitBtn); comp.appendChild(moreBtn); comp.appendChild(videoBtn); comp.appendChild(fixBtn); comp.appendChild(itemBtn); comp.appendChild(noteBtn); comp.appendChild(silentBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
         comp.appendChild(ta); comp.appendChild(sendBtn);
       } else if (ro) {
         comp.appendChild(el('div', 'acx-stub', 'Read only \u2014 you are reading this as a guardian'));
@@ -891,7 +968,88 @@
         comp.appendChild(el('span', 'acx-ic', '＋')); comp.appendChild(el('span', 'acx-ic', '📷')); comp.appendChild(el('span', 'acx-ic', '🎤'));
         comp.appendChild(el('div', 'acx-stub', 'Preview only — not connected'));
       }
-      var state = { msgs: [], sig: '', more: false, oldest: null, conv: null, busy: false, editing: null, typing: '', replyTo: null, silent: false };
+      var state = { msgs: [], sig: '', more: false, oldest: null, conv: null, busy: false, editing: null, typing: '', replyTo: null, silent: false, items: [], expanded: {}, itemsOpen: true };
+
+      /* ═══ HELP REQUEST CARD, STEPS AND ITEMS ═══ */
+      var fpanel = null;
+      function closePanel() { if (fpanel) { fpanel.remove(); fpanel = null; } }
+      function panelBase(kind, title) {
+        if (fpanel && fpanel.getAttribute('data-k') === kind) { closePanel(); return null; }
+        closePanel(); fpanel = el('div', 'acx-set'); fpanel.setAttribute('data-k', kind); fpanel.appendChild(el('b', null, title));
+        t.insertBefore(fpanel, comp); return fpanel;
+      }
+      function openFixForm() {
+        var p = panelBase('fix', 'Help me fix this'); if (!p) return;
+        function box(ph) { var a = el('textarea', 'acx-editbox'); a.placeholder = ph; a.maxLength = 3000; p.appendChild(a); return a; }
+        var a1 = box('What were you doing?'), a2 = box('What happened? (any message you saw)'), a3 = box('What have you already tried?');
+        p.appendChild(el('div', 'acx-ts', 'Your browser, screen size and language are sent with it so the helper does not have to ask.'));
+        var go = el('button', 'acx-btn go', 'Send help request');
+        go.onclick = function () {
+          if (!a1.value.trim() && !a2.value.trim()) { toast('Tell us what you were doing or what happened.'); return; }
+          go.disabled = true;
+          src.sendFixCard(convId, { doing: a1.value, happened: a2.value, tried: a3.value, env: envInfo() }).then(function () { closePanel(); toast('Help request sent'); bump(); return load(false); }, function (e) { toast(e.message); go.disabled = false; });
+        };
+        p.appendChild(go);
+      }
+      function openItemForm() {
+        var p = panelBase('item', 'Add to this chat'); if (!p) return;
+        var kinds = [['question', 'Question'], ['decision', 'Decision'], ['prayer', 'Prayer request'], ['note', 'Study note']];
+        var sel = el('select', 'acx-field'); kinds.forEach(function (k) { var o = el('option', null, k[1]); o.value = k[0]; sel.appendChild(o); }); p.appendChild(sel);
+        var tx = el('textarea', 'acx-editbox'); tx.maxLength = 2000; tx.placeholder = 'Write it here\u2026'; p.appendChild(tx);
+        var cl = el('label'); var cb = el('input'); cb.type = 'checkbox'; cl.appendChild(cb); cl.appendChild(document.createTextNode(' Keep this prayer request confidential (Amit skips it)')); cl.style.display = 'none'; p.appendChild(cl);
+        sel.onchange = function () { cl.style.display = sel.value === 'prayer' ? '' : 'none'; };
+        var go = el('button', 'acx-btn go', 'Add');
+        go.onclick = function () { go.disabled = true; src.addItem(convId, sel.value, tx.value, { confidential: sel.value === 'prayer' && cb.checked }).then(function () { closePanel(); bump(); return load(false); }, function (e) { toast(e.message); go.disabled = false; }); };
+        p.appendChild(go);
+      }
+      var STEP_STATES = [['open', '\u2610', 'Not done yet'], ['done', '\u2611', 'Done'], ['failed', '\u2612', 'Did not work'], ['na', '\u2298', 'Cannot do']];
+      function reload() { bump(); return load(false); }
+      function renderFixCard(bub, x, pl) {
+        var box = el('div', 'acx-fix'); box.appendChild(el('b', null, '\uD83D\uDEE0 Help request'));
+        [['What I was doing', pl.doing], ['What happened', pl.happened], ['What I have tried', pl.tried]].forEach(function (r) {
+          if (!r[1]) return; var d = el('div', 'acx-fixrow'); d.appendChild(el('span', 'acx-fixlab', r[0] + ': '));
+          var body = el('span'); body.textContent = r[1].length > 700 && !state.expanded[x.id + r[0]] ? r[1].slice(0, 700) + '\u2026' : r[1]; d.appendChild(body);
+          if (r[1].length > 700) { var tg = el('button', 'acx-moretxt', state.expanded[x.id + r[0]] ? 'Show less' : 'Show all'); tg.onclick = function () { state.expanded[x.id + r[0]] = !state.expanded[x.id + r[0]]; renderMsgs(state.conv, null); }; d.appendChild(tg); }
+          box.appendChild(d);
+        });
+        if (pl.env && Object.keys(pl.env).length) { var det = el('details'); det.appendChild(el('summary', 'acx-ts', 'Technical details')); det.appendChild(el('div', 'acx-ts', Object.keys(pl.env).map(function (k) { return k + ': ' + pl.env[k]; }).join(' \u00B7 '))); box.appendChild(det); }
+        var steps = state.items.filter(function (i) { return i.messageId === x.id && i.kind === 'step'; });
+        var done = steps.filter(function (i) { return i.state === 'done'; }).length;
+        box.appendChild(el('div', 'acx-fixhead', steps.length ? 'Steps: ' + done + ' of ' + steps.length + ' done' : 'No steps yet'));
+        steps.forEach(function (st) {
+          var row = el('div', 'acx-step acx-st-' + st.state); var tt2 = el('span', 'acx-stt', st.text + '  (' + st.by + ')'); row.appendChild(tt2);
+          var sb = el('span', 'acx-sb');
+          STEP_STATES.forEach(function (ss) { var b = el('button', st.state === ss[0] ? 'on' : null, ss[1]); b.title = ss[2]; if (ro) b.disabled = true; b.onclick = function () { src.setItemState(st.id, ss[0]).then(reload, function (e) { toast(e.message); }); }; sb.appendChild(b); });
+          if (st.mine && !ro) { var db3 = el('button', null, '\u2715'); db3.title = 'Remove my step'; db3.onclick = function () { src.deleteItem(st.id).then(reload, function (e) { toast(e.message); }); }; sb.appendChild(db3); }
+          row.appendChild(sb); box.appendChild(row);
+        });
+        if (live && !ro) {
+          var al = el('div'); al.style.cssText = 'display:flex;gap:6px;margin-top:6px'; var ai2 = el('input', 'acx-field'); ai2.placeholder = 'Add a step to try'; ai2.maxLength = 300;
+          var ab2 = el('button', 'acx-btn', 'Add step');
+          ab2.onclick = function () { if (!ai2.value.trim()) return; ab2.disabled = true; src.addItem(convId, 'step', ai2.value, { messageId: x.id }).then(reload, function (e) { toast(e.message); ab2.disabled = false; }); };
+          al.appendChild(ai2); al.appendChild(ab2); box.appendChild(al);
+        }
+        bub.appendChild(box);
+      }
+      var ITEM_KINDS = { prayer: ['\uD83D\uDE4F', 'Prayer requests', 'Mark answered'], decision: ['\u2705', 'Decisions', 'Mark decided'], question: ['\u2753', 'Questions', 'Mark answered'], note: ['\uD83D\uDCDD', 'Study notes', null] };
+      function renderItemsBar() {
+        var list = state.items.filter(function (i) { return i.kind !== 'step' && !i.messageId; });
+        if (!list.length) return null;
+        var box = el('div', 'acx-items');
+        var hd = el('button', null, (state.itemsOpen ? '\u25BE ' : '\u25B8 ') + 'In this chat (' + list.length + ')'); hd.onclick = function () { state.itemsOpen = !state.itemsOpen; renderMsgs(state.conv, null); }; box.appendChild(hd);
+        if (!state.itemsOpen) return box;
+        ['prayer', 'decision', 'question', 'note'].forEach(function (k) {
+          list.filter(function (i) { return i.kind === k; }).forEach(function (it) {
+            var meta = ITEM_KINDS[k], row = el('div', 'acx-item acx-st-' + it.state);
+            row.appendChild(el('span', 'acx-itt', meta[0] + ' ' + it.text + '  (' + it.by + ')' + (it.confidential ? '  \uD83D\uDD12 confidential' : '') + (it.state === 'done' && it.answeredAt ? '  \u00B7 ' + (k === 'decision' ? 'decided ' : 'answered ') + new Date(it.answeredAt).toLocaleDateString() : '')));
+            var sb = el('span', 'acx-sb');
+            if (meta[2] && !ro) { var b = el('button', null, it.state === 'done' ? 'Reopen' : meta[2]); b.onclick = function () { src.setItemState(it.id, it.state === 'done' ? 'open' : 'done').then(reload, function (e) { toast(e.message); }); }; sb.appendChild(b); }
+            if (it.mine && !ro) { var d = el('button', null, '\u2715'); d.title = 'Remove'; d.onclick = function () { src.deleteItem(it.id).then(reload, function (e) { toast(e.message); }); }; sb.appendChild(d); }
+            row.appendChild(sb); box.appendChild(row);
+          });
+        });
+        return box;
+      }
 
       /* ═══ READ ALOUD: speaks right here in the chat (no Speak to Me), follows the words, pause / back / next / stop.
          The voice, speed, pitch, volume and pause come from About Me (AmitChat.voiceProvider); "heard up to" is kept per chat on this device. ═══ */
@@ -1084,6 +1242,7 @@
           c.card.steps.forEach(function (s) { cd.appendChild(el('div', 'acx-st-' + s[0], (s[0] === 'done' ? '☑ ' : s[0] === 'failed' ? '☒ ' : '☐ ') + s[1] + (s[0] === 'failed' ? '  (didn’t work)' : ''))); });
           cd.appendChild(el('div', null, 'Cause: ' + c.card.cause)); msgsDiv.appendChild(cd);
         }
+        var itemsBar = renderItemsBar(); if (itemsBar) msgsDiv.appendChild(itemsBar);
         state.msgs.forEach(function (x) {
           if (x.from === 'system') { msgsDiv.appendChild(el('div', 'acx-sys', x.text)); return; }
           if (x.type === 'privnote') {
@@ -1093,7 +1252,7 @@
             nd.appendChild(ndb); nb2.firstChild.appendChild(nd); msgsDiv.appendChild(nb2); return;
           }
           var bub = el('div', 'acx-b ' + x.from + (x.removed ? ' removed' : '')); bub.setAttribute('data-mid', x.id);
-          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '')));
+          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '') + (x.from === 'amit' && x.payload && x.payload.via_name ? ' \u00B7 answering through ' + x.payload.via_name + '\u2019s session' : '')));
           if (x.replyTo && !x.removed) {
             var qm = state.msgs.filter(function (m) { return m.id === x.replyTo; })[0];
             bub.appendChild(el('div', 'acx-quote', qm ? '\u21A9 ' + qm.name + ': ' + (qm.removed ? 'Message removed' : (qm.text || '').slice(0, 70)) : '\u21A9 an earlier message'));
@@ -1114,6 +1273,8 @@
             src.signedUrl(pl.path).then(function (u) { au.src = u; }, function () {});
             bub.appendChild(au);
             bub.appendChild(el('div', 'acx-tr', pl.transcript ? '\u201C' + pl.transcript + '\u201D (automatic transcript, may have mistakes)' : '(no transcript)'));
+          } else if (!x.removed && x.type === 'card' && pl.kind === 'fix') {
+            renderFixCard(bub, x, pl);
           } else if (state.editing === x.id && x.type === 'text') {
             var eb = el('textarea', 'acx-editbox'); eb.value = x.text; bub.appendChild(eb);
             var er = el('div', 'acx-act'); er.style.opacity = '1';
@@ -1124,6 +1285,10 @@
             setTimeout(function () { eb.focus(); }, 0);
           } else {
             var mbody = el('span', 'acx-mbody'); linkify(mbody, x.text, x.removed); bub.appendChild(mbody);
+            if (!x.removed && (x.text || '').length > 700) {
+              var openL = !!state.expanded[x.id]; if (!openL) mbody.classList.add('acx-clip');
+              var tgl = el('button', 'acx-moretxt', openL ? 'Show less' : 'Show more'); tgl.onclick = function () { state.expanded[x.id] = !openL; renderMsgs(state.conv, null); }; bub.appendChild(tgl);
+            }
           }
           if (live && !ro && !x.removed && state.editing !== x.id) {
             var ac = el('span', 'acx-act');
@@ -1141,7 +1306,7 @@
             bub.firstChild.appendChild(ac);
           }
           if (x.eye) { var ey = el('span', null, ' \uD83D\uDC41\uFE0F'); ey.title = 'Research'; bub.appendChild(ey); }
-          if (x.waitingAmit) bub.appendChild(el('div', 'acx-wait', '\u23F3 Waiting for Amit \u2014 he answers when his session checks'));
+          if (x.waitingAmit) bub.appendChild(el('div', 'acx-wait', '\u23F3 Waiting for Amit \u2014 he answers when someone in this chat says J chat in VS Code or AmitCoder'));
           msgsDiv.appendChild(bub);
         });
         if (c.seen) msgsDiv.appendChild(el('div', 'acx-meta', c.seen));
@@ -1154,7 +1319,7 @@
       function load(first) {
         return src.getConversation(convId).then(function (c) {
           if (destroyed) return;
-          state.conv = c; tt.textContent = c.title; ts.textContent = 'Members: ' + c.members; tl.textContent = timesText(c.times); updateSpk();
+          state.conv = c; state.items = c.items || []; tt.textContent = c.title; ts.textContent = 'Members: ' + c.members; tl.textContent = timesText(c.times); updateSpk();
           if (first) { if (ro) wl.textContent = 'Read only: you are reading this as a guardian.'; else if (live) src.chatWatched(convId).then(function (w) { if (!destroyed && w) wl.textContent = '\uD83D\uDC6A A young person\u2019s guardian can read this chat.'; }); }
           if (amitBtn) { amitBtn.style.display = c.amitId ? '' : 'none'; amitBtn.title = c.amitIn ? 'Ask Amit (adds @Amit to your message)' : 'Invite Amit to this chat'; }
           // merge, keeping any older messages already loaded
@@ -1162,7 +1327,7 @@
           var older = state.msgs.filter(function (m) { return !have[m.id] && c.messages.length && m.iso < c.messages[0].iso; });
           state.msgs = older.concat(c.messages);
           if (!older.length) { state.more = c.hasMore; state.oldest = c.oldest; }
-          var sig = state.msgs.map(function (m) { return m.id + (m.edited ? 'e' : '') + (m.removed ? 'x' : '') + (m.waitingAmit ? 'w' : ''); }).join(',') + (c.amitIn ? '|A' : '') + '|' + c.seen + '|' + c.typing + '|' + (c.pin ? c.pin.id : '') + '|' + (c.deleteAt || '');
+          var sig = state.msgs.map(function (m) { return m.id + (m.edited ? 'e' : '') + (m.removed ? 'x' : '') + (m.waitingAmit ? 'w' : ''); }).join(',') + (c.amitIn ? '|A' : '') + '|' + c.seen + '|' + c.typing + '|' + (c.pin ? c.pin.id : '') + '|' + (c.deleteAt || '') + '|' + (c.items || []).map(function (i) { return i.id + i.state; }).join(',');
           if ((sig !== state.sig || first) && !state.editing) { if (!first) bump(); state.sig = sig; renderMsgs(c, first ? 'bottom' : null); }
           if (live && !ro && c.lastId && c.lastId !== c.myLastRead) { src.markRead(convId, c.lastId).then(function () { AmitChat.refreshUnread(); }); }
         }, function (e) { DBG.lastError = (e && e.message) || String(e); if (first) { msgsDiv.innerHTML = ''; errBox(msgsDiv, e); } });
@@ -1204,6 +1369,8 @@
         photoIn.onchange = function () { sendFiles(photoIn.files); };
         amitBtn.onclick = amitClick;
         moreBtn.onclick = function () { comp.classList.toggle('more'); moreBtn.classList.toggle('on'); };
+        fixBtn.onclick = function () { openFixForm(); };
+        itemBtn.onclick = function () { openItemForm(); };
         silentBtn.onclick = function () { state.silent = !state.silent; silentBtn.classList.toggle('on', state.silent); toast(state.silent ? 'Your next message will be sent silently' : 'Silent sending is off'); };
         noteBtn.onclick = function () {
           var v = ta.value; if (!v.trim()) { toast('Type your note first, then press this.'); return; }
@@ -1261,6 +1428,7 @@
       }
       if (live && ta) { try { var dv = localStorage.getItem(DKEY); if (dv) { ta.value = dv; } } catch (e) {} }
       load(true);
+      if (live && !ro && src.touchChat) src.touchChat(convId);
       if (live && !ro) src.getSettings(convId).then(function (st) { state.myTyping = st.typing; }, function () {});
       return { refresh: function () { return load(false); }, leave: function () { stopReading(); if (typing) { typing.leave(); typing = null; } } };
     }
@@ -1444,8 +1612,13 @@
         else renderListInto(main);
       }
     }
+    function recheckGate() {
+      if (rechecking || destroyed || !gate || !prof || !recheckFn) return;
+      rechecking = true; recheckFn(function () { rechecking = false; }, true);
+    }
     function refreshAll() {
-      if (destroyed || gate) return;
+      if (destroyed) return;
+      if (gate) { recheckGate(); return; }
       if (wide) renderListInto(left); else if (cur.view === 'list') renderListInto(main);
       if (thread) thread.refresh();
     }
@@ -1460,15 +1633,18 @@
         if (wide) { renderListInto(left); show('list'); } else show('list');
         if (!AmitChat._tzSent && src.setTimezone) { AmitChat._tzSent = true; try { src.setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone).then(function () {}, function () {}); } catch (e) {} }
       };
-      var recheck = function (done) {
-        src.profile().then(function (np) {
-          if (destroyed) return; prof = np; var w2 = gateReason(np);
-          if (!w2) { gate = false; startLive(); } else { buildGate(area, w2, recheck); if (done) done(); }
-        }, function (e) { toast(e.message); if (done) done(); });
+      var recheck = function (done, quiet) {
+        (src.claimInvite ? src.claimInvite() : Promise.resolve()).then(function () { return src.profile(); }).then(function (np) {
+          if (destroyed) { if (done) done(); return; } prof = np; var w2 = gateReason(np);
+          if (!w2) { gateWhy = null; gate = false; startLive(); }
+          else { if (w2 !== gateWhy) { gateWhy = w2; buildGate(area, w2, function (d2) { recheck(d2, false); }); } else if (!quiet) toast('Still waiting. Save it in About Me, then try again.'); }
+          if (done) done();
+        }, function (e) { if (!quiet) toast(e.message); if (done) done(); });
       };
-      src.profile().then(function (p) {
+      recheckFn = recheck;
+      (src.claimInvite ? src.claimInvite() : Promise.resolve()).then(function () { return src.profile(); }).then(function (p) {
         if (destroyed) return; prof = p; var why = gateReason(p);
-        if (why) { gate = true; if (left) left.appendChild(el('div', 'acx-empty', 'Chat is waiting for one more step.')); buildGate(area, why, recheck); }
+        if (why) { gate = true; gateWhy = why; if (left) left.appendChild(el('div', 'acx-empty', 'Chat is waiting for one more step.')); buildGate(area, why, function (d2) { recheck(d2, false); }); }
         else startLive();
       }, function () { prof = { birth_set: true, legacy: true }; startLive(); });   // the safeguarding step is not installed yet: carry on as before
     }
@@ -1499,6 +1675,7 @@
     return {
       destroy: function () { destroyed = true; if (thread && thread.leave) thread.leave(); stopLoop(); if (io) io.disconnect(); },
       refresh: refreshAll,
+      recheck: recheckGate,
       resume: function () { if (inSight && !document.hidden) { lastActive = Date.now(); refreshAll(); stopLoop(); startLoop(); } },
       pause: stopLoop
     };
@@ -1553,6 +1730,8 @@
   var AmitChat = {
     version: VERSION,
     stopReading: function () { if (AmitChat._stopReader) AmitChat._stopReader(); },
+    /* the page calls this right after something changed that the chat is waiting for (the Hub: a birth date saved in About Me) */
+    recheck: function () { if (popView && popView.recheck) popView.recheck(); panelTargets.forEach(function (p) { if (p.view && p.view.recheck) p.view.recheck(); }); },
     voiceProvider: null,      /* set by the page: returns { voice, rate, pitch, volume, pauseScale } (the Hub reads it from About Me) */
     onSpeak: null,            /* set by the page: called with true/false when reading starts/stops */
     onNeedBirthDate: null,    /* set by the page: opens the place where the birth date is entered (the Hub opens About Me) */
