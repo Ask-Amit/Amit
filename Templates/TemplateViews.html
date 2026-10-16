@@ -255,12 +255,22 @@ header{
 .mrt-nav.mrt-flat{padding-right:calc(var(--mrt-pad) + 8px)}   /* 8px of slack: the open tab is bold and a little wider than the measured inactive tab */
 .mrt-nav.mrt-rows{flex-direction:column;flex-wrap:nowrap;align-items:flex-start}
 .mrt-row{display:flex;align-items:flex-end;width:calc(100% - var(--mrt-pad))}
-.mrt-btn{padding:6px 16px;margin:0 0 0 -1px;border:1px solid rgba(201,168,76,.32);border-bottom:none;background-color:var(--bg);background-image:linear-gradient(rgba(255,255,255,.04),rgba(255,255,255,.04));color:var(--muted);border-radius:6px 6px 0 0;cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap}
+.mrt-btn{padding:6px 16px;margin:0 0 0 -1px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.32);border-bottom:none;background-color:var(--bg);background-image:linear-gradient(rgba(var(--amit-overlay-rgb,255,255,255),.04),rgba(var(--amit-overlay-rgb,255,255,255),.04));color:var(--muted);border-radius:calc(var(--amit-tab-radius,10px)*.6) calc(var(--amit-tab-radius,10px)*.6) 0 0;cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap}
 .mrt-row .mrt-btn{flex:1 1 auto;text-align:center}
 .mrt-row .mrt-btn:first-child{margin-left:0}
 .mrt-btn:hover{color:var(--gold2)}
 .mrt-btn.active{padding:9px 18px 7px;margin-top:-3px;margin-bottom:-1px;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:13.5px;position:relative;z-index:3}
-.mrt-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 calc(24px + var(--mrt-pad)) 24px 24px;background:var(--card-head);border:1px solid rgba(201,168,76,.32);border-radius:0 0 12px 12px}
+/* v1.06 THEMING: every colour and radius here follows the signed-in person's appearance settings (amit_appearance.js, About Me) the same way Tabbed View does:
+   borders = rgba(var(--amit-accent-rgb)), light overlay = rgba(var(--amit-overlay-rgb)) (black on the light themes), tab radius = --amit-tab-radius, panel radius = --amit-radius;
+   background/open-tab/text come from --bg, --card-head, --gold2, --muted, which an app built from template.html maps onto --amit-bg/-surface/-accent-bright/-muted.
+   The plain fallbacks in each var() are the catalog's own gold-on-navy, used only where amit_appearance.js is not loaded (TemplateViews.html itself).
+   v1.05: the strips END 12px above the panel's bottom (12px = the panel's own corner radius), so they stop above the front panel's rounded corner and do not share it (Ryan's correction).
+   .mrt-body owns the panel's margins (the right margin shrinks by one step for every extra row, so the outer padding stays the same) and is the
+   anchor for the stepped sides. .mrt-side is one strip per row behind the front row: it carries that row's last tab's right edge DOWN the whole right
+   side of the panel and round the bottom-right corner, like the edge of a card in a stack (Ryan, 2026-10-16). */
+.mrt-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;margin:0 calc(24px + var(--mrt-pad)) 24px 24px}
+.mrt-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0;position:relative;z-index:2;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.32);border-radius:0 0 var(--amit-radius,12px) var(--amit-radius,12px)}
+.mrt-side{position:absolute;top:0;bottom:var(--amit-radius,12px);left:calc(100% - 1px);width:calc(var(--d) * var(--mrt-step) + 1px);z-index:1;box-sizing:border-box;background-color:var(--bg);background-image:linear-gradient(rgba(var(--amit-overlay-rgb,255,255,255),.04),rgba(var(--amit-overlay-rgb,255,255,255),.04));border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.32);border-top:none;border-left:none;border-radius:0 0 calc(var(--amit-radius,12px)*.4) 0;pointer-events:none}
 .mrt-content{display:none}
 .mrt-content.active{display:block}
 
@@ -716,7 +726,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Template</div>
-      <div class="page-version" id="pageVersion">v1.03</div>
+      <div class="page-version" id="pageVersion">v1.06</div>
     </div>
   </a>
   <!-- Center block - whichever context this specific app needs to show
@@ -3010,7 +3020,7 @@ function mrtCreate(containerId,tabs,opts){
   mrtInstances.set(containerId,inst);
   const navHtml=tabs.map(t=>`<button type="button" class="mrt-btn" role="tab" data-mrt-id="${mrtEsc(t.id)}" aria-selected="false" onclick="mrtSelect('${containerId}','${mrtEsc(t.id)}')">${mrtEsc(t.label)}</button>`).join('');
   const bodyHtml=tabs.map(t=>`<div class="mrt-content" role="tabpanel" data-mrt-pane="${mrtEsc(t.id)}"></div>`).join('');
-  wrap.innerHTML=`<div class="mrt-nav mrt-flat" role="tablist">${navHtml}</div><div class="mrt-main">${bodyHtml}</div>`;
+  wrap.innerHTML=`<div class="mrt-nav mrt-flat" role="tablist">${navHtml}</div><div class="mrt-body"><div class="mrt-main">${bodyHtml}</div></div>`;
   const nav=wrap.querySelector('.mrt-nav');
   nav.addEventListener('keydown',e=>{
     if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft')return;
@@ -3058,6 +3068,11 @@ function mrtLayout(wrap){
   const step=parseFloat(getComputedStyle(wrap).getPropertyValue('--mrt-step'))||10;
   wrap.style.setProperty('--mrt-pad',(Math.max(0,rows.length-1)*step)+'px');
   rows.forEach((r,i)=>{r.style.marginLeft=((rows.length-1-i)*step)+'px';});
+  const body=wrap.querySelector('.mrt-body');
+  if(body){
+    body.querySelectorAll('.mrt-side').forEach(e=>e.remove());
+    for(let d=rows.length-1;d>=1;d--){const side=document.createElement('i');side.className='mrt-side';side.style.setProperty('--d',d);body.appendChild(side);}
+  }
   // The last tab of every row BEHIND the front row runs down behind the rows in front of it and stops at the top of the panel. Its text stays at
   // the top (extra bottom padding); a matching negative bottom margin keeps the row's own height unchanged, so nothing else moves.
   const panelTop=wrap.querySelector('.mrt-main').getBoundingClientRect().top;
