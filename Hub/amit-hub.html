@@ -14,7 +14,7 @@
 <script src="../amit_pin_encryption.js?v=1.00"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
-<script src="../amit_chat.js?v=0.04"></script>
+<script src="../amit_chat.js?v=0.07"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1389,7 +1389,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.16</div>
+      <div class="page-version" id="hubVersionBadge">v8.19</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1938,6 +1938,11 @@ header{
               <div onclick="amvUpdateZip()" style="color:rgba(120,190,230,.85);font-size:12px;cursor:pointer;text-decoration:underline">Update →</div>
             </div>
             <div style="color:rgba(var(--amit-text-rgb,240,232,208),.35);font-size:11px;margin-top:4px">Same ZIP that drives your morning weather — changed in one place, used everywhere.</div>
+          </div>
+          <div class="fg" id="d_amvBirthBlock" style="margin-bottom:16px;display:none">
+            <label class="fg-label">Birth Date</label>
+            <div id="d_amvBirthView" style="font-size:14px"></div>
+            <div style="color:rgba(var(--amit-text-rgb,240,232,208),.35);font-size:11px;margin-top:4px">Part of who you are in Amit. It keeps young people safe in chat: it is saved once and then locked (ask Ryan to correct a mistake), and Amit cannot check it, so please be truthful. Chat is for ages 13 and up.</div>
           </div>
           <div class="fg" style="margin-bottom:16px">
             <label class="fg-label">Access PIN Reminder</label>
@@ -5350,6 +5355,7 @@ async function amvInitAboutMePanel(){
   // which expects a real click event (event.target) and would error
   // if invoked programmatically like this.
   amvLoadFamilyList();
+  if(typeof amvLoadBirth==='function') amvLoadBirth();
 }
 
 // showChTab — the ONE tabbed-layout switching function, pulled verbatim
@@ -5608,22 +5614,74 @@ function amvSyncDuplicatesFromOriginals(){
 // Edge Function. Reads family links this account is guardian over,
 // scoped by RLS ("see own family links" — auth.uid() = guardian_user_id).
 // ══════════════════════════════════════════════
+function _amvEsc(t){ return String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function _amvFmtDate(iso){ try{ const p=String(iso).split('-'); return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}); }catch(e){ return iso; } }
 async function amvLoadFamilyList(){
   const listEl=document.getElementById('amvFamilyList');
   if(!listEl||!db||!currentUser) return;
-  const{data,error}=await db.from('hea_family_links').select('id,linked_display_name,relationship,active').eq('guardian_user_id',currentUser.id).order('created_at',{ascending:true});
+  const{data,error}=await db.from('hea_family_links').select('id,linked_user_id,linked_display_name,relationship,active').eq('guardian_user_id',currentUser.id).order('created_at',{ascending:true});
   if(error||!data||!data.length){
     listEl.innerHTML='<div style="color:rgba(var(--amit-text-rgb,240,232,208),.35);font-size:12px;font-style:italic">No family members added yet.</div>';
     return;
   }
   const relLabel={parent:'Child',spouse:'Spouse',guardian:'Guardian'};
-  listEl.innerHTML=data.map(f=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);border-radius:8px;padding:10px 14px;margin-bottom:8px">
-      <div>
-        <div style="font-size:14px">${f.linked_display_name||'(unnamed)'}</div>
-        <div style="font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4)">${relLabel[f.relationship]||f.relationship}${f.active?'':' — access removed'}</div>
-      </div>
-    </div>`).join('');
+  // children's chat details (needs the AmitChat safeguarding migrations; without them the list simply shows names)
+  let kids={};
+  try{ const r=await db.rpc('cha_my_children'); if(!r.error&&r.data) r.data.forEach(k=>{ kids[k.child_id]=k; }); }catch(e){}
+  const box='display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);border-radius:8px;padding:10px 14px;margin-bottom:8px';
+  const sub='font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4)';
+  listEl.innerHTML=data.map(f=>{
+    let extra='';
+    const k=kids[f.linked_user_id];
+    if(f.relationship==='parent'&&f.active&&k){
+      const idb='amvKidBirth_'+f.linked_user_id.replace(/-/g,'');
+      let birth;
+      if(k.birth_date){ birth='<div style="'+sub+'">Born '+_amvFmtDate(k.birth_date)+' &middot; <span style="cursor:pointer;text-decoration:underline" onclick="document.getElementById(\''+idb+'w\').style.display=\'flex\'">change</span></div><div id="'+idb+'w" style="display:none;gap:6px;margin-top:4px"><input class="fg-input" id="'+idb+'" type="date" value="'+_amvEsc(k.birth_date)+'" style="max-width:170px"><button class="btn btn-ghost" onclick="amvSetChildBirth(\''+f.linked_user_id+'\',\''+idb+'\')">SAVE</button></div>'; }
+      else { birth='<div style="'+sub+'">Birth date not set yet</div><div style="display:flex;gap:6px;margin-top:4px"><input class="fg-input" id="'+idb+'" type="date" style="max-width:170px"><button class="btn btn-ghost" onclick="amvSetChildBirth(\''+f.linked_user_id+'\',\''+idb+'\')">SAVE</button></div>'; }
+      let chat='';
+      if(!k.birth_date) chat='<div style="'+sub+';margin-top:6px">Set the birth date first, then you can switch chat on.</div>';
+      else if(k.age_class==='adult') chat='<div style="'+sub+';margin-top:6px">Now 18 or older: your guardian rights have ended and they manage their own account.</div>';
+      else { const young=(new Date().getFullYear()-new Date(k.birth_date).getFullYear())<13&&((Date.now()-new Date(k.birth_date).getTime())/31557600000)<13;
+        chat=young?'<div style="'+sub+';margin-top:6px">Chat is for ages 13 and up.</div>'
+          :'<div style="margin-top:6px;display:flex;align-items:center;gap:8px"><span style="font-size:12px">Chat: <b>'+(k.authorized?'ON':'OFF')+'</b></span><button class="btn btn-ghost" onclick="amvSetChildChat(\''+f.linked_user_id+'\','+(!k.authorized)+')">'+(k.authorized?'SWITCH OFF':'SWITCH ON')+'</button></div><div style="'+sub+';margin-top:4px">You can read their chats (read only) until they turn 18. Everyone in a chat is told a guardian can read it.</div>'; }
+      extra=birth+chat;
+    }
+    return '<div style="'+box+'"><div style="flex:1;min-width:0"><div style="font-size:14px">'+_amvEsc(f.linked_display_name||'(unnamed)')+'</div><div style="'+sub+'">'+(relLabel[f.relationship]||_amvEsc(f.relationship))+(f.active?'':' — access removed')+'</div>'+extra+'</div></div>';
+  }).join('');
+}
+async function amvSetChildBirth(childId,inputId){
+  const v=(document.getElementById(inputId)||{}).value;
+  if(!v){ alert('Choose the birth date first.'); return; }
+  if(!confirm('Save '+_amvFmtDate(v)+' as this child\'s birth date?')) return;
+  const r=await db.rpc('cha_guardian_set_child_birth',{p_child:childId,p_date:v});
+  if(r.error){ alert(r.error.message); return; }
+  amvLoadFamilyList();
+}
+async function amvSetChildChat(childId,on){
+  if(on&&!confirm('Allow this child to use chat? They will be able to message friends, and you will be able to read their chats (read only) until they turn 18.')) return;
+  const r=await db.rpc('cha_guardian_set_access',{p_child:childId,p_on:on});
+  if(r.error){ alert(r.error.message); return; }
+  amvLoadFamilyList();
+}
+// ---- My own birth date (About Me > My Info) ----
+async function amvLoadBirth(){
+  const box=document.getElementById('d_amvBirthBlock'), view=document.getElementById('d_amvBirthView');
+  if(!box||!view||!db||!currentUser) return;
+  let p=null; try{ const r=await db.rpc('cha_my_profile'); if(!r.error) p=r.data; }catch(e){}
+  if(!p){ box.style.display='none'; return; }   // the chat safeguarding step is not installed: nothing to show
+  box.style.display='';
+  if(p.birth_set){ view.innerHTML=_amvFmtDate(p.birth_date)+' <span style="font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.4)">&middot; saved and locked</span>'; return; }
+  if(p.family_child){ view.innerHTML='<span style="color:rgba(var(--amit-text-rgb,240,232,208),.6)">Your parent or guardian sets this for you (About Me &rarr; Family on their account).</span>'; return; }
+  view.innerHTML='<div style="display:flex;gap:8px;align-items:center"><input class="fg-input" id="d_amvBirthInput" type="date" style="max-width:190px"><button class="btn" onclick="amvSaveBirth()">SAVE BIRTH DATE</button></div>';
+}
+async function amvSaveBirth(){
+  const v=(document.getElementById('d_amvBirthInput')||{}).value;
+  if(!v){ alert('Choose your birth date first.'); return; }
+  if(!confirm('Your birth date will be saved as '+_amvFmtDate(v)+' and cannot be changed afterwards. Is that right?')) return;
+  const r=await db.rpc('cha_set_birth_date',{p_date:v});
+  if(r.error){ alert(r.error.message); return; }
+  amvLoadBirth();
+  if(window.AmitChat&&AmitChat.refresh) try{ AmitChat.refresh(); }catch(e){}
 }
 function amvOpenAddFamily(){
   const form=document.getElementById('amvFamilyAddForm');
@@ -12180,6 +12238,30 @@ function hubRailSyncClick(){ if(currentUser){ if(confirm('Signed in as '+current
 
 // AmitChat: the chat icon in the right rail shows for signed-in people (or in preview with ?chatpreview=1).
 // A made-up unread count is shown only in preview, never to a real visitor.
+// The chat asks the Hub for three things: where to enter the birth date (About Me), the voice saved in About Me
+// (read from the database, the same default used everywhere Amit speaks), and the speaking-indicator pulse.
+async function _hubChatVoice(){
+  const c=await _amvEnsureOwnerContact();
+  let voices=window.speechSynthesis?window.speechSynthesis.getVoices():[];
+  if(window.speechSynthesis&&!voices.length){
+    await new Promise(r=>{ const t=setTimeout(r,1500); window.speechSynthesis.onvoiceschanged=()=>{ clearTimeout(t); r(); }; });
+    voices=window.speechSynthesis.getVoices();
+  }
+  const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,c,amvPickDefaultVoice):null;
+  const D=(typeof AMIT_DEFAULT_VOICE!=='undefined')?AMIT_DEFAULT_VOICE:{voice_rate:1.1,voice_pitch:1,voice_volume:1,voice_pause_scale:1};
+  return {
+    voice,
+    rate:c&&c.voice_rate?Number(c.voice_rate):D.voice_rate,
+    pitch:c&&c.voice_pitch?Number(c.voice_pitch):D.voice_pitch,
+    volume:c&&c.voice_volume!=null?Number(c.voice_volume):D.voice_volume,
+    pauseScale:c&&c.voice_pause_scale?Number(c.voice_pause_scale):D.voice_pause_scale
+  };
+}
+if(window.AmitChat){
+  AmitChat.voiceProvider=_hubChatVoice;
+  AmitChat.onSpeak=function(on){ try{ if(on){ if(typeof startSpeakingPulse==='function') startSpeakingPulse(); } else if(typeof stopSpeakingPulse==='function') stopSpeakingPulse(); }catch(e){} };
+  AmitChat.onNeedBirthDate=function(){ try{ openPanel('aboutme'); if(typeof amvLoadBirth==='function') amvLoadBirth(); }catch(e){} };
+}
 function _hubRailChat(){
   const e=document.getElementById('rail-chat'); if(!e||!window.AmitChat) return;
   const on=!!(typeof currentUser!=='undefined'&&currentUser)||AmitChat.preview;
