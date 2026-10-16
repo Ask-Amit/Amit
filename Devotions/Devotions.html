@@ -278,6 +278,41 @@ header{
 .ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 var(--amit-radius,12px) var(--amit-radius,12px) var(--amit-radius,12px)}
 .ch-tab-content{display:none}
 .ch-tab-content.active{display:block}
+
+/* CANONICAL LAYOUT: MULTI-ROW TAB VIEW — copied verbatim from TemplateViews.html (v1.06), added 2026-10-16 for the Who Is God page. */
+/* ── MULTI-ROW TAB VIEW — added 2026-10-16, Ryan's direct instruction (see the CANONICAL LAYOUT: MULTI-ROW TAB VIEW comment in <script>).
+   Reworked the same day from Ryan's picture (Word's Options dialog): the rows are a THREE-DIMENSIONAL STACK, not floating strips.
+   - tabs touch: no gap between them, neighbouring borders overlap by 1px
+   - every row has the width of the content panel; each row BEHIND the front one is shifted right by one step (--mrt-step), so it starts further in
+     on the left and its last tab shows a stepped edge on the right; the panel keeps that room free on its right (--mrt-pad)
+   - rows sit directly on top of each other, with no space; the open tab is taller and rises up over the row behind it
+   - the LAST tab of every row behind runs DOWN behind the rows in front of it and stops at the top of the panel (mrtLayout), so its right edge
+     shows as a long stepped side, like the edge of a card in a stack (Ryan's second correction, 2026-10-16). Tabs are opaque so the rows in front cover it.
+   mrtFit() measures the rows (.mrt-flat = measuring state) and builds one fixed .mrt-row per group (.mrt-rows = finished state); mrtLayout() sets the shifts.
+   In a finished row the tabs stretch (flex-grow) so every row ends flush, like the tabbed Options dialogs. */
+.mrt-wrap{--mrt-step:10px;--mrt-pad:0px;display:flex;flex-direction:column;flex:1;min-height:0}
+.mrt-nav{display:flex;flex-wrap:wrap;align-items:flex-end;margin:0 24px;padding:16px 0 0;background:var(--bg);flex-shrink:0}
+.mrt-nav.mrt-flat{padding-right:calc(var(--mrt-pad) + 8px)}   /* 8px of slack: the open tab is bold and a little wider than the measured inactive tab */
+.mrt-nav.mrt-rows{flex-direction:column;flex-wrap:nowrap;align-items:flex-start}
+.mrt-row{display:flex;align-items:flex-end;width:calc(100% - var(--mrt-pad))}
+.mrt-btn{padding:6px 16px;margin:0 0 0 -1px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.32);border-bottom:none;background-color:var(--bg);background-image:linear-gradient(rgba(var(--amit-overlay-rgb,255,255,255),.04),rgba(var(--amit-overlay-rgb,255,255,255),.04));color:var(--muted);border-radius:calc(var(--amit-tab-radius,10px)*.6) calc(var(--amit-tab-radius,10px)*.6) 0 0;cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap}
+.mrt-row .mrt-btn{flex:1 1 auto;text-align:center}
+.mrt-row .mrt-btn:first-child{margin-left:0}
+.mrt-btn:hover{color:var(--gold2)}
+.mrt-btn.active{padding:9px 18px 7px;margin-top:-3px;margin-bottom:-1px;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:13.5px;position:relative;z-index:3}
+/* v1.06 THEMING: every colour and radius here follows the signed-in person's appearance settings (amit_appearance.js, About Me) the same way Tabbed View does:
+   borders = rgba(var(--amit-accent-rgb)), light overlay = rgba(var(--amit-overlay-rgb)) (black on the light themes), tab radius = --amit-tab-radius, panel radius = --amit-radius;
+   background/open-tab/text come from --bg, --card-head, --gold2, --muted, which an app built from template.html maps onto --amit-bg/-surface/-accent-bright/-muted.
+   The plain fallbacks in each var() are the catalog's own gold-on-navy, used only where amit_appearance.js is not loaded (TemplateViews.html itself).
+   v1.05: the strips END 12px above the panel's bottom (12px = the panel's own corner radius), so they stop above the front panel's rounded corner and do not share it (Ryan's correction).
+   .mrt-body owns the panel's margins (the right margin shrinks by one step for every extra row, so the outer padding stays the same) and is the
+   anchor for the stepped sides. .mrt-side is one strip per row behind the front row: it carries that row's last tab's right edge DOWN the whole right
+   side of the panel and round the bottom-right corner, like the edge of a card in a stack (Ryan, 2026-10-16). */
+.mrt-body{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;margin:0 calc(24px + var(--mrt-pad)) 24px 24px}
+.mrt-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0;position:relative;z-index:2;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.32);border-radius:0 0 var(--amit-radius,12px) var(--amit-radius,12px)}
+.mrt-side{position:absolute;top:0;bottom:var(--amit-radius,12px);left:calc(100% - 1px);width:calc(var(--d) * var(--mrt-step) + 1px);z-index:1;box-sizing:border-box;background-color:var(--bg);background-image:linear-gradient(rgba(var(--amit-overlay-rgb,255,255,255),.04),rgba(var(--amit-overlay-rgb,255,255,255),.04));border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.32);border-top:none;border-left:none;border-radius:0 0 calc(var(--amit-radius,12px)*.4) 0;pointer-events:none}
+.mrt-content{display:none}
+.mrt-content.active{display:block}
 /* Real bug, found 2026-09-11 after a whole session of mysterious
    cross-tab bleed reports: the Trumpets tab div was given an INLINE
    style="display:flex" unconditionally. Inline styles always beat a
@@ -479,7 +514,7 @@ h3 .rn-mark,h2 .rn-mark{font-size:.8em;vertical-align:middle;margin-left:10px;op
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.38</div>
+      <div class="page-version" id="pageVersion">v1.40</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -532,6 +567,114 @@ h3 .rn-mark,h2 .rn-mark{font-size:.8em;vertical-align:middle;margin-left:10px;op
 </div>
 
 <script>
+// CANONICAL LAYOUT: MULTI-ROW TAB VIEW — copied verbatim from TemplateViews.html (v1.06), added 2026-10-16 for the Who Is God page.
+// Placed first in this script so its const is defined before renderAllPages() runs. Used by WhoIsGod.js (mrtCreate('wig-mrt', ...)).
+const mrtInstances=new Map();
+function mrtEsc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function mrtCreate(containerId,tabs,opts){
+  opts=opts||{};
+  const wrap=document.getElementById(containerId);if(!wrap)return null;
+  const old=mrtInstances.get(containerId);if(old&&old.ro)old.ro.disconnect();
+  wrap.classList.add('mrt-wrap');
+  const pick=opts.initial!=null?(typeof opts.initial==='number'?tabs[opts.initial]:tabs.find(t=>t.id===opts.initial)):null;
+  const inst={containerId,tabs,opts,activeId:(pick||tabs[0]).id,mounted:{},built:false,width:0,ro:null};
+  mrtInstances.set(containerId,inst);
+  const navHtml=tabs.map(t=>`<button type="button" class="mrt-btn" role="tab" data-mrt-id="${mrtEsc(t.id)}" aria-selected="false" onclick="mrtSelect('${containerId}','${mrtEsc(t.id)}')">${mrtEsc(t.label)}</button>`).join('');
+  const bodyHtml=tabs.map(t=>`<div class="mrt-content" role="tabpanel" data-mrt-pane="${mrtEsc(t.id)}"></div>`).join('');
+  wrap.innerHTML=`<div class="mrt-nav mrt-flat" role="tablist">${navHtml}</div><div class="mrt-body"><div class="mrt-main">${bodyHtml}</div></div>`;
+  const nav=wrap.querySelector('.mrt-nav');
+  nav.addEventListener('keydown',e=>{
+    if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft')return;
+    const i=inst.tabs.findIndex(t=>t.id===inst.activeId);
+    const next=inst.tabs[(i+(e.key==='ArrowRight'?1:inst.tabs.length-1))%inst.tabs.length];
+    e.preventDefault();mrtSelect(containerId,next.id);
+    const b=nav.querySelector('.mrt-btn.active');if(b)b.focus();
+  });
+  mrtActivate(inst,inst.activeId,false);
+  // Rows are measured when the strip is actually on screen with a real width: a layout created inside a page or tab that is not showing yet
+  // has no width, so the observer fits it the moment it appears, and re-fits whenever the width changes.
+  if(typeof ResizeObserver!=='undefined'){inst.ro=new ResizeObserver(()=>mrtFit(containerId));inst.ro.observe(nav);}
+  else mrtFit(containerId);
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>mrtFit(containerId,true));   // the real font changes tab widths
+  return inst;
+}
+function mrtActivate(inst,id,bringRow){
+  const wrap=document.getElementById(inst.containerId);if(!wrap)return;
+  wrap.querySelectorAll('.mrt-btn').forEach(b=>{const on=b.getAttribute('data-mrt-id')===id;b.classList.toggle('active',on);b.setAttribute('aria-selected',on?'true':'false');});
+  wrap.querySelectorAll('.mrt-content').forEach(p=>p.classList.toggle('active',p.getAttribute('data-mrt-pane')===id));
+  inst.activeId=id;
+  const pane=wrap.querySelector('.mrt-content[data-mrt-pane="'+id+'"]');
+  const tab=inst.tabs.find(t=>t.id===id);
+  if(pane&&tab&&!inst.mounted[id]){
+    inst.mounted[id]=true;
+    if(tab.html!=null)pane.innerHTML=tab.html;
+    if(typeof tab.mount==='function')tab.mount(pane,tab);
+  }
+  if(bringRow){
+    const nav=wrap.querySelector('.mrt-nav');const b=nav&&nav.querySelector('.mrt-btn.active');
+    const row=b&&b.closest('.mrt-row');
+    if(row&&row!==nav.lastElementChild){nav.appendChild(row);mrtLayout(wrap);}   // that whole row comes to the front; the other rows keep their tabs
+  }
+}
+function mrtSelect(containerId,id){
+  const inst=mrtInstances.get(containerId);if(!inst)return;
+  mrtActivate(inst,id,true);
+  if(inst.opts.onSelect)inst.opts.onSelect(id,inst.tabs.find(t=>t.id===id));
+}
+function mrtActive(containerId){const i=mrtInstances.get(containerId);return i?i.activeId:null;}
+// Shifts each row by its depth: the last row in the strip is the FRONT row (depth 0, flush with the panel); each row behind it is one step further right.
+function mrtLayout(wrap){
+  const nav=wrap.querySelector('.mrt-nav');if(!nav)return;
+  const rows=nav.querySelectorAll('.mrt-row');
+  const step=parseFloat(getComputedStyle(wrap).getPropertyValue('--mrt-step'))||10;
+  wrap.style.setProperty('--mrt-pad',(Math.max(0,rows.length-1)*step)+'px');
+  rows.forEach((r,i)=>{r.style.marginLeft=((rows.length-1-i)*step)+'px';});
+  const body=wrap.querySelector('.mrt-body');
+  if(body){
+    body.querySelectorAll('.mrt-side').forEach(e=>e.remove());
+    for(let d=rows.length-1;d>=1;d--){const side=document.createElement('i');side.className='mrt-side';side.style.setProperty('--d',d);body.appendChild(side);}
+  }
+  // The last tab of every row BEHIND the front row runs down behind the rows in front of it and stops at the top of the panel. Its text stays at
+  // the top (extra bottom padding); a matching negative bottom margin keeps the row's own height unchanged, so nothing else moves.
+  const panelTop=wrap.querySelector('.mrt-main').getBoundingClientRect().top;
+  rows.forEach((r,i)=>{
+    const last=r.lastElementChild;if(!last)return;
+    last.style.paddingBottom='';last.style.marginBottom='';                    // reset (the row may have just come to the front)
+    if(i===rows.length-1)return;                                                // the front row does not extend
+    const extra=Math.max(0,Math.round(panelTop-r.getBoundingClientRect().bottom));
+    if(extra){last.style.paddingBottom=(6+extra)+'px';last.style.marginBottom=(-extra)+'px';}
+  });
+}
+// Measures how many tabs fit per row, then builds one fixed .mrt-row per group. Rows are as wide as the panel minus the room the stepped edges
+// need on the right, and that room depends on the number of rows, so the fit is repeated until the row count and the room agree.
+function mrtFit(containerId,force){
+  const inst=mrtInstances.get(containerId);const wrap=document.getElementById(containerId);
+  if(!inst||!wrap)return;
+  const nav=wrap.querySelector('.mrt-nav');
+  if(!nav||nav.offsetParent===null||!nav.clientWidth)return;               // not showing yet: fit when it appears
+  if(inst.built&&!force&&nav.clientWidth===inst.width)return;              // only a change of width re-fits (the rows' own shifts do not change the nav width)
+  const step=parseFloat(getComputedStyle(wrap).getPropertyValue('--mrt-step'))||10;
+  const btns=inst.tabs.map(t=>nav.querySelector('.mrt-btn[data-mrt-id="'+t.id+'"]'));
+  const activeBtn=btns.find(b=>b.classList.contains('active'));
+  btns.forEach(b=>b.classList.remove('active'));                           // the open tab is taller; it would skew the measuring
+  let k=1,groups=[];
+  for(let guard=0;guard<btns.length+1;guard++){
+    wrap.style.setProperty('--mrt-pad',((k-1)*step)+'px');
+    nav.className='mrt-nav mrt-flat';nav.innerHTML='';
+    btns.forEach(b=>nav.appendChild(b));
+    groups=[];let cur=[],top=null;
+    btns.forEach(b=>{const t=b.offsetTop;if(top===null||Math.abs(t-top)>8){if(cur.length)groups.push(cur);cur=[];top=t;}cur.push(b);});
+    if(cur.length)groups.push(cur);
+    if(groups.length<=k)break;
+    k=groups.length;
+  }
+  nav.innerHTML='';nav.className='mrt-nav mrt-rows';
+  groups.forEach(g=>{const r=document.createElement('div');r.className='mrt-row';g.forEach(b=>r.appendChild(b));nav.appendChild(r);});
+  if(activeBtn){activeBtn.classList.add('active');const row=activeBtn.closest('.mrt-row');if(row)nav.appendChild(row);}
+  mrtLayout(wrap);
+  inst.built=true;inst.width=nav.clientWidth;
+}
+
 // ══════════════════════════════════════════════
 // NOMENCLATURE — read this before touching any page/detail/layout code.
 //   PAGE   — one item in the left sidebar (button + fixed number).

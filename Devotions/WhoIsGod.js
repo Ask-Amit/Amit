@@ -1,7 +1,7 @@
 /* WHO IS GOD, inside Devotions (started 2026-10-15).
-   Structure: each GROUP is one sidebar page (pages 4-10) and the who_is_god tabs sit inside it as the page's tabs. This uses the
-   template's own page/tab system exactly as it is (same markup as Difficult Passages: .ch-tab-nav, .ch-tab-btn, .ch-tab-content,
-   showChTab, #page=N&tab=N deep links). Nothing in the template's infrastructure is changed; Devotions.html only adds these pages.
+   Structure: ONE sidebar page (page 4) holding all 18 who_is_god tabs on the template's MULTI-ROW TAB VIEW layout (a verbatim copy of it sits at the top
+   of Devotions.html's script: mrtCreate / mrtSelect / .mrt-* CSS). Tabs fill a row, the next row stacks behind it, and the row you click comes to the front.
+   Deep links #page=4&tab=N still work (each tab button carries data-tabnum). Nothing in the template's infrastructure is changed; Devotions.html only adds this page.
    Content: every tab is a verbatim copy of the who_is_god tab in whoisgod/<id>.html, styled by WhoIsGod.css (scoped under .wig-content).
    Text tabs (WIG_STATIC) are filled right away. Interactive tabs (WIG_APP_TABS) need who_is_god's own scripts and data, which are
    copied unchanged into wig-app/blk*.js and loaded only when someone first opens one of those tabs.
@@ -12,16 +12,19 @@
      - blk3: the map checks root.offsetParent instead of an "active" class (Devotions shows tabs differently), and re-initialises if its element was replaced.
    Research eyes keep reading their notes from who_is_god.html through Devotions' own openResearch(). */
 var WIG_SRC='../who_is_god/who_is_god.html';
-var WIG_VER='1.38';
+var WIG_VER='1.40';
 var WIG_GROUPS=[
-  {n:4,icon:'🔍',name:'The Evidence',tabs:[['onereligion','Which Religion Is True?'],['method','Approach'],['apocrypha','Additional Texts']]},
-  {n:5,icon:'⚖️',name:'Torah and the Covenants',tabs:[['covenants','The Covenants'],['arguments','The 12 Key Arguments'],['onebody','One Body']]},
-  {n:6,icon:'🕯️',name:'The Churches',tabs:[['scores','Church Comparisons'],['synthesis','Seven Churches'],['lampstands','The Seven Lampstands'],['doihaveitwrong','Do I Have It Wrong?']]},
-  {n:7,icon:'⏳',name:'What Is Ahead',tabs:[['millennial','Millennial Proof'],['rapture','Pre/Mid/Post']]},
-  {n:8,icon:'🕊️',name:'Yeshua',tabs:[['amit-life','Yeshua'],['saved','Are You Saved?']]},
-  {n:9,icon:'🔤',name:'The Language',tabs:[['language','Original Language'],['paleo-heb','Ancient Hebrew']]},
-  {n:10,icon:'ℹ️',name:'About',tabs:[['transparency','Research Transparency'],['install','Use & Install']]}
+  // ONE sidebar page. The tabs sit on the Multi-Row Tab View (stacked rows like Word's Options dialog); the row you click comes to the front.
+  {n:4,icon:'📖',name:'Who Is God',tabs:[
+    ['onereligion','Which Religion Is True?'],['method','Approach'],['covenants','The Covenants'],['arguments','The 12 Key Arguments'],
+    ['language','Original Language'],['onebody','One Body'],['millennial','Millennial Proof'],['apocrypha','Additional Texts'],
+    ['scores','Church Comparisons'],['synthesis','Seven Churches'],['lampstands','The Seven Lampstands'],['doihaveitwrong','Do I Have It Wrong?'],
+    ['rapture','Pre/Mid/Post'],['saved','Are You Saved?'],['transparency','Research Transparency'],['install','Use & Install'],
+    ['amit-life','Yeshua'],['paleo-heb','Ancient Hebrew']
+  ]}
 ];
+// Links made in the first version of this move (seven sidebar pages, 4-10) still land on the right tab.
+var WIG_OLD_PAGES={4:['onereligion','method','apocrypha'],5:['covenants','arguments','onebody'],6:['scores','synthesis','lampstands','doihaveitwrong'],7:['millennial','rapture'],8:['amit-life','saved'],9:['language','paleo-heb'],10:['transparency','install']};
 // Text-only tabs: filled as soon as the pages are drawn.
 var WIG_STATIC={method:1,arguments:1,onebody:1,apocrypha:1,doihaveitwrong:1,language:1,millennial:1,appointed:1};
 // Tabs that run who_is_god's scripts: filled when one of them is first shown.
@@ -37,27 +40,53 @@ var wigAppPromise=null,wigAppReady=false,wigObs=null,wigDCL=[];
 
 function wigNavHtml(){
   return WIG_GROUPS.map(function(g){
-    return '<div class="page-nav" id="page-'+g.n+'" onclick="openPage('+g.n+')" data-tip="'+g.name+' (Who Is God)">'+
+    return '<div class="page-nav" id="page-'+g.n+'" onclick="openPage('+g.n+')" data-tip="'+g.name+'">'+
       '<div class="page-icon">'+g.icon+'</div>'+
-      '<div class="page-info"><div class="page-name">'+g.name+'</div><div class="page-sub">Who Is God</div></div></div>';
+      '<div class="page-info"><div class="page-name">'+g.name+'</div><div class="page-sub">The investigation</div></div></div>';
   }).join('');
-}
-function wigTabsHtml(g){
-  var nav='',body='';
-  g.tabs.forEach(function(t,i){
-    var n=i+1;
-    nav+='<button class="ch-tab-btn'+(n===1?' active':'')+'" data-tabnum="'+n+'" onclick="showChTab('+g.n+','+n+')">'+t[1].replace(/&/g,'&amp;')+'</button>';
-    body+='<div class="ch-tab-content'+(n===1?' active':'')+'" id="ch-tab-'+g.n+'-'+n+'"><div class="wig-content" data-wig-tab="'+t[0]+'"><div class="wig-loading">Loading&hellip;</div></div></div>';
-  });
-  return '<div class="ch-tab-nav" id="ch-tab-nav-'+g.n+'" style="padding-top:16px">'+nav+'</div><div class="ch-tab-main">'+body+'</div>';
 }
 function wigDetailHtml(){
   return WIG_GROUPS.map(function(g){
     return '<div class="detail" id="detail-'+g.n+'" style="flex-direction:column">'+
       '<div class="detail-head"><span class="detail-heading" id="detail-heading-'+g.n+'" data-base="'+g.name+'">'+g.name+' — '+g.tabs[0][1].replace(/&/g,'&amp;')+'</span></div>'+
-      wigTabsHtml(g)+'</div>';
+      '<div id="wig-mrt"></div></div>';
   }).join('');
 }
+// Builds the Multi-Row Tab View for the page. Every tab's panel is put on the page right away (not on first click), because who_is_god's own
+// scripts build their tables and maps across all the tabs when they load. Called at the end of every renderAllPages().
+var wigLastTab=null;
+function wigMount(){
+  var g=WIG_GROUPS[0],el=document.getElementById('wig-mrt');if(!el||typeof mrtCreate!=='function')return;
+  var tabs=g.tabs.map(function(t){return {id:t[0],label:t[1]};});
+  var inst=mrtCreate('wig-mrt',tabs,{initial:wigLastTab||tabs[0].id,onSelect:function(id){
+    wigLastTab=id;
+    var n=WIG_INDEX[id].tab,lab=WIG_INDEX[id].label;
+    if(history.replaceState)history.replaceState(null,'','#page='+g.n+'&tab='+n);
+    var h=document.getElementById('detail-heading-'+g.n);if(h)h.textContent=h.dataset.base+' — '+lab;
+    if(typeof updateHeaderContext==='function')updateHeaderContext(g.n);
+  }});
+  if(!inst)return;
+  var nav=el.querySelector('.mrt-nav');nav.id='ch-tab-nav-'+g.n;                     // so the #page=4&tab=N link finds its button
+  tabs.forEach(function(t,i){
+    var b=el.querySelector('.mrt-btn[data-mrt-id="'+t.id+'"]');if(b)b.setAttribute('data-tabnum',i+1);
+    var pane=el.querySelector('.mrt-content[data-mrt-pane="'+t.id+'"]');
+    if(pane){pane.innerHTML='<div class="wig-content" data-wig-tab="'+t.id+'"><div class="wig-loading">Loading&hellip;</div></div>';inst.mounted[t.id]=true;}
+  });
+  var h=document.getElementById('detail-heading-'+g.n);
+  var cur=WIG_INDEX[inst.activeId];if(h&&cur)h.textContent=h.dataset.base+' — '+cur.label;
+}
+// The header's CONTEXT line reads the open tab from a .ch-tab-btn; this page's tabs are .mrt-btn, so that line is completed here.
+(function(){
+  var t=setInterval(function(){
+    if(typeof updateHeaderContext!=='function')return;
+    clearInterval(t);
+    var o=updateHeaderContext;
+    window.updateHeaderContext=function(n){
+      o(n);
+      if(n===4){var b=document.querySelector('#wig-mrt .mrt-btn.active'),s=document.getElementById('pageContextSub');if(b&&s)s.textContent=b.textContent;}
+    };
+  },30);
+})();
 function wigPlaceholder(id){
   var t=WIG_INDEX[id];
   return '<div class="wig-pending"><h2 class="section-heading" style="margin-top:0">'+(t?t.label:id)+'</h2>'+
@@ -71,6 +100,7 @@ function wigFetchTab(id){
 }
 // Called at the end of every renderAllPages() (it can run more than once, e.g. when sign-in settles).
 function wigHydrate(){
+  wigMount();
   document.querySelectorAll('.wig-content[data-wig-tab]').forEach(function(el){
     var id=el.getAttribute('data-wig-tab');
     if(WIG_STATIC[id]){
@@ -140,11 +170,21 @@ function wigAfterApp(){
     wigLampObs.observe(l);
   }
 }
+// An old link like #page=6&tab=3 (first version, seven pages) is rewritten to the single page before Devotions reads the address.
+(function(){
+  var m=location.hash.match(/#page=(\d+)(?:&tab=(\d+))?/);
+  if(!m)return;var p=+m[1];
+  if(WIG_OLD_PAGES[p]&&p!==4||(p===4&&m[2]&&WIG_OLD_PAGES[4])){
+    var id=WIG_OLD_PAGES[p][(+m[2]||1)-1];
+    if(id&&WIG_INDEX[id]){history.replaceState(null,'','#page=4&tab='+WIG_INDEX[id].tab);}
+  }
+})();
 // Links inside the moved text call showTab('<who_is_god tab id>'): send them to the new page and tab.
 window.showTab=function(id){
   var t=WIG_INDEX[id];
   if(t&&wigIsMoved(id)){
     openPage(t.page);
+    if(t.page===4&&typeof mrtSelect==='function'){mrtSelect('wig-mrt',id);return;}
     var b=document.querySelector('#ch-tab-nav-'+t.page+' [data-tabnum="'+t.tab+'"]');
     if(b)b.click();
     return;
