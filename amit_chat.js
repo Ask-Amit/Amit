@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
+   v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
 
    Include with  <script src="../amit_chat.js"></script>  (path per depth).
@@ -22,8 +22,9 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.09';
+  var VERSION = 'v0.10';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
+  var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
   /* ── small helpers ── */
   function el(tag, cls, text) {
@@ -541,6 +542,11 @@
   var CSS = [
     '.acx-pop{position:fixed;right:76px;bottom:0;width:350px;height:480px;max-height:calc(100vh - 80px);z-index:9000;display:none;flex-direction:column;background:var(--amit-surface,#0f2338);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-bottom:none;border-radius:var(--amit-radius,12px) var(--amit-radius,12px) 0 0;box-shadow:0 -4px 24px rgba(0,0,0,.45);color:rgba(var(--amit-text-rgb,240,232,208),.92);font-size:14px;line-height:1.5}',
     '.acx-pop.open{display:flex}.acx-pop.min{height:44px}.acx-pop.min .acx-body{display:none}',
+    '.acx-pop.anchored{top:var(--acx-top,60px);right:var(--acx-right,76px);bottom:auto;height:var(--acx-h,480px);max-height:none;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:var(--amit-radius,12px);box-shadow:0 10px 30px rgba(0,0,0,.5)}',
+    '.acx-anchor-on{background:rgba(var(--amit-accent-rgb,201,168,76),.22)!important;border-radius:10px}',
+    '.acx-head{cursor:default!important}',
+    '.acx-thead .acx-spk,.acx-thead .acx-srch,.acx-thead .acx-gear{margin-left:0!important}.acx-spacer{flex:1}',
+    '.acx-ahd{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.acx-ahd img{width:16px;height:16px;object-fit:contain}',
     '.acx-head{display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(var(--amit-accent-rgb,201,168,76),.12);border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);cursor:pointer;flex-shrink:0}',
     '.acx-title{flex:1;font-family:var(--amit-font-heading,"Cinzel",serif);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--amit-accent-bright,#e8c56a);font-weight:700}',
     '.acx-ver{font-size:10px;color:var(--amit-dim,rgba(240,232,208,.42));letter-spacing:.05em}',
@@ -634,7 +640,7 @@
     '.acx-code{font-family:monospace;font-size:18px;letter-spacing:.15em;color:var(--amit-accent-bright,#e8c56a)}',
     '.acx-panel{height:100%;min-height:0;display:flex;flex-direction:column;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:var(--amit-radius,12px);overflow:hidden}',
     '.acx-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9500;background:var(--amit-surface,#0f2338);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);color:rgba(var(--amit-text-rgb,240,232,208),.95);padding:9px 16px;border-radius:9px;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.5)}',
-    '@media (max-width:700px){.acx-pop{right:0;left:0;width:auto;height:100%;max-height:none;border-radius:0}.acx-pop.min{height:44px;top:auto}.acx-left{width:100%}.acx-b{max-width:92%}}'
+    '@media (max-width:700px){.acx-pop,.acx-pop.anchored{top:0;right:0;left:0;bottom:0;width:auto;height:100%;max-height:none;border-radius:0}.acx-pop.min{height:44px;top:auto}.acx-left{width:100%}.acx-b{max-width:92%}}'
   ].join('\n');
   function injectCss() {
     if (document.getElementById('acx-css')) return;
@@ -858,9 +864,13 @@
       var head = el('div', 'acx-thead');
       if (!wide) { var b = el('button', 'acx-back', '←'); b.onclick = function () { show('list'); }; head.appendChild(b); }
       var hw = el('div'); var tt = el('div', 'acx-tt', ''), ts = el('div', 'acx-ts', '');
-      var tl = el('div', 'acx-ts', ''), wl = el('div', 'acx-watch', ''); hw.appendChild(tt); hw.appendChild(ts); hw.appendChild(tl); hw.appendChild(wl); head.appendChild(hw); t.appendChild(head);
+      var tl = el('div', 'acx-ts', ''), wl = el('div', 'acx-watch', ''); hw.appendChild(tt); hw.appendChild(ts); hw.appendChild(tl); hw.appendChild(wl); head.appendChild(hw); head.appendChild(el('div', 'acx-spacer'));
+      var amitHead = null; t.appendChild(head);
       var gear = null, setPanel = null, spk = null;
       if (live) {
+        amitHead = el('button', 'acx-btn acx-ahd'); amitHead.style.display = 'none'; amitHead.title = 'Invite Amit into this chat';
+        var ahi = el('img'); ahi.src = AmitChat.iconUrl; ahi.alt = ''; ahi.onerror = function () { ahi.style.display = 'none'; }; amitHead.appendChild(ahi); amitHead.appendChild(document.createTextNode('Add Amit'));
+        amitHead.onclick = function () { amitClick(); }; if (!ro) head.appendChild(amitHead);
         var spk = null;
         if ('speechSynthesis' in window) { spk = el('button', 'acx-ib acx-spk', '\uD83D\uDD0A'); spk.title = 'Read new messages aloud'; head.appendChild(spk); }
         var srchBtn = el('button', 'acx-ib acx-srch', '\uD83D\uDD0D'); srchBtn.title = 'Search this chat'; head.appendChild(srchBtn);
@@ -1319,7 +1329,7 @@
       function load(first) {
         return src.getConversation(convId).then(function (c) {
           if (destroyed) return;
-          state.conv = c; state.items = c.items || []; tt.textContent = c.title; ts.textContent = 'Members: ' + c.members; tl.textContent = timesText(c.times); updateSpk();
+          state.conv = c; state.items = c.items || []; if (amitHead) amitHead.style.display = (c.amitId && !c.amitIn) ? '' : 'none'; tt.textContent = c.title; ts.textContent = 'Members: ' + c.members; tl.textContent = timesText(c.times); updateSpk();
           if (first) { if (ro) wl.textContent = 'Read only: you are reading this as a guardian.'; else if (live) src.chatWatched(convId).then(function (w) { if (!destroyed && w) wl.textContent = '\uD83D\uDC6A A young person\u2019s guardian can read this chat.'; }); }
           if (amitBtn) { amitBtn.style.display = c.amitId ? '' : 'none'; amitBtn.title = c.amitIn ? 'Ask Amit (adds @Amit to your message)' : 'Invite Amit to this chat'; }
           // merge, keeping any older messages already loaded
@@ -1683,14 +1693,27 @@
 
   /* ════════ POPUP + PANEL MOUNTS ════════ */
   var pop = null, popHolder = null, popView = null, panelTargets = [];
+  function anchorEl() { try { return document.querySelector(AmitChat.anchor || '#rail-chat'); } catch (e) { return null; } }
+  /* open at the top right, beside the page's chat icon (falls back to the old corner when there is no icon, and to full screen on a phone) */
+  function placePopup() {
+    if (!pop) return;
+    var a = anchorEl(), r = a && a.getBoundingClientRect();
+    if (!a || !r || !r.width || window.innerWidth <= 700) { pop.classList.remove('anchored'); return; }
+    var top = Math.max(8, Math.round(r.top - 8)), right = Math.max(8, Math.round(window.innerWidth - r.left + 10));
+    pop.style.setProperty('--acx-top', top + 'px'); pop.style.setProperty('--acx-right', right + 'px');
+    pop.style.setProperty('--acx-h', Math.max(260, Math.min(640, window.innerHeight - top - 16)) + 'px');
+    pop.classList.add('anchored');
+  }
+  function markAnchor(on) { var a = anchorEl(); if (a) a.classList.toggle('acx-anchor-on', !!on); }
+  function closePopup() { if (pop) pop.classList.remove('open'); markAnchor(false); if (AmitChat.stopReading) AmitChat.stopReading(); }
+  window.addEventListener('resize', function () { if (pop && pop.classList.contains('open')) placePopup(); });
   function popupHead() {
     var head = el('div', 'acx-head');
     head.appendChild(el('div', 'acx-title', 'AmitChat'));
     head.appendChild(el('div', 'acx-ver', AmitChat.source.label + ' · ' + VERSION));
     var x = el('button', 'acx-x', '✕'); x.title = 'Close';
-    x.onclick = function (e) { e.stopPropagation(); pop.classList.remove('open'); if (AmitChat.stopReading) AmitChat.stopReading(); };
+    x.onclick = function (e) { e.stopPropagation(); closePopup(); };
     head.appendChild(x);
-    head.onclick = function () { pop.classList.toggle('min'); };
     return head;
   }
   function fillPopup() {
@@ -1735,7 +1758,8 @@
     voiceProvider: null,      /* set by the page: returns { voice, rate, pitch, volume, pauseScale } (the Hub reads it from About Me) */
     onSpeak: null,            /* set by the page: called with true/false when reading starts/stops */
     onNeedBirthDate: null,    /* set by the page: opens the place where the birth date is entered (the Hub opens About Me) */
-    iconUrl: 'amit_icon.ico',
+    iconUrl: SCRIPT_BASE + 'amit_icon.ico',
+    anchor: '#rail-chat',     /* the page's chat icon: the box opens beside it and closes back into it */
     source: sampleSource,
     live: null,
     preview: /[?&]chatpreview=1/.test(location.search),
@@ -1744,8 +1768,8 @@
     debug: DBG,
     togglePopup: function () {
       var p = buildPopup();
-      if (p.classList.contains('open')) p.classList.remove('open');
-      else { p.classList.add('open'); p.classList.remove('min'); if (popView && AmitChat.live) { popView.resume(); AmitChat.refreshUnread(); } }
+      if (p.classList.contains('open')) closePopup();
+      else { placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true); if (popView && AmitChat.live) { popView.resume(); AmitChat.refreshUnread(); } }
     },
     mountPanel: function (target) {
       if (!target) return;
@@ -1767,7 +1791,7 @@
       if (!AmitChat.live) return;
       DBG.disconnects++;
       AmitChat.live = null; AmitChat.useSource(sampleSource);
-      if (pop) pop.classList.remove('open');
+      if (pop) closePopup();
       rerenderAll(); AmitChat.setUnread(0);
     },
     /* a link like  amit-hub.html?friend=ABCD1234  asks the signed-in person to confirm a friend request */
