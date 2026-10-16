@@ -469,6 +469,8 @@ h3 .rn-mark,h2 .rn-mark{font-size:.8em;vertical-align:middle;margin-left:10px;op
 #rnScroll .rn-open{background:#fff6e0;border:1px solid #e6d29b;border-radius:4px;padding:8px 14px;margin:12px 0;font-size:.92em}
 #rnModal{--parchment:#f5f0e6;--ink:#1a1510;--gold:#c9a84c;--gold-dim:#a8893f;--navy:#1b2a4a;--scroll-bg:#ede5d0;--border:#c4b898;--green:#2d6a3e;--blue-note:#2a5080;--muted:#6b5d47}
 </style>
+<link rel="stylesheet" href="WhoIsGod.css">
+<script src="WhoIsGod.js"></script>
 </head>
 <body>
 
@@ -477,7 +479,7 @@ h3 .rn-mark,h2 .rn-mark{font-size:.8em;vertical-align:middle;margin-left:10px;op
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Devotions</div>
-      <div class="page-version" id="pageVersion">v1.34</div>
+      <div class="page-version" id="pageVersion">v1.36</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -737,6 +739,7 @@ function renderAllPages(){
     ${buildPassageTabsHtml(3)}
   </div>`;
 
+  navHtml+=wigNavHtml();detailHtml+=wigDetailHtml(); // Who Is God pages 4-10, see WhoIsGod.js
   const toHydrate=[]; // [{id,layoutKey}] — layouts fetched+run from TemplateViews.html after this render lands in the DOM
   customPages.forEach((p,i)=>{
     const id=CUSTOM_PAGE_BASE+i;
@@ -782,6 +785,7 @@ function renderAllPages(){
   nav.innerHTML=navHtml;
   main.innerHTML=detailHtml;
   initPageTooltips('sidebarPages','right');
+  wigHydrate();
 
   // Restore whichever page (and tab, if any) should be open after this
   // render — on every render, not just the first. openPage() and
@@ -1573,6 +1577,9 @@ const COLX_VERSES={
   "Josephus, War 2.119":"For there are three philosophical sects among the Jews. (Whiston translation; the Greek uses the word for philosophy)"
 };
 function colxR(key,label){ return `<button type="button" class="colx-ref" data-v="${key}" onclick="colxRef(this)">${label||key}</button>`; }
+// colxEye lives here, above its first use. It used to sit at the very end of the file, but the Difficult Passages page is built while the
+// main script is still running, so the call happened before the function existed and the whole page stayed blank (fixed 2026-10-15).
+function colxEye(ids){return ' <a class="rn-eye" href="../who_is_god/who_is_god.html?rn='+ids.split(',')[0]+'" target="_blank" rel="noopener" title="Research" onclick="openResearch(\''+ids+'\',event)">👁️</a>';}
 function colxWord(greek,translit,kjv,rows){
   return `<details class="colx-word"><summary><span class="g">${greek}</span><span class="tr">${translit}</span><span class="k">KJV: ${kjv}</span></summary><dl>${rows.map(r=>`<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('')}</dl></details>`;
 }
@@ -1756,7 +1763,7 @@ function buildColossiansHtml(){
 
   <section class="colx-sec" data-sec="5">
     <h3>5 &middot; The words of 2:16-17</h3>
-    <p class="colx-take"><b>In one line</b>Paul calls the days themselves "a shadow of things to come": still pointing ahead to what Messiah will complete. Messiah is the substance, so nobody may judge you over them. <a class="rn-eye" href="../who_is_god/who_is_god.html?rn=R15" target="_blank" rel="noopener" title="Research" onclick="openResearch('R15,R9,R10,R11',event)">👁️</a></p>
+    <p class="colx-take"><b>In one line</b>Paul calls the days themselves "a shadow of things to come": still pointing ahead to what Messiah will complete. Messiah is the substance, so nobody may judge you over them. <a class="rn-eye" href="../who_is_god/who_is_god.html?rn=R15" target="_blank" rel="noopener" title="Research" onclick="openResearch('R15,R18,R9,R10,R11',event)">👁️</a></p>
     <div class="colx-verse"><span class="colx-vref">Colossians 2:16-17 (KJV)</span><p>Let no man therefore judge you in meat, or in drink, or in respect of an holyday, or of the new moon, or of the sabbath days: which are a shadow of things to come; but the body is of Christ.</p><p class="colx-greek">ἅ ἐστιν σκιὰ τῶν μελλόντων, τὸ δὲ σῶμα τοῦ Χριστοῦ</p></div>
     ${colxWord('κρινέτω','krinetō','"let no man judge" (2:16)'+colxEye('R15'),[
       ['Where else','The same verb in '+colxR('Rom 14:3','Romans 14:3')+': "let not him which eateth not judge him that eateth."'],
@@ -1779,6 +1786,8 @@ function buildColossiansHtml(){
     ])}
     <div class="colx-callout"><span class="colx-vref">What "are a shadow" says</span>
       <p>Paul's own sentence calls the days "a shadow of things to come," with a present-tense "are." The days are the shadow, still pointing ahead, and Messiah is the substance. The word "shadow" is Paul's name for the days themselves, and Hebrews 4:9, Luke 22:16 and Zechariah 14:16 show them still ahead of us, kept in the age to come.</p></div>
+    <div class="colx-callout"><span class="colx-vref">Who is "the body"?${colxEye('R18')}</span>
+      <p>"The body" in 2:17 is the substance that casts the shadow, and it is Messiah's: "which are a shadow of things to come, but the body is of Christ." It is not "let the body of Christ judge you." The last clause has no verb of its own, so it borrows the nearest one, the "are" in "which are a shadow." Paul writes the same shape in 1 Corinthians 3:23 ("ye are Christ's") and Galatians 5:24 ("they that are Christ's"), and it means "belongs to." Shadow is set against body, as Hebrews 10:1 sets shadow against the very image, and as 2:9 says the fullness dwells in Him "bodily." Paul does call the church "the body" (1:18, 2:19), with the Head beside it. Here there is no Head, only the shadow. So who judges? In these matters, no one: "let no one judge you." Romans 14:4, 10 gives the judging of a brother's practice to his own Master and to God's judgment seat.</p></div>
     <h4>What did not change</h4>
     <ul>
       <li>${colxR('Isa 66:23','Isaiah 66:23')}: "from one new moon to another, and from one sabbath to another, shall all flesh come to worship before me." The same pair Paul names, in the age to come.</li>
@@ -1913,7 +1922,7 @@ function buildColossiansHtml(){
         <tr data-k="t"><td>Paul wrote Colossians himself</td><td><span class="colx-tag t">The letter says so (1:1; 4:18)</span></td></tr>
         <tr data-k="x"><td>Jews living in Colossae itself</td><td><span class="colx-tag x">No direct evidence found</span></td></tr>
         <tr data-k="x"><td>"Intruding" as an initiation term from inscriptions</td><td><span class="colx-tag x">Contested, later evidence</span></td></tr>
-        <tr data-k="x"><td>"Let the body of Christ judge you"</td><td><span class="colx-tag x">Withdrawn: in the verse, "body" answers "shadow"</span></td></tr>
+        <tr data-k="t"><td>"Let the body of Christ judge you" is not what 2:17 says; "the body" is the substance, and it is Christ's</td><td><span class="colx-tag t">Settled from the Greek (R18)</span></td></tr>
       </tbody></table></div>
     <details><summary>Primary texts I read</summary>
       <ul class="colx-fine">
@@ -2528,7 +2537,6 @@ setInterval(updateClock,30000);
   };
   document.addEventListener('keydown',function(e){if(e.key==='Escape')closeRN();});
 })();
-function colxEye(ids){return ' <a class="rn-eye" href="../who_is_god/who_is_god.html?rn='+ids.split(',')[0]+'" target="_blank" rel="noopener" title="Research" onclick="openResearch(\''+ids+'\',event)">👁️</a>';}
 </script>
 </body>
 </html>
