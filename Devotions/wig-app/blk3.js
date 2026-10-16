@@ -186,7 +186,9 @@
   }
   /* ===== ADD MY FELLOWSHIP (v1.22): 24 questions, no score shown until the last answer.
      Answers are stored as option indexes, not scores, so the rubric can be re-versioned and every church recalculated (AC_RUBRIC).
-     Saved in this browser for now; the shared tables and sign-in come next. Research note R20. ===== */
+     Saved in this browser when signed out. When signed in (Devotions' own login) it is saved to the person's account in Who_Custom_Churches / Who_Custom_Answers
+     (Database/migration_2026-10-16_013), can be shared without names, and shared fellowships are averaged across everyone's views. Research note R20.
+     NOTE: this file was edited by hand for Devotions after the generator copied it. Re-running the generator would drop those edits. ===== */
   var AC_KEY='wig_my_churches_v1',AC_DRAFT='wig_my_church_draft_v1',AC_RUBRIC=1;
   var AC_Q=[{"k":"love","cat":"Love and foundation","q":"What drives obedience and teaching in your fellowship?","refs":"Deut 6:5 · Matt 22:37-40 · Hos 6:6","rn":"R20","opts":[["Love of God and neighbor, and the leaders model it",9],["Love is taught, but being right about doctrine comes first",6],["Fear of God or of the leaders, or the need to perform",2],["Love has cooled, and the energy goes into arguing over doctrine",4]]},{"k":"mono","cat":"God","q":"How does your fellowship speak of God?","refs":"Deut 6:4 · Isa 45:5 · Ex 3:15","rn":"R20","opts":[["One God, and His personal name, Yahweh, is taught and used",10],["One God, but only titles such as \"Lord\" or \"God\" are used and the Name is not taught",8],["God is a force, many gods, or people can become gods",2],["One God, but the teaching blurs who He is",5]]},{"k":"messiah","cat":"Messiah","q":"Who does your fellowship teach that Yeshua (Jesus) is?","refs":"John 1:1, 14 · Isa 53 · Phil 2:6-11","rn":"R20","opts":[["A great teacher or prophet, or a created being",3],["Divine Messiah, atoning sacrifice and risen Lord",9],["One way among many",1],["Divine Messiah, atoning sacrifice, risen Lord, and the Word made flesh, Torah included",10]]},{"k":"grace","cat":"Grace and obedience","q":"How does your fellowship hold grace and obedience together?","refs":"Eph 2:8-9 · James 2:17 · Rev 14:12","rn":"R20","opts":[["Works earn salvation, or there is no standard at all",2],["Both are taught, but one clearly outweighs the other",7],["One only, and the other is set aside",4],["Both together: saved by grace through faith, with obedience as the fruit",9]]},{"k":"humility","cat":"Humility","q":"What is the spirit of your fellowship?","refs":"Isa 66:2 · Matt 5:3-12 · James 4:6","rn":"R20","opts":[["Pride in being right, or in status or a platform",3],["Humble, contrite, trembling at His word",9],["Prosperity or spiritual elitism",1],["Mixed: some humility, some pride in being right",6]]},{"k":"justice","cat":"Justice and mercy","q":"Do the poor, the widow, the orphan and the stranger have a real place in your fellowship?","refs":"Mic 6:8 · Isa 1:17 · Matt 25:31-46","rn":"R20","opts":[["Mostly inward-looking",4],["Yes, it is a regular part of the life of the fellowship",9],["Little or none",2],["Some outreach",6]]},{"k":"spirit","cat":"The Spirit","q":"How does your fellowship understand the Holy Spirit?","refs":"Ezek 36:26-27 · Gal 5:22-23 · Rom 8:4","rn":"R20","opts":[["Welcomed, but experience is stressed over fruit",6],["Denied, or reduced to a force or a feeling",2],["Known by His fruit (love, joy, peace) and empowering obedience",9],["Rarely taught",4]]},{"k":"moral","cat":"Moral holiness","q":"How does your fellowship handle personal conduct and holiness?","refs":"Lev 18-20 · 1 Cor 6:9-11 · Matt 5:27-28","rn":"R20","opts":[["Adjusted to the culture",3],["A clear standard is taught and held, with correction in love",9],["Taught, but rarely applied",6],["No standard",1]]},{"k":"canon","cat":"Final authority","q":"What has the last word in your fellowship?","refs":"Deut 4:2 · Matt 15:3-9 · 2 Tim 3:16","rn":"R20","opts":[["Scripture first, with a tradition or leadership that interprets it",6],["Another book or leader above Scripture",1],["Scripture alone, and traditions are tested by it",9],["Scripture plus later teaching of equal weight",3]]},{"k":"doctrine","cat":"Testing teaching","q":"Can teaching in your fellowship be tested against Scripture?","refs":"Deut 13:1-5 · 1 John 4:1 · Acts 17:11","rn":"R20","opts":[["Questioning is treated as rebellion",1],["Anyone can openly test teaching against Scripture",9],["Allowed in principle, rarely done in practice",7],["The leaders' word is final",3],["Allowed, but discouraged",5]]},{"k":"endure","cat":"Endurance","q":"What does your fellowship teach about hardship and cost?","refs":"Matt 24:13 · Rev 2:10 · Heb 10:36","rn":"R20","opts":[["Faith is presented as making life easier",3],["Believers are taught to follow even when it costs them",8],["Prosperity or comfort is promised",1],["Some teaching on suffering",6]]},{"k":"purity","cat":"Worship origins","q":"Does your fellowship ask where its practices came from, and test them against Scripture?","refs":"Deut 12:29-32 · Jer 10:2 · 2 Cor 6:14-17","rn":"R20","opts":[["Sometimes, but it rarely changes anything",5],["Rarely asked",3],["Yes, regularly, and it changes what it finds lacking",9],["It is discouraged",1]]},{"k":"sabbath","cat":"The Sabbath","q":"Which day does your fellowship keep as the Sabbath?","refs":"Gen 2:2-3 · Ex 31:16-17 · Isa 66:23","rn":"R20,R10","opts":[["Sunday is kept as the Sabbath, a day of rest",3],["The seventh day (Friday sunset to Saturday sunset) is kept",10],["No Sabbath is kept",1],["The seventh day is recognized and kept in part",6],["Sunday worship, but no day of rest",2]]},{"k":"feasts","cat":"Appointed times","q":"Does your fellowship keep the appointed times of Leviticus 23?","refs":"Lev 23 · Zech 14:16-19","rn":"R20,R6","opts":[["Only the Christian calendar (Christmas, Easter)",2],["Yes, they are kept",10],["None",1],["Some are kept or taught, such as Passover or Sukkot",6]]},{"k":"torah","cat":"Torah","q":"How does your fellowship treat the Torah (the first five books and its instruction)?","refs":"Matt 5:17-19 · Jer 31:33 · Rom 3:31","rn":"R20,R5","opts":[["Taught as ended",2],["Taught as living instruction for believers, kept out of love",10],["Only the moral part is kept, the rest taught as ended",3],["Discouraged or denied",1],["Good guidance for believers, kept in part",6]]},{"k":"diet","cat":"Clean and unclean foods","q":"Does your fellowship keep the clean and unclean foods of Leviticus 11?","refs":"Lev 11 · Acts 10:14, 28","rn":"R20,R7","opts":[["No restriction, taught as ended",2],["Yes, Leviticus 11 is kept",10],["Never addressed",1],["Mostly kept (for example, no pork or shellfish), with exceptions",8],["Partly, mostly for health",5]]},{"k":"prophrev","cat":"Prophetic alignment","q":"If Messiah returned and set up what the prophets describe (the Sabbath for all flesh, the feasts, Torah going out from Zion), how much would your fellowship need to change?","refs":"Isa 66:23 · Zech 14:16-19 · Isa 2:3","rn":"R20","opts":[["A great deal",3],["Very little",10],["Wholesale reform",1],["Some",6]]}];
   var AC_L=[["ephesus","Ephesus","Very careful about doctrine, testing teachers and refusing false teaching, but the first love has cooled.","Rev 2:2-4"],["smyrna","Smyrna","Poor, slandered or suffering for the faith.","Rev 2:9-10"],["pergamum","Pergamum","Holds fast the Name, yet is mixed with the surrounding culture and its practices.","Rev 2:13-15"],["thyatira","Thyatira","Loving and active, growing in good works, yet tolerating teaching it should test.","Rev 2:19-20"],["sardis","Sardis","Has a name for being alive, but little real life.","Rev 3:1-2"],["philadelphia","Philadelphia","Small, with little strength, yet keeping His word and not denying His name.","Rev 3:8"],["laodicea","Laodicea","Comfortable and self-sufficient, with little sense of need.","Rev 3:17"]];
@@ -194,11 +196,11 @@
   var AC_GROUPS=[{n:'Who God and Messiah are',k:['mono','messiah','canon']},{n:'How He told us to live',k:['sabbath','feasts','torah','diet','purity','moral']},{n:'The heart',k:['grace','justice','love','spirit','humility']},{n:'Faithfulness',k:['doctrine','endure','prophrev']}];
   var AC_ALL=AC_Q.concat(AC_L.map(function(l){return {k:'L_'+l[0],letter:l[0],cat:l[1],q:'How much does your congregation look like this? '+l[2],refs:l[3],rn:'R19',opts:AC_LOPT};}));
   var AC_EMPTY='Click a dot, or choose a church or fellowship from the list, to see how close it is to the mark, which letters it leans toward, and where it is weakest. Click one of the seven candles to read that church\'s letter and how it lines up with Scripture.';
-  var acState=null,customList=[];
+  var acState=null,customList=[],sharedList=[],acCloudOK=false;
   function acLoad(){try{return JSON.parse(localStorage.getItem(AC_KEY)||'[]')||[];}catch(e){return [];}}
-  function acSave(){try{localStorage.setItem(AC_KEY,JSON.stringify(customList.map(function(d){return d.rec;})));}catch(e){}}
+  function acSave(){try{localStorage.setItem(AC_KEY,JSON.stringify(customList.filter(function(d){return !d.rec.cid;}).map(function(d){return d.rec;})));}catch(e){}}
   function acDraftGet(){try{return JSON.parse(localStorage.getItem(AC_DRAFT)||'null');}catch(e){return null;}}
-  function acDraftPut(){if(acState&&acState.editId)return;try{localStorage.setItem(AC_DRAFT,JSON.stringify(acState));}catch(e){}}
+  function acDraftPut(){if(acState&&(acState.editId||acState.forChurch))return;try{localStorage.setItem(AC_DRAFT,JSON.stringify(acState));}catch(e){}}
   function acDraftClear(){try{localStorage.removeItem(AC_DRAFT);}catch(e){}}
   function round5(x){return Math.round(x/5)*5;}
   function distText(d){var p=round5(d.miss*100);return p<5?'less than 5% from the mark':'about '+p+'% from the mark';}
@@ -210,9 +212,18 @@
     AC_L.forEach(function(l){var a=ans['L_'+l[0]];tend[l[0]]=(a==null||a<0||!AC_LOPT[a])?30:AC_LOPT[a][1];});
     return {scores:scores,unk:unk,tend:tend,total:scores.reduce(function(s,v){return s+v;},0)};
   }
-  /* places a custom church on the sphere by the same rule as the 48: distance from total, direction from letter leanings */
+  /* Averages several people's answer sets: for every question the mean of the option scores that were actually answered ("I don't know" is left out). */
+  function acScoreMany(list){
+    var scores=[],unk=[],tend={};
+    function mean(v){return v.reduce(function(s,x){return s+x;},0)/v.length;}
+    CAT_KEYS.forEach(function(k){var q=acQ(k),v=[];list.forEach(function(a){var x=a&&a[k];if(x!=null&&x>=0&&q.opts[x])v.push(q.opts[x][1]);});if(!v.length){scores.push(5);unk.push(k);}else scores.push(mean(v));});
+    AC_L.forEach(function(l){var v=[];list.forEach(function(a){var x=a&&a['L_'+l[0]];if(x!=null&&x>=0&&AC_LOPT[x])v.push(AC_LOPT[x][1]);});tend[l[0]]=v.length?mean(v):30;});
+    return {scores:scores,unk:unk,tend:tend,total:scores.reduce(function(s,v){return s+v;},0)};
+  }
+  /* places a custom church on the sphere by the same rule as the 48: distance from total, direction from letter leanings.
+     A fellowship that several people answered (rec.avg) is placed by the AVERAGE of their answers. */
   function makeCustom(rec){
-    var r=acScore(rec.ans),keys=Object.keys(LET);
+    var r=(rec.avg&&rec.avg.length)?acScoreMany(rec.avg):acScore(rec.ans||{}),keys=Object.keys(LET);
     var d={di:rec.id,custom:true,rec:rec,name:rec.name,short:rec.name,scores:r.scores,total:r.total,tier:'',about:'',tend:r.tend,unk:r.unk};
     var sx=0,sy=0,sz=0,best=null,bv=-1;
     keys.forEach(function(k){var p=r.tend[k],w=Math.pow(p/100,1.4);sx+=w*LET[k].v[0];sy+=w*LET[k].v[1];sz+=w*LET[k].v[2];if(p>bv){bv=p;best=k;}});
@@ -222,15 +233,22 @@
     d.ranked=keys.map(function(k){return {k:k,p:r.tend[k],listed:true};}).sort(function(a,b){return b.p-a.p;});
     return d;
   }
+  function sameId(a,b){return String(a)===String(b);}
   function acAdd(rec){
-    DEN=DEN.filter(function(x){return !(x.custom&&x.rec.id===rec.id);});
-    customList=customList.filter(function(x){return x.rec.id!==rec.id;});
-    var d=makeCustom(rec);DEN.push(d);customList.push(d);return d;
+    DEN=DEN.filter(function(x){return !(x.custom&&sameId(x.rec.id,rec.id));});
+    customList=customList.filter(function(x){return !sameId(x.rec.id,rec.id);});
+    sharedList=sharedList.filter(function(x){return !sameId(x.rec.id,rec.id);});
+    var d=makeCustom(rec);DEN.push(d);(rec.other?sharedList:customList).push(d);return d;
   }
+  function findCustom(id){var a=customList.concat(sharedList);for(var i=0;i<a.length;i++)if(sameId(a[i].rec.id,id))return a[i];return null;}
   function acRenderMy(){
-    var box=$('ls-my'),list=$('ls-mylist');if(!box)return;
-    box.style.display=customList.length?'block':'none';list.innerHTML='';
-    customList.forEach(function(d){var el=document.createElement('div');el.className='ls-item';el.setAttribute('data-di',d.di);el.innerHTML='<i style="background:'+d.color+'"></i>'+esc(d.short)+'<span class="t">'+esc(distText(d).replace(' from the mark',''))+'</span>';el.onclick=function(){select(d);};list.appendChild(el);});
+    function fill(boxId,listId,arr){
+      var box=$(boxId),list=$(listId);if(!box)return;
+      box.style.display=arr.length?'block':'none';list.innerHTML='';
+      arr.forEach(function(d){var el=document.createElement('div');el.className='ls-item';el.setAttribute('data-di',d.di);el.innerHTML='<i style="background:'+d.color+'"></i>'+esc(d.short)+'<span class="t">'+esc(distText(d).replace(' from the mark',''))+'</span>';el.onclick=function(){select(d);};list.appendChild(el);});
+    }
+    fill('ls-my','ls-mylist',customList);
+    fill('ls-shared','ls-sharedlist',sharedList.slice().sort(function(a,b){return a.miss-b.miss;}));
   }
 
   /* ---- the question window ---- */
@@ -239,20 +257,34 @@
   function acCount(){return AC_ALL.filter(function(q){return acState.ans[q.k]!=null;}).length;}
   function acOpen(rec){
     var dr=rec?null:acDraftGet();
-    if(dr&&dr.ans)acState=dr;
-    else acState={name:rec?rec.name:'',city:rec?(rec.city||''):'',ans:rec?JSON.parse(JSON.stringify(rec.ans)):{},i:0,editId:rec?rec.id:null};
+    if(dr&&dr.ans&&!dr.forChurch)acState=dr;
+    else acState={name:rec?rec.name:'',city:rec?(rec.city||''):'',ans:rec?JSON.parse(JSON.stringify(rec.ans||{})):{},i:0,editId:rec?rec.id:null,share:rec?rec.shared!==false:!!acUser(),forChurch:null};
     acIntro();
   }
+  /* "Add my view" of a fellowship someone else added: my own answer set joins the others and the average moves. */
+  function acOpenView(d){
+    var mine=d.rec.myAns;
+    acState={name:d.rec.name,city:d.rec.city||'',ans:mine?JSON.parse(JSON.stringify(mine)):{},i:0,editId:null,share:true,forChurch:d.rec.cid};
+    acIntro();
+  }
+  function acSaveNote(){
+    var u=acUser();
+    if(u&&acCloudOK)return '<p class="ls-small" style="color:#9fe3b0">You are signed in, so this is saved to your account and follows you to any computer.</p>';
+    if(u)return '<p class="ls-small">You are signed in, but the shared tables could not be reached right now, so this is saved in this browser and will be added to your account the next time it connects.</p>';
+    return '<p class="ls-small">You are not signed in, so this is saved in this browser only. <a href="#" onclick="lsAcSignIn();return false" style="color:#e9d38a">Sign in</a> to save it to your account and share it.</p>';
+  }
   function acIntro(){
-    var n=acCount(),h='<div class="ls-lab" style="margin-top:0">Add my fellowship</div><h3 style="font-size:1.2em">Where does your fellowship stand with Scripture?</h3>';
-    h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">There are '+AC_ALL.length+' questions, about 5 minutes. Answer for your fellowship as it actually is, not as it says it is. If you can\'t tell, choose "I don\'t know."</p>';
-    h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Nothing is scored on screen until you answer the last question. Then you will see where your fellowship stands, by Amit\'s reading of Scripture, with the verses. It is a pattern, not a verdict, and a reason to look at the Word again.</p>';
-    h+='<p class="ls-small">For now your fellowship is saved in this browser only.</p>';
-    h+='<label class="ls-fl">Name of your fellowship<input id="ls-acname" type="text" maxlength="60" value="'+esc(acState.name)+'"></label>';
-    h+='<label class="ls-fl">City and state (so fellowships with the same name are not mixed up)<input id="ls-accity" type="text" maxlength="60" value="'+esc(acState.city||'')+'"></label>';
+    var n=acCount(),v=!!acState.forChurch,u=acUser(),h='<div class="ls-lab" style="margin-top:0">'+(v?'Add my view':'Add my fellowship')+'</div><h3 style="font-size:1.2em">'+(v?'How do you see '+esc(acState.name)+'?':'Where does your fellowship stand with Scripture?')+'</h3>';
+    h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">There are '+AC_ALL.length+' questions, about 5 minutes. Answer for '+(v?'this fellowship':'your fellowship')+' as it actually is, not as it says it is. If you can\'t tell, choose "I don\'t know."</p>';
+    h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Nothing is scored on screen until you answer the last question. Then you will see where '+(v?'it':'your fellowship')+' stands, by Amit\'s reading of Scripture, with the verses. It is a pattern, not a verdict, and a reason to look at the Word again.</p>';
+    if(v)h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Your answers are added to everyone else\'s and the result is the average. Nobody can see who answered what.</p>';
+    h+=acSaveNote();
+    h+='<label class="ls-fl">Name of the fellowship<input id="ls-acname" type="text" maxlength="60" value="'+esc(acState.name)+'"'+(v?' disabled':'')+'></label>';
+    h+='<label class="ls-fl">City and state (so fellowships with the same name are not mixed up)<input id="ls-accity" type="text" maxlength="60" value="'+esc(acState.city||'')+'"'+(v?' disabled':'')+'></label>';
+    if(!v&&u)h+='<label class="ls-small" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;color:#f5f0e1"><input id="ls-acshare" type="checkbox" style="margin-top:3px"'+(acState.share!==false?' checked':'')+'><span>Share this fellowship so others can look it up and add their own view. Only the name, city and the averaged answers are shown. Your name is never shown.</span></label>';
     h+='<div id="ls-acerr" class="ls-small" style="color:#ffb3a8;min-height:1.3em"></div>';
-    h+='<button class="ls-btn" onclick="lsAcStart()">'+(acState.editId?'Review and change my answers':n?'Continue ('+n+' of '+AC_ALL.length+' answered)':'Start')+' &rarr;</button>';
-    if(n)h+=' <button class="ls-btn" onclick="lsAcRestart()">Start over</button>';
+    h+='<button class="ls-btn" onclick="lsAcStart()">'+(acState.editId||(v&&n)?'Review and change my answers':n?'Continue ('+n+' of '+AC_ALL.length+' answered)':'Start')+' &rarr;</button>';
+    if(n&&!acState.editId&&!v)h+=' <button class="ls-btn" onclick="lsAcRestart()">Start over</button>';
     acModal(h);
   }
   function acQuestion(){
@@ -270,7 +302,7 @@
   window.lsAcStart=function(){
     var nm=($('ls-acname').value||'').trim(),ct=($('ls-accity').value||'').trim();
     if(!nm){$('ls-acerr').textContent='Please give your fellowship a name.';return;}
-    acState.name=nm;acState.city=ct;
+    acState.name=nm;acState.city=ct;var sc=$('ls-acshare');if(sc)acState.share=sc.checked;
     var first=0;for(var i=0;i<AC_ALL.length;i++){if(acState.ans[AC_ALL[i].k]==null){first=i;break;}}
     acState.i=first;acDraftPut();acQuestion();
   };
@@ -284,39 +316,194 @@
   };
   function acFinish(){
     for(var i=0;i<AC_ALL.length;i++){if(acState.ans[AC_ALL[i].k]==null){acState.i=i;acQuestion();return;}}
-    var id=acState.editId||Date.now(),old=null;
-    customList.forEach(function(x){if(x.rec.id===id)old=x.rec;});
-    var rec={id:id,name:acState.name,city:acState.city,ans:acState.ans,rubric:AC_RUBRIC,date:new Date().toISOString(),history:old?(old.history||[]).concat([{ans:old.ans,date:old.date,rubric:old.rubric}]):[]};
-    var d=acAdd(rec);acSave();acDraftClear();acState=null;acClose();acRenderMy();
+    var st=acState,u=acUser();
+    acState=null;
+    if(st.forChurch){
+      acClose();
+      if(!u||!acCloudOK){alert('Please sign in to add your view.');return;}
+      acCloudSaveView(st.forChurch,st.ans,null).then(function(){return acCloudRefresh(st.forChurch);}).catch(function(e){acCloudFail(e);});
+      return;
+    }
+    var id=st.editId||Date.now(),old=findCustom(id);old=old&&!old.rec.other?old.rec:null;
+    var rec={id:id,cid:old?old.cid:null,name:st.name,city:st.city,ans:st.ans,shared:st.share!==false,share:st.share!==false,rubric:AC_RUBRIC,date:new Date().toISOString(),history:old?(old.history||[]).concat([{ans:old.ans,date:old.date,rubric:old.rubric}]):[],avg:old?old.avg:null,n:old?old.n:1};
+    var d=acAdd(rec);acSave();acDraftClear();acClose();acRenderMy();
     filter=null;Array.prototype.forEach.call($('ls-legend').children,function(e){e.classList.remove('on');});
     select(d);
     var p=$('ls-info');if(p&&p.scrollIntoView)p.scrollIntoView({behavior:'smooth',block:'start'});
+    if(u&&acCloudOK){
+      acCloudSaveOwn(rec).then(function(){return acCloudRefresh(rec.cid);}).catch(function(e){acCloudFail(e);});
+    }
   }
-  window.lsAcRetake=function(id){var d=customList.filter(function(x){return x.rec.id===id;})[0];if(d){acState=null;acOpen(d.rec);}};
+  window.lsAcRetake=function(id){var d=findCustom(id);if(!d)return;acState=null;if(d.rec.other)acOpenView(d);else acOpen(d.rec);};
   window.lsAcRename=function(id){
-    var d=customList.filter(function(x){return x.rec.id===id;})[0];if(!d)return;
+    var d=findCustom(id);if(!d||d.rec.other)return;
     var nm=prompt('Name of your fellowship',d.rec.name);if(nm==null)return;nm=nm.trim();if(!nm)return;
     var ct=prompt('City and state',d.rec.city||'');if(ct==null)ct=d.rec.city||'';
     d.rec.name=nm;d.rec.city=ct.trim();var nd=acAdd(d.rec);acSave();acRenderMy();select(nd);
+    if(d.rec.cid&&acUser()&&acCloudOK)db.from('Who_Custom_Churches').update({name:d.rec.name,city:d.rec.city||null,updated_at:new Date().toISOString()}).eq('id',d.rec.cid).then(function(r){if(r.error)acCloudFail(r.error);else acCloudRefresh(d.rec.cid);});
   };
   window.lsAcDelete=function(id){
-    if(!confirm('Remove this fellowship from this browser? This cannot be undone.'))return;
-    DEN=DEN.filter(function(x){return !(x.custom&&x.rec.id===id);});
-    customList=customList.filter(function(x){return x.rec.id!==id;});
-    if(sel&&sel.custom&&sel.rec.id===id){sel=null;$('ls-info').innerHTML='<div class="ls-empty">'+AC_EMPTY+'</div>';}
-    acSave();acRenderMy();
+    var d=findCustom(id);if(!d||d.rec.other)return;
+    var cloud=d.rec.cid&&acUser()&&acCloudOK;
+    if(!confirm(cloud?'Remove this fellowship from your account? Other people\'s views of it are removed too. This cannot be undone.':'Remove this fellowship from this browser? This cannot be undone.'))return;
+    function gone(){
+      DEN=DEN.filter(function(x){return !(x.custom&&sameId(x.rec.id,id));});
+      customList=customList.filter(function(x){return !sameId(x.rec.id,id);});
+      if(sel&&sel.custom&&sameId(sel.rec.id,id)){sel=null;$('ls-info').innerHTML='<div class="ls-empty">'+AC_EMPTY+'</div>';}
+      acSave();acRenderMy();
+    }
+    if(cloud)db.from('Who_Custom_Churches').delete().eq('id',d.rec.cid).then(function(r){if(r.error)acCloudFail(r.error);else gone();});
+    else gone();
   };
+  window.lsAcShare=function(id){
+    var d=findCustom(id);if(!d||d.rec.other||!d.rec.cid||!acUser()||!acCloudOK)return;
+    var to=!d.rec.shared;
+    if(to&&!confirm('Share this fellowship? Anyone can look it up and add their own view. Only the name, city and averaged answers are shown. Your name is never shown.'))return;
+    db.from('Who_Custom_Churches').update({is_shared:to,updated_at:new Date().toISOString()}).eq('id',d.rec.cid).then(function(r){if(r.error)acCloudFail(r.error);else acCloudRefresh(d.rec.cid);});
+  };
+  window.lsAcRemoveView=function(id){
+    var d=findCustom(id);if(!d||!d.rec.other||!d.rec.myAns||!acUser()||!acCloudOK)return;
+    if(!confirm('Remove your view of this fellowship? The average will be recalculated without it.'))return;
+    db.from('Who_Custom_Answers').delete().eq('church_id',d.rec.cid).eq('respondent_id',acUser().id).then(function(r){if(r.error)acCloudFail(r.error);else acCloudRefresh(d.rec.cid);});
+  };
+  window.lsAcSignIn=function(){acClose();if(typeof openSyncModal==='function')openSyncModal();};
   window.lsReadLetter=function(k){selectLetter(k);};
 
+  /* ---- the shared tables (Who_Custom_Churches / Who_Custom_Answers, migration 013). If they are not reachable the page keeps working from this browser. ---- */
+  function acUser(){try{return (typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db)?currentUser:null;}catch(e){return null;}}
+  function acCloudFail(e){console.error('Fellowship save failed:',e);try{alert('That could not be saved to your account right now ('+((e&&e.message)||e)+'). It is still saved in this browser.');}catch(x){}}
+  async function acCloudSaveView(cid,ans,history){
+    var u=acUser();
+    var r=await db.from('Who_Custom_Answers').upsert({church_id:cid,respondent_id:u.id,ans:ans,rubric:AC_RUBRIC,history:history||[],updated_at:new Date().toISOString()},{onConflict:'church_id,respondent_id'});
+    if(r.error)throw r.error;
+  }
+  async function acCloudSaveOwn(rec){
+    var u=acUser();
+    if(!rec.cid){
+      var c=await db.from('Who_Custom_Churches').insert({owner_id:u.id,name:rec.name,city:rec.city||null,rubric:rec.rubric||AC_RUBRIC,is_shared:rec.share===true||rec.shared===true}).select().single();
+      if(c.error)throw c.error;
+      rec.cid=c.data.id;
+    }else{
+      var up=await db.from('Who_Custom_Churches').update({name:rec.name,city:rec.city||null,is_shared:rec.shared!==false,updated_at:new Date().toISOString()}).eq('id',rec.cid);
+      if(up.error)throw up.error;
+    }
+    await acCloudSaveView(rec.cid,rec.ans,rec.history);
+  }
+  var acBusy=false;
+  /* Pulls everything from the tables and rebuilds the lists. First sends any fellowship that was only saved in this browser (kept private until its owner shares it). */
+  async function acCloudRefresh(reselect){
+    if(acBusy||typeof db==='undefined'||!db)return;acBusy=true;
+    try{
+      var u=acUser();
+      var sh=await db.from('Who_Custom_Churches_Shared').select('*');
+      if(sh.error){acCloudOK=false;return;}
+      acCloudOK=true;
+      var shared=sh.data||[],mineC=[],myA=[];
+      if(u){
+        var pend=customList.filter(function(d){return !d.rec.cid;});
+        for(var i=0;i<pend.length;i++){try{await acCloudSaveOwn(pend[i].rec);}catch(e){console.error('upload failed',e);}}
+        var a=await db.from('Who_Custom_Churches').select('*'),b=await db.from('Who_Custom_Answers').select('*');
+        if(!a.error&&!b.error){mineC=a.data||[];myA=b.data||[];}
+        if(pend.length){sh=await db.from('Who_Custom_Churches_Shared').select('*');if(!sh.error)shared=sh.data||[];}
+      }
+      DEN=DEN.filter(function(x){return !(x.custom&&(x.rec.cid||x.rec.other));});
+      customList=customList.filter(function(x){return !x.rec.cid;});sharedList=[];
+      var own={};
+      mineC.forEach(function(c){
+        own[c.id]=1;
+        var my=myA.filter(function(x){return x.church_id===c.id;})[0],row=shared.filter(function(x){return x.id===c.id;})[0];
+        acAdd({id:c.id,cid:c.id,name:c.name,city:c.city||'',shared:!!c.is_shared,ans:my?my.ans:{},rubric:c.rubric||AC_RUBRIC,date:my?my.updated_at:c.updated_at,history:my?(my.history||[]):[],avg:(row&&row.answer_count>1)?row.answers:null,n:row?row.answer_count:1});
+      });
+      shared.forEach(function(r){
+        if(own[r.id])return;
+        var my=myA.filter(function(x){return x.church_id===r.id;})[0];
+        acAdd({id:r.id,cid:r.id,other:true,name:r.name,city:r.city||'',shared:true,ans:{},myAns:my?my.ans:null,avg:r.answers||[],n:r.answer_count,date:r.created_at,rubric:r.rubric});
+      });
+      acSave();acRenderMy();
+      var want=reselect||(sel&&sel.custom?sel.rec.id:null);
+      if(want){var nd=findCustom(want);if(nd)select(nd);}
+    }catch(e){console.error('Fellowship refresh failed:',e);acCloudOK=false;}
+    finally{acBusy=false;}
+  }
+
+  /* ---- "Why did we land here?": what each area of Scripture asks, said plainly and kindly. Verses are named so the reader can open them. ---- */
+  var AC_WHY={
+    love:['Deuteronomy 6:5 puts love for Yahweh first, and Yeshua names it together with love of neighbor as the two commands the whole Torah and the Prophets hang on (Matthew 22:37-40). Hosea 6:6 shows what He wants from His people: faithful love, not offerings for show.','Love can cool and be kindled again. Ephesus is told to remember where it fell and return to its first works (Revelation 2:4-5).'],
+    mono:['Deuteronomy 6:4 says Yahweh is one, Isaiah 45:5 says there is no other, and in Exodus 3:15 He gives His name as His name forever.','This is the foundation, and it is quickly rebuilt by reading these three passages slowly.'],
+    messiah:['John 1:1 and 14 say the Word was with God, was God, and became flesh. Isaiah 53 describes the servant who bore our sins, and Philippians 2:6-11 says He humbled Himself and every knee will bow to Him.','Most of the distance here closes when people read the Messiah from the Hebrew Scriptures themselves.'],
+    grace:['Ephesians 2:8-9 says we are saved by grace through faith, not by works. James 2:17 says faith without works is dead, and Revelation 14:12 describes the saints as those who keep the commandments of God and the faith of Yeshua. Scripture holds grace and obedience together and never sets one against the other.','Both halves are in the same Book, so the way back is to hold both.'],
+    humility:['Isaiah 66:2 says Yahweh looks to the one who is humble and contrite and trembles at His word. Matthew 5:3-12 begins with the poor in spirit and the meek, and James 4:6 says God resists the proud and gives grace to the humble.','Humility is a place every honest fellowship can start from today.'],
+    justice:['Micah 6:8 asks for justice, mercy and a humble walk with God. Isaiah 1:17 says to learn to do good, seek justice and defend the fatherless and widow, and Matthew 25:31-46 makes caring for the least of these the measure.','This area grows fastest through small, real acts toward the people nearby.'],
+    spirit:['Ezekiel 36:26-27 promises a new heart and His Spirit within us, causing us to walk in His statutes. Galatians 5:22-23 lists the fruit of the Spirit, and Romans 8:4 says the righteous requirement of the law is fulfilled in those who walk by the Spirit.','The promise is one He makes, and it is for those who ask.'],
+    moral:['Leviticus 18-20 sets out holiness for the people of Yahweh. 1 Corinthians 6:9-11 names behaviors that shut people out of the kingdom and then says, "such were some of you. But you were washed, you were sanctified, you were justified." Matthew 5:27-28 takes the command about adultery down to the heart.','The same passage that names the sin also says people were washed from it, so this is an area of hope.'],
+    canon:['Deuteronomy 4:2 says not to add to or take from His word. In Matthew 15:3-9 Yeshua tells those who kept their tradition that they set aside the commandment of God for it, and 2 Timothy 3:16 says all Scripture is God-breathed.','The remedy is simple: put the Book first and test everything else by it.'],
+    doctrine:['Deuteronomy 13:1-5 says even a prophet who works a sign is to be tested by whether he leads people away from Yahweh\'s commands. 1 John 4:1 says to test the spirits, and Acts 17:11 praises the Bereans because they searched the Scriptures daily to see whether what they heard was so.','Testing teaching is what the Bereans were commended for, so it is nothing to fear.'],
+    endure:['Matthew 24:13 says the one who endures to the end will be saved. Revelation 2:10 says to be faithful until death, and Hebrews 10:36 says you have need of endurance so that after doing the will of God you receive the promise.','Endurance grows in company, so it helps to ask who is walking beside you.'],
+    purity:['Deuteronomy 12:29-32 warns against asking how the nations served their gods and doing the same, and says to worship Yahweh the way He commanded. Jeremiah 10:2 says not to learn the way of the nations, and 2 Corinthians 6:14-17 calls God\'s people to come out from among them.','Looking honestly at where a practice came from is the first step, and it is one many fellowships have taken.'],
+    sabbath:['Genesis 2:2-3 says God blessed the seventh day and made it holy. Exodus 31:16-17 calls it a sign between Him and Israel forever, and Isaiah 66:23 says that in the new heavens and new earth all flesh will come to worship before Him from one sabbath to another.','Many people find the Sabbath to be a gift before they find it to be a rule.'],
+    feasts:['Leviticus 23 calls them "My appointed times," and Zechariah 14:16-19 says the nations will go up year by year to keep the Feast of Tabernacles.','Walking through Leviticus 23 one feast at a time is a gentle way to begin.'],
+    torah:['In Matthew 5:17-19 Yeshua says He did not come to abolish the Law or the Prophets. Jeremiah 31:33 says Yahweh will put His law within them and write it on their hearts, and Romans 3:31 says faith does not nullify the law but upholds it.','The new covenant is described as the Torah written on the heart, which is an encouraging place to start reading.'],
+    diet:['Leviticus 11 distinguishes clean and unclean animals. In Acts 10:14 Peter says he has never eaten anything common or unclean, and in Acts 10:28 he explains that God showed him not to call any person common or unclean.','This is an area where people ask good questions, and the answers are in the text itself.'],
+    prophrev:['Isaiah 2:3 says the Torah will go out from Zion in the last days, Isaiah 66:23 has all flesh worshiping from sabbath to sabbath, and Zechariah 14:16-19 has the nations keeping Tabernacles.','Looking at where the prophets say history is going can show what the Word is already asking for today.']
+  };
+  window.lsAcWhy=function(id){
+    var d=findCustom(id);if(!d)return;
+    var rec=d.rec,single=!(rec.avg&&rec.avg.length>1),ans=single?(rec.ans||{}):null;
+    var unkSet={};d.unk.forEach(function(k){unkSet[k]=1;});
+    var rows=CAT_KEYS.map(function(k,i){return {k:k,i:i,s:d.scores[i]};}).filter(function(r){return !unkSet[r.k];});
+    var gaps=rows.filter(function(r){return r.s<=7;}).sort(function(a,b){return a.s-b.s||a.i-b.i;}).slice(0,5);
+    var good=rows.filter(function(r){return r.s>=8;}).sort(function(a,b){return b.s-a.s||a.i-b.i;}).slice(0,3);
+    var h='<div class="ls-lab" style="margin-top:0">Why '+esc(rec.name)+' landed here</div>';
+    h+='<h3 style="font-size:1.15em">'+esc(distText(d))+'</h3>';
+    h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">This is a picture of where the answers sit beside the Word, not a verdict on the people. Scripture shows fellowships being corrected and restored, and the letters to the seven churches call each one to return and promise something to the one who does (Revelation 2-3). The distance is the part that can close.</p>';
+    if(good.length){h+='<div class="ls-lab">What is already strong</div>';good.forEach(function(r){var q=acQ(r.k);h+='<div class="ls-dep ok"><b>'+esc(q.cat)+'</b> <span class="v">'+esc(q.refs)+'</span></div>';});}
+    h+='<div class="ls-lab">What moved it away from the mark</div>';
+    if(!gaps.length)h+='<div class="ls-small">Nothing in these answers moved it far. The remaining distance is from areas answered "I don\'t know."</div>';
+    gaps.forEach(function(r){
+      var q=acQ(r.k),w=AC_WHY[r.k],a=ans?ans[r.k]:null,t=(a!=null&&a>=0&&q.opts[a])?q.opts[a][0]:'';
+      h+='<div class="ls-dep"><b>'+esc(q.cat)+'</b> <span class="v">'+esc(q.refs)+'</span> <sup class="rn-mark" data-rn="'+q.rn+'" title="Research" style="cursor:pointer">&#128065;&#65039;</sup>';
+      if(t)h+='<br>The answer given: '+esc(t);else if(!single)h+='<br>The averaged answers here scored '+(Math.round(r.s*10)/10)+' of 10.';
+      if(w)h+='<br><span style="color:#f5f0e1">'+esc(w[0])+'</span><br><span style="color:#9fe3b0">'+esc(w[1])+'</span>';
+      h+='</div>';
+    });
+    h+='<p class="ls-small">Disagree with how an area was read, or think the answers do not fit? You can challenge it, and Ryan reviews every challenge himself.</p>';
+    h+='<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="ls-btn" onclick="lsAcChallenge(\''+rec.id+'\')">Challenge this result</button><button class="ls-btn" onclick="lsAcClose()">Close</button></div>';
+    acModal(h);
+  };
+  window.lsAcChallenge=function(id){
+    var d=findCustom(id);if(!d)return;
+    var u=acUser(),h='<div class="ls-lab" style="margin-top:0">Challenge this result</div><h3 style="font-size:1.15em">'+esc(d.rec.name)+'</h3>';
+    if(!u||!acCloudOK||!d.rec.cid){
+      h+='<p class="ls-small" style="color:#f5f0e1">'+(!u?'To challenge a result, please sign in first.':'This fellowship needs to be saved to your account before it can be challenged. Try again in a moment.')+'</p>';
+      if(!u)h+='<button class="ls-btn" onclick="lsAcSignIn()">Sign in</button> ';
+      h+='<button class="ls-btn" onclick="lsAcClose()">Close</button>';acModal(h);return;
+    }
+    h+='<p class="ls-small" style="color:#f5f0e1">Say what you think the result got wrong and which verses you would put beside it. Ryan reads every challenge, and if it holds up from Scripture the reading is changed.</p>';
+    h+='<textarea id="ls-cgnote" maxlength="2000" rows="6" style="width:100%;box-sizing:border-box;background:#0b1730;color:#f5f0e1;border:1px solid #3a4e7a;border-radius:6px;padding:8px;font-family:inherit"></textarea>';
+    h+='<div id="ls-cgerr" class="ls-small" style="color:#ffb3a8;min-height:1.3em"></div>';
+    h+='<button class="ls-btn" onclick="lsAcChallengeSend(\''+d.rec.id+'\')">Send to Ryan</button> <button class="ls-btn" onclick="lsAcClose()">Cancel</button>';
+    acModal(h);
+  };
+  window.lsAcChallengeSend=function(id){
+    var d=findCustom(id),u=acUser(),box=$('ls-cgnote');if(!d||!u||!box)return;
+    var note=(box.value||'').trim();if(!note){$('ls-cgerr').textContent='Please write what you would challenge.';return;}
+    db.from('Who_Custom_Challenges').insert({church_id:d.rec.cid,user_id:u.id,note:note}).then(function(r){
+      if(r.error){$('ls-cgerr').textContent='It could not be sent right now: '+r.error.message;return;}
+      acModal('<div class="ls-lab" style="margin-top:0">Sent</div><p class="ls-small" style="font-size:.95em;color:#f5f0e1">Thank you. Ryan will read it and test it against Scripture. Nothing changes until he has.</p><button class="ls-btn" onclick="lsAcClose()">Close</button>');
+    });
+  };
   /* ---- the result: no letter grade, no tier. Distance is rounded to the nearest 5 and always sits over the four area bars. ---- */
   function barColor(p){return p>=75?'#3ddc84':p>=50?'#e6c84a':'#ff9a4a';}
   function renderCustom(d){
-    var rec=d.rec,ans=rec.ans,h='';
+    var rec=d.rec,ans=rec.ans||{},h='',other=!!rec.other,n=(rec.avg&&rec.avg.length)?rec.avg.length:1,u=acUser();
+    var single=(n===1&&!other);
     var unkSet={};d.unk.forEach(function(k){unkSet[k]=1;});
     h+='<h3 style="font-size:1.15em;margin-bottom:2px">'+esc(rec.name)+'</h3>';
     if(rec.city)h+='<div class="ls-small" style="margin-bottom:6px">'+esc(rec.city)+'</div>';
-    h+='<div class="ls-big">'+distText(d)+'<small>from your answers &middot; by Amit\'s reading of Scripture &middot; a pattern, not a verdict</small></div>';
-    if(d.unk.length>=5)h+='<div class="ls-small" style="color:#e9d38a">'+d.unk.length+' answers were "I don\'t know," so treat this as a rough picture.</div>';
+    h+='<div class="ls-big">'+distText(d)+'<small>'+(n>1?'the average of '+n+' people\'s answers':other?'from the answers of 1 person':'from your answers')+' &middot; by Amit\'s reading of Scripture &middot; a pattern, not a verdict</small></div>';
+    var alone=other?rec.myAns:(n>1?ans:null);
+    if(alone&&Object.keys(alone).length){var ar=acScore(alone);h+='<div class="ls-small" style="color:#e9d38a">Your own answers alone: '+distText({miss:1-ar.total/170})+'.</div>';}
+    if(d.unk.length>=5)h+='<div class="ls-small" style="color:#e9d38a">'+d.unk.length+' areas were "I don\'t know," so treat this as a rough picture.</div>';
     h+='<div class="ls-lab">Where it stands, by area</div>';
     AC_GROUPS.forEach(function(g){
       var s=0;g.k.forEach(function(k){s+=d.scores[CAT_KEYS.indexOf(k)];});var p=Math.round(s/(g.k.length*10)*100);
@@ -330,17 +517,29 @@
     if(agree.length)agree.forEach(function(r){var q=acQ(r.k);h+='<div class="ls-dep ok"><b>'+esc(q.cat)+'</b> <span class="v">'+esc(q.refs)+'</span></div>';});
     else h+='<div class="ls-small">No area scored high enough to list.</div>';
     h+='<div class="ls-lab">Where it departs, by Amit\'s reading <sup class="rn-mark" data-rn="R20" title="Research" style="cursor:pointer">&#128065;&#65039;</sup></div>';
-    if(gaps.length)gaps.forEach(function(r){var q=acQ(r.k),a=ans[r.k],t=(a!=null&&a>=0&&q.opts[a])?q.opts[a][0]:'';h+='<div class="ls-dep"><b>'+esc(q.cat)+'</b> <span class="v">'+esc(q.refs)+'</span>'+(t?'<br>You answered: '+esc(t):'')+'</div>';});
+    if(gaps.length)gaps.forEach(function(r){var q=acQ(r.k),a=single?ans[r.k]:null,t=(a!=null&&a>=0&&q.opts[a])?q.opts[a][0]:'';h+='<div class="ls-dep"><b>'+esc(q.cat)+'</b> <span class="v">'+esc(q.refs)+'</span>'+(t?'<br>You answered: '+esc(t):'')+'</div>';});
     else h+='<div class="ls-small">No major departures in these answers.</div>';
     var top=d.ranked[0],L=LET[top.k];
-    h+='<div class="ls-lab">The letter it leans toward</div><div class="ls-row"><span style="color:'+L.color+'">'+L.name+'</span><b>'+top.p+'%</b></div><div class="ls-bar"><b style="width:'+top.p+'%;background:'+L.color+'"></b></div>';
+    h+='<div class="ls-lab">The letter it leans toward</div><div class="ls-row"><span style="color:'+L.color+'">'+L.name+'</span><b>'+Math.round(top.p)+'%</b></div><div class="ls-bar"><b style="width:'+top.p+'%;background:'+L.color+'"></b></div>';
     h+='<div class="ls-small" style="color:#f5f0e1"><b style="color:'+L.color+'">'+L.name+' ('+L.ref+'):</b> '+L.call+'</div>';
     h+='<div style="margin-top:8px"><button class="ls-btn" onclick="lsReadLetter(\''+top.k+'\')">Read the whole letter &rarr;</button></div>';
     var near=DEN.filter(function(x){return !x.custom;}).sort(function(a,b){return Math.abs(a.total-d.total)-Math.abs(b.total-d.total);}).slice(0,3);
     h+='<div class="ls-lab">Churches on the map at a similar distance</div>';
     near.forEach(function(x){h+='<span class="ls-pillchip" onclick="lsSelectDi('+x.di+')">'+esc(x.short)+'</span>';});
-    h+='<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="ls-btn" onclick="lsAcRetake('+rec.id+')">Retake</button><button class="ls-btn" onclick="lsAcRename('+rec.id+')">Edit name</button><button class="ls-btn" onclick="lsAcDelete('+rec.id+')">Remove</button></div>';
-    h+='<div class="ls-small" style="margin-top:8px">Answered '+new Date(rec.date).toLocaleDateString()+'. Saved in this browser only.</div>';
+    var q='\''+rec.id+'\'',b='<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">';
+    b+='<button class="ls-btn" onclick="lsAcWhy('+q+')">Why did we land here?</button>';
+    if(other){
+      if(u&&acCloudOK){b+='<button class="ls-btn" onclick="lsAcRetake('+q+')">'+(rec.myAns?'Change my view':'Add my view')+'</button>';if(rec.myAns)b+='<button class="ls-btn" onclick="lsAcRemoveView('+q+')">Remove my view</button>';}
+      else b+='<button class="ls-btn" onclick="lsAcSignIn()">Sign in to add my view</button>';
+    }else{
+      b+='<button class="ls-btn" onclick="lsAcRetake('+q+')">Retake</button><button class="ls-btn" onclick="lsAcRename('+q+')">Edit name</button>';
+      if(rec.cid&&u&&acCloudOK)b+='<button class="ls-btn" onclick="lsAcShare('+q+')">'+(rec.shared?'Make private':'Share with others')+'</button>';
+      b+='<button class="ls-btn" onclick="lsAcDelete('+q+')">Remove</button>';
+    }
+    b+='<button class="ls-btn" onclick="lsAcChallenge('+q+')">Challenge</button></div>';
+    h+=b;
+    var where=other?'Added by someone else. Nobody can see who answered.':(rec.cid&&u?(rec.shared?'Saved to your account and shared without your name.':'Saved to your account. Private until you share it.'):'Saved in this browser only'+(u?'':'. Sign in to save it to your account and share it')+'.');
+    h+='<div class="ls-small" style="margin-top:8px">'+(other?'':'Answered '+new Date(rec.date).toLocaleDateString()+'. ')+where+'</div>';
     var el=$('ls-info');el.innerHTML=h;el.scrollTop=0;
   }
   function acInit(){
@@ -349,6 +548,7 @@
     document.addEventListener('keydown',function(e){if(e.key==='Escape'){var mm=$('ls-acm');if(mm&&mm.style.display!=='none')acClose();}});
     acLoad().forEach(function(rec){if(rec&&rec.ans&&rec.id)acAdd(rec);});
     acRenderMy();
+    acCloudRefresh();
   }
   function drawRadar(d){
     var c=$('ls-radar');if(!c)return;var x=c.getContext('2d'),w=c.width,h=c.height,cx=w/2,cy=h/2+6,R=76,n=ORDER.length;
