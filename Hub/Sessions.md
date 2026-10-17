@@ -91,3 +91,15 @@ Removed the always-running chat timers. The unread number is now checked only wh
 
 ### 2026-10-15 — Hub v8.16: chat photos and files, Amit icon (hidden until set up)
 amit_chat.js v0.04: paperclip and camera buttons, drag-and-drop and paste; files up to 10 MB in the private amitchat-files bucket, photos shrunk to 1600 px JPEG, linked in cha_attachments, opened through 10-minute signed links; picture shown inline, file as a chip. Amit icon in the composer invites Amit into the chat / adds @Amit to a message; it stays hidden until the Amit database step (migration _004) has been run. 14 of 14 page tests with throwaway accounts.
+
+### 2026-10-15 (evening) — Hub v8.17 (LOCAL ONLY, not pushed): chat v0.05
+Hub now loads amit_chat.js?v=0.05. Engine v0.05 adds: edit and unsend your own messages, clickable links (http/https only), typing indicator (live broadcast, nothing stored), video-call link (Jitsi), voice messages with an automatic transcript, reply to a message with a quote, drafts kept on the device, search in a chat, export a chat as a text file, and per-chat settings (read receipts, typing, rename). 47 page checks with throwaway accounts: 46 pass, 1 waits for migration _005 (deleting an unsent file from storage). Backup of the old engine: AmitChat\amit_chat-pre-v0.05.js. Waiting for Ryan's go to push.
+
+### 2026-10-15 (night) — Hub v8.18 (LOCAL ONLY, not pushed): chat v0.06
+Hub loads amit_chat.js?v=0.06. Engine v0.06: birth-date gate (chat shows "Before you chat" until a birth date is saved; if migration _006 is not installed it carries on as before), guardian link and friends-list visibility on the Friends page, "Their friends" button, For me page (friend requests, invitations, guardian approvals, replies to you), acquaintances in the new-chat list, pin a message, private notes, send silently, mute, hide a chat for me, delete a chat (24 h countdown banner, creator can cancel), the other person's local time in the header. Needs Database migrations _006 and _007 (not yet run). Backup: AmitChat\amit_chat-pre-v0.06.js. Waiting for Ryan's go to push.
+
+### 2026-10-16 — Hub v8.21 (LOCAL, not pushed): chat v0.09
+Loads amit_chat.js?v=0.09. Includes everything since v8.19: birth-date gate that re-checks by itself (fixes Ryan's "still asking" report), guardian-authorized child accounts (About Me > Family invite block), help card + steps, items, Open Loops, and J chat support. Needs Database migrations _010, _011 (run) and _012 (not yet run). Backups: amit-hub-pre-v8.19.html, amit-hub-pre-v8.20.html.
+
+## 2026-10-16 — Amit Games tile (v8.23)
+Added an "Amit Games" tile (🎮, "Roll · Race") to the sidebar between Devotions and Communications; it opens `Games/AmitGames.html` in its own tab. Pushed with the new page.

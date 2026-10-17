@@ -454,10 +454,17 @@ const PAGE_DISPLAY_NAMES = {
   amitWeather: 'AmitWeather',
   amitMobile: 'Amit Mobile',
   amitchat: 'AmitChat',
-  amitroll: 'AmitRoll'
+  amitroll: 'AmitRoll',
+  amitGames: 'Amit Games'
 };
 
 const PAGE_CONTEXTS = {
+  amitGames: `## WHERE THIS CONVERSATION STARTED — Amit Games
+
+The person is on Amit Games, the page in the Hub that holds the games built inside Amit. Today it has two buttons that each open a game in its own tab: AmitRoll (a dice-and-number-card arithmetic game for kids and adults, with addition, subtraction, multiplication and division stages) and Dog Racing (a dog race analyzer). More games will be added here over time. This page is only a doorway, so if they ask about a game, help with that game, and if they ask for a new game on this page, say plainly that it has not been built yet.
+
+`,
+
 
   amitroll: `## WHERE THIS CONVERSATION STARTED — AmitRoll
 
