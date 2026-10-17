@@ -106,6 +106,7 @@
 <script src="../amit_voice_prefs.js?v=1.00"></script>
 <script src="../amit_owner_contact.js?v=1.01"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
+<script src="../amit_chat.js?v=0.12"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -198,6 +199,9 @@ body::before{
   animation:pfade .18s ease;
 }
 .detail.active{display:flex}
+/* Chat page (page 8): the shared AmitChat engine fills the page and scrolls inside itself */
+#detail-body-8{overflow:hidden!important;min-height:0;padding:6px}
+#amChatMount{flex:1;min-width:0;min-height:0;height:100%;display:flex}
 @keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .detail::-webkit-scrollbar{width:5px}
 .detail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.3);border-radius:3px}
@@ -382,7 +386,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.38</div>
+<div class="amversion" id="pageVersion">v1.39</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -629,7 +633,8 @@ const AM_PAGES=[
   {id:4,icon:'🔍',name:'Zoom / Read This',sub:'Coming soon'},
   {id:5,icon:'🔎',name:'Search',sub:'Coming soon'},
   {id:6,icon:'🖥️',name:'My Computer',sub:'Health reports'},
-  {id:7,icon:'📋',name:'Pursuits',sub:'Coming soon'}
+  {id:7,icon:'📋',name:'Pursuits',sub:'Coming soon'},
+  {id:8,icon:'🗨️',name:'Chat',sub:'Friends & studies'}
 ];
 
 function renderAllPages(){
@@ -658,6 +663,7 @@ function detailBodyFor(id){
   if(id===4) return `<div class="detail-empty" style="width:100%">Zoom / Read This — coming soon.</div>`;
   if(id===5) return `<div class="detail-empty" style="width:100%">Search — coming soon.</div>`;
   if(id===6) return amMyComputerHtml();
+  if(id===8) return `<div id="amChatMount"></div>`;
   if(id===7) return `<div class="detail-empty" style="width:100%">Pursuits — coming soon. A shortened version of your Hub to-do list will live here.</div>`;
   return '';
 }
@@ -807,6 +813,11 @@ function amDashboardHtml(){
         <div class="amdash-icon">💬</div>
         <div class="amdash-name">Amit</div>
         <div class="amdash-sub">Talk, ask, show a photo</div>
+      </div>
+      <div class="amdash-tile" onclick="openPage(8)">
+        <div class="amdash-icon">🗨️</div>
+        <div class="amdash-name">Chat</div>
+        <div class="amdash-sub">Friends, studies, live transcript</div>
       </div>
       <div class="amdash-tile" onclick="openPage(4)">
         <div class="amdash-icon">🔍</div>
@@ -1678,6 +1689,15 @@ function openPage(n){
     if(logo)logo.style.display='none';
     if(title)title.textContent=p?p.name:'Amit Mobile';
   }
+  if(n===8)amMountChat();
+}
+
+// CHAT (page 8) — the same shared chat engine the Hub uses (../amit_chat.js), mounted as one column with back arrows.
+// It signs in with this page's own Supabase session (see onAuthStateChange below), so it is the same account and the same chats.
+function amMountChat(){
+  const el=document.getElementById('amChatMount');
+  if(!el||!window.AmitChat)return;
+  if(!el.dataset.mounted){ AmitChat.mountInline(el); el.dataset.mounted='1'; }
 }
 
 // ══════════════════════════════════════════════
@@ -1755,6 +1775,10 @@ async function amToggleReplyMode(){
   btn.disabled=false;
 }
 
+if(window.AmitChat){
+  // the birth date lives in About Me in the Hub: send the person there
+  AmitChat.onNeedBirthDate=function(){ goToHub(); };
+}
 if(db){
   db.auth.onAuthStateChange(async (event,session)=>{
     currentUser=session?session.user:null;
@@ -1763,6 +1787,7 @@ if(db){
     amInitThreadPages(); // reload real thread history now that sign-in state is known
     amLoadVoicePref(); // pick up whatever voice was set in the Hub's Amit Voice panel
     amLoadReplyMode();
+    if(window.AmitChat){ try{ if(currentUser) AmitChat.connect(db,currentUser.id); else AmitChat.disconnect(); }catch(e){ console.error('chat connect failed',e); } }
     if(session&&session.access_token&&session.refresh_token){
       try{
         localStorage.setItem(AM_MANUAL_TOKENS_KEY,JSON.stringify({

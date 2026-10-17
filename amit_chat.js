@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
+   v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
 
    Include with  <script src="../amit_chat.js"></script>  (path per depth).
@@ -22,7 +22,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.11';
+  var VERSION = 'v0.12';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -269,6 +269,11 @@
         return db.from('cha_messages').insert(row).select('id').then(fail);
       },
       summonAmit: function (id) { return db.rpc('cha_summon_amit', { p_conv: id }).then(function (r) { fail(r); return r.data; }); },
+      /* one line of a live transcript: an ordinary text message, silent (no unread badge), marked so it shows as a transcript */
+      sendTranscript: function (id, text, marker) {
+        var t = (text || '').trim(); if (!t) return Promise.resolve();
+        return db.from('cha_messages').insert({ conversation_id: id, sender_id: me, message_type: 'text', body: marker ? '\uD83D\uDDE3 ' + t : t, silent: true, payload: { transcribed: true, marker: marker || null } }).select('id').then(fail);
+      },
       /* private files: signed links last 10 minutes (short on purpose, so a removed member's old links die quickly); cached so a chat redraw does not ask again */
       _urls: {},
       signedUrl: function (path, downloadName) {
@@ -561,6 +566,9 @@
     '.acx-ltog button:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.12)}',
     '.acx-left.collapsed{width:52px}.acx-left.collapsed .acx-lbody{display:none}.acx-left.collapsed .acx-ltog{justify-content:center;padding:10px 0}',
     '.acx-tip{position:fixed;display:none;z-index:9600;max-width:260px;padding:10px 14px;border-radius:9px;background:var(--amit-surface,#0f2338);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.55);color:rgba(var(--amit-text-rgb,240,232,208),.96);font-size:13px;font-weight:400;line-height:1.5;text-align:left;box-shadow:0 6px 20px rgba(0,0,0,.55);pointer-events:none}',
+    '.acx-livebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 10px;background:rgba(229,83,75,.12);border-top:1px solid rgba(229,83,75,.45);font-size:12px;flex-shrink:0}',
+    '.acx-livebar .acx-dot{width:9px;height:9px;border-radius:50%;background:#e5534b;animation:acxpulse 1s infinite;flex-shrink:0}',
+    '.acx-livebar .acx-lt{flex:1;min-width:120px}.acx-livebar .acx-li{flex-basis:100%;color:var(--amit-dim,rgba(240,232,208,.6));font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.acx-max{background:none;border:none;color:var(--amit-muted,rgba(240,232,208,.78));font-size:15px;cursor:pointer;padding:0 6px;line-height:1}',
     '.acx-max:hover{color:var(--amit-accent-bright,#e8c56a)}',
     '.acx-tool{display:flex;gap:6px;padding:8px;flex-wrap:wrap;flex-shrink:0}',
@@ -660,6 +668,82 @@
   }
 
   /* ════════ THE VIEW (one component, used by the popup and the panel) ════════ */
+  /* ════════ LIVE TRANSCRIPT ════════
+     Keeps the browser's own speech feature running and posts what the person says as text lines in the chat.
+     No audio is stored anywhere: the browser hands over words, not sound. A line is posted after a pause (gapMs), or, once a
+     piece has run longer than softCapMs, at the next natural phrase boundary, so a long speaker is never cut mid-sentence and no word is dropped.
+     Only one transcript runs at a time on a computer. It listens to THIS person's microphone only. */
+  var liveTx = null;
+  function stopLiveTx(why, ownerOnly) { if (liveTx && (!ownerOnly || liveTx.owner === ownerOnly)) liveTx.stop(why); }
+  function liveTxSupported() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+  function startLiveTx(o) {
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    if (liveTx) liveTx.stop('replaced');
+    var cfg = AmitChat.liveTxConfig, buf = '', bufStart = 0, lastAct = 0, interim = '', running = true, finished = false, rec = null, timer = null, restartT = null, fails = 0, q = [], sending = false;
+    function notify(extra) { var st = { on: running && !finished, interim: interim }; if (extra) for (var k in extra) st[k] = extra[k]; try { o.onChange(st); } catch (e) {} }
+    function pump() {
+      if (sending || !q.length) return; sending = true;
+      var item = q[0], p;
+      try { p = Promise.resolve(o.post(item.text, item.marker)); } catch (e) { p = Promise.reject(e); }
+      p.then(function () { q.shift(); sending = false; pump(); }, function (e) {
+        sending = false; item.tries = (item.tries || 0) + 1;
+        if (item.tries >= 3) { q.shift(); notify({ lost: item.text, error: (e && e.message) || 'Could not send a line.' }); }
+        setTimeout(pump, 1500);
+      });
+    }
+    function flush() {
+      var t = buf.trim(); buf = ''; bufStart = 0; if (!t) return;
+      while (t.length > 3500) { var cut = t.lastIndexOf(' ', 3500); if (cut < 500) cut = 3500; q.push({ text: t.slice(0, cut) }); t = t.slice(cut).trim(); }
+      q.push({ text: t }); pump();
+    }
+    function finish(why) {
+      if (finished) return; finished = true; running = false;
+      clearTimeout(restartT); clearInterval(timer);
+      flush(); q.push({ text: 'stopped the live transcript', marker: 'stop' }); pump();
+      if (liveTx === api) liveTx = null;
+      try { rec && (rec.onresult = rec.onend = rec.onerror = null); } catch (e) {}
+      notify({ why: why || 'stopped' });
+    }
+    function begin() {
+      if (!running) return;
+      try { rec = new SR(); } catch (e) { finish('unsupported'); return; }
+      rec.continuous = true; rec.interimResults = true; rec.lang = navigator.language || 'en-US';
+      rec.onresult = function (e) {
+        fails = 0; var fin = '', itm = '';
+        for (var i = e.resultIndex; i < e.results.length; i++) { var r = e.results[i]; if (r.isFinal) fin += r[0].transcript + ' '; else itm += r[0].transcript; }
+        lastAct = Date.now(); interim = itm;
+        if (fin.trim()) { if (!buf) bufStart = Date.now(); buf += fin; if (Date.now() - bufStart >= cfg.softCapMs) flush(); }
+        notify();
+      };
+      rec.onerror = function (e) {
+        var c = e && e.error;
+        if (c === 'not-allowed' || c === 'service-not-allowed') finish('denied');
+        else if (c === 'audio-capture') finish('nomic');
+        else if (c === 'network') { fails++; if (fails >= 5) finish('network'); }
+      };
+      rec.onend = function () { if (running && !finished) restartT = setTimeout(begin, 300); };
+      try { rec.start(); } catch (e) { fails++; if (fails >= 5) finish('error'); else restartT = setTimeout(begin, 800); }
+    }
+    var api = {
+      owner: o.owner, convId: o.convId, tid: o.tid,
+      stop: function (why) {
+        if (!running || finished) return; running = false;
+        try { rec.onend = function () { finish(why); }; rec.stop(); } catch (e) { finish(why); }
+        setTimeout(function () { finish(why); }, 1500);
+      }
+    };
+    liveTx = api;
+    q.push({ text: 'started a live transcript', marker: 'start' }); pump();
+    lastAct = Date.now();
+    timer = setInterval(function () {
+      var idle = Date.now() - lastAct;
+      if (buf && ((!interim && idle >= cfg.gapMs) || idle >= cfg.gapMs + 4000)) flush();
+    }, 300);
+    begin(); notify();
+    return api;
+  }
+
   var views = [];
   /* diagnostics, readable in the browser console as AmitChat.debug */
   var DBG = { ticks: 0, visibleTicks: 0, badgeTicks: 0, lastUnread: null, lastError: null, rerenders: 0, connects: 0, disconnects: 0, polls: 0, unreadChecks: 0 };
@@ -973,12 +1057,14 @@
       var rbar = el('div', 'acx-rbar'); rbar.style.display = 'none'; t.appendChild(rbar);
       var replyBar = el('div', 'acx-replybar'); replyBar.style.display = 'none'; t.appendChild(replyBar);
       var comp = el('div', 'acx-comp'); t.appendChild(comp);
+      var tid = uid(), lbar = null;
       var ta = null, sendBtn = null;
-      var fileBtn = null, photoBtn = null, amitBtn = null, fileIn = null, photoIn = null, voiceBtn = null, videoBtn = null, noteBtn = null, silentBtn = null, moreBtn = null, fixBtn = null, itemBtn = null, typing = null;
+      var fileBtn = null, photoBtn = null, amitBtn = null, liveBtn = null, fileIn = null, photoIn = null, voiceBtn = null, videoBtn = null, noteBtn = null, silentBtn = null, moreBtn = null, fixBtn = null, itemBtn = null, typing = null;
       if (live && !ro) {
         fileBtn = el('button', 'acx-ib', '\uD83D\uDCCE'); fileBtn.title = 'Attach a file (up to 10 MB)';
         photoBtn = el('button', 'acx-ib', '\uD83D\uDCF7'); photoBtn.title = 'Send a photo';
         voiceBtn = el('button', 'acx-ib', '\uD83C\uDFA4'); voiceBtn.title = 'Record a voice message (with a transcript)';
+        liveBtn = el('button', 'acx-ib', '\uD83D\uDDE3'); liveBtn.title = 'Live transcript: keeps listening and turns what you say into text lines in this chat (no audio is kept). Press again to stop.';
         videoBtn = el('button', 'acx-ib acx-xtra', '\uD83C\uDFA5'); videoBtn.title = 'Share a video-call link';
         noteBtn = el('button', 'acx-ib acx-xtra', '\uD83D\uDCDD'); noteBtn.title = 'Save what you typed as a private note (only you see it)';
         silentBtn = el('button', 'acx-ib acx-xtra', '\uD83D\uDD15'); silentBtn.title = 'Send silently: does not add to their unread badge';
@@ -991,7 +1077,7 @@
         photoIn = el('input'); photoIn.type = 'file'; photoIn.accept = 'image/*'; photoIn.multiple = true; photoIn.style.display = 'none';
         ta = el('textarea'); ta.rows = 1; ta.placeholder = 'Type a message\u2026';
         sendBtn = el('button', 'acx-btn go', 'Send');
-        comp.appendChild(fileBtn); comp.appendChild(photoBtn); comp.appendChild(voiceBtn); comp.appendChild(amitBtn); comp.appendChild(moreBtn); comp.appendChild(videoBtn); comp.appendChild(fixBtn); comp.appendChild(itemBtn); comp.appendChild(noteBtn); comp.appendChild(silentBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
+        comp.appendChild(fileBtn); comp.appendChild(photoBtn); comp.appendChild(voiceBtn); comp.appendChild(liveBtn); comp.appendChild(amitBtn); comp.appendChild(moreBtn); comp.appendChild(videoBtn); comp.appendChild(fixBtn); comp.appendChild(itemBtn); comp.appendChild(noteBtn); comp.appendChild(silentBtn); comp.appendChild(fileIn); comp.appendChild(photoIn);
         comp.appendChild(ta); comp.appendChild(sendBtn);
       } else if (ro) {
         comp.appendChild(el('div', 'acx-stub', 'Read only \u2014 you are reading this as a guardian'));
@@ -1283,7 +1369,7 @@
             nd.appendChild(ndb); nb2.firstChild.appendChild(nd); msgsDiv.appendChild(nb2); return;
           }
           var bub = el('div', 'acx-b ' + x.from + (x.removed ? ' removed' : '')); bub.setAttribute('data-mid', x.id);
-          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '') + (x.from === 'amit' && x.payload && x.payload.via_name ? ' \u00B7 answering through ' + x.payload.via_name + '\u2019s session' : '')));
+          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '') + (x.payload && x.payload.transcribed ? ' \u00B7 live transcript' : '') + (x.from === 'amit' && x.payload && x.payload.via_name ? ' \u00B7 answering through ' + x.payload.via_name + '\u2019s session' : '')));
           if (x.replyTo && !x.removed) {
             var qm = state.msgs.filter(function (m) { return m.id === x.replyTo; })[0];
             bub.appendChild(el('div', 'acx-quote', qm ? '\u21A9 ' + qm.name + ': ' + (qm.removed ? 'Message removed' : (qm.text || '').slice(0, 70)) : '\u21A9 an earlier message'));
@@ -1418,6 +1504,7 @@
         var rec = null;
         voiceBtn.onclick = function () {
           if (rec) { rec.stop(); return; }
+          if (liveTx) { toast('Turn off the live transcript first. Both use the microphone.'); return; }
           if (!navigator.mediaDevices || !window.MediaRecorder) { toast('Voice recording is not available in this browser.'); return; }
           navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
             var chunks = [], started = Date.now(), transcript = '', sr = null, mr;
@@ -1443,6 +1530,33 @@
             mr.start(); voiceBtn.classList.add('rec'); voiceBtn.textContent = '\u23F9'; voiceBtn.title = 'Stop and send';
           }, function () { toast('The microphone was not allowed.'); });
         };
+        /* live transcript */
+        var LIVE_WHY = { denied: 'The microphone was not allowed, so the live transcript stopped.', nomic: 'No microphone was found, so the live transcript stopped.', network: 'The speech service could not be reached, so the live transcript stopped.', error: 'The live transcript could not keep running and stopped.', unsupported: 'Live transcript is not available in this browser.' };
+        function paintLive(st) {
+          if (st.lost) toast('A line could not be sent: ' + st.error);
+          if (!st.on) {
+            if (lbar) { lbar.remove(); lbar = null; }
+            liveBtn.classList.remove('rec'); liveBtn.title = 'Live transcript: keeps listening and turns what you say into text lines in this chat (no audio is kept). Press again to stop.';
+            if (st.why && LIVE_WHY[st.why]) toast(LIVE_WHY[st.why]);
+            return;
+          }
+          liveBtn.classList.add('rec'); liveBtn.title = 'Live transcript is on. Press to stop.';
+          if (!lbar) {
+            lbar = el('div', 'acx-livebar'); lbar.appendChild(el('span', 'acx-dot'));
+            lbar.appendChild(el('span', 'acx-lt', 'Live transcript is on. What you say becomes text lines in this chat. No audio is kept.'));
+            var sb = el('button', 'acx-btn', 'Stop'); sb.onclick = function () { stopLiveTx('button'); }; lbar.appendChild(sb);
+            lbar.appendChild(el('div', 'acx-li', ''));
+            t.insertBefore(lbar, comp);
+          }
+          var li = lbar.querySelector('.acx-li'); if (li) li.textContent = st.interim ? '\u2026' + st.interim.slice(-90) : '';
+          bump();
+        }
+        liveBtn.onclick = function () {
+          if (liveTx && liveTx.tid === tid) { stopLiveTx('button'); return; }
+          if (rec) { toast('Stop the voice recording first. Both use the microphone.'); return; }
+          if (!liveTxSupported()) { toast('Live transcript is not available in this browser. It works in Chrome and Edge on a computer and in Chrome on Android. iPhone browsers do not support it.'); return; }
+          startLiveTx({ owner: wide ? 'panel' : 'popup', convId: convId, tid: tid, onChange: paintLive, post: function (text, marker) { return src.sendTranscript(convId, text, marker).then(function () { bump(); return load(false); }); } });
+        };
         typing = src.typingJoin ? src.typingJoin(convId, function (txt, keep) {
           if (!keep) state.typing = txt || '';
           var tl = msgsDiv.querySelector('.acx-typing');
@@ -1461,7 +1575,7 @@
       load(true);
       if (live && !ro && src.touchChat) src.touchChat(convId);
       if (live && !ro) src.getSettings(convId).then(function (st) { state.myTyping = st.typing; }, function () {});
-      return { refresh: function () { return load(false); }, leave: function () { stopReading(); if (typing) { typing.leave(); typing = null; } } };
+      return { refresh: function () { return load(false); }, leave: function () { stopReading(); if (liveTx && liveTx.tid === tid) liveTx.stop('left'); if (typing) { typing.leave(); typing = null; } } };
     }
 
     /* ---- friends ---- */
@@ -1729,7 +1843,7 @@
     pop.classList.add('anchored');
   }
   function markAnchor(on) { var a = anchorEl(); if (a) a.classList.toggle('acx-anchor-on', !!on); }
-  function closePopup() { if (pop) pop.classList.remove('open'); markAnchor(false); if (AmitChat.stopReading) AmitChat.stopReading(); }
+  function closePopup() { stopLiveTx('closed', 'popup'); if (pop) pop.classList.remove('open'); markAnchor(false); if (AmitChat.stopReading) AmitChat.stopReading(); }
   window.addEventListener('resize', function () { if (pop && pop.classList.contains('open')) placePopup(); });
   /* hover labels for everything in the chat: above the button, roomier than the browser's own (which sits under the pointer and hides the words) */
   var tipEl = null, tipT = null, tipFor = null;
@@ -1788,17 +1902,17 @@
     fillPopup();
     return pop;
   }
-  function renderPanel(target) {
+  function renderPanel(target, narrow) {
     var wrap = el('div', 'acx-panel');
     if (!AmitChat.source.live) wrap.appendChild(el('div', 'acx-sample', 'SAMPLE — made-up chats, nothing is saved. This is how your conversations will look.'));
     var holder = el('div'); holder.style.cssText = 'flex:1;min-height:0;display:flex';
     wrap.appendChild(holder); target.innerHTML = ''; target.appendChild(wrap);
-    return createView(holder, true);
+    return createView(holder, !narrow);
   }
   function rerenderAll() {
     DBG.rerenders++;
     if (pop) fillPopup();
-    panelTargets.forEach(function (p) { if (p.view) p.view.destroy(); p.view = renderPanel(p.el); });
+    panelTargets.forEach(function (p) { if (p.view) p.view.destroy(); p.view = renderPanel(p.el, p.narrow); });
   }
 
   /* ════════ BADGE POLLER + PUBLIC API ════════ */
@@ -1827,6 +1941,18 @@
       if (p.classList.contains('open')) closePopup();
       else { placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true); if (popView && AmitChat.live) { popView.resume(); AmitChat.refreshUnread(); } }
     },
+    /* a single-column chat for a phone page (AmitMobile): the list, then a chat with a back arrow */
+    mountInline: function (target) {
+      if (!target) return;
+      injectCss();
+      var rec = panelTargets.filter(function (p) { return p.el === target; })[0];
+      if (!rec) { rec = { el: target, view: null, narrow: true }; panelTargets.push(rec); }
+      rec.narrow = true;
+      if (rec.view) rec.view.destroy();
+      rec.view = renderPanel(target, true);
+    },
+    liveTxConfig: { gapMs: 2000, softCapMs: 30000 },
+    stopLiveTranscript: function () { stopLiveTx('stopped'); },
     mountPanel: function (target) {
       if (!target) return;
       injectCss();
