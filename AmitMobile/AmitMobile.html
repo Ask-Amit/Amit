@@ -106,7 +106,7 @@
 <script src="../amit_voice_prefs.js?v=1.00"></script>
 <script src="../amit_owner_contact.js?v=1.01"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
-<script src="../amit_chat.js?v=0.14"></script>
+<script src="../amit_chat.js?v=0.15"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -386,7 +386,7 @@ body::before{
 
 </div>
 
-<div class="amversion" id="pageVersion">v1.41</div>
+<div class="amversion" id="pageVersion">v1.42</div>
 
 <!-- Generic Popup destination — content filled in by whichever layout uses it -->
 <div id="canonicalPopup" class="popup-overlay"></div>
@@ -1778,6 +1778,18 @@ async function amToggleReplyMode(){
 if(window.AmitChat){
   // the birth date lives in About Me in the Hub: send the person there
   AmitChat.onNeedBirthDate=function(){ goToHub(); };
+  // the voice used to read chat messages aloud: the same saved voice as everywhere else (About Me in the Hub), else the global default
+  AmitChat.voiceProvider=async function(){
+    if(!_amOwnerContact&&db&&currentUser) await amLoadVoicePref();
+    const c=_amOwnerContact;
+    let voices=window.speechSynthesis?window.speechSynthesis.getVoices():[];
+    if(window.speechSynthesis&&!voices.length){ await new Promise(r=>{ const t=setTimeout(r,1500); window.speechSynthesis.onvoiceschanged=()=>{ clearTimeout(t); r(); }; }); voices=window.speechSynthesis.getVoices(); }
+    const voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,c,amPickDefaultVoice):null;
+    const D=(typeof AMIT_DEFAULT_VOICE!=='undefined')?AMIT_DEFAULT_VOICE:{voice_rate:1.1,voice_pitch:1,voice_volume:1,voice_pause_scale:1.2};
+    return { voice, rate:c&&c.voice_rate?Number(c.voice_rate):D.voice_rate, pitch:c&&c.voice_pitch?Number(c.voice_pitch):D.voice_pitch, volume:c&&c.voice_volume!=null?Number(c.voice_volume):D.voice_volume, pauseScale:c&&c.voice_pause_scale?Number(c.voice_pause_scale):D.voice_pause_scale };
+  };
+  AmitChat.voiceSaver=async function(f){ if(!_amOwnerContact&&db&&currentUser) await amLoadVoicePref(); const c=_amOwnerContact; if(!c||typeof saveOwnerContactFields!=='function') return false; const ok=await saveOwnerContactFields(db,c.id,f); if(ok) Object.assign(c,f); return ok; };
+  AmitChat.onSpeak=function(on){ try{ if(on){ if(typeof startSpeakingPulse==='function') startSpeakingPulse(); } else if(typeof stopSpeakingPulse==='function') stopSpeakingPulse(); }catch(e){} };
 }
 if(db){
   db.auth.onAuthStateChange(async (event,session)=>{
