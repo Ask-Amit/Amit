@@ -12,7 +12,9 @@
      - blk3: the map checks root.offsetParent instead of an "active" class (Devotions shows tabs differently), and re-initialises if its element was replaced.
    Research eyes keep reading their notes from who_is_god.html through Devotions' own openResearch(). */
 var WIG_SRC='../who_is_god/who_is_god.html';
-var WIG_VER='1.43';
+var WIG_VER='1.44';
+// A link like #page=4&tab=11&fellowship=SLUG opens a researched fellowship: remembered here because opening the tab rewrites the address.
+(function(){var m=location.hash.match(/[#&]fellowship=([a-z0-9-]+)/);window.WIG_WANT_FELLOWSHIP=m?m[1]:null;})();
 var WIG_GROUPS=[
   // ONE sidebar page. The tabs sit on the Multi-Row Tab View (stacked rows like Word's Options dialog); the row you click comes to the front.
   {n:4,icon:'📖',name:'Who Is God',tabs:[

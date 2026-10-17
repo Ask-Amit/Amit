@@ -196,11 +196,11 @@
   var AC_GROUPS=[{n:'Who God and Messiah are',k:['mono','messiah','canon']},{n:'How He told us to live',k:['sabbath','feasts','torah','diet','purity','moral']},{n:'The heart',k:['grace','justice','love','spirit','humility']},{n:'Faithfulness',k:['doctrine','endure','prophrev']}];
   var AC_ALL=AC_Q.concat(AC_L.map(function(l){return {k:'L_'+l[0],letter:l[0],cat:l[1],q:'How much does your congregation look like this? '+l[2],refs:l[3],rn:'R19',opts:AC_LOPT};}));
   var AC_EMPTY='Click a dot, or choose a church or fellowship from the list, to see how close it is to the mark, which letters it leans toward, and where it is weakest. Click one of the seven candles to read that church\'s letter and how it lines up with Scripture.';
-  var acState=null,customList=[],sharedList=[],acCloudOK=false;
+  var acState=null,customList=[],sharedList=[],researchedList=[],acCloudOK=false;
   function acLoad(){try{return JSON.parse(localStorage.getItem(AC_KEY)||'[]')||[];}catch(e){return [];}}
   function acSave(){try{localStorage.setItem(AC_KEY,JSON.stringify(customList.filter(function(d){return !d.rec.cid;}).map(function(d){return d.rec;})));}catch(e){}}
   function acDraftGet(){try{return JSON.parse(localStorage.getItem(AC_DRAFT)||'null');}catch(e){return null;}}
-  function acDraftPut(){if(acState&&(acState.editId||acState.forChurch))return;try{localStorage.setItem(AC_DRAFT,JSON.stringify(acState));}catch(e){}}
+  function acDraftPut(){if(acState&&(acState.editId||acState.forChurch||acState.compare))return;try{localStorage.setItem(AC_DRAFT,JSON.stringify(acState));}catch(e){}}
   function acDraftClear(){try{localStorage.removeItem(AC_DRAFT);}catch(e){}}
   function round5(x){return Math.round(x/5)*5;}
   function distText(d){var p=round5(d.miss*100);return p<5?'less than 5% from the mark':'about '+p+'% from the mark';}
@@ -223,7 +223,7 @@
   /* places a custom church on the sphere by the same rule as the 48: distance from total, direction from letter leanings.
      A fellowship that several people answered (rec.avg) is placed by the AVERAGE of their answers. */
   function makeCustom(rec){
-    var r=(rec.avg&&rec.avg.length)?acScoreMany(rec.avg):acScore(rec.ans||{}),keys=Object.keys(LET);
+    var r=rec.res?acScoreRes(rec.res):((rec.avg&&rec.avg.length)?acScoreMany(rec.avg):acScore(rec.ans||{})),keys=Object.keys(LET);
     var d={di:rec.id,custom:true,rec:rec,name:rec.name,short:rec.name,scores:r.scores,total:r.total,tier:'',about:'',tend:r.tend,unk:r.unk};
     var sx=0,sy=0,sz=0,best=null,bv=-1;
     keys.forEach(function(k){var p=r.tend[k],w=Math.pow(p/100,1.4);sx+=w*LET[k].v[0];sy+=w*LET[k].v[1];sz+=w*LET[k].v[2];if(p>bv){bv=p;best=k;}});
@@ -238,15 +238,17 @@
     DEN=DEN.filter(function(x){return !(x.custom&&sameId(x.rec.id,rec.id));});
     customList=customList.filter(function(x){return !sameId(x.rec.id,rec.id);});
     sharedList=sharedList.filter(function(x){return !sameId(x.rec.id,rec.id);});
-    var d=makeCustom(rec);DEN.push(d);(rec.other?sharedList:customList).push(d);return d;
+    researchedList=researchedList.filter(function(x){return !sameId(x.rec.id,rec.id);});
+    var d=makeCustom(rec);DEN.push(d);(rec.researched?researchedList:(rec.other?sharedList:customList)).push(d);return d;
   }
-  function findCustom(id){var a=customList.concat(sharedList);for(var i=0;i<a.length;i++)if(sameId(a[i].rec.id,id))return a[i];return null;}
+  function findCustom(id){var a=customList.concat(sharedList,researchedList);for(var i=0;i<a.length;i++)if(sameId(a[i].rec.id,id))return a[i];return null;}
   function acRenderMy(){
     function fill(boxId,listId,arr){
       var box=$(boxId),list=$(listId);if(!box)return;
       box.style.display=arr.length?'block':'none';list.innerHTML='';
       arr.forEach(function(d){var el=document.createElement('div');el.className='ls-item';el.setAttribute('data-di',d.di);el.innerHTML='<i style="background:'+d.color+'"></i>'+esc(d.short)+'<span class="t">'+esc(distText(d).replace(' from the mark',''))+'</span>';el.onclick=function(){select(d);};list.appendChild(el);});
     }
+    fill('ls-researched','ls-researchedlist',researchedList.slice().sort(function(a,b){return a.miss-b.miss;}));
     fill('ls-my','ls-mylist',customList);
     fill('ls-shared','ls-sharedlist',sharedList.slice().sort(function(a,b){return a.miss-b.miss;}));
   }
@@ -274,11 +276,12 @@
     return '<p class="ls-small">You are not signed in, so this is saved in this browser only. <a href="#" onclick="lsAcSignIn();return false" style="color:#e9d38a">Sign in</a> to save it to your account and share it.</p>';
   }
   function acIntro(){
-    var n=acCount(),v=!!acState.forChurch,u=acUser(),h='<div class="ls-lab" style="margin-top:0">'+(v?'Add my view':'Add my fellowship')+'</div><h3 style="font-size:1.2em">'+(v?'How do you see '+esc(acState.name)+'?':'Where does your fellowship stand with Scripture?')+'</h3>';
+    var n=acCount(),v=!!(acState.forChurch||acState.compare),u=acUser(),h='<div class="ls-lab" style="margin-top:0">'+(v?'Add my view':'Add my fellowship')+'</div><h3 style="font-size:1.2em">'+(v?'How do you see '+esc(acState.name)+'?':'Where does your fellowship stand with Scripture?')+'</h3>';
     h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">There are '+AC_ALL.length+' questions, about 5 minutes. Answer for '+(v?'this fellowship':'your fellowship')+' as it actually is, not as it says it is. If you can\'t tell, choose "I don\'t know."</p>';
     h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Nothing is scored on screen until you answer the last question. Then you will see where '+(v?'it':'your fellowship')+' stands, by Amit\'s reading of Scripture, with the verses. It is a pattern, not a verdict, and a reason to look at the Word again.</p>';
-    if(v)h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Your answers are added to everyone else\'s and the result is the average. Nobody can see who answered what.</p>';
-    h+=acSaveNote();
+    if(acState.compare)h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Your answers are set beside what Amit found in its published teaching. They are not saved and not shared.</p>';
+    else if(v)h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Your answers are added to everyone else\'s and the result is the average. Nobody can see who answered what.</p>';
+    h+=acState.compare?'':acSaveNote();
     h+='<label class="ls-fl">Name of the fellowship<input id="ls-acname" type="text" maxlength="60" value="'+esc(acState.name)+'"'+(v?' disabled':'')+'></label>';
     h+='<label class="ls-fl">City and state (so fellowships with the same name are not mixed up)<input id="ls-accity" type="text" maxlength="60" value="'+esc(acState.city||'')+'"'+(v?' disabled':'')+'></label>';
     if(!v&&u)h+='<label class="ls-small" style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;color:#f5f0e1"><input id="ls-acshare" type="checkbox" style="margin-top:3px"'+(acState.share!==false?' checked':'')+'><span>Share this fellowship so others can look it up and add their own view. Only the name, city and the averaged answers are shown. Your name is never shown.</span></label>';
@@ -318,6 +321,7 @@
     for(var i=0;i<AC_ALL.length;i++){if(acState.ans[AC_ALL[i].k]==null){acState.i=i;acQuestion();return;}}
     var st=acState,u=acUser();
     acState=null;
+    if(st.compare){acClose();acShowCompare(st.compare,st.ans);return;}
     if(st.forChurch){
       acClose();
       if(!u||!acCloudOK){alert('Please sign in to add your view.');return;}
@@ -367,6 +371,149 @@
     db.from('Who_Custom_Answers').delete().eq('church_id',d.rec.cid).eq('respondent_id',acUser().id).then(function(r){if(r.error)acCloudFail(r.error);else acCloudRefresh(d.rec.cid);});
   };
   window.lsAcSignIn=function(){acClose();if(typeof openSyncModal==='function')openSyncModal();};
+  /* ---- RESEARCHED FELLOWSHIPS (migration 014) -----------------------------------------------------------------------------------------------
+     A person cannot place a fellowship on the map by answering questions about it (a sincere member describes what they were taught). Instead they REQUEST it:
+     the form sends their request to Amit's inbox (amit_inbox, the same one the Colossians reply form uses). Amit researches the fellowship's published teaching
+     and practice, scores the same 17 areas as the 48 churches on the map, records a source for every area, publishes it to Who_Researched_Churches, and sends the
+     person the link (#page=4&tab=11&fellowship=SLUG). The questions remain as a private "compare my view" next to a researched fellowship. */
+  function acScoreRes(x){
+    var scores=[],unk=[],tend={};
+    CAT_KEYS.forEach(function(k){var v=x.scores&&x.scores[k];if(v==null){scores.push(5);unk.push(k);}else scores.push(+v);});
+    AC_L.forEach(function(l){var v=x.tend&&x.tend[l[0]];tend[l[0]]=(v==null)?30:+v;});
+    return {scores:scores,unk:unk,tend:tend,total:scores.reduce(function(s,v){return s+v;},0)};
+  }
+  function acRequestOpen(){
+    var u=acUser(),em=(u&&u.email)||'';
+    var h='<div class="ls-lab" style="margin-top:0">Request a fellowship</div><h3 style="font-size:1.2em">Ask Amit to research a fellowship</h3>';
+    h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Questions can only tell us what a fellowship says about itself, and a sincere member describes what they were taught. So Amit does the research instead: what the fellowship publishes about what it teaches and does, scored on the same 17 areas as every church on the map, with a source for each one.</p>';
+    h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">Tell me which fellowship and where it is. Your request goes to Amit\'s inbox, and when the research is done you are sent a link to it.</p>';
+    h+='<label class="ls-fl">Name of the fellowship *<input id="ls-rqname" type="text" maxlength="80"></label>';
+    h+='<label class="ls-fl">City and state *<input id="ls-rqcity" type="text" maxlength="80"></label>';
+    h+='<label class="ls-fl">Its website, if it has one<input id="ls-rqweb" type="text" maxlength="200" placeholder="https://"></label>';
+    h+='<label class="ls-fl">A link to its statement of faith or beliefs, if you know one<input id="ls-rqfaith" type="text" maxlength="200" placeholder="https://"></label>';
+    h+='<label class="ls-fl">Anything else that helps (denomination, what it is known by)<textarea id="ls-rqnote" maxlength="600" rows="3" style="width:100%;box-sizing:border-box;background:#0b1730;color:#f5f0e1;border:1px solid #3a4e7a;border-radius:6px;padding:8px;font-family:inherit"></textarea></label>';
+    h+='<label class="ls-fl">Your email, so the link can be sent to you *<input id="ls-rqmail" type="text" maxlength="120" value="'+esc(em)+'"></label>';
+    h+='<div id="ls-rqerr" class="ls-small" style="color:#ffb3a8;min-height:1.3em"></div>';
+    h+='<button class="ls-btn" onclick="lsRqSend()">Send request to Amit</button> <button class="ls-btn" onclick="lsRqCopy()">Copy it instead</button>';
+    h+='<p class="ls-small" style="margin-top:12px">Or <a href="#" onclick="lsAcOwn();return false" style="color:#e9d38a">answer the questions yourself</a>, a rougher picture of how you see your own fellowship. It does not go on the map as researched.</p>';
+    acModal(h);
+  }
+  function acRqRead(){
+    var g=function(i){var e=$(i);return e?(e.value||'').trim():'';};
+    return {name:g('ls-rqname'),city:g('ls-rqcity'),web:g('ls-rqweb'),faith:g('ls-rqfaith'),note:g('ls-rqnote'),mail:g('ls-rqmail')};
+  }
+  function acRqText(r){
+    return 'Name: '+r.name+'\nCity and state: '+r.city+'\nWebsite: '+(r.web||'none given')+'\nStatement of faith: '+(r.faith||'none given')+'\nNotes: '+(r.note||'none')+'\nSend the link to: '+r.mail;
+  }
+  function acRqCheck(r){
+    if(!r.name||!r.city)return 'Please give the name of the fellowship and the city and state.';
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.mail))return 'Please give an email address so the link can be sent to you.';
+    return '';
+  }
+  window.lsRqSend=function(){
+    var r=acRqRead(),err=acRqCheck(r),el=$('ls-rqerr');
+    if(err){el.textContent=err;return;}
+    if(typeof _loadSupabaseJsThen!=='function'||typeof _getAmitInboxDb!=='function'||typeof _getVisitorCode!=='function'){el.textContent='Sending is not available here. Use "Copy it instead" and send it to Ryan.';return;}
+    el.style.color='#e9d38a';el.textContent='Sending...';
+    _loadSupabaseJsThen(async function(){
+      var client=_getAmitInboxDb();
+      if(!client){el.style.color='#ffb3a8';el.textContent='Could not connect. Use "Copy it instead" and send it to Ryan.';return;}
+      var res=await client.from('amit_inbox').insert({visitor_code:_getVisitorCode(),sender_name:r.name,sender_contact:r.mail,message:'[Fellowship research request]\n'+acRqText(r),source:'devotions-fellowship-request',status:'new'});
+      if(res.error){el.style.color='#ffb3a8';el.textContent='That did not go through. Use "Copy it instead" and send it to Ryan.';return;}
+      acModal('<div class="ls-lab" style="margin-top:0">Sent</div><h3 style="font-size:1.15em">Your request is with Amit</h3><p class="ls-small" style="font-size:.95em;color:#f5f0e1">Amit will research '+esc(r.name)+' from what it publishes, and the link to the result will be sent to '+esc(r.mail)+'. Every score comes with its source, and you can challenge anything you think was read wrongly.</p><button class="ls-btn" onclick="lsAcClose()">Close</button>');
+    });
+  };
+  window.lsRqCopy=function(){
+    var r=acRqRead(),err=acRqCheck(r),el=$('ls-rqerr');
+    if(err){el.textContent=err;return;}
+    var t='Fellowship research request\n\n'+acRqText(r);
+    var done=function(){el.style.color='#9fe3b0';el.textContent='Copied. Paste it into a message to Ryan.';};
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,function(){el.textContent='Copy did not work. Select the text in the form and send it to Ryan.';});
+    else el.textContent='Copy is not available here. Send the details to Ryan.';
+  };
+  window.lsAcOwn=function(){acState=null;acOpen(null);};
+
+  async function acLoadResearched(){
+    if(typeof db==='undefined'||!db)return;
+    var r;try{r=await db.from('Who_Researched_Churches').select('*');}catch(e){return;}
+    if(!r||r.error)return;
+    DEN=DEN.filter(function(x){return !(x.custom&&x.rec.researched);});researchedList=[];
+    (r.data||[]).forEach(function(row){
+      acAdd({id:'r_'+row.id,rid:row.id,slug:row.slug,researched:true,name:row.name,city:row.city||'',website:row.website||'',summary:row.summary||'',res:{scores:row.scores||{},tend:row.tend||{}},sources:row.sources||{},date:row.researched_at,rubric:row.rubric});
+    });
+    acRenderMy();
+    var w=window.WIG_WANT_FELLOWSHIP;
+    if(w){var d=researchedList.filter(function(x){return x.rec.slug===w;})[0];if(d){window.WIG_WANT_FELLOWSHIP=null;select(d);var p=$('ls-info');if(p&&p.scrollIntoView)p.scrollIntoView({block:'start'});}}
+    else if(sel&&sel.custom&&sel.rec.researched){var nd=findCustom(sel.rec.id);if(nd)select(nd);}
+  }
+  function acResLink(rec){return location.origin+location.pathname+'#page=4&tab='+((typeof WIG_INDEX!=='undefined'&&WIG_INDEX.lampstands)?WIG_INDEX.lampstands.tab:11)+'&fellowship='+rec.slug;}
+  function safeUrl(u){return (u&&/^https?:\/\//i.test(u))?u:'';}
+  function renderResearched(d){
+    var rec=d.rec,src=rec.sources||{},h='';
+    try{history.replaceState(null,'',acResLink(rec).replace(location.origin+location.pathname,''));}catch(e){}
+    h+='<h3 style="font-size:1.15em;margin-bottom:2px">'+esc(rec.name)+'</h3>';
+    var meta=[];if(rec.city)meta.push(esc(rec.city));
+    if(safeUrl(rec.website))meta.push('<a href="'+esc(rec.website)+'" target="_blank" rel="noopener" style="color:#e9d38a">its website</a>');
+    if(meta.length)h+='<div class="ls-small" style="margin-bottom:6px">'+meta.join(' &middot; ')+'</div>';
+    h+='<div class="ls-big">'+distText(d)+'<small>researched by Amit from what it publishes &middot; a pattern, not a verdict</small></div>';
+    if(rec.summary)h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">'+esc(rec.summary)+'</p>';
+    h+='<div class="ls-lab">Where it stands, by area</div>';
+    AC_GROUPS.forEach(function(g){
+      var s=0;g.k.forEach(function(k){s+=d.scores[CAT_KEYS.indexOf(k)];});var p=Math.round(s/(g.k.length*10)*100);
+      h+='<div class="ls-row"><span>'+g.n+'</span><b>'+p+'%</b></div><div class="ls-bar"><b style="width:'+p+'%;background:'+barColor(p)+'"></b></div>';
+    });
+    h+='<div class="ls-lab">What the sources show <sup class="rn-mark" data-rn="R20" title="Research" style="cursor:pointer">&#128065;&#65039;</sup></div>';
+    h+='<div class="ls-small">Open an area to read what was found and where.</div>';
+    CAT_KEYS.forEach(function(k,i){
+      var q=acQ(k),s=d.scores[i],e=src[k]||{};
+      h+='<details class="ls-dep'+(s>=8?' ok':'')+'" style="margin-bottom:4px"><summary><b>'+esc(q.cat)+'</b> <span class="v">'+(Math.round(s*10)/10)+' of 10 &middot; '+esc(q.refs)+'</span></summary>';
+      h+=e.note?'<div style="margin-top:4px;color:#f5f0e1">'+esc(e.note)+'</div>':'<div class="ls-small">No note was recorded for this area.</div>';
+      if(safeUrl(e.url))h+='<div style="margin-top:3px"><a href="'+esc(e.url)+'" target="_blank" rel="noopener" style="color:#e9d38a">Read the source &rarr;</a></div>';
+      h+='</details>';
+    });
+    var top=d.ranked[0],L=LET[top.k];
+    h+='<div class="ls-lab">The letter it leans toward</div><div class="ls-row"><span style="color:'+L.color+'">'+L.name+'</span><b>'+Math.round(top.p)+'%</b></div><div class="ls-bar"><b style="width:'+top.p+'%;background:'+L.color+'"></b></div>';
+    h+='<div class="ls-small" style="color:#f5f0e1"><b style="color:'+L.color+'">'+L.name+' ('+L.ref+'):</b> '+L.call+'</div>';
+    h+='<div style="margin-top:8px"><button class="ls-btn" onclick="lsReadLetter(\''+top.k+'\')">Read the whole letter &rarr;</button></div>';
+    var near=DEN.filter(function(x){return !x.custom;}).sort(function(a,b){return Math.abs(a.total-d.total)-Math.abs(b.total-d.total);}).slice(0,3);
+    h+='<div class="ls-lab">Churches on the map at a similar distance</div>';
+    near.forEach(function(x){h+='<span class="ls-pillchip" onclick="lsSelectDi('+x.di+')">'+esc(x.short)+'</span>';});
+    var q='\''+rec.id+'\'';
+    h+='<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="ls-btn" onclick="lsAcWhy('+q+')">Why did we land here?</button><button class="ls-btn" onclick="lsAcCompare('+q+')">Compare with how I see it</button><button class="ls-btn" onclick="lsAcCopyLink('+q+')">Copy link</button><button class="ls-btn" onclick="lsAcChallenge('+q+')">Challenge</button></div>';
+    h+='<div id="ls-linkmsg" class="ls-small" style="margin-top:6px;min-height:1.2em"></div>';
+    h+='<div class="ls-small" style="margin-top:4px">Researched '+new Date(rec.date).toLocaleDateString()+' from published sources. It shows what the fellowship publicly teaches and does, which can differ from one congregation to the next.</div>';
+    var el=$('ls-info');el.innerHTML=h;el.scrollTop=0;
+  }
+  window.lsAcCopyLink=function(id){
+    var d=findCustom(id);if(!d)return;var t=acResLink(d.rec),m=$('ls-linkmsg');
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(function(){if(m)m.textContent='Link copied.';},function(){if(m)m.textContent=t;});
+    else if(m)m.textContent=t;
+  };
+  /* "Compare with how I see it": the questions, answered privately (not saved, not shared), set beside what the research found. */
+  window.lsAcCompare=function(id){
+    var d=findCustom(id);if(!d||!d.rec.researched)return;
+    acState={name:d.rec.name,city:d.rec.city||'',ans:{},i:0,editId:null,share:false,forChurch:null,compare:d.rec.id};
+    acIntro();
+  };
+  function acShowCompare(id,ans){
+    var d=findCustom(id);if(!d)return;
+    var my=acScore(ans),rows=[];
+    CAT_KEYS.forEach(function(k,i){if(my.unk.indexOf(k)>=0||d.unk.indexOf(k)>=0)return;var gap=my.scores[i]-d.scores[i];if(Math.abs(gap)>=2)rows.push({k:k,my:my.scores[i],res:d.scores[i],gap:gap});});
+    rows.sort(function(a,b){return Math.abs(b.gap)-Math.abs(a.gap);});rows=rows.slice(0,6);
+    var h='<div class="ls-lab" style="margin-top:0">Your view and its published teaching</div><h3 style="font-size:1.15em">'+esc(d.rec.name)+'</h3>';
+    h+='<p class="ls-small" style="font-size:.95em;color:#f5f0e1">As you see it: '+distText({miss:1-my.total/170})+'. By what it publishes: '+distText(d)+'.</p>';
+    if(!rows.length)h+='<p class="ls-small" style="color:#9fe3b0">Your view and its published teaching line up closely.</p>';
+    else{
+      h+='<div class="ls-lab">Where they differ most</div>';
+      rows.forEach(function(r){
+        var q=acQ(r.k),e=(d.rec.sources||{})[r.k]||{},a=ans[r.k],t=(a!=null&&a>=0&&q.opts[a])?q.opts[a][0]:'';
+        h+='<div class="ls-dep"><b>'+esc(q.cat)+'</b> <span class="v">'+esc(q.refs)+'</span><br>You answered: '+esc(t)+' ('+(Math.round(r.my*10)/10)+' of 10)<br>Published teaching: '+(Math.round(r.res*10)/10)+' of 10'+(e.note?' &mdash; '+esc(e.note):'')+(safeUrl(e.url)?' <a href="'+esc(e.url)+'" target="_blank" rel="noopener" style="color:#e9d38a">source</a>':'')+'</div>';
+      });
+    }
+    h+='<p class="ls-small">A difference is not an accusation. The fellowship may live better than it publishes, or what is written may say more than is taught on a Sunday. Amit can only read what is written, and you are the one who knows the room. This view is not saved or shared.</p>';
+    h+='<button class="ls-btn" onclick="lsAcClose()">Close</button>';
+    acModal(h);
+  }
   window.lsReadLetter=function(k){selectLetter(k);};
 
   /* ---- the shared tables (Who_Custom_Churches / Who_Custom_Answers, migration 013). If they are not reachable the page keeps working from this browser. ---- */
@@ -463,6 +610,7 @@
       var q=acQ(r.k),w=AC_WHY[r.k],a=ans?ans[r.k]:null,t=(a!=null&&a>=0&&q.opts[a])?q.opts[a][0]:'';
       h+='<div class="ls-dep"><b>'+esc(q.cat)+'</b> <span class="v">'+esc(q.refs)+'</span> <sup class="rn-mark" data-rn="'+q.rn+'" title="Research" style="cursor:pointer">&#128065;&#65039;</sup>';
       if(t)h+='<br>The answer given: '+esc(t);else if(!single)h+='<br>The averaged answers here scored '+(Math.round(r.s*10)/10)+' of 10.';
+      var ev=(rec.sources||{})[r.k];if(ev&&ev.note)h+='<br>What the research found: '+esc(ev.note);
       if(w)h+='<br><span style="color:#f5f0e1">'+esc(w[0])+'</span><br><span style="color:#9fe3b0">'+esc(w[1])+'</span>';
       h+='</div>';
     });
@@ -473,7 +621,7 @@
   window.lsAcChallenge=function(id){
     var d=findCustom(id);if(!d)return;
     var u=acUser(),h='<div class="ls-lab" style="margin-top:0">Challenge this result</div><h3 style="font-size:1.15em">'+esc(d.rec.name)+'</h3>';
-    if(!u||!acCloudOK||!d.rec.cid){
+    if(!u||(!d.rec.researched&&(!acCloudOK||!d.rec.cid))){
       h+='<p class="ls-small" style="color:#f5f0e1">'+(!u?'To challenge a result, please sign in first.':'This fellowship needs to be saved to your account before it can be challenged. Try again in a moment.')+'</p>';
       if(!u)h+='<button class="ls-btn" onclick="lsAcSignIn()">Sign in</button> ';
       h+='<button class="ls-btn" onclick="lsAcClose()">Close</button>';acModal(h);return;
@@ -487,7 +635,7 @@
   window.lsAcChallengeSend=function(id){
     var d=findCustom(id),u=acUser(),box=$('ls-cgnote');if(!d||!u||!box)return;
     var note=(box.value||'').trim();if(!note){$('ls-cgerr').textContent='Please write what you would challenge.';return;}
-    db.from('Who_Custom_Challenges').insert({church_id:d.rec.cid,user_id:u.id,note:note}).then(function(r){
+    db.from('Who_Custom_Challenges').insert(Object.assign({user_id:u.id,note:note},d.rec.researched?{researched_id:d.rec.rid}:{church_id:d.rec.cid})).then(function(r){
       if(r.error){$('ls-cgerr').textContent='It could not be sent right now: '+r.error.message;return;}
       acModal('<div class="ls-lab" style="margin-top:0">Sent</div><p class="ls-small" style="font-size:.95em;color:#f5f0e1">Thank you. Ryan will read it and test it against Scripture. Nothing changes until he has.</p><button class="ls-btn" onclick="lsAcClose()">Close</button>');
     });
@@ -495,6 +643,7 @@
   /* ---- the result: no letter grade, no tier. Distance is rounded to the nearest 5 and always sits over the four area bars. ---- */
   function barColor(p){return p>=75?'#3ddc84':p>=50?'#e6c84a':'#ff9a4a';}
   function renderCustom(d){
+    if(d.rec.researched){renderResearched(d);return;}
     var rec=d.rec,ans=rec.ans||{},h='',other=!!rec.other,n=(rec.avg&&rec.avg.length)?rec.avg.length:1,u=acUser();
     var single=(n===1&&!other);
     var unkSet={};d.unk.forEach(function(k){unkSet[k]=1;});
@@ -543,11 +692,12 @@
     var el=$('ls-info');el.innerHTML=h;el.scrollTop=0;
   }
   function acInit(){
-    var b=$('ls-bAdd');if(b)b.onclick=function(){acOpen(null);};
+    var b=$('ls-bAdd');if(b)b.onclick=function(){acRequestOpen();};
     var m=$('ls-acm');if(m)m.addEventListener('click',function(e){if(e.target===m)acClose();});
     document.addEventListener('keydown',function(e){if(e.key==='Escape'){var mm=$('ls-acm');if(mm&&mm.style.display!=='none')acClose();}});
     acLoad().forEach(function(rec){if(rec&&rec.ans&&rec.id)acAdd(rec);});
     acRenderMy();
+    acLoadResearched();
     acCloudRefresh();
   }
   function drawRadar(d){
