@@ -158,7 +158,7 @@
   };
   function opKeysHtml(cls) {
     const on = E.STAGES[stageOf()].ops;
-    const live = cls !== 'small' && G && isOpStage() && !G.practice;
+    const live = cls !== 'small' && G && isOpStage();
     return '<div class="ar-ops ' + (cls || '') + '">' + ['+', '−', '×', '÷'].map(o => {
       const lit = on.indexOf(o) >= 0;
       return '<div class="ar-op ' + (lit ? 'on' : 'off') + (live && lit && o === curOp ? ' cur' : '') + '"' +
@@ -200,7 +200,8 @@
       '<label class="ar-sub">Level&nbsp;<select class="ar-select" id="ar-lvl"><option value="0">My level (' + L.lvl + ')</option>' +
       levelsOf().map(x => '<option value="' + x.lvl + '">Try level ' + x.lvl + (x.clock ? ' · ' + x.clock + 's' : ' · no clock') + (x.assist ? ' · with hints' : ' · no hints') + '</option>').join('') + '</select></label></div>' +
       '<div class="ar-row"><button class="ar-btn big" onclick="AR.start()">Ready, Set, Roll!</button>' +
-      '<button class="ar-btn ghost" onclick="openPage(2)">🎓 How do I play?</button></div>' +
+      '<button class="ar-btn ghost" onclick="AR.practice(\'' + curStage + '\')">🎓 Walk through a ' + E.STAGES[curStage].name.toLowerCase() + ' turn with Amit</button>' +
+      '<button class="ar-btn ghost" onclick="openPage(2)">How do I play?</button></div>' +
       '<div class="ar-sub" style="margin-top:12px;font-size:12px">Amit plays at the lowest level at the table (yours) and is held to the same clock. A win against Amit counts toward your level at a quarter of the usual amount. Trying a different level does not change your level.</div></div>';
     root.innerHTML = h;
   }
@@ -214,8 +215,9 @@
   function startChallenge() {
     startGame({ opp: 0, stage: CH.stage, level: E.levelsFor(CH.stage)[CH.lvl - 1], practiceLevel: true, seed: 1 + Math.floor(Math.random() * 900000), challenge: true });
   }
-  function startPractice() {            // the tutorial turn is always addition
-    startGame({ opp: 0, stage: 'addition', level: E.levelsFor('addition')[0], practiceLevel: true, seed: 1 + Math.floor(Math.random() * 900000), practice: true });
+  function startPractice(stage) {       // the guided walk-through turn, for any stage (level 1 of that stage)
+    stage = (typeof stage === 'string' && E.STAGES[stage]) ? stage : 'addition';
+    startGame({ opp: 0, stage, level: E.levelsFor(stage)[0], practiceLevel: true, seed: 1 + Math.floor(Math.random() * 900000), practice: true });
     openPage(1);
   }
   function setStage(s) {
@@ -1160,11 +1162,73 @@
       '<div class="ar-sub" style="margin:10px 0">The highest card number in this stage climbs from ' + E.STAGE_TOPS[stage][0] + ' at level 1 to ' + E.STAGE_TOPS[stage][7] + ' at level 8. You earn experience and levels in each stage separately.</div>' +
       '<div class="ar-row" style="margin-top:14px"><button class="ar-btn big" onclick="AR.practiceStage(\'' + stage + '\')">Practice ' + name.toLowerCase() + '</button></div>';
   }
+  const SL = (t, x, d) => ({ t, x, d });
+  const OPS_DEMO = (cur) => '<div class="ar-ops small"><div class="ar-op on' + (cur === '+' ? ' cur' : '') + '">+</div><div class="ar-op on' + (cur === '−' ? ' cur' : '') + '">−</div><div class="ar-op off">×</div><div class="ar-op off">÷</div></div>';
+  const CLEAR_DEMO = () => '<div class="ar-ops small"><div class="ar-op clear">CLEAR</div></div>';
+  const STAGE_STEPS = {
+    subtraction: [
+      SL('Dice now go to 10', 'In subtraction the dice have <b>ten sides</b>, 1 to 10, and the cards go higher than in addition. Everything you learned in addition still works: you can still add.',
+        () => [10, 7, 1, 4, 9].map(die10).join('')),
+      SL('Every cover needs a minus', 'To cover a card you must use <b>at least one minus</b>. A 9 and a 2 on a <b>7</b>: 9 − 2 = 7. Adding alone will not count in this stage, even if the dice add up to the card.',
+        () => die10(9) + '<span class="op">−</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(7)),
+      SL('The sign keys', 'Beside the cards are four keys: <b>+ − × ÷</b>. In subtraction only <b>+</b> and <b>−</b> are lit. <b>Press a sign, then tap or drag the dice.</b> The first die of a cover is always a plus, so you press − before the <i>second</i> die.',
+        () => OPS_DEMO('−')),
+      SL('A sign sticks', 'The sign stays on until you press another. Press − and pick three dice and <b>all three</b> are taken away: 10 − 3 − 2 = 5. Press + again when you want to add.',
+        () => die10(10) + '<span class="op">−</span>' + die10(3) + '<span class="op">−</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(5)),
+      SL('Mixing plus and minus', 'Use both in one cover: 8 + 5 − 3 = 10. Dice are used one at a time, left to right, so you can often find a cover more than one way.',
+        () => die10(8) + '<span class="op">+</span>' + die10(5) + '<span class="op">−</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(10)),
+      SL('Not below zero (at first)', 'In levels 1 to 4 the running total <b>may not dip below zero</b>, so put the plus dice first: 3 − 5 is not allowed, but 6 + 3 − 5 = 4 is. From level 5 you may go below zero and climb back, and a cover may even start with a minus.',
+        () => die10(6) + '<span class="op">+</span>' + die10(3) + '<span class="op">−</span>' + die10(5) + '<span class="op">→</span>' + cardStatic(4)),
+      SL('Clear and Accept', 'Pressed the wrong sign? <b>CLEAR</b> takes back the dice you have picked and starts the cover over. Everything else works as in addition: keep covering while you can, then roll or bank.',
+        CLEAR_DEMO)
+    ],
+    multiplication: [
+      SL('Dice to 10, and big cards', 'The dice go 1 to 10 and the cards climb all the way to the hundreds. Plus, minus and times are all lit.',
+        () => [3, 9, 2, 10, 6].map(die10).join('')),
+      SL('Every cover needs a times', 'You must use <b>at least one ×</b>. 6 × 7 covers a <b>42</b>.',
+        () => die10(6) + '<span class="op">×</span>' + die10(7) + '<span class="op">→</span>' + cardStatic(42)),
+      SL('Order of operations', '<b>× happens before + and −</b> (“My Dear Aunt Sally”). So 2 + 3 × 4 is 2 + 12 = <b>14</b>, not 20. The table does it that way for you.',
+        () => die10(2) + '<span class="op">+</span>' + die10(3) + '<span class="op">×</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(14)),
+      SL('Press a sign, then the dice', 'Press <b>×</b>, then tap the dice. The sign sticks, so press × once and pick 2, 3 and 4 to make 2 × 3 × 4 = 24. Press another sign to change. The first die is always a plus.',
+        () => die10(2) + '<span class="op">×</span>' + die10(3) + '<span class="op">×</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(24)),
+      SL('Times with plus and minus', 'Mix them to land exactly: 5 × 8 − 3 = 37. The times part is worked out first, then the adding or taking away.',
+        () => die10(5) + '<span class="op">×</span>' + die10(8) + '<span class="op">−</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(37)),
+      SL('Clear and Accept', '<b>CLEAR</b> starts a cover over. Early levels will not let the total dip below zero on the way. Then keep covering, roll, or bank, as before.',
+        CLEAR_DEMO)
+    ],
+    division: [
+      SL('All four signs', 'Division uses <b>+ − × ÷</b>, with dice 1 to 10. The cards come back down from the multiplication numbers.',
+        () => [8, 4, 9, 2, 10].map(die10).join('')),
+      SL('Every cover needs a divide', 'You must use <b>at least one ÷</b>, and it must come out <b>even</b>: 12 ÷ 4 = 3 is fine, 7 ÷ 2 is not allowed. 8 ÷ 2 covers a <b>4</b>.',
+        () => die10(8) + '<span class="op">÷</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(4)),
+      SL('Order of operations', '<b>× and ÷ go first, then + and −.</b> So 9 − 8 ÷ 4 is 9 − 2 = <b>7</b>, not 0.25. Remember “My Dear Aunt Sally”.',
+        () => die10(9) + '<span class="op">−</span>' + die10(8) + '<span class="op">÷</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(7)),
+      SL('A sign sticks', 'Press ÷ once, then pick several dice: 10 ÷ 5 ÷ 2 = 1. Press another sign to change. The first die of a cover is always a plus.',
+        () => die10(10) + '<span class="op">÷</span>' + die10(5) + '<span class="op">÷</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(1)),
+      SL('Divide, then add or multiply', 'Combine signs: 6 × 4 ÷ 3 = 8. Try the dice in different orders: the division has to come out even <i>at that step</i>.',
+        () => die10(6) + '<span class="op">×</span>' + die10(4) + '<span class="op">÷</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(8)),
+      SL('Clear and Accept', '<b>CLEAR</b> starts a cover over. Then keep covering, roll, or bank, as before.',
+        CLEAR_DEMO)
+    ]
+  };
+  const LEARN_PANE = { subtraction: 'sub', multiplication: 'mul', division: 'div' };
+  const learnStepBy = { subtraction: 0, multiplication: 0, division: 0 };
+  function renderStageLessons(stage, pane) {
+    pane = pane || qs('#ar-learn-mrt .mrt-content[data-mrt-pane="' + LEARN_PANE[stage] + '"]'); if (!pane) return;
+    const steps = STAGE_STEPS[stage], n = learnStepBy[stage], s = steps[n], name = E.STAGES[stage].name;
+    pane.innerHTML = '<div class="ar-learn-step"><div class="ar-row" style="justify-content:space-between"><div class="ar-h">' + name.toUpperCase() + ' — STEP ' + (n + 1) + ' OF ' + steps.length + '</div>' +
+      '<button class="ar-btn ghost" onclick="AR.practiceStage(\'' + stage + '\')">Skip — go to Practice</button></div>' +
+      '<div class="ar-h" style="font-size:22px;color:#fff">' + s.t + '</div><div class="ar-sub" style="font-size:16px">' + s.x + '</div>' +
+      '<div class="ar-demo">' + s.d() + '</div>' +
+      '<div class="ar-row" style="justify-content:space-between"><button class="ar-btn ghost" ' + (n ? '' : 'disabled') + ' onclick="AR.learn(-1,\'' + stage + '\')">← Back</button>' +
+      (n < steps.length - 1 ? '<button class="ar-btn" onclick="AR.learn(1,\'' + stage + '\')">Next →</button>' : '<button class="ar-btn big" onclick="AR.practice(\'' + stage + '\')">Walk through a turn with Amit</button>') + '</div></div>' +
+      '<div class="ar-sub" style="margin-top:12px">The walk-through is a ' + name.toLowerCase() + ' turn where Amit shows a good play on every roll. Nothing is scored. Card tops in this stage climb from ' + E.STAGE_TOPS[stage][0] + ' at level 1 to ' + E.STAGE_TOPS[stage][7] + ' at level 8.</div>';
+  }
   const LEARN_TABS = [
     { id: 'add', label: 'Addition', mount: pane => renderAdditionLearn(pane) },
-    { id: 'sub', label: 'Subtraction', html: stageLearnHtml('subtraction') },
-    { id: 'mul', label: 'Multiplication', html: stageLearnHtml('multiplication') },
-    { id: 'div', label: 'Division', html: stageLearnHtml('division') },
+    { id: 'sub', label: 'Subtraction', mount: pane => renderStageLessons('subtraction', pane) },
+    { id: 'mul', label: 'Multiplication', mount: pane => renderStageLessons('multiplication', pane) },
+    { id: 'div', label: 'Division', mount: pane => renderStageLessons('division', pane) },
     { id: 'adv', label: '🔒 Advanced', html: comingHtml('Advanced', ['Still to be decided.']) }
   ];
   function renderLearn() {
@@ -1184,7 +1248,10 @@
       (learnStep < STEPS.length - 1 ? '<button class="ar-btn" onclick="AR.learn(1)">Next →</button>' : '<button class="ar-btn big" onclick="AR.practice()">Walk through a turn with Amit</button>') + '</div></div>' +
       '<div class="ar-sub" style="margin-top:12px">The walk-through is a turn where Amit shows a good play on every roll. Nothing is scored.</div>';
   }
-  function learn(d) { learnStep = Math.max(0, Math.min(STEPS.length - 1, learnStep + d)); renderAdditionLearn(); }
+  function learn(d, stage) {
+    if (stage && STAGE_STEPS[stage]) { learnStepBy[stage] = Math.max(0, Math.min(STAGE_STEPS[stage].length - 1, learnStepBy[stage] + d)); renderStageLessons(stage); return; }
+    learnStep = Math.max(0, Math.min(STEPS.length - 1, learnStep + d)); renderAdditionLearn();
+  }
 
   // ── FRIENDS page ───────────────────────────────────────
   function renderFriends() {

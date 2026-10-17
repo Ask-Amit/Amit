@@ -337,3 +337,10 @@ Level 1 is back to **9** and the rest shifted up one step so each top is still a
 - UI: stage buttons on the Practice start panel; clickable sign keys with sticky sign and Clear; numeral dice (1–10) in later stages; a sign badge on picked dice and small signs between dice on a card; expression line (and its value when hints are on); experience and levels kept per stage (`P.xps`); Learn tabs for Subtraction, Multiplication, Division; Progress shows a per-stage table; challenge links carry `&stage=`; Amit seats play the chosen stage. The tutorial stays addition.
 - Tested in headless Chrome: for every stage at levels 3 and 6 the solver found a cover and it was made through real sign-key and die clicks, no script errors; one screenshot reviewed.
 **Open / to confirm with Ryan:** matching-dice multiplier is addition-only in later stages; leftover-dice penalty is the sum of unused faces (bigger with d10); stage clock stretch and Amit pace; the scale below first place; steal rules; real players and Rol_ tables.
+
+## 2026-10-16 (later) — Walk-through and Learn for every stage (local v1.04, not pushed)
+Ryan: practice should offer addition, subtraction, multiplication and division, the chosen one should be clearly highlighted on the first page, and Learn should explain each type as a tutorial.
+- Stage buttons on the Practice start panel now show the chosen stage with a gold fill, ring and check mark.
+- New "Walk through a (stage) turn with Amit" button on the start panel; `AR.practice(stage)` starts the guided turn at level 1 of any stage. Sign keys are now clickable in the walk-through too (they were wrongly locked there).
+- Learn: Subtraction, Multiplication and Division tabs are now step-by-step lessons like Addition (7, 6 and 6 steps: dice to 10, the required sign, the sign keys, signs stick, order of operations, not-below-zero, Clear), each ending in the walk-through button.
+- Checked in headless Chrome: the walk-through runs in all three stages with hints and live sign keys, no script errors.
