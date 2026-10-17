@@ -769,3 +769,18 @@ t('a wild card cannot earn the bonus', () => {
   const res = E.tryCover(st, [0, 1, 2], 0, ['+', '+', '−']);
   assert.ok(res.ok); assert.ok(!res.bonus); assert.strictEqual(st.setBonus, false);
 });
+
+t('the earned wild is marked as the bonus wild when the dealer says which card it is', () => {
+  const r = R('subtraction', 6);
+  const st = E.newTurn([8, 5, 2, 9, 9], [1, 2, 3, 4, 5], r);
+  assert.ok(st.cards.every(c => !c.bonus));
+  const dealt = [3, 'W', 4, 5, 6]; dealt.bonusIdx = 1;
+  const t2 = E.newTurn(dealt, [1, 2, 3, 4, 5], r);
+  assert.deepStrictEqual(t2.cards.map(c => !!c.bonus), [false, true, false, false, false]);
+  // the same through a mid-turn re-deal
+  const t3 = E.newTurn([11, 40, 41, 42, 43], [8, 5, 2, 9, 9], r);
+  E.tryCover(t3, [0, 1, 2], 0, ['+', '+', '−']);
+  t3.cards.forEach(c => { c.covered = true; }); t3.dice.forEach(d => { d.used = true; });
+  E.roll(t3, E.mulberry32(3), w => { const a = [1, 2, 3, 4, 5]; if (w) { a[2] = 'W'; a.bonusIdx = 2; } return a; });
+  assert.strictEqual(t3.cards[2].v, 'W'); assert.strictEqual(t3.cards[2].bonus, true); assert.strictEqual(t3.cards[0].bonus, false);
+});

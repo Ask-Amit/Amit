@@ -260,7 +260,11 @@
 
   // an earned wild (the all-signs bonus) guarantees one wild among the next five cards
   function withWild(cards, want, salt) {
-    if (want && cards.indexOf('W') < 0) cards[Math.abs(salt) % cards.length] = 'W';
+    if (!want) return cards;
+    const free = cards.map((v, i) => (v === 'W' ? -1 : i)).filter(i => i >= 0);
+    if (!free.length) return cards;
+    const i = free[Math.abs(salt) % free.length];
+    cards[i] = 'W'; cards.bonusIdx = i;
     return cards;
   }
   function dealFn(want) {
@@ -461,6 +465,7 @@
       if (c.covered) cls.push('covered');
       if (c.covered && cv && cv.locked) cls.push('locked');
       if (isWild(c.v)) cls.push('wild');
+      if (isWild(c.v) && c.bonus && !c.covered) cls.push('hasbonus');
       if (assist && !c.covered && sel.size && !isWild(c.v) && (isOpStage() ? selValue === c.v : S === c.v)) cls.push('match');
       if (G.hint && G.hint.card === i && !c.covered) cls.push('hint');
       if (!c.covered && !isWild(c.v) && (G.stage[i] || []).length) cls.push('pending');
@@ -468,6 +473,8 @@
       const style = G.anim.cards ? ' style="animation-delay:' + (i * 0.07) + 's"' : '';
       const sd = (G.stage[i] || []);
       let stack = '', ribbon = '', pts = '';
+      const bonusWild = isWild(c.v) && c.bonus && !c.covered;
+      if (bonusWild) ribbon = '<div class="ar-ribbon bonus">★ BONUS</div>';
       if (c.covered && cv) {
         // the dice stay on the card; until you Accept they can be tapped to take back off (Ryan, 2026-10-15)
         const pull = !cv.locked && live;
@@ -486,7 +493,7 @@
         ? '<div class="face"><span class="wj">' + WILD_ICO + '</span><span class="wt">WILD</span></div>'
         : '<div class="face"><small>' + c.v + '</small>' + c.v + '<small class="br">' + c.v + '</small></div>';
       const acceptBtn = (isWild(c.v) && !c.covered && sd.length && live) ? '<button class="ar-btn ar-wildok" onclick="AR.commitWildBtn()">✔ Accept</button>' : '';
-      return '<div class="ar-cardwrap"><div class="ar-card ' + cls.join(' ') + '" data-i="' + i + '"' + style + ' onclick="AR.clickCard(' + i + ')">' + face + ribbon + pts + '</div><div class="ar-under">' + stack + '</div>' + acceptBtn + '</div>';
+      return '<div class="ar-cardwrap"><div class="ar-card ' + cls.join(' ') + '" data-i="' + i + '"' + style + (bonusWild ? ' title="Bonus wild: you earned it by using every sign"' : '') + ' onclick="AR.clickCard(' + i + ')">' + face + ribbon + pts + '</div><div class="ar-under">' + stack + '</div>' + acceptBtn + '</div>';
     }).join('');
 
     const diceH = t.dice.map((d, k) => {
@@ -559,9 +566,9 @@
       '<text x="32" y="38" text-anchor="middle" fill="#fff" font-size="17" font-weight="700" id="ar-clocktxt">' + clockTxt + '</text></svg></div>' +
       '</div>' +
       '<div class="ar-cards">' + opKeysHtml() + cardsH + popBtn + '</div>' +
+      '<div class="ar-build">' + build + '</div>' +
       '<div class="ar-dice">' + diceH + '</div>' +
       trayHtml(t, assist) +
-      '<div class="ar-build">' + build + '</div>' +
       '<div class="ar-actions">' +
       (freshNow ? '' : '<button class="ar-btn" ' + ((canAct || (live && stagedWild)) ? '' : 'disabled') + ' onclick="AR.accept()" title="Roll the dice you have left">' + rollLabel + '</button>') +
       '<button class="ar-btn" ' + ((live && (E.canStop(t) || stagedWild)) ? '' : 'disabled') + ' onclick="AR.stop()">🏁 Complete &amp; bank</button>' +

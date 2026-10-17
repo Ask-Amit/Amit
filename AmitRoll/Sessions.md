@@ -376,3 +376,15 @@ Ryan's report from playing: a stray die left resting on a card made him think he
 Ryan (from the video): when a die is picked it should move to the left, then the sign and the next die, so the arithmetic shows in the dice; or better, drop them below as smaller dice in order and let the whole group be grabbed and dropped on a card.
 - Built the second way. A picked die leaves the dice row (its slot stays empty) and joins a group under the table: smaller dice in the order picked, each after its sign (`9 + 5 − 4`), with `= 10` after it at the hint levels (and the matching-dice ×N in addition). The group is dashed-outlined and **dragged as one** onto a card (or tap the card as before). Tapping a die in the group puts just that die back. A leading − shows only where a leading minus is allowed.
 - Tested in headless Chrome: picking 3 dice with signs builds the group in order; dragging the group onto the card covers it and clears the group; cover regression passes in every stage.
+
+## 2026-10-17 (later) — gold BONUS label on the earned wild (local v1.13, not pushed)
+Ryan: the wild earned with the all-signs bonus should look different, with a gold label saying BONUS above it, so players see why they got it.
+- The earned wild now carries a gold "★ BONUS" ribbon above the Amit icon (the icon sits lower on that card), with a tooltip "Bonus wild: you earned it by using every sign". A wild that arrives by chance has no label.
+- The earned wild is now an **extra** wild: it takes the place of a number card, so a set can hold a chance wild and the bonus wild together (before, a chance wild could stand in for it and hide the reward).
+- Engine: cards can carry `bonus: true` (the dealer names the card with `cards.bonusIdx`), also through a mid-turn re-deal. Tests: 65 pass.
+
+## 2026-10-17 (later) — build row moved above the covered cards (local v1.14, not pushed)
+Ryan: the calculation row should sit right under the remaining dice and above "Your covered cards", so it is clear which dice are still in play to drag onto a card. Order on the table is now: cards, remaining dice, the calculation (picked dice with signs), then the covered-cards tray. Only the order changed.
+
+## 2026-10-17 (later still) — calculation row above the dice (local v1.15, not pushed)
+Ryan reversed the last placement: the calculation row sits **above the dice and below the cards**, so the player always sees what is being used in the calculation. Order now: cards, calculation (picked dice with signs), remaining dice, covered-cards tray. Only the order changed.

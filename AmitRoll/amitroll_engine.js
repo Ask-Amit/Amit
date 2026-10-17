@@ -422,7 +422,7 @@
     if (rules.stage && STAGES[rules.stage]) { const S = STAGES[rules.stage]; if (!rules.ops || rules.ops === DEFAULT_RULES.ops) rules.ops = S.ops.slice(); if (rules.stage !== 'addition') { rules.required = null; rules.turnSign = S.required; rules.faces = S.faces; } }
     const st = {
       rules,
-      cards: cards.map(v => ({ v, covered: false })),
+      cards: cards.map((v, i) => ({ v, covered: false, bonus: cards.bonusIdx === i })),
       dice: dice.map(v => ({ v, used: false })),
       points: 0, safe: 0, rollNo: 1, coversThisRoll: 0,
       setNo: 1, signUsed: false, setStartPoints: 0, setBonus: false, bonusNext: false,      // the stage's sign is needed once in each set of five cards
@@ -576,7 +576,8 @@
     const allCards = st.cards.every(c => c.covered);
     const allDice = st.dice.every(d => d.used);
     if (allCards) {
-      st.cards = dealFn(!!st.setBonus).map(v => ({ v, covered: false }));
+      const nc = dealFn(!!st.setBonus);
+      st.cards = nc.map((v, i) => ({ v, covered: false, bonus: nc.bonusIdx === i }));
       st.setNo++; st.signUsed = false; st.setStartPoints = st.points; st.setBonus = false;
     }
     if (allCards || allDice) {
