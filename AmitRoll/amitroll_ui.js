@@ -10,12 +10,15 @@
 (function () {
   'use strict';
   const E = AmitRollEngine;
-  const ROUNDS = 5;                 // turns per game (open question — adjustable here)
+  // A game goes on until someone reaches the target score (Ryan, 2026-10-16: "we've been playing at 500"), so it can take five rounds or twenty.
+  const TARGETS = [100, 250, 500];
+  const DEFAULT_TARGET = 500;
+  const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th'));
+  const fmtXp = x => Math.round(x * 100) / 100;
   const AMIT_XP_FACTOR = 0.25;      // Ryan: a game against Amit counts "at a very reduced amount"
   const WILD_CHANCE = E.DEFAULT_RULES.wildChance;
   const PROFILE_KEY = 'amitroll_profile_v1';
   const PIPS = { 1: [5], 2: [1, 9], 3: [1, 5, 9], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] };
-  const AMIT_SKILL = [0.3, 0.45, 0.6, 0.75, 0.9, 1.0];
   const isWild = v => v === 'W';
 
   const $ = id => document.getElementById(id);
@@ -25,18 +28,34 @@
   function loadProfile() {
     try {
       const p = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
-      if (p && typeof p.xp === 'number') return p;
+      if (p && typeof p.xp === 'number') {
+        if (p.xpUnit !== 2 && p.xpUnit !== 3) p.xp = 0;      // experience changed to finishing places on 2026-10-16: older points do not carry over
+        if (!p.xps) p.xps = { addition: p.xp || 0, subtraction: 0, multiplication: 0, division: 0 };   // experience is kept per stage
+        p.xpUnit = 3;
+        if (!p.stage || !E.STAGES[p.stage]) p.stage = 'addition';
+        return p;
+      }
     } catch (e) {}
-    return { xp: 0, games: [], timing: [], muted: false };
+    return { xp: 0, xps: { addition: 0, subtraction: 0, multiplication: 0, division: 0 }, xpUnit: 3, stage: 'addition', games: [], timing: [], muted: false };
   }
   function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(P)); } catch (e) {} }
   let P = loadProfile();
-  const myLevel = () => E.levelFor(P.xp);
-  const levelObj = n => E.LEVELS[Math.max(0, Math.min(E.LEVELS.length - 1, n - 1))];
+  // The stage being played or chosen (Ryan, 2026-10-16): Addition, Subtraction, Multiplication, Division. Choosing a stage turns on its signs
+  // and every sign before it. Experience and level are kept per stage.
+  let curStage = P.stage;
+  const stageOf = () => (G ? G.stageName : curStage);
+  const stageXp = s => (P.xps && P.xps[s || stageOf()]) || 0;
+  const levelsOf = s => E.levelsFor(s || stageOf());
+  const myLevel = () => levelsOf()[E.levelFor(stageXp()).lvl - 1];
+  const levelObj = n => levelsOf()[Math.max(0, Math.min(E.LEVELS.length - 1, n - 1))];
+  const curFaces = () => E.STAGES[stageOf()].faces;
+  const isOpStage = () => stageOf() !== 'addition';
 
   let G = null;            // the game in progress
   let CH = null;           // a challenge arrived by link
-  let sel = new Set();     // dice currently selected (tap)
+  let sel = new Set();     // dice currently selected (tap), in the order they were picked
+  let selOp = {};          // the sign each picked die carries (later stages)
+  let curOp = '+';         // the sign key last pressed: it sticks to every die picked after it
   let clockIv = null;
   let learnStep = 0;
 
@@ -63,13 +82,15 @@
   }
 
   // ── small builders ─────────────────────────────────────
-  function pipsHtml(v) {
+  function pipsHtml(v, faces) {
+    if ((faces || curFaces()) > 6) return '<b class="num">' + v + '</b>';     // ten-sided dice show numerals
     const on = PIPS[v] || [];
     let h = '';
     for (let c = 1; c <= 9; c++) h += '<i class="' + (on.indexOf(c) >= 0 ? 'on' : '') + '"></i>';
     return h;
   }
-  function dieStatic(v) { return '<div class="ar-die" data-v="' + v + '">' + pipsHtml(v) + '</div>'; }
+  function dieStatic(v, faces) { return '<div class="ar-die" data-v="' + v + '">' + pipsHtml(v, faces) + '</div>'; }
+  const die6 = v => dieStatic(v, 6), die10 = v => dieStatic(v, 10);
   function cardStatic(v) {
     if (isWild(v)) return '<div class="ar-card wild"><div class="face"><span class="wj">🃏</span><span class="wt">WILD</span></div></div>';
     return '<div class="ar-card"><div class="face"><small>' + v + '</small>' + v + '<small class="br">' + v + '</small></div></div>';
@@ -107,19 +128,19 @@
   function updateContext() {
     const c = $('pageContext'), s = $('pageContextSub');
     const L = G ? G.level : myLevel();
-    if (c) c.textContent = 'Addition · Level ' + L.lvl;
-    if (s) s.textContent = G ? (G.practice ? 'TUTORIAL' : 'ROUND ' + G.round + ' OF ' + ROUNDS) : 'AMITROLL';
+    if (c) c.textContent = E.STAGES[stageOf()].name + ' · Level ' + L.lvl;
+    if (s) s.textContent = G ? (G.practice ? 'TUTORIAL' : 'ROUND ' + G.round + ' · FIRST TO ' + G.target) : 'AMITROLL';
   }
 
   // ── challenge links (everyone is dealt their OWN cards, so a link carries only the level) ──
   function readChallenge() {
     try {
       const u = new URLSearchParams(location.search);
-      const l = parseInt(u.get('challenge'), 10);
-      if (l) CH = { lvl: Math.max(1, Math.min(E.LEVELS.length, l)) };
+      const l = parseInt(u.get('challenge'), 10), st = u.get('stage');
+      if (l) CH = { lvl: Math.max(1, Math.min(E.LEVELS.length, l)), stage: E.STAGES[st] ? st : 'addition' };
     } catch (e) {}
   }
-  function challengeUrl(lvl) { return location.origin + location.pathname + '?challenge=' + lvl; }
+  function challengeUrl(lvl, stage) { return location.origin + location.pathname + '?challenge=' + lvl + (stage && stage !== 'addition' ? '&stage=' + stage : ''); }
   function copyText(txt, msgId) {
     const done = ok => { const m = $(msgId); if (m) m.textContent = ok ? 'Link copied. Send it to your friend.' : 'Copy this link: ' + txt; };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => done(true), () => done(false));
@@ -127,16 +148,32 @@
   }
 
   // ── PLAY page ──────────────────────────────────────────
+  // The four sign keys (Ryan, 2026-10-16). Only the stage's signs are lit. In the later stages a lit sign is a button: press it, then tap or
+  // drag dice, and the sign sticks to every die after it until another sign is pressed. Addition's only sign is +, so its key is just shown.
+  const STAGE_BLURB = {
+    addition: 'Dice 1–6. Covers add up, and matching dice multiply the card.',
+    subtraction: 'Dice 1–10. Every cover must use a −. Plus works too.',
+    multiplication: 'Dice 1–10. Every cover must use a ×. Plus and minus work too.',
+    division: 'Dice 1–10. Every cover must use a ÷, and it must come out even. All four signs work.'
+  };
+  function opKeysHtml(cls) {
+    const on = E.STAGES[stageOf()].ops;
+    const live = cls !== 'small' && G && isOpStage() && !G.practice;
+    return '<div class="ar-ops ' + (cls || '') + '">' + ['+', '−', '×', '÷'].map(o => {
+      const lit = on.indexOf(o) >= 0;
+      return '<div class="ar-op ' + (lit ? 'on' : 'off') + (live && lit && o === curOp ? ' cur' : '') + '"' +
+        (live && lit ? ' onclick="AR.setOp(\'' + o + '\')"' : '') +
+        ' title="' + (lit ? (live ? 'Press this, then pick dice: the sign sticks until you press another' : 'Used in this stage') : 'Not used in this stage') + '">' + o + '</div>';
+    }).join('') +
+      (cls === 'small' ? '' : '<div class="ar-op clear" onclick="AR.clearBuild()" title="Clear: take back the dice you have picked or put on a card, and start over">CLEAR</div>') + '</div>';
+  }
   function stageStrip(L) {
-    const need = E.LEVELS.find(x => x.xp > P.xp);
-    const pct = need ? Math.round(100 * (P.xp - L.xp) / (need.xp - L.xp)) : 100;
-    return '<div class="ar-stages"><span class="ar-stage on">➕ ADDITION</span><span class="ar-arrow">→</span>' +
-      '<span class="ar-stage locked" title="Coming after Addition">🔒 SUBTRACTION</span><span class="ar-arrow">→</span>' +
-      '<span class="ar-stage locked">🔒 MULTIPLICATION</span><span class="ar-arrow">→</span>' +
-      '<span class="ar-stage locked">🔒 DIVISION</span></div>' +
-      '<div class="ar-row" style="margin-bottom:16px"><b style="font-family:var(--amit-font-heading,serif);color:var(--gold2)">LEVEL ' + L.lvl + '</b>' +
+    const xp = stageXp();
+    const need = E.LEVELS.find(x => x.xp > xp);
+    const pct = need ? Math.round(100 * (xp - L.xp) / (need.xp - L.xp)) : 100;
+    return '<div class="ar-row" style="margin-bottom:16px"><b style="font-family:var(--amit-font-heading,serif);color:var(--gold2)">' + E.STAGES[stageOf()].name.toUpperCase() + ' · LEVEL ' + L.lvl + '</b>' +
       '<div class="ar-xp"><i style="width:' + pct + '%"></i></div>' +
-      '<span class="ar-sub">' + (need ? (need.xp - P.xp) + ' XP to level ' + need.lvl : 'Top level') + '</span></div>';
+      '<span class="ar-sub">' + (need ? fmtXp(need.xp - xp) + ' experience to level ' + need.lvl : 'Top level') + '</span></div>';
   }
 
   function renderPlay() {
@@ -146,42 +183,57 @@
     let h = stageStrip(L);
     if (CH) {
       h += '<div class="ar-panel" style="border-color:var(--gold)"><div class="ar-h">A friend challenged you</div>' +
-        '<div class="ar-sub">Play a game at level ' + CH.lvl + ', then compare your total with theirs. Everyone is dealt their own cards.</div>' +
+        '<div class="ar-sub">Play a ' + E.STAGES[CH.stage].name.toLowerCase() + ' game at level ' + CH.lvl + ', then compare how many rounds it took you to reach the target. Everyone is dealt their own cards.</div>' +
         '<div class="ar-row" style="margin-top:12px"><button class="ar-btn big" onclick="AR.startChallenge()">Ready, Set, Roll!</button></div></div>';
     }
     h += '<div class="ar-panel"><div class="ar-h">Start a game</div>' +
-      '<div class="ar-sub" style="margin-bottom:12px">' + ROUNDS + ' rounds. Cover cards, roll again or stop, and keep your score. The clock is per roll: ' +
+      '<div class="ar-h" style="margin:0 0 8px">Stage</div>' +
+      '<div class="ar-row" style="margin-bottom:10px">' + E.STAGE_ORDER.map(s => '<button class="ar-btn ar-stagebtn' + (s === curStage ? ' on' : '') + '" onclick="AR.setStage(\'' + s + '\')">' + E.STAGES[s].name + '</button>').join('') + '</div>' +
+      '<div class="ar-row" style="margin-bottom:10px"><span class="ar-sub">Signs you can use:</span>' + opKeysHtml('small') + '<span class="ar-sub">' + STAGE_BLURB[curStage] + ' Each stage also lets you use every sign before it.</span></div>' +
+      '<div class="ar-sub" style="margin-bottom:12px">The first to reach the target score wins — it can take five rounds or twenty. Cover cards, roll again or stop, and keep your score. The clock is per roll: ' +
       (L.clock ? L.clock + ' seconds at your level.' : 'no clock at your level yet.') + '</div>' +
       '<div class="ar-row" style="margin-bottom:14px">' +
-      '<label class="ar-sub">Play against&nbsp;<select class="ar-select" id="ar-opp"><option value="0">Just me (solo)</option>' +
-      [1, 2, 3, 4, 5, 6].map(n => '<option value="' + n + '">Amit — level ' + n + '</option>').join('') + '</select></label>' +
+      '<label class="ar-sub">Players&nbsp;<select class="ar-select" id="ar-opp"><option value="0">Just me (solo)</option>' +
+      [1, 2, 3, 4, 5, 6, 7].map(n => '<option value="' + n + '">Me + ' + n + ' Amit' + (n > 1 ? 's' : '') + ' (' + (n + 1) + ' players)</option>').join('') + '</select></label>' +
+
+      '<label class="ar-sub">Play to&nbsp;<select class="ar-select" id="ar-target">' + TARGETS.map(n => '<option value="' + n + '"' + (n === DEFAULT_TARGET ? ' selected' : '') + '>' + n + ' points</option>').join('') + '</select></label>' +
       '<label class="ar-sub">Level&nbsp;<select class="ar-select" id="ar-lvl"><option value="0">My level (' + L.lvl + ')</option>' +
-      E.LEVELS.map(x => '<option value="' + x.lvl + '">Try level ' + x.lvl + (x.clock ? ' · ' + x.clock + 's' : ' · no clock') + (x.assist ? ' · with hints' : ' · no hints') + '</option>').join('') + '</select></label></div>' +
+      levelsOf().map(x => '<option value="' + x.lvl + '">Try level ' + x.lvl + (x.clock ? ' · ' + x.clock + 's' : ' · no clock') + (x.assist ? ' · with hints' : ' · no hints') + '</option>').join('') + '</select></label></div>' +
       '<div class="ar-row"><button class="ar-btn big" onclick="AR.start()">Ready, Set, Roll!</button>' +
       '<button class="ar-btn ghost" onclick="openPage(2)">🎓 How do I play?</button></div>' +
-      '<div class="ar-sub" style="margin-top:12px;font-size:12px">A win against Amit counts toward your level at a quarter of the usual amount. Trying a different level does not change your level.</div></div>';
+      '<div class="ar-sub" style="margin-top:12px;font-size:12px">Amit plays at the lowest level at the table (yours) and is held to the same clock. A win against Amit counts toward your level at a quarter of the usual amount. Trying a different level does not change your level.</div></div>';
     root.innerHTML = h;
   }
 
   function start() {
-    const opp = parseInt($('ar-opp').value, 10) || 0;
+    const bots = parseInt($('ar-opp').value, 10) || 0;
     const pick = parseInt($('ar-lvl').value, 10) || 0;
-    startGame({ opp, level: pick ? levelObj(pick) : myLevel(), practiceLevel: !!pick, seed: 1 + Math.floor(Math.random() * 900000) });
+    const target = parseInt($('ar-target').value, 10) || DEFAULT_TARGET;
+    startGame({ bots, target, stage: curStage, level: pick ? levelObj(pick) : myLevel(), practiceLevel: !!pick, seed: 1 + Math.floor(Math.random() * 900000) });
   }
   function startChallenge() {
-    startGame({ opp: 0, level: levelObj(CH.lvl), practiceLevel: true, seed: 1 + Math.floor(Math.random() * 900000), challenge: true });
+    startGame({ opp: 0, stage: CH.stage, level: E.levelsFor(CH.stage)[CH.lvl - 1], practiceLevel: true, seed: 1 + Math.floor(Math.random() * 900000), challenge: true });
   }
-  function startPractice() {
-    startGame({ opp: 0, level: levelObj(1), practiceLevel: true, seed: 1 + Math.floor(Math.random() * 900000), practice: true });
+  function startPractice() {            // the tutorial turn is always addition
+    startGame({ opp: 0, stage: 'addition', level: E.levelsFor('addition')[0], practiceLevel: true, seed: 1 + Math.floor(Math.random() * 900000), practice: true });
     openPage(1);
   }
+  function setStage(s) {
+    if (!E.STAGES[s]) return;
+    curStage = s; P.stage = s; saveProfile();
+    renderPlay(); renderProgress(); updateContext();
+  }
+  function practiceStage(s) { setStage(s); openPage(1); }
   function startGame(o) {
+    const stage = o.stage || curStage;
     G = {
-      level: o.level, opp: o.opp, seed: o.seed, practice: !!o.practice, practiceLevel: !!o.practiceLevel, challenge: !!o.challenge,
+      stageName: stage, rules: E.rulesFor(stage, o.level.lvl), stageOp: {},
+      level: o.level, target: o.target || DEFAULT_TARGET, opp: 0, table: o.bots ? { seats: makeSeats(o.bots, amitLevelFor([o.level.lvl]), stage) } : null, meDone: false, waitingNext: false, seed: o.seed, practice: !!o.practice, practiceLevel: !!o.practiceLevel, challenge: !!o.challenge,
       round: 1, total: 0, results: [], helps: o.practice ? 99 : o.level.helps, turn: null, anim: { dice: [], cards: false },
       busy: true, dealN: 0, flip: null, hint: null, say: '', clockLeft: 0, diceRng: E.mulberry32((Math.random() * 4e9) >>> 0),
       coverPts: {}, coverText: {}, stage: {}
     };
+    selOp = {}; curOp = '+';
     beginRound();
   }
 
@@ -189,10 +241,121 @@
     G.dealN++;
     return E.dealCards(E.mulberry32(G.seed * 1000 + G.round * 10 + G.dealN + 500), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE);
   }
+  // ── THE TABLE: up to eight players, my own seat always at the bottom (Ryan, 2026-10-16) ──
+  // This version plays against Amit seats on this computer. There is no live connection: when real players join, each
+  // seat is refreshed whenever anyone acts (and every few seconds while a game is open), not through a live socket.
+  const SEAT_LAYOUT = { 1: { L: [], T: [0], R: [] }, 2: { L: [0], T: [], R: [1] }, 3: { L: [0], T: [1], R: [2] },
+    4: { L: [0], T: [1, 2], R: [3] }, 5: { L: [0], T: [1, 2, 3], R: [4] }, 6: { L: [0, 1], T: [2, 3], R: [4, 5] }, 7: { L: [0, 1], T: [2, 3, 4], R: [5, 6] } };
+  // Amit's level: the LOWEST level among the human players at the table, so he can never out-class anyone (Ryan, 2026-10-16).
+  // Today the only human is the player; with several players pass every human's level.
+  function amitLevelFor(humanLevels) { return Math.max(1, Math.min.apply(null, humanLevels)); }
+  const SPEED = 6;               // Amit's clock runs this many times faster than real time, so a game does not drag
+  let tableTimer = null;
+  function makeSeats(n, lv, stage) {
+    const seats = [];
+    for (let i = 0; i < n; i++) {
+      const L0 = E.levelsFor(stage)[lv - 1];
+      seats.push({ id: 's' + i, idx: i, name: n === 1 ? 'Amit' : 'Amit ' + (i + 1), level: lv, L: L0,
+        skill: Math.max(0.2, Math.min(1, L0.amitSkill + (Math.random() - 0.5) * 0.08)), pace: 0.9 + Math.random() * 0.2, elapsed: 0, budget: L0.clock || Infinity,
+        total: 0, roundScore: null, status: 'idle', turn: null, nextAt: 0, dealN: 0, rng: E.mulberry32(((Math.random() * 4e9) >>> 0) + i) });
+    }
+    return seats;
+  }
+  function beginSeatsRound() {
+    const now = Date.now();
+    G.table.seats.forEach(s => {
+      const cards = E.dealCards(E.mulberry32(G.seed * 100 + s.idx * 7 + G.round * 13), 5, s.L.cardMin, s.L.cardMax, WILD_CHANCE);
+      s.dealN = 0;
+      s.dealFn = () => E.dealCards(E.mulberry32(G.seed * 500 + s.idx * 11 + G.round * 17 + (++s.dealN)), 5, s.L.cardMin, s.L.cardMax, WILD_CHANCE);
+      s.turn = E.newTurn(cards, E.rollDice(s.rng, 5, E.STAGES[G.stageName].faces), E.rulesFor(G.stageName, s.level));
+      s.roundScore = null; s.elapsed = 0; s.budget = s.L.clock || Infinity;
+      s.status = 'playing';
+      s.nextAt = now + 1500 + s.idx * 250;
+      if (s.turn.status !== 'rolled') finishSeat(s);
+    });
+    stopTable();
+    tableTimer = setInterval(tableTick, 300);
+  }
+  function stopTable() { if (tableTimer) { clearInterval(tableTimer); tableTimer = null; } }
+  function finishSeat(s) {
+    if (s.status === 'done') return;
+    s.roundScore = s.turn.score;
+    s.total += s.turn.score;
+    s.status = 'done';
+  }
+  // the game is over when anyone has reached the target (checked after every round, once everyone has finished it)
+  function gameOver() {
+    if (G.practice) return true;
+    const totals = [G.total].concat(G.table ? G.table.seats.map(s => s.total) : []);
+    return Math.max.apply(null, totals) >= G.target;
+  }
+  function tableAllDone() { return !G.table || G.table.seats.every(s => s.status === 'done'); }
+  function tableTick() {
+    if (!G || !G.table || G.finished) { stopTable(); return; }
+    const now = Date.now();
+    G.table.seats.forEach(s => {
+      if (s.status !== 'playing' || now < s.nextAt) return;
+      const opts = { rng: s.rng, skill: s.skill, dealFn: s.dealFn };
+      const a = E.botPlan(s.turn, opts);
+      let cost = 0;
+      if (a.type === 'none') { if (s.turn.status === 'rolled') E.bust(s.turn); }
+      else {
+        cost = E.amitCost(s.level, a, s.rng, s.pace, G.stageName);
+        if (s.elapsed + cost > s.budget) { E.timeoutStop(s.turn); }          // his clock ran out: only what is covered counts
+        else { E.botApply(s.turn, a, opts); s.elapsed += cost; if (a.type === 'roll') s.elapsed = 0; }
+      }
+      if (s.turn.status !== 'rolled') finishSeat(s);
+      // the move takes its share of the clock, shown sped up; quicker once I am done and just waiting
+      s.nextAt = now + (G.meDone ? 150 + Math.random() * 150 : Math.max(350, Math.min(2600, cost * 1000 / SPEED)));
+      renderSeat(s);
+    });
+    const sc = $('ar-sheet-scores');
+    if (sc) {
+      sc.innerHTML = sheetScoresHtml();
+      const nb = document.querySelector('#ar-sheet .ar-btn.big');
+      if (nb && !G.waitingNext && tableAllDone()) nb.textContent = gameOver() ? 'See results' : 'Next round';
+    }
+    if (G.waitingNext && tableAllDone()) { G.waitingNext = false; next(); }
+  }
+  function seatInner(s) {
+    const t = s.turn;
+    let body = '';
+    if (t) {
+      body += '<div class="ar-sc">' + t.cards.map(c => {
+        const cv = c.cover, w = c.v === 'W';
+        return '<div class="ar-smc' + (c.covered ? ' cov' : '') + (w ? ' w' : '') + '"><b>' + (w ? '🃏' : c.v) + '</b>' +
+          (c.covered && cv && cv.mult > 1 ? '<i>×' + cv.mult + '</i>' : '') + (c.covered && cv ? '<small>' + (cv.expr ? cv.expr.replace(/ /g, '') : cv.values.join('+')) + '</small>' : '') + '</div>';
+      }).join('') + '</div>';
+      body += '<div class="ar-sd">' + t.dice.map(d => '<span class="ar-smd' + (d.used ? ' used' : '') + '">' + d.v + '</span>').join('') + '</div>';
+    }
+    const st = s.status === 'done' ? (t.status === 'bust' ? 'BUST' + (t.score > 0 ? ' (keeps ' + t.score + ')' : '') : (t.timedOut ? 'TIME UP ' : '') + (t.score > 0 ? '+' : '') + t.score)
+      : s.status === 'playing' ? (isFinite(s.budget) ? '⏱ ' + Math.max(0, Math.ceil(s.budget - s.elapsed)) + 's' : 'playing…') : 'waiting';
+    return '<div class="ar-seat-h"><b>' + s.name + '</b> <span class="ar-tag">L' + s.level + '</span></div>' + body +
+      '<div class="ar-seat-f"><span>' + st + '</span><span>Total ' + s.total + '</span></div>';
+  }
+  function renderSeat(s) { const el = $('ar-seat-' + s.id); if (el) el.innerHTML = seatInner(s); }
+  function boardHtml(mine) {
+    const seats = G.table.seats, lay = SEAT_LAYOUT[seats.length] || SEAT_LAYOUT[7];
+    const seat = i => '<div class="ar-seat" id="ar-seat-' + seats[i].id + '">' + seatInner(seats[i]) + '</div>';
+    const who = (typeof getUserName === 'function' && getUserName()) || (currentUser && currentUser.email ? currentUser.email.split('@')[0] : '');
+    return '<div class="ar-board"><div class="ar-board-top">' + lay.T.map(seat).join('') + '</div><div class="ar-board-row">' +
+      '<div class="ar-board-side">' + lay.L.map(seat).join('') + '</div>' +
+      '<div class="ar-board-me"><div class="ar-youtag">YOU' + (who ? ' · ' + who : '') + ' · LEVEL ' + G.level.lvl + '</div>' + mine + '</div>' +
+      '<div class="ar-board-side">' + lay.R.map(seat).join('') + '</div></div></div>';
+  }
+  function sheetScoresHtml() {
+    const mine = G.turn;
+    const rows = ['<tr class="me"><td>You · L' + G.level.lvl + '</td><td>' + (mine.status === 'bust' ? 'BUST' : (mine.score > 0 ? '+' : '') + mine.score) + '</td><td>' + G.total + '</td></tr>']
+      .concat(G.table.seats.map(s => '<tr><td>' + s.name + ' · L' + s.level + '</td><td>' + (s.status === 'done' ? (s.turn.status === 'bust' ? 'BUST' : (s.roundScore > 0 ? '+' : '') + s.roundScore) : 'playing…') + '</td><td>' + s.total + '</td></tr>'));
+    return '<table class="ar-table-list"><tr><th>Player</th><th>This round</th><th>Total</th></tr>' + rows.join('') + '</table>';
+  }
+
   function beginRound() {
     const cards = E.dealCards(E.mulberry32(G.seed * 1000 + G.round), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE);
-    G.dealN = 0; G.coverPts = {}; G.coverText = {}; G.stage = {}; G.hint = null; G.say = ''; G.bustMsg = ''; G.stopOutlook = null;
-    G.turn = E.newTurn(cards, E.rollDice(G.diceRng, 5));
+    G.dealN = 0; G.coverPts = {}; G.coverText = {}; G.stage = {}; G.stageOp = {}; G.hint = null; G.say = ''; G.bustMsg = ''; G.stopOutlook = null;
+    selOp = {}; curOp = '+';
+    G.turn = E.newTurn(cards, E.rollDice(G.diceRng, 5, E.STAGES[G.stageName].faces), G.rules);
+    if (G.table) { G.meDone = false; G.waitingNext = false; beginSeatsRound(); }
     sel.clear();
     G.anim = { dice: [0, 1, 2, 3, 4], cards: true };
     G.busy = true;
@@ -206,7 +369,7 @@
     const idxs = G.anim.dice.slice();
     const end = performance.now() + 650;
     const iv = setInterval(() => {
-      idxs.forEach(i => { const d = qs('#ar-1 .ar-die[data-i="' + i + '"]'); if (d) setPips(d, 1 + Math.floor(Math.random() * 6)); });
+      idxs.forEach(i => { const d = qs('#ar-1 .ar-die[data-i="' + i + '"]'); if (d) setPips(d, 1 + Math.floor(Math.random() * curFaces())); });
       if (performance.now() > end) {
         clearInterval(iv);
         idxs.forEach(i => { const d = qs('#ar-1 .ar-die[data-i="' + i + '"]'); if (d && G && G.turn.dice[i]) setPips(d, G.turn.dice[i].v); });
@@ -231,8 +394,16 @@
     return -1;
   }
   function unstage(k) {
-    Object.keys(G.stage).forEach(c => { G.stage[c] = G.stage[c].filter(x => x !== k); if (!G.stage[c].length) delete G.stage[c]; });
+    delete G.stageOp[k];
+    Object.keys(G.stage).forEach(c => { G.stage[c] = G.stage[c].filter(x => x !== k); if (!G.stage[c].length) delete G.stage[c]; else fixFirstOp(G.stage[c]); });
     G.say = ''; renderGame();
+  }
+  // the first die of any cover is a plus (or a minus where a leading minus is allowed)
+  function fixFirstOp(list) {
+    if (!list.length) return;
+    const k = list[0], op = G.stageOp[k] || '+';
+    if (op === '+' || (op === '−' && G.rules.allowNegStart)) return;
+    G.stageOp[k] = '+';
   }
 
   // ── the game screen ────────────────────────────────────
@@ -243,6 +414,10 @@
     const stg = stagedDice();
     const selVals = [...sel].map(i => t.dice[i].v);
     const S = selVals.reduce((a, b) => a + b, 0);
+    // in the later stages the picked dice make an expression; its value lights the matching card (when hints are on)
+    const selItemsArr = isOpStage() ? selItems() : null;
+    const selEval = selItemsArr && selItemsArr.length ? E.evalItems(selItemsArr, G.rules) : null;
+    const selValue = selEval && (selEval.ok || selEval.reason === 'required') ? selEval.value : null;
     const left = E.leftoverSum(t);
     const live = t.status === 'rolled' && !G.busy;
     const stagedWild = stagedWildIdx() >= 0;
@@ -257,7 +432,7 @@
       if (c.covered) cls.push('covered');
       if (c.covered && cv && cv.locked) cls.push('locked');
       if (isWild(c.v)) cls.push('wild');
-      if (assist && !c.covered && sel.size && !isWild(c.v) && S === c.v) cls.push('match');
+      if (assist && !c.covered && sel.size && !isWild(c.v) && (isOpStage() ? selValue === c.v : S === c.v)) cls.push('match');
       if (G.hint && G.hint.card === i && !c.covered) cls.push('hint');
       if (G.anim.cards) cls.push('dealing');
       const style = G.anim.cards ? ' style="animation-delay:' + (i * 0.07) + 's"' : '';
@@ -266,14 +441,15 @@
       if (c.covered && cv) {
         // the dice stay on the card; until you Accept they can be tapped to take back off (Ryan, 2026-10-15)
         const pull = !cv.locked && live;
-        stack = '<div class="ar-stack">' + cv.values.map((v, n) => '<div class="ar-die mini' + (pull ? ' pullable' : '') + '" data-v="' + v + '"' +
+        stack = '<div class="ar-stack">' + cv.values.map((v, n) => (cv.ops && (n > 0 || cv.ops[n] === '−') ? '<span class="ar-opsm">' + (n > 0 ? cv.ops[n] : '−') + '</span>' : '') + '<div class="ar-die mini' + (pull ? ' pullable' : '') + '" data-v="' + v + '"' +
           (pull ? ' onclick="event.stopPropagation();AR.pullDie(' + i + ',' + n + ')" title="Tap to take these dice back off"' : '') + '>' + pipsHtml(v) + '</div>').join('') + '</div>';
         if (cv.wild) ribbon = '<div class="ar-ribbon">WILD USED</div>';
         else if (cv.mult > 1) ribbon = '<div class="ar-ribbon">' + E.multWord(cv.mult) + '</div>';
         if (assist && !cv.wild) pts = '<div class="ar-cardpts">+' + cv.pts + '</div>';
       } else if (sd.length) {
-        stack = '<div class="ar-stack">' + sd.map(k => '<div class="ar-die mini" data-v="' + t.dice[k].v + '" onclick="event.stopPropagation();AR.unstage(' + k + ')" title="Tap to take it back">' + pipsHtml(t.dice[k].v) + '</div>').join('') + '</div>' +
-          (assist && !isWild(c.v) ? '<div class="ar-stackcap">' + plus(sd.map(k => t.dice[k].v)) + ' = ' + sd.reduce((x, k) => x + t.dice[k].v, 0) + ' / ' + c.v + '</div>' : '');
+        const opStage = isOpStage() && !isWild(c.v);
+        stack = '<div class="ar-stack">' + sd.map((k, n) => (opStage && (n > 0 || G.stageOp[k] === '−') ? '<span class="ar-opsm">' + (G.stageOp[k] || '+') + '</span>' : '') + '<div class="ar-die mini" data-v="' + t.dice[k].v + '" onclick="event.stopPropagation();AR.unstage(' + k + ')" title="Tap to take it back">' + pipsHtml(t.dice[k].v) + '</div>').join('') + '</div>' +
+          (assist && !isWild(c.v) ? '<div class="ar-stackcap">' + stagedCaption(sd, c.v) + '</div>' : '');
       }
       const face = isWild(c.v)
         ? '<div class="face"><span class="wj">🃏</span><span class="wt">WILD</span></div>'
@@ -290,12 +466,16 @@
       if (G.hint && G.hint.dice.indexOf(k) >= 0 && !d.used) cls.push('hint');
       let style = '';
       if (G.anim.dice.indexOf(k) >= 0) { cls.push('rolling'); style = ' style="--d:' + (k * 0.06) + 's"'; }
-      return '<div class="ar-die ' + cls.join(' ') + '" data-v="' + d.v + '" data-i="' + k + '"' + style + '>' + pipsHtml(d.v) + '</div>';
+      const idxSel = sel.has(k) ? [...sel].indexOf(k) : -1;
+      const badge = (isOpStage() && idxSel >= 0 && (idxSel > 0 || selOp[k] === '−')) ? '<span class="opb">' + selOp[k] + '</span>' : '';
+      return '<div class="ar-die ' + cls.join(' ') + '" data-v="' + d.v + '" data-i="' + k + '"' + style + '>' + pipsHtml(d.v) + badge + '</div>';
     }).join('');
 
     let build;
-    if (!sel.size) build = live ? '<span style="opacity:.6;font-size:16px">Drag dice onto a card — or tap dice, then tap the card</span>' : '&nbsp;';
-    else if (assist) {
+    if (!sel.size) build = live ? '<span style="opacity:.6;font-size:16px">' + (isOpStage() ? 'Press a sign, then tap or drag dice onto a card' : 'Drag dice onto a card — or tap dice, then tap the card') + '</span>' : '&nbsp;';
+    else if (isOpStage()) {
+      build = E.exprString(selItemsArr) + (assist && selValue !== null ? ' = <em>' + selValue + '</em>' : '');
+    } else if (assist) {
       const m = E.multiplier(selVals);
       build = plus(selVals) + ' = <em>' + S + '</em>' + (m > 1 ? ' &nbsp;<span style="color:#7fe3ff">×' + m + '</span>' : '');
     } else build = '<span style="opacity:.7;font-size:16px">' + sel.size + ' dice chosen — drag them onto a card</span>';
@@ -326,10 +506,11 @@
       : '';
     const rollLabel = '🎲 Roll ' + unused + ' remaining';
 
-    root.innerHTML =
+    const myHtml =
       '<div class="ar-table' + (t.status === 'bust' ? ' ar-bust' : '') + '" id="ar-tablearea">' +
       '<div class="ar-hud">' +
-      '<div class="ar-chip"><b>' + (G.practice ? '—' : G.round + '/' + ROUNDS) + '</b><span>Round</span></div>' +
+      '<div class="ar-chip"><b>' + (G.practice ? '—' : G.round) + '</b><span>Round</span></div>' +
+      (G.practice ? '' : '<div class="ar-chip"><b>' + G.target + '</b><span>Play to</span></div>') +
       (selfOn()
         ? '<div class="ar-chip"><b>✍</b><span>You keep score</span></div>'
         : '<div class="ar-chip"><b>' + G.total + '</b><span>Game score</span></div>' +
@@ -340,7 +521,7 @@
       '<circle class="ar-ring" id="ar-ring" cx="32" cy="32" r="26" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + circ + '" stroke-dashoffset="' + (circ * (1 - frac)) + '"/>' +
       '<text x="32" y="38" text-anchor="middle" fill="#fff" font-size="17" font-weight="700" id="ar-clocktxt">' + clockTxt + '</text></svg></div>' +
       '</div>' +
-      '<div class="ar-cards">' + cardsH + popBtn + '</div>' +
+      '<div class="ar-cards">' + opKeysHtml() + cardsH + popBtn + '</div>' +
       '<div class="ar-dice">' + diceH + '</div>' +
       trayHtml(t, assist) +
       '<div class="ar-build">' + build + '</div>' +
@@ -356,8 +537,9 @@
       (G.say ? '<div class="ar-say"><img src="amit_icon.ico" alt="Amit"><div>' + G.say + '</div></div>' : '') +
       '</div>' +
       '<div class="ar-row" style="margin-top:12px"><button class="ar-btn ghost danger" onclick="AR.quit()">Leave this game</button>' +
-      '<span class="ar-sub">' + (G.opp ? 'Playing against Amit level ' + G.opp + ' on its own cards.' : G.practice ? 'Tutorial — Amit helps on every roll. Nothing is scored.' : G.challenge ? 'Friend challenge — your own cards.' : 'Solo game.') +
+      '<span class="ar-sub">' + (G.table ? 'Table of ' + (G.table.seats.length + 1) + ' players — each Amit plays its own cards at its own level.' : G.practice ? 'Tutorial — Amit helps on every roll. Nothing is scored.' : G.challenge ? 'Friend challenge — your own cards.' : 'Solo game.') +
       (assist ? ' Hints on.' : ' No hints at this level.') + '</span></div>';
+    root.innerHTML = G.table ? boardHtml(myHtml) : myHtml;
 
     updateContext();
   }
@@ -368,7 +550,7 @@
     if (c.wild) return '<div class="ar-mc wild' + (c.locked ? '' : ' prov') + '"><span class="n">🃏</span><span class="rb">WILD</span><span class="dc">' + c.values.join(' + ') + '</span></div>';
     return '<div class="ar-mc' + (c.locked ? '' : ' prov') + '"><span class="n">' + c.card + '</span>' +
       (c.mult > 1 ? '<span class="rb">' + E.multWord(c.mult) + '</span>' : '') +
-      '<span class="dc">' + c.values.join(' + ') + '</span>' + (showPts ? '<span class="pt">= ' + c.pts + '</span>' : '') + '</div>';
+      '<span class="dc">' + (c.expr || c.values.join(' + ')) + '</span>' + (showPts ? '<span class="pt">= ' + c.pts + '</span>' : '') + '</div>';
   }
   function trayHtml(t, assist) {
     if (!t.scorecard.length) return selfOn() ? '<div class="ar-traytitle">YOUR COVERED CARDS COLLECT HERE — ADD THEM UP YOURSELF</div>' : '';
@@ -426,7 +608,7 @@
   function onTimeout() {
     recordRoll(true);
     const t = G.turn;
-    sel.clear(); G.stage = {};
+    sel.clear(); G.stage = {}; resetBuildState();
     if (t.scorecard.length) {
       // Ryan, 2026-10-16: when the clock runs out only the cards already covered count — nothing is finished for the player
       banner('Time! Only your covered cards count');
@@ -448,7 +630,7 @@
   function recordRoll(timedOut) {
     if (!G || G.practice || G.rollStart == null) return;
     P.rolls = P.rolls || [];
-    P.rolls.push([G.level.lvl, G.firstMs == null ? null : G.firstMs, Math.round(performance.now() - G.rollStart), timedOut ? 1 : 0]);
+    P.rolls.push([G.level.lvl, G.firstMs == null ? null : G.firstMs, Math.round(performance.now() - G.rollStart), timedOut ? 1 : 0, G.stageName]);
     if (P.rolls.length > 600) P.rolls.shift();
     G.rollStart = null; G.firstMs = null;
     saveProfile();
@@ -457,15 +639,47 @@
   // ── covering: tap flow and drag flow both end here ─────
   function liveNow() { return G && !G.busy && G.turn.status === 'rolled' && !document.querySelector('.ar-over'); }
 
-  function doCover(diceIdx, cardIdx) {
+  // why a cover was refused, in plain words
+  function coverError(r) {
+    const S = E.STAGES[G.stageName], nm = S.name.toLowerCase();
+    if (r.reason === 'required') return 'A ' + nm + ' cover has to use a <b>' + S.required + '</b> sign.' + (assistOn() && r.have != null ? ' (That one makes ' + r.have + '.)' : '');
+    if (r.reason === 'negative') return 'At this level the total cannot dip below zero on the way — put the plus dice first.';
+    if (r.reason === 'divide') return 'That division does not come out even.';
+    if (r.reason === 'start') return 'A cover has to start with a plus' + (G.rules.allowNegStart ? ' or a minus' : '') + '.';
+    if (r.reason === 'sign') return 'That sign is not used in this stage.';
+    if (r.reason === 'sum') return assistOn() ? 'That makes <b>' + r.have + '</b>, not <b>' + r.need + '</b>.' : 'That does not make the card.';
+    return 'That does not work.';
+  }
+  function selItems() { return [...sel].map(k => ({ v: G.turn.dice[k].v, op: selOp[k] || '+' })); }
+  function normalizeSel() {
+    const arr = [...sel]; if (!arr.length) return;
+    const k = arr[0], op = selOp[k] || '+';
+    if (!(op === '+' || (op === '−' && G.rules.allowNegStart))) selOp[k] = '+';
+  }
+  // the little line on a card while dice are resting on it (hints on)
+  function stagedCaption(sd, target) {
     const t = G.turn;
-    const r = E.tryCover(t, diceIdx, cardIdx);
-    if (!r.ok) { snd('bad'); G.say = 'That does not work.'; renderGame(); return false; }
+    if (!isOpStage()) { const vals = sd.map(k => t.dice[k].v); return plus(vals) + ' = ' + vals.reduce((a, b) => a + b, 0) + ' / ' + target; }
+    const items = sd.map(k => ({ v: t.dice[k].v, op: G.stageOp[k] || '+' }));
+    const r = E.evalItems(items, G.rules);
+    return E.exprString(items) + (r.ok || r.reason === 'required' ? ' = ' + r.value : '') + ' / ' + target;
+  }
+  function setOp(op) {
+    if (!liveNow() || !isOpStage() || E.STAGES[G.stageName].ops.indexOf(op) < 0) return;
+    curOp = op; renderGame();
+  }
+  function resetBuildState() { selOp = {}; curOp = '+'; if (G) G.stageOp = {}; }
+
+  function doCover(diceIdx, cardIdx, ops) {
+    const t = G.turn;
+    const r = E.tryCover(t, diceIdx, cardIdx, ops);
+    if (!r.ok) { snd('bad'); G.say = coverError(r); renderGame(); return false; }
     if (t.coversThisRoll === 1) recordFirst();
     G.hint = null; G.say = '';
+    diceIdx.forEach(k => { delete G.stageOp[k]; });
     Object.keys(G.stage).forEach(c => { G.stage[c] = G.stage[c].filter(x => diceIdx.indexOf(x) < 0); if (!G.stage[c].length) delete G.stage[c]; });
     delete G.stage[cardIdx];
-    sel.clear();
+    sel.clear(); selOp = {}; curOp = '+';
     snd('cover');
     renderGame();
     floatAt(cardIdx, r.wild ? 'WILD' : '+' + r.pts + (r.mult > 1 ? '  ×' + r.mult : ''));
@@ -478,15 +692,34 @@
     return true;
   }
 
-  // put dice on a card: finishes the cover when the total is right, otherwise leaves them on the card
+  // put dice on a card: finishes the cover when it makes the card, otherwise leaves them on the card
   function placeOnCard(group, cardIdx) {
     if (!liveNow()) return;
     const t = G.turn, c = t.cards[cardIdx];
     if (!c || c.covered || !group.length) return;
     const staged = (G.stage[cardIdx] || []).slice();
-    const all = staged.concat(group.filter(k => staged.indexOf(k) < 0));
+    const fresh = group.filter(k => staged.indexOf(k) < 0);
+    const all = staged.concat(fresh);
     if (isWild(c.v)) {              // any dice; they sit on the wild until you press Accept
       G.stage[cardIdx] = all; sel.clear(); G.say = ''; G.hint = null; renderGame(); return;
+    }
+    if (isOpStage()) {
+      // each die carries the sign it was given; dice already resting on the card keep theirs
+      fresh.forEach(k => { G.stageOp[k] = selOp[k] || curOp; });
+      fixFirstOp(all);
+      const items = all.map(k => ({ v: t.dice[k].v, op: G.stageOp[k] || '+' }));
+      const r = E.evalItems(items, G.rules);
+      if (!r.ok && ['negative', 'divide', 'start', 'sign'].indexOf(r.reason) >= 0) {      // that die cannot go there: it goes back
+        fresh.forEach(k => { delete G.stageOp[k]; });
+        sel.clear(); selOp = {}; snd('bad'); G.say = coverError(r);
+        renderGame();
+        const el = qs('#ar-1 .ar-card[data-i="' + cardIdx + '"]'); if (el) { el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 450); }
+        return;
+      }
+      if (r.ok && r.value === c.v) { doCover(all, cardIdx, all.map(k => G.stageOp[k] || '+')); return; }
+      G.stage[cardIdx] = all; sel.clear(); selOp = {}; G.hint = null;
+      G.say = (r.reason === 'required' && r.value === c.v) ? 'That makes <b>' + c.v + '</b>, but a ' + E.STAGES[G.stageName].name.toLowerCase() + ' cover has to use a <b>' + E.STAGES[G.stageName].required + '</b> sign.' : '';
+      renderGame(); return;
     }
     const total = all.reduce((a, k) => a + t.dice[k].v, 0);
     if (total === c.v) { doCover(all, cardIdx); return; }
@@ -498,9 +731,23 @@
     const el = qs('#ar-1 .ar-card[data-i="' + cardIdx + '"]'); if (el) { el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 450); }
   }
 
+  // Clear (Ryan, 2026-10-16): start the cover over. Takes back every die that is picked or resting on a card but not yet a finished cover.
+  function clearBuild() {
+    if (!liveNow()) return;
+    sel.clear(); G.stage = {}; resetBuildState(); G.hint = null; G.say = '';
+    renderGame();
+  }
   function clickDie(i) {
     if (!liveNow() || G.turn.dice[i].used) return;
-    if (sel.has(i)) sel.delete(i); else sel.add(i);
+    if (sel.has(i)) { sel.delete(i); delete selOp[i]; normalizeSel(); }
+    else {
+      if (isOpStage()) {          // the first die of a cover is a plus (a minus only where a leading minus is allowed); the rest take the sign last pressed
+        let op = curOp;
+        if (sel.size === 0 && !(op === '−' && G.rules.allowNegStart)) op = '+';
+        selOp[i] = op;
+      }
+      sel.add(i);
+    }
     G.hint = null;
     renderGame();
   }
@@ -522,9 +769,10 @@
     const t = G.turn, c = t.cards[cardIdx];
     if (!c || !c.covered || !c.cover || c.cover.locked) return;
     const idx = c.cover.idx.slice(), pulled = idx[n];
+    const ops = c.cover.ops ? c.cover.ops.slice() : null;
     if (!E.uncover(t, cardIdx)) return;
     const rest = idx.filter(k => k !== pulled);
-    if (rest.length) G.stage[cardIdx] = rest;
+    if (rest.length) { G.stage[cardIdx] = rest; rest.forEach(k => { G.stageOp[k] = (ops && ops[idx.indexOf(k)]) || '+'; }); fixFirstOp(rest); }
     G.hint = null; sel.clear();
     G.say = assistOn() ? 'Those dice are free again. Put different dice on the card — or put the same ones back.' : '';
     renderGame();
@@ -565,7 +813,7 @@
     const t = G.turn;
     const allCards = t.cards.every(c => c.covered), allDice = t.dice.every(d => d.used);
     const idxs = (allCards || allDice) ? [0, 1, 2, 3, 4] : t.dice.map((d, k) => d.used ? -1 : k).filter(k => k >= 0);
-    stopClock(); G.say = ''; G.hint = null; G.stage = {}; sel.clear();
+    stopClock(); G.say = ''; G.hint = null; G.stage = {}; sel.clear(); resetBuildState();
     E.roll(t, G.diceRng, dealFn);
     G.anim = { dice: idxs, cards: allCards };
     G.busy = true;
@@ -579,7 +827,7 @@
     const t = G.turn;
     if (E.mustCover(t)) { G.say = 'You can still cover a card with the dice you have — keep covering before you complete.'; snd('bad'); renderGame(); return; }
     if (!E.canStop(t)) { G.say = 'Cover at least one card first.'; snd('bad'); renderGame(); return; }
-    G.stage = {};
+    G.stage = {}; resetBuildState();
     G.stopOutlook = E.rollOutlook(t);
     stopClock(); recordRoll(false);
     E.stop(t);
@@ -590,7 +838,7 @@
   function help() {
     if (!liveNow() || (G.helps <= 0 && !G.practice)) return;
     const t = G.turn;
-    const plan = E.bestPlan(E.cardVals(t), E.diceVals(t));
+    const plan = E.bestPlan(E.cardVals(t), E.diceVals(t), t.rules);
     if (!G.practice) G.helps--;
     const wildLeft = t.cards.some(c => isWild(c.v) && !c.covered);
     if (plan.covers.length) {
@@ -609,7 +857,9 @@
   function describeCover(t, c, lead) {
     const vals = c.dice.map(i => t.dice[i].v);
     const card = t.cards[c.card].v;
-    return (lead ? 'Use <b>' + plus(vals) + '</b> to cover the <b>' + card + '</b>' : 'use <b>' + plus(vals) + '</b> on the <b>' + card + '</b>') +
+    let expr = plus(vals);
+    if (t.rules.stage && t.rules.stage !== 'addition') { const ex = E.stageExpr(E.diceVals(t), c.dice, c.sum, t.rules); if (ex) expr = ex.expr; }
+    return (lead ? 'Use <b>' + expr + '</b> to cover the <b>' + card + '</b>' : 'use <b>' + expr + '</b> on the <b>' + card + '</b>') +
       (c.mult > 1 ? ' — ' + c.mult + ' matching dice multiply it to <b>' + c.pts + '</b> points!' : ' for <b>' + c.pts + '</b> points.');
   }
   function nextAdvice(t) {
@@ -623,7 +873,7 @@
   function narrate() {
     const t = G.turn;
     if (t.status !== 'rolled') return;
-    const plan = E.bestPlan(E.cardVals(t), E.diceVals(t));
+    const plan = E.bestPlan(E.cardVals(t), E.diceVals(t), t.rules);
     const wildLeft = t.cards.some(c => isWild(c.v) && !c.covered);
     if (plan.covers.length) {
       G.say = 'Here is a good play: ' + describeCover(t, plan.covers[0], true);
@@ -636,7 +886,7 @@
   function toggleMute() { P.muted = !P.muted; saveProfile(); renderGame(); }
   function quit() {
     if (!confirm('Leave this game? Your progress in this game will not be saved.')) return;
-    stopClock(); G = null; sel.clear(); renderPlay(); updateContext();
+    stopClock(); stopTable(); G = null; sel.clear(); renderPlay(); updateContext();
   }
 
   // ── ending a turn ──────────────────────────────────────
@@ -652,6 +902,7 @@
     const t = G.turn;
     if (!G.practice) G.total += t.score;
     G.results.push({ score: t.score, status: t.status });
+    if (G.table) G.meDone = true;
     renderGame();
     showRoundSheet();
   }
@@ -662,8 +913,9 @@
       const takenPts = r.taken.reduce((a, c) => a + c.pts, 0);
       const takenTxt = r.taken.length ? r.taken.map(c => c.wild
         ? 'put ' + plus(c.dice) + ' on the wild'
-        : 'covered ' + c.card + ' with ' + plus(c.dice) + (c.mult > 1 ? ' (×' + c.mult + ')' : '') + ' <b>+' + c.pts + '</b>').join(', ') : '';
-      const bestTxt = r.best.covers.map(c => plus(c.dice.map(k => r.full[k])) + ' on ' + c.sum + (c.mult > 1 ? ' (×' + c.mult + ')' : '') + ' <b>+' + c.pts + '</b>').join(', ');
+        : 'covered ' + c.card + ' with ' + (c.expr || plus(c.dice)) + (c.mult > 1 ? ' (×' + c.mult + ')' : '') + ' <b>+' + c.pts + '</b>').join(', ') : '';
+      const bexpr = c => { if (G.rules.stage !== 'addition') { const ex = E.stageExpr(r.full, c.dice, c.sum, G.rules); if (ex) return ex.expr; } return plus(c.dice.map(k => r.full[k])); };
+      const bestTxt = r.best.covers.map(c => bexpr(c) + ' on ' + c.sum + (c.mult > 1 ? ' (×' + c.mult + ')' : '') + ' <b>+' + c.pts + '</b>').join(', ');
       h += '<div class="ar-rv"><b>Roll ' + (i + 1) + '</b> — dice ' + r.dice.join(' ') + ' · cards ' + r.cards.map(c => isWild(c) ? '🃏' : c).join(' ') + '<br>';
       if (!r.best.covers.length) {
         if (r.wild && r.taken.length) h += 'No number could be covered — you used the wild to stay in the turn. <span class="good">✔</span>';
@@ -692,7 +944,7 @@
     const cards = t.scorecard.map(c => miniCard(Object.assign({}, c, { locked: true }), false)).join('');
     const left = t.dice.filter(d => !d.used).map(d => dieStatic(d.v)).join('') || '<span class="ar-sub">none — every die was used</span>';
     const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-sheet';
-    over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">ROUND ' + G.round + ' OF ' + ROUNDS + ' — ADD UP YOUR TURN</div>' +
+    over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">ROUND ' + G.round + ' — ADD UP YOUR TURN</div>' +
       '<div class="ar-sub" style="text-align:center">Add up every covered card — a doubled card counts twice, a tripled card three times — then take away the dice you did not use.</div>' +
       '<div class="ar-traytitle" style="margin-top:14px">COVERED CARDS</div><div class="ar-tray">' + (cards || '<span class="ar-sub">none</span>') + '</div>' +
       '<div class="ar-traytitle" style="margin-top:12px">DICE YOU DID NOT USE</div><div class="ar-demo" style="margin:6px 0">' + left + '</div>' +
@@ -728,60 +980,60 @@
       const o = G.stopOutlook;
       stopNote = '<div class="ar-sub" style="margin-top:8px">You stopped with ' + t.dice.filter(d => !d.used).length + ' dice left. Rolling them had a ' + Math.round(o.pBust * 100) + '% chance of a bust; Amit\'s one-roll look-ahead said <b>' + (o.advice === 'roll' ? 'roll' : 'stop') + '</b>.</div>';
     }
-    const last = G.practice || G.round >= ROUNDS;
+    const last = G.practice || (tableAllDone() && gameOver());
     const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-sheet';
-    over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">' + (G.practice ? 'TUTORIAL TURN' : 'ROUND ' + G.round + ' OF ' + ROUNDS) + '</div>' +
+    over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">' + (G.practice ? 'TUTORIAL TURN' : 'ROUND ' + G.round + ' · FIRST TO ' + G.target) + '</div>' +
       '<div class="ar-big' + (t.score < 0 || bust ? ' neg' : '') + '">' + (bust ? 'BUST' : (t.score > 0 ? '+' : '') + t.score) + '</div>' +
       '<div class="ar-sub" style="text-align:center">' + (bust ? (G.bustMsg || '') + (t.score > 0 ? ' You keep the ' + t.score + ' points you banked by covering all five cards.' : ' This turn scores 0.') : 'Covered ' + t.points + ' points, minus ' + E.leftoverSum(t) + ' for the dice left.') + '</div>' + stopNote +
       '<div class="ar-h" style="margin-top:18px">BEST PLAY <span class="ar-tag">working name</span></div>' +
       '<div class="ar-sub" style="margin-bottom:4px">What each roll could have done, next to what you did.</div>' +
       '<div class="ar-review">' + reviewHtml(t) + '</div>' +
+      (G.table ? '<div class="ar-h" style="margin-top:14px">THE TABLE</div><div id="ar-sheet-scores">' + sheetScoresHtml() + '</div>' : '') +
       '<div class="ar-row" style="justify-content:center;margin-top:14px"><button class="ar-btn big" onclick="AR.next()">' + (G.practice ? 'Done' : last ? 'See results' : 'Next round') + '</button></div></div>';
     document.body.appendChild(over);
   }
   function closeSheet() { const s = $('ar-sheet'); if (s) s.remove(); }
 
   function next() {
+    if (G.table && !G.practice && !tableAllDone()) {
+      G.waitingNext = true;
+      const b = document.querySelector('#ar-sheet .ar-btn.big'); if (b) { b.disabled = true; b.textContent = 'Waiting for the others…'; }
+      return;
+    }
     closeSheet();
     if (G.practice) { G = null; renderPlay(); updateContext(); return; }
-    if (G.round >= ROUNDS) { endGame(); return; }
+    if (gameOver()) { endGame(); return; }
     G.round++;
     beginRound();
   }
 
   // ── end of game ────────────────────────────────────────
-  function amitGame(level) {
-    let tot = 0;
-    for (let r = 1; r <= ROUNDS; r++) {
-      const rng = E.mulberry32(G.seed * 77 + r * 13 + level);
-      const cards = E.dealCards(E.mulberry32(G.seed * 3000 + r), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE);
-      let n = 0;
-      const res = E.botTurn({ rng, skill: AMIT_SKILL[level - 1], cards, dealFn: () => E.dealCards(E.mulberry32(G.seed * 5000 + r * 10 + (++n)), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE) });
-      tot += res.score;
-    }
-    return tot;
-  }
   function endGame() {
     const before = myLevel().lvl;
-    let oppScore = null;
-    if (G.opp) oppScore = amitGame(G.opp);
-    let gain = 0;
-    if (!G.practiceLevel) {
-      gain = Math.max(0, Math.round(G.total / 4)) + 5;
-      if (G.opp) gain = Math.round(gain * AMIT_XP_FACTOR);
-      P.xp += gain;
+    stopTable();
+    let oppScore = null, ranking = null;
+    if (G.table) {
+      ranking = [{ name: 'You · L' + G.level.lvl, total: G.total, me: true }].concat(G.table.seats.map(s => ({ name: s.name + ' · L' + s.level, total: s.total, bot: true })))
+        .sort((x, y) => y.total - x.total);
+      oppScore = Math.max(...G.table.seats.map(s => s.total));
     }
-    P.games.unshift({ t: Date.now(), score: G.total, lvl: G.level.lvl, opp: G.opp, oppScore, practiceLevel: G.practiceLevel, challenge: G.challenge });
+    let gain = 0, place = 1, nPlayers = 1;
+    if (ranking) { nPlayers = ranking.length; place = ranking.findIndex(r => r.me) + 1; }
+    if (!G.practiceLevel && ranking) {
+      gain = E.placeXp(place, nPlayers, AMIT_XP_FACTOR);      // first place = one point per opponent beaten; Amit opponents count at a quarter
+      P.xps[G.stageName] = fmtXp(stageXp(G.stageName) + gain);
+    }
+    P.games.unshift({ t: Date.now(), stage: G.stageName, score: G.total, lvl: G.level.lvl, opp: G.table ? G.table.seats.length : 0, place: ranking ? place : 0, rounds: G.round, target: G.target, oppScore, practiceLevel: G.practiceLevel, challenge: G.challenge });
     if (P.games.length > 60) P.games.length = 60;
     saveProfile();
     const after = myLevel().lvl;
-    const won = oppScore !== null ? (G.total > oppScore ? 'You beat Amit!' : G.total === oppScore ? 'A tie with Amit.' : 'Amit won this one.') : '';
+    const won = ranking ? (G.total > oppScore ? 'You won the table!' : G.total === oppScore ? 'You tied for the lead.' : 'You finished ' + (ranking.findIndex(r => r.me) + 1) + ' of ' + ranking.length + '.') : '';
     const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-sheet';
     over.innerHTML = '<div class="ar-sheet" style="position:relative;overflow:hidden"><div class="ar-h" style="text-align:center">GAME OVER</div>' +
-      '<div class="ar-big' + (G.total < 0 ? ' neg' : '') + '">' + G.total + '</div><div class="ar-sub" style="text-align:center">your total over ' + ROUNDS + ' rounds</div>' +
-      (oppScore !== null ? '<table class="ar-table-list" style="margin-top:14px"><tr class="me"><td>You</td><td>' + G.total + '</td></tr><tr><td>Amit — level ' + G.opp + ' <span class="ar-tag">AMIT</span></td><td>' + oppScore + '</td></tr></table><div class="ar-h" style="text-align:center;margin-top:12px">' + won + '</div>' : '') +
+      '<div class="ar-big' + (G.total < 0 ? ' neg' : '') + '">' + G.total + '</div><div class="ar-sub" style="text-align:center">your total after ' + G.round + ' rounds (first to ' + G.target + ')</div>' +
+      (ranking ? '<table class="ar-table-list" style="margin-top:14px"><tr><th>Player</th><th>Total</th></tr>' + ranking.map(r => '<tr class="' + (r.me ? 'me' : '') + '"><td>' + r.name + (r.bot ? ' <span class="ar-tag">AMIT</span>' : '') + '</td><td>' + r.total + '</td></tr>').join('') + '</table><div class="ar-h" style="text-align:center;margin-top:12px">' + won + '</div>' : '') +
       '<div class="ar-sub" style="text-align:center;margin-top:12px">' +
-      (G.practiceLevel ? 'Trying level ' + G.level.lvl + ' — your own level did not change.' : '+' + gain + ' XP' + (G.opp ? ' (a quarter of the usual, for playing Amit)' : '')) + '</div>' +
+      (G.practiceLevel ? 'Trying level ' + G.level.lvl + ' — your own level did not change.' : ranking ? ordinal(place) + ' of ' + nPlayers + ' — +' + fmtXp(gain) + ' experience' + (gain ? ' (a quarter of the usual, because the other players were Amit)' : '') : 'Playing alone earns no experience — you earn it by beating other players.') + '</div>' +
       (after > before ? '<div class="ar-big" style="font-size:26px;margin-top:12px">⭐ LEVEL ' + after + '! ⭐</div><div class="ar-sub" style="text-align:center">Your clock is now ' + (levelObj(after).clock ? levelObj(after).clock + ' seconds per roll.' : 'unlimited.') + (levelObj(after).assist ? '' : ' Hints are off from here — dragging only.') + '</div>' : '') +
       '<div class="ar-row" style="justify-content:center;margin-top:18px"><button class="ar-btn big" onclick="AR.again()">Play again</button>' +
       '<button class="ar-btn" onclick="AR.copyChallenge()">🔗 Challenge a friend at this level</button></div>' +
@@ -790,8 +1042,8 @@
     if (after > before) { snd('sweep'); confetti(over.firstChild, 60); }
     G.finished = true;
   }
-  function again() { closeSheet(); G = null; sel.clear(); renderPlay(); renderProgress(); updateContext(); }
-  function copyChallenge() { copyText(challengeUrl(G.level.lvl), 'ar-copymsg'); }
+  function again() { closeSheet(); stopTable(); G = null; sel.clear(); renderPlay(); renderProgress(); updateContext(); }
+  function copyChallenge() { copyText(challengeUrl(G.level.lvl, G.stageName), 'ar-copymsg'); }
 
   // ── dragging dice onto cards (mouse and touch) ─────────
   function installDrag() {
@@ -857,21 +1109,21 @@
   // ── LEARN page ─────────────────────────────────────────
   const STEPS = [
     { t: 'Cards are targets. Dice are your tools.', x: 'Five number cards sit on the table. You have five dice. Your job is to cover the cards by using dice that <b>add up</b> to the number on the card.',
-      d: () => cardStatic(7) + '<span class="op">⟵</span>' + dieStatic(3) + '<span class="op">+</span>' + dieStatic(4) },
+      d: () => cardStatic(7) + '<span class="op">⟵</span>' + die6(3) + '<span class="op">+</span>' + die6(4) },
     { t: 'Ready, Set, Roll!', x: 'Someone calls <b>“Ready, Set, Roll!”</b> and everyone rolls their five dice at the same time. Everyone is dealt their <b>own</b> five cards, so every game is different. In AmitRoll the dice roll for you.',
-      d: () => [2, 5, 3, 6, 1].map(dieStatic).join('') },
+      d: () => [2, 5, 3, 6, 1].map(v => die6(v)).join('') },
     { t: 'Covering a card', x: '<b>Drag</b> dice up onto a card. Put a 3 and a 4 on a 7 and the two dice sit on the card and cover it. You can also tap the dice and then tap the card. In the early levels the table adds up your dice for you and lights the card that matches; later, you do the adding yourself.',
-      d: () => dieStatic(3) + '<span class="op">+</span>' + dieStatic(4) + '<span class="op">→</span>' + cardStatic(7) },
+      d: () => die6(3) + '<span class="op">+</span>' + die6(4) + '<span class="op">→</span>' + cardStatic(7) },
     { t: 'Matching dice multiply!', x: 'Use dice that show the <b>same number</b> and the card is worth more. Two 4s on an 8 score <b>16</b>. Three 4s on a 12 score <b>36</b>. A 3 and a 5 on an 8 only score 8. Hunting for matches is how you get good.',
-      d: () => dieStatic(4) + dieStatic(4) + '<span class="op">on</span>' + cardStatic(8) + '<span class="op">= 16</span>' },
+      d: () => die6(4) + die6(4) + '<span class="op">on</span>' + cardStatic(8) + '<span class="op">= 16</span>' },
     { t: 'Keep covering, then Accept', x: 'If any card can still be covered with the dice you have, you <b>must keep covering</b> — you cannot roll or stop yet. When nothing more can be covered, press <b>🎲 Roll</b> to roll the dice you have left, or <b>Complete &amp; bank</b>.',
       d: () => '<button class="ar-btn" disabled>🎲 Roll 3 remaining</button><button class="ar-btn" disabled>🏁 Complete &amp; bank</button>' },
     { t: 'Roll again — or stop', x: 'If a roll cannot cover <b>any</b> card, that is a <b>bust</b> and the turn’s points are lost — <b>except</b> the points you already banked by covering all five cards. When you stop, your points are added up and the <b>value of the dice you did not use is taken away</b>.',
       d: () => '<span class="op" style="font-size:20px">points − dice left = your score</span>' },
     { t: 'The wild card', x: 'Sometimes one of your five cards is a <b>🃏 wild</b>. <b>Any</b> dice can go on it — one die to keep rolling the rest, or every die to roll all five again. Drag the dice on, then press <b>Accept</b>. The wild disappears when it is used. You can use it whenever you like, and it saves a roll that could not cover anything.',
-      d: () => cardStatic('W') + '<span class="op">←</span>' + dieStatic(6) + dieStatic(1) },
+      d: () => cardStatic('W') + '<span class="op">←</span>' + die6(6) + die6(1) },
     { t: 'Change your mind', x: 'Dice on a covered card stay there so you can see them. Until you press Accept you can <b>tap them to take them back off</b> and try again. A 1 and a 3 on a 4 score 4 — but pull them off and put two 2s on instead, and the card is <b>doubled</b>. Look for the better way.',
-      d: () => dieStatic(1) + dieStatic(3) + '<span class="op">→</span>' + dieStatic(2) + dieStatic(2) + '<span class="op">on</span>' + cardStatic(4) + '<span class="op">DOUBLED</span>' },
+      d: () => die6(1) + die6(3) + '<span class="op">→</span>' + die6(2) + die6(2) + '<span class="op">on</span>' + cardStatic(4) + '<span class="op">DOUBLED</span>' },
     { t: 'Keeping score', x: 'In the early levels Amit keeps your score. From <b>level 4</b> you keep your own: covered cards collect at the bottom, labelled <b>DOUBLED</b> or <b>TRIPLED</b>, even after five new cards come. When you finish a turn, <b>add them up yourself</b>, take away the dice you did not use, and tell Amit your total. Amit checks it.',
       d: () => '<span class="ar-tc">8 · DOUBLED</span><span class="ar-tc">5</span><span class="ar-tc">12 · TRIPLED</span><span class="op" style="font-size:18px">16 + 5 + 36 − dice left</span>' },
     { t: 'Fresh starts', x: 'Use up <b>all five dice</b> and a gold <b>✔ Accept &amp; re-roll all 5</b> button pops up next to your cards. Press it and all five dice roll again, keeping your points. Cover <b>all five cards</b> and it says <b>✔ Accept &amp; get 5 new cards</b> — press it for five new cards and a fresh roll. Covering all five cards also <b>banks</b> those points: they are yours for good, and a later bust can only take what you earn after the new cards. Chaining these is how big scores happen.',
@@ -882,23 +1134,38 @@
   // Learn is a Multi-Row Tab View (the layout copied into AmitRoll.html from the template). Only Addition is playable today.
   let learnTabId = 'add';
   function comingHtml(title, lines) {
-    return '<div class="ar-h" style="font-size:20px;color:#fff">' + title + ' <span class="ar-tag">COMING — not built yet</span></div>' +
-      lines.map(l => '<div class="ar-sub" style="font-size:16px;margin:10px 0">' + l + '</div>').join('') +
-      '<div class="ar-sub" style="margin-top:16px">Only <b>Addition</b> is playable today. This tab shows the plan so it can be reviewed.</div>';
+    return '<div class="ar-h" style="font-size:20px;color:#fff">' + title + ' <span class="ar-tag">NOT BUILT YET</span></div>' +
+      lines.map(l => '<div class="ar-sub" style="font-size:16px;margin:10px 0">' + l + '</div>').join('');
+  }
+  // How to play each later stage (Ryan, 2026-10-16)
+  function stageLearnHtml(stage) {
+    const S = E.STAGES[stage], name = S.name;
+    const demo = {
+      subtraction: die10(10) + '<span class="op">−</span>' + die10(1) + '<span class="op">+</span>' + die10(1) + '<span class="op">→</span>' + cardStatic(10),
+      multiplication: die10(2) + '<span class="op">+</span>' + die10(3) + '<span class="op">×</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(14),
+      division: die10(9) + '<span class="op">−</span>' + die10(8) + '<span class="op">÷</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(7)
+    }[stage];
+    const rule = {
+      subtraction: 'The dice go up to <b>10</b>. Every cover has to use <b>at least one minus</b> — for example <b>10 − 1 + 1</b> on a 10. Plus works too.',
+      multiplication: 'The dice go up to <b>10</b>. Every cover has to use <b>at least one times</b> — for example <b>2 + 3 × 4</b> on a 14. Plus and minus work too, and the card numbers go much higher.',
+      division: 'The dice go up to <b>10</b>. Every cover has to use <b>at least one divide</b>, and it must come out even — for example <b>9 − 8 ÷ 4</b> on a 7. All four signs work.'
+    }[stage];
+    const order = (stage === 'subtraction') ? '' :
+      '<div class="ar-sub" style="font-size:16px;margin:10px 0"><b>Order of operations</b> (“My Dear Aunt Sally”): × and ÷ happen first, then + and −. So 2 + 3 × 4 is 2 + 12 = 14, not 20.' + (stage === 'division' ? ' A division has to come out whole: 12 ÷ 4 = 3 is fine, 7 ÷ 2 is not.' : '') + '</div>';
+    return '<div class="ar-h" style="font-size:20px;color:#fff">' + name + '</div>' +
+      '<div class="ar-sub" style="font-size:16px;margin:10px 0">' + rule + '</div>' +
+      '<div class="ar-demo">' + demo + '</div>' + order +
+      '<div class="ar-sub" style="font-size:16px;margin:10px 0"><b>How to build a cover:</b> press a sign key beside the cards — it <b>sticks</b>: every die you pick after it uses that sign until you press another. Press + then dice 2, 3, 5 and that is 2 + 3 + 5; press − and everything after is taken away until you press + again. Then tap the card, or drag the dice onto it. <b>CLEAR</b> starts the cover over.</div>' +
+      '<div class="ar-sub" style="font-size:16px;margin:10px 0"><b>Going below zero:</b> in levels 1–4 the total may not dip below zero on the way, so put the plus dice first. From level 5 you may go below zero and add back, and a cover may even start with a minus.</div>' +
+      '<div class="ar-sub" style="margin:10px 0">The highest card number in this stage climbs from ' + E.STAGE_TOPS[stage][0] + ' at level 1 to ' + E.STAGE_TOPS[stage][7] + ' at level 8. You earn experience and levels in each stage separately.</div>' +
+      '<div class="ar-row" style="margin-top:14px"><button class="ar-btn big" onclick="AR.practiceStage(\'' + stage + '\')">Practice ' + name.toLowerCase() + '</button></div>';
   }
   const LEARN_TABS = [
     { id: 'add', label: 'Addition', mount: pane => renderAdditionLearn(pane) },
-    { id: 'sub', label: '🔒 Subtraction', html: comingHtml('Subtraction', [
-      'The dice go up to <b>10</b>. Every cover has to use <b>at least one subtraction</b> — for example <b>10 − 1 + 1</b> — and you can mix plus and minus in the same cover.',
-      'It needs a new way to build a cover on the table, because each die has to be added or taken away.']) },
-    { id: 'mul', label: '🔒 Multiplication', html: comingHtml('Multiplication', [
-      'The dice go up to <b>10</b>. Every cover has to use <b>at least one multiplication</b>.',
-      'The card numbers go <b>much higher</b>, because multiplying makes big numbers.']) },
-    { id: 'div', label: '🔒 Division', html: comingHtml('Division', [
-      'Every cover has to use <b>at least one division</b>.',
-      'The card numbers come <b>back down</b> again, because dividing makes small numbers.']) },
-    { id: 'adv', label: '🔒 Advanced', html: comingHtml('Advanced', [
-      'Still to be decided.'])}
+    { id: 'sub', label: 'Subtraction', html: stageLearnHtml('subtraction') },
+    { id: 'mul', label: 'Multiplication', html: stageLearnHtml('multiplication') },
+    { id: 'div', label: 'Division', html: stageLearnHtml('division') },
+    { id: 'adv', label: '🔒 Advanced', html: comingHtml('Advanced', ['Still to be decided.']) }
   ];
   function renderLearn() {
     const root = $('ar-2'); if (!root) return;
@@ -924,7 +1191,7 @@
     const root = $('ar-3'); if (!root) return;
     root.innerHTML =
       '<div class="ar-panel" style="border-color:var(--gold)"><div class="ar-h">CHALLENGE A FRIEND — WORKS NOW</div>' +
-      '<div class="ar-sub">Make a challenge link and send it to anyone. When they open it they play a game at the <b>same level</b>, with their own cards, and you compare totals. It needs no account.</div>' +
+      '<div class="ar-sub">Make a challenge link and send it to anyone. When they open it they play a game at the <b>same level</b>, with their own cards, and you compare how many rounds it took to reach the target. It needs no account.</div>' +
       '<div class="ar-row" style="margin-top:12px"><button class="ar-btn big" onclick="AR.makeChallenge()">🔗 Make a challenge link</button></div>' +
       '<div class="ar-sub" id="ar-chmsg" style="margin-top:10px"></div></div>' +
       '<div class="ar-panel ar-soon"><div class="ar-h">PLAY TOGETHER ONLINE — NEXT STAGE</div>' +
@@ -940,7 +1207,7 @@
       'Teachers will be able to set up a class made of several tables, see the leaders across all of them, and replay a student’s turn on screen to teach from it.</div></div>';
   }
   function makeChallenge() {
-    const url = challengeUrl(myLevel().lvl);
+    const url = challengeUrl(myLevel().lvl, curStage);
     const m = $('ar-chmsg');
     if (m) m.innerHTML = 'Your link (level ' + myLevel().lvl + '): <br><input class="ar-select" style="width:100%;margin-top:6px" readonly value="' + url + '" onclick="this.select()"><br><button class="ar-btn" style="margin-top:8px" onclick="AR.copyChallengeUrl(\'' + url + '\')">Copy link</button><span id="ar-chmsg2" style="margin-left:10px"></span>';
   }
@@ -950,16 +1217,16 @@
     const root = $('ar-4'); if (!root) return;
     const L = myLevel();
     const rows = P.games.slice(0, 20).map(g =>
-      '<tr><td>' + new Date(g.t).toLocaleDateString() + '</td><td>' + g.score + '</td><td>' + g.lvl + (g.practiceLevel ? ' (trying)' : '') + '</td><td>' +
-      (g.opp ? 'Amit ' + g.opp + ': ' + g.oppScore : g.challenge ? 'friend challenge' : 'solo') + '</td></tr>').join('');
-    const lvRows = E.LEVELS.map(x => '<tr' + (x.lvl === L.lvl ? ' class="me"' : '') + '><td>' + x.lvl + '</td><td>' + x.xp + '</td><td>' + (x.clock ? x.clock + ' s' : 'no clock') + '</td><td>' + x.cardMin + '–' + x.cardMax + '</td><td>' + x.helps + '</td><td>' + (x.assist ? 'yes' : 'no') + '</td></tr>').join('');
+      '<tr><td>' + new Date(g.t).toLocaleDateString() + '</td><td>' + g.score + '</td><td>' + (g.stage && g.stage !== 'addition' ? E.STAGES[g.stage].name + ' · ' : '') + g.lvl + (g.practiceLevel ? ' (trying)' : '') + '</td><td>' +
+      (g.opp ? (g.place ? ordinal(g.place) + ' of ' + (g.opp + 1) : 'table of ' + (g.opp + 1)) + ' (best Amit ' + g.oppScore + ')' : g.challenge ? 'friend challenge' : 'solo') + '</td></tr>').join('');
+    const lvRows = levelsOf().map(x => '<tr' + (x.lvl === L.lvl ? ' class="me"' : '') + '><td>' + x.lvl + '</td><td>' + x.xp + '</td><td>' + (x.clock ? x.clock + ' s' : 'no clock') + '</td><td>' + x.cardMin + '–' + x.cardMax + '</td><td>' + x.helps + '</td><td>' + (x.assist ? 'yes' : 'no') + '</td></tr>').join('');
     root.innerHTML = stageStrip(L) +
-      '<div class="ar-panel"><div class="ar-h">YOUR XP: ' + P.xp + '</div><div class="ar-sub">Saved in this browser for now. When the AmitRoll tables are built, your level will follow your Amit login to any device.</div></div>' +
+      '<div class="ar-panel"><div class="ar-h">YOUR EXPERIENCE</div><table class="ar-table-list"><tr><th>Stage</th><th>Level</th><th>Experience</th></tr>' + E.STAGE_ORDER.map(s => '<tr' + (s === stageOf() ? ' class="me"' : '') + '><td>' + E.STAGES[s].name + '</td><td>' + E.levelFor(stageXp(s)).lvl + '</td><td>' + fmtXp(stageXp(s)) + '</td></tr>').join('') + '</table><div class="ar-sub" style="margin-top:8px">Saved in this browser for now. When the AmitRoll tables are built, your levels will follow your Amit login to any device.</div></div>' +
       (P.adds && (P.adds.first + P.adds.second + P.adds.shown) ? '<div class="ar-panel"><div class="ar-h">YOUR ADDING</div><div class="ar-sub">From level 4 you add up your own turn. Right the first time: <b>' + P.adds.first + '</b> · right the second time: <b>' + P.adds.second + '</b> · needed Amit to show you: <b>' + P.adds.shown + '</b>.</div></div>' : '') +
       '<div class="ar-panel"><div class="ar-h">RECENT GAMES</div>' +
       (rows ? '<table class="ar-table-list"><tr><th>Date</th><th>Score</th><th>Level</th><th>Against</th></tr>' + rows + '</table>' : '<div class="ar-sub">No games yet. Go play one!</div>') + '</div>' +
-      '<div class="ar-panel"><div class="ar-h">THE LEVEL TABLE <span class="ar-tag">first guess — to be tuned</span></div>' +
-      '<table class="ar-table-list"><tr><th>Level</th><th>XP needed</th><th>Clock per roll</th><th>Card numbers</th><th>Helps per game</th><th>Hints</th></tr>' + lvRows + '</table>' +
+      '<div class="ar-panel"><div class="ar-h">THE LEVEL TABLE — ' + E.STAGES[stageOf()].name.toUpperCase() + ' <span class="ar-tag">first guess — to be tuned</span></div>' +
+      '<table class="ar-table-list"><tr><th>Level</th><th>Experience needed</th><th>Clock per roll</th><th>Card numbers</th><th>Helps per game</th><th>Hints</th></tr>' + lvRows + '</table>' +
       timingTableHtml() + '</div>' +
       '<div class="ar-row"><button class="ar-btn ghost danger" onclick="AR.resetProgress()">Reset my progress</button></div>';
   }
@@ -968,8 +1235,8 @@
     const R = P.rolls || [];
     const head = '<div class="ar-sub" style="margin-top:10px">The game records how long every roll takes, so each level\'s clock can be tuned from real play. The goal: set a level\'s clock near the time that <b>1 roll in 4 runs over</b> (the 75th percentile), so every level has the same squeeze.</div>';
     if (!R.length) return head + '<div class="ar-sub" style="margin-top:6px">No full rolls recorded yet. Play games (not the tutorial turn) to fill this in.</div>';
-    const rows = E.LEVELS.map(L => {
-      const mine = R.filter(r => r[0] === L.lvl);
+    const rows = levelsOf().map(L => {
+      const mine = R.filter(r => r[0] === L.lvl && (r[4] || 'addition') === stageOf());
       if (!mine.length) return '';
       const full = mine.map(r => r[2] / 1000);
       const out = mine.filter(r => r[3]).length;
@@ -979,13 +1246,13 @@
   }
   function resetProgress() {
     if (!confirm('Erase your level, XP and game history in this browser?')) return;
-    P = { xp: 0, games: [], timing: [], muted: P.muted }; saveProfile(); renderPlay(); renderProgress(); updateContext();
+    P = { xp: 0, xps: { addition: 0, subtraction: 0, multiplication: 0, division: 0 }, xpUnit: 3, stage: curStage, games: [], timing: [], muted: P.muted }; saveProfile(); renderPlay(); renderProgress(); updateContext();
   }
 
   window.AR = {
     navHtml, detailHtml, afterRender,
     start, startChallenge, practice: startPractice, clickCard, accept, stop, help, next, quit, again,
-    unstage, wildAll, commitWildBtn, pullDie, checkAdd, afterAdd,
+    unstage, wildAll, commitWildBtn, clearBuild, pullDie, checkAdd, afterAdd, setOp, setStage, practiceStage,
     toggleMute, learn, makeChallenge, copyChallenge,
     copyChallengeUrl: url => copyText(url, 'ar-chmsg2'),
     resetProgress
