@@ -152,10 +152,16 @@
   // drag dice, and the sign sticks to every die after it until another sign is pressed. Addition's only sign is +, so its key is just shown.
   const STAGE_BLURB = {
     addition: 'Dice 1–6. Covers add up, and matching dice multiply the card.',
-    subtraction: 'Dice 1–10. Every cover must use a −. Plus works too.',
-    multiplication: 'Dice 1–10. Every cover must use a ×. Plus and minus work too.',
-    division: 'Dice 1–10. Every cover must use a ÷, and it must come out even. All four signs work.'
+    subtraction: 'Dice 1–10. Use a − at least once in each set of five cards, or that set scores nothing.',
+    multiplication: 'Dice 1–10. Use a × at least once in each set of five cards, or that set scores nothing. + and − work too.',
+    division: 'Dice 1–10. Use a ÷ at least once in each set of five cards (it must come out even), or that set scores nothing. All four signs work.'
   };
+  // "÷ needed" until the stage's sign has been used in this set of five cards
+  function needChip() {
+    if (!G || !G.turn || !G.rules.turnSign) return '';
+    const sg = G.rules.turnSign, owed = E.needSign(G.turn);
+    return '<div class="ar-need ' + (owed ? 'owed' : 'done') + '" title="' + (owed ? 'Use this sign at least once in these five cards before you can bank' : 'Done: you can bank this set') + '">' + sg + (owed ? ' needed' : ' ✓') + '</div>';
+  }
   function opKeysHtml(cls) {
     const on = E.STAGES[stageOf()].ops;
     const live = cls !== 'small' && G && isOpStage();
@@ -165,7 +171,7 @@
         (live && lit ? ' onclick="AR.setOp(\'' + o + '\')"' : '') +
         ' title="' + (lit ? (live ? 'Press this, then pick dice: the sign sticks until you press another' : 'Used in this stage') : 'Not used in this stage') + '">' + o + '</div>';
     }).join('') +
-      (cls === 'small' ? '' : '<div class="ar-op clear" onclick="AR.clearBuild()" title="Clear: take back the dice you have picked or put on a card, and start over">CLEAR</div>') + '</div>';
+      (cls === 'small' ? '' : '<div class="ar-op clear" onclick="AR.clearBuild()" title="Clear: take back the dice you have picked or put on a card, and start over">CLEAR</div>' + needChip()) + '</div>';
   }
   function stageStrip(L) {
     const xp = stageXp();
@@ -188,7 +194,7 @@
     }
     h += '<div class="ar-panel"><div class="ar-h">Start a game</div>' +
       '<div class="ar-h" style="margin:0 0 8px">Stage</div>' +
-      '<div class="ar-row" style="margin-bottom:10px">' + E.STAGE_ORDER.map(s => '<button class="ar-btn ar-stagebtn' + (s === curStage ? ' on' : '') + '" onclick="AR.setStage(\'' + s + '\')">' + E.STAGES[s].name + '</button>').join('') + '</div>' +
+      '<div class="ar-row" style="margin-bottom:10px">' + E.STAGE_ORDER.map(s => '<button class="ar-btn ar-stagebtn' + (s === curStage ? ' on' : '') + '" title="' + E.STAGES[s].name + '" aria-label="' + E.STAGES[s].name + '" onclick="AR.setStage(\'' + s + '\')">' + ({ addition: '+', subtraction: '−', multiplication: '×', division: '÷' })[s] + '</button>').join('') + '</div>' +
       '<div class="ar-row" style="margin-bottom:10px"><span class="ar-sub">Signs you can use:</span>' + opKeysHtml('small') + '<span class="ar-sub">' + STAGE_BLURB[curStage] + ' Each stage also lets you use every sign before it.</span></div>' +
       '<div class="ar-sub" style="margin-bottom:12px">The first to reach the target score wins — it can take five rounds or twenty. Cover cards, roll again or stop, and keep your score. The clock is per roll: ' +
       (L.clock ? L.clock + ' seconds at your level.' : 'no clock at your level yet.') + '</div>' +
@@ -685,7 +691,10 @@
     snd('cover');
     renderGame();
     floatAt(cardIdx, r.wild ? 'WILD' : '+' + r.pts + (r.mult > 1 ? '  ×' + r.mult : ''));
-    if (r.sweep) {
+    if (r.forfeit) {
+      snd('bad');
+      banner('No ' + G.rules.turnSign + ' used — these five cards score 0');
+    } else if (r.sweep) {
       snd('sweep');
       banner(r.sweep === 'cards' ? 'Cleared the table! New cards' : 'Every die used! Roll all five');
       confetti($('ar-tablearea'), 44);
@@ -828,6 +837,7 @@
     if (!liveNow()) return;
     const t = G.turn;
     if (E.mustCover(t)) { G.say = 'You can still cover a card with the dice you have — keep covering before you complete.'; snd('bad'); renderGame(); return; }
+    if (E.canRoll(t) && E.needSign(t)) { G.say = 'Use a <b>' + t.rules.turnSign + '</b> at least once in these five cards before you bank — or roll on to find one.'; snd('bad'); renderGame(); return; }
     if (!E.canStop(t)) { G.say = 'Cover at least one card first.'; snd('bad'); renderGame(); return; }
     G.stage = {}; resetBuildState();
     G.stopOutlook = E.rollOutlook(t);
@@ -840,6 +850,13 @@
   function help() {
     if (!liveNow() || (G.helps <= 0 && !G.practice)) return;
     const t = G.turn;
+    const sc = signCover(t);
+    if (sc) {
+      if (!G.practice) G.helps--;
+      G.hint = { dice: sc.dice, card: sc.card };
+      G.say = 'You still need a <b>' + t.rules.turnSign + '</b> in these five cards. Try <b>' + sc.expr + '</b> on the <b>' + t.cards[sc.card].v + '</b>.';
+      renderGame(); return;
+    }
     const plan = E.bestPlan(E.cardVals(t), E.diceVals(t), t.rules);
     if (!G.practice) G.helps--;
     const wildLeft = t.cards.some(c => isWild(c.v) && !c.covered);
@@ -872,9 +889,24 @@
     return 'Nothing more to cover here. Rolling ' + k + ' dice has a <b>' + Math.round(o.pBust * 100) + '%</b> chance of a bust. Stopping banks <b>' + o.stopValue + '</b>. ' +
       (o.advice === 'roll' ? 'I would <b>roll again</b>.' : 'I would <b>stop and bank it</b>.');
   }
+  // a cover that uses the stage's sign, when one exists and the sign is still owed in this set
+  function signCover(t) {
+    if (!E.needSign(t)) return null;
+    const dv = E.diceVals(t);
+    const list = E.validCovers(E.cardVals(t), dv, t.rules).filter(c => !c.wild);
+    let best = null;
+    list.forEach(c => { const ex = E.stageExpr(dv, c.dice, c.sum, t.rules, t.rules.turnSign); if (ex && (!best || ex.dice.length < best.dice.length || (ex.dice.length === best.dice.length && c.sum > best.sum))) best = { dice: ex.dice, card: c.card, sum: c.sum, expr: ex.expr }; });
+    return best;
+  }
   function narrate() {
     const t = G.turn;
     if (t.status !== 'rolled') return;
+    const sc = signCover(t);
+    if (sc) {
+      G.say = 'You still need a <b>' + t.rules.turnSign + '</b> in these five cards. Try <b>' + sc.expr + '</b> on the <b>' + t.cards[sc.card].v + '</b>.';
+      G.hint = { dice: sc.dice, card: sc.card };
+      renderGame(); return;
+    }
     const plan = E.bestPlan(E.cardVals(t), E.diceVals(t), t.rules);
     const wildLeft = t.cards.some(c => isWild(c.v) && !c.covered);
     if (plan.covers.length) {
@@ -937,7 +969,7 @@
     showResultSheet();
   }
   function breakdownHtml(t) {
-    const parts = t.scorecard.filter(c => !c.wild).map(c => c.card + (c.mult > 1 ? ' × ' + c.mult : '') + ' = ' + c.pts);
+    const parts = t.scorecard.filter(c => !c.wild && !c.forfeited).map(c => c.card + (c.mult > 1 ? ' × ' + c.mult : '') + ' = ' + c.pts);
     const left = t.dice.filter(d => !d.used).map(d => d.v);
     return (parts.length ? parts.join(' &nbsp;+&nbsp; ') : '0') + ' &nbsp;−&nbsp; ' + (left.length ? left.join(' − ') + ' (dice left = ' + E.leftoverSum(t) + ')' : '0 (no dice left)') + ' &nbsp;=&nbsp; <b>' + t.score + '</b>';
   }
@@ -986,7 +1018,7 @@
     const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-sheet';
     over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">' + (G.practice ? 'TUTORIAL TURN' : 'ROUND ' + G.round + ' · FIRST TO ' + G.target) + '</div>' +
       '<div class="ar-big' + (t.score < 0 || bust ? ' neg' : '') + '">' + (bust ? 'BUST' : (t.score > 0 ? '+' : '') + t.score) + '</div>' +
-      '<div class="ar-sub" style="text-align:center">' + (bust ? (G.bustMsg || '') + (t.score > 0 ? ' You keep the ' + t.score + ' points you banked by covering all five cards.' : ' This turn scores 0.') : 'Covered ' + t.points + ' points, minus ' + E.leftoverSum(t) + ' for the dice left.') + '</div>' + stopNote +
+      '<div class="ar-sub" style="text-align:center">' + (bust ? (G.bustMsg || '') + (t.score > 0 ? ' You keep the ' + t.score + ' points you banked by covering all five cards.' : ' This turn scores 0.') : (t.noSign ? 'The clock ran out before you used a ' + t.rules.turnSign + ' in these five cards, so they score nothing.' : 'Covered ' + t.points + ' points, minus ' + E.leftoverSum(t) + ' for the dice left.')) + '</div>' + stopNote +
       '<div class="ar-h" style="margin-top:18px">BEST PLAY <span class="ar-tag">working name</span></div>' +
       '<div class="ar-sub" style="margin-bottom:4px">What each roll could have done, next to what you did.</div>' +
       '<div class="ar-review">' + reviewHtml(t) + '</div>' +
@@ -1148,9 +1180,9 @@
       division: die10(9) + '<span class="op">−</span>' + die10(8) + '<span class="op">÷</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(7)
     }[stage];
     const rule = {
-      subtraction: 'The dice go up to <b>10</b>. Every cover has to use <b>at least one minus</b> — for example <b>10 − 1 + 1</b> on a 10. Plus works too.',
-      multiplication: 'The dice go up to <b>10</b>. Every cover has to use <b>at least one times</b> — for example <b>2 + 3 × 4</b> on a 14. Plus and minus work too, and the card numbers go much higher.',
-      division: 'The dice go up to <b>10</b>. Every cover has to use <b>at least one divide</b>, and it must come out even — for example <b>9 − 8 ÷ 4</b> on a 7. All four signs work.'
+      subtraction: 'The dice go up to <b>10</b>. Use <b>a minus at least once</b> in each set of five cards — for example <b>10 − 1 + 1</b> on a 10. The other covers can be plain adding.',
+      multiplication: 'The dice go up to <b>10</b>. Use <b>a times at least once</b> in each set of five cards — for example <b>2 + 3 × 4</b> on a 14. Plus and minus work too, and the card numbers go much higher.',
+      division: 'The dice go up to <b>10</b>. Use <b>a divide at least once</b> in each set of five cards, and it must come out even — for example <b>9 − 8 ÷ 4</b> on a 7. All four signs work.'
     }[stage];
     const order = (stage === 'subtraction') ? '' :
       '<div class="ar-sub" style="font-size:16px;margin:10px 0"><b>Order of operations</b> (“My Dear Aunt Sally”): × and ÷ happen first, then + and −. So 2 + 3 × 4 is 2 + 12 = 14, not 20.' + (stage === 'division' ? ' A division has to come out whole: 12 ÷ 4 = 3 is fine, 7 ÷ 2 is not.' : '') + '</div>';
@@ -1169,7 +1201,7 @@
     subtraction: [
       SL('Dice now go to 10', 'In subtraction the dice have <b>ten sides</b>, 1 to 10, and the cards go higher than in addition. Everything you learned in addition still works: you can still add.',
         () => [10, 7, 1, 4, 9].map(die10).join('')),
-      SL('Every cover needs a minus', 'To cover a card you must use <b>at least one minus</b>. A 9 and a 2 on a <b>7</b>: 9 − 2 = 7. Adding alone will not count in this stage, even if the dice add up to the card.',
+      SL('Use a minus once per five cards', 'In each set of five cards you must use <b>a minus at least once</b>. A 9 and a 2 on a <b>7</b>: 9 − 2 = 7. After that, the other cards can be covered by plain adding. You cannot bank your points until you have used it, and if a set ends without it, <b>that set scores nothing</b>.',
         () => die10(9) + '<span class="op">−</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(7)),
       SL('The sign keys', 'Beside the cards are four keys: <b>+ − × ÷</b>. In subtraction only <b>+</b> and <b>−</b> are lit. <b>Press a sign, then tap or drag the dice.</b> The first die of a cover is always a plus, so you press − before the <i>second</i> die.',
         () => OPS_DEMO('−')),
@@ -1185,7 +1217,7 @@
     multiplication: [
       SL('Dice to 10, and big cards', 'The dice go 1 to 10 and the cards climb all the way to the hundreds. Plus, minus and times are all lit.',
         () => [3, 9, 2, 10, 6].map(die10).join('')),
-      SL('Every cover needs a times', 'You must use <b>at least one ×</b>. 6 × 7 covers a <b>42</b>.',
+      SL('Use a times once per five cards', 'In each set of five cards you must use <b>a × at least once</b>. 6 × 7 covers a <b>42</b>. After that, other cards can be covered with plus and minus. You cannot bank until you have used it, and a set that ends without it <b>scores nothing</b>.',
         () => die10(6) + '<span class="op">×</span>' + die10(7) + '<span class="op">→</span>' + cardStatic(42)),
       SL('Order of operations', '<b>× happens before + and −</b> (“My Dear Aunt Sally”). So 2 + 3 × 4 is 2 + 12 = <b>14</b>, not 20. The table does it that way for you.',
         () => die10(2) + '<span class="op">+</span>' + die10(3) + '<span class="op">×</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(14)),
@@ -1199,7 +1231,7 @@
     division: [
       SL('All four signs', 'Division uses <b>+ − × ÷</b>, with dice 1 to 10. The cards come back down from the multiplication numbers.',
         () => [8, 4, 9, 2, 10].map(die10).join('')),
-      SL('Every cover needs a divide', 'You must use <b>at least one ÷</b>, and it must come out <b>even</b>: 12 ÷ 4 = 3 is fine, 7 ÷ 2 is not allowed. 8 ÷ 2 covers a <b>4</b>.',
+      SL('Use a divide once per five cards', 'In each set of five cards you must use <b>a ÷ at least once</b>, and it must come out <b>even</b>: 12 ÷ 4 = 3 is fine, 7 ÷ 2 is not allowed. 8 ÷ 2 covers a <b>4</b>. The other cards can use any sign. You cannot bank until you have used it, and a set that ends without it <b>scores nothing</b>.',
         () => die10(8) + '<span class="op">÷</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(4)),
       SL('Order of operations', '<b>× and ÷ go first, then + and −.</b> So 9 − 8 ÷ 4 is 9 − 2 = <b>7</b>, not 0.25. Remember “My Dear Aunt Sally”.',
         () => die10(9) + '<span class="op">−</span>' + die10(8) + '<span class="op">÷</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(7)),

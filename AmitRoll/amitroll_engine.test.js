@@ -502,7 +502,7 @@ t('stage rules: each stage turns on its own sign and every sign before it, and r
 });
 
 t("Ryan's example: 10 - 1 + 1 covers a 10 in subtraction, and a cover with no minus is refused", () => {
-  const r = R('subtraction', 1);
+  const r = Object.assign({}, R('subtraction', 1), { required: '−' });      // the old per-cover rule, still supported by the evaluator
   const ok = E.evalItems(items([10, '+'], [1, '−'], [1, '+']), r);
   assert.ok(ok.ok); assert.strictEqual(ok.value, 10);
   const noMinus = E.evalItems(items([4, '+'], [6, '+']), r);
@@ -518,7 +518,7 @@ t('order of operations: x and / before + and -  (2 + 3 x 4 = 14, 20 - 12 / 4 = 1
 });
 
 t('division must come out whole; a cover needs a division in the division stage', () => {
-  const r = R('division', 1);
+  const r = Object.assign({}, R('division', 1), { required: '÷' });
   assert.strictEqual(E.evalItems(items([12, '+'], [4, '÷']), r).value, 3);
   assert.strictEqual(E.evalItems(items([7, '+'], [2, '÷']), r).reason, 'divide');
   assert.strictEqual(E.evalItems(items([3, '+'], [4, '×']), r).reason, 'required');     // a times is not a divide
@@ -580,7 +580,7 @@ t('solver is sound: every cover it offers re-checks with an independent JavaScri
   }
 });
 
-t('solver is complete for multiplication on three dice (compared with a separate brute force using JavaScript precedence)', () => {
+t('solver is complete for multiplication on three dice, any cover allowed (compared with a separate brute force using JavaScript precedence)', () => {
   const rules = R('multiplication', 5), rng = E.mulberry32(21);
   for (let g = 0; g < 30; g++) {
     const dice = E.rollDice(rng, 3, 10);
@@ -596,7 +596,6 @@ t('solver is complete for multiplication on three dice (compared with a separate
         const combos = k === 2 ? opsList.map(x => [x]) : opsList.flatMap(a => opsList.map(b => [a, b]));
         for (const c of combos) {
           const text = o.map((p, i) => (i ? c[i - 1] : '') + dice[idx[p]]).join('');
-          if (text.indexOf('*') < 0) continue;                              // multiplication stage needs a times
           const val = Function('return ' + text)();
           if (val >= 1) want.add(val);
         }
@@ -662,3 +661,66 @@ t('levelFor maps xp to levels', () => {
 });
 
 console.log('\n' + n + ' tests passed');
+
+t('the stage sign is needed once per five cards, not in every cover', () => {
+  const r = R('subtraction', 6);
+  assert.strictEqual(r.required, null); assert.strictEqual(r.turnSign, '−');
+  const st = E.newTurn([8, 5, 20, 30, 40], [3, 5, 2, 7, 10], r);
+  assert.ok(E.tryCover(st, [0, 1], 0, ['+', '+']).ok);            // 3 + 5 = 8: a plain addition cover is allowed
+  assert.strictEqual(E.needSign(st), true);
+  assert.ok(E.tryCover(st, [3, 2], 1, ['+', '−']).ok);            // 7 - 2 = 5 uses the minus: one is enough for the set
+  assert.strictEqual(E.needSign(st), false);
+  assert.strictEqual(E.mustCover(st), false);                     // only the 10 is left
+  assert.strictEqual(E.canStop(st), true);
+});
+
+t('banking waits for the stage sign; a timeout without it scores nothing', () => {
+  const r = R('multiplication', 6);
+  const mk = () => E.newTurn([8, 40, 41, 42, 43], [3, 5, 1, 1, 1], r);
+  const st = mk();
+  assert.ok(E.tryCover(st, [0, 1], 0, ['+', '+']).ok);            // 3 + 5 = 8, no times
+  assert.strictEqual(E.canRoll(st), true);                         // may roll on...
+  assert.strictEqual(E.canStop(st), false);                        // ...but cannot bank yet
+  assert.strictEqual(E.stop(st), null);
+  const t2 = mk(); E.tryCover(t2, [0, 1], 0, ['+', '+']);
+  E.timeoutStop(t2);
+  assert.strictEqual(t2.score, 0); assert.strictEqual(t2.noSign, true);
+  const t3 = E.newTurn([15, 40, 41, 42, 43], [3, 5, 1, 1, 1], r);
+  assert.ok(E.tryCover(t3, [0, 1], 0, ['+', '×']).ok);            // 3 x 5 = 15 uses the times
+  assert.strictEqual(E.canStop(t3), true);
+  assert.strictEqual(E.stop(t3).score, 15 - 3);                    // three 1s left over
+});
+
+t('clearing all five cards without the sign scores nothing for that set; a new set owes the sign again', () => {
+  const r = R('subtraction', 6);
+  const st = E.newTurn([1, 2, 3, 4, 5], [1, 2, 3, 4, 5], r);
+  for (let i = 0; i < 4; i++) assert.ok(E.tryCover(st, [i], i, ['+']).ok);
+  const last = E.tryCover(st, [4], 4, ['+']);
+  assert.strictEqual(last.sweep, 'cards'); assert.strictEqual(last.forfeit, true);
+  assert.strictEqual(st.points, 0); assert.strictEqual(st.safe, 0);
+  assert.ok(st.scorecard.every(c => c.forfeited));
+  // taking the last cover back restores the points
+  E.uncover(st, 4);
+  assert.strictEqual(st.points, 1 + 2 + 3 + 4);
+  assert.ok(st.scorecard.every(c => !c.forfeited));
+  E.tryCover(st, [4], 4, ['+']);
+  E.roll(st, E.mulberry32(5), () => [9, 9, 9, 9, 9]);
+  assert.strictEqual(st.setNo, 2); assert.strictEqual(E.needSign(st), true);
+});
+
+t('Amit goes after the stage sign and never banks without it', () => {
+  ['subtraction', 'multiplication', 'division'].forEach(stage => {
+    let banked = 0, withoutSign = 0;
+    for (let seed = 1; seed <= 25; seed++) {
+      const rng = E.mulberry32(seed), rules = E.rulesFor(stage, 6);
+      const dealFn = () => E.dealCards(rng, 5, 1, E.levelsFor(stage)[5].cardMax, 0);
+      const st = E.newTurn(dealFn(), E.rollDice(rng, 5, rules.faces), rules);
+      const opts = { rng, skill: 0.9, dealFn };
+      let g = 0;
+      while (st.status === 'rolled' && g++ < 200) { const a = E.botPlan(st, opts); if (a.type === 'none') { E.bust(st); break; } E.botApply(st, a, opts); }
+      if (st.status === 'stopped') { banked++; if (!st.signUsed) withoutSign++; }
+    }
+    assert.ok(banked > 3, stage + ' bot banked ' + banked);
+    assert.strictEqual(withoutSign, 0, stage + ' banked without the sign');
+  });
+});
