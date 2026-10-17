@@ -442,6 +442,7 @@
       if (isWild(c.v)) cls.push('wild');
       if (assist && !c.covered && sel.size && !isWild(c.v) && (isOpStage() ? selValue === c.v : S === c.v)) cls.push('match');
       if (G.hint && G.hint.card === i && !c.covered) cls.push('hint');
+      if (!c.covered && !isWild(c.v) && (G.stage[i] || []).length) cls.push('pending');
       if (G.anim.cards) cls.push('dealing');
       const style = G.anim.cards ? ' style="animation-delay:' + (i * 0.07) + 's"' : '';
       const sd = (G.stage[i] || []);
@@ -463,7 +464,7 @@
         ? '<div class="face"><span class="wj">🃏</span><span class="wt">WILD</span></div>'
         : '<div class="face"><small>' + c.v + '</small>' + c.v + '<small class="br">' + c.v + '</small></div>';
       const acceptBtn = (isWild(c.v) && !c.covered && sd.length && live) ? '<button class="ar-btn ar-wildok" onclick="AR.commitWildBtn()">✔ Accept</button>' : '';
-      return '<div class="ar-cardwrap"><div class="ar-card ' + cls.join(' ') + '" data-i="' + i + '"' + style + ' onclick="AR.clickCard(' + i + ')">' + face + ribbon + pts + stack + '</div>' + acceptBtn + '</div>';
+      return '<div class="ar-cardwrap"><div class="ar-card ' + cls.join(' ') + '" data-i="' + i + '"' + style + ' onclick="AR.clickCard(' + i + ')">' + face + ribbon + pts + '</div><div class="ar-under">' + stack + '</div>' + acceptBtn + '</div>';
     }).join('');
 
     const diceH = t.dice.map((d, k) => {
@@ -667,10 +668,15 @@
   // the little line on a card while dice are resting on it (hints on)
   function stagedCaption(sd, target) {
     const t = G.turn;
-    if (!isOpStage()) { const vals = sd.map(k => t.dice[k].v); return plus(vals) + ' = ' + vals.reduce((a, b) => a + b, 0) + ' / ' + target; }
+    const no = '<span class="no">≠ ' + target + '</span>';
+    if (!isOpStage()) {
+      const vals = sd.map(k => t.dice[k].v), tot = vals.reduce((a, b) => a + b, 0);
+      return (vals.length > 1 ? plus(vals) + ' = ' + tot : String(tot)) + ' ' + no;
+    }
     const items = sd.map(k => ({ v: t.dice[k].v, op: G.stageOp[k] || '+' }));
     const r = E.evalItems(items, G.rules);
-    return E.exprString(items) + (r.ok || r.reason === 'required' ? ' = ' + r.value : '') + ' / ' + target;
+    const val = r.ok || r.reason === 'required' ? r.value : null;
+    return E.exprString(items) + (val !== null && items.length > 1 ? ' = ' + val : '') + ' ' + no;
   }
   function setOp(op) {
     if (!liveNow() || !isOpStage() || E.STAGES[G.stageName].ops.indexOf(op) < 0) return;
@@ -836,6 +842,11 @@
     commitWild();
     if (!liveNow()) return;
     const t = G.turn;
+    const strays = Object.keys(G.stage).filter(i => G.stage[i].length && !t.cards[i].covered && !isWild(t.cards[i].v));
+    if (strays.length) {
+      G.say = 'There are dice resting on ' + strays.map(i => 'the <b>' + t.cards[i].v + '</b>').join(' and ') + ' that do not cover ' + (strays.length > 1 ? 'those cards' : 'it') + '. Tap them to take them back, or finish the cover, before you bank.';
+      snd('bad'); renderGame(); return;
+    }
     if (E.mustCover(t)) { G.say = 'You can still cover a card with the dice you have — keep covering before you complete.'; snd('bad'); renderGame(); return; }
     if (E.canRoll(t) && E.needSign(t)) { G.say = 'Use a <b>' + t.rules.turnSign + '</b> at least once in these five cards before you bank — or roll on to find one.'; snd('bad'); renderGame(); return; }
     if (!E.canStop(t)) { G.say = 'Cover at least one card first.'; snd('bad'); renderGame(); return; }
@@ -1085,7 +1096,8 @@
     function cardAt(x, y) {
       const els = document.elementsFromPoint(x, y);
       for (const el of els) {
-        const c = el.closest && el.closest('#ar-1 .ar-card[data-i]');
+        let c = el.closest && el.closest('#ar-1 .ar-card[data-i]');
+        if (!c && el.closest) { const w = el.closest('#ar-1 .ar-cardwrap'); if (w) c = w.querySelector('.ar-card[data-i]'); }
         if (c && !c.classList.contains('covered')) return +c.dataset.i;
       }
       return null;
@@ -1261,7 +1273,14 @@
     { id: 'sub', label: 'Subtraction', mount: pane => renderStageLessons('subtraction', pane) },
     { id: 'mul', label: 'Multiplication', mount: pane => renderStageLessons('multiplication', pane) },
     { id: 'div', label: 'Division', mount: pane => renderStageLessons('division', pane) },
-    { id: 'adv', label: '🔒 Advanced', html: comingHtml('Advanced', ['Still to be decided.']) }
+    { id: 'adv', label: '🔒 Advanced', html: comingHtml('Advanced', [
+      'These are the next steps after division. They are planned, not built, and the order may change.',
+      '<b>1. Fractions.</b> Division no longer has to come out even. Dice can make fractions (6 ÷ 4 = 3/2) and the cards are fractions and mixed numbers like 3/4 or 2 1/2.',
+      '<b>2. Parentheses.</b> Group dice yourself to change the order of operations: (2 + 3) × 4 = 20, where without them it would be 14.',
+      '<b>3. Exponents and square roots.</b> Two new sign keys: a die can be a power (2 to the 3rd is 8) and a root takes a square root (√9 = 3).',
+      '<b>4. Decimals and percent.</b> Cards like 0.75 or 25%, which pair with fractions (3/4 = 0.75 = 75%).',
+      '<b>5. Algebra.</b> A card such as x + 3 = 10 and the dice fill it in. This one is a different kind of game from covering a number, so it may become its own mode.'
+    ]) }
   ];
   function renderLearn() {
     const root = $('ar-2'); if (!root) return;

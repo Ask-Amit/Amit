@@ -352,3 +352,14 @@ Ryan: practice should offer addition, subtraction, multiplication and division, 
 - UI: a red "÷ needed" chip under the sign keys that turns green with a check once used; the bank button message explains; Amit's hint and Help point to a sign-using cover first (shortest one); a forfeit banner; result sheet explains a timed-out set that scored nothing; Learn lessons and start-panel text reworded.
 - Tests: 61 pass (old per-cover tests adjusted, four new ones for the once-per-set rule, bank gating, forfeit/undo, and the bot).
 **Open:** the card tops (STAGE_TOPS) were tuned when every cover needed the sign; with the sign needed once, covers are easier, so tops could go higher. A set cleared by single-die covers with no sign scores nothing (rare). The odds tables and Amit's pace were not re-measured.
+
+## 2026-10-16 (night) — Advanced tab lists the future stages (local v1.07, not pushed)
+Ryan asked for the next steps after division to be listed under Learn → Advanced as future advancements: **fractions** (÷ no longer has to be exact, fractional cards), **parentheses**, **exponents and square roots**, **decimals and percent**, **algebra** (probably its own mode). Text only, marked planned, not built. Amit's suggested order: fractions or parentheses first.
+
+## 2026-10-17 — Cards with dice that do not make them (local v1.08, not pushed)
+Ryan's report from playing: a stray die left resting on a card made him think he was done, and he banked by mistake; the sum line on the card ("9 = 9 / 18") was confusing; three dice stacked over the card hid it.
+- A card with dice on it that do not cover it now **blinks red** around its edge until the cover works (every level, not just with hints). A correct cover covers automatically, so the red gives away nothing.
+- The dice now sit **under the card** (covered cards too), not on it, so the card number stays visible. Dropping dice onto that row still counts as dropping on the card.
+- The sum line (hints levels) reads plainly: "9 ≠ 18", or "1 + 2 = 3 ≠ 9", with the "≠" part in red. Later stages show the expression the same way.
+- Not done (suggested to Ryan): stopping Complete & bank while dice are still resting on an uncovered card.
+- Added (v1.09, Ryan approved): **Complete & bank is blocked while any die is resting on an uncovered card**, with a message naming the card(s) and telling the player to tap the dice back or finish the cover. Tested: a stray die on a 7 blocks banking and no result sheet opens.
