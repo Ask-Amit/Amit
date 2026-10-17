@@ -724,3 +724,48 @@ t('Amit goes after the stage sign and never banks without it', () => {
     assert.strictEqual(withoutSign, 0, stage + ' banked without the sign');
   });
 });
+
+t('all-signs bonus: every sign of the stage on a later die; the first die plus does not count; none in addition', () => {
+  const sub = R('subtraction', 6), mul = R('multiplication', 6), div = R('division', 6), add = R('addition', 6);
+  assert.strictEqual(E.isBonus(items([8, '+'], [5, '+'], [2, '−']), sub), true);       // 8 + 5 - 2: a plus and a minus after the first die
+  assert.strictEqual(E.isBonus(items([9, '+'], [2, '−']), sub), false);                // 9 - 2: the plus is only the invisible first one
+  assert.strictEqual(E.isBonus(items([8, '+'], [5, '+'], [2, '−']), mul), false);      // multiplication also needs a times
+  assert.strictEqual(E.isBonus(items([2, '+'], [7, '+'], [3, '−'], [8, '×']), mul), true);
+  assert.strictEqual(E.isBonus(items([2, '+'], [7, '+'], [3, '−'], [8, '×'], [4, '÷']), div), true);
+  assert.strictEqual(E.isBonus(items([2, '+'], [7, '+'], [3, '−'], [8, '×']), div), false);   // division needs all four
+  assert.strictEqual(E.isBonus(items([2, '+'], [3, '+'], [4, '+']), add), false);      // addition never has one
+  // the solver finds one when it exists
+  const ex = E.stageBonusExpr([2, 7, 3, 8, 4], [0, 1, 2, 3, 4], 3, div);
+  assert.ok(ex); assert.strictEqual(E.isBonus(ex.ops.map((o, i) => ({ v: 1, op: o })), div), true);
+  assert.strictEqual(E.stageBonusExpr([2, 7], [0, 1], 9, sub), null);                   // two dice cannot hold three roles
+});
+
+t('a bonus cover earns a wild: carried to the next turn on banking, and handed to the next set when all five are cleared', () => {
+  const r = R('subtraction', 6);
+  const st = E.newTurn([11, 40, 41, 42, 43], [8, 5, 2, 9, 9], r);
+  const res = E.tryCover(st, [0, 1, 2], 0, ['+', '+', '−']);                            // 8 + 5 - 2 = 11
+  assert.ok(res.ok); assert.strictEqual(res.bonus, true); assert.strictEqual(st.setBonus, true);
+  assert.strictEqual(E.stop(st).bonusNext, true);
+  // no bonus, no carry
+  const plain = E.newTurn([3, 40, 41, 42, 43], [8, 5, 2, 9, 9], r);
+  E.tryCover(plain, [1, 2], 0, ['+', '−']);                                              // 5 - 2 = 3, not a bonus
+  assert.strictEqual(plain.setBonus, false); assert.strictEqual(E.stop(plain).bonusNext, false);
+  // taking the cover back removes the bonus
+  const back = E.newTurn([11, 40, 41, 42, 43], [8, 5, 2, 9, 9], r);
+  E.tryCover(back, [0, 1, 2], 0, ['+', '+', '−']); E.uncover(back, 0);
+  assert.strictEqual(back.setBonus, false);
+  // clearing all five cards deals the next set with a request for a wild
+  const clr = E.newTurn([11, 40, 41, 42, 43], [8, 5, 2, 9, 9], r);
+  E.tryCover(clr, [0, 1, 2], 0, ['+', '+', '−']);
+  clr.cards.forEach(c => { c.covered = true; }); clr.dice.forEach(d => { d.used = true; });
+  let asked = null;
+  E.roll(clr, E.mulberry32(3), w => { asked = w; return [1, 2, 3, 4, 5]; });
+  assert.strictEqual(asked, true); assert.strictEqual(clr.setBonus, false);
+});
+
+t('a wild card cannot earn the bonus', () => {
+  const r = R('subtraction', 6);
+  const st = E.newTurn(['W', 40, 41, 42, 43], [8, 5, 2, 9, 9], r);
+  const res = E.tryCover(st, [0, 1, 2], 0, ['+', '+', '−']);
+  assert.ok(res.ok); assert.ok(!res.bonus); assert.strictEqual(st.setBonus, false);
+});

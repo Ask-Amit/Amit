@@ -57,6 +57,7 @@
   let selOp = {};          // the sign each picked die carries (later stages)
   let curOp = '+';         // the sign key last pressed: it sticks to every die picked after it
   let clockIv = null;
+  const WILD_ICO = '<img class="wild-ico" src="../amit_icon.png" alt="Amit">';     // the wild card's face
   let learnStep = 0;
 
   // ── sound (tiny, optional) ─────────────────────────────
@@ -92,7 +93,7 @@
   function dieStatic(v, faces) { return '<div class="ar-die" data-v="' + v + '">' + pipsHtml(v, faces) + '</div>'; }
   const die6 = v => dieStatic(v, 6), die10 = v => dieStatic(v, 10);
   function cardStatic(v) {
-    if (isWild(v)) return '<div class="ar-card wild"><div class="face"><span class="wj">🃏</span><span class="wt">WILD</span></div></div>';
+    if (isWild(v)) return '<div class="ar-card wild"><div class="face"><span class="wj">' + WILD_ICO + '</span><span class="wt">WILD</span></div></div>';
     return '<div class="ar-card"><div class="face"><small>' + v + '</small>' + v + '<small class="br">' + v + '</small></div></div>';
   }
   function setPips(el, v) { el.setAttribute('data-v', v); el.innerHTML = pipsHtml(v); }
@@ -152,26 +153,38 @@
   // drag dice, and the sign sticks to every die after it until another sign is pressed. Addition's only sign is +, so its key is just shown.
   const STAGE_BLURB = {
     addition: 'Dice 1–6. Covers add up, and matching dice multiply the card.',
-    subtraction: 'Dice 1–10. Use a − at least once in each set of five cards, or that set scores nothing.',
-    multiplication: 'Dice 1–10. Use a × at least once in each set of five cards, or that set scores nothing. + and − work too.',
-    division: 'Dice 1–10. Use a ÷ at least once in each set of five cards (it must come out even), or that set scores nothing. All four signs work.'
+    subtraction: 'Dice 1–10. Use a − at least once in each set of five cards, or that set scores nothing. Use + and − in one cover for a bonus: a wild in your next five cards.',
+    multiplication: 'Dice 1–10. Use a × at least once in each set of five cards, or that set scores nothing. Use + − and × in one cover for a bonus: a wild in your next five cards.',
+    division: 'Dice 1–10. Use a ÷ at least once in each set of five cards (it must come out even), or that set scores nothing. Use all four signs in one cover for a bonus: a wild in your next five cards.'
   };
+  // lit when the cover being built already has every sign of the stage
+  function bonusChip(got) {
+    if (!G || !isOpStage() || !sel.size) return '';
+    if (!E.STAGES[stageOf()].ops.every(o => got[o])) return '';
+    return '<div class="ar-need bonus" title="This cover uses every sign. If it makes a number card, you earn a wild for your next five cards">★ ALL SIGNS</div>';
+  }
   // "÷ needed" until the stage's sign has been used in this set of five cards
   function needChip() {
     if (!G || !G.turn || !G.rules.turnSign) return '';
     const sg = G.rules.turnSign, owed = E.needSign(G.turn);
     return '<div class="ar-need ' + (owed ? 'owed' : 'done') + '" title="' + (owed ? 'Use this sign at least once in these five cards before you can bank' : 'Done: you can bank this set') + '">' + sg + (owed ? ' needed' : ' ✓') + '</div>';
   }
+  // signs used on dice after the first in the cover being built: they count toward the all-signs bonus
+  function selSigns() {
+    const got = {};
+    if (G && isOpStage()) [...sel].forEach((k, i) => { if (i > 0) got[selOp[k] || '+'] = true; });
+    return got;
+  }
   function opKeysHtml(cls) {
-    const on = E.STAGES[stageOf()].ops;
+    const on = E.STAGES[stageOf()].ops, got = selSigns();
     const live = cls !== 'small' && G && isOpStage();
     return '<div class="ar-ops ' + (cls || '') + '">' + ['+', '−', '×', '÷'].map(o => {
       const lit = on.indexOf(o) >= 0;
-      return '<div class="ar-op ' + (lit ? 'on' : 'off') + (live && lit && o === curOp ? ' cur' : '') + '"' +
+      return '<div class="ar-op ' + (lit ? 'on' : 'off') + (live && lit && o === curOp ? ' cur' : '') + (live && lit && got[o] ? ' got' : '') + '"' +
         (live && lit ? ' onclick="AR.setOp(\'' + o + '\')"' : '') +
         ' title="' + (lit ? (live ? 'Press this, then pick dice: the sign sticks until you press another' : 'Used in this stage') : 'Not used in this stage') + '">' + o + '</div>';
     }).join('') +
-      (cls === 'small' ? '' : '<div class="ar-op clear" onclick="AR.clearBuild()" title="Clear: take back the dice you have picked or put on a card, and start over">CLEAR</div>' + needChip()) + '</div>';
+      (cls === 'small' ? '' : '<div class="ar-op clear" onclick="AR.clearBuild()" title="Clear: take back the dice you have picked or put on a card, and start over">CLEAR</div>' + needChip() + bonusChip(got)) + '</div>';
   }
   function stageStrip(L) {
     const xp = stageXp();
@@ -245,9 +258,14 @@
     beginRound();
   }
 
-  function dealFn() {
+  // an earned wild (the all-signs bonus) guarantees one wild among the next five cards
+  function withWild(cards, want, salt) {
+    if (want && cards.indexOf('W') < 0) cards[Math.abs(salt) % cards.length] = 'W';
+    return cards;
+  }
+  function dealFn(want) {
     G.dealN++;
-    return E.dealCards(E.mulberry32(G.seed * 1000 + G.round * 10 + G.dealN + 500), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE);
+    return withWild(E.dealCards(E.mulberry32(G.seed * 1000 + G.round * 10 + G.dealN + 500), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE), want, G.seed + G.dealN);
   }
   // ── THE TABLE: up to eight players, my own seat always at the bottom (Ryan, 2026-10-16) ──
   // This version plays against Amit seats on this computer. There is no live connection: when real players join, each
@@ -272,9 +290,10 @@
   function beginSeatsRound() {
     const now = Date.now();
     G.table.seats.forEach(s => {
-      const cards = E.dealCards(E.mulberry32(G.seed * 100 + s.idx * 7 + G.round * 13), 5, s.L.cardMin, s.L.cardMax, WILD_CHANCE);
+      const cards = withWild(E.dealCards(E.mulberry32(G.seed * 100 + s.idx * 7 + G.round * 13), 5, s.L.cardMin, s.L.cardMax, WILD_CHANCE), s.nextWild, s.idx + G.round);
+      s.nextWild = false;
       s.dealN = 0;
-      s.dealFn = () => E.dealCards(E.mulberry32(G.seed * 500 + s.idx * 11 + G.round * 17 + (++s.dealN)), 5, s.L.cardMin, s.L.cardMax, WILD_CHANCE);
+      s.dealFn = want => withWild(E.dealCards(E.mulberry32(G.seed * 500 + s.idx * 11 + G.round * 17 + (++s.dealN)), 5, s.L.cardMin, s.L.cardMax, WILD_CHANCE), want, s.idx + s.dealN);
       s.turn = E.newTurn(cards, E.rollDice(s.rng, 5, E.STAGES[G.stageName].faces), E.rulesFor(G.stageName, s.level));
       s.roundScore = null; s.elapsed = 0; s.budget = s.L.clock || Infinity;
       s.status = 'playing';
@@ -288,6 +307,7 @@
   function finishSeat(s) {
     if (s.status === 'done') return;
     s.roundScore = s.turn.score;
+    s.nextWild = !!s.turn.bonusNext;
     s.total += s.turn.score;
     s.status = 'done';
   }
@@ -331,7 +351,7 @@
     if (t) {
       body += '<div class="ar-sc">' + t.cards.map(c => {
         const cv = c.cover, w = c.v === 'W';
-        return '<div class="ar-smc' + (c.covered ? ' cov' : '') + (w ? ' w' : '') + '"><b>' + (w ? '🃏' : c.v) + '</b>' +
+        return '<div class="ar-smc' + (c.covered ? ' cov' : '') + (w ? ' w' : '') + '"><b>' + (w ? '' + WILD_ICO + '' : c.v) + '</b>' +
           (c.covered && cv && cv.mult > 1 ? '<i>×' + cv.mult + '</i>' : '') + (c.covered && cv ? '<small>' + (cv.expr ? cv.expr.replace(/ /g, '') : cv.values.join('+')) + '</small>' : '') + '</div>';
       }).join('') + '</div>';
       body += '<div class="ar-sd">' + t.dice.map(d => '<span class="ar-smd' + (d.used ? ' used' : '') + '">' + d.v + '</span>').join('') + '</div>';
@@ -359,7 +379,8 @@
   }
 
   function beginRound() {
-    const cards = E.dealCards(E.mulberry32(G.seed * 1000 + G.round), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE);
+    const cards = withWild(E.dealCards(E.mulberry32(G.seed * 1000 + G.round), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE), G.nextWild, G.seed + G.round);
+    G.nextWild = false;
     G.dealN = 0; G.coverPts = {}; G.coverText = {}; G.stage = {}; G.stageOp = {}; G.hint = null; G.say = ''; G.bustMsg = ''; G.stopOutlook = null;
     selOp = {}; curOp = '+';
     G.turn = E.newTurn(cards, E.rollDice(G.diceRng, 5, E.STAGES[G.stageName].faces), G.rules);
@@ -453,6 +474,7 @@
         stack = '<div class="ar-stack">' + cv.values.map((v, n) => (cv.ops && (n > 0 || cv.ops[n] === '−') ? '<span class="ar-opsm">' + (n > 0 ? cv.ops[n] : '−') + '</span>' : '') + '<div class="ar-die mini' + (pull ? ' pullable' : '') + '" data-v="' + v + '"' +
           (pull ? ' onclick="event.stopPropagation();AR.pullDie(' + i + ',' + n + ')" title="Tap to take these dice back off"' : '') + '>' + pipsHtml(v) + '</div>').join('') + '</div>';
         if (cv.wild) ribbon = '<div class="ar-ribbon">WILD USED</div>';
+        else if (cv.bonus) ribbon = '<div class="ar-ribbon">ALL SIGNS ★</div>';
         else if (cv.mult > 1) ribbon = '<div class="ar-ribbon">' + E.multWord(cv.mult) + '</div>';
         if (assist && !cv.wild) pts = '<div class="ar-cardpts">+' + cv.pts + '</div>';
       } else if (sd.length) {
@@ -461,7 +483,7 @@
           (assist && !isWild(c.v) ? '<div class="ar-stackcap">' + stagedCaption(sd, c.v) + '</div>' : '');
       }
       const face = isWild(c.v)
-        ? '<div class="face"><span class="wj">🃏</span><span class="wt">WILD</span></div>'
+        ? '<div class="face"><span class="wj">' + WILD_ICO + '</span><span class="wt">WILD</span></div>'
         : '<div class="face"><small>' + c.v + '</small>' + c.v + '<small class="br">' + c.v + '</small></div>';
       const acceptBtn = (isWild(c.v) && !c.covered && sd.length && live) ? '<button class="ar-btn ar-wildok" onclick="AR.commitWildBtn()">✔ Accept</button>' : '';
       return '<div class="ar-cardwrap"><div class="ar-card ' + cls.join(' ') + '" data-i="' + i + '"' + style + ' onclick="AR.clickCard(' + i + ')">' + face + ribbon + pts + '</div><div class="ar-under">' + stack + '</div>' + acceptBtn + '</div>';
@@ -501,7 +523,7 @@
     }
     let rule = '';
     if (live && must && t.coversThisRoll > 0 && assist) rule = 'A card can still be covered with your dice — keep covering.';
-    else if (live && t.coversThisRoll === 0 && wildIdx >= 0 && !must) rule = 'No number card can be covered. Put dice on the 🃏 wild to stay in the turn.';
+    else if (live && t.coversThisRoll === 0 && wildIdx >= 0 && !must) rule = 'No number card can be covered. Put dice on the ' + WILD_ICO + ' wild to stay in the turn.';
 
     const clockTxt = L.clock ? Math.max(0, Math.ceil(G.clockLeft / 1000)) : '∞';
     const circ = 2 * Math.PI * 26;
@@ -537,7 +559,7 @@
       '<div class="ar-actions">' +
       (freshNow ? '' : '<button class="ar-btn" ' + ((canAct || (live && stagedWild)) ? '' : 'disabled') + ' onclick="AR.accept()" title="Roll the dice you have left">' + rollLabel + '</button>') +
       '<button class="ar-btn" ' + ((live && (E.canStop(t) || stagedWild)) ? '' : 'disabled') + ' onclick="AR.stop()">🏁 Complete &amp; bank</button>' +
-      (live && wildIdx >= 0 ? '<button class="ar-btn" onclick="AR.wildAll()" title="Stage every die on the wild, then Accept to roll all five again">🃏 All dice on the wild</button>' : '') +
+      (live && wildIdx >= 0 ? '<button class="ar-btn" onclick="AR.wildAll()" title="Stage every die on the wild, then Accept to roll all five again">' + WILD_ICO + ' All dice on the wild</button>' : '') +
       '<button class="ar-btn ghost" ' + (live && (G.helps > 0) ? '' : 'disabled') + ' onclick="AR.help()">💡 Help from Amit' + (G.practice ? '' : ' (' + G.helps + ')') + '</button>' +
       '<button class="ar-btn ghost" onclick="AR.toggleMute()" title="Sound">' + (P.muted ? '🔇' : '🔊') + '</button>' +
       '</div>' +
@@ -556,7 +578,7 @@
   // every card covered this turn, kept even after five new cards are dealt, so the player can add them up
   // one small face-up card per cover: the number, the word DOUBLED/TRIPLED if it was multiplied, and the dice used
   function miniCard(c, showPts) {
-    if (c.wild) return '<div class="ar-mc wild' + (c.locked ? '' : ' prov') + '"><span class="n">🃏</span><span class="rb">WILD</span><span class="dc">' + c.values.join(' + ') + '</span></div>';
+    if (c.wild) return '<div class="ar-mc wild' + (c.locked ? '' : ' prov') + '"><span class="n">' + WILD_ICO + '</span><span class="rb">WILD</span><span class="dc">' + c.values.join(' + ') + '</span></div>';
     return '<div class="ar-mc' + (c.locked ? '' : ' prov') + '"><span class="n">' + c.card + '</span>' +
       (c.mult > 1 ? '<span class="rb">' + E.multWord(c.mult) + '</span>' : '') +
       '<span class="dc">' + (c.expr || c.values.join(' + ')) + '</span>' + (showPts ? '<span class="pt">= ' + c.pts + '</span>' : '') + '</div>';
@@ -702,8 +724,12 @@
       banner('No ' + G.rules.turnSign + ' used — these five cards score 0');
     } else if (r.sweep) {
       snd('sweep');
-      banner(r.sweep === 'cards' ? 'Cleared the table! New cards' : 'Every die used! Roll all five');
+      banner((r.bonus ? 'ALL SIGNS! ' : '') + (r.sweep === 'cards' ? 'Cleared the table! New cards' + (r.bonus ? ' with a wild' : '') : 'Every die used! Roll all five'));
       confetti($('ar-tablearea'), 44);
+    } else if (r.bonus) {
+      snd('sweep');
+      banner('ALL SIGNS! Your next five cards bring a wild');
+      confetti($('ar-tablearea'), 30);
     }
     if (G.practice) narrate();
     return true;
@@ -865,7 +891,7 @@
     if (sc) {
       if (!G.practice) G.helps--;
       G.hint = { dice: sc.dice, card: sc.card };
-      G.say = 'You still need a <b>' + t.rules.turnSign + '</b> in these five cards. Try <b>' + sc.expr + '</b> on the <b>' + t.cards[sc.card].v + '</b>.';
+      G.say = 'You still need a <b>' + t.rules.turnSign + '</b> in these five cards. Try <b>' + sc.expr + '</b> on the <b>' + t.cards[sc.card].v + '</b>.' + bonusTip(t);
       renderGame(); return;
     }
     const plan = E.bestPlan(E.cardVals(t), E.diceVals(t), t.rules);
@@ -877,11 +903,12 @@
       G.say = describeCover(t, c, true) + (plan.covers.length > 1 ? ' After that, ' + plan.covers.slice(1).map(x => describeCover(t, x, false)).join(' and then ') : '');
     } else if (t.coversThisRoll === 0 && wildLeft) {
       G.hint = null;
-      G.say = 'No number card can be covered with these dice. Use the 🃏 wild: put <b>one die</b> on it to keep rolling the rest, or <b>every die</b> on it to roll all five again. Then press Accept.';
+      G.say = 'No number card can be covered with these dice. Use the ' + WILD_ICO + ' wild: put <b>one die</b> on it to keep rolling the rest, or <b>every die</b> on it to roll all five again. Then press Accept.';
     } else {
       G.hint = null;
       G.say = nextAdvice(t);
     }
+    G.say += bonusTip(t);
     renderGame();
   }
   function describeCover(t, c, lead) {
@@ -909,6 +936,17 @@
     list.forEach(c => { const ex = E.stageExpr(dv, c.dice, c.sum, t.rules, t.rules.turnSign); if (ex && (!best || ex.dice.length < best.dice.length || (ex.dice.length === best.dice.length && c.sum > best.sum))) best = { dice: ex.dice, card: c.card, sum: c.sum, expr: ex.expr }; });
     return best;
   }
+  // a bonus play (every sign in one cover, on a number card), as a sentence to add to a hint
+  function bonusTip(t) {
+    if (!t.rules.stage || t.rules.stage === 'addition') return '';
+    const dv = E.diceVals(t);
+    let best = null;
+    E.validCovers(E.cardVals(t), dv, t.rules).filter(c => !c.wild).forEach(c => {
+      const ex = E.stageBonusExpr(dv, c.dice, c.sum, t.rules);
+      if (ex && (!best || ex.dice.length < best.ex.dice.length)) best = { ex, card: t.cards[c.card].v };
+    });
+    return best ? ' <span style="color:var(--gold2)">★ Bonus play: <b>' + best.ex.expr + '</b> on the <b>' + best.card + '</b> uses every sign, so your next five cards bring a wild.</span>' : '';
+  }
   function narrate() {
     const t = G.turn;
     if (t.status !== 'rolled') return;
@@ -916,6 +954,7 @@
     if (sc) {
       G.say = 'You still need a <b>' + t.rules.turnSign + '</b> in these five cards. Try <b>' + sc.expr + '</b> on the <b>' + t.cards[sc.card].v + '</b>.';
       G.hint = { dice: sc.dice, card: sc.card };
+      G.say += bonusTip(t);
       renderGame(); return;
     }
     const plan = E.bestPlan(E.cardVals(t), E.diceVals(t), t.rules);
@@ -924,8 +963,9 @@
       G.say = 'Here is a good play: ' + describeCover(t, plan.covers[0], true);
       G.hint = { dice: plan.covers[0].dice, card: plan.covers[0].card };
     } else if (t.coversThisRoll === 0 && wildLeft) {
-      G.say = 'Nothing adds up to a card this roll — but you have the 🃏 wild! Put dice on it and press Accept to keep going.'; G.hint = null;
+      G.say = 'Nothing adds up to a card this roll — but you have the ' + WILD_ICO + ' wild! Put dice on it and press Accept to keep going.'; G.hint = null;
     } else { G.say = nextAdvice(t); G.hint = null; }
+    G.say += bonusTip(t);
     renderGame();
   }
   function toggleMute() { P.muted = !P.muted; saveProfile(); renderGame(); }
@@ -945,6 +985,7 @@
   function finishTurn() {
     stopClock();
     const t = G.turn;
+    G.nextWild = !!t.bonusNext;
     if (!G.practice) G.total += t.score;
     G.results.push({ score: t.score, status: t.status });
     if (G.table) G.meDone = true;
@@ -961,7 +1002,7 @@
         : 'covered ' + c.card + ' with ' + (c.expr || plus(c.dice)) + (c.mult > 1 ? ' (×' + c.mult + ')' : '') + ' <b>+' + c.pts + '</b>').join(', ') : '';
       const bexpr = c => { if (G.rules.stage !== 'addition') { const ex = E.stageExpr(r.full, c.dice, c.sum, G.rules); if (ex) return ex.expr; } return plus(c.dice.map(k => r.full[k])); };
       const bestTxt = r.best.covers.map(c => bexpr(c) + ' on ' + c.sum + (c.mult > 1 ? ' (×' + c.mult + ')' : '') + ' <b>+' + c.pts + '</b>').join(', ');
-      h += '<div class="ar-rv"><b>Roll ' + (i + 1) + '</b> — dice ' + r.dice.join(' ') + ' · cards ' + r.cards.map(c => isWild(c) ? '🃏' : c).join(' ') + '<br>';
+      h += '<div class="ar-rv"><b>Roll ' + (i + 1) + '</b> — dice ' + r.dice.join(' ') + ' · cards ' + r.cards.map(c => isWild(c) ? '' + WILD_ICO + '' : c).join(' ') + '<br>';
       if (!r.best.covers.length) {
         if (r.wild && r.taken.length) h += 'No number could be covered — you used the wild to stay in the turn. <span class="good">✔</span>';
         else if (r.wild) h += 'No number could be covered. The wild could have saved this roll.';
@@ -1021,6 +1062,7 @@
     const t = G.turn;
     const bust = t.status === 'bust';
     let stopNote = '';
+    if (t.bonusNext) stopNote += '<div class="ar-sub" style="margin-top:8px;color:var(--gold2)">★ ALL SIGNS bonus: your next five cards bring a wild.</div>';
     if (t.status === 'stopped' && G.stopOutlook && !G.stopOutlook.fresh) {
       const o = G.stopOutlook;
       stopNote = '<div class="ar-sub" style="margin-top:8px">You stopped with ' + t.dice.filter(d => !d.used).length + ' dice left. Rolling them had a ' + Math.round(o.pBust * 100) + '% chance of a bust; Amit\'s one-roll look-ahead said <b>' + (o.advice === 'roll' ? 'roll' : 'stop') + '</b>.</div>';
@@ -1166,7 +1208,7 @@
       d: () => '<button class="ar-btn" disabled>🎲 Roll 3 remaining</button><button class="ar-btn" disabled>🏁 Complete &amp; bank</button>' },
     { t: 'Roll again — or stop', x: 'If a roll cannot cover <b>any</b> card, that is a <b>bust</b> and the turn’s points are lost — <b>except</b> the points you already banked by covering all five cards. When you stop, your points are added up and the <b>value of the dice you did not use is taken away</b>.',
       d: () => '<span class="op" style="font-size:20px">points − dice left = your score</span>' },
-    { t: 'The wild card', x: 'Sometimes one of your five cards is a <b>🃏 wild</b>. <b>Any</b> dice can go on it — one die to keep rolling the rest, or every die to roll all five again. Drag the dice on, then press <b>Accept</b>. The wild disappears when it is used. You can use it whenever you like, and it saves a roll that could not cover anything.',
+    { t: 'The wild card', x: 'Sometimes one of your five cards is a <b>' + WILD_ICO + ' wild</b>. <b>Any</b> dice can go on it — one die to keep rolling the rest, or every die to roll all five again. Drag the dice on, then press <b>Accept</b>. The wild disappears when it is used. You can use it whenever you like, and it saves a roll that could not cover anything. In subtraction, multiplication and division you can also earn an extra one for your next five cards by using every sign in one cover — the all-signs bonus, explained in those lessons.',
       d: () => cardStatic('W') + '<span class="op">←</span>' + die6(6) + die6(1) },
     { t: 'Change your mind', x: 'Dice on a covered card stay there so you can see them. Until you press Accept you can <b>tap them to take them back off</b> and try again. A 1 and a 3 on a 4 score 4 — but pull them off and put two 2s on instead, and the card is <b>doubled</b>. Look for the better way.',
       d: () => die6(1) + die6(3) + '<span class="op">→</span>' + die6(2) + die6(2) + '<span class="op">on</span>' + cardStatic(4) + '<span class="op">DOUBLED</span>' },
@@ -1223,6 +1265,8 @@
         () => die10(8) + '<span class="op">+</span>' + die10(5) + '<span class="op">−</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(10)),
       SL('Not below zero (at first)', 'In levels 1 to 4 the running total <b>may not dip below zero</b>, so put the plus dice first: 3 − 5 is not allowed, but 6 + 3 − 5 = 4 is. From level 5 you may go below zero and climb back, and a cover may even start with a minus.',
         () => die10(6) + '<span class="op">+</span>' + die10(3) + '<span class="op">−</span>' + die10(5) + '<span class="op">→</span>' + cardStatic(4)),
+      SL('The all-signs bonus', 'Use <b>both signs</b> — plus and minus — in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It needs at least <b>3 dice</b>, like 8 + 5 − 2 = 11. It only works on a number card, never on a wild.',
+        () => die10(8) + '<span class="op">+</span>' + die10(5) + '<span class="op">−</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(11)),
       SL('Clear and Accept', 'Pressed the wrong sign? <b>CLEAR</b> takes back the dice you have picked and starts the cover over. Everything else works as in addition: keep covering while you can, then roll or bank.',
         CLEAR_DEMO)
     ],
@@ -1237,6 +1281,8 @@
         () => die10(2) + '<span class="op">×</span>' + die10(3) + '<span class="op">×</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(24)),
       SL('Times with plus and minus', 'Mix them to land exactly: 5 × 8 − 3 = 37. The times part is worked out first, then the adding or taking away.',
         () => die10(5) + '<span class="op">×</span>' + die10(8) + '<span class="op">−</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(37)),
+      SL('The all-signs bonus', 'Use <b>plus, minus and times</b> in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It needs at least <b>4 dice</b>, like 5 + 9 − 4 × 3 = 2. It only works on a number card, never on a wild.',
+        () => die10(5) + '<span class="op">+</span>' + die10(9) + '<span class="op">−</span>' + die10(4) + '<span class="op">×</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(2)),
       SL('Clear and Accept', '<b>CLEAR</b> starts a cover over. Early levels will not let the total dip below zero on the way. Then keep covering, roll, or bank, as before.',
         CLEAR_DEMO)
     ],
@@ -1251,6 +1297,8 @@
         () => die10(10) + '<span class="op">÷</span>' + die10(5) + '<span class="op">÷</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(1)),
       SL('Divide, then add or multiply', 'Combine signs: 6 × 4 ÷ 3 = 8. Try the dice in different orders: the division has to come out even <i>at that step</i>.',
         () => die10(6) + '<span class="op">×</span>' + die10(4) + '<span class="op">÷</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(8)),
+      SL('The all-signs bonus', 'Use <b>all four signs</b> in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It takes <b>all 5 dice</b>, like 2 + 7 − 3 × 8 ÷ 4 = 3, and every division has to come out even. It only works on a number card, never on a wild.',
+        () => die10(2) + '<span class="op">+</span>' + die10(7) + '<span class="op">−</span>' + die10(3) + '<span class="op">×</span>' + die10(8) + '<span class="op">÷</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(3)),
       SL('Clear and Accept', '<b>CLEAR</b> starts a cover over. Then keep covering, roll, or bank, as before.',
         CLEAR_DEMO)
     ]
@@ -1266,7 +1314,8 @@
       '<div class="ar-demo">' + s.d() + '</div>' +
       '<div class="ar-row" style="justify-content:space-between"><button class="ar-btn ghost" ' + (n ? '' : 'disabled') + ' onclick="AR.learn(-1,\'' + stage + '\')">← Back</button>' +
       (n < steps.length - 1 ? '<button class="ar-btn" onclick="AR.learn(1,\'' + stage + '\')">Next →</button>' : '<button class="ar-btn big" onclick="AR.practice(\'' + stage + '\')">Walk through a turn with Amit</button>') + '</div></div>' +
-      '<div class="ar-sub" style="margin-top:12px">The walk-through is a ' + name.toLowerCase() + ' turn where Amit shows a good play on every roll. Nothing is scored. Card tops in this stage climb from ' + E.STAGE_TOPS[stage][0] + ' at level 1 to ' + E.STAGE_TOPS[stage][7] + ' at level 8.</div>';
+      '<div class="ar-sub" style="margin-top:12px">The walk-through is a ' + name.toLowerCase() + ' turn where Amit shows a good play on every roll. Nothing is scored. Card tops in this stage climb from ' + E.STAGE_TOPS[stage][0] + ' at level 1 to ' + E.STAGE_TOPS[stage][7] + ' at level 8.</div>' +
+      '<div class="ar-sub" style="margin-top:8px;color:var(--gold2)">★ Earn a wild: use ' + (stage === 'subtraction' ? 'both signs' : stage === 'multiplication' ? 'all three signs' : 'all four signs') + ' in one cover. See the “all-signs bonus” step.</div>';
   }
   const LEARN_TABS = [
     { id: 'add', label: 'Addition', mount: pane => renderAdditionLearn(pane) },

@@ -224,6 +224,26 @@
   }
   // A real expression for a group of dice that makes a target (for Amit's moves and for hints): returns { dice: [indexes in order], ops: [...] }.
   const SIGN_FLAG = { '−': 'minus', '×': 'mul', '÷': 'div' };
+  function isBonus(items, rules) {
+    if (!rules || !rules.stage || rules.stage === 'addition') return false;
+    const used = {}; items.slice(1).forEach(x => { used[x.op] = true; });
+    return rules.ops.every(o => used[o]);
+  }
+  // like stageExpr, but finds an expression that earns the bonus
+  function stageBonusExpr(diceVals, idxList, target, rules) {
+    const k = idxList.length;
+    if (k < rules.ops.length + 1) return null;           // each sign needs its own later die
+    const seqs = seqsOf(k, rules.ops);
+    for (const p of permsOf(k)) {
+      for (const sq of seqs) {
+        const items = p.map((pi, pos) => ({ v: diceVals[idxList[pi]], op: sq[pos] }));
+        if (!isBonus(items, rules)) continue;
+        const r = evalItems(items, rules);
+        if (r.ok && r.value === target) return { dice: p.map(pi => idxList[pi]), ops: sq, expr: exprString(items) };
+      }
+    }
+    return null;
+  }
   function stageExpr(diceVals, idxList, target, rules, needSign) {
     const k = idxList.length, seqs = seqsOf(k, rules.ops);
     for (const p of permsOf(k)) {
@@ -405,7 +425,7 @@
       cards: cards.map(v => ({ v, covered: false })),
       dice: dice.map(v => ({ v, used: false })),
       points: 0, safe: 0, rollNo: 1, coversThisRoll: 0,
-      setNo: 1, signUsed: false, setStartPoints: 0,      // the stage's sign is needed once in each set of five cards
+      setNo: 1, signUsed: false, setStartPoints: 0, setBonus: false, bonusNext: false,      // the stage's sign is needed once in each set of five cards
       status: 'rolled', score: null, sweeps: [], rolls: [], scorecard: []
     };
     beginRoll(st);
@@ -446,7 +466,7 @@
     const vals = diceIdx.map(i => st.dice[i].v);
     const isWild = card.v === 'W';
     const staged = st.rules.stage && st.rules.stage !== 'addition';
-    let s = sum(vals), itemsUsed = null, usedSign = false;
+    let s = sum(vals), itemsUsed = null, usedSign = false, bonus = false;
     if (staged && !isWild) {
       // expression covers: dice in the order the player built them, each with its sign
       itemsUsed = vals.map((v, k) => ({ v, op: (ops && ops[k]) || '+' }));
@@ -454,6 +474,7 @@
       if (!r.ok) return { ok: false, reason: r.reason === 'required' ? 'required' : r.reason, have: r.value, need: card.v };
       s = r.value;
       if (st.rules.turnSign) usedSign = !!r[SIGN_FLAG[st.rules.turnSign]];
+      bonus = isBonus(itemsUsed, st.rules);
     }
     if (!isWild && s !== card.v) return { ok: false, reason: 'sum', have: s, need: card.v };
     const mult = isWild || staged ? 1 : multiplier(vals);
@@ -467,8 +488,9 @@
     const expr = itemsUsed ? exprString(itemsUsed) : vals.join(' + ');
     const taken = { dice: vals, card: card.v, mult, pts, wild: isWild, expr, ops: itemsUsed ? itemsUsed.map(x => x.op) : null };
     roll.taken.push(taken);
-    const cover = { cardIdx, card: card.v, values: vals.slice(), idx: diceIdx.slice(), expr, ops: taken.ops, mult, pts, wild: isWild, roll: st.rollNo, locked: false, sweep: null, prevSafe, taken, usedSign, setNo: st.setNo };
+    const cover = { cardIdx, card: card.v, values: vals.slice(), idx: diceIdx.slice(), expr, ops: taken.ops, mult, pts, wild: isWild, roll: st.rollNo, locked: false, sweep: null, prevSafe, taken, usedSign, setNo: st.setNo, bonus };
     if (usedSign) st.signUsed = true;
+    if (bonus) st.setBonus = true;
     card.cover = cover;
     st.scorecard.push(cover);
     const allDice = st.dice.every(d => d.used);
@@ -487,7 +509,7 @@
         }
       } else if ((sweep === 'cards' && st.rules.cardSweepBanks) || (sweep === 'dice' && st.rules.sweepBanks)) { st.safe = st.points; cover.banked = true; }
     }
-    return { ok: true, pts, mult, sweep, wild: isWild, forfeit };
+    return { ok: true, pts, mult, sweep, wild: isWild, forfeit, bonus };
   }
 
   // true while a NUMBER card can still be covered with the unused dice
@@ -515,6 +537,7 @@
     const k = roll.taken.indexOf(c.taken); if (k >= 0) roll.taken.splice(k, 1);
     const si = st.scorecard.indexOf(c); if (si >= 0) st.scorecard.splice(si, 1);
     st.signUsed = st.scorecard.some(x => x.setNo === st.setNo && x.usedSign);
+    st.setBonus = st.scorecard.some(x => x.setNo === st.setNo && x.bonus);
     return { idx: c.idx.slice(), values: c.values.slice(), pts: c.pts };
   }
   // The roll clock ran out. Bank exactly what is covered, even if more covers were still possible.
@@ -525,7 +548,7 @@
     st.status = 'stopped';
     st.timedOut = true;
     if (needSign(st)) { st.score = st.setStartPoints; st.noSign = true; }
-    else st.score = st.points - leftoverSum(st);
+    else { st.score = st.points - leftoverSum(st); st.bonusNext = !!st.setBonus; }
     return st;
   }
   function lockCovers(st) { st.scorecard.forEach(c => { c.locked = true; }); }
@@ -542,18 +565,19 @@
     lockCovers(st);
     st.status = 'stopped';
     st.score = st.points - leftoverSum(st);
+    st.bonusNext = !!st.setBonus;
     return st;
   }
 
-  // dealFn() -> 5 new card values (used when every card is covered).
+  // dealFn(wild) -> 5 new card values (used when every card is covered).
   function roll(st, rng, dealFn) {
     if (!canRoll(st)) return null;
     lockCovers(st);
     const allCards = st.cards.every(c => c.covered);
     const allDice = st.dice.every(d => d.used);
     if (allCards) {
-      st.cards = dealFn().map(v => ({ v, covered: false }));
-      st.setNo++; st.signUsed = false; st.setStartPoints = st.points;
+      st.cards = dealFn(!!st.setBonus).map(v => ({ v, covered: false }));
+      st.setNo++; st.signUsed = false; st.setStartPoints = st.points; st.setBonus = false;
     }
     if (allCards || allDice) {
       st.dice = rollDice(rng, st.rules.diceCount, st.rules.faces).map(v => ({ v, used: false }));
@@ -661,12 +685,17 @@
     const rng = opts.rng, skill = opts.skill;
     let any = validCovers(cardVals(st), diceVals(st), st.rules).filter(c => !c.wild);
     const owes = needSign(st);
-    if (owes) { const w = any.filter(c => stageExpr(diceVals(st), c.dice, c.sum, st.rules, st.rules.turnSign)); if (w.length) any = w; }
+    let forBonus = false;
+    if (st.rules.stage && st.rules.stage !== 'addition' && any.length && rng() < skill * skill) {
+      const b = any.filter(c => stageBonusExpr(diceVals(st), c.dice, c.sum, st.rules));
+      if (b.length) { any = b; forBonus = true; }
+    }
+    if (owes && !forBonus) { const w = any.filter(c => stageExpr(diceVals(st), c.dice, c.sum, st.rules, st.rules.turnSign)); if (w.length) any = w; }
     if (any.length) {
       let pick = rng() < skill ? bestPlan(cardVals(st), diceVals(st), st.rules).covers[0] : any[Math.floor(rng() * any.length)];
-      if (owes && !any.some(c => c.card === pick.card && c.dice.join() === pick.dice.join())) pick = any.reduce((a, c) => (c.sum > a.sum ? c : a), any[0]);
+      if ((owes || forBonus) && !any.some(c => c.card === pick.card && c.dice.join() === pick.dice.join())) pick = any.reduce((a, c) => (c.sum > a.sum ? c : a), any[0]);
       if (st.rules.stage && st.rules.stage !== 'addition') {
-        const ex = stageExpr(diceVals(st), pick.dice, pick.sum, st.rules, owes ? st.rules.turnSign : null);
+        const ex = (forBonus && stageBonusExpr(diceVals(st), pick.dice, pick.sum, st.rules)) || stageExpr(diceVals(st), pick.dice, pick.sum, st.rules, owes ? st.rules.turnSign : null);
         if (ex) return { type: 'cover', dice: ex.dice, ops: ex.ops, card: pick.card };
       }
       return { type: 'cover', dice: pick.dice, card: pick.card };
@@ -716,7 +745,7 @@
   }
 
   return {
-    DEFAULT_RULES, STAGES, STAGE_ORDER, STAGE_TOPS, STAGE_PACE, NEG_FROM_LEVEL, levelsFor, rulesFor, evalItems, exprString, stageSets, stageExpr, placeXp, botNext, botPlan, botApply, amitCost, amitTurn, LEVELS, levelFor,
+    DEFAULT_RULES, STAGES, STAGE_ORDER, STAGE_TOPS, STAGE_PACE, NEG_FROM_LEVEL, levelsFor, rulesFor, evalItems, exprString, stageSets, stageExpr, isBonus, stageBonusExpr, placeXp, botNext, botPlan, botApply, amitCost, amitTurn, LEVELS, levelFor,
     mulberry32, rollDie, rollDice, dealCards,
     multiplier, bestPlan, validCovers,
     newTurn, tryCover, uncover, multWord, timeoutStop, canStop, canRoll, needSign, mustCover, stop, roll, bust,
