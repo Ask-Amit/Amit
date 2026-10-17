@@ -732,7 +732,7 @@
     const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-sheet';
     over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">' + (G.practice ? 'TUTORIAL TURN' : 'ROUND ' + G.round + ' OF ' + ROUNDS) + '</div>' +
       '<div class="ar-big' + (t.score < 0 || bust ? ' neg' : '') + '">' + (bust ? 'BUST' : (t.score > 0 ? '+' : '') + t.score) + '</div>' +
-      '<div class="ar-sub" style="text-align:center">' + (bust ? (G.bustMsg || '') + ' This turn scores 0.' : 'Covered ' + t.points + ' points, minus ' + E.leftoverSum(t) + ' for the dice left.') + '</div>' + stopNote +
+      '<div class="ar-sub" style="text-align:center">' + (bust ? (G.bustMsg || '') + (t.score > 0 ? ' You keep the ' + t.score + ' points you banked by covering all five cards.' : ' This turn scores 0.') : 'Covered ' + t.points + ' points, minus ' + E.leftoverSum(t) + ' for the dice left.') + '</div>' + stopNote +
       '<div class="ar-h" style="margin-top:18px">BEST PLAY <span class="ar-tag">working name</span></div>' +
       '<div class="ar-sub" style="margin-bottom:4px">What each roll could have done, next to what you did.</div>' +
       '<div class="ar-review">' + reviewHtml(t) + '</div>' +
@@ -866,7 +866,7 @@
       d: () => dieStatic(4) + dieStatic(4) + '<span class="op">on</span>' + cardStatic(8) + '<span class="op">= 16</span>' },
     { t: 'Keep covering, then Accept', x: 'If any card can still be covered with the dice you have, you <b>must keep covering</b> — you cannot roll or stop yet. When nothing more can be covered, press <b>🎲 Roll</b> to roll the dice you have left, or <b>Complete &amp; bank</b>.',
       d: () => '<button class="ar-btn" disabled>🎲 Roll 3 remaining</button><button class="ar-btn" disabled>🏁 Complete &amp; bank</button>' },
-    { t: 'Roll again — or stop', x: 'If a roll cannot cover <b>any</b> card, that is a <b>bust</b> and the turn’s points are lost. When you stop, your points are added up and the <b>value of the dice you did not use is taken away</b>.',
+    { t: 'Roll again — or stop', x: 'If a roll cannot cover <b>any</b> card, that is a <b>bust</b> and the turn’s points are lost — <b>except</b> the points you already banked by covering all five cards. When you stop, your points are added up and the <b>value of the dice you did not use is taken away</b>.',
       d: () => '<span class="op" style="font-size:20px">points − dice left = your score</span>' },
     { t: 'The wild card', x: 'Sometimes one of your five cards is a <b>🃏 wild</b>. <b>Any</b> dice can go on it — one die to keep rolling the rest, or every die to roll all five again. Drag the dice on, then press <b>Accept</b>. The wild disappears when it is used. You can use it whenever you like, and it saves a roll that could not cover anything.',
       d: () => cardStatic('W') + '<span class="op">←</span>' + dieStatic(6) + dieStatic(1) },
@@ -874,7 +874,7 @@
       d: () => dieStatic(1) + dieStatic(3) + '<span class="op">→</span>' + dieStatic(2) + dieStatic(2) + '<span class="op">on</span>' + cardStatic(4) + '<span class="op">DOUBLED</span>' },
     { t: 'Keeping score', x: 'In the early levels Amit keeps your score. From <b>level 4</b> you keep your own: covered cards collect at the bottom, labelled <b>DOUBLED</b> or <b>TRIPLED</b>, even after five new cards come. When you finish a turn, <b>add them up yourself</b>, take away the dice you did not use, and tell Amit your total. Amit checks it.',
       d: () => '<span class="ar-tc">8 · DOUBLED</span><span class="ar-tc">5</span><span class="ar-tc">12 · TRIPLED</span><span class="op" style="font-size:18px">16 + 5 + 36 − dice left</span>' },
-    { t: 'Fresh starts', x: 'Use up <b>all five dice</b> and a gold <b>✔ Accept &amp; re-roll all 5</b> button pops up next to your cards. Press it and all five dice roll again, keeping your points. Cover <b>all five cards</b> and it says <b>✔ Accept &amp; get 5 new cards</b> — press it for five new cards and a fresh roll. Chaining these is how big scores happen.',
+    { t: 'Fresh starts', x: 'Use up <b>all five dice</b> and a gold <b>✔ Accept &amp; re-roll all 5</b> button pops up next to your cards. Press it and all five dice roll again, keeping your points. Cover <b>all five cards</b> and it says <b>✔ Accept &amp; get 5 new cards</b> — press it for five new cards and a fresh roll. Covering all five cards also <b>banks</b> those points: they are yours for good, and a later bust can only take what you earn after the new cards. Chaining these is how big scores happen.',
       d: () => [1, 2, 3, 4, 5].map(cardStatic).join('') },
     { t: 'Amit is here to help', x: 'The <b>💡 Help from Amit</b> button shows the best cover for the dice you have, lights up the dice to use, and tells you the chance of a bust before you roll. Beginners get several helps a game. Come back to this page any time, and skip it any time.',
       d: () => '<button class="ar-btn" disabled>💡 Help from Amit</button>' }

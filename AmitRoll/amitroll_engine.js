@@ -43,9 +43,12 @@
  * can always cover something. It scores rules.wildPoints (default 0 - NOT yet
  * confirmed by Ryan; with 0 it is an escape that also dumps leftover dice).
  *
- * OPEN RULE, a switch not a decision: rules.sweepBanks. false (default) =
- * a bust after a fresh five-dice re-roll still loses the whole turn, like
- * "hot dice" in Farkle. true = points earned up to the last sweep are safe.
+ * COVERING ALL FIVE CARDS BANKS THEM (Ryan, 2026-10-16): once every card is covered, those points are safe for good -
+ * a later bust can only take what was earned after the new cards were dealt (the bust scores the banked amount, not 0).
+ * What is still at risk is only the current set. The leftover-dice penalty is unchanged and can still make a stop negative.
+ * If the last cover is taken back (uncover) before the player rolls, the bank is undone with it.
+ * Using up all five DICE does not bank (rules.sweepBanks, default false): a bust after a fresh five-dice re-roll
+ * still loses the points of the current set, like "hot dice" in Farkle.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -53,7 +56,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const DEFAULT_RULES = { diceCount: 5, cardCount: 5, sweepBanks: false, wildPoints: 0, wildChance: 0.04 };
+  const DEFAULT_RULES = { diceCount: 5, cardCount: 5, sweepBanks: false, cardSweepBanks: true, wildPoints: 0, wildChance: 0.04 };
 
   // CLOCKS (2026-10-16): each clock is about 4x the ASSUMED seconds a player at that level needs to find and place one cover
   // (L2 25s, L3 20s, L4 16s, L5 13s, L6 11s, L7 9s, L8 8s - guesses, not measured). Full reasoning and the tuning rule are in
@@ -232,7 +235,7 @@
 
   function bust(st) {
     st.status = 'bust';
-    st.score = st.rules.sweepBanks ? st.safe : 0;
+    st.score = st.safe;      // 0 unless a full set of five cards was covered and banked earlier this turn
     return st;
   }
 
@@ -268,7 +271,11 @@
     const allDice = st.dice.every(d => d.used);
     const allCards = st.cards.every(c => c.covered);
     const sweep = allCards ? 'cards' : (allDice ? 'dice' : null);
-    if (sweep) { cover.sweep = sweep; st.sweeps.push(sweep); if (st.rules.sweepBanks) st.safe = st.points; }
+    cover.banked = false;
+    if (sweep) {
+      cover.sweep = sweep; st.sweeps.push(sweep);
+      if ((sweep === 'cards' && st.rules.cardSweepBanks) || (sweep === 'dice' && st.rules.sweepBanks)) { st.safe = st.points; cover.banked = true; }
+    }
     return { ok: true, pts, mult, sweep, wild: isWild };
   }
 
@@ -285,7 +292,7 @@
     const c = card.cover;
     // any sweep recorded this roll is no longer true once a cover is undone
     st.scorecard.forEach(x => {
-      if (x.roll === st.rollNo && x.sweep) { st.sweeps.pop(); x.sweep = null; if (st.rules.sweepBanks) st.safe = x.prevSafe; }
+      if (x.roll === st.rollNo && x.sweep) { st.sweeps.pop(); x.sweep = null; if (x.banked) { st.safe = x.prevSafe; x.banked = false; } }
     });
     c.idx.forEach(i => { st.dice[i].used = false; });
     card.covered = false; card.cover = null;
@@ -361,7 +368,7 @@
   function rollOutlook(st) {
     if (st.status !== 'rolled') return null;
     const stopValue = st.points - leftoverSum(st);
-    const bustValue = st.rules.sweepBanks ? st.safe : 0;
+    const bustValue = st.safe;
     if (st.cards.every(c => c.covered)) {
       return { fresh: true, stopValue, pBust: null, evRoll: null, advice: 'roll' };
     }
