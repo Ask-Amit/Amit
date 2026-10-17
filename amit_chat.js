@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.15 — 2026-10-17. Read-aloud moved INTO the chat: every message has a play button; while it reads, that message shows start-over / pause / next and an adjust icon that opens a voice dialog (voice, speed, pitch, volume, pause) heard as you change it and saved to the person's profile when closed (AmitChat.voiceSaver). The speaker button at the top of the chat is gone. v0.14 — 2026-10-17. A Refresh button inside the chat; when Amit's helper posts a reply it sends a "refresh" nudge on the chat's live channel, so an open chat shows the reply at once instead of waiting for the next check. v0.13 — 2026-10-17. The live transcript blinks GREEN (the Hub's own "on" green) instead of red; clearer iPhone messages (it can work in Safari but not inside a home-screen app). v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
+   v0.17 — 2026-10-17. The read-aloud controls (start over, play/pause, next, adjust) are GLOBAL: one player in the chat header next to the chat name. Click a word while it reads, or click/highlight a word and press play, to choose where it starts. Pressing the speaker on a chat in the list (or play with nothing chosen) reads the new messages chat after chat, saying 'In <chat>. TJ said...'. Inside one chat names are not spoken (a group of 3+ gets the name when the speaker changes). 'Skip my own messages' (on by default) in the voice dialog. v0.16 — 2026-10-17. The play button on each message is a speaker icon (clearer than a triangle for someone new); the hover help stays. v0.15 — 2026-10-17. Read-aloud moved INTO the chat: every message has a play button; while it reads, that message shows start-over / pause / next and an adjust icon that opens a voice dialog (voice, speed, pitch, volume, pause) heard as you change it and saved to the person's profile when closed (AmitChat.voiceSaver). The speaker button at the top of the chat is gone. v0.14 — 2026-10-17. A Refresh button inside the chat; when Amit's helper posts a reply it sends a "refresh" nudge on the chat's live channel, so an open chat shows the reply at once instead of waiting for the next check. v0.13 — 2026-10-17. The live transcript blinks GREEN (the Hub's own "on" green) instead of red; clearer iPhone messages (it can work in Safari but not inside a home-screen app). v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
 
    Include with  <script src="../amit_chat.js"></script>  (path per depth).
@@ -22,7 +22,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.15';
+  var VERSION = 'v0.17';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -573,10 +573,14 @@
     '.acx-ib.live{color:#6fe38f;opacity:1;text-shadow:0 0 6px rgba(var(--amit-on-rgb,46,160,67),.9);animation:acxpulse 1s infinite}',
     '.acx-livebar .acx-dot{width:9px;height:9px;border-radius:50%;background:rgb(var(--amit-on-rgb,46,160,67));box-shadow:0 0 7px rgba(var(--amit-on-rgb,46,160,67),.95);animation:acxpulse 1s infinite;flex-shrink:0}',
     '.acx-livebar .acx-lt{flex:1;min-width:120px}.acx-livebar .acx-li{flex-basis:100%;color:var(--amit-dim,rgba(240,232,208,.6));font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.acx-play{background:none;border:none;color:inherit;cursor:pointer;font-size:12px;padding:0 4px;opacity:.85;line-height:1}.acx-play:hover{opacity:1}',
-    '.acx-b.reading .acx-play{display:none}',
+    '.acx-play{background:none;border:none;color:inherit;cursor:pointer;font-size:13px;padding:0 4px;opacity:.85;line-height:1}.acx-play:hover{opacity:1}',
     '.acx-mp{display:flex;align-items:center;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25)}.acx-mp .acx-ib{font-size:16px}',
     '.acx-vdlg{max-height:58%;overflow-y:auto}.acx-vdlg select{max-width:100%}',
+    '.acx-thead{flex-wrap:wrap;row-gap:2px}',
+    '.acx-gp{display:flex;align-items:center;gap:2px;margin-left:14px;padding-left:12px;border-left:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4)}.acx-gp .acx-ib{font-size:16px}',
+    '.acx-gp.on .acx-pp{color:#6fe38f;opacity:1}.acx-gpl{font-size:11px;color:var(--amit-dim,rgba(240,232,208,.6));max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:4px}',
+    '.acx-selmsg{outline:1px dashed rgba(var(--amit-accent-rgb,201,168,76),.75);outline-offset:2px}',
+    '.acx-rowspk{font-size:14px;margin-left:6px;padding:0 2px}',
     '.acx-max{background:none;border:none;color:var(--amit-muted,rgba(240,232,208,.78));font-size:15px;cursor:pointer;padding:0 6px;line-height:1}',
     '.acx-max:hover{color:var(--amit-accent-bright,#e8c56a)}',
     '.acx-tool{display:flex;gap:6px;padding:8px;flex-wrap:wrap;flex-shrink:0}',
@@ -779,6 +783,38 @@
     var cur = { view: 'list', arg: null }, thread = null, destroyed = false, listCache = null;
     var prof = null, gate = !!live, gateWhy = null, rechecking = false, recheckFn = null, forMeCache = null, forMeAt = 0;   // while the birth-date check is pending nothing else may draw
     var lastActive = Date.now(), loopT = null, inSight = false, listSig = null;
+    /* READ-ALOUD SESSION: pressing the speaker on a chat in the list, or play with nothing chosen, reads the new messages of that chat,
+       then opens the next chat that has new messages and carries on, saying who spoke. Reading from a message or a word stays in that chat. */
+    var session = { cross: false, order: [], idx: 0, switching: false, handover: false, pending: null };
+    function endSession() { session.cross = false; session.order = []; session.idx = 0; session.pending = null; }
+    function skipOwnOn() { try { return localStorage.getItem('amitchat-skip-own') !== '0'; } catch (e) { return true; } }
+    function startCross(convId) {
+      if (!live) return;
+      loadList().then(function (res) {
+        var list = (res[0] || []).filter(function (c) { return !c.deleting; });
+        var at = -1; list.forEach(function (c, k) { if (c.id === convId) at = k; });
+        var order = [convId].concat(list.slice(at + 1).filter(function (c) { return c.unread; }).map(function (c) { return c.id; }));
+        session.cross = true; session.order = order; session.idx = 0; session.pending = { conv: convId, explicit: true }; session.handover = true;
+        if (cur.view === 'thread' && cur.arg === convId && thread && thread.startPending) thread.startPending();
+        else { session.switching = true; show('thread', convId); session.switching = false; }
+      }, function (e) { toast((e && e.message) || 'Could not start reading.'); });
+    }
+    function startCrossFromTop() {
+      loadList().then(function (res) {
+        var list = (res[0] || []).filter(function (c) { return !c.deleting; });
+        var first = list.filter(function (c) { return c.unread; })[0] || list[0];
+        if (!first) { toast('No chats to read.'); return; }
+        startCross(first.id);
+      }, function (e) { toast((e && e.message) || 'Could not start reading.'); });
+    }
+    function advanceChat() {
+      if (!session.cross) return false;
+      session.idx++; var nextId = session.order[session.idx];
+      if (!nextId) { endSession(); return false; }
+      session.pending = { conv: nextId, explicit: false }; session.handover = true;
+      session.switching = true; show('thread', nextId); session.switching = false;
+      return true;
+    }
 
     function visible() { return !destroyed && root.offsetParent !== null && !document.hidden; }
     function errBox(parent, e) { parent.appendChild(el('div', 'acx-err', (e && e.message) || 'Something went wrong. Try again.')); }
@@ -792,6 +828,7 @@
         var fb = el('button', 'acx-btn', 'Friends'); fb.onclick = function () { show('friends'); };
         var mb = el('button', 'acx-btn', 'For me' + (forMe && forMe.count ? ' (' + forMe.count + ')' : '')); mb.onclick = function () { show('forme'); };
         tool.appendChild(nb); tool.appendChild(fb); tool.appendChild(mb);
+        var sb = el('button', 'acx-btn', '\uD83D\uDD0A'); sb.title = 'Read my new messages aloud, chat by chat'; sb.onclick = function () { startCrossFromTop(); }; tool.appendChild(sb);
         if (prof && prof.has_children) { var kb = el('button', 'acx-btn', 'Children\u2019s chats'); kb.onclick = function () { show('kids'); }; tool.appendChild(kb); }
       }
       target.appendChild(tool);
@@ -813,6 +850,7 @@
         r.appendChild(t);
         var rm = el('div', 'acx-rm', c.time);
         if (c.unread) { rm.appendChild(document.createElement('br')); rm.appendChild(el('span', 'acx-pill', c.unread)); }
+        if (live) { var rs = el('button', 'acx-ib acx-rowspk', '\uD83D\uDD0A'); rs.title = 'Read this chat aloud (new messages first), then the next chats'; rs.onclick = function (ev2) { ev2.stopPropagation(); startCross(c.id); }; rm.appendChild(rs); }
         r.appendChild(rm);
         r.onclick = function () { show('thread', c.id); };
         l.appendChild(r);
@@ -978,7 +1016,19 @@
       var head = el('div', 'acx-thead');
       if (!wide) { var b = el('button', 'acx-back', '←'); b.onclick = function () { show('list'); }; head.appendChild(b); }
       var hw = el('div'); var tt = el('div', 'acx-tt', ''), ts = el('div', 'acx-ts', '');
-      var tl = el('div', 'acx-ts', ''), wl = el('div', 'acx-watch', ''); hw.appendChild(tt); hw.appendChild(ts); hw.appendChild(tl); hw.appendChild(wl); head.appendChild(hw); head.appendChild(el('div', 'acx-spacer'));
+      var tl = el('div', 'acx-ts', ''), wl = el('div', 'acx-watch', ''); hw.appendChild(tt); hw.appendChild(ts); hw.appendChild(tl); hw.appendChild(wl); head.appendChild(hw);
+      var gp = null, gpl = null, gpPP = null;
+      if (live) {
+        gp = el('div', 'acx-gp');
+        var gb = function (txt, title, fn, cls) { var x = el('button', 'acx-ib' + (cls ? ' ' + cls : ''), txt); x.title = title; x.onclick = fn; gp.appendChild(x); return x; };
+        gb('\u23EE', 'Start this message over (press again to go back one message)', function () { readRestart(); }, 'acx-pv');
+        gpPP = gb('\uD83D\uDD0A', 'Read aloud', function () { if (rd.on) readPause(); else startFromHere(); }, 'acx-pp');
+        gb('\u23ED', 'Next message (at the end of a chat, the next chat)', function () { readNext(); }, 'acx-nx');
+        gb('\uD83C\uDF9A', 'Change the voice, speed and more', function () { openVoiceDialog(); }, 'acx-adj');
+        gpl = el('span', 'acx-gpl', ''); gp.appendChild(gpl);
+        head.appendChild(gp);
+      }
+      head.appendChild(el('div', 'acx-spacer'));
       var amitHead = null; t.appendChild(head);
       var gear = null, setPanel = null, spk = null;
       if (live) {
@@ -1069,6 +1119,41 @@
       var replyBar = el('div', 'acx-replybar'); replyBar.style.display = 'none'; t.appendChild(replyBar);
       var comp = el('div', 'acx-comp'); t.appendChild(comp);
       var tid = uid(), lbar = null;
+      /* choosing where to start reading: a click or a highlight inside a message (like Speak to Me) */
+      function placeInfo() {
+        var sl = window.getSelection ? window.getSelection() : null; if (!sl || !sl.rangeCount) return null;
+        var r = sl.getRangeAt(0), n = r.startContainer, ex = n.nodeType === 1 ? n : n.parentElement;
+        var body = ex && ex.closest ? ex.closest('.acx-mbody') : null; if (!body || !msgsDiv.contains(body)) return null;
+        var bub = body.closest('.acx-b'); if (!bub) return null;
+        var pre = document.createRange(); pre.selectNodeContents(body); try { pre.setEnd(r.startContainer, r.startOffset); } catch (e) { return null; }
+        var txt = sl.toString();
+        return { mid: bub.getAttribute('data-mid'), start: pre.toString().length, collapsed: r.collapsed, oneWord: !r.collapsed && txt.trim() && txt.trim().split(/\s+/).length === 1 };
+      }
+      function markSel() {
+        Array.prototype.forEach.call(msgsDiv.querySelectorAll('.acx-selmsg'), function (x) { x.classList.remove('acx-selmsg'); });
+        if (state.sel) { var sb2 = bubbleOf(state.sel.mid); if (sb2) sb2.classList.add('acx-selmsg'); }
+      }
+      function onPlace(e) {
+        if (e && e.target && e.target.closest && e.target.closest('a,button,input,textarea')) return;
+        var p = placeInfo(); if (!p || !p.mid) return;
+        state.sel = { mid: p.mid, start: p.start }; markSel();
+        if (rd.on && (p.collapsed || p.oneWord)) startReading(readableFrom(p.mid), { startChar: p.start, cross: rd.cross });
+      }
+      msgsDiv.addEventListener('mouseup', function (e) { setTimeout(function () { onPlace(e); }, 0); });
+      msgsDiv.addEventListener('touchend', function (e) { setTimeout(function () { onPlace(e); }, 250); });
+      function startFromHere() {
+        var sel = state.sel;
+        if (sel && state.msgs.some(function (m) { return m.id === sel.mid; })) { startReading(readableFrom(sel.mid), { startChar: sel.start }); return; }
+        if (live && !ro) startCross(convId); else startReading(unheardList());
+      }
+      function beginPending() {
+        var p = session.pending; if (!p || p.conv !== convId) return;
+        session.pending = null;
+        var list = unheardList();
+        if (!list.length && p.explicit) list = state.msgs.filter(function (m) { return m.from !== 'me' && readable(m); }).slice(-10);
+        if (!list.length) { if (!advanceChat()) { session.handover = false; if (AmitChat._stopReader) AmitChat._stopReader(); endSession(); toast('Nothing new to read aloud.'); } return; }
+        startReading(list, { cross: true });
+      }
       var ta = null, sendBtn = null;
       var fileBtn = null, photoBtn = null, amitBtn = null, liveBtn = null, fileIn = null, photoIn = null, voiceBtn = null, videoBtn = null, noteBtn = null, silentBtn = null, moreBtn = null, fixBtn = null, itemBtn = null, typing = null;
       if (live && !ro) {
@@ -1200,11 +1285,12 @@
       }
       function spokenWord(w) { if (/^https?:\/\//i.test(w)) return 'link'; return w.replace(/\bAmit\b/g, 'uh-MEET'); }
       function sayable(t) { return String(t || '').replace(/\bAmit\b/g, 'uh-MEET'); }
-      function planFor(m, withName) {
+      function planFor(m, startChar) {
         var items = [], who = m.name || 'Someone';
         if (m.type === 'text') {
           var words = [], re = /\S+/g, mm;
           while ((mm = re.exec(m.text))) words.push({ s: mm.index, e: mm.index + mm[0].length, t: mm[0] });
+          if (startChar) words = words.filter(function (w) { return w.e > startChar; });
           var sents = [], cur = [];
           words.forEach(function (w, k) { cur.push(k); if (/[.!?]["'\u201D)\]]*$/.test(w.t)) { sents.push(cur); cur = []; } });
           if (cur.length) sents.push(cur);
@@ -1213,7 +1299,6 @@
             idxs.forEach(function (k, n) { if (n) spoken += ' '; offs.push(spoken.length); spoken += spokenWord(words[k].t); });
             items.push({ text: spoken, words: words, idxs: idxs, offs: offs, msgId: m.id });
           });
-          if (withName) items.unshift({ text: sayable(who) + ' says.', msgId: m.id, plain: true });
         } else if (m.type === 'voice') {
           var tr = m.payload && m.payload.transcript;
           items.push({ text: sayable(who) + ' sent a voice message.' + (tr ? ' It says: ' + sayable(tr) : ''), msgId: m.id, plain: true });
@@ -1247,23 +1332,13 @@
         rd.curMsg = id; var b = bubbleOf(id); if (b) { b.classList.add('reading'); b.scrollIntoView({ block: 'nearest' }); }
       }
       function reapplyReading() { if (rd.curMsg) { var b = bubbleOf(rd.curMsg); if (b) b.classList.add('reading'); paintHL(); } }
-      /* the player lives in the bubble that is being read: start over, pause/play, next, and an adjust icon (voice dialog) */
+      /* the header player shows play / pause for the whole chat (and which chat is being read when it moves chat to chat) */
       function barDraw() {
-        var cur = rd.on ? rd.queue[rd.i] : null;
-        Array.prototype.forEach.call(msgsDiv.querySelectorAll('.acx-mp'), function (x) { if (!cur || x.getAttribute('data-for') !== cur.id) x.remove(); });
-        if (!cur) return;
-        var b = bubbleOf(cur.id); if (!b) return;
-        var mp = b.querySelector('.acx-mp');
-        if (!mp) {
-          mp = el('div', 'acx-mp'); mp.setAttribute('data-for', cur.id);
-          var mk = function (txt, title, fn, cls) { var x = el('button', 'acx-ib' + (cls ? ' ' + cls : ''), txt); x.title = title; x.onclick = fn; return x; };
-          mp.appendChild(mk('\u23EE', 'Start this message over (press again to go back one message)', function () { readRestart(); }));
-          mp.appendChild(mk('\u23F8', 'Pause', function () { readPause(); }, 'acx-pp'));
-          mp.appendChild(mk('\u23ED', 'Next message', function () { readNext(); }));
-          mp.appendChild(mk('\uD83C\uDF9A', 'Change the voice, speed and more', function () { openVoiceDialog(); }, 'acx-adj'));
-          b.appendChild(mp);
-        }
-        var pp = mp.querySelector('.acx-pp'); pp.textContent = rd.paused ? '\u25B6' : '\u23F8'; pp.title = rd.paused ? 'Resume' : 'Pause';
+        if (!gpPP) return;
+        gpPP.textContent = rd.on ? (rd.paused ? '\u25B6' : '\u23F8') : '\uD83D\uDD0A';
+        gpPP.title = !rd.on ? 'Read aloud: from the word or message you chose, or your new messages chat by chat' : (rd.paused ? 'Resume' : 'Pause');
+        gp.classList.toggle('on', rd.on);
+        if (gpl) gpl.textContent = rd.on && rd.cross ? ((state.conv && state.conv.title) || '') : '';
       }
       function mkUtter(text) {
         var u = new SpeechSynthesisUtterance(text), v = rd.v || {};
@@ -1290,7 +1365,7 @@
           if (token !== rd.token) return;
           (function wait() { if (token !== rd.token) return; if (rd.paused) { setTimeout(wait, 250); return; } runItems(items, k + 1, token, done); })();
         };
-        u.onend = function () { if (token !== rd.token) return; setTimeout(next, Math.round(260 * ((rd.v && rd.v.pauseScale) || 1.2))); };
+        u.onend = function () { if (token !== rd.token) return; setTimeout(next, Math.round((it.long ? 650 : 260) * ((rd.v && rd.v.pauseScale) || 1.2))); };
         u.onerror = function () { if (token !== rd.token) return; next(); };
         try { window.speechSynthesis.speak(u); } catch (e) { stopReading(); }
       }
@@ -1298,8 +1373,12 @@
         var token = ++rd.token; rd.i = i; rd.msgStart = Date.now(); var m = rd.queue[i];
         if (!m) { finishReading(); return; }
         barDraw(); clearHL();
-        var withName = i === 0 || !rd.queue[i - 1] || rd.queue[i - 1].name !== m.name;
-        runItems(planFor(m, withName), 0, token, function () { heardSet(m.iso); if (token !== rd.token) return; if (i + 1 >= rd.queue.length) finishReading(); else playMsg(i + 1); });
+        var prev = rd.queue[i - 1], items = [];
+        if (rd.cross && i === 0) items.push({ text: 'In ' + sayable((state.conv && state.conv.title) || 'this chat') + '.', msgId: m.id, plain: true, long: true });
+        var nm = rd.nameMode, say = m.type === 'text' && (nm === 'always' || (nm === 'change' && (!prev || prev.name !== m.name)));
+        if (say) items.push({ text: sayable(m.name || 'Someone') + (m.from === 'amit' ? ' responded.' : ' said.'), msgId: m.id, plain: true, long: true });
+        items = items.concat(planFor(m, i === 0 ? rd.startChar : 0));
+        runItems(items, 0, token, function () { heardSet(m.iso); if (token !== rd.token) return; if (i + 1 >= rd.queue.length) finishReading(); else playMsg(i + 1); });
       }
       function readNext() { if (!rd.on) return; var m = rd.queue[rd.i]; if (m) heardSet(m.iso); window.speechSynthesis.cancel(); rd.paused = false; if (rd.i + 1 >= rd.queue.length) finishReading(); else playMsg(rd.i + 1); }
       function readBack() { if (!rd.on) return; window.speechSynthesis.cancel(); rd.paused = false; playMsg(Math.max(0, rd.i - 1)); }
@@ -1312,22 +1391,27 @@
       function endReading() {
         rd.on = false; rd.paused = false; rd.token++; try { window.speechSynthesis.cancel(); } catch (e) {}
         clearHL(); Array.prototype.forEach.call(msgsDiv.querySelectorAll('.acx-b.reading'), function (x) { x.classList.remove('reading'); }); rd.curMsg = null;
-        Array.prototype.forEach.call(msgsDiv.querySelectorAll('.acx-mp'), function (x) { x.remove(); }); closeVoiceDialog(true);
+        Array.prototype.forEach.call(msgsDiv.querySelectorAll('.acx-mp'), function (x) { x.remove(); }); closeVoiceDialog(true); barDraw();
         rbar.style.display = 'none'; rbar.innerHTML = '';
         if (AmitChat._stopReader === stopReading) AmitChat._stopReader = null;
         if (AmitChat.onSpeak) { try { AmitChat.onSpeak(false); } catch (e) {} }
         updateSpk();
       }
-      function stopReading() { if (rd.on) endReading(); }
-      function finishReading() { endReading(); toast('That is all.'); }
-      function startReading(list) {
+      function stopReading() { if (rd.on) endReading(); if (!session.handover) endSession(); }
+      function finishReading() { if (session.cross && advanceChat()) return; endSession(); endReading(); toast('That is all.'); }
+      function startReading(list, opts) {
+        opts = opts || {};
         list = list || unheardList();
         if (!list.length) { toast('Nothing to read aloud.'); return; }
+        if (!opts.cross) endSession();
         if (AmitChat._stopReader) AmitChat._stopReader();
+        session.handover = false;
         var vp = AmitChat.voiceProvider ? Promise.resolve().then(function () { return AmitChat.voiceProvider(); }) : Promise.resolve({});
         vp.then(function (v) { return v || {}; }, function () { return {}; }).then(function (v) {
           if (destroyed) return;
           rd.v = v; rd.queue = list; rd.i = 0; rd.on = true; rd.paused = false;
+          rd.startChar = opts.startChar || 0; rd.cross = !!opts.cross;
+          rd.nameMode = rd.cross ? 'always' : ((((state.conv && state.conv.members) || '').split(',').length > 2) ? 'change' : 'none');
           AmitChat._stopReader = stopReading;
           if (AmitChat.onSpeak) { try { AmitChat.onSpeak(true); } catch (e) {} }
           updateSpk(); playMsg(0);
@@ -1339,7 +1423,7 @@
       function readable(m) { return !m.removed && m.from !== 'system' && m.from !== 'note' && ['text', 'voice', 'photo', 'file'].indexOf(m.type) >= 0 && !(m.payload && m.payload.marker) && (m.type !== 'text' || !!(m.text || '').trim()); }
       function readableFrom(id) {
         var idx = -1; state.msgs.forEach(function (m, k) { if (m.id === id) idx = k; });
-        return idx < 0 ? [] : state.msgs.slice(idx).filter(readable);
+        var so = skipOwnOn(); return idx < 0 ? [] : state.msgs.slice(idx).filter(function (m) { return readable(m) && !(so && m.from === 'me'); });
       }
       /* the voice dialog: voice, speed, pitch, volume and pause, heard as you change them; closing it saves them to the person's profile */
       function voiceNow() { var v = rd.v || {}; return { voice: v.voice || null, rate: v.rate || 1.1, pitch: v.pitch || 1, volume: v.volume != null ? v.volume : 1, pauseScale: v.pauseScale || 1.2 }; }
@@ -1381,7 +1465,10 @@
         slider('Pitch', 'pitch', 0.5, 2, 0.05, function (n) { return n.toFixed(2); });
         slider('Volume', 'volume', 0, 1, 0.05, function (n) { return Math.round(n * 100) + '%'; });
         slider('Pause', 'pauseScale', 0.5, 3, 0.1, function (n) { return n.toFixed(1) + '\u00D7'; });
-        d.appendChild(el('div', 'acx-ts', 'You hear changes on the next sentence. Closing this saves them as your default voice.'));
+        var cbr = el('label'); var cbx = el('input'); cbx.type = 'checkbox'; cbx.checked = skipOwnOn();
+        cbx.onchange = function () { try { localStorage.setItem('amitchat-skip-own', cbx.checked ? '1' : '0'); } catch (e) {} };
+        cbr.appendChild(cbx); cbr.appendChild(document.createTextNode(' Skip my own messages (applies the next time you press play)')); d.appendChild(cbr);
+        d.appendChild(el('div', 'acx-ts', 'You hear changes on the next sentence. Closing this saves the voice as your default.'));
         var done = el('button', 'acx-btn go', 'Done'); done.onclick = function () { closeVoiceDialog(true); }; d.appendChild(done);
         t.insertBefore(d, comp);
       }
@@ -1480,8 +1567,8 @@
             }
           }
           if (live && readable(x) && state.editing !== x.id) {
-            var pbtn = el('button', 'acx-play', '\u25B6'); pbtn.title = 'Read this message aloud, then keep going';
-            pbtn.onclick = function () { startReading(readableFrom(x.id)); };
+            var pbtn = el('button', 'acx-play', '\uD83D\uDD0A'); pbtn.title = 'Read this message aloud, then keep going';
+            pbtn.onclick = function () { var st = (state.sel && state.sel.mid === x.id) ? state.sel.start : 0; startReading(readableFrom(x.id), { startChar: st }); };
             bub.firstChild.appendChild(pbtn);
           }
           if (live && !ro && !x.removed && state.editing !== x.id) {
@@ -1505,7 +1592,7 @@
         });
         if (c.seen) msgsDiv.appendChild(el('div', 'acx-meta', c.seen));
         if (c.typing || state.typing) msgsDiv.appendChild(el('div', 'acx-typing', c.typing || state.typing));
-        if (rd.on) { reapplyReading(); barDraw(); }
+        markSel(); if (rd.on) reapplyReading(); barDraw();
         if (keepScroll === 'prepend') msgsDiv.scrollTop = msgsDiv.scrollHeight - prevH + prevTop;
         else if (near || keepScroll === 'bottom') msgsDiv.scrollTop = msgsDiv.scrollHeight;
         else msgsDiv.scrollTop = prevTop;
@@ -1523,6 +1610,7 @@
           if (!older.length) { state.more = c.hasMore; state.oldest = c.oldest; }
           var sig = state.msgs.map(function (m) { return m.id + (m.edited ? 'e' : '') + (m.removed ? 'x' : '') + (m.waitingAmit ? 'w' : ''); }).join(',') + (c.amitIn ? '|A' : '') + '|' + c.seen + '|' + c.typing + '|' + (c.pin ? c.pin.id : '') + '|' + (c.deleteAt || '') + '|' + (c.items || []).map(function (i) { return i.id + i.state; }).join(',');
           if ((sig !== state.sig || first) && !state.editing) { if (!first) bump(); state.sig = sig; renderMsgs(c, first ? 'bottom' : null); }
+          if (first && session.pending) beginPending();
           if (live && !ro && c.lastId && c.lastId !== c.myLastRead) { src.markRead(convId, c.lastId).then(function () { AmitChat.refreshUnread(); }); }
         }, function (e) { DBG.lastError = (e && e.message) || String(e); if (first) { msgsDiv.innerHTML = ''; errBox(msgsDiv, e); } });
       }
@@ -1652,7 +1740,7 @@
       load(true);
       if (live && !ro && src.touchChat) src.touchChat(convId);
       if (live && !ro) src.getSettings(convId).then(function (st) { state.myTyping = st.typing; }, function () {});
-      return { refresh: function () { return load(false); }, leave: function () { closeVoiceDialog(true); stopReading(); if (liveTx && liveTx.tid === tid) liveTx.stop('left'); if (typing) { typing.leave(); typing = null; } } };
+      return { refresh: function () { return load(false); }, startPending: function () { beginPending(); }, leave: function () { closeVoiceDialog(true); if (!session.switching) { endSession(); stopReading(); } if (liveTx && liveTx.tid === tid) liveTx.stop('left'); if (typing) { typing.leave(); typing = null; } } };
     }
 
     /* ---- friends ---- */
