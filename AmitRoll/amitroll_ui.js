@@ -490,7 +490,7 @@
     }).join('');
 
     const diceH = t.dice.map((d, k) => {
-      if (stg.has(k)) return '<div class="ar-die gone" data-i="' + k + '"></div>';
+      if (stg.has(k) || sel.has(k)) return '<div class="ar-die gone" data-i="' + k + '"></div>';
       const cls = [];
       if (d.used) cls.push('used');
       if (sel.has(k)) cls.push('sel');
@@ -504,12 +504,18 @@
 
     let build;
     if (!sel.size) build = live ? '<span style="opacity:.6;font-size:16px">' + (isOpStage() ? 'Press a sign, then tap or drag dice onto a card' : 'Drag dice onto a card — or tap dice, then tap the card') + '</span>' : '&nbsp;';
-    else if (isOpStage()) {
-      build = E.exprString(selItemsArr) + (assist && selValue !== null ? ' = <em>' + selValue + '</em>' : '');
-    } else if (assist) {
-      const m = E.multiplier(selVals);
-      build = plus(selVals) + ' = <em>' + S + '</em>' + (m > 1 ? ' &nbsp;<span style="color:#7fe3ff">×' + m + '</span>' : '');
-    } else build = '<span style="opacity:.7;font-size:16px">' + sel.size + ' dice chosen — drag them onto a card</span>';
+    else {
+      // the picked dice, smaller, in the order they were picked, each after its sign; the whole group can be dragged onto a card
+      const parts = [...sel].map((k, n) => {
+        const op = isOpStage() ? (selOp[k] || '+') : '+';
+        const opHtml = (n > 0 || op === '−') ? '<span class="bop">' + (n > 0 ? op : '−') + '</span>' : '';
+        return opHtml + '<div class="ar-die bdie" data-v="' + t.dice[k].v + '" data-i="' + k + '" title="Tap to put this die back. Drag to move the whole group onto a card">' + pipsHtml(t.dice[k].v) + '</div>';
+      }).join('');
+      let eq = '';
+      if (isOpStage()) eq = assist && selValue !== null ? '<span class="beq">= <em>' + selValue + '</em></span>' : '';
+      else if (assist) { const m = E.multiplier(selVals); eq = '<span class="beq">= <em>' + S + '</em>' + (m > 1 ? ' <span style="color:#7fe3ff">×' + m + '</span>' : '') + '</span>'; }
+      build = '<div class="ar-bgroup">' + parts + eq + '</div>';
+    }
 
     // suggestions: only in the early levels (Ryan: hints for early rounds, dragging with no hints later)
     let risk = '';
@@ -1163,7 +1169,7 @@
         drag.moved = true;
         drag.group = sel.has(drag.i) ? [...sel] : [drag.i];
         drag.group.forEach((k, n) => {
-          const src = qs('#ar-1 .ar-die[data-i="' + k + '"]'); if (!src) return;
+          const src = qs('#ar-1 .ar-die.bdie[data-i="' + k + '"]') || qs('#ar-1 .ar-die[data-i="' + k + '"]'); if (!src) return;
           const g = src.cloneNode(true);
           g.className = 'ar-die ar-ghost'; g.removeAttribute('onclick'); g.style.cssText = '';
           g.dataset.off = String(n * 26);
