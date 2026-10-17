@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.13 — 2026-10-17. The live transcript blinks GREEN (the Hub's own "on" green) instead of red; clearer iPhone messages (it can work in Safari but not inside a home-screen app). v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
+   v0.14 — 2026-10-17. A Refresh button inside the chat; when Amit's helper posts a reply it sends a "refresh" nudge on the chat's live channel, so an open chat shows the reply at once instead of waiting for the next check. v0.13 — 2026-10-17. The live transcript blinks GREEN (the Hub's own "on" green) instead of red; clearer iPhone messages (it can work in Safari but not inside a home-screen app). v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
 
    Include with  <script src="../amit_chat.js"></script>  (path per depth).
@@ -22,7 +22,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.13';
+  var VERSION = 'v0.14';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -466,7 +466,7 @@
         });
       },
       /* typing indicator: a live broadcast channel, nothing is written to the database */
-      typingJoin: function (convId, onChange) {
+      typingJoin: function (convId, onChange, onRefresh) {
         if (!db.channel) return null;
         var seen = {}, timer = null, lastSent = 0, ch;
         function active() {
@@ -484,7 +484,10 @@
             var u = m && m.payload && m.payload.u;
             if (!u || u === me || !/^[0-9a-f-]{36}$/i.test(u)) return;
             seen[u] = Date.now(); loadNames([u]).then(function () { if (!timer) tick(); else onChange(null, true); });
-          }).subscribe();
+          });
+          /* a "refresh" nudge (Amit's helper sends one after it posts): reload this chat now */
+          ch.on('broadcast', { event: 'refresh' }, function () { if (onRefresh) { try { onRefresh(); } catch (e) {} } });
+          ch.subscribe();
         } catch (e) { return null; }
         return {
           ping: function () { var n = Date.now(); if (n - lastSent < 2500) return; lastSent = n; try { ch.send({ type: 'broadcast', event: 'typing', payload: { u: me } }); } catch (e) {} },
@@ -550,7 +553,7 @@
     '.acx-pop.anchored{top:var(--acx-top,60px);right:var(--acx-right,76px);bottom:auto;height:var(--acx-h,480px);max-height:none;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.35);border-radius:var(--amit-radius,12px);box-shadow:0 10px 30px rgba(0,0,0,.5)}',
     '.acx-anchor-on{background:rgba(var(--amit-accent-rgb,201,168,76),.22)!important;border-radius:10px}',
     '.acx-head{cursor:default!important}',
-    '.acx-thead .acx-spk,.acx-thead .acx-srch,.acx-thead .acx-gear{margin-left:0!important}.acx-spacer{flex:1}',
+    '.acx-thead .acx-spk,.acx-thead .acx-ref,.acx-thead .acx-srch,.acx-thead .acx-gear{margin-left:0!important}.acx-spacer{flex:1}',
     '.acx-ahd{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.acx-ahd img{width:16px;height:16px;object-fit:contain}',
     '.acx-head{display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(var(--amit-accent-rgb,201,168,76),.12);border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);cursor:pointer;flex-shrink:0}',
     '.acx-title{flex:1;font-family:var(--amit-font-heading,"Cinzel",serif);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--amit-accent-bright,#e8c56a);font-weight:700}',
@@ -980,6 +983,8 @@
         amitHead.onclick = function () { amitClick(); }; if (!ro) head.appendChild(amitHead);
         var spk = null;
         if ('speechSynthesis' in window) { spk = el('button', 'acx-ib acx-spk', '\uD83D\uDD0A'); spk.title = 'Read new messages aloud'; head.appendChild(spk); }
+        var refBtn = el('button', 'acx-ib acx-ref', '\u21BB'); refBtn.title = 'Refresh this chat now'; head.appendChild(refBtn);
+        refBtn.onclick = function () { bump(); var p = load(false); if (p && p.then) p.then(function () { toast('Refreshed'); }, function () {}); else toast('Refreshed'); };
         var srchBtn = el('button', 'acx-ib acx-srch', '\uD83D\uDD0D'); srchBtn.title = 'Search this chat'; head.appendChild(srchBtn);
         gear = el('button', 'acx-ib acx-gear', '\u2699'); gear.title = 'Chat settings'; head.appendChild(gear); if (ro) gear.style.display = 'none';
         var srchPanel = null;
@@ -1564,7 +1569,7 @@
           var tl = msgsDiv.querySelector('.acx-typing');
           if (state.typing) { var near = msgsDiv.scrollHeight - msgsDiv.scrollTop - msgsDiv.clientHeight < 60; if (!tl) { tl = el('div', 'acx-typing'); msgsDiv.appendChild(tl); } tl.textContent = state.typing; if (near) msgsDiv.scrollTop = msgsDiv.scrollHeight; }
           else if (tl) tl.remove();
-        }) : null;
+        }, function () { bump(); load(false); }) : null;
         t.addEventListener('dragover', function (e) { if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0) { e.preventDefault(); t.classList.add('acx-drop'); } });
         t.addEventListener('dragleave', function () { t.classList.remove('acx-drop'); });
         t.addEventListener('drop', function (e) { t.classList.remove('acx-drop'); if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { e.preventDefault(); sendFiles(e.dataTransfer.files); } });
