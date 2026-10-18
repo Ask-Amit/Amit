@@ -806,3 +806,26 @@ t('the time bonus depends on the level: gain + loss = 100% from level 3, hints a
   for (let l = 3; l <= 8; l++) { const t = E.timeBonus(l); assert.ok(Math.abs(t.self + t.hit - 1) < 1e-9, 'level ' + l); }
   assert.ok(E.timeBonus(3).self > E.timeBonus(8).self);        // beginners gain the bigger share
 });
+
+t('every round and every fresh set starts with at least one number card that can be covered, in every stage and level', () => {
+  for (const stage of ['addition', 'subtraction', 'multiplication', 'division']) {
+    for (let lvl = 1; lvl <= 8; lvl++) {
+      const rules = E.rulesFor(stage, lvl), L = E.levelsFor(stage)[lvl - 1], faces = E.STAGES[stage].faces;
+      for (let seed = 1; seed <= 25; seed++) {
+        const rng = E.mulberry32(seed * 31 + lvl);
+        const cards = E.dealCards(rng, 5, L.cardMin, L.cardMax, 0);
+        const st = E.newTurn(cards, E.rollForCover(rng, cards, rules, 5, faces), rules);
+        assert.notStrictEqual(st.status, 'bust', stage + ' L' + lvl + ' seed ' + seed + ' started with nothing to cover');
+        assert.ok(E.mustCover(st) || st.status === 'rolled');
+      }
+    }
+  }
+  // a fresh set after clearing all five cards also has an answer
+  const rules = E.rulesFor('multiplication', 5), L = E.levelsFor('multiplication')[4], rng = E.mulberry32(11);
+  for (let i = 0; i < 20; i++) {
+    const st = E.newTurn([1, 2, 3, 4, 5], [1, 2, 3, 4, 5], rules);
+    st.cards.forEach(c => { c.covered = true; }); st.dice.forEach(d => { d.used = true; }); st.coversThisRoll = 1;
+    const r2 = E.roll(st, rng, () => E.dealCards(rng, 5, 30, 100, 0));
+    assert.ok(r2 && r2.status !== 'bust', 'fresh set ' + i);
+  }
+});

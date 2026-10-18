@@ -342,7 +342,7 @@
       s.nextWild = false;
       s.dealN = 0;
       s.dealFn = want => withWild(E.dealCards(E.mulberry32(G.seed * 500 + s.idx * 11 + G.round * 17 + (++s.dealN)), 5, s.L.cardMin, s.L.cardMax, WILD_CHANCE), want, s.idx + s.dealN);
-      s.turn = E.newTurn(cards, E.rollDice(s.rng, 5, E.STAGES[G.stageName].faces), E.rulesFor(G.stageName, s.level));
+      s.turn = E.newTurn(cards, E.rollForCover(s.rng, cards, E.rulesFor(G.stageName, s.level), 5, E.STAGES[G.stageName].faces), E.rulesFor(G.stageName, s.level));
       s.roundScore = null; s.elapsed = 0; s.budget = s.L.clock || Infinity;
       s.tbRound = false; s.tbSeen = 0;
       s.status = 'playing';
@@ -436,7 +436,7 @@
     G.tb.earnedRound = false; G.tb.srcCard = null;
     G.dealN = 0; G.coverPts = {}; G.coverText = {}; G.stage = {}; G.stageOp = {}; G.hint = null; G.say = ''; G.bustMsg = ''; G.stopOutlook = null;
     selOp = {}; curOp = '+';
-    G.turn = E.newTurn(cards, E.rollDice(G.diceRng, 5, E.STAGES[G.stageName].faces), G.rules);
+    G.turn = E.newTurn(cards, E.rollForCover(G.diceRng, cards, G.rules, 5, E.STAGES[G.stageName].faces), G.rules);
     if (G.table) { G.meDone = false; G.waitingNext = false; beginSeatsRound(); }
     sel.clear();
     G.anim = { dice: [0, 1, 2, 3, 4], cards: true };

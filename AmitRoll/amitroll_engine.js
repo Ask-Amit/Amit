@@ -591,6 +591,18 @@
   }
 
   // dealFn(wild) -> 5 new card values (used when every card is covered).
+  // A round or a fresh set of five cards must ALWAYS start with at least one number card that can be covered (Ryan, 2026-10-17): roll the dice again until one can.
+  // (Later throws of the dice you choose to make are still a risk: that is what a bust is.)
+  function rollForCover(rng, cardVals, rules, n, faces) {
+    const rr = Object.assign({}, DEFAULT_RULES, rules || {});
+    if (rr.stage && STAGES[rr.stage] && (!rr.ops || rr.ops === DEFAULT_RULES.ops)) rr.ops = STAGES[rr.stage].ops.slice();
+    let dice = null;
+    for (let i = 0; i < 400; i++) {
+      dice = rollDice(rng, n, faces);
+      if (validCovers(cardVals, dice, rr).some(c => !c.wild)) return dice;
+    }
+    return dice;
+  }
   function roll(st, rng, dealFn) {
     if (!canRoll(st)) return null;
     lockCovers(st);
@@ -602,7 +614,7 @@
       st.setNo++; st.signUsed = false; st.setStartPoints = st.points; st.setBonus = false;
     }
     if (allCards || allDice) {
-      st.dice = rollDice(rng, st.rules.diceCount, st.rules.faces).map(v => ({ v, used: false }));
+      st.dice = (allCards ? rollForCover(rng, st.cards.map(c => c.v), st.rules, st.rules.diceCount, st.rules.faces) : rollDice(rng, st.rules.diceCount, st.rules.faces)).map(v => ({ v, used: false }));
     } else {
       st.dice.forEach(d => { if (!d.used) d.v = rollDie(rng, st.rules.faces); });
     }
@@ -767,7 +779,7 @@
   }
 
   return {
-    DEFAULT_RULES, STAGES, STAGE_ORDER, STAGE_TOPS, STAGE_PACE, STAGE_CLOCKS, timeBonus, NEG_FROM_LEVEL, levelsFor, rulesFor, evalItems, exprString, stageSets, stageExpr, isBonus, stageBonusExpr, placeXp, botNext, botPlan, botApply, amitCost, amitTurn, LEVELS, levelFor,
+    DEFAULT_RULES, STAGES, STAGE_ORDER, STAGE_TOPS, STAGE_PACE, STAGE_CLOCKS, timeBonus, rollForCover, NEG_FROM_LEVEL, levelsFor, rulesFor, evalItems, exprString, stageSets, stageExpr, isBonus, stageBonusExpr, placeXp, botNext, botPlan, botApply, amitCost, amitTurn, LEVELS, levelFor,
     mulberry32, rollDie, rollDice, dealCards,
     multiplier, bestPlan, validCovers,
     newTurn, tryCover, uncover, multWord, timeoutStop, canStop, canRoll, needSign, mustCover, stop, roll, bust,
