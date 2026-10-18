@@ -24,7 +24,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.21';
+  var VERSION = 'v0.22';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -282,7 +282,7 @@
       /* opens it for the page's Ask Amit button: finds or makes the chat, switches Amit on when he is off and posts his greeting naming the page: { id, number, created, greeted, listening, online } */
       helpOpen: function (app, page) { return db.rpc('cha_help_open', { p_app: app || 'hub', p_page: page || null }).then(function (r) { fail(r); return r.data; }); },
       /* turn "Amit is listening" on or off for this chat (any member); returns { listening, changed, online } */
-      listen: function (id, on) { return db.rpc('cha_listen_set', { p_conv: id, p_on: !!on }).then(function (r) { fail(r); return r.data; }); },
+      listen: function (id, on, now) { return db.rpc('cha_listen_set', { p_conv: id, p_on: !!on, p_now: !!now }).then(function (r) { fail(r); return r.data; }); },   /* now = true: switching him on also calls him in at once */
       /* the latest press in this chat: { status, ahead, online, listening, listening_by, thinking } or null when the Ask Amit tables are not installed yet */
       askStatus: function (id) { return db.rpc('cha_ask_status', { p_conv: id }).then(function (r) { return r.error ? null : (r.data || {}); }, function () { return null; }); },
       chatNumber: function (id) { return db.from('cha_conversations').select('number').eq('id', id).maybeSingle().then(function (r) { return (r && r.data && r.data.number) || null; }, function () { return null; }); },
@@ -1681,12 +1681,28 @@
         state.listening = on;
         if (amitBtn) amitBtn.classList.toggle('listening', on);
         if (!on) { if (lbar) { lbar.remove(); lbar = null; } return; }
-        var txt = s.thinking ? 'Amit is listening, and thinking about what to add…'
-          : (s.online === false ? 'Amit is listening, but his computer is offline right now.'
-            : 'Amit is listening to this chat' + (s.listening_by ? ' (turned on by ' + s.listening_by + ')' : '') + '. Anyone here can turn him off with the Amit button.');
-        if (!lbar) { lbar = el('div', 'acx-askbar acx-listenbar'); lbar.appendChild(el('span', 'acx-dot')); lbar.appendChild(el('span', 'acx-at', '')); t.insertBefore(lbar, comp); }
+        lastListen = s;
+        if (!lbar) {
+          lbar = el('div', 'acx-askbar acx-listenbar'); lbar.appendChild(el('span', 'acx-dot')); lbar.appendChild(el('span', 'acx-at', '')); t.insertBefore(lbar, comp);
+          var lt = setInterval(function () { if (destroyed || !lbar) { clearInterval(lt); return; } drawListenText(); }, 1000);   /* the countdown ticks while the bar is on screen */
+        }
         lbar.classList.toggle('off', s.online === false); lbar.classList.toggle('think', !!s.thinking);
-        lbar.querySelector('.acx-at').textContent = txt;
+        drawListenText();
+      }
+      /* what the green bar says: the countdown to what he does next (30 s of quiet then he comes in; 2 minutes after he speaks he switches himself off) */
+      var lastListen = null;
+      function drawListenText() {
+        var s = lastListen; if (!lbar || !s) return;
+        var GAP = AmitChat.listenGapSeconds || 30, OFF = AmitChat.listenOffSeconds || 120, txt;
+        var last = null; for (var i = state.msgs.length - 1; i >= 0; i--) { var m = state.msgs[i]; if (m.from === 'me' || m.from === 'them' || m.from === 'amit') { last = m; break; } }
+        var age = last ? Math.max(0, Math.floor((Date.now() - new Date(last.iso).getTime()) / 1000)) : null;
+        if (s.thinking) txt = 'Amit is reading the discussion and thinking about what to add…';
+        else if (s.online === false) txt = 'Amit is listening, but his computer is offline right now.';
+        else if (last && last.from !== 'amit' && age != null && age < GAP) txt = 'Amit is listening. He will come in after ' + (GAP - age) + ' s of quiet.';
+        else if (last && last.from !== 'amit') txt = 'Amit is listening, and about to come in…';
+        else if (last && last.from === 'amit' && age != null && age < OFF) txt = 'Amit has spoken. If nobody replies he switches himself off in ' + (OFF - age) + ' s. Anyone can turn him off with the Amit button.';
+        else txt = 'Amit is listening to this chat' + (s.listening_by ? ' (turned on by ' + s.listening_by + ')' : '') + '. Anyone here can turn him off with the Amit button.';
+        var at = lbar.querySelector('.acx-at'); if (at.textContent !== txt) at.textContent = txt;
       }
       function updateAmitTitle() {
         var c = state.conv; if (!c || !amitBtn) return;
@@ -1729,21 +1745,21 @@
         if (!state.askOk || !(help || /(^|\s)@amit([^a-z0-9_]|$)/i.test(v || ''))) return Promise.resolve();
         return src.ask(convId, { app: AmitChat.appName || 'hub', place: askPlace(), note: v }).then(function () { state.askPending = true; return refreshAsk(); }, function (e) { toast((e && e.message) || 'Could not ask Amit.'); });
       }
-      function setListening(on) {
+      function setListening(on, now) {
         if (!live || ro || state.busy) return;
         state.busy = true; amitBtn.disabled = true;
-        src.listen(convId, on).then(function () { toast(on ? 'Amit is listening' : 'Amit stopped listening'); bump(); return load(false).then(function () { return refreshAsk(); }); })
+        src.listen(convId, on, now).then(function () { toast(on ? (now ? 'Amit is reading this chat and coming in' : 'Amit is listening') : 'Amit stopped listening'); bump(); return load(false).then(function () { return refreshAsk(); }); })
           .then(null, function (e) { toast((e && e.message) || 'Could not change that.'); })
           .then(function () { state.busy = false; amitBtn.disabled = false; });
       }
       function amitClick() {
         var c = state.conv; if (!c) return;
         if (state.askOk) {
-          var LISTEN_ASK = 'Turn Amit on?\n\nAmit will join this chat and stay on until someone turns him off. While he is on he reads everything said here (everyone will see that he is on), stays quiet while you talk to each other, and speaks up after a pause or when someone asks him. If he speaks and nobody replies for 2 minutes, he turns himself off. His answers come through Ryan’s computer, and Ryan can read what Amit reads. Anyone in the chat can turn him off with the same button.';
+          var LISTEN_ASK = 'Turn Amit on?\n\nAmit will join this chat, read everything said so far, and come in right away with a question or a thought. He then stays on until someone turns him off: while he is on he reads everything said here (everyone will see that he is on), stays quiet while you talk to each other, and speaks up after a pause or when someone asks him. If he speaks and nobody replies for 2 minutes, he turns himself off. His answers come through Ryan’s computer, and Ryan can read what Amit reads. Anyone in the chat can turn him off with the same button.';
           var typed = ta.value.trim(), hasSel = !!(state.sel && state.msgs.some(function (m) { return m.id === state.sel.mid; }));
           if (typed || hasSel) { if (!state.listening && !confirm(LISTEN_ASK)) return; askAmit(); return; }   /* a question: ask now, and he stays on */
           if (state.listening) { setListening(false); return; }                                            /* nothing typed: the button is the on/off switch */
-          if (!confirm(LISTEN_ASK)) return; setListening(true); return;
+          if (!confirm(LISTEN_ASK)) return; setListening(true, true); return;   /* pressing it is asking him: switch him on AND call him in right now */
         }
         if (c.amitIn) { var at = ta.selectionStart || 0; if (!/@amit/i.test(ta.value)) { ta.value = '@Amit ' + ta.value; } ta.focus(); ta.dispatchEvent(new Event('input')); return; }
         if (!confirm('Invite Amit to this chat?\n\nEveryone here will see that Amit joined. Amit reads this chat only to answer when someone writes @Amit, and he replies when his session checks.')) return;
@@ -1794,7 +1810,7 @@
               if (!blob.size || (Date.now() - started) < 700) { toast('That was too short to send.'); return; }
               state.busy = true; setBusy(true); toast('Sending your voice message\u2026');
               setTimeout(function () {
-                src.sendVoice(convId, blob, (Date.now() - started) / 1000, transcript).then(function () { bump(); return load(false); }, function (e) { toast(e.message); })
+                src.sendVoice(convId, blob, (Date.now() - started) / 1000, transcript).then(function () { bump(); return maybeAskFromText(transcript || '').then(function () { return load(false); }); }, function (e) { toast(e.message); })   /* in the chat with Amit a voice message is a question to him, like a typed one */
                   .then(function () { msgsDiv.scrollTop = msgsDiv.scrollHeight; state.busy = false; setBusy(false); });
               }, 600);
             };
@@ -2220,6 +2236,7 @@
       var from = null; try { from = AmitChat.placeProvider ? AmitChat.placeProvider() : null; } catch (e) {}
       return AmitChat.source.helpOpen(AmitChat.appName || 'hub', from && (from.label || from.page)).then(function (r) {
         var p = buildPopup(); placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true);
+        var ttl = p.querySelector('.acx-head .acx-title'); if (ttl) ttl.textContent = 'Ask Amit';   /* opened from the Ask Amit button: the box says so */
         if (popView) popView.open('thread', r.id);
         var n = 0, t = setInterval(function () { var ta = p.querySelector('.acx-comp textarea'); if (ta && ta.offsetParent) { ta.focus(); clearInterval(t); } else if (++n > 30) clearInterval(t); }, 100);
         return true;
@@ -2232,7 +2249,7 @@
     togglePopup: function () {
       var p = buildPopup();
       if (p.classList.contains('open')) closePopup();
-      else { placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true); if (popView && AmitChat.live) { popView.resume(); AmitChat.refreshUnread(); } }
+      else { var ttl = p.querySelector('.acx-head .acx-title'); if (ttl) ttl.textContent = 'AmitChat'; placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true); if (popView && AmitChat.live) { popView.resume(); AmitChat.refreshUnread(); } }
     },
     /* a single-column chat for a phone page (AmitMobile): the list, then a chat with a back arrow */
     mountInline: function (target) {
