@@ -784,3 +784,16 @@ t('the earned wild is marked as the bonus wild when the dealer says which card i
   E.roll(t3, E.mulberry32(3), w => { const a = [1, 2, 3, 4, 5]; if (w) { a[2] = 'W'; a.bonusIdx = 2; } return a; });
   assert.strictEqual(t3.cards[2].v, 'W'); assert.strictEqual(t3.cards[2].bonus, true); assert.strictEqual(t3.cards[0].bonus, false);
 });
+
+t('all five dice on one card is flagged (a time bonus), wild included, and taking it back un-flags it', () => {
+  const r = R('subtraction', 6);
+  const st = E.newTurn([11, 40, 41, 42, 43], [8, 5, 2, 1, 1], r);
+  assert.strictEqual(st.fiveDiceCovers, 0);
+  const res = E.tryCover(st, [0, 1, 2, 3, 4], 0, ['+', '+', '−', '+', '−']);              // 8 + 5 - 2 + 1 - 1 = 11, all five dice
+  assert.ok(res.ok); assert.strictEqual(res.timeBonus, true); assert.strictEqual(st.fiveDiceCovers, 1);
+  E.uncover(st, 0); assert.strictEqual(st.fiveDiceCovers, 0);
+  const w = E.newTurn(['W', 40, 41, 42, 43], [8, 5, 2, 1, 1], r);
+  assert.strictEqual(E.tryCover(w, [0, 1, 2, 3, 4], 0).timeBonus, true);                   // a wild with every die counts
+  const four = E.newTurn([14, 40, 41, 42, 43], [8, 5, 2, 1, 1], r);
+  assert.ok(!E.tryCover(four, [0, 1, 2, 3], 0, ['+', '+', '−', '+']).timeBonus);           // four dice do not
+});

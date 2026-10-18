@@ -433,7 +433,7 @@
       cards: cards.map((v, i) => ({ v, covered: false, bonus: cards.bonusIdx === i })),
       dice: dice.map(v => ({ v, used: false })),
       points: 0, safe: 0, rollNo: 1, coversThisRoll: 0,
-      setNo: 1, signUsed: false, setStartPoints: 0, setBonus: false, bonusNext: false,      // the stage's sign is needed once in each set of five cards
+      setNo: 1, signUsed: false, setStartPoints: 0, setBonus: false, bonusNext: false, fiveDiceCovers: 0,      // the stage's sign is needed once in each set of five cards
       status: 'rolled', score: null, sweeps: [], rolls: [], scorecard: []
     };
     beginRoll(st);
@@ -492,11 +492,13 @@
     const prevSafe = st.safe;
     st.points += pts;
     st.coversThisRoll++;
+    const fiveDice = diceIdx.length === st.dice.length;      // all five dice on one card earns a time bonus (Ryan, 2026-10-17); a wild counts
+    if (fiveDice) st.fiveDiceCovers++;
     const roll = st.rolls[st.rolls.length - 1];
     const expr = itemsUsed ? exprString(itemsUsed) : vals.join(' + ');
     const taken = { dice: vals, card: card.v, mult, pts, wild: isWild, expr, ops: itemsUsed ? itemsUsed.map(x => x.op) : null };
     roll.taken.push(taken);
-    const cover = { cardIdx, card: card.v, values: vals.slice(), idx: diceIdx.slice(), expr, ops: taken.ops, mult, pts, wild: isWild, roll: st.rollNo, locked: false, sweep: null, prevSafe, taken, usedSign, setNo: st.setNo, bonus };
+    const cover = { cardIdx, card: card.v, values: vals.slice(), idx: diceIdx.slice(), expr, ops: taken.ops, mult, pts, wild: isWild, roll: st.rollNo, locked: false, sweep: null, prevSafe, taken, usedSign, setNo: st.setNo, bonus, fiveDice };
     if (usedSign) st.signUsed = true;
     if (bonus) st.setBonus = true;
     card.cover = cover;
@@ -517,7 +519,7 @@
         }
       } else if ((sweep === 'cards' && st.rules.cardSweepBanks) || (sweep === 'dice' && st.rules.sweepBanks)) { st.safe = st.points; cover.banked = true; }
     }
-    return { ok: true, pts, mult, sweep, wild: isWild, forfeit, bonus };
+    return { ok: true, pts, mult, sweep, wild: isWild, forfeit, bonus, timeBonus: fiveDice };
   }
 
   // true while a NUMBER card can still be covered with the unused dice
@@ -538,6 +540,7 @@
         if (x.prePoints != null) { st.points = x.prePoints; delete x.prePoints; st.scorecard.forEach(y => { if (y.setNo === x.setNo) y.forfeited = false; }); }
       }
     });
+    if (c.fiveDice) st.fiveDiceCovers--;
     c.idx.forEach(i => { st.dice[i].used = false; });
     card.covered = false; card.cover = null;
     st.points -= c.pts; st.coversThisRoll--;

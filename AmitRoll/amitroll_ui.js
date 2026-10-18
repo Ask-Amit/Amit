@@ -184,7 +184,7 @@
         (live && lit ? ' onclick="AR.setOp(\'' + o + '\')"' : '') +
         ' title="' + (lit ? (live ? 'Press this, then pick dice: the sign sticks until you press another' : 'Used in this stage') : 'Not used in this stage') + '">' + o + '</div>';
     }).join('') +
-      (cls === 'small' ? '' : '<div class="ar-op clear" onclick="AR.clearBuild()" title="Clear: take back the dice you have picked or put on a card, and start over">CLEAR</div>' + needChip() + bonusChip(got)) + '</div>';
+      (cls === 'small' ? '' : '<div class="ar-op clear" onclick="AR.clearBuild()" title="Clear: take back the dice you have picked or put on a card, and start over">CLEAR</div>' + needChip() + bonusChip(got) + tbChipHtml()) + '</div>';
   }
   function stageStrip(L) {
     const xp = stageXp();
@@ -254,6 +254,7 @@
       busy: true, dealN: 0, flip: null, hint: null, say: '', clockLeft: 0, diceRng: E.mulberry32((Math.random() * 4e9) >>> 0),
       coverPts: {}, coverText: {}, stage: {}
     };
+    G.tb = { held: false, earnedRound: false, srcCard: null };      // the time bonus: one held at a time, one earned per round, hidden from everyone else
     selOp = {}; curOp = '+';
     beginRound();
   }
@@ -286,7 +287,7 @@
     for (let i = 0; i < n; i++) {
       const L0 = E.levelsFor(stage)[lv - 1];
       seats.push({ id: 's' + i, idx: i, name: n === 1 ? 'Amit' : 'Amit ' + (i + 1), level: lv, L: L0,
-        skill: Math.max(0.2, Math.min(1, L0.amitSkill + (Math.random() - 0.5) * 0.08)), pace: 0.9 + Math.random() * 0.2, elapsed: 0, budget: L0.clock || Infinity,
+        skill: Math.max(0.2, Math.min(1, L0.amitSkill + (Math.random() - 0.5) * 0.08)), pace: 0.9 + Math.random() * 0.2, elapsed: 0, budget: L0.clock || Infinity, tbHeld: false, tbRound: false, tbSeen: 0,
         total: 0, roundScore: null, status: 'idle', turn: null, nextAt: 0, dealN: 0, rng: E.mulberry32(((Math.random() * 4e9) >>> 0) + i) });
     }
     return seats;
@@ -300,6 +301,7 @@
       s.dealFn = want => withWild(E.dealCards(E.mulberry32(G.seed * 500 + s.idx * 11 + G.round * 17 + (++s.dealN)), 5, s.L.cardMin, s.L.cardMax, WILD_CHANCE), want, s.idx + s.dealN);
       s.turn = E.newTurn(cards, E.rollDice(s.rng, 5, E.STAGES[G.stageName].faces), E.rulesFor(G.stageName, s.level));
       s.roundScore = null; s.elapsed = 0; s.budget = s.L.clock || Infinity;
+      s.tbRound = false; s.tbSeen = 0;
       s.status = 'playing';
       s.nextAt = now + 1500 + s.idx * 250;
       if (s.turn.status !== 'rolled') finishSeat(s);
@@ -334,7 +336,7 @@
       else {
         cost = E.amitCost(s.level, a, s.rng, s.pace, G.stageName);
         if (s.elapsed + cost > s.budget) { E.timeoutStop(s.turn); }          // his clock ran out: only what is covered counts
-        else { E.botApply(s.turn, a, opts); s.elapsed += cost; }
+        else { E.botApply(s.turn, a, opts); s.elapsed += cost; seatTimeBonus(s); }
       }
       if (s.turn.status !== 'rolled') finishSeat(s);
       // the move takes its share of the clock, shown sped up; quicker once I am done and just waiting
@@ -386,6 +388,7 @@
     const cards = withWild(E.dealCards(E.mulberry32(G.seed * 1000 + G.round), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE), G.nextWild, G.seed + G.round);
     G.nextWild = false;
     G.clockLeft = G.level.clock ? G.level.clock * 1000 : 0;      // one clock for the whole round
+    G.tb.earnedRound = false; G.tb.srcCard = null;
     G.dealN = 0; G.coverPts = {}; G.coverText = {}; G.stage = {}; G.stageOp = {}; G.hint = null; G.say = ''; G.bustMsg = ''; G.stopOutlook = null;
     selOp = {}; curOp = '+';
     G.turn = E.newTurn(cards, E.rollDice(G.diceRng, 5, E.STAGES[G.stageName].faces), G.rules);
@@ -642,7 +645,7 @@
       G.clockLeft -= 200;
       const ring = $('ar-ring'), txt = $('ar-clocktxt'), ck = $('ar-clock');
       const circ = 2 * Math.PI * 26;
-      if (ring) ring.setAttribute('stroke-dashoffset', circ * (1 - Math.max(0, G.clockLeft) / (L.clock * 1000)));
+      if (ring) ring.setAttribute('stroke-dashoffset', circ * (1 - Math.min(1, Math.max(0, G.clockLeft) / (L.clock * 1000))));
       if (txt) txt.textContent = Math.max(0, Math.ceil(G.clockLeft / 1000));
       if (ck) ck.classList.toggle('low', G.clockLeft < 10000);
       if (G.clockLeft <= 0) { stopClock(); onTimeout(); }
@@ -745,6 +748,12 @@
       confetti($('ar-tablearea'), 30);
     }
     if (G.practice) narrate();
+    if (r.timeBonus && !G.tb.held && !G.tb.earnedRound) {
+      G.tb.held = true; G.tb.earnedRound = true; G.tb.srcCard = cardIdx;
+      setTimeout(() => { if (G && G.tb.held) banner('⏱ TIME BONUS initiated'); }, 900);
+      G.say = '⏱ <b>You received a time bonus!</b> Use it on <b>yourself</b> for 50% more time, or <b>against another player</b> to take 50% of theirs. Only you can see it, and you can use it any time a clock is running.' + (G.level.clock ? '' : ' (You have no clock at this level, so a time bonus is useful from level 2.)') + (G.practice && G.say ? '<br>' + G.say : '');
+      renderGame();
+    }
     return true;
   }
 
@@ -826,12 +835,97 @@
     if (!c || !c.covered || !c.cover || c.cover.locked) return;
     const idx = c.cover.idx.slice(), pulled = idx[n];
     const ops = c.cover.ops ? c.cover.ops.slice() : null;
+    const wasFive = !!c.cover.fiveDice;
     if (!E.uncover(t, cardIdx)) return;
+    if (wasFive && G.tb.held && G.tb.srcCard === cardIdx) { G.tb.held = false; G.tb.earnedRound = false; G.tb.srcCard = null; }
     const rest = idx.filter(k => k !== pulled);
     if (rest.length) { G.stage[cardIdx] = rest; rest.forEach(k => { G.stageOp[k] = (ops && ops[idx.indexOf(k)]) || '+'; }); fixFirstOp(rest); }
     G.hint = null; sel.clear();
     G.say = assistOn() ? 'Those dice are free again. Put different dice on the card — or put the same ones back.' : '';
     renderGame();
+  }
+
+  // ── the time bonus ──
+  function tbChipHtml() {
+    if (!G || !G.tb || !G.tb.held) return '';
+    return '<div class="ar-tbchip" title="Only you can see this. Use it any time a clock is running."><div class="ar-tbhead">⏱ TIME BONUS</div>' +
+      '<button class="ar-btn tbbtn" onclick="AR.useTimeSelf()">+50% time for me</button>' +
+      (G.table ? '<button class="ar-btn tbbtn" onclick="AR.useTimeOther()">Use on a player…</button>' : '<div class="ar-tbnote">Against another player when you play at a table</div>') + '</div>';
+  }
+  function useTimeSelf() {
+    if (!liveNow() || !G.tb.held) return;
+    if (!G.level.clock) { G.say = 'You have no clock at this level, so there is nothing to add to. Keep the time bonus for a level with a clock — or use it against another player.'; snd('bad'); renderGame(); return; }
+    const add = G.level.clock * 0.5;
+    G.clockLeft += add * 1000; G.tb.held = false;
+    snd('cover'); banner('+' + Math.round(add) + ' s');
+    G.say = '⏱ Time bonus used: <b>+' + Math.round(add) + ' seconds</b> on your clock.';
+    renderGame();
+  }
+  function seatRemaining(s) { return s.budget - s.elapsed; }
+  function useTimeOther() {
+    if (!liveNow() || !G.tb.held || !G.table) return;
+    const cands = G.table.seats.filter(s => s.status === 'playing' && isFinite(s.budget) && seatRemaining(s) > 0);
+    if (!cands.length) { G.say = 'Nobody at the table has a clock running right now, so a time bonus would do nothing. Keep it.'; snd('bad'); renderGame(); return; }
+    if (cands.length === 1) { hitSeat(cands[0]); return; }
+    const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-tbmodal';
+    over.innerHTML = '<div class="ar-sheet" style="max-width:420px"><div class="ar-h" style="text-align:center">⏱ USE YOUR TIME BONUS ON…</div>' +
+      '<div class="ar-sub" style="text-align:center;margin-bottom:10px">It takes 50% of their remaining time.</div>' +
+      cands.map(s => '<div class="ar-row" style="justify-content:center;margin:6px 0"><button class="ar-btn big" onclick="AR.hitSeatId(\'' + s.id + '\')">' + s.name + '</button></div>').join('') +
+      '<div class="ar-row" style="justify-content:center;margin-top:10px"><button class="ar-btn ghost" onclick="AR.closeTb()">Keep it</button></div></div>';
+    document.body.appendChild(over);
+  }
+  function closeTb() { const m = $('ar-tbmodal'); if (m) m.remove(); }
+  function hitSeatId(id) { closeTb(); const s = G && G.table && G.table.seats.find(x => x.id === id); if (s) hitSeat(s); }
+  function hitSeat(s) {
+    if (!liveNow() || !G.tb.held) return;
+    if (s.status !== 'playing') { G.say = s.name + ' has already finished this round, so a time bonus would do nothing. You still have it.'; renderGame(); return; }
+    G.tb.held = false;
+    // Amit may hold a time bonus too and cancel it, which spends both
+    if (s.tbHeld && Math.random() < 0.7) {
+      s.tbHeld = false; snd('bad');
+      G.say = '⏱ ' + s.name + ' cancelled your time bonus with one of their own. Both are spent.';
+      renderGame(); return;
+    }
+    const take = seatRemaining(s) * 0.5;
+    s.budget -= take; snd('cover'); banner('−' + Math.round(take) + ' s for ' + s.name);
+    G.say = '⏱ Time bonus used: <b>' + s.name + ' lost ' + Math.round(take) + ' seconds</b>.';
+    renderSeat(s); renderGame();
+  }
+  // an Amit seat uses its time bonus on the player: the player may cancel it with their own
+  function hitMe(s) {
+    s.tbHeld = false;
+    if (G.tb.held) {
+      G.tbFrom = s;
+      const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-tbmodal';
+      over.innerHTML = '<div class="ar-sheet" style="max-width:440px"><div class="ar-h" style="text-align:center">⏱ ' + s.name.toUpperCase() + ' USED A TIME BONUS ON YOU</div>' +
+        '<div class="ar-sub" style="text-align:center;margin-bottom:12px">It takes 50% of your remaining time. You have a time bonus too — you can cancel it, and both are spent.</div>' +
+        '<div class="ar-row" style="justify-content:center;gap:12px"><button class="ar-btn big" onclick="AR.counterTime(true)">Cancel it</button><button class="ar-btn ghost" onclick="AR.counterTime(false)">Take the hit</button></div></div>';
+      document.body.appendChild(over);
+    } else applyHitOnMe(s);
+  }
+  function counterTime(cancel) {
+    closeTb();
+    const s = G.tbFrom; G.tbFrom = null;
+    if (!s) return;
+    if (cancel) { G.tb.held = false; G.say = '⏱ You cancelled ' + s.name + '\'s time bonus. Both are spent.'; snd('cover'); renderGame(); }
+    else applyHitOnMe(s);
+  }
+  function applyHitOnMe(s) {
+    const take = Math.max(0, G.clockLeft) * 0.5;
+    G.clockLeft -= take; snd('bad'); banner('−' + Math.round(take / 1000) + ' s');
+    G.say = '⏱ ' + s.name + ' used a time bonus on you: <b>you lost ' + Math.round(take / 1000) + ' seconds</b>.';
+    renderGame();
+  }
+  // seats earn and use time bonuses too: they use one on themselves when their clock is low, or on the player when the player is not ahead
+  function seatTimeBonus(s) {
+    if (s.turn.fiveDiceCovers > (s.tbSeen || 0)) { s.tbSeen = s.turn.fiveDiceCovers; if (!s.tbHeld && !s.tbRound) { s.tbHeld = true; s.tbRound = true; } }
+    if (!s.tbHeld || !isFinite(s.budget) || s.status !== 'playing') return;
+    const left = seatRemaining(s) / s.budget;
+    if (left < 0.45 || Math.random() < 0.05) {
+      const meRunning = G.turn && G.turn.status === 'rolled' && G.level.clock > 0 && !G.meDone && !G.busy && !document.querySelector('.ar-over');
+      if (meRunning && s.total >= G.total && left >= 0.3) hitMe(s);
+      else { s.budget += s.L.clock * 0.5; s.tbHeld = false; }
+    }
   }
 
   // wild: stage dice on it, then Accept
@@ -1223,6 +1317,8 @@
       d: () => '<span class="op" style="font-size:20px">points − dice left = your score</span>' },
     { t: 'The round clock', x: clockStepText('addition'),
       d: () => CLOCK_DEMO() },
+    { t: 'The time bonus', x: timeBonusStepText(),
+      d: () => TB_DEMO(die6)() },
     { t: 'The wild card', x: 'Sometimes one of your five cards is a <b>' + WILD_ICO + ' wild</b>. <b>Any</b> dice can go on it — one die to keep rolling the rest, or every die to roll all five again. Drag the dice on, then press <b>Accept</b>. The wild disappears when it is used. You can use it whenever you like, and it saves a roll that could not cover anything. In subtraction, multiplication and division you can also earn an extra one for your next five cards by using every sign in one cover — the all-signs bonus, explained in those lessons.',
       d: () => cardStatic('W') + '<span class="op">←</span>' + die6(6) + die6(1) },
     { t: 'Change your mind', x: 'Dice on a covered card stay there so you can see them. Until you press Accept you can <b>tap them to take them back off</b> and try again. A 1 and a 3 on a 4 score 4 — but pull them off and put two 2s on instead, and the card is <b>doubled</b>. Look for the better way.',
@@ -1271,6 +1367,10 @@
   function clockStepText(stage, extra) {
     return 'From level 2 there is a clock, and it is for the <b>whole round</b>: every re-roll and every new set of five cards shares <b>one</b> clock, and it never refills. The higher your level, the <b>less time</b> you get, so an expert and a beginner score about the same — time is the handicap. Level 1 has no clock. Here: ' + clockList(stage) + '. When the clock runs out only the cards you have already covered count, minus the dice you did not use' + (extra || '') + '. Press <b>Complete &amp; bank</b> any time to end your round early.';
   }
+  function timeBonusStepText() {
+    return 'Use <b>all five dice on one card</b> and you earn a <b>⏱ time bonus</b>: the table says so, and a gold <b>TIME BONUS</b> box appears under the sign keys. It is yours alone — nobody else can see it. You can use it any time a clock is running: on <b>yourself</b> for <b>50% more</b> of the round’s time, or <b>against another player</b> to take <b>50% of their remaining time</b>, which can stop them in their tracks. If someone uses one on you and you hold one too, you can <b>cancel it</b>, and both are spent. You hold one at a time and can earn one a round. A wild card counts as a card, so all five dice on a wild earns it too — your choice. Level 1 has no clock, so it starts to matter at level 2. It also works in practice rounds, so you can try it.';
+  }
+  const TB_DEMO = f => () => [1, 2, 3, 2, 3].map(v => f(v)).join('') + '<span class="op">→</span>' + cardStatic(11) + '<span class="ar-tc" style="color:#f3d681">⏱ TIME BONUS</span>';
   const CLOCK_DEMO = () => '<span class="ar-tc">⏱ 190 s</span><span class="op">→</span><span class="ar-tc">⏱ 60 s</span><span class="op">→</span><span class="ar-tc">⏱ 25 s</span>';
   const OPS_DEMO = (cur) => '<div class="ar-ops small"><div class="ar-op on' + (cur === '+' ? ' cur' : '') + '">+</div><div class="ar-op on' + (cur === '−' ? ' cur' : '') + '">−</div><div class="ar-op off">×</div><div class="ar-op off">÷</div></div>';
   const CLEAR_DEMO = () => '<div class="ar-ops small"><div class="ar-op clear">CLEAR</div></div>';
@@ -1290,6 +1390,7 @@
         () => die10(6) + '<span class="op">+</span>' + die10(3) + '<span class="op">−</span>' + die10(5) + '<span class="op">→</span>' + cardStatic(4)),
       SL('The all-signs bonus', 'Use <b>both signs</b> — plus and minus — in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It needs at least <b>3 dice</b>, like 8 + 5 − 2 = 11. It only works on a number card, never on a wild.',
         () => die10(8) + '<span class="op">+</span>' + die10(5) + '<span class="op">−</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(11)),
+      SL('The time bonus', timeBonusStepText(), () => die10(8) + '<span class="op">+</span>' + die10(5) + '<span class="op">−</span>' + die10(2) + '<span class="op">+</span>' + die10(1) + '<span class="op">−</span>' + die10(1) + '<span class="op">→</span>' + cardStatic(11) + '<span class="ar-tc" style="color:#f3d681">⏱ TIME BONUS</span>'),
       SL('The round clock', clockStepText('subtraction', " — and if you have not used a − in those five cards, they score nothing"), CLOCK_DEMO),
       SL('Clear and Accept', 'Pressed the wrong sign? <b>CLEAR</b> takes back the dice you have picked and starts the cover over. Everything else works as in addition: keep covering while you can, then roll or bank.',
         CLEAR_DEMO)
@@ -1307,6 +1408,7 @@
         () => die10(5) + '<span class="op">×</span>' + die10(8) + '<span class="op">−</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(37)),
       SL('The all-signs bonus', 'Use <b>plus, minus and times</b> in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It needs at least <b>4 dice</b>, like 5 + 9 − 4 × 3 = 2. It only works on a number card, never on a wild.',
         () => die10(5) + '<span class="op">+</span>' + die10(9) + '<span class="op">−</span>' + die10(4) + '<span class="op">×</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(2)),
+      SL('The time bonus', timeBonusStepText(), () => die10(2) + '<span class="op">+</span>' + die10(3) + '<span class="op">×</span>' + die10(4) + '<span class="op">−</span>' + die10(5) + '<span class="op">+</span>' + die10(1) + '<span class="op">→</span>' + cardStatic(10) + '<span class="ar-tc" style="color:#f3d681">⏱ TIME BONUS</span>'),
       SL('The round clock', clockStepText('multiplication', " — and if you have not used a × in those five cards, they score nothing"), CLOCK_DEMO),
       SL('Clear and Accept', '<b>CLEAR</b> starts a cover over. Early levels will not let the total dip below zero on the way. Then keep covering, roll, or bank, as before.',
         CLEAR_DEMO)
@@ -1324,6 +1426,7 @@
         () => die10(6) + '<span class="op">×</span>' + die10(4) + '<span class="op">÷</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(8)),
       SL('The all-signs bonus', 'Use <b>all four signs</b> in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It takes <b>all 5 dice</b>, like 2 + 7 − 3 × 8 ÷ 4 = 3, and every division has to come out even. It only works on a number card, never on a wild.',
         () => die10(2) + '<span class="op">+</span>' + die10(7) + '<span class="op">−</span>' + die10(3) + '<span class="op">×</span>' + die10(8) + '<span class="op">÷</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(3)),
+      SL('The time bonus', timeBonusStepText(), () => die10(2) + '<span class="op">+</span>' + die10(7) + '<span class="op">−</span>' + die10(3) + '<span class="op">×</span>' + die10(8) + '<span class="op">÷</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(3) + '<span class="ar-tc" style="color:#f3d681">⏱ TIME BONUS</span>'),
       SL('The round clock', clockStepText('division', " — and if you have not used a ÷ in those five cards, they score nothing"), CLOCK_DEMO),
       SL('Clear and Accept', '<b>CLEAR</b> starts a cover over. Then keep covering, roll, or bank, as before.',
         CLEAR_DEMO)
@@ -1446,7 +1549,7 @@
   window.AR = {
     navHtml, detailHtml, afterRender,
     start, startChallenge, practice: startPractice, clickCard, accept, stop, help, next, quit, again,
-    unstage, wildAll, commitWildBtn, clearBuild, pullDie, checkAdd, afterAdd, setOp, setStage, practiceStage,
+    unstage, wildAll, commitWildBtn, clearBuild, pullDie, checkAdd, afterAdd, setOp, setStage, practiceStage, useTimeSelf, useTimeOther, hitSeatId, closeTb, counterTime,
     toggleMute, learn, makeChallenge, copyChallenge,
     copyChallengeUrl: url => copyText(url, 'ar-chmsg2'),
     resetProgress
