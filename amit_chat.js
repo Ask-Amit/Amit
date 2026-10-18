@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
+   v0.21 — 2026-10-18. ASK AMIT FROM THE PAGE: AmitChat.openHelp() opens the chat box on the person's own private chat with Amit (found or made by cha_help_chat), ready to type in; every message sent there is a question to him (a press). The page tells the chat where the person is through AmitChat.placeProvider (recorded with each press). Needs migration _016.
    v0.20 — 2026-10-18. AMIT IS LISTENING: pressing the Amit icon with nothing typed switches him on (green circle round the icon, a green bar everyone in the chat sees) or off (any member can). With a question typed or a message highlighted it asks him now and he stays on. While on he stays quiet while people talk, looks 30 s after the last message (at once when asked by name) and may speak or pass; if he speaks and nobody replies in 2 minutes he turns himself off. Needs migration _014.
    v0.19 — 2026-10-17. ASK AMIT: the Amit icon in the message bar is now the real Ask Amit press. It writes ONE row to the steering log (cha_asks: who, which chat, where, what is highlighted, an optional note) and nothing else; Amit's answering computer claims the row, reads the chat's history and answers INTO THE CHAT. A line above the message bar shows Amit has been asked / is working / his computer is offline. Typing @Amit counts as a press too. Every chat shows its number. Until migration _013 is run the old behaviour (invite Amit, @Amit, J chat) is kept. v0.18 — 2026-10-17. FIXES: a spot you pick is always honoured, even inside one of your OWN messages (skip-my-own now applies only to the messages after it); a paused voice no longer stays stuck when you pick a new spot (the browser does not un-pause on cancel); paused + highlight a word or phrase + play starts at the highlight instead of resuming the old place. v0.17 — 2026-10-17. The read-aloud controls (start over, play/pause, next, adjust) are GLOBAL: one player in the chat header next to the chat name. Click a word while it reads, or click/highlight a word and press play, to choose where it starts. Pressing the speaker on a chat in the list (or play with nothing chosen) reads the new messages chat after chat, saying 'In <chat>. TJ said...'. Inside one chat names are not spoken (a group of 3+ gets the name when the speaker changes). 'Skip my own messages' (on by default) in the voice dialog. v0.16 — 2026-10-17. The play button on each message is a speaker icon (clearer than a triangle for someone new); the hover help stays. v0.15 — 2026-10-17. Read-aloud moved INTO the chat: every message has a play button; while it reads, that message shows start-over / pause / next and an adjust icon that opens a voice dialog (voice, speed, pitch, volume, pause) heard as you change it and saved to the person's profile when closed (AmitChat.voiceSaver). The speaker button at the top of the chat is gone. v0.14 — 2026-10-17. A Refresh button inside the chat; when Amit's helper posts a reply it sends a "refresh" nudge on the chat's live channel, so an open chat shows the reply at once instead of waiting for the next check. v0.13 — 2026-10-17. The live transcript blinks GREEN (the Hub's own "on" green) instead of red; clearer iPhone messages (it can work in Safari but not inside a home-screen app). v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
@@ -23,7 +24,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.20';
+  var VERSION = 'v0.21';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -193,7 +194,7 @@
         return src.amitReady.then(function () { return Promise.all([
           q,
           db.from('cha_participants').select('user_id,status,last_read_message_id,show_receipts').eq('conversation_id', id),
-          db.from('cha_conversations').select('id,title,kind,created_by,pinned_message_id,delete_requested_at').eq('id', id).maybeSingle(),
+          db.from('cha_conversations').select('id,title,kind,purpose,created_by,pinned_message_id,delete_requested_at').eq('id', id).maybeSingle(),
           before ? Promise.resolve({ data: [] }) : db.from('cha_notes').select('id,body,created_at').eq('conversation_id', id).order('created_at', { ascending: true }).limit(200),
           db.rpc('cha_member_times', { p_conv: id }),
           before ? Promise.resolve({ data: [] }) : db.from('cha_items').select('id,message_id,kind,text,state,created_by,confidential,answered_at,created_at').eq('conversation_id', id).order('created_at', { ascending: true }).limit(300)
@@ -244,7 +245,7 @@
             return {
               items: itemRows.map(function (i) { return { id: i.id, messageId: i.message_id, kind: i.kind, text: i.text, state: i.state, by: nameOf(i.created_by), mine: i.created_by === me, confidential: !!i.confidential, answeredAt: i.answered_at }; }),
               pin: pm && !pm.deleted_at ? { id: pm.id, name: nameOf(pm.sender_id), text: pm.body || '' } : null,
-              deleteAt: conv.delete_requested_at || null, creator: conv.created_by === me, times: times.length <= 3 ? times : [],
+              deleteAt: conv.delete_requested_at || null, creator: conv.created_by === me, purpose: conv.purpose || 'chat', times: times.length <= 3 ? times : [],
               id: id, title: conv.title || others.map(function (o) { return nameOf(o.user_id); }).join(', ') || 'Chat',
               members: ['You'].concat(others.map(function (o) { return nameOf(o.user_id); })).join(', '),
               messages: msgs, seen: seen, typing: '', hasMore: (res[0].data || []).length === PAGE,
@@ -276,6 +277,10 @@
         o = o || {}; var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
         return db.rpc('cha_ask', { p_conv: id, p_app: o.app || 'hub', p_place: o.place || {}, p_selection: o.selection || null, p_note: o.note || null, p_tz: tz || null }).then(function (r) { fail(r); return r.data; });
       },
+      /* the person's own private chat with Amit (found or made): { id, number, created } */
+      helpChat: function (app) { return db.rpc('cha_help_chat', { p_app: app || 'hub' }).then(function (r) { fail(r); return r.data; }); },
+      /* opens it for the page's Ask Amit button: finds or makes the chat, switches Amit on when he is off and posts his greeting naming the page: { id, number, created, greeted, listening, online } */
+      helpOpen: function (app, page) { return db.rpc('cha_help_open', { p_app: app || 'hub', p_page: page || null }).then(function (r) { fail(r); return r.data; }); },
       /* turn "Amit is listening" on or off for this chat (any member); returns { listening, changed, online } */
       listen: function (id, on) { return db.rpc('cha_listen_set', { p_conv: id, p_on: !!on }).then(function (r) { fail(r); return r.data; }); },
       /* the latest press in this chat: { status, ahead, online, listening, listening_by, thinking } or null when the Ask Amit tables are not installed yet */
@@ -895,7 +900,8 @@
       });
     }
     function renderListInto(target) {
-      return loadList().then(function (res) { if (!destroyed && !gate) drawList(target, res[0], res[1], res[2]); }, function (e) { target.innerHTML = ''; errBox(target, e); });
+      /* the list loads asynchronously: in the single-column box it may only draw while the list is still the view on screen, never over a chat opened meanwhile */
+      return loadList().then(function (res) { if (!destroyed && !gate && (target !== main || cur.view === 'list')) drawList(target, res[0], res[1], res[2]); }, function (e) { if (target !== main || cur.view === 'list') { target.innerHTML = ''; errBox(target, e); } });
     }
 
     /* ---- the gate: birth date (kept in About Me), parent switch for young people ---- */
@@ -1617,7 +1623,7 @@
       function load(first) {
         return src.getConversation(convId).then(function (c) {
           if (destroyed) return;
-          state.conv = c; state.items = c.items || []; if (amitHead) amitHead.style.display = (c.amitId && !c.amitIn && !state.askOk) ? '' : 'none'; titleDraw(c); tl.textContent = timesText(c.times); updateSpk();
+          state.conv = c; state.items = c.items || []; if (ta && c.purpose === 'help') ta.placeholder = 'Ask Amit anything…'; if (amitHead) amitHead.style.display = (c.amitId && !c.amitIn && !state.askOk) ? '' : 'none'; titleDraw(c); tl.textContent = timesText(c.times); updateSpk();
           if (first) { if (ro) wl.textContent = 'Read only: you are reading this as a guardian.'; else if (live) src.chatWatched(convId).then(function (w) { if (!destroyed && w) wl.textContent = '\uD83D\uDC6A A young person\u2019s guardian can read this chat.'; }); }
           if (amitBtn) { amitBtn.style.display = c.amitId ? '' : 'none'; updateAmitTitle(); }
           // merge, keeping any older messages already loaded
@@ -1697,7 +1703,10 @@
           state.askOk = true; state.askPending = !!(s.status === 'new' || s.status === 'working'); paintAsk(s); paintListen(s); updateAmitTitle();
         });
       }
-      function askPlace() { var c = state.conv || {}; return { type: 'chat', id: convId, number: state.number || null, title: c.title || null, version: AmitChat.version }; }
+      function askPlace() {
+        var c = state.conv || {}, from = null; try { from = AmitChat.placeProvider ? AmitChat.placeProvider() : null; } catch (e) {}
+        return { type: c.purpose === 'help' ? 'help-chat' : 'chat', id: convId, number: state.number || null, title: c.title || null, version: AmitChat.version, from: from };
+      }
       function askAmit() {
         if (!live || ro || state.busy || !state.conv) return;
         var txt = ta.value.trim();
@@ -1716,7 +1725,8 @@
       }
       /* typing @Amit in a message counts as a press too */
       function maybeAskFromText(v) {
-        if (!state.askOk || !/(^|\s)@amit([^a-z0-9_]|$)/i.test(v || '')) return Promise.resolve();
+        var help = !!(state.conv && state.conv.purpose === 'help');   /* in the person's own chat with Amit, every message is a question to him */
+        if (!state.askOk || !(help || /(^|\s)@amit([^a-z0-9_]|$)/i.test(v || ''))) return Promise.resolve();
         return src.ask(convId, { app: AmitChat.appName || 'hub', place: askPlace(), note: v }).then(function () { state.askPending = true; return refreshAsk(); }, function (e) { toast((e && e.message) || 'Could not ask Amit.'); });
       }
       function setListening(on) {
@@ -2035,8 +2045,11 @@
       if (wide) { loadList().then(function (res) { if (!destroyed) { drawList(left, res[0], []); show('thread', res[0][0] && res[0][0].id); } }); }
       else show('list');
     } else {
+      var started = false;
       var startLive = function () {
         gate = false;
+        if (started) return;   /* a second start-up (the birth-date recheck racing the first) must never redraw the list over a chat that was just opened */
+        started = true;
         if (wide) { renderListInto(left); show('list'); } else show('list');
         if (pendingOpen) { var po = pendingOpen; pendingOpen = null; show('thread', po); }
         if (!AmitChat._tzSent && src.setTimezone) { AmitChat._tzSent = true; try { src.setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone).then(function () {}, function () {}); } catch (e) {} }
@@ -2200,6 +2213,22 @@
     useSource: function (s) { AmitChat.source = s; },
     toast: toast,
     debug: DBG,
+    /* the page's Ask Amit button: opens the chat box on the person's own private chat with Amit, ready to type in. Returns a promise (true when it opened). */
+    placeProvider: null,      /* set by the page: returns where the person is right now, e.g. { page: 'calendar' }; recorded with each press */
+    openHelp: function () {
+      if (!AmitChat.live || !AmitChat.source.helpOpen) return Promise.resolve(false);
+      var from = null; try { from = AmitChat.placeProvider ? AmitChat.placeProvider() : null; } catch (e) {}
+      return AmitChat.source.helpOpen(AmitChat.appName || 'hub', from && (from.label || from.page)).then(function (r) {
+        var p = buildPopup(); placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true);
+        if (popView) popView.open('thread', r.id);
+        var n = 0, t = setInterval(function () { var ta = p.querySelector('.acx-comp textarea'); if (ta && ta.offsetParent) { ta.focus(); clearInterval(t); } else if (++n > 30) clearInterval(t); }, 100);
+        return true;
+      }, function (e) {
+        var m = (e && e.message) || 'Could not open Ask Amit.';
+        if (/birth date/i.test(m) && AmitChat.onNeedBirthDate) { try { AmitChat.onNeedBirthDate(); } catch (er) {} }
+        toast(m); return false;
+      });
+    },
     togglePopup: function () {
       var p = buildPopup();
       if (p.classList.contains('open')) closePopup();
