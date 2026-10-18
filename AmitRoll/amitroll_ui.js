@@ -24,27 +24,35 @@
   const $ = id => document.getElementById(id);
   const qs = s => document.querySelector(s);
 
+  // Levels 1-2 add, 3-4 add and subtract, 5-6 also multiply, 7-8 use all four signs. One level and one experience track for every stage.
+  const LEVEL_STAGE = ['addition', 'addition', 'subtraction', 'subtraction', 'multiplication', 'multiplication', 'division', 'division'];
+  const UNLOCK = { addition: 1, subtraction: 3, multiplication: 5, division: 7 };
+  const stageIdx = s => E.STAGE_ORDER.indexOf(s);
   // ── profile (this browser only, for now) ───────────────
   function loadProfile() {
     try {
       const p = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
       if (p && typeof p.xp === 'number') {
         if (p.xpUnit !== 2 && p.xpUnit !== 3) p.xp = 0;      // experience changed to finishing places on 2026-10-16: older points do not carry over
-        if (!p.xps) p.xps = { addition: p.xp || 0, subtraction: 0, multiplication: 0, division: 0 };   // experience is kept per stage
-        p.xpUnit = 3;
+        if (p.xpUnit !== 4) { p.xp = p.xps ? Object.keys(p.xps).reduce((a, k) => a + (p.xps[k] || 0), 0) : (p.xp || 0); p.xpUnit = 4; }      // 2026-10-17: one experience track for every stage
         if (!p.stage || !E.STAGES[p.stage]) p.stage = 'addition';
         return p;
       }
     } catch (e) {}
-    return { xp: 0, xps: { addition: 0, subtraction: 0, multiplication: 0, division: 0 }, xpUnit: 3, stage: 'addition', games: [], timing: [], muted: false };
+    return { xp: 0, xpUnit: 4, stage: 'addition', games: [], timing: [], muted: false };
   }
   function saveProfile() { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(P)); } catch (e) {} }
   let P = loadProfile();
   // The stage being played or chosen (Ryan, 2026-10-16): Addition, Subtraction, Multiplication, Division. Choosing a stage turns on its signs
-  // and every sign before it. Experience and level are kept per stage.
+  // and every sign before it. One level and one experience track for every stage; the level unlocks the signs.
   let curStage = P.stage;
+  let curPick = 0;                 // the level chosen on the Practice page (0 = my own level)
+  const playerLvl = () => E.levelFor(P.xp || 0).lvl;
+  const pickNow = () => Math.max(1, Math.min(8, curPick || playerLvl()));
+  const clampStage = (s, lvl) => (stageIdx(s) > stageIdx(LEVEL_STAGE[lvl - 1]) ? LEVEL_STAGE[lvl - 1] : s);
+  curStage = clampStage(curStage, playerLvl()); P.stage = curStage;
   const stageOf = () => (G ? G.stageName : curStage);
-  const stageXp = s => (P.xps && P.xps[s || stageOf()]) || 0;
+  const stageXp = () => P.xp || 0;      // one experience track for every stage
   const levelsOf = s => E.levelsFor(s || stageOf());
   const myLevel = () => levelsOf()[E.levelFor(stageXp()).lvl - 1];
   const levelObj = n => levelsOf()[Math.max(0, Math.min(E.LEVELS.length - 1, n - 1))];
@@ -128,9 +136,9 @@
   }
   function updateContext() {
     const c = $('pageContext'), s = $('pageContextSub');
-    const L = G ? G.level : myLevel();
+    const L = G ? G.level : levelObj(pickNow());
     if (c) c.textContent = E.STAGES[stageOf()].name + ' · Level ' + L.lvl;
-    if (s) s.textContent = G ? (G.practice ? 'TUTORIAL' : 'ROUND ' + G.round + ' · FIRST TO ' + G.target) : 'AMITROLL';
+    if (s) s.textContent = G ? (G.practice ? 'TUTORIAL' : (!G.table && !G.challenge) ? 'ROUND ' + G.round + ' · PRACTICE' : 'ROUND ' + G.round + ' · FIRST TO ' + G.target) : 'AMITROLL';
   }
 
   // ── challenge links (everyone is dealt their OWN cards, so a link carries only the level) ──
@@ -190,7 +198,7 @@
     const xp = stageXp();
     const need = E.LEVELS.find(x => x.xp > xp);
     const pct = need ? Math.round(100 * (xp - L.xp) / (need.xp - L.xp)) : 100;
-    return '<div class="ar-row" style="margin-bottom:16px"><b style="font-family:var(--amit-font-heading,serif);color:var(--gold2)">' + E.STAGES[stageOf()].name.toUpperCase() + ' · LEVEL ' + L.lvl + '</b>' +
+    return '<div class="ar-row" style="margin-bottom:16px"><b style="font-family:var(--amit-font-heading,serif);color:var(--gold2)">YOUR LEVEL ' + playerLvl() + ' · ' + E.STAGES[LEVEL_STAGE[playerLvl() - 1]].name.toUpperCase() + '</b>' +
       '<div class="ar-xp"><i style="width:' + pct + '%"></i></div>' +
       '<span class="ar-sub">' + (need ? fmtXp(need.xp - xp) + ' experience to level ' + need.lvl : 'Top level') + '</span></div>';
   }
@@ -205,32 +213,62 @@
         '<div class="ar-sub">Play a ' + E.STAGES[CH.stage].name.toLowerCase() + ' game at level ' + CH.lvl + ', then compare how many rounds it took you to reach the target. Everyone is dealt their own cards.</div>' +
         '<div class="ar-row" style="margin-top:12px"><button class="ar-btn big" onclick="AR.startChallenge()">Ready, Set, Roll!</button></div></div>';
     }
+    const pick = pickNow();
+    curStage = clampStage(curStage, pick);
     h += '<div class="ar-panel"><div class="ar-h">Start a game</div>' +
-      '<div class="ar-h" style="margin:0 0 8px">Stage</div>' +
-      '<div class="ar-row" style="margin-bottom:10px">' + E.STAGE_ORDER.map(s => '<button class="ar-btn ar-stagebtn' + (s === curStage ? ' on' : '') + '" title="' + E.STAGES[s].name + '" aria-label="' + E.STAGES[s].name + '" onclick="AR.setStage(\'' + s + '\')">' + ({ addition: '+', subtraction: '−', multiplication: '×', division: '÷' })[s] + '</button>').join('') + '</div>' +
-      '<div class="ar-row" style="margin-bottom:10px"><span class="ar-sub">Signs you can use:</span>' + opKeysHtml('small') + '<span class="ar-sub">' + STAGE_BLURB[curStage] + ' Each stage also lets you use every sign before it.</span></div>' +
-      '<div class="ar-sub" style="margin-bottom:10px;color:var(--gold2)">⏱ Put all five dice on one card for a <b>time bonus</b>: extra time for you, or time taken from a player. Levels 1–2 get an extra hint instead. See Learn.</div>' +
-      '<div class="ar-sub" style="margin-bottom:12px">The first to reach the target score wins — it can take five rounds or twenty. Cover cards, roll again or stop, and keep your score. The clock is for the <b>whole round</b>: every re-roll and every new set of five cards shares one clock, ' +
-      (L.clock ? L.clock + ' seconds at your level. Complete &amp; bank ends your round early.' : 'and there is no clock at your level yet.') + '</div>' +
+      '<div class="ar-h" style="margin:0 0 8px">Choose your level <span class="ar-tag">you are level ' + playerLvl() + '</span></div>' +
+      '<div class="ar-lvrow">' + [1, 2, 3, 4, 5, 6, 7, 8].map(n => {
+        const st = LEVEL_STAGE[n - 1], LL = E.levelsFor(st)[n - 1];
+        return '<button class="ar-lvtile' + (n === pick ? ' on' : '') + (n === playerLvl() ? ' me' : '') + '" onclick="AR.pickLevel(' + n + ')" onmouseenter="AR.lvHover(' + n + ')" onmouseleave="AR.lvHover(0)" onfocus="AR.lvHover(' + n + ')" onblur="AR.lvHover(0)">' +
+          '<b>L' + n + '</b><span class="sg">' + E.STAGES[st].ops.join(' ') + '</span><small>' + (LL.clock ? '⏱ ' + fmtClock(LL.clock) : '⏱ ∞') + '</small></button>';
+      }).join('') + '</div>' +
+      '<div class="ar-lvdetail" id="ar-lvdetail"></div>' +
+      '<div class="ar-row" style="margin:12px 0 8px"><span class="ar-sub">Practise with:</span>' + E.STAGE_ORDER.map(s => {
+        const locked = stageIdx(s) > stageIdx(LEVEL_STAGE[pick - 1]);
+        return '<button class="ar-btn ar-stagebtn' + (s === curStage ? ' on' : '') + (locked ? ' locked' : '') + '"' + (locked ? ' disabled' : '') + ' title="' + E.STAGES[s].name + (locked ? ' (unlocks at level ' + UNLOCK[s] + ')' : '') + '" aria-label="' + E.STAGES[s].name + '" onclick="AR.setStage(\'' + s + '\')">' + ({ addition: '+', subtraction: '−', multiplication: '×', division: '÷' })[s] + '</button>';
+      }).join('') + '<span class="ar-sub">Each level unlocks more signs; you can always practise with the earlier ones.</span></div>' +
+      '<div class="ar-sub" style="margin-bottom:12px">Solo is practice: rounds go on until you leave. Against Amit, the first to reach the target wins. The clock is for the <b>whole round</b>, and the level decides how long it is. <b>Complete &amp; bank</b> ends your round early.</div>' +
       '<div class="ar-row" style="margin-bottom:14px">' +
-      '<label class="ar-sub">Players&nbsp;<select class="ar-select" id="ar-opp"><option value="0">Just me (solo)</option>' +
+      '<label class="ar-sub">Players&nbsp;<select class="ar-select" id="ar-opp" onchange="AR.previewLevel()"><option value="0">Just me (solo)</option>' +
       [1, 2, 3, 4, 5, 6, 7].map(n => '<option value="' + n + '">Me + ' + n + ' Amit' + (n > 1 ? 's' : '') + ' (' + (n + 1) + ' players)</option>').join('') + '</select></label>' +
-
-      '<label class="ar-sub">Play to&nbsp;<select class="ar-select" id="ar-target">' + TARGETS.map(n => '<option value="' + n + '"' + (n === DEFAULT_TARGET ? ' selected' : '') + '>' + n + ' points</option>').join('') + '</select></label>' +
-      '<label class="ar-sub">Level&nbsp;<select class="ar-select" id="ar-lvl"><option value="0">My level (' + L.lvl + ')</option>' +
-      levelsOf().map(x => '<option value="' + x.lvl + '">Try level ' + x.lvl + (x.clock ? ' · ' + x.clock + 's' : ' · no clock') + (x.assist ? ' · with hints' : ' · no hints') + '</option>').join('') + '</select></label></div>' +
+      '<label class="ar-sub" id="ar-targetwrap" style="display:none">Play to&nbsp;<select class="ar-select" id="ar-target">' + TARGETS.map(n => '<option value="' + n + '"' + (n === DEFAULT_TARGET ? ' selected' : '') + '>' + n + ' points</option>').join('') + '</select></label></div>' +
       '<div class="ar-row"><button class="ar-btn big" onclick="AR.start()">Ready, Set, Roll!</button>' +
       '<button class="ar-btn ghost" onclick="AR.practice(\'' + curStage + '\')">🎓 Walk through a ' + E.STAGES[curStage].name.toLowerCase() + ' turn with Amit</button>' +
       '<button class="ar-btn ghost" onclick="openPage(2)">How do I play?</button></div>' +
-      '<div class="ar-sub" style="margin-top:12px;font-size:12px">Amit plays at the lowest level at the table (yours) and is held to the same clock. A win against Amit counts toward your level at a quarter of the usual amount. Trying a different level does not change your level.</div></div>';
+      '<div class="ar-sub" style="margin-top:12px;font-size:12px">Amit plays at the lowest level at the table (yours) and is held to the same clock. A win against Amit counts toward your level at a quarter of the usual amount. Trying a level other than your own does not change your level.</div></div>';
     root.innerHTML = h;
+    previewLevel();
+  }
+  // what a level offers: its signs, its time, its restraints, its bonuses (shown when you point at a level tile)
+  function levelDetailHtml(n) {
+    const st = LEVEL_STAGE[n - 1], L = E.levelsFor(st)[n - 1], tb = E.timeBonus(n), S = E.STAGES[st];
+    const signs = ['+', '−', '×', '÷'].map(o => '<span class="ar-sgn ' + (S.ops.indexOf(o) >= 0 ? 'on' : 'off') + '">' + o + '</span>').join('');
+    const allSigns = st === 'addition' ? 'None at this level — it has only one sign.' : '<b>★ All-signs bonus:</b> use ' + S.ops.join(' ') + ' in one cover and your next five cards bring a wild.';
+    const tbText = tb.hint ? 'Put all five dice on one card for <b>+1 hint</b> (Help from Amit). It cannot be used against a level ' + n + ' player.'
+      : 'Put all five dice on one card: <b>+' + tbPct(tb.self) + ' time</b> for you, or take <b>' + tbPct(tb.hit) + '</b> of a level ' + n + ' player\'s remaining time.';
+    return '<div class="ar-lvd"><div class="ar-lvd-h">Level ' + n + ' <span>· ' + S.name + (n === playerLvl() ? ' · your level' : '') + '</span></div><div class="ar-lvd-grid">' +
+      '<div><i>Signs</i><div>' + signs + '</div></div>' +
+      '<div><i>Time</i><div>' + (L.clock ? '<b>' + fmtClock(L.clock) + '</b> for the whole round' : '<b>No clock</b>') + '</div></div>' +
+      '<div><i>Help</i><div>' + (L.assist ? 'Running totals and hints on' : 'No running totals') + ' · ' + L.helps + ' helps a game</div></div>' +
+      '<div><i>Cards</i><div>Numbers ' + L.cardMin + '–' + L.cardMax + '</div></div>' +
+      '<div><i>Your score</i><div>' + (L.selfScore ? 'You enter it; a wrong total costs you the difference' : 'Amit keeps it for you') + '</div></div>' +
+      '<div class="wide"><i>Bonuses</i><div>⏱ ' + tbText + '<br>' + allSigns + '</div></div></div></div>';
+  }
+  function lvHover(n) { const d = $('ar-lvdetail'); if (d) d.innerHTML = levelDetailHtml(n || pickNow()); }
+  function pickLevel(n) {
+    curPick = n; curStage = LEVEL_STAGE[n - 1]; P.stage = curStage; saveProfile();
+    renderPlay(); updateContext();
+  }
+  function previewLevel() {
+    lvHover(0);
+    const w = $('ar-targetwrap'), o = $('ar-opp'); if (w && o) w.style.display = (parseInt(o.value, 10) || 0) > 0 ? '' : 'none';
   }
 
   function start() {
     const bots = parseInt($('ar-opp').value, 10) || 0;
-    const pick = parseInt($('ar-lvl').value, 10) || 0;
+    const pick = pickNow();
     const target = parseInt($('ar-target').value, 10) || DEFAULT_TARGET;
-    startGame({ bots, target, stage: curStage, level: pick ? levelObj(pick) : myLevel(), practiceLevel: !!pick, seed: 1 + Math.floor(Math.random() * 900000) });
+    startGame({ bots, target, stage: curStage, level: levelObj(pick), practiceLevel: pick !== playerLvl(), seed: 1 + Math.floor(Math.random() * 900000) });
   }
   function startChallenge() {
     startGame({ opp: 0, stage: CH.stage, level: E.levelsFor(CH.stage)[CH.lvl - 1], practiceLevel: true, seed: 1 + Math.floor(Math.random() * 900000), challenge: true });
@@ -241,11 +279,15 @@
     openPage(1);
   }
   function setStage(s) {
-    if (!E.STAGES[s]) return;
+    if (!E.STAGES[s] || stageIdx(s) > stageIdx(LEVEL_STAGE[pickNow() - 1])) return;
     curStage = s; P.stage = s; saveProfile();
     renderPlay(); renderProgress(); updateContext();
   }
-  function practiceStage(s) { setStage(s); openPage(1); }
+  function practiceStage(s) {
+    if (!E.STAGES[s]) return;
+    curPick = Math.max(pickNow(), UNLOCK[s]); curStage = s; P.stage = s; saveProfile();
+    renderPlay(); updateContext(); openPage(1);
+  }
   function startGame(o) {
     const stage = o.stage || curStage;
     G = {
@@ -321,6 +363,7 @@
   // the game is over when anyone has reached the target (checked after every round, once everyone has finished it)
   function gameOver() {
     if (G.practice) return true;
+    if (!G.table && !G.challenge) return false;      // a solo practice game has no target: it goes on until you leave (Ryan, 2026-10-17)
     const totals = [G.total].concat(G.table ? G.table.seats.map(s => s.total) : []);
     return Math.max.apply(null, totals) >= G.target;
   }
@@ -386,6 +429,7 @@
   }
 
   function beginRound() {
+    if (G.nextLevel) applyNextLevel(G.nextLevel);
     const cards = withWild(E.dealCards(E.mulberry32(G.seed * 1000 + G.round), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE), G.nextWild, G.seed + G.round);
     G.nextWild = false;
     G.clockLeft = G.level.clock ? G.level.clock * 1000 : 0;      // one clock for the whole round
@@ -445,6 +489,27 @@
   }
 
   // ── the game screen ────────────────────────────────────
+  function levelChipHtml() {
+    if (G.practice) return '';
+    const solo = !G.table && !G.challenge;
+    if (!solo) return '<div class="ar-chip" title="' + levelSummary(G.level.lvl, G.stageName) + '"><b>L' + G.level.lvl + '</b><span>Level</span></div>';
+    return '<div class="ar-chip" title="Change the level you practise at. It starts with the next round, or right away if you have not covered a card yet."><b><select class="ar-lvsel" onchange="AR.setPracticeLevel(this.value)">' +
+      [1, 2, 3, 4, 5, 6, 7, 8].map(x => '<option value="' + x + '"' + (x === G.level.lvl ? ' selected' : '') + '>L' + x + '</option>').join('') + '</select></b><span>Level' + (G.nextLevel ? ' → ' + G.nextLevel : '') + '</span></div>';
+  }
+  // what a level asks of you, in one line
+  function levelSummary(lvl, stage) {
+    const L = E.levelsFor(stage)[lvl - 1];
+    return 'Level ' + lvl + ': ' + (L.clock ? 'a ' + L.clock + ' s clock for the whole round' : 'no clock') + ' · ' + (L.assist ? 'running totals and hints on' : 'no running totals') + ' · ' + L.helps + ' helps a game · cards ' + L.cardMin + '–' + L.cardMax + ' · ' + (L.selfScore ? 'you enter your own score, and a wrong total costs you the difference' : 'Amit keeps your score') + '.';
+  }
+  function setPracticeLevel(v) {
+    const n = parseInt(v, 10); if (!G || !n || G.practice || G.table || G.challenge) return;
+    if (n === G.level.lvl) { G.nextLevel = null; renderGame(); return; }
+    if (!G.turn.scorecard.length && !G.busy && G.turn.status === 'rolled') { applyNextLevel(n); beginRound(); return; }
+    G.nextLevel = n; G.say = 'Level ' + n + ' starts with the next round. ' + levelSummary(n, G.stageName); renderGame();
+  }
+  function applyNextLevel(n) {
+    G.stageName = LEVEL_STAGE[n - 1]; G.level = levelObj(n); G.rules = E.rulesFor(G.stageName, G.level.lvl); G.helps = G.level.helps; G.practiceLevel = n !== playerLvl(); G.nextLevel = null;
+  }
   function renderGame() {
     const root = $('ar-1'); if (!root || !G) return;
     const t = G.turn, L = G.level;
@@ -544,9 +609,6 @@
     if (live && must && t.coversThisRoll > 0 && assist) rule = 'A card can still be covered with your dice — keep covering.';
     else if (live && t.coversThisRoll === 0 && wildIdx >= 0 && !must) rule = 'No number card can be covered. Put dice on the ' + WILD_ICO + ' wild to stay in the turn.';
 
-    const clockTxt = L.clock ? Math.max(0, Math.ceil(G.clockLeft / 1000)) : '∞';
-    const circ = 2 * Math.PI * 26;
-    const frac = L.clock ? Math.max(0, Math.min(1, G.clockLeft / (L.clock * 1000))) : 1;
     // The special Accept button (Ryan, 2026-10-16) pops up NEXT TO THE CARDS, and only when every die is used
     // (or every card is covered). It is not a menu item in the bottom row.
     const allCardsDone = t.cards.every(c => c.covered);
@@ -560,16 +622,15 @@
       '<div class="ar-table' + (t.status === 'bust' ? ' ar-bust' : '') + '" id="ar-tablearea">' +
       '<div class="ar-hud">' +
       '<div class="ar-chip"><b>' + (G.practice ? '—' : G.round) + '</b><span>Round</span></div>' +
-      (G.practice ? '' : '<div class="ar-chip"><b>' + G.target + '</b><span>Play to</span></div>') +
+      levelChipHtml() +
+      ((G.practice || (!G.table && !G.challenge)) ? '' : '<div class="ar-chip"><b>' + G.target + '</b><span>Play to</span></div>') +
       (selfOn()
         ? '<div class="ar-chip"><b>✍</b><span>You keep score</span></div>'
         : '<div class="ar-chip"><b>' + G.total + '</b><span>Game score</span></div>' +
           '<div class="ar-chip"><b>' + t.points + '</b><span>This turn</span></div>' +
           '<div class="ar-chip ' + (left ? 'neg' : '') + '"><b>−' + left + '</b><span>Dice left</span></div>') +
       '<div style="flex:1"></div>' +
-      '<div class="ar-clock' + (L.clock && G.clockLeft < 10000 ? ' low' : '') + '" id="ar-clock"><svg width="64" height="64"><circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="6"/>' +
-      '<circle class="ar-ring" id="ar-ring" cx="32" cy="32" r="26" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + circ + '" stroke-dashoffset="' + (circ * (1 - frac)) + '"/>' +
-      '<text x="32" y="38" text-anchor="middle" fill="#fff" font-size="17" font-weight="700" id="ar-clocktxt">' + clockTxt + '</text></svg></div>' +
+      clockHtml() +
       '</div>' +
       '<div class="ar-cards">' + opKeysHtml() + cardsH + popBtn + '</div>' +
       '<div class="ar-build">' + build + '</div>' +
@@ -638,6 +699,37 @@
   }
 
   // ── clock ──────────────────────────────────────────────
+  // An hourglass whose sand runs down, with the countdown under it (Ryan, 2026-10-17). A time bonus refills it (gold), a hit drains it (red).
+  const HG_PATH = 'M10 4 H46 V12 C46 22 33 29 30 36 C33 43 46 50 46 60 V68 H10 V60 C10 50 23 43 26 36 C23 29 10 22 10 12 Z';
+  function fmtClock(sec) { sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+  function clockFrac() { return G.level.clock ? Math.max(0, Math.min(1, G.clockLeft / (G.level.clock * 1000))) : 1; }
+  function clockHtml() {
+    const L = G.level, f = clockFrac(), top = 30 * f, bot = 30 * (1 - f);
+    const extra = L.clock && G.clockLeft > L.clock * 1000;
+    return '<div class="ar-clock' + (L.clock && G.clockLeft < 10000 ? ' low' : '') + (extra ? ' extra' : '') + (L.clock ? '' : ' none') + '" id="ar-clock" title="' + (L.clock ? 'Your clock for the whole round at level ' + L.lvl + ': ' + L.clock + ' seconds' : 'No clock at this level') + '">' +
+      '<svg width="56" height="74" viewBox="0 0 56 74"><defs><clipPath id="ar-hgclip"><path d="' + HG_PATH + '"/></clipPath></defs>' +
+      '<g clip-path="url(#ar-hgclip)"><rect id="ar-sand-top" x="8" width="40" y="' + (36 - top) + '" height="' + top + '" class="sand"/>' +
+      '<rect id="ar-sand-bot" x="8" width="40" y="' + (68 - bot) + '" height="' + bot + '" class="sand"/>' +
+      (L.clock ? '<line id="ar-sand-stream" x1="28" x2="28" y1="36" y2="' + (68 - bot) + '" class="stream"' + (f <= 0 ? ' style="display:none"' : '') + '/>' : '') + '</g>' +
+      '<path d="' + HG_PATH + '" class="glass"/><rect x="6" y="1" width="44" height="4" rx="2" class="cap"/><rect x="6" y="67" width="44" height="4" rx="2" class="cap"/></svg>' +
+      '<div class="ar-timer" id="ar-clocktxt">' + (L.clock ? fmtClock(G.clockLeft / 1000) : '∞') + '</div></div>';
+  }
+  function updateClockUI() {
+    if (!G || !G.level.clock) return;
+    const f = clockFrac(), top = $('ar-sand-top'), bot = $('ar-sand-bot'), st = $('ar-sand-stream'), txt = $('ar-clocktxt'), ck = $('ar-clock');
+    if (top) { top.setAttribute('y', 36 - 30 * f); top.setAttribute('height', 30 * f); }
+    if (bot) { bot.setAttribute('y', 68 - 30 * (1 - f)); bot.setAttribute('height', 30 * (1 - f)); }
+    if (st) { st.setAttribute('y2', 68 - 30 * (1 - f)); st.style.display = f <= 0 ? 'none' : ''; }
+    if (txt) txt.textContent = fmtClock(Math.max(0, G.clockLeft) / 1000);
+    if (ck) { ck.classList.toggle('low', G.clockLeft < 10000); ck.classList.toggle('extra', G.clockLeft > G.level.clock * 1000); }
+  }
+  // a floating "+55 s" (gold) or "−12 s" (red) over the hourglass
+  function clockFx(text, kind) {
+    const ck = $('ar-clock'); if (!ck) return;
+    const f = document.createElement('div'); f.className = 'ar-clockfx ' + kind; f.textContent = text; ck.appendChild(f);
+    ck.classList.add(kind === 'up' ? 'pulse-up' : 'pulse-down');
+    setTimeout(() => { f.remove(); const c2 = $('ar-clock'); if (c2) c2.classList.remove('pulse-up', 'pulse-down'); }, 2600);
+  }
   function startClock() {
     stopClock();
     const L = G.level;
@@ -645,11 +737,7 @@
     clockIv = setInterval(() => {
       if (!G || G.busy || G.turn.status !== 'rolled' || document.querySelector('.ar-over')) return;
       G.clockLeft -= 200;
-      const ring = $('ar-ring'), txt = $('ar-clocktxt'), ck = $('ar-clock');
-      const circ = 2 * Math.PI * 26;
-      if (ring) ring.setAttribute('stroke-dashoffset', circ * (1 - Math.min(1, Math.max(0, G.clockLeft) / (L.clock * 1000))));
-      if (txt) txt.textContent = Math.max(0, Math.ceil(G.clockLeft / 1000));
-      if (ck) ck.classList.toggle('low', G.clockLeft < 10000);
+      updateClockUI();
       if (G.clockLeft <= 0) { stopClock(); onTimeout(); }
     }, 200);
   }
@@ -877,7 +965,7 @@
     G.clockLeft += add * 1000; G.tb.held = false;
     snd('cover'); banner('+' + Math.round(add) + ' s');
     G.say = '⏱ Time bonus used: <b>+' + Math.round(add) + ' seconds</b> (' + tbPct(m.self) + ' of your clock).';
-    renderGame();
+    renderGame(); clockFx('+' + Math.round(add) + ' s', 'up');
   }
   function seatRemaining(s) { return s.budget - s.elapsed; }
   function useTimeOther() {
@@ -936,7 +1024,7 @@
     const take = Math.max(0, G.clockLeft) * share;
     G.clockLeft -= take; snd('bad'); banner('−' + Math.round(take / 1000) + ' s');
     G.say = '⏱ ' + s.name + ' used a time bonus on you: <b>you lost ' + Math.round(take / 1000) + ' seconds</b> (' + tbPct(share) + ' of your remaining time).';
-    renderGame();
+    renderGame(); clockFx('−' + Math.round(take / 1000) + ' s', 'down');
   }
   // seats earn and use time bonuses too (level 3 and up): on themselves when their clock is low, or on the player when the player is not ahead
   function seatTimeBonus(s) {
@@ -1172,34 +1260,39 @@
     return (parts.length ? parts.join(' &nbsp;+&nbsp; ') : '0') + ' &nbsp;−&nbsp; ' + (left.length ? left.join(' − ') + ' (dice left = ' + E.leftoverSum(t) + ')' : '0 (no dice left)') + ' &nbsp;=&nbsp; <b>' + t.score + '</b>';
   }
   function showAddSheet() {
-    const t = G.turn; G.addTries = 0;
+    const t = G.turn; G.addTries = 0; G.penalty = 0; G.said = null;
     const cards = t.scorecard.map(c => miniCard(Object.assign({}, c, { locked: true }), false)).join('');
     const left = t.dice.filter(d => !d.used).map(d => dieStatic(d.v)).join('') || '<span class="ar-sub">none — every die was used</span>';
     const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-sheet';
-    over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">ROUND ' + G.round + ' — ADD UP YOUR TURN</div>' +
-      '<div class="ar-sub" style="text-align:center">Add up every covered card — a doubled card counts twice, a tripled card three times — then take away the dice you did not use.</div>' +
+    over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">ROUND ' + G.round + ' — WHAT IS YOUR SCORE?</div>' +
+      '<div class="ar-sub" style="text-align:center">Add up every covered card — a doubled card counts twice, a tripled card three times — then take away the dice you did not use. You enter it <b>once</b>: if it is wrong, <b>the difference counts against you</b> as a penalty.</div>' +
       '<div class="ar-traytitle" style="margin-top:14px">COVERED CARDS</div><div class="ar-tray">' + (cards || '<span class="ar-sub">none</span>') + '</div>' +
       '<div class="ar-traytitle" style="margin-top:12px">DICE YOU DID NOT USE</div><div class="ar-demo" style="margin:6px 0">' + left + '</div>' +
-      '<div class="ar-row" style="justify-content:center;margin-top:12px"><input id="ar-add" type="number" class="ar-select" style="width:150px;font-size:22px;text-align:center" placeholder="your score" onkeydown="if(event.key===\'Enter\')AR.checkAdd()"><button class="ar-btn big" onclick="AR.checkAdd()">Check</button></div>' +
+      '<div class="ar-row" style="justify-content:center;margin-top:12px"><input id="ar-add" type="number" class="ar-select" style="width:150px;font-size:22px;text-align:center" placeholder="your score" onkeydown="if(event.key===\'Enter\')AR.checkAdd()"><button class="ar-btn big" onclick="AR.checkAdd()">Bank my score</button></div>' +
       '<div id="ar-addmsg" class="ar-sub" style="text-align:center;margin-top:12px;min-height:24px"></div></div>';
     document.body.appendChild(over);
     const inp = $('ar-add'); if (inp) inp.focus();
   }
   function checkAdd() {
     const t = G.turn, inp = $('ar-add'), msg = $('ar-addmsg');
-    if (!inp || inp.value === '') return;
+    if (!inp || inp.value === '' || G.addTries) return;       // one entry only
     const n = parseInt(inp.value, 10);
-    G.addTries = (G.addTries || 0) + 1;
+    if (isNaN(n)) return;
+    G.addTries = 1; G.said = n;
+    inp.disabled = true;
     const note = k => { P.adds = P.adds || { first: 0, second: 0, shown: 0 }; P.adds[k]++; saveProfile(); };
     if (n === t.score) {
-      note(G.addTries === 1 ? 'first' : 'second'); snd('cover');
-      msg.innerHTML = '<b style="color:#8bf0a6">✔ Right! ' + t.score + '.</b>';
+      note('first'); snd('cover');
+      msg.innerHTML = '<b style="color:#8bf0a6">✔ Right! ' + t.score + '. No penalty.</b>';
       setTimeout(() => { closeSheet(); showResultSheet(); }, 900);
-    } else if (G.addTries < 2) {
-      snd('bad'); msg.textContent = 'Not quite — add it again, slowly. Remember to count doubled cards twice.'; inp.select();
     } else {
       note('shown'); snd('bad');
-      msg.innerHTML = 'Here is how it adds up:<br>' + breakdownHtml(t) + '<br><button class="ar-btn" style="margin-top:12px" onclick="AR.afterAdd()">Continue</button>';
+      const pen = Math.abs(n - t.score);
+      G.penalty = pen; G.total -= pen;
+      if (G.results.length) G.results[G.results.length - 1].penalty = pen;
+      P.penalty = (P.penalty || 0) + pen; saveProfile();
+      msg.innerHTML = 'You said <b>' + n + '</b>. Here is how it really adds up:<br>' + breakdownHtml(t) + '<br><b style="color:#ff9a8a">The difference, ' + pen + ', counts against you: −' + pen + '.</b><br><button class="ar-btn" style="margin-top:12px" onclick="AR.afterAdd()">Continue</button>';
+      renderGame();
     }
   }
   function afterAdd() { closeSheet(); showResultSheet(); }
@@ -1208,14 +1301,15 @@
     const t = G.turn;
     const bust = t.status === 'bust';
     let stopNote = '';
+    if (G.penalty) stopNote += '<div class="ar-sub" style="margin-top:8px;color:#ff9a8a">You said ' + G.said + '; the real score was ' + t.score + '. The difference, <b>' + G.penalty + '</b>, counts against you: net this round <b>' + (t.score - G.penalty) + '</b>.</div>';
     if (t.bonusNext) stopNote += '<div class="ar-sub" style="margin-top:8px;color:var(--gold2)">★ ALL SIGNS bonus: your next five cards bring a wild.</div>';
     if (t.status === 'stopped' && G.stopOutlook && !G.stopOutlook.fresh) {
       const o = G.stopOutlook;
-      stopNote = '<div class="ar-sub" style="margin-top:8px">You stopped with ' + t.dice.filter(d => !d.used).length + ' dice left. Rolling them had a ' + Math.round(o.pBust * 100) + '% chance of a bust; Amit\'s one-roll look-ahead said <b>' + (o.advice === 'roll' ? 'roll' : 'stop') + '</b>.</div>';
+      stopNote += '<div class="ar-sub" style="margin-top:8px">You stopped with ' + t.dice.filter(d => !d.used).length + ' dice left. Rolling them had a ' + Math.round(o.pBust * 100) + '% chance of a bust; Amit\'s one-roll look-ahead said <b>' + (o.advice === 'roll' ? 'roll' : 'stop') + '</b>.</div>';
     }
     const last = G.practice || (tableAllDone() && gameOver());
     const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-sheet';
-    over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">' + (G.practice ? 'TUTORIAL TURN' : 'ROUND ' + G.round + ' · FIRST TO ' + G.target) + '</div>' +
+    over.innerHTML = '<div class="ar-sheet"><div class="ar-h" style="text-align:center">' + (G.practice ? 'TUTORIAL TURN' : (!G.table && !G.challenge) ? 'ROUND ' + G.round : 'ROUND ' + G.round + ' · FIRST TO ' + G.target) + '</div>' +
       '<div class="ar-big' + (t.score < 0 || bust ? ' neg' : '') + '">' + (bust ? 'BUST' : (t.score > 0 ? '+' : '') + t.score) + '</div>' +
       '<div class="ar-sub" style="text-align:center">' + (bust ? (G.bustMsg || '') + (t.score > 0 ? ' You keep the ' + t.score + ' points you banked by covering all five cards.' : ' This turn scores 0.') : (t.noSign ? 'The clock ran out before you used a ' + t.rules.turnSign + ' in these five cards, so they score nothing.' : 'Covered ' + t.points + ' points, minus ' + E.leftoverSum(t) + ' for the dice left.')) + '</div>' + stopNote +
       '<div class="ar-h" style="margin-top:18px">BEST PLAY <span class="ar-tag">working name</span></div>' +
@@ -1254,7 +1348,7 @@
     if (ranking) { nPlayers = ranking.length; place = ranking.findIndex(r => r.me) + 1; }
     if (!G.practiceLevel && ranking) {
       gain = E.placeXp(place, nPlayers, AMIT_XP_FACTOR);      // first place = one point per opponent beaten; Amit opponents count at a quarter
-      P.xps[G.stageName] = fmtXp(stageXp(G.stageName) + gain);
+      P.xp = fmtXp((P.xp || 0) + gain);
     }
     P.games.unshift({ t: Date.now(), stage: G.stageName, score: G.total, lvl: G.level.lvl, opp: G.table ? G.table.seats.length : 0, place: ranking ? place : 0, rounds: G.round, target: G.target, oppScore, practiceLevel: G.practiceLevel, challenge: G.challenge });
     if (P.games.length > 60) P.games.length = 60;
@@ -1267,7 +1361,7 @@
       (ranking ? '<table class="ar-table-list" style="margin-top:14px"><tr><th>Player</th><th>Total</th></tr>' + ranking.map(r => '<tr class="' + (r.me ? 'me' : '') + '"><td>' + r.name + (r.bot ? ' <span class="ar-tag">AMIT</span>' : '') + '</td><td>' + r.total + '</td></tr>').join('') + '</table><div class="ar-h" style="text-align:center;margin-top:12px">' + won + '</div>' : '') +
       '<div class="ar-sub" style="text-align:center;margin-top:12px">' +
       (G.practiceLevel ? 'Trying level ' + G.level.lvl + ' — your own level did not change.' : ranking ? ordinal(place) + ' of ' + nPlayers + ' — +' + fmtXp(gain) + ' experience' + (gain ? ' (a quarter of the usual, because the other players were Amit)' : '') : 'Playing alone earns no experience — you earn it by beating other players.') + '</div>' +
-      (after > before ? '<div class="ar-big" style="font-size:26px;margin-top:12px">⭐ LEVEL ' + after + '! ⭐</div><div class="ar-sub" style="text-align:center">Your clock is now ' + (levelObj(after).clock ? levelObj(after).clock + ' seconds for the whole round.' : 'unlimited.') + (levelObj(after).assist ? '' : ' Hints are off from here — dragging only.') + '</div>' : '') +
+      (after > before ? '<div class="ar-big" style="font-size:26px;margin-top:12px">⭐ LEVEL ' + after + '! ⭐</div><div class="ar-sub" style="text-align:center">Your clock is now ' + (levelObj(after).clock ? levelObj(after).clock + ' seconds for the whole round.' : 'unlimited.') + (levelObj(after).assist ? '' : ' Hints are off from here — dragging only.') + (LEVEL_STAGE[after - 1] !== LEVEL_STAGE[before - 1] ? ' New signs unlocked: <b>' + E.STAGES[LEVEL_STAGE[after - 1]].name + '</b>.' : '') + '</div>' : '') +
       '<div class="ar-row" style="justify-content:center;margin-top:18px"><button class="ar-btn big" onclick="AR.again()">Play again</button>' +
       '<button class="ar-btn" onclick="AR.copyChallenge()">🔗 Challenge a friend at this level</button></div>' +
       '<div class="ar-sub" id="ar-copymsg" style="text-align:center;margin-top:8px"></div></div>';
@@ -1362,7 +1456,7 @@
       d: () => cardStatic('W') + '<span class="op">←</span>' + die6(6) + die6(1) },
     { t: 'Change your mind', x: 'Dice on a covered card stay there so you can see them. Until you press Accept you can <b>tap them to take them back off</b> and try again. A 1 and a 3 on a 4 score 4 — but pull them off and put two 2s on instead, and the card is <b>doubled</b>. Look for the better way.',
       d: () => die6(1) + die6(3) + '<span class="op">→</span>' + die6(2) + die6(2) + '<span class="op">on</span>' + cardStatic(4) + '<span class="op">DOUBLED</span>' },
-    { t: 'Keeping score', x: 'In the early levels Amit keeps your score. From <b>level 4</b> you keep your own: covered cards collect at the bottom, labelled <b>DOUBLED</b> or <b>TRIPLED</b>, even after five new cards come. When you finish a turn, <b>add them up yourself</b>, take away the dice you did not use, and tell Amit your total. Amit checks it.',
+    { t: 'Keeping score', x: 'In the early levels Amit keeps your score. From <b>level 4</b> you keep your own: covered cards collect at the bottom, labelled <b>DOUBLED</b> or <b>TRIPLED</b>, even after five new cards come. When you bank, Amit asks <b>“What is your score?”</b>: add them up yourself, take away the dice you did not use, and enter your total <b>once</b>. If it is wrong, <b>the difference counts against you</b> as a penalty. Amit keeps your score for you in levels 1 to 3.',
       d: () => '<span class="ar-tc">8 · DOUBLED</span><span class="ar-tc">5</span><span class="ar-tc">12 · TRIPLED</span><span class="op" style="font-size:18px">16 + 5 + 36 − dice left</span>' },
     { t: 'Fresh starts', x: 'Use up <b>all five dice</b> and a gold <b>✔ Accept &amp; re-roll all 5</b> button pops up next to your cards. Press it and all five dice roll again, keeping your points. Cover <b>all five cards</b> and it says <b>✔ Accept &amp; get 5 new cards</b> — press it for five new cards and a fresh roll. Covering all five cards also <b>banks</b> those points: they are yours for good, and a later bust can only take what you earn after the new cards. Chaining these is how big scores happen.',
       d: () => [1, 2, 3, 4, 5].map(cardStatic).join('') },
@@ -1404,7 +1498,7 @@
     return E.STAGE_CLOCKS[stage].map((c, i) => (c ? 'level ' + (i + 1) + ': <b>' + c + ' s</b>' : '')).filter(Boolean).join(', ');
   }
   function clockStepText(stage, extra) {
-    return 'From level 2 there is a clock, and it is for the <b>whole round</b>: every re-roll and every new set of five cards shares <b>one</b> clock, and it never refills. The higher your level, the <b>less time</b> you get, so an expert and a beginner score about the same — time is the handicap. Level 1 has no clock. Here: ' + clockList(stage) + '. When the clock runs out only the cards you have already covered count, minus the dice you did not use' + (extra || '') + '. Press <b>Complete &amp; bank</b> any time to end your round early.';
+    return 'From level 2 there is a clock, and it is for the <b>whole round</b>: every re-roll and every new set of five cards shares <b>one</b> clock, and it never refills. The higher your level, the <b>less time</b> you get, so an expert and a beginner score about the same — time is the handicap. Level 1 has no clock. Here: ' + clockList(stage) + '. When the clock runs out only the cards you have already covered count, minus the dice you did not use' + (extra || '') + '. Press <b>Complete &amp; bank</b> any time to end your round early. The <b>hourglass</b> at the top right shows your time: the sand runs down and a countdown sits under it. A time bonus refills it in gold, and a hit from another player drains it in red.';
   }
   // "level 3: 85% / 15%, …" from the real table
   function tbTableText() {
@@ -1489,7 +1583,7 @@
       '<div class="ar-demo">' + s.d() + '</div>' +
       '<div class="ar-row" style="justify-content:space-between"><button class="ar-btn ghost" ' + (n ? '' : 'disabled') + ' onclick="AR.learn(-1,\'' + stage + '\')">← Back</button>' +
       (n < steps.length - 1 ? '<button class="ar-btn" onclick="AR.learn(1,\'' + stage + '\')">Next →</button>' : '<button class="ar-btn big" onclick="AR.practice(\'' + stage + '\')">Walk through a turn with Amit</button>') + '</div></div>' +
-      '<div class="ar-sub" style="margin-top:12px">The walk-through is a ' + name.toLowerCase() + ' turn where Amit shows a good play on every roll. Nothing is scored. Card tops in this stage climb from ' + E.STAGE_TOPS[stage][0] + ' at level 1 to ' + E.STAGE_TOPS[stage][7] + ' at level 8.</div>' +
+      '<div class="ar-sub" style="margin-top:12px">The walk-through is a ' + name.toLowerCase() + ' turn where Amit shows a good play on every roll. Nothing is scored. You unlock ' + name.toLowerCase() + ' at <b>level ' + UNLOCK[stage] + '</b>, and you can practise it at that level or any higher one.</div>' +
       '<div class="ar-sub" style="margin-top:8px;color:var(--gold2)">★ Earn a wild: use ' + (stage === 'subtraction' ? 'both signs' : stage === 'multiplication' ? 'all three signs' : 'all four signs') + ' in one cover. See the “all-signs bonus” step.</div>';
   }
   const LEARN_TABS = [
@@ -1561,15 +1655,15 @@
     const rows = P.games.slice(0, 20).map(g =>
       '<tr><td>' + new Date(g.t).toLocaleDateString() + '</td><td>' + g.score + '</td><td>' + (g.stage && g.stage !== 'addition' ? E.STAGES[g.stage].name + ' · ' : '') + g.lvl + (g.practiceLevel ? ' (trying)' : '') + '</td><td>' +
       (g.opp ? (g.place ? ordinal(g.place) + ' of ' + (g.opp + 1) : 'table of ' + (g.opp + 1)) + ' (best Amit ' + g.oppScore + ')' : g.challenge ? 'friend challenge' : 'solo') + '</td></tr>').join('');
-    const lvRows = levelsOf().map(x => '<tr' + (x.lvl === L.lvl ? ' class="me"' : '') + '><td>' + x.lvl + '</td><td>' + x.xp + '</td><td>' + (x.clock ? x.clock + ' s' : 'no clock') + '</td><td>' + x.cardMin + '–' + x.cardMax + '</td><td>' + x.helps + '</td><td>' + (x.assist ? 'yes' : 'no') + '</td></tr>').join('');
+    const lvRows = [1, 2, 3, 4, 5, 6, 7, 8].map(n => E.levelsFor(LEVEL_STAGE[n - 1])[n - 1]).map(x => '<tr' + (x.lvl === L.lvl ? ' class="me"' : '') + '><td>' + x.lvl + '</td><td>' + x.xp + '</td><td>' + E.STAGES[LEVEL_STAGE[x.lvl - 1]].ops.join(' ') + '</td><td>' + (x.clock ? x.clock + ' s' : 'no clock') + '</td><td>' + x.cardMin + '–' + x.cardMax + '</td><td>' + x.helps + '</td><td>' + (x.assist ? 'yes' : 'no') + '</td></tr>').join('');
     root.innerHTML = stageStrip(L) +
-      '<div class="ar-panel"><div class="ar-h">YOUR EXPERIENCE</div><table class="ar-table-list"><tr><th>Stage</th><th>Level</th><th>Experience</th></tr>' + E.STAGE_ORDER.map(s => '<tr' + (s === stageOf() ? ' class="me"' : '') + '><td>' + E.STAGES[s].name + '</td><td>' + E.levelFor(stageXp(s)).lvl + '</td><td>' + fmtXp(stageXp(s)) + '</td></tr>').join('') + '</table><div class="ar-sub" style="margin-top:8px">Saved in this browser for now. When the AmitRoll tables are built, your levels will follow your Amit login to any device.</div></div>' +
-      (P.adds && (P.adds.first + P.adds.second + P.adds.shown) ? '<div class="ar-panel"><div class="ar-h">YOUR ADDING</div><div class="ar-sub">From level 4 you add up your own turn. Right the first time: <b>' + P.adds.first + '</b> · right the second time: <b>' + P.adds.second + '</b> · needed Amit to show you: <b>' + P.adds.shown + '</b>.</div></div>' : '') +
+      '<div class="ar-panel"><div class="ar-h">YOUR EXPERIENCE</div><div class="ar-sub">Level <b>' + playerLvl() + '</b> · <b>' + fmtXp(P.xp || 0) + '</b> experience. One level for everything: higher levels unlock more signs (level 3 subtraction, level 5 multiplication, level 7 division). Saved in this browser for now. When the AmitRoll tables are built, your level will follow your Amit login to any device.</div></div>' +
+      (P.adds && (P.adds.first + P.adds.second + P.adds.shown) ? '<div class="ar-panel"><div class="ar-h">YOUR ADDING</div><div class="ar-sub">From level 4 you enter your own score when you bank. Right: <b>' + (P.adds.first + P.adds.second) + '</b> · wrong (the difference counted against you): <b>' + P.adds.shown + '</b>' + (P.penalty ? ' · points lost to wrong totals: <b>' + P.penalty + '</b>' : '') + '.</div></div>' : '') +
       '<div class="ar-panel"><div class="ar-h">RECENT GAMES</div>' +
       (rows ? '<table class="ar-table-list"><tr><th>Date</th><th>Score</th><th>Level</th><th>Against</th></tr>' + rows + '</table>' : '<div class="ar-sub">No games yet. Go play one!</div>') + '</div>' +
-      '<div class="ar-panel"><div class="ar-h">THE LEVEL TABLE — ' + E.STAGES[stageOf()].name.toUpperCase() + ' <span class="ar-tag">first guess — to be tuned</span></div>' +
+      '<div class="ar-panel"><div class="ar-h">THE LEVEL TABLE <span class="ar-tag">first guess — to be tuned</span></div>' +
       '<div class="ar-sub" style="margin-bottom:8px">The clock is for the <b>whole round</b> and shrinks as your level rises, so an expert and a beginner score about the same. Level 1 has no clock.</div>' +
-      '<table class="ar-table-list"><tr><th>Level</th><th>Experience needed</th><th>Clock per round</th><th>Card numbers</th><th>Helps per game</th><th>Hints</th></tr>' + lvRows + '</table>' +
+      '<table class="ar-table-list"><tr><th>Level</th><th>Experience needed</th><th>Signs</th><th>Clock per round</th><th>Card numbers</th><th>Helps per game</th><th>Hints</th></tr>' + lvRows + '</table>' +
       timingTableHtml() + '</div>' +
       '<div class="ar-panel"><div class="ar-h">THE TIME BONUS BY LEVEL</div><div class="ar-sub" style="margin-bottom:8px">Earn it by putting all five dice on one card. Used on yourself you gain your level’s share of your clock; used on a player they lose the rest of 100% of their remaining time. Levels 1 and 2 get an extra hint instead.</div>' +
       '<table class="ar-table-list"><tr><th>Level</th><th>You gain (your clock)</th><th>A player of this level loses (their remaining time)</th></tr>' + [1, 2, 3, 4, 5, 6, 7, 8].map(l => { const t = E.timeBonus(l); return '<tr' + (l === L.lvl ? ' class="me"' : '') + '><td>' + l + '</td><td>' + (t.hint ? '+1 hint' : '+' + Math.round(t.self * 100) + '%') + '</td><td>' + (t.hint ? '— (nothing to take)' : '−' + Math.round(t.hit * 100) + '%') + '</td></tr>'; }).join('') + '</table></div>' +
@@ -1591,13 +1685,13 @@
   }
   function resetProgress() {
     if (!confirm('Erase your level, XP and game history in this browser?')) return;
-    P = { xp: 0, xps: { addition: 0, subtraction: 0, multiplication: 0, division: 0 }, xpUnit: 3, stage: curStage, games: [], timing: [], muted: P.muted }; saveProfile(); renderPlay(); renderProgress(); updateContext();
+    P = { xp: 0, xpUnit: 4, stage: 'addition', games: [], timing: [], muted: P.muted }; curStage = 'addition'; curPick = 0; saveProfile(); renderPlay(); renderProgress(); updateContext();
   }
 
   window.AR = {
     navHtml, detailHtml, afterRender,
     start, startChallenge, practice: startPractice, clickCard, accept, stop, help, next, quit, again,
-    unstage, wildAll, commitWildBtn, clearBuild, pullDie, checkAdd, afterAdd, setOp, setStage, practiceStage, useTimeSelf, useTimeOther, hitSeatId, closeTb, counterTime,
+    previewLevel, setPracticeLevel, pickLevel, lvHover, unstage, wildAll, commitWildBtn, clearBuild, pullDie, checkAdd, afterAdd, setOp, setStage, practiceStage, useTimeSelf, useTimeOther, hitSeatId, closeTb, counterTime,
     toggleMute, learn, makeChallenge, copyChallenge,
     copyChallengeUrl: url => copyText(url, 'ar-chmsg2'),
     resetProgress
