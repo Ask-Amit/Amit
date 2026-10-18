@@ -1,6 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
-   v0.17 — 2026-10-17. The read-aloud controls (start over, play/pause, next, adjust) are GLOBAL: one player in the chat header next to the chat name. Click a word while it reads, or click/highlight a word and press play, to choose where it starts. Pressing the speaker on a chat in the list (or play with nothing chosen) reads the new messages chat after chat, saying 'In <chat>. TJ said...'. Inside one chat names are not spoken (a group of 3+ gets the name when the speaker changes). 'Skip my own messages' (on by default) in the voice dialog. v0.16 — 2026-10-17. The play button on each message is a speaker icon (clearer than a triangle for someone new); the hover help stays. v0.15 — 2026-10-17. Read-aloud moved INTO the chat: every message has a play button; while it reads, that message shows start-over / pause / next and an adjust icon that opens a voice dialog (voice, speed, pitch, volume, pause) heard as you change it and saved to the person's profile when closed (AmitChat.voiceSaver). The speaker button at the top of the chat is gone. v0.14 — 2026-10-17. A Refresh button inside the chat; when Amit's helper posts a reply it sends a "refresh" nudge on the chat's live channel, so an open chat shows the reply at once instead of waiting for the next check. v0.13 — 2026-10-17. The live transcript blinks GREEN (the Hub's own "on" green) instead of red; clearer iPhone messages (it can work in Safari but not inside a home-screen app). v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
+   v0.19 — 2026-10-17. ASK AMIT: the Amit icon in the message bar is now the real Ask Amit press. It writes ONE row to the steering log (cha_asks: who, which chat, where, what is highlighted, an optional note) and nothing else; Amit's answering computer claims the row, reads the chat's history and answers INTO THE CHAT. A line above the message bar shows Amit has been asked / is working / his computer is offline. Typing @Amit counts as a press too. Every chat shows its number. Until migration _013 is run the old behaviour (invite Amit, @Amit, J chat) is kept. v0.18 — 2026-10-17. FIXES: a spot you pick is always honoured, even inside one of your OWN messages (skip-my-own now applies only to the messages after it); a paused voice no longer stays stuck when you pick a new spot (the browser does not un-pause on cancel); paused + highlight a word or phrase + play starts at the highlight instead of resuming the old place. v0.17 — 2026-10-17. The read-aloud controls (start over, play/pause, next, adjust) are GLOBAL: one player in the chat header next to the chat name. Click a word while it reads, or click/highlight a word and press play, to choose where it starts. Pressing the speaker on a chat in the list (or play with nothing chosen) reads the new messages chat after chat, saying 'In <chat>. TJ said...'. Inside one chat names are not spoken (a group of 3+ gets the name when the speaker changes). 'Skip my own messages' (on by default) in the voice dialog. v0.16 — 2026-10-17. The play button on each message is a speaker icon (clearer than a triangle for someone new); the hover help stays. v0.15 — 2026-10-17. Read-aloud moved INTO the chat: every message has a play button; while it reads, that message shows start-over / pause / next and an adjust icon that opens a voice dialog (voice, speed, pitch, volume, pause) heard as you change it and saved to the person's profile when closed (AmitChat.voiceSaver). The speaker button at the top of the chat is gone. v0.14 — 2026-10-17. A Refresh button inside the chat; when Amit's helper posts a reply it sends a "refresh" nudge on the chat's live channel, so an open chat shows the reply at once instead of waiting for the next check. v0.13 — 2026-10-17. The live transcript blinks GREEN (the Hub's own "on" green) instead of red; clearer iPhone messages (it can work in Safari but not inside a home-screen app). v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
    for ?chatpreview=1 and for anyone not signed in.
 
    Include with  <script src="../amit_chat.js"></script>  (path per depth).
@@ -22,7 +22,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.17';
+  var VERSION = 'v0.19';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -270,6 +270,14 @@
       },
       summonAmit: function (id) { return db.rpc('cha_summon_amit', { p_conv: id }).then(function (r) { fail(r); return r.data; }); },
       /* one line of a live transcript: an ordinary text message, silent (no unread badge), marked so it shows as a transcript */
+      /* Ask Amit: one press = one row in the steering log. Returns { id, number, ahead, online }. */
+      ask: function (id, o) {
+        o = o || {}; var tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+        return db.rpc('cha_ask', { p_conv: id, p_app: o.app || 'hub', p_place: o.place || {}, p_selection: o.selection || null, p_note: o.note || null, p_tz: tz || null }).then(function (r) { fail(r); return r.data; });
+      },
+      /* the latest press in this chat: { status, ahead, online } or null when the Ask Amit tables are not installed yet */
+      askStatus: function (id) { return db.rpc('cha_ask_status', { p_conv: id }).then(function (r) { return r.error ? null : (r.data || {}); }, function () { return null; }); },
+      chatNumber: function (id) { return db.from('cha_conversations').select('number').eq('id', id).maybeSingle().then(function (r) { return (r && r.data && r.data.number) || null; }, function () { return null; }); },
       sendTranscript: function (id, text, marker) {
         var t = (text || '').trim(); if (!t) return Promise.resolve();
         return db.from('cha_messages').insert({ conversation_id: id, sender_id: me, message_type: 'text', body: marker ? '\uD83D\uDDE3 ' + t : t, silent: true, payload: { transcribed: true, marker: marker || null } }).select('id').then(fail);
@@ -577,10 +585,12 @@
     '.acx-mp{display:flex;align-items:center;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25)}.acx-mp .acx-ib{font-size:16px}',
     '.acx-vdlg{max-height:58%;overflow-y:auto}.acx-vdlg select{max-width:100%}',
     '.acx-thead{flex-wrap:wrap;row-gap:2px}',
+    '.acx-hw{min-width:0;flex:0 1 auto;max-width:46%}.acx-hw .acx-ts{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.acx-num{font-size:11px;font-weight:400;color:var(--amit-dim,rgba(240,232,208,.6));margin-left:4px}',
     '.acx-gp{display:flex;align-items:center;gap:2px;margin-left:14px;padding-left:12px;border-left:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4)}.acx-gp .acx-ib{font-size:16px}',
     '.acx-gp.on .acx-pp{color:#6fe38f;opacity:1}.acx-gpl{font-size:11px;color:var(--amit-dim,rgba(240,232,208,.6));max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:4px}',
     '.acx-selmsg{outline:1px dashed rgba(var(--amit-accent-rgb,201,168,76),.75);outline-offset:2px}',
     '.acx-rowspk{font-size:14px;margin-left:6px;padding:0 2px}',
+    '.acx-askbar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(var(--amit-accent-rgb,201,168,76),.14);border-top:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);font-size:12px;flex-shrink:0}.acx-askbar.off{background:rgba(229,160,75,.16);border-top-color:rgba(229,160,75,.6)}.acx-askbar .acx-dot{width:9px;height:9px;border-radius:50%;background:var(--amit-accent-bright,#e8c56a);animation:acxpulse 1.2s infinite;flex-shrink:0}',
     '.acx-max{background:none;border:none;color:var(--amit-muted,rgba(240,232,208,.78));font-size:15px;cursor:pointer;padding:0 6px;line-height:1}',
     '.acx-max:hover{color:var(--amit-accent-bright,#e8c56a)}',
     '.acx-tool{display:flex;gap:6px;padding:8px;flex-wrap:wrap;flex-shrink:0}',
@@ -1015,14 +1025,14 @@
       var t = el('div', 'acx-thread'); target.appendChild(t);
       var head = el('div', 'acx-thead');
       if (!wide) { var b = el('button', 'acx-back', '←'); b.onclick = function () { show('list'); }; head.appendChild(b); }
-      var hw = el('div'); var tt = el('div', 'acx-tt', ''), ts = el('div', 'acx-ts', '');
+      var hw = el('div', 'acx-hw'); var tt = el('div', 'acx-tt', ''), ts = el('div', 'acx-ts', '');
       var tl = el('div', 'acx-ts', ''), wl = el('div', 'acx-watch', ''); hw.appendChild(tt); hw.appendChild(ts); hw.appendChild(tl); hw.appendChild(wl); head.appendChild(hw);
       var gp = null, gpl = null, gpPP = null;
       if (live) {
         gp = el('div', 'acx-gp');
         var gb = function (txt, title, fn, cls) { var x = el('button', 'acx-ib' + (cls ? ' ' + cls : ''), txt); x.title = title; x.onclick = fn; gp.appendChild(x); return x; };
         gb('\u23EE', 'Start this message over (press again to go back one message)', function () { readRestart(); }, 'acx-pv');
-        gpPP = gb('\uD83D\uDD0A', 'Read aloud', function () { if (rd.on) readPause(); else startFromHere(); }, 'acx-pp');
+        gpPP = gb('\uD83D\uDD0A', 'Read aloud', function () { if (rd.on) { if (rd.paused && state.sel && state.sel.t > (rd.pausedAt || 0) && state.msgs.some(function (m) { return m.id === state.sel.mid; })) startReading(readableFrom(state.sel.mid), { startChar: state.sel.start, cross: rd.cross }); else readPause(); } else startFromHere(); }, 'acx-pp');
         gb('\u23ED', 'Next message (at the end of a chat, the next chat)', function () { readNext(); }, 'acx-nx');
         gb('\uD83C\uDF9A', 'Change the voice, speed and more', function () { openVoiceDialog(); }, 'acx-adj');
         gpl = el('span', 'acx-gpl', ''); gp.appendChild(gpl);
@@ -1136,7 +1146,7 @@
       function onPlace(e) {
         if (e && e.target && e.target.closest && e.target.closest('a,button,input,textarea')) return;
         var p = placeInfo(); if (!p || !p.mid) return;
-        state.sel = { mid: p.mid, start: p.start }; markSel();
+        state.sel = { mid: p.mid, start: p.start, t: Date.now() }; markSel();
         if (rd.on && (p.collapsed || p.oneWord)) startReading(readableFrom(p.mid), { startChar: p.start, cross: rd.cross });
       }
       msgsDiv.addEventListener('mouseup', function (e) { setTimeout(function () { onPlace(e); }, 0); });
@@ -1380,16 +1390,16 @@
         items = items.concat(planFor(m, i === 0 ? rd.startChar : 0));
         runItems(items, 0, token, function () { heardSet(m.iso); if (token !== rd.token) return; if (i + 1 >= rd.queue.length) finishReading(); else playMsg(i + 1); });
       }
-      function readNext() { if (!rd.on) return; var m = rd.queue[rd.i]; if (m) heardSet(m.iso); window.speechSynthesis.cancel(); rd.paused = false; if (rd.i + 1 >= rd.queue.length) finishReading(); else playMsg(rd.i + 1); }
-      function readBack() { if (!rd.on) return; window.speechSynthesis.cancel(); rd.paused = false; playMsg(Math.max(0, rd.i - 1)); }
-      function readRestart() { if (!rd.on) return; var ago = Date.now() - (rd.msgStart || 0); window.speechSynthesis.cancel(); rd.paused = false; playMsg(ago < 2500 && rd.i > 0 ? rd.i - 1 : rd.i); }
+      function readNext() { if (!rd.on) return; var m = rd.queue[rd.i]; if (m) heardSet(m.iso); synthReset(); rd.paused = false; if (rd.i + 1 >= rd.queue.length) finishReading(); else playMsg(rd.i + 1); }
+      function readBack() { if (!rd.on) return; synthReset(); rd.paused = false; playMsg(Math.max(0, rd.i - 1)); }
+      function readRestart() { if (!rd.on) return; var ago = Date.now() - (rd.msgStart || 0); synthReset(); rd.paused = false; playMsg(ago < 2500 && rd.i > 0 ? rd.i - 1 : rd.i); }
       function readPause() {
-        if (!rd.on) return; rd.paused = !rd.paused;
+        if (!rd.on) return; rd.paused = !rd.paused; if (rd.paused) rd.pausedAt = Date.now();
         try { if (rd.paused) window.speechSynthesis.pause(); else window.speechSynthesis.resume(); } catch (e) {}
         barDraw();
       }
       function endReading() {
-        rd.on = false; rd.paused = false; rd.token++; try { window.speechSynthesis.cancel(); } catch (e) {}
+        rd.on = false; rd.paused = false; rd.token++; synthReset();
         clearHL(); Array.prototype.forEach.call(msgsDiv.querySelectorAll('.acx-b.reading'), function (x) { x.classList.remove('reading'); }); rd.curMsg = null;
         Array.prototype.forEach.call(msgsDiv.querySelectorAll('.acx-mp'), function (x) { x.remove(); }); closeVoiceDialog(true); barDraw();
         rbar.style.display = 'none'; rbar.innerHTML = '';
@@ -1397,6 +1407,8 @@
         if (AmitChat.onSpeak) { try { AmitChat.onSpeak(false); } catch (e) {} }
         updateSpk();
       }
+      /* Chrome keeps a paused voice paused after cancel(), so a new reading stayed silent: always resume after cancelling */
+      function synthReset() { try { window.speechSynthesis.cancel(); window.speechSynthesis.resume(); } catch (e) {} }
       function stopReading() { if (rd.on) endReading(); if (!session.handover) endSession(); }
       function finishReading() { if (session.cross && advanceChat()) return; endSession(); endReading(); toast('That is all.'); }
       function startReading(list, opts) {
@@ -1423,7 +1435,7 @@
       function readable(m) { return !m.removed && m.from !== 'system' && m.from !== 'note' && ['text', 'voice', 'photo', 'file'].indexOf(m.type) >= 0 && !(m.payload && m.payload.marker) && (m.type !== 'text' || !!(m.text || '').trim()); }
       function readableFrom(id) {
         var idx = -1; state.msgs.forEach(function (m, k) { if (m.id === id) idx = k; });
-        var so = skipOwnOn(); return idx < 0 ? [] : state.msgs.slice(idx).filter(function (m) { return readable(m) && !(so && m.from === 'me'); });
+        var so = skipOwnOn(); return idx < 0 ? [] : state.msgs.slice(idx).filter(function (m, k) { return readable(m) && (k === 0 || !(so && m.from === 'me')); });
       }
       /* the voice dialog: voice, speed, pitch, volume and pause, heard as you change them; closing it saves them to the person's profile */
       function voiceNow() { var v = rd.v || {}; return { voice: v.voice || null, rate: v.rate || 1.1, pitch: v.pitch || 1, volume: v.volume != null ? v.volume : 1, pauseScale: v.pauseScale || 1.2 }; }
@@ -1587,7 +1599,7 @@
             bub.firstChild.appendChild(ac);
           }
           if (x.eye) { var ey = el('span', null, ' \uD83D\uDC41\uFE0F'); ey.title = 'Research'; bub.appendChild(ey); }
-          if (x.waitingAmit) bub.appendChild(el('div', 'acx-wait', '\u23F3 Waiting for Amit \u2014 he answers when someone in this chat says J chat in VS Code or AmitCoder'));
+          if (x.waitingAmit && !state.askOk) bub.appendChild(el('div', 'acx-wait', '\u23F3 Waiting for Amit \u2014 he answers when someone in this chat says J chat in VS Code or AmitCoder'));
           msgsDiv.appendChild(bub);
         });
         if (c.seen) msgsDiv.appendChild(el('div', 'acx-meta', c.seen));
@@ -1600,9 +1612,9 @@
       function load(first) {
         return src.getConversation(convId).then(function (c) {
           if (destroyed) return;
-          state.conv = c; state.items = c.items || []; if (amitHead) amitHead.style.display = (c.amitId && !c.amitIn) ? '' : 'none'; tt.textContent = c.title; ts.textContent = 'Members: ' + c.members; tl.textContent = timesText(c.times); updateSpk();
+          state.conv = c; state.items = c.items || []; if (amitHead) amitHead.style.display = (c.amitId && !c.amitIn && !state.askOk) ? '' : 'none'; titleDraw(c); tl.textContent = timesText(c.times); updateSpk();
           if (first) { if (ro) wl.textContent = 'Read only: you are reading this as a guardian.'; else if (live) src.chatWatched(convId).then(function (w) { if (!destroyed && w) wl.textContent = '\uD83D\uDC6A A young person\u2019s guardian can read this chat.'; }); }
-          if (amitBtn) { amitBtn.style.display = c.amitId ? '' : 'none'; amitBtn.title = c.amitIn ? 'Ask Amit (adds @Amit to your message)' : 'Invite Amit to this chat'; }
+          if (amitBtn) { amitBtn.style.display = c.amitId ? '' : 'none'; updateAmitTitle(); }
           // merge, keeping any older messages already loaded
           var have = {}; c.messages.forEach(function (m) { have[m.id] = 1; });
           var older = state.msgs.filter(function (m) { return !have[m.id] && c.messages.length && m.iso < c.messages[0].iso; });
@@ -1610,6 +1622,8 @@
           if (!older.length) { state.more = c.hasMore; state.oldest = c.oldest; }
           var sig = state.msgs.map(function (m) { return m.id + (m.edited ? 'e' : '') + (m.removed ? 'x' : '') + (m.waitingAmit ? 'w' : ''); }).join(',') + (c.amitIn ? '|A' : '') + '|' + c.seen + '|' + c.typing + '|' + (c.pin ? c.pin.id : '') + '|' + (c.deleteAt || '') + '|' + (c.items || []).map(function (i) { return i.id + i.state; }).join(',');
           if ((sig !== state.sig || first) && !state.editing) { if (!first) bump(); state.sig = sig; renderMsgs(c, first ? 'bottom' : null); }
+          if (first && src.chatNumber) src.chatNumber(convId).then(function (n) { if (destroyed || !n) return; state.number = n; if (state.conv) titleDraw(state.conv); });
+          if (first || state.askPending) refreshAsk();
           if (first && session.pending) beginPending();
           if (live && !ro && c.lastId && c.lastId !== c.myLastRead) { src.markRead(convId, c.lastId).then(function () { AmitChat.refreshUnread(); }); }
         }, function (e) { DBG.lastError = (e && e.message) || String(e); if (first) { msgsDiv.innerHTML = ''; errBox(msgsDiv, e); } });
@@ -1618,7 +1632,7 @@
         if (!live || state.busy) return;
         var v = ta.value; if (!v.trim()) return;
         state.busy = true; sendBtn.disabled = true;
-        src.send(convId, v, state.replyTo && state.replyTo.id, state.silent).then(function () { ta.value = ''; ta.style.height = ''; setReply(null); draft(''); state.silent = false; if (silentBtn) silentBtn.classList.remove('on'); bump(); return load(false); })
+        src.send(convId, v, state.replyTo && state.replyTo.id, state.silent).then(function () { ta.value = ''; ta.style.height = ''; setReply(null); draft(''); state.silent = false; if (silentBtn) silentBtn.classList.remove('on'); bump(); return maybeAskFromText(v).then(function () { return load(false); }); })
           .then(function () { msgsDiv.scrollTop = msgsDiv.scrollHeight; }, function (e) { toast(e.message); })
           .then(function () { state.busy = false; sendBtn.disabled = false; ta.focus(); });
       }
@@ -1636,8 +1650,58 @@
         });
         p.then(function () { bump(); return load(false); }).then(function () { msgsDiv.scrollTop = msgsDiv.scrollHeight; state.busy = false; setBusy(false); });
       }
+      /* ═══ ASK AMIT ═══ */
+      var abar = null;
+      function paintAsk(s) {
+        var pend = !!(s && (s.status === 'new' || s.status === 'working'));
+        if (!pend) { if (abar) { abar.remove(); abar = null; } return; }
+        var txt = s.status === 'working' ? 'Amit is reading this chat and working on an answer\u2026'
+          : (s.online === false ? 'Amit has been asked, but his computer is offline right now. He will answer here when it is back.'
+            : 'Amit has been asked. He will answer here' + (s.ahead > 0 ? ' (' + s.ahead + ' ahead of this one)' : '') + '.');
+        if (!abar) { abar = el('div', 'acx-askbar'); abar.appendChild(el('span', 'acx-dot')); abar.appendChild(el('span', 'acx-at', '')); t.insertBefore(abar, comp); }
+        abar.classList.toggle('off', s.status !== 'working' && s.online === false);
+        abar.querySelector('.acx-at').textContent = txt;
+      }
+      function titleDraw(c) { tt.textContent = c.title; if (state.number) tt.appendChild(el('span', 'acx-num', '#' + state.number)); ts.textContent = 'Members: ' + c.members; }
+      function updateAmitTitle() {
+        var c = state.conv; if (!c || !amitBtn) return;
+        amitBtn.title = state.askOk ? 'Ask Amit: he reads this chat and answers here. Type a question first, or highlight a message, to tell him what you mean.'
+          : (c.amitIn ? 'Ask Amit (adds @Amit to your message)' : 'Invite Amit to this chat');
+        if (amitHead) amitHead.style.display = (c.amitId && !c.amitIn && !state.askOk) ? '' : 'none';
+      }
+      function refreshAsk() {
+        if (!live || ro || state.askOk === false || !src.askStatus) return Promise.resolve();
+        return src.askStatus(convId).then(function (s) {
+          if (destroyed) return;
+          if (s === null) { state.askOk = false; updateAmitTitle(); return; }
+          state.askOk = true; state.askPending = !!(s.status === 'new' || s.status === 'working'); paintAsk(s); updateAmitTitle();
+        });
+      }
+      function askPlace() { var c = state.conv || {}; return { type: 'chat', id: convId, number: state.number || null, title: c.title || null, version: AmitChat.version }; }
+      function askAmit() {
+        if (!live || ro || state.busy || !state.conv) return;
+        var txt = ta.value.trim();
+        var sel = (state.sel && state.msgs.some(function (m) { return m.id === state.sel.mid; })) ? { message_id: state.sel.mid, start: state.sel.start } : null;
+        state.busy = true; amitBtn.disabled = true;
+        var p = Promise.resolve();
+        if (txt) p = src.send(convId, txt, state.replyTo && state.replyTo.id, state.silent).then(function () { ta.value = ''; ta.style.height = ''; setReply(null); draft(''); state.silent = false; if (silentBtn) silentBtn.classList.remove('on'); });
+        p.then(function () { return src.ask(convId, { app: AmitChat.appName || 'hub', place: askPlace(), selection: sel, note: txt || null }); })
+          .then(function (r) {
+            toast(r && r.online === false ? 'Amit has been asked. His computer is offline, so he will answer when it is back.' : 'Amit has been asked.');
+            state.sel = null; markSel(); state.askPending = true; bump();
+            return load(false).then(function () { return refreshAsk(); });
+          })
+          .then(null, function (e) { toast((e && e.message) || 'Could not ask Amit.'); })
+          .then(function () { state.busy = false; amitBtn.disabled = false; msgsDiv.scrollTop = msgsDiv.scrollHeight; });
+      }
+      /* typing @Amit in a message counts as a press too */
+      function maybeAskFromText(v) {
+        if (!state.askOk || !/(^|\s)@amit([^a-z0-9_]|$)/i.test(v || '')) return Promise.resolve();
+        return src.ask(convId, { app: AmitChat.appName || 'hub', place: askPlace(), note: v }).then(function () { state.askPending = true; return refreshAsk(); }, function (e) { toast((e && e.message) || 'Could not ask Amit.'); });
+      }
       function amitClick() {
         var c = state.conv; if (!c) return;
+        if (state.askOk) { if (!c.amitIn && !confirm('Ask Amit?\n\nAmit will join this chat (everyone here will see that), read it, and answer here. His answers come through Ryan’s computer, and Ryan can read what Amit is asked.')) return; askAmit(); return; }
         if (c.amitIn) { var at = ta.selectionStart || 0; if (!/@amit/i.test(ta.value)) { ta.value = '@Amit ' + ta.value; } ta.focus(); ta.dispatchEvent(new Event('input')); return; }
         if (!confirm('Invite Amit to this chat?\n\nEveryone here will see that Amit joined. Amit reads this chat only to answer when someone writes @Amit, and he replies when his session checks.')) return;
         amitBtn.disabled = true;
@@ -2089,6 +2153,7 @@
     /* the page calls this right after something changed that the chat is waiting for (the Hub: a birth date saved in About Me) */
     recheck: function () { if (popView && popView.recheck) popView.recheck(); panelTargets.forEach(function (p) { if (p.view && p.view.recheck) p.view.recheck(); }); },
     voiceProvider: null,      /* set by the page: returns { voice, rate, pitch, volume, pauseScale } (the Hub reads it from About Me) */
+    appName: 'hub',           /* set by the page: which app the press came from (the Hub: 'hub', the phone app: 'amitmobile') */
     voiceSaver: null,         /* set by the page: saves { voice_name, voice_rate, voice_pitch, voice_volume, voice_pause_scale } to the person's profile (the Hub: the About Me contact row) */
     onSpeak: null,            /* set by the page: called with true/false when reading starts/stops */
     onMaximize: null,         /* set by the page: opens the full-screen chat (the Hub: Communications > Chats), then calls openInPanel(chatId) */
