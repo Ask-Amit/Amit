@@ -1389,7 +1389,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.32</div>
+      <div class="page-version" id="hubVersionBadge">v8.33</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -12272,6 +12272,10 @@ function hubRailSyncClick(){ if(currentUser){ if(confirm('Signed in as '+current
       <div class="page-icon" id="rail-demo-icon">🎬</div>
       <div class="page-info"><div class="page-name" id="rail-demo-name">Demo On</div><div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div></div>
     </div>
+    <div class="page-nav" id="rail-watcher" onclick="hubWatcherClick()" data-tip="Watcher" style="display:none">
+      <div class="page-icon plug-badge disconnected" id="rail-watcher-icon"><span class="plug-icon-glyph">👁️</span></div>
+      <div class="page-info"><div class="page-name" id="rail-watcher-name">Watcher</div><div class="page-sub" id="rail-watcher-sub">Not Running</div></div>
+    </div>
     <div class="page-nav" id="rail-home" onclick="homePanelDate=todayStr();calDvDs=todayStr();openPanel('home')" data-tip="Home">
       <div class="page-icon">🏠</div>
       <div class="page-info"><div class="page-name">Home</div><div class="page-sub">Today</div></div>
@@ -12321,6 +12325,43 @@ function _hubRailChat(){
   if(on) AmitChat.refreshUnread(); else AmitChat.setUnread(0);
 }
 (function(){const _us2=_updateSyncUI;_updateSyncUI=function(){const r=_us2.apply(this,arguments);_hubRailChat();return r;};})();
+
+// Watcher eye (right rail, owner only): green when Amit's answering computer (Ask Amit watcher) is running; pressing it
+// while it is not running starts it through the local Amit bridge (localhost:8710), the one shared local agent.
+let _hubWatcherState='off',_hubWatcherBusy=false,_hubWatcherTimer=null;
+async function _hubWatcherOnline(){ try{ const r=await db.rpc('cha_amit_online'); return r&&r.data===true; }catch(e){ return false; } }
+function _hubWatcherPaint(state){
+  _hubWatcherState=state;
+  const item=document.getElementById('rail-watcher'),icon=document.getElementById('rail-watcher-icon'),sub=document.getElementById('rail-watcher-sub'); if(!item) return;
+  const owner=!!(currentUser&&currentUser.id===AMIT_DEMO_UID);
+  item.style.display=owner?'':'none'; if(!owner) return;
+  icon.classList.add('plug-badge'); icon.classList.toggle('connected',state==='on'); icon.classList.toggle('disconnected',state!=='on');
+  icon.style.opacity=state==='starting'?'.6':'1'; item.classList.toggle('active',state==='on');
+  sub.textContent=state==='on'?'Answering':(state==='starting'?'Starting…':'Not Running');
+  item.dataset.tip=state==='on'?'Watcher — Amit is answering':(state==='starting'?'Watcher — starting…':'Watcher — press to start');
+  item.title=state==='on'?"Amit's answering computer is running":(state==='starting'?'Starting the watcher…':"Amit's answering computer is not running — press to start it");
+}
+async function _hubWatcherRefresh(){
+  if(_hubWatcherBusy) return;
+  const owner=!!(currentUser&&currentUser.id===AMIT_DEMO_UID&&db);
+  if(!owner){ _hubWatcherPaint('off'); if(_hubWatcherTimer){ clearInterval(_hubWatcherTimer); _hubWatcherTimer=null; } return; }
+  if(!_hubWatcherTimer) _hubWatcherTimer=setInterval(_hubWatcherRefresh,30000);
+  _hubWatcherPaint((await _hubWatcherOnline())?'on':'off');
+}
+async function hubWatcherClick(){
+  if(_hubWatcherBusy||_hubWatcherState==='on') return;
+  _hubWatcherBusy=true; _hubWatcherPaint('starting');
+  let msg='';
+  try{
+    const r=await fetch('http://localhost:8710/api/ask-watcher-start',{method:'POST'}); const j=await r.json();
+    if(!r.ok||j.error) msg=j.error||'The helper could not start the watcher.';
+    else for(let i=0;i<25;i++){ if(await _hubWatcherOnline()){ _hubWatcherBusy=false; _hubWatcherPaint('on'); return; } await new Promise(res=>setTimeout(res,3000)); }
+    if(!msg) msg="The watcher was started but has not checked in yet. Give it a minute, then look at the eye again.";
+  }catch(e){ msg="Amit's helper is not running on this computer, so the Hub cannot start the watcher. Start it once with AmitChat\\start_amit_ask_watcher.cmd."; }
+  _hubWatcherBusy=false; _hubWatcherPaint('off'); alert(msg);
+}
+(function(){const _us3=_updateSyncUI;_updateSyncUI=function(){const r=_us3.apply(this,arguments);_hubWatcherRefresh();return r;};})();
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') _hubWatcherRefresh(); });
 if(window.AmitChat){ AmitChat.onMaximize=function(id){ openPanel('mail'); var b=document.getElementById('ch-tab-btn-comm-chats'); if(b) b.click(); AmitChat.openInPanel(id); }; AmitChat.mountPanel(document.getElementById('amitChatPanelMount')); _hubRailChat(); }
 </script>
 </body>

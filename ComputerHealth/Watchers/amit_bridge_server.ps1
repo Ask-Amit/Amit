@@ -1389,6 +1389,33 @@ secret key must never appear here, ever, under any circumstance.
                     Send-Json $response @{ error = "Sensor data not available yet - the tracker may still be starting, or admin approval (UAC) for sensor access wasn't granted this session." } 502
                 }
             }
+            "/api/ask-watcher-status" {
+                # Ask Amit answering computer (AmitChat\amit_ask_watcher.js) - added 2026-10-17, Ryan's request:
+                # the Hub's eye button shows whether it is running and can start it. Read-only.
+                $cfgPath = "$env:LOCALAPPDATA\AmitComputerHealth\ask_watcher.json"
+                $running = Get-WmiObject Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+                    Where-Object { $_.CommandLine -like "*amit_ask_watcher.js*" } | Select-Object -First 1
+                Send-Json $response @{ configured = [bool](Test-Path $cfgPath); running = [bool]$running }
+            }
+            "/api/ask-watcher-start" {
+                # Starts the Ask Amit watcher hidden, detached from this request, if it is not already running.
+                # No parameters: it only ever starts the one watcher recorded in ask_watcher.json (written by the
+                # watcher itself the first time it runs on this computer). Output goes to ask_watcher.log.
+                $home2 = "$env:LOCALAPPDATA\AmitComputerHealth"
+                $cfgPath = "$home2\ask_watcher.json"
+                $running = Get-WmiObject Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+                    Where-Object { $_.CommandLine -like "*amit_ask_watcher.js*" } | Select-Object -First 1
+                if ($running) { Send-Json $response @{ started = $false; running = $true } }
+                elseif (-not (Test-Path $cfgPath)) { Send-Json $response @{ started = $false; running = $false; error = "The Ask Amit watcher has not been set up on this computer yet." } 404 }
+                else {
+                    $cfg = Get-Content $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
+                    $node = if ($cfg.node -and (Test-Path $cfg.node)) { $cfg.node } else { "node" }
+                    $cmd = "cmd.exe /c `"cd /d `"$($cfg.dir)`" && `"$node`" amit_ask_watcher.js >> `"$home2\ask_watcher.log`" 2>&1`""
+                    $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+                    $res = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd; CurrentDirectory = [string]$cfg.dir; ProcessStartupInformation = $startup }
+                    Send-Json $response @{ started = ($res.ReturnValue -eq 0); running = ($res.ReturnValue -eq 0); code = $res.ReturnValue }
+                }
+            }
             "/api/tracker-status" {
                 $s = Get-TrackerStatus
                 Send-JsonRaw $response ('{"running":' + $(if ($s.running) {'true'} else {'false'}) + ',"pidCount":' + $s.pids.Count + '}')
