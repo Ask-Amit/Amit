@@ -209,6 +209,7 @@
       '<div class="ar-h" style="margin:0 0 8px">Stage</div>' +
       '<div class="ar-row" style="margin-bottom:10px">' + E.STAGE_ORDER.map(s => '<button class="ar-btn ar-stagebtn' + (s === curStage ? ' on' : '') + '" title="' + E.STAGES[s].name + '" aria-label="' + E.STAGES[s].name + '" onclick="AR.setStage(\'' + s + '\')">' + ({ addition: '+', subtraction: '−', multiplication: '×', division: '÷' })[s] + '</button>').join('') + '</div>' +
       '<div class="ar-row" style="margin-bottom:10px"><span class="ar-sub">Signs you can use:</span>' + opKeysHtml('small') + '<span class="ar-sub">' + STAGE_BLURB[curStage] + ' Each stage also lets you use every sign before it.</span></div>' +
+      '<div class="ar-sub" style="margin-bottom:10px;color:var(--gold2)">⏱ Put all five dice on one card for a <b>time bonus</b>: extra time for you, or time taken from a player. Levels 1–2 get an extra hint instead. See Learn.</div>' +
       '<div class="ar-sub" style="margin-bottom:12px">The first to reach the target score wins — it can take five rounds or twenty. Cover cards, roll again or stop, and keep your score. The clock is for the <b>whole round</b>: every re-roll and every new set of five cards shares one clock, ' +
       (L.clock ? L.clock + ' seconds at your level. Complete &amp; bank ends your round early.' : 'and there is no clock at your level yet.') + '</div>' +
       '<div class="ar-row" style="margin-bottom:14px">' +
@@ -523,8 +524,9 @@
         return opHtml + '<div class="ar-die bdie" data-v="' + t.dice[k].v + '" data-i="' + k + '" title="Tap to put this die back. Drag to move the whole group onto a card">' + pipsHtml(t.dice[k].v) + '</div>';
       }).join('');
       let eq = '';
-      if (isOpStage()) eq = assist && selValue !== null ? '<span class="beq">= <em>' + selValue + '</em></span>' : '';
-      else if (assist) { const m = E.multiplier(selVals); eq = '<span class="beq">= <em>' + S + '</em>' + (m > 1 ? ' <span style="color:#7fe3ff">×' + m + '</span>' : '') + '</span>'; }
+      const helpShown = !!G.helpSel && G.helpSel === [...sel].join(',');
+      if (isOpStage()) eq = (assist || helpShown) && selValue !== null ? '<span class="beq">= <em>' + selValue + '</em></span>' : '';
+      else if (assist || helpShown) { const m = E.multiplier(selVals); eq = '<span class="beq">= <em>' + S + '</em>' + (m > 1 ? ' <span style="color:#7fe3ff">×' + m + '</span>' : '') + '</span>'; }
       build = '<div class="ar-bgroup">' + parts + eq + '</div>';
     }
 
@@ -751,7 +753,7 @@
     if (r.timeBonus && !G.tb.held && !G.tb.earnedRound) {
       G.tb.held = true; G.tb.earnedRound = true; G.tb.srcCard = cardIdx;
       setTimeout(() => { if (G && G.tb.held) banner('⏱ TIME BONUS initiated'); }, 900);
-      G.say = '⏱ <b>You received a time bonus!</b> Use it on <b>yourself</b> for 50% more time, or <b>against another player</b> to take 50% of theirs. Only you can see it, and you can use it any time a clock is running.' + (G.level.clock ? '' : ' (You have no clock at this level, so a time bonus is useful from level 2.)') + (G.practice && G.say ? '<br>' + G.say : '');
+      G.say = tbEarnedText() + (G.practice && G.say ? '<br>' + G.say : '');
       renderGame();
     }
     return true;
@@ -845,32 +847,48 @@
     renderGame();
   }
 
-  // ── the time bonus ──
+  // ── the time bonus (the size depends on the level: see E.timeBonus) ──
+  const tbPct = x => Math.round(x * 100) + '%';
+  function tbMine() { return E.timeBonus(G.level.lvl); }
   function tbChipHtml() {
     if (!G || !G.tb || !G.tb.held) return '';
+    const m = tbMine();
     return '<div class="ar-tbchip" title="Only you can see this. Use it any time a clock is running."><div class="ar-tbhead">⏱ TIME BONUS</div>' +
-      '<button class="ar-btn tbbtn" onclick="AR.useTimeSelf()">+50% time for me</button>' +
+      '<button class="ar-btn tbbtn" onclick="AR.useTimeSelf()">' + (m.hint ? '+1 hint for me' : '+' + tbPct(m.self) + ' time for me') + '</button>' +
       (G.table ? '<button class="ar-btn tbbtn" onclick="AR.useTimeOther()">Use on a player…</button>' : '<div class="ar-tbnote">Against another player when you play at a table</div>') + '</div>';
+  }
+  function tbEarnedText() {
+    const m = tbMine();
+    return '⏱ <b>You received a time bonus!</b> ' + (m.hint
+      ? 'At your level it gives you <b>one extra hint</b> (Help from Amit) — use it any time. At level 3 and up it adds time to your clock, or takes time from another player.'
+      : 'Use it on <b>yourself</b> for <b>' + tbPct(m.self) + ' more time</b> (that is your level’s share), or <b>against another player</b> to take a share of <b>their</b> remaining time — the higher their level, the bigger the share.') +
+      ' Only you can see it, and you can use it any time.';
   }
   function useTimeSelf() {
     if (!liveNow() || !G.tb.held) return;
-    if (!G.level.clock) { G.say = 'You have no clock at this level, so there is nothing to add to. Keep the time bonus for a level with a clock — or use it against another player.'; snd('bad'); renderGame(); return; }
-    const add = G.level.clock * 0.5;
+    const m = tbMine();
+    if (m.hint) {
+      G.helps += 1; G.tb.held = false; snd('cover');
+      G.say = '⏱ Time bonus used: <b>+1 Help from Amit</b> (you now have ' + G.helps + ').';
+      renderGame(); return;
+    }
+    if (!G.level.clock) { G.say = 'You have no clock at this level, so there is nothing to add to. Keep the time bonus — or use it against another player.'; snd('bad'); renderGame(); return; }
+    const add = G.level.clock * m.self;
     G.clockLeft += add * 1000; G.tb.held = false;
     snd('cover'); banner('+' + Math.round(add) + ' s');
-    G.say = '⏱ Time bonus used: <b>+' + Math.round(add) + ' seconds</b> on your clock.';
+    G.say = '⏱ Time bonus used: <b>+' + Math.round(add) + ' seconds</b> (' + tbPct(m.self) + ' of your clock).';
     renderGame();
   }
   function seatRemaining(s) { return s.budget - s.elapsed; }
   function useTimeOther() {
     if (!liveNow() || !G.tb.held || !G.table) return;
-    const cands = G.table.seats.filter(s => s.status === 'playing' && isFinite(s.budget) && seatRemaining(s) > 0);
-    if (!cands.length) { G.say = 'Nobody at the table has a clock running right now, so a time bonus would do nothing. Keep it.'; snd('bad'); renderGame(); return; }
+    const cands = G.table.seats.filter(s => s.status === 'playing' && isFinite(s.budget) && seatRemaining(s) > 0 && E.timeBonus(s.level).hit > 0);
+    if (!cands.length) { G.say = 'A time bonus does nothing here: nobody at the table has a clock running, or they are level 1–2 (there is nothing to take from them). Keep it.'; snd('bad'); renderGame(); return; }
     if (cands.length === 1) { hitSeat(cands[0]); return; }
     const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-tbmodal';
     over.innerHTML = '<div class="ar-sheet" style="max-width:420px"><div class="ar-h" style="text-align:center">⏱ USE YOUR TIME BONUS ON…</div>' +
-      '<div class="ar-sub" style="text-align:center;margin-bottom:10px">It takes 50% of their remaining time.</div>' +
-      cands.map(s => '<div class="ar-row" style="justify-content:center;margin:6px 0"><button class="ar-btn big" onclick="AR.hitSeatId(\'' + s.id + '\')">' + s.name + '</button></div>').join('') +
+      '<div class="ar-sub" style="text-align:center;margin-bottom:10px">It takes a share of their remaining time that depends on their level.</div>' +
+      cands.map(s => '<div class="ar-row" style="justify-content:center;margin:6px 0"><button class="ar-btn big" onclick="AR.hitSeatId(\'' + s.id + '\')">' + s.name + ' · −' + tbPct(E.timeBonus(s.level).hit) + '</button></div>').join('') +
       '<div class="ar-row" style="justify-content:center;margin-top:10px"><button class="ar-btn ghost" onclick="AR.closeTb()">Keep it</button></div></div>';
     document.body.appendChild(over);
   }
@@ -879,6 +897,8 @@
   function hitSeat(s) {
     if (!liveNow() || !G.tb.held) return;
     if (s.status !== 'playing') { G.say = s.name + ' has already finished this round, so a time bonus would do nothing. You still have it.'; renderGame(); return; }
+    const share = E.timeBonus(s.level).hit;
+    if (!share) { G.say = 'A time bonus does nothing against a level ' + s.level + ' player: there is nothing to take. You still have it.'; renderGame(); return; }
     G.tb.held = false;
     // Amit may hold a time bonus too and cancel it, which spends both
     if (s.tbHeld && Math.random() < 0.7) {
@@ -886,19 +906,20 @@
       G.say = '⏱ ' + s.name + ' cancelled your time bonus with one of their own. Both are spent.';
       renderGame(); return;
     }
-    const take = seatRemaining(s) * 0.5;
+    const take = seatRemaining(s) * share;
     s.budget -= take; snd('cover'); banner('−' + Math.round(take) + ' s for ' + s.name);
-    G.say = '⏱ Time bonus used: <b>' + s.name + ' lost ' + Math.round(take) + ' seconds</b>.';
+    G.say = '⏱ Time bonus used: <b>' + s.name + ' lost ' + Math.round(take) + ' seconds</b> (' + tbPct(share) + ' of their remaining time).';
     renderSeat(s); renderGame();
   }
   // an Amit seat uses its time bonus on the player: the player may cancel it with their own
   function hitMe(s) {
     s.tbHeld = false;
+    const share = tbMine().hit;
     if (G.tb.held) {
       G.tbFrom = s;
       const over = document.createElement('div'); over.className = 'ar-over'; over.id = 'ar-tbmodal';
       over.innerHTML = '<div class="ar-sheet" style="max-width:440px"><div class="ar-h" style="text-align:center">⏱ ' + s.name.toUpperCase() + ' USED A TIME BONUS ON YOU</div>' +
-        '<div class="ar-sub" style="text-align:center;margin-bottom:12px">It takes 50% of your remaining time. You have a time bonus too — you can cancel it, and both are spent.</div>' +
+        '<div class="ar-sub" style="text-align:center;margin-bottom:12px">It takes ' + tbPct(share) + ' of your remaining time. You have a time bonus too — you can cancel it, and both are spent.</div>' +
         '<div class="ar-row" style="justify-content:center;gap:12px"><button class="ar-btn big" onclick="AR.counterTime(true)">Cancel it</button><button class="ar-btn ghost" onclick="AR.counterTime(false)">Take the hit</button></div></div>';
       document.body.appendChild(over);
     } else applyHitOnMe(s);
@@ -911,20 +932,22 @@
     else applyHitOnMe(s);
   }
   function applyHitOnMe(s) {
-    const take = Math.max(0, G.clockLeft) * 0.5;
+    const share = tbMine().hit;
+    const take = Math.max(0, G.clockLeft) * share;
     G.clockLeft -= take; snd('bad'); banner('−' + Math.round(take / 1000) + ' s');
-    G.say = '⏱ ' + s.name + ' used a time bonus on you: <b>you lost ' + Math.round(take / 1000) + ' seconds</b>.';
+    G.say = '⏱ ' + s.name + ' used a time bonus on you: <b>you lost ' + Math.round(take / 1000) + ' seconds</b> (' + tbPct(share) + ' of your remaining time).';
     renderGame();
   }
-  // seats earn and use time bonuses too: they use one on themselves when their clock is low, or on the player when the player is not ahead
+  // seats earn and use time bonuses too (level 3 and up): on themselves when their clock is low, or on the player when the player is not ahead
   function seatTimeBonus(s) {
+    if (s.level <= 2) return;                      // at levels 1-2 the bonus is a hint, which Amit does not need
     if (s.turn.fiveDiceCovers > (s.tbSeen || 0)) { s.tbSeen = s.turn.fiveDiceCovers; if (!s.tbHeld && !s.tbRound) { s.tbHeld = true; s.tbRound = true; } }
     if (!s.tbHeld || !isFinite(s.budget) || s.status !== 'playing') return;
     const left = seatRemaining(s) / s.budget;
     if (left < 0.45 || Math.random() < 0.05) {
-      const meRunning = G.turn && G.turn.status === 'rolled' && G.level.clock > 0 && !G.meDone && !G.busy && !document.querySelector('.ar-over');
+      const meRunning = G.turn && G.turn.status === 'rolled' && G.level.clock > 0 && tbMine().hit > 0 && !G.meDone && !G.busy && !document.querySelector('.ar-over');
       if (meRunning && s.total >= G.total && left >= 0.3) hitMe(s);
-      else { s.budget += s.L.clock * 0.5; s.tbHeld = false; }
+      else { s.budget += s.L.clock * E.timeBonus(s.level).self; s.tbHeld = false; }
     }
   }
 
@@ -998,6 +1021,7 @@
     if (sc) {
       if (!G.practice) G.helps--;
       G.hint = { dice: sc.dice, card: sc.card };
+      populateHint(sc.dice, sc.ops);
       G.say = 'You still need a <b>' + t.rules.turnSign + '</b> in these five cards. Try <b>' + sc.expr + '</b> on the <b>' + t.cards[sc.card].v + '</b>.' + bonusTip(t);
       renderGame(); return;
     }
@@ -1007,6 +1031,7 @@
     if (plan.covers.length) {
       const c = plan.covers[0];
       G.hint = { dice: c.dice, card: c.card };
+      populateCover(t, c);
       G.say = describeCover(t, c, true) + (plan.covers.length > 1 ? ' After that, ' + plan.covers.slice(1).map(x => describeCover(t, x, false)).join(' and then ') : '');
     } else if (t.coversThisRoll === 0 && wildLeft) {
       G.hint = null;
@@ -1034,13 +1059,25 @@
     return 'Nothing more to cover here. Rolling ' + k + ' dice has a <b>' + Math.round(o.pBust * 100) + '%</b> chance of a bust. Stopping banks <b>' + o.stopValue + '</b>. ' +
       (o.advice === 'roll' ? 'I would <b>roll again</b>.' : 'I would <b>stop and bank it</b>.');
   }
+  // Help shows HOW: the dice go into the calculation row, in order, with their signs (e.g. 7 − 3 − 3 = 1), and the card lights up (Ryan, 2026-10-17)
+  function populateHint(dice, ops) {
+    sel.clear(); selOp = {}; G.stage = {}; G.stageOp = {};
+    dice.forEach((k, n) => { sel.add(k); if (isOpStage()) selOp[k] = (ops && ops[n]) || '+'; });
+    curOp = '+'; G.helpSel = [...sel].join(',');
+  }
+  function populateCover(t, c) {
+    if (!c || isWild(t.cards[c.card].v)) return;
+    let dice = c.dice, ops = null;
+    if (t.rules.stage && t.rules.stage !== 'addition') { const ex = E.stageExpr(E.diceVals(t), c.dice, c.sum, t.rules); if (ex) { dice = ex.dice; ops = ex.ops; } }
+    populateHint(dice, ops);
+  }
   // a cover that uses the stage's sign, when one exists and the sign is still owed in this set
   function signCover(t) {
     if (!E.needSign(t)) return null;
     const dv = E.diceVals(t);
     const list = E.validCovers(E.cardVals(t), dv, t.rules).filter(c => !c.wild);
     let best = null;
-    list.forEach(c => { const ex = E.stageExpr(dv, c.dice, c.sum, t.rules, t.rules.turnSign); if (ex && (!best || ex.dice.length < best.dice.length || (ex.dice.length === best.dice.length && c.sum > best.sum))) best = { dice: ex.dice, card: c.card, sum: c.sum, expr: ex.expr }; });
+    list.forEach(c => { const ex = E.stageExpr(dv, c.dice, c.sum, t.rules, t.rules.turnSign); if (ex && (!best || ex.dice.length < best.dice.length || (ex.dice.length === best.dice.length && c.sum > best.sum))) best = { dice: ex.dice, ops: ex.ops, card: c.card, sum: c.sum, expr: ex.expr }; });
     return best;
   }
   // a bonus play (every sign in one cover, on a number card), as a sentence to add to a hint
@@ -1061,6 +1098,7 @@
     if (sc) {
       G.say = 'You still need a <b>' + t.rules.turnSign + '</b> in these five cards. Try <b>' + sc.expr + '</b> on the <b>' + t.cards[sc.card].v + '</b>.';
       G.hint = { dice: sc.dice, card: sc.card };
+      populateHint(sc.dice, sc.ops);
       G.say += bonusTip(t);
       renderGame(); return;
     }
@@ -1069,6 +1107,7 @@
     if (plan.covers.length) {
       G.say = 'Here is a good play: ' + describeCover(t, plan.covers[0], true);
       G.hint = { dice: plan.covers[0].dice, card: plan.covers[0].card };
+      populateCover(t, plan.covers[0]);
     } else if (t.coversThisRoll === 0 && wildLeft) {
       G.say = 'Nothing adds up to a card this roll — but you have the ' + WILD_ICO + ' wild! Put dice on it and press Accept to keep going.'; G.hint = null;
     } else { G.say = nextAdvice(t); G.hint = null; }
@@ -1327,7 +1366,7 @@
       d: () => '<span class="ar-tc">8 · DOUBLED</span><span class="ar-tc">5</span><span class="ar-tc">12 · TRIPLED</span><span class="op" style="font-size:18px">16 + 5 + 36 − dice left</span>' },
     { t: 'Fresh starts', x: 'Use up <b>all five dice</b> and a gold <b>✔ Accept &amp; re-roll all 5</b> button pops up next to your cards. Press it and all five dice roll again, keeping your points. Cover <b>all five cards</b> and it says <b>✔ Accept &amp; get 5 new cards</b> — press it for five new cards and a fresh roll. Covering all five cards also <b>banks</b> those points: they are yours for good, and a later bust can only take what you earn after the new cards. Chaining these is how big scores happen.',
       d: () => [1, 2, 3, 4, 5].map(cardStatic).join('') },
-    { t: 'Amit is here to help', x: 'The <b>💡 Help from Amit</b> button shows the best cover for the dice you have, lights up the dice to use, and tells you the chance of a bust before you roll. Beginners get several helps a game. Come back to this page any time, and skip it any time.',
+    { t: 'Amit is here to help', x: 'The <b>💡 Help from Amit</b> button shows the best cover for the dice you have: it puts the dice in the calculation row with their signs, like <b>7 − 3 − 3 = 1</b>, lights up the card, and tells you the chance of a bust before you roll. Beginners get several helps a game. Come back to this page any time, and skip it any time.',
       d: () => '<button class="ar-btn" disabled>💡 Help from Amit</button>' }
   ];
   // Learn is a Multi-Row Tab View (the layout copied into AmitRoll.html from the template). Only Addition is playable today.
@@ -1367,8 +1406,15 @@
   function clockStepText(stage, extra) {
     return 'From level 2 there is a clock, and it is for the <b>whole round</b>: every re-roll and every new set of five cards shares <b>one</b> clock, and it never refills. The higher your level, the <b>less time</b> you get, so an expert and a beginner score about the same — time is the handicap. Level 1 has no clock. Here: ' + clockList(stage) + '. When the clock runs out only the cards you have already covered count, minus the dice you did not use' + (extra || '') + '. Press <b>Complete &amp; bank</b> any time to end your round early.';
   }
+  // "level 3: 85% / 15%, …" from the real table
+  function tbTableText() {
+    let g = [], h = [];
+    for (let l = 3; l <= 8; l++) { const t = E.timeBonus(l); g.push('level ' + l + ': <b>' + Math.round(t.self * 100) + '%</b>'); h.push('level ' + l + ': <b>' + Math.round(t.hit * 100) + '%</b>'); }
+    return { gain: g.join(', '), take: h.join(', ') };
+  }
   function timeBonusStepText() {
-    return 'Use <b>all five dice on one card</b> and you earn a <b>⏱ time bonus</b>: the table says so, and a gold <b>TIME BONUS</b> box appears under the sign keys. It is yours alone — nobody else can see it. You can use it any time a clock is running: on <b>yourself</b> for <b>50% more</b> of the round’s time, or <b>against another player</b> to take <b>50% of their remaining time</b>, which can stop them in their tracks. If someone uses one on you and you hold one too, you can <b>cancel it</b>, and both are spent. You hold one at a time and can earn one a round. A wild card counts as a card, so all five dice on a wild earns it too — your choice. Level 1 has no clock, so it starts to matter at level 2. It also works in practice rounds, so you can try it.';
+    const t = tbTableText();
+    return 'Use <b>all five dice on one card</b> and you earn a <b>⏱ time bonus</b>: the table says so, and a gold <b>TIME BONUS</b> box appears under the sign keys. It is yours alone — nobody else can see it. Use it any time. <b>On yourself</b> it adds a share of your round’s clock that depends on <b>your level</b> — ' + t.gain + ' (the more skilled you are, the smaller the share, because time is worth more to you). <b>Against another player</b> it takes the rest of 100% from <b>their</b> remaining time, so the higher their level the more they lose — ' + t.take + '. <b>Levels 1 and 2</b> do not gain time: using it gives you <b>one extra hint</b> (Help from Amit), and using it on a level 1–2 player takes nothing, so it is not worth it. If someone uses one on you and you hold one too, you can <b>cancel it</b>, and both are spent. You hold one at a time and can earn one a round. A wild card counts as a card, so all five dice on a wild earns it too — your choice. It works in practice rounds too, so you can try it.';
   }
   const TB_DEMO = f => () => [1, 2, 3, 2, 3].map(v => f(v)).join('') + '<span class="op">→</span>' + cardStatic(11) + '<span class="ar-tc" style="color:#f3d681">⏱ TIME BONUS</span>';
   const CLOCK_DEMO = () => '<span class="ar-tc">⏱ 190 s</span><span class="op">→</span><span class="ar-tc">⏱ 60 s</span><span class="op">→</span><span class="ar-tc">⏱ 25 s</span>';
@@ -1525,6 +1571,8 @@
       '<div class="ar-sub" style="margin-bottom:8px">The clock is for the <b>whole round</b> and shrinks as your level rises, so an expert and a beginner score about the same. Level 1 has no clock.</div>' +
       '<table class="ar-table-list"><tr><th>Level</th><th>Experience needed</th><th>Clock per round</th><th>Card numbers</th><th>Helps per game</th><th>Hints</th></tr>' + lvRows + '</table>' +
       timingTableHtml() + '</div>' +
+      '<div class="ar-panel"><div class="ar-h">THE TIME BONUS BY LEVEL</div><div class="ar-sub" style="margin-bottom:8px">Earn it by putting all five dice on one card. Used on yourself you gain your level’s share of your clock; used on a player they lose the rest of 100% of their remaining time. Levels 1 and 2 get an extra hint instead.</div>' +
+      '<table class="ar-table-list"><tr><th>Level</th><th>You gain (your clock)</th><th>A player of this level loses (their remaining time)</th></tr>' + [1, 2, 3, 4, 5, 6, 7, 8].map(l => { const t = E.timeBonus(l); return '<tr' + (l === L.lvl ? ' class="me"' : '') + '><td>' + l + '</td><td>' + (t.hint ? '+1 hint' : '+' + Math.round(t.self * 100) + '%') + '</td><td>' + (t.hint ? '— (nothing to take)' : '−' + Math.round(t.hit * 100) + '%') + '</td></tr>'; }).join('') + '</table></div>' +
       '<div class="ar-row"><button class="ar-btn ghost danger" onclick="AR.resetProgress()">Reset my progress</button></div>';
   }
   function pct(arr, p) { const a = arr.slice().sort((x, y) => x - y); return a.length ? a[Math.floor(p * (a.length - 1))] : 0; }

@@ -541,3 +541,127 @@ Ryan (from his practice round, where he put all five dice on one card with every
 - **Amit seats** earn bonuses too (all five dice on one card), cancel yours 70% of the time if they hold one (both spent), use theirs on themselves when their clock is low, or on you when they are not behind and you are mid-round. When one is used on you and you hold one, a box lets you **cancel it** (both spent) or take the hit; the clock pauses while it is open.
 - **Learn:** a "The time bonus" step in the Addition lesson and in the Subtraction, Multiplication and Division lessons. Engine: `fiveDiceCovers` flag and `timeBonus` result; 66 tests pass.
 **Not done / open:** real players cannot be targeted yet (needs the Rol_ tables); the "lowest stage at the table" rule; whether wilds should earn it (built as Ryan said, yes).
+
+## 2026-10-17 (night, later) — the time bonus now depends on the level (local v1.20, not pushed)
+**Ryan:** the 50% was not fair across levels (50% more time means a lot more to an expert than to a beginner who just does not know how to add yet). Use my scale, and make the attack its mirror: a hit takes 100% minus that level's gain. At levels 1 and 2 the bonus is an extra hint, and there is nothing to take from them.
+| Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| Using it on yourself: gain, as a share of your round's clock | +1 hint | +1 hint | 85% | 70% | 55% | 45% | 40% | 35% |
+| Used on a player of this level: they lose, of their remaining time | nothing | nothing | 15% | 30% | 45% | 55% | 60% | 65% |
+- Built (`E.timeBonus(level)`): the button reads "+35% time for me" or "+1 hint for me" by level; a hit takes the share for the *target's* level (the chooser shows each player's share and leaves out level 1–2 players); Amit seats at level 3 and up follow the same table when they use theirs; when a seat hits you it takes your level's share and you can still cancel it with your own. Learn (all four lessons), the Practice start panel and the Progress page (new table) all state the new rules. Tested: level 5 subtraction gained +55 s (96 → 151); level 2 gave +1 hint (5 → 6); 67 engine tests pass.
+- Not simulated yet: how much these percentages are worth in points (the earlier sims used a flat 50%); they are Ryan's and my first scale to tune.
+
+## 2026-10-17 (night, last) — Rerun with the level-based time bonus and the wilds: how the bonuses play out
+Ryan: rerun the calculations and show how the bonuses (wild, time) work into play, since all five dice cannot go on one card every time. Two measurements, both with Amit and the clocks above. **A** forces the time bonus at the start of a round (with the new level shares) to show what it is worth. **B** plays whole 12-round games with the bonuses off and on, and counts how often Amit actually earns each one. Samples: addition 1,200 rounds per cell (A) / 150 games (B); subtraction 150 / 30; multiplication 70 / 16; division 40 / 10 — the later stages are rough. Amit never hunts the time bonus (he only earns it when his best play happens to use all five dice); he does hunt the all-signs wild at higher skill. Level 1–2 time bonuses are hints, which Amit does not use, so they show no effect here.
+
+#### A. What the time bonus is worth when it is used at the start of a round (Ryan's level-based shares)
+
+**Addition**
+
+| Level | Round clock | Base points / round | On yourself: share of clock → Δ points | Δ as % of base | Used on a player of this level: share of their remaining time → Δ points | Δ as % of base |
+|---|---|---|---|---|---|---|
+| 3 | 120 s | 18.0 | +85% → +4.2 | +23% | −15% → −3.1 | −17% |
+| 4 | 80 s | 16.8 | +70% → +6.0 | +36% | −30% → −3.9 | −23% |
+| 5 | 60 s | 16.7 | +55% → +7.1 | +43% | −45% → −4.7 | −28% |
+| 6 | 45 s | 15.7 | +45% → +11.4 | +72% | −55% → −9.6 | −61% |
+| 7 | 30 s | 16.8 | +40% → +5.8 | +35% | −60% → −15.6 | −93% |
+| 8 | 25 s | 17.8 | +35% → +1.9 | +11% | −65% → −18.5 | −104% |
+
+**Subtraction**
+
+| Level | Round clock | Base points / round | On yourself: share of clock → Δ points | Δ as % of base | Used on a player of this level: share of their remaining time → Δ points | Δ as % of base |
+|---|---|---|---|---|---|---|
+| 3 | 200 s | 11.7 | +85% → +4.6 | +40% | −15% → −3.4 | −29% |
+| 4 | 135 s | 11.8 | +70% → +6.3 | +53% | −30% → −6.4 | −54% |
+| 5 | 100 s | 12.2 | +55% → +7.1 | +58% | −45% → −12.0 | −98% |
+| 6 | 80 s | 12.9 | +45% → +6.1 | +47% | −55% → −6.8 | −53% |
+| 7 | 65 s | 14.9 | +40% → +4.1 | +28% | −60% → −7.5 | −51% |
+| 8 | 55 s | 14.4 | +35% → +4.2 | +29% | −65% → −9.4 | −65% |
+
+**Multiplication**
+
+| Level | Round clock | Base points / round | On yourself: share of clock → Δ points | Δ as % of base | Used on a player of this level: share of their remaining time → Δ points | Δ as % of base |
+|---|---|---|---|---|---|---|
+| 3 | 150 s | 33.1 | +85% → +16.5 | +50% | −15% → −16.4 | −50% |
+| 4 | 90 s | 25.5 | +70% → +25.0 | +98% | −30% → +4.7 | +18% |
+| 5 | 60 s | 28.9 | +55% → +16.8 | +58% | −45% → −18.3 | −63% |
+| 6 | 40 s | 38.4 | +45% → −8.0 | −21% | −55% → −38.4 | −100% |
+| 7 | 30 s | 33.5 | +40% → −2.0 | −6% | −60% → −33.5 | −100% |
+| 8 | 25 s | 28.2 | +35% → +5.7 | +20% | −65% → −28.2 | −100% |
+
+**Division**
+
+| Level | Round clock | Base points / round | On yourself: share of clock → Δ points | Δ as % of base | Used on a player of this level: share of their remaining time → Δ points | Δ as % of base |
+|---|---|---|---|---|---|---|
+| 3 | 195 s | 13.8 | +85% → +19.8 | +143% | −15% → +1.4 | +10% |
+| 4 | 155 s | 22.6 | +70% → +23.2 | +102% | −30% → −15.6 | −69% |
+| 5 | 110 s | 22.0 | +55% → +17.2 | +78% | −45% → −17.2 | −78% |
+| 6 | 90 s | 27.5 | +45% → +3.8 | +14% | −55% → −14.4 | −52% |
+| 7 | 80 s | 42.7 | +40% → +12.5 | +29% | −60% → −29.7 | −70% |
+| 8 | 70 s | 30.7 | +35% → +14.4 | +47% | −65% → −25.1 | −82% |
+
+#### B. How the bonuses play out over whole 12-round games (Amit, bonuses off vs on)
+Amit earns the time bonus only when his normal best play happens to use all five dice on one card, uses it on himself when under 45% of his clock is left, and earns the all-signs wild only when his normal play finds one (more often at higher skill).
+
+**Addition**
+
+| Level | Points / round, bonuses off | Points / round, bonuses on | Difference | Rounds that earn a time bonus | Rounds that earn the all-signs wild | Time bonus used (rounds) | Average seconds added |
+|---|---|---|---|---|---|---|---|
+| 1 | 15.6 | 15.6 | +0.0 | 0% | — | 0% | 0 s |
+| 2 | 16.0 | 16.0 | +0.0 | 0% | — | 0% | 0 s |
+| 3 | 17.6 | 17.9 | +0.3 | 3% | — | 3% | 102 s |
+| 4 | 17.0 | 17.1 | +0.1 | 2% | — | 2% | 56 s |
+| 5 | 16.9 | 17.2 | +0.3 | 4% | — | 4% | 33 s |
+| 6 | 16.4 | 17.3 | +0.8 | 7% | — | 7% | 20 s |
+| 7 | 17.2 | 19.2 | +2.0 | 8% | — | 8% | 12 s |
+| 8 | 18.7 | 21.2 | +2.6 | 11% | — | 11% | 9 s |
+
+**Subtraction**
+
+| Level | Points / round, bonuses off | Points / round, bonuses on | Difference | Rounds that earn a time bonus | Rounds that earn the all-signs wild | Time bonus used (rounds) | Average seconds added |
+|---|---|---|---|---|---|---|---|
+| 1 | 12.4 | 22.8 | +10.4 | 0% | 75% | 0% | 0 s |
+| 2 | 14.1 | 18.1 | +4.1 | 0% | 66% | 0% | 0 s |
+| 3 | 12.9 | 20.5 | +7.6 | 35% | 86% | 35% | 170 s |
+| 4 | 10.8 | 20.0 | +9.2 | 32% | 89% | 32% | 94 s |
+| 5 | 12.6 | 23.3 | +10.7 | 39% | 83% | 39% | 55 s |
+| 6 | 14.6 | 23.0 | +8.3 | 37% | 87% | 37% | 36 s |
+| 7 | 14.7 | 25.8 | +11.1 | 44% | 95% | 44% | 26 s |
+| 8 | 15.2 | 20.1 | +4.9 | 42% | 96% | 41% | 19 s |
+
+**Multiplication**
+
+| Level | Points / round, bonuses off | Points / round, bonuses on | Difference | Rounds that earn a time bonus | Rounds that earn the all-signs wild | Time bonus used (rounds) | Average seconds added |
+|---|---|---|---|---|---|---|---|
+| 1 | 32.8 | 51.6 | +18.8 | 0% | 48% | 0% | 0 s |
+| 2 | 32.2 | 35.4 | +3.2 | 0% | 55% | 0% | 0 s |
+| 3 | 30.4 | 44.0 | +13.6 | 54% | 54% | 53% | 128 s |
+| 4 | 21.3 | 35.5 | +14.2 | 52% | 76% | 52% | 63 s |
+| 5 | 27.0 | 47.7 | +20.7 | 58% | 78% | 58% | 33 s |
+| 6 | 33.2 | 23.8 | −9.4 | 46% | 68% | 46% | 18 s |
+| 7 | 34.9 | 24.8 | −10.1 | 39% | 65% | 39% | 12 s |
+| 8 | 29.3 | 19.2 | −10.1 | 33% | 46% | 33% | 9 s |
+
+**Division**
+
+| Level | Points / round, bonuses off | Points / round, bonuses on | Difference | Rounds that earn a time bonus | Rounds that earn the all-signs wild | Time bonus used (rounds) | Average seconds added |
+|---|---|---|---|---|---|---|---|
+| 1 | 21.8 | 28.1 | +6.2 | 0% | 10% | 0% | 0 s |
+| 2 | 22.2 | 22.8 | +0.7 | 0% | 24% | 0% | 0 s |
+| 3 | 19.5 | 37.5 | +18.0 | 64% | 23% | 64% | 166 s |
+| 4 | 19.4 | 42.2 | +22.8 | 68% | 39% | 68% | 108 s |
+| 5 | 24.0 | 37.1 | +13.1 | 70% | 58% | 70% | 61 s |
+| 6 | 27.4 | 35.4 | +8.0 | 87% | 74% | 87% | 41 s |
+| 7 | 31.9 | 50.2 | +18.3 | 86% | 73% | 86% | 32 s |
+| 8 | 36.7 | 51.0 | +14.3 | 85% | 65% | 85% | 25 s |
+
+**What it shows**
+- **Addition:** all five dice on one card is rare (a first roll can do it 1% of the time at level 1, 3% at level 4, 12% at level 8), and Amit earns the time bonus in only 2–11% of rounds from level 3; the effect is small (+0.1 to +2.6 points per round). There is no all-signs bonus in addition.
+- **Later stages:** the five-dice cover is common (a first roll can do it 83–100% of the time), and Amit earns the time bonus in 30–87% of rounds (division 64–87%), plus the all-signs wild in 46–96% of rounds (subtraction 66–96%, because a cover that uses a minus after a plus already earns it). With the bonuses on he scores +4 to +23 points more per round (about +30% to +120%); the exception is multiplication levels 6–8 (about −10) where the tight clocks and the extra wild take time and a number card's place.
+- **The level shares:** used on yourself the gain is worth +11% to +72% of base points in addition (more for levels 4–6, little at level 8 where +35% is only 9 seconds); used on a player it costs 17% (level 3) up to the whole round at levels 7–8, so a hit on an expert stops them and a hit on a level 3 barely matters.
+- **So:** in addition the bonuses are occasional treats; in the later stages they are close to routine unless earning is made harder.
+
+## 2026-10-17 (night, last) — wild frequency, hints show the combination, all-signs bonus decision (local v1.21, not pushed)
+- **Wild frequency:** it was set to 4% **per card**, which is about 18.5% of sets of five cards (a wild in roughly one set in five or six), so Ryan saw one in both his test runs. Now 0.6% per card = **about 3% of sets** (measured 2.95% over 200,000 deals), within the 2–4% Ryan wanted. The earned bonus wild is separate and unchanged. (The clock calibration and bonus simulations above used the old 4% per card; they should shift a little with far fewer wilds.)
+- **Hints show how:** Help from Amit (and the walk-through) now put the suggested dice into the calculation row, in order, with their signs and "= value" (for example 7 − 3 − 3 = 1), and light the card, instead of only blinking dice. Works in every stage and also at levels without running totals. Tested in addition, subtraction and division.
+- **All-signs bonus: Ryan's decision — keep it as it is, including the easy subtraction version.** He considered removing it for addition and subtraction, then decided against it: at a mixed table the lower-stage players (who all play the lowest stage present) should be able to earn it more often, so they are not left behind by an expert who plays at a higher level. Addition has none because it has only one sign.

@@ -56,7 +56,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const DEFAULT_RULES = { diceCount: 5, cardCount: 5, sweepBanks: false, cardSweepBanks: true, wildPoints: 0, wildChance: 0.04,
+  const DEFAULT_RULES = { diceCount: 5, cardCount: 5, sweepBanks: false, cardSweepBanks: true, wildPoints: 0, wildChance: 0.006,
     stage: 'addition', faces: 6, ops: ['+'], required: null, turnSign: null, noNegatives: false, allowNegStart: false };
 
   // AMIT AS A PLAYER (Ryan, 2026-10-16): Amit always plays at the LOWEST level of the people at the table and is held to the
@@ -109,7 +109,8 @@
   }
   function rollDie(rng, faces) { return 1 + Math.floor(rng() * (faces || 6)); }
   function rollDice(rng, n, faces) { const a = []; for (let i = 0; i < n; i++) a.push(rollDie(rng, faces)); return a; }
-  // wildChance > 0: each card may instead be a wild ('W').
+  // wildChance > 0: each card may instead be a wild ('W'). It is PER CARD: 0.006 per card is about 3% of sets of five cards (it was 0.04 per card, which is about 18% of
+  // sets; Ryan, 2026-10-17: a wild should come up on its own only 2-4% of the time).
   function dealCards(rng, n, cardMin, cardMax, wildChance) {
     const a = [];
     for (let i = 0; i < n; i++) {
@@ -151,6 +152,15 @@
     multiplication: [0, 280, 150, 90, 60, 40, 30, 25],
     division:       [0, 330, 195, 155, 110, 90, 80, 70]
   };
+  // THE TIME BONUS BY LEVEL (Ryan, 2026-10-17). Used on yourself it adds this share of your round's clock; used on a player it takes the rest of 100%
+  // from THEIR remaining time, so an expert (who gains little) loses a lot and a beginner loses nothing. Levels 1 and 2 get an extra hint instead
+  // and cannot be hit (nothing to take). Index = level (1-based).
+  const TIME_BONUS_SELF = [0, 0, 0, 0.85, 0.70, 0.55, 0.45, 0.40, 0.35];
+  function timeBonus(level) {
+    const l = Math.max(1, Math.min(8, level | 0));
+    if (l <= 2) return { hint: true, self: 0, hit: 0 };
+    return { hint: false, self: TIME_BONUS_SELF[l], hit: Math.round((1 - TIME_BONUS_SELF[l]) * 100) / 100 };
+  }
   function levelsFor(stage) {
     const tops = STAGE_TOPS[stage] || STAGE_TOPS.addition, pace = STAGE_PACE[stage] || 1;
     return LEVELS.map((L, i) => Object.assign({}, L, {
@@ -757,7 +767,7 @@
   }
 
   return {
-    DEFAULT_RULES, STAGES, STAGE_ORDER, STAGE_TOPS, STAGE_PACE, STAGE_CLOCKS, NEG_FROM_LEVEL, levelsFor, rulesFor, evalItems, exprString, stageSets, stageExpr, isBonus, stageBonusExpr, placeXp, botNext, botPlan, botApply, amitCost, amitTurn, LEVELS, levelFor,
+    DEFAULT_RULES, STAGES, STAGE_ORDER, STAGE_TOPS, STAGE_PACE, STAGE_CLOCKS, timeBonus, NEG_FROM_LEVEL, levelsFor, rulesFor, evalItems, exprString, stageSets, stageExpr, isBonus, stageBonusExpr, placeXp, botNext, botPlan, botApply, amitCost, amitTurn, LEVELS, levelFor,
     mulberry32, rollDie, rollDice, dealCards,
     multiplier, bestPlan, validCovers,
     newTurn, tryCover, uncover, multWord, timeoutStop, canStop, canRoll, needSign, mustCover, stop, roll, bust,

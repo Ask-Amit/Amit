@@ -797,3 +797,12 @@ t('all five dice on one card is flagged (a time bonus), wild included, and takin
   const four = E.newTurn([14, 40, 41, 42, 43], [8, 5, 2, 1, 1], r);
   assert.ok(!E.tryCover(four, [0, 1, 2, 3], 0, ['+', '+', '−', '+']).timeBonus);           // four dice do not
 });
+
+t('the time bonus depends on the level: gain + loss = 100% from level 3, hints at levels 1-2, nothing to take from them', () => {
+  assert.deepStrictEqual(E.timeBonus(1), { hint: true, self: 0, hit: 0 });
+  assert.deepStrictEqual(E.timeBonus(2), { hint: true, self: 0, hit: 0 });
+  assert.strictEqual(E.timeBonus(8).self, 0.35); assert.strictEqual(E.timeBonus(8).hit, 0.65);
+  assert.strictEqual(E.timeBonus(7).self, 0.4); assert.strictEqual(E.timeBonus(7).hit, 0.6);
+  for (let l = 3; l <= 8; l++) { const t = E.timeBonus(l); assert.ok(Math.abs(t.self + t.hit - 1) < 1e-9, 'level ' + l); }
+  assert.ok(E.timeBonus(3).self > E.timeBonus(8).self);        // beginners gain the bigger share
+});
