@@ -71,19 +71,19 @@
   // complexity. The other stages have their own tops (STAGE_TOPS below).
   // EXPERIENCE (xp) is earned by finishing a table game in a good place (see placeXp); the level thresholds are a first guess meant to need
   // about 4 wins at a four-player Amit table for level 2.
-  // Level table. EVERYTHING here is a first guess to be tuned by real play (Ryan: "we'll have to fine-tune that"). clock = seconds per
+  // Level table. EVERYTHING here is a first guess to be tuned by real play (Ryan: "we'll have to fine-tune that"). clock = seconds for the WHOLE ROUND (one clock, not refilled by re-rolls or new sets; Ryan, 2026-10-17), was: per
   // roll, 0 = unlimited. xp = total experience needed to be this level. assist = the screen shows running totals and matching-card glows
   // (hints for the early rounds, dragging with no hints as players get better). selfScore = Amit stops keeping score; the player adds up
   // their own turn. These numbers are the ADDITION stage's; levelsFor(stage) gives the other stages' versions.
   const LEVELS = [
     { lvl: 1, xp: 0,   clock: 0,   cardMin: 1, cardMax: 9,  helps: 5, assist: true, selfScore: false, amitSecs: 30, amitSkill: 0.3 },
-    { lvl: 2, xp: 4,  clock: 120, cardMin: 1, cardMax: 10, helps: 5, assist: true, selfScore: false, amitSecs: 25, amitSkill: 0.42 },
-    { lvl: 3, xp: 10, clock: 90,  cardMin: 1, cardMax: 11, helps: 4, assist: true, selfScore: false, amitSecs: 20, amitSkill: 0.54 },
-    { lvl: 4, xp: 18, clock: 70,  cardMin: 1, cardMax: 12, helps: 3, assist: false, selfScore: true, amitSecs: 16, amitSkill: 0.66 },
-    { lvl: 5, xp: 30, clock: 55,  cardMin: 1, cardMax: 13, helps: 2, assist: false, selfScore: true, amitSecs: 13, amitSkill: 0.77 },
+    { lvl: 2, xp: 4,  clock: 190, cardMin: 1, cardMax: 10, helps: 5, assist: true, selfScore: false, amitSecs: 25, amitSkill: 0.42 },
+    { lvl: 3, xp: 10, clock: 120, cardMin: 1, cardMax: 11, helps: 4, assist: true, selfScore: false, amitSecs: 20, amitSkill: 0.54 },
+    { lvl: 4, xp: 18, clock: 80,  cardMin: 1, cardMax: 12, helps: 3, assist: false, selfScore: true, amitSecs: 16, amitSkill: 0.66 },
+    { lvl: 5, xp: 30, clock: 60,  cardMin: 1, cardMax: 13, helps: 2, assist: false, selfScore: true, amitSecs: 13, amitSkill: 0.77 },
     { lvl: 6, xp: 45, clock: 45,  cardMin: 2, cardMax: 14, helps: 1, assist: false, selfScore: true, amitSecs: 11, amitSkill: 0.86 },
-    { lvl: 7, xp: 65, clock: 36,  cardMin: 2, cardMax: 15, helps: 1, assist: false, selfScore: true, amitSecs: 9, amitSkill: 0.93 },
-    { lvl: 8, xp: 90, clock: 30,  cardMin: 2, cardMax: 16, helps: 0, assist: false, selfScore: true, amitSecs: 8, amitSkill: 0.98 }
+    { lvl: 7, xp: 65, clock: 30,  cardMin: 2, cardMax: 15, helps: 1, assist: false, selfScore: true, amitSecs: 9, amitSkill: 0.93 },
+    { lvl: 8, xp: 90, clock: 25,  cardMin: 2, cardMax: 16, helps: 0, assist: false, selfScore: true, amitSecs: 8, amitSkill: 0.98 }
   ];
 
   // EXPERIENCE FOR A FINISH (Ryan, 2026-10-16): first place earns one point for every opponent beaten (2 players: 1, 8 players: 7);
@@ -143,11 +143,19 @@
   };
   // later stages take longer per cover, so their clocks and Amit's pace are stretched by these factors
   const STAGE_PACE = { addition: 1, subtraction: 1.3, multiplication: 1.6, division: 1.8 };
+  // ROUND CLOCKS (seconds for the whole round; level 1 has none), solved 2026-10-17 so that Amit scores about the same points per round at every level of a stage
+  // (the level-1, no-clock score is the target). Tops and pace differ by stage, so each stage has its own row. Level 1 = no clock.
+  const STAGE_CLOCKS = {
+    addition:       [0, 190, 120, 80, 60, 45, 30, 25],
+    subtraction:    [0, 290, 200, 135, 100, 80, 65, 55],
+    multiplication: [0, 280, 150, 90, 60, 40, 30, 25],
+    division:       [0, 330, 195, 155, 110, 90, 80, 70]
+  };
   function levelsFor(stage) {
     const tops = STAGE_TOPS[stage] || STAGE_TOPS.addition, pace = STAGE_PACE[stage] || 1;
     return LEVELS.map((L, i) => Object.assign({}, L, {
       cardMax: tops[i],
-      clock: L.clock ? Math.round(L.clock * pace / 5) * 5 : 0,
+      clock: STAGE_CLOCKS[stage] ? STAGE_CLOCKS[stage][i] : (L.clock ? Math.round(L.clock * pace / 5) * 5 : 0),
       amitSecs: Math.round(L.amitSecs * pace * 10) / 10
     }));
   }
@@ -726,12 +734,13 @@
   }
   // A whole turn for Amit at a level, held to that level's clock (virtual seconds). Used by the tests and for tuning; the table plays the same
   // decisions step by step on screen.
-  function amitTurn(level, rng, cards, dealFn, rules) {
+  // clockScale (optional) multiplies the round clock: 1.5 = a time bonus used on himself, 0.5 = a time bonus used against him at the start.
+  function amitTurn(level, rng, cards, dealFn, rules, clockScale) {
     const stage = (rules && rules.stage) || 'addition';
     const L = levelsFor(stage)[Math.max(0, Math.min(LEVELS.length - 1, level - 1))];
     const opts = { rng, skill: L.amitSkill, dealFn };
     const st = newTurn(cards, rollDice(rng, 5, (rules && rules.faces) || 6), rules);
-    const budget = L.clock || Infinity;
+    const budget = (L.clock || Infinity) * (clockScale || 1);
     let elapsed = 0, timedOut = false, guard = 0;
     while (st.status === 'rolled' && guard++ < 300) {
       const a = botPlan(st, opts);
@@ -740,13 +749,12 @@
       if (elapsed + cost > budget) { timeoutStop(st); timedOut = true; break; }
       botApply(st, a, opts);
       elapsed += cost;
-      if (a.type === 'roll') elapsed = 0;     // a new roll gets a fresh clock
     }
-    return { score: st.score, status: st.status, timedOut, rolls: st.rolls.length };
+    return { score: st.score, status: st.status, timedOut, rolls: st.rolls.length, secs: elapsed, sets: st.setNo, covers: st.scorecard.filter(c => !c.wild && !c.forfeited).length };
   }
 
   return {
-    DEFAULT_RULES, STAGES, STAGE_ORDER, STAGE_TOPS, STAGE_PACE, NEG_FROM_LEVEL, levelsFor, rulesFor, evalItems, exprString, stageSets, stageExpr, isBonus, stageBonusExpr, placeXp, botNext, botPlan, botApply, amitCost, amitTurn, LEVELS, levelFor,
+    DEFAULT_RULES, STAGES, STAGE_ORDER, STAGE_TOPS, STAGE_PACE, STAGE_CLOCKS, NEG_FROM_LEVEL, levelsFor, rulesFor, evalItems, exprString, stageSets, stageExpr, isBonus, stageBonusExpr, placeXp, botNext, botPlan, botApply, amitCost, amitTurn, LEVELS, levelFor,
     mulberry32, rollDie, rollDice, dealCards,
     multiplier, bestPlan, validCovers,
     newTurn, tryCover, uncover, multWord, timeoutStop, canStop, canRoll, needSign, mustCover, stop, roll, bust,

@@ -388,3 +388,146 @@ Ryan: the calculation row should sit right under the remaining dice and above "Y
 
 ## 2026-10-17 (later still) — calculation row above the dice (local v1.15, not pushed)
 Ryan reversed the last placement: the calculation row sits **above the dice and below the cards**, so the player always sees what is being used in the calculation. Order now: cards, calculation (picked dice with signs), remaining dice, covered-cards tray. Only the order changed.
+
+## 2026-10-17 (night) — the clock is per ROUND (local v1.16, not pushed)
+Ryan corrected my reading of the timer: it is **one clock for the whole round**, however many throws of the dice or sets of five cards fit in it. An expert at 30 s may finish one set or less, which is what evens the field against a novice with no clock. I had built it per throw (refilled on every re-roll) because I read "roll" as a throw of the dice.
+- Built: the clock is filled once when the round begins and only runs down (paused while dice tumble); re-rolls and new sets no longer refill it. Amit's seats and the engine's `amitTurn` are held to the same whole-round budget. The clock numbers are unchanged but now mean the whole round: L2 120 s, L3 90, L4 70, L5 55, L6 45, L7 36, L8 30; L1 none. Text updated (start panel, level-up message, Progress table). Tested: a 120 s clock read 118, 109, 108 and still 108 after a re-roll (no refill).
+- **Effect measured (Amit):** with the old numbers as round totals the clock runs out in 32–54% of Amit's turns from level 2 up, and average points per turn fall to about 12–19 (before: 17–37). At 500 points that is roughly 30 rounds per game, so the default target or the clocks will need tuning.
+- Next: the time bonus (earn by all five dice on one card; +50% of the allowance for yourself or −50% of someone's remaining time) is now much stronger; its open questions are with Ryan.
+
+## 2026-10-17 (night) — The chart and calculations redone for the per-round clock, with the bonus columns
+Ryan: redo the calculations with the clock now whole-round, and add columns that show what the bonuses add or take away. **How these were made:** Amit (the engine's bot, same decisions and costs as the table) played whole rounds at every level and stage, with the same dice and cards in every scenario. Columns: **base** = the round as it now works; **time bonus on yourself** = the clock ×1.5 (+50% of the allowance); **time bonus used on you** = the clock ×0.5 (−50%, used at the start of the round); **all-signs bonus wild** = one of the first five cards is a wild. Samples: addition 1,500 rounds per cell, subtraction 200, multiplication 90, division 60, so the later stages are rough (a difference of a few points can be noise). Amit's pace ("assumed s per cover") is a guess, not measured from people. The first-roll odds tables and the card-top tables did not change (they do not depend on the clock).
+**Before, for comparison (old per-throw clock, addition, points per round):** L1 16.7, L2 20.1, L3 24.6, L4 23.7, L5 29.7, L6 35.0, L7 35.1, L8 37.4; the clock ran out in 0–6% of rounds. **Now:** see the first table (L8: 17.4 points, clock runs out in about half of rounds).
+
+### Addition
+
+| Level | Round clock | Assumed s per cover | Covers that fit | Amit: covers / round | Amit: sets of 5 cards | Points / round | Clock ran out | Bust | Rounds to 500 | Minutes per 500-pt game | Time bonus on yourself: + seconds | Δ points / round | Time bonus used on you: − seconds | Δ points / round | All-signs bonus wild: Δ points / round | Δ bust |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | none | 30 | — | 3.1 | 1.1 | 15.2 | 0% | 17% | 33 | 70.4 | — | — | — | — | — | — |
+| 2 | 120 s | 25 | 4.8 | 2.5 | 1.0 | 12.2 | 29% | 11% | 41 | 60.1 | +60 s | +3.3 | −60 s | −7.5 | — | — |
+| 3 | 90 s | 20 | 4.5 | 2.3 | 1.0 | 12.9 | 37% | 8% | 39 | 43.9 | +45 s | +5.1 | −45 s | −8.2 | — | — |
+| 4 | 70 s | 16 | 4.4 | 2.2 | 1.0 | 13.8 | 41% | 8% | 36 | 31.6 | +35 s | +7.0 | −35 s | −7.8 | — | — |
+| 5 | 55 s | 13 | 4.2 | 2.1 | 1.0 | 14.9 | 45% | 6% | 34 | 23.2 | +28 s | +9.4 | −28 s | −8.1 | — | — |
+| 6 | 45 s | 11 | 4.1 | 2.0 | 1.0 | 16.1 | 51% | 5% | 31 | 17.4 | +23 s | +11.6 | −23 s | −7.2 | — | — |
+| 7 | 35 s | 9 | 3.9 | 1.8 | 1.0 | 17.0 | 53% | 4% | 29 | 12.9 | +18 s | +12.8 | −18 s | −7.3 | — | — |
+| 8 | 30 s | 8 | 3.8 | 1.7 | 1.0 | 17.4 | 51% | 3% | 29 | 10.7 | +15 s | +13.2 | −15 s | −6.9 | — | — |
+
+### Subtraction (this stage's clocks and Amit pace include its stretch factor)
+
+| Level | Round clock | Assumed s per cover | Covers that fit | Amit: covers / round | Amit: sets of 5 cards | Points / round | Clock ran out | Bust | Rounds to 500 | Minutes per 500-pt game | Time bonus on yourself: + seconds | Δ points / round | Time bonus used on you: − seconds | Δ points / round | All-signs bonus wild: Δ points / round | Δ bust |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | none | 39 | — | 2.8 | 1.2 | 13.0 | 0% | 29% | 39 | 127.5 | — | — | — | — | +9.5 | −12 pts |
+| 2 | 155 s | 32.5 | 4.8 | 1.9 | 1.0 | 2.6 | 52% | 25% | 190 | 342.9 | +78 s | +5.7 | −78 s | −3.8 | −3.6 | −19 pts |
+| 3 | 115 s | 26 | 4.4 | 1.6 | 1.0 | 2.9 | 48% | 20% | 172 | 219.1 | +58 s | +7.4 | −58 s | −1.5 | −4.8 | −19 pts |
+| 4 | 90 s | 20.8 | 4.3 | 1.5 | 1.0 | 1.4 | 51% | 11% | 350 | 344.7 | +45 s | +9.4 | −45 s | +0.5 | −7.4 | −11 pts |
+| 5 | 70 s | 16.9 | 4.1 | 1.4 | 1.0 | 2.9 | 52% | 12% | 173 | 134.0 | +35 s | +10.0 | −35 s | +0.8 | −7.6 | −12 pts |
+| 6 | 60 s | 14.3 | 4.2 | 1.4 | 1.0 | 4.5 | 49% | 8% | 112 | 73.6 | +30 s | +9.2 | −30 s | +0.8 | −8.4 | −5 pts |
+| 7 | 45 s | 11.7 | 3.8 | 1.2 | 1.0 | 1.5 | 54% | 5% | 337 | 166.3 | +23 s | +11.9 | −23 s | +3.3 | −9.0 | −5 pts |
+| 8 | 40 s | 10.4 | 3.8 | 1.2 | 1.0 | 3.6 | 49% | 9% | 138 | 61.5 | +20 s | +11.0 | −20 s | +3.2 | −9.5 | −6 pts |
+
+### Multiplication (this stage's clocks and Amit pace include its stretch factor)
+
+| Level | Round clock | Assumed s per cover | Covers that fit | Amit: covers / round | Amit: sets of 5 cards | Points / round | Clock ran out | Bust | Rounds to 500 | Minutes per 500-pt game | Time bonus on yourself: + seconds | Δ points / round | Time bonus used on you: − seconds | Δ points / round | All-signs bonus wild: Δ points / round | Δ bust |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | none | 48 | — | 2.9 | 1.2 | 40.9 | 0% | 18% | 12 | 58.8 | — | — | — | — | +19.3 | −9 pts |
+| 2 | 190 s | 40 | 4.8 | 1.6 | 1.0 | 24.4 | 44% | 11% | 20 | 45.7 | +95 s | +5.7 | −95 s | −11.5 | −2.3 | −10 pts |
+| 3 | 145 s | 32 | 4.5 | 1.5 | 1.0 | 32.2 | 59% | 6% | 16 | 26.7 | +73 s | +11.1 | −73 s | −11.9 | +0.6 | −4 pts |
+| 4 | 110 s | 25.6 | 4.3 | 1.4 | 1.0 | 33.4 | 64% | 6% | 15 | 19.6 | +55 s | +16.6 | −55 s | −14.2 | −4.4 | −3 pts |
+| 5 | 90 s | 20.8 | 4.3 | 1.4 | 1.0 | 43.8 | 60% | 4% | 11 | 11.7 | +45 s | +18.3 | −45 s | −12.2 | −8.1 | −3 pts |
+| 6 | 70 s | 17.6 | 4.0 | 1.2 | 1.0 | 39.0 | 66% | 3% | 13 | 9.9 | +35 s | +25.3 | −35 s | −12.6 | −8.1 | −1 pts |
+| 7 | 60 s | 14.4 | 4.2 | 1.4 | 1.0 | 46.9 | 70% | 4% | 11 | 7.7 | +30 s | +23.4 | −30 s | −14.5 | −8.2 | −2 pts |
+| 8 | 50 s | 12.8 | 3.9 | 1.1 | 1.0 | 39.8 | 69% | 6% | 13 | 7.0 | +25 s | +33.6 | −25 s | −15.0 | −7.6 | −2 pts |
+
+### Division (this stage's clocks and Amit pace include its stretch factor)
+
+| Level | Round clock | Assumed s per cover | Covers that fit | Amit: covers / round | Amit: sets of 5 cards | Points / round | Clock ran out | Bust | Rounds to 500 | Minutes per 500-pt game | Time bonus on yourself: + seconds | Δ points / round | Time bonus used on you: − seconds | Δ points / round | All-signs bonus wild: Δ points / round | Δ bust |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | none | 54 | — | 3.1 | 1.3 | 34.8 | 0% | 13% | 14 | 81.0 | — | — | — | — | +12.5 | −3 pts |
+| 2 | 215 s | 45 | 4.8 | 1.9 | 1.0 | 12.3 | 63% | 10% | 41 | 111.7 | +108 s | +8.8 | −108 s | −8.3 | −0.8 | −8 pts |
+| 3 | 160 s | 36 | 4.4 | 1.7 | 1.0 | 14.5 | 73% | 5% | 35 | 69.9 | +80 s | +13.1 | −80 s | −8.2 | −3.6 | −5 pts |
+| 4 | 125 s | 28.8 | 4.3 | 1.5 | 1.0 | 13.1 | 73% | 3% | 38 | 59.5 | +63 s | +12.5 | −63 s | −6.0 | −3.3 | −3 pts |
+| 5 | 100 s | 23.4 | 4.3 | 1.4 | 1.0 | 13.1 | 78% | 0% | 38 | 44.9 | +50 s | +17.8 | −50 s | −3.8 | −4.2 | +0 pts |
+| 6 | 80 s | 19.8 | 4.0 | 1.3 | 1.0 | 14.0 | 87% | 3% | 36 | 33.9 | +40 s | +15.1 | −40 s | −2.1 | −1.7 | −2 pts |
+| 7 | 65 s | 16.2 | 4.0 | 1.4 | 1.0 | 18.6 | 83% | 0% | 27 | 21.1 | +33 s | +15.0 | −33 s | −6.7 | −7.5 | +0 pts |
+| 8 | 55 s | 14.4 | 3.8 | 1.1 | 1.0 | 9.6 | 87% | 5% | 52 | 31.8 | +28 s | +27.0 | −28 s | +3.8 | −2.4 | −2 pts |
+
+**What the tables show**
+- **Sets per round is about 1.0 from level 2 up:** at these clocks Amit almost never finishes even one full set of five cards before the clock runs out or he banks. A set needs five covers, and the clock only fits about four covers at his assumed pace (clock ÷ assumed seconds ≈ 4 by construction). Ryan's picture (an expert at 30 s gets a few sets; at 15 s about one) needs a pace of roughly 3 seconds per cover, not the 8 s assumed at level 8. Either the clocks should roughly double or triple, or the assumed pace is wrong; real timing from people is needed.
+- **Games are long:** a 500-point game is 29–41 rounds in addition and often 100+ in subtraction, because points per round fell (addition L8: 37 → 17) and because the once-per-five-cards sign rule wipes a set when the clock runs out before the sign is used (most of the later-stage rounds score 0–5). Lower the default target or lengthen the clocks.
+- **Time bonus value (addition, solid numbers):** +50% on yourself is worth +3 points per round at level 2 up to +13 at level 8 (+27% to +76%); used on you at the start it costs about 7–8 points per round at every level (−40% to −60%). Self-use is worth more than the attack at high levels (more time buys a second batch of covers; losing half the time costs less than that), so as designed the attack is the weaker use unless it is made bigger or lands early.
+- **All-signs bonus wild (later stages):** for Amit, a guaranteed wild lowers busts (about 2–19 points of bust rate) but does not raise points; in these runs points per round fell 1–9 because the wild takes a number card's place and Amit only uses it when stuck. Its value is insurance and the all-dice-on-the-wild reroll, not points.
+- Engine support added for this: `amitTurn(..., clockScale)` and it now also returns sets, covers and seconds. Local v1.16.
+
+## 2026-10-17 (night, later) — Clocks recalibrated so every level scores about the same (local v1.17, not pushed)
+**Ryan's goal:** an expert (level 8) and a mid-level player (level 4–5) should be equally competitive: the clocks shrink with level so higher skill does not turn into a runaway score. Ryan also pointed out the table rule that goes with it: **at a mixed table everyone plays the lowest stage present** (the expert plays subtraction if someone at the table is on subtraction), because multiplication and division carry bigger numbers; so equality only has to hold *within a stage*. That table rule is **not built yet** (today the Amit seats just play the stage the host picks).
+**Method:** for every stage and level 2–8, Amit played whole rounds at eight clock sizes (0.1× to 4× the old clock), same dice and cards each time; the clock was solved so his points per round equal what the same stage gives at **level 1 with no clock** (the target). Clocks rounded to 5 s, kept shrinking as the level rises. Stored per stage in the engine (`STAGE_CLOCKS`).
+**New round clocks (seconds):**
+
+| Stage | L1 | L2 | L3 | L4 | L5 | L6 | L7 | L8 |
+|---|---|---|---|---|---|---|---|---|
+| Addition | none | 190 | 120 | 80 | 60 | 45 | 30 | 25 |
+| Subtraction | none | 290 | 200 | 135 | 100 | 80 | 65 | 55 |
+| Multiplication | none | 280 | 150 | 90 | 60 | 40 | 30 | 25 |
+| Division | none | 330 | 195 | 155 | 110 | 90 | 80 | 70 |
+
+(Before: addition 120, 90, 70, 55, 45, 36, 30 for L2–L8; the later stages were the addition clocks stretched by 1.3 / 1.6 / 1.8.)
+**Verification run at the new clocks (same method as above; samples: addition 1,500 rounds per cell, subtraction 200, multiplication 90, division 60):**
+
+### Addition
+
+| Level | Round clock | Assumed s per cover | Covers that fit | Amit: covers / round | Amit: sets of 5 cards | Points / round | Clock ran out | Bust | Rounds to 500 | Minutes per 500-pt game | Time bonus on yourself: + seconds | Δ points / round | Time bonus used on you: − seconds | Δ points / round | All-signs bonus wild: Δ points / round | Δ bust |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | none | 30 | — | 3.1 | 1.1 | 15.2 | 0% | 17% | 33 | 70.4 | — | — | — | — | — | — |
+| 2 | 190 s | 25 | 7.6 | 2.8 | 1.1 | 15.9 | 12% | 12% | 31 | 53.9 | +95 s | +2.8 | −95 s | −5.3 | — | — |
+| 3 | 120 s | 20 | 6.0 | 2.7 | 1.0 | 17.7 | 19% | 9% | 28 | 37.0 | +60 s | +2.5 | −60 s | −6.7 | — | — |
+| 4 | 80 s | 16 | 5.0 | 2.4 | 1.0 | 16.7 | 35% | 9% | 30 | 28.3 | +40 s | +4.4 | −40 s | −6.9 | — | — |
+| 5 | 60 s | 13 | 4.6 | 2.2 | 1.0 | 17.1 | 42% | 7% | 29 | 21.3 | +30 s | +7.2 | −30 s | −8.2 | — | — |
+| 6 | 45 s | 11 | 4.1 | 2.0 | 1.0 | 16.1 | 51% | 5% | 31 | 17.4 | +23 s | +11.6 | −23 s | −7.2 | — | — |
+| 7 | 30 s | 9 | 3.3 | 1.7 | 1.0 | 16.8 | 58% | 4% | 30 | 12.0 | +15 s | +8.6 | −15 s | −11.1 | — | — |
+| 8 | 25 s | 8 | 3.1 | 1.6 | 1.0 | 18.2 | 58% | 3% | 28 | 9.3 | +13 s | +5.9 | −13 s | −12.8 | — | — |
+
+### Subtraction (this stage's clocks and Amit pace include its stretch factor)
+
+| Level | Round clock | Assumed s per cover | Covers that fit | Amit: covers / round | Amit: sets of 5 cards | Points / round | Clock ran out | Bust | Rounds to 500 | Minutes per 500-pt game | Time bonus on yourself: + seconds | Δ points / round | Time bonus used on you: − seconds | Δ points / round | All-signs bonus wild: Δ points / round | Δ bust |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | none | 39 | — | 2.8 | 1.2 | 13.0 | 0% | 29% | 39 | 127.5 | — | — | — | — | +9.5 | −12 pts |
+| 2 | 290 s | 32.5 | 8.9 | 2.5 | 1.1 | 12.8 | 17% | 28% | 39 | 98.0 | +145 s | +1.6 | −145 s | −13.9 | +5.8 | −13 pts |
+| 3 | 200 s | 26 | 7.7 | 2.1 | 1.0 | 13.1 | 13% | 22% | 38 | 67.8 | +100 s | +1.6 | −100 s | −15.0 | +7.0 | −15 pts |
+| 4 | 135 s | 20.8 | 6.5 | 2.0 | 1.0 | 10.8 | 26% | 12% | 46 | 63.7 | +68 s | +7.1 | −68 s | −10.5 | +2.7 | −7 pts |
+| 5 | 100 s | 16.9 | 5.9 | 1.9 | 1.0 | 13.0 | 32% | 13% | 39 | 41.0 | +50 s | +6.9 | −50 s | −11.5 | +2.0 | −11 pts |
+| 6 | 80 s | 14.3 | 5.6 | 1.8 | 1.0 | 13.6 | 32% | 10% | 37 | 32.1 | +40 s | +5.8 | −40 s | −10.0 | +1.1 | −4 pts |
+| 7 | 65 s | 11.7 | 5.6 | 1.7 | 1.0 | 13.6 | 28% | 6% | 37 | 25.6 | +33 s | +5.8 | −33 s | −9.7 | +0.5 | −5 pts |
+| 8 | 55 s | 10.4 | 5.3 | 1.6 | 1.0 | 14.8 | 30% | 10% | 34 | 20.0 | +28 s | +5.9 | −28 s | −7.3 | −0.6 | −5 pts |
+
+### Multiplication (this stage's clocks and Amit pace include its stretch factor)
+
+| Level | Round clock | Assumed s per cover | Covers that fit | Amit: covers / round | Amit: sets of 5 cards | Points / round | Clock ran out | Bust | Rounds to 500 | Minutes per 500-pt game | Time bonus on yourself: + seconds | Δ points / round | Time bonus used on you: − seconds | Δ points / round | All-signs bonus wild: Δ points / round | Δ bust |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | none | 48 | — | 2.9 | 1.2 | 40.9 | 0% | 18% | 12 | 58.8 | — | — | — | — | +19.3 | −9 pts |
+| 2 | 280 s | 40 | 7.0 | 2.0 | 1.0 | 29.9 | 23% | 12% | 17 | 45.9 | +140 s | +7.2 | −140 s | −21.3 | +6.7 | −6 pts |
+| 3 | 150 s | 32 | 4.7 | 1.6 | 1.0 | 33.5 | 56% | 6% | 15 | 27.0 | +75 s | +13.4 | −75 s | −12.5 | +5.1 | −4 pts |
+| 4 | 90 s | 25.6 | 3.5 | 1.1 | 1.0 | 18.9 | 67% | 6% | 26 | 28.2 | +45 s | +24.5 | −45 s | −8.1 | −7.7 | −3 pts |
+| 5 | 60 s | 20.8 | 2.9 | 1.0 | 1.0 | 26.4 | 68% | 4% | 19 | 15.1 | +30 s | +17.4 | −30 s | −22.4 | −2.8 | −4 pts |
+| 6 | 40 s | 17.6 | 2.3 | 0.9 | 1.0 | 32.6 | 79% | 12% | 15 | 8.0 | +20 s | −3.0 | −20 s | −32.1 | −2.7 | +0 pts |
+| 7 | 30 s | 14.4 | 2.1 | 0.7 | 1.0 | 32.4 | 88% | 28% | 15 | 5.1 | +15 s | −3.7 | −15 s | −32.4 | −2.4 | −1 pts |
+| 8 | 25 s | 12.8 | 2.0 | 0.5 | 1.0 | 24.7 | 96% | 47% | 20 | 3.9 | +13 s | +6.9 | −13 s | −24.7 | +1.6 | −3 pts |
+
+### Division (this stage's clocks and Amit pace include its stretch factor)
+
+| Level | Round clock | Assumed s per cover | Covers that fit | Amit: covers / round | Amit: sets of 5 cards | Points / round | Clock ran out | Bust | Rounds to 500 | Minutes per 500-pt game | Time bonus on yourself: + seconds | Δ points / round | Time bonus used on you: − seconds | Δ points / round | All-signs bonus wild: Δ points / round | Δ bust |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | none | 54 | — | 3.1 | 1.3 | 34.8 | 0% | 13% | 14 | 81.0 | — | — | — | — | +12.5 | −3 pts |
+| 2 | 330 s | 45 | 7.3 | 2.5 | 1.0 | 20.0 | 33% | 15% | 25 | 93.2 | +165 s | +11.2 | −165 s | −19.5 | +5.0 | −12 pts |
+| 3 | 195 s | 36 | 5.4 | 2.0 | 1.0 | 19.6 | 62% | 5% | 26 | 61.8 | +98 s | +15.3 | −98 s | −19.4 | +0.4 | −3 pts |
+| 4 | 155 s | 28.8 | 5.4 | 1.9 | 1.0 | 21.6 | 65% | 3% | 23 | 45.8 | +78 s | +13.4 | −78 s | −15.8 | +1.4 | −2 pts |
+| 5 | 110 s | 23.4 | 4.7 | 1.7 | 1.0 | 21.6 | 78% | 0% | 23 | 33.0 | +55 s | +17.8 | −55 s | −13.3 | −2.4 | +0 pts |
+| 6 | 90 s | 19.8 | 4.5 | 1.6 | 1.0 | 21.8 | 83% | 3% | 23 | 26.9 | +45 s | +18.2 | −45 s | −12.4 | −2.7 | −2 pts |
+| 7 | 80 s | 16.2 | 4.9 | 1.8 | 1.0 | 31.6 | 75% | 0% | 16 | 17.3 | +40 s | +18.7 | −40 s | −19.5 | −0.9 | +0 pts |
+| 8 | 70 s | 14.4 | 4.9 | 1.7 | 1.0 | 40.2 | 85% | 5% | 12 | 11.9 | +35 s | +20.3 | −35 s | −23.2 | −1.9 | −2 pts |
+
+**How well it equalised:** addition 15.2–18.2 points per round across all eight levels (within about 15% of each other, solid sample). Subtraction 10.8–14.8 (decent). **Multiplication and division are not yet equal** (multiplication 19–34 against 41 at level 1; division 20–40), and that is mostly noise: with these sample sizes the level-1 target itself moved between 32 and 41 across two runs. At the shortest multiplication clocks Amit gets only 0.5–1 covers in the round, the clock runs out in 79–96% of rounds, and busts climb to 28–47% (the once-per-five-cards sign rule forces him to keep rolling with few dice). Those cells need a larger run (a few hundred rounds each, about 40 minutes of computing) before the later-stage clocks can be trusted.
+**Time bonus (addition, solid):** +50% on yourself adds +2.5 to +11.6 points per round; used on you at the start it costs 5 to 13 points. At the lowest clocks the attack costs more than the self-bonus gains (level 8: +5.9 against −12.8), so the attack becomes the stronger use as the level rises, the opposite of what the first table showed with the old clocks.
+**All-signs bonus wild:** for Amit it mostly lowers busts (up to about 15 points of bust rate in subtraction) and adds a few points where clocks are long; where clocks are tight it does not help points.
+
+## 2026-10-17 (night, last) — new clocks live, with the teaching updated (v1.18)
+Ryan: implement the new timing, no more calculating, and update the teaching and how-to-play so everyone knows. The clocks above are in the engine (`STAGE_CLOCKS`) and the game uses them; checked in the browser (e.g. addition L2 shows 190 s, multiplication L8 25 s, division L8 70 s). Teaching: a new **"The round clock"** step in the Addition lesson (step 7 of 12) and in the Subtraction, Multiplication and Division lessons, each listing that stage's real clocks, saying the clock is for the whole round and shrinks with level so levels stay fair, what happens when it runs out (covered cards count; a set without the stage's sign scores nothing), and that Complete & bank ends the round early. The Progress page's level table has the same explanation. The "lowest stage at the table" rule is not taught because it is not built yet.

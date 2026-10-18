@@ -209,8 +209,8 @@
       '<div class="ar-h" style="margin:0 0 8px">Stage</div>' +
       '<div class="ar-row" style="margin-bottom:10px">' + E.STAGE_ORDER.map(s => '<button class="ar-btn ar-stagebtn' + (s === curStage ? ' on' : '') + '" title="' + E.STAGES[s].name + '" aria-label="' + E.STAGES[s].name + '" onclick="AR.setStage(\'' + s + '\')">' + ({ addition: '+', subtraction: '−', multiplication: '×', division: '÷' })[s] + '</button>').join('') + '</div>' +
       '<div class="ar-row" style="margin-bottom:10px"><span class="ar-sub">Signs you can use:</span>' + opKeysHtml('small') + '<span class="ar-sub">' + STAGE_BLURB[curStage] + ' Each stage also lets you use every sign before it.</span></div>' +
-      '<div class="ar-sub" style="margin-bottom:12px">The first to reach the target score wins — it can take five rounds or twenty. Cover cards, roll again or stop, and keep your score. The clock is per roll: ' +
-      (L.clock ? L.clock + ' seconds at your level.' : 'no clock at your level yet.') + '</div>' +
+      '<div class="ar-sub" style="margin-bottom:12px">The first to reach the target score wins — it can take five rounds or twenty. Cover cards, roll again or stop, and keep your score. The clock is for the <b>whole round</b>: every re-roll and every new set of five cards shares one clock, ' +
+      (L.clock ? L.clock + ' seconds at your level. Complete &amp; bank ends your round early.' : 'and there is no clock at your level yet.') + '</div>' +
       '<div class="ar-row" style="margin-bottom:14px">' +
       '<label class="ar-sub">Players&nbsp;<select class="ar-select" id="ar-opp"><option value="0">Just me (solo)</option>' +
       [1, 2, 3, 4, 5, 6, 7].map(n => '<option value="' + n + '">Me + ' + n + ' Amit' + (n > 1 ? 's' : '') + ' (' + (n + 1) + ' players)</option>').join('') + '</select></label>' +
@@ -334,7 +334,7 @@
       else {
         cost = E.amitCost(s.level, a, s.rng, s.pace, G.stageName);
         if (s.elapsed + cost > s.budget) { E.timeoutStop(s.turn); }          // his clock ran out: only what is covered counts
-        else { E.botApply(s.turn, a, opts); s.elapsed += cost; if (a.type === 'roll') s.elapsed = 0; }
+        else { E.botApply(s.turn, a, opts); s.elapsed += cost; }
       }
       if (s.turn.status !== 'rolled') finishSeat(s);
       // the move takes its share of the clock, shown sped up; quicker once I am done and just waiting
@@ -385,6 +385,7 @@
   function beginRound() {
     const cards = withWild(E.dealCards(E.mulberry32(G.seed * 1000 + G.round), 5, G.level.cardMin, G.level.cardMax, WILD_CHANCE), G.nextWild, G.seed + G.round);
     G.nextWild = false;
+    G.clockLeft = G.level.clock ? G.level.clock * 1000 : 0;      // one clock for the whole round
     G.dealN = 0; G.coverPts = {}; G.coverText = {}; G.stage = {}; G.stageOp = {}; G.hint = null; G.say = ''; G.bustMsg = ''; G.stopOutlook = null;
     selOp = {}; curOp = '+';
     G.turn = E.newTurn(cards, E.rollDice(G.diceRng, 5, E.STAGES[G.stageName].faces), G.rules);
@@ -635,8 +636,7 @@
   function startClock() {
     stopClock();
     const L = G.level;
-    G.clockLeft = L.clock ? L.clock * 1000 : 0;
-    if (!L.clock) return;
+    if (!L.clock) return;           // the clock is filled once, when the round begins (beginRound), and only runs down from there
     clockIv = setInterval(() => {
       if (!G || G.busy || G.turn.status !== 'rolled' || document.querySelector('.ar-over')) return;
       G.clockLeft -= 200;
@@ -1134,7 +1134,7 @@
       (ranking ? '<table class="ar-table-list" style="margin-top:14px"><tr><th>Player</th><th>Total</th></tr>' + ranking.map(r => '<tr class="' + (r.me ? 'me' : '') + '"><td>' + r.name + (r.bot ? ' <span class="ar-tag">AMIT</span>' : '') + '</td><td>' + r.total + '</td></tr>').join('') + '</table><div class="ar-h" style="text-align:center;margin-top:12px">' + won + '</div>' : '') +
       '<div class="ar-sub" style="text-align:center;margin-top:12px">' +
       (G.practiceLevel ? 'Trying level ' + G.level.lvl + ' — your own level did not change.' : ranking ? ordinal(place) + ' of ' + nPlayers + ' — +' + fmtXp(gain) + ' experience' + (gain ? ' (a quarter of the usual, because the other players were Amit)' : '') : 'Playing alone earns no experience — you earn it by beating other players.') + '</div>' +
-      (after > before ? '<div class="ar-big" style="font-size:26px;margin-top:12px">⭐ LEVEL ' + after + '! ⭐</div><div class="ar-sub" style="text-align:center">Your clock is now ' + (levelObj(after).clock ? levelObj(after).clock + ' seconds per roll.' : 'unlimited.') + (levelObj(after).assist ? '' : ' Hints are off from here — dragging only.') + '</div>' : '') +
+      (after > before ? '<div class="ar-big" style="font-size:26px;margin-top:12px">⭐ LEVEL ' + after + '! ⭐</div><div class="ar-sub" style="text-align:center">Your clock is now ' + (levelObj(after).clock ? levelObj(after).clock + ' seconds for the whole round.' : 'unlimited.') + (levelObj(after).assist ? '' : ' Hints are off from here — dragging only.') + '</div>' : '') +
       '<div class="ar-row" style="justify-content:center;margin-top:18px"><button class="ar-btn big" onclick="AR.again()">Play again</button>' +
       '<button class="ar-btn" onclick="AR.copyChallenge()">🔗 Challenge a friend at this level</button></div>' +
       '<div class="ar-sub" id="ar-copymsg" style="text-align:center;margin-top:8px"></div></div>';
@@ -1221,6 +1221,8 @@
       d: () => '<button class="ar-btn" disabled>🎲 Roll 3 remaining</button><button class="ar-btn" disabled>🏁 Complete &amp; bank</button>' },
     { t: 'Roll again — or stop', x: 'If a roll cannot cover <b>any</b> card, that is a <b>bust</b> and the turn’s points are lost — <b>except</b> the points you already banked by covering all five cards. When you stop, your points are added up and the <b>value of the dice you did not use is taken away</b>.',
       d: () => '<span class="op" style="font-size:20px">points − dice left = your score</span>' },
+    { t: 'The round clock', x: clockStepText('addition'),
+      d: () => CLOCK_DEMO() },
     { t: 'The wild card', x: 'Sometimes one of your five cards is a <b>' + WILD_ICO + ' wild</b>. <b>Any</b> dice can go on it — one die to keep rolling the rest, or every die to roll all five again. Drag the dice on, then press <b>Accept</b>. The wild disappears when it is used. You can use it whenever you like, and it saves a roll that could not cover anything. In subtraction, multiplication and division you can also earn an extra one for your next five cards by using every sign in one cover — the all-signs bonus, explained in those lessons.',
       d: () => cardStatic('W') + '<span class="op">←</span>' + die6(6) + die6(1) },
     { t: 'Change your mind', x: 'Dice on a covered card stay there so you can see them. Until you press Accept you can <b>tap them to take them back off</b> and try again. A 1 and a 3 on a 4 score 4 — but pull them off and put two 2s on instead, and the card is <b>doubled</b>. Look for the better way.',
@@ -1262,6 +1264,14 @@
       '<div class="ar-row" style="margin-top:14px"><button class="ar-btn big" onclick="AR.practiceStage(\'' + stage + '\')">Practice ' + name.toLowerCase() + '</button></div>';
   }
   const SL = (t, x, d) => ({ t, x, d });
+  // "level 2: 190 s, level 3: 120 s, …" for a stage, from the real clock table
+  function clockList(stage) {
+    return E.STAGE_CLOCKS[stage].map((c, i) => (c ? 'level ' + (i + 1) + ': <b>' + c + ' s</b>' : '')).filter(Boolean).join(', ');
+  }
+  function clockStepText(stage, extra) {
+    return 'From level 2 there is a clock, and it is for the <b>whole round</b>: every re-roll and every new set of five cards shares <b>one</b> clock, and it never refills. The higher your level, the <b>less time</b> you get, so an expert and a beginner score about the same — time is the handicap. Level 1 has no clock. Here: ' + clockList(stage) + '. When the clock runs out only the cards you have already covered count, minus the dice you did not use' + (extra || '') + '. Press <b>Complete &amp; bank</b> any time to end your round early.';
+  }
+  const CLOCK_DEMO = () => '<span class="ar-tc">⏱ 190 s</span><span class="op">→</span><span class="ar-tc">⏱ 60 s</span><span class="op">→</span><span class="ar-tc">⏱ 25 s</span>';
   const OPS_DEMO = (cur) => '<div class="ar-ops small"><div class="ar-op on' + (cur === '+' ? ' cur' : '') + '">+</div><div class="ar-op on' + (cur === '−' ? ' cur' : '') + '">−</div><div class="ar-op off">×</div><div class="ar-op off">÷</div></div>';
   const CLEAR_DEMO = () => '<div class="ar-ops small"><div class="ar-op clear">CLEAR</div></div>';
   const STAGE_STEPS = {
@@ -1280,6 +1290,7 @@
         () => die10(6) + '<span class="op">+</span>' + die10(3) + '<span class="op">−</span>' + die10(5) + '<span class="op">→</span>' + cardStatic(4)),
       SL('The all-signs bonus', 'Use <b>both signs</b> — plus and minus — in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It needs at least <b>3 dice</b>, like 8 + 5 − 2 = 11. It only works on a number card, never on a wild.',
         () => die10(8) + '<span class="op">+</span>' + die10(5) + '<span class="op">−</span>' + die10(2) + '<span class="op">→</span>' + cardStatic(11)),
+      SL('The round clock', clockStepText('subtraction', " — and if you have not used a − in those five cards, they score nothing"), CLOCK_DEMO),
       SL('Clear and Accept', 'Pressed the wrong sign? <b>CLEAR</b> takes back the dice you have picked and starts the cover over. Everything else works as in addition: keep covering while you can, then roll or bank.',
         CLEAR_DEMO)
     ],
@@ -1296,6 +1307,7 @@
         () => die10(5) + '<span class="op">×</span>' + die10(8) + '<span class="op">−</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(37)),
       SL('The all-signs bonus', 'Use <b>plus, minus and times</b> in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It needs at least <b>4 dice</b>, like 5 + 9 − 4 × 3 = 2. It only works on a number card, never on a wild.',
         () => die10(5) + '<span class="op">+</span>' + die10(9) + '<span class="op">−</span>' + die10(4) + '<span class="op">×</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(2)),
+      SL('The round clock', clockStepText('multiplication', " — and if you have not used a × in those five cards, they score nothing"), CLOCK_DEMO),
       SL('Clear and Accept', '<b>CLEAR</b> starts a cover over. Early levels will not let the total dip below zero on the way. Then keep covering, roll, or bank, as before.',
         CLEAR_DEMO)
     ],
@@ -1312,6 +1324,7 @@
         () => die10(6) + '<span class="op">×</span>' + die10(4) + '<span class="op">÷</span>' + die10(3) + '<span class="op">→</span>' + cardStatic(8)),
       SL('The all-signs bonus', 'Use <b>all four signs</b> in one cover, each on a die after the first (the plus in front of the first die does not count) and the cover earns the <b>ALL SIGNS bonus</b>: your next five cards bring a <b>wild</b>, once you bank or clear the table. It takes <b>all 5 dice</b>, like 2 + 7 − 3 × 8 ÷ 4 = 3, and every division has to come out even. It only works on a number card, never on a wild.',
         () => die10(2) + '<span class="op">+</span>' + die10(7) + '<span class="op">−</span>' + die10(3) + '<span class="op">×</span>' + die10(8) + '<span class="op">÷</span>' + die10(4) + '<span class="op">→</span>' + cardStatic(3)),
+      SL('The round clock', clockStepText('division', " — and if you have not used a ÷ in those five cards, they score nothing"), CLOCK_DEMO),
       SL('Clear and Accept', '<b>CLEAR</b> starts a cover over. Then keep covering, roll, or bank, as before.',
         CLEAR_DEMO)
     ]
@@ -1406,14 +1419,15 @@
       '<div class="ar-panel"><div class="ar-h">RECENT GAMES</div>' +
       (rows ? '<table class="ar-table-list"><tr><th>Date</th><th>Score</th><th>Level</th><th>Against</th></tr>' + rows + '</table>' : '<div class="ar-sub">No games yet. Go play one!</div>') + '</div>' +
       '<div class="ar-panel"><div class="ar-h">THE LEVEL TABLE — ' + E.STAGES[stageOf()].name.toUpperCase() + ' <span class="ar-tag">first guess — to be tuned</span></div>' +
-      '<table class="ar-table-list"><tr><th>Level</th><th>Experience needed</th><th>Clock per roll</th><th>Card numbers</th><th>Helps per game</th><th>Hints</th></tr>' + lvRows + '</table>' +
+      '<div class="ar-sub" style="margin-bottom:8px">The clock is for the <b>whole round</b> and shrinks as your level rises, so an expert and a beginner score about the same. Level 1 has no clock.</div>' +
+      '<table class="ar-table-list"><tr><th>Level</th><th>Experience needed</th><th>Clock per round</th><th>Card numbers</th><th>Helps per game</th><th>Hints</th></tr>' + lvRows + '</table>' +
       timingTableHtml() + '</div>' +
       '<div class="ar-row"><button class="ar-btn ghost danger" onclick="AR.resetProgress()">Reset my progress</button></div>';
   }
   function pct(arr, p) { const a = arr.slice().sort((x, y) => x - y); return a.length ? a[Math.floor(p * (a.length - 1))] : 0; }
   function timingTableHtml() {
     const R = P.rolls || [];
-    const head = '<div class="ar-sub" style="margin-top:10px">The game records how long every roll takes, so each level\'s clock can be tuned from real play. The goal: set a level\'s clock near the time that <b>1 roll in 4 runs over</b> (the 75th percentile), so every level has the same squeeze.</div>';
+    const head = '<div class="ar-sub" style="margin-top:10px">The game records how long every throw of the dice takes. The clock itself is now one clock for the whole round, so these figures are for reference while the round clocks are tuned from real play.</div>';
     if (!R.length) return head + '<div class="ar-sub" style="margin-top:6px">No full rolls recorded yet. Play games (not the tutorial turn) to fill this in.</div>';
     const rows = levelsOf().map(L => {
       const mine = R.filter(r => r[0] === L.lvl && (r[4] || 'addition') === stageOf());

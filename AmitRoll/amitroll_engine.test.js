@@ -458,7 +458,7 @@ t('botNext plays whole turns one step at a time and always finishes', () => {
   }
 });
 
-t('Amit held to the clock: always finishes, higher levels score more, and the clock does run out sometimes', () => {
+t('Amit held to the clock: always finishes, every level scores about the same, and the clock does run out sometimes', () => {
   const res = {};
   for (let lvl = 1; lvl <= 8; lvl++) {
     const L = E.LEVELS[lvl - 1];
@@ -474,7 +474,7 @@ t('Amit held to the clock: always finishes, higher levels score more, and the cl
   console.log('    Amit per turn by level (avg score / % clock ran out / % bust):');
   for (let lvl = 1; lvl <= 8; lvl++) console.log('      L' + lvl + ': ' + res[lvl].avg.toFixed(1) + ' / ' + res[lvl].to.toFixed(0) + '% / ' + res[lvl].bust.toFixed(0) + '%');
   assert.strictEqual(res[1].to, 0);                 // level 1 has no clock
-  assert.ok(res[8].avg > res[1].avg);
+  for (let lvl = 2; lvl <= 8; lvl++) assert.ok(Math.abs(res[lvl].avg - res[1].avg) < 0.3 * res[1].avg, 'level ' + lvl + ' should score about what level 1 scores');     // the clocks are solved so every level scores about the same
   assert.ok(res[5].to > 0 || res[8].to > 0);
 });
 
@@ -646,8 +646,8 @@ t('levelsFor: addition tops climb 9 to 16; later stages have their own tops and 
   assert.deepStrictEqual(E.levelsFor('subtraction').map(l => l.cardMax), [12, 14, 16, 18, 20, 22, 24, 26]);
   assert.deepStrictEqual(E.levelsFor('multiplication').map(l => l.cardMax), [30, 40, 50, 60, 70, 80, 90, 100]);
   assert.deepStrictEqual(E.levelsFor('division').map(l => l.cardMax), [24, 28, 32, 36, 40, 44, 50, 60]);
-  assert.strictEqual(E.levelsFor('addition')[1].clock, 120);
-  assert.ok(E.levelsFor('multiplication')[1].clock > 120);
+  assert.strictEqual(E.levelsFor('addition')[1].clock, 190);
+  assert.ok(E.levelsFor('multiplication')[1].clock > E.levelsFor('multiplication')[7].clock);     // clocks shrink as the level rises
   assert.strictEqual(E.levelsFor('subtraction')[0].clock, 0);
 });
 
