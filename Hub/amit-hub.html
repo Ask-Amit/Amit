@@ -14,7 +14,7 @@
 <script src="../amit_pin_encryption.js?v=1.00"></script>
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
-<script src="../amit_chat.js?v=0.22"></script>
+<script src="../amit_chat.js?v=0.23"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1389,7 +1389,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.36</div>
+      <div class="page-version" id="hubVersionBadge">v8.37</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -3450,13 +3450,15 @@ let demoPursuits=[];
 async function checkAmitInbox(){
   if(!db) return;
   const { data, error } = await db.from('amit_inbox').select('id').eq('status','new');
-  if(error || !data) return;
-  injectAmitInboxBadge(data.length);
+  let count=(!error&&data)?data.length:0;
+  try{ const tr=await db.rpc('cha_owner_msgs_list',{p_limit:100}); if(!tr.error&&Array.isArray(tr.data)) count+=tr.data.filter(m=>m.status==='new').length; }catch(e){}
+  if(!count && (error||!data)) return;
+  injectAmitInboxBadge(count);
   // Ryan's direct instruction, 2026-07-26: this should be the first thing he
   // sees when he opens or comes back to the Hub, not something he has to
   // notice a small badge for. Auto-open the panel whenever there's anything
   // unread waiting.
-  if(data.length>0) openAmitInboxPanel();
+  if(count>0) openAmitInboxPanel();
 }
 
 function injectAmitInboxBadge(count){
@@ -3493,9 +3495,12 @@ async function openAmitInboxPanel(){
   const list=document.getElementById('amitInboxList');
   list.innerHTML='Loading...';
   const { data, error } = await db.from('amit_inbox').select('*').order('created_at',{ascending:false});
-  if(error || !data || !data.length){ list.innerHTML='No messages yet.'; return; }
+  let team=[]; try{ const tr=await db.rpc('cha_owner_msgs_list',{p_limit:100}); if(!tr.error&&Array.isArray(tr.data)) team=tr.data; }catch(e){}
+  const legacy=(!error&&data)?data:[];
+  if(!legacy.length&&!team.length){ list.innerHTML='No messages yet.'; return; }
   list.innerHTML='';
-  data.forEach(row=>{
+  if(team.length) list.appendChild(renderTeamInbox(team));
+  legacy.forEach(row=>{
     const div=document.createElement('div');
     div.style.cssText='border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);padding:12px 0;';
     const isEmail=row.sender_contact && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.sender_contact.trim());
@@ -3513,6 +3518,42 @@ async function openAmitInboxPanel(){
     div.innerHTML=html;
     list.appendChild(div);
   });
+}
+
+// Messages people send to Amit's team from a chat (private to the owner and the team). "Got it" tells the person in their chat that it was seen;
+// the reply goes back into their chat; reminders (24 and 48 working hours, never in the Sabbath weekend) are tagged here.
+function renderTeamInbox(team){
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const wrap=document.createElement('div');
+  wrap.style.cssText='margin-bottom:10px;';
+  const open=team.filter(m=>m.status!=='replied').length;
+  let html='<div style="color:var(--amit-accent-bright,#e8c56a);font-weight:700;margin:4px 0 2px;">From chats'+(open?' ('+open+' waiting)':'')+'</div>';
+  team.forEach(m=>{
+    const tag=m.reminder_stage>0?' · <span style="color:#e5a04b;">⏰ reminder '+m.reminder_stage+' sent</span>':'';
+    const stCol=m.status==='new'?'#e5a04b':(m.status==='read'?'#a9b3c4':'#6fd08c');
+    html+='<div style="border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);padding:12px 0;">'
+      +'<div style="color:#a9b3c4;font-size:.8em;margin-bottom:4px;">'+esc(m.sender_name||'Someone')+(m.sender_contact?' · '+esc(m.sender_contact):'')+' · '+esc(m.source||'chat')+' · '+new Date(m.created_at).toLocaleString()+' — <span style="color:'+stCol+';">'+esc(m.status)+'</span>'+tag+'</div>'
+      +'<div style="white-space:pre-wrap;margin-bottom:8px;">'+esc(m.message)+'</div>'
+      +(m.reply_text?'<div style="background:rgba(var(--amit-accent-rgb,201,168,76),.08);border-left:3px solid var(--amit-accent,#c9a84c);padding:8px 10px;border-radius:0 6px 6px 0;white-space:pre-wrap;margin-bottom:8px;">'+esc(m.reply_text)+'</div>':'')
+      +'<textarea id="tmreply-'+m.id+'" placeholder="Write your reply (it appears in their chat)..." style="width:100%;min-height:60px;background:rgba(var(--amit-overlay-rgb,255,255,255),.05);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:6px;color:var(--amit-text-soft,#f0e8d0);padding:8px;font-family:Georgia,serif;"></textarea>'
+      +'<div style="display:flex;gap:8px;margin-top:6px;">'
+      +(m.status==='new'?'<button onclick="inboxTeamSeen(\''+m.id+'\')" style="font-family:Georgia,serif;padding:6px 14px;border-radius:6px;border:1px solid var(--amit-accent,#c9a84c);background:transparent;color:var(--amit-accent-bright,#e8c56a);font-weight:700;cursor:pointer;">Got it (seen)</button>':'')
+      +'<button onclick="inboxTeamReply(\''+m.id+'\')" style="font-family:Georgia,serif;padding:6px 14px;border-radius:6px;border:1px solid var(--amit-accent,#c9a84c);background:var(--amit-accent,#c9a84c);color:#1a1206;font-weight:700;cursor:pointer;">Send Reply</button>'
+      +'</div></div>';
+  });
+  wrap.innerHTML=html;
+  return wrap;
+}
+async function inboxTeamSeen(id){
+  const r=await db.rpc('cha_owner_msg_seen',{p_id:id});
+  if(r.error){ alert(r.error.message); return; }
+  openAmitInboxPanel(); checkAmitInbox();
+}
+async function inboxTeamReply(id){
+  const ta=document.getElementById('tmreply-'+id); const t=(ta&&ta.value||'').trim(); if(!t) return;
+  const r=await db.rpc('cha_owner_msg_reply',{p_id:id,p_text:t});
+  if(r.error){ alert(r.error.message); return; }
+  openAmitInboxPanel(); checkAmitInbox();
 }
 
 async function sendInboxReply(id){

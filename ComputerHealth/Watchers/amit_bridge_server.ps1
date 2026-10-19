@@ -90,6 +90,29 @@ if (-not $alreadyRunning -and (Test-Path $amitMobileWatcherPath)) {
     Write-Host "Amit Mobile listener already running."
 }
 
+# ── Ask Amit answering computer (AmitChat\amit_ask_watcher.js) — auto-start (2026-10-18, Ryan's request) ──
+# Same idea as the Amit Mobile listener above: the moment the shared bridge starts, Amit's answering computer starts with it, so the "Amit
+# Tracker" desktop shortcut (which starts this bridge) brings up everything in one double-click. It needs ask_watcher.json, which the watcher
+# itself writes the first time it runs on this computer (so a computer that never ran it simply skips this). Started hidden, never twice.
+$askCfgPath = "$env:LOCALAPPDATA\AmitComputerHealth\ask_watcher.json"
+try {
+    $askRunning = Get-WmiObject Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like "*amit_ask_watcher.js*" } | Select-Object -First 1
+    if (-not $askRunning -and (Test-Path $askCfgPath)) {
+        $askCfg = Get-Content $askCfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $askNode = if ($askCfg.node -and (Test-Path $askCfg.node)) { $askCfg.node } else { "node" }
+        $askHome = "$env:LOCALAPPDATA\AmitComputerHealth"
+        $askCmd = "cmd.exe /c `"cd /d `"$($askCfg.dir)`" && `"$askNode`" amit_ask_watcher.js >> `"$askHome\ask_watcher.log`" 2>&1`""
+        $askStartup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+        $askRes = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $askCmd; CurrentDirectory = [string]$askCfg.dir; ProcessStartupInformation = $askStartup }
+        if ($askRes.ReturnValue -eq 0) { Write-Host "Ask Amit answering computer started (AmitChat\amit_ask_watcher.js)." }
+    } elseif ($askRunning) {
+        Write-Host "Ask Amit answering computer already running."
+    }
+} catch {
+    Write-Host "Ask Amit answering computer could not be started: $($_.Exception.Message)"
+}
+
 # ── Performance tracking — auto-start by default (2026-09-05) ──
 # Per AmitMobile's "Connect Amit" design (AmitMobile\CLAUDE.md): when the
 # bridge is running, BOTH the Amit Mobile phone listener (above) AND
