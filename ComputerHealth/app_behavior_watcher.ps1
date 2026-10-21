@@ -525,6 +525,29 @@ $metricStats = @{}
 $metricsOutFile = "$env:TEMP\app_behavior_metrics.json"
 Remove-Item $metricsOutFile -ErrorAction SilentlyContinue
 
+# --- Durable queue of finished sessions (2026-10-20, Ryan's design) - same as resource_watcher.ps1 ---
+# The finished session's summary is also kept under %LOCALAPPDATA%\AmitComputerHealth\data\pending until the Hub (or
+# dashboard) confirms it reached the database, because the temp file above can be cleared and holds only the latest one.
+$durableDir = "$env:LOCALAPPDATA\AmitComputerHealth\data"
+$pendingDir = "$durableDir\pending"
+function Write-DurableFile($path, $text) {
+    try {
+        New-Item -ItemType Directory -Path (Split-Path $path) -Force -ErrorAction Stop | Out-Null
+        $tmp = "$path.tmp"
+        [System.IO.File]::WriteAllText($tmp, $text, (New-Object System.Text.UTF8Encoding($false)))
+        Move-Item -LiteralPath $tmp -Destination $path -Force -ErrorAction Stop
+    } catch {}
+}
+function Add-PendingSession($type, $sessionEndTime, $rowsJson, $recovered) {
+    try {
+        if (-not $rowsJson -or $rowsJson -eq "[]") { return }
+        $stamp = (($sessionEndTime -replace '[^0-9]', '') + "00000000000000").Substring(0, 14)
+        $rec = if ($recovered) { "true" } else { "false" }
+        Write-DurableFile "$pendingDir\${type}_$stamp.json" ('{"type":"' + $type + '","sessionEndTime":"' + $sessionEndTime + '","recovered":' + $rec + ',"rows":' + $rowsJson + '}')
+        Get-ChildItem $pendingDir -Filter "*.json" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -Skip 50 | Remove-Item -Force -ErrorAction SilentlyContinue
+    } catch {}
+}
+
 Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') WATCHER PID=$PID started." -Encoding utf8
 try {
     $others = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match 'app_behavior_watcher\.ps1' }
@@ -781,6 +804,7 @@ try {
     $sessionEndTime = (Get-Date).ToUniversalTime().ToString("o")
     $payload = '{"sessionEndTime":"' + $sessionEndTime + '","rows":' + $rowsJson + '}'
     $payload | Out-File -FilePath $metricsOutFile -Encoding utf8
+    Add-PendingSession 'behavior' $sessionEndTime $rowsJson $false
     Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') Wrote $($finalRows.Count) aggregated metric rows to $metricsOutFile." -Encoding utf8
 } catch {
     Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') WARNING: failed to write aggregated metrics - $($_.Exception.Message)" -Encoding utf8

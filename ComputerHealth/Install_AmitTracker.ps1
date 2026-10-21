@@ -3,9 +3,9 @@
 # computer: copies (or downloads) the watcher/bridge scripts and the
 # self-contained AmitSensorReader.exe to a permanent local folder, and
 # creates a "Run Amit Tracker" desktop shortcut that starts tracking and
-# opens the dashboard in one click. Nothing is registered to run
-# automatically at login - tracking only ever starts when that shortcut is
-# used.
+# opens the dashboard in one click. Since 2026-10-20 it also registers a
+# per-user startup entry so Amit's helper starts when Windows does
+# (pass -NoAutoStart to skip that).
 #
 # Safe to run again later - it checks what's already installed and skips
 # steps that are already done, unless -Force is passed.
@@ -16,7 +16,7 @@
 # "Download the Installer" link - it fetches every other required file
 # directly from GitHub instead, since nothing else exists locally yet.
 
-param([switch]$Force)
+param([switch]$Force, [switch]$NoAutoStart)
 
 $installDir = "$env:LOCALAPPDATA\AmitComputerHealth"
 $watcherInstallDir = "$installDir\Watchers"
@@ -47,7 +47,7 @@ if ($alreadyInstalled) {
         "activity_watcher2.ps1", "resource_watcher.ps1", "diagnostics_watcher.ps1",
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
         "Run_AmitTracker.ps1", "AmitTracker.exe", "AmitSensorReader.exe",
-        "process_inbox.bat", "process_inbox_prompt.txt", "process_inbox_prompt_light.txt"
+        "process_inbox.bat", "process_inbox_prompt.txt"
     )
     foreach ($f in $filesToCopy) {
         $src = "$scriptDir\$f"
@@ -112,6 +112,64 @@ try {
     Write-Host "  Warning: could not set up local processing ($($_.Exception.Message)) - the rest of Amit is unaffected."
 }
 
+# --- Step 1c: Connect your Claude account (2026-09-05, built for the shared
+# AmitMobile/Hub readiness-check work - see AmitMobile\CLAUDE.md "Connect
+# Amit" section). Two genuinely separate checks, reported distinctly:
+# (1) is Claude Code (the CLI, `claude` - NOT Claude Desktop, a different
+# Anthropic product not used anywhere in this mechanism) installed at all -
+# Step 1b above already tries to install it automatically via the same
+# documented sequence (Node.js via winget, then
+# `npm install -g @anthropic-ai/claude-code`); this step just re-checks
+# whether that succeeded rather than re-inventing the install. (2) is it
+# actually signed in - if not, this OFFERS (never silently forces) to run
+# `claude login`, which opens Anthropic's own sign-in page in the browser.
+Write-Host ""
+Write-Host "[1c] Checking your Claude account connection..."
+$claudeCmd = "$env:APPDATA\npm\claude.cmd"
+if (-not (Get-Command claude -ErrorAction SilentlyContinue) -and -not (Test-Path $claudeCmd)) {
+    Write-Host "  Claude Code isn't installed at all yet (Step 1b's automatic install above did not complete) - skipping the account-connection step for now. Local receipt processing and Amit's live features won't work until Claude Code is installed; re-run this installer, or install it yourself: winget install OpenJS.NodeJS.LTS, then npm install -g @anthropic-ai/claude-code."
+} else {
+    $connected = $false
+    $credPath = "$env:USERPROFILE\.claude\.credentials.json"
+    if (Test-Path $credPath) {
+        try {
+            $cred = Get-Content $credPath -Raw | ConvertFrom-Json
+            $oauth = $cred.claudeAiOauth
+            if ($oauth -and $oauth.accessToken) {
+                $refreshExpired = $false
+                if ($oauth.refreshTokenExpiresAt) {
+                    try {
+                        $refreshExpiry = [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$oauth.refreshTokenExpiresAt).UtcDateTime
+                        if ($refreshExpiry -lt (Get-Date).ToUniversalTime()) { $refreshExpired = $true }
+                    } catch { }
+                }
+                $connected = -not $refreshExpired
+            }
+        } catch { }
+    }
+    if ($connected) {
+        Write-Host "  Claude Code is installed and already connected - nothing to do."
+    } else {
+        Write-Host "  Claude Code is installed but not yet connected to a Claude account."
+        Write-Host "  To use Amit's live features, this computer needs to connect to your own Claude account - this is separate from your Amit sign-in. Clicking Connect opens Anthropic's own login page directly; your Claude credentials go straight to them, never through Amit or stored anywhere here. This only needs to happen once on this computer."
+        try {
+            $ans = Read-Host "  Connect your Claude account now? (Y/n)"
+        } catch {
+            $ans = 'n'
+        }
+        if ($ans -eq '' -or $ans -match '^(?i)y') {
+            try {
+                if ($env:Path -notlike "*$env:APPDATA\npm*") { $env:Path = "$env:APPDATA\npm;$env:Path" }
+                & claude login
+            } catch {
+                Write-Host "  Could not launch 'claude login' automatically ($($_.Exception.Message)) - run it yourself from a terminal any time: claude login"
+            }
+        } else {
+            Write-Host "  Skipped - you can connect any time later by running 'claude login' from a terminal, or from the Hub's Connect Amit panel."
+        }
+    }
+}
+
 # --- Step 2: sensor reading ---
 # PERMANENT FIX (2026-07-19): this used to hunt down, download, and manage a
 # separate LibreHardwareMonitor GUI installation (~80 lines - dedup checks,
@@ -127,12 +185,27 @@ try {
 # read real sensors. Nothing left to find, download, or manage here.
 Write-Host "[2/4] Sensor reading is self-contained in AmitSensorReader.exe - nothing separate to install."
 
-# --- Step 3: (deliberately no Task Scheduler / login auto-start) ---
-# The bridge server is started on demand by the "Run Amit Tracker" desktop
-# shortcut instead of silently launching at every Windows login. This means
-# a 1-2 second delay the first time you click the shortcut each session,
-# in exchange for nothing running in the background until you ask for it.
-Write-Host "[3/4] Skipping auto-start-at-login by design - the desktop shortcut starts everything on demand instead."
+# --- Step 3: start Amit's helper automatically when this person signs in to Windows ---
+# CHANGED 2026-10-20 (Ryan's direct instruction). This step used to skip auto-start on purpose
+# (nothing ran in the background until the person asked). Now the helper starts with Windows so
+# Computer Health keeps tracking and recording with no window or page open, and the Hub finds it
+# already running. One per-user startup entry (HKCU Run - no administrator needed) that runs
+# AmitTracker.exe in its quiet tray-only mode. --at-logon makes it start the helper only; the
+# helper itself then starts tracking, and respects a Stop the person chose on purpose.
+# Anyone who does not want this passes -NoAutoStart, or deletes the "AmitComputerHealth" value
+# under HKCU\Software\Microsoft\Windows\CurrentVersion\Run (Task Manager > Startup apps also lists it).
+$runKeyPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+if ($NoAutoStart) {
+    try { Remove-ItemProperty -Path $runKeyPath -Name "AmitComputerHealth" -ErrorAction SilentlyContinue } catch {}
+    Write-Host "[3/4] Start-with-Windows skipped (-NoAutoStart) - Amit's helper will only start when you start it."
+} else {
+    try {
+        Set-ItemProperty -Path $runKeyPath -Name "AmitComputerHealth" -Value ("`"$watcherInstallDir\AmitTracker.exe`" --tray-only --at-logon")
+        Write-Host "[3/4] Amit's helper will now start automatically when you sign in to Windows (a small tray icon shows it is running)."
+    } catch {
+        Write-Host "[3/4] Could not set up start-with-Windows ($($_.Exception.Message)) - the desktop shortcut still starts everything."
+    }
+}
 
 # --- Step 4: desktop shortcut ---
 # (Run_AmitTracker.ps1 itself is installed in Step 1 - AmitTracker.exe finds

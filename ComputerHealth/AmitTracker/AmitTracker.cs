@@ -38,6 +38,13 @@ class AmitTrackerWindow : Form
     // stop poller, FormClosing guard) is shared code, unchanged, so
     // behavior stays identical in both modes except for what's visible.
     private bool trayOnly;
+    // --at-logon (added 2026-10-20, Ryan's request: the helper starts with Windows):
+    // the Windows startup entry runs "AmitTracker.exe --tray-only --at-logon". In this mode the
+    // exe only makes sure the helper (bridge) is up. It does NOT call /api/start-tracking itself,
+    // because the bridge already starts tracking a couple of seconds after it launches - and that
+    // auto-start honours the "tracking was turned off on purpose" flag, so a deliberate Stop
+    // survives a reboot instead of being undone at every sign-in.
+    public static bool atLogon;
     private NotifyIcon trayIcon;
 
     public AmitTrackerWindow() : this(false) { }
@@ -236,6 +243,7 @@ class AmitTrackerWindow : Form
                 }
                 catch { Thread.Sleep(500); }
             }
+            if (atLogon) return; // the bridge's own auto-start begins tracking (and respects a deliberate Stop)
             try
             {
                 var client = new WebClient();
@@ -295,6 +303,9 @@ class AmitTrackerWindow : Form
             req.Method = "POST"; req.ContentLength = 0; req.Timeout = 4000;
             using (req.GetResponse()) { }
             File.AppendAllText(log, DateTime.Now + " - shutdown stop: tracking stopped\r\n");
+            // A Windows shutdown is not a deliberate "turn tracking off". /api/stop-tracking just set that
+            // sticky flag, which would stop tracking from starting again after the next boot - clear it.
+            try { File.Delete(Path.Combine(Path.GetTempPath(), "amit_tracking_disabled.flag")); } catch { }
         }
         catch (Exception ex) { try { File.AppendAllText(log, DateTime.Now + " - shutdown stop: bridge call did not finish (" + ex.Message + ")\r\n"); } catch { } }
         stopping = true; stopTriggered = 1;
@@ -434,6 +445,7 @@ class AmitTracker
         foreach (var a in args)
         {
             if (string.Equals(a, "--tray-only", StringComparison.OrdinalIgnoreCase)) trayOnly = true;
+            if (string.Equals(a, "--at-logon", StringComparison.OrdinalIgnoreCase)) { trayOnly = true; AmitTrackerWindow.atLogon = true; }
         }
 
         // Global unhandled-exception logging (added 2026-09-05, diagnosing a

@@ -15,6 +15,7 @@
 <script src="../amit_speaking_indicator.js?v=4.00"></script>
 <script src="../amit_appearance.js?v=1.06"></script>
 <script src="../amit_chat.js?v=0.23"></script>
+<script src="../amit_ch_sync.js?v=1.01"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1389,7 +1390,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.37</div>
+      <div class="page-version" id="hubVersionBadge">v8.38</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1425,7 +1426,7 @@ header{
               <p style="font-size:13px;line-height:1.6;margin:0 0 6px"><strong>3. Windows will ask for your permission (a security prompt).</strong> This is expected — click Yes to allow it. It's what lets Amit read things like temperature and memory use.</p>
               <p style="font-size:13px;line-height:1.6;margin:0">4. Once it finishes, come back to this tab and this same connection will work.</p>
             </div>
-            <p style="font-size:12px;color:#9aa0ab;margin:0 0 16px">Nothing runs in the background unless you start it — closing this tab stops everything again.</p>
+            <p style="font-size:12px;color:#9aa0ab;margin:0 0 16px">After this, Amit's helper starts by itself when you sign in to Windows and keeps Computer Health recording in the background. A small Amit icon near the clock shows it is running. You can stop tracking from that icon, or stop it starting with Windows in Task Manager under Startup apps.</p>
             <div style="display:flex;justify-content:flex-end">
               <button type="button" onclick="amvInstallerDownloadedClose()" style="background:rgba(120,190,230,.22);border:1px solid rgba(120,190,230,.6);color:inherit;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">Got it</button>
             </div>
@@ -3575,6 +3576,12 @@ if(db){
     const wasSignedIn=!!currentUser;
     currentUser=session?session.user:null;
     _updateSyncUI();
+    // Computer Health helper (2026-10-20, Ryan): on sign-in the Hub connects to the helper on this computer, starts tracking if it is not
+    // running, and saves any finished session that never reached the database (amit_ch_sync.js). Once per page load; deferred like the calls below.
+    if(window.AmitCH){
+      if(!session) AmitCH.reset();
+      else if(event==='SIGNED_IN'||event==='INITIAL_SESSION') setTimeout(()=>{ AmitCH.onHubLoad(db,currentUser); },1500);
+    }
     // Appearance (2026-10-01): pull this login's saved theme (or clear it on
     // sign-out). Deferred with setTimeout so no supabase call is awaited
     // inside this callback (supabase-js v2 can deadlock if you do).
@@ -12317,6 +12324,10 @@ function hubRailSyncClick(){ if(currentUser){ if(confirm('Signed in as '+current
       <div class="page-icon plug-badge disconnected" id="rail-watcher-icon"><span class="plug-icon-glyph">👁️</span></div>
       <div class="page-info"><div class="page-name" id="rail-watcher-name">Watcher</div><div class="page-sub" id="rail-watcher-sub">Not Running</div></div>
     </div>
+    <div class="page-nav" id="rail-helper" onclick="hubHelperClick()" data-tip="Helper" style="display:none">
+      <div class="page-icon plug-badge disconnected" id="rail-helper-icon"><span class="plug-icon-glyph">🖥️</span></div>
+      <div class="page-info"><div class="page-name" id="rail-helper-name">Helper</div><div class="page-sub" id="rail-helper-sub">Not Running</div></div>
+    </div>
     <div class="page-nav" id="rail-home" onclick="homePanelDate=todayStr();calDvDs=todayStr();openPanel('home')" data-tip="Home">
       <div class="page-icon">🏠</div>
       <div class="page-info"><div class="page-name">Home</div><div class="page-sub">Today</div></div>
@@ -12413,6 +12424,29 @@ async function hubWatcherClick(){
   _hubWatcherBusy=false; _hubWatcherPaint('off'); alert(msg);
 }
 (function(){const _us3=_updateSyncUI;_updateSyncUI=function(){const r=_us3.apply(this,arguments);_hubWatcherRefresh();return r;};})();
+
+// Helper light (right rail, anyone signed in): green when Amit's helper (the local bridge, localhost:8710) is running on this computer, red when it is not.
+// The sub line says whether it is tracking. Pressing it while red tries to start the helper through the amit-tracker:// link the installer registered.
+function _hubHelperPaint(){
+  const item=document.getElementById('rail-helper'),icon=document.getElementById('rail-helper-icon'),sub=document.getElementById('rail-helper-sub'); if(!item||!window.AmitCH) return;
+  const L=AmitCH.last, show=!!currentUser; item.style.display=show?'':'none'; if(!show) return;
+  const up=L.helper==='up';
+  icon.classList.add('plug-badge'); icon.classList.toggle('connected',up); icon.classList.toggle('disconnected',!up); item.classList.toggle('active',up);
+  sub.textContent=!up?'Not Running':(L.tracking?'Tracking':(L.disabledByUser?'Tracking Off':'Running'));
+  item.dataset.tip=!up?'Helper — press to start':(L.tracking?'Helper — tracking this computer':(L.disabledByUser?'Helper — tracking is off (you stopped it)':'Helper — running'));
+  item.title=!up?"Amit's helper is not running on this computer — press to start it":(L.tracking?"Amit's helper is running and tracking this computer":(L.disabledByUser?"Amit's helper is running. Tracking is off because you stopped it. Start it from Computer Health.":"Amit's helper is running"));
+}
+if(window.AmitCH) AmitCH.onStatus(_hubHelperPaint);
+// Keep the light honest if the helper stops or starts later (cheap local check, only while signed in and the tab is showing).
+setInterval(async function(){
+  if(!window.AmitCH||!currentUser||document.visibilityState!=='visible') return;
+  try{ const d=await AmitCH.helperStatus(); const was=AmitCH.last.helper; if(d.up&&was!=='up'){ AmitCH.reset(); AmitCH.onHubLoad(db,currentUser); } else if(!d.up&&was!=='down'){ AmitCH.last.helper='down'; AmitCH.last.tracking=null; _hubHelperPaint(); } }catch(e){}
+},20000);
+function hubHelperClick(){
+  if(window.AmitCH&&AmitCH.last.helper==='up'){ return; }
+  window.location.href='amit-tracker://start';
+}
+(function(){const _us4=_updateSyncUI;_updateSyncUI=function(){const r=_us4.apply(this,arguments);_hubHelperPaint();return r;};})();
 
 // The Ask Amit button (top of the right rail): signed in, it opens the chat box on the person's own private chat with Amit, ready to type in
 // (every message there is a question to him); signed out, it keeps the older "write to Amit / connect" pop-up for guests.

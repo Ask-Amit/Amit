@@ -90,6 +90,29 @@ if (-not $alreadyRunning -and (Test-Path $amitMobileWatcherPath)) {
     Write-Host "Amit Mobile listener already running."
 }
 
+# ── Ask Amit answering computer (AmitChat\amit_ask_watcher.js) — auto-start (2026-10-18, Ryan's request) ──
+# Same idea as the Amit Mobile listener above: the moment the shared bridge starts, Amit's answering computer starts with it, so the "Amit
+# Tracker" desktop shortcut (which starts this bridge) brings up everything in one double-click. It needs ask_watcher.json, which the watcher
+# itself writes the first time it runs on this computer (so a computer that never ran it simply skips this). Started hidden, never twice.
+$askCfgPath = "$env:LOCALAPPDATA\AmitComputerHealth\ask_watcher.json"
+try {
+    $askRunning = Get-WmiObject Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -like "*amit_ask_watcher.js*" } | Select-Object -First 1
+    if (-not $askRunning -and (Test-Path $askCfgPath)) {
+        $askCfg = Get-Content $askCfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $askNode = if ($askCfg.node -and (Test-Path $askCfg.node)) { $askCfg.node } else { "node" }
+        $askHome = "$env:LOCALAPPDATA\AmitComputerHealth"
+        $askCmd = "cmd.exe /c `"cd /d `"$($askCfg.dir)`" && `"$askNode`" amit_ask_watcher.js >> `"$askHome\ask_watcher.log`" 2>&1`""
+        $askStartup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+        $askRes = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $askCmd; CurrentDirectory = [string]$askCfg.dir; ProcessStartupInformation = $askStartup }
+        if ($askRes.ReturnValue -eq 0) { Write-Host "Ask Amit answering computer started (AmitChat\amit_ask_watcher.js)." }
+    } elseif ($askRunning) {
+        Write-Host "Ask Amit answering computer already running."
+    }
+} catch {
+    Write-Host "Ask Amit answering computer could not be started: $($_.Exception.Message)"
+}
+
 # ── Performance tracking — auto-start by default (2026-09-05) ──
 # Per AmitMobile's "Connect Amit" design (AmitMobile\CLAUDE.md): when the
 # bridge is running, BOTH the Amit Mobile phone listener (above) AND
@@ -1389,9 +1412,51 @@ secret key must never appear here, ever, under any circumstance.
                     Send-Json $response @{ error = "Sensor data not available yet - the tracker may still be starting, or admin approval (UAC) for sensor access wasn't granted this session." } 502
                 }
             }
+            "/api/ask-watcher-status" {
+                # Ask Amit answering computer (AmitChat\amit_ask_watcher.js) - added 2026-10-17, Ryan's request:
+                # the Hub's eye button shows whether it is running and can start it. Read-only.
+                $cfgPath = "$env:LOCALAPPDATA\AmitComputerHealth\ask_watcher.json"
+                $running = Get-WmiObject Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+                    Where-Object { $_.CommandLine -like "*amit_ask_watcher.js*" } | Select-Object -First 1
+                Send-Json $response @{ configured = [bool](Test-Path $cfgPath); running = [bool]$running }
+            }
+            "/api/ask-watcher-start" {
+                # Starts the Ask Amit watcher hidden, detached from this request, if it is not already running.
+                # No parameters: it only ever starts the one watcher recorded in ask_watcher.json (written by the
+                # watcher itself the first time it runs on this computer). Output goes to ask_watcher.log.
+                $home2 = "$env:LOCALAPPDATA\AmitComputerHealth"
+                $cfgPath = "$home2\ask_watcher.json"
+                $running = Get-WmiObject Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue |
+                    Where-Object { $_.CommandLine -like "*amit_ask_watcher.js*" } | Select-Object -First 1
+                if ($running) { Send-Json $response @{ started = $false; running = $true } }
+                elseif (-not (Test-Path $cfgPath)) { Send-Json $response @{ started = $false; running = $false; error = "The Ask Amit watcher has not been set up on this computer yet." } 404 }
+                else {
+                    $cfg = Get-Content $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
+                    $node = if ($cfg.node -and (Test-Path $cfg.node)) { $cfg.node } else { "node" }
+                    $cmd = "cmd.exe /c `"cd /d `"$($cfg.dir)`" && `"$node`" amit_ask_watcher.js >> `"$home2\ask_watcher.log`" 2>&1`""
+                    $startup = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+                    $res = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd; CurrentDirectory = [string]$cfg.dir; ProcessStartupInformation = $startup }
+                    Send-Json $response @{ started = ($res.ReturnValue -eq 0); running = ($res.ReturnValue -eq 0); code = $res.ReturnValue }
+                }
+            }
             "/api/tracker-status" {
                 $s = Get-TrackerStatus
                 Send-JsonRaw $response ('{"running":' + $(if ($s.running) {'true'} else {'false'}) + ',"pidCount":' + $s.pids.Count + '}')
+            }
+            "/api/ensure-tracking" {
+                # Added 2026-10-20 (Ryan: opening the Hub should start the helper's trackers if they are not
+                # running). Unlike /api/start-tracking this NEVER overrides a Stop the person chose on purpose:
+                # if the sticky "tracking disabled" flag is present it starts nothing and says so.
+                $s = Get-TrackerStatus
+                if ($s.running) {
+                    Send-JsonRaw $response '{"running":true,"started":false,"disabledByUser":false}'
+                } elseif (Test-Path "$env:TEMP\amit_tracking_disabled.flag") {
+                    Send-JsonRaw $response '{"running":false,"started":false,"disabledByUser":true}'
+                } else {
+                    $r = Start-Tracking
+                    $warningsJson = if ($r.warnings -and $r.warnings.Count -gt 0) { ($r.warnings | ForEach-Object { ConvertTo-JsonString $_ }) -join "," } else { "" }
+                    Send-JsonRaw $response ('{"running":true,"started":true,"disabledByUser":false,"pidCount":' + $r.pids.Count + ',"warnings":[' + $warningsJson + ']}')
+                }
             }
             "/api/start-tracking" {
                 $r = Start-Tracking
@@ -1509,6 +1574,36 @@ secret key must never appear here, ever, under any circumstance.
                     Send-JsonRaw $response ('{"found":true,' + $lContent.Substring(1))
                 } else {
                     Send-JsonRaw $response '{"found":false,"sessionEndTime":null,"rows":[]}'
+                }
+            }
+            "/api/pending-sessions" {
+                # Added 2026-10-20 (Ryan's design). The watchers keep every finished session's summary as its own small
+                # file under data\pending until the Hub (or dashboard) confirms it reached the database - so it survives
+                # Windows clearing the temp folder, and a newer session never overwrites an unsaved older one.
+                # Oldest first, at most 20 per call; each file's own JSON is passed through as-is with its file name added.
+                $pDir = "$env:LOCALAPPDATA\AmitComputerHealth\data\pending"
+                $pParts = @()
+                if (Test-Path $pDir) {
+                    foreach ($pf in (Get-ChildItem $pDir -Filter "*.json" -File -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -First 20)) {
+                        try {
+                            $pTxt = [System.IO.File]::ReadAllText($pf.FullName).Trim()
+                            if ($pTxt.StartsWith("{")) { $pParts += ('{"name":' + (ConvertTo-JsonString $pf.Name) + ',' + $pTxt.Substring(1)) }
+                        } catch {}
+                    }
+                }
+                Send-JsonRaw $response ('{"items":[' + ($pParts -join ",") + ']}')
+            }
+            "/api/pending-session-done" {
+                # The Hub calls this after a pending session is safely in the database (or was deliberately dismissed).
+                # Only a file name in the exact pending-queue shape is accepted, so it can never delete anything else.
+                $pName = $request.QueryString["name"]
+                if ($request.HttpMethod -eq 'POST' -and $pName -match '^(tracker|behavior)_\d{14}\.json$') {
+                    $pTarget = "$env:LOCALAPPDATA\AmitComputerHealth\data\pending\$pName"
+                    $pGone = $false
+                    if (Test-Path $pTarget) { try { Remove-Item $pTarget -Force -ErrorAction Stop; $pGone = $true } catch {} }
+                    Send-JsonRaw $response ('{"deleted":' + $(if ($pGone) {'true'} else {'false'}) + '}')
+                } else {
+                    Send-JsonRaw $response '{"deleted":false,"error":"not a pending session file name"}'
                 }
             }
             "/api/diagnostics-metrics" {

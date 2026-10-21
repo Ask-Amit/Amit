@@ -35,6 +35,45 @@ $metricsOutFile = "$env:TEMP\tracker_metrics.json"
 # mid-session. Does not touch the final-summary write or its timing at all.
 $liveMetricsOutFile = "$env:TEMP\tracker_metrics_live.json"
 
+# --- Durable queue of finished sessions (2026-10-20, Ryan's design) ---
+# The temp-folder files above can be cleared by Windows and only ever hold the LATEST session. So every finished
+# session's summary is ALSO kept as its own small file under %LOCALAPPDATA%\AmitComputerHealth\data\pending until the
+# Hub (or dashboard) confirms it reached the database, and a checkpoint of the running session is kept in data\ so a
+# crash or power loss loses at most ~30 seconds. Nothing here changes the temp files or their timing.
+$durableDir = "$env:LOCALAPPDATA\AmitComputerHealth\data"
+$pendingDir = "$durableDir\pending"
+$checkpointFile = "$durableDir\tracker_checkpoint.json"
+function Write-DurableFile($path, $text) {
+    try {
+        New-Item -ItemType Directory -Path (Split-Path $path) -Force -ErrorAction Stop | Out-Null
+        $tmp = "$path.tmp"
+        [System.IO.File]::WriteAllText($tmp, $text, (New-Object System.Text.UTF8Encoding($false)))
+        Move-Item -LiteralPath $tmp -Destination $path -Force -ErrorAction Stop
+    } catch {}
+}
+function Add-PendingSession($type, $sessionEndTime, $rowsJson, $recovered) {
+    try {
+        if (-not $rowsJson -or $rowsJson -eq "[]") { return }
+        $stamp = (($sessionEndTime -replace '[^0-9]', '') + "00000000000000").Substring(0, 14)
+        $rec = if ($recovered) { "true" } else { "false" }
+        Write-DurableFile "$pendingDir\${type}_$stamp.json" ('{"type":"' + $type + '","sessionEndTime":"' + $sessionEndTime + '","recovered":' + $rec + ',"rows":' + $rowsJson + '}')
+        Get-ChildItem $pendingDir -Filter "*.json" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -Skip 50 | Remove-Item -Force -ErrorAction SilentlyContinue
+    } catch {}
+}
+# A checkpoint left behind by a session that never finished (crash, power loss, Windows killed it) becomes a pending
+# session now, before this new session starts overwriting the checkpoint. Only if no other tracker process is running
+# (a running one would still be writing that checkpoint itself).
+try {
+    $otherTracker = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match 'resource_watcher\.ps1' }).Count -gt 0
+    if ((Test-Path $checkpointFile) -and -not $otherTracker) {
+        $cp = [System.IO.File]::ReadAllText($checkpointFile)
+        $cpTime = [regex]::Match($cp, '"sessionEndTime":"([^"]+)"')
+        $cpRows = $cp.IndexOf('"rows":')
+        if ($cpTime.Success -and $cpRows -gt 0) { Add-PendingSession 'tracker' $cpTime.Groups[1].Value ($cp.Substring($cpRows + 7).TrimEnd().TrimEnd('}')) $true }
+        Remove-Item $checkpointFile -Force -ErrorAction SilentlyContinue
+    }
+} catch {}
+
 "Resource watcher started at $(Get-Date -Format 'HH:mm:ss.fff') - RAM, CPU, top memory consumers, and FULL sensor dump (all voltages/temps/fans/power/clocks) - first 3 captures 5 seconds apart, then every 30 seconds" | Out-File -FilePath $out -Encoding utf8
 
 function Get-SensorFlat($node, $path = "") {
@@ -288,7 +327,9 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
         $liveRows = @(Get-FinalMetricRows $metricStats)
         $liveRowsJson = if ($liveRows.Count -eq 0) { "[]" } elseif ($liveRows.Count -eq 1) { "[" + ($liveRows[0] | ConvertTo-Json -Depth 3 -Compress) + "]" } else { $liveRows | ConvertTo-Json -Depth 3 }
         $liveSnapshotTime = (Get-Date).ToUniversalTime().ToString("o")
-        ('{"sessionEndTime":"' + $liveSnapshotTime + '","rows":' + $liveRowsJson + '}') | Out-File -FilePath $liveMetricsOutFile -Encoding utf8
+        $liveJson = '{"sessionEndTime":"' + $liveSnapshotTime + '","rows":' + $liveRowsJson + '}'
+        $liveJson | Out-File -FilePath $liveMetricsOutFile -Encoding utf8
+        Write-DurableFile $checkpointFile $liveJson
     } catch {
         Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') WARNING: failed to write live metrics snapshot - $($_.Exception.Message)" -Encoding utf8
     }
@@ -336,6 +377,9 @@ try {
     $sessionEndTime = (Get-Date).ToUniversalTime().ToString("o")
     $payload = '{"sessionEndTime":"' + $sessionEndTime + '","rows":' + $rowsJson + '}'
     $payload | Out-File -FilePath $metricsOutFile -Encoding utf8
+    # the same summary, kept durably until it is confirmed saved; the session finished, so its checkpoint is no longer needed
+    Add-PendingSession 'tracker' $sessionEndTime $rowsJson $false
+    Remove-Item $checkpointFile -Force -ErrorAction SilentlyContinue
     Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') Wrote $($finalRows.Count) aggregated metric rows to $metricsOutFile." -Encoding utf8
 } catch {
     Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') WARNING: failed to write aggregated metrics - $($_.Exception.Message)" -Encoding utf8
