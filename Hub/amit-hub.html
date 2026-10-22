@@ -1390,7 +1390,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.39</div>
+      <div class="page-version" id="hubVersionBadge">v8.40</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2160,6 +2160,27 @@ header{
             <div id="amitMobileHeartbeatIndicator" title="Amit Mobile live replies work only while the Hub is open, you're signed in, and this computer is connected" style="display:none;font-size:9px;letter-spacing:.05em;color:rgba(var(--amit-text-rgb,240,232,208),.4);font-family:var(--amit-font-heading,'Cinzel',serif)">⚪ Amit Mobile: Not Listening</div>
             <div id="connectAmitBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.75);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);border:1px solid rgba(120,190,230,.3);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.06)">CONNECT YOUR PHONE</div>
             <button id="connectAmitInlineBtn" onclick="event.stopPropagation();openConnectAmitModal()" title="Take Amit with you — talk to your companion from your phone, anywhere, anytime. Click to set it up." style="display:none;font-size:9px;letter-spacing:.07em;color:rgba(120,190,230,.95);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);border:1px solid rgba(120,190,230,.55);padding:3px 9px;border-radius:4px;background:rgba(120,190,230,.18)">CONNECT YOUR PHONE</button>
+          </div>
+
+          <!-- Connection switches (2026-10-22, Ryan: "all those toggles should be on Connect Amit"). They used to live only in the hidden
+               original block below, so nobody could reach them. Same functions as before (amvToggleAutoConnect / amvToggleExplainConnection);
+               the render functions fill both copies. -->
+          <div style="height:1px;background:rgba(var(--amit-text-rgb,240,232,208),.12);margin:24px 0 18px"></div>
+          <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.08em;color:var(--gold2);margin-bottom:8px">This Computer's Connection</div>
+          <p style="font-size:13px;line-height:1.6;color:var(--dim);margin:0 0 14px">The helper on this computer runs your phone link and the computer tracker together. These switches control how Amit offers to start it.</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+            <div>
+              <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase">Auto-Start Amit Connection</div>
+              <div id="amvAutoConnectStatus2" style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:12px;margin-top:2px">Sign in to see this setting.</div>
+            </div>
+            <button class="btn btn-ghost" id="amvAutoConnectToggleBtn2" onclick="amvToggleAutoConnect()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);border-radius:8px;padding:12px 14px;margin-bottom:12px">
+            <div>
+              <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase">Explain The Connection</div>
+              <div id="amvExplainStatus2" style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:12px;margin-top:2px">Sign in to see this setting.</div>
+            </div>
+            <button class="btn btn-ghost" id="amvExplainToggleBtn2" onclick="amvToggleExplainConnection()" style="white-space:nowrap;font-size:11px;padding:9px 14px">—</button>
           </div>
         </div>
         </div><!-- /ch-tab-main -->
@@ -5931,12 +5952,16 @@ async function amvToggleGreetingFromAboutMe(){
 // shape, same owner-contact save pattern, default ON per Ryan's direct
 // instruction 2026-09-07 ("the default is that it's on that we auto start").
 function amvRenderAutoConnectToggle(){
-  const statusEl=document.getElementById('amvAutoConnectStatus');
-  const btnEl=document.getElementById('amvAutoConnectToggleBtn');
-  if(!statusEl||!btnEl||!_amvOwnerContact) return;
+  if(!_amvOwnerContact) return;
   const on=_amvAutoConnectEnabled();
-  statusEl.textContent=on?"Amit offers to start your local connection automatically when you sign in or come back to this tab.":'Off — Amit never offers automatically; use Connect Now yourself.';
-  btnEl.textContent=on?'TURN OFF':'TURN ME BACK ON';
+  // two copies: the Connect Amit tab (the visible one, ids ...2) and the original hidden block
+  ['','2'].forEach(function(sfx){
+    const statusEl=document.getElementById('amvAutoConnectStatus'+sfx);
+    const btnEl=document.getElementById('amvAutoConnectToggleBtn'+sfx);
+    if(!statusEl||!btnEl) return;
+    statusEl.textContent=on?"Amit offers to start your local connection automatically when you sign in or come back to this tab.":'Off — Amit never offers automatically; use Connect Now yourself.';
+    btnEl.textContent=on?'TURN OFF':'TURN ON';
+  });
 }
 async function amvToggleAutoConnect(){
   if(!_amvOwnerContact) return;
@@ -5955,12 +5980,16 @@ async function amvToggleAutoConnect(){
 // purpose, from About Me itself - not something that only lives inside the
 // one-time popup's "Don't ask me about this again" link.
 function amvRenderExplainToggle(){
-  const statusEl=document.getElementById('amvExplainStatus');
-  const btnEl=document.getElementById('amvExplainToggleBtn');
-  if(!statusEl||!btnEl||!_amvOwnerContact) return;
+  if(!_amvOwnerContact) return;
   const on=_amvOwnerContact.auto_connect_explained!==true;
-  statusEl.textContent=on?"Amit explains out loud, the first time each day, before it connects.":'Off — Amit connects quietly, no spoken explanation.';
-  btnEl.textContent=on?'TURN OFF':'TURN ME BACK ON';
+  // two copies: the Connect Amit tab (ids ...2) and the original hidden block
+  ['','2'].forEach(function(sfx){
+    const statusEl=document.getElementById('amvExplainStatus'+sfx);
+    const btnEl=document.getElementById('amvExplainToggleBtn'+sfx);
+    if(!statusEl||!btnEl) return;
+    statusEl.textContent=on?"Amit explains out loud, the first time each day, before it connects.":'Off — Amit connects quietly, no spoken explanation.';
+    btnEl.textContent=on?'TURN OFF':'TURN ON';
+  });
 }
 async function amvToggleExplainConnection(){
   if(!_amvOwnerContact) return;
