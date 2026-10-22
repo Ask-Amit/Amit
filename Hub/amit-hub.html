@@ -1390,7 +1390,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.38</div>
+      <div class="page-version" id="hubVersionBadge">v8.39</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1440,6 +1440,7 @@ header{
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px">Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand.</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px">It watches over your computer itself — tells you about real problems, whether something needs an upgrade, cooling issues, anything slowing you down — and it keeps watch for potential virus activity too.</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 10px">And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer.</p>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 10px">Once it's installed, it starts by itself whenever you sign in to Windows, so it keeps recording even when the Hub is closed. A small Amit icon near the clock shows it's running, and you can stop it from there or in Task Manager under Startup apps.</p>
             <p style="font-size:14px;line-height:1.6;margin:0 0 16px">This is a real choice, not something I'll ever force on you. If you don't pick either way, it stays on by default — same as it will from here forward unless you turn it off yourself later in About Me.</p>
             <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap">
               <button type="button" onclick="amvAutoConnectDontAskAgain()" style="background:transparent;border:none;color:rgba(var(--amit-text-rgb,240,232,208),.5);padding:9px 4px;cursor:pointer;font-size:12px;text-decoration:underline">Don't ask me about this again</button>
@@ -3777,7 +3778,7 @@ async function _amvShowAutoConnectExplainer(){
     // plainly saying what's about to happen, THEN the "why would I want
     // this" framing, THEN the real benefits - not straight into the sales
     // pitch with no heads-up first.
-    const text="I'm about to turn on some monitoring on your computer. You might be asking — why would I want this? Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand. It watches over your computer itself — tells you about real problems, whether something needs an upgrade, cooling issues, anything slowing you down — and it keeps watch for potential virus activity too. And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer. This is a real choice, not something I'll ever force on you. If you'd rather not, just say so, and I'll leave it right where it is.";
+    const text="I'm about to turn on some monitoring on your computer. You might be asking — why would I want this? Here's why. This lets me connect to your phone, so you can take a photo and ask me questions right from wherever you are. It lets you snap a photo of a receipt for your own accounting, and it uploads straight in — no typing it in by hand. It watches over your computer itself — tells you about real problems, whether something needs an upgrade, cooling issues, anything slowing you down — and it keeps watch for potential virus activity too. And if you're a coder, it connects a real memory library, so I can actually help you build things directly on your own computer. Once it's installed, it starts by itself whenever you sign in to Windows, and a small Amit icon near the clock shows it's running. This is a real choice, not something I'll ever force on you. If you'd rather not, just say so, and I'll leave it right where it is.";
     const voices=await _amvGetVoicesReady();
     _amvSpeakWithContact(text,_amvOwnerContact,voices);
   }
@@ -12444,6 +12445,8 @@ setInterval(async function(){
 },20000);
 function hubHelperClick(){
   if(window.AmitCH&&AmitCH.last.helper==='up'){ return; }
+  // Not running: use the Hub's own Connect Amit routine (launch it; if it is not installed, download the installer with the step-by-step instructions)
+  if(typeof amvAutoConnectLaunch==='function'){ amvAutoConnectLaunch(); return; }
   window.location.href='amit-tracker://start';
 }
 (function(){const _us4=_updateSyncUI;_updateSyncUI=function(){const r=_us4.apply(this,arguments);_hubHelperPaint();return r;};})();
