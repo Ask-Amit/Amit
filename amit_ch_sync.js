@@ -1,4 +1,4 @@
-/* amit_ch_sync.js  v1.01  -  Computer Health: connect to the local helper and save anything not saved yet.
+/* amit_ch_sync.js  v1.02  -  Computer Health: connect to the local helper and save anything not saved yet.
 
    WHAT IT DOES (Ryan's design, 2026-10-20): the helper program (amit_bridge_server.ps1, localhost:8710) and its watchers
    keep tracking in the background, with no page open. When a person opens the Hub (already signed in), this file:
@@ -18,7 +18,7 @@
    If the helper is not running, nothing breaks: the unsaved summary stays on the computer until the next time. */
 (function (w) {
   'use strict';
-  const AmitCH = { version: '1.01', BRIDGE: (w.__AMIT_CH_BRIDGE || 'http://localhost:8710'), last: { helper: 'unknown', tracking: null, disabledByUser: false, saved: 0, error: null } };
+  const AmitCH = { version: '1.02', BRIDGE: (w.__AMIT_CH_BRIDGE || 'http://localhost:8710'), last: { helper: 'unknown', tracking: null, disabledByUser: false, saved: 0, error: null } };
   const listeners = [];
   const TYPES = [
     { endpoint: '/api/tracker-metrics',  eventType: 'tracking_session_ended', label: 'Tracker' },
@@ -45,6 +45,12 @@
     const d = await bridgeCall('/api/device', 'GET', 3000);
     if (!d || !d.deviceId) return { up: false };
     return { up: true, deviceId: String(d.deviceId).toLowerCase(), deviceName: d.deviceName };
+  };
+
+  /* Claude Code on this computer: installed, and signed in? (the helper reports it; only meaningful while the helper is running) */
+  AmitCH.claudeStatus = async function () {
+    const d = await bridgeCall('/api/claude-status', 'GET', 3000);
+    return d ? { installed: !!d.installed, connected: !!d.connected } : { installed: false, connected: false };
   };
 
   /* start tracking if it is not running, unless the person turned it off on purpose */

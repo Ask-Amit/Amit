@@ -288,6 +288,15 @@ try {
     New-Item -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\shell\open\command" -Name "(Default)" -Value "`"$trackerExePath`""
     Write-Host "  Registered. Links starting with amit-tracker:// will now launch the tracker (Windows will always ask permission first - by design, not something we can silence)."
+    # amit-helper:// (added 2026-10-22): the QUIET launch link the Hub uses to start Amit's helper - the same as the start-with-Windows
+    # entry (tray icon only, no window, no dashboard tab). The Hub tries this first, then amit-tracker:// for installs that predate it.
+    New-Item -Path "HKCU:\Software\Classes\amit-helper" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper" -Name "(Default)" -Value "URL:Amit Helper"
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper" -Name "URL Protocol" -Value ""
+    New-Item -Path "HKCU:\Software\Classes\amit-helper\DefaultIcon" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper\DefaultIcon" -Name "(Default)" -Value $iconDest
+    New-Item -Path "HKCU:\Software\Classes\amit-helper\shell\open\command" -Force | Out-Null
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper\shell\open\command" -Name "(Default)" -Value "`"$trackerExePath`" --tray-only --at-logon"
 } catch {
     Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Tracker button won't work yet, but the Amit desktop shortcut and manual tracking still will."
 }
