@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
+   v0.26 — 2026-10-23. NEW-MEMBER CHECK: adding someone to a chat that already holds information Amit shared from a person's own apps is checked first (the answering computer tries it as that person). Not allowed: the person adding them is told which information it is and which administrator to ask. Allowed: the person adding them is asked to confirm. Accepting an invitation is checked the same way. Needs migration _025.
    v0.21 — 2026-10-18. ASK AMIT FROM THE PAGE: AmitChat.openHelp() opens the chat box on the person's own private chat with Amit (found or made by cha_help_chat), ready to type in; every message sent there is a question to him (a press). The page tells the chat where the person is through AmitChat.placeProvider (recorded with each press). Needs migration _016.
    v0.20 — 2026-10-18. AMIT IS LISTENING: pressing the Amit icon with nothing typed switches him on (green circle round the icon, a green bar everyone in the chat sees) or off (any member can). With a question typed or a message highlighted it asks him now and he stays on. While on he stays quiet while people talk, looks 30 s after the last message (at once when asked by name) and may speak or pass; if he speaks and nobody replies in 2 minutes he turns himself off. Needs migration _014.
    v0.19 — 2026-10-17. ASK AMIT: the Amit icon in the message bar is now the real Ask Amit press. It writes ONE row to the steering log (cha_asks: who, which chat, where, what is highlighted, an optional note) and nothing else; Amit's answering computer claims the row, reads the chat's history and answers INTO THE CHAT. A line above the message bar shows Amit has been asked / is working / his computer is offline. Typing @Amit counts as a press too. Every chat shows its number. Until migration _013 is run the old behaviour (invite Amit, @Amit, J chat) is kept. v0.18 — 2026-10-17. FIXES: a spot you pick is always honoured, even inside one of your OWN messages (skip-my-own now applies only to the messages after it); a paused voice no longer stays stuck when you pick a new spot (the browser does not un-pause on cancel); paused + highlight a word or phrase + play starts at the highlight instead of resuming the old place. v0.17 — 2026-10-17. The read-aloud controls (start over, play/pause, next, adjust) are GLOBAL: one player in the chat header next to the chat name. Click a word while it reads, or click/highlight a word and press play, to choose where it starts. Pressing the speaker on a chat in the list (or play with nothing chosen) reads the new messages chat after chat, saying 'In <chat>. TJ said...'. Inside one chat names are not spoken (a group of 3+ gets the name when the speaker changes). 'Skip my own messages' (on by default) in the voice dialog. v0.16 — 2026-10-17. The play button on each message is a speaker icon (clearer than a triangle for someone new); the hover help stays. v0.15 — 2026-10-17. Read-aloud moved INTO the chat: every message has a play button; while it reads, that message shows start-over / pause / next and an adjust icon that opens a voice dialog (voice, speed, pitch, volume, pause) heard as you change it and saved to the person's profile when closed (AmitChat.voiceSaver). The speaker button at the top of the chat is gone. v0.14 — 2026-10-17. A Refresh button inside the chat; when Amit's helper posts a reply it sends a "refresh" nudge on the chat's live channel, so an open chat shows the reply at once instead of waiting for the next check. v0.13 — 2026-10-17. The live transcript blinks GREEN (the Hub's own "on" green) instead of red; clearer iPhone messages (it can work in Safari but not inside a home-screen app). v0.12 — 2026-10-17. LIVE TRANSCRIPT: a button that keeps the browser's speech feature running and posts what you say as text lines (cut at a pause of about 2 s, or at the next natural phrase once a piece passes 30 s; never drops words; no audio is kept). The chat can also be mounted inline for a phone page (AmitChat.mountInline: AmitMobile). v0.11 — 2026-10-17. Full-screen view: the chat list collapses to one icon so the open chat fills the screen (remembered). Small box: a Maximize button opens the same chat in Communications > Chats (AmitChat.onMaximize, AmitChat.openInPanel). Hover labels sit ABOVE the button, with more padding (the browser's own label sat under the pointer and hid the words). v0.10 — 2026-10-16. The chat box opens at the top right beside the chat icon and closes back into it (the icon is the toggle); an Add Amit button in the chat header. v0.09 — 2026-10-16. J chat: Amit answers in a chat through any member's own VS Code / AmitCoder session (no API); replies are labelled with whose session they came through; the chat you open last is the one J chat reads. v0.08 — 2026-10-15. Help me fix this card with a step checklist, items (question, decision, prayer request with confidential and answered, note), long messages collapse, Open Loops in For me, a guardian's invitation is claimed when the child signs in. v0.07 — 2026-10-15. Read-aloud button in the chat (follows the words, pause/back/next/stop, uses the voice saved in About Me), birth date lives in About Me, parents: chat switch and read-only view of their children's chats. v0.06 — 2026-10-15. Birth date gate and guardians (safeguarding), friends-list visibility, acquaintances, delete a chat (24 h), hide/mute a chat, pin, private notes, send silently, local time, a For me page. v0.05 — 2026-10-15. Reply to a message, drafts kept, search, export as text. Edit and unsend your own messages, typing indicator, clickable links, video-call link, voice messages with transcript. v0.04 — 2026-10-15. Photos and files; Amit can be invited into a chat. v0.03: smart refresh (no always-running timers). v0.02: LIVE mode (real Supabase data). Sample mode stays
@@ -24,7 +25,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.25';
+  var VERSION = 'v0.26';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -563,9 +564,38 @@
           });
         });
       },
-      respondInvite: function (id, accept) { return db.rpc('cha_respond_invite', { p_conv: id, p_accept: accept }).then(fail); },
+      /* accepting an invitation: when the chat holds shared information the answering computer checks first ('checking' means ask again in a moment) */
+      respondInvite: function (id, accept) {
+        var tries = 0;
+        function go() {
+          return db.rpc('cha_respond_invite', { p_conv: id, p_accept: accept }).then(function (r) {
+            fail(r); var v = r.data || '';
+            if (v === 'checking') { if (++tries > 40) throw new Error('Could not check this chat just now. Please try again in a few minutes.'); return new Promise(function (res) { setTimeout(res, 1500); }).then(go); }
+            if (v === 'blocked') throw new Error('You cannot join this chat: it holds information you are not authorised to see.');
+            return r;
+          });
+        }
+        return go();
+      },
       leave: function (id) { return db.rpc('cha_leave', { p_conv: id }).then(fail); },
-      addMember: function (id, userId) { return db.rpc('cha_add_member', { p_conv: id, p_user: userId }).then(function (r) { fail(r); return r.data; }); },
+      /* adding a person. When the chat holds information Amit shared, the answering computer checks them first: 'checking' = wait; 'blocked|...' = refused, with the reason in plain words;
+         'confirm|...' = they may see it, ask the person adding them (AmitChat.confirmAdd(text) may return true/false or a promise; the browser's own question is the fallback) */
+      addMember: function (id, userId) {
+        var tries = 0;
+        function go(conf) {
+          return db.rpc('cha_add_member', { p_conv: id, p_user: userId, p_confirm: !!conf }).then(function (r) {
+            fail(r); var v = r.data || '';
+            if (v === 'checking') { if (++tries > 40) throw new Error('Could not check that person just now. Please try again in a few minutes.'); return new Promise(function (res) { setTimeout(res, 1500); }).then(function () { return go(conf); }); }
+            if (v.indexOf('blocked|') === 0) { var e = new Error(v.slice(8)); e.blocked = true; throw e; }
+            if (v.indexOf('confirm|') === 0) {
+              var q = v.slice(8), yes = AmitChat.confirmAdd ? AmitChat.confirmAdd(q) : window.confirm(q);
+              return Promise.resolve(yes).then(function (ok) { return ok ? go(true) : 'cancelled'; });
+            }
+            return v;
+          });
+        }
+        return go(false);
+      },
       removeMember: function (id, userId) { return db.rpc('cha_remove_member', { p_conv: id, p_user: userId }).then(fail); }
     };
     return src;

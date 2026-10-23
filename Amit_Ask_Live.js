@@ -649,7 +649,7 @@ If someone asks what a specific reading or flagged item on their screen actually
   under it; otherwise a round chat button floats at the bottom right. It shows only when signed in.
   Bump the two versions below whenever amit_chat.js or amit_data_tools.js is pushed.
 */
-const AMIT_CHAT_ENGINE_V = '0.25', AMIT_DATA_TOOLS_V = '1.01', AMIT_CHAT_PROJECT = 'hleqtjqojksurvkyqixt';
+const AMIT_CHAT_ENGINE_V = '0.26', AMIT_DATA_TOOLS_V = '1.01', AMIT_CHAT_PROJECT = 'hleqtjqojksurvkyqixt';
 const _amitScriptBase = (function(){ try{ const s=document.currentScript&&document.currentScript.src; return s?s.replace(/[?#].*$/,'').replace(/[^\/]*$/,''):''; }catch(e){ return ''; } })();
 let _amitChatOwnDb = null, _amitChatOwned = false, _amitChatKey = '', _amitChatBusy = null, _amitChatWired = false;
 
