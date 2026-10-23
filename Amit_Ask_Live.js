@@ -632,7 +632,130 @@ If someone asks what a specific reading or flagged item on their screen actually
 
 };
 
+/*
+  THE CHAT LAYER — added 2026-10-23, Ryan's direct instruction: every "Ask Amit" button, on every
+  application, opens the real AmitChat (the person's own private chat with Amit), and every
+  application also carries the chat box itself. All of it lives here, in the one shared file, so
+  a page needs nothing but this script and an Ask Amit button; a page built from the template
+  gets it for free.
+
+  How it works: when a signed-in person presses Ask Amit (or opens the chat button), this loads
+  the chat engine (amit_chat.js) and the data tools (amit_data_tools.js) from beside this file,
+  connects them to the page's own Supabase sign-in (the same sign-in the Hub uses, shared by every
+  page of the site), and opens the chat. Not signed in, or anything fails: the older Write-to-Amit
+  / Connect pop-up below opens exactly as before. A page that already runs the chat itself (the Hub,
+  AmitMobile) is left alone: this layer only adds what is missing.
+  Chat button: if the page has the shared right rail with an Ask Amit item, a Chats item is added
+  under it; otherwise a round chat button floats at the bottom right. It shows only when signed in.
+  Bump the two versions below whenever amit_chat.js or amit_data_tools.js is pushed.
+*/
+const AMIT_CHAT_ENGINE_V = '0.25', AMIT_DATA_TOOLS_V = '1.01', AMIT_CHAT_PROJECT = 'hleqtjqojksurvkyqixt';
+const _amitScriptBase = (function(){ try{ const s=document.currentScript&&document.currentScript.src; return s?s.replace(/[?#].*$/,'').replace(/[^\/]*$/,''):''; }catch(e){ return ''; } })();
+let _amitChatOwnDb = null, _amitChatOwned = false, _amitChatKey = '', _amitChatBusy = null, _amitChatWired = false;
+
+function _amitLoadScript(src){
+  return new Promise(function(res,rej){ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=function(){ rej(new Error('could not load '+src)); }; document.head.appendChild(s); });
+}
+// the page's own client if it has one (so the sign-in is never fought over by a second client)
+function _amitChatHostClient(){
+  const found=[];
+  try{ if(typeof db!=='undefined'&&db) found.push(db); }catch(e){}
+  try{ if(typeof mpDb!=='undefined'&&mpDb) found.push(mpDb); }catch(e){}
+  for(let i=0;i<found.length;i++){ const c=found[i]; if(c&&c.auth&&c.rpc) return c; }
+  return null;
+}
+function _amitChatHasStoredSignIn(){
+  try{ return !!localStorage.getItem('sb-'+AMIT_CHAT_PROJECT+'-auth-token'); }catch(e){ return false; }
+}
+async function _amitChatClient(){
+  const host=_amitChatHostClient();
+  if(host) return host;
+  // a page with no client of its own (a plain reading page): make one that uses the site's shared sign-in
+  if(!_amitChatHasStoredSignIn()) return null;
+  await new Promise(function(r){ _loadSupabaseJsThen(r); });
+  if(typeof supabase==='undefined') return null;
+  if(!_amitChatOwnDb) _amitChatOwnDb=supabase.createClient(AMIT_INBOX_SUPABASE_URL,AMIT_INBOX_SUPABASE_KEY);
+  return _amitChatOwnDb;
+}
+// signed in on a page that can run the chat? resolves { client, user } or null. Never throws.
+async function _amitChatBoot(){
+  try{
+    const client=await _amitChatClient(); if(!client) return null;
+    if(client.supabaseUrl&&String(client.supabaseUrl).indexOf(AMIT_CHAT_PROJECT)<0) return null;
+    const r=await client.auth.getSession(); const user=r&&r.data&&r.data.session&&r.data.session.user; if(!user) return null;
+    if(!window.AmitChat){
+      if(!_amitChatBusy) _amitChatBusy=_amitLoadScript(_amitScriptBase+'amit_chat.js?v='+AMIT_CHAT_ENGINE_V).then(function(){
+        _amitChatOwned=true;
+        if(!window.AmitData) return _amitLoadScript(_amitScriptBase+'amit_data_tools.js?v='+AMIT_DATA_TOOLS_V).catch(function(){});
+      });
+      await _amitChatBusy;
+    }
+    if(!window.AmitChat) return null;
+    if(_amitChatOwned){
+      AmitChat.appName=(_amitChatKey||'page');
+      AmitChat.placeProvider=function(){ return { page:_amitChatKey||'page', label:(typeof PAGE_DISPLAY_NAMES!=='undefined'&&PAGE_DISPLAY_NAMES[_amitChatKey])||document.title||_amitChatKey||'this page' }; };
+    }
+    if(!AmitChat.live||AmitChat.live.me!==user.id) AmitChat.connect(client,user.id);
+    return { client:client, user:user };
+  }catch(e){ return null; }
+}
+// the Ask Amit button: opens the real chat when it can. Resolves true when the chat took the press.
+async function _amitChatOpen(pageKey){
+  if(pageKey&&pageKey!=='TEMPLATE_NOT_CONFIGURED') _amitChatKey=pageKey; else if(!_amitChatKey) _amitChatKey=(document.title||'page').slice(0,40);
+  const b=await _amitChatBoot(); if(!b) return false;
+  if(!AmitChat.live||!AmitChat.source||!AmitChat.source.helpOpen) return false;
+  await AmitChat.openHelp();
+  return true;
+}
+async function _amitChatToggle(){
+  const b=await _amitChatBoot(); if(!b) return;
+  AmitChat.togglePopup();
+}
+// the chat button: inside the shared right rail under Ask Amit when the page has that rail, else a round button at the bottom right
+function _amitChatPlaceButton(show){
+  let btn=document.getElementById('rail-chat');
+  if(btn&&!btn.getAttribute('data-shared-chat')&&!btn.getAttribute('data-amit-added')) return;   // the page runs its own chat button (Hub): leave it alone
+  if(!btn){
+    const ask=document.getElementById('rail-ask-amit');
+    if(ask&&ask.parentNode){
+      btn=document.createElement('div'); btn.className='page-nav'; btn.id='rail-chat'; btn.setAttribute('data-tip','AmitChat'); btn.setAttribute('data-amit-added','rail');
+      btn.innerHTML='<div class="page-icon" style="position:relative">&#128172;<span class="acx-badge" id="rail-chat-badge" style="display:none">0</span></div><div class="page-info"><div class="page-name">Chats</div><div class="page-sub">AmitChat</div></div>';
+      ask.parentNode.insertBefore(btn,ask.nextSibling);
+    } else if(show){
+      const st=document.createElement('style');
+      st.textContent='#rail-chat[data-amit-added="fab"]{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));width:52px;height:52px;border-radius:50%;background:#0f1a2e;border:2px solid #c9a84c;color:#e8c56a;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:99990;box-shadow:0 4px 14px rgba(0,0,0,.45)}#rail-chat[data-amit-added="fab"]:hover{background:#17284a}#rail-chat[data-amit-added="fab"] .acx-badge{position:absolute;top:-5px;right:-5px;background:#c0392b;color:#fff;border-radius:9px;min-width:18px;height:18px;padding:0 4px;font:700 11px/18px sans-serif;text-align:center;box-sizing:border-box}';
+      document.head.appendChild(st);
+      btn=document.createElement('div'); btn.id='rail-chat'; btn.setAttribute('data-amit-added','fab'); btn.setAttribute('title','AmitChat');
+      btn.innerHTML='&#128172;<span class="acx-badge" id="rail-chat-badge" style="display:none">0</span>';
+      document.body.appendChild(btn);
+    }
+  }
+  if(!btn) return;
+  if(!btn.getAttribute('data-bound')){ btn.setAttribute('data-bound','1'); btn.addEventListener('click',function(e){ e.stopPropagation(); _amitChatToggle(); }); btn.removeAttribute('onclick'); }
+  btn.style.display=show?(btn.getAttribute('data-amit-added')==='fab'?'flex':''):'none';
+}
+// signed in: show the chat button and keep the unread count; signed out: hide it
+async function _amitChatSync(){
+  const b=await _amitChatBoot();
+  _amitChatPlaceButton(!!b);
+  if(b){ try{ AmitChat.refreshUnread(); }catch(e){} }
+  else if(_amitChatOwned&&window.AmitChat){ try{ AmitChat.disconnect(); }catch(e){} }
+}
+function _amitChatInit(){
+  if(_amitChatWired) return; _amitChatWired=true;
+  const host=_amitChatHostClient();
+  if(host&&host.auth&&host.auth.onAuthStateChange){ try{ host.auth.onAuthStateChange(function(){ setTimeout(_amitChatSync,300); }); }catch(e){} }
+  _amitChatSync();
+  // pages build their right rail after load: look again a few times so the button lands in it
+  let n=0; const t=setInterval(function(){ n++; if(document.getElementById('rail-ask-amit')&&!document.getElementById('rail-chat')) _amitChatSync(); if(n>=8) clearInterval(t); },700);
+}
+if(document.readyState==='complete') setTimeout(_amitChatInit,0); else window.addEventListener('load',function(){ setTimeout(_amitChatInit,200); });
+
 function askAmitLive(pageKey){
+  // The chat comes first (2026-10-23): a signed-in person gets the real AmitChat; everyone else, or if the chat cannot open, gets the older pop-up below.
+  _amitChatOpen(pageKey).then(function(ok){ if(!ok) _askAmitLiveOld(pageKey); }, function(){ _askAmitLiveOld(pageKey); });
+}
+function _askAmitLiveOld(pageKey){
   // Guard, added 2026-07-25, Ryan's direct instruction: the reusable
   // template (Templates/template.html) ships with this button wired to the
   // sentinel key below, on purpose - not a mistake to silently work around.

@@ -24,7 +24,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.24';
+  var VERSION = 'v0.25';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -1751,7 +1751,7 @@
         return src.askStatus(convId).then(function (s) {
           if (destroyed) return;
           if (s === null) { state.askOk = false; updateAmitTitle(); return; }
-          state.askOk = true; state.askPending = !!(s.status === 'new' || s.status === 'working'); state.othersOnline = (typeof s.others_online === 'number') ? s.others_online : null; state.onlineNames = s.online_names || '';
+          state.askOk = true; state.askPending = !!(s.status === 'new' || s.status === 'working'); if (state.askPending && window.AmitData && AmitChat.live && AmitChat.live.db) AmitData.fulfilPending(AmitChat.live.db);   /* while Amit is working he may ask for a report of this person’s own information: run it here, signed in as them */ state.othersOnline = (typeof s.others_online === 'number') ? s.others_online : null; state.onlineNames = s.online_names || '';
           paintAsk(s); paintListen(s); updateAmitTitle();
         });
       }
@@ -1818,7 +1818,7 @@
       function amitClick() {
         var c = state.conv; if (!c) return;
         if (state.askOk) {
-          var LISTEN_ASK = 'Turn Amit on?\n\nAmit will join this chat, read everything said so far, and come in right away with a question or a thought. He then stays on until someone turns him off: while he is on he reads everything said here (everyone will see that he is on), stays quiet while you talk to each other, and speaks up after a pause or when someone asks him. If he speaks and nobody replies for 2 minutes, he turns himself off. Amit’s team can read what Amit is asked and what he reads here. Anyone in the chat can turn him off with the same button.';
+          var LISTEN_ASK = 'Turn Amit on?\n\nAmit will join this chat, read everything said so far, and come in right away with a question or a thought. He then stays on until someone turns him off: while he is on he reads everything said here (everyone will see that he is on), stays quiet while you talk to each other, and speaks up after a pause or when someone asks him. If he speaks and nobody replies for 2 minutes, he turns himself off. Chats are private to the people in them: Amit’s team does not read them and sees only what you choose to send to the team. To answer, Amit reads this chat on the computer that answers for him, and the AI behind him processes it. Anything he looks up in your own apps is used only to answer you and is not kept by him (his answer stays in this chat like any other message). Anyone in the chat can turn him off with the same button.';
           var typed = ta.value.trim(), hasSel = !!(state.sel && state.msgs.some(function (m) { return m.id === state.sel.mid; }));
           if (typed || hasSel) { if (!state.listening && !confirm(LISTEN_ASK)) return; askAmit(); return; }   /* a question: ask now, and he stays on */
           if (state.listening) { setListening(false); return; }                                            /* nothing typed: the button is the on/off switch */
