@@ -558,7 +558,7 @@ table.chd-x tbody tr:hover td{background:var(--amit-row-hover,rgba(255,255,255,.
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Computer Health</div>
-      <div class="page-version" id="pageVersion">v5.08</div>
+      <div class="page-version" id="pageVersion">v5.09</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -6268,6 +6268,20 @@ function showNotRunningScreen() {
   document.getElementById('notRunningScreen').classList.remove('hidden');
 }
 
+// v5.09 (2026-10-23, Ryan: fans at full speed): every poll now (1) skips its turn while the previous
+// call to the helper is still waiting, so slow answers can never stack up, and (2) skips while this
+// tab is hidden. App Behavior is NOT polled here at all any more: it runs only when someone presses
+// Start Watching for a specific app, and is polled only while that session runs (see
+// setBehaviorButtonsRunning). One status check at connect keeps the buttons truthful if a session
+// is already running.
+function chlPolite(fn) {
+  let busy = false;
+  return async function () {
+    if (busy || document.hidden) return;
+    busy = true;
+    try { await fn(); } finally { busy = false; }
+  };
+}
 let livePollingStarted = false;
 function startLivePolling() {
   if (livePollingStarted) return;
@@ -6276,17 +6290,16 @@ function startLivePolling() {
   pollDiagnostics();
   pollBehavior();
   pollBrowser();
-  setInterval(pollResource, 5000);
-  setInterval(pollDiagnostics, 5000);
-  setInterval(pollBehavior, 5000);
-  setInterval(pollBrowser, 10000);
-  setInterval(pollTrackerStatus, 6000);
+  setInterval(chlPolite(pollResource), 5000);
+  setInterval(chlPolite(pollDiagnostics), 5000);
+  setInterval(chlPolite(pollBrowser), 10000);
+  setInterval(chlPolite(pollTrackerStatus), 6000);
   // Matches the 30-second cadence resource_watcher.ps1 actually captures at -
   // refreshing more often than that would just show the exact same reading
   // repeatedly. Runs whether or not the Hardware tab is currently visible
   // (same pattern as the other polls above), harmless since it just updates
   // hidden DOM if you're on a different tab.
-  setInterval(loadHardwareTree, 30000);
+  setInterval(chlPolite(loadHardwareTree), 30000);
 }
 
 async function pollTrackerStatus() {
@@ -7214,7 +7227,13 @@ let currentBehaviorLabel = '';
 // Real bug caught live 2026-07-14: Start Watching and Stop were both always
 // shown/enabled regardless of whether a session was actually running -
 // matching the on/off toggle the main Tracker button already has.
+// App Behavior is polled only while a session is running (v5.09): the timer starts when a session
+// starts and is cleared the moment it ends, so nothing asks the helper about App Behavior otherwise.
+let behaviorStartedAt = 0;
+let behaviorPollTimer = null;
 function setBehaviorButtonsRunning(running) {
+  if (running && !behaviorPollTimer) behaviorPollTimer = setInterval(chlPolite(pollBehavior), 5000);
+  if (!running && behaviorPollTimer) { clearInterval(behaviorPollTimer); behaviorPollTimer = null; }
   document.getElementById('behaviorStartBtn').classList.toggle('hidden', running);
   document.getElementById('behaviorStopBtn').classList.toggle('hidden', !running);
   // Visible at the top of the page regardless of which tab is open, not
@@ -7231,6 +7250,7 @@ function startBehavior() {
   const name = document.getElementById('behaviorProcessName').value.trim();
   currentBehaviorLabel = document.getElementById('behaviorSessionLabel').value.trim();
   fetch(BRIDGE + '/api/start-behavior', { method:'POST', body: JSON.stringify({processName:name}) });
+  behaviorStartedAt = Date.now();
   setBehaviorButtonsRunning(true);
   const labelEl = document.getElementById('behaviorSessionLabelDisplay');
   labelEl.textContent = currentBehaviorLabel ? 'Session: "' + currentBehaviorLabel + '"' : '';
@@ -7447,7 +7467,9 @@ async function pollBehavior() {
   try {
     const r2 = await fetch(BRIDGE + '/api/behavior-status');
     const s = await r2.json();
-    setBehaviorButtonsRunning(!!s.running);
+    // The watcher process takes a moment to appear after Start Watching, so a "not running" answer
+    // in the first 20 seconds of a session is ignored (it would stop this poll before it began).
+    if (s.running || Date.now() - behaviorStartedAt > 20000) setBehaviorButtonsRunning(!!s.running);
   } catch (e) { bridgeUp = false; }
 }
 
