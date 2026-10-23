@@ -24,7 +24,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.23';
+  var VERSION = 'v0.24';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -1780,12 +1780,30 @@
         var help = !!(state.conv && state.conv.purpose === 'help');   /* in the person's own chat with Amit, every message is a question to him */
         if (!state.askOk) return Promise.resolve();
         var atAmit = /(^|\s)@amit([^a-z0-9_]|$)/i.test(v || '');
+        /* a chat of only this person and Amit (he is a member, nobody else): he is always active there, every message is for him, no switch and no name
+           (Ryan, 2026-10-22: speech recognition hears "Amit" as "Amen", "Abbott", "Emma", so a name can never be required) */
+        var withAmit = !!(state.conv && state.conv.amitIn && state.conv.solo);
         /* he is on and nobody else in the chat is HERE right now: every message is for him, no name needed (asked fresh, so it is never out of date) */
-        if (!help && !atAmit) {
+        if (!help && !atAmit && !withAmit) {
           if (!state.listening || !src.askStatus) return Promise.resolve();
           return src.askStatus(convId).then(function (s) { return (s && s.listening && s.others_online === 0) ? sendAsk(v) : null; }, function () { return null; });
         }
         return sendAsk(v);
+      }
+      /* LIVE TRANSCRIPT: the rule above ("he is on and nobody else is here, so every message is for him") used to run only for typed and recorded
+         messages. Dictated lines skipped it, so they waited for his name plus a question mark, or for the 30 second pause. Now a short silence after
+         the last dictated line is enough: no name, no 30 second wait. If he has already answered (his name and a question got there first) it does nothing. */
+      var liveAskTimer = null;
+      function liveAskSoon(text) {
+        clearTimeout(liveAskTimer);
+        liveAskTimer = setTimeout(function () {
+          load(false).then(function () {
+            var last = null;
+            for (var i = state.msgs.length - 1; i >= 0; i--) { var m = state.msgs[i]; if (m.from === 'system' || (m.payload && m.payload.marker)) continue; last = m; break; }
+            if (last && last.from === 'amit') return null;
+            return maybeAskFromText(text);
+          }).catch(function () {});
+        }, AmitChat.liveAskSilenceMs);
       }
       function sendAsk(v) {
         return src.ask(convId, { app: AmitChat.appName || 'hub', place: askPlace(), note: v }).then(function () { state.askPending = true; return refreshAsk(); }, function (e) { toast((e && e.message) || 'Could not ask Amit.'); });
@@ -1889,7 +1907,7 @@
           if (liveTx && liveTx.tid === tid) { stopLiveTx('button'); return; }
           if (rec) { toast('Stop the voice recording first. Both use the microphone.'); return; }
           if (!liveTxSupported()) { toast('Live transcript is not available in this browser. It works in Chrome and Edge on a computer and in Chrome on Android, and may work in Safari on an iPhone (not inside a home-screen app).'); return; }
-          startLiveTx({ owner: wide ? 'panel' : 'popup', convId: convId, tid: tid, onChange: paintLive, post: function (text, marker) { return src.sendTranscript(convId, text, marker).then(function () { bump(); return load(false); }); } });
+          startLiveTx({ owner: wide ? 'panel' : 'popup', convId: convId, tid: tid, onChange: paintLive, post: function (text, marker) { return src.sendTranscript(convId, text, marker).then(function () { bump(); if (!marker) liveAskSoon(text); return load(false); }); } });
         };
         typing = src.typingJoin ? src.typingJoin(convId, function (txt, keep) {
           if (!keep) state.typing = txt || '';
@@ -2316,6 +2334,7 @@
       rec.view = renderPanel(target, true);
     },
     liveTxConfig: { gapMs: 2000, softCapMs: 30000 },
+    liveAskSilenceMs: 3000,   /* after the last dictated line, how long a silence before Amit is asked (when he is on and nobody else is here) */
     stopLiveTranscript: function () { stopLiveTx('stopped'); },
     mountPanel: function (target) {
       if (!target) return;
