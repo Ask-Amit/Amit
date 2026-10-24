@@ -1,5 +1,6 @@
 # Amit Computer Health - Local Bridge Server
-# Version v1.03 (2026-10-24) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# Version v1.04 (2026-10-24) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# v1.04: the idle stop asks itself once every 10 minutes while idle, not once a minute forever.
 # v1.03: MEMORY (Ryan: the monitor grew all day until it used up his RAM). A full garbage collection about once a
 # minute, one reusable self-call client, and a 4-HOUR RESTART OF THE MONITOR: after 4 hours of tracking the bridge
 # stops the three watchers cleanly (each writes its finished-session file to data\pending, which the Hub saves to the
@@ -1891,7 +1892,9 @@ function Test-IdleStop {
     try { if (Test-Path $idleOverrideFile) { $v = [double]((Get-Content $idleOverrideFile -Raw).Trim()); if ($v -gt 0) { $limit = $v } } } catch {}
     $bridgeState.LimitMinutes = $limit
     if (((Get-Date) - $bridgeState.LastContact).TotalMinutes -lt $limit) { return }
-    if (((Get-Date) - $script:idleCallAt).TotalSeconds -lt 60) { return }
+    # (v1.04) once every 10 minutes while idle, not every 60 seconds forever: that was about 1,440 pointless requests a day
+    # (each one runs a handler). 10 minutes still catches an App Behavior session that ended after the first attempt.
+    if (((Get-Date) - $script:idleCallAt).TotalSeconds -lt 600) { return }
     $script:idleCallAt = Get-Date
     $script:idleCallMade = $true
     Invoke-BridgeSelf '/api/idle-stop'

@@ -153,20 +153,30 @@ class AmitTrackerWindow : Form
     {
         var pollThread = new Thread(() =>
         {
+            int gcTick = 0;
             while (!stopping)
             {
                 Thread.Sleep(3000);
+                // Each poll waits on a task, which creates a short-lived operating-system wait handle that is only freed when the
+                // runtime next collects garbage - and this small program almost never does. Without this the handle count climbed
+                // all day (measured: about 1,000 an hour). A collection once a minute (20 polls) keeps it level.
+                if (++gcTick >= 20) { gcTick = 0; GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
                 bool running = false;
                 bool gotAnswer = false;
                 try
                 {
-                    var client = new WebClient();
-                    client.Headers[HttpRequestHeader.ContentType] = "text/plain";
-                    var task = client.DownloadStringTaskAsync(bridgeBase + "/api/tracker-status");
-                    if (task.Wait(TimeSpan.FromSeconds(2)))
+                    // Handle leak fix 2026-10-24: this runs every 3 seconds, and the client used to be created and never released,
+                    // so the tray gained one handle per poll (about 1,200 an hour, measured). It is now disposed every time.
+                    using (var client = new WebClient())
                     {
-                        running = task.Result.IndexOf("\"running\":true", StringComparison.OrdinalIgnoreCase) >= 0;
-                        gotAnswer = true;
+                        client.Headers[HttpRequestHeader.ContentType] = "text/plain";
+                        var task = client.DownloadStringTaskAsync(bridgeBase + "/api/tracker-status");
+                        if (task.Wait(TimeSpan.FromSeconds(2)))
+                        {
+                            running = task.Result.IndexOf("\"running\":true", StringComparison.OrdinalIgnoreCase) >= 0;
+                            gotAnswer = true;
+                        }
+                        else { try { client.CancelAsync(); } catch { } }
                     }
                 }
                 catch { /* bridge unreachable this cycle - try again next tick */ }
@@ -251,8 +261,7 @@ class AmitTrackerWindow : Form
             {
                 try
                 {
-                    var probe = new WebClient();
-                    probe.DownloadString(bridgeBase + "/api/device");
+                    using (var probe = new WebClient()) { probe.DownloadString(bridgeBase + "/api/device"); }
                     break;
                 }
                 catch { Thread.Sleep(500); }
@@ -260,10 +269,12 @@ class AmitTrackerWindow : Form
             if (atLogon) return; // the bridge's own auto-start begins tracking (and respects a deliberate Stop)
             try
             {
-                var client = new WebClient();
-                client.Headers[HttpRequestHeader.ContentType] = "text/plain";
-                var task = client.UploadStringTaskAsync(bridgeBase + "/api/start-tracking", "POST", "");
-                task.Wait(TimeSpan.FromSeconds(30));
+                using (var client = new WebClient())
+                {
+                    client.Headers[HttpRequestHeader.ContentType] = "text/plain";
+                    var task = client.UploadStringTaskAsync(bridgeBase + "/api/start-tracking", "POST", "");
+                    task.Wait(TimeSpan.FromSeconds(30));
+                }
             }
             catch { /* bridge unreachable after polling - nothing more to do here */ }
         });
@@ -373,10 +384,12 @@ class AmitTrackerWindow : Form
         {
             try
             {
-                var client = new WebClient();
-                client.Headers[HttpRequestHeader.ContentType] = "text/plain";
-                var task = client.UploadStringTaskAsync(bridgeBase + "/api/stop-tracking", "POST", "");
-                task.Wait(TimeSpan.FromSeconds(5)); // bounded - move on regardless of the outcome
+                using (var client = new WebClient())
+                {
+                    client.Headers[HttpRequestHeader.ContentType] = "text/plain";
+                    var task = client.UploadStringTaskAsync(bridgeBase + "/api/stop-tracking", "POST", "");
+                    task.Wait(TimeSpan.FromSeconds(5)); // bounded - move on regardless of the outcome
+                }
             }
             catch { /* bridge may already be down, or timed out - nothing more to do here */ }
 
