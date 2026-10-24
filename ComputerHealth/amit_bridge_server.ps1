@@ -1,4 +1,7 @@
 # Amit Computer Health - Local Bridge Server
+# Version v1.01 (2026-10-23) - first numbered version (baseline v1.00 = everything before). v1.01: CPU/pile-up
+# fixes - direct file-tail read, fast JSON escaping, cheap process-status check, in-flight cap (16) and a
+# 180-second reaper for stuck handlers. Each push of this file bumps this number by 0.01.
 # Serves the dashboard HTML and exposes local watcher data/controls over HTTP
 # so a browser page (which cannot see the filesystem or processes directly)
 # can read tracker output and push events to Supabase.
@@ -116,7 +119,9 @@ try {
 # ── Performance tracking — auto-start by default (2026-09-05) ──
 # Per AmitMobile's "Connect Amit" design (AmitMobile\CLAUDE.md): when the
 # bridge is running, BOTH the Amit Mobile phone listener (above) AND
-# performance tracking (resource/diagnostics/activity/app-behavior watchers,
+# performance tracking (resource/diagnostics/activity watchers - NOT app-behavior:
+# that one starts only when someone presses Start Watching for a specific app,
+# via /api/start-behavior, never automatically; comment corrected 2026-10-23),
 # started today via the existing Start-Tracking() function / the dashboard's
 # Start Tracking button / the /api/start-tracking endpoint) should be ON by
 # default, together, as one switch - not two separate things a person has
@@ -154,7 +159,10 @@ $handlerScript = {
         # (confirmed via tracing: identical code hangs on a cold runspace but not
         # a warm one, purely from the cmdlet call itself, not the data size).
         if ($null -eq $text) { return '""' }
-        $escaped = $text -replace '\\', '\\\\' -replace '"', '\"' -replace "`r", '\r' -replace "`n", '\n' -replace "`t", '\t'
+        # Plain .Replace (not regex -replace): same result, same order (backslash first), but fast on the
+        # 18,000-character lines in resource_watch_result.txt (cost fix 2026-10-23; -replace x6 per line
+        # over a 500-line history is what made /api/resource-history spin for 20+ seconds).
+        $escaped = ([string]$text).Replace('\', '\\').Replace('"', '\"').Replace("`r", '\r').Replace("`n", '\n').Replace("`t", '\t')
         return '"' + $escaped + '"'
     }
 
@@ -174,8 +182,16 @@ $handlerScript = {
     }
 
     function Send-JsonLines($response, $lines) {
-        $itemsJson = ($lines | ForEach-Object { ConvertTo-JsonString $_ }) -join ","
-        Send-JsonRaw $response ('{"lines":[' + $itemsJson + ']}')
+        $sb = New-Object System.Text.StringBuilder
+        [void]$sb.Append('{"lines":[')
+        $first = $true
+        foreach ($l in $lines) {
+            if (-not $first) { [void]$sb.Append(',') }
+            $first = $false
+            [void]$sb.Append((ConvertTo-JsonString $l))
+        }
+        [void]$sb.Append(']}')
+        Send-JsonRaw $response $sb.ToString()
     }
 
     function Send-Json($response, $obj, $statusCode = 200) {
@@ -191,13 +207,42 @@ $handlerScript = {
         $response.OutputStream.Close()
     }
     function Get-TailSafe($path, $lines = 100, $maxLineLen = 400) {
-        if (Test-Path $path) {
+        # Reads only the END of the file straight from disk (cost fix 2026-10-23, Ryan: this bridge was
+        # pinning the CPU). Get-Content -Tail on resource_watch_result.txt (500 lines of ~18,000
+        # characters, about 9 MB) cost about 1.4 CPU-seconds per call even to return 20 short lines, and
+        # the dashboard asks every 5 seconds. Starts with a small chunk from the end and grows it only if
+        # there are not yet enough lines; the file may be appended to while it is read (shared read).
+        if (-not (Test-Path $path)) { return @() }
+        try {
+            $fs = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
             try {
-                $raw = @(Get-Content $path -Tail $lines -Encoding UTF8)
-                return @($raw | ForEach-Object { if ($_.Length -gt $maxLineLen) { $_.Substring(0, $maxLineLen) + "..." } else { $_ } })
-            } catch { return @() }
-        }
-        return @()
+                $len = $fs.Length
+                $chunk = [long][Math]::Max(65536, $lines * 2048)
+                while ($true) {
+                    $start = [Math]::Max([long]0, $len - $chunk)
+                    [void]$fs.Seek($start, [System.IO.SeekOrigin]::Begin)
+                    $buf = New-Object byte[] ($len - $start)
+                    $got = 0
+                    while ($got -lt $buf.Length) {
+                        $n = $fs.Read($buf, $got, $buf.Length - $got)
+                        if ($n -le 0) { break }
+                        $got += $n
+                    }
+                    $parts = [System.Text.Encoding]::UTF8.GetString($buf, 0, $got).Split("`n")
+                    if ($start -eq 0 -or $parts.Count -gt ($lines + 2)) { break }
+                    $chunk = $chunk * 4
+                }
+            } finally { $fs.Dispose() }
+            $out = New-Object System.Collections.Generic.List[string]
+            $from = if ($start -gt 0) { 1 } else { 0 }   # the first piece is a partial line when we did not start at the top
+            for ($i = $from; $i -lt $parts.Count; $i++) {
+                $l = $parts[$i].TrimEnd("`r")
+                if ($l.Length -eq 0) { continue }
+                $out.Add($(if ($l.Length -gt $maxLineLen) { $l.Substring(0, $maxLineLen) + "..." } else { $l }))
+            }
+            if ($out.Count -gt $lines) { return @($out.GetRange($out.Count - $lines, $lines)) }
+            return @($out)
+        } catch { return @() }
     }
 
     function Get-BrowserBreakdown() {
@@ -567,7 +612,7 @@ $handlerScript = {
     # (this is exactly what caused the repeated "Stream was not readable"
     # crashes during testing on 2026-07-13 - two tabs each triggered
     # start-tracking, and nothing here stopped a second full set launching).
-    function Test-WatcherScriptRunning($scriptFileName) {
+    function Test-WatcherScriptRunning($scriptFileName, [switch]$NoRetry) {
         # Get-CimInstance hangs specifically when called from inside this
         # handler's runspace - confirmed live 2026-07-14: the exact same
         # call, run standalone in a normal session, returns in well under a
@@ -589,12 +634,19 @@ $handlerScript = {
         # whichever generation's PIDs it last saved. One retry after a short
         # pause catches a transient miss without meaningfully slowing down
         # the normal (nothing running) case.
-        $match = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
+        #
+        # Cost fix 2026-10-23 (Ryan: fans at full speed, CPU pinned by this bridge): this used to
+        # list EVERY process on the machine with its command line, twice whenever nothing matched
+        # (the normal case), on every status poll. The watchers are all PowerShell, so the query now
+        # asks WMI for powershell.exe processes only (filtered inside WMI, not after pulling every
+        # process back), and a read-only status check passes -NoRetry so it never repeats the query
+        # or sleeps. Start-Tracking and the duplicate cleanup still retry, since a miss there matters.
+        $match = Get-WmiObject Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
             Where-Object { $_.CommandLine -like "*$scriptFileName*" } |
             Select-Object -First 1
-        if (-not $match) {
+        if (-not $match -and -not $NoRetry) {
             Start-Sleep -Milliseconds 400
-            $match = Get-WmiObject Win32_Process -ErrorAction SilentlyContinue |
+            $match = Get-WmiObject Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
                 Where-Object { $_.CommandLine -like "*$scriptFileName*" } |
                 Select-Object -First 1
         }
@@ -1304,7 +1356,7 @@ secret key must never appear here, ever, under any circumstance.
                 # session was actually running - a genuine process check
                 # (same pattern as the main Tracker on/off state) instead of
                 # guessing from the log's text content.
-                $running = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1")
+                $running = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1" -NoRetry)
                 Send-JsonRaw $response ('{"running":' + $(if ($running) {'true'} else {'false'}) + '}')
             }
             "/api/browser" { Send-BrowserJson $response }
@@ -1666,21 +1718,57 @@ $pool.ApartmentState = [System.Threading.ApartmentState]::STA
 $pool.Open()
 $running = New-Object System.Collections.ArrayList
 
+# Pile-up guard (2026-10-23, Ryan: this bridge sat at ~4 cores and 100+ threads, fans at full
+# speed, slowing the whole computer). The pool above only RUNS 8 handlers at once, but every
+# request used to be queued behind them with no limit and no time limit, so slow or stuck
+# handlers (and a dashboard polling every few seconds) stacked up without end, each one slowing
+# the next. Two limits now keep that from ever building up:
+#   - at most $maxInFlight handlers running or waiting; past that a new request is told "busy"
+#     (503, try again in 5 seconds) instead of being queued - callers just poll again later.
+#   - a handler still going after $maxHandlerSeconds is stopped and its connection dropped.
+# The reaper also runs every 5 seconds while no request arrives, since a stuck handler keeps
+# burning CPU whether or not anyone is calling.
+$maxInFlight = 16
+$maxHandlerSeconds = 180
+function Remove-FinishedOrStuckHandlers {
+    for ($i = $running.Count - 1; $i -ge 0; $i--) {
+        $h = $running[$i]
+        if ($h.Handle.IsCompleted) {
+            try { $h.PS.EndInvoke($h.Handle) } catch {}
+            try { $h.PS.Dispose() } catch {}
+            $running.RemoveAt($i)
+        } elseif (((Get-Date) - $h.Started).TotalSeconds -gt $maxHandlerSeconds) {
+            try { $h.Ctx.Response.Abort() } catch {}
+            try { [void]$h.PS.BeginStop($null, $null) } catch {}
+            $running.RemoveAt($i)
+        }
+    }
+}
+
 while ($listener.IsListening) {
-    $context = $listener.GetContext()
+    $ctxTask = $listener.GetContextAsync()
+    $gotContext = $false
+    try {
+        while (-not $gotContext) {
+            if ($ctxTask.Wait(5000)) { $gotContext = $true } else { Remove-FinishedOrStuckHandlers }
+        }
+    } catch { break }
+    $context = $ctxTask.Result
+
+    Remove-FinishedOrStuckHandlers
+    if ($running.Count -ge $maxInFlight) {
+        try {
+            $context.Response.StatusCode = 503
+            $context.Response.Headers.Add("Access-Control-Allow-Origin", "*")
+            $context.Response.Headers.Add("Retry-After", "5")
+            $context.Response.Close()
+        } catch {}
+        continue
+    }
 
     $ps = [powershell]::Create()
     $ps.RunspacePool = $pool
     [void]$ps.AddScript($handlerScript).AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName)
     $handle = $ps.BeginInvoke()
-    [void]$running.Add(@{ PS = $ps; Handle = $handle })
-
-    # Clean up completed handlers so the list doesn't grow forever
-    for ($i = $running.Count - 1; $i -ge 0; $i--) {
-        if ($running[$i].Handle.IsCompleted) {
-            try { $running[$i].PS.EndInvoke($running[$i].Handle) } catch {}
-            $running[$i].PS.Dispose()
-            $running.RemoveAt($i)
-        }
-    }
+    [void]$running.Add(@{ PS = $ps; Handle = $handle; Ctx = $context; Started = (Get-Date) })
 }
