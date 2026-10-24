@@ -181,6 +181,16 @@ class AmitTrackerWindow : Form
                 // its own startup before tracking has even begun.
                 if (sawTrackingRunning && !stopping)
                 {
+                    // Idle stop (bridge v1.02): the bridge stopped the monitor because no page has been
+                    // in contact for a while and left this marker. That is not someone pressing Stop, so
+                    // close quietly - no stop-tracking call (it would set the "turned off on purpose"
+                    // flag and block the Hub from restarting tracking) and no dashboard summary tab.
+                    // The bridge brings this icon back the next time a page makes contact.
+                    if (File.Exists(Path.Combine(Path.GetTempPath(), "amit_idle_stop.flag")))
+                    {
+                        try { this.Invoke(new Action(QuietExit)); } catch { }
+                        return;
+                    }
                     try { this.Invoke(new Action(StopTracker)); } catch { }
                     return;
                 }
@@ -318,6 +328,16 @@ class AmitTrackerWindow : Form
     }
 
     private int stopTriggered = 0;
+
+    // Close without touching tracking or opening anything - used only for the bridge's idle stop (see
+    // StartExternalStopPoller). Sets the same guards StopTracker does so FormClosing lets the exit through.
+    private void QuietExit()
+    {
+        if (Interlocked.Exchange(ref stopTriggered, 1) != 0) return;
+        stopping = true;
+        try { if (trayIcon != null) trayIcon.Visible = false; } catch { }
+        try { Application.Exit(); } catch { }
+    }
 
     private void StopTracker()
     {

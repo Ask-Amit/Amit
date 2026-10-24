@@ -1,7 +1,12 @@
 # Amit Computer Health - Local Bridge Server
-# Version v1.01 (2026-10-23) - first numbered version (baseline v1.00 = everything before). v1.01: CPU/pile-up
-# fixes - direct file-tail read, fast JSON escaping, cheap process-status check, in-flight cap (16) and a
-# 180-second reaper for stuck handlers. Each push of this file bumps this number by 0.01.
+# Version v1.02 (2026-10-23) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# v1.01: CPU/pile-up fixes - direct file-tail read, fast JSON escaping, cheap process-status check, in-flight
+# cap (16) and a 180-second reaper for stuck handlers.
+# v1.02: IDLE STOP (Ryan: nothing should keep running when nothing is using it) - after 10 minutes with no
+# page contact (a request carrying a browser Origin header) the three monitor watchers are stopped quietly
+# (no "turned off on purpose" flag, no dashboard tab, sensor reader left alone so no UAC on return) and the
+# tray icon exits; the next page contact starts tracking again and brings the tray back.
+# Each push of this file bumps this number by 0.01.
 # Serves the dashboard HTML and exposes local watcher data/controls over HTTP
 # so a browser page (which cannot see the filesystem or processes directly)
 # can read tracker output and push events to Supabase.
@@ -151,7 +156,7 @@ if (-not (Test-Path $amitTrackingDisabledFlag)) {
 }
 
 $handlerScript = {
-    param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName)
+    param($context, $watcherDir, $dashboardPath, $deviceId, $deviceName, $bridgeState)
 
     function ConvertTo-JsonString($text) {
         # Manual JSON string escaping - avoids ConvertTo-Json, which has a real
@@ -856,7 +861,25 @@ try {
         return @{ started = $true; pids = $newPids; elevated = $isAdmin; warnings = $warnings }
     }
 
-    function Stop-Tracking() {
+    # Start-Tracking behind one lock (v1.02): a page returning after an idle stop and the Hub's own
+    # ensure-tracking can arrive within the same second; without this both would launch watchers (and a
+    # second elevated sensor-reader prompt). Whoever gets the lock second sees tracking already running
+    # and returns $null instead of starting anything.
+    function Start-TrackingOnce() {
+        $m = New-Object System.Threading.Mutex($false, 'Local\AmitBridgeStartTracking')
+        $got = $false
+        try {
+            try { $got = $m.WaitOne(60000) } catch [System.Threading.AbandonedMutexException] { $got = $true }
+            if (-not $got) { return $null }
+            if ((Get-TrackerStatus).running) { return $null }
+            return (Start-Tracking)
+        } finally {
+            if ($got) { try { $m.ReleaseMutex() } catch {} }
+            $m.Dispose()
+        }
+    }
+
+    function Stop-Tracking([switch]$KeepSensorReader) {
         $stopped = @()
         if (Test-Path $trackerPidFile) {
             $savedPids = Get-Content $trackerPidFile -ErrorAction SilentlyContinue
@@ -928,7 +951,9 @@ try {
         # still applies to the one case the flag can't cover: the reader was
         # already running before this session ever touched it, so no
         # elevated watcher for it exists to signal.
-        $lhmProcs = Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue
+        # -KeepSensorReader (v1.02, idle stop only): the reader runs elevated, so stopping it means a Windows
+        # permission prompt on every return to the Hub. It is light, so an idle stop leaves it running.
+        $lhmProcs = if ($KeepSensorReader) { $null } else { Get-Process -Name "AmitSensorReader" -ErrorAction SilentlyContinue }
         if ($lhmProcs) {
             New-Item $lhmStopFlag -ItemType File -Force | Out-Null
             $lhmWaited = 0
@@ -1495,6 +1520,47 @@ secret key must never appear here, ever, under any circumstance.
                 $s = Get-TrackerStatus
                 Send-JsonRaw $response ('{"running":' + $(if ($s.running) {'true'} else {'false'}) + ',"pidCount":' + $s.pids.Count + '}')
             }
+            "/api/idle-status" {
+                # Read-only view of the idle timer (v1.02) - for testing and for anyone asking "why did it stop".
+                $idleSec = [int]((Get-Date) - $bridgeState.LastContact).TotalSeconds
+                $limitMin = $bridgeState.LimitMinutes
+                Send-JsonRaw $response ('{"secondsSincePageContact":' + $idleSec + ',"limitMinutes":' + $limitMin + ',"lastPage":' + (ConvertTo-JsonString $bridgeState.LastPage) + ',"lastRoute":' + (ConvertTo-JsonString $bridgeState.LastRoute) + ',"idleStopped":' + $(if (Test-Path "$env:TEMP\amit_idle_stop.flag") {'true'} else {'false'}) + ',"tracking":' + $(if ((Get-TrackerStatus).running) {'true'} else {'false'}) + '}')
+            }
+            "/api/idle-stop" {
+                # Called ONLY by the bridge's own idle timer (v1.02), never by a page. Stops the three monitor
+                # watchers and leaves a marker so the tray program knows this is a quiet idle stop (no dashboard
+                # tab, no "turned off on purpose" flag - that flag would stop the Hub from ever restarting it).
+                # Does nothing while an App Behavior session is running: that was started on purpose.
+                $s = Get-TrackerStatus
+                $behaviorRunning = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1" -NoRetry)
+                if ($s.running -and -not $behaviorRunning) {
+                    New-Item "$env:TEMP\amit_idle_stop.flag" -ItemType File -Force | Out-Null
+                    [void](Stop-Tracking -KeepSensorReader)
+                    Send-JsonRaw $response '{"idleStopped":true}'
+                } else {
+                    Send-JsonRaw $response ('{"idleStopped":false,"tracking":' + $(if ($s.running) {'true'} else {'false'}) + ',"appBehaviorRunning":' + $(if ($behaviorRunning) {'true'} else {'false'}) + '}')
+                }
+            }
+            "/api/resume-from-idle" {
+                # Called ONLY by the bridge's own main loop (v1.02) the first time a page makes contact after an
+                # idle stop. Starts tracking again (unless the person turned it off on purpose) and brings the
+                # tray icon back - the tray program has a single-instance guard, so this can never double up.
+                if (Test-Path "$env:TEMP\amit_idle_stop.flag") {
+                    Remove-Item "$env:TEMP\amit_idle_stop.flag" -ErrorAction SilentlyContinue
+                    if (-not (Test-Path "$env:TEMP\amit_tracking_disabled.flag")) {
+                        [void](Start-TrackingOnce)
+                        if (-not (Get-Process -Name "AmitTracker" -ErrorAction SilentlyContinue)) {
+                            $trayExe = Join-Path $watcherDir "AmitTracker.exe"
+                            if (Test-Path $trayExe) { try { Start-Process -FilePath $trayExe -ArgumentList "--tray-only","--at-logon" -WindowStyle Hidden } catch {} }
+                        }
+                        Send-JsonRaw $response '{"resumed":true}'
+                    } else {
+                        Send-JsonRaw $response '{"resumed":false,"disabledByUser":true}'
+                    }
+                } else {
+                    Send-JsonRaw $response '{"resumed":false}'
+                }
+            }
             "/api/ensure-tracking" {
                 # Added 2026-10-20 (Ryan: opening the Hub should start the helper's trackers if they are not
                 # running). Unlike /api/start-tracking this NEVER overrides a Stop the person chose on purpose:
@@ -1505,9 +1571,14 @@ secret key must never appear here, ever, under any circumstance.
                 } elseif (Test-Path "$env:TEMP\amit_tracking_disabled.flag") {
                     Send-JsonRaw $response '{"running":false,"started":false,"disabledByUser":true}'
                 } else {
-                    $r = Start-Tracking
-                    $warningsJson = if ($r.warnings -and $r.warnings.Count -gt 0) { ($r.warnings | ForEach-Object { ConvertTo-JsonString $_ }) -join "," } else { "" }
-                    Send-JsonRaw $response ('{"running":true,"started":true,"disabledByUser":false,"pidCount":' + $r.pids.Count + ',"warnings":[' + $warningsJson + ']}')
+                    $r = Start-TrackingOnce
+                    if ($null -eq $r) {
+                        # someone else (an idle-resume, another tab) started it a moment ago
+                        Send-JsonRaw $response '{"running":true,"started":false,"disabledByUser":false}'
+                    } else {
+                        $warningsJson = if ($r.warnings -and $r.warnings.Count -gt 0) { ($r.warnings | ForEach-Object { ConvertTo-JsonString $_ }) -join "," } else { "" }
+                        Send-JsonRaw $response ('{"running":true,"started":true,"disabledByUser":false,"pidCount":' + $r.pids.Count + ',"warnings":[' + $warningsJson + ']}')
+                    }
                 }
             }
             "/api/start-tracking" {
@@ -1730,6 +1801,36 @@ $running = New-Object System.Collections.ArrayList
 # burning CPU whether or not anyone is calling.
 $maxInFlight = 16
 $maxHandlerSeconds = 180
+
+# Idle stop (v1.02). A "page contact" is a request carrying a browser Origin header: every Amit page (Hub,
+# Computer Health, AmitMobile...) sends one, while the tray program, the watchers and command-line checks do
+# not. After $idleMinutes of no page contact the bridge asks itself to stop the monitor (/api/idle-stop); the
+# next page contact undoes it (/api/resume-from-idle). The self-calls carry no Origin, so they never count as
+# contact. $bridgeState is shared with the handlers so /api/idle-status can report it. For testing, a number of
+# minutes in %TEMP%\amit_idle_minutes.txt overrides the default.
+$idleMinutes = 10
+$idleOverrideFile = "$env:TEMP\amit_idle_minutes.txt"
+$bridgeState = [hashtable]::Synchronized(@{ LastContact = (Get-Date); LimitMinutes = $idleMinutes; LastPage = ''; LastRoute = '' })
+$idleCallAt = [datetime]::MinValue
+$idleCallMade = $false
+function Invoke-BridgeSelf($route) {
+    try {
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers[[System.Net.HttpRequestHeader]::ContentType] = "text/plain"
+        $wc.UploadStringAsync([uri]("http://localhost:$port" + $route), "POST", "")
+    } catch {}
+}
+function Test-IdleStop {
+    $limit = $idleMinutes
+    try { if (Test-Path $idleOverrideFile) { $v = [double]((Get-Content $idleOverrideFile -Raw).Trim()); if ($v -gt 0) { $limit = $v } } } catch {}
+    $bridgeState.LimitMinutes = $limit
+    if (((Get-Date) - $bridgeState.LastContact).TotalMinutes -lt $limit) { return }
+    if (((Get-Date) - $script:idleCallAt).TotalSeconds -lt 60) { return }
+    $script:idleCallAt = Get-Date
+    $script:idleCallMade = $true
+    Invoke-BridgeSelf '/api/idle-stop'
+}
+
 function Remove-FinishedOrStuckHandlers {
     for ($i = $running.Count - 1; $i -ge 0; $i--) {
         $h = $running[$i]
@@ -1750,12 +1851,25 @@ while ($listener.IsListening) {
     $gotContext = $false
     try {
         while (-not $gotContext) {
-            if ($ctxTask.Wait(5000)) { $gotContext = $true } else { Remove-FinishedOrStuckHandlers }
+            if ($ctxTask.Wait(5000)) { $gotContext = $true } else { Remove-FinishedOrStuckHandlers; Test-IdleStop }
         }
     } catch { break }
     $context = $ctxTask.Result
 
+    $origin = $null
+    try { $origin = $context.Request.Headers['Origin'] } catch {}
+    if ($origin) {
+        $bridgeState.LastContact = Get-Date
+        # which page and which call, so /api/idle-status can answer "what is keeping it awake"
+        try {
+            $bridgeState.LastPage = [string]$context.Request.Headers['Referer']
+            $bridgeState.LastRoute = $context.Request.Url.AbsolutePath
+        } catch {}
+        if ($script:idleCallMade) { $script:idleCallMade = $false; Invoke-BridgeSelf '/api/resume-from-idle' }
+    }
+
     Remove-FinishedOrStuckHandlers
+    Test-IdleStop
     if ($running.Count -ge $maxInFlight) {
         try {
             $context.Response.StatusCode = 503
@@ -1768,7 +1882,7 @@ while ($listener.IsListening) {
 
     $ps = [powershell]::Create()
     $ps.RunspacePool = $pool
-    [void]$ps.AddScript($handlerScript).AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName)
+    [void]$ps.AddScript($handlerScript).AddArgument($context).AddArgument($watcherDir).AddArgument($dashboardPath).AddArgument($deviceId).AddArgument($deviceName).AddArgument($bridgeState)
     $handle = $ps.BeginInvoke()
     [void]$running.Add(@{ PS = $ps; Handle = $handle; Ctx = $context; Started = (Get-Date) })
 }
