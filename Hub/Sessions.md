@@ -6,6 +6,9 @@ Fast, no-bloat running record of current state. Full behavioral/identity rules c
 
 ---
 
+## 2026-10-23 (evening) - Hub v8.46: About Me > My Words tab
+New tab in About Me (after Connect Amit): the person's own list of common transcription errors and what they actually mean (Fix) and their own shortcut phrases that stand for a longer instruction (Shortcut). Add, edit in place, change type, delete (two steps), filter by type, sort, search. Stored in cha_user_words under the person's own login (row security); Amit reads only the asker's list. Also v8.45: loads chat engine v0.26. Details: AmitChat\Sessions.md.
+
 ## Current State
 
 - **amit-hub.html** — v1.01 on GitHub as of last confirmed push. Sessions 10+11 changes (Pursuits panel overhaul, rolling due-date model) were built and tested but were LOCAL ONLY as of that point — push status should be reconfirmed before assuming current GitHub version matches local.

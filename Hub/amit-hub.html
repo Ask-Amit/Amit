@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.45</div>
+      <div class="page-version" id="hubVersionBadge">v8.46</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -1927,6 +1927,7 @@ header{
           <button class="ch-tab-btn" onclick="showChTab('aboutme',4)">Security</button>
           <button class="ch-tab-btn" onclick="showChTab('aboutme',5);amvAppearanceInitTab()">Appearance</button>
           <button class="ch-tab-btn" onclick="showChTab('aboutme',6)">Connect Amit</button>
+          <button class="ch-tab-btn" onclick="showChTab('aboutme',7);amwLoad()">My Words</button>
         </div>
 
         <div class="ch-tab-main">
@@ -2196,6 +2197,61 @@ header{
               <div id="amvChainStatus2" style="color:rgba(var(--amit-text-rgb,240,232,208),.6);font-size:12px;margin-top:2px;line-height:1.5">Sign in to see this computer's status.</div>
             </div>
             <button class="btn btn-ghost" id="amvConnectNowBtn" onclick="_amvConnectNow()" style="white-space:nowrap;font-size:11px;padding:9px 14px">CONNECT NOW</button>
+          </div>
+        </div>
+
+        <!-- TAB: MY WORDS (2026-10-23, Ryan): the person's own list of how they say things. FIX = a word that arrives wrong and what was meant (Amit also adds these himself when corrected);
+             SHORTCUT = a phrase the person made that stands for a longer instruction they wrote. Rows are the person's own (row security); nothing here is anyone else's. -->
+        <div class="ch-tab-content" id="ch-tab-aboutme-7">
+          <style>
+            .amw-seg{display:flex;gap:0;margin-bottom:12px}
+            .amw-seg button{flex:1;padding:9px 10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);font-size:12px;letter-spacing:.04em;cursor:pointer;font-family:inherit}
+            .amw-seg button:first-child{border-radius:8px 0 0 8px}.amw-seg button:last-child{border-radius:0 8px 8px 0;border-left:none}
+            .amw-seg button.on{background:rgba(var(--amit-accent-rgb,201,168,76),.2);color:var(--gold2);font-weight:600}
+            .amw-chip{padding:6px 12px;border-radius:14px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:inherit}
+            .amw-chip.on{background:rgba(var(--amit-accent-rgb,201,168,76),.2);color:var(--gold2);font-weight:600}
+            .amw-row{background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+            .amw-row.short{border-left:3px solid rgba(var(--amit-accent-rgb,201,168,76),.85)}
+            .amw-row.fixrow{border-left:3px solid rgba(var(--amit-text-rgb,240,232,208),.25)}
+            .amw-badge{display:inline-block;font-size:10px;letter-spacing:.1em;padding:2px 8px;border-radius:10px;text-transform:uppercase;margin-right:8px}
+            .amw-badge.short{background:rgba(var(--amit-accent-rgb,201,168,76),.25);color:var(--gold2)}
+            .amw-badge.fixb{background:rgba(var(--amit-text-rgb,240,232,208),.1);color:var(--muted)}
+            .amw-row input,.amw-row textarea,.amw-add input,.amw-add textarea{width:100%;box-sizing:border-box}
+            .amw-small{font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.45)}
+          </style>
+          <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.08em;color:var(--gold2);margin-bottom:8px">How I Say Things</div>
+          <p style="font-size:14px;line-height:1.7;color:var(--muted);margin:0 0 14px">A microphone, an accent or fast typing does not always catch what you mean. Teach Amit once and he understands you next time. Amit also adds to this list himself when you correct him, and everything here is yours to change or delete. Only you can see it.</p>
+          <p id="amwSignedOut" style="display:none;font-size:13px;line-height:1.6;color:var(--dim)">Sign in (Sign In, in the right-hand column) to see and change your list.</p>
+          <div id="amwBody" style="display:none">
+            <div class="amw-add" style="background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);border-radius:8px;padding:14px;margin-bottom:18px">
+              <div class="fg-label" style="margin-bottom:8px">ADD ONE</div>
+              <div class="amw-seg">
+                <button id="amwTypeFix" class="on" onclick="amwSetType('fix')">Fix a mishearing</button>
+                <button id="amwTypeShort" onclick="amwSetType('shortcut')">My own shortcut</button>
+              </div>
+              <label class="fg-label" id="amwHeardLabel" style="display:block;margin-bottom:5px">WHEN IT COMES OUT AS</label>
+              <input class="fg-input" id="amwHeard" maxlength="80" placeholder="for example: blue gnome" style="margin-bottom:10px">
+              <label class="fg-label" id="amwMeantLabel" style="display:block;margin-bottom:5px">I ACTUALLY MEAN</label>
+              <textarea class="fg-input" id="amwMeant" rows="2" maxlength="120" placeholder="for example: the invoice" oninput="amwCount()" style="margin-bottom:4px"></textarea>
+              <div class="amw-small" id="amwHelp" style="margin-bottom:10px"></div>
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+                <button class="btn" onclick="amwAdd()">ADD</button>
+                <span class="amw-small" id="amwCounter"></span>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px">
+              <button class="amw-chip on" id="amwF_all" onclick="amwFilter('all')">All</button>
+              <button class="amw-chip" id="amwF_fix" onclick="amwFilter('fix')">Mishearing fixes</button>
+              <button class="amw-chip" id="amwF_shortcut" onclick="amwFilter('shortcut')">My shortcuts</button>
+              <span style="flex:1"></span>
+              <label class="amw-small" for="amwSort">Sort</label>
+              <select class="fg-input" id="amwSort" onchange="amwSortBy(this.value)" style="width:auto">
+                <option value="type">By type</option><option value="az">A to Z</option><option value="used">Most used</option><option value="new">Newest first</option>
+              </select>
+            </div>
+            <input class="fg-input" id="amwSearch" placeholder="Search your list" oninput="amwRender()" style="margin-bottom:12px;width:100%;box-sizing:border-box">
+            <div id="amwStatus" style="min-height:18px;font-size:13px;margin-bottom:8px"></div>
+            <div id="amwList"></div>
           </div>
         </div>
         </div><!-- /ch-tab-main -->
@@ -5549,6 +5605,126 @@ function showChTab(detailNum,n){
   detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
   clickedBtn.classList.add('active');
+}
+
+
+// ══════════════════════════════════════════════
+// ABOUT ME → MY WORDS TAB (added 2026-10-23, Ryan). The person's own list in the table cha_user_words (row security: only their own rows).
+// kind 'fix' = a word that arrives wrong and what was meant (Amit also adds these when corrected); kind 'shortcut' = a phrase they made that stands for a longer instruction.
+// Everything is built with textContent/value, never with typed text as HTML.
+// ══════════════════════════════════════════════
+let _amwRows=[], _amwType='fix', _amwFilter='all', _amwSort='type', _amwOpenDelete=null;
+function amwEl(id){ return document.getElementById(id); }
+function amwStatus(msg, bad){ const e=amwEl('amwStatus'); if(!e) return; e.textContent=msg||''; e.style.color=bad?'rgba(235,150,140,.95)':'rgba(180,220,190,.95)'; }
+function amwCount(){
+  const t=amwEl('amwMeant'), c=amwEl('amwCounter'); if(!t||!c) return;
+  c.textContent=t.value.length+' / '+t.maxLength;
+}
+function amwSetType(k){
+  _amwType=(k==='shortcut')?'shortcut':'fix';
+  amwEl('amwTypeFix').classList.toggle('on',_amwType==='fix'); amwEl('amwTypeShort').classList.toggle('on',_amwType==='shortcut');
+  const heard=amwEl('amwHeard'), meant=amwEl('amwMeant'), help=amwEl('amwHelp');
+  if(_amwType==='fix'){
+    amwEl('amwHeardLabel').textContent='WHEN IT COMES OUT AS'; amwEl('amwMeantLabel').textContent='I ACTUALLY MEAN';
+    heard.placeholder='for example: blue gnome'; meant.placeholder='for example: the invoice'; meant.maxLength=120; meant.rows=2;
+    help.textContent='For a word or short phrase that keeps arriving wrong. Amit will understand it the way you mean it.';
+  } else {
+    amwEl('amwHeardLabel').textContent='WHEN I SAY'; amwEl('amwMeantLabel').textContent='TREAT IT AS IF I HAD SAID';
+    heard.placeholder='for example: flabbergasted'; meant.placeholder='for example: Look at my open pursuits and tell me which are due this week.'; meant.maxLength=1000; meant.rows=5;
+    help.textContent='A short word or phrase you choose, standing for a longer instruction you write. Amit does only what his rules already allow; if a shortcut asks for something he cannot do, he will say so.';
+  }
+  amwCount();
+}
+async function amwLoad(){
+  const no=amwEl('amwSignedOut'), body=amwEl('amwBody'); if(!no||!body) return;
+  if(!(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db)){ no.style.display=''; body.style.display='none'; return; }
+  no.style.display='none'; body.style.display='';
+  amwSetType(_amwType);
+  const r=await db.from('cha_user_words').select('id,heard,meant,times,kind,last_at').order('last_at',{ascending:false}).limit(700);
+  if(r.error){ amwStatus('Could not load your list: '+r.error.message,true); return; }
+  _amwRows=r.data||[]; amwStatus(''); amwRender();
+}
+function amwFilter(f){ _amwFilter=f; ['all','fix','shortcut'].forEach(function(k){ amwEl('amwF_'+k).classList.toggle('on',k===f); }); amwRender(); }
+function amwSortBy(v){ _amwSort=v; amwRender(); }
+function amwVisible(){
+  const q=(amwEl('amwSearch')&&amwEl('amwSearch').value||'').trim().toLowerCase();
+  let rows=_amwRows.filter(function(x){ return (_amwFilter==='all'||x.kind===_amwFilter)&&(!q||(x.heard+' '+x.meant).toLowerCase().indexOf(q)>=0); });
+  const az=function(a,b){ return a.heard<b.heard?-1:a.heard>b.heard?1:0; };
+  if(_amwSort==='az') rows.sort(az);
+  else if(_amwSort==='used') rows.sort(function(a,b){ return (b.times-a.times)||az(a,b); });
+  else if(_amwSort==='new') rows.sort(function(a,b){ return String(b.last_at).localeCompare(String(a.last_at)); });
+  else rows.sort(function(a,b){ return ((b.kind==='shortcut')-(a.kind==='shortcut'))||az(a,b); });
+  return rows;
+}
+function amwMake(tag,css,text){ const e=document.createElement(tag); if(css) e.style.cssText=css; if(text!==undefined) e.textContent=text; return e; }
+function amwRender(){
+  const list=amwEl('amwList'); if(!list) return;
+  const nFix=_amwRows.filter(function(x){return x.kind==='fix';}).length, nSh=_amwRows.length-nFix;
+  amwEl('amwF_all').textContent='All ('+_amwRows.length+')'; amwEl('amwF_fix').textContent='Mishearing fixes ('+nFix+')'; amwEl('amwF_shortcut').textContent='My shortcuts ('+nSh+')';
+  const rows=amwVisible(); list.textContent='';
+  if(!rows.length){ list.appendChild(amwMake('div','color:var(--dim);font-size:13px;line-height:1.6;padding:8px 0',_amwRows.length?'Nothing matches that.':'Nothing here yet. Add one above, or just correct Amit when he mishears you and he will add it for you.')); return; }
+  rows.forEach(function(x){
+    const row=amwMake('div',''); row.className='amw-row '+(x.kind==='shortcut'?'short':'fixrow'); row.setAttribute('data-id',x.id);
+    const top=amwMake('div','display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px');
+    const badge=amwMake('span','',x.kind==='shortcut'?'Shortcut':'Fix'); badge.className='amw-badge '+(x.kind==='shortcut'?'short':'fixb'); top.appendChild(badge);
+    if(x.kind==='fix'&&x.times>1) top.appendChild(amwMake('span','font-size:11px;color:rgba(var(--amit-text-rgb,240,232,208),.45)','used '+x.times+' times'));
+    top.appendChild(amwMake('span','flex:1'));
+    const typeSel=document.createElement('select'); typeSel.className='fg-input'; typeSel.style.cssText='width:auto;font-size:12px;padding:4px 8px';
+    [['fix','Fix'],['shortcut','Shortcut']].forEach(function(o){ const op=document.createElement('option'); op.value=o[0]; op.textContent=o[1]; if(o[0]===x.kind) op.selected=true; typeSel.appendChild(op); });
+    top.appendChild(typeSel); row.appendChild(top);
+    const h=document.createElement('input'); h.className='fg-input'; h.maxLength=80; h.value=x.heard; h.style.marginBottom='6px'; h.setAttribute('aria-label','When it comes out as');
+    const m=document.createElement(x.kind==='shortcut'?'textarea':'input'); m.className='fg-input'; m.value=x.meant; m.maxLength=(x.kind==='shortcut')?1000:120; if(x.kind==='shortcut') m.rows=3; m.setAttribute('aria-label','What I mean');
+    row.appendChild(amwMake('div','font-size:10px;letter-spacing:.08em;color:rgba(var(--amit-text-rgb,240,232,208),.45);margin-bottom:3px',x.kind==='shortcut'?'WHEN I SAY':'WHEN IT COMES OUT AS')); row.appendChild(h);
+    row.appendChild(amwMake('div','font-size:10px;letter-spacing:.08em;color:rgba(var(--amit-text-rgb,240,232,208),.45);margin-bottom:3px',x.kind==='shortcut'?'TREAT IT AS IF I HAD SAID':'I ACTUALLY MEAN')); row.appendChild(m);
+    const bar=amwMake('div','display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap');
+    const save=amwMake('button','font-size:11px;padding:7px 14px','SAVE'); save.className='btn btn-ghost'; save.style.display='none';
+    const del=amwMake('button','font-size:11px;padding:7px 14px','DELETE'); del.className='btn btn-ghost';
+    const sure=amwMake('span','display:none;font-size:12px;color:rgba(235,150,140,.95)','Delete this for good? ');
+    const yes=amwMake('button','font-size:11px;padding:5px 12px','YES, DELETE'); yes.className='btn btn-ghost'; const no=amwMake('button','font-size:11px;padding:5px 12px','KEEP IT'); no.className='btn btn-ghost';
+    sure.appendChild(yes); sure.appendChild(document.createTextNode(' ')); sure.appendChild(no);
+    bar.appendChild(save); bar.appendChild(del); bar.appendChild(sure); row.appendChild(bar);
+    const changed=function(){ save.style.display=(h.value.trim()!==x.heard||m.value.trim()!==x.meant||typeSel.value!==x.kind)?'':'none'; };
+    h.addEventListener('input',changed); m.addEventListener('input',changed);
+    typeSel.addEventListener('change',function(){ m.maxLength=(typeSel.value==='shortcut')?1000:120; changed(); });
+    save.addEventListener('click',function(){ amwSave(x,h.value,m.value,typeSel.value); });
+    del.addEventListener('click',function(){ del.style.display='none'; sure.style.display=''; });
+    no.addEventListener('click',function(){ sure.style.display='none'; del.style.display=''; });
+    yes.addEventListener('click',function(){ amwDelete(x); });
+    list.appendChild(row);
+  });
+}
+function amwProblem(heard,meant,kind){
+  if(!heard) return 'Write the word or phrase first.';
+  if(heard.length>80) return 'The word or phrase can be up to 80 characters.';
+  if(!meant) return 'Write what it means.';
+  if(kind==='fix'&&meant.length>120) return 'A fix can be up to 120 characters. For something longer, make it a shortcut.';
+  if(meant.length>1000) return 'A shortcut can be up to 1,000 characters.';
+  return '';
+}
+function amwErr(e){
+  const m=(e&&e.message)||'Something went wrong';
+  if(/duplicate|unique|23505/i.test(m)||(e&&e.code==='23505')) return 'You already have that one. Find it in the list below and change it there.';
+  if(/full/i.test(m)) return m;
+  return 'Could not save: '+m;
+}
+async function amwAdd(){
+  if(!(currentUser&&db)){ amwStatus('Sign in first.',true); return; }
+  const heard=amwEl('amwHeard').value.trim(), meant=amwEl('amwMeant').value.trim(), p=amwProblem(heard,meant,_amwType);
+  if(p){ amwStatus(p,true); return; }
+  const r=await db.from('cha_user_words').insert({user_id:currentUser.id,heard:heard,meant:meant,kind:_amwType}).select('id,heard,meant,times,kind,last_at').single();
+  if(r.error){ amwStatus(amwErr(r.error),true); return; }
+  _amwRows.unshift(r.data); amwEl('amwHeard').value=''; amwEl('amwMeant').value=''; amwCount(); amwStatus('Added. Amit will use it from your next question.'); amwRender();
+}
+async function amwSave(x,heard,meant,kind){
+  heard=heard.trim(); meant=meant.trim(); const p=amwProblem(heard,meant,kind); if(p){ amwStatus(p,true); return; }
+  const r=await db.from('cha_user_words').update({heard:heard,meant:meant,kind:kind,last_at:new Date().toISOString()}).eq('id',x.id).select('id,heard,meant,times,kind,last_at').single();
+  if(r.error){ amwStatus(amwErr(r.error),true); return; }
+  const i=_amwRows.findIndex(function(y){return y.id===x.id;}); if(i>=0) _amwRows[i]=r.data; amwStatus('Saved.'); amwRender();
+}
+async function amwDelete(x){
+  const r=await db.from('cha_user_words').delete().eq('id',x.id);
+  if(r.error){ amwStatus('Could not delete: '+r.error.message,true); return; }
+  _amwRows=_amwRows.filter(function(y){return y.id!==x.id;}); amwStatus('Deleted.'); amwRender();
 }
 
 // ══════════════════════════════════════════════
