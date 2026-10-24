@@ -1,4 +1,4 @@
-/* amit_ch_sync.js  v1.02  -  Computer Health: connect to the local helper and save anything not saved yet.
+/* amit_ch_sync.js  v1.03  -  Computer Health: connect to the local helper and save anything not saved yet.
 
    WHAT IT DOES (Ryan's design, 2026-10-20): the helper program (amit_bridge_server.ps1, localhost:8710) and its watchers
    keep tracking in the background, with no page open. When a person opens the Hub (already signed in), this file:
@@ -18,7 +18,7 @@
    If the helper is not running, nothing breaks: the unsaved summary stays on the computer until the next time. */
 (function (w) {
   'use strict';
-  const AmitCH = { version: '1.02', BRIDGE: (w.__AMIT_CH_BRIDGE || 'http://localhost:8710'), last: { helper: 'unknown', tracking: null, disabledByUser: false, saved: 0, error: null } };
+  const AmitCH = { version: '1.03', BRIDGE: (w.__AMIT_CH_BRIDGE || 'http://localhost:8710'), last: { helper: 'unknown', tracking: null, disabledByUser: false, saved: 0, error: null } };
   const listeners = [];
   const TYPES = [
     { endpoint: '/api/tracker-metrics',  eventType: 'tracking_session_ended', label: 'Tracker' },
@@ -142,6 +142,23 @@
     return saved;
   };
 
+  /* A session the helper ends on its own (its 4-hour restart, an idle stop) lands in the queue while a Hub page may still be open;
+     saving only at page load would leave it waiting until the next visit. So while this page is visible it looks again every 5
+     minutes: one local request to the helper, and nothing more when the queue is empty. (v1.03, 2026-10-24) */
+  let queueTimer = null;
+  function startQueueTimer(db, user) {
+    if (queueTimer) clearInterval(queueTimer);
+    queueTimer = setInterval(async function () {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const dev = await AmitCH.helperStatus();
+        if (!dev.up) return;
+        const n = await AmitCH.saveUnsavedSessions(db, user, dev);
+        if (n) publish({ saved: (AmitCH.last.saved || 0) + n, error: null });
+      } catch (e) {}
+    }, 5 * 60 * 1000);
+  }
+
   /* the whole Hub-load routine, once per page load */
   let ran = null;
   AmitCH.onHubLoad = function (db, user) {
@@ -155,13 +172,14 @@
         if (t) publish({ tracking: !!t.running, disabledByUser: !!t.disabledByUser });
         const n = await AmitCH.saveUnsavedSessions(db, user, dev);
         publish({ saved: n, error: null });
+        startQueueTimer(db, user);
       } catch (e) { publish({ error: String(e && e.message || e) }); }
       return AmitCH.last;
     })();
     return ran;
   };
   /* lets a later sign-in (or a manual re-check) run the routine again */
-  AmitCH.reset = function () { ran = null; };
+  AmitCH.reset = function () { ran = null; if (queueTimer) { clearInterval(queueTimer); queueTimer = null; } };
 
   w.AmitCH = AmitCH;
 })(window);

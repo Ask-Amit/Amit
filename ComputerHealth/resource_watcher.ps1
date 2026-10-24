@@ -1,3 +1,4 @@
+# Version v1.01 (2026-10-24) - baseline v1.00 = everything before. v1.01: memory fix - Process objects released, one reusable WMI connection (resource), full cleanup about once a minute. Each push of this file bumps this number by 0.01.
 # Keeps Windows from sleeping while this tracker is actively running - a
 # real gap Ryan raised 2026-07-16: an all-day tracking session would
 # otherwise get silently interrupted the moment the machine sleeps. This
@@ -197,11 +198,15 @@ $fastStartIntervalSeconds = 5
 # between them (the same method Task Manager uses) - a single instantaneous
 # read has no "rate" to compute. These persist across loop iterations so
 # each pass can diff against the previous one.
-$numLogicalCores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+# Memory fix 2026-10-24 (Ryan: the monitor grew all day until it used up his RAM). Three changes, nothing about what is
+# measured: (1) ONE reusable WMI connection instead of a new hidden one on every pass, (2) the Process objects from
+# Get-Process are disposed as soon as they have been read, (3) a full garbage collection every pass.
+$cimSession = New-CimSession
+$numLogicalCores = (Get-CimInstance -CimSession $cimSession -ClassName Win32_ComputerSystem).NumberOfLogicalProcessors
 $prevCpuTimes = $null
 $prevCpuSampleTime = $null
 while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
-    $os = Get-CimInstance Win32_OperatingSystem
+    $os = Get-CimInstance -CimSession $cimSession -ClassName Win32_OperatingSystem
     $totalMB = [math]::Round($os.TotalVisibleMemorySize/1024, 0)
     $freeMB = [math]::Round($os.FreePhysicalMemory/1024, 0)
     $usedPct = [math]::Round((($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize) * 100, 1)
@@ -218,7 +223,8 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     # Kept in the exact same "Name=NNNMB" wire format the dashboard's
     # parseResourceLine regex expects - instance count is deliberately not
     # appended here, since that would break the existing parse.
-    $allGrouped = Get-Process | Group-Object Name | ForEach-Object {
+    $procSnap = @(Get-Process)
+    $allGrouped = $procSnap | Group-Object Name | ForEach-Object {
         [PSCustomObject]@{ Name = $_.Name; TotalMB = [math]::Round(($_.Group | Measure-Object WorkingSet -Sum).Sum/1MB,0) }
     }
     $topProcs = $allGrouped | Sort-Object TotalMB -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$($_.TotalMB)MB" }
@@ -243,9 +249,11 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     # total, not disappear.
     $nowForCpu = Get-Date
     $curCpuTimes = @{}
-    Get-Process | Group-Object Name | ForEach-Object {
+    $procSnap | Group-Object Name | ForEach-Object {
         $curCpuTimes[$_.Name] = ($_.Group | Measure-Object TotalProcessorTime -Property @{Expression={$_.TotalProcessorTime.TotalSeconds}} -Sum).Sum
     }
+    foreach ($pp in $procSnap) { try { $pp.Dispose() } catch {} }
+    $procSnap = $null
     $topCpuStr = ""
     if ($prevCpuTimes -and $prevCpuSampleTime -and $numLogicalCores -gt 0) {
         $elapsedSeconds = ($nowForCpu - $prevCpuSampleTime).TotalSeconds
@@ -291,7 +299,7 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     # essentially free. Falls back to the slow WMI method only if LHM
     # itself wasn't reachable, so CPU% is never simply missing.
     $cpuLine = if ($trimmed) { $trimmed | Where-Object { $_ -match 'Load>CPU Total=([\d.]+)' } | Select-Object -First 1 } else { $null }
-    $cpu = if ($cpuLine -and $cpuLine -match 'Load>CPU Total=([\d.]+)') { [double]$matches[1] } else { (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average }
+    $cpu = if ($cpuLine -and $cpuLine -match 'Load>CPU Total=([\d.]+)') { [double]$matches[1] } else { (Get-CimInstance -CimSession $cimSession -ClassName Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average }
 
     Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') RAM:${freeMB}MB-free/${totalMB}MB-total(${usedPct}%used) CPU:${cpu}% TOP5:[$topStr] TOPCPU:[$topCpuStr] SENSORS:[$sensorDump]" -Encoding utf8
     $lineCount++
@@ -341,6 +349,7 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     }
 
     $captureCount++
+    [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()
     $sleepSeconds = if ($captureCount -le $fastStartCaptures) { $fastStartIntervalSeconds } else { 30 }
 
     # Slept in 1-second increments, checking the stop flag each time,
@@ -357,6 +366,7 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     }
 }
 
+try { Remove-CimSession -CimSession $cimSession -ErrorAction SilentlyContinue } catch {}
 $exitReason = if (Test-Path $stopFlag) { "stop flag detected" } else { "8-hour deadline reached" }
 Add-Content -Path $out -Value "$(Get-Date -Format 'HH:mm:ss.fff') Watch window ended - reason: $exitReason." -Encoding utf8
 

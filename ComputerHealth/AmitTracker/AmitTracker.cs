@@ -181,6 +181,10 @@ class AmitTrackerWindow : Form
                 // its own startup before tracking has even begun.
                 if (sawTrackingRunning && !stopping)
                 {
+                    // Restart of the monitor (bridge v1.03): after several hours the bridge stops the watchers cleanly and starts fresh
+                    // ones so they never grow large. For a few seconds tracking reads as stopped; that is not a stop, so wait it out.
+                    if (File.Exists(Path.Combine(Path.GetTempPath(), "amit_rotate.flag"))) continue;
+
                     // Idle stop (bridge v1.02): the bridge stopped the monitor because no page has been
                     // in contact for a while and left this marker. That is not someone pressing Stop, so
                     // close quietly - no stop-tracking call (it would set the "turned off on purpose"

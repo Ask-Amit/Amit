@@ -1,5 +1,10 @@
 # Amit Computer Health - Local Bridge Server
-# Version v1.02 (2026-10-23) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# Version v1.03 (2026-10-24) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# v1.03: MEMORY (Ryan: the monitor grew all day until it used up his RAM). A full garbage collection about once a
+# minute, one reusable self-call client, and a 4-HOUR RESTART OF THE MONITOR: after 4 hours of tracking the bridge
+# stops the three watchers cleanly (each writes its finished-session file to data\pending, which the Hub saves to the
+# database), then starts fresh ones - the tray ignores that short gap (%TEMP%\amit_rotate.flag). Also: stale idle/rotate
+# markers are cleared when the bridge starts, and the resume after an idle stop no longer depends on the marker file.
 # v1.01: CPU/pile-up fixes - direct file-tail read, fast JSON escaping, cheap process-status check, in-flight
 # cap (16) and a 180-second reaper for stuck handlers.
 # v1.02: IDLE STOP (Ryan: nothing should keep running when nothing is using it) - after 10 minutes with no
@@ -68,6 +73,10 @@ try {
 Write-Host "Amit Computer Health bridge server running at http://localhost:$port/"
 Write-Host "Device ID: $deviceId  |  Device Name: $deviceName"
 Write-Host "Press Ctrl+C to stop."
+
+# Idle/rotate markers only mean something inside ONE bridge run (the timers they belong to live in memory). Files in the
+# temp folder survive a restart of the computer, so a leftover marker from an earlier run is cleared here (v1.03).
+try { Remove-Item "$env:TEMP\amit_idle_stop.flag", "$env:TEMP\amit_rotate.flag" -ErrorAction SilentlyContinue } catch {}
 
 # ── Amit Mobile listener — auto-start (2026-09-05) ──
 # Per root CLAUDE.md's SINGLE LOCAL CONNECTION STANDARD: Amit Mobile's
@@ -1524,7 +1533,7 @@ secret key must never appear here, ever, under any circumstance.
                 # Read-only view of the idle timer (v1.02) - for testing and for anyone asking "why did it stop".
                 $idleSec = [int]((Get-Date) - $bridgeState.LastContact).TotalSeconds
                 $limitMin = $bridgeState.LimitMinutes
-                Send-JsonRaw $response ('{"secondsSincePageContact":' + $idleSec + ',"limitMinutes":' + $limitMin + ',"lastPage":' + (ConvertTo-JsonString $bridgeState.LastPage) + ',"lastRoute":' + (ConvertTo-JsonString $bridgeState.LastRoute) + ',"idleStopped":' + $(if (Test-Path "$env:TEMP\amit_idle_stop.flag") {'true'} else {'false'}) + ',"tracking":' + $(if ((Get-TrackerStatus).running) {'true'} else {'false'}) + '}')
+                Send-JsonRaw $response ('{"secondsSincePageContact":' + $idleSec + ',"limitMinutes":' + $limitMin + ',"lastPage":' + (ConvertTo-JsonString $bridgeState.LastPage) + ',"lastRoute":' + (ConvertTo-JsonString $bridgeState.LastRoute) + ',"rotateHours":' + $bridgeState.RotateHours + ',"idleStopped":' + $(if (Test-Path "$env:TEMP\amit_idle_stop.flag") {'true'} else {'false'}) + ',"tracking":' + $(if ((Get-TrackerStatus).running) {'true'} else {'false'}) + '}')
             }
             "/api/idle-stop" {
                 # Called ONLY by the bridge's own idle timer (v1.02), never by a page. Stops the three monitor
@@ -1541,11 +1550,33 @@ secret key must never appear here, ever, under any circumstance.
                     Send-JsonRaw $response ('{"idleStopped":false,"tracking":' + $(if ($s.running) {'true'} else {'false'}) + ',"appBehaviorRunning":' + $(if ($behaviorRunning) {'true'} else {'false'}) + '}')
                 }
             }
+            "/api/rotate-tracking" {
+                # Called ONLY by the bridge's own timer (v1.03), never by a page. After the rotate limit of tracking it stops the
+                # three watchers cleanly (each writes its finished-session file to data\pending for the Hub to save to the
+                # database), leaves the sensor reader running, and starts fresh watchers. The marker tells the tray program this
+                # short gap is not a real stop. Skipped while an App Behavior session runs (started on purpose).
+                $s = Get-TrackerStatus
+                $behaviorRunning = [bool](Test-WatcherScriptRunning "app_behavior_watcher.ps1" -NoRetry)
+                $ageH = if (Test-Path $trackerPidFile) { ((Get-Date) - (Get-Item $trackerPidFile).LastWriteTime).TotalHours } else { 0 }
+                if ($s.running -and -not $behaviorRunning -and $ageH -ge $bridgeState.RotateHours) {
+                    New-Item "$env:TEMP\amit_rotate.flag" -ItemType File -Force | Out-Null
+                    try {
+                        [void](Stop-Tracking -KeepSensorReader)
+                        Start-Sleep -Milliseconds 800
+                        [void](Start-TrackingOnce)
+                    } finally { Remove-Item "$env:TEMP\amit_rotate.flag" -ErrorAction SilentlyContinue }
+                    Send-JsonRaw $response '{"rotated":true}'
+                } else {
+                    Send-JsonRaw $response ('{"rotated":false,"tracking":' + $(if ($s.running) {'true'} else {'false'}) + ',"appBehaviorRunning":' + $(if ($behaviorRunning) {'true'} else {'false'}) + ',"ageHours":' + [math]::Round($ageH, 2) + '}')
+                }
+            }
             "/api/resume-from-idle" {
                 # Called ONLY by the bridge's own main loop (v1.02) the first time a page makes contact after an
                 # idle stop. Starts tracking again (unless the person turned it off on purpose) and brings the
                 # tray icon back - the tray program has a single-instance guard, so this can never double up.
-                if (Test-Path "$env:TEMP\amit_idle_stop.flag") {
+                if ($true) {
+                    # (v1.03) no longer decided by the marker file: the Hub's own ensure-tracking can start tracking a moment
+                    # before this runs and delete it, and that must not stop the tray icon from coming back.
                     Remove-Item "$env:TEMP\amit_idle_stop.flag" -ErrorAction SilentlyContinue
                     if (-not (Test-Path "$env:TEMP\amit_tracking_disabled.flag")) {
                         [void](Start-TrackingOnce)
@@ -1810,15 +1841,50 @@ $maxHandlerSeconds = 180
 # minutes in %TEMP%\amit_idle_minutes.txt overrides the default.
 $idleMinutes = 10
 $idleOverrideFile = "$env:TEMP\amit_idle_minutes.txt"
-$bridgeState = [hashtable]::Synchronized(@{ LastContact = (Get-Date); LimitMinutes = $idleMinutes; LastPage = ''; LastRoute = '' })
+$bridgeState = [hashtable]::Synchronized(@{ LastContact = (Get-Date); LimitMinutes = $idleMinutes; LastPage = ''; LastRoute = ''; RotateHours = 4 })
 $idleCallAt = [datetime]::MinValue
 $idleCallMade = $false
+# One reusable client for the bridge's calls to itself (v1.03; it used to make a new one every time). A busy one is replaced.
+$selfClient = $null
 function Invoke-BridgeSelf($route) {
     try {
-        $wc = New-Object System.Net.WebClient
-        $wc.Headers[[System.Net.HttpRequestHeader]::ContentType] = "text/plain"
-        $wc.UploadStringAsync([uri]("http://localhost:$port" + $route), "POST", "")
+        if ($null -eq $script:selfClient -or $script:selfClient.IsBusy) {
+            $script:selfClient = New-Object System.Net.WebClient
+            $script:selfClient.Headers[[System.Net.HttpRequestHeader]::ContentType] = "text/plain"
+        }
+        $script:selfClient.UploadStringAsync([uri]("http://localhost:$port" + $route), "POST", "")
     } catch {}
+}
+
+# Memory housekeeping (v1.03): the runtime frees garbage lazily, so a long-running bridge looks like it is growing. A full
+# collection about once a minute keeps it at its true size. Cheap: a few hundredths of a second.
+$gcAt = Get-Date
+function Invoke-Housekeeping {
+    if (((Get-Date) - $script:gcAt).TotalSeconds -lt 60) { return }
+    $script:gcAt = Get-Date
+    [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect()
+}
+
+# 4-hour restart of the monitor (v1.03). The watchers are long-running scripts and slowly accumulate memory; after
+# $rotateHours of tracking the bridge asks itself (/api/rotate-tracking) to stop them cleanly - each writes its finished-session
+# file to data\pending, which the Hub saves to the database - and start fresh ones. The age is the tracker pid file's own
+# time (rewritten whenever tracking starts). For testing, a number of hours in %TEMP%\amit_rotate_hours.txt overrides the default.
+$rotateHours = 4
+$rotateOverrideFile = "$env:TEMP\amit_rotate_hours.txt"
+$rotatePidFile = "$env:TEMP\amit_tracker_pids.txt"
+$rotateCheckAt = [datetime]::MinValue
+$rotateCallAt = [datetime]::MinValue
+function Test-Rotate {
+    if (((Get-Date) - $script:rotateCheckAt).TotalSeconds -lt 30) { return }
+    $script:rotateCheckAt = Get-Date
+    $limit = $rotateHours
+    try { if (Test-Path $rotateOverrideFile) { $v = [double]((Get-Content $rotateOverrideFile -Raw).Trim()); if ($v -gt 0) { $limit = $v } } } catch {}
+    $bridgeState.RotateHours = $limit
+    if (((Get-Date) - $script:rotateCallAt).TotalSeconds -lt 120) { return }
+    if (-not (Test-Path $rotatePidFile)) { return }
+    if (((Get-Date) - (Get-Item $rotatePidFile).LastWriteTime).TotalHours -lt $limit) { return }
+    $script:rotateCallAt = Get-Date
+    Invoke-BridgeSelf '/api/rotate-tracking'
 }
 function Test-IdleStop {
     $limit = $idleMinutes
@@ -1851,7 +1917,7 @@ while ($listener.IsListening) {
     $gotContext = $false
     try {
         while (-not $gotContext) {
-            if ($ctxTask.Wait(5000)) { $gotContext = $true } else { Remove-FinishedOrStuckHandlers; Test-IdleStop }
+            if ($ctxTask.Wait(5000)) { $gotContext = $true } else { Remove-FinishedOrStuckHandlers; Test-IdleStop; Test-Rotate; Invoke-Housekeeping }
         }
     } catch { break }
     $context = $ctxTask.Result
@@ -1870,6 +1936,8 @@ while ($listener.IsListening) {
 
     Remove-FinishedOrStuckHandlers
     Test-IdleStop
+    Test-Rotate
+    Invoke-Housekeeping
     if ($running.Count -ge $maxInFlight) {
         try {
             $context.Response.StatusCode = 503

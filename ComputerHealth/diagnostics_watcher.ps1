@@ -1,3 +1,4 @@
+# Version v1.01 (2026-10-24) - baseline v1.00 = everything before. v1.01: memory fix - Process objects released, one reusable WMI connection (resource), full cleanup about once a minute. Each push of this file bumps this number by 0.01.
 $out = "$env:TEMP\diagnostics_watch_result.txt"
 $maxLines = 1000
 
@@ -79,6 +80,7 @@ $counterPaths = @(
 
 $deadline = (Get-Date).AddHours(8)
 $lineCount = 1
+$gcPass = 0
 $lastEventCheck = Get-Date
 
 while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
@@ -117,8 +119,13 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     }
 
     # Top 5 processes by CPU (approximate via CPU property delta over 1 sec is expensive; use Get-Process CPU total as a proxy trend)
-    $topCpu = Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$([math]::Round($_.CPU,1))s" }
+    # Memory fix 2026-10-24: the Process objects are disposed as soon as the top five are picked (they used to pile up
+    # until the runtime's own lazy cleanup), and a full garbage collection runs about once a minute (see the sleep loop).
+    $procList = @(Get-Process)
+    $topCpu = $procList | Sort-Object CPU -Descending | Select-Object -First 5 | ForEach-Object { "$($_.Name)=$([math]::Round($_.CPU,1))s" }
     $topCpuStr = $topCpu -join ", "
+    foreach ($pp in $procList) { try { $pp.Dispose() } catch {} }
+    $procList = $null
 
     # GPU engine utilization per process (Win10+ perf counters, may not exist on all systems)
     $gpuStr = "n/a"
@@ -178,6 +185,8 @@ while ((Get-Date) -lt $deadline -and -not (Test-Path $stopFlag)) {
     # Checked every second instead of one flat 5-second sleep - same
     # reasoning as resource_watcher.ps1's 1-second stop-flag polling, so a
     # stop request is seen quickly instead of up to 5 seconds late.
+    $gcPass++
+    if ($gcPass -ge 12) { $gcPass = 0; [GC]::Collect(); [GC]::WaitForPendingFinalizers(); [GC]::Collect() }   # 12 passes x 5 s = about once a minute
     for ($i = 0; $i -lt 5; $i++) {
         if (Test-Path $stopFlag) { break }
         Start-Sleep -Seconds 1
