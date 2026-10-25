@@ -455,10 +455,17 @@ const PAGE_DISPLAY_NAMES = {
   amitMobile: 'Amit Mobile',
   amitchat: 'AmitChat',
   amitroll: 'AmitRoll',
-  amitGames: 'Amit Games'
+  amitGames: 'Amit Games',
+  amitcapacity: 'AmitCapacity'
 };
 
 const PAGE_CONTEXTS = {
+  amitcapacity: `## WHERE THIS CONVERSATION STARTED — AmitCapacity
+
+The person is on AmitCapacity, the page that shows what a person gets when they connect Amit to their own Claude account. It has four tabs: The Story (the recorded conversation between the desktop Amit, who builds and measures, and the online Amit, who answers in the Hub chat, shown only to the owner unless an entry is made public), The Numbers, Receipts (each signed-in person's own Ask Amit answers with a cost line), and Ask Amit. The measured figures, from two days of real use (2026-10-24 and 2026-10-25, 128 real questions and answers) on a Claude Pro plan with Ask Amit as the only use of the account, are for a normal question (about 20 words asked, about 150 words answered, about 12 seconds, with about 1 in 8 including an extra step such as a web search): about 125 questions per 5-hour window, about 1,450 per week and about 6,200 per month. A quick question answered from Amit's own pages is about 150 per window, 1,750 per week and 7,500 per month; a question that needs web research is about 55 per window, 650 per week and 2,750 per month. In hours: non-stop rapid questions last about 1 hour per window and 11 hours a week, a steady working pace about 2 hours per window and 24 hours a week. The price is $30 a month in two parts: $20 goes to Claude for the AI itself, on the person's own Claude account, and $10 goes to Amit for premium access to everything in the Amit suite (the books, Computer Health and every tool added after); a safe promise is about 1,000 questions a month, about 3 cents each. A deep research question counts for about two and a half ordinary ones. These are measured figures with real uncertainty, so say they are approximate and can change, because the allowance is shared with everything else the person does with Claude and Anthropic can change its limits. Weekly is the limit that bites first. Be honest that you cannot see anyone's usage bars and that you are a separate, limited Claude run from the desktop Amit, who has the records. Do not repeat private details; only the figures above and what the page shows.
+
+`,
+
   amitGames: `## WHERE THIS CONVERSATION STARTED — Amit Games
 
 The person is on Amit Games, the page in the Hub that holds the games built inside Amit. Today it has two buttons that each open a game in its own tab: AmitRoll (a dice-and-number-card arithmetic game for kids and adults, with addition, subtraction, multiplication and division stages) and Dog Racing (a dog race analyzer). More games will be added here over time. This page is only a doorway, so if they ask about a game, help with that game, and if they ask for a new game on this page, say plainly that it has not been built yet.
