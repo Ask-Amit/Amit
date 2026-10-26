@@ -47,7 +47,8 @@ if ($alreadyInstalled) {
         "activity_watcher2.ps1", "resource_watcher.ps1", "diagnostics_watcher.ps1",
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
         "Run_AmitTracker.ps1", "AmitTracker.exe", "AmitSensorReader.exe",
-        "process_inbox.bat", "process_inbox_prompt.txt"
+        "process_inbox.bat", "process_inbox_prompt.txt",
+        "amit_whisper.cs", "amit_whisper.html"
     )
     foreach ($f in $filesToCopy) {
         $src = "$scriptDir\$f"
@@ -252,22 +253,24 @@ IconIndex=0
 # shortcut above, this targets a local .exe, so a real .lnk (WScript.Shell
 # CreateShortcut) is the correct mechanism here - the .lnk-can't-hold-a-web-
 # URL problem noted above doesn't apply to a local file target.
-$trackerShortcutPath = "$desktopPath\Amit Tracker.lnk"
+$trackerShortcutPath = "$desktopPath\Amit Live.lnk"
+$oldTrackerShortcutPath = "$desktopPath\Amit Tracker.lnk"   # the name this shortcut had before it was called Amit Live: replaced, not duplicated
+if (Test-Path $oldTrackerShortcutPath) { try { Remove-Item $oldTrackerShortcutPath -Force -ErrorAction Stop } catch {} }
 if ((Test-Path $trackerShortcutPath) -and -not $Force) {
-    Write-Host "[3/4] 'Amit Tracker' desktop shortcut already exists - skipping."
+    Write-Host "[3/4] 'Amit Live' desktop shortcut already exists - skipping."
 } else {
-    Write-Host "[3/4] Creating 'Amit Tracker' desktop shortcut..."
+    Write-Host "[3/4] Creating 'Amit Live' desktop shortcut..."
     try {
         $wshShell = New-Object -ComObject WScript.Shell
         $trackerShortcut = $wshShell.CreateShortcut($trackerShortcutPath)
         $trackerShortcut.TargetPath = $trackerExePath
         $trackerShortcut.WorkingDirectory = $watcherInstallDir
         $trackerShortcut.IconLocation = $iconLocation
-        $trackerShortcut.Description = "Start Amit's computer tracker directly - no browser involved"
+        $trackerShortcut.Description = "Amit Live: starts Amit's helper (Whisper mode and your computer's health check) - no browser involved"
         $trackerShortcut.Save()
-        Write-Host "  Shortcut created on your desktop: 'Amit Tracker' - starts tracking directly."
+        Write-Host "  Shortcut created on your desktop: 'Amit Live' - starts Amit's helper directly."
     } catch {
-        Write-Host "  Could not create the 'Amit Tracker' shortcut ($($_.Exception.Message)) - you can still start tracking from the dashboard's Launch Tracker button."
+        Write-Host "  Could not create the 'Amit Live' shortcut ($($_.Exception.Message)) - you can still start it from the dashboard's Launch Amit Live button."
     }
 }
 
@@ -281,7 +284,7 @@ try {
     # name in the permission dialog rather than this registry description,
     # so this is what makes "Amit Tracker" show up either way.
     New-Item -Path "HKCU:\Software\Classes\amit-tracker" -Force | Out-Null
-    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "(Default)" -Value "URL:Amit Tracker"
+    Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "(Default)" -Value "URL:Amit Live"
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker" -Name "URL Protocol" -Value ""
     New-Item -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-tracker\DefaultIcon" -Name "(Default)" -Value $iconDest
@@ -298,10 +301,10 @@ try {
     New-Item -Path "HKCU:\Software\Classes\amit-helper\shell\open\command" -Force | Out-Null
     Set-ItemProperty -Path "HKCU:\Software\Classes\amit-helper\shell\open\command" -Name "(Default)" -Value "`"$trackerExePath`" --tray-only --at-logon"
 } catch {
-    Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Tracker button won't work yet, but the Amit desktop shortcut and manual tracking still will."
+    Write-Host "  Could not register the link handler ($($_.Exception.Message)) - the dashboard's Launch Amit Live button won't work yet, but the Amit desktop shortcut and manual tracking still will."
 }
 
 Write-Host ""
 Write-Host "Install complete."
-Write-Host "Double-click 'Amit' on your desktop to open the Hub. From there, Computer Health has its own Launch Tracker button."
+Write-Host "Double-click 'Amit' on your desktop to open the Hub. From there, Computer Health has its own Launch Amit Live button."
 Write-Host "Dashboard: $dashboardUrl"

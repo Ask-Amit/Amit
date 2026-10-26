@@ -57,9 +57,9 @@ class AmitTrackerWindow : Form
         // StopForWindowsShutdown below. Both hooks call the same guarded method.
         Microsoft.Win32.SystemEvents.SessionEnding += (s, e) => StopForWindowsShutdown("SessionEnding");
 
-        Text = "Amit - Tracker";
+        Text = "Amit Live";
         Width = 440;
-        Height = 190;
+        Height = 215;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = true;
@@ -69,21 +69,21 @@ class AmitTrackerWindow : Form
 
         statusLabel = new Label
         {
-            Text = "Amit - Tracker is running - watching this computer's\nresources, diagnostics, and activity in the background.",
+            Text = "Amit Live is running. It lets Amit hear you when you ask (Whisper mode)\nand checks this computer's health in the background. Stopping it turns both off.",
             AutoSize = false,
             Left = 20,
             Top = 20,
             Width = 390,
-            Height = 50
+            Height = 72
         };
 
-        minimizeBtn = new Button { Text = "Minimize", Left = 20, Top = 95, Width = 110, Height = 34 };
+        minimizeBtn = new Button { Text = "Minimize", Left = 20, Top = 112, Width = 110, Height = 34 };
         minimizeBtn.Click += (s, e) => { WindowState = FormWindowState.Minimized; };
 
-        dashboardBtn = new Button { Text = "Open Dashboard", Left = 150, Top = 95, Width = 140, Height = 34 };
+        dashboardBtn = new Button { Text = "Open Dashboard", Left = 145, Top = 112, Width = 135, Height = 34 };
         dashboardBtn.Click += (s, e) => { try { Process.Start(dashboardUrl); } catch { } };
 
-        stopBtn = new Button { Text = "Stop Tracker", Left = 300, Top = 95, Width = 110, Height = 34 };
+        stopBtn = new Button { Text = "Stop Amit Live", Left = 290, Top = 112, Width = 120, Height = 34 };
         stopBtn.Click += (s, e) => StopTracker();
 
         Controls.Add(statusLabel);
@@ -129,11 +129,11 @@ class AmitTrackerWindow : Form
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open Dashboard", null, (s, e) => { try { Process.Start(dashboardUrl); } catch { } });
-        menu.Items.Add("Stop Tracker", null, (s, e) => StopTracker());
+        menu.Items.Add("Stop Amit Live", null, (s, e) => StopTracker());
 
         trayIcon = new NotifyIcon
         {
-            Text = "Amit Tracker - running in the background",
+            Text = "Amit Live - running in the background",
             Visible = true,
             ContextMenuStrip = menu
         };
@@ -519,8 +519,8 @@ class AmitTracker
                 if (!trayOnly)
                 {
                     MessageBox.Show(
-                        "Amit Tracker is already running - check your taskbar.",
-                        "Amit Tracker",
+                        "Amit Live is already running - check your taskbar.",
+                        "Amit Live",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                 }

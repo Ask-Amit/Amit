@@ -15,6 +15,7 @@ CSC="/c/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe"
 FILES=(
   Install_AmitTracker.ps1
   amit_bridge_server.ps1
+  amit_mobile_watcher.ps1
   activity_watcher2.ps1
   resource_watcher.ps1
   diagnostics_watcher.ps1
@@ -24,6 +25,8 @@ FILES=(
   AmitTracker.exe
   AmitSensorReader.exe
   amit_icon.ico
+  amit_whisper.cs
+  amit_whisper.html
   ComputerHealth_Dashboard.html
 )
 

@@ -1,5 +1,9 @@
 # Amit Computer Health - Local Bridge Server
-# Version v1.04 (2026-10-24) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# Version v1.05 (2026-10-26) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# v1.05: WHISPER MODE (Ryan: hold a mouse button anywhere, speak, let go, and the words are typed where the cursor is). The code is
+# amit_whisper.cs (compiled here with Add-Type, so it is part of this one shared agent, not a new program or port) and the listening
+# page amit_whisper.html (served at /whisper). New routes: /whisper, /api/whisper/wait|event|status|settings|learn. Whisper traffic does
+# not count as "page contact" for the idle stop. AMIT_BRIDGE_PORT overrides the port (testing); AMIT_WHISPER_DISABLE=1 skips Whisper mode.
 # v1.04: the idle stop asks itself once every 10 minutes while idle, not once a minute forever.
 # v1.03: MEMORY (Ryan: the monitor grew all day until it used up his RAM). A full garbage collection about once a
 # minute, one reusable self-call client, and a 4-HOUR RESTART OF THE MONITOR: after 4 hours of tracking the bridge
@@ -26,6 +30,7 @@
 # Run this, then open http://localhost:8710/ in a browser.
 
 $port = 8710
+if ($env:AMIT_BRIDGE_PORT -match '^\d+$') { $port = [int]$env:AMIT_BRIDGE_PORT }
 $watcherDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 $dashboardPath = "$watcherDir\ComputerHealth_Dashboard.html"
 $deviceIdFile = "$watcherDir\device_id.txt"
@@ -74,6 +79,19 @@ try {
 Write-Host "Amit Computer Health bridge server running at http://localhost:$port/"
 Write-Host "Device ID: $deviceId  |  Device Name: $deviceName"
 Write-Host "Press Ctrl+C to stop."
+
+# ---- Whisper mode (v1.05): the mouse watcher, the live-words box and the typing, all inside this process ----
+# Compiled from amit_whisper.cs next to this script. If anything fails here the rest of the bridge is untouched.
+try {
+    $whisperCs = Join-Path $watcherDir "amit_whisper.cs"
+    if (-not $env:AMIT_WHISPER_DISABLE -and (Test-Path $whisperCs)) {
+        Add-Type -Path $whisperCs -ReferencedAssemblies System.Windows.Forms,System.Drawing,UIAutomationClient,UIAutomationTypes,WindowsBase -ErrorAction Stop
+        [AmitWhisper]::Start($watcherDir, $port)
+        Write-Host "Whisper mode started (hold the chosen mouse button, speak, let go)."
+    }
+} catch {
+    Write-Host "Whisper mode could not start: $($_.Exception.Message)"
+}
 
 # Idle/rotate markers only mean something inside ONE bridge run (the timers they belong to live in memory). Files in the
 # temp folder survive a restart of the computer, so a leftover marker from an earlier run is cleared here (v1.03).
@@ -1035,6 +1053,59 @@ try {
                 else { Send-Html $response "<h1>Dashboard file not found at $dashboardPath</h1>" }
             }
             "/api/device" { Send-Json $response @{ deviceId = $deviceId; deviceName = $deviceName } }
+            # ---- Whisper mode (v1.05). The words and the mouse watching live in amit_whisper.cs; these routes only carry messages. ----
+            "/whisper" {
+                # The page gets this run's secret only when it is opened directly (a browser navigation carries no Origin header).
+                # A web page on another site that fetches this address does send an Origin, so it gets the page WITHOUT the secret.
+                $whisperPage = Join-Path $watcherDir "amit_whisper.html"
+                if (Test-Path $whisperPage) {
+                    $wTok = ''
+                    if (-not $request.Headers['Origin']) { $wTok = [AmitWhisper]::Token() }
+                    Send-Html $response ([System.IO.File]::ReadAllText($whisperPage, [System.Text.Encoding]::UTF8).Replace('__WHISPER_TOKEN__', $wTok))
+                }
+                else { $response.StatusCode = 404; Send-Html $response "Whisper mode page is not installed." }
+            }
+            "/api/whisper/wait" {
+                # The listening page asks "any command for me?" and is held here (up to 20 s) until there is one.
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wSince = -1
+                    try { $wSince = [long]$request.QueryString["seq"] } catch {}
+                    Send-JsonRaw $response ([AmitWhisper]::WaitCommand($wSince, 20000))
+                }
+            }
+            "/api/whisper/event" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $wBody = $wReader.ReadToEnd(); $wReader.Dispose()
+                    [AmitWhisper]::OnPageEvent($wBody)
+                    Send-JsonRaw $response '{"ok":true}'
+                }
+            }
+            "/api/whisper/status" { Send-JsonRaw $response ([AmitWhisper]::StatusJson()) }
+            "/api/whisper/settings" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wEn = $request.QueryString["enabled"]; $wHold = $request.QueryString["hold"]; $wBtn = $request.QueryString["button"]
+                    $wEnter = $request.QueryString["enter"]
+                    if ($wEnter) { [void][AmitWhisper]::SetSendEnter($wEnter) }
+                    $wReady = $request.QueryString["ready"]
+                    if ($wReady) { [void][AmitWhisper]::SetKeepReady($wReady) }
+                    Send-JsonRaw $response ([AmitWhisper]::Configure($wEn, $wHold, $wBtn))
+                }
+            }
+            "/api/whisper/test-overlay" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ('{"overlay":"' + ([AmitWhisper]::TestOverlay("* Whisper mode test box")) + '"}') }
+            }
+            "/api/whisper/open-hub" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::OpenHub()) }
+            }            "/api/whisper/learn" {
+                if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::StartLearn()) }
+            }
             "/api/amit-mobile-status" {
                 # Lets anyone (Ryan, a future dashboard tile, the setup guide's
                 # own troubleshooting step) confirm the Amit Mobile listener is
@@ -1927,7 +1998,10 @@ while ($listener.IsListening) {
 
     $origin = $null
     try { $origin = $context.Request.Headers['Origin'] } catch {}
-    if ($origin) {
+    # Whisper mode's own page talks to the bridge constantly; that is not "someone using an Amit page" (v1.05)
+    $isWhisperCall = $false
+    try { $wp = $context.Request.Url.AbsolutePath; $isWhisperCall = ($wp -eq '/whisper' -or $wp -like '/api/whisper/*') } catch {}
+    if ($origin -and -not $isWhisperCall) {
         $bridgeState.LastContact = Get-Date
         # which page and which call, so /api/idle-status can answer "what is keeping it awake"
         try {
