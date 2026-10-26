@@ -1,0 +1,299 @@
+// ══════════════════════════════════════════════
+// AMIT FIX — the pages. Replaces the template's Introduction/Add Page rendering with four fixed pages (builder mode is off).
+// The person is in the director's chair: nothing runs unless they call it. Every fix is one plain choice; the choices go
+// on a "call sheet" and become one small download (Amit_Fix.cmd), or they use the one-click Remove-Amit.exe.
+// ══════════════════════════════════════════════
+const FX_BASE='https://ask-amit.github.io/Amit/AmitFix/AmitFix.html';
+const FX_RAW='https://raw.githubusercontent.com/Ask-Amit/Amit/main/AmitFix/';
+const FX_ORDER=['check','restart','tidy','voice-reset','voice-off','voice-on','startup-off','startup-on','shortcuts-remove','forget-data','remove','reinstall'];
+const FX_ACTIONS={
+  'check':{scene:'Scout the set',name:'Look first',plain:'Just look. It reports what is installed, whether it is running and what starts with Windows. Changes nothing.',tag:'changes nothing'},
+  'restart':{scene:'Take two',name:'Restart Amit\'s helper',plain:'Closes Amit\'s small helper and starts it again. Fixes most "it stopped working" moments.',tag:'safe'},
+  'tidy':{scene:'Clear the set',name:'Tidy up',plain:'Clears old logs and the saved files of the little listening window, then restarts. Your settings stay.',tag:'safe, keeps your settings'},
+  'voice-reset':{scene:'New script',name:'Reset voice typing',plain:'Puts voice typing back the way it came: default button, default settings, fresh listening window. It will ask for the microphone once more.',tag:'asks you to confirm'},
+  'voice-off':{scene:'Quiet on set',name:'Turn voice typing off',plain:'Nothing listens and your mouse buttons work exactly as normal. Everything else of Amit keeps working.',tag:'safe, reversible'},
+  'voice-on':{scene:'Action!',name:'Turn voice typing on',plain:'Hold your mouse button where you want words, speak, let go. (Works in any program, in a text box.)',tag:'safe, reversible'},
+  'startup-off':{scene:'No early call',name:'Don\'t start with Windows',plain:'Amit stops opening itself when you sign in. You can still open it yourself whenever you like.',tag:'safe, reversible'},
+  'startup-on':{scene:'Call time',name:'Start with Windows',plain:'Amit opens quietly when you sign in so it is ready.',tag:'safe, reversible'},
+  'shortcuts-remove':{scene:'Strike the sign',name:'Remove desktop shortcuts',plain:'Takes Amit\'s icons off your desktop. Nothing else is touched.',tag:'safe'},
+  'forget-data':{scene:'Burn the notes',name:'Forget what Amit kept here',plain:'Erases the readings and history Amit stored on this computer. Your online account is not touched.',tag:'asks you to confirm'},
+  'remove':{scene:'That\'s a wrap',name:'Remove Amit completely',plain:'Closes it, turns off start-with-Windows, deletes its files, saved data and shortcuts, then checks it is really gone. Like it was never installed.',tag:'asks you to confirm'},
+  'reinstall':{scene:'Re-shoot',name:'Get the newest installer',plain:'Opens the download for the current Amit installer. Used after removing, for a clean start.',tag:'safe'}
+};
+const FX_SYMPTOMS={
+  'voice':{label:'Voice typing isn\'t typing / acts strangely',pick:['restart','voice-reset'],tab:2},
+  'slow':{label:'It feels slow or uses too much memory',pick:['tidy','restart'],tab:2},
+  'popup':{label:'It keeps popping up or starts when I don\'t want it',pick:['startup-off','voice-off'],tab:3},
+  'update':{label:'I have an old version / it won\'t update',pick:['remove','reinstall'],tab:2},
+  'broken':{label:'Something is broken and I don\'t know what',pick:['remove','reinstall'],tab:2},
+  'look':{label:'I just want to look first',pick:['check'],tab:2},
+  'leave':{label:'I\'m done with Amit',pick:['remove'],tab:5}
+};
+const fxParams=new URLSearchParams(location.search);
+const fxFrom=(fxParams.get('from')||'').toLowerCase();
+const fxVersion=fxParams.get('v')||'';
+const fxChosen=new Set();
+const fxUA=navigator.userAgent||'';
+const fxPhone=/Android|iPhone|iPad|iPod/i.test(fxUA);
+const fxWindows=/Windows/i.test(fxUA);
+
+function fxHello(){
+  const f=fxFrom;
+  if(f==='helper'||f==='tray')return {t:'Amit\'s helper sent you here.',s:'Something wasn\'t right, so let\'s put it right together. Tell me what is happening below, or just pick what you want from the tabs. Nothing runs until you call it.'};
+  if(f==='voice'||f==='whisper')return {t:'Voice typing giving you trouble?',s:'That is the most common thing, and it is usually fixed in one click. Start with "Restart", and if it still acts up, "Reset voice typing".'};
+  if(f==='email'||f==='qr'||f==='phone'||f==='share')return {t:'Someone sent you this page.',s:'It is a place to fix, quiet, or fully remove Amit, whichever you need. You choose; nothing happens unless you call it.'};
+  if(f==='leave'||fxParams.get('problem')==='leave')return {t:'You\'re welcome to go.',s:'Whenever you want to be done with Amit, it can be as if you never installed it. Take your time. The last tab does it, and there is a word from us on the Our Heart page.'};
+  return {t:'You\'re in the director\'s chair.',s:'Amit is something that lives on your computer, so you should be able to quiet it, fix it, or send it away whenever you like, without asking anyone. Every fix here is one plain choice. Nothing runs until you call it.'};
+}
+
+function fxCard(k){
+  const a=FX_ACTIONS[k];
+  return `<div class="fx-card${fxChosen.has(k)?' on':''}" id="fxc-${k}" onclick="fxToggle('${k}')">
+    <div class="fx-tick">&#10003;</div>
+    <div class="fx-scene">${a.scene}</div>
+    <div class="fx-name">${a.name}</div>
+    <div class="fx-plain">${a.plain}</div>
+    <span class="fx-tag">${a.tag}</span>
+  </div>`;
+}
+
+function fxToggle(k){
+  if(fxChosen.has(k))fxChosen.delete(k);else fxChosen.add(k);
+  fxRefresh();
+}
+function fxRefresh(){
+  FX_ORDER.forEach(k=>{const el=document.getElementById('fxc-'+k);if(el)el.classList.toggle('on',fxChosen.has(k));});
+  const n=fxChosen.size,bar=document.getElementById('fxBarCount');
+  if(!bar)return;
+  const list=[...fxChosen].sort((a,b)=>FX_ORDER.indexOf(a)-FX_ORDER.indexOf(b)).map(k=>FX_ACTIONS[k].name);
+  bar.innerHTML=n?`<b>Your call sheet (${n}):</b> ${list.join(' &middot; ')}`:`<b>Your call sheet is empty.</b> Tap the cards you want, then call it.`;
+  const dl=document.getElementById('fxBarGo');if(dl)dl.style.opacity=n?1:.4;
+}
+function fxPick(key){
+  const s=FX_SYMPTOMS[key];if(!s)return;
+  fxChosen.clear();s.pick.forEach(k=>fxChosen.add(k));
+  fxShowTab(s.tab);fxRefresh();
+}
+function fxShowTab(n){
+  const d=document.getElementById('detail-1');if(!d)return;
+  d.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  d.querySelectorAll('.ch-tab-btn').forEach((b,i)=>b.classList.toggle('active',i===n-1));
+  const c=document.getElementById('ch-tab-1-'+n);if(c)c.classList.add('active');
+}
+function fxOrdered(){return [...fxChosen].sort((a,b)=>FX_ORDER.indexOf(a)-FX_ORDER.indexOf(b));}
+
+async function fxGetScript(){
+  for(const u of ['Amit_Fix.ps1',FX_RAW+'Amit_Fix.ps1']){
+    try{const r=await fetch(u);if(r.ok){const t=await r.text();if(t.length>1500)return t;}}catch(e){}
+  }
+  return null;
+}
+async function fxDownload(){
+  const acts=fxOrdered();
+  if(!acts.length){alert('Your call sheet is empty. Tap one or more cards first.');return;}
+  if(fxPhone){alert('These fixes run on the Windows computer where Amit is installed. Open this page on that computer (the Send It page can email or text you the link).');return;}
+  const ps=await fxGetScript();
+  if(!ps){alert('Could not load the fix program. Check your connection and try again.');return;}
+  const hdr=['@echo off','setlocal','title Amit Fix','set "AMIT_FIX_ACTIONS='+acts.join(',')+'"',
+    'powershell -NoProfile -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText(\'%~f0\'); $i=$t.IndexOf(\'#PS\'+\'-START#\'); & ([scriptblock]::Create($t.Substring($i+10))) -Actions $env:AMIT_FIX_ACTIONS -Pause"',
+    'exit /b','#PS-START#'];
+  const body=hdr.join('\r\n')+'\r\n'+ps.replace(/\r?\n/g,'\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([body],{type:'application/octet-stream'}));
+  a.download='Amit_Fix.cmd';document.body.appendChild(a);a.click();a.remove();
+  fxAfterDownload();
+}
+function fxAfterDownload(){
+  popupOpen(`<div class="fx-h">Almost there &mdash; one thing for you to do</div>
+    <div class="fx-lede">Your fix is in your Downloads. <b>Open it</b> (double-click). A black window shows what it is doing and checks its own work at the end.</div>
+    <div class="fx-panel">If Windows or your browser says <b>"unknown publisher"</b> or <b>"may be unsafe"</b>: that is only because we have not bought a code-signing certificate yet. Choose <b>Keep</b>, then <b>More info &rarr; Run anyway</b>. You can read every line of what it does first on the "What's on my computer" page.</div>
+    <div class="fx-small">Nothing here goes online. It only touches what Amit itself put on this computer.</div>`);
+}
+function fxDownloadExe(fresh){
+  if(fxPhone){alert('This program is for the Windows computer where Amit is installed. Open this page there.');return;}
+  const a=document.createElement('a');a.href='Remove-Amit.exe';a.download='Remove-Amit.exe';document.body.appendChild(a);a.click();a.remove();
+  fxAfterDownload();
+}
+
+// ---- looks at the person's own situation (device, and whether Amit's helper answers on this computer) ----
+async function fxProbe(){
+  const el=document.getElementById('fxProbe');if(!el)return;
+  let msg='';
+  if(fxPhone){
+    msg='You are on a <b>phone or tablet</b>. Amit\'s helper only lives on a Windows computer, so the fixes below are for that computer. Use the <b>Send It</b> page to send yourself the link, and the last tab here to clear what Amit saved in <i>this</i> browser.';
+  }else if(!fxWindows){
+    msg='You are not on Windows. Amit\'s helper is Windows-only, so nothing of it can be on this computer. If you only want to clear what Amit saved in this browser, use the <b>Browser &amp; phone</b> tab.';
+  }else{
+    msg='Checking whether Amit\'s helper is running on this computer&hellip;';
+    el.innerHTML=msg;
+    try{
+      const c=new AbortController();setTimeout(()=>c.abort(),2500);
+      const r=await fetch('http://localhost:8710/api/whisper/status',{signal:c.signal});
+      const j=await r.json();
+      msg='Amit\'s helper <b class="fx-ok">is running</b> on this computer'+(j&&j.state?' (voice typing: <b>'+j.state+'</b>)':'')+'.'+(fxVersion?' Version '+fxVersion+'.':'');
+    }catch(e){
+      msg='I can\'t see Amit\'s helper on this computer. Either it is not installed, or it is not running right now. "Look first" will tell you for sure, and "Restart" or "Fresh start" will bring it back.';
+    }
+  }
+  el.innerHTML=msg;
+}
+
+function fxClearBrowser(){
+  if(!confirm('Sign out and clear what Amit saved in this browser on this device? (Your online account is not deleted.)'))return;
+  let n=0;
+  try{Object.keys(localStorage).forEach(k=>{if(/amit|^sb-/i.test(k)){localStorage.removeItem(k);n++;}});}catch(e){}
+  try{sessionStorage.clear();}catch(e){}
+  try{if(db)db.auth.signOut();}catch(e){}
+  const el=document.getElementById('fxBrowserDone');
+  if(el)el.innerHTML=`<span class="fx-ok">Done.</span> Signed out and cleared ${n} saved item${n===1?'':'s'} for Amit in this browser.`;
+}
+
+function fxCopy(id,btn){
+  const el=document.getElementById(id);if(!el)return;
+  const t=el.value||el.textContent;
+  const done=()=>{const o=btn.textContent;btn.textContent='Copied';setTimeout(()=>btn.textContent=o,1400);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,()=>{el.select&&el.select();document.execCommand('copy');done();});}
+  else{el.select&&el.select();document.execCommand('copy');done();}
+}
+
+// ---- Send It ----
+function fxLinkFor(kind){
+  const base=(location.protocol.startsWith('http')&&location.hostname.endsWith('github.io'))?(location.origin+location.pathname):FX_BASE;
+  if(!kind||kind==='main')return base;
+  const s=FX_SYMPTOMS[kind];
+  return base+'?from=share&problem='+kind;
+}
+function fxSendRefresh(){
+  const kind=document.getElementById('fxKind').value;
+  const u=fxLinkFor(kind);
+  document.getElementById('fxLink').value=u;
+  const subj=encodeURIComponent('Amit Fix: fix it, quiet it, or remove it');
+  const body=encodeURIComponent('Here is the page that fixes, quiets, or fully removes Amit from a computer. Open it on the Windows computer where Amit is installed:\n\n'+u+'\n\nYou choose what happens. Nothing runs until you press the button.');
+  document.getElementById('fxMail').href='mailto:?subject='+subj+'&body='+body;
+  document.getElementById('fxSms').href='sms:?&body='+encodeURIComponent('Amit Fix (fix, quiet, or remove Amit): '+u);
+  const q=document.getElementById('fxQr');
+  try{const qr=qrcode(0,'M');qr.addData(u);qr.make();q.innerHTML=qr.createSvgTag({cellSize:5,margin:0,scalable:true});q.firstChild.style.width='210px';q.firstChild.style.height='210px';}
+  catch(e){q.innerHTML='<span class="fx-small">The QR code needs a connection to draw. The link above still works.</span>';}
+}
+async function fxShare(){
+  const u=document.getElementById('fxLink').value;
+  if(navigator.share){try{await navigator.share({title:'Amit Fix',text:'Fix, quiet, or remove Amit',url:u});}catch(e){}}
+  else{fxCopy('fxLink',document.getElementById('fxShareBtn'));}
+}
+
+function fxPages(){
+  const hi=fxHello();
+  const symButtons=Object.keys(FX_SYMPTOMS).map(k=>`<button class="fx-btn" onclick="fxPick('${k}')">${FX_SYMPTOMS[k].label}</button>`).join('');
+  const cards=ks=>`<div class="fx-grid">${ks.map(fxCard).join('')}</div>`;
+  const tab=(n,html)=>`<div class="ch-tab-content${n===1?' active':''}" id="ch-tab-1-${n}">${html}</div>`;
+
+  const t1=`<div class="fx-lede"><b>${hi.t}</b> ${hi.s}</div>
+    <div class="fx-panel" id="fxProbe">&hellip;</div>
+    <div class="fx-h">What is happening? (tap one and I'll set up the fix)</div>
+    <div class="fx-sym">${symButtons}</div>
+    <div class="fx-small" style="margin-top:14px">Or go straight to the tabs: <b>Make it right</b>, <b>Quiet on set</b>, <b>Browser &amp; phone</b>, <b>Wrap</b>. Not sure? Press the gold Amit icon on the right and ask.</div>`;
+  const t2=`<div class="fx-lede">Things that stopped working, or just need a fresh start. Tap the cards you want.</div>${cards(['check','restart','tidy','voice-reset'])}
+    <div class="fx-h">Or start completely fresh</div>
+    <div class="fx-lede" style="font-size:15px">Remove everything, then put the newest Amit back clean. This is also how you update, with no manual steps.</div>
+    ${cards(['remove','reinstall'])}
+    <div style="margin-top:14px"><button class="fx-btn" onclick="fxDownloadExe(true)">Download one-click &ldquo;Fresh start&rdquo; (Remove-Amit.exe)</button></div>`;
+  const t3=`<div class="fx-lede">You decide how much of Amit is awake. Each of these can be undone with its partner card.</div>${cards(['voice-off','voice-on','startup-off','startup-on','shortcuts-remove','forget-data'])}`;
+  const t4=`<div class="fx-lede">Amit also remembers a few things in your <b>web browser</b> (who you are signed in as, your theme, the pages you built). This clears them. It works on any device: <b>open this page in the browser you want cleared</b>, phone included.</div>
+    <div class="fx-panel">It signs you out and clears what Amit saved in <b>this browser, on this device</b>. Your account itself stays online, and other devices are not affected.</div>
+    <button class="fx-btn big" onclick="fxClearBrowser()">Sign out and clear Amit from this browser</button>
+    <div class="fx-small" id="fxBrowserDone" style="margin-top:12px"></div>
+    <div class="fx-h">Amit Mobile on your phone</div>
+    <div class="fx-small">If you put Amit Mobile on your home screen, remove it the way you remove any icon (press and hold it, then remove). Then clear this browser above.</div>`;
+  const t5=`<div class="fx-say">We made Amit to walk alongside you, and we are sorry to see you go. Thank you for giving it a try.</div>
+    <div class="fx-lede">If you are done, this is the honest way out: one button, and Amit is gone from this computer. It closes its programs, turns off start-with-Windows, removes its shortcuts, deletes its files and saved data, and then <b>checks</b> that it is really gone and shows you the result.</div>
+    <div style="margin:14px 0"><button class="fx-btn big" onclick="fxDownloadExe(false)">Download Remove-Amit.exe &mdash; remove it all</button></div>
+    <div class="fx-panel"><b>What stays, on purpose:</b> your documents, the AmitInbox folder if you made one, your Amit account online (it can be closed on request), Claude, Node.js, Edge and Chrome. Amit never installed those for you, so Amit won't remove them.</div>
+    <div class="fx-h">Prefer a plain file?</div>
+    ${cards(['remove'])}
+    <div class="fx-small" style="margin-top:12px">If something here wasn't right for you, we would honestly like to know, and we would love to have you back. Press the gold Amit icon and tell him. He passes it on.</div>`;
+
+  const tabs=['Start here','Make it right','Quiet on set','Browser &amp; phone','Wrap'];
+  const nav=tabs.map((t,i)=>`<button class="ch-tab-btn${i===0?' active':''}" onclick="showChTab(1,${i+1})">${t}</button>`).join('');
+  const page1=`<div class="detail-head"><span class="detail-heading">Director's Chair</span></div>
+    <div class="ch-tab-nav" id="ch-tab-nav-1">${nav}</div>
+    <div class="ch-tab-main">${tab(1,t1)}${tab(2,t2)}${tab(3,t3)}${tab(4,t4)}${tab(5,t5)}</div>
+    <div class="fx-bar"><div class="fx-count" id="fxBarCount"></div><button class="fx-btn" id="fxBarGo" onclick="fxDownload()">Call it: download my fix</button></div>`;
+
+  const kinds=['<option value="main">The main page</option>'].concat(Object.keys(FX_SYMPTOMS).map(k=>`<option value="${k}">For: ${FX_SYMPTOMS[k].label}</option>`)).join('');
+  const page2=`<div class="detail-head"><span class="detail-heading">Send It</span></div>
+    <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px">
+    <div class="fx-lede">Send this page to anyone who needs it, a friend, a parent, yourself on another device. Pick which link, then pick how.</div>
+    <select id="fxKind" class="fx-input" style="max-width:520px" onchange="fxSendRefresh()">${kinds}</select>
+    <div style="display:flex;gap:8px;align-items:center;margin:10px 0;max-width:760px"><input id="fxLink" class="fx-input" readonly><button class="fx-btn" style="white-space:nowrap" onclick="fxCopy('fxLink',this)">Copy link</button></div>
+    <div class="fx-h">Ways to send it</div>
+    <a class="fx-btn" id="fxMail" href="#">Email it</a>
+    <a class="fx-btn" id="fxSms" href="#">Text it</a>
+    <button class="fx-btn" id="fxShareBtn" onclick="fxShare()">Share (phone / apps)</button>
+    <a class="fx-btn" href="How_to_Fix_or_Remove_Amit.pdf" download>Handout (PDF) to attach or print</a>
+    <div class="fx-h">Scan with a phone</div>
+    <div class="fx-qr" id="fxQr"></div>
+    <div class="fx-small" style="margin-top:10px;max-width:640px">A phone can scan this to open the page, then email or text it to the computer, or clear that phone's browser data. The fixes themselves run on the Windows computer, because that is where Amit's helper lives.</div>
+    <div class="fx-h">Good to know</div>
+    <div class="fx-small" style="max-width:700px;line-height:1.8">&bull; The handout PDF has the link and a QR code on it, in plain steps, so it works as an email attachment or on paper.<br>&bull; A link built for one problem opens straight to that fix, already set up.<br>&bull; Amit's helper can open this page itself with <b>?from=helper</b>, and the page adjusts its welcome to where you came from.</div>
+    </div>`;
+
+  const page3=`<div class="detail-head"><span class="detail-heading">Our Heart</span></div>
+    <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px;max-width:none">
+    <div class="fx-h">To anyone meeting Amit for the first time</div>
+    <div class="fx-say">We built Amit because we wanted to walk alongside you. Not to sell you something, not to keep you here, but to be the companion that is there each morning: encouraging you, sharpening you, and pointing you toward what is true. Everything useful is free. Everything runs where you can see it, and you can send it away whenever you want. That is why this page exists.</div>
+    <div class="fx-h">If you are leaving</div>
+    <div class="fx-say">We are sorry to see you go. Thank you for giving us your time and trust, even for a little while. Our heart was only ever to join you where you are, and to leave you better for it. Go well. The door stays open.</div>
+    <div class="fx-h">If something went wrong</div>
+    <div class="fx-say">We are sorry it did not work the way it should have. That is on us, not you. Fix it here, or remove it and start fresh with the newest version, and please come back. We would truly rather have you back with it working than not at all. And if you tell us what happened (press the gold Amit icon on the right), we will make it better for the next person too.</div>
+    <div class="fx-h">Why this page is honest</div>
+    <div class="fx-small" style="max-width:720px;line-height:1.8">Anyone can leave Amit at any time, completely, in one click, without asking permission, without an account, without a phone call. You should never have to trust us to be free of us. The program does its own checking and shows you the result, and every line of it can be read first.</div>
+    </div>`;
+
+  const rows=[
+    ['Amit\'s folder','%LOCALAPPDATA%\\AmitComputerHealth\\','The helper programs, your voice-typing settings, a small history of readings, and logs.','Fresh start / Remove'],
+    ['Start-with-Windows entry','Windows "Run" list: AmitComputerHealth (Task Manager &rarr; Startup apps)','Opens the helper quietly when you sign in.','Don\'t start with Windows / Remove'],
+    ['Two web-link handlers','Windows registry: amit-tracker and amit-helper (your user only)','Lets the Amit website open the helper.','Remove'],
+    ['Desktop shortcuts','Amit.url, Amit Live.lnk on your desktop','Open Amit and its helper.','Remove desktop shortcuts / Remove'],
+    ['A private listening window','Edge, with its own separate profile inside Amit\'s folder','Used only for voice typing. Never your own Edge.','Tidy / Reset voice typing / Remove'],
+    ['Installer leftovers','Temporary folder: AmitInstallerFiles','Where the installer unpacked itself.','Tidy / Remove'],
+    ['Saved in this browser','Amit\'s own web address only (not other sites)','Who you are signed in as, theme, pages you built.','Browser &amp; phone tab']
+  ].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('');
+  const page4=`<div class="detail-head"><span class="detail-heading">What's On My Computer</span></div>
+    <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px;max-width:none">
+    <div class="fx-lede">This is everything Amit puts on a computer, in plain words. Nothing is hidden, and nothing needs administrator rights, because it is all in <b>your</b> user area only.</div>
+    <table class="fx-table"><tr><th>What</th><th>Where</th><th>What it's for</th><th>How to remove it here</th></tr>${rows}</table>
+    <div class="fx-h">What Amit never touches</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.8">Your documents, photos and files. The AmitInbox folder if you made one. Claude, Node.js, your own Edge or Chrome and their saved data. Anything outside the list above. When it closes programs, it closes only Amit's own small helper programs and its private listening window.</div>
+    <div class="fx-h">Check it yourself afterward</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.9">1. Press Ctrl+Shift+Esc &rarr; <b>Startup apps</b>: nothing called Amit.<br>2. Open File Explorer and paste <b>%LOCALAPPDATA%</b>: no AmitComputerHealth folder.<br>3. Your desktop: no Amit icons.<br>The program shows the same checks on screen when it finishes.</div>
+    <div class="fx-h">Read before you run</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.8">The whole program is one readable text file: <a class="fx-btn quiet" href="${FX_RAW}Amit_Fix.ps1" target="_blank" rel="noopener">Read Amit_Fix.ps1</a><br>Windows may show "unknown publisher" because we have not bought a code-signing certificate yet. That is the only reason, and it is why we let you read it first.</div>
+    </div>`;
+
+  return [
+    {id:1,icon:'🎬',name:"Director's Chair",sub:'Fix · quiet · remove',html:page1,flex:true},
+    {id:2,icon:'📨',name:'Send It',sub:'Link · QR · email · PDF',html:page2,flex:true},
+    {id:3,icon:'💛',name:'Our Heart',sub:'Welcome · farewell',html:page3,flex:true},
+    {id:4,icon:'🔍',name:"What's On My Computer",sub:'Everything, in plain words',html:page4,flex:true}
+  ];
+}
+
+function renderAllPages(){
+  const prev=document.querySelector('#sidebarPages .page-nav.active'),prevPage=prev&&/^page-[0-9]+$/.test(prev.id)?+prev.id.slice(5):1;
+  const prevTabEl=document.querySelector('#detail-1 .ch-tab-content.active'),prevTab=prevTabEl?+prevTabEl.id.split('-').pop():1;
+  const nav=document.getElementById('sidebarPages');
+  const main=document.getElementById('mainArea');
+  const pages=fxPages();
+  nav.innerHTML=pages.map((p,i)=>`<div class="page-nav${i===0?' active':''}" id="page-${p.id}" onclick="openPage(${p.id})" data-tip="${p.name}">
+      <div class="page-icon">${p.icon}</div>
+      <div class="page-info"><div class="page-name">${p.name}</div><div class="page-sub">${p.sub}</div></div>
+    </div>`).join('');
+  main.innerHTML=pages.map((p,i)=>`<div class="detail${i===0?' active':''}" id="detail-${p.id}" style="flex-direction:column">${p.html}</div>`).join('');
+  initPageTooltips('sidebarPages','right');
+  fxRefresh();
+  fxProbe();
+  if(document.getElementById('fxKind'))fxSendRefresh();
+  if(prevTab>1)fxShowTab(prevTab);
+  if(prevPage>1)openPage(prevPage);
+}
+

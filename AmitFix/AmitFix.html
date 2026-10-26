@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ══════════════════════════════════════════════
+     COPYING THIS TEMPLATE FOR A NEW PROJECT — read this first.
+
+     WHAT THIS FILE IS — rebuilt 2026-08-06, Ryan's direct instruction.
+     This is now the MINIMAL STARTER, not the reference catalog. It has
+     Introduction (page 1) plus a few blank placeholder pages, and the
+     global infrastructure every Amit app needs (right rail — Ask Amit,
+     Sign In/Sync, Demo Mode — popup destination, login connection,
+     tooltip mechanism, clock/greeting). It deliberately does NOT contain
+     any of the canonical layouts (Tabbed/Row/Detail/Calendar/Day/Board/
+     Gallery/Dashboard/Split/Form/Chart/Inbox/Drawer/Tree/Breadcrumb
+     View) — those live permanently in Templates\TemplateViews.html, the
+     never-modified reference library. This split exists so a real
+     project's starting file is never bloated with layout code it isn't
+     using — see Templates\CLAUDE.md's "TEMPLATE VIEWS vs TEMPLATE"
+     section for the full reasoning.
+
+     ADDING A LAYOUT TO A REAL PROJECT — go to Templates\TemplateViews.html,
+     find the named "CANONICAL LAYOUT:" or "CANONICAL DESTINATION:" comment
+     block, and copy it verbatim into this file — never reconstruct a
+     layout's behavior from memory or approximation. Wire it into a real
+     page/tab/popup the same way TemplateViews.html's own DEMO block shows
+     it being done there. (J New, once built, automates this hand-off —
+     see Templates\CLAUDE.md.)
+
+     NAMING: the new project's folder name IS the app's name. If the
+     folder is `Disco\`, the app is "Disco" — rename every literal
+     occurrence of "Template" below to that exact name:
+       - <title>Template</title>            (this line)
+       - #pageTitle text, currently "Template" (~line 90)
+       - the copied file itself: save as Disco.html, not template.html
+       - askAmitLive('TEMPLATE_NOT_CONFIGURED') → askAmitLive('yourRealKey'),
+         and write that key's real context into ../Amit_Ask_Live.js's
+         PAGE_CONTEXTS — do not skip this, see the comment above that line
+     CHAT (already in this template): the Ask Amit button opens the real AmitChat when the
+     person is signed in, and the Chats item under it is the chat box. Both come from
+     ../Amit_Ask_Live.js, which loads the chat on demand. A new app needs nothing extra; it
+     only has to keep the <script src="../Amit_Ask_Live.js?v=..."> line and its own sign-in
+     (the `db` client above). Written 2026-10-23.
+
+     Use the app's real display name consistently in all three spots —
+     never a variant spelling, never re-derived per file.
+
+     VERSION: #pageVersion always starts at v1.00 for a brand-new app.
+     From here forward it is versioned independently (own +0.01/+1.00
+     history, never synced to any other file's number) — see root
+     CLAUDE.md's VERSIONING STANDARD.
+
+     INTERCONNECTION: a new project is never standalone — it inherits the
+     whole Amit system's conventions. Before/while building it out, the
+     new project's own CLAUDE.md (copied from
+     Templates\Amit_NewProject_Template.md per root CLAUDE.md's NEW
+     PROJECT DIRECTIVE) must carry: the Session Location Check, the
+     Pursuit Attribution clause (its own canonical program name for
+     hub_entries), Shortcut Activation + Shortcut Awareness, and — if
+     it has an "Ask Amit" button — the wiring described above. If the
+     project is likely to grow a running state log, add its own
+     Sessions.md too (see AmitBooks\Sessions.md for the pattern) so a
+     future session can orient fast without re-deriving context.
+
+     NOMENCLATURE: this template uses PAGE (a sidebar item — button + its
+     fixed number), DETAIL (the content area a page opens into), LAYOUT
+     (what kind of content lives inside a detail — Tabbed/Row/Detail/etc,
+     all defined in TemplateViews.html), and DESTINATION (WHERE a layout
+     mounts — a page, a tab slot, or a Popup; Popup is built into this
+     starter since it's generic infrastructure, not a layout itself). Full
+     definitions live in the NOMENCLATURE comment at the top of the
+     <script> block below.
+
+     APPEARANCE (THEMES): already wired, added 2026-10-01. This file
+     includes ../amit_appearance.js (in <head>, before <style>), aliases
+     its :root vars to the shared --amit-* tokens, and calls
+     amitAppearanceSync(db) on auth change, so a project copied from it
+     follows each login's saved Appearance theme automatically. Don't redo
+     this in a new project's own CLAUDE.md, just confirm it's still present.
+     When you add new CSS, write colors/fonts as var(--amit-<token>,
+     <classic value>) (e.g. rgba(var(--amit-accent-rgb,201,168,76),.3)),
+     never as bare literals. The token list is in amit_appearance.js's
+     header. Classic with no theme saved is a guaranteed visual no-op.
+
+     PAGE ORDER: sidebar display position is controlled by the PAGE_ORDER
+     array in the script below, kept separate from each page's fixed
+     number — reorder pages by editing that array, never by renumbering
+     pages/details themselves. See Templates\CLAUDE.md for why.
+     ══════════════════════════════════════════════ -->
+<title>AmitFix</title>
+<link rel="icon" type="image/x-icon" href="amit_icon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../Amit_Ask_Live.js?v=6.18"></script>
+<script src="../amit_appearance.js?v=1.06"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:var(--amit-bg,#09141f);
+  --card-head:var(--amit-surface,#0f2338);
+  --border:var(--amit-border,rgba(var(--amit-accent-rgb,201,168,76),0.55));
+  --gold:var(--amit-accent,#c9a84c);
+  --gold2:var(--amit-accent-bright,#e8c56a);
+  --text:var(--amit-text,#ffffff);
+  --text2:var(--amit-text-soft,#f0e8d0);
+  --muted:var(--amit-muted,rgba(var(--amit-text-rgb,240,232,208),0.78));
+  --dim:var(--amit-dim,rgba(var(--amit-text-rgb,240,232,208),0.42));
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);font-family:var(--amit-font-body,'Crimson Pro',Georgia,serif);color:var(--text);display:flex;flex-direction:column}
+
+body::before{
+  content:'';
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:60vmin;height:60vmin;
+  background:url('amit_icon.ico') center/contain no-repeat;
+  opacity:var(--amit-watermark-opacity,.035);
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 28px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+  position:relative;
+}
+.page-title-wrap{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.page-title{
+  font-family:var(--amit-font-title,Georgia,serif);font-size:26px;font-weight:700;
+  letter-spacing:.3px;text-transform:none;color:var(--gold2);
+}
+.page-version{
+  font-family:var(--amit-font-mono,monospace);font-size:11px;letter-spacing:.05em;
+  color:rgba(var(--amit-accent-rgb,201,168,76),.55);margin-top:2px;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo-link{display:flex;align-items:center;gap:14px;cursor:pointer;text-decoration:none}
+.brand-sub{font-style:italic;color:rgba(var(--amit-text-rgb,240,232,208),.55);font-size:12px}
+.hdr-right{text-align:right}
+.greeting{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;color:var(--amit-text,#fff);font-weight:600}
+.datetime{font-size:12px;color:var(--muted);margin-top:2px}
+.help-btn{width:22px;height:22px;border-radius:50%;border:1px solid rgba(var(--amit-text-rgb,240,232,208),.3);color:rgba(var(--amit-text-rgb,240,232,208),.6);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .15s}
+.help-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── HUB LAYOUT ── */
+.hub{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:max-content;flex-shrink:0;
+  background:var(--card-head);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
+.sidebar{transition:width .18s ease}
+.sidebar.collapsed{width:64px}
+.sidebar.collapsed .page-nav{justify-content:flex-start;padding:4px}
+.sidebar.collapsed .page-info{display:none}
+.page-nav{
+  display:flex;align-items:center;gap:10px;
+  padding:6px 4px;border-radius:9px;cursor:pointer;
+  border:1px solid transparent;
+  flex-shrink:0;
+  transition:all .18s;user-select:none;
+  position:relative;overflow:hidden;
+}
+.page-nav:hover{background:rgba(var(--amit-overlay-rgb,255,255,255),.07);border-color:rgba(var(--amit-accent-rgb,201,168,76),.3)}
+.page-nav.active{background:rgba(var(--amit-accent-rgb,201,168,76),.16);border-color:var(--gold);box-shadow:0 0 0 1px rgba(var(--amit-accent-rgb,201,168,76),.25)}
+.page-icon{width:32px;height:32px;font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* Round plug-status badge for the Sign In/Out rail icon — green when
+   connected, red when not. Added 2026-08-07, ported from AmitBooks/
+   NEW.html as the new standard for this template's own Sign In/Out
+   treatment (Ryan's direct instruction — same config becomes the base for
+   every future project built from this file). Disconnected state pulses:
+   red fills the circle from a point at the center out to the full edge,
+   then collapses back to nothing, looping — a genuine warning cue, not a
+   color-shift-in-place effect. */
+.page-icon.plug-badge{border-radius:50%;transition:background .15s;position:relative;overflow:hidden}
+.page-icon.plug-badge.connected{background:var(--amit-ok,#2e7d46)}
+.page-icon.plug-badge.disconnected{background:var(--bg)}
+.page-icon.plug-badge.disconnected::before{content:'';position:absolute;inset:0;border-radius:50%;background:var(--amit-danger,#c73333);animation:plugBadgeFill 1.6s ease-in-out infinite;transform-origin:center}
+.plug-icon-glyph{position:relative;z-index:1}
+@keyframes plugBadgeFill{0%,100%{transform:scale(0)}50%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.page-icon.plug-badge.disconnected::before{animation:none;transform:scale(1)}}
+.page-info{flex:1;min-width:0}
+.page-name{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;color:var(--amit-text,#fff);letter-spacing:.04em;font-weight:600}
+.page-sub{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── MAIN AREA ── */
+.main-area{flex:1;overflow:hidden;position:relative;background:var(--bg)}
+.detail{
+  position:absolute;inset:0;overflow-y:auto;
+  display:none;flex-direction:column;
+  animation:pfade .18s ease;
+}
+.detail.active{display:flex}
+@keyframes pfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.detail::-webkit-scrollbar{width:5px}
+.detail::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:3px}
+
+/* ── DETAIL HEADER ── */
+.detail-head{
+  display:flex;align-items:center;gap:16px;
+  padding:14px 24px;
+  background:var(--card-head);
+  border-bottom:2px solid var(--border);
+  flex-shrink:0;
+}
+.detail-heading{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold2);font-weight:700}
+.detail-empty{flex:1;display:flex;align-items:center;justify-content:center;color:rgba(var(--amit-text-rgb,240,232,208),.25);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+
+/* ── POPUP — canonical DESTINATION, not a layout type. Generic overlay
+   that can host any layout instance copied in from TemplateViews.html —
+   content-agnostic, same separation as a Page or a Tab slot not caring
+   what's mounted inside them. Built into this starter (not TemplateViews-
+   only) since it's global infrastructure, not a layout. ── */
+.popup-overlay{display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.6));z-index:9998;align-items:center;justify-content:center}
+.popup-card{background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.5);border-radius:var(--amit-radius,12px);padding:26px 28px;max-width:640px;width:92%;max-height:82vh;overflow-y:auto;box-shadow:0 10px 50px rgba(0,0,0,.55);position:relative}
+.popup-close-btn{position:absolute;top:14px;right:16px;color:rgba(var(--amit-text-rgb,240,232,208),.5);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.08em}
+.popup-close-btn:hover{color:var(--gold2)}
+
+/* ── RIGHT RAIL — global, present on every page, same on every project.
+   Double-click to expand/collapse (mirror of the left sidebar, inverted
+   default: starts collapsed). Ask Amit / Sign In-Sync / Demo Mode all
+   live here permanently — see Templates\CLAUDE.md for the full history
+   of why each piece looks the way it does. ── */
+.right-rail{
+  width:64px;flex-shrink:0;
+  background:var(--card-head);
+  border-left:2px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;padding:12px 10px;gap:0;
+  transition:width .18s ease;
+}
+.right-rail::-webkit-scrollbar{width:3px}
+.right-rail::-webkit-scrollbar-thumb{background:rgba(var(--amit-accent-rgb,201,168,76),.3);border-radius:2px}
+.right-rail.expanded{width:max-content}
+.right-rail .page-nav{padding:4px;flex-direction:row-reverse}
+.right-rail.expanded .page-nav{padding:6px 4px;justify-content:flex-start}
+.right-rail .page-info{display:none}
+.right-rail.expanded .page-info{display:block}
+/* RIGHT RAIL ON/OFF STATE — added 2026-08-22, Ryan's direct instruction.
+   The gold .page-nav.active look (shared with the left sidebar's "this is
+   the open page" state) was too subtle to tell an ON toggle (Sign In,
+   Demo Mode) apart from an OFF one at a glance. Right-rail items are
+   toggles, not navigation, so they get their own distinct green
+   on-state — overrides the gold .page-nav.active rule for this rail only.
+   PERMANENT — carry this into every project copied from this template. */
+.right-rail .page-nav.active{background:rgba(var(--amit-on-rgb,46,160,67),.20);border-color:rgba(var(--amit-on-rgb,46,160,67),.65);box-shadow:0 0 0 1px rgba(var(--amit-on-rgb,46,160,67),.4)}
+.right-rail .page-nav.active .page-icon{background:rgba(var(--amit-on-rgb,46,160,67),.35);border-radius:50%;box-shadow:0 0 0 2px rgba(var(--amit-on-rgb,46,160,67),.55)}
+.right-rail .page-nav.active .page-name{color:#6fe38f}
+
+/* ── PAGE HOVER TOOLTIP — JS-positioned (fixed), not pure CSS, because
+   .sidebar/.right-rail scroll (overflow-y:auto) — per the CSS spec, that
+   silently forces the other axis's overflow to 'auto' too, which would
+   clip a CSS-positioned tooltip trying to extend past the container's
+   edge. A single fixed element sidesteps that entirely. ── */
+.page-hover-tip{
+  position:fixed;z-index:9999;
+  background:var(--amit-tooltip-bg,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);
+  color:var(--gold2);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.05em;
+  line-height:1.5;
+  padding:6px 10px;border-radius:6px;white-space:normal;word-wrap:break-word;max-width:260px;
+  opacity:0;pointer-events:none;
+  transition:opacity .12s;box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.page-hover-tip.show{opacity:1}
+
+/* CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+   added 2026-08-06 so Add Page can instantiate a real Tabbed View directly,
+   not hand a copy-instruction to an outside AI session. */
+.ch-tab-nav{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px;row-gap:0;margin:0 24px;padding:0;background:var(--bg);flex-shrink:0}
+.ch-tab-btn{padding:9px 22px;margin-top:10px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);background:rgba(var(--amit-overlay-rgb,255,255,255),.03);color:var(--muted);border-radius:var(--amit-tab-radius,10px) var(--amit-tab-radius,10px) 0 0;cursor:pointer;font-size:13px;font-family:inherit}
+.ch-tab-btn.active{padding:12px 26px;margin-top:-2px;margin-bottom:-3px;border-bottom:none;background:var(--card-head);color:var(--gold2);font-weight:600;font-size:14px;position:relative;z-index:2}
+.ch-tab-main{flex:1;min-height:0;overflow-y:auto;padding:28px 32px;margin:0 24px 24px;background:var(--card-head);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:0 var(--amit-radius,12px) var(--amit-radius,12px) var(--amit-radius,12px)}
+.ch-tab-content{display:none}
+.ch-tab-content.active{display:block}
+
+/* ── AMIT FIX — director's chair pieces (added to the template's own styles; colours all come from the shared tokens) ── */
+.fx-wrap{max-width:none}
+.fx-lede{font-size:17px;line-height:1.65;color:var(--text2);margin-bottom:14px}
+.fx-small{font-size:13px;color:var(--muted);line-height:1.6}
+.fx-h{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold2);margin:22px 0 10px}
+.fx-h:first-child{margin-top:0}
+.fx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.fx-card{background:var(--amit-card-bg,rgba(var(--amit-overlay-rgb,255,255,255),.03));border:1px solid var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.3));border-radius:10px;padding:14px 16px;cursor:pointer;position:relative;transition:border-color .15s,background .15s}
+.fx-card:hover{border-color:var(--gold)}
+.fx-card.on{border-color:var(--gold2);background:rgba(var(--amit-accent-rgb,201,168,76),.12)}
+.fx-card .fx-scene{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.fx-card .fx-name{font-size:17px;font-weight:600;color:var(--gold2);margin:3px 0 5px;padding-right:28px}
+.fx-card .fx-plain{font-size:14px;line-height:1.5;color:var(--muted)}
+.fx-card .fx-tag{display:inline-block;margin-top:8px;font-size:11px;letter-spacing:.06em;padding:2px 8px;border-radius:9px;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.3);color:var(--dim)}
+.fx-card .fx-tick{position:absolute;top:12px;right:14px;width:20px;height:20px;border-radius:5px;border:1.5px solid rgba(var(--amit-accent-rgb,201,168,76),.55);display:flex;align-items:center;justify-content:center;font-size:14px;color:transparent}
+.fx-card.on .fx-tick{background:var(--gold);color:#09141f;border-color:var(--gold)}
+.fx-panel{border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:10px;padding:14px 18px;margin:0 0 14px;background:rgba(var(--amit-overlay-rgb,255,255,255),.02)}
+.fx-panel b{color:var(--gold2)}
+.fx-btn{display:inline-block;background:var(--amit-btn-bg,rgba(var(--amit-accent-rgb,201,168,76),.14));border:1px solid var(--amit-btn-border,rgba(var(--amit-accent-rgb,201,168,76),.55));color:var(--amit-btn-text,var(--gold2));padding:10px 18px;border-radius:var(--amit-btn-radius,8px);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;letter-spacing:.08em;text-decoration:none;margin:4px 8px 4px 0}
+.fx-btn:hover{border-color:var(--gold2)}
+.fx-btn.big{font-size:14px;padding:13px 24px}
+.fx-btn.quiet{opacity:.8}
+.fx-bar{flex-shrink:0;margin:0 24px 16px;padding:10px 18px;border:1px solid var(--gold);border-radius:10px;background:var(--card-head);display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.fx-bar .fx-count{font-size:15px;color:var(--text2);flex:1;min-width:200px}
+.fx-bar .fx-count b{color:var(--gold2)}
+.fx-sym{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.fx-sym .fx-btn{font-family:inherit;font-size:14px;letter-spacing:0;text-transform:none}
+.fx-input{width:100%;background:var(--amit-input-bg,rgba(var(--amit-overlay-rgb,255,255,255),.07));border:1px solid var(--amit-input-border,rgba(var(--amit-accent-rgb,201,168,76),.3));border-radius:7px;padding:10px 12px;color:var(--amit-input-text,#fff);font-size:14px;font-family:inherit}
+.fx-table{width:100%;border-collapse:collapse;font-size:14px}
+.fx-table th{font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold2);text-align:left;padding:8px 10px;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.4)}
+.fx-table td{padding:9px 10px;border-bottom:1px solid rgba(var(--amit-accent-rgb,201,168,76),.14);vertical-align:top;color:var(--muted);line-height:1.5}
+.fx-table td:first-child{color:var(--text2);white-space:nowrap}
+.fx-qr{background:#fff;padding:12px;display:inline-block;border-radius:8px;line-height:0}
+.fx-say{border-left:3px solid var(--gold);padding:4px 0 4px 16px;margin:14px 0;font-size:18px;line-height:1.7;color:var(--text2);font-style:italic}
+.fx-ok{color:#6fcf8a}.fx-no{color:#e88a7a}
+@media(max-width:760px){.ch-tab-main{padding:18px 16px}.fx-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand brand-logo-link" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html" title="Back to the Amit Hub">
+    <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
+    <div>
+      <div class="page-title" id="pageTitle" style="font-size:19px">AmitFix</div>
+      <div class="page-version" id="pageVersion">v1.00</div>
+    </div>
+  </a>
+  <div class="page-title-wrap">
+    <div class="page-title" id="pageContext">—</div>
+    <div class="page-version" id="pageContextSub">CONTEXT</div>
+  </div>
+  <!-- Sign In/Out + Sync lives in the right rail, below Ask Amit — see
+       _updateSyncUI() and the RIGHT RAIL build code in <script>. -->
+  <div class="hdr-right" style="display:flex;align-items:center;gap:14px">
+    <div style="text-align:right">
+      <div class="greeting" id="greeting">Good morning</div>
+      <div class="datetime" id="datetime"></div>
+    </div>
+  </div>
+</header>
+
+<div class="hub">
+
+  <!-- ── SIDEBAR — Introduction + blank placeholders, built in <script> ── -->
+  <nav class="sidebar" id="sidebarPages" ondblclick="toggleSidebar()"></nav>
+
+  <!-- ── MAIN CONTENT AREA — built in <script> ── -->
+  <div class="main-area" id="mainArea"></div>
+
+  <!-- ── RIGHT RAIL — global, same on every page, built in <script> ── -->
+  <nav class="right-rail" id="rightRail" ondblclick="toggleRail()"></nav>
+
+</div>
+
+<!-- Single global page-hover tooltip, JS-positioned — see initPageTooltips -->
+<div class="page-hover-tip" id="pageHoverTip"></div>
+
+<!-- Generic Popup destination — content filled in by whichever layout uses it -->
+<div id="canonicalPopup" class="popup-overlay"></div>
+
+<!-- SYNC / SIGN-IN MODAL -->
+<div id="syncModal" style="display:none;position:fixed;inset:0;background:var(--amit-overlay,rgba(0,0,0,.55));z-index:9999;align-items:center;justify-content:center">
+  <div class="sync-modal-card" style="background:var(--amit-surface-raised,#1a3352);border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.45);border-radius:14px;padding:36px 40px;max-width:340px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.5)">
+    <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:16px;letter-spacing:.06em;margin-bottom:6px">Sync Across Devices</div>
+    <div style="color:rgba(var(--amit-text-rgb,240,232,208),.5);font-size:11px;line-height:1.7;margin-bottom:22px">Enter your email. A sign-in link will be sent.<br>No password needed.</div>
+    <input id="syncEmailInput" type="email" placeholder="your@email.com"
+      style="width:100%;background:var(--amit-input-bg,rgba(var(--amit-overlay-rgb,255,255,255),.07));border:1px solid var(--amit-input-border,rgba(var(--amit-accent-rgb,201,168,76),.3));border-radius:var(--amit-input-radius,7px);padding:11px 13px;color:var(--amit-input-text,#fff);font-size:13px;outline:none;margin-bottom:12px;font-family:inherit"
+      onkeydown="if(event.key==='Enter')submitSyncEmail()"/>
+    <button id="syncSubmitBtn" onclick="submitSyncEmail()"
+      style="width:100%;background:var(--amit-btn-bg,rgba(var(--amit-accent-rgb,201,168,76),.12));border:1px solid var(--amit-btn-border,rgba(var(--amit-accent-rgb,201,168,76),.45));color:var(--amit-btn-text,rgba(var(--amit-accent-rgb,201,168,76),.9));padding:11px;border-radius:var(--amit-btn-radius,7px);cursor:pointer;font-family:var(--amit-font-heading,'Cinzel',serif);font-size:11px;letter-spacing:.08em">
+      SEND SIGN-IN LINK →
+    </button>
+    <div onclick="closeSyncModal()" style="margin-top:16px;font-size:9px;color:rgba(var(--amit-text-rgb,240,232,208),.25);cursor:pointer;letter-spacing:.1em">CANCEL</div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// NOMENCLATURE — read this before touching any page/detail/layout code.
+//   PAGE   — one item in the left sidebar (button + fixed number).
+//   DETAIL — the content area a page opens into (id `detail-N`).
+//   LAYOUT — what kind of content lives inside a detail. This starter
+//            ships with none built in — every canonical layout (Tabbed/
+//            Row/Detail/Calendar/Day/Board/Gallery/Dashboard/Split/Form/
+//            Chart/Inbox/Drawer/Tree/Breadcrumb View) lives in
+//            Templates\TemplateViews.html, copied in verbatim when a
+//            real project needs one — see the header comment at the top
+//            of this file.
+//   DESTINATION — WHERE a layout mounts: a page, a tab slot, or a Popup.
+//            Popup is built into this starter (see below) since it's
+//            generic infrastructure, not a layout itself.
+// ══════════════════════════════════════════════
+
+let currentUser=null;
+// SB_URL/SB_KEY/db/demoMode declared here, early — a real, confirmed bug
+// from earlier work on this file: demoMode defaults to true (unlike
+// currentUser, which defaults falsy), so anything gating on it can run
+// during the page's very first synchronous script pass, before a
+// later-declared `const` has initialized — a temporal dead zone crash.
+// Declaring all of this up front avoids that class of bug entirely.
+const SB_URL='https://hleqtjqojksurvkyqixt.supabase.co';
+const SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
+const db=(typeof supabase!=='undefined')?supabase.createClient(SB_URL,SB_KEY):null;
+const AMIT_DEMO_UID='8b95d057-fd6b-44ec-abe7-658e08872d1a';
+let demoMode=localStorage.getItem('amit_demo_mode')!=='off';
+
+// ══════════════════════════════════════════════
+// CANONICAL DATA BINDING: DEMO MODE — a general, reusable connection to
+// Amit's own account data, available to ANY current or future view/form
+// built from this template — not wired one-off per view. Ported from the
+// Hub's real, live mechanism (amit-hub.html's demoModeHub/AMIT_DEMO_UID).
+//
+// fetchDemoRows(table, queryString) — the one call any view makes to
+// pull Amit's own rows for demo mode. Returns [] immediately if demo mode
+// is off. Every returned row is tagged _isDemo:true.
+//
+// REVIEW ONLY: any row this returns must never be editable or writable —
+// it's the caller's responsibility to check _isDemo and refuse edits.
+// Row View (in TemplateViews.html) already enforces this at its own
+// rvEditCell/rvCommitCell chokepoint; a non-Row-View layout must
+// implement its own _isDemo check the same way.
+// ══════════════════════════════════════════════
+async function fetchDemoRows(table,queryString){
+  if(!demoMode)return[];
+  try{
+    const res=await fetch(`${SB_URL}/rest/v1/${table}?user_id=eq.${AMIT_DEMO_UID}&${queryString}`,{
+      headers:{apikey:SB_KEY,Accept:'application/json'}
+    });
+    const rows=res.ok?await res.json():[];
+    return rows.map(r=>({...r,_isDemo:true}));
+  }catch(e){
+    return[];
+  }
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE — the mechanism that lets a real project grow its own pages at
+// runtime, added 2026-08-06, Ryan's direct instruction. Introduction (id 1)
+// is the only fixed built-in page. Every page after it is a CUSTOM PAGE —
+// created via the "Add Page" row, which always renders last, pushed down
+// one row every time a new page is created above it. Custom pages get IDs
+// starting at CUSTOM_PAGE_BASE so they never collide with page 1.
+//
+// PERSISTENCE — matches how Demo Mode already works (Supabase, not
+// localStorage-only, so a project's page list looks the same on any
+// computer): signed-in users' pages are read/written to the
+// `template_pages` Supabase table, scoped by user_id + PROJECT_KEY. A
+// localStorage cache mirrors every write and is the fallback source when
+// signed out (Supabase requires a real owner row) — see
+// Templates\CLAUDE.md for the table schema and the migration SQL.
+//
+// BUILDER MODE — the Add Page row (and this whole flow) is meant to be
+// hidden before a project ships to real users. finalizeBuilderMode()
+// flips a one-way localStorage flag; to re-enable it during further
+// development, run localStorage.removeItem('amit_builder_mode') in the
+// console (or set it to 'on') and reload — this is a developer action,
+// not a runtime user-facing toggle.
+// ══════════════════════════════════════════════
+const PROJECT_KEY=(document.getElementById('pageTitle')?.textContent||'template').trim();
+const CUSTOM_PAGE_BASE=1000;
+const BUILDER_MODE_KEY='amit_builder_mode';
+let builderMode=false; // AmitFix is a finished, fixed set of pages: Add Page is never shown
+let customPages=[]; // [{page_name, detail_layout_type, page_order}], loaded before first render
+
+// TemplateViews.html's canonical layouts, offered in the Add Page view-picker.
+// Names/order match that file's own "CANONICAL LAYOUT:" comment headers —
+// keep this list in sync if a layout is ever added there.
+const TEMPLATE_LAYOUTS=[
+  {key:'Tabbed View',desc:'Tab strip inside one page — multiple content panes, one active at a time'},
+  {key:'Multi-Row Tab View',desc:'Many tabs in stacked 3-D rows like Word\'s Options dialog — the row you click comes to the front'},
+  {key:'Row View',desc:'Excel-style sortable rows, click a column header to sort, inline editable cells'},
+  {key:'Detail View',desc:'Single-record drill-down endpoint — fields laid out for one item'},
+  {key:'Calendar View',desc:'Month grid, real data per day, click a day to open Day View'},
+  {key:'Day View',desc:'Single-day agenda card — exact Hub day-view port'},
+  {key:'Board View',desc:'Kanban columns by status, drag between them'},
+  {key:'Gallery View',desc:'Visual card grid — image-first browsing'},
+  {key:'Dashboard View',desc:'Stat tiles plus a simple bar chart'},
+  {key:'Split View',desc:'Master list + detail pane side by side, no page navigation needed'},
+  {key:'Form View',desc:'Dedicated create/edit layout, separate from the row/list it feeds'},
+  {key:'Chart View',desc:'Chart-first data visualization'},
+  {key:'Inbox View',desc:'Stream/queue with checkbox multi-select and bulk actions'},
+  {key:'Drawer View',desc:'Lightweight overlay detail sliding in from an edge'},
+  {key:'Tree View',desc:'Hierarchical parent/child navigation'},
+  {key:'Breadcrumb View',desc:'Chained drill-down navigation with a breadcrumb trail'}
+];
+
+// Which page number each layout lives on inside TemplateViews.html's own
+// demo — used only to deep-link the 👓 preview link in the layout picker
+// straight to that layout (TemplateViews.html#page=N) instead of always
+// opening to its Introduction page. Keep in sync if TemplateViews.html's
+// own page order ever changes (see its buildPlaceholders()). Page 5 was
+// retired there (Grid View merged into Row View) so it's skipped here too.
+const TEMPLATE_VIEWS_PAGE_MAP={
+  'Tabbed View':2,'Row View':3,'Detail View':4,'Calendar View':6,'Board View':7,
+  'Gallery View':8,'Dashboard View':9,'Split View':10,'Form View':11,'Chart View':12,
+  'Inbox View':13,'Drawer View':14,'Tree View':15,'Breadcrumb View':16,'Day View':17
+};
+
+// Same icon each layout is already shown with inside TemplateViews.html
+// itself (its own hardcoded page icon / NEW_VIEW_ICONS map) — reused here
+// verbatim so the picker card matches what someone actually sees when they
+// click through to preview it, instead of a generic stand-in glyph.
+const TEMPLATE_VIEWS_ICON_MAP={
+  'Tabbed View':'🗂️','Row View':'📋','Detail View':'🔍','Calendar View':'📅','Board View':'🗃️',
+  'Gallery View':'🖼️','Dashboard View':'📈','Split View':'◨','Form View':'📝','Chart View':'📊',
+  'Inbox View':'📥','Drawer View':'🗄️','Tree View':'🌳','Breadcrumb View':'🍞','Day View':'☀️'
+};
+
+async function loadCustomPages(){
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const owner=currentUser?currentUser.id:null;
+  if(owner&&db){
+    try{
+      const res=await fetch(`${SB_URL}/rest/v1/template_pages?user_id=eq.${owner}&project_key=eq.${encodeURIComponent(PROJECT_KEY)}&order=page_order.asc`,{
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,Accept:'application/json'}
+      });
+      if(res.ok){
+        const rows=await res.json();
+        localStorage.setItem(cacheKey,JSON.stringify(rows));
+        return rows;
+      }
+    }catch(e){}
+  }
+  try{ return JSON.parse(localStorage.getItem(cacheKey)||'[]'); }catch(e){ return []; }
+}
+
+async function saveCustomPage(pageName,layoutKey,order){
+  const owner=currentUser?currentUser.id:null;
+  const row={project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order};
+  if(owner&&db){
+    try{
+      await fetch(`${SB_URL}/rest/v1/template_pages`,{
+        method:'POST',
+        headers:{apikey:SB_KEY,Authorization:`Bearer ${SB_KEY}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+        body:JSON.stringify({...row,user_id:owner})
+      });
+    }catch(e){}
+  }
+  const cacheKey='amit_pages_'+PROJECT_KEY;
+  const cached=JSON.parse(localStorage.getItem(cacheKey)||'[]');
+  cached.push(row);
+  localStorage.setItem(cacheKey,JSON.stringify(cached));
+}
+
+// ══════════════════════════════════════════════
+// AMIT FIX — the pages. Replaces the template's Introduction/Add Page rendering with four fixed pages (builder mode is off).
+// The person is in the director's chair: nothing runs unless they call it. Every fix is one plain choice; the choices go
+// on a "call sheet" and become one small download (Amit_Fix.cmd), or they use the one-click Remove-Amit.exe.
+// ══════════════════════════════════════════════
+const FX_BASE='https://ask-amit.github.io/Amit/AmitFix/AmitFix.html';
+const FX_RAW='https://raw.githubusercontent.com/Ask-Amit/Amit/main/AmitFix/';
+const FX_ORDER=['check','restart','tidy','voice-reset','voice-off','voice-on','startup-off','startup-on','shortcuts-remove','forget-data','remove','reinstall'];
+const FX_ACTIONS={
+  'check':{scene:'Scout the set',name:'Look first',plain:'Just look. It reports what is installed, whether it is running and what starts with Windows. Changes nothing.',tag:'changes nothing'},
+  'restart':{scene:'Take two',name:'Restart Amit\'s helper',plain:'Closes Amit\'s small helper and starts it again. Fixes most "it stopped working" moments.',tag:'safe'},
+  'tidy':{scene:'Clear the set',name:'Tidy up',plain:'Clears old logs and the saved files of the little listening window, then restarts. Your settings stay.',tag:'safe, keeps your settings'},
+  'voice-reset':{scene:'New script',name:'Reset voice typing',plain:'Puts voice typing back the way it came: default button, default settings, fresh listening window. It will ask for the microphone once more.',tag:'asks you to confirm'},
+  'voice-off':{scene:'Quiet on set',name:'Turn voice typing off',plain:'Nothing listens and your mouse buttons work exactly as normal. Everything else of Amit keeps working.',tag:'safe, reversible'},
+  'voice-on':{scene:'Action!',name:'Turn voice typing on',plain:'Hold your mouse button where you want words, speak, let go. (Works in any program, in a text box.)',tag:'safe, reversible'},
+  'startup-off':{scene:'No early call',name:'Don\'t start with Windows',plain:'Amit stops opening itself when you sign in. You can still open it yourself whenever you like.',tag:'safe, reversible'},
+  'startup-on':{scene:'Call time',name:'Start with Windows',plain:'Amit opens quietly when you sign in so it is ready.',tag:'safe, reversible'},
+  'shortcuts-remove':{scene:'Strike the sign',name:'Remove desktop shortcuts',plain:'Takes Amit\'s icons off your desktop. Nothing else is touched.',tag:'safe'},
+  'forget-data':{scene:'Burn the notes',name:'Forget what Amit kept here',plain:'Erases the readings and history Amit stored on this computer. Your online account is not touched.',tag:'asks you to confirm'},
+  'remove':{scene:'That\'s a wrap',name:'Remove Amit completely',plain:'Closes it, turns off start-with-Windows, deletes its files, saved data and shortcuts, then checks it is really gone. Like it was never installed.',tag:'asks you to confirm'},
+  'reinstall':{scene:'Re-shoot',name:'Get the newest installer',plain:'Opens the download for the current Amit installer. Used after removing, for a clean start.',tag:'safe'}
+};
+const FX_SYMPTOMS={
+  'voice':{label:'Voice typing isn\'t typing / acts strangely',pick:['restart','voice-reset'],tab:2},
+  'slow':{label:'It feels slow or uses too much memory',pick:['tidy','restart'],tab:2},
+  'popup':{label:'It keeps popping up or starts when I don\'t want it',pick:['startup-off','voice-off'],tab:3},
+  'update':{label:'I have an old version / it won\'t update',pick:['remove','reinstall'],tab:2},
+  'broken':{label:'Something is broken and I don\'t know what',pick:['remove','reinstall'],tab:2},
+  'look':{label:'I just want to look first',pick:['check'],tab:2},
+  'leave':{label:'I\'m done with Amit',pick:['remove'],tab:5}
+};
+const fxParams=new URLSearchParams(location.search);
+const fxFrom=(fxParams.get('from')||'').toLowerCase();
+const fxVersion=fxParams.get('v')||'';
+const fxChosen=new Set();
+const fxUA=navigator.userAgent||'';
+const fxPhone=/Android|iPhone|iPad|iPod/i.test(fxUA);
+const fxWindows=/Windows/i.test(fxUA);
+
+function fxHello(){
+  const f=fxFrom;
+  if(f==='helper'||f==='tray')return {t:'Amit\'s helper sent you here.',s:'Something wasn\'t right, so let\'s put it right together. Tell me what is happening below, or just pick what you want from the tabs. Nothing runs until you call it.'};
+  if(f==='voice'||f==='whisper')return {t:'Voice typing giving you trouble?',s:'That is the most common thing, and it is usually fixed in one click. Start with "Restart", and if it still acts up, "Reset voice typing".'};
+  if(f==='email'||f==='qr'||f==='phone'||f==='share')return {t:'Someone sent you this page.',s:'It is a place to fix, quiet, or fully remove Amit, whichever you need. You choose; nothing happens unless you call it.'};
+  if(f==='leave'||fxParams.get('problem')==='leave')return {t:'You\'re welcome to go.',s:'Whenever you want to be done with Amit, it can be as if you never installed it. Take your time. The last tab does it, and there is a word from us on the Our Heart page.'};
+  return {t:'You\'re in the director\'s chair.',s:'Amit is something that lives on your computer, so you should be able to quiet it, fix it, or send it away whenever you like, without asking anyone. Every fix here is one plain choice. Nothing runs until you call it.'};
+}
+
+function fxCard(k){
+  const a=FX_ACTIONS[k];
+  return `<div class="fx-card${fxChosen.has(k)?' on':''}" id="fxc-${k}" onclick="fxToggle('${k}')">
+    <div class="fx-tick">&#10003;</div>
+    <div class="fx-scene">${a.scene}</div>
+    <div class="fx-name">${a.name}</div>
+    <div class="fx-plain">${a.plain}</div>
+    <span class="fx-tag">${a.tag}</span>
+  </div>`;
+}
+
+function fxToggle(k){
+  if(fxChosen.has(k))fxChosen.delete(k);else fxChosen.add(k);
+  fxRefresh();
+}
+function fxRefresh(){
+  FX_ORDER.forEach(k=>{const el=document.getElementById('fxc-'+k);if(el)el.classList.toggle('on',fxChosen.has(k));});
+  const n=fxChosen.size,bar=document.getElementById('fxBarCount');
+  if(!bar)return;
+  const list=[...fxChosen].sort((a,b)=>FX_ORDER.indexOf(a)-FX_ORDER.indexOf(b)).map(k=>FX_ACTIONS[k].name);
+  bar.innerHTML=n?`<b>Your call sheet (${n}):</b> ${list.join(' &middot; ')}`:`<b>Your call sheet is empty.</b> Tap the cards you want, then call it.`;
+  const dl=document.getElementById('fxBarGo');if(dl)dl.style.opacity=n?1:.4;
+}
+function fxPick(key){
+  const s=FX_SYMPTOMS[key];if(!s)return;
+  fxChosen.clear();s.pick.forEach(k=>fxChosen.add(k));
+  fxShowTab(s.tab);fxRefresh();
+}
+function fxShowTab(n){
+  const d=document.getElementById('detail-1');if(!d)return;
+  d.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  d.querySelectorAll('.ch-tab-btn').forEach((b,i)=>b.classList.toggle('active',i===n-1));
+  const c=document.getElementById('ch-tab-1-'+n);if(c)c.classList.add('active');
+}
+function fxOrdered(){return [...fxChosen].sort((a,b)=>FX_ORDER.indexOf(a)-FX_ORDER.indexOf(b));}
+
+async function fxGetScript(){
+  for(const u of ['Amit_Fix.ps1',FX_RAW+'Amit_Fix.ps1']){
+    try{const r=await fetch(u);if(r.ok){const t=await r.text();if(t.length>1500)return t;}}catch(e){}
+  }
+  return null;
+}
+async function fxDownload(){
+  const acts=fxOrdered();
+  if(!acts.length){alert('Your call sheet is empty. Tap one or more cards first.');return;}
+  if(fxPhone){alert('These fixes run on the Windows computer where Amit is installed. Open this page on that computer (the Send It page can email or text you the link).');return;}
+  const ps=await fxGetScript();
+  if(!ps){alert('Could not load the fix program. Check your connection and try again.');return;}
+  const hdr=['@echo off','setlocal','title Amit Fix','set "AMIT_FIX_ACTIONS='+acts.join(',')+'"',
+    'powershell -NoProfile -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText(\'%~f0\'); $i=$t.IndexOf(\'#PS\'+\'-START#\'); & ([scriptblock]::Create($t.Substring($i+10))) -Actions $env:AMIT_FIX_ACTIONS -Pause"',
+    'exit /b','#PS-START#'];
+  const body=hdr.join('\r\n')+'\r\n'+ps.replace(/\r?\n/g,'\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([body],{type:'application/octet-stream'}));
+  a.download='Amit_Fix.cmd';document.body.appendChild(a);a.click();a.remove();
+  fxAfterDownload();
+}
+function fxAfterDownload(){
+  popupOpen(`<div class="fx-h">Almost there &mdash; one thing for you to do</div>
+    <div class="fx-lede">Your fix is in your Downloads. <b>Open it</b> (double-click). A black window shows what it is doing and checks its own work at the end.</div>
+    <div class="fx-panel">If Windows or your browser says <b>"unknown publisher"</b> or <b>"may be unsafe"</b>: that is only because we have not bought a code-signing certificate yet. Choose <b>Keep</b>, then <b>More info &rarr; Run anyway</b>. You can read every line of what it does first on the "What's on my computer" page.</div>
+    <div class="fx-small">Nothing here goes online. It only touches what Amit itself put on this computer.</div>`);
+}
+function fxDownloadExe(fresh){
+  if(fxPhone){alert('This program is for the Windows computer where Amit is installed. Open this page there.');return;}
+  const a=document.createElement('a');a.href='Remove-Amit.exe';a.download='Remove-Amit.exe';document.body.appendChild(a);a.click();a.remove();
+  fxAfterDownload();
+}
+
+// ---- looks at the person's own situation (device, and whether Amit's helper answers on this computer) ----
+async function fxProbe(){
+  const el=document.getElementById('fxProbe');if(!el)return;
+  let msg='';
+  if(fxPhone){
+    msg='You are on a <b>phone or tablet</b>. Amit\'s helper only lives on a Windows computer, so the fixes below are for that computer. Use the <b>Send It</b> page to send yourself the link, and the last tab here to clear what Amit saved in <i>this</i> browser.';
+  }else if(!fxWindows){
+    msg='You are not on Windows. Amit\'s helper is Windows-only, so nothing of it can be on this computer. If you only want to clear what Amit saved in this browser, use the <b>Browser &amp; phone</b> tab.';
+  }else{
+    msg='Checking whether Amit\'s helper is running on this computer&hellip;';
+    el.innerHTML=msg;
+    try{
+      const c=new AbortController();setTimeout(()=>c.abort(),2500);
+      const r=await fetch('http://localhost:8710/api/whisper/status',{signal:c.signal});
+      const j=await r.json();
+      msg='Amit\'s helper <b class="fx-ok">is running</b> on this computer'+(j&&j.state?' (voice typing: <b>'+j.state+'</b>)':'')+'.'+(fxVersion?' Version '+fxVersion+'.':'');
+    }catch(e){
+      msg='I can\'t see Amit\'s helper on this computer. Either it is not installed, or it is not running right now. "Look first" will tell you for sure, and "Restart" or "Fresh start" will bring it back.';
+    }
+  }
+  el.innerHTML=msg;
+}
+
+function fxClearBrowser(){
+  if(!confirm('Sign out and clear what Amit saved in this browser on this device? (Your online account is not deleted.)'))return;
+  let n=0;
+  try{Object.keys(localStorage).forEach(k=>{if(/amit|^sb-/i.test(k)){localStorage.removeItem(k);n++;}});}catch(e){}
+  try{sessionStorage.clear();}catch(e){}
+  try{if(db)db.auth.signOut();}catch(e){}
+  const el=document.getElementById('fxBrowserDone');
+  if(el)el.innerHTML=`<span class="fx-ok">Done.</span> Signed out and cleared ${n} saved item${n===1?'':'s'} for Amit in this browser.`;
+}
+
+function fxCopy(id,btn){
+  const el=document.getElementById(id);if(!el)return;
+  const t=el.value||el.textContent;
+  const done=()=>{const o=btn.textContent;btn.textContent='Copied';setTimeout(()=>btn.textContent=o,1400);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,()=>{el.select&&el.select();document.execCommand('copy');done();});}
+  else{el.select&&el.select();document.execCommand('copy');done();}
+}
+
+// ---- Send It ----
+function fxLinkFor(kind){
+  const base=(location.protocol.startsWith('http')&&location.hostname.endsWith('github.io'))?(location.origin+location.pathname):FX_BASE;
+  if(!kind||kind==='main')return base;
+  const s=FX_SYMPTOMS[kind];
+  return base+'?from=share&problem='+kind;
+}
+function fxSendRefresh(){
+  const kind=document.getElementById('fxKind').value;
+  const u=fxLinkFor(kind);
+  document.getElementById('fxLink').value=u;
+  const subj=encodeURIComponent('Amit Fix: fix it, quiet it, or remove it');
+  const body=encodeURIComponent('Here is the page that fixes, quiets, or fully removes Amit from a computer. Open it on the Windows computer where Amit is installed:\n\n'+u+'\n\nYou choose what happens. Nothing runs until you press the button.');
+  document.getElementById('fxMail').href='mailto:?subject='+subj+'&body='+body;
+  document.getElementById('fxSms').href='sms:?&body='+encodeURIComponent('Amit Fix (fix, quiet, or remove Amit): '+u);
+  const q=document.getElementById('fxQr');
+  try{const qr=qrcode(0,'M');qr.addData(u);qr.make();q.innerHTML=qr.createSvgTag({cellSize:5,margin:0,scalable:true});q.firstChild.style.width='210px';q.firstChild.style.height='210px';}
+  catch(e){q.innerHTML='<span class="fx-small">The QR code needs a connection to draw. The link above still works.</span>';}
+}
+async function fxShare(){
+  const u=document.getElementById('fxLink').value;
+  if(navigator.share){try{await navigator.share({title:'Amit Fix',text:'Fix, quiet, or remove Amit',url:u});}catch(e){}}
+  else{fxCopy('fxLink',document.getElementById('fxShareBtn'));}
+}
+
+function fxPages(){
+  const hi=fxHello();
+  const symButtons=Object.keys(FX_SYMPTOMS).map(k=>`<button class="fx-btn" onclick="fxPick('${k}')">${FX_SYMPTOMS[k].label}</button>`).join('');
+  const cards=ks=>`<div class="fx-grid">${ks.map(fxCard).join('')}</div>`;
+  const tab=(n,html)=>`<div class="ch-tab-content${n===1?' active':''}" id="ch-tab-1-${n}">${html}</div>`;
+
+  const t1=`<div class="fx-lede"><b>${hi.t}</b> ${hi.s}</div>
+    <div class="fx-panel" id="fxProbe">&hellip;</div>
+    <div class="fx-h">What is happening? (tap one and I'll set up the fix)</div>
+    <div class="fx-sym">${symButtons}</div>
+    <div class="fx-small" style="margin-top:14px">Or go straight to the tabs: <b>Make it right</b>, <b>Quiet on set</b>, <b>Browser &amp; phone</b>, <b>Wrap</b>. Not sure? Press the gold Amit icon on the right and ask.</div>`;
+  const t2=`<div class="fx-lede">Things that stopped working, or just need a fresh start. Tap the cards you want.</div>${cards(['check','restart','tidy','voice-reset'])}
+    <div class="fx-h">Or start completely fresh</div>
+    <div class="fx-lede" style="font-size:15px">Remove everything, then put the newest Amit back clean. This is also how you update, with no manual steps.</div>
+    ${cards(['remove','reinstall'])}
+    <div style="margin-top:14px"><button class="fx-btn" onclick="fxDownloadExe(true)">Download one-click &ldquo;Fresh start&rdquo; (Remove-Amit.exe)</button></div>`;
+  const t3=`<div class="fx-lede">You decide how much of Amit is awake. Each of these can be undone with its partner card.</div>${cards(['voice-off','voice-on','startup-off','startup-on','shortcuts-remove','forget-data'])}`;
+  const t4=`<div class="fx-lede">Amit also remembers a few things in your <b>web browser</b> (who you are signed in as, your theme, the pages you built). This clears them. It works on any device: <b>open this page in the browser you want cleared</b>, phone included.</div>
+    <div class="fx-panel">It signs you out and clears what Amit saved in <b>this browser, on this device</b>. Your account itself stays online, and other devices are not affected.</div>
+    <button class="fx-btn big" onclick="fxClearBrowser()">Sign out and clear Amit from this browser</button>
+    <div class="fx-small" id="fxBrowserDone" style="margin-top:12px"></div>
+    <div class="fx-h">Amit Mobile on your phone</div>
+    <div class="fx-small">If you put Amit Mobile on your home screen, remove it the way you remove any icon (press and hold it, then remove). Then clear this browser above.</div>`;
+  const t5=`<div class="fx-say">We made Amit to walk alongside you, and we are sorry to see you go. Thank you for giving it a try.</div>
+    <div class="fx-lede">If you are done, this is the honest way out: one button, and Amit is gone from this computer. It closes its programs, turns off start-with-Windows, removes its shortcuts, deletes its files and saved data, and then <b>checks</b> that it is really gone and shows you the result.</div>
+    <div style="margin:14px 0"><button class="fx-btn big" onclick="fxDownloadExe(false)">Download Remove-Amit.exe &mdash; remove it all</button></div>
+    <div class="fx-panel"><b>What stays, on purpose:</b> your documents, the AmitInbox folder if you made one, your Amit account online (it can be closed on request), Claude, Node.js, Edge and Chrome. Amit never installed those for you, so Amit won't remove them.</div>
+    <div class="fx-h">Prefer a plain file?</div>
+    ${cards(['remove'])}
+    <div class="fx-small" style="margin-top:12px">If something here wasn't right for you, we would honestly like to know, and we would love to have you back. Press the gold Amit icon and tell him. He passes it on.</div>`;
+
+  const tabs=['Start here','Make it right','Quiet on set','Browser &amp; phone','Wrap'];
+  const nav=tabs.map((t,i)=>`<button class="ch-tab-btn${i===0?' active':''}" onclick="showChTab(1,${i+1})">${t}</button>`).join('');
+  const page1=`<div class="detail-head"><span class="detail-heading">Director's Chair</span></div>
+    <div class="ch-tab-nav" id="ch-tab-nav-1">${nav}</div>
+    <div class="ch-tab-main">${tab(1,t1)}${tab(2,t2)}${tab(3,t3)}${tab(4,t4)}${tab(5,t5)}</div>
+    <div class="fx-bar"><div class="fx-count" id="fxBarCount"></div><button class="fx-btn" id="fxBarGo" onclick="fxDownload()">Call it: download my fix</button></div>`;
+
+  const kinds=['<option value="main">The main page</option>'].concat(Object.keys(FX_SYMPTOMS).map(k=>`<option value="${k}">For: ${FX_SYMPTOMS[k].label}</option>`)).join('');
+  const page2=`<div class="detail-head"><span class="detail-heading">Send It</span></div>
+    <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px">
+    <div class="fx-lede">Send this page to anyone who needs it, a friend, a parent, yourself on another device. Pick which link, then pick how.</div>
+    <select id="fxKind" class="fx-input" style="max-width:520px" onchange="fxSendRefresh()">${kinds}</select>
+    <div style="display:flex;gap:8px;align-items:center;margin:10px 0;max-width:760px"><input id="fxLink" class="fx-input" readonly><button class="fx-btn" style="white-space:nowrap" onclick="fxCopy('fxLink',this)">Copy link</button></div>
+    <div class="fx-h">Ways to send it</div>
+    <a class="fx-btn" id="fxMail" href="#">Email it</a>
+    <a class="fx-btn" id="fxSms" href="#">Text it</a>
+    <button class="fx-btn" id="fxShareBtn" onclick="fxShare()">Share (phone / apps)</button>
+    <a class="fx-btn" href="How_to_Fix_or_Remove_Amit.pdf" download>Handout (PDF) to attach or print</a>
+    <div class="fx-h">Scan with a phone</div>
+    <div class="fx-qr" id="fxQr"></div>
+    <div class="fx-small" style="margin-top:10px;max-width:640px">A phone can scan this to open the page, then email or text it to the computer, or clear that phone's browser data. The fixes themselves run on the Windows computer, because that is where Amit's helper lives.</div>
+    <div class="fx-h">Good to know</div>
+    <div class="fx-small" style="max-width:700px;line-height:1.8">&bull; The handout PDF has the link and a QR code on it, in plain steps, so it works as an email attachment or on paper.<br>&bull; A link built for one problem opens straight to that fix, already set up.<br>&bull; Amit's helper can open this page itself with <b>?from=helper</b>, and the page adjusts its welcome to where you came from.</div>
+    </div>`;
+
+  const page3=`<div class="detail-head"><span class="detail-heading">Our Heart</span></div>
+    <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px;max-width:none">
+    <div class="fx-h">To anyone meeting Amit for the first time</div>
+    <div class="fx-say">We built Amit because we wanted to walk alongside you. Not to sell you something, not to keep you here, but to be the companion that is there each morning: encouraging you, sharpening you, and pointing you toward what is true. Everything useful is free. Everything runs where you can see it, and you can send it away whenever you want. That is why this page exists.</div>
+    <div class="fx-h">If you are leaving</div>
+    <div class="fx-say">We are sorry to see you go. Thank you for giving us your time and trust, even for a little while. Our heart was only ever to join you where you are, and to leave you better for it. Go well. The door stays open.</div>
+    <div class="fx-h">If something went wrong</div>
+    <div class="fx-say">We are sorry it did not work the way it should have. That is on us, not you. Fix it here, or remove it and start fresh with the newest version, and please come back. We would truly rather have you back with it working than not at all. And if you tell us what happened (press the gold Amit icon on the right), we will make it better for the next person too.</div>
+    <div class="fx-h">Why this page is honest</div>
+    <div class="fx-small" style="max-width:720px;line-height:1.8">Anyone can leave Amit at any time, completely, in one click, without asking permission, without an account, without a phone call. You should never have to trust us to be free of us. The program does its own checking and shows you the result, and every line of it can be read first.</div>
+    </div>`;
+
+  const rows=[
+    ['Amit\'s folder','%LOCALAPPDATA%\\AmitComputerHealth\\','The helper programs, your voice-typing settings, a small history of readings, and logs.','Fresh start / Remove'],
+    ['Start-with-Windows entry','Windows "Run" list: AmitComputerHealth (Task Manager &rarr; Startup apps)','Opens the helper quietly when you sign in.','Don\'t start with Windows / Remove'],
+    ['Two web-link handlers','Windows registry: amit-tracker and amit-helper (your user only)','Lets the Amit website open the helper.','Remove'],
+    ['Desktop shortcuts','Amit.url, Amit Live.lnk on your desktop','Open Amit and its helper.','Remove desktop shortcuts / Remove'],
+    ['A private listening window','Edge, with its own separate profile inside Amit\'s folder','Used only for voice typing. Never your own Edge.','Tidy / Reset voice typing / Remove'],
+    ['Installer leftovers','Temporary folder: AmitInstallerFiles','Where the installer unpacked itself.','Tidy / Remove'],
+    ['Saved in this browser','Amit\'s own web address only (not other sites)','Who you are signed in as, theme, pages you built.','Browser &amp; phone tab']
+  ].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('');
+  const page4=`<div class="detail-head"><span class="detail-heading">What's On My Computer</span></div>
+    <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px;max-width:none">
+    <div class="fx-lede">This is everything Amit puts on a computer, in plain words. Nothing is hidden, and nothing needs administrator rights, because it is all in <b>your</b> user area only.</div>
+    <table class="fx-table"><tr><th>What</th><th>Where</th><th>What it's for</th><th>How to remove it here</th></tr>${rows}</table>
+    <div class="fx-h">What Amit never touches</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.8">Your documents, photos and files. The AmitInbox folder if you made one. Claude, Node.js, your own Edge or Chrome and their saved data. Anything outside the list above. When it closes programs, it closes only Amit's own small helper programs and its private listening window.</div>
+    <div class="fx-h">Check it yourself afterward</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.9">1. Press Ctrl+Shift+Esc &rarr; <b>Startup apps</b>: nothing called Amit.<br>2. Open File Explorer and paste <b>%LOCALAPPDATA%</b>: no AmitComputerHealth folder.<br>3. Your desktop: no Amit icons.<br>The program shows the same checks on screen when it finishes.</div>
+    <div class="fx-h">Read before you run</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.8">The whole program is one readable text file: <a class="fx-btn quiet" href="${FX_RAW}Amit_Fix.ps1" target="_blank" rel="noopener">Read Amit_Fix.ps1</a><br>Windows may show "unknown publisher" because we have not bought a code-signing certificate yet. That is the only reason, and it is why we let you read it first.</div>
+    </div>`;
+
+  return [
+    {id:1,icon:'🎬',name:"Director's Chair",sub:'Fix · quiet · remove',html:page1,flex:true},
+    {id:2,icon:'📨',name:'Send It',sub:'Link · QR · email · PDF',html:page2,flex:true},
+    {id:3,icon:'💛',name:'Our Heart',sub:'Welcome · farewell',html:page3,flex:true},
+    {id:4,icon:'🔍',name:"What's On My Computer",sub:'Everything, in plain words',html:page4,flex:true}
+  ];
+}
+
+function renderAllPages(){
+  const prev=document.querySelector('#sidebarPages .page-nav.active'),prevPage=prev&&/^page-[0-9]+$/.test(prev.id)?+prev.id.slice(5):1;
+  const prevTabEl=document.querySelector('#detail-1 .ch-tab-content.active'),prevTab=prevTabEl?+prevTabEl.id.split('-').pop():1;
+  const nav=document.getElementById('sidebarPages');
+  const main=document.getElementById('mainArea');
+  const pages=fxPages();
+  nav.innerHTML=pages.map((p,i)=>`<div class="page-nav${i===0?' active':''}" id="page-${p.id}" onclick="openPage(${p.id})" data-tip="${p.name}">
+      <div class="page-icon">${p.icon}</div>
+      <div class="page-info"><div class="page-name">${p.name}</div><div class="page-sub">${p.sub}</div></div>
+    </div>`).join('');
+  main.innerHTML=pages.map((p,i)=>`<div class="detail${i===0?' active':''}" id="detail-${p.id}" style="flex-direction:column">${p.html}</div>`).join('');
+  initPageTooltips('sidebarPages','right');
+  fxRefresh();
+  fxProbe();
+  if(document.getElementById('fxKind'))fxSendRefresh();
+  if(prevTab>1)fxShowTab(prevTab);
+  if(prevPage>1)openPage(prevPage);
+}
+
+function finalizeBuilderMode(){
+  if(!confirm('Hide "Add Page" for shipping? This is meant to be a one-way step before a project goes live — to bring it back during further development, run localStorage.removeItem(\'amit_builder_mode\') in the browser console and reload.'))return;
+  builderMode=false;
+  localStorage.setItem(BUILDER_MODE_KEY,'off');
+  renderAllPages();
+}
+
+// ══════════════════════════════════════════════
+// ADD PAGE FLOW — clicking "Add Page" goes straight to the layout picker
+// (from TemplateViews.html's canonical list) → create. No name-entry step
+// (removed 2026-08-06, Ryan's direct instruction) — the chosen layout's
+// own name becomes the page name; rename later is a future improvement,
+// not part of this flow.
+// ══════════════════════════════════════════════
+// 👓 preview link on each card — opens TemplateViews.html (the never-
+// edited reference catalog) in a new tab, deep-linked via #page=N to that
+// exact layout instead of always landing on Introduction. Read-only by
+// nature: it's a plain link to a file, nothing here can write back into
+// it. Deliberately NOT wired to select-from-that-tab-and-return — a real
+// cross-tab handoff (postMessage, tracking whether that tab is still
+// open) is a lot of moving parts for what a click back in this popup
+// already does in one step once someone's seen what they wanted to see.
+function previewLayoutInNewTab(e,layoutKey){
+  e.stopPropagation();
+  const pageNum=TEMPLATE_VIEWS_PAGE_MAP[layoutKey];
+  window.open('TemplateViews.html'+(pageNum?'#page='+pageNum:''),'_blank');
+}
+
+function openLayoutPicker(){
+  const cards=TEMPLATE_LAYOUTS.map(l=>`
+    <div onclick="confirmAddPage('${l.key}')"
+      style="background:var(--amit-card-bg,transparent);border:1px solid var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.3));border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:stretch;overflow:hidden"
+      onmouseover="this.style.borderColor='var(--gold)'"
+      onmouseout="this.style.borderColor='var(--amit-card-border,rgba(var(--amit-accent-rgb,201,168,76),.3))'">
+      <div onclick="previewLayoutInNewTab(event,'${l.key}')" title="See what ${l.key} looks like before choosing it"
+        style="flex-shrink:0;width:58px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;background:rgba(var(--amit-accent-rgb,201,168,76),.06);border-right:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25)"
+        onmouseover="event.stopPropagation();this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.22)'"
+        onmouseout="event.stopPropagation();this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.06)'">${TEMPLATE_VIEWS_ICON_MAP[l.key]||'▢'}</div>
+      <div onclick="confirmAddPage('${l.key}')" style="flex:1;min-width:0;padding:12px 14px;transition:background .15s"
+        onmouseover="this.style.background='rgba(var(--amit-accent-rgb,201,168,76),.08)'"
+        onmouseout="this.style.background='transparent'">
+        <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:12px;color:var(--gold2);margin-bottom:4px">${l.key}</div>
+        <div style="font-size:11px;color:var(--muted)">${l.desc}</div>
+      </div>
+    </div>`).join('');
+  popupOpen(`
+    <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:14px;letter-spacing:.06em;color:var(--gold2);margin-bottom:6px">Choose a Starting View</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:16px">Click the icon on any card to open a live preview of that layout in a new tab — come back and click the name/description side to add it here.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${cards}</div>
+  `);
+}
+
+async function confirmAddPage(layoutKey){
+  const order=customPages.length;
+  const pageName=''; // blank for now — naming/renaming is separate future work
+  customPages.push({project_key:PROJECT_KEY,page_name:pageName,detail_layout_type:layoutKey,page_order:order});
+  await saveCustomPage(pageName,layoutKey,order);
+  popupClose();
+  renderAllPages();
+  openPage(CUSTOM_PAGE_BASE+order);
+}
+
+(async function buildPlaceholders(){
+  customPages=[];
+  renderAllPages();
+  { const pr=fxParams.get('problem'); if(pr&&FX_SYMPTOMS[pr]) fxPick(pr); const pg=parseInt(fxParams.get('page')||'0',10); if(pg>=1&&pg<=4) openPage(pg); }
+
+  // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
+  const rail=document.getElementById('rightRail');
+  if(rail){
+    rail.innerHTML=`<div class="page-nav" id="rail-ask-amit" onclick="askAmitLive('amitfix')" data-tip="Ask Amit">
+      <div class="page-icon"><img src="amit_icon.ico" alt="Amit" style="width:100%;height:100%;object-fit:contain"></div>
+      <div class="page-info">
+        <div class="page-name">Ask Amit</div>
+        <div class="page-sub">Walk alongside</div>
+      </div>
+    </div>
+    <!-- Chats: the AmitChat box, shown only when signed in. Wired by ../Amit_Ask_Live.js (it loads the chat on demand); nothing else to do on a new page. -->
+    <div class="page-nav" id="rail-chat" data-shared-chat="1" data-tip="AmitChat" style="display:none">
+      <div class="page-icon" style="position:relative">&#128172;<span class="acx-badge" id="rail-chat-badge" style="display:none">0</span></div>
+      <div class="page-info">
+        <div class="page-name">Chats</div>
+        <div class="page-sub">AmitChat</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-sync" onclick="openSyncModal()" data-tip="Sign In">
+      <div class="page-icon" id="rail-sync-icon">🔒</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-sync-name">Sign In</div>
+        <div class="page-sub" id="rail-sync-sub">Not Synced</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-demo" onclick="toggleDemoMode()" data-tip="Demo On">
+      <div class="page-icon" id="rail-demo-icon">🎬</div>
+      <div class="page-info">
+        <div class="page-name" id="rail-demo-name">Demo On</div>
+        <div class="page-sub" id="rail-demo-sub">Amit's Data Shown</div>
+      </div>
+    </div>
+    <div class="page-nav" id="rail-home" onclick="goToHub()" data-tip="Back to the Hub">
+      <div class="page-icon">🏠</div>
+      <div class="page-info">
+        <div class="page-name">Home</div>
+        <div class="page-sub">Back to the Hub</div>
+      </div>
+    </div>`;
+    _updateDemoUI();
+    _updateSyncUI();
+  }
+
+  initPageTooltips('rightRail','left');
+})();
+
+// PAGE HOVER TOOLTIP — delegated on the given container, works no matter
+// how many items exist or whether that container is collapsed/expanded.
+// side: 'right' opens rightward (left sidebar); 'left' opens leftward
+// (right rail — opening rightward there would render off-screen).
+function initPageTooltips(containerId,side){
+  const tip=document.getElementById('pageHoverTip');
+  const nav=document.getElementById(containerId);
+  if(!tip||!nav)return;
+  nav.addEventListener('mouseover',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    tip.textContent=item.dataset.tip||'';
+    const r=item.getBoundingClientRect();
+    if(side==='left'){
+      tip.style.right=(window.innerWidth-r.left+8)+'px';
+      tip.style.left='auto';
+    } else {
+      tip.style.left=(r.right+8)+'px';
+      tip.style.right='auto';
+    }
+    tip.style.top=(r.top+r.height/2)+'px';
+    tip.style.transform='translateY(-50%)';
+    tip.classList.add('show');
+  });
+  nav.addEventListener('mouseout',(e)=>{
+    const item=e.target.closest('.page-nav');
+    if(!item)return;
+    if(e.relatedTarget&&item.contains(e.relatedTarget))return;
+    tip.classList.remove('show');
+  });
+}
+
+// CANONICAL LAYOUT: TABBED VIEW — copied verbatim from TemplateViews.html,
+// added 2026-08-06. Multi-row overflow: the tab row grows as many rows
+// behind itself as it needs (plain CSS flex-wrap, see .ch-tab-nav) rather
+// than scrolling or truncating. Selecting a tab that isn't in the front
+// row brings its whole row forward — same behavior as classic multi-row
+// property-sheet tabs.
+function showChTab(detailNum,n){
+  const detail=document.getElementById('detail-'+detailNum);
+  const clickedBtn=event.target;
+  const tabNav=document.getElementById('ch-tab-nav-'+detailNum);
+  if(tabNav){
+    // Only reorder when tabs have genuinely wrapped into multiple rows, and
+    // use a tolerance (not exact offsetTop equality) when grouping a row —
+    // .ch-tab-btn.active has a different margin-top than inactive tabs,
+    // which would otherwise misclassify the active tab as its own row.
+    const wrapped=tabNav.scrollHeight>clickedBtn.offsetHeight*1.5;
+    if(wrapped){
+      const rowTop=clickedBtn.offsetTop;
+      Array.from(tabNav.children)
+        .filter(b=>Math.abs(b.offsetTop-rowTop)<15)
+        .forEach(b=>tabNav.appendChild(b));
+    }
+  }
+  detail.querySelectorAll('.ch-tab-content').forEach(c=>c.classList.remove('active'));
+  detail.querySelectorAll('.ch-tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('ch-tab-'+detailNum+'-'+n).classList.add('active');
+  clickedBtn.classList.add('active');
+}
+
+// Builds a real, working Tabbed View's inner markup for a given detail id —
+// used by renderAllPages() so a custom page whose detail_layout_type is
+// 'Tabbed View' gets the actual live layout, not placeholder text.
+function buildTabbedViewHtml(detailNum){
+  let tabNavHtml='',tabContentHtml='';
+  for(let t=1;t<=5;t++){
+    tabNavHtml+=`<button class="ch-tab-btn${t===1?' active':''}" onclick="showChTab(${detailNum},${t})">Tab ${t}</button>`;
+    tabContentHtml+=`<div class="ch-tab-content${t===1?' active':''}" id="ch-tab-${detailNum}-${t}">Tab ${t} content goes here</div>`;
+  }
+  return `<div class="ch-tab-nav" id="ch-tab-nav-${detailNum}">${tabNavHtml}</div>
+    <div class="ch-tab-main">${tabContentHtml}</div>`;
+}
+
+// ══════════════════════════════════════════════
+// LAYOUT IMPORTER — fetches TemplateViews.html at the moment a page needs
+// it, cuts out the exact CANONICAL LAYOUT block the person picked (code +
+// its own sample data, contiguous by design — see TemplateViews.html's own
+// "IMPORTING A SINGLE LAYOUT PIECE" note), runs it live, and calls that
+// layout's own create function. Nothing about any of the 14 layouts below
+// is hand-copied into this file ahead of time — this file only knows each
+// one's marker text, its container wrap class, and the one line that
+// creates it, exactly what a person would type by hand if copying it in
+// themselves. Tabbed View (above) is the one exception, kept as a fully
+// local, hand-wired implementation since it was built before this importer
+// existed and already works — no need to route it through a network fetch.
+//
+// REQUIRES being served over http(s) — a file:// page cannot fetch a
+// sibling file's contents (browsers block that at the protocol level, not
+// this code's choice). Run a local server (the Starter Kit's zero-dep dev
+// server, or `npx serve`, or similar) rather than double-clicking this
+// file, or the import will fail with an honest error in the page itself.
+// ══════════════════════════════════════════════
+const LAYOUT_IMPORT_MANIFEST={
+  'Multi-Row Tab View':{marker:'MULTI-ROW TAB VIEW',deps:[],wrap:'mrt-wrap',
+    call:id=>`mrtCreate('${id}',MRT_SAMPLE_TABS);`},
+  'Row View':{marker:'ROW VIEW',deps:[],wrap:'rv-wrap',
+    call:id=>`rvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Detail View':{marker:'DETAIL VIEW',deps:['Row View'],wrap:'dv-wrap',
+    call:id=>`dvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);dvOpenForInstance('${id}',RV_SAMPLE_ROWS[0].id);`},
+  'Calendar View':{marker:'CALENDAR VIEW',deps:['Day View'],wrap:'cv-wrap',
+    call:id=>`cvCreate('${id}');`},
+  'Day View':{marker:'DAY VIEW',deps:[],wrap:'dvw-wrap',
+    call:id=>`dayViewCreate('${id}');`},
+  'Board View':{marker:'BOARD VIEW',deps:['Detail View'],wrap:'bv-wrap',
+    call:id=>`bvCreate('${id}',BV_SAMPLE_STATUSES,BV_SAMPLE_ROWS);`},
+  'Gallery View':{marker:'GALLERY VIEW',deps:[],wrap:'glv-wrap',
+    call:id=>`glvCreate('${id}',GLV_SAMPLE_ROWS);`},
+  'Dashboard View':{marker:'DASHBOARD VIEW',deps:[],wrap:'dbv-wrap',
+    call:id=>`dbvCreate('${id}',DBV_SAMPLE_TILES,DBV_SAMPLE_BARS);`},
+  'Split View':{marker:'SPLIT VIEW',deps:['Row View'],wrap:'spv-wrap',
+    call:id=>`spvCreate('${id}',RV_SAMPLE_COLUMNS,RV_SAMPLE_ROWS);`},
+  'Form View':{marker:'FORM VIEW',deps:[],wrap:'fv-wrap',
+    call:id=>`fvCreate('${id}',FV_SAMPLE_FIELDS);`},
+  'Chart View':{marker:'CHART VIEW',deps:[],wrap:'chv-wrap',
+    call:id=>`chvCreate('${id}',CHV_SAMPLE_BARS,CHV_SAMPLE_LINES);`},
+  'Inbox View':{marker:'INBOX VIEW',deps:[],wrap:'ibv-wrap',
+    call:id=>`ibvCreate('${id}',IBV_SAMPLE_ROWS);`},
+  'Drawer View':{marker:'DRAWER VIEW',deps:[],wrap:'drv-wrap',
+    call:id=>`drvCreate('${id}',DRV_SAMPLE_ROWS);`},
+  'Tree View':{marker:'TREE VIEW',deps:[],wrap:'tv-wrap',
+    call:id=>`tvCreate('${id}',TV_SAMPLE_ROWS);`},
+  'Breadcrumb View':{marker:'BREADCRUMB VIEW',deps:[],wrap:'bcv-wrap',
+    call:id=>`bcvCreate('${id}','Pursuits',BCV_SAMPLE_ROOT);`}
+};
+
+let _tvSource=null;
+async function _fetchTemplateViewsSource(){
+  if(_tvSource) return _tvSource;
+  const res=await fetch('TemplateViews.html');
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  _tvSource=await res.text();
+  return _tvSource;
+}
+
+let _tvCssInjected=false;
+function _injectTemplateViewsCss(src){
+  if(_tvCssInjected) return;
+  const m=src.match(/<style>([\s\S]*?)<\/style>/);
+  if(!m) return;
+  const tag=document.createElement('style');
+  tag.id='tv-imported-css';
+  tag.textContent=m[1];
+  document.head.appendChild(tag);
+  _tvCssInjected=true;
+}
+
+// Cuts the one block whose header comment reads "CANONICAL LAYOUT: <marker>"
+// — from that comment line down to wherever the NEXT block's own header
+// starts ("// CANONICAL LAYOUT: " or "// CANONICAL DESTINATION: "), or the
+// "// ── DEMO" wiring at the file's bottom for the last block. Anchored to
+// a real line start (must follow a newline) so a prose MENTION of another
+// block's name elsewhere in a comment can't be mistaken for that block's
+// actual header. Does not stop at every "// ══" divider — each block's own
+// header comment is closed by one of those BEFORE its code even starts, so
+// stopping there would cut every block down to nothing but its comment.
+function _extractCanonicalBlock(src,markerText){
+  const marker='// CANONICAL LAYOUT: '+markerText;
+  const mi=src.indexOf('\n'+marker);
+  if(mi===-1) return null;
+  const lineStart=mi+1;
+  let end=src.length;
+  for(const stop of ['\n// CANONICAL LAYOUT: ','\n// CANONICAL DESTINATION: ','\n// ── DEMO']){
+    const idx=src.indexOf(stop,lineStart+marker.length);
+    if(idx!==-1 && idx<end) end=idx;
+  }
+  return src.slice(lineStart,end);
+}
+
+// Loads a layout's block (and any dependency blocks — e.g. Detail View's
+// sample data lives inside Row View's own block) exactly once each, ever,
+// per page load. A second page using the same layout just calls its
+// already-loaded create function again with a new container id — the
+// block itself (its `const`s) can only be executed once without a
+// "already declared" error, same reason each script tag only runs once.
+const _tvLoadedLayouts=new Set();
+async function importLayoutFromTemplateViews(layoutKey){
+  const manifest=LAYOUT_IMPORT_MANIFEST[layoutKey];
+  if(!manifest) return {ok:false,reason:'"'+layoutKey+'" has no import entry yet'};
+  let src;
+  try{ src=await _fetchTemplateViewsSource(); }
+  catch(e){ return {ok:false,reason:'could not fetch TemplateViews.html ('+e.message+') — this page must be served over http(s), not opened as a file:// path'}; }
+  _injectTemplateViewsCss(src);
+  for(const key of [...manifest.deps,layoutKey]){
+    if(_tvLoadedLayouts.has(key)) continue;
+    const block=_extractCanonicalBlock(src,LAYOUT_IMPORT_MANIFEST[key].marker);
+    if(!block) return {ok:false,reason:'could not find the "'+key+'" block in TemplateViews.html'};
+    const tag=document.createElement('script');
+    tag.textContent=block;
+    document.body.appendChild(tag);
+    _tvLoadedLayouts.add(key);
+  }
+  return {ok:true};
+}
+
+// Fetches + runs the layout, then calls its create function against the
+// already-rendered mount div. Fire-and-forget from renderAllPages() (the
+// mount div itself renders synchronously and instantly; the real content
+// pops in a moment later once the fetch resolves).
+async function hydrateImportedLayout(detailNum,layoutKey){
+  const mountId='tv-mount-'+detailNum;
+  const status=await importLayoutFromTemplateViews(layoutKey);
+  const mount=document.getElementById(mountId);
+  if(!mount) return; // page was re-rendered away (e.g. a newer page replaced it) before the fetch finished
+  if(!status.ok){
+    mount.outerHTML=`<div class="detail-empty">Could not import "${layoutKey}" from TemplateViews.html — ${status.reason}.</div>`;
+    return;
+  }
+  try{ new Function(LAYOUT_IMPORT_MANIFEST[layoutKey].call(mountId))(); }
+  catch(e){ mount.innerHTML=`<div class="detail-empty">"${layoutKey}" loaded but hit an error running it: ${e.message}</div>`; }
+}
+
+function toggleRail(){
+  document.getElementById('rightRail').classList.toggle('expanded');
+}
+
+// HOME (right rail) — added 2026-08-06, Ryan's direct instruction, same
+// implementation as TemplateViews.html's own goToHub — kept identical
+// between both files on purpose, copy verbatim if either one changes.
+// Broadcasts on the shared 'amit_hub_tabs' channel first (the Hub itself
+// carries the matching listener — see amit-hub.html's own "AMIT HUB FOCUS
+// CHANNEL" comment); if a genuinely open Hub tab answers within the brief
+// window below, it focuses itself and nothing else happens here. Only
+// falls back to opening a new tab if nothing answered.
+//
+// RELATIVE PATH, NOT the hardcoded live URL (fixed 2026-08-06, real bug
+// Ryan caught testing this live) — BroadcastChannel can only ever be heard
+// by a tab on the exact same origin; that's a hard browser security
+// boundary, not something any code here can work around. A hardcoded
+// absolute https://ask-amit.github.io URL meant this could NEVER work
+// while testing this page locally (file:// or localhost) against an
+// already-open Hub tab on the real live site — always a different origin,
+// always silently falling through to opening a duplicate tab. A relative
+// path fixes both cases at once: locally it resolves to the local Hub
+// file (same origin as this page, channel actually works); once a real
+// project ships to ask-amit.github.io/Amit/ProjectName/ (one level under
+// Amit/, same as Hub/), this same relative path resolves to the exact
+// same live Hub URL as before — same origin there too, since every
+// shipped Amit project and the Hub itself sit as siblings under Amit/.
+const AMIT_HUB_URL='../Hub/amit-hub.html';
+function goToHub(){
+  if(typeof BroadcastChannel==='undefined'){ window.open(AMIT_HUB_URL,'amitHubTab'); return; }
+  const ch=new BroadcastChannel('amit_hub_tabs');
+  let acked=false;
+  ch.onmessage=(e)=>{ if(e.data&&e.data.type==='focus-ack'){ acked=true; ch.close(); } };
+  ch.postMessage({type:'focus-requested'});
+  setTimeout(()=>{
+    if(!acked) window.open(AMIT_HUB_URL,'amitHubTab');
+    ch.close();
+  },250);
+}
+
+function openPage(n){
+  document.querySelectorAll('.page-nav').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.detail').forEach(p=>p.classList.remove('active'));
+  const page=document.getElementById('page-'+n);
+  const detail=document.getElementById('detail-'+n);
+  if(page)page.classList.add('active');
+  if(detail)detail.classList.add('active');
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebarPages').classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════════
+// CANONICAL DESTINATION: POPUP — NOT a layout type. Generic overlay that
+// hosts whatever layout instance (copied in from TemplateViews.html) is
+// mounted inside it — content-agnostic, same as a Page or Tab slot.
+// ══════════════════════════════════════════════
+function popupOpen(innerHtml){
+  let modal=document.getElementById('canonicalPopup');
+  modal.innerHTML=`<div class="popup-card" id="canonicalPopupCard">
+    <div class="popup-close-btn" onclick="popupClose()">CLOSE ✕</div>
+    ${innerHtml}
+  </div>`;
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) popupClose(); });
+  modal.style.display='flex';
+}
+function popupClose(){
+  const modal=document.getElementById('canonicalPopup');
+  if(modal) modal.style.display='none';
+}
+
+// ══════════════════════════════════════════════
+// LOGIN CONNECTION — the one live piece of this template. Supabase auth
+// only: knows who is signed in. No data reads/writes beyond that.
+// ══════════════════════════════════════════════
+if(db){
+  db.auth.onAuthStateChange(async (event,session)=>{
+    currentUser=session?session.user:null;
+    _updateSyncUI();
+    // Appearance (2026-10-01): pull this login's saved theme (or clear it on
+    // sign-out). Deferred with setTimeout so no supabase call is awaited
+    // inside this callback (supabase-js v2 can deadlock if you do).
+    if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
+    // re-pull this project's pages under the now-current owner, so a
+    // signed-in user's real Supabase page list replaces whatever the
+    // signed-out localStorage cache was showing
+    customPages=await loadCustomPages();
+    renderAllPages();
+  });
+}
+
+// Drives the Sign In/Out + Sync rail item.
+function _updateSyncUI(){
+  const item=document.getElementById('rail-sync');if(!item)return;
+  const icon=document.getElementById('rail-sync-icon');
+  const name=document.getElementById('rail-sync-name');
+  const sub=document.getElementById('rail-sync-sub');
+  icon.classList.add('plug-badge');
+  if(currentUser){
+    icon.innerHTML='<span class="plug-icon-glyph">🔓</span>';name.textContent='Sign Out';sub.textContent='Synced';
+    item.dataset.tip='Sign Out — Synced';item.title='Signed in · '+currentUser.email;
+    item.classList.add('active');
+    icon.classList.add('connected');icon.classList.remove('disconnected');
+  } else {
+    icon.innerHTML='<span class="plug-icon-glyph">🔒</span>';name.textContent='Sign In';sub.textContent='Not Synced';
+    item.dataset.tip='Sign In — Not Synced';item.title='';
+    item.classList.remove('active');
+    icon.classList.add('disconnected');icon.classList.remove('connected');
+  }
+}
+
+async function signOutAmit(){
+  if(!db)return;
+  await db.auth.signOut();
+  currentUser=null;
+  _updateSyncUI();
+}
+
+// Drives the Demo rail item and flips the toggle.
+function toggleDemoMode(){
+  demoMode=!demoMode;
+  localStorage.setItem('amit_demo_mode',demoMode?'on':'off');
+  _updateDemoUI();
+  // A real project's own views should re-fetch their demo-scoped data
+  // here too, the same way Calendar View/Day View do in TemplateViews.html
+  // (cvActiveContainers.forEach(...), dayViewInstances.forEach(...)) —
+  // add that wiring once real layouts using fetchDemoRows exist on this
+  // page.
+}
+
+function _updateDemoUI(){
+  const icon=document.getElementById('rail-demo-icon');
+  const item=document.getElementById('rail-demo');
+  const name=document.getElementById('rail-demo-name');
+  const sub=document.getElementById('rail-demo-sub');
+  if(!item)return;
+  if(demoMode){
+    icon.style.opacity='1';name.textContent='Demo On';sub.textContent="Amit's Data Shown";
+    item.dataset.tip='Demo On';item.title="Showing Amit's demo data — click to use your own";
+    item.classList.add('active');
+  } else {
+    icon.style.opacity='.4';name.textContent='Demo Off';sub.textContent='Your Data Only';
+    item.dataset.tip='Demo Off';item.title='Demo mode off — showing your own data';
+    item.classList.remove('active');
+  }
+}
+
+async function sendMagicLink(email){
+  if(!db)return'Database not available';
+  const{error}=await db.auth.signInWithOtp({email});
+  return error?error.message:null;
+}
+
+function openSyncModal(){
+  if(currentUser){if(confirm('Signed in as '+currentUser.email+'\n\nSign out?'))signOutAmit();return;}
+  const m=document.getElementById('syncModal');if(!m)return;
+  m.style.display='flex';
+}
+function closeSyncModal(){const m=document.getElementById('syncModal');if(m)m.style.display='none';}
+async function submitSyncEmail(){
+  const email=document.getElementById('syncEmailInput').value.trim();if(!email)return;
+  const btn=document.getElementById('syncSubmitBtn');btn.textContent='Sending…';btn.disabled=true;
+  const err=await sendMagicLink(email);
+  if(err){btn.textContent='Try again';btn.disabled=false;}
+  else{
+    document.querySelector('#syncModal .sync-modal-card').innerHTML=`
+      <div style="color:rgba(var(--amit-accent-rgb,201,168,76),.9);font-family:var(--amit-font-heading,'Cinzel',serif);font-size:17px;margin-bottom:14px">Link sent</div>
+      <div style="color:rgba(var(--amit-text-rgb,240,232,208),.7);font-size:13px;line-height:1.7">Check your email.<br>Click the link to sign in.</div>
+      <div onclick="closeSyncModal()" style="margin-top:20px;font-size:10px;color:rgba(var(--amit-text-rgb,240,232,208),.35);cursor:pointer;letter-spacing:.08em">CLOSE</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════
+// CLOCK / GREETING — visual only, no data behind it
+// ══════════════════════════════════════════════
+const AMIT_NAME_KEY='amit_user_name';
+function getUserName(){return localStorage.getItem(AMIT_NAME_KEY)||'';}
+
+function updateClock(){
+  const d=new Date();
+  const h=d.getHours();
+  const sal=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  const name=getUserName();
+  const g=document.getElementById('greeting');if(g)g.textContent=name?sal+', '+name:sal;
+  const dt=document.getElementById('datetime');
+  if(dt)dt.textContent=d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+updateClock();
+setInterval(updateClock,30000);
+</script>
+
+</body>
+</html>
