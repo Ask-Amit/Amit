@@ -174,7 +174,7 @@ function Do-Shortcuts {
 }
 
 function Do-Remove {
-    Step "Removing Amit from this computer"
+    Step "Removing Amit's helper from this computer"
     Say "    1. closing Amit's small programs..."
     Stop-Amit
     Note (@(Get-AmitProcesses).Count -eq 0) "None of Amit's programs are running"
@@ -198,7 +198,7 @@ function Do-Remove {
     $left = @(Get-AmitProcesses).Count
     Note ($left -eq 0) "Nothing of Amit is running"
     Say ""
-    Say "    Left alone on purpose: your documents, the AmitInbox folder if you made one, your Amit account online, Claude, Node.js, Edge and Chrome." "DarkGray"
+    Say "    Left alone on purpose: Amit himself (he lives online; sign in any time), your documents, the AmitInbox folder if you made one, your Amit account online, Claude, Node.js, Edge and Chrome." "DarkGray"
 }
 
 function Do-Reinstall {

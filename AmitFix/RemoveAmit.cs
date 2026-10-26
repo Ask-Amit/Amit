@@ -13,8 +13,8 @@ class RemoveAmit
     {
         bool fresh = args.Length > 0 && args[0] == "--fresh";
         string ask = fresh
-            ? "Start fresh?\n\nThis removes Amit and its saved data from this computer, then opens the newest installer so you can put Amit back clean.\n\nYour documents and your online Amit account are not touched."
-            : "Remove Amit from this computer?\n\nThis closes Amit's small programs, turns off start-with-Windows, removes its shortcuts and deletes its files and saved data, then checks that it is really gone.\n\nYour documents and your online Amit account are not touched. You can come back any time.";
+            ? "Start fresh?\n\nThis removes Amit's helper and its saved data from this computer, then opens the newest installer so you can put it back clean. Amit himself lives online and is not affected.\n\nYour documents and your online Amit account are not touched."
+            : "Remove Amit's helper from this computer?\n\nThis closes Amit's small programs, turns off start-with-Windows, removes its shortcuts and deletes its files and saved data, then checks that it is really gone.\n\nAmit himself lives online and is not affected, and your documents and account are not touched. You can come back any time.";
         if (MessageBox.Show(ask, "Amit Fix", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         try
         {
