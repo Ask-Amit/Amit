@@ -612,6 +612,19 @@ async function amitAppearanceSave(db, templateKey, overrides){
   }catch(e){ return {ok:false, error:(e && e.message)||'Save failed.'}; }
 }
 
+// DROPDOWN OPTIONS (added 2026-10-26, Ryan: "I've seen this multiple times"): the list that opens from a <select> is drawn by the browser, and
+// where a page styled the closed box with light text, the options came out light-on-white and looked missing (only the first showed). One rule
+// here, in the shared file, so EVERY app that loads this file follows the active theme: dark themes get dark options, light themes get light ones.
+(function(){
+  try{
+    if(document.getElementById('amit-select-option-fix')) return;
+    const st=document.createElement('style');
+    st.id='amit-select-option-fix';
+    st.textContent='select option,select optgroup{background-color:#132a42;background-color:var(--amit-surface-raised,#132a42);color:#f0e8d0;color:var(--amit-text-soft,#f0e8d0)}';
+    (document.head||document.documentElement).appendChild(st);
+  }catch(e){}
+})();
+
 function amitAppearancePreview(templateKey, overrides){ _amitAppearanceApply(templateKey, overrides); }
 function amitAppearanceResetPreview(){ _amitAppearanceApplyFromCache(); }
 
