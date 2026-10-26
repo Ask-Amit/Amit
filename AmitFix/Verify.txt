@@ -1,5 +1,5 @@
 AMIT'S HELPER: INDEPENDENT VERIFICATION PACKET
-Generated 2026-10-26 | installer 4.62 | helper v1.07 | AmitFix page v1.05
+Generated 2026-10-26 | installer 4.62 | helper v1.07 | AmitFix page v1.06
 Public link to this file: https://ask-amit.github.io/Amit/AmitFix/Verify.txt
 
 === FOR THE PERSON ASKING (copy this part into any AI, or post it on a security forum) ===
@@ -43,8 +43,10 @@ BEHAVIOURS THAT WILL LOOK SUSPICIOUS TO A SCANNER, AND WHY THEY ARE THERE (verif
     under the person's profile folder, and reports only true/false to the website (search ".credentials.json" in amit_bridge_server.ps1; the token is never sent).
  9. VIRUSTOTAL: app_behavior_watcher.ps1 can look up a file's hash on VirusTotal, only if the person has supplied their own API key. It sends hashes, not files.
 10. UNSIGNED: no code-signing certificate has been bought yet, so Windows shows "unknown publisher". Expect that and low-reputation flags on new files.
-11. TWO DEVELOPER-ONLY COMPONENTS ship in the package and are inert elsewhere: amit_mobile_watcher.ps1 (needs a local key file Database\supabase_config.md that exists only
-    on the developer's computer; without it the script throws and stops) and the Ask Amit answering watcher (started only if %LOCALAPPDATA%\AmitComputerHealth\ask_watcher.json
+11. DEVELOPER-ONLY COMPONENTS are in the public source and are inert on an ordinary installation: amit_mobile_watcher.ps1 is packed inside install-Amit.exe but the installer
+    does NOT copy it into the installed folder (see $filesToCopy in Install_AmitTracker.ps1), and the helper starts it only if that file exists next to it (Test-Path in amit_bridge_server.ps1).
+    If it were present it needs a local key file Database\supabase_config.md that exists only on the developer's computer, and stops with an error without it. The Ask Amit answering
+    watcher likewise starts only if %LOCALAPPDATA%\AmitComputerHealth\ask_watcher.json exists.
     exists). Also, the helper contains a route (/api/coder-token) that writes a credentials file at a path under the profile folder for a developer workflow; it needs
     the developer's Amit folder to exist. We know these should not be in the public package and plan to move them out; flagging them is part of being honest.
 

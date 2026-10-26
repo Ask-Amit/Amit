@@ -335,7 +335,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitFix</div>
-      <div class="page-version" id="pageVersion">v1.05</div>
+      <div class="page-version" id="pageVersion">v1.06</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -747,6 +747,26 @@ async function fxShare(){
   else{fxCopy('fxLink',document.getElementById('fxShareBtn'));}
 }
 
+// ---- Check It ----
+const FX_CHECK_ASK='Below are two things: (1) a packet describing a software package called Amit\'s helper, with claims, source links and file fingerprints; (2) a read-only integrity report from a computer where it is installed. Please act as a skeptical security reviewer. Tell me whether the report shows any sign of malware or tampering (files that differ, extra programs, odd start-up entries, anything listening on the network), whether the packet\'s claims are consistent with the report, and anything the authors left out. Do not take the authors\' word for anything.';
+async function fxCopyCheckAsk(){const ok=await fxClip(FX_CHECK_ASK);document.getElementById('fxCheckMsg').innerHTML=ok?'<span class="fx-ok">Question copied.</span> Paste it into an AI, then paste the Verify packet and your report after it.':'<span class="fx-no">Copy blocked by your browser.</span>';}
+async function fxFetchText(names){for(const u of names){try{const r=await fetch(u);if(r.ok){const t=await r.text();if(t.length>200)return t;}}catch(e){}}return null;}
+async function fxDownloadCheck(){
+  if(fxPhone){alert('The check runs on the Windows computer where Amit is installed. Open this page on that computer (the Send It page can email or text you the link).');return;}
+  const ps=await fxFetchText(['Amit_Check.ps1',FX_RAW+'Amit_Check.ps1']);
+  const man=await fxFetchText(['Check_Manifest.json',FX_RAW+'Check_Manifest.json']);
+  if(!ps||!man){alert('Could not load the check program. Check your connection and try again.');return;}
+  const hdr=['@echo off','setlocal','title Amit Check (read-only)',
+    'powershell -NoProfile -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText(\'%~f0\'); $a=$t.IndexOf(\'#MANI\'+\'FEST-START#\'); $b=$t.IndexOf(\'#PS\'+\'-START#\'); $m=$t.Substring($a+16,$b-$a-16).Trim(); $f=Join-Path $env:TEMP \'Amit_Check_Manifest.json\'; [IO.File]::WriteAllText($f,$m); & ([scriptblock]::Create($t.Substring($b+10))) -ManifestPath $f -Pause"',
+    'exit /b','#MANIFEST-START#'];
+  const nl=s=>s.replace(/\r?\n/g,'\r\n');
+  const body=hdr.join('\r\n')+'\r\n'+nl(man.trim())+'\r\n#PS-START#\r\n'+nl(ps);
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([body],{type:'application/octet-stream'}));a.download='Amit_Check.cmd';document.body.appendChild(a);a.click();a.remove();
+  popupOpen(`<div class="fx-h">Almost there &mdash; one thing for you to do</div>
+    <div class="fx-lede"><b>Open Amit_Check.cmd</b> from your Downloads (double-click). It only reads; it changes nothing. The report is copied to your clipboard when it finishes.</div>
+    <div class="fx-panel">If Windows or your browser says <b>"unknown publisher"</b> or <b>"may be unsafe"</b>: choose <b>Keep</b>, then <b>More info &rarr; Run anyway</b>. You can read the whole program first with the "Read the check program" button.</div>`);
+}
+
 // ---- Verify It ----
 const FX_ASK='Please analyse the software package below as a skeptical security reviewer. Is any of it malware, spyware, a keylogger or otherwise harmful? Check each claim in the checklist against the source code yourself, and tell me where the claims are wrong, missing or misleading. Do not take the authors\' word for anything.';
 async function fxLoadPacket(){
@@ -873,6 +893,21 @@ function fxPages(){
     <div class="fx-small" style="max-width:760px;line-height:1.8">The whole program is one readable text file: <a class="fx-btn quiet" href="${FX_RAW}Amit_Fix.ps1" target="_blank" rel="noopener">Read Amit_Fix.ps1</a><br>Windows may show "unknown publisher" because we have not bought a code-signing certificate yet. That is the only reason, and it is why we let you read it first.</div>
     </div>`;
 
+  const page6=`<div class="detail-head"><span class="detail-heading">Check It</span></div>
+    <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px;max-width:none">
+    <div class="fx-say">Two worries, one check. You may wonder if Amit's files on your computer are safe. We wonder if anything of ours has been tampered with. This answers both.</div>
+    <div class="fx-lede">This compares every file Amit installed on <b>your computer</b> against the fingerprints (SHA-256) we published, and reports exactly which match, which differ and which don't belong. It <b>only reads</b>: it changes nothing, installs nothing and sends nothing. You get a plain report, already copied for you, to paste into any AI or send to us.</div>
+    <div style="margin:14px 0"><button class="fx-btn big" onclick="fxDownloadCheck()">Download the check (Amit_Check.cmd)</button></div>
+    <div class="fx-h">What it looks at</div>
+    <div class="fx-small" style="max-width:780px;line-height:1.9">&bull; Every file in Amit's installed folder: match, different, or missing.<br>&bull; Any extra file or program that Amit did not put there.<br>&bull; The start-with-Windows entry, the two web-link handlers and the desktop shortcuts: do they point at Amit's own program and nowhere else?<br>&bull; Which Amit programs are running, and whether any listens to the network instead of just this computer.<br>&bull; Whether the programs are signed. (Not yet; we haven't bought a certificate, so "NotSigned" is expected.)<br>&bull; It also fetches the fingerprint list a <b>second</b> time straight from GitHub and checks that it agrees with this page's copy, so a tampered web page alone can't fool it.</div>
+    <div class="fx-h">Then</div>
+    <div class="fx-small" style="max-width:780px;line-height:1.9">1. Run it. A black window shows the report and a verdict: <b>ALL MATCH</b>, <b>OLDER VERSION</b> (update, then check again), or <b>DIFFERENCES FOUND</b>.<br>2. It is copied to your clipboard. Paste it into any AI together with the <a href="#" onclick="event.preventDefault();openPage(5)" style="color:var(--gold2)">Verify packet</a> and ask the question below, to have an independent opinion.<br>3. If anything differs after you are up to date: <b>Remove Amit</b> (Wrap tab), <b>Install Amit</b>, check again, and <b>please tell us</b>. Press the gold Amit icon and send the report. We want to know if a file differs, because it could mean your computer has malware, or that something of ours has been compromised.</div>
+    <div style="margin:14px 0"><button class="fx-btn" id="fxCopyCheckAskBtn" onclick="fxCopyCheckAsk()">Copy the question to ask an AI</button> <a class="fx-btn quiet" href="Amit_Check.ps1" target="_blank" rel="noopener">Read the check program</a> <a class="fx-btn quiet" href="Check_Manifest.json" target="_blank" rel="noopener">Read the fingerprint list</a></div>
+    <div class="fx-small" id="fxCheckMsg"></div>
+    <div class="fx-h">The honest limits</div>
+    <div class="fx-small" style="max-width:780px;line-height:1.9">&bull; The fingerprint list comes from us. That is why the check also pulls a second copy from GitHub, and why the source files and their history are public: anyone can see if they were changed.<br>&bull; A computer that is already badly infected could in theory fake the output of any program run on it. For real certainty, run the check from a second trusted computer on a copy of the same files, or hash the files yourself in PowerShell with <b>Get-FileHash &lt;file&gt; -Algorithm SHA256</b> (exact for the .exe files; text files are compared after line endings are normalised, which the check program does for you).<br>&bull; "ALL MATCH" means your copy is identical to what we published. It does not prove the published files are good; that is what the Verify packet and your own independent AI are for.</div>
+    </div>`;
+
   const page5=`<div class="detail-head"><span class="detail-heading">Verify It</span></div>
     <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px;max-width:none">
     <div class="fx-say">Don't take our word for it. Ask someone who doesn't work for us to check.</div>
@@ -887,7 +922,7 @@ function fxPages(){
     </div>
     <div class="fx-small" id="fxPacketMsg"></div>
     <div class="fx-h">What you will see in it (it names these first, on purpose)</div>
-    <div class="fx-small" style="max-width:780px;line-height:1.9">&bull; Voice typing uses a system-wide <b>mouse</b> hook and types into other programs (it has no keyboard hook, no clipboard access, no screen capture).<br>&bull; A small web server that listens on <b>this computer only</b> (localhost).<br>&bull; Hidden PowerShell, runtime compiling, start-with-Windows, two per-user web-link handlers.<br>&bull; The installer can add Node.js and Claude Code if missing.<br>&bull; Two developer-only components ship in the package and do nothing on other computers. We say so, and plan to move them out.<br>&bull; No code-signing certificate yet, so Windows says "unknown publisher".</div>
+    <div class="fx-small" style="max-width:780px;line-height:1.9">&bull; Voice typing uses a system-wide <b>mouse</b> hook and types into other programs (it has no keyboard hook, no clipboard access, no screen capture).<br>&bull; A small web server that listens on <b>this computer only</b> (localhost).<br>&bull; Hidden PowerShell, runtime compiling, start-with-Windows, two per-user web-link handlers.<br>&bull; The installer can add Node.js and Claude Code if missing.<br>&bull; Developer-only parts are in the public source but are inert on ordinary computers (the Amit Mobile watcher is not even installed). We say so, and plan to move them out.<br>&bull; No code-signing certificate yet, so Windows says "unknown publisher".</div>
     <div class="fx-h">Read it here</div>
     <details><summary class="fx-small" style="cursor:pointer;color:var(--gold2)">Show the packet</summary><pre id="fxPacket" class="fx-small" style="white-space:pre-wrap;margin-top:10px;max-height:420px;overflow:auto;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:8px;padding:12px">Loading&hellip;</pre></details>
     </div>`;
@@ -897,7 +932,8 @@ function fxPages(){
     {id:2,icon:'📨',name:'Send It',sub:'Link · QR · email · PDF',html:page2,flex:true},
     {id:3,icon:'💛',name:'Our Heart',sub:'Welcome · farewell',html:page3,flex:true},
     {id:4,icon:'🔍',name:"What's On My Computer",sub:'Everything, in plain words',html:page4,flex:true},
-    {id:5,icon:'🕵️',name:'Verify It',sub:'Have anyone check us',html:page5,flex:true}
+    {id:5,icon:'🕵️',name:'Verify It',sub:'Have anyone check us',html:page5,flex:true},
+    {id:6,icon:'🧬',name:'Check It',sub:'Is my copy the real one?',html:page6,flex:true}
   ];
 }
 

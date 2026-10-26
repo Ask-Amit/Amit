@@ -93,8 +93,10 @@ P(' 8. It READS two local files to answer yes/no questions: it checks whether Cl
 P('    under the person\'s profile folder, and reports only true/false to the website (search ".credentials.json" in amit_bridge_server.ps1; the token is never sent).');
 P(' 9. VIRUSTOTAL: app_behavior_watcher.ps1 can look up a file\'s hash on VirusTotal, only if the person has supplied their own API key. It sends hashes, not files.');
 P('10. UNSIGNED: no code-signing certificate has been bought yet, so Windows shows "unknown publisher". Expect that and low-reputation flags on new files.');
-P('11. TWO DEVELOPER-ONLY COMPONENTS ship in the package and are inert elsewhere: amit_mobile_watcher.ps1 (needs a local key file Database\\supabase_config.md that exists only');
-P('    on the developer\'s computer; without it the script throws and stops) and the Ask Amit answering watcher (started only if %LOCALAPPDATA%\\AmitComputerHealth\\ask_watcher.json');
+P('11. DEVELOPER-ONLY COMPONENTS are in the public source and are inert on an ordinary installation: amit_mobile_watcher.ps1 is packed inside install-Amit.exe but the installer');
+P('    does NOT copy it into the installed folder (see $filesToCopy in Install_AmitTracker.ps1), and the helper starts it only if that file exists next to it (Test-Path in amit_bridge_server.ps1).');
+P('    If it were present it needs a local key file Database\\supabase_config.md that exists only on the developer\'s computer, and stops with an error without it. The Ask Amit answering');
+P('    watcher likewise starts only if %LOCALAPPDATA%\\AmitComputerHealth\\ask_watcher.json exists.');
 P('    exists). Also, the helper contains a route (/api/coder-token) that writes a credentials file at a path under the profile folder for a developer workflow; it needs');
 P('    the developer\'s Amit folder to exist. We know these should not be in the public package and plan to move them out; flagging them is part of being honest.');
 P('');
@@ -145,3 +147,14 @@ P('');
 P('Questions, or something we missed? Please tell us, publicly if you like. We would rather be corrected than trusted.');
 fs.writeFileSync('Verify.txt',L.join('\n')+'\n');
 console.log('Verify.txt written, lines:',L.length,'hosts:',hosts.size);
+
+// ---- Check_Manifest.json: the fingerprints of exactly the files the installer places in the installed folder (used by Amit_Check.ps1) ----
+{
+  const INSTALLED=['amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','AmitTracker.exe','AmitSensorReader.exe','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_icon.ico'];
+  const TEXT=['.ps1','.cs','.html','.bat','.txt','.json','.md'];
+  const files={};
+  for(const n of INSTALLED){const f=W+n;if(!fs.existsSync(f))throw new Error('manifest: missing '+f);files[n]={sha256:TEXT.includes(path.extname(n).toLowerCase())?shaText(f):sha(f)};}
+  const manifest={installer:instVer,helper:bridgeVer,generated:today,note:'SHA-256 of each file the installer places in %LOCALAPPDATA%/AmitComputerHealth/Watchers. Text files are hashed with CRLF normalised to LF.',files,dataFiles:['installed_version.txt','device_id.txt']};
+  fs.writeFileSync('Check_Manifest.json',JSON.stringify(manifest,null,2)+'\n');
+  console.log('Check_Manifest.json written, files:',Object.keys(files).length);
+}
