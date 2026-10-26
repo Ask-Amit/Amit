@@ -46,7 +46,7 @@
     <p>This is the speech recognition that lets <b>Amit</b> hear what you say. With it you can <b>speak to any program on your computer</b>: a message box, a web address bar, a search box, your code editor &mdash; anywhere you can type.</p>
     <h2 style="margin-top:14px">How to use it</h2>
     <ol>
-      <li>Click where you want the words to go (or just hold the button over that box).</li>
+      <li><b>Click inside a text box</b> (or any field that accepts text) so it has the cursor. Amit can only type into a text box that has focus; if none is active, it will tell you instead of typing.</li>
       <li>Hold the <b id="btn2">right mouse button</b> until the small box next to your pointer says <b>&ldquo;Amit is listening&rdquo;</b>.</li>
       <li>Speak. Your words appear as you talk, and Amit tidies them up when you finish a sentence.</li>
       <li>Let go. <span id="enternote">(If &ldquo;Press Enter when I let go&rdquo; is on below, Amit also presses Enter to send.)</span></li>
@@ -62,6 +62,7 @@
     <div class="row">Button: <b id="btn">right mouse button</b> <button id="learn" type="button">Change button</button></div>
     <div class="row">Hold for <select id="hold"><option value="200">0.2 s</option><option value="300">0.3 s</option><option value="400">0.4 s</option><option value="600">0.6 s</option></select> before it starts listening</div>
     <div class="row"><label><input type="checkbox" id="ent"> Press Enter when I let go (sends the message, or runs the search)</label></div>
+    <div class="row"><label><input type="checkbox" id="txo"> Only type when a text box is active (recommended: stops your words and Enter going to a web page or a button)</label></div>
     <div class="row">Keep Whisper mode ready:
       <select id="ready">
         <option value="press">Only start it when I press the button</option>
@@ -273,6 +274,7 @@
     if (!s) return;
     $('en').checked = !!s.enabled;
     $('ent').checked = !!s.sendEnter;
+    $('txo').checked = s.textOnly !== false;
     if (s.keepReady) { $('ready').value = s.keepReady; $('readynote').className = (s.keepReady === 'never' ? 'note warn' : 'note'); }
     $('btn').textContent = BTN[s.button] || s.button;
     $('btn2').textContent = BTN[s.button] || s.button;
@@ -289,6 +291,7 @@
   $('en').onchange = function () { setting('enabled=' + (this.checked ? '1' : '0')); };
   $('hold').onchange = function () { setting('hold=' + this.value); };
   $('ent').onchange = function () { setting('enter=' + (this.checked ? '1' : '0')); };
+  $('txo').onchange = function () { setting('textonly=' + (this.checked ? '1' : '0')); };
   $('ready').onchange = function () { setting('ready=' + this.value); };
   $('hub').onclick = function () { fetch('/api/whisper/open-hub?k=' + encodeURIComponent(TOKEN), { cache: 'no-store' }).catch(function () {}); };
   $('learn').onclick = function () {

@@ -27,7 +27,7 @@ using System.Windows.Automation;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.01";
+    public const string Version = "1.02";
 
     // ---------- settings (saved in %LOCALAPPDATA%\AmitComputerHealth\whisper_settings.txt) ----------
     static volatile bool enabled = true;
@@ -36,6 +36,9 @@ public static class AmitWhisper
     static volatile bool micOk = false;      // the page has been allowed to use the microphone at least once
     static volatile bool setupShown = false; // the one-time "press Allow" window has been shown
     static string keepReady = "10";            // how long the listening window stays ready: "press" (only start it when the button is pressed), "5", "10", "30" minutes unused, or "never"
+    static volatile bool textOnly = true;    // only type when the thing that has the keyboard focus is a text box (recommended); stops words and Enter going to a web page, a button, a menu
+    static volatile bool targetChecked = false;
+    static string abortMsg = "";             // why nothing was typed (shown when the person lets go, instead of "nothing heard")
     static volatile bool sendEnter = false;  // press Enter when the button is let go (only if something was typed); off unless the person turns it on
     static string settingsPath, logPath, profileDir, iconPath;
     static int bridgePort = 8710;
@@ -65,6 +68,8 @@ public static class AmitWhisper
     static bool phraseStarted = false;
     const int MaxLiveBackspace = 14;         // while a phrase is still going, never rewrite more than this many characters
     const int MaxFinalRewrite = 260;         // when a phrase finishes, rewrite at most this many
+    static IntPtr lastUserWnd = IntPtr.Zero;   // the last window the person was using that is not the Amit window: where words go if the Amit window has the focus
+    static System.Threading.Timer fgTrack;
     static IntPtr fgAtStart = IntPtr.Zero;   // the window that had focus when listening began; if it changes, typing stops
     static volatile bool typingAborted = false;
     static string lastTargetName = "";
@@ -128,6 +133,7 @@ public static class AmitWhisper
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
     [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int left, top, right, bottom; }
     [StructLayout(LayoutKind.Sequential)] struct WINDOWPLACEMENT { public int length, flags, showCmd; public POINT ptMin, ptMax; public RECT rcNormal; }
@@ -161,6 +167,8 @@ public static class AmitWhisper
         hookThread.Start();
         idleTimer = new System.Threading.Timer(delegate { IdleCheck(); }, null, 10000, 10000);
         lastHookTick = Environment.TickCount; prevTick = lastHookTick;
+        { POINT p0; if (GetCursorPos(out p0)) { prevX = p0.x; prevY = p0.y; } }   // start the hook watchdog from where the pointer really is
+        fgTrack = new System.Threading.Timer(delegate { TrackForeground(); }, null, 1000, 400);
         hookWatch = new System.Threading.Timer(delegate { HookWatchdog(); }, null, 6000, 3000);
         // First run on this computer: show the listening window once so the person can press Allow for the microphone,
         // instead of meeting that question in the middle of their first dictation.
@@ -273,6 +281,119 @@ public static class AmitWhisper
         lastHookTick = Environment.TickCount;
     }
 
+    // Remember the last window the person was using, ignoring the Amit window itself. Seen in real use: dictations were typed into the Amit
+    // window (or a browser page) because that was where the keyboard focus happened to be, so the words and the Enter never reached the chat.
+    static void TrackForeground()
+    {
+        try
+        {
+            IntPtr fg = GetForegroundWindow();
+            if (fg == IntPtr.Zero) return;
+            if (WindowTitle(fg).Length == 0) return;                                              // not a real program window
+            if (WindowTitle(fg).IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0) return;   // the Amit window
+            uint pid; GetWindowThreadProcessId(fg, out pid);
+            Process hp = host;
+            try { if (hp != null && !hp.HasExited && hp.Id == (int)pid) return; } catch { }       // the window belongs to the helper's own listening browser
+            lastUserWnd = fg;
+        }
+        catch { }
+    }
+
+    // Bring a window to the front and give it the keyboard focus. Windows normally refuses this from a background program, so the usual
+    // workaround is used: join the input queue of the window that has the focus for a moment.
+    static bool FocusWindow(IntPtr h)
+    {
+        try
+        {
+            if (h == IntPtr.Zero) return false;
+            if (IsIconic(h)) ShowWindow(h, 9);
+            IntPtr fg = GetForegroundWindow();
+            uint pid; uint fgThread = GetWindowThreadProcessId(fg, out pid);
+            uint me = GetCurrentThreadId();
+            bool attached = (fgThread != 0 && fgThread != me) && AttachThreadInput(me, fgThread, true);
+            SetForegroundWindow(h);
+            if (attached) AttachThreadInput(me, fgThread, false);
+            Thread.Sleep(150);
+            return GetForegroundWindow() == h;
+        }
+        catch { return false; }
+    }
+
+    // What kind of thing has the KEYBOARD focus right now? 1 = a text box, 0 = clearly not (a web page, a button, a menu, a list...), -1 = cannot tell.
+    // Measured in real use: VS Code's message box shows up as an Edit named "Message input" (editable); its conversation area is a Group.
+    static int FocusedTextState(out string what)
+    {
+        int state = -1; string desc = "";
+        Thread th = new Thread(delegate ()
+        {
+            try
+            {
+                AutomationElement el = AutomationElement.FocusedElement;
+                if (el == null) return;
+                ControlType ct = el.Current.ControlType;
+                string cls = el.Current.ClassName ?? "";
+                desc = ct.ProgrammaticName.Replace("ControlType.", "") + " \"" + (el.Current.Name ?? "") + "\"";
+                if (ct == ControlType.Edit) { state = 1; return; }
+                object vp;
+                if (el.TryGetCurrentPattern(ValuePattern.Pattern, out vp) && !((ValuePattern)vp).Current.IsReadOnly) { state = 1; return; }
+                if (ct == ControlType.Document && cls.IndexOf("edit", StringComparison.OrdinalIgnoreCase) >= 0) { state = 1; return; }
+                if (ct == ControlType.Document || ct == ControlType.Group || ct == ControlType.Pane || ct == ControlType.Menu || ct == ControlType.MenuItem || ct == ControlType.MenuBar
+                    || ct == ControlType.Button || ct == ControlType.Hyperlink || ct == ControlType.List || ct == ControlType.ListItem || ct == ControlType.Tab || ct == ControlType.TabItem
+                    || ct == ControlType.Text || ct == ControlType.Image || ct == ControlType.ToolBar || ct == ControlType.TitleBar || ct == ControlType.Window || ct == ControlType.Tree
+                    || ct == ControlType.TreeItem || ct == ControlType.DataItem || ct == ControlType.Table || ct == ControlType.CheckBox || ct == ControlType.RadioButton) state = 0;
+            }
+            catch { }
+        });
+        th.IsBackground = true;
+        th.Start();
+        if (!th.Join(600)) { what = "(timed out)"; return -1; }
+        what = desc;
+        return state;
+    }
+
+    static bool TerminalLike(string p)
+    {
+        switch (p)
+        {
+            case "windowsterminal": case "conhost": case "openconsole": case "cmd": case "powershell": case "pwsh": case "putty": case "mintty": case "wezterm-gui": case "alacritty":
+            case "mstsc": case "vmconnect": case "vmware": case "virtualboxvm": case "wsl": case "wslhost": return true;
+        }
+        return false;
+    }
+
+    static string FriendlyProgram(string p)
+    {
+        switch (p) { case "msedge": return "Edge"; case "chrome": return "Chrome"; case "firefox": return "Firefox"; case "code": return "VS Code"; case "notepad": return "Notepad"; case "explorer": return "File Explorer"; }
+        return p.Length == 0 ? "this window" : p;
+    }
+
+    // Once per dictation, just before the first word would be typed (after the click into a text box under the pointer has had time to happen):
+    // if the keyboard focus is clearly NOT a text box, type nothing and press no Enter, and say so. Without this, words and Enter went into
+    // web pages and buttons and were silently lost.
+    static void CheckTarget()
+    {
+        if (targetChecked) return;
+        targetChecked = true;
+        if (!textOnly || typingAborted || TestSink != null) return;
+        try
+        {
+            IntPtr fg = GetForegroundWindow();
+            string pn = ProcessNameOf(fg);
+            if (TerminalLike(pn)) return;     // terminals and remote desktops do not describe their input to Windows; trust the person
+            string what;
+            int st = FocusedTextState(out what);
+            Log("Focus check in " + (pn.Length > 0 ? pn : "?") + ": " + (st == 1 ? "a text box" : st == 0 ? "NOT a text box" : "could not tell") + " (" + what + ")");
+            if (st == 0)
+            {
+                typingAborted = true;
+                abortMsg = "Amit can only type into a text box\nThe text box must have focus: click inside a text box, or any field that accepts text, then hold the button again.";
+                ShowOverlay(abortMsg);
+                HideOverlayLater(5000);
+            }
+        }
+        catch { }
+    }
+
     static bool IsMyDown(int msg, uint md)
     {
         switch (button)
@@ -365,7 +486,7 @@ public static class AmitWhisper
             if (state != ST_PENDING || token != t) return;
             state = ST_LISTEN; x = downX; y = downY;
             startSent = false; typedAny = false; audioStarted = false; segTyped = 0; lastInterim = ""; endedEvt.Reset();
-            correctionOk = false; curTyped = ""; phraseStarted = false; typingAborted = false; fgAtStart = IntPtr.Zero; lastTargetName = ""; modeReady.Reset(); typeModeDecided = false; typeMode = 0;
+            correctionOk = false; curTyped = ""; phraseStarted = false; typingAborted = false; fgAtStart = IntPtr.Zero; lastTargetName = ""; modeReady.Reset(); typeModeDecided = false; typeMode = 0; targetChecked = false; abortMsg = "";
             if (capTimer != null) capTimer.Dispose();
             capTimer = new System.Threading.Timer(delegate { CapReached(t); }, null, MaxListenSeconds * 1000, Timeout.Infinite);
         }
@@ -452,7 +573,8 @@ public static class AmitWhisper
                 Log("Pressed Enter (send on release)");
             }
             startSent = false;
-            if (!tooQuick) { ShowOverlay(typedAny ? (sendEnter ? "Amit heard you\nSending..." : "Amit heard you") : "Amit did not hear anything\nTry again, a little closer to the microphone."); HideOverlayLater(typedAny ? 800 : 1800); }
+            if (typingAborted && abortMsg.Length > 0 && !typedAny) { ShowOverlay(abortMsg); HideOverlayLater(4500); }
+            else if (!tooQuick) { ShowOverlay(typedAny ? (sendEnter ? "Amit heard you\nSending..." : "Amit heard you") : "Amit did not hear anything\nTry again, a little closer to the microphone."); HideOverlayLater(typedAny ? 800 : 1800); }
         }
         catch (Exception ex) { Log("EndDictation: " + ex.Message); }
         finally { lock (sync) { if (token == t && state == ST_FINISH) state = ST_IDLE; } }
@@ -484,15 +606,33 @@ public static class AmitWhisper
                     {
                         audioStarted = true;
                         ShowOverlay("Amit is listening\nSpeak now");
-                        // remember which window has focus now; if that changes while typing, typing stops (never edit the wrong place)
+                        // Where will the words go? Remember which window has the focus now; if that changes while typing, typing stops.
+                        // If the Amit window itself has the focus, typing would go into it and be lost: put the focus back on the window the
+                        // person was last using, or, if that is not possible, type nothing and say why.
                         IntPtr fg = GetForegroundWindow();
-                        if (WindowTitle(fg).IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) < 0) fgAtStart = fg;
+                        bool ours = WindowTitle(fg).IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (ours && FocusWindow(lastUserWnd)) { fg = GetForegroundWindow(); ours = WindowTitle(fg).IndexOf("Amit Whisper mode", StringComparison.OrdinalIgnoreCase) >= 0; Log("The Amit window had the focus; moved it back to " + ProcessNameOf(fg)); }
+                        if (ours)
+                        {
+                            typingAborted = true;
+                            abortMsg = "Amit can't type into its own window\nClick where you want the words, then hold the button again.";
+                            Log("Dictation target: the Amit window itself - nothing typed, no Enter");
+                            ShowOverlay(abortMsg);
+                            HideOverlayLater(4500);
+                        }
+                        else
+                        {
+                            fgAtStart = fg;
+                            string tt = WindowTitle(fg); if (tt.Length > 50) tt = tt.Substring(0, 50);
+                            Log("Dictation target: " + ProcessNameOf(fg) + " \"" + tt + "\"");
+                        }
                     }
                     break;
                 case "interim":
                     if (SessionActive())
                     {
                         modeReady.WaitOne(700);   // wait (briefly) until we know what kind of field this is
+                        CheckTarget();
                         lock (sync) { lastInterim = text; }
                         if (correctionOk)
                         {
@@ -513,6 +653,7 @@ public static class AmitWhisper
                     if (SessionActive() && text.Length > 0)
                     {
                         modeReady.WaitOne(700);
+                        CheckTarget();
                         if (correctionOk)
                         {
                             // the phrase is finished: replace what was typed with the engine's finished version (capitals, punctuation)
@@ -575,8 +716,9 @@ public static class AmitWhisper
         if (fgAtStart == IntPtr.Zero) return true;     // not known: do not block
         if (GetForegroundWindow() == fgAtStart) return true;
         typingAborted = true;
+        abortMsg = "Amit stopped typing\nThe window you were typing in is no longer in front.";
         Log("Stopped typing: the window that had focus changed");
-        ShowOverlay("Amit stopped typing\nThe window you were typing in is no longer in front.");
+        ShowOverlay(abortMsg);
         HideOverlayLater(3000);
         return false;
     }
@@ -1235,6 +1377,7 @@ public static class AmitWhisper
                 else if (k == "micOk") micOk = v == "1";
                 else if (k == "setupShown") setupShown = v == "1";
                 else if (k == "sendEnter") sendEnter = v == "1";
+                else if (k == "textOnly") textOnly = v != "0";
                 else if (k == "keepReady" && (v == "press" || v == "30s" || v == "5" || v == "10" || v == "30" || v == "never")) keepReady = v;
             }
         }
@@ -1242,7 +1385,7 @@ public static class AmitWhisper
     }
     static void SaveSettings()
     {
-        try { File.WriteAllText(settingsPath, "enabled=" + (enabled ? "1" : "0") + "\r\nbutton=" + button + "\r\nholdMs=" + holdMs + "\r\nmicOk=" + (micOk ? "1" : "0") + "\r\nsetupShown=" + (setupShown ? "1" : "0") + "\r\nsendEnter=" + (sendEnter ? "1" : "0") + "\r\nkeepReady=" + keepReady + "\r\n"); } catch { }
+        try { File.WriteAllText(settingsPath, "enabled=" + (enabled ? "1" : "0") + "\r\nbutton=" + button + "\r\nholdMs=" + holdMs + "\r\nmicOk=" + (micOk ? "1" : "0") + "\r\nsetupShown=" + (setupShown ? "1" : "0") + "\r\nsendEnter=" + (sendEnter ? "1" : "0") + "\r\nkeepReady=" + keepReady + "\r\ntextOnly=" + (textOnly ? "1" : "0") + "\r\n"); } catch { }
     }
 
     // enabledStr "1"/"0" or empty to leave alone; holdStr milliseconds or empty
@@ -1259,6 +1402,9 @@ public static class AmitWhisper
 
     // "1" turns on pressing Enter when the button is let go; "0" turns it off
     public static string SetSendEnter(string v) { sendEnter = v == "1"; SaveSettings(); return StatusJson(); }
+
+    // "1" = only type into a text box (default); "0" = type wherever the focus is
+    public static string SetTextOnly(string v) { textOnly = v != "0"; SaveSettings(); return StatusJson(); }
 
     // Opens the Amit Hub in the person's own default browser (so their existing sign-in is used). The address is fixed here on purpose.
     public static string OpenHub()
@@ -1304,7 +1450,7 @@ public static class AmitWhisper
         string st;
         lock (sync) { st = state == ST_IDLE ? "idle" : state == ST_PENDING ? "pending" : state == ST_LISTEN ? "listening" : state == ST_FINISH ? "finishing" : "drag"; }
         return "{\"version\":\"" + Version + "\",\"enabled\":" + (enabled ? "true" : "false") + ",\"button\":\"" + button + "\",\"holdMs\":" + holdMs
-            + ",\"sendEnter\":" + (sendEnter ? "true" : "false") + ",\"keepReady\":\"" + keepReady + "\"" + ",\"hook\":" + (hookOk ? "true" : "false") + ",\"page\":" + (PageAlive() ? "true" : "false") + ",\"micOk\":" + (micOk ? "true" : "false")
+            + ",\"sendEnter\":" + (sendEnter ? "true" : "false") + ",\"keepReady\":\"" + keepReady + "\",\"textOnly\":" + (textOnly ? "true" : "false") + ",\"hook\":" + (hookOk ? "true" : "false") + ",\"page\":" + (PageAlive() ? "true" : "false") + ",\"micOk\":" + (micOk ? "true" : "false")
             + ",\"learning\":" + (learning ? "true" : "false") + ",\"state\":\"" + st + "\",\"browser\":\"" + browserUsed + "\"}";
     }
 

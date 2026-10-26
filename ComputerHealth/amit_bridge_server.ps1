@@ -1,5 +1,7 @@
 # Amit Computer Health - Local Bridge Server
-# Version v1.05 (2026-10-26) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# Version v1.06 (2026-10-26) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# v1.06: Whisper mode settings routes grew: /api/whisper/settings now also takes ready= (how long the listening window stays ready) and textonly= (only type into a text box),
+# and there are /api/whisper/open-hub and /api/whisper/test-overlay (all token-protected like the rest).
 # v1.05: WHISPER MODE (Ryan: hold a mouse button anywhere, speak, let go, and the words are typed where the cursor is). The code is
 # amit_whisper.cs (compiled here with Add-Type, so it is part of this one shared agent, not a new program or port) and the listening
 # page amit_whisper.html (served at /whisper). New routes: /whisper, /api/whisper/wait|event|status|settings|learn. Whisper traffic does
@@ -1092,6 +1094,8 @@ try {
                     if ($wEnter) { [void][AmitWhisper]::SetSendEnter($wEnter) }
                     $wReady = $request.QueryString["ready"]
                     if ($wReady) { [void][AmitWhisper]::SetKeepReady($wReady) }
+                    $wTextOnly = $request.QueryString["textonly"]
+                    if ($wTextOnly) { [void][AmitWhisper]::SetTextOnly($wTextOnly) }
                     Send-JsonRaw $response ([AmitWhisper]::Configure($wEn, $wHold, $wBtn))
                 }
             }

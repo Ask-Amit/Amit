@@ -10,13 +10,19 @@
 # Safe to run again later - it checks what's already installed and skips
 # steps that are already done, unless -Force is passed.
 #
+# UPDATING (2026-10-26): the installer program passes -InstallerVersion (its own version). A version note is kept next to the installed files
+# (installed_version.txt). If an install already exists and its recorded version is OLDER than the installer's (or no version is recorded,
+# which is every install made before this), the running helper is stopped, every program file is replaced with the new one, and the helper is
+# started again by the installer program. Before this, running a newer installer over an old install silently skipped the copy and left the
+# old program in place. Settings (Whisper mode choices, device id) live outside the replaced files and are kept.
+#
 # Works two ways: if run from inside a full copy of the ComputerHealth folder
 # (the sibling scripts sitting right next to this one), it copies from there.
 # If run standalone - e.g. downloaded as this one file from the dashboard's
 # "Download the Installer" link - it fetches every other required file
 # directly from GitHub instead, since nothing else exists locally yet.
 
-param([switch]$Force, [switch]$NoAutoStart)
+param([switch]$Force, [switch]$NoAutoStart, [string]$InstallerVersion = "")
 
 $installDir = "$env:LOCALAPPDATA\AmitComputerHealth"
 $watcherInstallDir = "$installDir\Watchers"
@@ -36,11 +42,44 @@ Write-Host "Install location: $installDir"
 Write-Host ""
 
 # --- Step 1: copy watcher/bridge scripts ---
-$alreadyInstalled = (Test-Path "$watcherInstallDir\amit_bridge_server.ps1") -and -not $Force
+$versionFile = "$watcherInstallDir\installed_version.txt"
+$isInstalled = Test-Path "$watcherInstallDir\amit_bridge_server.ps1"
+$installedVersion = ""
+if (Test-Path $versionFile) { try { $installedVersion = (Get-Content $versionFile -Raw).Trim() } catch {} }
+$upgrading = $false
+if ($isInstalled -and $InstallerVersion -ne "") {
+    try { $upgrading = ($installedVersion -eq "") -or ([version]$installedVersion -lt [version]$InstallerVersion) } catch { $upgrading = ($installedVersion -ne $InstallerVersion) }
+}
+$redo = $Force -or $upgrading     # replace shortcuts and settings entries too, not only the program files
+
+# Stops Amit's helper (the tray program, the bridge, the watchers and the Whisper window) so its files can be replaced. Only this person's
+# own Amit programs; never the installer itself ($PID).
+function Stop-AmitHelper([string]$CommandPattern = 'amit_bridge_server\.ps1|activity_watcher2\.ps1|resource_watcher\.ps1|diagnostics_watcher\.ps1|app_behavior_watcher\.ps1|amit_mobile_watcher\.ps1|install_snapshot_watcher\.ps1', [string]$TrayName = 'AmitTracker', [string]$EdgeMatch = '*AmitComputerHealth*whisper_profile*') {
+    Write-Host "  Stopping the running Amit helper so its files can be replaced..."
+    try { Get-Process -Name $TrayName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue } catch {}
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -match $CommandPattern } |
+            ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    } catch {}
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandLine -like $EdgeMatch } |
+            ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    } catch {}
+    Start-Sleep -Seconds 2
+}
+
+$alreadyInstalled = $isInstalled -and -not $Force -and -not $upgrading
 if ($alreadyInstalled) {
-    Write-Host "[1/4] Watcher scripts already installed - skipping (use -Force to reinstall)."
+    Write-Host "[1/4] Amit's helper is already installed and up to date - skipping (use -Force to reinstall)."
 } else {
-    Write-Host "[1/4] Installing watcher scripts..."
+    if ($upgrading) {
+        Write-Host ("[1/4] Updating Amit's helper" + $(if ($installedVersion) { " from version $installedVersion" } else { " (an earlier version)" }) + " to version $InstallerVersion...")
+        if (-not $env:AMIT_INSTALL_TEST_NO_STOP) { Stop-AmitHelper }
+    } else {
+        Write-Host "[1/4] Installing watcher scripts..."
+    }
     New-Item -ItemType Directory -Path $watcherInstallDir -Force | Out-Null
     $filesToCopy = @(
         "amit_bridge_server.ps1", "ComputerHealth_Dashboard.html",
@@ -53,7 +92,9 @@ if ($alreadyInstalled) {
     foreach ($f in $filesToCopy) {
         $src = "$scriptDir\$f"
         if (Test-Path $src) {
-            Copy-Item $src "$watcherInstallDir\$f" -Force
+            # the sensor reader is large (about 75 MB), runs elevated, and rarely changes: do not replace it when it is already the same file
+            if ($f -eq "AmitSensorReader.exe" -and (Test-Path "$watcherInstallDir\$f") -and ((Get-Item "$watcherInstallDir\$f").Length -eq (Get-Item $src).Length)) { continue }
+            try { Copy-Item $src "$watcherInstallDir\$f" -Force -ErrorAction Stop } catch { Write-Host "  Warning: could not replace $f ($($_.Exception.Message)) - it may still be running; restart the computer and run the installer again." }
         } else {
             try {
                 Invoke-WebRequest -Uri "$githubRawBase/$f" -OutFile "$watcherInstallDir\$f" -TimeoutSec 20 -ErrorAction Stop
@@ -62,8 +103,10 @@ if ($alreadyInstalled) {
             }
         }
     }
+    if ($InstallerVersion -ne "") { try { Set-Content -Path $versionFile -Value $InstallerVersion -Encoding ASCII } catch {} }
     Write-Host "  Done."
 }
+if ($env:AMIT_INSTALL_TEST_COPY_ONLY) { Write-Host "(test run: stopping after step 1)"; exit 0 }
 
 # --- Step 1b: Node.js + Claude Code CLI (for AmitBooks local receipt
 # processing) - optional, non-fatal if it fails. This is what
@@ -231,7 +274,7 @@ $desktopPath = [Environment]::GetFolderPath("Desktop")
 # real mechanism for a desktop icon that opens a website is a .url file
 # (Internet Shortcut), a simple INI-format text file - not a COM object.
 $shortcutPath = "$desktopPath\Amit.url"
-if ((Test-Path $shortcutPath) -and -not $Force) {
+if ((Test-Path $shortcutPath) -and -not $redo) {
     Write-Host "[3/4] Desktop shortcut already exists - skipping."
 } else {
     Write-Host "[3/4] Creating desktop shortcut..."
@@ -256,7 +299,7 @@ IconIndex=0
 $trackerShortcutPath = "$desktopPath\Amit Live.lnk"
 $oldTrackerShortcutPath = "$desktopPath\Amit Tracker.lnk"   # the name this shortcut had before it was called Amit Live: replaced, not duplicated
 if (Test-Path $oldTrackerShortcutPath) { try { Remove-Item $oldTrackerShortcutPath -Force -ErrorAction Stop } catch {} }
-if ((Test-Path $trackerShortcutPath) -and -not $Force) {
+if ((Test-Path $trackerShortcutPath) -and -not $redo) {
     Write-Host "[3/4] 'Amit Live' desktop shortcut already exists - skipping."
 } else {
     Write-Host "[3/4] Creating 'Amit Live' desktop shortcut..."
