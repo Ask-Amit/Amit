@@ -1,5 +1,6 @@
 # Amit Computer Health - Local Bridge Server
-# Version v1.06 (2026-10-26) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# Version v1.07 (2026-10-26) - first numbered version was v1.01 (baseline v1.00 = everything before).
+# v1.07: no personal path is written into the program any more: the AmitInbox folder and the owner-only credentials path are built from the signed-in Windows user's own profile folder ($env:USERPROFILE) instead of one fixed user name (found while preparing the public Verify It page; same result on the original computer, correct on every other).
 # v1.06: Whisper mode settings routes grew: /api/whisper/settings now also takes ready= (how long the listening window stays ready) and textonly= (only type into a text box),
 # and there are /api/whisper/open-hub and /api/whisper/test-overlay (all token-protected like the rest).
 # v1.05: WHISPER MODE (Ryan: hold a mouse button anywhere, speak, let go, and the words are typed where the cursor is). The code is
@@ -1272,7 +1273,7 @@ try {
                 try {
                     $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
                     $json = $body | ConvertFrom-Json
-                    $credPath = "C:\Users\user1\OneDrive\Documents - onedrive\Amit\Database\amit_coder_credentials.md"
+                    $credPath = Join-Path $env:USERPROFILE "OneDrive\Documents - onedrive\Amit\Database\amit_coder_credentials.md"
                     $content = @"
 # AmitCoder Credentials - LOCAL ONLY, never committed to GitHub
 
@@ -1318,7 +1319,7 @@ secret key must never appear here, ever, under any circumstance.
                 try {
                     $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
                     $json = $body | ConvertFrom-Json
-                    $inboxDir = "C:\Users\user1\AmitInbox"
+                    $inboxDir = Join-Path $env:USERPROFILE "AmitInbox"
                     if (-not (Test-Path $inboxDir)) { New-Item -ItemType Directory -Path $inboxDir -Force | Out-Null }
                     $safeName = ($json.filename -replace '[^\w\.\-]', '_')
                     $imgPath = Join-Path $inboxDir $safeName
@@ -1360,7 +1361,7 @@ secret key must never appear here, ever, under any circumstance.
                 try {
                     $body = [System.IO.StreamReader]::new($request.InputStream).ReadToEnd()
                     $json = $body | ConvertFrom-Json
-                    $inboxDir = "C:\Users\user1\AmitInbox"
+                    $inboxDir = Join-Path $env:USERPROFILE "AmitInbox"
                     $batPath = "$watcherDir\process_inbox.bat"
                     # mode (added 2026-08-02): "light" for the quick pass,
                     # anything else (including absent) defaults to Detailed

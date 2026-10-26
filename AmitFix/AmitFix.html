@@ -335,7 +335,7 @@ header{
     <img src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">AmitFix</div>
-      <div class="page-version" id="pageVersion">v1.01</div>
+      <div class="page-version" id="pageVersion">v1.05</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -574,7 +574,7 @@ const FX_ACTIONS={
   'startup-on':{scene:'Call time',name:'Start with Windows',plain:'Amit opens quietly when you sign in so it is ready.',tag:'safe, reversible'},
   'shortcuts-remove':{scene:'Strike the sign',name:'Remove desktop shortcuts',plain:'Takes Amit\'s icons off your desktop. Nothing else is touched.',tag:'safe'},
   'forget-data':{scene:'Burn the notes',name:'Forget what Amit kept here',plain:'Erases the readings and history Amit stored on this computer. Your online account is not touched.',tag:'asks you to confirm'},
-  'remove':{scene:'That\'s a wrap',name:'Remove Amit\'s helper',plain:'Closes Amit\'s helper on this computer, turns off start-with-Windows, deletes its files, saved data and shortcuts, then checks it is really gone. Amit himself lives online and is not affected. Like it was never installed.',tag:'asks you to confirm'},
+  'remove':{scene:'That\'s a wrap',name:'Remove Amit',plain:'Closes Amit\'s helper on this computer, turns off start-with-Windows, deletes its files, saved data and shortcuts, then checks it is really gone. Amit himself lives online and is not affected. Like it was never installed.',tag:'asks you to confirm'},
   'reinstall':{scene:'Re-shoot',name:'Get the newest installer',plain:'Opens the download for the current Amit installer. Used after removing, for a clean start.',tag:'safe'}
 };
 const FX_SYMPTOMS={
@@ -584,7 +584,8 @@ const FX_SYMPTOMS={
   'update':{label:'I have an old version / it won\'t update',pick:['remove','reinstall'],tab:2},
   'broken':{label:'Something is broken and I don\'t know what',pick:['remove','reinstall'],tab:2},
   'look':{label:'I just want to look first',pick:['check'],tab:2},
-  'leave':{label:'I\'m done with Amit',pick:['remove'],tab:5}
+  'leave':{label:'I\'m done with Amit',pick:['remove'],tab:5},
+  'install':{label:'I want to install Amit',pick:[],tab:6}
 };
 const fxParams=new URLSearchParams(location.search);
 const fxFrom=(fxParams.get('from')||'').toLowerCase();
@@ -666,6 +667,14 @@ function fxAfterDownload(){
     <div class="fx-panel">If Windows or your browser says <b>"unknown publisher"</b> or <b>"may be unsafe"</b>: that is only because we have not bought a code-signing certificate yet. Choose <b>Keep</b>, then <b>More info &rarr; Run anyway</b>. You can read every line of what it does first on the "What's on my computer" page.</div>
     <div class="fx-small">Nothing here goes online. It only touches what Amit itself put on this computer.</div>`);
 }
+function fxDownloadInstaller(){
+  if(fxPhone){alert('The Amit installer is for a Windows computer. Open this page on that computer (the Send It page can email or text you the link).');return;}
+  const a=document.createElement('a');a.href='../ComputerHealth/install-Amit.exe';a.download='install-Amit.exe';document.body.appendChild(a);a.click();a.remove();
+  popupOpen(`<div class="fx-h">Your installer is downloading</div>
+    <div class="fx-lede">It is about 73 MB. When it finishes, <b>open it</b> (double-click <b>install-Amit.exe</b> in your Downloads).</div>
+    <div class="fx-panel">If Windows says <b>"unknown publisher"</b> or <b>"may be unsafe"</b>: that is only because we have not bought a code-signing certificate yet. Choose <b>Keep</b>, then <b>More info &rarr; Run anyway</b>.</div>
+    <div class="fx-small">A black window will show for about 10 to 20 seconds. That is the setup working. A message then tells you this computer is connected.</div>`);
+}
 function fxDownloadExe(fresh){
   if(fxPhone){alert('This program is for the Windows computer where Amit is installed. Open this page there.');return;}
   const a=document.createElement('a');a.href='Remove-Amit.exe';a.download='Remove-Amit.exe';document.body.appendChild(a);a.click();a.remove();
@@ -738,6 +747,34 @@ async function fxShare(){
   else{fxCopy('fxLink',document.getElementById('fxShareBtn'));}
 }
 
+// ---- Verify It ----
+const FX_ASK='Please analyse the software package below as a skeptical security reviewer. Is any of it malware, spyware, a keylogger or otherwise harmful? Check each claim in the checklist against the source code yourself, and tell me where the claims are wrong, missing or misleading. Do not take the authors\' word for anything.';
+async function fxLoadPacket(){
+  for(const u of ['Verify.txt',FX_RAW+'Verify.txt']){
+    try{const r=await fetch(u);if(r.ok){const t=await r.text();if(t.length>2000)return t;}}catch(e){}
+  }
+  return null;
+}
+async function fxClip(text){
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(text);return true;}}catch(e){}
+  const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+  let ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();return ok;
+}
+async function fxCopyPacket(){
+  const m=document.getElementById('fxPacketMsg');m.textContent='Getting the packet...';
+  const t=await fxLoadPacket();
+  if(!t){m.innerHTML='<span class="fx-no">Could not load the packet. Check your connection, or open Verify.txt and copy it by hand.</span>';return;}
+  const ok=await fxClip(t);
+  m.innerHTML=ok?'<span class="fx-ok">Copied ('+Math.round(t.length/1024)+' KB).</span> Paste it into any AI or forum, and add the question (the next button copies it).':'<span class="fx-no">Your browser blocked copying. Use Open Verify.txt and select all.</span>';
+}
+async function fxCopyAsk(){const ok=await fxClip(FX_ASK);document.getElementById('fxPacketMsg').innerHTML=ok?'<span class="fx-ok">Question copied.</span>':'<span class="fx-no">Copy blocked by your browser.</span>';}
+async function fxCopyVLink(){
+  const u=(location.protocol.startsWith('http')&&location.hostname.endsWith('github.io'))?(new URL('Verify.txt',location.href).href):FX_BASE.replace('AmitFix.html','Verify.txt');
+  const ok=await fxClip(u);document.getElementById('fxPacketMsg').innerHTML=ok?'<span class="fx-ok">Link copied:</span> '+u:'<span class="fx-no">Copy blocked by your browser.</span>';
+}
+let fxPacketText=null;
+async function fxFillPacket(){const pre=document.getElementById('fxPacket');if(!pre)return;if(fxPacketText===null)fxPacketText=(await fxLoadPacket())||'';const p2=document.getElementById('fxPacket');if(p2)p2.textContent=fxPacketText||'The packet could not be loaded here. Open Verify.txt.';}
+
 function fxPages(){
   const hi=fxHello();
   const symButtons=Object.keys(FX_SYMPTOMS).map(k=>`<button class="fx-btn" onclick="fxPick('${k}')">${FX_SYMPTOMS[k].label}</button>`).join('');
@@ -748,7 +785,7 @@ function fxPages(){
     <div class="fx-panel" id="fxProbe">&hellip;</div>
     <div class="fx-h">What is happening? (tap one and I'll set up the fix)</div>
     <div class="fx-sym">${symButtons}</div>
-    <div class="fx-small" style="margin-top:14px">Or go straight to the tabs: <b>Make it right</b>, <b>Quiet on set</b>, <b>Browser &amp; phone</b>, <b>Wrap</b>. Not sure? Press the gold Amit icon on the right and ask.</div>`;
+    <div class="fx-small" style="margin-top:14px">Or go straight to the tabs: <b>Make it right</b>, <b>Quiet on set</b>, <b>Browser &amp; phone</b>, <b>Wrap</b>, <b>Install Amit</b>. Not sure? Press the gold Amit icon on the right and ask.</div>`;
   const t2=`<div class="fx-lede">Things that stopped working, or just need a fresh start. Tap the cards you want.</div>${cards(['check','restart','tidy','voice-reset'])}
     <div class="fx-h">Or start completely fresh</div>
     <div class="fx-lede" style="font-size:15px">Remove everything, then put the newest Amit back clean. This is also how you update, with no manual steps.</div>
@@ -763,17 +800,25 @@ function fxPages(){
     <div class="fx-small">If you put Amit Mobile on your home screen, remove it the way you remove any icon (press and hold it, then remove). Then clear this browser above.</div>`;
   const t5=`<div class="fx-say">We made Amit to walk alongside you, and we are sorry to see you go. Thank you for giving it a try.</div>
     <div class="fx-lede">If you are done, this is the honest way out: one button, and Amit's helper is gone from this computer. (Amit himself lives online and is not affected. Sign in any time.) It closes its programs, turns off start-with-Windows, removes its shortcuts, deletes its files and saved data, and then <b>checks</b> that it is really gone and shows you the result.</div>
-    <div style="margin:14px 0"><button class="fx-btn big" onclick="fxDownloadExe(false)">Download Remove-Amit.exe &mdash; remove Amit's helper</button></div>
-    <div class="fx-panel"><b>What stays, on purpose:</b> your documents, the AmitInbox folder if you made one, your Amit account online (it can be closed on request), Claude, Node.js, Edge and Chrome. Amit never installed those for you, so Amit won't remove them.</div>
+    <div style="margin:14px 0"><button class="fx-btn big" onclick="fxDownloadExe(false)">Download Remove-Amit.exe &mdash; Remove Amit</button></div>
+    <div class="fx-panel"><b>What stays, on purpose:</b> your documents, the AmitInbox folder if you made one, your Amit account online (it can be closed on request), Edge and Chrome. Also left alone: <b>Node.js and Claude Code</b>. Amit's installer adds those only if they are missing, to read receipts for AmitBooks. You may use them for other things now, so removal does not take them. To remove them too: Windows Settings &rarr; Apps.</div>
     <div class="fx-h">Prefer a plain file?</div>
     ${cards(['remove'])}
+    <div class="fx-panel" style="margin-top:14px"><b>Changed your mind, or removing it to start fresh?</b> The next tab, <b>Install Amit</b>, puts it back in one click. <button class="fx-btn quiet" onclick="fxShowTab(6)">Go to Install Amit &rarr;</button></div>
     <div class="fx-small" style="margin-top:12px">If something here wasn't right for you, we would honestly like to know, and we would love to have you back. Press the gold Amit icon and tell him. He passes it on.</div>`;
 
-  const tabs=['Start here','Make it right','Quiet on set','Browser &amp; phone','Wrap'];
+  const t6=`<div class="fx-say">Welcome. We are glad you are here, and glad you are back if you have been here before. We want to walk alongside you, and we promise to make it easy to leave whenever you like.</div>
+    <div class="fx-lede">This installs <b>Amit's helper</b> on this Windows computer: the small program that lets Amit work with your computer (voice typing in any program, and Computer Health). Amit himself lives online, so you can sign in on any device. This is the same installer as the one in the Hub.</div>
+    <div style="margin:14px 0"><button class="fx-btn big" onclick="fxDownloadInstaller()">Download the installer &mdash; Install Amit</button></div>
+    <div class="fx-h">What happens, step by step</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.9">1. Press the button. A file called <b>install-Amit.exe</b> (about 73 MB) downloads.<br>2. Open it. If Windows says "unknown publisher", choose <b>More info &rarr; Run anyway</b> (we have not bought a signing certificate yet).<br>3. A black window runs for 10 to 20 seconds. That is the setup. Nothing else is asked of you.<br>4. A message says this computer is connected. Amit starts quietly and will start with Windows (you can turn that off in <b>Quiet on set</b>).<br>5. Go back to the Hub. It shows Amit's helper as running. The first time you use voice typing, your browser asks once for the microphone.</div>
+    <div class="fx-panel" style="margin-top:14px"><b>Already installed?</b> Running the installer again <b>updates</b> it to the newest version and keeps your settings. If something is wrong, use <b>Remove Amit</b> first (the Wrap tab) for a completely clean start, then install.</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.8">It installs only in your own user area, needs no administrator rights, and everything it puts on your computer is listed in plain words on the <b>What's On My Computer</b> page. It is Windows only, and it needs an internet connection.</div>`;
+  const tabs=['Start here','Make it right','Quiet on set','Browser &amp; phone','Wrap','Install Amit'];
   const nav=tabs.map((t,i)=>`<button class="ch-tab-btn${i===0?' active':''}" onclick="showChTab(1,${i+1})">${t}</button>`).join('');
   const page1=`<div class="detail-head"><span class="detail-heading">Director's Chair</span></div>
     <div class="ch-tab-nav" id="ch-tab-nav-1">${nav}</div>
-    <div class="ch-tab-main">${tab(1,t1)}${tab(2,t2)}${tab(3,t3)}${tab(4,t4)}${tab(5,t5)}</div>
+    <div class="ch-tab-main">${tab(1,t1)}${tab(2,t2)}${tab(3,t3)}${tab(4,t4)}${tab(5,t5)}${tab(6,t6)}</div>
     <div class="fx-bar"><div class="fx-count" id="fxBarCount"></div><button class="fx-btn" id="fxBarGo" onclick="fxDownload()">Call it: download my fix</button></div>`;
 
   const kinds=['<option value="main">The main page</option>'].concat(Object.keys(FX_SYMPTOMS).map(k=>`<option value="${k}">For: ${FX_SYMPTOMS[k].label}</option>`)).join('');
@@ -812,6 +857,7 @@ function fxPages(){
     ['Two web-link handlers','Windows registry: amit-tracker and amit-helper (your user only)','Lets the Amit website open the helper.','Remove'],
     ['Desktop shortcuts','Amit.url, Amit Live.lnk on your desktop','Open Amit and its helper.','Remove desktop shortcuts / Remove'],
     ['A private listening window','Edge, with its own separate profile inside Amit\'s folder','Used only for voice typing. Never your own Edge.','Tidy / Reset voice typing / Remove'],
+    ['Node.js and Claude Code (only if they were missing)','Installed by Amit\'s installer, the usual Windows way','Used to read receipts for AmitBooks. General-purpose programs, so removal leaves them. ','Windows Settings &rarr; Apps (not removed here)'],
     ['Installer leftovers','Temporary folder: AmitInstallerFiles','Where the installer unpacked itself.','Tidy / Remove'],
     ['Saved in this browser','Amit\'s own web address only (not other sites)','Who you are signed in as, theme, pages you built.','Browser &amp; phone tab']
   ].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join('');
@@ -820,18 +866,38 @@ function fxPages(){
     <div class="fx-lede">This is everything Amit puts on a computer, in plain words. Nothing is hidden, and nothing needs administrator rights, because it is all in <b>your</b> user area only.</div>
     <table class="fx-table"><tr><th>What</th><th>Where</th><th>What it's for</th><th>How to remove it here</th></tr>${rows}</table>
     <div class="fx-h">What Amit never touches</div>
-    <div class="fx-small" style="max-width:760px;line-height:1.8">Your documents, photos and files. The AmitInbox folder if you made one. Claude, Node.js, your own Edge or Chrome and their saved data. Anything outside the list above. When it closes programs, it closes only Amit's own small helper programs and its private listening window.</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.8">Your documents, photos and files. The AmitInbox folder if you made one. Your own Edge or Chrome and their saved data. Node.js and Claude Code are left in place on purpose (see the table above). Anything outside the list above. When it closes programs, it closes only Amit's own small helper programs and its private listening window.</div>
     <div class="fx-h">Check it yourself afterward</div>
     <div class="fx-small" style="max-width:760px;line-height:1.9">1. Press Ctrl+Shift+Esc &rarr; <b>Startup apps</b>: nothing called Amit.<br>2. Open File Explorer and paste <b>%LOCALAPPDATA%</b>: no AmitComputerHealth folder.<br>3. Your desktop: no Amit icons.<br>The program shows the same checks on screen when it finishes.</div>
     <div class="fx-h">Read before you run</div>
     <div class="fx-small" style="max-width:760px;line-height:1.8">The whole program is one readable text file: <a class="fx-btn quiet" href="${FX_RAW}Amit_Fix.ps1" target="_blank" rel="noopener">Read Amit_Fix.ps1</a><br>Windows may show "unknown publisher" because we have not bought a code-signing certificate yet. That is the only reason, and it is why we let you read it first.</div>
     </div>`;
 
+  const page5=`<div class="detail-head"><span class="detail-heading">Verify It</span></div>
+    <div class="ch-tab-main" style="border-radius:var(--amit-radius,12px);margin-top:12px;max-width:none">
+    <div class="fx-say">Don't take our word for it. Ask someone who doesn't work for us to check.</div>
+    <div class="fx-lede">Anyone can have Amit's helper examined by an independent AI or a security forum, in a minute. We made one plain-text packet for it: what the programs are, every behavior that <i>looks</i> suspicious and why it is there, claims you can try to disprove, a fingerprint (hash) of every file, and every web address the code can reach. Personal details are left out.</div>
+    <div class="fx-h">How</div>
+    <div class="fx-small" style="max-width:760px;line-height:1.9">1. Press <b>Copy the packet</b>.<br>2. Paste it into any AI (or a security forum) and add: <i>"Please analyse this as a skeptical security reviewer. Is any of it malware or spyware? Check each claim against the source yourself."</i><br>3. Optional: run the installer on a spare computer or Windows Sandbox and compare. The packet explains how.</div>
+    <div style="margin:14px 0">
+      <button class="fx-btn big" id="fxCopyPacketBtn" onclick="fxCopyPacket()">Copy the packet</button>
+      <button class="fx-btn" id="fxCopyAskBtn" onclick="fxCopyAsk()">Copy the question to ask</button>
+      <a class="fx-btn" href="Verify.txt" target="_blank" rel="noopener">Open Verify.txt</a>
+      <button class="fx-btn" id="fxCopyVLinkBtn" onclick="fxCopyVLink()">Copy the link</button>
+    </div>
+    <div class="fx-small" id="fxPacketMsg"></div>
+    <div class="fx-h">What you will see in it (it names these first, on purpose)</div>
+    <div class="fx-small" style="max-width:780px;line-height:1.9">&bull; Voice typing uses a system-wide <b>mouse</b> hook and types into other programs (it has no keyboard hook, no clipboard access, no screen capture).<br>&bull; A small web server that listens on <b>this computer only</b> (localhost).<br>&bull; Hidden PowerShell, runtime compiling, start-with-Windows, two per-user web-link handlers.<br>&bull; The installer can add Node.js and Claude Code if missing.<br>&bull; Two developer-only components ship in the package and do nothing on other computers. We say so, and plan to move them out.<br>&bull; No code-signing certificate yet, so Windows says "unknown publisher".</div>
+    <div class="fx-h">Read it here</div>
+    <details><summary class="fx-small" style="cursor:pointer;color:var(--gold2)">Show the packet</summary><pre id="fxPacket" class="fx-small" style="white-space:pre-wrap;margin-top:10px;max-height:420px;overflow:auto;border:1px solid rgba(var(--amit-accent-rgb,201,168,76),.25);border-radius:8px;padding:12px">Loading&hellip;</pre></details>
+    </div>`;
+
   return [
     {id:1,icon:'🎬',name:"Director's Chair",sub:'Fix · quiet · remove',html:page1,flex:true},
     {id:2,icon:'📨',name:'Send It',sub:'Link · QR · email · PDF',html:page2,flex:true},
     {id:3,icon:'💛',name:'Our Heart',sub:'Welcome · farewell',html:page3,flex:true},
-    {id:4,icon:'🔍',name:"What's On My Computer",sub:'Everything, in plain words',html:page4,flex:true}
+    {id:4,icon:'🔍',name:"What's On My Computer",sub:'Everything, in plain words',html:page4,flex:true},
+    {id:5,icon:'🕵️',name:'Verify It',sub:'Have anyone check us',html:page5,flex:true}
   ];
 }
 
@@ -850,6 +916,7 @@ function renderAllPages(){
   fxRefresh();
   fxProbe();
   if(document.getElementById('fxKind'))fxSendRefresh();
+  fxFillPacket();
   if(prevTab>1)fxShowTab(prevTab);
   if(prevPage>1)openPage(prevPage);
 }
@@ -919,7 +986,7 @@ async function confirmAddPage(layoutKey){
 (async function buildPlaceholders(){
   customPages=[];
   renderAllPages();
-  { const pr=fxParams.get('problem'); if(pr&&FX_SYMPTOMS[pr]) fxPick(pr); const pg=parseInt(fxParams.get('page')||'0',10); if(pg>=1&&pg<=4) openPage(pg); }
+  { const pr=fxParams.get('problem'); if(pr&&FX_SYMPTOMS[pr]) fxPick(pr); const pg=parseInt(fxParams.get('page')||'0',10); if(pg>=1&&pg<=6) openPage(pg); }
 
   // RIGHT RAIL — Ask Amit / Sign In-Sync / Demo Mode, permanent, global.
   const rail=document.getElementById('rightRail');

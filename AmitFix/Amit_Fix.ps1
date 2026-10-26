@@ -7,7 +7,8 @@
 #   -Pause    keep the window open at the end so the person can read the result
 #
 # Safe by design: it only touches what Amit itself created (see the "What is on my computer" tab of the Amit Fix page for the full list).
-# It never touches documents, the AmitInbox folder, Claude, Node.js, Edge, or Chrome, and it never closes a program Amit did not start.
+# It never touches documents, the AmitInbox folder, Edge, or Chrome. Node.js and Claude Code CLI (which the installer adds only when missing, for AmitBooks receipts) are
+# deliberately left in place because they are general-purpose; the person removes them in Windows Settings > Apps if they wish. It never closes a program Amit did not start.
 # Test hooks (used only by the tests, never by a person): AMIT_FIX_HOME replaces %LOCALAPPDATA%, AMIT_FIX_DESKTOP replaces the desktop,
 # AMIT_FIX_NOREG=1 skips every registry change, AMIT_FIX_NOSTOP=1 skips stopping programs.
 
@@ -174,7 +175,7 @@ function Do-Shortcuts {
 }
 
 function Do-Remove {
-    Step "Removing Amit's helper from this computer"
+    Step "Removing Amit from this computer"
     Say "    1. closing Amit's small programs..."
     Stop-Amit
     Note (@(Get-AmitProcesses).Count -eq 0) "None of Amit's programs are running"
@@ -198,7 +199,8 @@ function Do-Remove {
     $left = @(Get-AmitProcesses).Count
     Note ($left -eq 0) "Nothing of Amit is running"
     Say ""
-    Say "    Left alone on purpose: Amit himself (he lives online; sign in any time), your documents, the AmitInbox folder if you made one, your Amit account online, Claude, Node.js, Edge and Chrome." "DarkGray"
+    Say "    Left alone on purpose: Amit himself (he lives online; sign in any time), your documents, the AmitInbox folder if you made one, your Amit account online, Edge and Chrome." "DarkGray"
+    Say "    Also left in place: Node.js and Claude Code (the installer adds them only if missing, for AmitBooks receipts). Remove them in Windows Settings > Apps if you wish." "DarkGray"
 }
 
 function Do-Reinstall {
