@@ -27,7 +27,7 @@ using System.Windows.Automation;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.00";
+    public const string Version = "1.01";
 
     // ---------- settings (saved in %LOCALAPPDATA%\AmitComputerHealth\whisper_settings.txt) ----------
     static volatile bool enabled = true;
@@ -73,6 +73,11 @@ public static class AmitWhisper
     static volatile bool learning = false;
     static int swallowUpMsg = 0;
     static volatile bool hookOk = false;
+    static int lastHookTick = 0;                 // Environment.TickCount the last time Windows called our hook
+    static DateTime lastHookRestart = DateTime.MinValue;
+    static System.Threading.Timer hookWatch;
+    static int prevTick = 0, prevX = 0, prevY = 0;
+    [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT p);
     static DateTime lastUse = DateTime.UtcNow;
     const int MaxListenSeconds = 120;
 
@@ -80,7 +85,8 @@ public static class AmitWhisper
     static readonly object cmdLock = new object();
     static long cmdSeq = 0;
     static string cmdName = "none";
-    static int pageWaiting = 0;
+    static int pageWaiting = 0;          // requests from the CURRENT listening window that are waiting for a command
+    static int hostGen = 0;              // changes every time the listening window closes or dies, so requests left over from a dead window are not counted
     static DateTime pageSeen = DateTime.MinValue;
     static Process host;
     static bool hostLaunchedVisible = false;
@@ -153,7 +159,9 @@ public static class AmitWhisper
         hookThread.IsBackground = true;
         hookThread.SetApartmentState(ApartmentState.STA);
         hookThread.Start();
-        idleTimer = new System.Threading.Timer(delegate { IdleCheck(); }, null, 60000, 60000);
+        idleTimer = new System.Threading.Timer(delegate { IdleCheck(); }, null, 10000, 10000);
+        lastHookTick = Environment.TickCount; prevTick = lastHookTick;
+        hookWatch = new System.Threading.Timer(delegate { HookWatchdog(); }, null, 6000, 3000);
         // First run on this computer: show the listening window once so the person can press Allow for the microphone,
         // instead of meeting that question in the middle of their first dictation.
         if (enabled && !micOk && !setupShown && Environment.GetEnvironmentVariable("AMIT_WHISPER_NOSETUP") != "1")
@@ -204,6 +212,7 @@ public static class AmitWhisper
     {
         try
         {
+            lastHookTick = Environment.TickCount;
             if (nCode >= 0 && enabled)
             {
                 int msg = wParam.ToInt32();
@@ -225,6 +234,43 @@ public static class AmitWhisper
         }
         catch { }
         return CallNextHookEx(hookHandle, nCode, wParam, lParam);
+    }
+
+    // Windows removes a low-level mouse hook WITHOUT TELLING the program if the hook is ever too slow to answer. Then holding the button does
+    // nothing and a right click behaves normally (seen in real use: dictation worked, then stopped, with nothing in the log). Every call of the
+    // hook is timestamped. If the pointer has moved since the last check but the hook was not called at all, the hook is gone: put it back.
+    static void HookWatchdog()
+    {
+        try
+        {
+            if (!enabled) return;
+            POINT p;
+            if (!GetCursorPos(out p)) return;
+            int tick = lastHookTick;
+            bool moved = p.x != prevX || p.y != prevY;
+            bool hookSilent = tick == prevTick;
+            prevX = p.x; prevY = p.y; prevTick = tick;
+            if (moved && hookSilent && (DateTime.UtcNow - lastHookRestart).TotalSeconds > 8)
+            {
+                Log("Mouse hook stopped answering (the pointer moved but Windows did not call it): putting it back");
+                RestartHook();
+            }
+        }
+        catch { }
+    }
+
+    static void RestartHook()
+    {
+        lastHookRestart = DateTime.UtcNow;
+        lock (sync) { state = ST_IDLE; token++; }
+        try { if (hookThreadId != 0) PostThreadMessage(hookThreadId, 0x0012, IntPtr.Zero, IntPtr.Zero); } catch { }
+        try { if (hookThread != null) hookThread.Join(1500); } catch { }
+        hookOk = false;
+        hookThread = new Thread(HookThread);
+        hookThread.IsBackground = true;
+        hookThread.SetApartmentState(ApartmentState.STA);
+        hookThread.Start();
+        lastHookTick = Environment.TickCount;
     }
 
     static bool IsMyDown(int msg, uint md)
@@ -621,7 +667,8 @@ public static class AmitWhisper
     // since < 0: tell me where you are now (a freshly loaded page ignores old commands)
     public static string WaitCommand(long since, int timeoutMs)
     {
-        lock (cmdLock) { pageWaiting++; pageSeen = DateTime.UtcNow; }
+        int myGen;
+        lock (cmdLock) { myGen = hostGen; pageWaiting++; pageSeen = DateTime.UtcNow; }
         try
         {
             lock (cmdLock)
@@ -631,10 +678,26 @@ public static class AmitWhisper
                 return "{\"seq\":" + cmdSeq + ",\"cmd\":\"" + (cmdSeq > since ? cmdName : "none") + "\"}";
             }
         }
-        finally { lock (cmdLock) { pageWaiting--; pageSeen = DateTime.UtcNow; } }
+        finally { lock (cmdLock) { if (myGen == hostGen) { pageWaiting--; pageSeen = DateTime.UtcNow; } } }   // a request left over from a window that has since closed must not make the page look alive
     }
 
-    static bool PageAlive() { lock (cmdLock) { return pageWaiting > 0 || (DateTime.UtcNow - pageSeen).TotalSeconds < 4; } }
+    // Is a listening window really there? Seen in real use: after the window closed (turned itself off, or was closed by hand) its last
+    // "waiting for a command" request stayed open inside the helper for up to 20 seconds, so the helper thought the page was alive,
+    // sent "start listening" into nothing, and the person talked for ten seconds with nothing captured. So: if the window process is gone,
+    // the page is dead at once, and requests left over from it are forgotten.
+    static bool PageAlive()
+    {
+        lock (cmdLock)
+        {
+            if (host != null)
+            {
+                bool dead = false;
+                try { dead = host.HasExited; } catch { dead = true; }
+                if (dead) { host = null; hostGen++; pageWaiting = 0; pageSeen = DateTime.MinValue; }
+            }
+            return pageWaiting > 0 || (DateTime.UtcNow - pageSeen).TotalSeconds < 4;
+        }
+    }
 
     // =====================================================================================================
     //  The browser window that does the listening
@@ -692,7 +755,7 @@ public static class AmitWhisper
     static void CloseHost()
     {
         Process h;
-        lock (cmdLock) { h = host; host = null; }
+        lock (cmdLock) { h = host; host = null; hostGen++; pageWaiting = 0; pageSeen = DateTime.MinValue; }
         if (h == null) return;
         try { if (!h.HasExited) { h.CloseMainWindow(); if (!h.WaitForExit(1500)) h.Kill(); } } catch { }
     }
@@ -794,11 +857,11 @@ public static class AmitWhisper
     {
         try
         {
-            int closeAfter = CloseAfterMinutes();
+            int closeAfter = CloseAfterSeconds();
             // If the person asked for it to be kept ready but the window is gone (closed by hand, or it stopped), bring it back quietly.
-            if (keepReady != "press" && enabled && micOk && HostGone() && (closeAfter == 0 || (DateTime.UtcNow - lastUse).TotalMinutes < closeAfter)) { EnsureHost(); return; }
+            if (keepReady != "press" && enabled && micOk && HostGone() && (closeAfter == 0 || (DateTime.UtcNow - lastUse).TotalSeconds < closeAfter)) { EnsureHost(); return; }
             if (closeAfter == 0) return;   // "never": the person chose to keep it running all the time
-            if ((DateTime.UtcNow - lastUse).TotalMinutes < closeAfter) return;
+            if ((DateTime.UtcNow - lastUse).TotalSeconds < closeAfter) return;
             lock (sync) { if (state != ST_IDLE) return; }
             if (host != null) { Log("Closing the idle listening page"); CloseHost(); }
         }
@@ -1172,7 +1235,7 @@ public static class AmitWhisper
                 else if (k == "micOk") micOk = v == "1";
                 else if (k == "setupShown") setupShown = v == "1";
                 else if (k == "sendEnter") sendEnter = v == "1";
-                else if (k == "keepReady" && (v == "press" || v == "5" || v == "10" || v == "30" || v == "never")) keepReady = v;
+                else if (k == "keepReady" && (v == "press" || v == "30s" || v == "5" || v == "10" || v == "30" || v == "never")) keepReady = v;
             }
         }
         catch { }
@@ -1210,18 +1273,20 @@ public static class AmitWhisper
         }
         catch (Exception ex) { return "{\"error\":\"" + ex.Message.Replace("\"", "'").Replace("\\", "/") + "\"}"; }
     }
-    // minutes unused before the listening window is closed (0 = never). "press" = only started when the button is pressed, closed after 2 minutes.
-    static int CloseAfterMinutes()
+    // seconds unused before the listening window is closed (0 = never). "press" = only started when the button is pressed, closed after 2 minutes;
+    // "30s" = 30 seconds; "5", "10", "30" = that many minutes.
+    static int CloseAfterSeconds()
     {
-        if (keepReady == "press") return 2;
+        if (keepReady == "press") return 120;
         if (keepReady == "never") return 0;
-        int m; return Int32.TryParse(keepReady, out m) && m > 0 ? m : 10;
+        if (keepReady == "30s") return 30;
+        int m; return Int32.TryParse(keepReady, out m) && m > 0 ? m * 60 : 600;
     }
 
     // "press", "5", "10", "30" or "never"
     public static string SetKeepReady(string v)
     {
-        if (v == "press" || v == "5" || v == "10" || v == "30" || v == "never")
+        if (v == "press" || v == "30s" || v == "5" || v == "10" || v == "30" || v == "never")
         {
             keepReady = v; SaveSettings();
             lastUse = DateTime.UtcNow;
