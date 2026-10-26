@@ -2,6 +2,8 @@
 
 ## Current State (2026-10-26)
 
+**LATEST (end of 2026-10-26): AmitFix v1.06 is LIVE (commit abf5a02). A phone/web-apps repair, remove and check feature is half-built in fix_js.txt and NOT live. Read AmitFix\CLAUDE.md, section "RESUME HERE", before doing anything. Ryan has little weekly usage left, so take the smallest next step.** (The block below is the older v1.00 state, kept for history.)
+
 AmitFix v1.00 is built locally and NOT pushed (waits for Ryan to say "push"). Files: AmitFix.html (page), Amit_Fix.ps1 (engine v1.00), Remove-Amit.exe (one-click remover, built from RemoveAmit.cs), How_to_Fix_or_Remove_Amit.pdf (one-page handout with QR), amit_icon.ico, plus build files (build.js, fix_css.txt, fix_js.txt, check.js, serve.js, mkcmd.js, handout.html).
 
 Tested: page renders on all four pages and all five tabs (headless screenshots), URL parameters work (problem, page, from), live helper detection works, QR draws, call sheet builds, syntax check clean; engine tested in an isolated sandbox for check, voice-off, tidy, shortcuts-remove, forget-data, remove, and through the generated .cmd (which found and fixed a real bug: the pass/fail tally was lost when run that way). NOT tested: stopping real running programs, the registry changes, the Remove-Amit.exe dialog and real removal, and a run on a second (sacrificial) computer. Never run the remover on Ryan's own working install.

@@ -190,6 +190,98 @@ async function fxShare(){
   else{fxCopy('fxLink',document.getElementById('fxShareBtn'));}
 }
 
+// ---- Phone & Apps: repair, check and remove for Amit's web apps on THIS device (phone, tablet or any browser) ----
+const FX_SITE=new URL('../',location.href).href;   // the Amit site root (…/Amit/)
+const FX_APPS=[
+  {key:'mobile',icon:'📱',name:'Amit Mobile',url:'AmitMobile/AmitMobile.html',
+   what:'Amit\'s voice and camera front door for your phone. On a device it can leave: a home-screen icon (if you added it), a small background file, saved copies of its pages, and your sign-in.',
+   sw:'AmitMobile/',cachePre:['amitmobile-'],idbPre:['amitmobile'],idbKnown:['amitmobile-auth'],perm:'camera and microphone',
+   files:['AmitMobile/AmitMobile.html','AmitMobile/sw.js','AmitMobile/manifest.json']},
+  {key:'scan',icon:'📷',name:'AmitScan',url:'AmitBooks/AmitScan/AmitScan.html',
+   what:'Camera capture of receipts and documents. On a device it can leave: a home-screen icon, a small background file, saved copies of its pages, your sign-in, and <b>scans waiting to be sent</b> (kept only on this device).',
+   sw:'AmitBooks/AmitScan/',cachePre:['amitscan-'],idbPre:['amitscan'],idbKnown:['amitscan-auth','amitscan'],perm:'camera',warnLoss:true,
+   files:['AmitBooks/AmitScan/AmitScan.html','AmitBooks/AmitScan/sw.js','AmitBooks/AmitScan/manifest.json']},
+  {key:'books',icon:'📒',name:'AmitBooks',url:'AmitBooks/AmitBooks.html',
+   what:'Bookkeeping in your browser. On a device it can leave: an optional home-screen icon, a small background file and saved copies of its pages. Your books themselves are in your online account.',
+   sw:'AmitBooks/',cachePre:['amitbooks-'],idbPre:['amitbooks'],idbKnown:[],perm:'',
+   files:['AmitBooks/AmitBooks.html','AmitBooks/sw.js','AmitBooks/manifest.json']},
+  {key:'hub',icon:'🏠',name:'Amit Hub, Ask Amit and AmitChat',url:'Hub/amit-hub.html',
+   what:'These run inside your browser with nothing separate to install; the chat and Ask Amit load inside the Hub. On a device they keep only your sign-in and settings in the browser.',
+   sw:null,cachePre:[],idbPre:[],idbKnown:[],perm:'microphone (voice)',
+   files:['Hub/amit-hub.html','Amit_Ask_Live.js']}
+];
+const fxApp=k=>FX_APPS.find(a=>a.key===k);
+const fxOut=(k,html)=>{const e=document.getElementById('fxr-'+k);if(e)e.innerHTML=html;};
+async function fxSwFor(a){try{if(!a.sw||!navigator.serviceWorker)return[];return(await navigator.serviceWorker.getRegistrations()).filter(r=>new URL(r.scope).pathname.endsWith('/'+a.sw));}catch(e){return[];}}
+async function fxCachesFor(a){try{if(!window.caches||!a.cachePre.length)return[];return(await caches.keys()).filter(n=>a.cachePre.some(p=>n.toLowerCase().indexOf(p)===0));}catch(e){return[];}}
+async function fxIdbFor(a){let names=[];try{if(indexedDB&&indexedDB.databases)names=(await indexedDB.databases()).map(d=>d.name);}catch(e){}if(!names.length)names=a.idbKnown||[];return names.filter(n=>a.idbPre.some(p=>String(n).toLowerCase().indexOf(p)===0));}
+async function fxStatusAll(){
+  for(const a of FX_APPS){
+    const sw=await fxSwFor(a),ca=await fxCachesFor(a),db=await fxIdbFor(a);
+    const bits=[];if(sw.length)bits.push('background file');if(ca.length)bits.push('saved pages');if(db.length)bits.push('local data ('+db.length+')');
+    const el=document.getElementById('fxs-'+a.key);
+    if(el)el.innerHTML=a.sw||a.idbPre.length?(bits.length?'<b>On this device now:</b> '+bits.join(', '):'<b>On this device now:</b> nothing stored'):'<b>On this device now:</b> sign-in and settings only';
+  }
+}
+async function fxRepairApp(k){
+  const a=fxApp(k);fxOut(k,'Working&hellip;');
+  const sw=await fxSwFor(a),ca=await fxCachesFor(a);let n=0;
+  for(const r of sw){try{await r.unregister();n++;}catch(e){}}
+  for(const c of ca){try{await caches.delete(c);}catch(e){}}
+  for(const f of a.files){try{await fetch(FX_SITE+f,{cache:'reload'});}catch(e){}}
+  fxOut(k,'<span class="fx-ok">Refreshed.</span> Removed '+n+' background file'+(n===1?'':'s')+' and '+ca.length+' saved-page store'+(ca.length===1?'':'s')+', and fetched the newest copy. You stay signed in. <a class="fx-btn quiet" href="'+FX_SITE+a.url+'?refresh='+Date.now()+'" target="_blank" rel="noopener">Open '+a.name+' now</a>');
+  fxStatusAll();
+}
+async function fxRemoveApp(k){
+  const a=fxApp(k);
+  if(!a.sw&&!a.idbPre.length){fxOut(k,'This one has no separate files on a device. Use <b>Sign out and clear Amit from this browser</b> on the Director\'s Chair &rarr; Browser &amp; phone tab.');return;}
+  if(!confirm('Remove '+a.name+' from this device? This clears its background file, saved pages and local data here and signs you out of it.'+(a.warnLoss?'\n\nANY SCANS NOT YET SENT FROM THIS DEVICE WILL BE LOST.':'')+'\n\nYour online account is not touched.'))return;
+  fxOut(k,'Working&hellip;');
+  const sw=await fxSwFor(a),ca=await fxCachesFor(a),db=await fxIdbFor(a);let blocked=0;
+  for(const r of sw){try{await r.unregister();}catch(e){}}
+  for(const c of ca){try{await caches.delete(c);}catch(e){}}
+  for(const d of db){await new Promise(res=>{try{const q=indexedDB.deleteDatabase(d);q.onsuccess=q.onerror=()=>res();q.onblocked=()=>{blocked++;res();};}catch(e){res();}});}
+  fxOut(k,'<span class="fx-ok">Cleared.</span> '+sw.length+' background file(s), '+ca.length+' saved-page store(s) and '+db.length+' local database(s) removed from this device.'+(blocked?' <span class="fx-no">'+blocked+' could not be cleared while the app is open. Close the app and press Remove again.</span>':'')+' <b>Last step:</b> remove the home-screen icon (Icons &amp; permissions tab).');
+  fxStatusAll();
+}
+async function fxSha(text){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text.split('\r\n').join('\n')));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
+async function fxCheckApp(k){
+  const a=fxApp(k);fxOut(k,'Comparing this device with the website and with GitHub&hellip;');
+  if(!(window.crypto&&crypto.subtle)){fxOut(k,'<span class="fx-no">This browser cannot compute fingerprints here (it needs a secure page).</span>');return;}
+  const rows=[];let stale=0,disagree=0,unknown=0;
+  for(const f of a.files){
+    const url=FX_SITE+f;let dev=null,pg=null,raw=null;
+    try{if(window.caches){const m=await caches.match(url);if(m)dev=await fxSha(await m.text());}}catch(e){}
+    try{const r=await fetch(url,{cache:'no-store'});if(r.ok)pg=await fxSha(await r.text());}catch(e){}
+    try{const r=await fetch(FX_RAW+f+'?x='+Date.now(),{cache:'no-store'});if(r.ok)raw=await fxSha(await r.text());}catch(e){}
+    let s='';
+    if(!pg){s='<span class="fx-no">could not load from the website</span>';unknown++;}
+    else if(!raw){s='not on GitHub, so it cannot be compared';unknown++;}
+    else if(pg!==raw){s='<span class="fx-no">website and GitHub differ</span> (may be mid-update; try again in a few minutes)';disagree++;}
+    else if(dev&&dev!==pg){s='<span class="fx-no">your device keeps an OLDER or different saved copy</span> (use Repair)';stale++;}
+    else s='<span class="fx-ok">same</span>'+(dev?' (website, GitHub and your saved copy agree)':' (website and GitHub agree; nothing saved on this device)');
+    rows.push('<tr><td>'+f+'</td><td>'+s+'</td></tr>');
+  }
+  const verdict=disagree?'<b class="fx-no">The website and GitHub disagree.</b> If this lasts more than a few minutes, please tell us: it could mean something was changed.':stale?'<b class="fx-no">Your device is not running the newest copy.</b> Press Repair.':unknown?'<b>Could not fully compare.</b>':'<b class="fx-ok">All match.</b>';
+  fxOut(k,'<table class="fx-table" style="margin:8px 0"><tr><th>File</th><th>Result</th></tr>'+rows.join('')+'</table>'+verdict);
+}
+function fxAppCardHtml(a){
+  return `<div class="fx-panel" style="max-width:none">
+    <div class="fx-name" style="font-size:18px;font-weight:600;color:var(--gold2)">${a.icon} ${a.name}</div>
+    <div class="fx-plain" style="font-size:14px;color:var(--muted);margin:6px 0">${a.what}</div>
+    <div class="fx-small" id="fxs-${a.key}" style="margin-bottom:8px">&hellip;</div>
+    <button class="fx-btn" onclick="fxRepairApp('${a.key}')">Repair (refresh)</button>
+    <button class="fx-btn" onclick="fxCheckApp('${a.key}')">Check</button>
+    <button class="fx-btn" onclick="fxRemoveApp('${a.key}')">Remove from this device</button>
+    <a class="fx-btn quiet" href="${FX_SITE+a.url}" target="_blank" rel="noopener">Open</a>
+    <div class="fx-small" id="fxr-${a.key}" style="margin-top:8px"></div>
+  </div>`;
+}
+function fxInstallQrs(){
+  FX_APPS.filter(a=>a.sw).forEach(a=>{const el=document.getElementById('fxqr-'+a.key);if(!el)return;
+    try{const q=qrcode(0,'M');q.addData(FX_SITE+a.url+'?from=qr');q.make();el.innerHTML=q.createSvgTag({cellSize:4,margin:0,scalable:true});el.firstChild.style.width='130px';el.firstChild.style.height='130px';}catch(e){}});
+}
+
 // ---- Check It ----
 const FX_CHECK_ASK='Below are two things: (1) a packet describing a software package called Amit\'s helper, with claims, source links and file fingerprints; (2) a read-only integrity report from a computer where it is installed. Please act as a skeptical security reviewer. Tell me whether the report shows any sign of malware or tampering (files that differ, extra programs, odd start-up entries, anything listening on the network), whether the packet\'s claims are consistent with the report, and anything the authors left out. Do not take the authors\' word for anything.';
 async function fxCopyCheckAsk(){const ok=await fxClip(FX_CHECK_ASK);document.getElementById('fxCheckMsg').innerHTML=ok?'<span class="fx-ok">Question copied.</span> Paste it into an AI, then paste the Verify packet and your report after it.':'<span class="fx-no">Copy blocked by your browser.</span>';}
