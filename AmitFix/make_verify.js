@@ -32,9 +32,7 @@ const BIN=[
 ];
 const sha=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 // Text files are fingerprinted the way GitHub serves them (line endings normalised to LF), so the hash matches what anyone downloads.
-const shaText=f=>crypto.createHash('sha256').update(Buffer.from(fs.readFileSync(f,'utf8').replace(/
-/g,'
-'),'utf8')).digest('hex');
+const shaText=f=>crypto.createHash('sha256').update(Buffer.from(fs.readFileSync(f,'utf8').split('\r\n').join('\n'),'utf8')).digest('hex');
 const hosts=new Set();const perFile=[];
 for(const [f] of SRC){
   if(!fs.existsSync(f)) throw new Error('missing '+f);
