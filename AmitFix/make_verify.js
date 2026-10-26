@@ -31,6 +31,10 @@ const BIN=[
  [W+'AmitSensorReader.exe','ComputerHealth/AmitSensorReader.exe','the sensor reader (compiled from Program.cs)']
 ];
 const sha=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
+// Text files are fingerprinted the way GitHub serves them (line endings normalised to LF), so the hash matches what anyone downloads.
+const shaText=f=>crypto.createHash('sha256').update(Buffer.from(fs.readFileSync(f,'utf8').replace(/
+/g,'
+'),'utf8')).digest('hex');
 const hosts=new Set();const perFile=[];
 for(const [f] of SRC){
   if(!fs.existsSync(f)) throw new Error('missing '+f);
@@ -116,8 +120,8 @@ P('and dates of the developer remain in some code comments as development histor
 P('Older versions of some files in the public repository\'s history still contain the earlier hard-coded paths; they were never secrets, but we mention it for completeness.');
 P('');
 P('=== FILES TO REVIEW (source) ===');
-P('Read each at the address shown. SHA-256 is of the file as published.');
-for(const [f,pub,what] of SRC){P('- '+path.basename(pub)+'   '+RAW+pub);P('    '+what);P('    sha256 '+sha(f));}
+P('Read each at the address shown. SHA-256 is of the file as downloaded from that address. (Text files are stored with LF line endings on GitHub; a copy on a Windows computer may use CRLF, so normalise CRLF to LF before hashing a text file from an installed computer.)');
+for(const [f,pub,what] of SRC){P('- '+path.basename(pub)+'   '+RAW+pub);P('    '+what);P('    sha256 '+shaText(f));}
 P('');
 P('=== DOWNLOADABLE PROGRAMS (fingerprints) ===');
 P('Look any hash up on virustotal.com (search box accepts a SHA-256). Remove-Amit.exe is compiled from RemoveAmit.cs with the .NET Framework compiler (csc.exe), with');
