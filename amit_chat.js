@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
+   v0.27 — 2026-10-26. OWNER'S NAME NO LONGER SHOWN: the label under Amit's replies used to read "answering through <owner's name>'s session"; it now reads "answering through Amit's helper", so nobody sees whose computer answered. The name is still recorded in the database (payload.via_name) as the audit trail; only the display changed. ALSO v0.27: when this computer can only offer a basic (robotic) voice, the chat says so once and the Reading voice box shows a line pointing to Microsoft Edge's natural voice; the better fallback order itself lives in amit_owner_contact.js (amitPickDefaultVoice).
    v0.26 — 2026-10-23. NEW-MEMBER CHECK: adding someone to a chat that already holds information Amit shared from a person's own apps is checked first (the answering computer tries it as that person). Not allowed: the person adding them is told which information it is and which administrator to ask. Allowed: the person adding them is asked to confirm. Accepting an invitation is checked the same way. Needs migration _025.
    v0.21 — 2026-10-18. ASK AMIT FROM THE PAGE: AmitChat.openHelp() opens the chat box on the person's own private chat with Amit (found or made by cha_help_chat), ready to type in; every message sent there is a question to him (a press). The page tells the chat where the person is through AmitChat.placeProvider (recorded with each press). Needs migration _016.
    v0.20 — 2026-10-18. AMIT IS LISTENING: pressing the Amit icon with nothing typed switches him on (green circle round the icon, a green bar everyone in the chat sees) or off (any member can). With a question typed or a message highlighted it asks him now and he stays on. While on he stays quiet while people talk, looks 30 s after the last message (at once when asked by name) and may speak or pass; if he speaks and nobody replies in 2 minutes he turns himself off. Needs migration _014.
@@ -25,7 +26,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.26';
+  var VERSION = 'v0.27';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -1488,6 +1489,7 @@
         vp.then(function (v) { return v || {}; }, function () { return {}; }).then(function (v) {
           if (destroyed) return;
           rd.v = v; rd.queue = list; rd.i = 0; rd.on = true; rd.paused = false;
+          if (!AmitChat._voiceHinted) { var vh = voiceHintText(v.voice); if (vh) { AmitChat._voiceHinted = true; toast(vh); } }
           rd.startChar = opts.startChar || 0; rd.cross = !!opts.cross;
           rd.nameMode = rd.cross ? 'always' : ((((state.conv && state.conv.members) || '').split(',').length > 2) ? 'change' : 'none');
           AmitChat._stopReader = stopReading;
@@ -1504,6 +1506,8 @@
         var so = skipOwnOn(); return idx < 0 ? [] : state.msgs.slice(idx).filter(function (m, k) { return readable(m) && (k === 0 || !(so && m.from === 'me')); });
       }
       /* the voice dialog: voice, speed, pitch, volume and pause, heard as you change them; closing it saves them to the person's profile */
+      /* a short note when this computer can only offer a basic (robotic) voice: Amit's natural voice comes with Microsoft Edge */
+      function voiceHintText(v) { var basic = !v || (typeof amitVoiceIsRobotic === 'function' && amitVoiceIsRobotic(v)); return basic ? 'This is a basic voice. For Amit’s natural voice, open Amit in Microsoft Edge.' : ''; }
       function voiceNow() { var v = rd.v || {}; return { voice: v.voice || null, rate: v.rate || 1.1, pitch: v.pitch || 1, volume: v.volume != null ? v.volume : 1, pauseScale: v.pauseScale || 1.2 }; }
       function closeVoiceDialog(save) {
         if (!vdlg) return; var d = vdlg; vdlg = null; try { d.remove(); } catch (e) {}
@@ -1529,8 +1533,9 @@
           var cur = rd.v && rd.v.voice; sel.value = cur ? cur.name : '';
         }
         fillVoices(); try { window.speechSynthesis.addEventListener('voiceschanged', fillVoices); } catch (e) {}
-        sel.onchange = function () { var vs = []; try { vs = window.speechSynthesis.getVoices() || []; } catch (e) {} rd.v.voice = vs.filter(function (v) { return v.name === sel.value; })[0] || null; };
+        sel.onchange = function () { var vs = []; try { vs = window.speechSynthesis.getVoices() || []; } catch (e) {} rd.v.voice = vs.filter(function (v) { return v.name === sel.value; })[0] || null; var _t = voiceHintText(rd.v.voice); hintEl.textContent = _t; hintEl.style.display = _t ? '' : 'none'; };
         d.appendChild(sel);
+        var hintEl = el('div', 'acx-ts', voiceHintText(voiceNow().voice)); hintEl.style.display = hintEl.textContent ? '' : 'none'; d.appendChild(hintEl);
         function slider(label, key, min, max, step, fmt) {
           var row = el('label'); row.style.flexWrap = 'nowrap';
           var nm = el('span', null, label); nm.style.minWidth = '62px';
@@ -1606,7 +1611,7 @@
             nd.appendChild(ndb); nb2.firstChild.appendChild(nd); msgsDiv.appendChild(nb2); return;
           }
           var bub = el('div', 'acx-b ' + x.from + (x.removed ? ' removed' : '')); bub.setAttribute('data-mid', x.id);
-          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '') + (x.payload && x.payload.transcribed ? ' \u00B7 live transcript' : '') + (x.from === 'amit' && x.payload && x.payload.via_name ? ' \u00B7 answering through ' + x.payload.via_name + '\u2019s session' : '')));
+          bub.appendChild(el('small', null, x.name + ' \u00B7 ' + x.time + (x.edited ? ' \u00B7 edited' : '') + (x.payload && x.payload.transcribed ? ' \u00B7 live transcript' : '') + (x.from === 'amit' && x.payload && x.payload.via_name ? ' \u00B7 answering through Amit\u2019s helper' : '')));
           if (x.replyTo && !x.removed) {
             var qm = state.msgs.filter(function (m) { return m.id === x.replyTo; })[0];
             bub.appendChild(el('div', 'acx-quote', qm ? '\u21A9 ' + qm.name + ': ' + (qm.removed ? 'Message removed' : (qm.text || '').slice(0, 70)) : '\u21A9 an earlier message'));

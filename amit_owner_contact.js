@@ -1,4 +1,7 @@
 /*
+  amit_owner_contact.js v1.00 — 2026-10-26 (first version marker; the voice fallback now prefers a natural voice
+  before the old built-in Windows voices: see amitPickDefaultVoice and amitVoiceIsRobotic).
+
   AMIT OWNER CONTACT — resolves/creates the ONE AmitBooks contact row that
   represents whoever is logged in, as the owner of their own book (2026-09-06,
   Ryan's direct instruction).
@@ -42,7 +45,16 @@ const AMIT_DEFAULT_VOICE = {
 
 // Picks the default voice from what this device actually has installed:
 // the exact default voice first, then any English "Microsoft Brian" voice,
-// then any US English voice, then any English voice.
+// then (2026-10-26, Ryan's direct instruction: a robotic Windows voice was heard on a
+// daughter's computer) the most natural English voice this browser offers, in this order:
+// any natural/online English voice, Chrome's Google voices, Apple's Samantha/Alex, any other
+// English voice that is not one of the old built-in Windows "Desktop" voices (David, Zira,
+// Mark) or a Mac novelty voice, and only then the built-in ones. The old order took the
+// first US English voice in the list, which on Windows is usually the robotic David.
+function amitVoiceIsRobotic(v){
+  /* the old built-in Windows voices: named "... Desktop ..." on older Windows, and plain "Microsoft David/Zira/Mark - English" on newer Windows (any Microsoft voice that is not an Online/Natural one) */
+  return !!v && (/desktop/i.test(v.name) || (/^Microsoft\b/i.test(v.name) && !/natural|online/i.test(v.name)));
+}
 function amitPickDefaultVoice(voices){
   if (!voices || !voices.length) return null;
   const exact = voices.find(v => v.name === AMIT_DEFAULT_VOICE.voice_name);
@@ -51,7 +63,15 @@ function amitPickDefaultVoice(voices){
   const brian = voices.find(v => /Microsoft\s*Brian\s*Multilingual/i.test(v.name) && isEnglish(v))
              || voices.find(v => /Microsoft\s*Brian/i.test(v.name) && isEnglish(v));
   if (brian) return brian;
-  return voices.find(v => /^en-US/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang)) || voices[0] || null;
+  const en = voices.filter(isEnglish);
+  const enUS = en.filter(v => /^en-US/i.test(v.lang));
+  const natural = v => /natural|online/i.test(v.name);
+  const novelty = v => /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Deranged|Good News|Hysterical|Jester|Organ|Pipe Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Fred|Junior|Ralph|Kathy)\b/i.test(v.name);
+  return enUS.find(natural) || en.find(natural)
+      || en.find(v => /^Google US English/i.test(v.name)) || en.find(v => /^Google/i.test(v.name))
+      || en.find(v => /^(Samantha|Alex)\b/i.test(v.name))
+      || enUS.find(v => !amitVoiceIsRobotic(v) && !novelty(v)) || en.find(v => !amitVoiceIsRobotic(v) && !novelty(v))
+      || enUS[0] || en[0] || voices[0] || null;
 }
 
 // One lookup per user at a time, per page — so two callers firing at once
