@@ -4,7 +4,7 @@ const css=fs.readFileSync('fix_css.txt','utf8'), js=fs.readFileSync('fix_js.txt'
 function rep(a,b){ if(t.split(a).length!==2) throw new Error('anchor not unique/missing: '+a.slice(0,60)); t=t.replace(a,()=>b); }
 t=t.replace('\n<title>Template</title>','\n<title>AmitFix</title>');
 rep('id="pageTitle" style="font-size:19px">Template</div>','id="pageTitle" style="font-size:19px">AmitFix</div>');
-rep('id="pageVersion">v1.01</div>','id="pageVersion">v1.07</div>');
+rep('id="pageVersion">v1.01</div>','id="pageVersion">v1.08</div>');
 rep("let builderMode=localStorage.getItem(BUILDER_MODE_KEY)!=='off';","let builderMode=false; // AmitFix is a finished, fixed set of pages: Add Page is never shown");
 rep("onclick=\"askAmitLive('TEMPLATE_NOT_CONFIGURED')\"","onclick=\"askAmitLive('amitfix')\"");
 rep('<script src="../amit_appearance.js?v=1.06"></script>','<script src="../amit_appearance.js?v=1.06"></script>\n<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>');

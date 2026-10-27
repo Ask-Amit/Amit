@@ -22,7 +22,9 @@ const SRC=[
  ['../../../../GitHub/Amit/ComputerHealth/AmitSensorReader/Program.cs','ComputerHealth/AmitSensorReader/Program.cs','source of AmitSensorReader.exe: reads hardware temperatures and fan speeds'],
  ['Amit_Fix.ps1','AmitFix/Amit_Fix.ps1','the fix / quiet / remove program (this is the whole removal logic)'],
  ['RemoveAmit.cs','AmitFix/RemoveAmit.cs','source of Remove-Amit.exe (asks once, then runs Amit_Fix.ps1 which it contains)'],
- [W+'AmitInstaller/AmitInstaller.cs','ComputerHealth/AmitInstaller/AmitInstaller.cs','source of install-Amit.exe (unpacks the files above and runs the installer script)']
+ [W+'AmitInstaller/AmitInstaller.cs','ComputerHealth/AmitInstaller/AmitInstaller.cs','source of install-Amit.exe (unpacks the files above and runs the installer script)'],
+ [W+'amit_mobile_watcher.ps1','AmitFix/amit_mobile_watcher_source.txt','the developer-only script above, copied here byte for byte under a .txt name so a browser shows it as plain text (same fingerprint as the .ps1)'],
+ ['amit_mobile_watcher_explained.txt','AmitFix/amit_mobile_watcher_explained.txt','that same script explained step by step in plain English, for people who do not read code']
 ];
 const BIN=[
  [W+'AmitInstaller/install-Amit.exe','ComputerHealth/install-Amit.exe','the installer download (about 73 MB; contains the files above)'],
@@ -99,6 +101,7 @@ P('    If it were present it needs a local key file Database\\supabase_config.md
 P('    watcher likewise starts only if %LOCALAPPDATA%\\AmitComputerHealth\\ask_watcher.json exists.');
 P('    exists). Also, the helper contains a route (/api/coder-token) that writes a credentials file at a path under the profile folder for a developer workflow; it needs');
 P('    the developer\'s Amit folder to exist. We know these should not be in the public package and plan to move them out; flagging them is part of being honest.');
+P('    To let anyone read the developer-only script without hunting for it, a byte-for-byte plain-text copy and a plain-English walkthrough are published beside this packet (AmitFix/amit_mobile_watcher_source.txt and AmitFix/amit_mobile_watcher_explained.txt); compare the fingerprints below.');
 P('');
 P('CLAIMS TO TRY TO DISPROVE (tell us if the code shows otherwise)');
 P(' A. The helper has no code that sends the person\'s files, keystrokes, clipboard, screen contents, passwords or browsing history anywhere. The only outbound web');

@@ -1,0 +1,61 @@
+THE ONE PROGRAM THAT IS NOT INSTALLED: amit_mobile_watcher.ps1, EXPLAINED
+=========================================================================
+Written for a person who does not read code. The real script is next to this file
+(amit_mobile_watcher_source.txt, the very same text as ComputerHealth/amit_mobile_watcher.ps1 on GitHub).
+
+WHAT IT IS
+It is a small background program written for the DEVELOPER'S OWN computer. When someone sends a
+message from the Amit Mobile phone page, this program notices it and gets a reply written, then puts
+the reply back so the phone can show it.
+
+IT IS NOT PART OF WHAT YOU INSTALL
+- The installer file (install-Amit.exe) carries a copy of it inside, but the install script does NOT copy
+  it into the folder where Amit's helper lives (see the list called filesToCopy in Install_AmitTracker.ps1).
+- Amit's helper only starts it if the file is sitting next to the helper. On an ordinary computer it is not,
+  so nothing starts.
+- You can check this yourself in a minute: open  %LOCALAPPDATA%\AmitComputerHealth\Watchers  in File
+  Explorer. There is no file called amit_mobile_watcher.ps1 there. In Task Manager (Details tab) there is
+  no PowerShell running a script with that name.
+- Why show it, then? So you can read exactly what it would do, and so nothing is hidden.
+
+WHAT IT DOES, STEP BY STEP (each step is in the real script, in this order)
+1. It makes sure only ONE copy of itself runs. A second copy exits at once.
+2. It looks for a private key file called Database\supabase_config.md. That file exists only on the
+   developer's computer. If it is not there, the program stops with an error and does nothing.
+3. Every 2.5 seconds it asks the Amit database for phone messages that have no reply yet (up to ten).
+4. For each message it checks that the sender's Hub page is open and signed in (the Hub sends a small
+   "I am here" signal about every 25 seconds). If the Hub is not open it writes a polite reply asking them
+   to open it, and moves on.
+5. It checks which of two modes that person chose on their phone:
+   - "warm": it only writes the message into a local file (amit_mobile_events.log) for a Claude Code
+     session that is already open on that computer to answer. It asks Claude nothing itself.
+   - "cold" (the default): it builds one instruction for Claude made of (a) a fixed paragraph saying who Amit
+     is and how to speak (lines 103 to 112 of the script, you can read it), (b) which tile the person used,
+     (c) a note if a photo was attached, and (d) exactly what the person said. It hands that to Claude Code
+     (the "claude -p" command, run on that same computer using the Claude login already there) and waits up
+     to 90 seconds for the answer.
+6. It writes the reply back onto that message in the database, with the time.
+7. It repeats until a "stop" file appears, then shuts down.
+
+WHAT IT TOUCHES
+- Reads and writes the Amit database: the phone messages table, the "Hub is open" signal, the reply-mode
+  setting. It writes only the reply and its time.
+- Sends the person's message text and the fixed instruction text to Claude Code on the same computer.
+  (Claude Code then talks to Anthropic the way it always does when you use it.)
+- It has no code that reads your files, your screen, your keystrokes, your clipboard or your passwords.
+  Its only local files are the key file (read) and its own small log (written, "warm" mode only).
+
+HONEST NOTES
+- Because it uses the database's private key, it can see EVERY phone message in that database, from every
+  person who uses Amit Mobile, not only the developer's. That is acceptable only on the owner's own
+  computer, and is exactly why it is not shipped to anyone else.
+- Photos are not actually seen. The instruction tells Claude to say so honestly.
+- Each message is answered on its own, with no memory of earlier ones.
+- It needs the computer awake and Amit's helper running.
+
+WHAT PERSONAL INFORMATION IS IN THE FILE
+There are no keys, passwords or email addresses in it. Three things are visible: the developer's first name
+appears in four comments about bugs he reported; the address of the Amit database (a public address,
+by design: the private key is what protects it, and that key is not in the file); and the developer's own
+folder layout in a fallback path. We did not edit the script to hide these, so that the copy you read is
+byte for byte the real one. Compare its SHA-256 fingerprint with the one in Verify.txt.
