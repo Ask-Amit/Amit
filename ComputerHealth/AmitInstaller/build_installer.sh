@@ -27,6 +27,7 @@ FILES=(
   amit_icon.ico
   amit_whisper.cs
   amit_whisper.html
+  amit_update.ps1
   ComputerHealth_Dashboard.html
 )
 
