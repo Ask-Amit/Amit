@@ -4,7 +4,12 @@
 # Plain ASCII on purpose (PowerShell 5.1).
 #   .\make_helper_manifest.ps1                         (uses this folder, writes the manifest here)
 #   .\make_helper_manifest.ps1 -Dir C:\path\to\files    (hash the files in another folder, write the manifest there)
-param([string]$Dir = $PSScriptRoot, [string]$Notes = "")
+#
+# IMPORTANT (found 2026-10-29): git converts Windows line endings when it commits (core.autocrlf), so the bytes GitHub Pages serves can be
+# a few bytes different from the file on disk. The updater checks what it DOWNLOADS, so the fingerprint must be of the bytes git will store.
+# When -Dir is inside a git repository this script therefore stages each file (git add, which is part of publishing anyway) and fingerprints
+# the staged copy. Outside a repository it fingerprints the file as it is.
+param([string]$Dir = $PSScriptRoot, [string]$Notes = "", [string]$GitExe = "C:\Users\user1\AppData\Local\GitHubDesktop\app-3.6.1\resources\app\git\cmd\git.exe")
 
 # The files the helper keeps on the person's computer that can change. Programs (.exe) are left out on purpose: they are large and rarely change.
 # KEEP THIS LIST THE SAME AS THE ONE IN /api/helper/status in amit_bridge_server.ps1.
@@ -17,12 +22,33 @@ $names = @(
 # where the helper downloads the changed files from (the Amit site; the updater refuses any other address)
 $baseUrl = "https://ask-amit.github.io/Amit/ComputerHealth/"
 
+function Invoke-GitBytes([string[]]$GitArgs) {
+    # runs git and returns what it printed, as raw bytes (null if git failed)
+    $psi = New-Object System.Diagnostics.ProcessStartInfo($GitExe, ($GitArgs -join ' '))
+    $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $ms = New-Object System.IO.MemoryStream
+    $proc.StandardOutput.BaseStream.CopyTo($ms)
+    [void]$proc.StandardError.ReadToEnd()
+    $proc.WaitForExit()
+    if ($proc.ExitCode -ne 0) { return $null }
+    return $ms.ToArray()
+}
+$useGit = $false
+if (Test-Path $GitExe) { $top = Invoke-GitBytes @('-C', ('"' + $Dir + '"'), 'rev-parse', '--show-toplevel'); if ($top) { $useGit = $true } }
+if ($useGit) { Write-Host "  (inside a git repository: fingerprinting the bytes git will store)" }
+
 $sha = [System.Security.Cryptography.SHA256]::Create()
 $files = @()
 foreach ($n in $names) {
     $p = Join-Path $Dir $n
     if (-not (Test-Path $p)) { Write-Host ("  not found, left out: " + $n); continue }
     $bytes = [System.IO.File]::ReadAllBytes($p)
+    if ($useGit) {
+        [void](Invoke-GitBytes @('-C', ('"' + $Dir + '"'), 'add', '--', ('"' + $n + '"')))
+        $staged = Invoke-GitBytes @('-C', ('"' + $Dir + '"'), 'show', (':./' + $n))
+        if ($staged) { $bytes = $staged }
+    }
     $hash = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace("-", "").ToLowerInvariant()
     $files += [ordered]@{ name = $n; sha256 = $hash; bytes = $bytes.Length }
 }
