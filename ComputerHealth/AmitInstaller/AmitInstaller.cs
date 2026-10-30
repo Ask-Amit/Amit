@@ -31,7 +31,7 @@ class AmitInstaller
     // embeds the dashboard as a resource, so one shared number means you
     // can look at either version and immediately know if the other is
     // stale, instead of cross-referencing two independent counters.
-    const string CURRENT_VERSION = "4.63";   // 4.63: carries the automatic updater (amit_update.ps1), Voice and the My Words sync (helper v1.23)
+    const string CURRENT_VERSION = "4.64";   // 4.64: helper v1.24 - a single press of the middle mouse button starts Voice. 4.63: carries the automatic updater (amit_update.ps1), Voice and the My Words sync (helper v1.23)
 
     // Every file Install_AmitTracker.ps1 expects to find sitting next to it.
     // Logical resource names (via plain /resource:path, no explicit name)

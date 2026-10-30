@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.52</div>
+      <div class="page-version" id="hubVersionBadge">v8.53</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2591,9 +2591,9 @@ header{
                 </div>
               </div>
               <div id="avmMouseWrap" style="display:none">
-                <label class="fg-label" style="display:block;margin-bottom:5px">WHICH BUTTON OPENS THE AMIT LIVE RING?</label>
+                <label class="fg-label" style="display:block;margin-bottom:5px">WHICH MOUSE BUTTON? (Voice: one press. The ring: hold.)</label>
                 <select class="fg-input" id="avmMouse" style="margin-bottom:10px">
-                  <option value="right">Right button (hold)</option><option value="middle">Middle button (hold)</option><option value="x1">Back side button (hold)</option><option value="x2">Forward side button (hold)</option>
+                  <option value="middle">Middle button</option><option value="right">Right button</option><option value="x1">Back side button</option><option value="x2">Forward side button</option>
                 </select>
               </div>
               <label class="fg-label" style="display:block;margin-bottom:5px">WHAT SHOULD IT DO?</label>
@@ -5821,12 +5821,12 @@ function avmRenderSys(){
     const row=amwMake('div',''); row.className='amw-row short';
     const top=amwMake('div','display:flex;align-items:center;gap:8px;flex-wrap:wrap');
     const badge=amwMake('span','',c.trigger_type==='key'?'Key':(c.trigger_type==='mouse'?'Mouse':'Voice')); badge.className='amw-badge short'; top.appendChild(badge);
-    top.appendChild(amwMake('span','font-size:13px',(words[c.trigger_type]||'')+' '+g.map(function(x){return '"'+x.trigger+'"';}).join(' or ')+'  →  '+(c.label||AVM_ACTIONS[c.action]||c.action)+(c.confirm?'  (asks first)':'')+(g.every(function(x){return !x.enabled;})?'  (switched off)':'')));
+    top.appendChild(amwMake('span','font-size:13px',((c.trigger_type==='mouse'&&c.action==='voice')?'Press':(words[c.trigger_type]||''))+' '+g.map(function(x){return '"'+x.trigger+'"';}).join(' or ')+'  →  '+(c.label||AVM_ACTIONS[c.action]||c.action)+(c.confirm?'  (asks first)':'')+(g.every(function(x){return !x.enabled;})?'  (switched off)':'')));
     row.appendChild(top); list.appendChild(row);
   });
 }
 const AVM_ACTIONS={dictate:'Dictate',showamit:'Show Amit',openhub:'Open the Amit Hub',cancel:'Cancel',voice:'Start Voice',ring:'Open the Amit Live ring'};
-const AVM_PER_TYPE={voice:['dictate','showamit','openhub','cancel'],key:['voice','dictate','showamit','openhub','cancel'],mouse:['ring']};
+const AVM_PER_TYPE={voice:['dictate','showamit','openhub','cancel'],key:['voice','dictate','showamit','openhub','cancel'],mouse:['voice','ring']};
 function avmEsc(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/\|/g,'\\p').replace(/\r/g,'').replace(/\n/g,'\\n'); }
 function avmUnesc(s){ return String(s||'').replace(/\\(p|n|\\)/g,function(m,c){ return c==='p'?'|':(c==='n'?'\n':'\\'); }); }
 function avmStatus(msg,bad){ const e=amwEl('avmStatus'); if(!e) return; e.textContent=msg||''; e.style.color=bad?'rgba(235,150,140,.95)':'rgba(180,220,190,.95)'; }
@@ -5890,11 +5890,12 @@ function avmRender(){
   const list=amwEl('avmList'); if(!list) return; list.textContent='';
   if(!_avmRows.length){ list.appendChild(amwMake('div','color:var(--dim);font-size:13px;line-height:1.6;padding:4px 0','No commands of your own yet. The built-in ones always work.')); return; }
   const words={voice:'When I say',key:'When I press',mouse:'When I hold'};
+  const wordFor=function(c){ return (c.trigger_type==='mouse'&&c.action==='voice')?'When I press':(words[c.trigger_type]||''); };
   _avmRows.forEach(function(c){
     const row=amwMake('div',''); row.className='amw-row short';
     const top=amwMake('div','display:flex;align-items:center;gap:8px;flex-wrap:wrap');
     const badge=amwMake('span','',c.trigger_type==='key'?'Key':(c.trigger_type==='mouse'?'Mouse':'Voice')); badge.className='amw-badge short'; top.appendChild(badge);
-    top.appendChild(amwMake('span','font-size:13px',(words[c.trigger_type]||'')+' "'+c.trigger+'"  →  '+(c.label||AVM_ACTIONS[c.action]||c.action)+(c.confirm?'  (asks first)':'')));
+    top.appendChild(amwMake('span','font-size:13px',wordFor(c)+' "'+c.trigger+'"  →  '+(c.label||AVM_ACTIONS[c.action]||c.action)+(c.confirm?'  (asks first)':'')));
     top.appendChild(amwMake('span','flex:1'));
     const lab=amwMake('label','display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)'); const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!c.enabled; lab.appendChild(cb); lab.appendChild(document.createTextNode('On')); top.appendChild(lab);
     const del=amwMake('button','font-size:11px;padding:6px 12px','DELETE'); del.className='btn btn-ghost'; top.appendChild(del);
