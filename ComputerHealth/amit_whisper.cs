@@ -28,7 +28,7 @@ using System.Windows.Automation;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.24";   // 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.24.2";   // 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -53,7 +53,7 @@ public static class AmitWhisper
     // v1.05 (2026-10-29, Ryan): AMIT LIVE. Holding the trigger button (the one chosen in the settings) no longer starts dictation straight away.
     // It opens Amit Live: a ring of choices around the pointer. Let go of the button and the ring stays open. Click a choice and the ring
     // goes away and that choice runs ("Dictate" starts exactly the dictation that was here before, already latched: one plain press of the
-    // trigger button stops it). Esc closes the ring without choosing. Those are the only two ways it closes (plus a 90 second safety).
+    // trigger button stops it). Esc closes the ring without choosing, and so does pressing any mouse button while the pointer is off the ring (v1.24.2). Moving off and back without pressing changes nothing. Plus a 90 second safety.
     // While it is open every click is held back from the program underneath, and the Esc key is held back from it too, so closing the ring
     // never interrupts whatever you were working in. "live=0" in whisper_settings.txt turns this off and gives the old hold-to-dictate back.
     const int ST_MENU = 6;
@@ -500,6 +500,13 @@ public static class AmitWhisper
         // Amit Live is open: the ring owns the mouse buttons until a choice is made or Esc is pressed
         if (state == ST_MENU)
         {
+            // v1.24.2: any button pressed while the pointer is off the ring closes it (the press and its release are held back from the program underneath)
+            if ((msg == 0x201 || msg == 0x204 || msg == 0x207 || msg == 0x20B) && IsOffRing(x, y))
+            {
+                swallowUpMsg = msg + 1;
+                ThreadPool.QueueUserWorkItem(delegate { CloseMenu("a button was pressed away from the ring"); });
+                return true;
+            }
             if (msg == 0x201)   // left button: a choice is made where the pointer is (a click off the ring does nothing, and is not passed on)
             {
                 swallowUpMsg = 0x202;
@@ -508,7 +515,15 @@ public static class AmitWhisper
                 return true;
             }
             if (IsMyDown(msg, md)) { swallowUpMsg = msg + 1; return true; }
-            if (IsMyUp(msg, md)) return true;      // the trigger button being let go after it opened the ring: the ring stays open
+            if (IsMyUp(msg, md))
+            {
+                // v1.22.2: hold, slide to a choice, let go = chosen. Letting go in the middle (or barely moving) leaves the ring open,
+                // where a left click on a choice still works.
+                int ddx = x - menuOpenX, ddy = y - menuOpenY;
+                int up = (ddx * ddx + ddy * ddy >= 400) ? LiveHit(x, y) : -1;
+                if (up >= 0) ThreadPool.QueueUserWorkItem(delegate { ChooseLive(up); });
+                return true;
+            }
             return false;
         }
 
@@ -1674,6 +1689,14 @@ public static class AmitWhisper
         liveReady.WaitOne(3000);
     }
 
+    // is this point outside the ring (farther out than the ring reaches)? false while the ring is not yet painted
+    static bool IsOffRing(int x, int y)
+    {
+        if (!menuReady) return false;
+        double dx = x - menuCx, dy = y - menuCy;
+        return dx * dx + dy * dy > (double)LiveReach * LiveReach;
+    }
+
     // which choice is at this screen point (-1 = none: the middle, off the ring, or no ring open)
     static int LiveHit(int x, int y)
     {
@@ -1846,17 +1869,6 @@ public static class AmitWhisper
                     csf.Alignment = StringAlignment.Center; csf.LineAlignment = StringAlignment.Center;
                     g.DrawString("Amit", cf, cb, C, C, csf);
                 }
-            }
-            // a small hint line under the ring
-            string hint = "Click a choice     Esc closes";
-            using (Font hf = new Font("Segoe UI", 9f))
-            using (SolidBrush hb = new SolidBrush(Color.FromArgb(215, 232, 201, 106)))
-            using (SolidBrush pill = new SolidBrush(Color.FromArgb(160, 9, 11, 18)))
-            {
-                SizeF hs = g.MeasureString(hint, hf);
-                float hy = S - 24f;
-                g.FillRectangle(pill, C - hs.Width / 2f - 10f, hy - 2f, hs.Width + 20f, hs.Height + 4f);
-                g.DrawString(hint, hf, hb, C - hs.Width / 2f, hy);
             }
         }
         if (premultiply) Premultiply(bmp);
@@ -5426,6 +5438,7 @@ public static class AmitWhisper
     public static string ChoiceSelfTest(string heard, int max) { return ParseChoice(heard, max).ToString(); }
     public static string MouseSelfTest(string ringBtn, string voiceBtn, int msg, uint md) { string b0 = button, v0 = voiceButton; button = ringBtn; voiceButton = voiceBtn; bool r = IsVoiceDown(msg, md); button = b0; voiceButton = v0; return r.ToString(); }
     public static string BindingsSelfTest() { ApplyBindings(); return button + "|" + voiceButton; }
+    public static string RingSelfTest(int cx, int cy, int x, int y) { int c0 = menuCx, c1 = menuCy; bool m0 = menuReady; menuCx = cx; menuCy = cy; menuReady = true; bool r = IsOffRing(x, y); menuCx = c0; menuCy = c1; menuReady = m0; return r.ToString(); }
     public static string KeySelfTest(string spec) { uint m, v; bool ok = ParseKey(spec, out m, out v); return ok ? ("ok mods=" + m + " vk=0x" + v.ToString("X")) : "refused"; }
 
     static void Log(string s)
