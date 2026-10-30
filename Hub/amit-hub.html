@@ -1391,7 +1391,7 @@ header{
     <img id="amitHeaderIcon" src="amit_icon.ico" alt="Amit" style="height:32px;width:32px">
     <div>
       <div class="page-title" id="pageTitle" style="font-size:19px">Hub</div>
-      <div class="page-version" id="hubVersionBadge">v8.48</div>
+      <div class="page-version" id="hubVersionBadge">v8.50</div>
     </div>
   </a>
   <div class="page-title-wrap">
@@ -2263,6 +2263,45 @@ header{
             <input class="fg-input" id="amwSearch" placeholder="Search your list" oninput="amwRender()" style="margin-bottom:12px;width:100%;box-sizing:border-box">
             <div id="amwStatus" style="min-height:18px;font-size:13px;margin-bottom:8px"></div>
             <div id="amwList"></div>
+
+            <!-- VOICE, KEY AND MOUSE COMMANDS (2026-10-29, Ryan; Hub v8.50): what Amit Live does when you say a phrase, press a key or use a mouse button.
+                 Stored in the table voi_commands (own rows only) and copied to the helper on this computer by amwSyncNow(). -->
+            <div style="height:1px;background:rgba(var(--amit-text-rgb,240,232,208),.12);margin:26px 0 18px"></div>
+            <div style="font-family:var(--amit-font-heading,'Cinzel',serif);font-size:13px;letter-spacing:.08em;color:var(--gold2);margin-bottom:8px">Voice, Key and Mouse Commands</div>
+            <p style="font-size:14px;line-height:1.7;color:var(--muted);margin:0 0 10px">What Amit Live does when you say something, press a key, or use a mouse button. Built in and always working: say Dictate, Show Amit, Open the Amit Hub or Cancel after pressing the Pause/Break key (or choosing Voice in the Amit Live ring). Add your own below; they reach this computer by themselves.</p>
+            <div id="amwSyncNote" class="amw-small" style="min-height:16px;margin-bottom:4px"></div>
+            <div id="amwUpdateNote" class="amw-small" style="min-height:16px;margin-bottom:4px"></div>
+            <label class="amw-small" style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input type="checkbox" id="avmAutoCb" checked onchange="avmSetAuto(this.checked)"> Keep this computer's Amit helper up to date automatically (recommended)</label>
+            <div class="amw-add" style="background:rgba(var(--amit-overlay-rgb,255,255,255),.03);border:1px solid rgba(var(--amit-text-rgb,240,232,208),.12);border-radius:8px;padding:14px;margin-bottom:14px">
+              <div class="fg-label" style="margin-bottom:8px">ADD A COMMAND</div>
+              <label class="fg-label" style="display:block;margin-bottom:5px">HOW DO I START IT?</label>
+              <select class="fg-input" id="avmType" onchange="avmSetType(this.value)" style="margin-bottom:10px">
+                <option value="voice">I say a phrase (after starting Voice)</option>
+                <option value="key">I press a key</option>
+                <option value="mouse">I use a mouse button</option>
+              </select>
+              <div id="avmTrigWrap">
+                <label class="fg-label" id="avmTrigLabel" style="display:block;margin-bottom:5px">THE PHRASE</label>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+                  <input class="fg-input" id="avmTrigger" maxlength="120" placeholder="for example: open my pursuits" style="flex:1">
+                  <button class="btn btn-ghost" id="avmCapture" onclick="avmCaptureKey()" style="display:none;font-size:11px;padding:9px 12px;white-space:nowrap">PRESS A KEY</button>
+                </div>
+              </div>
+              <div id="avmMouseWrap" style="display:none">
+                <label class="fg-label" style="display:block;margin-bottom:5px">WHICH BUTTON OPENS THE AMIT LIVE RING?</label>
+                <select class="fg-input" id="avmMouse" style="margin-bottom:10px">
+                  <option value="right">Right button (hold)</option><option value="middle">Middle button (hold)</option><option value="x1">Back side button (hold)</option><option value="x2">Forward side button (hold)</option>
+                </select>
+              </div>
+              <label class="fg-label" style="display:block;margin-bottom:5px">WHAT SHOULD IT DO?</label>
+              <select class="fg-input" id="avmAction" style="margin-bottom:10px"></select>
+              <label class="fg-label" style="display:block;margin-bottom:5px">A NAME FOR IT (OPTIONAL)</label>
+              <input class="fg-input" id="avmLabel" maxlength="80" placeholder="for example: My pursuits" style="margin-bottom:10px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:12px"><input type="checkbox" id="avmConfirm"> Ask me first (Amit asks "1 yes, 2 no" out loud before it runs)</label>
+              <button class="btn" onclick="avmAdd()">ADD COMMAND</button>
+            </div>
+            <div id="avmStatus" style="min-height:18px;font-size:13px;margin-bottom:8px"></div>
+            <div id="avmList"></div>
           </div>
         </div>
         </div><!-- /ch-tab-main -->
@@ -3690,6 +3729,8 @@ if(db){
     // sign-out). Deferred with setTimeout so no supabase call is awaited
     // inside this callback (supabase-js v2 can deadlock if you do).
     if(typeof amitAppearanceSync==='function') setTimeout(()=>{amitAppearanceSync(db);},0);
+    // My Words / commands (2026-10-29): once per sign-in, copy the person's list down to the helper on this computer (deferred, same reason as above)
+    if(session&&(event==='SIGNED_IN'||event==='INITIAL_SESSION')&&typeof amwSyncNow==='function') setTimeout(function(){ amwSyncNow('sign-in'); },3000);
     // AmitCoder management/child session bridge (2026-09-07): a real Claude
     // Code session (J Manage) can't reach this tab's own session token - it
     // lives only in this browser's memory. So the moment a real sign-in or
@@ -4642,10 +4683,10 @@ async function loadRecoveryQuestions(){
   const email=document.getElementById('fpEmail').value.trim();if(!email)return;
   const btn=document.getElementById('fpLoadBtn');btn.textContent='Looking up…';btn.disabled=true;
   try{
-    const res=await fetch(AMIT_GET_RECOVERY_QUESTIONS_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email})});
+    const res=await fetch(AMIT_GET_RECOVERY_QUESTIONS_URL,{method:'POST',headers:{'content-type':'application/json',apikey:SB_KEY,Authorization:'Bearer '+SB_KEY},body:JSON.stringify({email})});
     const out=await res.json().catch(()=>null);
     btn.textContent='CONTINUE →';btn.disabled=false;
-    if(!res.ok||!out||out.error){ alert(out&&out.error?out.error:'Could not find recovery questions for that email.'); return; }
+    if(!res.ok||!out||out.error){ alert(out&&out.error?out.error:(res.status===401||res.status===403?'The password reset service refused the request ('+res.status+'). Please tell Amit.':'Could not reach the recovery lookup ('+res.status+'). Please try again, or tell Amit.')); return; }
     _fpEmailForRecovery=email;
     const hintBox=document.getElementById('fpHintBox');
     if(out.password_hint){ hintBox.textContent='💡 Your hint: '+out.password_hint; hintBox.style.display='block'; }
@@ -4669,7 +4710,7 @@ async function submitRecoveryAnswers(){
   if(newPassword.length<6){ alert('New password needs to be at least 6 characters.'); return; }
   const btn=document.getElementById('fpSubmitBtn');btn.textContent='Checking…';btn.disabled=true;
   try{
-    const res=await fetch(AMIT_RESET_PASSWORD_WITH_ANSWERS_URL,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:_fpEmailForRecovery,answer_1:a1,answer_2:a2,new_password:newPassword})});
+    const res=await fetch(AMIT_RESET_PASSWORD_WITH_ANSWERS_URL,{method:'POST',headers:{'content-type':'application/json',apikey:SB_KEY,Authorization:'Bearer '+SB_KEY},body:JSON.stringify({email:_fpEmailForRecovery,answer_1:a1,answer_2:a2,new_password:newPassword})});
     const out=await res.json().catch(()=>null);
     btn.textContent='RESET PASSWORD →';btn.disabled=false;
     if(!res.ok||!out||out.error){ alert(out&&out.error?out.error:'Could not reset your password.'); return; }
@@ -5654,6 +5695,7 @@ async function amwLoad(){
   const r=await db.from('cha_user_words').select('id,heard,meant,times,kind,last_at').order('last_at',{ascending:false}).limit(700);
   if(r.error){ amwStatus('Could not load your list: '+r.error.message,true); return; }
   _amwRows=r.data||[]; amwStatus(''); amwRender();
+  avmSetType(_avmType); avmLoad().then(function(){ amwSyncNow('open'); });
 }
 function amwFilter(f){ _amwFilter=f; ['all','fix','shortcut'].forEach(function(k){ amwEl('amwF_'+k).classList.toggle('on',k===f); }); amwRender(); }
 function amwSortBy(v){ _amwSort=v; amwRender(); }
@@ -5725,18 +5767,222 @@ async function amwAdd(){
   const r=await db.from('cha_user_words').insert({user_id:currentUser.id,heard:heard,meant:meant,kind:_amwType}).select('id,heard,meant,times,kind,last_at').single();
   if(r.error){ amwStatus(amwErr(r.error),true); return; }
   _amwRows.unshift(r.data); amwEl('amwHeard').value=''; amwEl('amwMeant').value=''; amwCount(); amwStatus('Added. Amit will use it from your next question.'); amwRender();
+  amwSyncNow('change');
 }
 async function amwSave(x,heard,meant,kind){
   heard=heard.trim(); meant=meant.trim(); const p=amwProblem(heard,meant,kind); if(p){ amwStatus(p,true); return; }
   const r=await db.from('cha_user_words').update({heard:heard,meant:meant,kind:kind,last_at:new Date().toISOString()}).eq('id',x.id).select('id,heard,meant,times,kind,last_at').single();
   if(r.error){ amwStatus(amwErr(r.error),true); return; }
   const i=_amwRows.findIndex(function(y){return y.id===x.id;}); if(i>=0) _amwRows[i]=r.data; amwStatus('Saved.'); amwRender();
+  amwSyncNow('change');
 }
 async function amwDelete(x){
   const r=await db.from('cha_user_words').delete().eq('id',x.id);
   if(r.error){ amwStatus('Could not delete: '+r.error.message,true); return; }
   _amwRows=_amwRows.filter(function(y){return y.id!==x.id;}); amwStatus('Deleted.'); amwRender();
+  amwSyncNow('change');
 }
+
+// ABOUT ME > MY WORDS > COMMANDS + THE LINK TO THIS COMPUTER (added 2026-10-29, Ryan; Hub v8.50).
+// The person's voice / key / mouse commands live in the table voi_commands (own rows only). The Hub, which holds the login, copies the whole list
+// (mishearing fixes and shortcuts from cha_user_words, plus these commands) down to the helper on this computer (localhost:8710 /api/words/sync) and
+// collects anything changed on the computer. It happens at sign-in, after every change here, when this tab opens, and every 6 hours while the Hub stays open.
+// The helper never has the login and never talks to the database. Everything is built with textContent/value, never typed text as HTML.
+let _avmRows=[], _avmType='voice', _avmSyncBusy=false, _avmTableMissing=false;
+const AVM_ACTIONS={dictate:'Dictate',showamit:'Show Amit',openhub:'Open the Amit Hub',cancel:'Cancel',voice:'Start Voice',ring:'Open the Amit Live ring'};
+const AVM_PER_TYPE={voice:['dictate','showamit','openhub','cancel'],key:['voice','dictate','showamit','openhub','cancel'],mouse:['ring']};
+function avmEsc(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/\|/g,'\\p').replace(/\r/g,'').replace(/\n/g,'\\n'); }
+function avmUnesc(s){ return String(s||'').replace(/\\(p|n|\\)/g,function(m,c){ return c==='p'?'|':(c==='n'?'\n':'\\'); }); }
+function avmStatus(msg,bad){ const e=amwEl('avmStatus'); if(!e) return; e.textContent=msg||''; e.style.color=bad?'rgba(235,150,140,.95)':'rgba(180,220,190,.95)'; }
+function avmSyncNote(msg,bad){ const e=amwEl('amwSyncNote'); if(!e) return; e.textContent=msg||''; e.style.color=bad?'rgba(235,150,140,.95)':''; }
+function avmSetType(t){
+  _avmType=(t==='key'||t==='mouse')?t:'voice';
+  const sel=amwEl('avmType'); if(!sel) return; sel.value=_avmType;
+  const acb=amwEl('avmAutoCb'); if(acb) acb.checked=avmAutoOn();
+  amwEl('avmTrigWrap').style.display=(_avmType==='mouse')?'none':'';
+  amwEl('avmMouseWrap').style.display=(_avmType==='mouse')?'':'none';
+  amwEl('avmCapture').style.display=(_avmType==='key')?'':'none';
+  amwEl('avmTrigLabel').textContent=(_avmType==='key')?'THE KEY':'THE PHRASE';
+  amwEl('avmTrigger').placeholder=(_avmType==='key')?'press the button, or type one: pause, f9, ctrl+alt+v':'for example: open my pursuits';
+  const act=amwEl('avmAction'); act.textContent='';
+  AVM_PER_TYPE[_avmType].forEach(function(a){ const o=document.createElement('option'); o.value=a; o.textContent=AVM_ACTIONS[a]; act.appendChild(o); });
+}
+function avmCaptureKey(){
+  const btn=amwEl('avmCapture'); btn.textContent='PRESS THE KEY NOW';
+  const done=function(){ document.removeEventListener('keydown',h,true); btn.textContent='PRESS A KEY'; };
+  const h=function(e){
+    e.preventDefault(); e.stopPropagation();
+    if(['Control','Alt','Shift','CapsLock'].indexOf(e.key)>=0) return;
+    done();
+    if(e.key==='Escape') return;
+    if(e.metaKey){ avmStatus('The Windows key cannot be used. Try Pause, Scroll Lock, or a function key.',true); return; }
+    const map={Pause:'pause',ScrollLock:'scrolllock',Insert:'insert',Home:'home',End:'end',PageUp:'pageup',PageDown:'pagedown'};
+    let k=map[e.key]||(/^F([1-9]|1[0-9]|2[0-4])$/.test(e.key)?e.key.toLowerCase():(e.key.length===1?e.key.toLowerCase():''));
+    if(!k){ avmStatus('That key cannot be used. Try Pause, Scroll Lock, or a function key.',true); return; }
+    amwEl('avmTrigger').value=(e.ctrlKey?'ctrl+':'')+(e.altKey?'alt+':'')+(e.shiftKey?'shift+':'')+k; avmStatus('');
+  };
+  document.addEventListener('keydown',h,true);
+}
+function avmProblem(type,trigger){
+  if(type==='mouse') return '';
+  if(!trigger) return type==='key'?'Press a key (or type one) first.':'Write the phrase first.';
+  if(type==='voice') return trigger.length<2?'The phrase is too short.':'';
+  const t=trigger.toLowerCase().replace(/\s+/g,'');
+  if(!/^((ctrl|alt|shift)\+)*(pause|scrolllock|insert|home|end|pageup|pagedown|f([1-9]|1[0-9]|2[0-4])|[a-z0-9])$/.test(t)) return 'That is not a key Amit can use. Try Pause, Scroll Lock, a function key (F1 to F24), or a letter with Ctrl or Alt.';
+  if(/^[a-z0-9]$/.test(t)) return 'A plain letter or number would stop you typing it. Add Ctrl or Alt, or use Pause, Scroll Lock or a function key.';
+  if(/^((ctrl|alt|shift)\+)+$/.test(t)) return 'Add a key after Ctrl, Alt or Shift.';
+  return '';
+}
+async function avmLoad(){
+  if(!(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db)) return;
+  const r=await db.from('voi_commands').select('id,trigger_type,trigger,action,label,confirm,enabled,updated_at').order('created_at',{ascending:true}).limit(300);
+  if(r.error){
+    _avmRows=[]; _avmTableMissing=/does not exist|42P01|PGRST205|schema cache/i.test((r.error.message||'')+' '+(r.error.code||''));
+    avmStatus(_avmTableMissing?'Commands are not switched on in the database yet (one setup step is waiting for Ryan).':'Could not load your commands: '+r.error.message,true);
+    avmRender(); return;
+  }
+  _avmTableMissing=false; _avmRows=r.data||[]; avmStatus(''); avmRender();
+}
+function avmRender(){
+  const list=amwEl('avmList'); if(!list) return; list.textContent='';
+  if(!_avmRows.length){ list.appendChild(amwMake('div','color:var(--dim);font-size:13px;line-height:1.6;padding:4px 0','No commands of your own yet. The built-in ones always work.')); return; }
+  const words={voice:'When I say',key:'When I press',mouse:'When I hold'};
+  _avmRows.forEach(function(c){
+    const row=amwMake('div',''); row.className='amw-row short';
+    const top=amwMake('div','display:flex;align-items:center;gap:8px;flex-wrap:wrap');
+    const badge=amwMake('span','',c.trigger_type==='key'?'Key':(c.trigger_type==='mouse'?'Mouse':'Voice')); badge.className='amw-badge short'; top.appendChild(badge);
+    top.appendChild(amwMake('span','font-size:13px',(words[c.trigger_type]||'')+' "'+c.trigger+'"  →  '+(c.label||AVM_ACTIONS[c.action]||c.action)+(c.confirm?'  (asks first)':'')));
+    top.appendChild(amwMake('span','flex:1'));
+    const lab=amwMake('label','display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)'); const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!c.enabled; lab.appendChild(cb); lab.appendChild(document.createTextNode('On')); top.appendChild(lab);
+    const del=amwMake('button','font-size:11px;padding:6px 12px','DELETE'); del.className='btn btn-ghost'; top.appendChild(del);
+    const sure=amwMake('span','display:none;font-size:12px;color:rgba(235,150,140,.95)','Delete this? ');
+    const yes=amwMake('button','font-size:11px;padding:5px 12px','YES'); yes.className='btn btn-ghost'; const no=amwMake('button','font-size:11px;padding:5px 12px','KEEP IT'); no.className='btn btn-ghost';
+    sure.appendChild(yes); sure.appendChild(document.createTextNode(' ')); sure.appendChild(no); top.appendChild(sure);
+    cb.addEventListener('change',function(){ avmToggle(c,cb.checked); });
+    del.addEventListener('click',function(){ del.style.display='none'; sure.style.display=''; });
+    no.addEventListener('click',function(){ sure.style.display='none'; del.style.display=''; });
+    yes.addEventListener('click',function(){ avmDelete(c); });
+    row.appendChild(top); list.appendChild(row);
+  });
+}
+async function avmAdd(){
+  if(!(currentUser&&db)){ avmStatus('Sign in first.',true); return; }
+  const type=_avmType, trigger=(type==='mouse')?amwEl('avmMouse').value:amwEl('avmTrigger').value.trim();
+  const p=avmProblem(type,trigger); if(p){ avmStatus(p,true); return; }
+  const action=amwEl('avmAction').value, label=amwEl('avmLabel').value.trim();
+  const r=await db.from('voi_commands').insert({user_id:currentUser.id,trigger_type:type,trigger:trigger,action:action,label:label,confirm:amwEl('avmConfirm').checked,enabled:true}).select('id,trigger_type,trigger,action,label,confirm,enabled,updated_at').single();
+  if(r.error){
+    const m=r.error.message||'';
+    avmStatus(/duplicate|unique|23505/i.test(m+(r.error.code||''))?'You already have a command for that. Find it in the list and change it there.':(/does not exist|42P01|PGRST205|schema cache/i.test(m+(r.error.code||''))?'Commands are not switched on in the database yet (one setup step is waiting for Ryan).':'Could not save: '+m),true); return;
+  }
+  _avmRows.push(r.data); amwEl('avmTrigger').value=''; amwEl('avmLabel').value=''; amwEl('avmConfirm').checked=false;
+  avmStatus('Added. It reaches this computer in a moment.'); avmRender(); amwSyncNow('change');
+}
+async function avmToggle(c,on){
+  const r=await db.from('voi_commands').update({enabled:on}).eq('id',c.id).select('id,trigger_type,trigger,action,label,confirm,enabled,updated_at').single();
+  if(r.error){ avmStatus('Could not change it: '+r.error.message,true); avmRender(); return; }
+  const i=_avmRows.findIndex(function(y){return y.id===c.id;}); if(i>=0) _avmRows[i]=r.data; avmStatus(on?'Turned on.':'Turned off.'); amwSyncNow('change');
+}
+async function avmDelete(c){
+  const r=await db.from('voi_commands').delete().eq('id',c.id);
+  if(r.error){ avmStatus('Could not delete: '+r.error.message,true); return; }
+  _avmRows=_avmRows.filter(function(y){return y.id!==c.id;}); avmStatus('Deleted.'); avmRender(); amwSyncNow('change');
+}
+function avmRowsText(){
+  const out=[];
+  _amwRows.forEach(function(x){ if(x.kind==='fix'||x.kind==='shortcut') out.push([x.kind,x.id,x.heard,x.meant,'','','','1',x.last_at||''].map(avmEsc).join('|')); });
+  _avmRows.forEach(function(c){ out.push(['command',c.id,c.trigger_type,c.trigger,c.action,c.label||'',c.confirm?'1':'0',c.enabled?'1':'0',c.updated_at||''].map(avmEsc).join('|')); });
+  return out.join('\n');
+}
+// copy the whole list down to this computer, then save to the database whatever was changed on the computer since last time
+async function amwSyncNow(reason){
+  if(_avmSyncBusy) return;
+  if(!(typeof currentUser!=='undefined'&&currentUser&&typeof db!=='undefined'&&db)) return;
+  _avmSyncBusy=true;
+  try{
+    const a=await db.from('cha_user_words').select('id,heard,meant,times,kind,last_at').order('last_at',{ascending:false}).limit(700);
+    if(!a.error) _amwRows=a.data||[];
+    const b=await db.from('voi_commands').select('id,trigger_type,trigger,action,label,confirm,enabled,updated_at').order('created_at',{ascending:true}).limit(300);
+    if(!b.error){ _avmRows=b.data||[]; _avmTableMissing=false; } else if(/does not exist|42P01|PGRST205|schema cache/i.test((b.error.message||'')+' '+(b.error.code||''))){ _avmRows=[]; _avmTableMissing=true; }
+    let res;
+    try{ res=await fetch('http://localhost:8710/api/words/sync',{method:'POST',headers:{'Content-Type':'text/plain'},body:avmRowsText()}); }
+    catch(e){ avmSyncNote("This computer's Amit helper is not running, so nothing was copied to it. It copies the next time the Hub opens with the helper running.",false); return; }
+    const j=await res.json();
+    if(!j.ok){ avmSyncNote('This computer did not accept the list ('+(j.error||'error')+').',true); return; }
+    const lines=String(j.text||'').split('\n'); const head=(lines.shift()||'').split('|');
+    const warn=avmUnesc(head[2]||''); const acks=[]; let saved=0;
+    for(const line of lines){
+      if(!line) continue;
+      const p=line.split('|').map(avmUnesc); const kind=p[0], id=p[1], heard=p[2], meant=p[3], pend=p[9];
+      if(kind!=='fix'&&kind!=='shortcut') { acks.push(avmEsc(id)+'|'); continue; }
+      const isLocal=/^L\d+$/.test(id);
+      if(pend==='del'){ if(!isLocal) await db.from('cha_user_words').delete().eq('id',id); acks.push(avmEsc(id)+'|'); saved++; continue; }
+      if(pend==='edit'&&!isLocal){ await db.from('cha_user_words').update({heard:heard,meant:meant,kind:kind,last_at:new Date().toISOString()}).eq('id',id); acks.push(avmEsc(id)+'|'); saved++; continue; }
+      const ins=await db.from('cha_user_words').insert({user_id:currentUser.id,heard:heard,meant:meant,kind:kind}).select('id').single();
+      acks.push(avmEsc(id)+'|'+avmEsc(ins.data?ins.data.id:'')); if(!ins.error) saved++;
+    }
+    if(acks.length){ try{ await fetch('http://localhost:8710/api/words/ack',{method:'POST',headers:{'Content-Type':'text/plain'},body:acks.join('\n')}); }catch(e){} }
+    if(saved){ const a2=await db.from('cha_user_words').select('id,heard,meant,times,kind,last_at').order('last_at',{ascending:false}).limit(700); if(!a2.error){ _amwRows=a2.data||[]; amwRender(); } }
+    const hh=new Date(), t=('0'+hh.getHours()).slice(-2)+':'+('0'+hh.getMinutes()).slice(-2);
+    avmSyncNote('In sync with this computer ('+(head[1]||'0')+' rows copied at '+t+')'+(saved?'; '+saved+' change'+(saved>1?'s':'')+' made on the computer saved.':'.')+(warn?'  '+warn:'')+(_avmTableMissing?'  Commands are not switched on in the database yet.':''),!!warn);
+    avmCheckUpdate();
+  }catch(e){ avmSyncNote('Could not sync with this computer: '+((e&&e.message)||e),true); }
+  finally{ _avmSyncBusy=false; }
+}
+// Is the helper on this computer the current one? The published manifest (amit_helper_manifest.json, made at push time from the real files) lists a
+// SHA-256 fingerprint for every file; the helper reports the same fingerprints for what it has installed (/api/helper/status). Any difference, or a
+// helper too old to answer, means an update is available. The Hub only TELLS the person: it never updates anything silently.
+const AVM_MANIFEST_URL='https://ask-amit.github.io/Amit/ComputerHealth/amit_helper_manifest.json';
+function avmCompareHelper(manifest,status){
+  const have={}; ((status&&status.files)||[]).forEach(function(f){ have[f.name]=f.sha256; });
+  const outdated=[]; ((manifest&&manifest.files)||[]).forEach(function(f){ if(have[f.name]!==f.sha256) outdated.push(f.name); });
+  return {outdated:outdated,latest:(manifest&&manifest.helperVersion)||'',installed:(status&&status.helperVersion)||''};
+}
+async function avmCheckUpdate(){
+  const el=amwEl('amwUpdateNote'); if(!el) return;
+  let m=null, s=null, statusAnswered=false;
+  try{ const r=await fetch(AVM_MANIFEST_URL,{cache:'no-store'}); if(!r.ok) return; m=await r.json(); }catch(e){ return; }      // nothing published yet: say nothing
+  try{ const r2=await fetch('http://localhost:8710/api/helper/status'); if(r2.ok){ s=await r2.json(); statusAnswered=!!(s&&s.ok); } }catch(e){ return; }
+  const note=function(t,bad){ el.textContent=t; el.style.color=bad?'rgba(235,190,110,.95)':'rgba(180,220,190,.95)'; };
+  if(!statusAnswered){ note("This computer's Amit helper is older than version "+m.helperVersion+" and is too old to update itself. Run the Amit installer once (Connect Amit); after that every update is automatic.",true); return; }
+  const c=avmCompareHelper(m,s);
+  if(!c.outdated.length){ note("This computer's Amit helper is up to date (version "+c.installed+").",false); return; }
+  if(s.canUpdate&&avmAutoOn()){ avmRunUpdate(m,c,note); return; }
+  note("An update is available for this computer's Amit helper: version "+c.latest+" (this computer has "+c.installed+"; "+c.outdated.length+" file"+(c.outdated.length>1?'s':'')+" differ). "+(s.canUpdate?"Automatic updates are switched off for this browser.":"Run the Amit installer once (Connect Amit); after that every update is automatic.")+(m.notes?'  What is new: '+m.notes:''),true);
+}
+// AUTOMATIC UPDATE (Ryan, 2026-10-29): whoever is signed in has the current helper, without pressing anything. The Hub only says "go"; the helper's own
+// updater (amit_update.ps1) reads the published manifest itself, checks every fingerprint, waits while the person is busy, and rolls back by itself if the
+// new version does not start. The switch is per browser, on unless turned off (localStorage amit_autoUpdate = 0).
+let _avmUpdating=false, _avmTried='';
+function avmAutoOn(){ try{ return localStorage.getItem('amit_autoUpdate')!=='0'; }catch(e){ return true; } }
+function avmSetAuto(on){ try{ localStorage.setItem('amit_autoUpdate',on?'1':'0'); }catch(e){} if(on) avmCheckUpdate(); else { const el=amwEl('amwUpdateNote'); if(el){ el.textContent='Automatic updates are switched off for this browser.'; el.style.color='rgba(235,190,110,.95)'; } } }
+async function avmRunUpdate(m,c,note){
+  if(_avmUpdating) return;
+  if(_avmTried===c.latest+'|'+c.outdated.join(',')){ return; }       // one attempt per version per page load: a failed update must not loop
+  _avmUpdating=true; _avmTried=c.latest+'|'+c.outdated.join(',');
+  try{
+    const runId='r'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36);
+    note("Bringing this computer's Amit helper up to date (version "+c.latest+")...",false);
+    let started=null;
+    try{ const r=await fetch('http://localhost:8710/api/helper/update',{method:'POST',headers:{'Content-Type':'text/plain'},body:runId}); started=await r.json(); }
+    catch(e){ note("Could not reach this computer's Amit helper to update it.",true); return; }
+    if(!started||!started.ok){ note('The update did not start: '+((started&&started.error)||'unknown reason'),true); return; }
+    const t0=Date.now();
+    while(Date.now()-t0<180000){
+      await new Promise(function(res){ setTimeout(res,3000); });
+      let jr=null;
+      try{ const rr=await fetch('http://localhost:8710/api/helper/update-result',{cache:'no-store'}); jr=await rr.json(); }catch(e){ continue; }     // the helper restarts in the middle: keep trying
+      if(!jr||jr.id!==runId) continue;
+      if(jr.status==='running'){ note((jr.message||'Updating')+'...',false); continue; }
+      if(jr.status==='ok'){ note("This computer's Amit helper was updated to version "+(jr.to||c.latest)+".",false); return; }
+      if(jr.status==='current'){ note("This computer's Amit helper is up to date.",false); return; }
+      if(jr.status==='postponed'){ note((jr.message||'The update is waiting.')+' Amit will try again in a few minutes.',true); _avmTried=''; setTimeout(function(){ avmCheckUpdate(); },10*60*1000); return; }
+      note((jr.message||'The update did not go ahead.'),true); return;      // failed (and already rolled back): the message says what happened
+    }
+    note('The update is taking longer than expected. Amit will check again later.',true); _avmTried='';
+  }finally{ _avmUpdating=false; }
+}
+setInterval(function(){ amwSyncNow('timer'); },6*60*60*1000);
 
 // ══════════════════════════════════════════════
 // ABOUT ME → APPEARANCE TAB (added 2026-10-01). Standalone, like Family —

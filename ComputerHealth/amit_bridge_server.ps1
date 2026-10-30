@@ -1111,6 +1111,77 @@ try {
                 if (-not [AmitWhisper]::CheckToken($request.QueryString["k"])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
                 else { Send-JsonRaw $response ([AmitWhisper]::StartLearn()) }
             }
+            "/api/helper/status" {
+                # Which version of Amit's helper is installed here, and a fingerprint (SHA-256) of each file that can change, so the Hub can compare it with the
+                # published manifest (amit_helper_manifest.json) and tell the person when an update is available. Read-only. Same Origin rule as /api/words/*.
+                # KEEP THE FILE LIST THE SAME AS make_helper_manifest.ps1.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $hsNames = @('amit_bridge_server.ps1','ComputerHealth_Dashboard.html','activity_watcher2.ps1','resource_watcher.ps1','diagnostics_watcher.ps1','app_behavior_watcher.ps1','install_snapshot_watcher.ps1','Run_AmitTracker.ps1','process_inbox.bat','process_inbox_prompt.txt','amit_whisper.cs','amit_whisper.html','amit_update.ps1')
+                    $hsSha = [System.Security.Cryptography.SHA256]::Create()
+                    $hsParts = @()
+                    foreach ($hsN in $hsNames) {
+                        $hsP = Join-Path $watcherDir $hsN
+                        if (Test-Path $hsP) {
+                            $hsB = [System.IO.File]::ReadAllBytes($hsP)
+                            $hsH = ([BitConverter]::ToString($hsSha.ComputeHash($hsB))).Replace('-', '').ToLowerInvariant()
+                            $hsParts += ('{"name":"' + $hsN + '","sha256":"' + $hsH + '","bytes":' + $hsB.Length + '}')
+                        }
+                    }
+                    $hsSha.Dispose()
+                    $hsCan = (Test-Path (Join-Path $watcherDir 'amit_update.ps1')).ToString().ToLowerInvariant()
+                    Send-JsonRaw $response ('{"ok":true,"helperVersion":"' + [AmitWhisper]::Version + '","canUpdate":' + $hsCan + ',"files":[' + ($hsParts -join ',') + ']}')
+                }
+            }
+            "/api/helper/update" {
+                # The Hub (signed in) asks this computer to bring itself up to date. The helper does NOT take any file or address from the caller:
+                # amit_update.ps1 reads the published manifest from the Amit site itself, checks every fingerprint, waits until the person is not busy,
+                # and rolls back on its own if the new version does not start. Same Origin rule as /api/words/*.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $huReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $huBody = $huReader.ReadToEnd().Trim(); $huReader.Dispose()
+                    if ($huBody -notmatch '^[A-Za-z0-9]{6,40}$') { $huBody = 'r' + [DateTime]::UtcNow.Ticks }
+                    $huScript = Join-Path $watcherDir 'amit_update.ps1'
+                    if (-not (Test-Path $huScript)) { Send-JsonRaw $response '{"ok":false,"error":"this helper cannot update itself yet"}' }
+                    else {
+                        Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File',$huScript,'-RunId',$huBody -WindowStyle Hidden
+                        Send-JsonRaw $response ('{"ok":true,"started":true,"id":"' + $huBody + '"}')
+                    }
+                }
+            }
+            "/api/helper/update-result" {
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $hrPath = Join-Path $env:LOCALAPPDATA 'AmitComputerHealth\update_result.json'
+                    if (Test-Path $hrPath) { Send-JsonRaw $response ([System.IO.File]::ReadAllText($hrPath, [System.Text.Encoding]::UTF8)) }
+                    else { Send-JsonRaw $response '{"status":"none"}' }
+                }
+            }
+            "/api/words/get" {
+                # My Words (v1.23): this computer's copy of the person's list (fixes, shortcuts, voice/key/mouse commands). Only the Amit site or a local program may ask.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::WordsGet()) }
+            }
+            "/api/words/sync" {
+                # The Hub (which holds the login) sends the whole list down; reply = rows changed on this computer that the database does not have yet.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $wsReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $wsBody = $wsReader.ReadToEnd(); $wsReader.Dispose()
+                    $wsOut = [AmitWhisper]::WordsSync($wsBody)
+                    Send-JsonRaw $response ('{"ok":true,"text":"' + ($wsOut.Replace('\', '\\').Replace('"', '\"').Replace("`r", '').Replace("`n", '\n')) + '"}')
+                }
+            }
+            "/api/words/ack" {
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $waReader = New-Object System.IO.StreamReader($request.InputStream, [System.Text.Encoding]::UTF8)
+                    $waBody = $waReader.ReadToEnd(); $waReader.Dispose()
+                    [void][AmitWhisper]::WordsAck($waBody)
+                    Send-JsonRaw $response '{"ok":true}'
+                }
+            }
             "/api/amit-mobile-status" {
                 # Lets anyone (Ryan, a future dashboard tile, the setup guide's
                 # own troubleshooting step) confirm the Amit Mobile listener is

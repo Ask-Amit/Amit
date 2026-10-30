@@ -87,7 +87,7 @@ if ($alreadyInstalled) {
         "app_behavior_watcher.ps1", "install_snapshot_watcher.ps1",
         "Run_AmitTracker.ps1", "AmitTracker.exe", "AmitSensorReader.exe",
         "process_inbox.bat", "process_inbox_prompt.txt",
-        "amit_whisper.cs", "amit_whisper.html"
+        "amit_whisper.cs", "amit_whisper.html", "amit_update.ps1"
     )
     foreach ($f in $filesToCopy) {
         $src = "$scriptDir\$f"
