@@ -110,6 +110,7 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../amit_owner_contact.js"></script>
 <script src="../amit_chat.js?v=0.28"></script>
 <script src="amit_morning.js"></script>
 <script>
@@ -270,6 +271,17 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
       try{ window.open('https://ask-amit.github.io/Amit/Hub/amit-hub.html?chat='+encodeURIComponent(id||''),'amit_hub_chat'); }catch(e){}
       setTimeout(function(){ if(cur==='ask') openAsk(); },400);
     };
+    /* the person's own saved voice (About Me in the Hub: voice, accent, speed, pitch, volume, pause) is read from the same contact row the Hub uses, fresh each time the chat reads aloud, so a change made in the Hub is heard here at once. Read-only here: nothing is created. */
+    function ownerContact(){ return db.from('contacts').select('*').eq('user_id',user.id).eq('is_owner',true).order('created_at',{ascending:true}).limit(1).then(function(r){ return (r&&r.data&&r.data[0])||null; },function(){ return null; }); }
+    AmitChat.voiceProvider=async function(){
+      var c=await ownerContact();
+      var voices=window.speechSynthesis?window.speechSynthesis.getVoices():[];
+      if(window.speechSynthesis&&!voices.length){ await new Promise(function(res){ var t=setTimeout(res,1500); window.speechSynthesis.onvoiceschanged=function(){ clearTimeout(t); res(); }; }); voices=window.speechSynthesis.getVoices(); }
+      var D=(typeof AMIT_DEFAULT_VOICE!=='undefined')?AMIT_DEFAULT_VOICE:{voice_rate:1.1,voice_pitch:1,voice_volume:1,voice_pause_scale:1};
+      var voice=(typeof resolveVoiceFromContact==='function')?resolveVoiceFromContact(voices,c,null):null;
+      return { voice:voice, rate:c&&c.voice_rate?Number(c.voice_rate):D.voice_rate, pitch:c&&c.voice_pitch?Number(c.voice_pitch):D.voice_pitch, volume:c&&c.voice_volume!=null?Number(c.voice_volume):D.voice_volume, pauseScale:c&&c.voice_pause_scale?Number(c.voice_pause_scale):D.voice_pause_scale };
+    };
+    AmitChat.voiceSaver=async function(f){ var c=await ownerContact(); if(!c||typeof saveOwnerContactFields!=='function') return false; return saveOwnerContactFields(db,c.id,f); };
     AmitChat.connect(db, user.id);
     var n=0, t=setInterval(function(){
       if(AmitChat.live){ clearInterval(t); morningThenChat(user); }
