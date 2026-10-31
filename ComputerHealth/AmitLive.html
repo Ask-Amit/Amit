@@ -3,38 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Amit Live</title>
+<title>Ask Amit</title>
+<link rel="icon" type="image/x-icon" href="../Templates/amit_icon.ico">
+<!-- the Hub's own Appearance (theme) mechanism: applies the saved theme before first paint, and re-applies when it changes in the Hub (same browser) -->
+<script src="../amit_appearance.js?v=1.06"></script>
 <!-- AMIT LIVE WINDOW v1.00 (2026-10-30, Ryan's design). The small floating window the Amit Live ring opens when the person picks "Ask Amit"
      (helper v1.25: Edge/Chrome app mode, ~430x680, movable and resizable). Three tabs: Ask Amit (opens first), My Computer, My Words.
      Login: the same browser sign-in as the Hub (same site, same profile); the helper holds no login. The chat is the shared engine amit_chat.js
      (the same box as the chat button on the Hub's right side); every message is a question to Amit and goes to the answering computer
      (Node -> the person's own Claude) exactly like Ask Amit anywhere else. Amit is told where the person is: app "amitlive" and a place label. -->
 <style>
-:root{--bg:#0b1624;--surface:#0f2338;--line:rgba(201,168,76,.35);--gold:#d4af37;--text:#f0e8d0;--dim:rgba(240,232,208,.65);
-  --amit-surface:#0f2338;--amit-accent-rgb:201,168,76;--amit-text-rgb:240,232,208;--amit-radius:0px}
-@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4efe2;--surface:#fffaf0;--line:rgba(140,110,30,.4);--gold:#8a6d12;--text:#2a2416;--dim:rgba(42,36,22,.65);
-  --amit-surface:#fffaf0;--amit-accent-rgb:140,110,30;--amit-text-rgb:42,36,22}}
+/* colours come from the Hub's Appearance tokens (--amit-*); the fallbacks are the classic navy-and-gold look, the same ones the Hub and the template use */
+:root{--bg:var(--amit-bg,#09141f);--surface:var(--amit-surface,#0f2338);--line:var(--amit-border,rgba(var(--amit-accent-rgb,201,168,76),.55));
+  --gold:var(--amit-accent,#c9a84c);--text:var(--amit-text-soft,#f0e8d0);--dim:var(--amit-dim,rgba(var(--amit-text-rgb,240,232,208),.55));--head:64px;--tabs:38px;--top:102px}
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
-#tabs{position:fixed;top:0;left:0;right:0;height:46px;display:flex;align-items:stretch;gap:2px;padding:6px 8px 0;background:var(--bg);border-bottom:1px solid var(--line);z-index:9500}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--amit-font-body,"Segoe UI",system-ui,sans-serif)}
+#head{position:fixed;top:0;left:0;right:0;height:var(--head);display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--line);z-index:9500}
+#head .brand{font-size:26px;font-weight:700;color:var(--gold);letter-spacing:.3px;white-space:nowrap;font-family:var(--amit-font-heading,inherit)}
+#head .mid{flex:1;text-align:center;min-width:0}
+#head .mid .t{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#head .mid .n{font-size:12px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tabs{position:fixed;top:var(--head);left:0;right:0;height:var(--tabs);display:flex;align-items:stretch;gap:2px;padding:4px 8px 0;background:var(--bg);border-bottom:1px solid var(--line);z-index:9500}
 .tab{flex:1;border:1px solid transparent;border-bottom:none;background:transparent;color:var(--dim);font:inherit;font-weight:600;cursor:pointer;border-radius:8px 8px 0 0;padding:0 8px;white-space:nowrap}
 .tab:hover{color:var(--text)}
 .tab.on{background:var(--surface);color:var(--gold);border-color:var(--line)}
-.pane{position:fixed;top:46px;left:0;right:0;bottom:0;display:none;overflow:auto;padding:14px 16px;background:var(--surface)}
+.pane{position:fixed;top:var(--top);left:0;right:0;bottom:0;display:none;overflow:auto;padding:14px 16px;background:var(--surface)}
 .pane.on{display:block}
 #paneAsk{padding:0;overflow:hidden;background:var(--surface)}
 #askNote{padding:18px 16px;color:var(--dim)}
 /* the shared chat box fills the Ask Amit pane */
-.acx-pop{position:fixed !important;top:46px !important;left:0 !important;right:0 !important;bottom:0 !important;width:auto !important;height:auto !important;max-height:none !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;z-index:9000 !important}
+.acx-pop{position:fixed !important;top:var(--top) !important;left:0 !important;right:0 !important;bottom:0 !important;width:auto !important;height:auto !important;max-height:none !important;border:0 !important;border-radius:0 !important;box-shadow:none !important;z-index:9000 !important}
 body:not(.t-ask) .acx-pop{display:none !important}
 h2{margin:0 0 6px;font-size:16px;color:var(--gold)}
 p{margin:6px 0}
 .dim{color:var(--dim)}
 .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
 .btn{display:inline-block;border:1px solid var(--line);background:transparent;color:var(--gold);padding:7px 12px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;margin:4px 6px 4px 0}
-.btn:hover{background:rgba(201,168,76,.12)}
+.btn:hover{background:rgba(var(--amit-accent-rgb,201,168,76),.12)}
 iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;background:#fff;margin-top:8px}
 .good{color:#5fbf7a}.bad{color:#e07a6a}.warn{color:#e0b44a}
+#offBar{display:none;position:fixed;top:var(--top);left:0;right:0;z-index:9600;padding:10px 14px;background:#7a2b22;color:#fff;font-size:13px}
+#offBar a{color:#fff;text-decoration:underline;font-weight:600}
 .verdict{font-size:15px;font-weight:600;margin:4px 0 12px}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
@@ -44,12 +53,18 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
 </style>
 </head>
 <body class="t-ask">
+<div id="head">
+  <div class="brand">Amit Live</div>
+  <div class="mid"><div class="t">Your personal computer configuration</div><div class="n" id="pcName">&nbsp;</div></div>
+</div>
 <div id="tabs">
   <button class="tab on" data-t="ask">Ask Amit</button>
   <button class="tab" data-t="pc">My Computer</button>
   <button class="tab" data-t="words">My Words</button>
   <button class="tab" data-t="health">Computer Health</button>
 </div>
+
+<div id="offBar">We could not connect to your internet service. We would love to get you connected. <a href="ms-settings:network-status">Open Windows network settings</a></div>
 
 <div class="pane on" id="paneAsk"><div id="askNote">Opening your chat with Amit...</div></div>
 
@@ -84,6 +99,11 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
   var SB_URL='https://hleqtjqojksurvkyqixt.supabase.co', SB_KEY='sb_publishable_0pptfPselXI0V9JmnhXgbA_dAGurCiF';
   var HELPER='http://localhost:8710';
   var cur='ask', askStarted=false, pcStarted=false;
+  /* the internet dropped while this window is open: say so plainly; when it comes back, reload so the chat reconnects */
+  function net(){ var b=document.getElementById('offBar'); if(b) b.style.display=navigator.onLine?'none':'block'; }
+  window.addEventListener('offline', net);
+  window.addEventListener('online', function(){ net(); location.reload(); });
+  net();
 
   function show(t){
     cur=t;
@@ -112,6 +132,11 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
     AmitChat.appName='amitlive';
     /* Amit is told where the person is: recorded with every question, so the answer knows this is the floating Amit Live window on their own computer */
     AmitChat.placeProvider=function(){ return { page:'amitlive', label:'the Amit Live window on the person\'s own computer (opened from the Amit Live ring, tabs: Ask Amit, My Computer, My Words)' }; };
+    /* the box's "open full screen" button: a NEW Hub tab in the browser opens straight on Communications > Chats with this conversation (Hub ?chat=<id>); this window keeps its chat */
+    AmitChat.onMaximize=function(id){
+      try{ window.open('https://ask-amit.github.io/Amit/Hub/amit-hub.html?chat='+encodeURIComponent(id||''),'amit_hub_chat'); }catch(e){}
+      setTimeout(function(){ if(cur==='ask') openAsk(); },400);
+    };
     AmitChat.connect(db, user.id);
     var n=0, t=setInterval(function(){
       if(AmitChat.live){ clearInterval(t); if(cur==='ask') openAsk(); }
@@ -121,12 +146,21 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
   function init(){
     if(typeof supabase==='undefined'||!window.AmitChat){ note('The chat could not load. Check the internet connection and open this window again.'); return; }
     db=supabase.createClient(SB_URL,SB_KEY);
+    if(typeof amitAppearanceSync==='function'){ try{ amitAppearanceSync(db); }catch(e){} }     /* the Hub's saved look, for this login */
     db.auth.getSession().then(function(r){
       var s=r&&r.data&&r.data.session;
       if(s&&s.user) startChat(s.user);
       else note('<b>Please sign in first.</b><br>This window uses your Amit sign-in from the Hub in this browser. <a class="btn" target="_blank" rel="noopener" href="https://ask-amit.github.io/Amit/Hub/amit-hub.html">Open the Hub to sign in</a><br><span class="dim">Then close this window and pick Ask Amit on the ring again.</span>');
     },function(){ note('Could not check your sign-in. Open this window again.'); });
   }
+
+  /* the header says whose computer this is (the helper knows its name; blank if the helper cannot be reached) */
+  function showPcName(){
+    fetch(HELPER+'/api/device').then(function(r){ return r.json(); }).then(function(j){
+      var n=document.getElementById('pcName'); if(n&&j&&j.deviceName) n.textContent=j.deviceName;
+    }).catch(function(){});
+  }
+  showPcName();
 
   /* ---------- My Computer ---------- */
   function row(a,b){ return '<div class="row"><span>'+a+'</span><span>'+b+'</span></div>'; }
