@@ -3,6 +3,7 @@
 # v1.10: new route /amit-icon.ico (the Amit icon for the offline Amit Live page).
 # v1.09 (2026-10-30) - first numbered version was v1.01 (baseline v1.00 = everything before).
 # v1.09: new route /amit-live-offline: the page the Amit Live window shows when there is no internet (served from AmitWhisper.OfflinePage()).
+# v1.11: new routes /api/showamit/pending and /api/showamit/pending.png: the shot the Show Amit button just handed over, for the Amit Live window to post into the person's Ask Amit chat (Amit site only).
 # v1.08: new read-only route /api/health-snapshot (processor, memory, main drive, uptime, three biggest memory users) for the Computer Health tab of the Amit Live window.
 # v1.07: no personal path is written into the program any more: the AmitInbox folder and the owner-only credentials path are built from the signed-in Windows user's own profile folder ($env:USERPROFILE) instead of one fixed user name (found while preparing the public Verify It page; same result on the original computer, correct on every other).
 # v1.06: Whisper mode settings routes grew: /api/whisper/settings now also takes ready= (how long the listening window stays ready) and textonly= (only type into a text box),
@@ -1156,6 +1157,28 @@ try {
                         Send-JsonRaw $response ('{"cpuPct":' + $hsCpu + ',"ramPct":' + $hsRam + ',"ramTotalGb":' + [math]::Round($hsTotal / 1024, 1) + ',"diskFreePct":' + $hsDiskFreePct + ',"diskFreeGb":' + $hsDiskFreeGb + ',"uptimeHours":' + $hsUpHours + ',"top":[' + ($hsTopJson -join ',') + '],"tracking":' + $hsTracking + ',"device":' + (ConvertTo-JsonString $deviceName) + '}')
                     }
                     catch { Send-JsonRaw $response ('{"error":' + (ConvertTo-JsonString $_.Exception.Message) + '}') 500 }
+                }
+            }
+            "/api/showamit/pending" {
+                # v1.11: the shot the Show Amit button just handed over (id, file name, title, typed words), for the Amit Live window to post into the person's Ask Amit chat. Only the Amit site may ask (same Origin rule as /api/words/*); nothing is offered after 5 minutes.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else { Send-JsonRaw $response ([AmitWhisper]::ShotPendingJson()) }
+            }
+            "/api/showamit/pending.png" {
+                # v1.11: the picture itself, only while it is the pending one (the id must match), only to the Amit site.
+                if (-not [AmitWhisper]::OriginAllowed($request.Headers['Origin'])) { Send-JsonRaw $response '{"error":"forbidden"}' 403 }
+                else {
+                    $saBytes = [AmitWhisper]::ShotPendingBytes($request.QueryString["id"])
+                    if ($null -eq $saBytes) { Send-JsonRaw $response '{"error":"none"}' 404 }
+                    else {
+                        $response.ContentType = "image/png"
+                        $response.KeepAlive = $false
+                        $response.Headers.Add("Access-Control-Allow-Origin", "*")
+                        $response.Headers.Add("Access-Control-Allow-Private-Network", "true")
+                        $response.ContentLength64 = $saBytes.Length
+                        $response.OutputStream.Write($saBytes, 0, $saBytes.Length)
+                        $response.OutputStream.Close()
+                    }
                 }
             }
             "/api/helper/status" {

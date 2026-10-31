@@ -28,7 +28,7 @@ using System.Windows.Automation;
 
 public static class AmitWhisper
 {
-    public const string Version = "1.31";   // 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
+    public const string Version = "1.32";   // 1.32: a SHOW AMIT button in the Show Amit editor: saves the shot, hands it to the Amit Live window, which posts it into the person's own Ask Amit chat for today (under their own sign-in; the helper holds no login) and asks Amit to look at it (new bridge routes /api/showamit/pending and /api/showamit/pending.png, offered for 5 minutes, only to the Amit site). 1.31: the Amit Live window closes itself after 60 seconds without the focus (never while music plays; the no-internet page too). ONE Amit Live window only: choosing Ask Amit when its window is already open brings that window to the front instead of opening another (and a second press while the first is still opening starts nothing). 1.30: the Amit Live window opens a quarter of the screen wide and half as tall (never under 480 x 520); its title is "Ask Amit" and it shows the Amit icon in the taskbar; the offline page has the same header. 1.29: no internet: the Amit Live window opens a page served by the helper (it says plainly that Amit could not connect, offers Windows network settings and Try again, rechecks every 15 s, and keeps My Computer and Computer Health working). 1.28: hold the trigger button until the ring opens and let go WITHOUT moving (the pointer is over the Amit icon in the middle) = Ask Amit opens at once, like letting go over any wedge; the ring no longer stays open after a release in the middle. 1.27: the Amit Live window is brought IN FRONT when it opens (it came up behind VS Code): waits for the window, makes it topmost for a moment, gives it the focus. 1.26: the Amit icon in the middle of the Amit Live ring IS the Ask Amit button (no extra wedge): a click on it opens the Amit Live window (tabs Ask Amit, My Computer, My Words, Computer Health) in a small window of its own, under the person's own browser login; a gold halo shows when the pointer is on it. 1.25 (superseded: a fourth wedge was tried and removed). 1.24.2: Amit Live ring: pressing ANY mouse button off the ring closes it (the press is not passed on), and the small grey "Click a choice / Esc closes" line under the ring is gone. 1.24.1: Amit Live ring: hold, slide to a choice, let go to choose (left click still works). 1.24: one plain press of the MIDDLE mouse button (or any button the person picks for the mouse row "voice") starts Voice, like Pause/Break; the press is not passed on while Amit Live is on, so the middle button no longer opens links in a new tab. 1.23: VOICE - a new choice in Amit Live (and the Pause/Break key, or any key the person sets): say what to do instead of typing. Exact match runs it; unclear = a numbered list and the spoken number; commands that ask first wait for yes/no. MY WORDS sync: the person's list (mishearing fixes, shortcuts, voice/key/mouse commands) is kept in the database and mirrored here in my_words.txt, sent down by the Hub (/api/words/sync) and collected back (/api/words/ack). 1.22.1: Save View also saves the whole shot with its layers (picture + .amitshot). 1.22: the format bar shows only while a mark is selected (floats over the picture); with any drawing tool on, a click selects a mark and a drag draws. 1.21: a format bar under the top bar: the selected words get font, size, bold, italic, underline and color; drawings get color and line width; images get a size. 1.20: with the Text tool on, a click on existing words selects them instead of opening a new box. 1.19: marks can be selected after the fact (click), deleted (Delete, Ctrl+Z brings it back) and edited or added to (double-click). 1.18: LAYERS in the Show Amit editor (text, drawing and image layers, each with a name, an on/off tick, who made it and when), saved with the shot in a .amitshot file; Open... brings a shot back with its layers. 1.17: Live Shots lists only the Show Amit windows open right now (saved shots are reached with Open folder). 1.16: the Show Amit windows show Amit's icon in the taskbar instead of the PowerShell icon; the Pictures button/panel is now called Live Shots and closes after one is chosen. 1.15: Show Amit editor has a Pictures button: a panel on the right lists the Show Amit windows open right now (click to bring one to the front) and every picture saved in the Show Amit folder (thumbnails, newest first; click one to open it in the editor). 1.14: Show Amit editor has zoom buttons (-, percent, +, 100%) in its top bar, the same zoom as the wheel. 1.13: Show Amit editor has a Save View button: saves exactly what is on screen now (zoomed part) as its own picture. 1.12: Show Amit editor enlarges the picture smoothly (bicubic) instead of blocky pixels, until 8x. 1.11: in the Show Amit editor the mouse wheel zooms around the pointer and holding the left button and dragging moves the picture (Ctrl+0 resets). 1.10: the Show Amit editor opens in front of the program the person was in (it opened behind VS Code). 1.09: Show Amit picks the area with one window per screen (one window over two different screens did not take the mouse everywhere), and logs what the picker does. 1.08: closing the Show Amit window saves the picture (if not already saved) and puts it on the clipboard. 1.07: the Snapshot choice is renamed Show Amit and built: drag a screen area, an editor opens (title, text, Save, Save As, Open folder).1.06: Amit Live look made flat (no gradients or glow), the choice under the pointer fills solid gold. 1.05: AMIT LIVE - holding the button opens a ring of choices around the pointer; Dictate is one of them. 1.04: while latched, ONE plain press of the button stops dictation (no hold needed)
 
     // v1.03 (2026-10-29, Ryan): LATCH MODE. Hold the button to start; let go and dictation keeps going, so long dictations do not need the
     // button held. Hold the button again (same hold time) to stop; a quick tap during dictation is still a normal click. Dictation also
@@ -2616,7 +2616,7 @@ public static class AmitWhisper
         Panel lpanel;
         ListView llist;
         Label layerInfo;
-        Button bLayers, bOpenShot, bAddText, bAddDraw, bAddImage, bDelLayer, bUp, bDown, bUndo, bColor;
+        Button bLayers, bOpenShot, bAmit, bAddText, bAddDraw, bAddImage, bDelLayer, bUp, bDown, bUndo, bColor;
         Dictionary<string, Button> toolBtns = new Dictionary<string, Button>();
         bool lopen, suppressLayerUi;
         int lwidened;
@@ -2632,7 +2632,7 @@ public static class AmitWhisper
         ListViewGroup gOpen, gSaved;
         int loadGen;
         bool textMode, dirty;     // dirty: the picture was changed (words written) since it was last saved
-        string lastPath, lastBase;
+        string lastPath, lastBase, lastViewPath;      // lastViewPath: the file Save View last wrote (the Show Amit button sends it)
         static readonly Font TextFont = new Font("Segoe UI", 18f, FontStyle.Bold);
         static readonly Color Gold = Color.FromArgb(212, 175, 55);
         static readonly Color Dark = Color.FromArgb(18, 20, 26);
@@ -2655,12 +2655,14 @@ public static class AmitWhisper
             bPics = MakeButton("Live Shots", 718, 96, false);
             bLayers = MakeButton("Layers", 822, 80, false);
             bOpenShot = MakeButton("Open...", 906, 80, false);
+            bAmit = MakeButton("Show Amit", 990, 100, true);
             ToolTip tip = new ToolTip();
             tip.SetToolTip(bLayers, "Layers: text, drawings and images on top of the picture, each one can be switched on and off");
             tip.SetToolTip(bOpenShot, "Open a shot you saved earlier, with all its layers");
+            tip.SetToolTip(bAmit, "Send this shot to Amit: it is saved, then posted in your own Ask Amit chat for today, and the Amit Live window opens on it. It goes to Amit's team in your chat.");
             tip.SetToolTip(bSaveView, "Save exactly what you see now: the zoomed part, as its own picture");
             tip.SetToolTip(bSave, "Save the whole picture (with any words written on it)");
-            top.Controls.Add(lt); top.Controls.Add(title); top.Controls.Add(bText); top.Controls.Add(bSave); top.Controls.Add(bSaveView); top.Controls.Add(bSaveAs); top.Controls.Add(bFolder); top.Controls.Add(bPics); top.Controls.Add(bLayers); top.Controls.Add(bOpenShot);
+            top.Controls.Add(lt); top.Controls.Add(title); top.Controls.Add(bText); top.Controls.Add(bSave); top.Controls.Add(bSaveView); top.Controls.Add(bSaveAs); top.Controls.Add(bFolder); top.Controls.Add(bPics); top.Controls.Add(bLayers); top.Controls.Add(bOpenShot); top.Controls.Add(bAmit);
 
             status = new Label(); status.Dock = DockStyle.Bottom; status.Height = 28; status.ForeColor = Color.FromArgb(220, 220, 220); status.BackColor = Dark;
             status.Font = new Font("Segoe UI", 9.5f); status.TextAlign = ContentAlignment.MiddleLeft; status.AutoEllipsis = true; status.Padding = new Padding(10, 0, 0, 0);
@@ -2678,7 +2680,7 @@ public static class AmitWhisper
             canvas.Controls.Add(fbar);     // the format bar floats over the top (or bottom) of the picture only while a mark is selected, so nothing shifts
 
             Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea;
-            int w = Math.Max(1330, Math.Min(img.Width + 4, wa.Width * 85 / 100));
+            int w = Math.Max(1400, Math.Min(img.Width + 4, wa.Width * 85 / 100));
             int h = Math.Max(320, Math.Min(img.Height + 4 + 48 + 28, wa.Height * 85 / 100));
             ClientSize = new Size(w, h);
 
@@ -2705,6 +2707,7 @@ public static class AmitWhisper
             canvas.DoubleClickedAt += OnCanvasDoubleClick;
             canvas.ToolDown += OnToolDown; canvas.ToolMove += OnToolMove; canvas.ToolUp += OnToolUp;
             bSave.Click += delegate { DoSave(); };
+            bAmit.Click += delegate { DoSendToAmit(); };
             bSaveAs.Click += delegate { DoSaveAs(); };
             bFolder.Click += delegate { DoOpenFolder(); };
             bSaveView.Click += delegate { DoSaveView(); };
@@ -3186,6 +3189,27 @@ public static class AmitWhisper
         // ================================================================================================
         //  Layers (v1.18)
         // ================================================================================================
+        // v1.32: the Show Amit button: save the shot, hand it to the Amit Live window (which posts it into the person's Ask Amit chat for today), and say so
+        void DoSendToAmit()
+        {
+            try
+            {
+                lastViewPath = null;
+                DoSaveView();     // the same save as the Save View button: exactly what is on screen, named after the title; the whole shot with its layers is saved too
+                if (lastViewPath == null || !File.Exists(lastViewPath)) { status.Text = "Could not save the picture to send. Look at the message above, then try again."; return; }
+                StringBuilder tx = new StringBuilder();
+                foreach (ShotLayer L in layers)
+                {
+                    if (!L.Visible) continue;
+                    foreach (LayerItem it in L.Items)
+                        if (it.Kind == "text" && !String.IsNullOrEmpty(it.Text)) { if (tx.Length > 0) tx.Append(" | "); tx.Append(it.Text.Replace("\r", " ").Replace("\n", " ")); }
+                }
+                string res = SendShotToAmit(lastViewPath, title.Text, tx.ToString());
+                status.Text = res.IndexOf("\"ok\":true") >= 0 ? "Sent to Amit. The Amit Live window is opening on your Ask Amit chat for today. It goes to Amit's team in your own chat." : "Could not send to Amit: " + res;
+            }
+            catch (Exception ex) { status.Text = "Could not send to Amit: " + ex.Message; Log("Show Amit send: " + ex.Message); }
+        }
+
         static string WhoAmI()
         {
             try { return Environment.UserName; } catch { return "unknown"; }
@@ -4234,6 +4258,7 @@ public static class AmitWhisper
                 Directory.CreateDirectory(dir);
                 string path = UniqueFilePath(dir, BaseName() + " zoom", ".png");
                 bm.Save(path, ImageFormat.Png);
+                lastViewPath = path;
                 Log("Show Amit: saved view " + path);
                 // the whole shot with its layers is saved too (picture + .amitshot), so the folder always matches what is on screen
                 DoSave();
@@ -4861,6 +4886,39 @@ var lf=Date.now();setInterval(function(){if(document.hasFocus()){lf=Date.now();}
             return "{\"ok\":true}";
         }
         catch (Exception ex) { Log("OpenChatWindow: " + ex.Message); return OpenHub("?ask=amit"); }
+    }
+    // v1.32: the Show Amit button hands a saved picture to the Amit Live window, which posts it into the person's chat for today under their own sign-in
+    // (the helper holds no login). The window asks /api/showamit/pending for it; it is offered for 5 minutes, then forgotten.
+    static string shotPath, shotTitle = "", shotText = "", shotId = "";
+    static DateTime shotAt = DateTime.MinValue;
+    public static string SendShotToAmit(string pngPath, string title, string text)
+    {
+        try
+        {
+            if (String.IsNullOrEmpty(pngPath) || !File.Exists(pngPath)) return "{\"ok\":false,\"error\":\"no picture\"}";
+            if (new FileInfo(pngPath).Length > 25 * 1024 * 1024) return "{\"ok\":false,\"error\":\"the picture is too large\"}";
+            shotPath = pngPath; shotTitle = (title ?? "").Trim(); shotText = (text ?? "").Trim();
+            if (shotText.Length > 600) shotText = shotText.Substring(0, 600);
+            shotId = ((long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds).ToString(); shotAt = DateTime.UtcNow;
+            Log("Show Amit: picture handed to the Amit Live window (" + Path.GetFileName(pngPath) + ")");
+            ThreadPool.QueueUserWorkItem(delegate { OpenChatWindow(); });
+            return "{\"ok\":true}";
+        }
+        catch (Exception ex) { return "{\"ok\":false,\"error\":\"" + JsonEsc(ex.Message) + "\"}"; }
+    }
+    public static string ShotPendingJson()
+    {
+        try
+        {
+            if (shotPath == null || !File.Exists(shotPath) || (DateTime.UtcNow - shotAt).TotalMinutes > 5) return "{\"id\":\"\"}";
+            return "{\"id\":\"" + shotId + "\",\"name\":\"" + JsonEsc(Path.GetFileName(shotPath)) + "\",\"title\":\"" + JsonEsc(shotTitle) + "\",\"text\":\"" + JsonEsc(shotText) + "\",\"bytes\":" + new FileInfo(shotPath).Length + "}";
+        }
+        catch { return "{\"id\":\"\"}"; }
+    }
+    public static byte[] ShotPendingBytes(string id)
+    {
+        try { if (shotPath == null || id != shotId || (DateTime.UtcNow - shotAt).TotalMinutes > 5 || !File.Exists(shotPath)) return null; return File.ReadAllBytes(shotPath); }
+        catch { return null; }
     }
     // query: "" for the plain Hub, "?ask=amit" to have the Hub open the Ask Amit chat box once the person is signed in (the browser's own login is used; the helper holds none)
     public static string OpenHub(string query)

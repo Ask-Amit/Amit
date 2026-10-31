@@ -1,5 +1,6 @@
 /* ════════════════════════════════════════════════════════════════
    amit_chat.js — the ONE AmitChat engine, shared by every Amit page.
+   v0.29 — 2026-10-31. SHOW AMIT SHOT: AmitChat.sendShot(file, {title, text, name}) posts a picture into the chat the Amit Live window just opened and asks Amit to look at it; a 10-minute link made under the person's own sign-in travels with the press (never stored in the chat). Amit's answering helper downloads that one file, reads it, and deletes it.
    v0.28 — 2026-10-31. ONE ASK AMIT CHAT PER DAY (Amit Live window): AmitChat.openHelp({ day: 'YYYY-MM-DD' }) opens that day's own chat (made on the first open of the day, the same chat all day, a new one the next day); the Hub's openHelp() with no argument is unchanged. Needs migration _033 (falls back to the single running chat until it is run).
    v0.27 — 2026-10-26. OWNER'S NAME NO LONGER SHOWN: the label under Amit's replies used to read "answering through <owner's name>'s session"; it now reads "answering through Amit's helper", so nobody sees whose computer answered. The name is still recorded in the database (payload.via_name) as the audit trail; only the display changed. ALSO v0.27: when this computer can only offer a basic (robotic) voice, the chat says so once and the Reading voice box shows a line pointing to Microsoft Edge's natural voice; the better fallback order itself lives in amit_owner_contact.js (amitPickDefaultVoice).
    v0.26 — 2026-10-23. NEW-MEMBER CHECK: adding someone to a chat that already holds information Amit shared from a person's own apps is checked first (the answering computer tries it as that person). Not allowed: the person adding them is told which information it is and which administrator to ask. Allowed: the person adding them is asked to confirm. Accepting an invitation is checked the same way. Needs migration _025.
@@ -27,7 +28,7 @@
   'use strict';
   if (window.AmitChat) return;
 
-  var VERSION = 'v0.28';
+  var VERSION = 'v0.29';
   var PAGE = 50, NAV_THROTTLE_MS = 30000;
   var SCRIPT_BASE = (function () { var sc = document.currentScript; return sc && sc.src ? sc.src.replace(/[^\/?#]*([?#].*)?$/, '') : ''; })();
 
@@ -333,6 +334,27 @@
               payload: { name: p.name || 'file', mime: p.type, size: p.blob.size, path: path } }).select('id').then(function (m) {
               if (m.error) { db.storage.from('amitchat-files').remove([path]); throw new Error(m.error.message); }
               return db.from('cha_attachments').insert({ conversation_id: id, message_id: m.data[0].id, uploader: me, file_path: path, kind: kind, mime: p.type, size_bytes: p.blob.size });
+            });
+          });
+        });
+      },
+      /* a Show Amit shot (the Amit Live window): upload it, post it as a photo message (its title as the caption, the words typed on it kept in the message), link it, and return a 10-minute link made under the person's own sign-in: { path, url, name, mime } */
+      sendShot: function (id, file, meta) {
+        meta = meta || {};
+        if (!file) return Promise.reject(new Error('No picture.'));
+        return shrinkImage(file).then(function (p) {
+          if (p.blob.size > 10 * 1024 * 1024) throw new Error('That picture is over 10 MB.');
+          var nm = meta.name || p.name || 'shot.png';
+          var safe = nm.replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80);
+          var path = id + '/' + uid() + '-' + safe;
+          return db.storage.from('amitchat-files').upload(path, p.blob, { contentType: p.type, upsert: false }).then(function (up) {
+            fail(up);
+            return db.from('cha_messages').insert({ conversation_id: id, sender_id: me, message_type: 'photo', body: meta.title || nm,
+              payload: { name: nm, mime: p.type, size: p.blob.size, path: path, shot: true, text: meta.text || null } }).select('id').then(function (m) {
+              if (m.error) { db.storage.from('amitchat-files').remove([path]); throw new Error(m.error.message); }
+              return db.from('cha_attachments').insert({ conversation_id: id, message_id: m.data[0].id, uploader: me, file_path: path, kind: 'photo', mime: p.type, size_bytes: p.blob.size }).then(function () {
+                return db.storage.from('amitchat-files').createSignedUrl(path, 600).then(function (r) { fail(r); return { path: path, url: r.data.signedUrl, name: nm, mime: p.type }; });
+              });
             });
           });
         });
@@ -2351,6 +2373,7 @@
       var from = null; try { from = AmitChat.placeProvider ? AmitChat.placeProvider() : null; } catch (e) {}
       var day = opts && opts.day, pageLabel = from && (from.label || from.page);
       return (day && AmitChat.source.helpOpenDay ? AmitChat.source.helpOpenDay(AmitChat.appName || 'hub', pageLabel, day) : AmitChat.source.helpOpen(AmitChat.appName || 'hub', pageLabel)).then(function (r) {
+        AmitChat.helpId = r.id;      /* the chat just opened (the Amit Live window posts a Show Amit shot into it) */
         var p = buildPopup(); placePopup(); p.classList.add('open'); p.classList.remove('min'); markAnchor(true);
         var ttl = p.querySelector('.acx-head .acx-title'); if (ttl) ttl.textContent = 'Ask Amit';   /* opened from the Ask Amit button: the box says so */
         if (popView) popView.open('thread', r.id);
@@ -2360,6 +2383,23 @@
         var m = (e && e.message) || 'Could not open Ask Amit.';
         if (/birth date/i.test(m) && AmitChat.onNeedBirthDate) { try { AmitChat.onNeedBirthDate(); } catch (er) {} }
         toast(m); return false;
+      });
+    },
+    helpId: null,
+    /* the Amit Live window's Show Amit: post a picture into the chat just opened (helpId), then ask Amit to look at it. The 10-minute link goes with the press, made under the person's own sign-in:
+       Amit's helper downloads that one file, reads it, and deletes it. */
+    sendShot: function (file, meta) {
+      var id = AmitChat.helpId;
+      if (!AmitChat.live || !id || !AmitChat.source.sendShot) return Promise.reject(new Error('The chat is not open yet.'));
+      meta = meta || {};
+      return AmitChat.source.sendShot(id, file, meta).then(function (att) {
+        var from = null; try { from = AmitChat.placeProvider ? AmitChat.placeProvider() : null; } catch (e) {}
+        from = Object.assign({}, from || {}); delete from.where;
+        from.attachment = { url: att.url, name: att.name, mime: att.mime };
+        var place = { type: 'help-chat', id: id, version: AmitChat.version, from: from };
+        if (JSON.stringify(place).length > 1700 && from.computer) delete from.computer;     /* the place is limited to 2000 bytes */
+        var note = 'I just sent you a Show Amit picture' + (meta.title ? ' titled "' + meta.title + '"' : '') + '.' + (meta.text ? ' Words written on it: ' + meta.text : '') + ' Please look at it and tell me what you see.';
+        return AmitChat.source.ask(id, { app: AmitChat.appName || 'hub', place: place, note: note.slice(0, 500) });
       });
     },
     togglePopup: function () {

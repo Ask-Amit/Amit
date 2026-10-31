@@ -111,7 +111,7 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../amit_owner_contact.js"></script>
-<script src="../amit_chat.js?v=0.28"></script>
+<script src="../amit_chat.js?v=0.29"></script>
 <script src="amit_morning.js"></script>
 <script>
 (function(){
@@ -364,6 +364,29 @@ iframe{width:100%;height:430px;border:1px solid var(--line);border-radius:8px;ba
   }
 
   /* the window closes itself after 60 seconds without the focus (Ryan, 2026-10-31), so windows do not pile up; never while music is playing. The helper also keeps it to ONE window: choosing Ask Amit again brings this one to the front. */
+  /* ---------- Show Amit: the editor's Show Amit button hands a saved shot to the helper; this window posts it into today's chat (under the person's own sign-in) and asks Amit to look at it ---------- */
+  var shotBusy=false;
+  function pollShot(){
+    if(shotBusy||!signedIn||!window.AmitChat||!AmitChat.live) return;
+    fetch(HELPER+'/api/showamit/pending').then(function(r){ return r.json(); }).then(function(j){
+      if(!j||!j.id) return;
+      var seen=''; try{ seen=localStorage.getItem('amit_shot_seen')||''; }catch(e){}
+      if(seen===j.id) return;
+      shotBusy=true;
+      try{ localStorage.setItem('amit_shot_seen',j.id); }catch(e){}
+      cardUp=false; var pa=document.getElementById('paneAsk'); if(pa) pa.innerHTML='<div id="askNote"></div>';     /* the morning card steps aside: the person just sent something */
+      show('ask');
+      AmitChat.openHelp({ day: dayLabel() }).then(function(ok){
+        if(!ok) throw new Error('the chat did not open');
+        return fetch(HELPER+'/api/showamit/pending.png?id='+encodeURIComponent(j.id)).then(function(r){ if(!r.ok) throw new Error('the picture is no longer available'); return r.blob(); });
+      }).then(function(blob){
+        return AmitChat.sendShot(new File([blob], j.name||'shot.png', { type:'image/png' }), { title:j.title, text:j.text, name:j.name });
+      }).then(function(){ return AmitChat.openHelp({ day: dayLabel() }); })     /* reopen the same chat so it shows the picture and that Amit is looking */
+      .catch(function(e){ note('Could not send the picture to Amit: '+((e&&e.message)||'try again from the Show Amit button.')); })
+      .then(function(){ shotBusy=false; });
+    }).catch(function(){});
+  }
+  setInterval(pollShot,3000);
   var lastFocus=Date.now();
   setInterval(function(){
     if(document.hasFocus()||(audio&&!audio.paused)){ lastFocus=Date.now(); return; }
